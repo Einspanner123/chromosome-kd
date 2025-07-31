@@ -1,11 +1,12 @@
 _base_ = [
-    'mmdet::_base_/datasets/coco_detection.py',
+    'mmdet::_base_/datasets/chromo_coco_detection.py',
     'mmdet::_base_/schedules/schedule_1x.py',
     'mmdet::_base_/default_runtime.py'
 ]
 
 custom_imports = dict(
     imports=['projects.DiffusionDet.diffusiondet'], allow_failed_imports=False)
+num_classes = 24
 
 # model settings
 model = dict(
@@ -33,7 +34,7 @@ model = dict(
         num_outs=4),
     bbox_head=dict(
         type='DynamicDiffusionDetHead',
-        num_classes=80,
+        num_classes=num_classes,
         feat_channels=256,
         num_proposals=500,
         num_heads=6,
@@ -59,7 +60,7 @@ model = dict(
         # criterion
         criterion=dict(
             type='DiffusionDetCriterion',
-            num_classes=80,
+            num_classes=num_classes,
             assigner=dict(
                 type='DiffusionDetMatcher',
                 match_costs=[
@@ -147,13 +148,14 @@ test_pipeline = [
                    'scale_factor'))
 ]
 train_dataloader = dict(
-    sampler=dict(type='InfiniteSampler'),
+    batch_size=8,
     dataset=dict(
+        indices=[i for i in range(0, 1000, 10)], #每隔开10个样本
         filter_cfg=dict(filter_empty_gt=False, min_size=1e-5),
         pipeline=train_pipeline))
 
 val_dataloader = dict(dataset=dict(pipeline=test_pipeline))
-test_dataloader = val_dataloader
+# test_dataloader = val_dataloader
 
 # optimizer
 optim_wrapper = dict(
@@ -163,23 +165,44 @@ optim_wrapper = dict(
     clip_grad=dict(max_norm=1.0, norm_type=2))
 train_cfg = dict(
     _delete_=True,
-    type='IterBasedTrainLoop',
-    max_iters=450000,
-    val_interval=75000)
+    type='EpochBasedTrainLoop',
+    max_epochs=80, val_interval=1)
 
 # learning rate
 param_scheduler = [
     dict(
-        type='LinearLR', start_factor=0.01, by_epoch=False, begin=0, end=1000),
+        type='LinearLR', start_factor=0.01, by_epoch=True, begin=0, end=80),
     dict(
         type='MultiStepLR',
         begin=0,
-        end=450000,
-        by_epoch=False,
-        milestones=[350000, 420000],
+        end=12,
+        by_epoch=True,
+        milestones=[20, 51],
         gamma=0.1)
 ]
 
 default_hooks = dict(
-    checkpoint=dict(by_epoch=False, interval=75000, max_keep_ckpts=3))
-log_processor = dict(by_epoch=False)
+    checkpoint=dict(
+        type='CheckpointHook', interval=1,
+        save_best='coco/bbox_mAP', rule='greater', max_keep_ckpts=5)
+)
+custom_hooks = [
+    dict(
+        type='EarlyStoppingHook',
+        priority=50,
+        patience=5,
+        min_delta=0.001,
+        monitor='coco/bbox_mAP',
+        rule='greater'),
+]
+log_processor = dict(by_epoch=True)
+
+
+visualizer = dict(
+    _scope_='mmdet',
+    name='visualizer',
+    type='DetLocalVisualizer',
+    vis_backends = [
+    dict(_scope_='mmdet', type='LocalVisBackend'),
+    dict(type='TensorboardVisBackend'),]
+)
