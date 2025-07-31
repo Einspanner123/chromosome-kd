@@ -149,8 +149,8 @@ test_pipeline = [
                    'scale_factor'))
 ]
 train_dataloader = dict(
-    batch_size=8,
-    sampler=dict(type='InfiniteSampler'),
+    batch_size=4,
+    sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
         filter_cfg=dict(filter_empty_gt=False, min_size=1e-5),
         pipeline=train_pipeline))
@@ -166,40 +166,26 @@ optim_wrapper = dict(
     clip_grad=dict(max_norm=1.0, norm_type=2))
 train_cfg = dict(
     _delete_=True,
-    type='IterBasedTrainLoop',
-    max_iters=450000,
-    val_interval=75000)
+    type='EpochBasedTrainLoop',
+    max_epochs=12,
+    val_interval=1)
 
 # learning rate
 param_scheduler = [
     dict(
-        type='LinearLR', start_factor=0.01, by_epoch=False, begin=0, end=1000),
+        type='LinearLR', start_factor=0.001, by_epoch=True, begin=0, end=5),
     dict(
         type='MultiStepLR',
         begin=0,
-        end=450000,
-        by_epoch=False,
-        milestones=[350000, 420000],
+        end=12,
+        by_epoch=True,
+        milestones=[8, 11],
         gamma=0.1)
 ]
 
 default_hooks = dict(
-    checkpoint=dict(
-        type='CheckpointHook', interval=1,
-        save_best='coco/bbox_mAP', rule='greater', max_keep_ckpts=3)
-)
-
-custom_hooks = [
-    dict(
-        type='EarlyStoppingHook',
-        priority=50,
-        patience=2,
-        min_delta=0.001,
-        monitor='coco/bbox_mAP',
-        rule='greater'),
-]
-
-log_processor = dict(by_epoch=False)
+    checkpoint=dict(by_epoch=True, interval=1, max_keep_ckpts=3))
+log_processor = dict(by_epoch=True)
 
 visualizer = dict(
     _scope_='mmdet',

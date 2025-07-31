@@ -163,7 +163,8 @@ max_epoch = 100
 optim_wrapper = dict(
     type='OptimWrapper',
     optimizer=dict(
-        _delete_=True, type='AdamW', lr=3e-6, weight_decay=1e-4),
+        _delete_=True, # 删除原来的optimizer
+        type='AdamW', lr=1e-2, weight_decay=1e-4),
     clip_grad=dict(max_norm=1.0, norm_type=2))
 train_cfg = dict(
     _delete_=True,
@@ -209,6 +210,6 @@ visualizer = dict(
     name='visualizer',
     type='DetLocalVisualizer',
     vis_backends = [
-    dict(_scope_='mmdet', type='LocalVisBackend'),
-    dict(type='TensorboardVisBackend'),]
+        dict(_scope_='mmdet', type='LocalVisBackend'),
+        dict(type='TensorboardVisBackend'),]
 )
