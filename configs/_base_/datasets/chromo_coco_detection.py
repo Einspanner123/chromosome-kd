@@ -90,7 +90,6 @@ val_evaluator = dict(
     metric='bbox',
     format_only=False,
     backend_args=backend_args)
-    
 # test_evaluator = val_evaluator
 
 # inference on test dataset and

@@ -149,7 +149,7 @@ test_pipeline = [
                    'scale_factor'))
 ]
 train_dataloader = dict(
-    batch_size=8,
+    batch_size=6,
     sampler=dict(type='InfiniteSampler'),
     dataset=dict(
         filter_cfg=dict(filter_empty_gt=False, min_size=1e-5),

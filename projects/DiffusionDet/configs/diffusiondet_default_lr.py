@@ -6,6 +6,7 @@ _base_ = [
 
 custom_imports = dict(
     imports=['projects.DiffusionDet.diffusiondet'], allow_failed_imports=False)
+
 num_classes = 24
 
 # model settings
@@ -148,60 +149,58 @@ test_pipeline = [
                    'scale_factor'))
 ]
 train_dataloader = dict(
-    batch_size=8,
+    batch_size=4,
+    sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
-        # indices=[i for i in range(0, 1000, 10)], # 每隔开10个样本
         filter_cfg=dict(filter_empty_gt=False, min_size=1e-5),
         pipeline=train_pipeline))
 
 val_dataloader = dict(dataset=dict(pipeline=test_pipeline))
-# test_dataloader = val_dataloader
+test_dataloader = val_dataloader
 
-max_epoch = 100
+max_epoch = 150
 
 # optimizer
 optim_wrapper = dict(
     type='OptimWrapper',
     optimizer=dict(
-        _delete_=True, # 删除原来的optimizer
-        type='AdamW', lr=1e-2, weight_decay=1e-4),
+        _delete_=True, type='AdamW', lr=0.000025, weight_decay=0.0001),
     clip_grad=dict(max_norm=1.0, norm_type=2))
 train_cfg = dict(
     _delete_=True,
     type='EpochBasedTrainLoop',
-    max_epochs=max_epoch, val_interval=1)
+    max_epochs=max_epoch,
+    val_interval=1)
 
 # learning rate
 param_scheduler = [
     dict(
-        type='LinearLR', 
-        start_factor=0.01, 
-        by_epoch=True, 
-        begin=0, end=5), # 预热期为前5个epoch
+        type='LinearLR', start_factor=0.001, by_epoch=True, begin=0, end=5),
     dict(
         type='MultiStepLR',
         begin=0,
         end=max_epoch,
         by_epoch=True,
-        milestones=[30, 70, 90],
+        milestones=[60, 80],
         gamma=0.1)
 ]
 
 default_hooks = dict(
-    checkpoint=dict(
-        type='CheckpointHook', interval=1,
-        save_best='coco/bbox_mAP', rule='greater', max_keep_ckpts=5)
-)
-
+    checkpoint=dict(by_epoch=True, interval=1, max_keep_ckpts=3))
 custom_hooks = [
+    # dict(
+    #     type='EMAHook',
+    #     ema_type='ExpMomentumEMA',
+    #     momentum=0.0002,
+    #     update_buffers=True,
+    #     priority=49),
     dict(
         type='EarlyStoppingHook',
         priority=50,
-        patience=7,
+        patience=10,
         min_delta=0.001,
         monitor='coco/bbox_mAP',
-        rule='greater'),
-]
+        rule='greater'),]
 
 log_processor = dict(by_epoch=True)
 
