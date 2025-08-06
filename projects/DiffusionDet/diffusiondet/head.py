@@ -111,7 +111,6 @@ class DynamicDiffusionDetHead(nn.Module):
                  self_condition=False,  # 是否自条件
                  box_renewal=True,  # 是否使用框更新
                  use_ensemble=True,  # 是否使用集成
-                 use_ratio_aware_noise=False,
                  deep_supervision=True,  # 是否使用深度监督
                  ddim_sampling_eta=1.0,  # DDIM采样参数
                  criterion=dict(  # 损失函数配置
@@ -174,7 +173,6 @@ class DynamicDiffusionDetHead(nn.Module):
         self.self_condition = self_condition  # 是否使用自条件
         self.box_renewal = box_renewal  # 是否使用框更新策略
         self.use_ensemble = use_ensemble  # 是否使用集成预测
-        self.use_ratio_aware_noise = use_ratio_aware_noise
 
         self._build_diffusion()  # 构建扩散过程所需参数
 
@@ -213,8 +211,7 @@ class DynamicDiffusionDetHead(nn.Module):
                     f'`single_head.feat_channels` to {feat_channels}')
                 single_head_.update(feat_channels=feat_channels)
 
-        default_pooler_resolution = roi_extractor['roi_layer'].get(
-            'output_size')
+        default_pooler_resolution = roi_extractor['roi_layer'].get('output_size')
         assert default_pooler_resolution is not None
         single_head_pooler_resolution = single_head_.get('pooler_resolution')
         if single_head_pooler_resolution is None:
@@ -225,11 +222,11 @@ class DynamicDiffusionDetHead(nn.Module):
                     'The `pooler_resolution` of `DynamicDiffusionDetHead` '
                     'and `SingleDiffusionDetHead` should be same, changing '
                     f'`single_head.pooler_resolution` to {num_classes}')
-                single_head_.update(
-                    pooler_resolution=default_pooler_resolution)
+                single_head_.update(pooler_resolution=default_pooler_resolution)
 
         single_head_.update(
-            use_focal_loss=self.use_focal_loss, use_fed_loss=self.use_fed_loss)
+            use_focal_loss=self.use_focal_loss, 
+            use_fed_loss=self.use_fed_loss)
         single_head_module = MODELS.build(single_head_)
 
         self.num_heads = num_heads
@@ -280,20 +277,33 @@ class DynamicDiffusionDetHead(nn.Module):
         self.register_buffer('alphas_cumprod_prev', alphas_cumprod_prev)  # 前一个累积alpha值
 
         # 前向扩散q(x_t | x_{t-1})所需计算
-        self.register_buffer('sqrt_alphas_cumprod', torch.sqrt(alphas_cumprod))  # sqrt(alpha_t_bar)
-        self.register_buffer('sqrt_one_minus_alphas_cumprod', torch.sqrt(1. - alphas_cumprod))  # sqrt(1 - alpha_t_bar)
-        self.register_buffer('log_one_minus_alphas_cumprod', torch.log(1. - alphas_cumprod))  # log(1 - alpha_t_bar)
-        self.register_buffer('sqrt_recip_alphas_cumprod', torch.sqrt(1. / alphas_cumprod))  # sqrt(1 / alpha_t_bar)
-        self.register_buffer('sqrt_recipm1_alphas_cumprod', torch.sqrt(1. / alphas_cumprod - 1))  # sqrt(1 / alpha_t_bar - 1)
+        self.register_buffer(
+            'sqrt_alphas_cumprod', 
+            torch.sqrt(alphas_cumprod))  # sqrt(alpha_t_bar)
+        self.register_buffer(
+            'sqrt_one_minus_alphas_cumprod',
+            torch.sqrt(1. - alphas_cumprod))  # sqrt(1 - alpha_t_bar)
+        self.register_buffer(
+            'log_one_minus_alphas_cumprod',
+            torch.log(1. - alphas_cumprod))  # log(1 - alpha_t_bar)
+        self.register_buffer(
+            'sqrt_recip_alphas_cumprod', 
+            torch.sqrt(1. / alphas_cumprod))  # sqrt(1 / alpha_t_bar)
+        self.register_buffer(
+            'sqrt_recipm1_alphas_cumprod',
+            torch.sqrt(1. / alphas_cumprod - 1))  # sqrt(1 / alpha_t_bar - 1)
  
         # 后验分布q(x_{t-1} | x_t, x_0)所需计算
         # 计算后验方差: beta_t * (1 - alpha_{t-1}_bar) / (1 - alpha_t_bar)
         posterior_variance = betas * (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
-        self.register_buffer('posterior_variance', posterior_variance)  # 后验方差
+        self.register_buffer(
+            'posterior_variance', 
+            posterior_variance)  # 后验方差
 
         # 由于开始时后验方差为0，需要截断log计算
-        self.register_buffer('posterior_log_variance_clipped',
-                             torch.log(posterior_variance.clamp(min=1e-20)))  # 截断后的后验log方差
+        self.register_buffer(
+            'posterior_log_variance_clipped',
+            torch.log(posterior_variance.clamp(min=1e-20)))  # 截断后的后验log方差
         # 后验均值系数1: beta_t * sqrt(alpha_{t-1}_bar) / (1 - alpha_t_bar)
         self.register_buffer(
             'posterior_mean_coef1',
@@ -464,11 +474,8 @@ class DynamicDiffusionDetHead(nn.Module):
         time = torch.randint(
             0, self.timesteps, (1, ), dtype=torch.long, device=device)  # shape: [1]
         # 生成随机噪声
-        if self.use_ratio_aware_noise:
-            noise = self.prepare_ratio_aware_noise(self.num_proposals, device=device)
-        else:
-            noise = torch.randn(self.num_proposals, 4, device=device)  # shape: [num_proposals, 4]
-        assert noise.shape == (self.num_proposals, 4), 'noise shape error'
+        noise = torch.randn(self.num_proposals, 4, device=device)  # shape: [num_proposals, 4]
+
         num_gt = gt_boxes.shape[0]  # 真实框数量
         if num_gt < self.num_proposals:
             # 如果真实框少于建议框数量，用随机框填充
@@ -507,34 +514,6 @@ class DynamicDiffusionDetHead(nn.Module):
         pred_instances.noise = noise  # 噪声
         return pred_instances
     
-    def prepare_ratio_aware_noise(self, num_proposals, device, eps=1e-4):
-        """
-        生成考虑长宽比的噪声框，更适合细长目标
-        
-        Args:
-            num_proposals: 建议框数量
-            device: 设备
-            
-        Returns:
-            noise_bboxes_raw: 噪声框 (cx, cy, w, h)
-        """
-        # 生成基础噪声
-        noise = torch.randn((num_proposals, 4), device=device)
-        
-        # 生成符合细长目标特点的长宽比分布
-        # 对于细长目标，我们希望有更多的极端长宽比（如0.1或10）
-        aspect_ratios = torch.randn(num_proposals, device=device)
-        # 使用指数函数放大极端长宽比
-        aspect_ratios = torch.exp(aspect_ratios * 1.5)  # 增加方差，产生更多极端值
-        
-        # 将长宽比应用到噪声框的宽高上
-        # 保持面积相对稳定，但改变形状
-        areas = torch.abs(noise[:, 2] * noise[:, 3])  # 原始面积
-        noise[:, 2] = torch.sqrt(areas * aspect_ratios)  # 新宽度
-        noise[:, 3] = areas / (noise[:, 2] + eps)  # 新高度
-        
-        return noise
-
     # 前向扩散
     def q_sample(self, x_start, time, noise=None):
         """

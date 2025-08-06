@@ -20,12 +20,12 @@ from mmdet.structures.bbox import (bbox2roi, bbox_cxcywh_to_xyxy,
 from mmdet.utils import InstanceList
 
 # 导入原有的基础组件
-from .diffusiondet.head import (DynamicDiffusionDetHead, SingleDiffusionDetHead, 
+from projects.DiffusionDet.diffusiondet.head import (DynamicDiffusionDetHead, SingleDiffusionDetHead, 
                    DynamicConv, SinusoidalPositionEmbeddings,
                    cosine_beta_schedule, extract, _DEFAULT_SCALE_CLAMP)
 
 @MODELS.register_module()
-class ChromosomeDynamicDiffusionDetHead(DynamicDiffusionDetHead):
+class ChromoDetDynamicHead(DynamicDiffusionDetHead):
     """
     染色体检测专用的动态扩散检测头
     
@@ -87,23 +87,6 @@ class ChromosomeDynamicDiffusionDetHead(DynamicDiffusionDetHead):
                      dynamic_conv=dict(dynamic_dim=64, dynamic_num=2)),
                  **kwargs) -> None:
         
-        # 染色体特化参数
-        self.aspect_ratio_gamma = aspect_ratio_gamma
-        self.length_prior_weight = length_prior_weight
-        self.topology_loss_weight = topology_loss_weight
-        self.morphology_aware_noise = morphology_aware_noise
-        
-        # 染色体长度先验
-        if length_priors is None:
-            self.length_priors = torch.tensor([
-                1.0, 0.95, 0.90, 0.85, 0.80, 0.75,
-                0.70, 0.65, 0.60, 0.55, 0.50, 0.45,
-                0.40, 0.38, 0.36, 0.34, 0.32, 0.30,
-                0.28, 0.26, 0.24, 0.22, 0.20, 0.18
-            ])
-        else:
-            self.length_priors = torch.tensor(length_priors)
-        
         super().__init__(
             num_classes=num_classes,
             feat_channels=feat_channels,
@@ -121,6 +104,25 @@ class ChromosomeDynamicDiffusionDetHead(DynamicDiffusionDetHead):
             criterion=criterion,
             single_head=single_head,
             **kwargs)
+        
+        # 染色体特化参数
+        self.aspect_ratio_gamma = aspect_ratio_gamma
+        self.length_prior_weight = length_prior_weight
+        self.topology_loss_weight = topology_loss_weight
+        self.morphology_aware_noise = morphology_aware_noise
+        
+        # 染色体长度先验
+        if length_priors is None:
+            self.length_priors = torch.tensor([
+                1.0, 0.95, 0.90, 0.85, 0.80, 0.75,
+                0.70, 0.65, 0.60, 0.55, 0.50, 0.45,
+                0.40, 0.38, 0.36, 0.34, 0.32, 0.30,
+                0.28, 0.26, 0.24, 0.22, 0.20, 0.18
+            ])
+        else:
+            self.length_priors = torch.tensor(length_priors)
+        
+        
         
         # 形态特征编码器
         self.morphology_encoder = nn.Sequential(
@@ -160,21 +162,30 @@ class ChromosomeDynamicDiffusionDetHead(DynamicDiffusionDetHead):
         self.register_buffer('alphas_cumprod_prev', alphas_cumprod_prev)
 
         # 其他扩散参数计算（与原版相同）
-        self.register_buffer('sqrt_alphas_cumprod', torch.sqrt(alphas_cumprod))
-        self.register_buffer('sqrt_one_minus_alphas_cumprod',
-                             torch.sqrt(1. - alphas_cumprod))
-        self.register_buffer('log_one_minus_alphas_cumprod',
-                             torch.log(1. - alphas_cumprod))
-        self.register_buffer('sqrt_recip_alphas_cumprod',
-                             torch.sqrt(1. / alphas_cumprod))
-        self.register_buffer('sqrt_recipm1_alphas_cumprod',
-                             torch.sqrt(1. / alphas_cumprod - 1))
+        self.register_buffer(
+            'sqrt_alphas_cumprod', 
+            torch.sqrt(alphas_cumprod))
+        self.register_buffer(
+            'sqrt_one_minus_alphas_cumprod',
+            torch.sqrt(1. - alphas_cumprod))
+        self.register_buffer(
+            'log_one_minus_alphas_cumprod',
+            torch.log(1. - alphas_cumprod))
+        self.register_buffer(
+            'sqrt_recip_alphas_cumprod',
+            torch.sqrt(1. / alphas_cumprod))
+        self.register_buffer(
+            'sqrt_recipm1_alphas_cumprod',
+            torch.sqrt(1. / alphas_cumprod - 1))
 
         posterior_variance = betas * (1. - alphas_cumprod_prev) / (
             1. - alphas_cumprod)
-        self.register_buffer('posterior_variance', posterior_variance)
-        self.register_buffer('posterior_log_variance_clipped',
-                             torch.log(posterior_variance.clamp(min=1e-20)))
+        self.register_buffer(
+            'posterior_variance',
+            posterior_variance)
+        self.register_buffer(
+            'posterior_log_variance_clipped',
+            torch.log(posterior_variance.clamp(min=1e-20)))
         self.register_buffer(
             'posterior_mean_coef1',
             betas * torch.sqrt(alphas_cumprod_prev) / (1. - alphas_cumprod))
@@ -430,8 +441,7 @@ class ChromosomeDynamicDiffusionDetHead(DynamicDiffusionDetHead):
 
 
 @MODELS.register_module()
-class ChromosomeSingleDiffusionDetHead(SingleDiffusionDetHead):
-    """染色体专用的单头检测器"""
+class ChromoDetSingleHead(SingleDiffusionDetHead):
     
     def __init__(self, 
                  num_classes=24,

@@ -40,7 +40,6 @@ model = dict(
         num_proposals=500,
         num_heads=6,
         deep_supervision=True,
-        use_ratio_aware_noise=True,
         prior_prob=0.01,
         snr_scale=2.0,
         sampling_timesteps=1,
@@ -150,16 +149,14 @@ test_pipeline = [
                    'scale_factor'))
 ]
 train_dataloader = dict(
-    batch_size=4,
-    sampler=dict(type='DefaultSampler', shuffle=True),
+    batch_size=6,
+    sampler=dict(type='InfiniteSampler'),
     dataset=dict(
         filter_cfg=dict(filter_empty_gt=False, min_size=1e-5),
         pipeline=train_pipeline))
 
 val_dataloader = dict(dataset=dict(pipeline=test_pipeline))
 test_dataloader = val_dataloader
-
-max_epoch = 150
 
 # optimizer
 optim_wrapper = dict(
@@ -169,42 +166,40 @@ optim_wrapper = dict(
     clip_grad=dict(max_norm=1.0, norm_type=2))
 train_cfg = dict(
     _delete_=True,
-    type='EpochBasedTrainLoop',
-    max_epochs=max_epoch,
-    val_interval=1)
+    type='IterBasedTrainLoop',
+    max_iters=450000,
+    val_interval=75000)
 
 # learning rate
 param_scheduler = [
     dict(
-        type='LinearLR', start_factor=0.001, by_epoch=True, begin=0, end=5),
+        type='LinearLR', start_factor=0.01, by_epoch=False, begin=0, end=1000),
     dict(
         type='MultiStepLR',
         begin=0,
-        end=max_epoch,
-        by_epoch=True,
-        milestones=[60, 80],
+        end=450000,
+        by_epoch=False,
+        milestones=[350000, 420000],
         gamma=0.1)
 ]
 
 default_hooks = dict(
-    checkpoint=dict(by_epoch=True, interval=1, max_keep_ckpts=3))
+    checkpoint=dict(
+        type='CheckpointHook', interval=1,
+        save_best='coco/bbox_mAP', rule='greater', max_keep_ckpts=3)
+)
+
 custom_hooks = [
-    # dict(
-    #     type='EMAHook',
-    #     ema_type='ExpMomentumEMA',
-    #     momentum=0.0002,
-    #     update_buffers=True,
-    #     priority=49),
     dict(
         type='EarlyStoppingHook',
         priority=50,
-        patience=10,
+        patience=2,
         min_delta=0.001,
         monitor='coco/bbox_mAP',
-        rule='greater'),]
+        rule='greater'),
+]
 
-log_processor = dict(by_epoch=True)
-device = "cuda"
+log_processor = dict(by_epoch=False)
 
 visualizer = dict(
     _scope_='mmdet',
