@@ -142,12 +142,10 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
         """构建形态感知的扩散调度"""
         # 基础扩散调度
         betas = cosine_beta_schedule(self.timesteps)
-        
         # 针对细长目标的调整
         # 早期时间步使用更小的噪声（保持形态）
         early_steps = self.timesteps // 4
         betas[:early_steps] *= 0.5
-        
         # 中期时间步正常噪声
         # 后期时间步稍微增大噪声（增强随机性）
         late_steps = 3 * self.timesteps // 4
@@ -267,19 +265,14 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
         """计算形态特征"""
         w = bboxes[:, 2] - bboxes[:, 0]
         h = bboxes[:, 3] - bboxes[:, 1]
-        
         # 长宽比
         aspect_ratios = h / (w + 1e-6)
-        
         # 长度
         lengths = torch.sqrt(w**2 + h**2)
-        
         # 角度（假设长轴方向）
         angles = torch.atan2(h, w)
-        
         # 面积
         areas = w * h
-        
         features = torch.stack([aspect_ratios, lengths, angles, areas], dim=1)
         return features
     

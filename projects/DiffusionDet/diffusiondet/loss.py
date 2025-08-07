@@ -26,7 +26,17 @@ class DiffusionDetCriterion(nn.Module):
     def __init__(
             self,
             num_classes,
-            assigner: Union[ConfigDict, nn.Module],
+            assigner=dict(
+                type='DiffusionDetMatcher',
+                match_costs=[
+                    dict(
+                        type='FocalLossCost',
+                        alpha=0.25,
+                        gamma=2.0,
+                        weight=2.0,
+                        eps=1e-8),
+                    dict(type='BBoxL1Cost', weight=5.0, box_format='xyxy'),
+                    dict(type='IoUCost', iou_mode='giou', weight=2.0)]),
             deep_supervision=True,
             loss_cls=dict(
                 type='FocalLoss',

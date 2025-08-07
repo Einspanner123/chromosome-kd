@@ -36,12 +36,12 @@ def cosine_beta_schedule(timesteps, s=0.008):
     """Cosine schedule as proposed in
     https://openreview.net/forum?id=-NEXDKk8gZ.
     
-    使用余弦调度生成beta值序列，控制前向扩散过程中每一步的噪声添加量
+    使用余弦调度生成beta值序列,控制前向扩散过程中每一步的噪声添加量
     """
-    # timesteps+1个点，范围[0, timesteps]
+    # timesteps+1个点,范围[0, timesteps]
     steps = timesteps + 1
     x = torch.linspace(0, timesteps, steps, dtype=torch.float64)  # shape: [timesteps+1]
-    # 计算累积alpha值，使用余弦函数生成递减序列
+    # 计算累积alpha值,使用余弦函数生成递减序列
     alphas_cumprod = torch.cos(((x / timesteps) + s) / (1 + s) * math.pi * 0.5)**2 # 取值范围[0, 1]
     alphas_cumprod = alphas_cumprod / alphas_cumprod[0]  # 归一化
     # 通过累积alpha值计算beta值: beta = 1 - alpha_t/alpha_{t-1}
@@ -52,20 +52,20 @@ def cosine_beta_schedule(timesteps, s=0.008):
 def extract(a, t, x_shape):
     """`extract` the appropriate t index for a batch of indices.
     
-    从序列a中提取时间步t对应的值，并调整形状以匹配x_shape
-    a: 序列参数，如alphas_cumprod等，shape: [timesteps]
-    t: 时间步索引，shape: [batch_size]
-    x_shape: 目标形状，用于reshape
+    从序列a中提取时间步t对应的值,并调整形状以匹配x_shape
+    a: 序列参数,如alphas_cumprod等,shape: [timesteps]
+    t: 时间步索引,shape: [batch_size]
+    x_shape: 目标形状,用于reshape
     """
     batch_size = t.shape[0]  # 获取批次大小
-    out = a.gather(-1, t)  # 根据t中的索引从a中收集对应的值，shape: [batch_size]， 等价于a[t]
-    # reshape为与x_shape相同的维度数，除了第0维为batch_size，其余维都是1
-    # 例如x_shape=[8, 500, 4]时，out变为[8, 1, 1]
+    out = a.gather(-1, t)  # 根据t中的索引从a中收集对应的值,shape: [batch_size], 等价于a[t]
+    # reshape为与x_shape相同的维度数,除了第0维为batch_size,其余维都是1
+    # 例如x_shape=[8, 500, 4]时,out变为[8, 1, 1]
     return out.reshape(batch_size, *((1, ) * (len(x_shape) - 1))) # shape: [bs, 1, 1, 1, ..., 1(输入的维度数-1)]
 
 
 class SinusoidalPositionEmbeddings(nn.Module):
-    """正弦位置编码模块，用于时间步编码"""
+    """正弦位置编码模块,用于时间步编码"""
 
     def __init__(self, dim):
         """
@@ -78,19 +78,19 @@ class SinusoidalPositionEmbeddings(nn.Module):
     def forward(self, time):
         """
         前向传播
-        time: 时间步张量，shape: [batch_size]
-        返回: 正弦位置编码，shape: [batch_size, dim]
+        time: 时间步张量,shape: [batch_size]
+        返回: 正弦位置编码,shape: [batch_size, dim]
         """
         device = time.device  # 获取设备
-        half_dim = self.dim // 2  # 一半维度用于sin，一半用于cos
+        half_dim = self.dim // 2  # 一半维度用于sin,一半用于cos
         embeddings = math.log(10000) / (half_dim - 1)  # 计算频率因子
-        # 生成频率参数，shape: [half_dim]
+        # 生成频率参数,shape: [half_dim]
         embeddings = torch.exp(
             torch.arange(half_dim, device=device) * -embeddings)
         # time[:, None]: [batch_size, 1], embeddings[None, :]: [1, half_dim]
         # 相乘后得到: [batch_size, half_dim]
         embeddings = time[:, None] * embeddings[None, :]
-        # 拼接sin和cos部分，得到完整的位置编码: [batch_size, dim]
+        # 拼接sin和cos部分,得到完整的位置编码: [batch_size, dim]
         embeddings = torch.cat((embeddings.sin(), embeddings.cos()), dim=-1)
         return embeddings
 
@@ -230,7 +230,7 @@ class DynamicDiffusionDetHead(nn.Module):
         single_head_module = MODELS.build(single_head_)
 
         self.num_heads = num_heads
-        # 创建多个检测头形成序列，每个头完成一次去噪
+        # 创建多个检测头形成序列,每个头完成一次去噪
         self.head_series = nn.ModuleList(
             [copy.deepcopy(single_head_module) for _ in range(num_heads)])
 
@@ -268,10 +268,10 @@ class DynamicDiffusionDetHead(nn.Module):
         alphas = 1. - betas  # alpha = 1 - beta
         # 累积alpha值: alpha_t_bar = alpha_1 * alpha_2 * ... * alpha_t
         alphas_cumprod = torch.cumprod(alphas, dim=0)
-        # 前一个时间步的累积alpha值，第一个元素为1
+        # 前一个时间步的累积alpha值,第一个元素为1
         alphas_cumprod_prev = F.pad(alphas_cumprod[:-1], (1, 0), value=1.)
 
-        # 注册为buffer，不会被更新但会随模型移动设备
+        # 注册为buffer,不会被更新但会随模型移动设备
         self.register_buffer('betas', betas)  # beta值
         self.register_buffer('alphas_cumprod', alphas_cumprod)  # 累积alpha值
         self.register_buffer('alphas_cumprod_prev', alphas_cumprod_prev)  # 前一个累积alpha值
@@ -279,19 +279,19 @@ class DynamicDiffusionDetHead(nn.Module):
         # 前向扩散q(x_t | x_{t-1})所需计算
         self.register_buffer(
             'sqrt_alphas_cumprod', 
-            torch.sqrt(alphas_cumprod))  # sqrt(alpha_t_bar)
+            torch.sqrt(alphas_cumprod))         # sqrt(alpha_t_bar)
         self.register_buffer(
             'sqrt_one_minus_alphas_cumprod',
-            torch.sqrt(1. - alphas_cumprod))  # sqrt(1 - alpha_t_bar)
+            torch.sqrt(1. - alphas_cumprod))    # sqrt(1 - alpha_t_bar)
         self.register_buffer(
             'log_one_minus_alphas_cumprod',
-            torch.log(1. - alphas_cumprod))  # log(1 - alpha_t_bar)
+            torch.log(1. - alphas_cumprod))     # log(1 - alpha_t_bar)
         self.register_buffer(
             'sqrt_recip_alphas_cumprod', 
-            torch.sqrt(1. / alphas_cumprod))  # sqrt(1 / alpha_t_bar)
+            torch.sqrt(1. / alphas_cumprod))    # sqrt(1 / alpha_t_bar)
         self.register_buffer(
             'sqrt_recipm1_alphas_cumprod',
-            torch.sqrt(1. / alphas_cumprod - 1))  # sqrt(1 / alpha_t_bar - 1)
+            torch.sqrt(1. / alphas_cumprod - 1))# sqrt(1 / alpha_t_bar - 1)
  
         # 后验分布q(x_{t-1} | x_t, x_0)所需计算
         # 计算后验方差: beta_t * (1 - alpha_{t-1}_bar) / (1 - alpha_t_bar)
@@ -300,7 +300,7 @@ class DynamicDiffusionDetHead(nn.Module):
             'posterior_variance', 
             posterior_variance)  # 后验方差
 
-        # 由于开始时后验方差为0，需要截断log计算
+        # 由于开始时后验方差为0,需要截断log计算
         self.register_buffer(
             'posterior_log_variance_clipped',
             torch.log(posterior_variance.clamp(min=1e-20)))  # 截断后的后验log方差
@@ -318,14 +318,14 @@ class DynamicDiffusionDetHead(nn.Module):
         前向传播
         
         Args:
-            features: 特征金字塔，元组形式，每个元素shape: [batch_size, channels, height, width]
-            init_bboxes: 初始边界框，shape: [batch_size, num_proposals, 4]
-            init_t: 初始时间步，shape: [batch_size]
-            init_features: 初始特征，可选，shape: [channels]
+            features: 特征金字塔, 元组形式, 每个元素shape: [batch_size, channels, height, width]
+            init_bboxes: 初始边界框, shape: [batch_size, num_proposals, 4]
+            init_t: 初始时间步, shape: [batch_size]
+            init_features: 初始特征, 可选, shape: [channels]
             
         Returns:
-            pred_logits: 预测分类logits，shape: [num_heads, batch_size, num_proposals, num_classes]
-            pred_bboxes: 预测边界框，shape: [num_heads, batch_size, num_proposals, 4]
+            pred_logits: 预测分类logits, shape: [num_heads, batch_size, num_proposals, num_classes]
+            pred_bboxes: 预测边界框, shape: [num_heads, batch_size, num_proposals, 4]
         """
         # 时间嵌入: 将时间步编码为高维向量
         time = self.time_mlp(init_t)  # shape: [batch_size, time_dim]
@@ -334,7 +334,7 @@ class DynamicDiffusionDetHead(nn.Module):
         inter_pred_bboxes = []  # 存储中间预测框
 
         bs = len(features[0])  # 批次大小
-        bboxes = init_bboxes  # 当前边界框，初始为输入的噪声框
+        bboxes = init_bboxes  # 当前边界框,初始为输入的噪声框
 
         # 处理初始特征
         if init_features is not None:
@@ -349,7 +349,7 @@ class DynamicDiffusionDetHead(nn.Module):
             # 单个检测头前向传播
             class_logits, pred_bboxes, proposal_features = single_head(
                 features, bboxes, proposal_features, self.roi_extractor, time)
-            # 如果使用深度监督，保存中间结果
+            # 如果使用深度监督,保存中间结果
             if self.deep_supervision:
                 inter_class_logits.append(class_logits)
                 inter_pred_bboxes.append(pred_bboxes)
@@ -368,7 +368,7 @@ class DynamicDiffusionDetHead(nn.Module):
         """执行前向传播并计算检测头的损失
         
         Args:
-            x (tuple[Tensor]): 上游网络的特征，每个都是4D张量
+            x (tuple[Tensor]): 上游网络的特征,每个都是4D张量
             batch_data_samples (List[:obj:[DetDataSample](file:///home/linkst/workplace/chromo/chromosome-kd/mmdet/structures/det_data_sample.py#L6-L232)]): 数据样本
             
         Returns:
@@ -391,10 +391,10 @@ class DynamicDiffusionDetHead(nn.Module):
 
         # 构建输出字典
         output = {
-            'pred_logits': pred_logits[-1],  # 最后一层输出，shape: [batch_size, num_proposals, num_classes]
-            'pred_boxes': pred_bboxes[-1]  # 最后一层输出，shape: [batch_size, num_proposals, 4]
+            'pred_logits': pred_logits[-1],  # 最后一层输出,shape: [batch_size, num_proposals, num_classes]
+            'pred_boxes': pred_bboxes[-1]  # 最后一层输出,shape: [batch_size, num_proposals, 4]
         }
-        # 如果使用深度监督，添加辅助输出
+        # 如果使用深度监督,添加辅助输出
         if self.deep_supervision:
             output['aux_outputs'] = [{
                 'pred_logits': a,
@@ -431,9 +431,9 @@ class DynamicDiffusionDetHead(nn.Module):
             img_meta = data_sample.metainfo  # 图像元信息
             gt_instances = data_sample.gt_instances  # 真实实例
 
-            gt_bboxes = gt_instances.bboxes  # 真实边界框，shape: [num_gts, 4]
+            gt_bboxes = gt_instances.bboxes  # 真实边界框,shape: [num_gts, 4]
             h, w = img_meta['img_shape']  # 图像尺寸
-            image_size = gt_bboxes.new_tensor([w, h, w, h])  # 图像大小张量，shape: [4]
+            image_size = gt_bboxes.new_tensor([w, h, w, h])  # 图像大小张量,shape: [4]
 
             # 归一化边界框到[0,1]范围
             norm_gt_bboxes = gt_bboxes / image_size  # shape: [num_gts, 4]
@@ -463,8 +463,8 @@ class DynamicDiffusionDetHead(nn.Module):
         准备扩散训练目标（添加噪声）
         
         Args:
-            gt_boxes: 真实边界框（cx,cy,w,h格式），shape: [num_gts, 4]
-            image_size: 图像尺寸，shape: [4]
+            gt_boxes: 真实边界框（cx,cy,w,h格式）,shape: [num_gts, 4]
+            image_size: 图像尺寸,shape: [4]
             
         Returns:
             pred_instances: 带噪声的实例数据
@@ -478,14 +478,14 @@ class DynamicDiffusionDetHead(nn.Module):
 
         num_gt = gt_boxes.shape[0]  # 真实框数量
         if num_gt < self.num_proposals:
-            # 如果真实框少于建议框数量，用随机框填充
+            # 如果真实框少于建议框数量,用随机框填充
             # 3 * sigma = 1/2 --> sigma: 1/6
             box_placeholder = torch.randn(self.num_proposals - num_gt, 4, device=device) / 6. + 0.5  # shape: [num_proposals-num_gt, 4]
             box_placeholder[:, 2:] = torch.clip(
                 box_placeholder[:, 2:], min=1e-4)  # 保证宽度和高度为正
             x_start = torch.cat((gt_boxes, box_placeholder), dim=0)  # shape: [num_proposals, 4]
         else:
-            # 如果真实框多于建议框数量，随机选择
+            # 如果真实框多于建议框数量,随机选择
             select_mask = [True] * self.num_proposals + \
                           [False] * (num_gt - self.num_proposals)
             random.shuffle(select_mask)
@@ -520,12 +520,12 @@ class DynamicDiffusionDetHead(nn.Module):
         前向扩散采样
         
         Args:
-            x_start: 初始数据（真实框），shape: [num_proposals, 4]
-            time: 时间步，shape: [1]
-            noise: 噪声，shape: [num_proposals, 4]
+            x_start: 初始数据（真实框）,shape: [num_proposals, 4]
+            time: 时间步,shape: [1]
+            noise: 噪声,shape: [num_proposals, 4]
             
         Returns:
-            加噪后的数据，shape: [num_proposals, 4]
+            加噪后的数据,shape: [num_proposals, 4]
         """
         if noise is None:
             noise = torch.randn_like(x_start)  # 如果未提供噪声则生成
@@ -600,7 +600,7 @@ class DynamicDiffusionDetHead(nn.Module):
         
         Args:
             x: 特征金字塔
-            time_pairs: 时间对列表，用于反向扩散
+            time_pairs: 时间对列表,用于反向扩散
             batch_noise_bboxes: 批次噪声边界框（xyxy格式）
             batch_noise_bboxes_raw: 批次原始噪声边界框（未处理）
             batch_image_size: 批次图像尺寸
@@ -702,7 +702,7 @@ class DynamicDiffusionDetHead(nn.Module):
                 if self.box_renewal:  # 如果使用框更新
                     # 用随机框补充
                     if num_remain < self.num_proposals:
-                        # 如果保留框少于建议框数量，用随机框填充
+                        # 如果保留框少于建议框数量,用随机框填充
                         noise_bboxes = torch.cat(
                             (noise_bboxes,
                              torch.randn(
@@ -711,7 +711,7 @@ class DynamicDiffusionDetHead(nn.Module):
                                  device=device)),
                             dim=0)  # shape: [num_proposals, 4]
                     else:
-                        # 如果保留框多于建议框数量，随机选择
+                        # 如果保留框多于建议框数量,随机选择
                         select_mask = [True] * self.num_proposals + \
                                       [False] * (num_remain -
                                                  self.num_proposals)
@@ -783,7 +783,7 @@ class DynamicDiffusionDetHead(nn.Module):
                 results.labels = labels_per_image
             results_list.append(results)
         else:
-            # 不使用集成预测，直接使用最后一步的结果
+            # 不使用集成预测,直接使用最后一步的结果
             box_cls = pred_logits[-1]
             box_pred = pred_bboxes[-1]
             results_list = self.inference(box_cls, box_pred, cfg, device)
@@ -883,12 +883,12 @@ class DynamicDiffusionDetHead(nn.Module):
         从去噪结果预测噪声
         
         Args:
-            x_t: 加噪数据，shape: [batch_size, num_proposals, 4]
-            t: 时间步，shape: [batch_size]
-            x0: 去噪结果，shape: [batch_size, num_proposals, 4]
+            x_t: 加噪数据,shape: [batch_size, num_proposals, 4]
+            t: 时间步,shape: [batch_size]
+            x0: 去噪结果,shape: [batch_size, num_proposals, 4]
             
         Returns:
-            预测的噪声，shape: [batch_size, num_proposals, 4]
+            预测的噪声,shape: [batch_size, num_proposals, 4]
         """
         # 根据公式: noise = (sqrt(1/alpha_t_bar) * x_t - x_0) / sqrt(1/alpha_t_bar - 1)
         results = (extract(
@@ -901,8 +901,8 @@ class DynamicDiffusionDetHead(nn.Module):
         推理函数
         
         Args:
-            box_cls (Tensor): 分类概率张量，shape: (batch_size, num_proposals, K)
-            box_pred (Tensor): 边界框回归值张量，shape: (batch_size, num_proposals, 4)
+            box_cls (Tensor): 分类概率张量,shape: (batch_size, num_proposals, K)
+            box_pred (Tensor): 边界框回归值张量,shape: (batch_size, num_proposals, 4)
             
         Returns:
             results (List[Instances]): 每张图像的检测结果列表
@@ -948,7 +948,7 @@ class DynamicDiffusionDetHead(nn.Module):
                         cfg.nms)
                     box_pred_per_image = box_pred_per_image[keep_idxs]
                     labels_per_image = labels_per_image[keep_idxs]
-                    # 一些NMS会重新加权得分，如softnms
+                    # 一些NMS会重新加权得分,如softnms
                     scores_per_image = det_bboxes[:, -1]
                 # 创建结果对象
                 result = InstanceData()
@@ -977,7 +977,7 @@ class DynamicDiffusionDetHead(nn.Module):
                         cfg.nms)
                     box_pred_per_image = box_pred_per_image[keep_idxs]
                     labels_per_image = labels_per_image[keep_idxs]
-                    # 一些NMS会重新加权得分，如softnms
+                    # 一些NMS会重新加权得分,如softnms
                     scores_per_image = det_bboxes[:, -1]
 
                 # 创建结果对象
@@ -1070,7 +1070,7 @@ class SingleDiffusionDetHead(nn.Module):
         self.use_focal_loss = use_focal_loss  # 是否使用focal loss
         self.use_fed_loss = use_fed_loss  # 是否使用fed loss
         if self.use_focal_loss or self.use_fed_loss:
-            # 如果使用focal loss或fed loss，输出num_classes维
+            # 如果使用focal loss或fed loss,输出num_classes维
             self.class_logits = nn.Linear(feat_channels, num_classes)
         else:
             # 否则输出num_classes+1维（包括背景类）
@@ -1084,16 +1084,16 @@ class SingleDiffusionDetHead(nn.Module):
         前向传播
         
         Args:
-            features: 特征金字塔，列表形式
-            bboxes: 边界框，shape: (N, num_boxes, 4)
-            pro_features: 提案特征，shape: (N, num_boxes, feat_channels)
+            features: 特征金字塔,列表形式
+            bboxes: 边界框,shape: (N, num_boxes, 4)
+            pro_features: 提案特征,shape: (N, num_boxes, feat_channels)
             pooler: ROI池化器
-            time_emb: 时间嵌入，shape: (N, time_dim)
+            time_emb: 时间嵌入,shape: (N, time_dim)
             
         Returns:
-            class_logits: 分类logits，shape: (N, num_boxes, num_classes)
-            pred_bboxes: 预测边界框，shape: (N, num_boxes, 4)
-            obj_features: 对象特征，shape: (1, N*num_boxes, feat_channels)
+            class_logits: 分类logits,shape: (N, num_boxes, num_classes)
+            pred_bboxes: 预测边界框,shape: (N, num_boxes, 4)
+            obj_features: 对象特征,shape: (1, N*num_boxes, feat_channels)
         """
         N, num_boxes = bboxes.shape[:2]  # 获取批次大小和框数量
 
@@ -1107,7 +1107,7 @@ class SingleDiffusionDetHead(nn.Module):
 
         # 处理提案特征
         if pro_features is None:
-            # 如果没有提供提案特征，则从ROI特征计算均值
+            # 如果没有提供提案特征,则从ROI特征计算均值
             pro_features = roi_features.view(
                 N, num_boxes, self.feat_channels, -1).mean(-1)  # shape: (N, num_boxes, feat_channels)
 
@@ -1176,11 +1176,11 @@ class SingleDiffusionDetHead(nn.Module):
         """将变换`deltas` (dx, dy, dw, dh) 应用到`boxes`
         
         Args:
-            deltas (Tensor): 变换偏移，shape: (N, k*4), k >= 1
-            boxes (Tensor): 要变换的框，shape: (N, 4)
+            deltas (Tensor): 变换偏移,shape: (N, k*4), k >= 1
+            boxes (Tensor): 要变换的框,shape: (N, 4)
             
         Returns:
-            pred_boxes: 变换后的框，shape: (N, k*4)
+            pred_boxes: 变换后的框,shape: (N, k*4)
         """
         boxes = boxes.to(deltas.dtype)  # 确保数据类型一致
 
@@ -1250,11 +1250,11 @@ class DynamicConv(nn.Module):
         """前向传播
         
         Args:
-            pro_features: 提案特征，shape: (1, N * num_boxes, self.feat_channels)
-            roi_features: ROI特征，shape: (49, N * num_boxes, self.feat_channels)
+            pro_features: 提案特征,shape: (1, N * num_boxes, self.feat_channels)
+            roi_features: ROI特征,shape: (49, N * num_boxes, self.feat_channels)
             
         Returns:
-            features: 处理后的特征，shape: (1, N * num_boxes, self.feat_channels)
+            features: 处理后的特征,shape: (1, N * num_boxes, self.feat_channels)
         """
         # 调整特征形状
         features = roi_features.permute(1, 0, 2)  # shape: (N*num_boxes, 49, feat_channels)
@@ -1275,7 +1275,7 @@ class DynamicConv(nn.Module):
         features = self.activation(features)  # 激活
 
         # 展平并通过输出层
-        features = features.flatten(1)  # 展平，shape: (N*num_boxes, dynamic_dim*feat_channels)
+        features = features.flatten(1)  # 展平,shape: (N*num_boxes, dynamic_dim*feat_channels)
         features = self.out_layer(features)  # 输出层
         features = self.norm3(features)  # 归一化
         features = self.activation(features)  # 激活

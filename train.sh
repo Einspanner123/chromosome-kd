@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# 用法:
+# 默认使用GPU0: >> ./train.sh config
+# 使用第二块GPU: >> ./train.sh 1 config
+
 # 检查第一个参数是否为数字
 if [[ $1 =~ ^[0-9]+$ ]]; then
     GPU_ID=$1
