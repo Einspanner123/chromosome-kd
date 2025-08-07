@@ -190,7 +190,11 @@ param_scheduler = [
 ]
 
 default_hooks = dict(
-    checkpoint=dict(by_epoch=True, interval=1, max_keep_ckpts=3))
+    checkpoint=dict(
+        by_epoch=True, 
+        interval=1, 
+        max_keep_ckpts=3,
+        save_best='coco/bbox_mAP'))
 custom_hooks = [
     # dict(
     #     type='EMAHook',

@@ -56,35 +56,8 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
                  topology_loss_weight=0.05,
                  morphology_aware_noise=True,
                  length_priors=None,
-                 criterion=dict(
-                     type='ChromosomeDiffusionDetCriterion',
-                     num_classes=24,
-                     assigner=dict(
-                         type='ChromosomeDiffusionDetMatcher',
-                         match_costs=[
-                             dict(
-                                 type='FocalLossCost',
-                                 alpha=2.0,
-                                 gamma=0.25,
-                                 weight=2.0),
-                             dict(
-                                 type='BBoxL1Cost',
-                                 weight=5.0,
-                                 box_format='xyxy'),
-                             dict(type='IoUCost', iou_mode='giou', weight=2.0)
-                         ],
-                         center_radius=2.5,
-                         candidate_topk=5),
-                 ),
-                 single_head=dict(
-                     type='ChromosomeSingleDiffusionDetHead',
-                     num_cls_convs=1,
-                     num_reg_convs=3,
-                     dim_feedforward=2048,
-                     num_heads=8,
-                     dropout=0.0,
-                     act_cfg=dict(type='ReLU'),
-                     dynamic_conv=dict(dynamic_dim=64, dynamic_num=2)),
+                 criterion=None,
+                 single_head=None,
                  **kwargs) -> None:
         
         super().__init__(

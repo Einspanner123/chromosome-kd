@@ -5,10 +5,7 @@ _base_ = [
 ]
 
 custom_imports = dict(
-    imports=[
-        'chromodet.model.head_morph_aware_noise',
-        'projects.DiffusionDet.diffusiondet'],
-    allow_failed_imports=False)
+    imports=['projects.DiffusionDet.diffusiondet'], allow_failed_imports=False)
 
 num_classes = 24
 
@@ -37,7 +34,7 @@ model = dict(
         out_channels=256,
         num_outs=4),
     bbox_head=dict(
-        type='DynamicHead',
+        type='DynamicDiffusionDetHead',
         num_classes=num_classes,
         feat_channels=256,
         num_proposals=500,
@@ -210,7 +207,6 @@ custom_hooks = [
         rule='greater'),]
 
 log_processor = dict(by_epoch=True)
-device = "cuda"
 
 visualizer = dict(
     _scope_='mmdet',

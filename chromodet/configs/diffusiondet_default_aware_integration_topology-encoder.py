@@ -6,7 +6,7 @@ _base_ = [
 
 custom_imports = dict(
     imports=[
-        'chromodet.model.head_morph_aware_noise',
+        'chromodet.model.head_morph_aware_integration_topology-encoder',
         'projects.DiffusionDet.diffusiondet'],
     allow_failed_imports=False)
 
@@ -47,6 +47,8 @@ model = dict(
         snr_scale=2.0,
         sampling_timesteps=1,
         ddim_sampling_eta=1.0,
+        aspect_ratio_gamma=10.0, # add
+        topology_loss_weight=0.05, # add
         single_head=dict(
             type='SingleDiffusionDetHead',
             num_cls_convs=1,
@@ -152,7 +154,7 @@ test_pipeline = [
                    'scale_factor'))
 ]
 train_dataloader = dict(
-    batch_size=8,
+    batch_size=4,
     sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
         filter_cfg=dict(filter_empty_gt=False, min_size=1e-5),
@@ -210,7 +212,7 @@ custom_hooks = [
         rule='greater'),]
 
 log_processor = dict(by_epoch=True)
-device = "cuda"
+
 
 visualizer = dict(
     _scope_='mmdet',

@@ -339,525 +339,288 @@ class DynamicHead(DynamicDiffusionDetHead):
         
         return features
         
- 
 @TASK_UTILS.register_module()
-class Criterion(nn.Module):
-
-    def __init__(
-            self,
-            num_classes,
-            assigner=dict(
-                type='DiffusionDetMatcher',
-                match_costs=[
-                    dict(
-                        type='FocalLossCost',
-                        alpha=0.25,
-                        gamma=2.0,
-                        weight=2.0,
-                        eps=1e-8),
-                    dict(type='BBoxL1Cost', weight=5.0, box_format='xyxy'),
-                    dict(type='IoUCost', iou_mode='giou', weight=2.0),
-                    # 新增：形态特征匹配成本
-                    dict(type='MSELossCost', weight=1.0)]),
-            deep_supervision=True,
-            loss_cls=dict(
-                type='FocalLoss',
-                use_sigmoid=True,
-                alpha=0.25,
-                gamma=2.0,
-                reduction='sum',
-                loss_weight=2.0),
-            loss_bbox=dict(type='L1Loss', reduction='sum', loss_weight=5.0),
-            loss_giou=dict(type='GIoULoss', reduction='sum', loss_weight=2.0),
-            # 新增：形态特征损失配置
-            loss_morphology=dict(type='L1Loss', reduction='sum', loss_weight=1.0)
-    ):
-
-        super().__init__()
-        self.num_classes = num_classes
-
-        if isinstance(assigner, nn.Module):
-            self.assigner = assigner
+class Criterion(DiffusionDetCriterion):
+    """
+    染色体检测专用损失函数
+    
+    在原有损失基础上添加：
+    1. 长度预测损失
+    2. 形态约束损失
+    3. 拓扑关系损失
+    """
+    
+    def __init__(self,
+                 num_classes=24,
+                 assigner=None,
+                 deep_supervision=True,
+                 loss_cls=dict(
+                     type='FocalLoss',
+                     use_sigmoid=True,
+                     alpha=0.25,
+                     gamma=2.0,
+                     reduction='sum',
+                     loss_weight=2.0),
+                 loss_bbox=dict(type='L1Loss', reduction='sum', loss_weight=5.0),
+                 loss_giou=dict(type='GIoULoss', reduction='sum', loss_weight=2.0),
+                 # 染色体特化损失
+                 loss_length=dict(type='L1Loss', reduction='sum', loss_weight=1.0),
+                 loss_aspect_ratio=dict(type='L1Loss', reduction='sum', loss_weight=0.5),
+                 loss_topology=dict(type='MSELoss', reduction='sum', loss_weight=0.2),
+                 # 长度先验
+                 length_priors=None,
+                 aspect_ratio_target=10.0,  # 目标长宽比
+                 **kwargs):
+        
+        super().__init__(
+            num_classes=num_classes,
+            assigner=assigner,
+            deep_supervision=deep_supervision,
+            loss_cls=loss_cls,
+            loss_bbox=loss_bbox,
+            loss_giou=loss_giou)
+        
+        # 染色体特化损失
+        self.loss_length = MODELS.build(loss_length)
+        self.loss_aspect_ratio = MODELS.build(loss_aspect_ratio)
+        self.loss_topology = MODELS.build(loss_topology)
+        
+        # 长度先验
+        if length_priors is None:
+            self.length_priors = torch.tensor([
+                1.0, 0.95, 0.90, 0.85, 0.80, 0.75,
+                0.70, 0.65, 0.60, 0.55, 0.50, 0.45,
+                0.40, 0.38, 0.36, 0.34, 0.32, 0.30,
+                0.28, 0.26, 0.24, 0.22, 0.20, 0.18
+            ])
         else:
-            self.assigner = TASK_UTILS.build(assigner)
-
-        self.deep_supervision = deep_supervision
-
-        self.loss_cls = MODELS.build(loss_cls)
-        self.loss_bbox = MODELS.build(loss_bbox)
-        self.loss_giou = MODELS.build(loss_giou)
-        # 初始化形态特征损失
-        self.loss_morphology = MODELS.build(loss_morphology)
-
+            self.length_priors = torch.tensor(length_priors)
+        
+        self.aspect_ratio_target = aspect_ratio_target
+    
     def forward(self, outputs, batch_gt_instances, batch_img_metas):
-        # 从outputs中获取预测实例（包含morphology_features）
-        pred_instances = outputs['pred_instances']
-        batch_indices = self.assigner(outputs, batch_gt_instances,
-                                      batch_img_metas)
+        """前向传播，计算所有损失"""
+        # 原有损失
+        losses = super().forward(outputs, batch_gt_instances, batch_img_metas)
         
-        # 计算所有损失（包含新增的形态损失）
-        loss_cls = self.loss_classification(outputs, batch_gt_instances,
-                                            batch_indices)
-        loss_bbox, loss_giou = self.loss_boxes(outputs, batch_gt_instances,
-                                               batch_indices)
-        loss_morph = self.loss_morphology_features(
-            pred_instances, batch_gt_instances,
-            batch_indices, batch_img_metas
-        )
+        # 染色体特化损失
+        batch_indices = self.assigner(outputs, batch_gt_instances, batch_img_metas)
+        
+        # 长度损失
+        if 'pred_lengths' in outputs:
+            loss_length = self.loss_length_computation(
+                outputs, batch_gt_instances, batch_indices)
+            losses['loss_length'] = loss_length
+        
+        # 形态约束损失
+        loss_morphology = self.loss_morphology_computation(
+            outputs, batch_gt_instances, batch_indices)
+        losses['loss_aspect_ratio'] = loss_morphology
+                    
 
-        losses = dict(
-            loss_cls=loss_cls, 
-            loss_bbox=loss_bbox, 
-            loss_giou=loss_giou,
-            loss_morph=loss_morph  # 新增：形态特征损失
-        )
-
-        if self.deep_supervision:
-            assert 'aux_outputs' in outputs
+        # 拓扑损失
+        loss_topology = self.loss_topology_computation(
+            outputs, batch_gt_instances, batch_indices)
+        losses['loss_topology'] = loss_topology
+        
+        # 深度监督的染色体特化损失
+        if self.deep_supervision and 'aux_outputs' in outputs:
             for i, aux_outputs in enumerate(outputs['aux_outputs']):
-                aux_pred_instances = aux_outputs['pred_instances']
-                batch_indices = self.assigner(aux_outputs, batch_gt_instances,
-                                              batch_img_metas)
-                loss_cls = self.loss_classification(aux_outputs,
-                                                    batch_gt_instances,
-                                                    batch_indices)
-                loss_bbox, loss_giou = self.loss_boxes(aux_outputs,
-                                                       batch_gt_instances,
-                                                       batch_indices)
-                loss_morph = self.loss_morphology_features(
-                    aux_pred_instances, batch_gt_instances,
-                    batch_indices, batch_img_metas
-                )
+                batch_indices = self.assigner(aux_outputs, batch_gt_instances, batch_img_metas)
                 
-                tmp_losses = dict(
-                    loss_cls=loss_cls,
-                    loss_bbox=loss_bbox,
-                    loss_giou=loss_giou,
-                    loss_morph=loss_morph
-                )
-                for name, value in tmp_losses.items():
-                    losses[f's.{i}.{name}'] = value
-        return losses
-
-    def loss_classification(self, outputs, batch_gt_instances, indices):
-        # 保持原有分类损失逻辑不变
-        assert 'pred_logits' in outputs
-        src_logits = outputs['pred_logits']
-        target_classes_list = [
-            gt.labels[J] for gt, (_, J) in zip(batch_gt_instances, indices)
-        ]
-        target_classes = torch.full(
-            src_logits.shape[:2],
-            self.num_classes,
-            dtype=torch.int64,
-            device=src_logits.device)
-        for idx in range(len(batch_gt_instances)):
-            target_classes[idx, indices[idx][0]] = target_classes_list[idx]
-
-        src_logits = src_logits.flatten(0, 1)
-        target_classes = target_classes.flatten(0, 1)
-        num_instances = max(torch.cat(target_classes_list).shape[0], 1)
-        loss_cls = self.loss_cls(
-            src_logits,
-            target_classes,
-        ) / num_instances
-        return loss_cls
-
-    def loss_boxes(self, outputs, batch_gt_instances, indices):
-        # 保持原有边界框损失逻辑不变
-        assert 'pred_boxes' in outputs
-        pred_boxes = outputs['pred_boxes']
-
-        target_bboxes_norm_list = [
-            gt.norm_bboxes_cxcywh[J]
-            for gt, (_, J) in zip(batch_gt_instances, indices)
-        ]
-        target_bboxes_list = [
-            gt.bboxes[J] for gt, (_, J) in zip(batch_gt_instances, indices)
-        ]
-
-        pred_bboxes_list = []
-        pred_bboxes_norm_list = []
-        for idx in range(len(batch_gt_instances)):
-            pred_bboxes_list.append(pred_boxes[idx, indices[idx][0]])
-            image_size = batch_gt_instances[idx].image_size
-            pred_bboxes_norm_list.append(pred_boxes[idx, indices[idx][0]] /
-                                         image_size)
-
-        pred_boxes_cat = torch.cat(pred_bboxes_list)
-        pred_boxes_norm_cat = torch.cat(pred_bboxes_norm_list)
-        target_bboxes_cat = torch.cat(target_bboxes_list)
-        target_bboxes_norm_cat = torch.cat(target_bboxes_norm_list)
-
-        if len(pred_boxes_cat) > 0:
-            num_instances = pred_boxes_cat.shape[0]
-
-            loss_bbox = self.loss_bbox(
-                pred_boxes_norm_cat,
-                bbox_cxcywh_to_xyxy(target_bboxes_norm_cat)) / num_instances
-            loss_giou = self.loss_giou(pred_boxes_cat,
-                                       target_bboxes_cat) / num_instances
-        else:
-            loss_bbox = pred_boxes.sum() * 0
-            loss_giou = pred_boxes.sum() * 0
-        return loss_bbox, loss_giou
-
-    def loss_morphology_features(self, pred_instances, batch_gt_instances, indices, batch_img_metas):
-        """修改：从实例中提取形态特征计算损失"""
-        # 从预测实例中获取形态特征（每个实例的morphology_features属性）
-        # pred_instances是列表，每个元素对应一个batch的实例数据
-        pred_morph_list = []
-        for idx in range(len(batch_gt_instances)):
-            i, _ = indices[idx]  # 匹配的预测框索引
-            if len(i) == 0:
-                continue
-            # 从当前batch的预测实例中提取匹配的形态特征
-            pred_morph = pred_instances[idx].morphology_features[i]  # (M, C)
-            pred_morph_list.append(pred_morph)
-
-        # 计算真实目标的形态特征
-        target_morph_list = []
-        for idx in range(len(batch_gt_instances)):
-            gt = batch_gt_instances[idx]
-            _, J = indices[idx]  # 匹配的真实框索引
-            if len(J) == 0:
-                continue
-            
-            # 从真实框计算形态特征（与DynamicHead保持一致）
-            gt_bboxes = gt.bboxes[J]  # 匹配的真实框 (M, 4) xyxy格式
-            image_size = batch_img_metas[idx]['img_shape'][:2]  # (h, w)
-            gt_morph = self._compute_morphology_features(gt_bboxes, image_size)
-            target_morph_list.append(gt_morph)
-
-        # 计算损失
-        if len(pred_morph_list) > 0 and len(target_morph_list) > 0:
-            pred_morph_cat = torch.cat(pred_morph_list)
-            target_morph_cat = torch.cat(target_morph_list)
-            num_instances = pred_morph_cat.shape[0]
-            
-            # 形态特征损失：预测特征与真实特征的L1距离
-            loss_morph = self.loss_morphology(
-                pred_morph_cat, 
-                target_morph_cat
-            ) / num_instances
-        else:
-            # 无匹配时损失为0（用第一个预测形态特征的设备创建零张量）
-            if pred_morph_list:
-                loss_morph = torch.tensor(0.0, device=pred_morph_list[0].device)
-            else:
-                loss_morph = torch.tensor(0.0)
-        
-        return loss_morph
-
-    def _compute_morphology_features(self, bboxes, image_size):
-        """复用形态特征计算逻辑（与DynamicHead完全一致）"""
-        w = bboxes[:, 2] - bboxes[:, 0]  # 宽度
-        h = bboxes[:, 3] - bboxes[:, 1]  # 高度
-        
-        # 防止除零错误
-        w_clamped = torch.clamp(w, min=1e-6)
-        h_clamped = torch.clamp(h, min=1e-6)
-        
-        # 1. 长宽比相关特征
-        aspect_ratio = w / h_clamped
-        aspect_ratio_inv = h / w_clamped
-        aspect_ratio_log = torch.log(aspect_ratio)
-        aspect_ratio_square = aspect_ratio ** 2
-        
-        # 2. 大小与紧凑度特征
-        area = w * h
-        area_log = torch.log(area + 1e-6)
-        perimeter = 2 * (w + h)
-        compactness = (perimeter **2) / (4 * torch.pi * area + 1e-6)
-        
-        # 3. 对角线特征
-        diagonal = torch.sqrt(w** 2 + h **2)
-        max_diag = torch.norm(torch.tensor(image_size, device=bboxes.device, dtype=torch.float32))
-        diagonal_normalized = diagonal / (max_diag + 1e-6)
-        
-        # 4. 方向特征
-        angle = torch.atan2(h, w)
-        angle_sin = torch.sin(2 * angle)
-        angle_cos = torch.cos(2 * angle)
-        
-        # 5. 先验匹配特征（若没有先验则用0填充）
-        top_matches = torch.zeros(bboxes.size(0), 3, device=bboxes.device)
-        
-        # 6. 相对大小特征
-        w_rel = w / image_size[1]
-        h_rel = h / image_size[0]
-        size_ratio = torch.stack([w_rel, h_rel], dim=1)
-        
-        # 堆叠所有特征并归一化
-        features = torch.cat([
-            aspect_ratio.unsqueeze(1),
-            aspect_ratio_inv.unsqueeze(1),
-            aspect_ratio_log.unsqueeze(1),
-            aspect_ratio_square.unsqueeze(1),
-            area_log.unsqueeze(1),
-            compactness.unsqueeze(1),
-            diagonal_normalized.unsqueeze(1),
-            angle_sin.unsqueeze(1),
-            angle_cos.unsqueeze(1),
-            top_matches,
-            size_ratio
-        ], dim=1)
-        
-        features = F.layer_norm(features, features.size()[1:])
-        return features
-
-    def __init__(
-            self,
-            num_classes,
-            assigner=dict(
-                type='DiffusionDetMatcher',
-                match_costs=[
-                    dict(
-                        type='FocalLossCost',
-                        alpha=0.25,
-                        gamma=2.0,
-                        weight=2.0,
-                        eps=1e-8),
-                    dict(type='BBoxL1Cost', weight=5.0, box_format='xyxy'),
-                    dict(type='IoUCost', iou_mode='giou', weight=2.0),
-                    # 新增：形态特征匹配成本
-                    dict(type='MSELossCost', weight=1.0)]),  # 用于匹配阶段的形态特征成本
-            deep_supervision=True,
-            loss_cls=dict(
-                type='FocalLoss',
-                use_sigmoid=True,
-                alpha=0.25,
-                gamma=2.0,
-                reduction='sum',
-                loss_weight=2.0),
-            loss_bbox=dict(type='L1Loss', reduction='sum', loss_weight=5.0),
-            loss_giou=dict(type='GIoULoss', reduction='sum', loss_weight=2.0),
-            # 新增：形态特征损失配置
-            loss_morphology=dict(type='L1Loss', reduction='sum', loss_weight=1.0)
-    ):
-
-        super().__init__()
-        self.num_classes = num_classes
-
-        if isinstance(assigner, nn.Module):
-            self.assigner = assigner
-        else:
-            self.assigner = TASK_UTILS.build(assigner)
-
-        self.deep_supervision = deep_supervision
-
-        self.loss_cls = MODELS.build(loss_cls)
-        self.loss_bbox = MODELS.build(loss_bbox)
-        self.loss_giou = MODELS.build(loss_giou)
-        # 初始化形态特征损失
-        self.loss_morphology = MODELS.build(loss_morphology)
-
-    def forward(self, outputs, batch_gt_instances, batch_img_metas):
-        batch_indices = self.assigner(outputs, batch_gt_instances,
-                                      batch_img_metas)
-        # 计算所有损失（包含新增的形态损失）
-        loss_cls = self.loss_classification(outputs, batch_gt_instances,
-                                            batch_indices)
-        loss_bbox, loss_giou = self.loss_boxes(outputs, batch_gt_instances,
-                                               batch_indices)
-        loss_morph = self.loss_morphology_features(outputs, batch_gt_instances,
-                                                  batch_indices, batch_img_metas)
-
-        losses = dict(
-            loss_cls=loss_cls, 
-            loss_bbox=loss_bbox, 
-            loss_giou=loss_giou,
-            loss_morph=loss_morph  # 新增：形态特征损失
-        )
-
-        if self.deep_supervision:
-            assert 'aux_outputs' in outputs
-            for i, aux_outputs in enumerate(outputs['aux_outputs']):
-                batch_indices = self.assigner(aux_outputs, batch_gt_instances,
-                                              batch_img_metas)
-                loss_cls = self.loss_classification(aux_outputs,
-                                                    batch_gt_instances,
-                                                    batch_indices)
-                loss_bbox, loss_giou = self.loss_boxes(aux_outputs,
-                                                       batch_gt_instances,
-                                                       batch_indices)
-                loss_morph = self.loss_morphology_features(aux_outputs, 
-                                                          batch_gt_instances,
-                                                          batch_indices, 
-                                                          batch_img_metas)
+                # 长度损失
+                if 'pred_lengths' in aux_outputs:
+                    loss_length = self.loss_length_computation(
+                        aux_outputs, batch_gt_instances, batch_indices)
+                    losses[f's.{i}.loss_length'] = loss_length
                 
-                tmp_losses = dict(
-                    loss_cls=loss_cls,
-                    loss_bbox=loss_bbox,
-                    loss_giou=loss_giou,
-                    loss_morph=loss_morph  # 辅助输出也计算形态损失
-                )
-                for name, value in tmp_losses.items():
-                    losses[f's.{i}.{name}'] = value
+                # 形态约束损失
+                loss_morphology = self.loss_morphology_computation(
+                    aux_outputs, batch_gt_instances, batch_indices)
+                losses[f's.{i}.loss_aspect_ratio'] = loss_morphology
+                
+                # 拓扑损失
+                loss_topology = self.loss_topology_computation(
+                    aux_outputs, batch_gt_instances, batch_indices)
+                losses[f's.{i}.loss_topology'] = loss_topology
+        
         return losses
-
-    def loss_classification(self, outputs, batch_gt_instances, indices):
-        # 保持原有分类损失逻辑不变
-        assert 'pred_logits' in outputs
-        src_logits = outputs['pred_logits']
-        target_classes_list = [
-            gt.labels[J] for gt, (_, J) in zip(batch_gt_instances, indices)
-        ]
-        target_classes = torch.full(
-            src_logits.shape[:2],
-            self.num_classes,
-            dtype=torch.int64,
-            device=src_logits.device)
-        for idx in range(len(batch_gt_instances)):
-            target_classes[idx, indices[idx][0]] = target_classes_list[idx]
-
-        src_logits = src_logits.flatten(0, 1)
-        target_classes = target_classes.flatten(0, 1)
-        num_instances = max(torch.cat(target_classes_list).shape[0], 1)
-        loss_cls = self.loss_cls(
-            src_logits,
-            target_classes,
-        ) / num_instances
-        return loss_cls
-
-    def loss_boxes(self, outputs, batch_gt_instances, indices):
-        # 保持原有边界框损失逻辑不变
-        assert 'pred_boxes' in outputs
+    
+    def loss_length_computation(self, outputs, batch_gt_instances, indices):
+        """计算长度预测损失"""
+        if 'pred_lengths' not in outputs:
+            return torch.tensor(0.0, device=outputs['pred_boxes'].device)
+        
+        pred_lengths = outputs['pred_lengths']
         pred_boxes = outputs['pred_boxes']
-
-        target_bboxes_norm_list = [
-            gt.norm_bboxes_cxcywh[J]
-            for gt, (_, J) in zip(batch_gt_instances, indices)
-        ]
-        target_bboxes_list = [
-            gt.bboxes[J] for gt, (_, J) in zip(batch_gt_instances, indices)
-        ]
-
-        pred_bboxes_list = []
-        pred_bboxes_norm_list = []
-        for idx in range(len(batch_gt_instances)):
-            pred_bboxes_list.append(pred_boxes[idx, indices[idx][0]])
-            image_size = batch_gt_instances[idx].image_size
-            pred_bboxes_norm_list.append(pred_boxes[idx, indices[idx][0]] /
-                                         image_size)
-
-        pred_boxes_cat = torch.cat(pred_bboxes_list)
-        pred_boxes_norm_cat = torch.cat(pred_bboxes_norm_list)
-        target_bboxes_cat = torch.cat(target_bboxes_list)
-        target_bboxes_norm_cat = torch.cat(target_bboxes_norm_list)
-
-        if len(pred_boxes_cat) > 0:
-            num_instances = pred_boxes_cat.shape[0]
-
-            loss_bbox = self.loss_bbox(
-                pred_boxes_norm_cat,
-                bbox_cxcywh_to_xyxy(target_bboxes_norm_cat)) / num_instances
-            loss_giou = self.loss_giou(pred_boxes_cat,
-                                       target_bboxes_cat) / num_instances
-        else:
-            loss_bbox = pred_boxes.sum() * 0
-            loss_giou = pred_boxes.sum() * 0
-        return loss_bbox, loss_giou
-
-    def loss_morphology_features(self, outputs, batch_gt_instances, indices, batch_img_metas):
-        """新增：计算形态特征损失"""
-        # 确保输出包含形态特征（对应DynamicHead中计算的morphology_features）
-        assert 'morphology_features' in outputs
-        pred_morph = outputs['morphology_features']  # 预测的形态特征 (B, N, C) 其中C=13
-
-        # 计算真实目标的形态特征
-        target_morph_list = []
-        for idx in range(len(batch_gt_instances)):
-            gt = batch_gt_instances[idx]
-            _, J = indices[idx]  # 匹配的真实框索引
-            if len(J) == 0:
+        
+        # 计算真实长度
+        target_lengths_list = []
+        pred_lengths_matched_list = []
+        
+        for batch_idx, (gt_instances, (pred_idx, gt_idx)) in enumerate(zip(batch_gt_instances, indices)):
+            if len(gt_idx) == 0:
                 continue
             
-            # 从真实框计算形态特征（复用之前的特征计算逻辑）
-            gt_bboxes = gt.bboxes[J]  # 匹配的真实框 (M, 4) xyxy格式
-            image_size = batch_img_metas[idx]['img_shape'][:2]  # (h, w)
-            gt_morph = self._compute_morphology_features(gt_bboxes, image_size)
-            target_morph_list.append(gt_morph)
-
-        # 提取匹配的预测形态特征
-        pred_morph_list = []
-        for idx in range(len(batch_gt_instances)):
-            i, _ = indices[idx]  # 匹配的预测框索引
-            if len(i) == 0:
-                continue
-            pred_morph_list.append(pred_morph[idx, i])  # (M, C)
-
-        # 计算损失
-        if len(pred_morph_list) > 0 and len(target_morph_list) > 0:
-            pred_morph_cat = torch.cat(pred_morph_list)
-            target_morph_cat = torch.cat(target_morph_list)
-            num_instances = pred_morph_cat.shape[0]
+            # 真实框长度
+            gt_boxes = gt_instances.bboxes[gt_idx]
+            gt_w = gt_boxes[:, 2] - gt_boxes[:, 0]
+            gt_h = gt_boxes[:, 3] - gt_boxes[:, 1]
+            gt_lengths = torch.sqrt(gt_w**2 + gt_h**2)
             
-            # 形态特征损失：预测特征与真实特征的L1距离
-            loss_morph = self.loss_morphology(
-                pred_morph_cat, 
-                target_morph_cat
-            ) / num_instances
+            # 匹配的预测长度
+            matched_pred_lengths = pred_lengths[batch_idx, pred_idx].squeeze(-1)
+            
+            target_lengths_list.append(gt_lengths)
+            pred_lengths_matched_list.append(matched_pred_lengths)
+        
+        if len(target_lengths_list) == 0:
+            return torch.tensor(0.0, device=pred_lengths.device)
+        
+        target_lengths = torch.cat(target_lengths_list)
+        pred_lengths_matched = torch.cat(pred_lengths_matched_list)
+        
+        # 归一化长度
+        target_lengths_norm = target_lengths / target_lengths.max()
+        pred_lengths_norm = pred_lengths_matched / pred_lengths_matched.max()
+        
+        num_instances = target_lengths.shape[0]
+        loss_length = self.loss_length(pred_lengths_norm, target_lengths_norm) / num_instances
+        
+        return loss_length
+    
+    def loss_morphology_computation(self, outputs, batch_gt_instances, indices):
+        """计算形态约束损失（长宽比）"""
+        pred_boxes = outputs['pred_boxes']
+        
+        target_aspect_ratios_list = []
+        pred_aspect_ratios_list = []
+        
+        for batch_idx, (gt_instances, (pred_idx, gt_idx)) in enumerate(zip(batch_gt_instances, indices)):
+            if len(gt_idx) == 0:
+                continue
+            
+            # 真实框长宽比
+            gt_boxes = gt_instances.bboxes[gt_idx]
+            gt_w = gt_boxes[:, 2] - gt_boxes[:, 0]
+            gt_h = gt_boxes[:, 3] - gt_boxes[:, 1]
+            gt_aspect_ratios = gt_h / (gt_w + 1e-6)
+            
+            # 预测框长宽比
+            pred_boxes_matched = pred_boxes[batch_idx, pred_idx]
+            pred_w = pred_boxes_matched[:, 2] - pred_boxes_matched[:, 0]
+            pred_h = pred_boxes_matched[:, 3] - pred_boxes_matched[:, 1]
+            pred_aspect_ratios = pred_h / (pred_w + 1e-6)
+            
+            target_aspect_ratios_list.append(gt_aspect_ratios)
+            pred_aspect_ratios_list.append(pred_aspect_ratios)
+        
+        if len(target_aspect_ratios_list) == 0:
+            return torch.tensor(0.0, device=pred_boxes.device)
+        
+        target_aspect_ratios = torch.cat(target_aspect_ratios_list)
+        pred_aspect_ratios = torch.cat(pred_aspect_ratios_list)
+        
+        # 鼓励细长形态（高长宽比）
+        target_aspect_ratios = torch.clamp(target_aspect_ratios, min=2.0, max=20.0)
+        pred_aspect_ratios = torch.clamp(pred_aspect_ratios, min=0.1, max=50.0)
+        
+        num_instances = target_aspect_ratios.shape[0]
+        loss_aspect_ratio = self.loss_aspect_ratio(
+            pred_aspect_ratios, target_aspect_ratios) / num_instances
+        
+        return loss_aspect_ratio
+    
+    def loss_topology_computation(self, outputs, batch_gt_instances, indices):
+        """计算拓扑关系损失"""
+        pred_boxes = outputs['pred_boxes']
+        batch_size = pred_boxes.shape[0]
+        
+        topology_losses = []
+        
+        for batch_idx in range(batch_size):
+            gt_instances = batch_gt_instances[batch_idx]
+            pred_boxes_single = pred_boxes[batch_idx]
+            
+            if len(gt_instances.labels) == 0:
+                continue
+            
+            # 计算同源染色体配对损失
+            pairing_loss = self._compute_pairing_constraint(
+                pred_boxes_single, gt_instances)
+            
+            # 计算染色体分布损失（避免过度聚集）
+            distribution_loss = self._compute_distribution_constraint(
+                pred_boxes_single, gt_instances)
+            
+            total_topology_loss = pairing_loss + 0.5 * distribution_loss
+            topology_losses.append(total_topology_loss)
+        
+        if len(topology_losses) > 0:
+            return torch.stack(topology_losses).mean()
         else:
-            # 无匹配时损失为0
-            loss_morph = pred_morph.sum() * 0.0
+            return torch.tensor(0.0, device=pred_boxes.device)
+    
+    def _compute_pairing_constraint(self, pred_boxes, gt_instances):
+        """计算配对约束损失"""
+        gt_labels = gt_instances.labels
+        gt_boxes = gt_instances.bboxes
         
-        return loss_morph
-
-    def _compute_morphology_features(self, bboxes, image_size):
-        """复用形态特征计算逻辑（与DynamicHead保持一致）"""
-        # 计算基本的宽高
-        w = bboxes[:, 2] - bboxes[:, 0]  # 宽度
-        h = bboxes[:, 3] - bboxes[:, 1]  # 高度
+        pairing_loss = 0.0
+        pair_count = 0
         
-        # 防止除零错误
-        w_clamped = torch.clamp(w, min=1e-6)
-        h_clamped = torch.clamp(h, min=1e-6)
+        # 遍历常染色体（1-22号）
+        for chr_type in range(22):
+            # 找到同类型的真实框
+            mask = gt_labels == chr_type
+            same_type_boxes = gt_boxes[mask]
+            
+            if len(same_type_boxes) == 2:
+                # 计算两个同源染色体的中心距离
+                center1 = (same_type_boxes[0][:2] + same_type_boxes[0][2:]) / 2
+                center2 = (same_type_boxes[1][:2] + same_type_boxes[1][2:]) / 2
+                distance = torch.norm(center1 - center2)
+                
+                # 期望距离：不要太近（避免重叠）也不要太远
+                min_distance = 50.0  # 最小距离
+                max_distance = 200.0  # 最大距离
+                
+                if distance < min_distance:
+                    pairing_loss += (min_distance - distance) ** 2
+                elif distance > max_distance:
+                    pairing_loss += (distance - max_distance) ** 2
+                
+                pair_count += 1
         
-        # 1. 长宽比相关特征
-        aspect_ratio = w / h_clamped
-        aspect_ratio_inv = h / w_clamped
-        aspect_ratio_log = torch.log(aspect_ratio)
-        aspect_ratio_square = aspect_ratio ** 2
+        return pairing_loss / max(pair_count, 1)
+    
+    def _compute_distribution_constraint(self, pred_boxes, gt_instances):
+        """计算分布约束损失（避免染色体过度聚集）"""
+        if len(gt_instances.bboxes) < 2:
+            return torch.tensor(0.0, device=pred_boxes.device)
         
-        # 2. 大小与紧凑度特征
-        area = w * h
-        area_log = torch.log(area + 1e-6)
-        perimeter = 2 * (w + h)
-        compactness = (perimeter **2) / (4 * torch.pi * area + 1e-6)
+        gt_boxes = gt_instances.bboxes
         
-        # 3. 对角线特征
-        diagonal = torch.sqrt(w** 2 + h **2)
-        max_diag = torch.norm(torch.tensor(image_size, device=bboxes.device, dtype=torch.float32))
-        diagonal_normalized = diagonal / (max_diag + 1e-6)
+        # 计算所有染色体的中心点
+        centers = (gt_boxes[:, :2] + gt_boxes[:, 2:]) / 2
         
-        # 4. 方向特征
-        angle = torch.atan2(h, w)
-        angle_sin = torch.sin(2 * angle)
-        angle_cos = torch.cos(2 * angle)
+        # 计算平均距离
+        distances = torch.cdist(centers, centers)
+        # 排除对角线（自身距离）
+        mask = torch.eye(len(centers), device=distances.device).bool()
+        distances = distances[~mask]
         
-        # 5. 先验匹配特征（若没有先验则用0填充）
-        top_matches = torch.zeros(bboxes.size(0), 3, device=bboxes.device)
+        if len(distances) == 0:
+            return torch.tensor(0.0, device=pred_boxes.device)
         
-        # 6. 相对大小特征
-        w_rel = w / image_size[1]
-        h_rel = h / image_size[0]
-        size_ratio = torch.stack([w_rel, h_rel], dim=1)
+        mean_distance = distances.mean()
         
-        # 堆叠所有特征并归一化
-        features = torch.cat([
-            aspect_ratio.unsqueeze(1),
-            aspect_ratio_inv.unsqueeze(1),
-            aspect_ratio_log.unsqueeze(1),
-            aspect_ratio_square.unsqueeze(1),
-            area_log.unsqueeze(1),
-            compactness.unsqueeze(1),
-            diagonal_normalized.unsqueeze(1),
-            angle_sin.unsqueeze(1),
-            angle_cos.unsqueeze(1),
-            top_matches,
-            size_ratio
-        ], dim=1)
+        # 期望的最小平均距离（避免过度聚集）
+        expected_min_distance = 30.0
         
-        features = F.layer_norm(features, features.size()[1:])
-        return features
+        if mean_distance < expected_min_distance:
+            distribution_loss = (expected_min_distance - mean_distance) ** 2
+        else:
+            distribution_loss = torch.tensor(0.0, device=pred_boxes.device)
+        
+        return distribution_loss

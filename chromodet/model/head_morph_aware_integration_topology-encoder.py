@@ -41,7 +41,8 @@ class DynamicHead(DynamicDiffusionDetHead):
                  use_ensemble=True,  # 是否使用集成
                  deep_supervision=True,  # 是否使用深度监督
                  ddim_sampling_eta=1.0,  # DDIM采样参数
-                 aspect_ratio_gamma=10.0,
+                 aspect_ratio_gamma=10.0, # 特化参数
+                 topology_loss_weight=0.05, # 特化参数
                  criterion:dict=None,
                  single_head:dict=None,
                  roi_extractor:dict=None,
@@ -67,7 +68,126 @@ class DynamicHead(DynamicDiffusionDetHead):
             train_cfg=train_cfg,
             test_cfg=test_cfg
         )
+        self._build_morphology_aware_diffusion()
+        
         self.aspect_ratio_gamma = aspect_ratio_gamma
+        self.topology_loss_weight = topology_loss_weight
+        # 长度预测头
+        # self.length_predictor = nn.Linear(feat_channels, 1)
+        
+        # 拓扑关系建模
+        self.topology_encoder = nn.MultiheadAttention(
+            feat_channels, num_heads=4, dropout=0.1)
+    
+
+    def forward(self, features, init_bboxes, init_t, init_features=None):
+        """前向传播，加入拓扑关系建模"""
+        time = self.time_mlp(init_t)
+
+        inter_class_logits = []
+        inter_pred_bboxes = []
+        inter_pred_lengths = []
+
+        bs = len(features[0])
+        bboxes = init_bboxes
+
+        if init_features is not None:
+            init_features = init_features[None].repeat(1, bs, 1)
+            proposal_features = init_features.clone()
+        else:
+            proposal_features = None
+
+        for head_idx, single_head in enumerate(self.head_series):
+            # 单头预测
+            class_logits, pred_bboxes, proposal_features = single_head(
+                features, bboxes, proposal_features, self.roi_extractor, time)
+            
+            # 长度预测
+            # pred_lengths = self.length_predictor(proposal_features.squeeze(0))
+            
+            # 拓扑关系建模（最后一层）
+            if head_idx == len(self.head_series) - 1:
+                # 自注意力建模染色体间关系
+                topo_features, _ = self.topology_encoder(
+                    proposal_features, proposal_features, proposal_features)
+                proposal_features = proposal_features + topo_features
+                
+                # 重新预测
+                class_logits, pred_bboxes, _ = single_head(
+                    features, bboxes, proposal_features, self.roi_extractor, time)
+            
+            if self.deep_supervision:
+                inter_class_logits.append(class_logits)
+                inter_pred_bboxes.append(pred_bboxes)
+                # inter_pred_lengths.append(pred_lengths)
+            
+            bboxes = pred_bboxes.detach()
+
+        if self.deep_supervision:
+            return (torch.stack(inter_class_logits), 
+                    torch.stack(inter_pred_bboxes),
+                    # torch.stack(inter_pred_lengths)
+                    )
+        else:
+            return (class_logits[None, ...], 
+                    pred_bboxes[None, ...],
+                    # pred_lengths[None, ...]
+                    )
+        
+    
+    def _build_morphology_aware_diffusion(self):
+        """构建形态感知的扩散调度"""
+        # 基础扩散调度
+        betas = cosine_beta_schedule(self.timesteps)
+        # 针对细长目标的调整
+        # 早期时间步使用更小的噪声（保持形态）
+        early_steps = self.timesteps // 4
+        betas[:early_steps] *= 0.5
+        # 中期时间步正常噪声
+        # 后期时间步稍微增大噪声（增强随机性）
+        late_steps = 3 * self.timesteps // 4
+        betas[late_steps:] *= 1.2
+        betas = betas.clamp(min=0.0, max=1-1e-6)
+        
+        alphas = 1. - betas
+        alphas_cumprod = torch.cumprod(alphas, dim=0)
+        alphas_cumprod_prev = F.pad(alphas_cumprod[:-1], (1, 0), value=1.)
+
+        self.register_buffer('betas', betas)
+        self.register_buffer('alphas_cumprod', alphas_cumprod)
+        self.register_buffer('alphas_cumprod_prev', alphas_cumprod_prev)
+
+        # 其他扩散参数计算（与原版相同）
+        self.register_buffer(
+            'sqrt_alphas_cumprod', 
+            torch.sqrt(alphas_cumprod))
+        self.register_buffer(
+            'sqrt_one_minus_alphas_cumprod',
+            torch.sqrt(1. - alphas_cumprod))
+        self.register_buffer(
+            'log_one_minus_alphas_cumprod',
+            torch.log(1. - alphas_cumprod))
+        self.register_buffer(
+            'sqrt_recip_alphas_cumprod',
+            torch.sqrt(1. / alphas_cumprod))
+        self.register_buffer(
+            'sqrt_recipm1_alphas_cumprod',
+            torch.sqrt(1. / alphas_cumprod - 1))
+
+        posterior_variance = betas * (1. - alphas_cumprod_prev) / (
+            1. - alphas_cumprod)
+        self.register_buffer(
+            'posterior_variance',
+            posterior_variance)
+        self.register_buffer(
+            'posterior_log_variance_clipped',
+            torch.log(posterior_variance.clamp(min=1e-20)))
+        self.register_buffer(
+            'posterior_mean_coef1',
+            betas * torch.sqrt(alphas_cumprod_prev) / (1. - alphas_cumprod))
+        self.register_buffer('posterior_mean_coef2',
+                             (1. - alphas_cumprod_prev) * torch.sqrt(alphas) /
+                             (1. - alphas_cumprod))
 
     def prepare_diffusion(self, gt_boxes, image_size):
         """准备扩散过程，加入形态感知"""
@@ -171,3 +291,20 @@ class DynamicHead(DynamicDiffusionDetHead):
         # pred_instances.morphology_features = self._compute_morphology_features(diff_bboxes_abs)
         
         return pred_instances
+    
+    def _compute_morphology_features(self, bboxes):
+        """计算形态特征"""
+        w = bboxes[:, 2] - bboxes[:, 0]
+        h = bboxes[:, 3] - bboxes[:, 1]
+        # 长宽比
+        aspect_ratios = h / (w + 1e-6)
+        # 长度
+        lengths = torch.sqrt(w**2 + h**2)
+        # 角度（假设长轴方向）
+        angles = torch.atan2(h, w)
+        # 面积
+        areas = w * h
+        features = torch.stack([aspect_ratios, lengths, angles, areas], dim=1)
+        return features
+    
+    
