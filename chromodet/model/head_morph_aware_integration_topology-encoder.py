@@ -134,7 +134,6 @@ class DynamicHead(DynamicDiffusionDetHead):
                     # pred_lengths[None, ...]
                     )
         
-    
     def _build_morphology_aware_diffusion(self):
         """构建形态感知的扩散调度"""
         # 基础扩散调度

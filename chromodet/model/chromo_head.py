@@ -51,14 +51,64 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
                  deep_supervision=True,
                  ddim_sampling_eta=1.0,
                  # 染色体特化参数
+                 use_morphology_aware:bool=False, # 形态感知
                  aspect_ratio_gamma=10.0,
+                 use_length_prior:bool=False, # 长度感知
                  length_prior_weight=0.1,
+                 length_priors=[
+                    1.0, 0.95, 0.90, 0.85, 0.80, 0.75,
+                    0.70, 0.65, 0.60, 0.55, 0.50, 0.45,
+                    0.40, 0.38, 0.36, 0.34, 0.32, 0.30,
+                    0.28, 0.26, 0.24, 0.22, 0.20, 0.18],
+                 use_topology_pairing:bool=False, # 拓扑匹配
                  topology_loss_weight=0.05,
-                 morphology_aware_noise=True,
-                 length_priors=None,
-                 criterion=None,
-                 single_head=None,
-                 **kwargs) -> None:
+                 criterion=dict(
+                     type='ChromoDetCriterion',
+                     num_classes=24,
+                     assigner=dict(
+                         type='ChromoDetMatcher',
+                         match_costs=[
+                             dict(
+                                 type='FocalLossCost',
+                                 alpha=2.0,
+                                 gamma=0.25,
+                                 weight=2.0),
+                             dict(
+                                 type='BBoxL1Cost',
+                                 weight=5.0,
+                                 box_format='xyxy'),
+                             dict(type='IoUCost', iou_mode='giou', weight=2.0)
+                         ],
+                         center_radius=2.5,
+                         candidate_topk=5),
+                 ),
+                 single_head=dict(
+                     type='ChromoDetSingleHead',
+                     num_cls_convs=1,
+                     num_reg_convs=3,
+                     dim_feedforward=2048,
+                     num_heads=8,
+                     dropout=0.0,
+                     act_cfg=dict(type='ReLU'),
+                     dynamic_conv=dict(dynamic_dim=64, dynamic_num=2)),
+                 roi_extractor=None,
+                 train_cfg=None, test_cfg=None) -> None:
+        
+        """ 染色体特化参数 """
+        self.use_morphology_aware = use_morphology_aware # 形态感知
+        self.aspect_ratio_gamma = aspect_ratio_gamma
+        self.use_length_prior = use_length_prior # 长度先验
+        self.length_priors = length_priors
+        if not isinstance(self.length_priors, torch.Tensor):
+            self.length_priors = torch.tensor(length_priors)
+        self.length_prior_weight = length_prior_weight
+        self.use_topology_pairing = use_topology_pairing # 拓扑匹配
+        self.topology_loss_weight = topology_loss_weight
+        assert topology_loss_weight > 0, "topology_loss_weight should be > 0"
+        
+        # 临时解决方法
+        # single_head_cfg = single_head.copy()
+        # single_head_cfg['use_length_prior'] = use_length_prior
         
         super().__init__(
             num_classes=num_classes,
@@ -76,40 +126,28 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
             ddim_sampling_eta=ddim_sampling_eta,
             criterion=criterion,
             single_head=single_head,
-            **kwargs)
-        
-        # 染色体特化参数
-        self.aspect_ratio_gamma = aspect_ratio_gamma
-        self.length_prior_weight = length_prior_weight
-        self.topology_loss_weight = topology_loss_weight
-        self.morphology_aware_noise = morphology_aware_noise
-        
-        # 染色体长度先验
-        if length_priors is None:
-            self.length_priors = torch.tensor([
-                1.0, 0.95, 0.90, 0.85, 0.80, 0.75,
-                0.70, 0.65, 0.60, 0.55, 0.50, 0.45,
-                0.40, 0.38, 0.36, 0.34, 0.32, 0.30,
-                0.28, 0.26, 0.24, 0.22, 0.20, 0.18
-            ])
-        else:
-            self.length_priors = torch.tensor(length_priors)
-        
-        
+            roi_extractor=roi_extractor,
+            train_cfg=train_cfg,
+            test_cfg=test_cfg)
         
         # 形态特征编码器
-        self.morphology_encoder = nn.Sequential(
-            nn.Linear(4, feat_channels // 2),  # 长宽比、角度等特征
-            nn.ReLU(),
-            nn.Linear(feat_channels // 2, feat_channels // 4)
-        )
+        if use_morphology_aware:
+            self.morphology_encoder = nn.Sequential(
+                nn.Linear(4, feat_channels // 2),  # 长宽比、角度等特征
+                nn.ReLU(),
+                nn.Linear(feat_channels // 2, feat_channels // 4)
+            )
+            self._build_morphology_aware_diffusion()
         
         # 长度预测头
-        self.length_predictor = nn.Linear(feat_channels, 1)
+        # Single-head 中已有长度头
+        # if use_length_prior:
+        #     self.length_predictor = nn.Linear(feat_channels, 1)
         
         # 拓扑关系建模
-        self.topology_encoder = nn.MultiheadAttention(
-            feat_channels, num_heads=4, dropout=0.1)
+        if use_topology_pairing:
+            self.topology_encoder = \
+                nn.MultiheadAttention(feat_channels, num_heads=4, dropout=0.1)
     
     def _build_morphology_aware_diffusion(self):
         """构建形态感知的扩散调度"""
@@ -133,30 +171,21 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
         self.register_buffer('alphas_cumprod_prev', alphas_cumprod_prev)
 
         # 其他扩散参数计算（与原版相同）
-        self.register_buffer(
-            'sqrt_alphas_cumprod', 
-            torch.sqrt(alphas_cumprod))
-        self.register_buffer(
-            'sqrt_one_minus_alphas_cumprod',
-            torch.sqrt(1. - alphas_cumprod))
-        self.register_buffer(
-            'log_one_minus_alphas_cumprod',
-            torch.log(1. - alphas_cumprod))
-        self.register_buffer(
-            'sqrt_recip_alphas_cumprod',
-            torch.sqrt(1. / alphas_cumprod))
-        self.register_buffer(
-            'sqrt_recipm1_alphas_cumprod',
-            torch.sqrt(1. / alphas_cumprod - 1))
+        self.register_buffer('sqrt_alphas_cumprod', torch.sqrt(alphas_cumprod))
+        self.register_buffer('sqrt_one_minus_alphas_cumprod',
+                             torch.sqrt(1. - alphas_cumprod))
+        self.register_buffer('log_one_minus_alphas_cumprod',
+                             torch.log(1. - alphas_cumprod))
+        self.register_buffer('sqrt_recip_alphas_cumprod',
+                             torch.sqrt(1. / alphas_cumprod))
+        self.register_buffer('sqrt_recipm1_alphas_cumprod',
+                             torch.sqrt(1. / alphas_cumprod - 1))
 
         posterior_variance = betas * (1. - alphas_cumprod_prev) / (
             1. - alphas_cumprod)
-        self.register_buffer(
-            'posterior_variance',
-            posterior_variance)
-        self.register_buffer(
-            'posterior_log_variance_clipped',
-            torch.log(posterior_variance.clamp(min=1e-20)))
+        self.register_buffer('posterior_variance', posterior_variance)
+        self.register_buffer('posterior_log_variance_clipped',
+                             torch.log(posterior_variance.clamp(min=1e-20)))
         self.register_buffer(
             'posterior_mean_coef1',
             betas * torch.sqrt(alphas_cumprod_prev) / (1. - alphas_cumprod))
@@ -174,9 +203,9 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
         noise = torch.randn(self.num_proposals, 4, device=device)
         
         # 形态感知的噪声调整
-        if self.morphology_aware_noise and len(gt_boxes) > 0:
+        if self.use_morphology_aware and len(gt_boxes) > 0:
             # 计算真实框的形态特征
-            gt_w = gt_boxes[:, 2] 
+            gt_w = gt_boxes[:, 2]
             gt_h = gt_boxes[:, 3]
             aspect_ratios = gt_h / (gt_w + 1e-6)
             
@@ -191,12 +220,11 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
         
         num_gt = gt_boxes.shape[0]
         if num_gt < self.num_proposals:
-            # 生成占位框，考虑长度先验
             box_placeholder = torch.randn(
                 self.num_proposals - num_gt, 4, device=device) / 6. + 0.5
             
             # 应用长度先验
-            if len(self.length_priors) >= self.num_proposals - num_gt:
+            if self.use_length_prior and len(self.length_priors) >= self.num_proposals - num_gt:
                 length_priors_subset = self.length_priors[num_gt:self.num_proposals]
                 # 调整宽度和高度以符合长度先验
                 for i, length_prior in enumerate(length_priors_subset):
@@ -228,9 +256,9 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
         pred_instances.diff_bboxes = diff_bboxes
         pred_instances.diff_bboxes_abs = diff_bboxes_abs
         pred_instances.noise = noise
-        
         # 添加形态特征
-        pred_instances.morphology_features = self._compute_morphology_features(diff_bboxes_abs)
+        if self.use_morphology_aware:
+            pred_instances.morphology_features = self._compute_morphology_features(diff_bboxes_abs)
         
         return pred_instances
     
@@ -255,7 +283,7 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
 
         inter_class_logits = []
         inter_pred_bboxes = []
-        inter_pred_lengths = []
+        inter_pred_lengths = [] if self.use_length_prior else None
 
         bs = len(features[0])
         bboxes = init_bboxes
@@ -268,82 +296,109 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
 
         for head_idx, single_head in enumerate(self.head_series):
             # 单头预测
-            class_logits, pred_bboxes, proposal_features = single_head(
-                features, bboxes, proposal_features, self.roi_extractor, time)
+
+            if self.use_length_prior:
+                class_logits, pred_bboxes, proposal_features, pred_lengths = single_head(
+                    features, bboxes, proposal_features, self.roi_extractor, time)
+            else:
+                class_logits, pred_bboxes, proposal_features = single_head(
+                    features, bboxes, proposal_features, self.roi_extractor, time)
             
             # 长度预测
-            pred_lengths = self.length_predictor(proposal_features.squeeze(0))
+            # 使用 单头的长度预测头
+            # pred_lengths = None
+            # if self.use_length_prior:
+            #     pred_lengths = self.length_predictor(proposal_features.squeeze(0))
             
             # 拓扑关系建模（最后一层）
-            if head_idx == len(self.head_series) - 1:
+            if self.use_topology_pairing and head_idx == len(self.head_series) - 1:
                 # 自注意力建模染色体间关系
                 topo_features, _ = self.topology_encoder(
                     proposal_features, proposal_features, proposal_features)
                 proposal_features = proposal_features + topo_features
                 
                 # 重新预测
+                # TODO: 这里是否可以改成多一层head，或者取代原先最后一层head的输入
                 class_logits, pred_bboxes, _ = single_head(
                     features, bboxes, proposal_features, self.roi_extractor, time)
             
             if self.deep_supervision:
                 inter_class_logits.append(class_logits)
                 inter_pred_bboxes.append(pred_bboxes)
-                inter_pred_lengths.append(pred_lengths)
+                if self.use_length_prior:
+                    inter_pred_lengths.append(pred_lengths)
             
             bboxes = pred_bboxes.detach()
 
         if self.deep_supervision:
-            return (torch.stack(inter_class_logits), 
-                   torch.stack(inter_pred_bboxes),
-                   torch.stack(inter_pred_lengths))
+            res = [
+                torch.stack(inter_class_logits), 
+                torch.stack(inter_pred_bboxes),
+            ]
+            if self.use_length_prior:
+                res.append(torch.stack(inter_pred_lengths))
+            return tuple(res)
         else:
-            return (class_logits[None, ...], 
-                   pred_bboxes[None, ...],
-                   pred_lengths[None, ...])
+            res = [
+                class_logits[None, ...],
+                pred_bboxes[None, ...],
+            ]
+            if self.use_length_prior:
+                res.append(pred_lengths[None, ...])
+            return tuple(res)
     
     def loss(self, x: Tuple[Tensor], batch_data_samples: SampleList) -> dict:
         """损失计算，加入染色体特化损失"""
         prepare_outputs = self.prepare_training_targets(batch_data_samples)
-        (batch_gt_instances, batch_pred_instances, batch_gt_instances_ignore,
-         batch_img_metas) = prepare_outputs
+        batch_gt_instances, batch_pred_instances, _, batch_img_metas = prepare_outputs
 
         batch_diff_bboxes = torch.stack([
             pred_instances.diff_bboxes_abs
-            for pred_instances in batch_pred_instances
-        ])
+            for pred_instances in batch_pred_instances])
         batch_time = torch.stack(
             [pred_instances.time for pred_instances in batch_pred_instances])
 
         # 前向传播
         pred_results = self(x, batch_diff_bboxes, batch_time)
-        pred_logits, pred_bboxes = pred_results[:2]
+
+        if self.use_length_prior:
+            pred_logits, pred_bboxes, pred_lengths = pred_results
+            output = {
+                'pred_logits': pred_logits[-1],
+                'pred_boxes': pred_bboxes[-1],
+                'pred_lengths' : pred_lengths[-1]
+            }
+        else:
+            pred_logits, pred_bboxes = pred_results
+            output = {
+                'pred_logits': pred_logits[-1],
+                'pred_boxes': pred_bboxes[-1]
+            }
         
-        output = {
-            'pred_logits': pred_logits[-1],
-            'pred_boxes': pred_bboxes[-1]
-        }
-        
-        # 添加长度预测
-        if len(pred_results) > 2:
-            pred_lengths = pred_results[2]
-            output['pred_lengths'] = pred_lengths[-1]
-        
+        # 深度监督，添加辅助输出
         if self.deep_supervision:
             aux_outputs = []
-            for i in range(len(pred_logits) - 1):
-                aux_output = {
-                    'pred_logits': pred_logits[i],
-                    'pred_boxes': pred_bboxes[i]
-                }
-                if len(pred_results) > 2:
-                    aux_output['pred_lengths'] = pred_results[2][i]
-                aux_outputs.append(aux_output)
+            if self.use_length_prior:
+                for i in range(len(pred_logits) - 1):
+                    aux_output = {
+                        'pred_logits': pred_logits[i],
+                        'pred_boxes': pred_bboxes[i],
+                        'pred_lengths': pred_lengths[i]
+                    }
+                    aux_outputs.append(aux_output)
+            else:
+                for i in range(len(pred_logits) - 1):
+                    aux_output = {
+                            'pred_logits': pred_logits[i],
+                            'pred_boxes': pred_bboxes[i]
+                        }
+                    aux_outputs.append(aux_output)
             output['aux_outputs'] = aux_outputs
 
         losses = self.criterion(output, batch_gt_instances, batch_img_metas)
         
         # 添加拓扑约束损失
-        if self.topology_loss_weight > 0:
+        if self.use_topology_pairing:
             topology_loss = self._compute_topology_loss(
                 output, batch_gt_instances, batch_img_metas)
             losses['loss_topology'] = topology_loss * self.topology_loss_weight
@@ -405,25 +460,261 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
         
         return pairing_loss / max(pair_count, 1)
 
+    def predict_by_feat(
+            self,
+            x,
+            time_pairs,
+            batch_noise_bboxes,
+            batch_noise_bboxes_raw,
+            batch_image_size,
+            device,
+            batch_img_metas=None,
+            cfg=None,
+            rescale=True):
+        """
+        根据特征进行预测
+        
+        Args:
+            x: 特征金字塔
+            time_pairs: 时间对列表,用于反向扩散
+            batch_noise_bboxes: 批次噪声边界框（xyxy格式）
+            batch_noise_bboxes_raw: 批次原始噪声边界框（未处理）
+            batch_image_size: 批次图像尺寸
+            device: 设备
+            batch_img_metas: 批次图像元信息
+            cfg: 配置
+            rescale: 是否缩放
+            
+        Returns:
+            预测结果列表
+        """
+        batch_size = len(batch_img_metas)  # 批次大小
+
+        cfg = self.test_cfg if cfg is None else cfg
+        cfg = copy.deepcopy(cfg)
+
+        ensemble_score, ensemble_label, ensemble_coord = [], [], []  # 集成预测结果
+        # 遍历时间对（反向扩散过程）
+        for time, time_next in time_pairs:
+            # 构造时间张量
+            batch_time = \
+                torch.full(
+                    (batch_size, ), time, 
+                    device=device, dtype=torch.long)  # shape: [batch_size]
+            # 前向传播
+            pred_results = self(x, batch_noise_bboxes, batch_time)
+            
+            if self.use_length_prior:
+                pred_logits, pred_bboxes, pred_lengths = pred_results
+            else:
+                pred_logits, pred_bboxes = pred_results
+
+            x_start = pred_bboxes[-1]  # 预测的去噪结果
+
+            # 转换为cx,cy,w,h格式并归一化
+            x_start = x_start / batch_image_size[:, None, :]  # shape: [batch_size, num_proposals, 4]
+            x_start = bbox_xyxy_to_cxcywh(x_start)  # 转换为cx,cy,w,h格式
+            x_start = (x_start * 2 - 1.) * self.snr_scale  # 缩放到[-snr_scale, snr_scale]
+            x_start = torch.clamp(
+                x_start, min=-1 * self.snr_scale, max=self.snr_scale)  # 限制范围
+            # 从去噪结果预测噪声
+            pred_noise = self.predict_noise_from_start(
+                batch_noise_bboxes_raw, batch_time, x_start)
+            
+            pred_noise_list, x_start_list = [], []  # 每个图像的预测噪声和去噪结果
+            noise_bboxes_list, num_remain_list = [], []  # 噪声框和保留数量
+            if self.box_renewal:  # 如果使用框更新
+                score_thr = cfg.get('score_thr', 0)  # 置信度阈值
+                # 对批次中每个图像处理
+                for img_id in range(batch_size):
+                    score_per_image = pred_logits[-1][img_id]  # 当前图像的分类得分
+
+                    score_per_image = torch.sigmoid(score_per_image)  # sigmoid激活
+                    value, _ = torch.max(score_per_image, -1, keepdim=False)  # 每个框的最大类别得分
+                    keep_idx = value > score_thr  # 保留高置信度框
+
+                    num_remain_list.append(torch.sum(keep_idx))  # 保留框数量
+                    pred_noise_list.append(pred_noise[img_id, keep_idx, :])  # 保留框对应的预测噪声
+                    x_start_list.append(x_start[img_id, keep_idx, :])  # 保留框对应的去噪结果
+                    noise_bboxes_list.append(batch_noise_bboxes[img_id, keep_idx, :])  # 保留的噪声框
+            
+            # 如果是最后一步
+            if time_next < 0:
+                # 不同于原始DiffusionDet
+                if self.use_ensemble and self.sampling_timesteps > 1:
+                    # 使用集成预测
+                    box_pred_per_image, scores_per_image, labels_per_image = \
+                        self.inference(
+                            box_cls=pred_logits[-1],
+                            box_pred=pred_bboxes[-1],
+                            cfg=cfg,
+                            device=device)
+                    ensemble_score.append(scores_per_image)
+                    ensemble_label.append(labels_per_image)
+                    ensemble_coord.append(box_pred_per_image)
+                continue
+
+            # DDIM采样参数计算
+            alpha = self.alphas_cumprod[time]  # 当前时间步alpha累积值
+            alpha_next = self.alphas_cumprod[time_next]  # 下一时间步alpha累积值
+
+            sigma = self.ddim_sampling_eta * ((1 - alpha / alpha_next) *
+                                              (1 - alpha_next) /
+                                              (1 - alpha)).sqrt()  # sigma参数
+            c = (1 - alpha_next - sigma**2).sqrt()  # c参数
+
+            batch_noise_bboxes_list = []  # 新的噪声框列表
+            batch_noise_bboxes_raw_list = []  # 新的原始噪声框列表
+            # 对批次中每个图像处理
+            for idx in range(batch_size):
+                pred_noise = pred_noise_list[idx]  # 预测噪声
+                x_start = x_start_list[idx]  # 去噪结果
+                noise_bboxes = noise_bboxes_list[idx]  # 当前噪声框
+                num_remain = num_remain_list[idx]  # 保留框数量
+                noise = torch.randn_like(noise_bboxes)  # 新的随机噪声
+
+                # DDIM采样步骤: 
+                # x_{t-1} = 
+                #   sqrt(alpha_{t-1}) * x_0 + 
+                #   sqrt(1 - alpha_{t-1} - sigma^2) * pred_noise + 
+                #   sigma * noise
+                noise_bboxes = x_start * alpha_next.sqrt() + \
+                    c * pred_noise + sigma * noise
+
+                if self.box_renewal:  # 如果使用框更新
+                    # 用随机框补充
+                    if num_remain < self.num_proposals:
+                        # 如果保留框少于建议框数量,用随机框填充
+                        noise_bboxes = torch.cat(
+                            (noise_bboxes,
+                             torch.randn(
+                                 self.num_proposals - num_remain,
+                                 4,
+                                 device=device)),
+                            dim=0)  # shape: [num_proposals, 4]
+                    else:
+                        # 如果保留框多于建议框数量,随机选择
+                        select_mask = [True] * self.num_proposals + \
+                                      [False] * (num_remain -
+                                                 self.num_proposals)
+                        random.shuffle(select_mask)
+                        noise_bboxes = noise_bboxes[select_mask]
+
+                    # 保存原始噪声框
+                    batch_noise_bboxes_raw_list.append(noise_bboxes)
+                    # 处理噪声框: 转换为xyxy格式并缩放到图像尺寸
+                    noise_bboxes = torch.clamp(
+                        noise_bboxes,
+                        min=-1 * self.snr_scale,
+                        max=self.snr_scale)  # 限制范围
+                    noise_bboxes = ((noise_bboxes / self.snr_scale) + 1) / 2  # 转换到[0,1]
+                    noise_bboxes = bbox_cxcywh_to_xyxy(noise_bboxes)  # 转换为xyxy格式
+                    noise_bboxes = noise_bboxes * batch_image_size[idx]  # 缩放到绝对坐标
+
+                batch_noise_bboxes_list.append(noise_bboxes)
+            # 更新噪声框
+            batch_noise_bboxes = torch.stack(batch_noise_bboxes_list)
+            batch_noise_bboxes_raw = torch.stack(batch_noise_bboxes_raw_list)
+            
+            # 如果使用集成预测
+            if self.use_ensemble and self.sampling_timesteps > 1:
+                box_pred_per_image, scores_per_image, labels_per_image = \
+                    self.inference(
+                        box_cls=pred_logits[-1],
+                        box_pred=pred_bboxes[-1],
+                        cfg=cfg,
+                        device=device)
+                ensemble_score.append(scores_per_image)
+                ensemble_label.append(labels_per_image)
+                ensemble_coord.append(box_pred_per_image)
+        
+        # 如果使用集成预测
+        if self.use_ensemble and self.sampling_timesteps > 1:
+            steps = len(ensemble_score)  # 集成步数
+            results_list = []
+            # 对批次中每个图像处理
+            for idx in range(batch_size):
+                # 收集所有步的预测结果
+                ensemble_score_per_img = [
+                    ensemble_score[i][idx] for i in range(steps)
+                ]
+                ensemble_label_per_img = [
+                    ensemble_label[i][idx] for i in range(steps)
+                ]
+                ensemble_coord_per_img = [
+                    ensemble_coord[i][idx] for i in range(steps)
+                ]
+
+                # 拼接所有步的结果
+                scores_per_image = torch.cat(ensemble_score_per_img, dim=0)
+                labels_per_image = torch.cat(ensemble_label_per_img, dim=0)
+                box_pred_per_image = torch.cat(ensemble_coord_per_img, dim=0)
+
+                # 如果使用NMS
+                if self.use_nms:
+                    det_bboxes, keep_idxs = batched_nms(
+                        box_pred_per_image, scores_per_image, labels_per_image,
+                        cfg.nms)
+                    box_pred_per_image = box_pred_per_image[keep_idxs]
+                    labels_per_image = labels_per_image[keep_idxs]
+                    scores_per_image = det_bboxes[:, -1]  # NMS可能重新加权得分
+                # 创建结果对象
+                results = InstanceData()
+                results.bboxes = box_pred_per_image
+                results.scores = scores_per_image
+                results.labels = labels_per_image
+            results_list.append(results)
+        else:
+            # 不使用集成预测,直接使用最后一步的结果
+            box_cls = pred_logits[-1]
+            box_pred = pred_bboxes[-1]
+            results_list = self.inference(box_cls, box_pred, cfg, device)
+        
+        # 如果需要缩放结果
+        if rescale:
+            results_list = self.do_results_post_process(
+                results_list, cfg, batch_img_metas=batch_img_metas)
+        return results_list
 
 @MODELS.register_module()
 class ChromoDetSingleHead(SingleDiffusionDetHead):
+    """染色体专用的单头检测器"""
     
     def __init__(self, 
-                 num_classes=24,
-                 feat_channels=256,
-                 **kwargs):
+                 num_classes,
+                 feat_channels,
+                 num_cls_convs,
+                 num_reg_convs,
+                 dim_feedforward,
+                 num_heads,
+                 dropout,
+                 pooler_resolution,
+                 use_focal_loss,
+                 use_fed_loss,
+                 use_length_prior:bool=None):
         super().__init__(
             num_classes=num_classes,
             feat_channels=feat_channels,
-            **kwargs)
+            dim_feedforward=dim_feedforward,
+            num_cls_convs=num_cls_convs,
+            num_reg_convs=num_reg_convs,
+            num_heads=num_heads,
+            dropout=dropout,
+            pooler_resolution=pooler_resolution,
+            use_focal_loss=use_focal_loss,
+            use_fed_loss=use_fed_loss,
+            )
         
+        self.use_length_prior = use_length_prior
+        assert use_length_prior is not None, \
+            "Parameter 'use_length_prior' should be set."
         # 添加长度预测分支
-        self.length_predictor = nn.Sequential(
-            nn.Linear(feat_channels, feat_channels // 2),
-            nn.ReLU(),
-            nn.Linear(feat_channels // 2, 1)
-        )
+        if use_length_prior:
+            self.length_predictor = nn.Sequential(
+                nn.Linear(feat_channels, feat_channels // 2),
+                nn.ReLU(),
+                nn.Linear(feat_channels // 2, 1)
+            )
     
     def forward(self, features, bboxes, pro_features, pooler, time_emb):
         """前向传播，添加长度预测"""
@@ -434,7 +725,9 @@ class ChromoDetSingleHead(SingleDiffusionDetHead):
         # 长度预测
         N, num_boxes = bboxes.shape[:2]
         fc_feature = obj_features.transpose(0, 1).reshape(N * num_boxes, -1)
-        pred_lengths = self.length_predictor(fc_feature)
-        pred_lengths = pred_lengths.view(N, num_boxes, -1)
-        
-        return class_logits, pred_bboxes, obj_features, pred_lengths
+        if self.use_length_prior:
+            pred_lengths = self.length_predictor(fc_feature)
+            pred_lengths = pred_lengths.view(N, num_boxes, -1)
+            return class_logits, pred_bboxes, obj_features, pred_lengths
+        else:
+            return class_logits, pred_bboxes, obj_features

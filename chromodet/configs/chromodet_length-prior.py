@@ -6,11 +6,21 @@ _base_ = [
 
 custom_imports = dict(
     imports=[
-        'chromodet.model.head_morph_aware_integration',
+        'chromodet.model',
         'projects.DiffusionDet.diffusiondet'],
     allow_failed_imports=False)
 
 num_classes = 24
+
+# HyperParam
+use_morphology_aware = False
+use_length_prior = True
+length_priors = [1.0, 0.95, 0.90, 0.85, 0.80, 0.75,
+                 0.70, 0.65, 0.60, 0.55, 0.50, 0.45,
+                 0.40, 0.38, 0.36, 0.34, 0.32, 0.30,
+                 0.28, 0.26, 0.24, 0.22, 0.20, 0.18]
+use_topology_pairing = False
+
 
 # model settings
 model = dict(
@@ -37,8 +47,15 @@ model = dict(
         out_channels=256,
         num_outs=4),
     bbox_head=dict(
-        type='DynamicHead',
+        type='ChromoDetDynamicHead',
         num_classes=num_classes,
+        # 形态感知
+        use_morphology_aware=use_morphology_aware,  
+        # 长度感知
+        use_length_prior=use_length_prior,          
+        length_priors=length_priors,
+        # 拓扑匹配
+        use_topology_pairing=use_topology_pairing,  
         feat_channels=256,
         num_proposals=500,
         num_heads=6,
@@ -49,14 +66,15 @@ model = dict(
         ddim_sampling_eta=1.0,
         aspect_ratio_gamma=10.0,
         single_head=dict(
-            type='SingleDiffusionDetHead',
+            type='ChromoDetSingleHead',
+            num_classes=num_classes,
+            use_length_prior=use_length_prior,
+            feat_channels=256,
             num_cls_convs=1,
             num_reg_convs=3,
             dim_feedforward=2048,
             num_heads=8,
-            dropout=0.0,
-            act_cfg=dict(type='ReLU', inplace=True),
-            dynamic_conv=dict(dynamic_dim=64, dynamic_num=2)),
+            dropout=0.0),
         roi_extractor=dict(
             type='SingleRoIExtractor',
             roi_layer=dict(type='RoIAlign', output_size=7, sampling_ratio=2),
@@ -64,10 +82,18 @@ model = dict(
             featmap_strides=[4, 8, 16, 32]),
         # criterion
         criterion=dict(
-            type='DiffusionDetCriterion',
+            type='ChromoDetCriterion', # 保持原Criterion
             num_classes=num_classes,
+            use_length_prior=use_length_prior, # 长度先验
+            length_priors=length_priors,
+            use_morphology_aware=use_morphology_aware, # 形态感知
+            use_topology_pairing=use_topology_pairing, # 拓扑匹配
             assigner=dict(
-                type='DiffusionDetMatcher',
+                type='ChromoDetMatcher', # 保持原Assigner
+                use_length_prior=use_length_prior,
+                length_priors=length_priors,
+                use_morphology_aware=use_morphology_aware,
+                use_topology_pairing=use_topology_pairing,
                 match_costs=[
                     dict(
                         type='FocalLossCost',
@@ -153,7 +179,7 @@ test_pipeline = [
                    'scale_factor'))
 ]
 train_dataloader = dict(
-    batch_size=4,
+    batch_size=8,
     sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
         filter_cfg=dict(filter_empty_gt=False, min_size=1e-5),
@@ -195,13 +221,8 @@ default_hooks = dict(
         interval=1, 
         max_keep_ckpts=3,
         save_best='coco/bbox_mAP'))
+
 custom_hooks = [
-    # dict(
-    #     type='EMAHook',
-    #     ema_type='ExpMomentumEMA',
-    #     momentum=0.0002,
-    #     update_buffers=True,
-    #     priority=49),
     dict(
         type='EarlyStoppingHook',
         priority=50,

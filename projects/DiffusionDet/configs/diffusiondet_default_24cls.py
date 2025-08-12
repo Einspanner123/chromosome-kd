@@ -5,10 +5,7 @@ _base_ = [
 ]
 
 custom_imports = dict(
-    imports=[
-        'chromodet.model.head_morph_aware_noise',
-        'projects.DiffusionDet.diffusiondet'],
-    allow_failed_imports=False)
+    imports=['projects.DiffusionDet.diffusiondet'], allow_failed_imports=False)
 
 num_classes = 24
 
@@ -37,7 +34,7 @@ model = dict(
         out_channels=256,
         num_outs=4),
     bbox_head=dict(
-        type='DynamicHead',
+        type='DynamicDiffusionDetHead',
         num_classes=num_classes,
         feat_channels=256,
         num_proposals=500,
@@ -49,6 +46,7 @@ model = dict(
         ddim_sampling_eta=1.0,
         single_head=dict(
             type='SingleDiffusionDetHead',
+            num_classes=num_classes,
             num_cls_convs=1,
             num_reg_convs=3,
             dim_feedforward=2048,
@@ -152,7 +150,7 @@ test_pipeline = [
                    'scale_factor'))
 ]
 train_dataloader = dict(
-    batch_size=8,
+    batch_size=4,
     sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
         filter_cfg=dict(filter_empty_gt=False, min_size=1e-5),
@@ -189,11 +187,7 @@ param_scheduler = [
 ]
 
 default_hooks = dict(
-    checkpoint=dict(
-        by_epoch=True, 
-        interval=1, 
-        max_keep_ckpts=3,
-        save_best='coco/bbox_mAP'))
+    checkpoint=dict(by_epoch=True, interval=1, max_keep_ckpts=3))
 custom_hooks = [
     # dict(
     #     type='EMAHook',
@@ -210,7 +204,6 @@ custom_hooks = [
         rule='greater'),]
 
 log_processor = dict(by_epoch=True)
-device = "cuda"
 
 visualizer = dict(
     _scope_='mmdet',

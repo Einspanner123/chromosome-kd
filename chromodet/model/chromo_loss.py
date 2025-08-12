@@ -24,28 +24,32 @@ class ChromoDetCriterion(DiffusionDetCriterion):
     3. 拓扑关系损失
     """
     
-    def __init__(self,
-                 num_classes=24,
-                 assigner: Union[ConfigDict, nn.Module] = None,
-                 deep_supervision=True,
-                 loss_cls=dict(
-                     type='FocalLoss',
-                     use_sigmoid=True,
-                     alpha=0.25,
-                     gamma=2.0,
-                     reduction='sum',
-                     loss_weight=2.0),
-                 loss_bbox=dict(type='L1Loss', reduction='sum', loss_weight=5.0),
-                 loss_giou=dict(type='GIoULoss', reduction='sum', loss_weight=2.0),
-                 # 染色体特化损失
-                 loss_length=dict(type='L1Loss', reduction='sum', loss_weight=1.0),
-                 loss_aspect_ratio=dict(type='L1Loss', reduction='sum', loss_weight=0.5),
-                 loss_topology=dict(type='MSELoss', reduction='sum', loss_weight=0.2),
-                 # 长度先验
-                 length_priors=None,
-                 aspect_ratio_target=10.0,  # 目标长宽比
-                 **kwargs):
-        
+    def __init__(
+            self,
+            num_classes=24,
+            assigner: Union[ConfigDict, nn.Module] = None,
+            deep_supervision=True,
+            loss_cls=dict(
+                type='FocalLoss',
+                use_sigmoid=True,
+                alpha=0.25,
+                gamma=2.0,
+                reduction='sum',
+                loss_weight=2.0),
+            loss_bbox=dict(type='L1Loss', reduction='sum', loss_weight=5.0),
+            loss_giou=dict(type='GIoULoss', reduction='sum', loss_weight=2.0),
+            # 长度先验
+            use_length_prior:bool=True,
+            loss_length=dict(type='L1Loss', reduction='sum', loss_weight=1.0),
+            length_priors:list=None,
+            aspect_ratio_target=10.0,  # 目标长宽比
+            # 形态感知
+            use_morphology_aware:bool=False,
+            loss_aspect_ratio=dict(type='L1Loss', reduction='sum', loss_weight=0.5),
+            # 拓扑匹配
+            use_topology_pairing:bool=False,
+            loss_topology=dict(type='MSELoss', reduction='sum', loss_weight=0.2),
+            ):
         super().__init__(
             num_classes=num_classes,
             assigner=assigner,
@@ -54,48 +58,45 @@ class ChromoDetCriterion(DiffusionDetCriterion):
             loss_bbox=loss_bbox,
             loss_giou=loss_giou)
         
-        # 染色体特化损失
-        self.loss_length = MODELS.build(loss_length)
-        self.loss_aspect_ratio = MODELS.build(loss_aspect_ratio)
-        self.loss_topology = MODELS.build(loss_topology)
-        
         # 长度先验
-        if length_priors is None:
-            self.length_priors = torch.tensor([
-                1.0, 0.95, 0.90, 0.85, 0.80, 0.75,
-                0.70, 0.65, 0.60, 0.55, 0.50, 0.45,
-                0.40, 0.38, 0.36, 0.34, 0.32, 0.30,
-                0.28, 0.26, 0.24, 0.22, 0.20, 0.18
-            ])
-        else:
+        self.use_length_prior = use_length_prior
+        if use_length_prior:
+            self.loss_length = MODELS.build(loss_length)
             self.length_priors = torch.tensor(length_priors)
-        
-        self.aspect_ratio_target = aspect_ratio_target
+            self.aspect_ratio_target = aspect_ratio_target
+        # 形态感知
+        self.use_morphology_aware = use_morphology_aware
+        if use_morphology_aware:
+            self.loss_aspect_ratio = MODELS.build(loss_aspect_ratio)
+        # 拓扑匹配
+        self.use_topology_pairing = use_topology_pairing
+        if use_topology_pairing:
+            self.loss_topology = MODELS.build(loss_topology)
     
     def forward(self, outputs, batch_gt_instances, batch_img_metas):
         """前向传播，计算所有损失"""
         # 原有损失
         losses = super().forward(outputs, batch_gt_instances, batch_img_metas)
-        
-        # 染色体特化损失
+
         batch_indices = self.assigner(outputs, batch_gt_instances, batch_img_metas)
         
         # 长度损失
-        if 'pred_lengths' in outputs:
+        if self.use_length_prior:
             loss_length = self.loss_length_computation(
                 outputs, batch_gt_instances, batch_indices)
             losses['loss_length'] = loss_length
         
         # 形态约束损失
-        loss_morphology = self.loss_morphology_computation(
-            outputs, batch_gt_instances, batch_indices)
-        losses['loss_aspect_ratio'] = loss_morphology
-                    
+        if self.use_morphology_aware:
+            loss_morphology = self.loss_morphology_computation(
+                outputs, batch_gt_instances, batch_indices)
+            losses['loss_aspect_ratio'] = loss_morphology
 
         # 拓扑损失
-        loss_topology = self.loss_topology_computation(
-            outputs, batch_gt_instances, batch_indices)
-        losses['loss_topology'] = loss_topology
+        if self.use_topology_pairing:
+            loss_topology = self.loss_topology_computation(
+                outputs, batch_gt_instances, batch_indices)
+            losses['loss_topology'] = loss_topology
         
         # 深度监督的染色体特化损失
         if self.deep_supervision and 'aux_outputs' in outputs:
@@ -103,30 +104,29 @@ class ChromoDetCriterion(DiffusionDetCriterion):
                 batch_indices = self.assigner(aux_outputs, batch_gt_instances, batch_img_metas)
                 
                 # 长度损失
-                if 'pred_lengths' in aux_outputs:
+                if self.use_length_prior:
                     loss_length = self.loss_length_computation(
                         aux_outputs, batch_gt_instances, batch_indices)
                     losses[f's.{i}.loss_length'] = loss_length
                 
                 # 形态约束损失
-                loss_morphology = self.loss_morphology_computation(
-                    aux_outputs, batch_gt_instances, batch_indices)
-                losses[f's.{i}.loss_aspect_ratio'] = loss_morphology
+                if self.use_morphology_aware:
+                    loss_morphology = self.loss_morphology_computation(
+                        aux_outputs, batch_gt_instances, batch_indices)
+                    losses[f's.{i}.loss_aspect_ratio'] = loss_morphology
                 
                 # 拓扑损失
-                loss_topology = self.loss_topology_computation(
-                    aux_outputs, batch_gt_instances, batch_indices)
-                losses[f's.{i}.loss_topology'] = loss_topology
+                if self.use_topology_pairing:
+                    loss_topology = self.loss_topology_computation(
+                        aux_outputs, batch_gt_instances, batch_indices)
+                    losses[f's.{i}.loss_topology'] = loss_topology
         
         return losses
     
     def loss_length_computation(self, outputs, batch_gt_instances, indices):
         """计算长度预测损失"""
-        if 'pred_lengths' not in outputs:
-            return torch.tensor(0.0, device=outputs['pred_boxes'].device)
-        
         pred_lengths = outputs['pred_lengths']
-        pred_boxes = outputs['pred_boxes']
+        # pred_boxes = outputs['pred_boxes']
         
         # 计算真实长度
         target_lengths_list = []
@@ -311,25 +311,33 @@ class ChromoDetMatcher(DiffusionDetMatcher):
     3. 类别特异性匹配
     """
     
-    def __init__(self,
-                 match_costs: Union[List[Union[dict, ConfigDict]], dict, ConfigDict],
-                 center_radius: float = 2.5,
-                 candidate_topk: int = 5,
-                 iou_calculator: ConfigType = dict(type='BboxOverlaps2D'),
-                 # 染色体特化参数
-                 morphology_weight: float = 0.5,
-                 length_weight: float = 0.3,
-                 **kwargs):
+    def __init__(
+            self,
+            match_costs: Union[List[Union[dict, ConfigDict]], dict, ConfigDict],
+            center_radius: float = 2.5,
+            candidate_topk: int = 5,
+            iou_calculator: ConfigType = dict(type='BboxOverlaps2D'),
+            # 染色体特化参数
+            use_length_prior:bool=False,
+            length_priors:list=None,
+            length_weight: float = 0.3,
+            use_morphology_aware:bool=False,
+            morphology_weight: float = 0.5,
+            use_topology_pairing:bool=False
+            ):
         
         super().__init__(
             match_costs=match_costs,
             center_radius=center_radius,
             candidate_topk=candidate_topk,
             iou_calculator=iou_calculator,
-            **kwargs)
-        
-        self.morphology_weight = morphology_weight
+            )
+        self.use_length_prior = use_length_prior
+        self.length_priors = torch.tensor(length_priors)
         self.length_weight = length_weight
+        self.use_morphology_aware = use_morphology_aware
+        self.morphology_weight = morphology_weight
+        self.use_topology_pairing = use_topology_pairing
     
     def single_assigner(self, pred_instances, gt_instances, img_meta):
         """单图像匹配，加入形态特征"""
@@ -339,10 +347,10 @@ class ChromoDetMatcher(DiffusionDetMatcher):
             num_gt = gt_bboxes.size(0)
   
             if num_gt == 0:
-                valid_mask = pred_bboxes.new_zeros((pred_bboxes.shape[0], ),
-                                                   dtype=torch.bool)
-                matched_gt_inds = pred_bboxes.new_zeros((gt_bboxes.shape[0], ),
-                                                        dtype=torch.long)
+                valid_mask = pred_bboxes.new_zeros(
+                    (pred_bboxes.shape[0],), dtype=torch.bool)
+                matched_gt_inds = pred_bboxes.new_zeros(
+                    (gt_bboxes.shape[0],), dtype=torch.long)
                 return valid_mask, matched_gt_inds
   
             valid_mask, is_in_boxes_and_center = \
@@ -360,12 +368,14 @@ class ChromoDetMatcher(DiffusionDetMatcher):
                 cost_list.append(cost)
   
             # 添加形态匹配代价
-            morphology_cost = self._compute_morphology_cost(pred_bboxes, gt_bboxes)
-            cost_list.append(morphology_cost * self.morphology_weight)
+            if self.use_morphology_aware:
+                morphology_cost = self._compute_morphology_cost(pred_bboxes, gt_bboxes)
+                cost_list.append(morphology_cost * self.morphology_weight)
             
             # 添加长度匹配代价
-            length_cost = self._compute_length_cost(pred_bboxes, gt_bboxes, gt_instances.labels)
-            cost_list.append(length_cost * self.length_weight)
+            if self.use_length_prior:
+                length_cost = self._compute_length_cost(pred_bboxes, gt_bboxes, gt_instances.labels)
+                cost_list.append(length_cost * self.length_weight)
   
             pairwise_ious = self.iou_calculator(pred_bboxes, gt_bboxes)
   
@@ -410,13 +420,7 @@ class ChromoDetMatcher(DiffusionDetMatcher):
     def _compute_length_cost(self, pred_bboxes, gt_bboxes, gt_labels):
         """计算长度先验代价"""
         # 长度先验（相对值）
-        length_priors = torch.tensor([
-            1.0, 0.95, 0.90, 0.85, 0.80, 0.75,
-            0.70, 0.65, 0.60, 0.55, 0.50, 0.45,
-            0.40, 0.38, 0.36, 0.34, 0.32, 0.30,
-            0.28, 0.26, 0.24, 0.22, 0.20, 0.18
-        ], device=pred_bboxes.device)
-        
+        self.length_priors.to(pred_bboxes.device)
         # 预测框长度
         pred_w = pred_bboxes[:, 2] - pred_bboxes[:, 0]
         pred_h = pred_bboxes[:, 3] - pred_bboxes[:, 1]
@@ -427,8 +431,8 @@ class ChromoDetMatcher(DiffusionDetMatcher):
         length_cost = torch.zeros(len(pred_bboxes), len(gt_bboxes), device=pred_bboxes.device)
         
         for i, gt_label in enumerate(gt_labels):
-            if gt_label < len(length_priors):
-                expected_length = length_priors[gt_label]
+            if gt_label < len(self.length_priors):
+                expected_length = self.length_priors[gt_label]
                 length_diff = torch.abs(pred_lengths_norm - expected_length)
                 length_cost[:, i] = length_diff
         
