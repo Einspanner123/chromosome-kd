@@ -3,7 +3,6 @@ _base_ = [
     'mmdet::_base_/schedules/schedule_1x.py',
     'mmdet::_base_/default_runtime.py'
 ]
-
 custom_imports = dict(
     imports=[
         'chromodet.model',
@@ -19,7 +18,7 @@ length_priors = [1.0, 0.95, 0.90, 0.85, 0.80, 0.75,
                  0.70, 0.65, 0.60, 0.55, 0.50, 0.45,
                  0.40, 0.38, 0.36, 0.34, 0.32, 0.30,
                  0.28, 0.26, 0.24, 0.22, 0.20, 0.18]
-use_topology_pairing = False
+use_topology_pairing = True
 
 
 # model settings
@@ -67,7 +66,7 @@ model = dict(
         aspect_ratio_gamma=10.0,
         single_head=dict(
             type='ChromoDetSingleHead',
-            # num_classes=num_classes,
+            num_classes=num_classes,
             use_length_prior=use_length_prior,
             feat_channels=256,
             num_cls_convs=1,
@@ -85,11 +84,13 @@ model = dict(
             type='ChromoDetCriterion', # 保持原Criterion
             num_classes=num_classes,
             use_length_prior=use_length_prior, # 长度先验
+            length_priors=length_priors,
             use_morphology_aware=use_morphology_aware, # 形态感知
             use_topology_pairing=use_topology_pairing, # 拓扑匹配
             assigner=dict(
                 type='ChromoDetMatcher', # 保持原Assigner
                 use_length_prior=use_length_prior,
+                length_priors=length_priors,
                 use_morphology_aware=use_morphology_aware,
                 use_topology_pairing=use_topology_pairing,
                 match_costs=[
@@ -177,9 +178,10 @@ test_pipeline = [
                    'scale_factor'))
 ]
 train_dataloader = dict(
-    batch_size=4,
+    batch_size=1,
     sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
+        indices=[i for i in range(0, 1000, 100)], # 用于快速验证训练和验证
         filter_cfg=dict(filter_empty_gt=False, min_size=1e-5),
         pipeline=train_pipeline))
 

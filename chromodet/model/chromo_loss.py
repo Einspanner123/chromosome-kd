@@ -99,7 +99,7 @@ class ChromoDetCriterion(DiffusionDetCriterion):
             losses['loss_topology'] = loss_topology
         
         # 深度监督的染色体特化损失
-        if self.deep_supervision and 'aux_outputs' in outputs:
+        if self.deep_supervision:
             for i, aux_outputs in enumerate(outputs['aux_outputs']):
                 batch_indices = self.assigner(aux_outputs, batch_gt_instances, batch_img_metas)
                 

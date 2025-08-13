@@ -14,7 +14,7 @@ num_classes = 24
 
 # HyperParam
 use_morphology_aware = False
-use_length_prior = True
+use_length_prior = False
 length_priors = [1.0, 0.95, 0.90, 0.85, 0.80, 0.75,
                  0.70, 0.65, 0.60, 0.55, 0.50, 0.45,
                  0.40, 0.38, 0.36, 0.34, 0.32, 0.30,

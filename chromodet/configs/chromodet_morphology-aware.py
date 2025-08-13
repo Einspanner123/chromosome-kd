@@ -3,7 +3,6 @@ _base_ = [
     'mmdet::_base_/schedules/schedule_1x.py',
     'mmdet::_base_/default_runtime.py'
 ]
-
 custom_imports = dict(
     imports=[
         'chromodet.model',
@@ -13,8 +12,8 @@ custom_imports = dict(
 num_classes = 24
 
 # HyperParam
-use_morphology_aware = False
-use_length_prior = True
+use_morphology_aware = True
+use_length_prior = False
 length_priors = [1.0, 0.95, 0.90, 0.85, 0.80, 0.75,
                  0.70, 0.65, 0.60, 0.55, 0.50, 0.45,
                  0.40, 0.38, 0.36, 0.34, 0.32, 0.30,
@@ -179,9 +178,10 @@ test_pipeline = [
                    'scale_factor'))
 ]
 train_dataloader = dict(
-    batch_size=4,
+    batch_size=1,
     sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
+        # indices=[i for i in range(0, 1000, 100)], # 用于快速验证训练和验证
         filter_cfg=dict(filter_empty_gt=False, min_size=1e-5),
         pipeline=train_pipeline))
 
