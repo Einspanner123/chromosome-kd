@@ -161,6 +161,7 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
         # 后期时间步稍微增大噪声（增强随机性）
         late_steps = 3 * self.timesteps // 4
         betas[late_steps:] *= 1.2
+        betas = betas.clamp(min=0.0, max=1-1e-6) # 防止超过[0,1]范围
         
         alphas = 1. - betas
         alphas_cumprod = torch.cumprod(alphas, dim=0)

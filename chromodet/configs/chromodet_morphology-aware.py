@@ -178,7 +178,7 @@ test_pipeline = [
                    'scale_factor'))
 ]
 train_dataloader = dict(
-    batch_size=1,
+    batch_size=4,
     sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
         # indices=[i for i in range(0, 1000, 100)], # 用于快速验证训练和验证
