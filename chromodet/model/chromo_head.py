@@ -106,10 +106,6 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
         self.topology_loss_weight = topology_loss_weight
         assert topology_loss_weight > 0, "topology_loss_weight should be > 0"
         
-        # 临时解决方法
-        # single_head_cfg = single_head.copy()
-        # single_head_cfg['use_length_prior'] = use_length_prior
-        
         super().__init__(
             num_classes=num_classes,
             feat_channels=feat_channels,
@@ -200,52 +196,87 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
         time = torch.randint(
             0, self.timesteps, (1, ), dtype=torch.long, device=device)
         
-        # 基础噪声
         noise = torch.randn(self.num_proposals, 4, device=device)
         
         # 形态感知的噪声调整
-        if self.use_morphology_aware and len(gt_boxes) > 0:
-            # 计算真实框的形态特征
-            gt_w = gt_boxes[:, 2]
-            gt_h = gt_boxes[:, 3]
-            aspect_ratios = gt_h / (gt_w + 1e-6)
-            
-            # 对细长目标（高长宽比）减少噪声
-            aspect_ratio_factor = torch.exp(-self.aspect_ratio_gamma * 
-                                          torch.abs(aspect_ratios - aspect_ratios.mean()))
-            
-            # 调整噪声强度
-            for i, factor in enumerate(aspect_ratio_factor):
-                if i < len(noise):
-                    noise[i] *= (0.5 + 0.5 * factor)  # 噪声范围：0.5-1.0
+        # 计算真实框的形态特征
+        gt_w = gt_boxes[:, 2]
+        gt_h = gt_boxes[:, 3]
+        # 统计得到长宽比集中在 w/h=6 以下
+        aspect_ratios = gt_w / (gt_h + 1e-6)
+        
+        # 修改缩放因子的逻辑
+        # 改进后的代码
+        # 使用更稳定的基准值（如中位数）而不是均值
+        aspect_ratio_median = torch.median(aspect_ratios)
+        aspect_ratio_deviation = torch.abs(aspect_ratios - aspect_ratio_median)
+        
+        # 调整gamma值的影响力，使对极端长宽比的目标有更强的噪声抑制
+        aspect_ratio_factor = torch.exp(
+            -self.aspect_ratio_gamma * aspect_ratio_deviation / (1.0 + aspect_ratio_deviation))
+        
+        # 扩大噪声缩放范围，使细长目标的噪声更小，接近正方形的目标噪声相对更大
+        factors = 0.3 + 0.7 * torch.exp(-aspect_ratio_factor)
         
         num_gt = gt_boxes.shape[0]
+        
         if num_gt < self.num_proposals:
-            box_placeholder = torch.randn(
-                self.num_proposals - num_gt, 4, device=device) / 6. + 0.5
+            num_placeholder = self.num_proposals - num_gt
             
-            # 应用长度先验
-            if self.use_length_prior and len(self.length_priors) >= self.num_proposals - num_gt:
-                length_priors_subset = self.length_priors[num_gt:self.num_proposals]
-                # 调整宽度和高度以符合长度先验
-                for i, length_prior in enumerate(length_priors_subset):
-                    # 假设细长形态，高度 > 宽度
-                    box_placeholder[i, 2] *= 0.3  # 宽度较小
-                    box_placeholder[i, 3] *= length_prior  # 高度按先验调整
+            # 2. 生成符合宽高比分布的占位框
+            # 2.1 定义宽高比区间和权重（根据直方图分布手动估计）
+            bins = torch.tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], device=device)
+            weights = torch.tensor([
+                12000, 11000, 9000, 6000, 4000, 3000,  # 低比值区间（0~6）权重高
+                1500, 800, 500, 600                    # 高比值区间（6~10）模拟长尾
+            ], dtype=torch.float32, device=device)
+            weights = weights / weights.sum()  # 归一化权重
             
-            box_placeholder[:, 2:] = torch.clip(box_placeholder[:, 2:], min=1e-4)
-            x_start = torch.cat((gt_boxes, box_placeholder), dim=0)
+            # 2.2 采样宽高比区间并生成具体值
+            bin_indices = torch.multinomial(weights, num_placeholder, replacement=True)
+            lower = bins[bin_indices]
+            upper = bins[bin_indices + 1]
+            aspect_ratios_placeholder = lower + (upper - lower) * torch.rand(num_placeholder, device=device)
+            
+            # 2.3 生成宽（w）、高（h）：控制在合理范围（0.2~0.8，相对值）
+            h_placeholder = 0.2 + 0.6 * torch.rand(num_placeholder, device=device)  # 基础高度范围
+            w_placeholder = aspect_ratios_placeholder * h_placeholder
+            # 限制宽高，避免极端值
+            w_placeholder = torch.clamp(w_placeholder, 0.2, 0.8)
+            h_placeholder = torch.clamp(w_placeholder / aspect_ratios_placeholder, 0.2, 0.8)
+            
+            # 2.4 生成中心坐标（cx, cy）：避免过于靠边
+            cx_placeholder = 0.1 + 0.8 * torch.rand(num_placeholder, device=device)
+            cy_placeholder = 0.1 + 0.8 * torch.rand(num_placeholder, device=device)
+            
+            # 2.5 组合成cxcywh格式的占位框
+            box_placeholder = torch.stack([
+                cx_placeholder,
+                cy_placeholder,
+                w_placeholder,
+                h_placeholder
+            ], dim=1)
+            
+            # 2.6 计算占位框的噪声因子
+            aspect_ratio_deviation_placeholder = torch.abs(aspect_ratios_placeholder - 1.0)
+            aspect_ratio_factor_placeholder = torch.exp(-self.aspect_ratio_gamma * aspect_ratio_deviation_placeholder)
+            factors_placeholder = 0.5 + 0.5 * aspect_ratio_factor_placeholder
+            
+            # 合并因子和框
+            factors = torch.cat([aspect_ratio_factor, factors_placeholder], dim=0)
+            noise *= factors.unsqueeze(1)
+            x_start = torch.cat([gt_boxes, box_placeholder], dim=0)
         else:
-            select_mask = [True] * self.num_proposals + \
-                          [False] * (num_gt - self.num_proposals)
-            random.shuffle(select_mask)
+            # 采样num_proposals个真实框，保持可复现性
+            select_mask = torch.randperm(num_gt)[:self.num_proposals]
             x_start = gt_boxes[select_mask]
+            factors = aspect_ratio_factor[select_mask]
+            noise *= factors.unsqueeze(1)
 
         x_start = (x_start * 2. - 1.) * self.snr_scale
 
         # 噪声采样
         x = self.q_sample(x_start=x_start, time=time, noise=noise)
-
         x = torch.clamp(x, min=-1 * self.snr_scale, max=self.snr_scale)
         x = ((x / self.snr_scale) + 1) / 2.
 
@@ -257,6 +288,7 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
         pred_instances.diff_bboxes = diff_bboxes
         pred_instances.diff_bboxes_abs = diff_bboxes_abs
         pred_instances.noise = noise
+        
         # 添加形态特征
         if self.use_morphology_aware:
             pred_instances.morphology_features = self._compute_morphology_features(diff_bboxes_abs)

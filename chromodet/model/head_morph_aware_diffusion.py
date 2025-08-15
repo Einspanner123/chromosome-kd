@@ -91,7 +91,8 @@ class DynamicHead(DynamicDiffusionDetHead):
         aspect_ratio_deviation = torch.abs(aspect_ratios - aspect_ratio_median)
         
         # 调整gamma值的影响力，使对极端长宽比的目标有更强的噪声抑制
-        aspect_ratio_factor = torch.exp(-self.aspect_ratio_gamma * aspect_ratio_deviation / (1.0 + aspect_ratio_deviation))
+        aspect_ratio_factor = torch.exp(
+            -self.aspect_ratio_gamma * aspect_ratio_deviation / (1.0 + aspect_ratio_deviation))
         
         # 扩大噪声缩放范围，使细长目标的噪声更小，接近正方形的目标噪声相对更大
         factors = 0.3 + 0.7 * torch.exp(-aspect_ratio_factor)
@@ -168,6 +169,7 @@ class DynamicHead(DynamicDiffusionDetHead):
         pred_instances.noise = noise
         
         # 添加形态特征
-        # pred_instances.morphology_features = self._compute_morphology_features(diff_bboxes_abs)
+        if self.use_morphology_aware:
+            pred_instances.morphology_features = self._compute_morphology_features(diff_bboxes_abs)
         
         return pred_instances
