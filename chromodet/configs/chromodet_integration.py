@@ -13,13 +13,13 @@ custom_imports = dict(
 num_classes = 24
 
 # HyperParam
-use_morphology_aware = False
-use_length_prior = False
+use_morphology_aware = True
+use_length_prior = True
 length_priors = [1.0, 0.95, 0.90, 0.85, 0.80, 0.75,
                  0.70, 0.65, 0.60, 0.55, 0.50, 0.45,
                  0.40, 0.38, 0.36, 0.34, 0.32, 0.30,
                  0.28, 0.26, 0.24, 0.22, 0.20, 0.18]
-use_topology_pairing = False
+use_topology_pairing = True
 
 
 # model settings
@@ -182,11 +182,12 @@ train_dataloader = dict(
     batch_size=4,
     sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
+        # indices=[i for i in range(0, 1000, 100)], # 用于快速验证训练和验证
         filter_cfg=dict(filter_empty_gt=False, min_size=1e-5),
         pipeline=train_pipeline))
 
 val_dataloader = dict(dataset=dict(pipeline=test_pipeline))
-# test_dataloader = val_dataloader
+test_dataloader = val_dataloader
 
 max_epoch = 150
 

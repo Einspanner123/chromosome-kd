@@ -70,18 +70,13 @@ val_dataloader = dict(
         test_mode=True,
         pipeline=test_pipeline,
         backend_args=backend_args))
-test_dataloader = val_dataloader
-
 val_evaluator = dict(
     type='CocoMetric',
     ann_file=data_root + 'valid/_annotations.coco.json',
     metric='bbox',
     format_only=False,
     backend_args=backend_args)
-# test_evaluator = val_evaluator
 
-# inference on test dataset and
-# format the output results for submission.
 test_dataloader = dict(
     batch_size=1,
     num_workers=2,
@@ -92,13 +87,15 @@ test_dataloader = dict(
         type=dataset_type,
         data_root=data_root,
         metainfo=METAINFO,
-        ann_file=data_root + 'test/_annotations.coco.json',
+        ann_file='test/_annotations.coco.json',
         data_prefix=dict(img='test/'),
         test_mode=True,
-        pipeline=test_pipeline))
+        pipeline=test_pipeline,
+        backend_args=backend_args))
 test_evaluator = dict(
     type='CocoMetric',
     metric='bbox',
-    format_only=True,
-    ann_file=data_root + 'test/_annotations.coco.json',
-    outfile_prefix='./work_dirs/chromo_coco_detection/test')
+    format_only=False,
+    ann_file='test/_annotations.coco.json',
+    outfile_prefix='./work_dirs/chromo_coco_detection/test',
+    backend_args=backend_args)

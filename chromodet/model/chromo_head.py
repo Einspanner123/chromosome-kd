@@ -135,11 +135,6 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
             )
             self._build_morphology_aware_diffusion()
         
-        # 长度预测头
-        # Single-head 中已有长度头
-        # if use_length_prior:
-        #     self.length_predictor = nn.Linear(feat_channels, 1)
-        
         # 拓扑关系建模
         if use_topology_pairing:
             self.topology_encoder = \
@@ -316,7 +311,7 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
 
         inter_class_logits = []
         inter_pred_bboxes = []
-        inter_pred_lengths = [] if self.use_length_prior else None
+        inter_pred_lengths = []
 
         bs = len(features[0])
         bboxes = init_bboxes
@@ -352,8 +347,12 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
                 
                 # 重新预测
                 # TODO: 这里是否可以改成多一层head，或者取代原先最后一层head的输入
-                class_logits, pred_bboxes, _ = single_head(
-                    features, bboxes, proposal_features, self.roi_extractor, time)
+                if self.use_length_prior:
+                    class_logits, pred_bboxes, proposal_features, pred_lengths = single_head(
+                        features, bboxes, proposal_features, self.roi_extractor, time)
+                else:
+                    class_logits, pred_bboxes, proposal_features = single_head(
+                        features, bboxes, proposal_features, self.roi_extractor, time)
             
             if self.deep_supervision:
                 inter_class_logits.append(class_logits)
@@ -429,69 +428,8 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
             output['aux_outputs'] = aux_outputs
 
         losses = self.criterion(output, batch_gt_instances, batch_img_metas)
-        
-        # 添加拓扑约束损失
-        if self.use_topology_pairing:
-            topology_loss = self._compute_topology_loss(
-                output, batch_gt_instances, batch_img_metas)
-            losses['loss_topology'] = topology_loss * self.topology_loss_weight
-        
+
         return losses
-    
-    def _compute_topology_loss(self, outputs, batch_gt_instances, batch_img_metas):
-        """计算拓扑约束损失"""
-        pred_bboxes = outputs['pred_boxes']
-        batch_size = pred_bboxes.shape[0]
-        
-        topology_losses = []
-        
-        for batch_idx in range(batch_size):
-            gt_instances = batch_gt_instances[batch_idx]
-            pred_boxes_single = pred_bboxes[batch_idx]
-            
-            if len(gt_instances.labels) == 0:
-                continue
-            
-            # 计算同源染色体配对损失
-            pairing_loss = self._compute_pairing_loss(
-                pred_boxes_single, gt_instances)
-            topology_losses.append(pairing_loss)
-        
-        if len(topology_losses) > 0:
-            return torch.stack(topology_losses).mean()
-        else:
-            return pred_bboxes.sum() * 0  # 返回零损失
-    
-    def _compute_pairing_loss(self, pred_boxes, gt_instances):
-        """计算配对损失"""
-        gt_labels = gt_instances.labels
-        gt_boxes = gt_instances.bboxes
-        
-        pairing_loss = 0.0
-        pair_count = 0
-        
-        # 遍历同源染色体对
-        for chr1_type, chr2_type in [(i, i) for i in range(22)]:  # 常染色体
-            # 找到对应类型的真实框
-            mask1 = gt_labels == chr1_type
-            mask2 = gt_labels == chr2_type
-            
-            if chr1_type == chr2_type:  # 同号染色体
-                same_type_boxes = gt_boxes[mask1]
-                if len(same_type_boxes) == 2:
-                    # 计算两个同源染色体的距离
-                    center1 = (same_type_boxes[0][:2] + same_type_boxes[0][2:]) / 2
-                    center2 = (same_type_boxes[1][:2] + same_type_boxes[1][2:]) / 2
-                    distance = torch.norm(center1 - center2)
-                    
-                    # 期望距离（可调参数）
-                    expected_distance = 100.0  # 像素
-                    pairing_loss += F.mse_loss(distance, 
-                                             torch.tensor(expected_distance, 
-                                                        device=distance.device))
-                    pair_count += 1
-        
-        return pairing_loss / max(pair_count, 1)
 
     def predict_by_feat(
             self,
@@ -530,10 +468,8 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
         # 遍历时间对（反向扩散过程）
         for time, time_next in time_pairs:
             # 构造时间张量
-            batch_time = \
-                torch.full(
-                    (batch_size, ), time, 
-                    device=device, dtype=torch.long)  # shape: [batch_size]
+            batch_time = torch.full((batch_size,), time,
+                                    device=device, dtype=torch.long)  # shape: [batch_size]
             # 前向传播
             pred_results = self(x, batch_noise_bboxes, batch_time)
             
@@ -606,11 +542,12 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
                 num_remain = num_remain_list[idx]  # 保留框数量
                 noise = torch.randn_like(noise_bboxes)  # 新的随机噪声
 
-                # DDIM采样步骤: 
-                # x_{t-1} = 
-                #   sqrt(alpha_{t-1}) * x_0 + 
-                #   sqrt(1 - alpha_{t-1} - sigma^2) * pred_noise + 
-                #   sigma * noise
+                """ DDIM采样步骤: 
+                    x_{t-1} = 
+                    sqrt(alpha_{t-1}) * x_0 + 
+                    sqrt(1 - alpha_{t-1} - sigma^2) * pred_noise + 
+                    sigma * noise 
+                """
                 noise_bboxes = x_start * alpha_next.sqrt() + \
                     c * pred_noise + sigma * noise
 
@@ -627,10 +564,11 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
                             dim=0)  # shape: [num_proposals, 4]
                     else:
                         # 如果保留框多于建议框数量,随机选择
-                        select_mask = [True] * self.num_proposals + \
-                                      [False] * (num_remain -
-                                                 self.num_proposals)
-                        random.shuffle(select_mask)
+                        # select_mask = [True] * self.num_proposals + \
+                        #               [False] * (num_remain -
+                        #                          self.num_proposals)
+                        # random.shuffle(select_mask)
+                        select_mask = torch.randperm(num_remain)[: self.num_proposals] # 使用torch自带随机序号方法
                         noise_bboxes = noise_bboxes[select_mask]
 
                     # 保存原始噪声框
@@ -696,7 +634,7 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
                 results.bboxes = box_pred_per_image
                 results.scores = scores_per_image
                 results.labels = labels_per_image
-            results_list.append(results)
+                results_list.append(results)
         else:
             # 不使用集成预测,直接使用最后一步的结果
             box_cls = pred_logits[-1]

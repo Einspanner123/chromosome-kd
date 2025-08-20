@@ -3,6 +3,8 @@ import sys
 import json
 import numpy as np
 import matplotlib.pyplot as plt
+from itertools import combinations
+from collections import defaultdict
 
 
 def print_coco_structure(json_file: str):
@@ -164,11 +166,163 @@ def visualize_bbox_sizes(json_file: str, save_path: str = None):
         print(f"Error processing file: {str(e)}")
 
 
+def visualize_center_distances(json_file: str, save_path: str = None):
+    """
+    Visualize the distribution of distances between chromosome centers in a COCO dataset,
+    grouped by chromosome categories.
+    
+    :param json_file: Path to the COCO annotation JSON file
+    :param save_path: Path to save the figure. If None, tries to display it
+    """
+    try:
+        # Load JSON file
+        with open(json_file, 'r', encoding='utf-8') as f:
+            coco_data = json.load(f)
+        
+        # Create category id to name mapping
+        category_map = {cat['id']: cat['name'] for cat in coco_data['categories']}
+        
+        # Group annotations by image
+        image_annotations = defaultdict(list)
+        for annotation in coco_data['annotations']:
+            image_id = annotation['image_id']
+            bbox = annotation['bbox']  # [x, y, width, height]
+            # Calculate center point (x + width/2, y + height/2)
+            center_x = bbox[0] + bbox[2] / 2
+            center_y = bbox[1] + bbox[3] / 2
+            category_id = annotation['category_id']
+            category_name = category_map[category_id]
+            
+            image_annotations[image_id].append({
+                'center': (center_x, center_y),
+                'category_id': category_id,
+                'category_name': category_name
+            })
+        
+        if not image_annotations:
+            print("No annotations found in the dataset")
+            return
+        
+        # Calculate distances between centers
+        all_distances = []
+        same_category_distances = defaultdict(list)
+        diff_category_distances = defaultdict(list)
+        
+        for image_id, annotations in image_annotations.items():
+            # Calculate distances between all pairs in the same image
+            for ann1, ann2 in combinations(annotations, 2):
+                # Calculate Euclidean distance
+                dist = np.sqrt((ann1['center'][0] - ann2['center'][0])**2 + 
+                               (ann1['center'][1] - ann2['center'][1])**2)
+                
+                all_distances.append(dist)
+                
+                # Group by category relationship
+                if ann1['category_id'] == ann2['category_id']:
+                    # Same category
+                    same_category_distances[ann1['category_name']].append(dist)
+                else:
+                    # Different categories
+                    diff_category_distances['between_categories'].append(dist)
+        
+        if not all_distances:
+            print("No pairs of chromosomes found in the dataset")
+            return
+        
+        # Create plots
+        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+        fig.suptitle('Chromosome Center Distance Distribution')
+        
+        # Plot 1: Overall distance distribution
+        axes[0, 0].hist(all_distances, bins=50, edgecolor='black', alpha=0.7)
+        axes[0, 0].set_xlabel('Distance (pixels)')
+        axes[0, 0].set_ylabel('Frequency')
+        axes[0, 0].set_title('Overall Distance Distribution')
+        axes[0, 0].set_yscale('log')
+        axes[0, 0].grid(True, alpha=0.3)
+        
+        # Plot 2: Same category distances (sample up to 10 categories)
+        categories_sampled = list(same_category_distances.keys())[:10]
+        same_category_data = [same_category_distances[cat] for cat in categories_sampled]
+        if same_category_data:
+            axes[0, 1].hist(same_category_data, bins=30, alpha=0.7, label=categories_sampled)
+            axes[0, 1].set_xlabel('Distance (pixels)')
+            axes[0, 1].set_ylabel('Frequency')
+            axes[0, 1].set_title('Same Category Distance Distribution')
+            axes[0, 1].set_yscale('log')
+            axes[0, 1].legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+            axes[0, 1].grid(True, alpha=0.3)
+        
+        # Plot 3: Between categories vs within categories
+        data_for_comparison = []
+        labels = []
+        if diff_category_distances['between_categories']:
+            data_for_comparison.append(diff_category_distances['between_categories'])
+            labels.append('Between Categories')
+        if same_category_distances:
+            # Combine all same category distances
+            all_same = []
+            for distances in same_category_distances.values():
+                all_same.extend(distances)
+            data_for_comparison.append(all_same)
+            labels.append('Within Categories')
+        
+        if data_for_comparison:
+            axes[1, 0].hist(data_for_comparison, bins=50, alpha=0.7, label=labels)
+            axes[1, 0].set_xlabel('Distance (pixels)')
+            axes[1, 0].set_ylabel('Frequency')
+            axes[1, 0].set_title('Within vs Between Categories Distance')
+            axes[1, 0].set_yscale('log')
+            axes[1, 0].legend()
+            axes[1, 0].grid(True, alpha=0.3)
+        
+        # Plot 4: Box plot of same category distances
+        if same_category_data:
+            axes[1, 1].boxplot(same_category_data, labels=[cat[:10] for cat in categories_sampled])  # Truncate labels
+            axes[1, 1].set_title('Distance Distribution by Category')
+            axes[1, 1].set_ylabel('Distance (pixels)')
+            axes[1, 1].tick_params(axis='x', rotation=45)
+            axes[1, 1].grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        
+        # If save_path is provided, save the figure, otherwise try to display it
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"Figure saved to {save_path}")
+        else:
+            # Try to display the plot
+            try:
+                plt.show()
+            except:
+                # If display fails, save to a default location
+                default_save_path = "center_distances_distribution.png"
+                plt.savefig(default_save_path, dpi=300, bbox_inches='tight')
+                print(f"Display failed. Figure saved to {default_save_path}")
+        
+        plt.close()  # Close the figure to free memory
+        
+        # Print statistics
+        print(f"Total chromosome pairs analyzed: {len(all_distances)}")
+        print(f"Average distance: {np.mean(all_distances):.2f} pixels")
+        print(f"Min distance: {np.min(all_distances):.2f} pixels")
+        print(f"Max distance: {np.max(all_distances):.2f} pixels")
+        print(f"Median distance: {np.median(all_distances):.2f} pixels")
+        
+    except FileNotFoundError:
+        print(f"Error: File not found {json_file}")
+    except json.JSONDecodeError:
+        print(f"Error: {json_file} is not a valid JSON file")
+    except Exception as e:
+        print(f"Error processing file: {str(e)}")
+
+
 def main():
     dataset_dir = "/home/linkst/workplace/datasets/Chromosome20240904_NoAug_NoResize_coco/"
     anno_file = dataset_dir + "train/" + "_annotations.coco.json"
     # print_coco_structure(anno_file)
     visualize_bbox_sizes(anno_file, "bbox_visualization.png")
+    visualize_center_distances(anno_file, "center_distances_visualization.png")
     
 
 if __name__ == "__main__":

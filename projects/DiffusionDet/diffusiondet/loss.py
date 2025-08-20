@@ -214,8 +214,8 @@ class DiffusionDetMatcher(nn.Module):
             pred_instances.scores = pred_logits[i, ...]
             gt_instances = batch_gt_instances[i]
             img_meta = batch_img_metas[i]
-            indices = self.single_assigner(pred_instances, gt_instances,
-                                           img_meta)
+            indices = self.single_assigner(
+                pred_instances, gt_instances, img_meta)
             batch_indices.append(indices)
         return batch_indices
 
@@ -309,8 +309,10 @@ class DiffusionDetMatcher(nn.Module):
 
     def dynamic_k_matching(self, cost: Tensor, pairwise_ious: Tensor,
                            num_gt: int) -> Tuple[Tensor, Tensor]:
-        """Use IoU and matching cost to calculate the dynamic top-k positive
-        targets."""
+        """
+        Use IoU and matching cost to calculate 
+        the dynamic top-k positive targets.
+        """
         matching_matrix = torch.zeros_like(cost)
         # select candidate topk ious for dynamic-k calculation
         candidate_topk = min(self.candidate_topk, pairwise_ious.size(0))

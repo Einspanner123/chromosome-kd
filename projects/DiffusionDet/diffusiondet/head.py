@@ -440,8 +440,7 @@ class DynamicDiffusionDetHead(nn.Module):
             # 转换为cx,cy,w,h格式
             norm_gt_bboxes_cxcywh = bbox_xyxy_to_cxcywh(norm_gt_bboxes)  # shape: [num_gts, 4]
             # 准备扩散训练目标（添加噪声）
-            pred_instances = self.prepare_diffusion(norm_gt_bboxes_cxcywh,
-                                                    image_size)
+            pred_instances = self.prepare_diffusion(norm_gt_bboxes_cxcywh, image_size)
 
             # 设置元信息
             gt_instances.set_metainfo(dict(image_size=image_size))

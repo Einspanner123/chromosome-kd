@@ -74,35 +74,54 @@ class ChromoDetCriterion(DiffusionDetCriterion):
             self.loss_topology = MODELS.build(loss_topology)
     
     def forward(self, outputs, batch_gt_instances, batch_img_metas):
-        """前向传播，计算所有损失"""
-        # 原有损失
-        losses = super().forward(outputs, batch_gt_instances, batch_img_metas)
-
+        # 完整重写原loss的forward方法
         batch_indices = self.assigner(outputs, batch_gt_instances, batch_img_metas)
+        # Compute all the requested losses
+        loss_cls = \
+            self.loss_classification(outputs, batch_gt_instances, batch_indices)
+        
+        loss_bbox, loss_giou = \
+            self.loss_boxes(outputs, batch_gt_instances, batch_indices)
+
+        losses = dict(
+            loss_cls=loss_cls, 
+            loss_bbox=loss_bbox, 
+            loss_giou=loss_giou)
         
         # 长度损失
         if self.use_length_prior:
-            loss_length = self.loss_length_computation(
-                outputs, batch_gt_instances, batch_indices)
+            loss_length = \
+                self.loss_length_computation(outputs, batch_gt_instances, batch_indices)
             losses['loss_length'] = loss_length
         
         # 形态约束损失
         if self.use_morphology_aware:
-            loss_morphology = self.loss_morphology_computation(
-                outputs, batch_gt_instances, batch_indices)
+            loss_morphology = \
+                self.loss_morphology_computation(outputs, batch_gt_instances, batch_indices)
             losses['loss_aspect_ratio'] = loss_morphology
 
         # 拓扑损失
         if self.use_topology_pairing:
-            loss_topology = self.loss_topology_computation(
-                outputs, batch_gt_instances, batch_indices)
+            loss_topology = \
+                self.loss_topology_computation(outputs, batch_gt_instances, batch_indices)
             losses['loss_topology'] = loss_topology
-        
-        # 深度监督的染色体特化损失
+
         if self.deep_supervision:
+            assert 'aux_outputs' in outputs
             for i, aux_outputs in enumerate(outputs['aux_outputs']):
-                batch_indices = self.assigner(aux_outputs, batch_gt_instances, batch_img_metas)
-                
+                batch_indices = \
+                    self.assigner(aux_outputs, batch_gt_instances, batch_img_metas)
+                loss_cls = \
+                    self.loss_classification(aux_outputs, batch_gt_instances, batch_indices)
+                loss_bbox, loss_giou = \
+                    self.loss_boxes(aux_outputs, batch_gt_instances, batch_indices)
+                tmp_losses = dict(
+                    loss_cls=loss_cls,
+                    loss_bbox=loss_bbox,
+                    loss_giou=loss_giou)
+                for name, value in tmp_losses.items():
+                    losses[f's.{i}.{name}'] = value
+                    
                 # 长度损失
                 if self.use_length_prior:
                     loss_length = self.loss_length_computation(
@@ -120,10 +139,10 @@ class ChromoDetCriterion(DiffusionDetCriterion):
                     loss_topology = self.loss_topology_computation(
                         aux_outputs, batch_gt_instances, batch_indices)
                     losses[f's.{i}.loss_topology'] = loss_topology
-        
+                    
         return losses
     
-    def loss_length_computation(self, outputs, batch_gt_instances, indices):
+    def loss_length_computation(self, outputs, batch_gt_instances, batch_indices):
         """计算长度预测损失"""
         pred_lengths = outputs['pred_lengths']
         # pred_boxes = outputs['pred_boxes']
@@ -132,7 +151,7 @@ class ChromoDetCriterion(DiffusionDetCriterion):
         target_lengths_list = []
         pred_lengths_matched_list = []
         
-        for batch_idx, (gt_instances, (pred_idx, gt_idx)) in enumerate(zip(batch_gt_instances, indices)):
+        for batch_idx, (gt_instances, (pred_idx, gt_idx)) in enumerate(zip(batch_gt_instances, batch_indices)):
             if len(gt_idx) == 0:
                 continue
             
@@ -163,14 +182,14 @@ class ChromoDetCriterion(DiffusionDetCriterion):
         
         return loss_length
     
-    def loss_morphology_computation(self, outputs, batch_gt_instances, indices):
+    def loss_morphology_computation(self, outputs, batch_gt_instances, batch_indices):
         """计算形态约束损失（长宽比）"""
         pred_boxes = outputs['pred_boxes']
         
         target_aspect_ratios_list = []
         pred_aspect_ratios_list = []
         
-        for batch_idx, (gt_instances, (pred_idx, gt_idx)) in enumerate(zip(batch_gt_instances, indices)):
+        for batch_idx, (gt_instances, (pred_idx, gt_idx)) in enumerate(zip(batch_gt_instances, batch_indices)):
             if len(gt_idx) == 0:
                 continue
             
@@ -205,67 +224,88 @@ class ChromoDetCriterion(DiffusionDetCriterion):
         
         return loss_aspect_ratio
     
-    def loss_topology_computation(self, outputs, batch_gt_instances, indices):
+    def loss_topology_computation(self, outputs, batch_gt_instances, batch_indices):
         """计算拓扑关系损失"""
         pred_boxes = outputs['pred_boxes']
-        batch_size = pred_boxes.shape[0]
-        
+        pred_logits = outputs['pred_logits']
+
+
+        # pred_idx, gt_idx = indices
         topology_losses = []
         
-        for batch_idx in range(batch_size):
-            gt_instances = batch_gt_instances[batch_idx]
-            pred_boxes_single = pred_boxes[batch_idx]
-            
-            if len(gt_instances.labels) == 0:
+        for batch_idx, (gt_instances, (pred_idx, gt_idx)) in enumerate(zip(batch_gt_instances, batch_indices)):
+            if len(gt_idx) == 0:
                 continue
+            gt_bboxes_matched = gt_instances.bboxes[gt_idx] # xyxy: [num_target, 4]
+            gt_labels_matched = gt_instances.labels[gt_idx] # 0-23: [num_target]
+
+            pred_boxes_matched = pred_boxes[batch_idx, pred_idx] # xyxy: [500, 4]
+            pred_logits_matched = pred_logits[batch_idx, pred_idx] # [500, 24]
+            
+            # pred_idx  # [500], 被选择分配为正样本的预测框
+            # gt_idx    # [num_gt], 每个正预测框对应的真实框下标
+            # import pdb; pdb.set_trace()
+            
             
             # 计算同源染色体配对损失
-            pairing_loss = self._compute_pairing_constraint(
-                pred_boxes_single, gt_instances)
+            pairing_loss = \
+                self._compute_pairing_constraint(pred_logits_matched, pred_boxes_matched, gt_labels_matched)
             
             # 计算染色体分布损失（避免过度聚集）
-            distribution_loss = self._compute_distribution_constraint(
-                pred_boxes_single, gt_instances)
+            # distribution_loss = \
+            #     self._compute_distribution_constraint(pred_boxes_batch, gt_instances)
             
-            total_topology_loss = pairing_loss + 0.5 * distribution_loss
-            topology_losses.append(total_topology_loss)
+            # total_topology_loss = pairing_loss + 0.5 * distribution_loss
+            topology_losses.append(pairing_loss * 0.1)
         
         if len(topology_losses) > 0:
-            return torch.stack(topology_losses).mean()
+            try:
+                return torch.stack(topology_losses).mean()
+            except Exception as e:
+                print(e)
+                import pdb; pdb.set_trace()
         else:
             return torch.tensor(0.0, device=pred_boxes.device)
     
-    def _compute_pairing_constraint(self, pred_boxes, gt_instances):
+    def _compute_pairing_constraint(self, pred_logits, pred_bboxes, gt_labels):
         """计算配对约束损失"""
-        gt_labels = gt_instances.labels
-        gt_boxes = gt_instances.bboxes
-        
-        pairing_loss = 0.0
+        # TODO: 改为依据分配的真实标签进行约束
+        device = pred_logits.device
+        max_score, max_score_label = pred_logits.softmax(1).max(1) # 每个预测的最大分数和对应的类别
+        bboxes_center = (pred_bboxes[:, :2] + pred_bboxes[:, 2:]) / 2.0 # 预测框的中心点
+        pairing_loss = torch.tensor(0, dtype=torch.float32, device=device)
         pair_count = 0
         
-        # 遍历常染色体（1-22号）
-        for chr_type in range(22):
-            # 找到同类型的真实框
-            mask = gt_labels == chr_type
-            same_type_boxes = gt_boxes[mask]
-            
-            if len(same_type_boxes) == 2:
-                # 计算两个同源染色体的中心距离
-                center1 = (same_type_boxes[0][:2] + same_type_boxes[0][2:]) / 2
-                center2 = (same_type_boxes[1][:2] + same_type_boxes[1][2:]) / 2
-                distance = torch.norm(center1 - center2)
-                
-                # 期望距离：不要太近（避免重叠）也不要太远
-                min_distance = 50.0  # 最小距离
-                max_distance = 200.0  # 最大距离
-                
-                if distance < min_distance:
-                    pairing_loss += (min_distance - distance) ** 2
-                elif distance > max_distance:
-                    pairing_loss += (distance - max_distance) ** 2
-                
-                pair_count += 1
         
+        # 期望距离：不要太近（避免重叠）也不要太远
+        min_distance = 100.0
+        max_distance = 350.0
+        # 遍历常染色体
+        for chr_type in range(22):
+            type_idx = torch.where(max_score_label == chr_type)[0] # 同类下标
+            num_type_target = type_idx.shape[0]
+
+            if num_type_target > 1:
+                type_centers = bboxes_center[type_idx]
+                type_scores = max_score[type_idx]
+                if num_type_target == 2:
+                    distance = torch.norm(type_centers[0] - type_centers[1])
+                else:
+                    top2_idx = torch.argsort(type_scores, descending=True)[: 2]
+                    top2_centers = type_centers[top2_idx]
+                    distance = torch.norm(top2_centers[0] - top2_centers[1])
+                
+                if distance <= min_distance:
+                    pairing_loss += min(torch.abs(min_distance - distance), 100)
+                elif distance >= max_distance:
+                    pairing_loss += min(torch.abs(distance - max_distance), 100)
+                else:
+                    # TODO: whether to add a suitable loss optimizer here.
+                    ...
+                pair_count += 1
+
+        if pair_count == 0: # 若没有，返回一个小的基线损失，避免模型无梯度停滞
+            pairing_loss += 1.0
         return pairing_loss / max(pair_count, 1)
     
     def _compute_distribution_constraint(self, pred_boxes, gt_instances):
@@ -273,10 +313,10 @@ class ChromoDetCriterion(DiffusionDetCriterion):
         if len(gt_instances.bboxes) < 2:
             return torch.tensor(0.0, device=pred_boxes.device)
         
-        gt_boxes = gt_instances.bboxes
+        # gt_boxes = gt_instances.bboxes
         
         # 计算所有染色体的中心点
-        centers = (gt_boxes[:, :2] + gt_boxes[:, 2:]) / 2
+        centers = (pred_boxes[:, :2] + pred_boxes[:, 2:]) / 2
         
         # 计算平均距离
         distances = torch.cdist(centers, centers)
@@ -366,7 +406,7 @@ class ChromoDetMatcher(DiffusionDetMatcher):
                     gt_instances=gt_instances,
                     img_meta=img_meta)
                 cost_list.append(cost)
-  
+            # Change start
             # 添加形态匹配代价
             if self.use_morphology_aware:
                 morphology_cost = self._compute_morphology_cost(pred_bboxes, gt_bboxes)
@@ -376,7 +416,7 @@ class ChromoDetMatcher(DiffusionDetMatcher):
             if self.use_length_prior:
                 length_cost = self._compute_length_cost(pred_bboxes, gt_bboxes, gt_instances.labels)
                 cost_list.append(length_cost * self.length_weight)
-  
+            # Change end
             pairwise_ious = self.iou_calculator(pred_bboxes, gt_bboxes)
   
             cost_list.append((~is_in_boxes_and_center) * 100.0)
