@@ -101,10 +101,10 @@ class ChromoDetCriterion(DiffusionDetCriterion):
             losses['loss_aspect_ratio'] = loss_morphology
 
         # 拓扑损失
-        if self.use_topology_pairing:
-            loss_topology = \
-                self.loss_topology_computation(outputs, batch_gt_instances, batch_indices)
-            losses['loss_topology'] = loss_topology
+        # if self.use_topology_pairing:
+        #     loss_topology = \
+        #         self.loss_topology_computation(outputs, batch_gt_instances, batch_indices)
+        #     losses['loss_topology'] = loss_topology
 
         if self.deep_supervision:
             assert 'aux_outputs' in outputs
@@ -256,7 +256,7 @@ class ChromoDetCriterion(DiffusionDetCriterion):
             #     self._compute_distribution_constraint(pred_boxes_batch, gt_instances)
             
             # total_topology_loss = pairing_loss + 0.5 * distribution_loss
-            topology_losses.append(pairing_loss * 0.1)
+            topology_losses.append(pairing_loss * 0.1) # 使用小权重，使得不会影响其他指标的梯度
         
         if len(topology_losses) > 0:
             try:
@@ -271,36 +271,32 @@ class ChromoDetCriterion(DiffusionDetCriterion):
         """计算配对约束损失"""
         # TODO: 改为依据分配的真实标签进行约束
         device = pred_logits.device
-        max_score, max_score_label = pred_logits.softmax(1).max(1) # 每个预测的最大分数和对应的类别
+        # max_score, max_score_label = pred_logits.softmax(1).max(1) # 每个预测的最大分数和对应的类别
         bboxes_center = (pred_bboxes[:, :2] + pred_bboxes[:, 2:]) / 2.0 # 预测框的中心点
-        pairing_loss = torch.tensor(0, dtype=torch.float32, device=device)
+        pairing_loss = torch.tensor(0.0, dtype=torch.float32, device=device)
         pair_count = 0
         
         
         # 期望距离：不要太近（避免重叠）也不要太远
+        # 根据数据集分布得到
         min_distance = 100.0
         max_distance = 350.0
         # 遍历常染色体
         for chr_type in range(22):
-            type_idx = torch.where(max_score_label == chr_type)[0] # 同类下标
+            type_idx = torch.where(gt_labels == chr_type)[0] # 同类下标
             num_type_target = type_idx.shape[0]
 
-            if num_type_target > 1:
+            if num_type_target == 2:
+                # 由于每个框只进行一次分配，这里先只对成对的进行约束
                 type_centers = bboxes_center[type_idx]
-                type_scores = max_score[type_idx]
-                if num_type_target == 2:
-                    distance = torch.norm(type_centers[0] - type_centers[1])
-                else:
-                    top2_idx = torch.argsort(type_scores, descending=True)[: 2]
-                    top2_centers = type_centers[top2_idx]
-                    distance = torch.norm(top2_centers[0] - top2_centers[1])
+                distance = torch.norm(type_centers[0] - type_centers[1])
                 
                 if distance <= min_distance:
                     pairing_loss += min(torch.abs(min_distance - distance), 100)
                 elif distance >= max_distance:
                     pairing_loss += min(torch.abs(distance - max_distance), 100)
                 else:
-                    # TODO: whether to add a suitable loss optimizer here.
+                    # TODO: 是否应该对范围内的距离进行约束
                     ...
                 pair_count += 1
 
@@ -460,20 +456,34 @@ class ChromoDetMatcher(DiffusionDetMatcher):
     def _compute_length_cost(self, pred_bboxes, gt_bboxes, gt_labels):
         """计算长度先验代价"""
         # 长度先验（相对值）
-        self.length_priors.to(pred_bboxes.device)
+        self.length_priors = self.length_priors.to(pred_bboxes.device)
         # 预测框长度
-        pred_w = pred_bboxes[:, 2] - pred_bboxes[:, 0]
-        pred_h = pred_bboxes[:, 3] - pred_bboxes[:, 1]
-        pred_lengths = torch.sqrt(pred_w**2 + pred_h**2)
-        pred_lengths_norm = pred_lengths / pred_lengths.max()
+        diffs = pred_bboxes[:, [2, 3]] - pred_bboxes[:, [0, 1]]
+        pred_lengths = torch.norm(diffs, dim=1)
+        pred_lengths_norm = pred_lengths / (pred_lengths.max() + 1e-6)
+        
+        # # 计算与长度先验的差异
+        # length_cost = torch.zeros(len(pred_bboxes), len(gt_bboxes), device=pred_bboxes.device)
+        
+        # for i, gt_label in enumerate(gt_labels):
+        #     if gt_label < len(self.length_priors):
+        #         expected_length = self.length_priors[gt_label]
+        #         length_diff = torch.abs(pred_lengths_norm - expected_length)
+        #         length_cost[:, i] = length_diff
+        
+        # return length_cost
+        
+        # 获取每个gt对应的长度先验值
+        valid_labels = gt_labels < len(self.length_priors)
+        expected_lengths = torch.zeros(len(gt_labels), device=pred_bboxes.device)
+        expected_lengths[valid_labels] = self.length_priors[gt_labels[valid_labels]]
         
         # 计算与长度先验的差异
-        length_cost = torch.zeros(len(pred_bboxes), len(gt_bboxes), device=pred_bboxes.device)
+        length_cost = torch.abs(
+            pred_lengths_norm[:, None] - expected_lengths[None, :]
+        )
         
-        for i, gt_label in enumerate(gt_labels):
-            if gt_label < len(self.length_priors):
-                expected_length = self.length_priors[gt_label]
-                length_diff = torch.abs(pred_lengths_norm - expected_length)
-                length_cost[:, i] = length_diff
+        # 对于超出先验范围的标签，设置较大的代价
+        length_cost[:, ~valid_labels] = 1.0
         
         return length_cost

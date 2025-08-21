@@ -133,14 +133,14 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
                 nn.ReLU(),
                 nn.Linear(feat_channels // 2, feat_channels // 4)
             )
-            self._build_morphology_aware_diffusion()
+            self._build_morphology_aware_noise()
         
         # 拓扑关系建模
         if use_topology_pairing:
             self.topology_encoder = \
                 nn.MultiheadAttention(feat_channels, num_heads=4, dropout=0.1)
     
-    def _build_morphology_aware_diffusion(self):
+    def _build_morphology_aware_noise(self):
         """构建形态感知的扩散调度"""
         # 基础扩散调度
         betas = cosine_beta_schedule(self.timesteps)
@@ -186,6 +186,8 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
                              (1. - alphas_cumprod))
     
     def prepare_diffusion(self, gt_boxes, image_size):
+        if not self.use_morphology_aware:
+            return super().prepare_diffusion(gt_boxes, image_size)
         """准备扩散过程，加入形态感知"""
         device = gt_boxes.device
         time = torch.randint(
@@ -323,7 +325,12 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
             proposal_features = None
 
         for head_idx, single_head in enumerate(self.head_series):
-            # 单头预测
+            # 拓扑特征层在最后一层前， 按旧版逻辑则会多加一层 single_head，不能控制变量
+            if head_idx == len(self.head_series) - 1 and self.use_topology_pairing:
+                # 自注意力建模染色体间关系
+                topo_features, _ = self.topology_encoder(
+                    proposal_features, proposal_features, proposal_features)
+                proposal_features = proposal_features + topo_features
 
             if self.use_length_prior:
                 class_logits, pred_bboxes, proposal_features, pred_lengths = single_head(
@@ -331,35 +338,11 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
             else:
                 class_logits, pred_bboxes, proposal_features = single_head(
                     features, bboxes, proposal_features, self.roi_extractor, time)
-            
-            # 长度预测
-            # 使用 单头的长度预测头
-            # pred_lengths = None
-            # if self.use_length_prior:
-            #     pred_lengths = self.length_predictor(proposal_features.squeeze(0))
-            
-            # 拓扑关系建模（最后一层）
-            if self.use_topology_pairing and head_idx == len(self.head_series) - 1:
-                # 自注意力建模染色体间关系
-                topo_features, _ = self.topology_encoder(
-                    proposal_features, proposal_features, proposal_features)
-                proposal_features = proposal_features + topo_features
-                
-                # 重新预测
-                # TODO: 这里是否可以改成多一层head，或者取代原先最后一层head的输入
-                if self.use_length_prior:
-                    class_logits, pred_bboxes, proposal_features, pred_lengths = single_head(
-                        features, bboxes, proposal_features, self.roi_extractor, time)
-                else:
-                    class_logits, pred_bboxes, proposal_features = single_head(
-                        features, bboxes, proposal_features, self.roi_extractor, time)
-            
             if self.deep_supervision:
                 inter_class_logits.append(class_logits)
                 inter_pred_bboxes.append(pred_bboxes)
                 if self.use_length_prior:
                     inter_pred_lengths.append(pred_lengths)
-            
             bboxes = pred_bboxes.detach()
 
         if self.deep_supervision:
@@ -381,6 +364,9 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
     
     def loss(self, x: Tuple[Tensor], batch_data_samples: SampleList) -> dict:
         """损失计算，加入染色体特化损失"""
+        if self.use_length_prior:
+            return super().loss(x, batch_data_samples)
+
         prepare_outputs = self.prepare_training_targets(batch_data_samples)
         batch_gt_instances, batch_pred_instances, _, batch_img_metas = prepare_outputs
 
@@ -392,40 +378,33 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
 
         # 前向传播
         pred_results = self(x, batch_diff_bboxes, batch_time)
-
-        if self.use_length_prior:
-            pred_logits, pred_bboxes, pred_lengths = pred_results
-            output = {
-                'pred_logits': pred_logits[-1],
-                'pred_boxes': pred_bboxes[-1],
-                'pred_lengths' : pred_lengths[-1]
-            }
-        else:
-            pred_logits, pred_bboxes = pred_results
-            output = {
-                'pred_logits': pred_logits[-1],
-                'pred_boxes': pred_bboxes[-1]
-            }
+        pred_logits, pred_bboxes, pred_lengths = pred_results
+        output = {
+            'pred_logits': pred_logits[-1],
+            'pred_boxes': pred_bboxes[-1],
+            'pred_lengths' : pred_lengths[-1]
+        }
         
         # 深度监督，添加辅助输出
+        # if self.deep_supervision:
+        #     aux_outputs = []
+        #     for i in range(len(pred_logits) - 1):
+        #         aux_output = {
+        #             'pred_logits': pred_logits[i],
+        #             'pred_boxes': pred_bboxes[i],
+        #             'pred_lengths': pred_lengths[i]
+        #         }
+        #         aux_outputs.append(aux_output)
+        #     output['aux_outputs'] = aux_outputs
+
         if self.deep_supervision:
-            aux_outputs = []
-            if self.use_length_prior:
-                for i in range(len(pred_logits) - 1):
-                    aux_output = {
-                        'pred_logits': pred_logits[i],
-                        'pred_boxes': pred_bboxes[i],
-                        'pred_lengths': pred_lengths[i]
-                    }
-                    aux_outputs.append(aux_output)
-            else:
-                for i in range(len(pred_logits) - 1):
-                    aux_output = {
-                            'pred_logits': pred_logits[i],
-                            'pred_boxes': pred_bboxes[i]
-                        }
-                    aux_outputs.append(aux_output)
-            output['aux_outputs'] = aux_outputs
+            output['aux_outputs'] = [{
+                'pred_logits': a,
+                'pred_boxes': b,
+                'pred_lengths': c
+            } for a, b, c in zip(pred_logits[:-1], 
+                                 pred_bboxes[:-1],
+                                 pred_lengths[:-1])]
 
         losses = self.criterion(output, batch_gt_instances, batch_img_metas)
 
