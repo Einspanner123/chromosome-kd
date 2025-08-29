@@ -41,7 +41,6 @@ class ChromoDetCriterion(DiffusionDetCriterion):
             # 长度先验
             use_length_prior:bool=True,
             loss_length=dict(type='L1Loss', reduction='sum', loss_weight=1.0),
-            length_priors:list=None,
             aspect_ratio_target=10.0,  # 目标长宽比
             # 形态感知
             use_morphology_aware:bool=False,
@@ -62,7 +61,6 @@ class ChromoDetCriterion(DiffusionDetCriterion):
         self.use_length_prior = use_length_prior
         if use_length_prior:
             self.loss_length = MODELS.build(loss_length)
-            self.length_priors = torch.tensor(length_priors)
             self.aspect_ratio_target = aspect_ratio_target
         # 形态感知
         self.use_morphology_aware = use_morphology_aware
@@ -91,7 +89,7 @@ class ChromoDetCriterion(DiffusionDetCriterion):
         # 长度损失
         if self.use_length_prior:
             loss_length = \
-                self.loss_length_computation(outputs, batch_gt_instances, batch_indices)
+                self.loss_length_computation(outputs, batch_gt_instances, batch_indices, batch_img_metas)
             losses['loss_length'] = loss_length
         
         # 形态约束损失
@@ -101,10 +99,10 @@ class ChromoDetCriterion(DiffusionDetCriterion):
             losses['loss_aspect_ratio'] = loss_morphology
 
         # 拓扑损失
-        # if self.use_topology_pairing:
-        #     loss_topology = \
-        #         self.loss_topology_computation(outputs, batch_gt_instances, batch_indices)
-        #     losses['loss_topology'] = loss_topology
+        if self.use_topology_pairing:
+            loss_topology = \
+                self.loss_topology_computation(outputs, batch_gt_instances, batch_indices)
+            losses['loss_topology'] = loss_topology
 
         if self.deep_supervision:
             assert 'aux_outputs' in outputs
@@ -125,7 +123,7 @@ class ChromoDetCriterion(DiffusionDetCriterion):
                 # 长度损失
                 if self.use_length_prior:
                     loss_length = self.loss_length_computation(
-                        aux_outputs, batch_gt_instances, batch_indices)
+                        aux_outputs, batch_gt_instances, batch_indices, batch_img_metas)
                     losses[f's.{i}.loss_length'] = loss_length
                 
                 # 形态约束损失
@@ -145,13 +143,11 @@ class ChromoDetCriterion(DiffusionDetCriterion):
     def loss_length_computation(self, outputs, batch_gt_instances, batch_indices):
         """计算长度预测损失"""
         pred_lengths = outputs['pred_lengths']
-        # pred_boxes = outputs['pred_boxes']
         
-        # 计算真实长度
         target_lengths_list = []
         pred_lengths_matched_list = []
         
-        for batch_idx, (gt_instances, (pred_idx, gt_idx)) in enumerate(zip(batch_gt_instances, batch_indices)):
+        for batch_idx, (gt_instances, (pred_idx, gt_idx), img_meta) in enumerate(zip(batch_gt_instances, batch_indices, batch_img_metas)):
             if len(gt_idx) == 0:
                 continue
             
@@ -162,26 +158,27 @@ class ChromoDetCriterion(DiffusionDetCriterion):
             gt_lengths = torch.sqrt(gt_w**2 + gt_h**2)
             
             # 匹配的预测长度
-            matched_pred_lengths = pred_lengths[batch_idx, pred_idx].squeeze(-1)
+            matched_pred_lengths = pred_lengths[batch_idx, gt_idx].squeeze(-1)
             
-            target_lengths_list.append(gt_lengths)
-            pred_lengths_matched_list.append(matched_pred_lengths)
+            # 图像尺寸
+            img_h, img_w = img_meta['img_shape']
+            img_diagonal = torch.sqrt(torch.tensor(img_h**2 + img_w**2, dtype=torch.float32, device=gt_lengths.device))
+            
+            # 归一化
+            target_lengths_list.append(gt_lengths / img_diagonal)
+            pred_lengths_matched_list.append(matched_pred_lengths / img_diagonal)
         
         if len(target_lengths_list) == 0:
             return torch.tensor(0.0, device=pred_lengths.device)
         
-        target_lengths = torch.cat(target_lengths_list)
-        pred_lengths_matched = torch.cat(pred_lengths_matched_list)
+        target_lengths_norm = torch.cat(target_lengths_list)
+        pred_lengths_norm = torch.cat(pred_lengths_matched_list)
         
-        # 归一化长度
-        target_lengths_norm = target_lengths / target_lengths.max()
-        pred_lengths_norm = pred_lengths_matched / pred_lengths_matched.max()
-        
-        num_instances = target_lengths.shape[0]
+        num_instances = target_lengths_norm.shape[0]
         loss_length = self.loss_length(pred_lengths_norm, target_lengths_norm) / num_instances
         
         return loss_length
-    
+
     def loss_morphology_computation(self, outputs, batch_gt_instances, batch_indices):
         """计算形态约束损失（长宽比）"""
         pred_boxes = outputs['pred_boxes']
@@ -354,8 +351,6 @@ class ChromoDetMatcher(DiffusionDetMatcher):
             candidate_topk: int = 5,
             iou_calculator: ConfigType = dict(type='BboxOverlaps2D'),
             # 染色体特化参数
-            use_length_prior:bool=False,
-            length_priors:list=None,
             length_weight: float = 0.3,
             use_morphology_aware:bool=False,
             morphology_weight: float = 0.5,
@@ -368,8 +363,8 @@ class ChromoDetMatcher(DiffusionDetMatcher):
             candidate_topk=candidate_topk,
             iou_calculator=iou_calculator,
             )
-        self.use_length_prior = use_length_prior
-        self.length_priors = torch.tensor(length_priors)
+        # self.use_length_prior = use_length_prior
+        # self.length_priors = torch.tensor(length_priors)
         self.length_weight = length_weight
         self.use_morphology_aware = use_morphology_aware
         self.morphology_weight = morphology_weight

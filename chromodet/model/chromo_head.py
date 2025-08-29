@@ -36,63 +36,64 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
     4. 重叠敏感的NMS
     """
     
-    def __init__(self,
-                 num_classes=24,  # 24种染色体类型
-                 feat_channels=256,
-                 num_proposals=500,
-                 num_heads=6,
-                 prior_prob=0.01,
-                 snr_scale=2.0,
-                 timesteps=1000,
-                 sampling_timesteps=1,
-                 self_condition=False,
-                 box_renewal=True,
-                 use_ensemble=True,
-                 deep_supervision=True,
-                 ddim_sampling_eta=1.0,
-                 # 染色体特化参数
-                 use_morphology_aware:bool=False, # 形态感知
-                 aspect_ratio_gamma=10.0,
-                 use_length_prior:bool=False, # 长度感知
-                 length_prior_weight=0.1,
-                 length_priors=[
-                    1.0, 0.95, 0.90, 0.85, 0.80, 0.75,
-                    0.70, 0.65, 0.60, 0.55, 0.50, 0.45,
-                    0.40, 0.38, 0.36, 0.34, 0.32, 0.30,
-                    0.28, 0.26, 0.24, 0.22, 0.20, 0.18],
-                 use_topology_pairing:bool=False, # 拓扑匹配
-                 topology_loss_weight=0.05,
-                 criterion=dict(
-                     type='ChromoDetCriterion',
-                     num_classes=24,
-                     assigner=dict(
-                         type='ChromoDetMatcher',
-                         match_costs=[
-                             dict(
-                                 type='FocalLossCost',
-                                 alpha=2.0,
-                                 gamma=0.25,
-                                 weight=2.0),
-                             dict(
-                                 type='BBoxL1Cost',
-                                 weight=5.0,
-                                 box_format='xyxy'),
-                             dict(type='IoUCost', iou_mode='giou', weight=2.0)
-                         ],
-                         center_radius=2.5,
-                         candidate_topk=5),
-                 ),
-                 single_head=dict(
-                     type='ChromoDetSingleHead',
-                     num_cls_convs=1,
-                     num_reg_convs=3,
-                     dim_feedforward=2048,
-                     num_heads=8,
-                     dropout=0.0,
-                     act_cfg=dict(type='ReLU'),
-                     dynamic_conv=dict(dynamic_dim=64, dynamic_num=2)),
-                 roi_extractor=None,
-                 train_cfg=None, test_cfg=None) -> None:
+    def __init__(
+        self,
+        num_classes=24,  # 24种染色体类型
+        feat_channels=256,
+        num_proposals=500,
+        num_heads=6,
+        prior_prob=0.01,
+        snr_scale=2.0,
+        timesteps=1000,
+        sampling_timesteps=1,
+        self_condition=False,
+        box_renewal=True,
+        use_ensemble=True,
+        deep_supervision=True,
+        ddim_sampling_eta=1.0,
+        # 染色体特化参数
+        use_morphology_aware:bool=False, # 形态感知
+        aspect_ratio_gamma=10.0,
+        use_length_prior:bool=False, # 长度感知
+        length_prior_weight=0.1,
+        length_priors=[
+        1.0, 0.95, 0.90, 0.85, 0.80, 0.75,
+        0.70, 0.65, 0.60, 0.55, 0.50, 0.45,
+        0.40, 0.38, 0.36, 0.34, 0.32, 0.30,
+        0.28, 0.26, 0.24, 0.22, 0.20, 0.18],
+        use_topology_pairing:bool=False, # 拓扑匹配
+        topology_loss_weight=0.05,
+        criterion=dict(
+            type='ChromoDetCriterion',
+            num_classes=24,
+            assigner=dict(
+                type='ChromoDetMatcher',
+                match_costs=[
+                    dict(
+                        type='FocalLossCost',
+                        alpha=2.0,
+                        gamma=0.25,
+                        weight=2.0),
+                    dict(
+                        type='BBoxL1Cost',
+                        weight=5.0,
+                        box_format='xyxy'),
+                    dict(type='IoUCost', iou_mode='giou', weight=2.0)
+                ],
+                center_radius=2.5,
+                candidate_topk=5),
+        ),
+        single_head=dict(
+            type='ChromoDetSingleHead',
+            num_cls_convs=1,
+            num_reg_convs=3,
+            dim_feedforward=2048,
+            num_heads=8,
+            dropout=0.0,
+            act_cfg=dict(type='ReLU'),
+            dynamic_conv=dict(dynamic_dim=64, dynamic_num=2)),
+        roi_extractor=None,
+        train_cfg=None, test_cfg=None) -> None:
         
         """ 染色体特化参数 """
         self.use_morphology_aware = use_morphology_aware # 形态感知
@@ -262,6 +263,7 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
             # 合并因子和框
             factors = torch.cat([aspect_ratio_factor, factors_placeholder], dim=0)
             noise *= factors.unsqueeze(1)
+            # 修复：去除误插入的无效 x_start 赋值，直接拼接真实与占位框
             x_start = torch.cat([gt_boxes, box_placeholder], dim=0)
         else:
             # 采样num_proposals个真实框，保持可复现性
@@ -285,10 +287,8 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
         pred_instances.diff_bboxes = diff_bboxes
         pred_instances.diff_bboxes_abs = diff_bboxes_abs
         pred_instances.noise = noise
-        
         # 添加形态特征
-        if self.use_morphology_aware:
-            pred_instances.morphology_features = self._compute_morphology_features(diff_bboxes_abs)
+        pred_instances.morphology_features = self._compute_morphology_features(diff_bboxes_abs)
         
         return pred_instances
     
@@ -309,6 +309,8 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
     
     def forward(self, features, init_bboxes, init_t, init_features=None):
         """前向传播，加入拓扑关系建模"""
+        if not self.use_length_prior and not self.use_topology_pairing:
+            return super().forward(features, init_bboxes, init_t, init_features)
         time = self.time_mlp(init_t)
 
         inter_class_logits = []
@@ -364,7 +366,7 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
     
     def loss(self, x: Tuple[Tensor], batch_data_samples: SampleList) -> dict:
         """损失计算，加入染色体特化损失"""
-        if self.use_length_prior:
+        if not self.use_length_prior:
             return super().loss(x, batch_data_samples)
 
         prepare_outputs = self.prepare_training_targets(batch_data_samples)
@@ -384,18 +386,6 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
             'pred_boxes': pred_bboxes[-1],
             'pred_lengths' : pred_lengths[-1]
         }
-        
-        # 深度监督，添加辅助输出
-        # if self.deep_supervision:
-        #     aux_outputs = []
-        #     for i in range(len(pred_logits) - 1):
-        #         aux_output = {
-        #             'pred_logits': pred_logits[i],
-        #             'pred_boxes': pred_bboxes[i],
-        #             'pred_lengths': pred_lengths[i]
-        #         }
-        #         aux_outputs.append(aux_output)
-        #     output['aux_outputs'] = aux_outputs
 
         if self.deep_supervision:
             output['aux_outputs'] = [{
@@ -451,11 +441,8 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
                                     device=device, dtype=torch.long)  # shape: [batch_size]
             # 前向传播
             pred_results = self(x, batch_noise_bboxes, batch_time)
-            
-            if self.use_length_prior:
-                pred_logits, pred_bboxes, pred_lengths = pred_results
-            else:
-                pred_logits, pred_bboxes = pred_results
+            # 兼容所有输出
+            pred_logits, pred_bboxes = pred_results[: 2]
 
             x_start = pred_bboxes[-1]  # 预测的去噪结果
 
@@ -630,18 +617,20 @@ class ChromoDetDynamicHead(DynamicDiffusionDetHead):
 class ChromoDetSingleHead(SingleDiffusionDetHead):
     """染色体专用的单头检测器"""
     
-    def __init__(self, 
-                 num_classes,
-                 feat_channels,
-                 num_cls_convs,
-                 num_reg_convs,
-                 dim_feedforward,
-                 num_heads,
-                 dropout,
-                 pooler_resolution,
-                 use_focal_loss,
-                 use_fed_loss,
-                 use_length_prior:bool=None):
+    def __init__(
+        self, 
+        num_classes,
+        feat_channels,
+        num_cls_convs,
+        num_reg_convs,
+        dim_feedforward,
+        num_heads,
+        dropout,
+        pooler_resolution,
+        use_focal_loss,
+        use_fed_loss,
+        use_length_prior:bool=None,
+    ):
         super().__init__(
             num_classes=num_classes,
             feat_channels=feat_channels,
@@ -676,8 +665,7 @@ class ChromoDetSingleHead(SingleDiffusionDetHead):
         N, num_boxes = bboxes.shape[:2]
         fc_feature = obj_features.transpose(0, 1).reshape(N * num_boxes, -1)
         if self.use_length_prior:
-            pred_lengths = self.length_predictor(fc_feature)
-            pred_lengths = pred_lengths.view(N, num_boxes, -1)
+            pred_lengths = self.length_predictor(fc_feature).view(N, num_boxes, -1)
             return class_logits, pred_bboxes, obj_features, pred_lengths
         else:
             return class_logits, pred_bboxes, obj_features

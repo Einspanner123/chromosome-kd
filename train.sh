@@ -14,6 +14,17 @@ else
     GPU_ID=0
 fi
 
-# 设置CUDA_VISIBLE_DEVICES并运行训练脚本
-CUDA_VISIBLE_DEVICES=$GPU_ID python tools/train.py "$@"
+output_notes(){
+    if [ ! -z "$USER_NOTES" ]; then
+    echo ""
+    echo "$USER_NOTES"
+    echo ""
+    fi
+}
 
+read -p "(Notes)" USER_NOTES
+trap 'output_notes' EXIT
+
+
+# 设置gpu id并运行训练脚本
+CUDA_VISIBLE_DEVICES=$GPU_ID python tools/train.py "$@"

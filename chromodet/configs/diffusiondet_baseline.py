@@ -1,26 +1,13 @@
 _base_ = [
-    'mmdet::_base_/datasets/chromo_coco_detection.py',
-    'mmdet::_base_/schedules/schedule_1x.py',
-    'mmdet::_base_/default_runtime.py'
+    '../_base_/datasets/chromo_coco_detection.py',
+    '../_base_/schedules/schedule_1x.py',
+    '../_base_/default_runtime.py'
 ]
 
 custom_imports = dict(
-    imports=[
-        'chromodet.model',
-        'projects.DiffusionDet.diffusiondet'],
-    allow_failed_imports=False)
+    imports=['projects.DiffusionDet.diffusiondet'], allow_failed_imports=False)
 
 num_classes = 24
-
-# HyperParam
-use_morphology_aware = True
-use_length_prior = True
-length_priors = [1.0, 0.95, 0.90, 0.85, 0.80, 0.75,
-                 0.70, 0.65, 0.60, 0.55, 0.50, 0.45,
-                 0.40, 0.38, 0.36, 0.34, 0.32, 0.30,
-                 0.28, 0.26, 0.24, 0.22, 0.20, 0.18]
-use_topology_pairing = True
-
 
 # model settings
 model = dict(
@@ -47,15 +34,8 @@ model = dict(
         out_channels=256,
         num_outs=4),
     bbox_head=dict(
-        type='ChromoDetDynamicHead',
+        type='DynamicDiffusionDetHead',
         num_classes=num_classes,
-        # 形态感知
-        use_morphology_aware=use_morphology_aware,  
-        # 长度感知
-        use_length_prior=use_length_prior,          
-        length_priors=length_priors,
-        # 拓扑匹配
-        use_topology_pairing=use_topology_pairing,  
         feat_channels=256,
         num_proposals=500,
         num_heads=6,
@@ -64,17 +44,16 @@ model = dict(
         snr_scale=2.0,
         sampling_timesteps=1,
         ddim_sampling_eta=1.0,
-        aspect_ratio_gamma=10.0,
         single_head=dict(
-            type='ChromoDetSingleHead',
+            type='SingleDiffusionDetHead',
             num_classes=num_classes,
-            use_length_prior=use_length_prior,
-            feat_channels=256,
             num_cls_convs=1,
             num_reg_convs=3,
             dim_feedforward=2048,
             num_heads=8,
-            dropout=0.0),
+            dropout=0.0,
+            act_cfg=dict(type='ReLU', inplace=True),
+            dynamic_conv=dict(dynamic_dim=64, dynamic_num=2)),
         roi_extractor=dict(
             type='SingleRoIExtractor',
             roi_layer=dict(type='RoIAlign', output_size=7, sampling_ratio=2),
@@ -82,18 +61,10 @@ model = dict(
             featmap_strides=[4, 8, 16, 32]),
         # criterion
         criterion=dict(
-            type='ChromoDetCriterion', # 保持原Criterion
+            type='DiffusionDetCriterion',
             num_classes=num_classes,
-            use_length_prior=use_length_prior, # 长度先验
-            length_priors=length_priors,
-            use_morphology_aware=use_morphology_aware, # 形态感知
-            use_topology_pairing=use_topology_pairing, # 拓扑匹配
             assigner=dict(
-                type='ChromoDetMatcher', # 保持原Assigner
-                use_length_prior=use_length_prior,
-                length_priors=length_priors,
-                use_morphology_aware=use_morphology_aware,
-                use_topology_pairing=use_topology_pairing,
+                type='DiffusionDetMatcher',
                 match_costs=[
                     dict(
                         type='FocalLossCost',
@@ -175,71 +146,28 @@ test_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor'))
+        meta_keys=(
+            'img_id', 'img_path', 'ori_shape', 'img_shape', 'scale_factor'))
 ]
 train_dataloader = dict(
     batch_size=4,
     sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
-        # indices=[i for i in range(0, 1000, 100)], # 用于快速验证训练和验证
-        filter_cfg=dict(filter_empty_gt=False, min_size=1e-5),
-        pipeline=train_pipeline))
+        filter_cfg=dict(
+            filter_empty_gt=False, min_size=1e-5),
+            pipeline=train_pipeline))
 
 val_dataloader = dict(dataset=dict(pipeline=test_pipeline))
 test_dataloader = val_dataloader
 
 max_epoch = 150
 
-# optimizer
-optim_wrapper = dict(
-    type='OptimWrapper',
-    optimizer=dict(
-        _delete_=True, type='AdamW', lr=0.000025, weight_decay=0.0001),
-    clip_grad=dict(max_norm=1.0, norm_type=2))
-train_cfg = dict(
-    _delete_=True,
-    type='EpochBasedTrainLoop',
-    max_epochs=max_epoch,
-    val_interval=1)
-
-# learning rate
-param_scheduler = [
-    dict(
-        type='LinearLR', start_factor=0.001, by_epoch=True, begin=0, end=5),
-    dict(
-        type='MultiStepLR',
-        begin=0,
-        end=max_epoch,
-        by_epoch=True,
-        milestones=[60, 80],
-        gamma=0.1)
-]
-
-default_hooks = dict(
-    checkpoint=dict(
-        by_epoch=True, 
-        interval=1, 
-        max_keep_ckpts=3,
-        save_best='coco/bbox_mAP'))
 
 custom_hooks = [
     dict(
         type='EarlyStoppingHook',
         priority=50,
-        patience=10,
+        patience=15,
         min_delta=0.001,
         monitor='coco/bbox_mAP',
         rule='greater'),]
-
-log_processor = dict(by_epoch=True)
-device = "cuda"
-
-visualizer = dict(
-    _scope_='mmdet',
-    name='visualizer',
-    type='DetLocalVisualizer',
-    vis_backends = [
-        dict(_scope_='mmdet', type='LocalVisBackend'),
-        dict(type='TensorboardVisBackend'),]
-)

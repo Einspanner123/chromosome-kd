@@ -1,61 +1,15 @@
-_base_ = [
-    'mmdet::_base_/datasets/chromo_coco_detection.py',
-    'mmdet::_base_/schedules/schedule_1x.py',
-    'mmdet::_base_/default_runtime.py'
-]
+_base_ = ['./diffusiondet_baseline.py']
 
 custom_imports = dict(
-    imports=[
-        'chromodet.model',
-        'projects.DiffusionDet.diffusiondet'],
+    imports=['chromodet.model'],
     allow_failed_imports=False)
 
 num_classes = 24
-
-# HyperParam
-use_morphology_aware = False
-use_length_prior = False
-length_priors = [1.0, 0.95, 0.90, 0.85, 0.80, 0.75,
-                 0.70, 0.65, 0.60, 0.55, 0.50, 0.45,
-                 0.40, 0.38, 0.36, 0.34, 0.32, 0.30,
-                 0.28, 0.26, 0.24, 0.22, 0.20, 0.18]
-use_topology_pairing = False
-
-
 # model settings
 model = dict(
-    type='DiffusionDet',
-    data_preprocessor=dict(
-        type='DetDataPreprocessor',
-        mean=[123.675, 116.28, 103.53],
-        std=[58.395, 57.12, 57.375],
-        bgr_to_rgb=True,
-        pad_size_divisor=32),
-    backbone=dict(
-        type='ResNet',
-        depth=50,
-        num_stages=4,
-        out_indices=(0, 1, 2, 3),
-        frozen_stages=1,
-        norm_cfg=dict(type='BN', requires_grad=True),
-        norm_eval=True,
-        style='pytorch',
-        init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet50')),
-    neck=dict(
-        type='FPN',
-        in_channels=[256, 512, 1024, 2048],
-        out_channels=256,
-        num_outs=4),
     bbox_head=dict(
         type='ChromoDetDynamicHead',
-        num_classes=num_classes,
-        # 形态感知
-        use_morphology_aware=use_morphology_aware,  
-        # 长度感知
-        use_length_prior=use_length_prior,          
-        length_priors=length_priors,
-        # 拓扑匹配
-        use_topology_pairing=use_topology_pairing,  
+        num_classes=num_classes, 
         feat_channels=256,
         num_proposals=500,
         num_heads=6,
@@ -68,7 +22,6 @@ model = dict(
         single_head=dict(
             type='ChromoDetSingleHead',
             num_classes=num_classes,
-            use_length_prior=use_length_prior,
             feat_channels=256,
             num_cls_convs=1,
             num_reg_convs=3,
@@ -84,16 +37,8 @@ model = dict(
         criterion=dict(
             type='ChromoDetCriterion', # 保持原Criterion
             num_classes=num_classes,
-            use_length_prior=use_length_prior, # 长度先验
-            length_priors=length_priors,
-            use_morphology_aware=use_morphology_aware, # 形态感知
-            use_topology_pairing=use_topology_pairing, # 拓扑匹配
             assigner=dict(
                 type='ChromoDetMatcher', # 保持原Assigner
-                use_length_prior=use_length_prior,
-                length_priors=length_priors,
-                use_morphology_aware=use_morphology_aware,
-                use_topology_pairing=use_topology_pairing,
                 match_costs=[
                     dict(
                         type='FocalLossCost',
@@ -106,139 +51,4 @@ model = dict(
                 ],
                 center_radius=2.5,
                 candidate_topk=5),
-            loss_cls=dict(
-                type='FocalLoss',
-                use_sigmoid=True,
-                alpha=0.25,
-                gamma=2.0,
-                reduction='sum',
-                loss_weight=2.0),
-            loss_bbox=dict(type='L1Loss', reduction='sum', loss_weight=5.0),
-            loss_giou=dict(type='GIoULoss', reduction='sum',
-                           loss_weight=2.0))),
-    test_cfg=dict(
-        use_nms=True,
-        score_thr=0.5,
-        min_bbox_size=0,
-        nms=dict(type='nms', iou_threshold=0.5),
-    ))
-
-backend = 'pillow'
-train_pipeline = [
-    dict(
-        type='LoadImageFromFile',
-        backend_args=_base_.backend_args,
-        imdecode_backend=backend),
-    dict(type='LoadAnnotations', with_bbox=True),
-    dict(type='RandomFlip', prob=0.5),
-    dict(
-        type='RandomChoice',
-        transforms=[[
-            dict(
-                type='RandomChoiceResize',
-                scales=[(480, 1333), (512, 1333), (544, 1333), (576, 1333),
-                        (608, 1333), (640, 1333), (672, 1333), (704, 1333),
-                        (736, 1333), (768, 1333), (800, 1333)],
-                keep_ratio=True,
-                backend=backend),
-        ],
-                    [
-                        dict(
-                            type='RandomChoiceResize',
-                            scales=[(400, 1333), (500, 1333), (600, 1333)],
-                            keep_ratio=True,
-                            backend=backend),
-                        dict(
-                            type='RandomCrop',
-                            crop_type='absolute_range',
-                            crop_size=(384, 600),
-                            allow_negative_crop=True),
-                        dict(
-                            type='RandomChoiceResize',
-                            scales=[(480, 1333), (512, 1333), (544, 1333),
-                                    (576, 1333), (608, 1333), (640, 1333),
-                                    (672, 1333), (704, 1333), (736, 1333),
-                                    (768, 1333), (800, 1333)],
-                            keep_ratio=True,
-                            backend=backend)
-                    ]]),
-    dict(type='PackDetInputs')
-]
-
-test_pipeline = [
-    dict(
-        type='LoadImageFromFile',
-        backend_args=_base_.backend_args,
-        imdecode_backend=backend),
-    dict(type='Resize', scale=(1333, 800), keep_ratio=True, backend=backend),
-    # If you don't have a gt annotation, delete the pipeline
-    dict(type='LoadAnnotations', with_bbox=True),
-    dict(
-        type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor'))
-]
-train_dataloader = dict(
-    batch_size=4,
-    sampler=dict(type='DefaultSampler', shuffle=True),
-    dataset=dict(
-        filter_cfg=dict(filter_empty_gt=False, min_size=1e-5),
-        pipeline=train_pipeline))
-
-val_dataloader = dict(dataset=dict(pipeline=test_pipeline))
-# test_dataloader = val_dataloader
-
-max_epoch = 150
-
-# optimizer
-optim_wrapper = dict(
-    type='OptimWrapper',
-    optimizer=dict(
-        _delete_=True, type='AdamW', lr=0.000025, weight_decay=0.0001),
-    clip_grad=dict(max_norm=1.0, norm_type=2))
-train_cfg = dict(
-    _delete_=True,
-    type='EpochBasedTrainLoop',
-    max_epochs=max_epoch,
-    val_interval=1)
-
-# learning rate
-param_scheduler = [
-    dict(
-        type='LinearLR', start_factor=0.001, by_epoch=True, begin=0, end=5),
-    dict(
-        type='MultiStepLR',
-        begin=0,
-        end=max_epoch,
-        by_epoch=True,
-        milestones=[60, 80],
-        gamma=0.1)
-]
-
-default_hooks = dict(
-    checkpoint=dict(
-        by_epoch=True, 
-        interval=1, 
-        max_keep_ckpts=3,
-        save_best='coco/bbox_mAP'))
-
-custom_hooks = [
-    dict(
-        type='EarlyStoppingHook',
-        priority=50,
-        patience=10,
-        min_delta=0.001,
-        monitor='coco/bbox_mAP',
-        rule='greater'),]
-
-log_processor = dict(by_epoch=True)
-device = "cuda"
-
-visualizer = dict(
-    _scope_='mmdet',
-    name='visualizer',
-    type='DetLocalVisualizer',
-    vis_backends = [
-        dict(_scope_='mmdet', type='LocalVisBackend'),
-        dict(type='TensorboardVisBackend'),]
-)
+    )))
