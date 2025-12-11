@@ -22,33 +22,29 @@ from mmdet.utils import ConfigType
 
 @TASK_UTILS.register_module()
 class DiffusionDetCriterion(nn.Module):
-
     def __init__(
-            self,
-            num_classes,
-            assigner=dict(
-                type='DiffusionDetMatcher',
-                match_costs=[
-                    dict(
-                        type='FocalLossCost',
-                        alpha=0.25,
-                        gamma=2.0,
-                        weight=2.0,
-                        eps=1e-8),
-                    dict(type='BBoxL1Cost', weight=5.0, box_format='xyxy'),
-                    dict(type='IoUCost', iou_mode='giou', weight=2.0)]),
-            deep_supervision=True,
-            loss_cls=dict(
-                type='FocalLoss',
-                use_sigmoid=True,
-                alpha=0.25,
-                gamma=2.0,
-                reduction='sum',
-                loss_weight=2.0),
-            loss_bbox=dict(type='L1Loss', reduction='sum', loss_weight=5.0),
-            loss_giou=dict(type='GIoULoss', reduction='sum', loss_weight=2.0),
+        self,
+        num_classes,
+        assigner=dict(
+            type="DiffusionDetMatcher",
+            match_costs=[
+                dict(type="FocalLossCost", alpha=0.25, gamma=2.0, weight=2.0, eps=1e-8),
+                dict(type="BBoxL1Cost", weight=5.0, box_format="xyxy"),
+                dict(type="IoUCost", iou_mode="giou", weight=2.0),
+            ],
+        ),
+        deep_supervision=True,
+        loss_cls=dict(
+            type="FocalLoss",
+            use_sigmoid=True,
+            alpha=0.25,
+            gamma=2.0,
+            reduction="sum",
+            loss_weight=2.0,
+        ),
+        loss_bbox=dict(type="L1Loss", reduction="sum", loss_weight=5.0),
+        loss_giou=dict(type="GIoULoss", reduction="sum", loss_weight=2.0),
     ):
-
         super().__init__()
         self.num_classes = num_classes
 
@@ -64,39 +60,37 @@ class DiffusionDetCriterion(nn.Module):
         self.loss_giou = MODELS.build(loss_giou)
 
     def forward(self, outputs, batch_gt_instances, batch_img_metas):
-        batch_indices = self.assigner(outputs, batch_gt_instances,
-                                      batch_img_metas)
+        batch_indices = self.assigner(outputs, batch_gt_instances, batch_img_metas)
         # Compute all the requested losses
-        loss_cls = self.loss_classification(outputs, batch_gt_instances,
-                                            batch_indices)
-        loss_bbox, loss_giou = self.loss_boxes(outputs, batch_gt_instances,
-                                               batch_indices)
+        loss_cls = self.loss_classification(outputs, batch_gt_instances, batch_indices)
+        loss_bbox, loss_giou = self.loss_boxes(
+            outputs, batch_gt_instances, batch_indices
+        )
 
-        losses = dict(
-            loss_cls=loss_cls, loss_bbox=loss_bbox, loss_giou=loss_giou)
+        losses = dict(loss_cls=loss_cls, loss_bbox=loss_bbox, loss_giou=loss_giou)
 
         if self.deep_supervision:
-            assert 'aux_outputs' in outputs
-            for i, aux_outputs in enumerate(outputs['aux_outputs']):
-                batch_indices = self.assigner(aux_outputs, batch_gt_instances,
-                                              batch_img_metas)
-                loss_cls = self.loss_classification(aux_outputs,
-                                                    batch_gt_instances,
-                                                    batch_indices)
-                loss_bbox, loss_giou = self.loss_boxes(aux_outputs,
-                                                       batch_gt_instances,
-                                                       batch_indices)
+            assert "aux_outputs" in outputs
+            for i, aux_outputs in enumerate(outputs["aux_outputs"]):
+                batch_indices = self.assigner(
+                    aux_outputs, batch_gt_instances, batch_img_metas
+                )
+                loss_cls = self.loss_classification(
+                    aux_outputs, batch_gt_instances, batch_indices
+                )
+                loss_bbox, loss_giou = self.loss_boxes(
+                    aux_outputs, batch_gt_instances, batch_indices
+                )
                 tmp_losses = dict(
-                    loss_cls=loss_cls,
-                    loss_bbox=loss_bbox,
-                    loss_giou=loss_giou)
+                    loss_cls=loss_cls, loss_bbox=loss_bbox, loss_giou=loss_giou
+                )
                 for name, value in tmp_losses.items():
-                    losses[f's.{i}.{name}'] = value
+                    losses[f"s.{i}.{name}"] = value
         return losses
 
     def loss_classification(self, outputs, batch_gt_instances, indices):
-        assert 'pred_logits' in outputs
-        src_logits = outputs['pred_logits']
+        assert "pred_logits" in outputs
+        src_logits = outputs["pred_logits"]
         target_classes_list = [
             gt.labels[J] for gt, (_, J) in zip(batch_gt_instances, indices)
         ]
@@ -104,7 +98,8 @@ class DiffusionDetCriterion(nn.Module):
             src_logits.shape[:2],
             self.num_classes,
             dtype=torch.int64,
-            device=src_logits.device)
+            device=src_logits.device,
+        )
         for idx in range(len(batch_gt_instances)):
             target_classes[idx, indices[idx][0]] = target_classes_list[idx]
 
@@ -112,19 +107,21 @@ class DiffusionDetCriterion(nn.Module):
         target_classes = target_classes.flatten(0, 1)
         # comp focal loss.
         num_instances = max(torch.cat(target_classes_list).shape[0], 1)
-        loss_cls = self.loss_cls(
-            src_logits,
-            target_classes,
-        ) / num_instances
+        loss_cls = (
+            self.loss_cls(
+                src_logits,
+                target_classes,
+            )
+            / num_instances
+        )
         return loss_cls
 
     def loss_boxes(self, outputs, batch_gt_instances, indices):
-        assert 'pred_boxes' in outputs
-        pred_boxes = outputs['pred_boxes']
+        assert "pred_boxes" in outputs
+        pred_boxes = outputs["pred_boxes"]
 
         target_bboxes_norm_list = [
-            gt.norm_bboxes_cxcywh[J]
-            for gt, (_, J) in zip(batch_gt_instances, indices)
+            gt.norm_bboxes_cxcywh[J] for gt, (_, J) in zip(batch_gt_instances, indices)
         ]
         target_bboxes_list = [
             gt.bboxes[J] for gt, (_, J) in zip(batch_gt_instances, indices)
@@ -135,8 +132,7 @@ class DiffusionDetCriterion(nn.Module):
         for idx in range(len(batch_gt_instances)):
             pred_bboxes_list.append(pred_boxes[idx, indices[idx][0]])
             image_size = batch_gt_instances[idx].image_size
-            pred_bboxes_norm_list.append(pred_boxes[idx, indices[idx][0]] /
-                                         image_size)
+            pred_bboxes_norm_list.append(pred_boxes[idx, indices[idx][0]] / image_size)
 
         pred_boxes_cat = torch.cat(pred_bboxes_list)
         pred_boxes_norm_cat = torch.cat(pred_bboxes_norm_list)
@@ -146,11 +142,15 @@ class DiffusionDetCriterion(nn.Module):
         if len(pred_boxes_cat) > 0:
             num_instances = pred_boxes_cat.shape[0]
 
-            loss_bbox = self.loss_bbox(
-                pred_boxes_norm_cat,
-                bbox_cxcywh_to_xyxy(target_bboxes_norm_cat)) / num_instances
-            loss_giou = self.loss_giou(pred_boxes_cat,
-                                       target_bboxes_cat) / num_instances
+            loss_bbox = (
+                self.loss_bbox(
+                    pred_boxes_norm_cat, bbox_cxcywh_to_xyxy(target_bboxes_norm_cat)
+                )
+                / num_instances
+            )
+            loss_giou = (
+                self.loss_giou(pred_boxes_cat, target_bboxes_cat) / num_instances
+            )
         else:
             loss_bbox = pred_boxes.sum() * 0
             loss_giou = pred_boxes.sum() * 0
@@ -168,13 +168,14 @@ class DiffusionDetMatcher(nn.Module):
     the others are un-matched (and thus treated as non-objects).
     """
 
-    def __init__(self,
-                 match_costs: Union[List[Union[dict, ConfigDict]], dict,
-                                    ConfigDict],
-                 center_radius: float = 2.5,
-                 candidate_topk: int = 5,
-                 iou_calculator: ConfigType = dict(type='BboxOverlaps2D'),
-                 **kwargs):
+    def __init__(
+        self,
+        match_costs: Union[List[Union[dict, ConfigDict]], dict, ConfigDict],
+        center_radius: float = 2.5,
+        candidate_topk: int = 5,
+        iou_calculator: ConfigType = dict(type="BboxOverlaps2D"),
+        **kwargs,
+    ):
         super().__init__()
 
         self.center_radius = center_radius
@@ -183,27 +184,24 @@ class DiffusionDetMatcher(nn.Module):
         if isinstance(match_costs, dict):
             match_costs = [match_costs]
         elif isinstance(match_costs, list):
-            assert len(match_costs) > 0, \
-                'match_costs must not be a empty list.'
+            assert len(match_costs) > 0, "match_costs must not be a empty list."
         self.use_focal_loss = False
         self.use_fed_loss = False
         for _match_cost in match_costs:
-            if _match_cost.get('type') == 'FocalLossCost':
+            if _match_cost.get("type") == "FocalLossCost":
                 self.use_focal_loss = True
-            if _match_cost.get('type') == 'FedLoss':
+            if _match_cost.get("type") == "FedLoss":
                 self.use_fed_loss = True
                 raise NotImplementedError
 
-        self.match_costs = [
-            TASK_UTILS.build(match_cost) for match_cost in match_costs
-        ]
+        self.match_costs = [TASK_UTILS.build(match_cost) for match_cost in match_costs]
         self.iou_calculator = TASK_UTILS.build(iou_calculator)
 
     def forward(self, outputs, batch_gt_instances, batch_img_metas):
-        assert 'pred_logits' in outputs and 'pred_boxes' in outputs
+        assert "pred_logits" in outputs and "pred_boxes" in outputs
 
-        pred_logits = outputs['pred_logits']
-        pred_bboxes = outputs['pred_boxes']
+        pred_logits = outputs["pred_logits"]
+        pred_bboxes = outputs["pred_boxes"]
         batch_size = len(batch_gt_instances)
 
         assert batch_size == pred_logits.shape[0] == pred_bboxes.shape[0]
@@ -214,8 +212,7 @@ class DiffusionDetMatcher(nn.Module):
             pred_instances.scores = pred_logits[i, ...]
             gt_instances = batch_gt_instances[i]
             img_meta = batch_img_metas[i]
-            indices = self.single_assigner(
-                pred_instances, gt_instances, img_meta)
+            indices = self.single_assigner(pred_instances, gt_instances, img_meta)
             batch_indices.append(indices)
         return batch_indices
 
@@ -226,24 +223,25 @@ class DiffusionDetMatcher(nn.Module):
             num_gt = gt_bboxes.size(0)
 
             if num_gt == 0:  # empty object in key frame
-                valid_mask = pred_bboxes.new_zeros((pred_bboxes.shape[0], ),
-                                                   dtype=torch.bool)
-                matched_gt_inds = pred_bboxes.new_zeros((gt_bboxes.shape[0], ),
-                                                        dtype=torch.long)
+                valid_mask = pred_bboxes.new_zeros(
+                    (pred_bboxes.shape[0],), dtype=torch.bool
+                )
+                matched_gt_inds = pred_bboxes.new_zeros(
+                    (gt_bboxes.shape[0],), dtype=torch.long
+                )
                 return valid_mask, matched_gt_inds
 
-            valid_mask, is_in_boxes_and_center = \
-                self.get_in_gt_and_in_center_info(
-                    bbox_xyxy_to_cxcywh(pred_bboxes),
-                    bbox_xyxy_to_cxcywh(gt_bboxes)
-                )
+            valid_mask, is_in_boxes_and_center = self.get_in_gt_and_in_center_info(
+                bbox_xyxy_to_cxcywh(pred_bboxes), bbox_xyxy_to_cxcywh(gt_bboxes)
+            )
 
             cost_list = []
             for match_cost in self.match_costs:
                 cost = match_cost(
                     pred_instances=pred_instances,
                     gt_instances=gt_instances,
-                    img_meta=img_meta)
+                    img_meta=img_meta,
+                )
                 cost_list.append(cost)
 
             pairwise_ious = self.iou_calculator(pred_bboxes, gt_bboxes)
@@ -252,14 +250,14 @@ class DiffusionDetMatcher(nn.Module):
             cost_matrix = torch.stack(cost_list).sum(0)
             cost_matrix[~valid_mask] = cost_matrix[~valid_mask] + 10000.0
 
-            fg_mask_inboxes, matched_gt_inds = \
-                self.dynamic_k_matching(
-                    cost_matrix, pairwise_ious, num_gt)
+            fg_mask_inboxes, matched_gt_inds = self.dynamic_k_matching(
+                cost_matrix, pairwise_ious, num_gt
+            )
         return fg_mask_inboxes, matched_gt_inds
 
     def get_in_gt_and_in_center_info(
-            self, pred_bboxes: Tensor,
-            gt_bboxes: Tensor) -> Tuple[Tensor, Tensor]:
+        self, pred_bboxes: Tensor, gt_bboxes: Tensor
+    ) -> Tuple[Tensor, Tensor]:
         """Get the information of which prior is in gt bboxes and gt center
         priors."""
         xy_target_gts = bbox_cxcywh_to_xyxy(gt_bboxes)  # (x1, y1, x2, y2)
@@ -273,8 +271,7 @@ class DiffusionDetMatcher(nn.Module):
         b_t = pred_bboxes_center_y > xy_target_gts[:, 1].unsqueeze(0)
         b_b = pred_bboxes_center_y < xy_target_gts[:, 3].unsqueeze(0)
         # (b_l.long()+b_r.long()+b_t.long()+b_b.long())==4 [300,num_gt] ,
-        is_in_boxes = ((b_l.long() + b_r.long() + b_t.long() +
-                        b_b.long()) == 4)
+        is_in_boxes = (b_l.long() + b_r.long() + b_t.long() + b_b.long()) == 4
         is_in_boxes_all = is_in_boxes.sum(1) > 0  # [num_query]
         # in fixed center
         center_radius = 2.5
@@ -282,35 +279,35 @@ class DiffusionDetMatcher(nn.Module):
         # on the size of the gt boxes
         # https://github.com/dulucas/UVO_Challenge/blob/main/Track1/detection/mmdet/core/bbox/assigners/rpn_sim_ota_assigner.py#L212    # noqa
         b_l = pred_bboxes_center_x > (
-            gt_bboxes[:, 0] -
-            (center_radius *
-             (xy_target_gts[:, 2] - xy_target_gts[:, 0]))).unsqueeze(0)
+            gt_bboxes[:, 0]
+            - (center_radius * (xy_target_gts[:, 2] - xy_target_gts[:, 0]))
+        ).unsqueeze(0)
         b_r = pred_bboxes_center_x < (
-            gt_bboxes[:, 0] +
-            (center_radius *
-             (xy_target_gts[:, 2] - xy_target_gts[:, 0]))).unsqueeze(0)
+            gt_bboxes[:, 0]
+            + (center_radius * (xy_target_gts[:, 2] - xy_target_gts[:, 0]))
+        ).unsqueeze(0)
         b_t = pred_bboxes_center_y > (
-            gt_bboxes[:, 1] -
-            (center_radius *
-             (xy_target_gts[:, 3] - xy_target_gts[:, 1]))).unsqueeze(0)
+            gt_bboxes[:, 1]
+            - (center_radius * (xy_target_gts[:, 3] - xy_target_gts[:, 1]))
+        ).unsqueeze(0)
         b_b = pred_bboxes_center_y < (
-            gt_bboxes[:, 1] +
-            (center_radius *
-             (xy_target_gts[:, 3] - xy_target_gts[:, 1]))).unsqueeze(0)
+            gt_bboxes[:, 1]
+            + (center_radius * (xy_target_gts[:, 3] - xy_target_gts[:, 1]))
+        ).unsqueeze(0)
 
-        is_in_centers = ((b_l.long() + b_r.long() + b_t.long() +
-                          b_b.long()) == 4)
+        is_in_centers = (b_l.long() + b_r.long() + b_t.long() + b_b.long()) == 4
         is_in_centers_all = is_in_centers.sum(1) > 0
 
         is_in_boxes_anchor = is_in_boxes_all | is_in_centers_all
-        is_in_boxes_and_center = (is_in_boxes & is_in_centers)
+        is_in_boxes_and_center = is_in_boxes & is_in_centers
 
         return is_in_boxes_anchor, is_in_boxes_and_center
 
-    def dynamic_k_matching(self, cost: Tensor, pairwise_ious: Tensor,
-                           num_gt: int) -> Tuple[Tensor, Tensor]:
+    def dynamic_k_matching(
+        self, cost: Tensor, pairwise_ious: Tensor, num_gt: int
+    ) -> Tuple[Tensor, Tensor]:
         """
-        Use IoU and matching cost to calculate 
+        Use IoU and matching cost to calculate
         the dynamic top-k positive targets.
         """
         matching_matrix = torch.zeros_like(cost)
@@ -321,7 +318,8 @@ class DiffusionDetMatcher(nn.Module):
         dynamic_ks = torch.clamp(topk_ious.sum(0).int(), min=1)
         for gt_idx in range(num_gt):
             _, pos_idx = torch.topk(
-                cost[:, gt_idx], k=dynamic_ks[gt_idx], largest=False)
+                cost[:, gt_idx], k=dynamic_ks[gt_idx], largest=False
+            )
             matching_matrix[:, gt_idx][pos_idx] = 1
 
         del topk_ious, dynamic_ks, pos_idx
@@ -336,14 +334,18 @@ class DiffusionDetMatcher(nn.Module):
             matched_query_id = matching_matrix.sum(1) > 0
             cost[matched_query_id] += 100000.0
             unmatch_id = torch.nonzero(
-                matching_matrix.sum(0) == 0, as_tuple=False).squeeze(1)
+                matching_matrix.sum(0) == 0, as_tuple=False
+            ).squeeze(1)
             for gt_idx in unmatch_id:
                 pos_idx = torch.argmin(cost[:, gt_idx])
                 matching_matrix[:, gt_idx][pos_idx] = 1.0
             if (matching_matrix.sum(1) > 1).sum() > 0:
                 _, cost_argmin = torch.min(cost[prior_match_gt_mask], dim=1)
                 matching_matrix[prior_match_gt_mask] *= 0
-                matching_matrix[prior_match_gt_mask, cost_argmin, ] = 1
+                matching_matrix[
+                    prior_match_gt_mask,
+                    cost_argmin,
+                ] = 1
 
         assert not (matching_matrix.sum(0) == 0).any()
         # get foreground mask inside box and center prior

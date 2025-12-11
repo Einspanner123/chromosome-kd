@@ -13,11 +13,15 @@ model = dict(
             type='ChromoDetSingleHead'),
         # criterion
         criterion=dict(
-            type='ChromoDetCriterion', # 保持原Criterion
+            type='ChromoDetCriterion',
             use_morphology_aware=use_morphology_aware, # 形态感知
             assigner=dict(
-                type='ChromoDetMatcher', # 保持原Assigner
+                type='ChromoDetMatcher',
                 use_morphology_aware=use_morphology_aware),
             ),
         )
     )
+
+randomness = dict(
+    deterministic=False,     # 使用确定性CUDA计算
+)

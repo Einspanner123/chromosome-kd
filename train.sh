@@ -27,4 +27,4 @@ trap 'output_notes' EXIT
 
 
 # 设置gpu id并运行训练脚本
-CUDA_VISIBLE_DEVICES=$GPU_ID python tools/train.py "$@"
+CUBLAS_WORKSPACE_CONFIG=:4096:8 CUDA_VISIBLE_DEVICES=$GPU_ID python tools/train.py "$@"

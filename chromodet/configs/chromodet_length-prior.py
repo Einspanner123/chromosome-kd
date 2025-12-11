@@ -15,10 +15,10 @@ model = dict(
             use_length_prior=use_length_prior),
         # criterion
         criterion=dict(
-            type='ChromoDetCriterion', # 保持原Criterion
+            type='ChromoDetCriterion',
             use_length_prior=use_length_prior, # 长度先验
             assigner=dict(
-                type='ChromoDetMatcher', # 保持原Assigner
+                type='ChromoDetMatcher',
                 use_length_prior=use_length_prior,
                 ),
             ), 

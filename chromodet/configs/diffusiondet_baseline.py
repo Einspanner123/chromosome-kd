@@ -1,13 +1,18 @@
 _base_ = [
-    '../_base_/datasets/chromo_coco_detection.py',
-    '../_base_/schedules/schedule_1x.py',
-    '../_base_/default_runtime.py'
+    '../base/datasets/chromo_coco_detection.py',
+    '../base/schedules/schedule_1x.py',
+    '../base/default_runtime.py'
 ]
 
 custom_imports = dict(
-    imports=['projects.DiffusionDet.diffusiondet'], allow_failed_imports=False)
+    imports=['projects.DiffusionDet.diffusiondet',
+             'chromodet.hooks'], 
+             allow_failed_imports=False)
 
 num_classes = 24
+batch_size = 4
+num_workers = 4
+prefetch_factor = 4
 
 # model settings
 model = dict(
@@ -39,7 +44,7 @@ model = dict(
         feat_channels=256,
         num_proposals=500,
         num_heads=6,
-        deep_supervision=True,
+        deep_supervision=False,
         prior_prob=0.01,
         snr_scale=2.0,
         sampling_timesteps=1,
@@ -150,9 +155,12 @@ test_pipeline = [
             'img_id', 'img_path', 'ori_shape', 'img_shape', 'scale_factor'))
 ]
 train_dataloader = dict(
-    batch_size=4,
+    batch_size=batch_size,
+    num_workers=num_workers,
+    prefetch_factor=prefetch_factor,
     sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
+        # indices=[i for i in range(0, 1540, 15)],
         filter_cfg=dict(
             filter_empty_gt=False, min_size=1e-5),
             pipeline=train_pipeline))
@@ -160,8 +168,11 @@ train_dataloader = dict(
 val_dataloader = dict(dataset=dict(pipeline=test_pipeline))
 test_dataloader = val_dataloader
 
-max_epoch = 150
-
+# randomness = dict(
+#     seed=42,                # 控制所有随机操作
+#     deterministic=True,     # 使用确定性CUDA计算
+#     diff_rank_seed=False,   # 不同GPU使用相同seed
+# )
 
 custom_hooks = [
     dict(
@@ -170,4 +181,16 @@ custom_hooks = [
         patience=15,
         min_delta=0.001,
         monitor='coco/bbox_mAP',
-        rule='greater'),]
+        rule='greater'),
+    dict(
+        type='BackupHook',
+        file='chromodet/model'),
+    # dict(  # 新增：权重可视化
+    #     type='WeightVizHook',
+    #     interval=2,           # 每500 iter 记录一次
+    #     with_grads=True,        # 记录梯度
+    #     log_conv_images=True,   # 可视化卷积核
+    #     # max_kernels=16,         # 每层最多展示64个kernel
+    # )
+]
+log_level = 'INFO'
