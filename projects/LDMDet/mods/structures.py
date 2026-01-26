@@ -19,6 +19,7 @@ class ModelOutput:
 
     pred_logits: Tensor  # [B, N, C]
     pred_boxes: Tensor  # [B, N, 4] normalized xyxy
+    pred_count: Optional[Tensor] = None  # [B, 1] 全局计数预测
     aux_outputs: Optional[List["ModelOutput"]] = None
 
 

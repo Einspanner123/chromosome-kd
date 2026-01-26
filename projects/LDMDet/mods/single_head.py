@@ -125,7 +125,9 @@ class SingleDiffusionDetHead(nn.Module):
         if proposals is None:
             # 如果没有提供提案特征,则从ROI特征计算均值
             # 优化: 使用 flatten + mean 更简洁高效
-            proposals = roi_features.flatten(2).mean(-1).view(bs, num_boxes, self.feat_channels)
+            proposals = (
+                roi_features.flatten(2).mean(-1).view(bs, num_boxes, self.feat_channels)
+            )
             # shape: (bs, num_boxes, feat_channels)
 
         # 调整ROI特征形状以适应注意力机制

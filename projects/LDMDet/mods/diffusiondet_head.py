@@ -13,6 +13,7 @@ from .modules import (
     cosine_noise_schedule,
     load_buffer,
 )
+from .rectified_flow import RectifiedFlow
 from .structures import DetectionResult, ImageMeta, InstanceData, ModelOutput
 from .utils import bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh
 
@@ -28,11 +29,16 @@ class DiffusionDetHead(nn.Module):
         snr_scale: float = 2.0,
         timesteps: int = 1000,
         sampling_timesteps: int = 1,
+        solver_type: str = "euler",  # "euler" or "heun"
         self_condition: bool = False,
         box_renewal: bool = True,
         use_ensemble: bool = True,
         deep_supervision: bool = True,
         ddim_sampling_eta: float = 1.0,
+        diffusion_type: str = "ddpm",  # "ddpm" or "rectified_flow"
+        rf_schedule: str = "linear",  # "linear" or "power" or "shifted"
+        rf_power: float = 1.0,  # 用于 power schedule
+        rf_shift: float = 1.0,  # 用于 shifted schedule (如 SD3 中的 3.0)
         single_head: nn.Module = None,
         roi_extractor: nn.Module = None,
         criterion: nn.Module = None,
@@ -54,6 +60,11 @@ class DiffusionDetHead(nn.Module):
         self.use_ensemble = use_ensemble
         self.deep_supervision = deep_supervision
         self.ddim_sampling_eta = ddim_sampling_eta
+        self.diffusion_type = diffusion_type
+        self.rf_schedule = rf_schedule
+        self.rf_power = rf_power
+        self.rf_shift = rf_shift
+        self.solver_type = solver_type
 
         # 测试配置
         self.use_nms = use_nms
@@ -66,7 +77,10 @@ class DiffusionDetHead(nn.Module):
         self.criterion = criterion
 
         # 构建扩散过程参数
-        self._build_diffusion_buffers()
+        if self.diffusion_type == "ddpm":
+            self._build_diffusion_buffers()
+        elif self.diffusion_type == "rectified_flow":
+            self.rf = RectifiedFlow(snr_scale=snr_scale)
 
         # 构建检测头序列 (迭代去噪)
         self.head_series = nn.ModuleList(
@@ -112,13 +126,16 @@ class DiffusionDetHead(nn.Module):
             )
 
         # 2. 扩散过程：生成训练所需的噪声框
-        # 随机采样时间步 t
-        t = torch.randint(0, self.timesteps, (bs,), device=device).long()
+        if self.diffusion_type == "ddpm":
+            t = torch.randint(0, self.timesteps, (bs,), device=device).long()
+        else:
+            # Rectified Flow 使用 [0, 1] 之间的连续时间步
+            t = torch.rand((bs,), device=device)
+            # 训练时也应用 shift 变换以匹配推理分布
+            if self.rf_schedule == "shifted":
+                s = self.rf_shift
+                t = s * t / (1 + (s - 1) * t)
 
-        # 生成初始框 (从真值框中采样并添加噪声，或者使用纯噪声补齐)
-        # 这里为了简化，我们采用原版 DiffusionDet 的策略：
-        # 对每个 image，从其 GT 中随机重复采样 num_proposals 个框，然后加噪
-        # 如果没有 GT，则全部使用纯噪声
         x_boxes = []
         for i in range(bs):
             num_gt = gt_bboxes[i].shape[0]
@@ -130,8 +147,13 @@ class DiffusionDetHead(nn.Module):
                 sample_bboxes = bbox_xyxy_to_cxcywh(sample_bboxes)
                 # [0, 1] -> [-snr, snr]
                 x_start = (sample_bboxes * 2 - 1) * self.snr_scale
-                # 加噪
-                x_noisy = self.q_sample(x_start, t[i : i + 1])
+
+                if self.diffusion_type == "ddpm":
+                    # DDPM 加噪
+                    x_noisy = self.q_sample(x_start, t[i : i + 1])
+                else:
+                    # Rectified Flow 加噪: x_t = (1-t)x_0 + t*x_1
+                    x_noisy, _ = self.rf.q_sample(x_start, t=t[i : i + 1])
                 x_boxes.append(x_noisy)
             else:
                 # 全纯噪声
@@ -142,7 +164,9 @@ class DiffusionDetHead(nn.Module):
         curr_bboxes = self._raw_to_xyxy(x_noisy_batch, img_metas)
 
         # 3. 前向传播获取预测结果
-        all_cls_logits, all_pred_bboxes = self(features, curr_bboxes, t)
+        # 对于 RF，我们可能需要将 t 缩放到 [0, timesteps] 以适配预训练的时间嵌入
+        t_input = t if self.diffusion_type == "ddpm" else t * self.timesteps
+        all_cls_logits, all_pred_bboxes = self(features, curr_bboxes, t_input)
 
         # 4. 整理输出格式并计算损失
         # all_cls_logits: [num_heads, bs, num_proposals, num_classes]
@@ -288,61 +312,172 @@ class DiffusionDetHead(nn.Module):
         else:
             return inter_cls_logits[-1:], inter_pred_bboxes[-1:]
 
+    def _forward_at_t(
+        self,
+        features: Tuple[Tensor],
+        x_raw: Tensor,
+        t: float,
+        img_metas: List[ImageMeta],
+    ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+        """在指定时间步 t 进行前向预测并返回 [cls_logits, pred_bboxes, x0_raw, logits_0_raw]"""
+        bs, device = x_raw.shape[0], x_raw.device
+        curr_bboxes = self._raw_to_xyxy(x_raw, img_metas)
+
+        # 缩放时间步以适配时间嵌入
+        t_input = torch.full((bs,), t * self.timesteps, device=device)
+
+        # 前向预测
+        cls_logits_seq, pred_bboxes_seq = self(features, curr_bboxes, t_input)
+
+        # 取最后一个 head 的输出
+        last_cls_logits = cls_logits_seq[-1]
+        last_pred_bboxes = pred_bboxes_seq[-1]
+
+        # 将图像空间的 xyxy 转回扩散空间的 raw 框 (x0)
+        x0_raw = self._xyxy_to_raw(last_pred_bboxes, img_metas)
+
+        # 对于分类 Logit，我们直接将其作为扩散空间的 x0 预测 (logits_0_raw)
+        logits_0_raw = last_cls_logits
+
+        return last_cls_logits, last_pred_bboxes, x0_raw, logits_0_raw
+
     @torch.no_grad()
     def predict(
-        self, features: Tuple[Tensor], img_metas: List[ImageMeta], rescale: bool = True
+        self,
+        features: Tuple[Tensor],
+        img_metas: List[ImageMeta],
+        rescale: bool = True,
+        return_trajectory: bool = False,
     ) -> List[DetectionResult]:
-        """推理接口"""
+        """推理模式的前向传播"""
         device = features[0].device
         bs = len(img_metas)
 
-        # 1. 准备初始噪声框
-        # 生成时间对: [(T-1, T-2), ..., (0, -1)]
-        times = torch.linspace(
-            -1, self.timesteps - 1, steps=self.sampling_timesteps + 1, device=device
-        )
-        times = list(reversed(times.int().tolist()))
-        time_pairs = list(zip(times[:-1], times[1:]))
+        # 1. 准备采样时间序列
+        if self.diffusion_type == "ddpm":
+            times = torch.linspace(
+                -1, self.timesteps - 1, steps=self.sampling_timesteps + 1, device=device
+            )
+            times = list(reversed(times.int().tolist()))
+            time_pairs = list(zip(times[:-1], times[1:]))
+        else:
+            # Rectified Flow: t 从 1.0 (noise) 到 0.0 (data)
+            times = torch.linspace(
+                1.0, 0.0, steps=self.sampling_timesteps + 1, device=device
+            )
+            # 应用非线性 schedule
+            if self.rf_schedule == "power":
+                times = times.pow(self.rf_power)
+            elif self.rf_schedule == "shifted":
+                s = self.rf_shift
+                times = s * times / (1 + (s - 1) * times)
 
-        # 初始随机噪声框 [-snr, snr] -> [0, 1] -> xyxy
-        noise_bboxes_raw = torch.randn(bs, self.num_proposals, 4, device=device)
-        curr_bboxes = self._raw_to_xyxy(noise_bboxes_raw, img_metas)
+            time_pairs = []
+            for i in range(len(times) - 1):
+                time_pairs.append((times[i].item(), times[i + 1].item()))
 
-        # 存储集成结果
+        # 初始随机噪声框
+        x_raw = torch.randn(bs, self.num_proposals, 4, device=device)
+
         ensemble_results = []
+        trajectory = []
 
-        # 2. 迭代采样
+        # 2. 迭代采样 (Decoupled Ensemble 模式)
         for t_curr, t_next in time_pairs:
-            t_batch = torch.full((bs,), t_curr, device=device, dtype=torch.long)
-
-            # 前向预测
-            cls_logits_seq, pred_bboxes_seq = self(features, curr_bboxes, t_batch)
-
-            # 取序列最后一个输出
-            last_cls_logits = cls_logits_seq[-1]
-            last_pred_bboxes = pred_bboxes_seq[-1]
-
-            if t_next < 0:
-                # 最后一步，记录结果
-                if self.use_ensemble:
-                    ensemble_results.append((last_cls_logits, last_pred_bboxes))
-                break
-
-            # DDIM 采样步骤
-            curr_bboxes, noise_bboxes_raw = self._ddim_step(
-                t_curr,
-                t_next,
-                noise_bboxes_raw,
-                last_cls_logits,
-                last_pred_bboxes,
-                img_metas,
+            # --- 步骤 A: 获取当前位置的预测 ---
+            cls_logits, pred_bboxes, x0_raw, logits_0_raw = self._forward_at_t(
+                features, x_raw, t_curr, img_metas
             )
 
-            if self.use_ensemble:
-                ensemble_results.append((last_cls_logits, last_pred_bboxes))
+            # 记录轨迹
+            if return_trajectory:
+                trajectory.append((cls_logits.detach(), pred_bboxes.detach()))
 
-        # 3. 后处理结果
-        return self._post_process(ensemble_results, img_metas, rescale)
+            # 将当前预测加入集成池
+            if self.use_ensemble:
+                ensemble_results.append((cls_logits, pred_bboxes))
+
+            # --- 步骤 B: 状态更新 (Solver) ---
+            if self.diffusion_type == "ddpm":
+                # DDIM 更新逻辑
+                curr_bboxes_xyxy, x_raw = self._ddim_step(
+                    t_curr, t_next, x_raw, cls_logits, pred_bboxes, img_metas
+                )
+                if t_next < 0:
+                    break
+            else:
+                # Rectified Flow 更新逻辑
+                if self.solver_type == "heun" and t_next > 0:
+                    # Heun Step (二阶)
+                    def model_fn(x_tmp, t_tmp):
+                        _, _, x0_tmp, l0_tmp = self._forward_at_t(
+                            features, x_tmp, t_tmp, img_metas
+                        )
+                        return x0_tmp, l0_tmp
+
+                    # 获取二阶修正后的结果 (仅对 BBox 进行 Flow 演化)
+                    x_raw, x0_corrected, logits_0_corrected = self.rf.heun_step(
+                        x_raw,
+                        x0_raw,
+                        t_curr,
+                        t_next,
+                        model_fn,
+                        logits_0_pred=logits_0_raw,
+                    )
+
+                    # 如果启用集成，使用修正后的预测值替代当前步的预测
+                    if self.use_ensemble:
+                        ensemble_results.pop()
+                        pred_bboxes_corr = self._raw_to_xyxy(x0_corrected, img_metas)
+                        ensemble_results.append((logits_0_corrected, pred_bboxes_corr))
+                else:
+                    # Euler Step (一阶)
+                    x_raw = self.rf.step(x_raw, x0_raw, t_curr, t_next)
+
+                # 框更新策略 (Box Renewal)
+                if self.box_renewal:
+                    x_raw = self._apply_box_renewal(x_raw, cls_logits)
+
+                if t_next <= 0:
+                    # 最后一步的预测也加入集成 (如果尚未加入)
+                    # 注意：通常最后一步 t=0 时不需要再跑一次 forward
+                    break
+
+        # 3. 后处理
+        results = self._post_process(ensemble_results, img_metas, rescale)
+
+        if return_trajectory:
+            return results, trajectory
+
+        return results
+
+    def _apply_box_renewal(self, x_raw: Tensor, cls_logits: Tensor) -> Tensor:
+        """通用的框更新策略"""
+        bs, device = x_raw.shape[0], x_raw.device
+        scores = torch.sigmoid(cls_logits).max(-1)[0]
+        x_raw_new = x_raw.clone()
+
+        for i in range(bs):
+            keep = scores[i] > self.score_thr
+            if keep.sum() < self.min_keep:
+                _, topk_idx = scores[i].topk(min(self.min_keep, scores.shape[1]))
+                keep[topk_idx] = True
+
+            num_renew = (~keep).sum()
+            if num_renew > 0:
+                x_raw_new[i, ~keep] = torch.randn(num_renew, 4, device=device)
+        return x_raw_new
+
+    def _xyxy_to_raw(self, bboxes: Tensor, img_metas: List[ImageMeta]) -> Tensor:
+        """将图像空间的 xyxy 框转回扩散空间的 raw 框 (cxcywh)"""
+        x0 = bboxes.clone()
+        for i, meta in enumerate(img_metas):
+            h, w = meta.img_shape[:2]
+            scale = x0.new_tensor([w, h, w, h])
+            x0[i] /= scale
+        x0 = bbox_xyxy_to_cxcywh(x0)
+        x0 = (x0 * 2 - 1) * self.snr_scale
+        return x0
 
     def _raw_to_xyxy(self, raw_bboxes: Tensor, img_metas: List[ImageMeta]) -> Tensor:
         """将扩散空间的 raw 框转为图像空间的 xyxy 框"""
@@ -366,13 +501,7 @@ class DiffusionDetHead(nn.Module):
         bs, device = x_raw.shape[0], x_raw.device
 
         # 将预测的 xyxy 转回扩散空间的 cxcywh (x0)
-        x0 = pred_bboxes.clone()
-        for i, meta in enumerate(img_metas):
-            h, w = meta.img_shape[:2]
-            scale = x0.new_tensor([w, h, w, h])
-            x0[i] /= scale
-        x0 = bbox_xyxy_to_cxcywh(x0)
-        x0 = (x0 * 2 - 1) * self.snr_scale
+        x0 = self._xyxy_to_raw(pred_bboxes, img_metas)
 
         # 预测噪声
         t_batch = torch.full((bs,), t_curr, device=device, dtype=torch.long)
@@ -393,18 +522,7 @@ class DiffusionDetHead(nn.Module):
 
         # 框更新策略 (Box Renewal)
         if self.box_renewal:
-            scores = torch.sigmoid(cls_logits).max(-1)[0]
-            for i in range(bs):
-                keep = scores[i] > self.score_thr
-                # 保证至少保留一些框（针对染色体任务的优化）
-                if keep.sum() < self.min_keep:
-                    _, topk_idx = scores[i].topk(min(self.min_keep, scores.shape[1]))
-                    keep[topk_idx] = True
-
-                # 替换低置信度框为新的随机噪声
-                num_renew = (~keep).sum()
-                if num_renew > 0:
-                    x_raw_next[i, ~keep] = torch.randn(num_renew, 4, device=device)
+            x_raw_next = self._apply_box_renewal(x_raw_next, cls_logits)
 
         return self._raw_to_xyxy(x_raw_next, img_metas), x_raw_next
 

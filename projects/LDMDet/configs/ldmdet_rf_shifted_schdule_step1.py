@@ -2,15 +2,13 @@ _base_ = ["./ldmdet_baseline.py"]
 
 # 覆盖模型配置以使用 Rectified Flow
 model = dict(
-    type="LDMDet",
-    use_compile=True,  # 开启 PyTorch 2.x
     bbox_head=dict(
         diffusion_type="rectified_flow",  # 启用 Rectified Flow
-        sampling_timesteps=4,  # RF 推理步数，通常 1-4 步效果就很好
+        sampling_timesteps=1,  # RF 推理步数，通常 1-4 步效果就很好
         rf_schedule="shifted",  # 使用 shifted schedule
         rf_shift=3.0,  # 增加数据端采样密度 (参考 SD3/Flux)
         snr_scale=2.0,
-    ),
+    )
 )
 
 # --- 针对 Rectified Flow 的优化器和学习率调整 ---

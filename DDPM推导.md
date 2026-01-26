@@ -98,6 +98,22 @@ $$q(\mathbf{x}_t | \mathbf{x}_{t-1}) = \mathcal{N}(\mathbf{x}_t; \sqrt{\alpha_t}
 利用重参数化技巧，可以写成：
 $$\mathbf{x}_t = \sqrt{\alpha_t}\mathbf{x}_{t-1} + \sqrt{1 - \alpha_t}\boldsymbol{\epsilon}_{t-1}, \quad \boldsymbol{\epsilon}_{t-1} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$$
 
+```python
+import torch
+
+def q_step(x_prev, t, betas):
+    """
+    单步加噪实现: q(x_t | x_{t-1})
+    技巧: 预计算所有的 alpha 和 beta，避免在训练循环中重复计算。
+    """
+    beta_t = betas[t].view(-1, 1, 1, 1) # 适配 4D 图像张量
+    alpha_t = 1.0 - beta_t
+    
+    noise = torch.randn_like(x_prev)
+    x_t = torch.sqrt(alpha_t) * x_prev + torch.sqrt(beta_t) * noise
+    return x_t
+```
+
 **设计初衷：为什么系数是 $\sqrt{\alpha_t}$？**
 1. **方差保持（Variance Preservation）**：假设 $\mathbf{x}_{t-1}$ 具有单位方差，则 $\text{Var}(\mathbf{x}_t) = (\sqrt{\alpha_t})^2 \text{Var}(\mathbf{x}_{t-1}) + (\sqrt{1-\alpha_t})^2 \text{Var}(\boldsymbol{\epsilon}) = \alpha_t + (1-\alpha_t) = 1$。这保证了在加噪过程中数据不会发生数值爆炸或坍缩。
 2. **信号衰减**：$\sqrt{\alpha_t} < 1$ 像是一个“遗忘系数”，每一步都在遗忘一部分旧信息，同时通过注入等量方差的噪声来维持整体能量守恒。
@@ -114,6 +130,24 @@ $$\mathbf{x}_t = \sqrt{\alpha_t}\mathbf{x}_{t-1} + \sqrt{1 - \alpha_t}\boldsymbo
    - 所以：$\mathbf{x}_t = \sqrt{\alpha_t \alpha_{t-1}}\mathbf{x}_{t-2} + \sqrt{1 - \alpha_t \alpha_{t-1}}\bar{\boldsymbol{\epsilon}}$
 4. 递归 $t$ 次，定义 $\bar{\alpha}_t = \prod_{s=1}^{t} \alpha_s$，最终得到：
 $$\mathbf{x}_t = \sqrt{\bar{\alpha}_t}\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_t}\boldsymbol{\epsilon}, \quad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$$
+
+```python
+def q_sample(x_0, t, sqrt_alphas_cumprod, sqrt_one_minus_alphas_cumprod):
+    """
+    任意步加噪实现 (训练时最常用): q(x_t | x_0)
+    工业技巧: 
+    1. 传入预计算好的 sqrt_alphas_cumprod (即累乘后的平方根) 以提升效率。
+    2. 使用 .to(device) 确保所有张量在同一计算设备上。
+    """
+    # 提取对应时间步的系数并扩展维度
+    noise = torch.randn_like(x_0)
+    
+    # 获取系数并扩展为 [batch, 1, 1, 1] 以支持广播
+    s1 = sqrt_alphas_cumprod[t].reshape(-1, 1, 1, 1)
+    s2 = sqrt_one_minus_alphas_cumprod[t].reshape(-1, 1, 1, 1)
+    
+    return s1 * x_0 + s2 * noise, noise
+```
 
 写成分布形式：
 $$q(\mathbf{x}_t | \mathbf{x}_0) = \mathcal{N}(\mathbf{x}_t; \sqrt{\bar{\alpha}_t}\mathbf{x}_0, (1 - \bar{\alpha}_t)\mathbf{I})$$
@@ -164,6 +198,25 @@ $$\tilde{\boldsymbol{\mu}}_t(\mathbf{x}_t, \mathbf{x}_0) = \frac{\sqrt{\bar{\alp
 **关键公式（后验方差）：**
 $$\tilde{\beta}_t = \frac{1 - \bar{\alpha}_{t-1}}{1 - \bar{\alpha}_t} \beta_t$$
 
+```python
+def get_posterior_params(x_0, x_t, t, posterior_mean_coef1, posterior_mean_coef2, posterior_log_variance_clipped):
+    """
+    计算真实的后验分布参数: q(x_{t-1} | x_t, x_0)
+    工业技巧: 
+    1. 计算方差时使用 log 域，防止数值过小导致下溢出 (Underflow)。
+    2. 对 t=0 时的方差进行截断(clip)，防止 log(0) 报错。
+    """
+    # 均值计算
+    mu = (
+        posterior_mean_coef1[t].view(-1, 1, 1, 1) * x_0 +
+        posterior_mean_coef2[t].view(-1, 1, 1, 1) * x_t
+    )
+    # 方差计算 (返回 log 方差)
+    log_var = posterior_log_variance_clipped[t].view(-1, 1, 1, 1)
+    
+    return mu, log_var
+```
+
 ### 4.2 模型的参数化
 既然真实的后验是高斯，我们的模型 $p_\theta(\mathbf{x}_{t-1}|\mathbf{x}_t)$ 也应该建模为高斯：
 $$p_\theta(\mathbf{x}_{t-1} | \mathbf{x}_t) = \mathcal{N}(\mathbf{x}_{t-1}; \boldsymbol{\mu}_\theta(\mathbf{x}_t, t), \sigma_t^2 \mathbf{I})$$
@@ -186,6 +239,26 @@ $$p_\theta(\mathbf{x}_{t-1} | \mathbf{x}_t) = \mathcal{N}(\mathbf{x}_{t-1}; \bol
 所以，我们设计一个神经网络 $\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)$ 来预测添加到图像上的噪声。
 于是模型的均值定义为：
 $$\boldsymbol{\mu}_\theta(\mathbf{x}_t, t) = \frac{1}{\sqrt{\alpha_t}} \left( \mathbf{x}_t - \frac{\beta_t}{\sqrt{1 - \bar{\alpha}_t}} \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t) \right)$$
+
+```python
+def p_mean_variance(model, x_t, t, clip_denoised=True):
+    """
+    逆向去噪一步的参数预测: p_theta(x_{t-1} | x_t)
+    工业技巧:
+    1. clip_denoised: 推理时将预测出的 x_0 截断到 [-1, 1]，这能显著减少生成图的伪影。
+    2. 这种截断在训练时不做，只在推理采样时做。
+    """
+    # 模型预测噪声
+    eps_pred = model(x_t, t)
+    
+    # 根据公式反推 x_0 (即 4.2 节提到的洞察)
+    # x_0_pred = (x_t - sqrt_one_minus_alpha_cumprod * eps_pred) / sqrt_alpha_cumprod
+    
+    # 均值计算
+    mu = (1.0 / torch.sqrt(alpha_t)) * (x_t - (beta_t / torch.sqrt(one_minus_alphas_cumprod)) * eps_pred)
+    
+    return mu
+```
 
 **为什么要预测均值而不是方差？**
 1. **主导地位**：均值 $\boldsymbol{\mu}$ 决定了去噪的方向和图像的结构；方差 $\sigma^2$ 仅决定了生成过程中的随机噪声强度。
@@ -302,28 +375,155 @@ $$L_{VLB} = \mathbb{E}_q \left[ \underbrace{D_{KL}(q(\mathbf{x}_T|\mathbf{x}_0) 
 代入比较，Loss 简化为：
 $$L_{simple}(\theta) = \mathbb{E}_{t, \mathbf{x}_0, \boldsymbol{\epsilon}} \left[ \| \boldsymbol{\epsilon} - \boldsymbol{\epsilon}_\theta(\underbrace{\sqrt{\bar{\alpha}_t}\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_t}\boldsymbol{\epsilon}}_{\mathbf{x}_t}, t) \|^2 \right]$$
 
+```python
+def training_loss(model, x_0, t):
+    """
+    DDPM 核心训练 Loss (Simple 版本)
+    工业技巧:
+    1. 时间步 t 的编码: 不要直接输入标量 t，使用 Sinusoidal Position Embedding 将其转为向量，帮助模型理解“当前加噪到什么程度了”。
+    2. 混合精度训练 (AMP): 在计算 MSE 前将数据转回 FP32，防止 loss 溢出。
+    """
+    noise = torch.randn_like(x_0)
+    
+    # 构造含噪输入 xt
+    xt = q_sample(x_0, t) # 使用之前定义的函数
+    
+    # 预测并计算 MSE
+    eps_pred = model(xt, t)
+    return F.mse_loss(noise, eps_pred)
+```
+
 **人话总结**：训练过程就是 **随机选一张图，随机加点噪，然后让网络去猜加了多少噪。** 猜得越准，去噪能力越强。
 
 ---
 
-## 6. 算法流程
+## 6. 算法流程与代码对照
 
 ### 6.1 训练算法（Training）
-1. 重复进行以下步骤直到收敛：
-2. 从数据集采样 $\mathbf{x}_0$。
-3. 随机采样时间步 $t \sim \text{Uniform}(\{1, \dots, T\})$。
-4. 随机采样噪声 $\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$。
-5. 构造输入 $\mathbf{x}_t = \sqrt{\bar{\alpha}_t}\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_t}\boldsymbol{\epsilon}$。
-6. 计算梯度下降，最小化 $\|\boldsymbol{\epsilon} - \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)\|^2$。
+训练的目标是学习预测噪声的函数 $\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)$。
+
+| 步骤 | 数学公式 | PyTorch 代码实现 |
+| :--- | :--- | :--- |
+| 1. 采样数据 | $\mathbf{x}_0 \sim q(\mathbf{x}_0)$ | `x0 = batch['image']` |
+| 2. 采样时间步 | $t \sim \text{Uniform}(1, \dots, T)$ | `t = torch.randint(0, T, (batch_size,))` |
+| 3. 采样噪声 | $\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$ | `noise = torch.randn_like(x0)` |
+| 4. 加噪构造输入 | $\mathbf{x}_t = \sqrt{\bar{\alpha}_t}\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_t}\boldsymbol{\epsilon}$ | `xt = sqrt_alpha_bar[t] * x0 + sqrt_one_minus_alpha_bar[t] * noise` |
+| 5. 模型预测 | $\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)$ | `predicted_noise = model(xt, t)` |
+| 6. 计算损失 | $L = \|\boldsymbol{\epsilon} - \boldsymbol{\epsilon}_\theta\|^2$ | `loss = F.mse_loss(noise, predicted_noise)` |
+
+> **关键点**：代码中的 `sqrt_alpha_bar` 是预先计算好的常数数组，训练时根据索引 `t` 直接取值。
+
+---
 
 ### 6.2 采样算法（Sampling / Inference）
-1. 从标准正态分布采样 $\mathbf{x}_T \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$。
-2. 从 $t = T, T-1, \dots, 1$ 循环：
-3. 采样 $\mathbf{z} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$（如果是最后一步 $t=1$，则 $\mathbf{z}=\mathbf{0}$）。
-4. 计算去噪后的均值：
-   $$\mathbf{x}_{t-1} = \frac{1}{\sqrt{\alpha_t}} \left( \mathbf{x}_t - \frac{1 - \alpha_t}{\sqrt{1 - \bar{\alpha}_t}} \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t) \right) + \sigma_t \mathbf{z}$$
-   *(注：这里的系数 $\frac{1-\alpha_t}{\dots}$ 即前文的 $\frac{\beta_t}{\dots}$)*
-5. 循环结束，得到生成的 $\mathbf{x}_0$。
+采样的过程是从纯噪声 $\mathbf{x}_T$ 逐步剔除噪声还原回 $\mathbf{x}_0$。
+
+| 步骤 | 数学公式 | PyTorch 代码实现 |
+| :--- | :--- | :--- |
+| 1. 起始噪声 | $\mathbf{x}_T \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$ | `img = torch.randn((n, c, h, w))` |
+| 2. 迭代去噪 | For $t = T, \dots, 1$ | `for i in reversed(range(0, T)):` |
+| 3. 预测噪声 | $\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)$ | `pred_noise = model(img, t_tensor)` |
+| 4. 计算均值项 | $\frac{1}{\sqrt{\alpha_t}} \left( \mathbf{x}_t - \frac{1 - \alpha_t}{\sqrt{1 - \bar{\alpha}_t}} \boldsymbol{\epsilon}_\theta \right)$ | `mean = 1/sqrt_alpha[t] * (img - (1-alpha[t])/sqrt_one_minus_alpha_bar[t] * pred_noise)` |
+| 5. 注入随机噪声 | $\mathbf{x}_{t-1} = \text{mean} + \sigma_t \mathbf{z}$ | `z = torch.randn_like(img) if t > 0 else 0; img = mean + sigma[t] * z` |
+
+> **实现细节**：
+> - **$\sigma_t$ 的取值**：代码中通常取 `sigma[t] = sqrt(beta[t])`。
+> - **$t=1$ 的处理**：在最后一步（$t=1$ 时），我们不需要再加随机噪声 $\mathbf{z}$，否则图像会变糊。代码中体现为 `if t > 0`。
+> - **数据裁剪**：为了保证生成的图像像素在有效范围内，每步 `img` 计算完后通常会进行 `img.clamp_(-1, 1)`。
+
+---
+
+### 6.3 完整逻辑串联（PyTorch 核心类实现）
+以下是一个工业级简化的核心逻辑类，展示了如何将所有公式串联起来：
+
+```python
+import torch
+import torch.nn.functional as F
+
+class GaussianDiffusion:
+    def __init__(self, timesteps=1000):
+        self.T = timesteps
+        # 1. 预计算所有系数 (Beta Schedule)
+        self.betas = torch.linspace(1e-4, 0.02, timesteps)
+        self.alphas = 1. - self.betas
+        self.alphas_cumprod = torch.cumprod(self.alphas, axis=0)
+        
+        # 2. 预计算用于训练的系数: sqrt(bar_alpha) 和 sqrt(1 - bar_alpha)
+        self.sqrt_alphas_cumprod = torch.sqrt(self.alphas_cumprod)
+        self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1. - self.alphas_cumprod)
+
+    def training_losses(self, model, x_0):
+        """对应 6.1 训练算法"""
+        batch_size = x_0.shape[0]
+        # 随机采样 t 和 噪声
+        t = torch.randint(0, self.T, (batch_size,), device=x_0.device)
+        noise = torch.randn_like(x_0)
+        
+        # 构造 xt (重参数化技巧)
+        x_t = self.sqrt_alphas_cumprod[t].view(-1, 1, 1, 1) * x_0 + \
+              self.sqrt_one_minus_alphas_cumprod[t].view(-1, 1, 1, 1) * noise
+        
+        # 模型预测噪声并计算 MSE
+        predicted_noise = model(x_t, t)
+        return F.mse_loss(noise, predicted_noise)
+
+    @torch.no_grad()
+    def sample(self, model, n, shape):
+        """对应 6.2 采样算法"""
+        model.eval()
+        # 从纯噪声开始
+        img = torch.randn((n, *shape), device=next(model.parameters()).device)
+        
+        for i in reversed(range(0, self.T)):
+            t = torch.full((n,), i, dtype=torch.long, device=img.device)
+            pred_noise = model(img, t)
+            
+            # 计算前一步的均值 (公式 4.4)
+            alpha_t = self.alphas[i]
+            alpha_bar_t = self.alphas_cumprod[i]
+            beta_t = self.betas[i]
+            
+            mean = (1 / torch.sqrt(alpha_t)) * (
+                img - (beta_t / torch.sqrt(1 - alpha_bar_t)) * pred_noise
+            )
+            
+            # 注入噪声 (最后一步除外)
+            if i > 0:
+                noise = torch.randn_like(img)
+                sigma_t = torch.sqrt(beta_t) # 或者取后验方差
+                img = mean + sigma_t * noise
+            else:
+                img = mean
+        return img
+```
+
+---
+
+## 7. 工业界主流优化与进阶
+
+在实际生产（如 Stable Diffusion, DALL-E 2）中，单纯靠 DDPM 是跑不通的。以下是目前主流的优化手段：
+
+### 7.1 模型权重的指数移动平均 (EMA)
+- **原理**：训练过程中不直接使用当前步的 $\theta$，而是维护一个平滑版本 $\theta_{EMA} = \gamma \theta_{EMA} + (1-\gamma) \theta$。
+- **作用**：极大地提高生成图像的质量和训练稳定性。在采样阶段，**始终使用 EMA 权重**。
+
+### 7.2 混合精度训练 (Mixed Precision)
+- **方法**：使用 FP16 或 BF16 代替传统的 FP32。
+- **作用**：Diffusion 训练极其吃显存，混合精度可以将 Batch Size 翻倍，并显著加快 U-Net 的卷积计算速度。
+
+### 7.3 采样加速：DDIM (Denoising Diffusion Implicit Models)
+- **痛点**：DDPM 采样 1000 步太慢了。
+- **优化**：DDIM 改变了逆向过程的概率假设，使其变成确定性过程。
+- **效果**：仅需 **20-50 步** 就能达到 DDPM 1000 步的效果，速度提升 20-50 倍。
+
+### 7.4 引导技术：无分类器引导 (Classifier-Free Guidance, CFG)
+- **原理**：在预测噪声时，同时传入有条件（如文本描述）和无条件（空输入）两种情况。
+- **公式**：$\boldsymbol{\epsilon}_{final} = \boldsymbol{\epsilon}_{uncond} + s \cdot (\boldsymbol{\epsilon}_{cond} - \boldsymbol{\epsilon}_{uncond})$。
+- **作用**：通过调节系数 $s$（Guidance Scale），可以强制让生成的图片更加符合你的输入指令。这是目前所有文生图模型的标配。
+
+### 7.5 隐空间扩散 (Latent Diffusion / LDM)
+- **思想**：不在像素空间（$512 \times 512 \times 3$）做扩散，而是先用 VAE 将图片压缩到隐空间（$64 \times 64 \times 4$）。
+- **作用**：计算量骤降 10 倍以上，同时保持极高的生成细节。Stable Diffusion 正是基于此。
 
 ---
 

@@ -123,7 +123,30 @@ class LDMDet(BaseDetector):
         if criterion_cfg is not None:
             criterion = self._build_criterion(criterion_cfg)
 
-        # 4. 构建 DiffusionDetHead
+        # 4. 构建可选的计数分支和一致性损失
+        counting_branch_cfg = cfg_copy.pop("counting_branch", None)
+        counting_branch = None
+        if counting_branch_cfg is not None:
+            if isinstance(counting_branch_cfg, dict):
+                obj_cls = MODELS.get(counting_branch_cfg["type"])
+                counting_branch = MODELS.build(
+                    self._filter_kwargs(obj_cls, counting_branch_cfg)
+                )
+            else:
+                counting_branch = counting_branch_cfg
+
+        consistency_loss_cfg = cfg_copy.pop("consistency_loss", None)
+        consistency_loss = None
+        if consistency_loss_cfg is not None:
+            if isinstance(consistency_loss_cfg, dict):
+                obj_cls = MODELS.get(consistency_loss_cfg["type"])
+                consistency_loss = MODELS.build(
+                    self._filter_kwargs(obj_cls, consistency_loss_cfg)
+                )
+            else:
+                consistency_loss = consistency_loss_cfg
+
+        # 5. 构建 DiffusionDetHead
         if "type" not in cfg_copy:
             cfg_copy["type"] = "PurePyTorchDiffusionDetHead"
 
@@ -133,6 +156,8 @@ class LDMDet(BaseDetector):
                 single_head=single_head,
                 roi_extractor=roi_extractor,
                 criterion=criterion,
+                counting_branch=counting_branch,
+                consistency_loss=consistency_loss,
             )
         )
 

@@ -4,10 +4,7 @@ _base_ = [
     "../../../chromodet/base/default_runtime.py",
 ]
 
-custom_imports = dict(
-    imports=["projects.LDMDet.model", "projects.LDMDet.hooks"],
-    allow_failed_imports=False,
-)
+custom_imports = dict(imports=["projects.LDMDet.model"], allow_failed_imports=False)
 
 num_classes = 24
 batch_size = 4
@@ -47,7 +44,7 @@ model = dict(
         deep_supervision=True,
         prior_prob=0.01,
         snr_scale=2.0,
-        sampling_timesteps=1,
+        sampling_timesteps=4,
         ddim_sampling_eta=1.0,
         single_head=dict(
             type="PurePyTorchSingleDiffusionDetHead",
@@ -192,12 +189,11 @@ custom_hooks = [
     dict(
         type="EarlyStoppingHook",
         priority=50,
-        patience=20,
+        patience=15,
         min_delta=0.001,
         monitor="coco/bbox_mAP",
         rule="greater",
     ),
-    dict(type="CopyProjectHook", priority="VERY_LOW"),
 ]
 
 log_level = "INFO"
