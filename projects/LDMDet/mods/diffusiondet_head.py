@@ -367,8 +367,10 @@ class DiffusionDetHead(nn.Module):
             )
             # 应用非线性 schedule
             if self.rf_schedule == "power":
+                # power > 1.0 会让采样点更靠近 t=0 (数据端)
                 times = times.pow(self.rf_power)
             elif self.rf_schedule == "shifted":
+                # 常见于 SD3/Flux 的 shift 变换: t = s*t / (1 + (s-1)*t)
                 s = self.rf_shift
                 times = s * times / (1 + (s - 1) * times)
 
@@ -379,8 +381,9 @@ class DiffusionDetHead(nn.Module):
         # 初始随机噪声框
         x_raw = torch.randn(bs, self.num_proposals, 4, device=device)
 
+        # 存储集成结果和轨迹
         ensemble_results = []
-        trajectory = []
+        trajectory = []  # 记录每一步的 [bboxes, scores, labels]
 
         # 2. 迭代采样 (Decoupled Ensemble 模式)
         for t_curr, t_next in time_pairs:
@@ -410,26 +413,19 @@ class DiffusionDetHead(nn.Module):
                 if self.solver_type == "heun" and t_next > 0:
                     # Heun Step (二阶)
                     def model_fn(x_tmp, t_tmp):
-                        _, _, x0_tmp, l0_tmp = self._forward_at_t(
+                        _, _, x0_tmp, _ = self._forward_at_t(
                             features, x_tmp, t_tmp, img_metas
                         )
-                        return x0_tmp, l0_tmp
+                        return x0_tmp, None
 
-                    # 获取二阶修正后的结果 (仅对 BBox 进行 Flow 演化)
-                    x_raw, x0_corrected, logits_0_corrected = self.rf.heun_step(
+                    # 获取二阶修正后的结果
+                    x_raw = self.rf.heun_step(
                         x_raw,
                         x0_raw,
                         t_curr,
                         t_next,
                         model_fn,
-                        logits_0_pred=logits_0_raw,
                     )
-
-                    # 如果启用集成，使用修正后的预测值替代当前步的预测
-                    if self.use_ensemble:
-                        ensemble_results.pop()
-                        pred_bboxes_corr = self._raw_to_xyxy(x0_corrected, img_metas)
-                        ensemble_results.append((logits_0_corrected, pred_bboxes_corr))
                 else:
                     # Euler Step (一阶)
                     x_raw = self.rf.step(x_raw, x0_raw, t_curr, t_next)

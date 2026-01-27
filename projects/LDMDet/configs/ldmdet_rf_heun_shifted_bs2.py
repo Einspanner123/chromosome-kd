@@ -1,6 +1,6 @@
 _base_ = ["./ldmdet_baseline.py"]
-
-# 进阶实验：Rectified Flow + Heun Solver (二阶采样) + Logit Coupling + Shifted Schedule
+train_dataloader = dict(batch_size=2)
+# 创新实验：Rectified Flow + Heun Solver (二阶采样) + Shifted Schedule
 model = dict(
     bbox_head=dict(
         diffusion_type="rectified_flow",

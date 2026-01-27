@@ -46,6 +46,22 @@
         - **为什么直接采样不可导？**：梯度需要确定的解析映射。直接采样 $z \sim \mathcal{N}(\mu, \sigma^2)$ 类似于“掷色子”，输出值与参数之间没有确定的函数关系，导致梯度无法在计算图中回传。
         - **重参数化的妙处**：将 $z$ 写成 $z = \mu + \sigma \epsilon$ 后，$z$ 变成了关于 $\mu$ 和 $\sigma$ 的**确定性可微函数**。此时随机性被封装在外部变量 $\epsilon$ 中，梯度可以通过 $\mu$（偏导为 1）和 $\sigma$（偏导为 $\epsilon$）正常传导，从而实现对网络参数的训练。
 
+```python
+import torch
+
+def reparameterize(mu, log_var):
+    """
+    重参数化技巧实现
+    工业技巧: 
+    1. 为什么要传 log_var 而不是 std? 
+       - 网络输出的 log_var 范围是 (-inf, inf)，可以自然对应正负，而 std 必须为正。
+       - 避免在反向传播中出现 sqrt(0) 导致的梯度爆炸。
+    """
+    std = torch.exp(0.5 * log_var)
+    eps = torch.randn_like(std)
+    return mu + eps * std
+```
+
 2.  **独立高斯的线性叠加仍为高斯**：
     若 $X \sim \mathcal{N}(\mu_X, \sigma_X^2), Y \sim \mathcal{N}(\mu_Y, \sigma_Y^2)$ 且独立，则 $aX + bY \sim \mathcal{N}(a\mu_X + b\mu_Y, a^2\sigma_X^2 + b^2\sigma_Y^2)$。
     - **方差运算法则**：
@@ -88,6 +104,25 @@
          $$D_{KL}(p_1 || p_2) = \frac{1}{2\sigma^2} \|\mu_1 - \mu_2\|^2$$
 88.    - **结论**：在方差固定的情况下，最小化 KL 散度完全等价于最小化均值之间的欧式距离平方，即**均方误差 (Mean Squared Error, MSE)**。这就是为什么 DDPM 的损失函数最后变成了一个简单的 $L_2$ 损失。
 
+```python
+import torch.nn.functional as F
+
+def kl_divergence_gaussians(mu1, log_var1, mu2, log_var2):
+    """
+    计算两个高斯分布之间的 KL 散度
+    工业技巧:
+    1. 在 DDPM 中，当方差相等时，KL 散度退化为 0.5 * MSE(mu1, mu2) / var。
+    2. 这里提供通用公式实现，用于理解分布之间的差异。
+    """
+    # D_KL(P || Q) = 0.5 * [ sum(log(var_q/var_p)) - d + tr(inv_var_q * var_p) + (mu_q-mu_p)^T * inv_var_q * (mu_q-mu_p) ]
+    # 简化版实现 (假设对角协方差矩阵)
+    return 0.5 * (
+        log_var2 - log_var1 - 1.0 + 
+        torch.exp(log_var1 - log_var2) + 
+        (mu1 - mu2)**2 / torch.exp(log_var2)
+    ).sum(dim=-1)
+```
+
 ---
 
 ## 3. 正向扩散（Forward Process）
@@ -118,6 +153,10 @@ def q_step(x_prev, t, betas):
 1. **方差保持（Variance Preservation）**：假设 $\mathbf{x}_{t-1}$ 具有单位方差，则 $\text{Var}(\mathbf{x}_t) = (\sqrt{\alpha_t})^2 \text{Var}(\mathbf{x}_{t-1}) + (\sqrt{1-\alpha_t})^2 \text{Var}(\boldsymbol{\epsilon}) = \alpha_t + (1-\alpha_t) = 1$。这保证了在加噪过程中数据不会发生数值爆炸或坍缩。
 2. **信号衰减**：$\sqrt{\alpha_t} < 1$ 像是一个“遗忘系数”，每一步都在遗忘一部分旧信息，同时通过注入等量方差的噪声来维持整体能量守恒。
 
+**工业技巧：Beta Schedule 的选择**
+- **Linear Schedule**: DDPM 原作使用 $10^{-4}$ 到 $0.02$ 的线性增长。适用于简单任务。
+- **Cosine Schedule**: OpenAI (Improved DDPM) 提出，能让噪声注入更平滑，防止在 $T$ 附近过快变成纯噪声，对生成质量提升巨大。
+
 ### 3.2 任意步转移（一步到位）
 我们不需要迭代采样，可以直接从 $\mathbf{x}_0$ 得到 $\mathbf{x}_t$。
 
@@ -138,11 +177,11 @@ def q_sample(x_0, t, sqrt_alphas_cumprod, sqrt_one_minus_alphas_cumprod):
     工业技巧: 
     1. 传入预计算好的 sqrt_alphas_cumprod (即累乘后的平方根) 以提升效率。
     2. 使用 .to(device) 确保所有张量在同一计算设备上。
+    3. 广播机制: .reshape(-1, 1, 1, 1) 能够自动适配不同的 Batch Size 和图像分辨率。
     """
-    # 提取对应时间步的系数并扩展维度
     noise = torch.randn_like(x_0)
     
-    # 获取系数并扩展为 [batch, 1, 1, 1] 以支持广播
+    # 获取对应时间步的系数
     s1 = sqrt_alphas_cumprod[t].reshape(-1, 1, 1, 1)
     s2 = sqrt_one_minus_alphas_cumprod[t].reshape(-1, 1, 1, 1)
     
@@ -153,6 +192,10 @@ def q_sample(x_0, t, sqrt_alphas_cumprod, sqrt_one_minus_alphas_cumprod):
 $$q(\mathbf{x}_t | \mathbf{x}_0) = \mathcal{N}(\mathbf{x}_t; \sqrt{\bar{\alpha}_t}\mathbf{x}_0, (1 - \bar{\alpha}_t)\mathbf{I})$$
 
 **直观理解**：随着 $t \to T$，$\bar{\alpha}_t \to 0$，均值趋向 0，方差趋向 1，$\mathbf{x}_T$ 变成了纯高斯噪声。
+
+**工业技巧：数据归一化**
+- 必须将原始图像像素（0-255）缩放到 **[-1, 1]**。
+- **为什么？** 因为正态分布噪声 $\epsilon$ 的均值为 0。如果图像范围 is [0, 1]，加噪后的均值会偏移，导致网络学习困难。[-1, 1] 保证了数据和噪声是对齐的。
 
 ---
 
@@ -265,9 +308,19 @@ def p_mean_variance(model, x_t, t, clip_denoised=True):
 2. **工程简化**：DDPM 发现将方差固定为常数（如 $\sigma_t^2 = \beta_t$）已能获得极佳效果。
 3. **训练稳定性**：最小化均值之间的 KL 散度等价于 MSE 损失，这让训练变得异常简单且稳定。
 
+**工业技巧：分类器自由引导 (Classifier-Free Guidance, CFG)**
+- **痛点**：模型生成的图像虽然逼真，但往往不听指挥（语义一致性差）。
+- **原理**：在训练时，以一定概率（如 10%）丢弃文本条件。在推理时，通过公式 $\hat{\epsilon} = \epsilon_{uncond} + w \cdot (\epsilon_{cond} - \epsilon_{uncond})$ 进行外推。
+- **作用**：当 $w > 1$ 时，模型会极大强化条件信号，这是工业级 Diffusion（如 Stable Diffusion）的核心秘密。
+
 ---
 
 ## 5. 训练目标（Loss Function）
+
+**工业技巧：训练稳定性优化**
+- **Learning Rate**: 初始通常设为 $10^{-4}$，并配合学习率热身 (Warmup)。
+- **Gradient Clipping**: 强烈建议将梯度裁剪到 1.0 左右，防止训练初期出现 NaN。
+- **EMA**: 始终在验证阶段使用模型权重的指数移动平均 (EMA)，这能显著提升图像平滑度。
 
 **概念补丁：**
 - **极大似然估计 (Maximum Likelihood Estimation, MLE)**：通过调整模型参数，使得观测数据在模型下出现的概率（似然）达到最大的方法。
@@ -494,6 +547,9 @@ class GaussianDiffusion:
                 img = mean + sigma_t * noise
             else:
                 img = mean
+            
+            # 工业技巧：每步裁剪，防止数值溢出，保证像素在 [-1, 1] 范围内
+            img = torch.clamp(img, -1.0, 1.0)
         return img
 ```
 

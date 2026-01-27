@@ -81,13 +81,10 @@ class RectifiedFlow:
         t_curr: float,
         t_next: float,
         model_fn,  # 传入一个函数, 用于在 t_next 处预测 x_0
-        logits_0_pred: Optional[Tensor] = None,
-    ) -> Tuple[Tensor, Tensor, Optional[Tensor]]:
+    ) -> Tensor:
         """
         ODE 采样的一步 (Heun Step, 二阶):
-        专注于 BBox 的状态更新，并返回修正后的预测值用于集成。
-
-        返回: (x_next, x_0_corrected, logits_0_corrected)
+        x_next = x_t + (dt/2) * (v_t + v_next)
         """
         dt = t_next - t_curr
         device = x_t.device
@@ -97,8 +94,7 @@ class RectifiedFlow:
         x_next_euler = x_t + dt * v_t
 
         # --- 2. 在 t_next 处进行第二次预测 ---
-        # 注意：不再传递或维护 logits_raw 状态，分类仅作为基于当前框的预测
-        x_0_pred_next, logits_0_pred_next = model_fn(x_next_euler, t_next)
+        x_0_pred_next, _ = model_fn(x_next_euler, t_next)
 
         # --- 3. 计算 BBox 修正 ---
         v_next = self.get_velocity(
@@ -106,12 +102,4 @@ class RectifiedFlow:
         )
         x_next = x_t + (dt / 2.0) * (v_t + v_next)
 
-        # --- 4. 计算修正后的预测值 (用于 Ensemble) ---
-        # 这里的修正值是两次预测的均值，通常比单次预测更稳健
-        x_0_corrected = (x_0_pred + x_0_pred_next) / 2.0
-
-        logits_0_corrected = None
-        if logits_0_pred is not None and logits_0_pred_next is not None:
-            logits_0_corrected = (logits_0_pred + logits_0_pred_next) / 2.0
-
-        return x_next, x_0_corrected, logits_0_corrected
+        return x_next

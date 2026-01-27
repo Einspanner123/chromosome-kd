@@ -1,5 +1,5 @@
 _base_ = ["./ldmdet_baseline.py"]
-train_dataloader = dict(batch_size=4)
+train_dataloader = dict(batch_size=2)
 # 覆盖模型配置以使用 Rectified Flow
 model = dict(
     bbox_head=dict(
