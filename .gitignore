@@ -124,4 +124,6 @@ work_dirs/
 *.sh~
 
 # AI
-.trae/
+.trae/work_dirs
+work_dirs
+.trae

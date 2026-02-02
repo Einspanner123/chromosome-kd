@@ -15,6 +15,22 @@ num_workers = 4
 prefetch_factor = 4
 
 # model settings
+visualizer = dict(
+    vis_backends=[
+        dict(type="LocalVisBackend"),
+        dict(type="TensorboardVisBackend"),
+        dict(
+            type="WandbVisBackend",
+            init_kwargs=dict(
+                project="LDMDet",
+                name="baseline",
+                entity=None,
+                mode="offline",  # 先设置为离线模式避免权限错误导致训练中断
+            ),
+        ),
+    ]
+)
+
 model = dict(
     type="LDMDet",
     data_preprocessor=dict(

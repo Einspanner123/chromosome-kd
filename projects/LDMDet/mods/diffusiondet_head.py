@@ -1,6 +1,6 @@
 import copy
 import math
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -15,7 +15,12 @@ from .modules import (
 )
 from .rectified_flow import RectifiedFlow
 from .structures import DetectionResult, ImageMeta, InstanceData, ModelOutput
-from .utils import bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh
+from .utils import (
+    apply_box_renewal,
+    bbox_xyxy_to_cxcywh,
+    raw_to_xyxy,
+    xyxy_to_raw,
+)
 
 
 class DiffusionDetHead(nn.Module):
@@ -99,6 +104,15 @@ class DiffusionDetHead(nn.Module):
         self.prior_prob = prior_prob
         self._init_weights()
 
+        # 编译采样循环 (如果 PyTorch 版本支持)
+        if hasattr(torch, "compile") and self.diffusion_type == "rectified_flow":
+            try:
+                self._sampling_loop_compiled = torch.compile(self._sampling_loop)
+            except Exception:
+                self._sampling_loop_compiled = self._sampling_loop
+        else:
+            self._sampling_loop_compiled = self._sampling_loop
+
     def loss(
         self,
         features: Tuple[Tensor],
@@ -161,7 +175,7 @@ class DiffusionDetHead(nn.Module):
 
         x_noisy_batch = torch.stack(x_boxes)  # [bs, num_proposals, 4]
         # 转换为 xyxy 格式用于 RoIAlign
-        curr_bboxes = self._raw_to_xyxy(x_noisy_batch, img_metas)
+        curr_bboxes = raw_to_xyxy(x_noisy_batch, img_metas, self.snr_scale)
 
         # 3. 前向传播获取预测结果
         # 对于 RF，我们可能需要将 t 缩放到 [0, timesteps] 以适配预训练的时间嵌入
@@ -316,15 +330,19 @@ class DiffusionDetHead(nn.Module):
         self,
         features: Tuple[Tensor],
         x_raw: Tensor,
-        t: float,
-        img_metas: List[ImageMeta],
-    ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
-        """在指定时间步 t 进行前向预测并返回 [cls_logits, pred_bboxes, x0_raw, logits_0_raw]"""
+        t: Union[float, Tensor],
+        img_metas: Union[List[ImageMeta], Tensor],
+    ) -> Tuple[Tensor, Tensor, Tensor]:
+        """在指定时间步 t 进行前向预测并返回 [cls_logits, pred_bboxes, x0_raw]"""
         bs, device = x_raw.shape[0], x_raw.device
-        curr_bboxes = self._raw_to_xyxy(x_raw, img_metas)
+        curr_bboxes = raw_to_xyxy(x_raw, img_metas, self.snr_scale)
 
         # 缩放时间步以适配时间嵌入
-        t_input = torch.full((bs,), t * self.timesteps, device=device)
+        if isinstance(t, Tensor):
+            # 如果是 Tensor，确保其形状能广播
+            t_input = t.view(-1).expand(bs) * self.timesteps
+        else:
+            t_input = torch.full((bs,), t * self.timesteps, device=device)
 
         # 前向预测
         cls_logits_seq, pred_bboxes_seq = self(features, curr_bboxes, t_input)
@@ -334,24 +352,45 @@ class DiffusionDetHead(nn.Module):
         last_pred_bboxes = pred_bboxes_seq[-1]
 
         # 将图像空间的 xyxy 转回扩散空间的 raw 框 (x0)
-        x0_raw = self._xyxy_to_raw(last_pred_bboxes, img_metas)
+        x0_raw = xyxy_to_raw(last_pred_bboxes, img_metas, self.snr_scale)
 
-        # 对于分类 Logit，我们直接将其作为扩散空间的 x0 预测 (logits_0_raw)
-        logits_0_raw = last_cls_logits
-
-        return last_cls_logits, last_pred_bboxes, x0_raw, logits_0_raw
+        return last_cls_logits, last_pred_bboxes, x0_raw
 
     @torch.no_grad()
     def predict(
         self,
         features: Tuple[Tensor],
-        img_metas: List[ImageMeta],
+        img_metas: Union[List[ImageMeta], Tensor],
         rescale: bool = True,
         return_trajectory: bool = False,
-    ) -> List[DetectionResult]:
+    ) -> Union[
+        List[DetectionResult], Tuple[List[DetectionResult], List[Tuple[Tensor, Tensor]]]
+    ]:
         """推理模式的前向传播"""
         device = features[0].device
-        bs = len(img_metas)
+
+        # 0. 将 img_metas 转换为 Tensor (如果还是 List) 以加速推理并支持 torch.compile
+        if isinstance(img_metas, list):
+            # [bs, 6] -> (h, w, s1, s2, s3, s4)
+            img_metas_tensor = []
+            for m in img_metas:
+                h, w = m.img_shape[:2]
+                sf = m.scale_factor
+                if sf is None:
+                    sf = [1.0, 1.0, 1.0, 1.0]
+                elif isinstance(sf, (float, int)):
+                    sf = [float(sf)] * 4
+                elif len(sf) == 2:
+                    sf = [float(sf[0]), float(sf[1]), float(sf[0]), float(sf[1])]
+                else:
+                    sf = [float(s) for s in sf[:4]]
+
+                img_metas_tensor.append(
+                    features[0].new_tensor([h, w, sf[0], sf[1], sf[2], sf[3]])
+                )
+            img_metas = torch.stack(img_metas_tensor)
+
+        bs = img_metas.shape[0]
 
         # 1. 准备采样时间序列
         if self.diffusion_type == "ddpm":
@@ -385,10 +424,61 @@ class DiffusionDetHead(nn.Module):
         ensemble_results = []
         trajectory = []  # 记录每一步的 [bboxes, scores, labels]
 
-        # 2. 迭代采样 (Decoupled Ensemble 模式)
-        for t_curr, t_next in time_pairs:
+        # 2. 迭代采样 (使用编译后的循环或原始循环)
+        if self.diffusion_type == "rectified_flow":
+            # Rectified Flow 支持 torch.compile 优化
+            times_tensor = torch.tensor([tp for tp in time_pairs], device=device)
+            x_raw, ensemble_results, trajectory = self._sampling_loop_compiled(
+                features, x_raw, times_tensor, img_metas, return_trajectory
+            )
+        else:
+            # DDPM 逻辑保持原样 (由于包含复杂的 index 操作，暂不强制编译)
+            for t_curr, t_next in time_pairs:
+                cls_logits, pred_bboxes, _ = self._forward_at_t(
+                    features, x_raw, t_curr, img_metas
+                )
+                if return_trajectory:
+                    trajectory.append((cls_logits.detach(), pred_bboxes.detach()))
+                if self.use_ensemble:
+                    ensemble_results.append((cls_logits, pred_bboxes))
+
+                # DDIM 更新逻辑
+                _, x_raw = self._ddim_step(
+                    t_curr, t_next, x_raw, cls_logits, pred_bboxes, img_metas
+                )
+                if t_next < 0:
+                    break
+
+            if not self.use_ensemble:
+                # 如果不使用集成，取最后一步预测
+                ensemble_results = [(cls_logits, pred_bboxes)]
+
+        results = self._post_process(ensemble_results, img_metas, rescale)
+
+        if return_trajectory:
+            return results, trajectory
+
+        return results
+
+    def _sampling_loop(
+        self,
+        features: Tuple[Tensor],
+        x_raw: Tensor,
+        times: Tensor,
+        img_metas: Tensor,
+        return_trajectory: bool = False,
+    ) -> Tuple[Tensor, List[Tuple[Tensor, Tensor]], List[Tuple[Tensor, Tensor]]]:
+        """Rectified Flow 的采样循环逻辑，独立出来以便 torch.compile"""
+        ensemble_results: List[Tuple[Tensor, Tensor]] = []
+        trajectory: List[Tuple[Tensor, Tensor]] = []
+
+        # times: [num_steps, 2] -> (t_curr, t_next)
+        for i in range(times.shape[0]):
+            t_curr = times[i, 0]
+            t_next = times[i, 1]
+
             # --- 步骤 A: 获取当前位置的预测 ---
-            cls_logits, pred_bboxes, x0_raw, logits_0_raw = self._forward_at_t(
+            cls_logits, pred_bboxes, x0_raw = self._forward_at_t(
                 features, x_raw, t_curr, img_metas
             )
 
@@ -401,103 +491,47 @@ class DiffusionDetHead(nn.Module):
                 ensemble_results.append((cls_logits, pred_bboxes))
 
             # --- 步骤 B: 状态更新 (Solver) ---
-            if self.diffusion_type == "ddpm":
-                # DDIM 更新逻辑
-                curr_bboxes_xyxy, x_raw = self._ddim_step(
-                    t_curr, t_next, x_raw, cls_logits, pred_bboxes, img_metas
-                )
-                if t_next < 0:
-                    break
+            if self.solver_type == "heun" and t_next > 0:
+                # Heun Step (二阶)
+                # 预测中间点 (Euler step)
+                x_mid = self.rf.step(x_raw, x0_raw, t_curr, t_next)
+                # 第二次预测
+                _, _, x0_mid = self._forward_at_t(features, x_mid, t_next, img_metas)
+                # 计算两个点的速度并取平均
+                v_t = self.rf.get_velocity(x_raw, x0_raw, x_raw.new_tensor([t_curr]))
+                v_mid = self.rf.get_velocity(x_mid, x0_mid, x_raw.new_tensor([t_next]))
+                x_raw = x_raw + (t_next - t_curr) * (v_t + v_mid) * 0.5
             else:
-                # Rectified Flow 更新逻辑
-                if self.solver_type == "heun" and t_next > 0:
-                    # Heun Step (二阶)
-                    def model_fn(x_tmp, t_tmp):
-                        _, _, x0_tmp, _ = self._forward_at_t(
-                            features, x_tmp, t_tmp, img_metas
-                        )
-                        return x0_tmp, None
+                # Euler Step (一阶)
+                x_raw = self.rf.step(x_raw, x0_raw, t_curr, t_next)
 
-                    # 获取二阶修正后的结果
-                    x_raw = self.rf.heun_step(
-                        x_raw,
-                        x0_raw,
-                        t_curr,
-                        t_next,
-                        model_fn,
-                    )
-                else:
-                    # Euler Step (一阶)
-                    x_raw = self.rf.step(x_raw, x0_raw, t_curr, t_next)
+            # 框更新策略 (Box Renewal)
+            if self.box_renewal:
+                x_raw = apply_box_renewal(
+                    x_raw, cls_logits, self.min_keep, self.score_thr
+                )
 
-                # 框更新策略 (Box Renewal)
-                if self.box_renewal:
-                    x_raw = self._apply_box_renewal(x_raw, cls_logits)
+        if not self.use_ensemble:
+            # 如果不使用集成，则只保留最后一次预测结果
+            # 这里 cls_logits 和 pred_bboxes 是最后一次循环迭代后的值
+            ensemble_results = [(cls_logits, pred_bboxes)]
 
-                if t_next <= 0:
-                    # 最后一步的预测也加入集成 (如果尚未加入)
-                    # 注意：通常最后一步 t=0 时不需要再跑一次 forward
-                    break
-
-        # 3. 后处理
-        results = self._post_process(ensemble_results, img_metas, rescale)
-
-        if return_trajectory:
-            return results, trajectory
-
-        return results
-
-    def _apply_box_renewal(self, x_raw: Tensor, cls_logits: Tensor) -> Tensor:
-        """通用的框更新策略"""
-        bs, device = x_raw.shape[0], x_raw.device
-        scores = torch.sigmoid(cls_logits).max(-1)[0]
-        x_raw_new = x_raw.clone()
-
-        for i in range(bs):
-            keep = scores[i] > self.score_thr
-            if keep.sum() < self.min_keep:
-                _, topk_idx = scores[i].topk(min(self.min_keep, scores.shape[1]))
-                keep[topk_idx] = True
-
-            num_renew = (~keep).sum()
-            if num_renew > 0:
-                x_raw_new[i, ~keep] = torch.randn(num_renew, 4, device=device)
-        return x_raw_new
-
-    def _xyxy_to_raw(self, bboxes: Tensor, img_metas: List[ImageMeta]) -> Tensor:
-        """将图像空间的 xyxy 框转回扩散空间的 raw 框 (cxcywh)"""
-        x0 = bboxes.clone()
-        for i, meta in enumerate(img_metas):
-            h, w = meta.img_shape[:2]
-            scale = x0.new_tensor([w, h, w, h])
-            x0[i] /= scale
-        x0 = bbox_xyxy_to_cxcywh(x0)
-        x0 = (x0 * 2 - 1) * self.snr_scale
-        return x0
-
-    def _raw_to_xyxy(self, raw_bboxes: Tensor, img_metas: List[ImageMeta]) -> Tensor:
-        """将扩散空间的 raw 框转为图像空间的 xyxy 框"""
-        # [-snr, snr] -> [0, 1]
-        bboxes = (
-            (raw_bboxes.clamp(-self.snr_scale, self.snr_scale) / self.snr_scale) + 1
-        ) / 2
-        # cxcywh -> xyxy
-        bboxes = bbox_cxcywh_to_xyxy(bboxes)
-        # 映射到图像尺寸
-        for i, meta in enumerate(img_metas):
-            h, w = meta.img_shape[:2]
-            scale = bboxes.new_tensor([w, h, w, h])
-            bboxes[i] *= scale
-        return bboxes
+        return x_raw, ensemble_results, trajectory
 
     def _ddim_step(
-        self, t_curr, t_next, x_raw, cls_logits, pred_bboxes, img_metas: List[ImageMeta]
+        self,
+        t_curr,
+        t_next,
+        x_raw,
+        cls_logits,
+        pred_bboxes,
+        img_metas: Union[List[ImageMeta], Tensor],
     ):
         """执行一步 DDIM 采样"""
         bs, device = x_raw.shape[0], x_raw.device
 
         # 将预测的 xyxy 转回扩散空间的 cxcywh (x0)
-        x0 = self._xyxy_to_raw(pred_bboxes, img_metas)
+        x0 = xyxy_to_raw(pred_bboxes, img_metas, self.snr_scale)
 
         # 预测噪声
         t_batch = torch.full((bs,), t_curr, device=device, dtype=torch.long)
@@ -518,17 +552,27 @@ class DiffusionDetHead(nn.Module):
 
         # 框更新策略 (Box Renewal)
         if self.box_renewal:
-            x_raw_next = self._apply_box_renewal(x_raw_next, cls_logits)
+            x_raw_next = apply_box_renewal(
+                x_raw_next, cls_logits, self.min_keep, self.score_thr
+            )
 
-        return self._raw_to_xyxy(x_raw_next, img_metas), x_raw_next
+        return pred_bboxes, x_raw_next
 
     def _post_process(
-        self, ensemble_results, img_metas: List[ImageMeta], rescale: bool
+        self,
+        ensemble_results: List[Tuple[Tensor, Tensor]],
+        img_metas: Union[List[ImageMeta], Tensor],
+        rescale: bool,
     ) -> List[DetectionResult]:
         """后处理：集成、NMS、缩放"""
-        results_list = []
-        bs = len(img_metas)
+        if not ensemble_results:
+            return []
 
+        results_list = []
+        bs = img_metas.shape[0] if isinstance(img_metas, Tensor) else len(img_metas)
+
+        # 向量化处理分类得分 (可选)
+        # 暂时保持循环，因为 ensemble_results 是 List，且每步预测都在不同时间点
         for i in range(bs):
             all_scores = []
             all_bboxes = []
@@ -561,21 +605,14 @@ class DiffusionDetHead(nn.Module):
 
             # 缩放回原始尺寸
             if rescale:
-                scale_factor = img_metas[i].scale_factor
+                if isinstance(img_metas, Tensor):
+                    # img_metas: [bs, 6] (h, w, s1, s2, s3, s4)
+                    scale_factor = img_metas[i, 2:]
+                else:
+                    scale_factor = img_metas[i].scale_factor
+
                 if scale_factor is None:
                     scale_factor = [1.0, 1.0, 1.0, 1.0]
-
-                if isinstance(scale_factor, (list, tuple, Tensor)):
-                    if len(scale_factor) == 2:
-                        if isinstance(scale_factor, Tensor):
-                            scale_factor = scale_factor.repeat(2)
-                        else:
-                            scale_factor = [
-                                scale_factor[0],
-                                scale_factor[1],
-                                scale_factor[0],
-                                scale_factor[1],
-                            ]
 
                 if not isinstance(scale_factor, Tensor):
                     scale_factor = final_bboxes.new_tensor(scale_factor)
