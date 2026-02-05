@@ -179,6 +179,7 @@ train_dataloader = dict(
     batch_size=batch_size,
     num_workers=num_workers,
     prefetch_factor=prefetch_factor,
+    persistent_workers=True,
     sampler=dict(type="DefaultSampler", shuffle=True),
     dataset=dict(
         filter_cfg=dict(filter_empty_gt=False, min_size=1e-5), pipeline=train_pipeline

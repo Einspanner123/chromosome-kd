@@ -266,6 +266,7 @@ class LDMDet(BaseDetector):
         batch_inputs: torch.Tensor,
         batch_data_samples: List[DetDataSample],
         rescale: bool = True,
+        return_trajectory: bool = False,
     ) -> List[DetDataSample]:
         """预测模式的前向传播"""
         # 1. 提取特征
@@ -282,7 +283,12 @@ class LDMDet(BaseDetector):
             img_metas.append(meta)
 
         # 3. 运行 Head 的 predict
-        results_list = self.bbox_head.predict(x, img_metas, rescale=rescale)
+        if return_trajectory:
+            results_list, trajectory = self.bbox_head.predict(
+                x, img_metas, rescale=rescale, return_trajectory=True
+            )
+        else:
+            results_list = self.bbox_head.predict(x, img_metas, rescale=rescale)
 
         # 4. 封装回 DetDataSample
         for i in range(len(batch_data_samples)):
@@ -296,6 +302,10 @@ class LDMDet(BaseDetector):
             pred_instances.labels = res.labels
 
             batch_data_samples[i].pred_instances = pred_instances
+
+            # 如果返回了轨迹，存入 metainfo 供可视化工具使用
+            if return_trajectory:
+                batch_data_samples[i].metainfo["sampling_trajectory"] = trajectory
 
         return batch_data_samples
 
