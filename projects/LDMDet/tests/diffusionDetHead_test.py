@@ -82,7 +82,7 @@ class TestDiffusionDetHead(unittest.TestCase):
         t = torch.randint(0, 1000, (self.batch_size,))
 
         with torch.no_grad():
-            all_cls_logits, all_pred_bboxes = self.model(features, bboxes, t)
+            all_cls_logits, all_pred_bboxes, _, _ = self.model(features, bboxes, t)
 
         # 验证输出形状
         # [num_heads, bs, num_proposals, num_classes]
@@ -110,15 +110,15 @@ class TestDiffusionDetHead(unittest.TestCase):
         # 验证结果结构
         self.assertEqual(len(results), self.batch_size)
         for res in results:
-            self.assertIn("bboxes", res)
-            self.assertIn("scores", res)
-            self.assertIn("labels", res)
+            self.assertTrue(hasattr(res, "bboxes"))
+            self.assertTrue(hasattr(res, "scores"))
+            self.assertTrue(hasattr(res, "labels"))
 
             # 验证张量形状
-            num_dets = res["bboxes"].shape[0]
-            self.assertEqual(res["bboxes"].shape, (num_dets, 4))
-            self.assertEqual(res["scores"].shape, (num_dets,))
-            self.assertEqual(res["labels"].shape, (num_dets,))
+            num_dets = res.bboxes.shape[0]
+            self.assertEqual(res.bboxes.shape, (num_dets, 4))
+            self.assertEqual(res.scores.shape, (num_dets,))
+            self.assertEqual(res.labels.shape, (num_dets,))
 
     def test_q_sample(self):
         """测试扩散采样函数"""

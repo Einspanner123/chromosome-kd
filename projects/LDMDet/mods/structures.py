@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional, Tuple, Union
 
 from torch import Tensor
@@ -19,6 +19,7 @@ class ModelOutput:
 
     pred_logits: Tensor  # [B, N, C]
     pred_boxes: Tensor  # [B, N, 4] normalized xyxy
+    pred_objectness: Optional[Tensor] = None  # [B, N, 1] objectness logits
     pred_count: Optional[Tensor] = None  # [B, 1] 全局计数预测
     aux_outputs: Optional[List["ModelOutput"]] = None
 

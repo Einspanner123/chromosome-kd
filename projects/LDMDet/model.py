@@ -14,14 +14,17 @@ from .mods.loss import (
     BBoxL1Cost,
     DiffusionDetCriterion,
     DiffusionDetMatcher,
+    FlowMatchingVelocityLoss,
     FocalLoss,
     FocalLossCost,
     GIoULoss,
     IoUCost,
     L1Loss,
 )
+from .mods.noise_sampler import StructuredNoiseSampler
 from .mods.roi_extractor import SingleRoIExtractor
 from .mods.single_head import SingleDiffusionDetHead
+from .mods.sinkhorn import SinkhornOTMatcher
 from .mods.structures import ImageMeta
 
 # 注册所有组件到 MODELS 注册表，以便可以通过配置文件构建
@@ -42,6 +45,15 @@ MODELS.register_module(name="PurePyTorchGIoULoss", module=GIoULoss)
 MODELS.register_module(name="PurePyTorchFocalLossCost", module=FocalLossCost)
 MODELS.register_module(name="PurePyTorchBBoxL1Cost", module=BBoxL1Cost)
 MODELS.register_module(name="PurePyTorchIoUCost", module=IoUCost)
+
+# === FlowDet 新增模块注册 ===
+MODELS.register_module(name="PurePyTorchSinkhornOTMatcher", module=SinkhornOTMatcher)
+MODELS.register_module(
+    name="PurePyTorchStructuredNoiseSampler", module=StructuredNoiseSampler
+)
+MODELS.register_module(
+    name="PurePyTorchFlowMatchingVelocityLoss", module=FlowMatchingVelocityLoss
+)
 
 
 @MODELS.register_module()
@@ -146,6 +158,18 @@ class LDMDet(BaseDetector):
             else:
                 consistency_loss = consistency_loss_cfg
 
+        # 4b. 构建可选的结构化噪声采样器 (FlowDet Phase 3A)
+        noise_sampler_cfg = cfg_copy.pop("noise_sampler", None)
+        noise_sampler = None
+        if noise_sampler_cfg is not None:
+            if isinstance(noise_sampler_cfg, dict):
+                obj_cls = MODELS.get(noise_sampler_cfg["type"])
+                noise_sampler = MODELS.build(
+                    self._filter_kwargs(obj_cls, noise_sampler_cfg)
+                )
+            else:
+                noise_sampler = noise_sampler_cfg
+
         # 5. 构建 DiffusionDetHead
         if "type" not in cfg_copy:
             cfg_copy["type"] = "PurePyTorchDiffusionDetHead"
@@ -158,6 +182,7 @@ class LDMDet(BaseDetector):
                 criterion=criterion,
                 counting_branch=counting_branch,
                 consistency_loss=consistency_loss,
+                noise_sampler=noise_sampler,
             )
         )
 
@@ -266,7 +291,6 @@ class LDMDet(BaseDetector):
         batch_inputs: torch.Tensor,
         batch_data_samples: List[DetDataSample],
         rescale: bool = True,
-        return_trajectory: bool = False,
     ) -> List[DetDataSample]:
         """预测模式的前向传播"""
         # 1. 提取特征
@@ -283,12 +307,7 @@ class LDMDet(BaseDetector):
             img_metas.append(meta)
 
         # 3. 运行 Head 的 predict
-        if return_trajectory:
-            results_list, trajectory = self.bbox_head.predict(
-                x, img_metas, rescale=rescale, return_trajectory=True
-            )
-        else:
-            results_list = self.bbox_head.predict(x, img_metas, rescale=rescale)
+        results_list = self.bbox_head.predict(x, img_metas, rescale=rescale)
 
         # 4. 封装回 DetDataSample
         for i in range(len(batch_data_samples)):
@@ -302,10 +321,6 @@ class LDMDet(BaseDetector):
             pred_instances.labels = res.labels
 
             batch_data_samples[i].pred_instances = pred_instances
-
-            # 如果返回了轨迹，存入 metainfo 供可视化工具使用
-            if return_trajectory:
-                batch_data_samples[i].metainfo["sampling_trajectory"] = trajectory
 
         return batch_data_samples
 
@@ -336,5 +351,5 @@ class LDMDet(BaseDetector):
         )
         curr_bboxes = self.bbox_head._raw_to_xyxy(noise_bboxes, img_metas)
 
-        all_cls_logits, all_pred_bboxes = self.bbox_head(x, curr_bboxes, t)
+        all_cls_logits, all_pred_bboxes, _, _ = self.bbox_head(x, curr_bboxes, t)
         return all_cls_logits, all_pred_bboxes

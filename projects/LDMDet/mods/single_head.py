@@ -2,6 +2,7 @@ import math
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch import Tensor
 
 from .modules import DynamicConv
@@ -9,7 +10,7 @@ from .utils import bbox2roi
 
 
 class SingleDiffusionDetHead(nn.Module):
-    """单个DiffusionDet检测头"""
+    """单个DiffusionDet检测头，支持 AdaLN-Zero 和传统 scale-shift 条件化"""
 
     def __init__(
         self,
@@ -27,9 +28,16 @@ class SingleDiffusionDetHead(nn.Module):
         use_fed_loss=False,  # 是否使用fed loss
         dynamic_dim=64,
         dynamic_num=2,
+        # === FlowDet 新增参数 ===
+        time_conditioning="scale_shift",  # "scale_shift" 或 "adaln_zero"
+        use_objectness=False,  # 是否使用 objectness 预测头
+        prediction_mode="x0",  # "x0" (delta regression) 或 "velocity" (直接速度预测)
     ):
         super().__init__()
-        self.feat_channels = feat_channels  # 特征通道数
+        self.feat_channels = feat_channels
+        self.time_conditioning = time_conditioning
+        self.use_objectness = use_objectness
+        self.prediction_mode = prediction_mode
 
         # 动态模块
         # 自注意力机制
@@ -45,26 +53,37 @@ class SingleDiffusionDetHead(nn.Module):
         )
 
         # 前馈网络
-        self.linear1 = nn.Linear(feat_channels, dim_feedforward)  # 第一线性层
-        self.dropout = nn.Dropout(dropout)  # Dropout层
-        self.linear2 = nn.Linear(dim_feedforward, feat_channels)  # 第二线性层
+        self.linear1 = nn.Linear(feat_channels, dim_feedforward)
+        self.dropout = nn.Dropout(dropout)
+        self.linear2 = nn.Linear(dim_feedforward, feat_channels)
 
         # LayerNorm层
         self.norm1 = nn.LayerNorm(feat_channels)  # 自注意力后归一化
         self.norm2 = nn.LayerNorm(feat_channels)  # 实例交互后归一化
         self.norm3 = nn.LayerNorm(feat_channels)  # 前馈网络后归一化
-        self.dropout1 = nn.Dropout(dropout)  # 自注意力dropout
-        self.dropout2 = nn.Dropout(dropout)  # 实例交互dropout
-        self.dropout3 = nn.Dropout(dropout)  # 前馈网络dropout
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
+        self.dropout3 = nn.Dropout(dropout)
 
         # 激活函数
         self.act = nn.ReLU(inplace=True)
 
-        # 时间嵌入块
-        self.time_mlp = nn.Sequential(
-            nn.SiLU(),  # SiLU激活
-            nn.Linear(feat_channels * 4, feat_channels * 2),
-        )  # 线性变换
+        # 时间嵌入条件化
+        if self.time_conditioning == "adaln_zero":
+            # AdaLN-Zero: 产生 6 组参数 (γ₁, β₁, α₁ for SA+InstInteract, γ₂, β₂, α₂ for FFN)
+            self.adaln_mlp = nn.Sequential(
+                nn.SiLU(),
+                nn.Linear(feat_channels * 4, feat_channels * 6),
+            )
+            # 关键: 零初始化最后一层 → 初始时各层为恒等映射
+            nn.init.zeros_(self.adaln_mlp[-1].weight)
+            nn.init.zeros_(self.adaln_mlp[-1].bias)
+        else:
+            # 传统 scale-shift 条件化
+            self.time_mlp = nn.Sequential(
+                nn.SiLU(),
+                nn.Linear(feat_channels * 4, feat_channels * 2),
+            )
 
         # 分类模块
         cls_layers = []
@@ -94,10 +113,34 @@ class SingleDiffusionDetHead(nn.Module):
                     nn.ReLU(inplace=True),
                 )
             )
-        reg_layers.append(nn.Linear(feat_channels, 4))  # 边界框回归层
+        reg_layers.append(nn.Linear(feat_channels, 4))
         self.reg_head = nn.Sequential(*reg_layers)
-        self.scale_clamp = scale_clamp  # 缩放截断值
-        self.bbox_weights = bbox_weights  # 边界框权重
+
+        # Objectness 预测头 (Phase 3B)
+        self.objectness_head = None
+        if use_objectness:
+            self.objectness_head = nn.Sequential(
+                nn.Linear(feat_channels, feat_channels, bias=False),
+                nn.LayerNorm(feat_channels),
+                nn.ReLU(inplace=True),
+                nn.Linear(feat_channels, 1),
+            )
+
+        # Velocity 预测头 (Phase 4) - 直接预测 4D 速度
+        self.velocity_head = None
+        if prediction_mode == "velocity":
+            self.velocity_head = nn.Sequential(
+                nn.Linear(feat_channels, feat_channels, bias=False),
+                nn.LayerNorm(feat_channels),
+                nn.ReLU(inplace=True),
+                nn.Linear(feat_channels, feat_channels, bias=False),
+                nn.LayerNorm(feat_channels),
+                nn.ReLU(inplace=True),
+                nn.Linear(feat_channels, 4),
+            )
+
+        self.scale_clamp = scale_clamp
+        self.bbox_weights = bbox_weights
 
     def forward(self, features: Tensor, bboxes, proposals, pooler, time_emb):
         """
@@ -114,138 +157,207 @@ class SingleDiffusionDetHead(nn.Module):
             class_logits (N, num_boxes, num_classes): 分类logits
             pred_bboxes (N, num_boxes, 4): 预测边界框
             obj_features (1, N*num_boxes, feat_channels): 对象特征
+            objectness (N, num_boxes, 1) or None: objectness 预测
+            pred_velocity (N, num_boxes, 4) or None: 速度预测
         """
-        bs, num_boxes = bboxes.shape[:2]  # 获取批次大小和框数量
+        bs, num_boxes = bboxes.shape[:2]
 
         # ROI特征提取
-        rois = bbox2roi([bboxes[i] for i in range(bs)])  # 转换为ROI格式
-        roi_features = pooler(features, rois)  # (bs*num_boxess, c, 7, 7)
+        rois = bbox2roi([bboxes[i] for i in range(bs)])
+        roi_features = pooler(features, rois)  # (bs*num_boxes, c, 7, 7)
 
         # 处理提案特征
         if proposals is None:
-            # 如果没有提供提案特征,则从ROI特征计算均值
-            # 优化: 使用 flatten + mean 更简洁高效
             proposals = (
                 roi_features.flatten(2).mean(-1).view(bs, num_boxes, self.feat_channels)
             )
-            # shape: (bs, num_boxes, feat_channels)
 
-        # 调整ROI特征形状以适应注意力机制
+        # 调整ROI特征形状
         roi_features = roi_features.view(
             bs * num_boxes,
             self.feat_channels,
             -1,
-        ).permute(2, 0, 1)  # shape: (49, bs*num_boxes, feat_channels)
+        ).permute(2, 0, 1)  # (49, bs*num_boxes, feat_channels)
 
-        # 自注意力
-        proposals = proposals.view(
-            bs,
-            num_boxes,
-            self.feat_channels,
-        ).permute(1, 0, 2)  # shape: (num_boxes, N, feat_channels)
+        if self.time_conditioning == "adaln_zero":
+            return self._forward_adaln_zero(
+                features, bboxes, proposals, roi_features, time_emb, bs, num_boxes
+            )
+        else:
+            return self._forward_scale_shift(
+                features, bboxes, proposals, roi_features, time_emb, bs, num_boxes
+            )
 
-        attn_shortcut, _ = self.self_attn(
-            proposals,
-            proposals,
-            value=proposals,
-        )  # shape: (num_boxes, N, feat_channels)
-        # 残差连接和归一化
-        proposals = proposals + self.dropout1(attn_shortcut)
-        proposals = self.norm1(proposals)
+    def _forward_adaln_zero(
+        self, features, bboxes, proposals, roi_features, time_emb, bs, num_boxes
+    ):
+        """AdaLN-Zero 条件化的前向传播"""
+        # 计算 AdaLN 参数: 6 组
+        adaln_params = self.adaln_mlp(time_emb)  # (bs, 6 * feat_channels)
+        adaln_params = torch.repeat_interleave(adaln_params, num_boxes, dim=0)
+        # (bs*num_boxes, 6*feat_channels)
+        gamma1, beta1, alpha1, gamma2, beta2, alpha2 = adaln_params.chunk(6, dim=-1)
 
-        # 实例交互
-        # 调整形状以进行实例交互
+        # === Block 1: Self-Attention + AdaLN-Zero ===
+        proposals = proposals.view(bs, num_boxes, self.feat_channels).permute(
+            1, 0, 2
+        )  # (num_boxes, bs, feat_channels)
+
+        # Pre-norm + modulate
+        proposals_flat = proposals.reshape(
+            num_boxes * bs, self.feat_channels
+        )  # for AdaLN
+        q_modulated = F.layer_norm(proposals_flat, [self.feat_channels]) * (
+            1 + gamma1
+        ) + beta1
+        q_modulated = q_modulated.view(num_boxes, bs, self.feat_channels)
+
+        attn_out, _ = self.self_attn(q_modulated, q_modulated, value=q_modulated)
+        # Gated residual
+        attn_out_flat = attn_out.reshape(num_boxes * bs, self.feat_channels)
+        proposals_flat = proposals_flat + alpha1 * attn_out_flat
+        proposals = proposals_flat.view(num_boxes, bs, self.feat_channels)
+
+        # === Block 2: Instance Interaction (Dynamic Conv) ===
         proposals = (
             proposals.view(num_boxes, bs, self.feat_channels)
             .permute(1, 0, 2)
             .reshape(1, bs * num_boxes, self.feat_channels)
-        )  # (1, N*num_boxes, feat_channels)
-        # 动态卷积交互
-        attn_shortcut = self.inst_interact(proposals, roi_features)
+        )
 
-        # 残差连接和归一化
-        proposals = proposals + self.dropout2(attn_shortcut)
-        obj_features = self.norm2(proposals)  # (1, N*num_boxes, feat_channels)
+        inst_out = self.inst_interact(proposals, roi_features)
+        proposals = proposals + self.dropout2(inst_out)
+        obj_features = self.norm2(proposals)  # (1, bs*num_boxes, feat_channels)
 
-        # 对象特征处理（前馈网络）
-        obj_shortcut = self.linear2(
-            self.dropout(self.act(self.linear1(obj_features)))
-        )  # 前馈网络
-        obj_features = obj_features + self.dropout3(obj_shortcut)  # 残差连接
-        obj_features = self.norm3(obj_features)  # 归一化
+        # === Block 3: FFN + AdaLN-Zero ===
+        obj_flat = obj_features.squeeze(0)  # (bs*num_boxes, feat_channels)
+        # Pre-norm + modulate for FFN
+        ffn_input = F.layer_norm(obj_flat, [self.feat_channels]) * (
+            1 + gamma2
+        ) + beta2
+        ffn_out = self.linear2(self.dropout(self.act(self.linear1(ffn_input))))
+        # Gated residual
+        obj_flat = obj_flat + alpha2 * ffn_out
+        obj_features = obj_flat.unsqueeze(0)  # (1, bs*num_boxes, feat_channels)
 
-        # 时间嵌入条件化
-        fc_feature = obj_features.transpose(0, 1).reshape(
-            bs * num_boxes, -1
-        )  # (N*num_boxes, feat_channels)
+        # === 预测头 ===
+        fc_feature = obj_flat  # (bs*num_boxes, feat_channels)
 
-        scale_shift = self.time_mlp(time_emb)  # 时间嵌入MLP
-        scale_shift = torch.repeat_interleave(
-            scale_shift, num_boxes, dim=0
-        )  # 扩展到每个框
-        scale, shift = scale_shift.chunk(2, dim=1)  # 分割为缩放和偏移
-        # 时间条件化: feature = feature * (scale + 1) + shift
-        fc_feature = fc_feature * (scale + 1) + shift
-
-        # 分类和回归分支
-        # 通过分类模块
         class_logits = self.cls_head(fc_feature)
-        # out shape: (N*num_boxes, num_classes)
+        pred_bboxes = self._predict_bboxes(fc_feature, bboxes)
 
-        # 通过回归模块
-        bboxes_deltas = self.reg_head(fc_feature)
-        # out shape: (N*num_boxes, 4)
+        # Objectness
+        objectness = None
+        if self.objectness_head is not None:
+            objectness = self.objectness_head(fc_feature).view(bs, num_boxes, 1)
 
-        pred_bboxes = self.apply_deltas(
-            bboxes_deltas, bboxes.view(-1, 4)
-        )  # 应用偏移到边界框
+        # Velocity
+        pred_velocity = None
+        if self.velocity_head is not None:
+            pred_velocity = self.velocity_head(fc_feature).view(bs, num_boxes, 4)
 
-        # 调整输出形状
         return (
             class_logits.view(bs, num_boxes, -1),
             pred_bboxes.view(bs, num_boxes, -1),
             obj_features,
+            objectness,
+            pred_velocity,
         )
 
-    def apply_deltas(self, deltas, boxes):
-        """将变换`deltas` (dx, dy, dw, dh) 应用到`boxes`
+    def _forward_scale_shift(
+        self, features, bboxes, proposals, roi_features, time_emb, bs, num_boxes
+    ):
+        """传统 scale-shift 条件化的前向传播（向后兼容）"""
+        # 自注意力
+        proposals = proposals.view(bs, num_boxes, self.feat_channels).permute(
+            1, 0, 2
+        )  # (num_boxes, bs, feat_channels)
 
-        Args:
-            deltas (Tensor): 变换偏移,shape: (N, k*4), k >= 1
-            boxes (Tensor): 要变换的框,shape: (N, 4)
+        attn_shortcut, _ = self.self_attn(proposals, proposals, value=proposals)
+        proposals = proposals + self.dropout1(attn_shortcut)
+        proposals = self.norm1(proposals)
 
-        Returns:
-            pred_boxes: 变换后的框,shape: (N, k*4)
+        # 实例交互
+        proposals = (
+            proposals.view(num_boxes, bs, self.feat_channels)
+            .permute(1, 0, 2)
+            .reshape(1, bs * num_boxes, self.feat_channels)
+        )
+        attn_shortcut = self.inst_interact(proposals, roi_features)
+        proposals = proposals + self.dropout2(attn_shortcut)
+        obj_features = self.norm2(proposals)
+
+        # FFN
+        obj_shortcut = self.linear2(self.dropout(self.act(self.linear1(obj_features))))
+        obj_features = obj_features + self.dropout3(obj_shortcut)
+        obj_features = self.norm3(obj_features)
+
+        # 时间嵌入条件化 (scale-shift)
+        fc_feature = obj_features.transpose(0, 1).reshape(bs * num_boxes, -1)
+        scale_shift = self.time_mlp(time_emb)
+        scale_shift = torch.repeat_interleave(scale_shift, num_boxes, dim=0)
+        scale, shift = scale_shift.chunk(2, dim=1)
+        fc_feature = fc_feature * (scale + 1) + shift
+
+        # 预测头
+        class_logits = self.cls_head(fc_feature)
+        pred_bboxes = self._predict_bboxes(fc_feature, bboxes)
+
+        # Objectness
+        objectness = None
+        if self.objectness_head is not None:
+            objectness = self.objectness_head(fc_feature).view(bs, num_boxes, 1)
+
+        # Velocity
+        pred_velocity = None
+        if self.velocity_head is not None:
+            pred_velocity = self.velocity_head(fc_feature).view(bs, num_boxes, 4)
+
+        return (
+            class_logits.view(bs, num_boxes, -1),
+            pred_bboxes.view(bs, num_boxes, -1),
+            obj_features,
+            objectness,
+            pred_velocity,
+        )
+
+    def _predict_bboxes(self, fc_feature, bboxes):
+        """预测边界框 — 始终使用 delta regression
+
+        注意: velocity 模式不改变 bbox 预测方式。velocity_head 仅作为辅助
+        loss 分支，预测扩散空间的速度 v = x_0 - noise，不直接参与 bbox 更新。
         """
-        boxes = boxes.to(deltas.dtype)  # 确保数据类型一致
+        bboxes_deltas = self.reg_head(fc_feature)
+        pred_bboxes = self.apply_deltas(bboxes_deltas, bboxes.view(-1, 4))
+        return pred_bboxes
 
-        # 计算框的宽度和高度
-        widths = boxes[:, 2] - boxes[:, 0]  # x2 - x1
-        heights = boxes[:, 3] - boxes[:, 1]  # y2 - y1
-        ctr_x = boxes[:, 0] + 0.5 * widths  # 中心x坐标
-        ctr_y = boxes[:, 1] + 0.5 * heights  # 中心y坐标
+    def apply_deltas(self, deltas, boxes):
+        """将变换deltas (dx, dy, dw, dh) 应用到boxes"""
+        boxes = boxes.to(deltas.dtype)
 
-        wx, wy, ww, wh = self.bbox_weights  # 边界框权重
-        dx = deltas[:, 0::4] / wx  # x方向偏移
-        dy = deltas[:, 1::4] / wy  # y方向偏移
-        dw = deltas[:, 2::4] / ww  # 宽度偏移
-        dh = deltas[:, 3::4] / wh  # 高度偏移
+        widths = boxes[:, 2] - boxes[:, 0]
+        heights = boxes[:, 3] - boxes[:, 1]
+        ctr_x = boxes[:, 0] + 0.5 * widths
+        ctr_y = boxes[:, 1] + 0.5 * heights
 
-        # 防止将过大值送入torch.exp()
-        dw = torch.clamp(dw, max=self.scale_clamp)  # 截断宽度偏移
-        dh = torch.clamp(dh, max=self.scale_clamp)  # 截断高度偏移
+        wx, wy, ww, wh = self.bbox_weights
+        dx = deltas[:, 0::4] / wx
+        dy = deltas[:, 1::4] / wy
+        dw = deltas[:, 2::4] / ww
+        dh = deltas[:, 3::4] / wh
 
-        # 计算预测的中心坐标和宽高
-        pred_ctr_x = dx * widths[:, None] + ctr_x[:, None]  # 预测中心x
-        pred_ctr_y = dy * heights[:, None] + ctr_y[:, None]  # 预测中心y
-        pred_w = torch.exp(dw) * widths[:, None]  # 预测宽度
-        pred_h = torch.exp(dh) * heights[:, None]  # 预测高度
+        dw = torch.clamp(dw, max=self.scale_clamp)
+        dh = torch.clamp(dh, max=self.scale_clamp)
 
-        # 构造预测框: (x1, y1, x2, y2)
+        pred_ctr_x = dx * widths[:, None] + ctr_x[:, None]
+        pred_ctr_y = dy * heights[:, None] + ctr_y[:, None]
+        pred_w = torch.exp(dw) * widths[:, None]
+        pred_h = torch.exp(dh) * heights[:, None]
+
         pred_boxes = torch.zeros_like(deltas)
-        pred_boxes[:, 0::4] = pred_ctr_x - 0.5 * pred_w  # x1
-        pred_boxes[:, 1::4] = pred_ctr_y - 0.5 * pred_h  # y1
-        pred_boxes[:, 2::4] = pred_ctr_x + 0.5 * pred_w  # x2
-        pred_boxes[:, 3::4] = pred_ctr_y + 0.5 * pred_h  # y2
+        pred_boxes[:, 0::4] = pred_ctr_x - 0.5 * pred_w
+        pred_boxes[:, 1::4] = pred_ctr_y - 0.5 * pred_h
+        pred_boxes[:, 2::4] = pred_ctr_x + 0.5 * pred_w
+        pred_boxes[:, 3::4] = pred_ctr_y + 0.5 * pred_h
 
         return pred_boxes
