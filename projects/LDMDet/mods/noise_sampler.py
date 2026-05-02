@@ -8,6 +8,7 @@
 - 'pure': 纯高斯噪声（消融用，与 DiffusionDet 一致）
 - 'grid': 网格中心 + 默认尺寸 + 高斯扰动
 - 'grid_multiscale': 多尺度网格 + 扰动
+- 'chromosome': 染色体先验噪声 — 各向异性宽高比 (1:3~1:6) + 密集排列
 """
 
 import math
@@ -26,7 +27,7 @@ class StructuredNoiseSampler(nn.Module):
     Args:
         num_proposals: 提议框数量
         noise_scale: 高斯扰动的标准差
-        strategy: 'pure', 'grid', 'grid_multiscale'
+        strategy: 'pure', 'grid', 'grid_multiscale', 'chromosome'
         snr_scale: 信噪比缩放 (需要与 DiffusionDetHead 一致)
     """
 
@@ -55,6 +56,8 @@ class StructuredNoiseSampler(nn.Module):
             return self._sample_grid(batch_size, device)
         elif self.strategy == "grid_multiscale":
             return self._sample_grid_multiscale(batch_size, device)
+        elif self.strategy == "chromosome":
+            return self._sample_chromosome(batch_size, device)
         else:
             raise ValueError(f"Unknown noise strategy: {self.strategy}")
 
@@ -140,5 +143,50 @@ class StructuredNoiseSampler(nn.Module):
 
         noise = self.noise_scale * torch.randn(batch_size, N, 4, device=device)
         boxes = boxes.unsqueeze(0).expand(batch_size, -1, -1) + noise
+
+        return boxes
+
+    def _sample_chromosome(
+        self, batch_size: int, device: torch.device
+    ) -> Tensor:
+        """染色体先验噪声
+
+        利用染色体核型分析的领域先验:
+        - 染色体宽高比集中在 1:3 ~ 1:6 (细长条形)
+        - 染色体密集排列, 中心点均匀覆盖图像
+        - 宽度较小 (0.02~0.06), 高度较大 (0.10~0.30)
+        """
+        N = self.num_proposals
+
+        grid_h = int(math.sqrt(N))
+        grid_w = N // grid_h
+        actual_n = grid_h * grid_w
+
+        cx = torch.linspace(0, 1, grid_w + 2, device=device)[1:-1]
+        cy = torch.linspace(0, 1, grid_h + 2, device=device)[1:-1]
+        cx, cy = torch.meshgrid(cx, cy, indexing="xy")
+        centers = torch.stack([cx.flatten(), cy.flatten()], dim=-1)[:actual_n]
+
+        aspect_ratios = torch.rand(actual_n, device=device) * 3.0 + 3.0
+        widths = torch.rand(actual_n, device=device) * 0.04 + 0.02
+        heights = widths * aspect_ratios
+        heights = heights.clamp(max=0.35)
+        wh = torch.stack([widths, heights], dim=-1)
+
+        boxes = torch.cat([centers, wh], dim=-1)
+
+        if actual_n < N:
+            extra_n = N - actual_n
+            extra = torch.rand(extra_n, 4, device=device)
+            extra_ar = torch.rand(extra_n, device=device) * 3.0 + 3.0
+            extra[:, 2] = torch.rand(extra_n, device=device) * 0.04 + 0.02
+            extra[:, 3] = extra[:, 2] * extra_ar
+            extra[:, 3] = extra[:, 3].clamp(max=0.35)
+            boxes = torch.cat([boxes, extra], dim=0)
+
+        boxes = (boxes * 2 - 1) * self.snr_scale
+
+        noise = self.noise_scale * torch.randn(batch_size, N, 4, device=device)
+        boxes = boxes.unsqueeze(0).expand(batch_size, -1, -1).clone() + noise
 
         return boxes
