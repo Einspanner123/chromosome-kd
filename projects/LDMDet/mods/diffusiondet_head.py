@@ -1,5 +1,7 @@
+
 import copy
 import math
+import os
 from typing import Dict, List, Optional, Tuple
 
 import torch
@@ -56,6 +58,51 @@ class DiffusionDetHead(nn.Module):
         ot_num_iters: int = 20,  # Sinkhorn OT 的迭代次数
         ot_init_mode: str = "replace",  # "replace" (替换 x_start) 或 "guided" (引导噪声初始化)
         ot_init_scale: float = 0.5,  # guided 模式下噪声到 GT 的缩放因子
+        ot_sample: bool = False,  # Stochastic Coupling: 从传输矩阵采样替代 argmax
+        ot_group_hierarchical: bool = False,  # Group-Hierarchical Coupling: 按染色体组分组 OT
+        # === TRD 参数 ===
+        use_trd: bool = False,  # Transport-Refinement Decomposition
+        trd_self_cond_prob: float = 0.5,  # 训练时自条件化概率
+        # === CAT 参数 ===
+        use_cat: bool = False,  # Curvature-Aware Training
+        cat_weight: float = 0.1,  # 曲率正则化权重
+        cat_delta_t: float = 0.01,  # 曲率计算的时间步长
+        # === LSAS 参数 ===
+        use_lsas: bool = False,  # Loss-Sensitive Adaptive Scheduling
+        lsas_num_bins: int = 100,  # 时间分布离散化精度
+        lsas_temp: float = 1.0,  # 采样温度
+        # === Reflow 参数 ===
+        use_reflow: bool = False,  # Reflow 模式 (使用预生成配对训练)
+        reflow_pairs_dir: str = "",  # Reflow 配对数据目录
+        reflow_num_ode_steps: int = 10,  # 生成配对时的 ODE 步数
+        reflow_det_loss_scale: float = 1.0,  # Reflow 模式下检测 loss 缩放因子
+        reflow_velocity_warmup_steps: int = 0,  # velocity loss 预热步数 (0=不预热)
+        # === Consistency Distillation 参数 ===
+        use_consistency: bool = False,  # Consistency Distillation 模式
+        consistency_ema_rate: float = 0.999,  # EMA student 更新率
+        consistency_num_timesteps: int = 18,  # 离散化时间步数
+        consistency_weight: float = 1.0,  # consistency loss 权重
+        # === Intermediate Trajectory Distillation 参数 ===
+        use_itd: bool = False,  # Intermediate Trajectory Distillation
+        itd_num_points: int = 4,  # 中间轨迹采样点数
+        itd_weight: float = 1.0,  # ITD loss 权重
+        itd_sampling: str = "uniform",  # "uniform" 或 "loss_aware"
+        # === Freeze Shared 参数 ===
+        freeze_shared: bool = False,  # 冻结共享层, 只训练 velocity_head
+        # === Consistency Loss 参数 ===
+        use_consistency_loss: bool = False,  # Consistency Loss (x0 一致性约束)
+        consistency_loss_weight: float = 1.0,  # Consistency Loss 权重
+        consistency_loss_num_points: int = 4,  # Consistency Loss 采样点数
+        # === Gradient Surgery 参数 ===
+        use_pcgrad: bool = False,  # PCGrad: 投影冲突梯度
+        pcgrad_main_task: str = "det",  # 主任务: "det" 或 "vel"
+        # === Velocity Detach 参数 ===
+        velocity_detach: bool = False,  # 切断 velocity_head 到共享层的梯度
+        # === Scale-Conditioned Flow Matching 参数 ===
+        scale_conditioned_noise: bool = False,  # 按染色体尺寸缩放噪声
+        scale_noise_power: float = 0.5,  # 噪声缩放幂指数
+        scale_adaptive_loss: bool = False,  # 按染色体尺寸缩放回归loss权重
+        scale_loss_power: float = 0.5,  # loss权重幂指数
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -83,6 +130,41 @@ class DiffusionDetHead(nn.Module):
         self.ot_num_iters = ot_num_iters
         self.ot_init_mode = ot_init_mode
         self.ot_init_scale = ot_init_scale
+        self.ot_sample = ot_sample
+        self.ot_group_hierarchical = ot_group_hierarchical
+        self.use_trd = use_trd
+        self.trd_self_cond_prob = trd_self_cond_prob
+        self.use_cat = use_cat
+        self.cat_weight = cat_weight
+        self.cat_delta_t = cat_delta_t
+        self.use_lsas = use_lsas
+        self.lsas_num_bins = lsas_num_bins
+        self.lsas_temp = lsas_temp
+        self.use_reflow = use_reflow
+        self.reflow_pairs_dir = reflow_pairs_dir
+        self.reflow_num_ode_steps = reflow_num_ode_steps
+        self.reflow_det_loss_scale = reflow_det_loss_scale
+        self.reflow_velocity_warmup_steps = reflow_velocity_warmup_steps
+        self._reflow_train_step = 0
+        self.use_consistency = use_consistency
+        self.consistency_ema_rate = consistency_ema_rate
+        self.consistency_num_timesteps = consistency_num_timesteps
+        self.consistency_weight = consistency_weight
+        self.use_itd = use_itd
+        self.itd_num_points = itd_num_points
+        self.itd_weight = itd_weight
+        self.itd_sampling = itd_sampling
+        self.freeze_shared = freeze_shared
+        self.use_consistency_loss = use_consistency_loss
+        self.consistency_loss_weight = consistency_loss_weight
+        self.consistency_loss_num_points = consistency_loss_num_points
+        self.use_pcgrad = use_pcgrad
+        self.pcgrad_main_task = pcgrad_main_task
+        self.velocity_detach = velocity_detach
+        self.scale_conditioned_noise = scale_conditioned_noise
+        self.scale_noise_power = scale_noise_power
+        self.scale_adaptive_loss = scale_adaptive_loss
+        self.scale_loss_power = scale_loss_power
 
         # 测试配置
         self.use_nms = use_nms
@@ -104,9 +186,26 @@ class DiffusionDetHead(nn.Module):
             self.rf = RectifiedFlow(snr_scale=snr_scale)
 
         # 构建检测头序列 (迭代去噪)
+        if hasattr(single_head, 'prediction_mode') and single_head.prediction_mode != prediction_mode:
+            single_head.prediction_mode = prediction_mode
         self.head_series = nn.ModuleList(
             [copy.deepcopy(single_head) for _ in range(num_heads)]
         )
+
+        if prediction_mode == "velocity":
+            for head in self.head_series:
+                if not hasattr(head, 'velocity_head') or head.velocity_head is None:
+                    head.velocity_head = nn.Sequential(
+                        nn.Linear(feat_channels, feat_channels, bias=False),
+                        nn.LayerNorm(feat_channels),
+                        nn.ReLU(inplace=True),
+                        nn.Linear(feat_channels, feat_channels, bias=False),
+                        nn.LayerNorm(feat_channels),
+                        nn.ReLU(inplace=True),
+                        nn.Linear(feat_channels, 4),
+                    )
+                    head.prediction_mode = "velocity"
+                head.velocity_detach = velocity_detach
 
         # 时间步嵌入 MLP
         time_dim = feat_channels * 4
@@ -117,15 +216,150 @@ class DiffusionDetHead(nn.Module):
             nn.Linear(time_dim, time_dim),
         )
 
+        # LSAS: 可学习时间分布
+        if self.use_lsas and self.diffusion_type == "rectified_flow":
+            self.lsas_logits = nn.Parameter(torch.zeros(lsas_num_bins))
+            self.lsas_bin_edges = torch.linspace(0, 1, lsas_num_bins + 1)
+
         self.prior_prob = prior_prob
         self._init_weights()
 
+        if self.use_reflow:
+            self._reflow_pairs_cache = []
+            self._reflow_pairs_idx = 0
+
+        # Chromosome group mapping: class_idx -> group_idx
+        # Class order: A1,A2,A3, B4,B5, C10,C11,C12,C6,C7,C8,C9,
+        #              D13,D14,D15, E16,E17,E18, F19,F20, G21,G22, X,Y
+        # Groups: 0=A, 1=B, 2=C, 3=D, 4=E, 5=F, 6=G, 7=Sex
+        self._chromo_group_of_class = [
+            0, 0, 0,    # A1, A2, A3
+            1, 1,       # B4, B5
+            2, 2, 2, 2, 2, 2, 2,  # C10, C11, C12, C6, C7, C8, C9
+            3, 3, 3,    # D13, D14, D15
+            4, 4, 4,    # E16, E17, E18
+            5, 5,       # F19, F20
+            6, 6,       # G21, G22
+            7, 7,       # X, Y
+        ]
+
+        # 计算染色体尺寸相关系数 (Scale-Conditioned Flow Matching)
+        # Denver 组: A(0), B(1), C(2), D(3), E(4), F(5), G(6), Sex(7)
+        # 基于近似物理染色体长度的相对尺寸
+        _group_relative_sizes = [1.0, 0.75, 0.50, 0.30, 0.20, 0.12, 0.08, 0.40]
+        if self.scale_conditioned_noise:
+            self._group_noise_scales = [s ** self.scale_noise_power for s in _group_relative_sizes]
+        if self.scale_adaptive_loss:
+            _max_inv = max((1.0 / s) ** self.scale_loss_power for s in _group_relative_sizes)
+            self._class_loss_weights = [
+                ((1.0 / _group_relative_sizes[g]) ** self.scale_loss_power) / _max_inv
+                for g in self._chromo_group_of_class
+            ]
+
+    def _run_group_hierarchical_ot(self, noise, gt_diffusion, gt_labels, device):
+        """按染色体组分层 OT 耦合, 每组独立运行 Sinkhorn"""
+        N = noise.shape[0]  # total proposals
+        num_gt = gt_labels.shape[0]
+        if num_gt == 0:
+            return torch.randint(0, max(num_gt, 1), (N,), device=device)
+
+        group_ids = torch.tensor(self._chromo_group_of_class, device=device)
+        gt_groups = group_ids[gt_labels]  # (K,) group index per GT box
+
+        matched_gt_idx = torch.zeros(N, dtype=torch.long, device=device)
+        offset = 0  # running offset into the N proposals
+
+        unique_groups = torch.unique(gt_groups)
+        for grp in unique_groups:
+            grp_mask = gt_groups == grp
+            grp_gt_idx = torch.where(grp_mask)[0]  # indices into original GT list
+            K_g = grp_gt_idx.shape[0]
+
+            # Allocate proposals proportional to this group's share of GT boxes
+            N_g = max(N * K_g // num_gt, 1)
+            # Adjust last group to absorb rounding
+            if grp == unique_groups[-1]:
+                N_g = N - offset
+            N_g = min(N_g, N - offset)
+            if N_g <= 0:
+                continue
+
+            grp_noise = noise[offset:offset + N_g]
+            grp_gt = gt_diffusion[grp_gt_idx]
+
+            # Within-group Sinkhorn OT
+            cost = torch.cdist(grp_noise, grp_gt, p=2)
+            a = torch.ones(N_g, device=device) / N_g
+            proposals_per_gt = max(N_g // K_g, 1)
+            gt_mass = torch.full((K_g,), proposals_per_gt / N_g, device=device)
+            b = gt_mass / gt_mass.sum()
+            log_K = -cost / self.ot_epsilon
+            log_u = torch.zeros(N_g, device=device)
+            log_v = torch.zeros(K_g, device=device)
+            for _ in range(self.ot_num_iters):
+                log_u = torch.log(a + 1e-10) - torch.logsumexp(log_K + log_v.unsqueeze(0), dim=1)
+                log_v = torch.log(b + 1e-10) - torch.logsumexp(log_K + log_u.unsqueeze(1), dim=0)
+            transport = torch.exp(log_u.unsqueeze(1) + log_K + log_v.unsqueeze(0))
+
+            if self.ot_sample:
+                row_probs = transport / transport.sum(dim=1, keepdim=True)
+                local_matched = torch.multinomial(row_probs, 1).squeeze(-1)
+            else:
+                local_matched = transport.argmax(dim=1)
+
+            # Map back to global GT indices
+            matched_gt_idx[offset:offset + N_g] = grp_gt_idx[local_matched]
+            offset += N_g
+
+        return matched_gt_idx
+
+    def _get_reflow_pairs(self, bs: int, device: torch.device):
+        import glob as glob_mod
+
+        if not self.reflow_pairs_dir or not os.path.isdir(self.reflow_pairs_dir):
+            return None
+
+        if len(self._reflow_pairs_cache) == 0:
+            pair_files = sorted(glob_mod.glob(os.path.join(self.reflow_pairs_dir, "*.pt")))
+            if len(pair_files) == 0:
+                return None
+            for pf in pair_files:
+                d = torch.load(pf, map_location="cpu")
+                self._reflow_pairs_cache.append((d["z"], d["b_pred"]))
+            import random
+            random.shuffle(self._reflow_pairs_cache)
+            self._reflow_pairs_idx = 0
+
+        pairs_z = []
+        pairs_b = []
+        for _ in range(bs):
+            if self._reflow_pairs_idx >= len(self._reflow_pairs_cache):
+                import random
+                random.shuffle(self._reflow_pairs_cache)
+                self._reflow_pairs_idx = 0
+            z, b = self._reflow_pairs_cache[self._reflow_pairs_idx]
+            pairs_z.append(z.to(device))
+            pairs_b.append(b.to(device))
+            self._reflow_pairs_idx += 1
+
+        z_batch = torch.cat(pairs_z, dim=0)[:bs]
+        b_batch = torch.cat(pairs_b, dim=0)[:bs]
+        return z_batch, b_batch
+
     def _sample_noise(self, bs: int, device: torch.device) -> Tensor:
-        """采样噪声框，支持结构化噪声"""
         if self.noise_sampler is not None:
             return self.noise_sampler.sample(bs, device)
         else:
             return torch.randn(bs, self.num_proposals, 4, device=device)
+
+    def _sample_time_lsas(self, bs: int, device: torch.device) -> Tuple[Tensor, Tensor]:
+        probs = F.softmax(self.lsas_logits / self.lsas_temp, dim=0)
+        bin_indices = torch.multinomial(probs, bs, replacement=True)
+        bin_width = 1.0 / self.lsas_num_bins
+        t = bin_indices.float() * bin_width + torch.rand(bs, device=device) * bin_width
+        t = t.clamp(1e-5, 1.0 - 1e-5)
+        log_probs = torch.log(probs[bin_indices] + 1e-10)
+        return t, log_probs
 
     def loss(
         self,
@@ -155,79 +389,147 @@ class DiffusionDetHead(nn.Module):
         # 2. 扩散过程：生成训练所需的噪声框
         if self.diffusion_type == "ddpm":
             t = torch.randint(0, self.timesteps, (bs,), device=device).long()
+            lsas_log_probs = None
         else:
-            t = torch.rand((bs,), device=device)
-            if self.rf_schedule == "shifted":
-                s = self.rf_shift
-                t = s * t / (1 + (s - 1) * t)
+            if self.use_lsas:
+                t, lsas_log_probs = self._sample_time_lsas(bs, device)
+            else:
+                t = torch.rand((bs,), device=device)
+                lsas_log_probs = None
+                if self.rf_schedule == "shifted":
+                    s = self.rf_shift
+                    t = s * t / (1 + (s - 1) * t)
 
         x_boxes = []
         x_starts = []  # 记录每个 proposal 对应的 x_start (扩散空间 GT)
         x_noises = []  # 记录每个 proposal 的噪声源
-        for i in range(bs):
-            num_gt = gt_bboxes[i].shape[0]
-            if num_gt > 0:
-                # --- 先准备 GT 在扩散空间的表示 ---
-                norm_gt_cxcywh = bbox_xyxy_to_cxcywh(targets[i].bboxes)  # (K, 4)
-                gt_diffusion = (norm_gt_cxcywh * 2 - 1) * self.snr_scale  # (K, 4)
 
-                # --- 采样噪声 ---
-                noise = torch.randn(self.num_proposals, 4, device=device)  # (N, 4)
-
-                if self.ot_coupling and self.diffusion_type == "rectified_flow":
-                    if self.ot_matcher == "sinkhorn":
-                        cost = torch.cdist(noise, gt_diffusion, p=2)
-                        N, K = cost.shape
-                        a = torch.ones(N, device=device) / N
-                        proposals_per_gt = max(N // max(K, 1), 1)
-                        gt_mass = torch.full((K,), proposals_per_gt / N, device=device)
-                        b = gt_mass / gt_mass.sum()
-                        log_K_mat = -cost / self.ot_epsilon
-                        log_u = torch.zeros(N, device=device)
-                        log_v = torch.zeros(K, device=device)
-                        for _ in range(self.ot_num_iters):
-                            log_u = torch.log(a + 1e-10) - torch.logsumexp(log_K_mat + log_v.unsqueeze(0), dim=1)
-                            log_v = torch.log(b + 1e-10) - torch.logsumexp(log_K_mat + log_u.unsqueeze(1), dim=0)
-                        transport = torch.exp(log_u.unsqueeze(1) + log_K_mat + log_v.unsqueeze(0))
-                        matched_gt_idx = transport.argmax(dim=1)
-                        x_start = gt_diffusion[matched_gt_idx]
-                    else:
-                        cost = torch.cdist(noise, gt_diffusion, p=2)
-                        matched_gt_idx = cost.argmin(dim=1)
-                        x_start = gt_diffusion[matched_gt_idx]
-
-                    if self.ot_init_mode == "guided":
-                        x_start = noise + self.ot_init_scale * (x_start - noise)
-                else:
-                    # === 原始随机耦合 ===
-                    idx = torch.randint(0, num_gt, (self.num_proposals,), device=device)
-                    sample_bboxes = targets[i].bboxes[idx]
-                    sample_bboxes = bbox_xyxy_to_cxcywh(sample_bboxes)
-                    x_start = (sample_bboxes * 2 - 1) * self.snr_scale
-
-                if self.diffusion_type == "ddpm":
-                    x_noisy = self.q_sample(x_start, t[i : i + 1])
-                    x_starts.append(x_start)
-                    x_noises.append(torch.zeros_like(x_start))  # placeholder
-                else:
+        if self.use_reflow and self.diffusion_type == "rectified_flow" and self.training:
+            reflow_batch = self._get_reflow_pairs(bs, device)
+            if reflow_batch is not None:
+                z_reflow, b_reflow = reflow_batch
+                for i in range(bs):
+                    x_start = b_reflow[i]
+                    noise = z_reflow[i]
                     x_noisy, _ = self.rf.q_sample(x_start, x_noise=noise, t=t[i : i + 1])
                     x_starts.append(x_start)
                     x_noises.append(noise)
-                x_boxes.append(x_noisy)
+                    x_boxes.append(x_noisy)
             else:
-                noise = torch.randn(self.num_proposals, 4, device=device)
-                x_boxes.append(noise)
-                x_starts.append(torch.zeros_like(noise))
-                x_noises.append(noise)
+                for i in range(bs):
+                    noise = torch.randn(self.num_proposals, 4, device=device)
+                    x_boxes.append(noise)
+                    x_starts.append(torch.zeros_like(noise))
+                    x_noises.append(noise)
+        else:
+            for i in range(bs):
+                num_gt = gt_bboxes[i].shape[0]
+                if num_gt > 0:
+                    # --- 先准备 GT 在扩散空间的表示 ---
+                    norm_gt_cxcywh = bbox_xyxy_to_cxcywh(targets[i].bboxes)  # (K, 4)
+                    gt_diffusion = (norm_gt_cxcywh * 2 - 1) * self.snr_scale  # (K, 4)
+
+                    # --- 采样噪声 ---
+                    noise = torch.randn(self.num_proposals, 4, device=device)  # (N, 4)
+
+                    if self.ot_coupling and self.diffusion_type == "rectified_flow":
+                        if self.ot_matcher == "sinkhorn":
+                            if self.ot_group_hierarchical:
+                                matched_gt_idx = self._run_group_hierarchical_ot(
+                                    noise, gt_diffusion, targets[i].labels, device)
+                            else:
+                                cost = torch.cdist(noise, gt_diffusion, p=2)
+                                N, K = cost.shape
+                                a = torch.ones(N, device=device) / N
+                                proposals_per_gt = max(N // max(K, 1), 1)
+                                gt_mass = torch.full((K,), proposals_per_gt / N, device=device)
+                                b = gt_mass / gt_mass.sum()
+                                log_K_mat = -cost / self.ot_epsilon
+                                log_u = torch.zeros(N, device=device)
+                                log_v = torch.zeros(K, device=device)
+                                for _ in range(self.ot_num_iters):
+                                    log_u = torch.log(a + 1e-10) - torch.logsumexp(log_K_mat + log_v.unsqueeze(0), dim=1)
+                                    log_v = torch.log(b + 1e-10) - torch.logsumexp(log_K_mat + log_u.unsqueeze(1), dim=0)
+                                transport = torch.exp(log_u.unsqueeze(1) + log_K_mat + log_v.unsqueeze(0))
+                                if self.ot_sample:
+                                    row_probs = transport / transport.sum(dim=1, keepdim=True)
+                                    matched_gt_idx = torch.multinomial(row_probs, 1).squeeze(-1)
+                                else:
+                                    matched_gt_idx = transport.argmax(dim=1)
+                            x_start = gt_diffusion[matched_gt_idx]
+                        else:
+                            cost = torch.cdist(noise, gt_diffusion, p=2)
+                            matched_gt_idx = cost.argmin(dim=1)
+                            x_start = gt_diffusion[matched_gt_idx]
+
+                        if self.ot_init_mode == "guided":
+                            x_start = noise + self.ot_init_scale * (x_start - noise)
+                    else:
+                        # === 原始随机耦合 ===
+                        idx = torch.randint(0, num_gt, (self.num_proposals,), device=device)
+                        sample_bboxes = targets[i].bboxes[idx]
+                        sample_bboxes = bbox_xyxy_to_cxcywh(sample_bboxes)
+                        x_start = (sample_bboxes * 2 - 1) * self.snr_scale
+
+                    if self.diffusion_type == "ddpm":
+                        x_noisy = self.q_sample(x_start, t[i : i + 1])
+                        x_starts.append(x_start)
+                        x_noises.append(torch.zeros_like(x_start))  # placeholder
+                    else:
+                        # 尺度条件噪声: 小染色体用小噪声 → 更紧致的流轨迹
+                        if self.scale_conditioned_noise:
+                            if self.ot_coupling:
+                                _sc_match_idx = matched_gt_idx
+                            else:
+                                _sc_match_idx = idx
+                            _sc_groups = torch.tensor(
+                                self._chromo_group_of_class, device=device
+                            )[targets[i].labels[_sc_match_idx]]
+                            _sc_scales = torch.tensor(
+                                self._group_noise_scales, device=device
+                            )[_sc_groups]
+                            noise = noise * _sc_scales.unsqueeze(-1)
+                        x_noisy, _ = self.rf.q_sample(x_start, x_noise=noise, t=t[i : i + 1])
+                        x_starts.append(x_start)
+                        x_noises.append(noise)
+                    x_boxes.append(x_noisy)
+                else:
+                    noise = torch.randn(self.num_proposals, 4, device=device)
+                    x_boxes.append(noise)
+                    x_starts.append(torch.zeros_like(noise))
+                    x_noises.append(noise)
 
         x_noisy_batch = torch.stack(x_boxes)
         curr_bboxes = self._raw_to_xyxy(x_noisy_batch, img_metas)
 
-        # 3. 前向传播获取预测结果
+        # 3. TRD 自条件化: 先做一次前向获取 x_0 预测, 再做第二次前向
         t_input = t if self.diffusion_type == "ddpm" else t * self.timesteps
-        all_cls_logits, all_pred_bboxes, all_objectness, all_velocity = self(
-            features, curr_bboxes, t_input
-        )
+
+        if self.use_trd and self.diffusion_type == "rectified_flow" and self.training:
+            sc_mask = torch.rand(bs, device=device) < self.trd_self_cond_prob
+            if sc_mask.any():
+                with torch.no_grad():
+                    all_cls_sc, all_pred_sc, _, _ = self(features, curr_bboxes, t_input)
+                    x0_sc = self._xyxy_to_raw(all_pred_sc[-1], img_metas)
+                x_noisy_sc = x_noisy_batch.clone()
+                t_view = t.view(-1, 1, 1)
+                v_ot_est = (x_noisy_sc - x0_sc) / torch.clamp(t_view, min=1e-5)
+                x_noisy_sc[sc_mask] = (x_noisy_sc + self.cat_delta_t * v_ot_est)[sc_mask]
+                t_sc = t.clone()
+                t_sc[sc_mask] = (t[sc_mask] + self.cat_delta_t).clamp(0, 1)
+                t_input_sc = t_sc * self.timesteps
+                curr_bboxes_sc = self._raw_to_xyxy(x_noisy_sc, img_metas)
+                all_cls_logits, all_pred_bboxes, all_objectness, all_velocity = self(
+                    features, curr_bboxes_sc, t_input_sc
+                )
+            else:
+                all_cls_logits, all_pred_bboxes, all_objectness, all_velocity = self(
+                    features, curr_bboxes, t_input
+                )
+        else:
+            all_cls_logits, all_pred_bboxes, all_objectness, all_velocity = self(
+                features, curr_bboxes, t_input
+            )
 
         # 4. 归一化预测框
         norm_pred_bboxes = all_pred_bboxes.clone()
@@ -258,25 +560,170 @@ class DiffusionDetHead(nn.Module):
         if self.criterion is None:
             raise ValueError("Criterion is not initialized in DiffusionDetHead")
 
+        if self.scale_adaptive_loss:
+            self.criterion.class_reg_weights = self._class_loss_weights
+
         losses = self.criterion(outputs, targets)
 
-        # 5. Velocity loss (Phase 4)
-        # velocity_head 预测扩散空间的速度 v = x_start - x_noise
-        # 使用训练时记录的 x_starts 和 x_noises (一一对应)
+        if self.use_reflow and self.reflow_det_loss_scale != 1.0:
+            det_keys = {"loss_cls", "loss_bbox", "loss_giou"}
+            for k in det_keys:
+                if k in losses:
+                    losses[k] = losses[k] * self.reflow_det_loss_scale
+
+        # 5. Velocity loss (with deep supervision)
         if (
             self.prediction_mode == "velocity"
             and all_velocity[0] is not None
             and self.diffusion_type == "rectified_flow"
         ):
-            x_start_batch = torch.stack(x_starts)  # (bs, N, 4)
-            x_noise_batch = torch.stack(x_noises)  # (bs, N, 4)
-            # target velocity: 从噪声到数据的方向 (与 RF 约定一致)
-            v_target = x_start_batch - x_noise_batch  # (bs, N, 4)
+            x_start_batch = torch.stack(x_starts)
+            x_noise_batch = torch.stack(x_noises)
+            v_target = x_start_batch - x_noise_batch
 
-            # 仅对最后一个 head 计算 velocity loss (避免过度正则化)
+            vel_weight = self.velocity_loss_weight
+            if self.use_reflow and self.reflow_velocity_warmup_steps > 0:
+                self._reflow_train_step += 1
+                warmup_frac = min(self._reflow_train_step / self.reflow_velocity_warmup_steps, 1.0)
+                vel_weight = vel_weight * warmup_frac
+
             last_v = all_velocity[-1]
             if last_v is not None:
-                losses["loss_velocity"] = F.mse_loss(last_v, v_target) * self.velocity_loss_weight
+                losses["loss_velocity"] = F.mse_loss(last_v, v_target) * vel_weight
+
+            if self.deep_supervision and self.num_heads > 1:
+                aux_vel_loss = torch.tensor(0.0, device=device)
+                num_aux = 0
+                for hi in range(self.num_heads - 1):
+                    if all_velocity[hi] is not None:
+                        aux_vel_loss = aux_vel_loss + F.mse_loss(all_velocity[hi], v_target)
+                        num_aux += 1
+                if num_aux > 0:
+                    losses["loss_velocity_aux"] = aux_vel_loss / num_aux * vel_weight * 0.5
+
+        # 6. CAT: x0 一致性正则化 (等价于曲率惩罚, 但数值稳定)
+        # 理论: 若 ODE 路径为直线, 则 v = const, x0^{pred} 在不同 t 应一致
+        # 实现: 对比相邻时间步的 x0 预测, 惩罚不一致性
+        if self.use_cat and self.diffusion_type == "rectified_flow" and self.training:
+            x_start_batch = torch.stack(x_starts)
+            x_noise_batch = torch.stack(x_noises)
+            dt = self.cat_delta_t
+            with torch.no_grad():
+                t2 = (t + dt).clamp(0, 1)
+                t2_view = t2.view(-1, 1, 1)
+                x_t2 = (1.0 - t2_view) * x_start_batch + t2_view * x_noise_batch
+                curr_bboxes_t2 = self._raw_to_xyxy(x_t2, img_metas)
+                t2_input = t2 * self.timesteps
+                _, all_pred_t2, _, _ = self(features, curr_bboxes_t2, t2_input)
+                x0_t2 = self._xyxy_to_raw(all_pred_t2[-1], img_metas)
+
+            x0_t1 = self._xyxy_to_raw(all_pred_bboxes[-1], img_metas)
+            losses["loss_curvature"] = F.mse_loss(x0_t1, x0_t2.detach()) * self.cat_weight
+
+        # 7. LSAS: 重要性加权
+        if self.use_lsas and lsas_log_probs is not None:
+            with torch.no_grad():
+                total_loss_val = sum(losses.values())
+            log_weight = -lsas_log_probs
+            losses["loss_lsas"] = total_loss_val.detach() * log_weight.mean() * 0.01
+
+        # 8. Intermediate Trajectory Distillation (ITD)
+        # 在多个中间时间步提供 velocity 监督, 约束 ODE 路径为直线
+        # 核心: 对 K 个中间时间步 t_k, 构造 x_{t_k} 并前向, 计算 velocity loss
+        # 直线 ODE 的 velocity 为常数: v = x_0 - x_1 (对所有 t_k 相同)
+        if self.use_itd and self.diffusion_type == "rectified_flow" and self.training:
+            x_start_batch_itd = torch.stack(x_starts)
+            x_noise_batch_itd = torch.stack(x_noises)
+            v_target_itd = x_start_batch_itd - x_noise_batch_itd
+
+            if self.itd_sampling == "uniform":
+                t_points = torch.linspace(
+                    0.1, 0.9, steps=self.itd_num_points, device=device
+                )
+            else:
+                t_points = 0.1 + 0.8 * torch.rand(self.itd_num_points, device=device)
+
+            itd_loss_total = torch.tensor(0.0, device=device)
+            num_valid = 0
+            for t_k in t_points:
+                t_k_batch = t_k.expand(bs)
+                t_k_view = t_k_batch.view(-1, 1, 1)
+                x_tk = (1.0 - t_k_view) * x_start_batch_itd + t_k_view * x_noise_batch_itd
+
+                curr_bboxes_tk = self._raw_to_xyxy(x_tk, img_metas)
+                t_k_input = t_k_batch * self.timesteps
+                _, _, _, all_vel_tk = self(features, curr_bboxes_tk, t_k_input)
+
+                if all_vel_tk[-1] is not None:
+                    itd_loss_total = itd_loss_total + F.mse_loss(all_vel_tk[-1], v_target_itd)
+                    num_valid += 1
+
+            if num_valid > 0:
+                itd_loss_total = itd_loss_total / num_valid
+            losses["loss_itd"] = itd_loss_total * self.itd_weight
+
+        # 8.5 Consistency Loss: x0 一致性约束
+        # 理论: 若 ODE 路径为直线, 则 x0^{pred}(x_t, t) 对所有 t 应一致
+        # 实现: 对 K 个中间时间步 t_k, 前向预测 x0, 惩罚与主预测 x0 的差异
+        # 与 ITD 的区别: ITD 约束 velocity 一致 (间接), Consistency 约束 x0 一致 (直接)
+        if self.use_consistency_loss and self.diffusion_type == "rectified_flow" and self.training:
+            x_start_batch_cl = torch.stack(x_starts)
+            x_noise_batch_cl = torch.stack(x_noises)
+
+            t_points = torch.linspace(
+                0.1, 0.9, steps=self.consistency_loss_num_points, device=device
+            )
+
+            x0_main = self._xyxy_to_raw(all_pred_bboxes[-1], img_metas)
+
+            cl_loss_total = torch.tensor(0.0, device=device)
+            num_valid_cl = 0
+            for t_k in t_points:
+                t_k_batch = t_k.expand(bs)
+                t_k_view = t_k_batch.view(-1, 1, 1)
+                x_tk = (1.0 - t_k_view) * x_start_batch_cl + t_k_view * x_noise_batch_cl
+
+                curr_bboxes_tk = self._raw_to_xyxy(x_tk, img_metas)
+                t_k_input = t_k_batch * self.timesteps
+                _, all_pred_tk, _, _ = self(features, curr_bboxes_tk, t_k_input)
+                x0_tk = self._xyxy_to_raw(all_pred_tk[-1], img_metas)
+
+                cl_loss_total = cl_loss_total + F.mse_loss(x0_tk, x0_main.detach())
+                num_valid_cl += 1
+
+            if num_valid_cl > 0:
+                cl_loss_total = cl_loss_total / num_valid_cl
+            losses["loss_consistency"] = cl_loss_total * self.consistency_loss_weight
+
+        # 9. Consistency Distillation: 单步推理约束
+        # f_student(b_tn, tn) ≈ f_ema(b_{tn-1}, tn-1)
+        if self.use_consistency and self.diffusion_type == "rectified_flow" and self.training:
+            K = self.consistency_num_timesteps
+            indices = torch.randint(1, K, (bs,), device=device)
+            t_n = indices.float() / K
+            t_n_minus_1 = (indices - 1).float() / K
+
+            x_noise_cd = torch.randn(bs, self.num_proposals, 4, device=device)
+            x_start_cd = torch.stack(x_starts)
+            t_n_view = t_n.view(-1, 1, 1)
+            x_tn = (1.0 - t_n_view) * x_start_cd + t_n_view * x_noise_cd
+
+            with torch.no_grad():
+                curr_bboxes_tn = self._raw_to_xyxy(x_tn, img_metas)
+                t_n_input = t_n * self.timesteps
+                _, all_pred_tn, _, _ = self(features, curr_bboxes_tn, t_n_input)
+                x0_tn = self._xyxy_to_raw(all_pred_tn[-1], img_metas)
+                x_tn_minus_1 = self.rf.step(x_tn, x0_tn, t_n[0].item(), t_n_minus_1[0].item())
+
+            if hasattr(self, "_ema_head") and self._ema_head is not None:
+                with torch.no_grad():
+                    curr_bboxes_tnm1 = self._raw_to_xyxy(x_tn_minus_1, img_metas)
+                    t_nm1_input = t_n_minus_1 * self.timesteps
+                    _, all_pred_tnm1, _, _ = self._ema_head(features, curr_bboxes_tnm1, t_nm1_input)
+                    x0_ema_tnm1 = self._xyxy_to_raw(all_pred_tnm1[-1], img_metas)
+
+                x0_student_tn = self._xyxy_to_raw(all_pred_bboxes[-1], img_metas)
+                losses["loss_consistency"] = F.mse_loss(x0_student_tn, x0_ema_tnm1.detach()) * self.consistency_weight
 
         return losses
 
@@ -297,6 +744,16 @@ class DiffusionDetHead(nn.Module):
             if hasattr(head, "adaln_mlp"):
                 nn.init.zeros_(head.adaln_mlp[-1].weight)
                 nn.init.zeros_(head.adaln_mlp[-1].bias)
+
+        if self.freeze_shared:
+            self._freeze_shared_layers()
+
+    def _freeze_shared_layers(self):
+        for name, param in self.named_parameters():
+            if 'velocity_head' in name:
+                param.requires_grad = True
+            else:
+                param.requires_grad = False
 
     def _build_diffusion_buffers(self):
         """构建并注册扩散过程所需的常量 buffer"""
@@ -478,15 +935,27 @@ class DiffusionDetHead(nn.Module):
 
         # 初始噪声框 (支持结构化噪声)
         x_raw = self._sample_noise(bs, device)
+        x0_prev = None
 
         ensemble_results = []
         trajectory = []
 
         # 2. 迭代采样
         for t_curr, t_next in time_pairs:
-            cls_logits, pred_bboxes, x0_raw, logits_0_raw = self._forward_at_t(
-                features, x_raw, t_curr, img_metas
-            )
+            if self.use_trd and x0_prev is not None and self.diffusion_type == "rectified_flow":
+                t_curr_t = torch.full((bs,), t_curr, device=device)
+                t_view = t_curr_t.view(-1, 1, 1)
+                v_ot_est = (x_raw - x0_prev) / torch.clamp(t_view, min=1e-5)
+                x_raw_refined = x_raw + self.cat_delta_t * v_ot_est
+                cls_logits, pred_bboxes, x0_raw, logits_0_raw = self._forward_at_t(
+                    features, x_raw_refined, t_curr, img_metas
+                )
+            else:
+                cls_logits, pred_bboxes, x0_raw, logits_0_raw = self._forward_at_t(
+                    features, x_raw, t_curr, img_metas
+                )
+
+            x0_prev = x0_raw.detach()
 
             if return_trajectory:
                 trajectory.append((cls_logits.detach(), pred_bboxes.detach()))
