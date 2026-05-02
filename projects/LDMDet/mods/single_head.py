@@ -32,12 +32,14 @@ class SingleDiffusionDetHead(nn.Module):
         time_conditioning="scale_shift",  # "scale_shift" 或 "adaln_zero"
         use_objectness=False,  # 是否使用 objectness 预测头
         prediction_mode="x0",  # "x0" (delta regression) 或 "velocity" (直接速度预测)
+        velocity_detach=False,  # 是否切断 velocity_head 到共享层的梯度
     ):
         super().__init__()
         self.feat_channels = feat_channels
         self.time_conditioning = time_conditioning
         self.use_objectness = use_objectness
         self.prediction_mode = prediction_mode
+        self.velocity_detach = velocity_detach
 
         # 动态模块
         # 自注意力机制
@@ -254,7 +256,8 @@ class SingleDiffusionDetHead(nn.Module):
         # Velocity
         pred_velocity = None
         if self.velocity_head is not None:
-            pred_velocity = self.velocity_head(fc_feature).view(bs, num_boxes, 4)
+            vel_input = fc_feature.detach() if self.velocity_detach else fc_feature
+            pred_velocity = self.velocity_head(vel_input).view(bs, num_boxes, 4)
 
         return (
             class_logits.view(bs, num_boxes, -1),
@@ -311,7 +314,8 @@ class SingleDiffusionDetHead(nn.Module):
         # Velocity
         pred_velocity = None
         if self.velocity_head is not None:
-            pred_velocity = self.velocity_head(fc_feature).view(bs, num_boxes, 4)
+            vel_input = fc_feature.detach() if self.velocity_detach else fc_feature
+            pred_velocity = self.velocity_head(vel_input).view(bs, num_boxes, 4)
 
         return (
             class_logits.view(bs, num_boxes, -1),

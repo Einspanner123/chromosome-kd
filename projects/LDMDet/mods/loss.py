@@ -365,6 +365,7 @@ class DiffusionDetCriterion(nn.Module):
         self.loss_giou = loss_giou
         self.deep_supervision = deep_supervision
         self.loss_objectness_weight = loss_objectness_weight
+        self.class_reg_weights = None  # 由 DiffusionDetHead 在 scale_adaptive_loss 时注入
 
     def forward(
         self, outputs: ModelOutput, targets: List[InstanceData]
@@ -437,13 +438,22 @@ class DiffusionDetCriterion(nn.Module):
     ) -> Tuple[Tensor, Tensor]:
         src_boxes = outputs.pred_boxes  # [B, N, 4] (normalized xyxy)
 
-        # 提取对应的正样本预测框和目标框
         src_list = []
         tgt_list = []
+        wt_list = []
         for i, (src_idx, gt_idx) in enumerate(indices):
             if len(src_idx) > 0:
                 src_list.append(src_boxes[i, src_idx])
                 tgt_list.append(targets[i].bboxes[gt_idx])
+                if self.class_reg_weights is not None:
+                    gt_classes = targets[i].labels[gt_idx]
+                    wt_list.append(
+                        torch.tensor(
+                            self.class_reg_weights,
+                            device=src_boxes.device,
+                            dtype=torch.float32,
+                        )[gt_classes]
+                    )
 
         if len(src_list) == 0:
             return src_boxes.sum() * 0, src_boxes.sum() * 0
@@ -452,15 +462,28 @@ class DiffusionDetCriterion(nn.Module):
         tgt_boxes_pos = torch.cat(tgt_list)
         num_pos = src_boxes_pos.shape[0]
 
-        # L1 损失使用 cxcywh 格式 (遵循原版)
-        loss_bbox = self.loss_bbox(
-            bbox_xyxy_to_cxcywh(src_boxes_pos), bbox_xyxy_to_cxcywh(tgt_boxes_pos)
-        )
+        if self.class_reg_weights is not None and len(wt_list) > 0:
+            w = torch.cat(wt_list)
+            l1_elem = F.l1_loss(
+                bbox_xyxy_to_cxcywh(src_boxes_pos),
+                bbox_xyxy_to_cxcywh(tgt_boxes_pos),
+                reduction='none',
+            )
+            loss_bbox = (l1_elem * w.unsqueeze(-1)).sum() * self.loss_bbox.loss_weight / num_pos
 
-        # GIoU 损失
-        loss_giou = self.loss_giou(src_boxes_pos, tgt_boxes_pos)
+            giou_elem = ops.generalized_box_iou_loss(
+                src_boxes_pos, tgt_boxes_pos, reduction='none'
+            )
+            loss_giou = (giou_elem * w).sum() * self.loss_giou.loss_weight / num_pos
+        else:
+            loss_bbox = self.loss_bbox(
+                bbox_xyxy_to_cxcywh(src_boxes_pos), bbox_xyxy_to_cxcywh(tgt_boxes_pos)
+            )
+            loss_giou = self.loss_giou(src_boxes_pos, tgt_boxes_pos)
+            loss_bbox = loss_bbox / num_pos
+            loss_giou = loss_giou / num_pos
 
-        return loss_bbox / num_pos, loss_giou / num_pos
+        return loss_bbox, loss_giou
 
     def _loss_objectness(
         self,
