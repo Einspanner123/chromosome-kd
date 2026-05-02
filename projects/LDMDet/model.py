@@ -3,11 +3,13 @@ from typing import Any, Dict, List, Tuple
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from mmdet.models.detectors.base import BaseDetector
 from mmdet.registry import MODELS
 from mmdet.structures import DetDataSample
 from mmdet.utils import ConfigType, OptConfigType, OptMultiConfig
+from mmengine.optim import OptimWrapperDict
 
 from .mods.diffusiondet_head import DiffusionDetHead
 from .mods.loss import (
@@ -285,6 +287,150 @@ class LDMDet(BaseDetector):
         # 3. 计算损失
         losses = self.bbox_head.loss(x, img_metas, gt_bboxes, gt_labels)
         return losses
+
+    def train_step(
+        self, data: dict, optim_wrapper
+    ) -> Dict[str, torch.Tensor]:
+        if not getattr(self.bbox_head, "use_pcgrad", False):
+            return super().train_step(data, optim_wrapper)
+
+        with optim_wrapper.optim_context(self):
+            data = self.data_preprocessor(data, True)
+            batch_inputs = data["inputs"]
+            batch_data_samples = data["data_samples"]
+
+        img_metas = []
+        gt_bboxes = []
+        gt_labels = []
+        for ds in batch_data_samples:
+            meta = ImageMeta(
+                img_shape=ds.metainfo["img_shape"],
+                ori_shape=ds.metainfo.get("ori_shape"),
+                scale_factor=ds.metainfo.get("scale_factor"),
+            )
+            img_metas.append(meta)
+            gt_bboxes.append(ds.gt_instances.bboxes)
+            gt_labels.append(ds.gt_instances.labels)
+
+        x = self.extract_feat(batch_inputs)
+
+        det_loss_keys = {
+            "loss_cls", "loss_bbox", "loss_giou",
+            "aux_0_loss_cls", "aux_0_loss_bbox", "aux_0_loss_giou",
+            "aux_1_loss_cls", "aux_1_loss_bbox", "aux_1_loss_giou",
+            "aux_2_loss_cls", "aux_2_loss_bbox", "aux_2_loss_giou",
+            "aux_3_loss_cls", "aux_3_loss_bbox", "aux_3_loss_giou",
+            "aux_4_loss_cls", "aux_4_loss_bbox", "aux_4_loss_giou",
+        }
+        vel_loss_keys = {"loss_velocity", "loss_velocity_aux"}
+        other_loss_keys = {"loss_itd", "loss_consistency"}
+
+        losses = self.bbox_head.loss(x, img_metas, gt_bboxes, gt_labels)
+
+        det_loss = sum(losses[k] for k in det_loss_keys if k in losses)
+        vel_loss = sum(losses[k] for k in vel_loss_keys if k in losses)
+        other_loss = sum(losses[k] for k in other_loss_keys if k in losses)
+
+        named_params = {
+            n: p for n, p in self.bbox_head.named_parameters() if p.requires_grad
+        }
+
+        self.bbox_head.zero_grad()
+        det_loss.backward(retain_graph=True)
+        grad_det = {}
+        for n, p in named_params.items():
+            if p.grad is not None:
+                grad_det[n] = p.grad.clone()
+
+        self.bbox_head.zero_grad()
+        vel_loss.backward(retain_graph=True)
+        grad_vel = {}
+        for n, p in named_params.items():
+            if p.grad is not None:
+                grad_vel[n] = p.grad.clone()
+
+        if isinstance(other_loss, torch.Tensor) and other_loss.item() > 0:
+            self.bbox_head.zero_grad()
+            other_loss.backward(retain_graph=True)
+            grad_other = {}
+            for n, p in named_params.items():
+                if p.grad is not None:
+                    grad_other[n] = p.grad.clone()
+        else:
+            grad_other = {}
+
+        main_task = getattr(self.bbox_head, "pcgrad_main_task", "det")
+        common_names = sorted(set(grad_det.keys()) & set(grad_vel.keys()))
+
+        num_conflict = 0
+        num_aligned = 0
+        for n in common_names:
+            gd = grad_det[n].flatten()
+            gv = grad_vel[n].flatten()
+
+            cos = F.cosine_similarity(gd.unsqueeze(0), gv.unsqueeze(0)).item()
+
+            if cos < 0:
+                num_conflict += 1
+                if main_task == "det":
+                    gv_proj = gv - cos * gd / (gd.norm() ** 2 + 1e-8) * gd
+                    merged = gd + gv_proj
+                else:
+                    gd_proj = gd - cos * gv / (gv.norm() ** 2 + 1e-8) * gv
+                    merged = gd_proj + gv
+            else:
+                num_aligned += 1
+                merged = gd + gv
+
+            p = named_params[n]
+            if p.grad is None:
+                p.grad = merged.reshape(p.shape)
+            else:
+                p.grad.copy_(merged.reshape(p.shape))
+
+        for n in grad_other:
+            if n in named_params:
+                p = named_params[n]
+                go = grad_other[n]
+                if p.grad is None:
+                    p.grad = go.reshape(p.shape)
+                else:
+                    p.grad.add_(go.reshape(p.shape))
+
+        for n in grad_det:
+            if n not in common_names and n in named_params:
+                p = named_params[n]
+                gd = grad_det[n]
+                if p.grad is None:
+                    p.grad = gd.reshape(p.shape)
+                else:
+                    p.grad.add_(gd.reshape(p.shape))
+
+        for n in grad_vel:
+            if n not in common_names and n in named_params:
+                p = named_params[n]
+                gv = grad_vel[n]
+                if p.grad is None:
+                    p.grad = gv.reshape(p.shape)
+                else:
+                    p.grad.add_(gv.reshape(p.shape))
+
+        if hasattr(self.bbox_head, "_pcgrad_stats"):
+            self.bbox_head._pcgrad_stats["conflict"] = num_conflict
+            self.bbox_head._pcgrad_stats["aligned"] = num_aligned
+
+        if isinstance(optim_wrapper, OptimWrapperDict):
+            for ow in optim_wrapper.values():
+                ow.step()
+                ow.zero_grad()
+        else:
+            optim_wrapper.step()
+            optim_wrapper.zero_grad()
+
+        _, log_vars = self.parse_losses(losses)
+        log_vars["pcgrad_conflict"] = num_conflict
+        log_vars["pcgrad_aligned"] = num_aligned
+        return log_vars
 
     def predict(
         self,
