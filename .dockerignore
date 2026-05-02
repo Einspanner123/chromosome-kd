@@ -1,0 +1,19 @@
+# 排除不需要打包进镜像的文件和目录
+.git
+.vscode
+.idea
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+*.egg-info
+dist
+build
+
+# 排除数据和输出，建议通过 -v 挂载
+data/
+work_dirs/
+outputs/
+*.pth
+*.log
