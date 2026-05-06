@@ -1,7 +1,7 @@
 import math
 import sys
 from pathlib import Path
-from typing import List, Tuple
+from typing import List
 
 import torch
 import torch.nn as nn
@@ -69,160 +69,78 @@ class SinusoidalPositionEmbeddings(nn.Module):
 
 
 class DynamicConv(nn.Module):
+    """动态卷积模块"""
 
     def __init__(
         self,
-        feat_channels: int,
-        dynamic_dim: int = 64,
-        dynamic_num: int = 2,
+        feat_channels: int,  # 特征通道数
+        dynamic_dim: int = 64,  # 动态维度
+        dynamic_num: int = 2,  # 动态层数
         pooler_resolution: int = 7,
-    ) -> None:
+    ) -> None:  # 池化分辨率
         super().__init__()
 
-        self.feat_channels = feat_channels
-        self.dynamic_dim = dynamic_dim
-        self.dynamic_num = dynamic_num
-        self.num_params = self.feat_channels * self.dynamic_dim
+        self.feat_channels = feat_channels  # 特征通道数
+        self.dynamic_dim = dynamic_dim  # 动态维度
+        self.dynamic_num = dynamic_num  # 动态层数
+        self.num_params = self.feat_channels * self.dynamic_dim  # 参数数量
+        # 动态层: 生成动态卷积参数
         self.dynamic_layer = nn.Linear(
             self.feat_channels, self.dynamic_num * self.num_params
         )
 
+        # LayerNorm层
         self.norm1 = nn.LayerNorm(self.dynamic_dim)
         self.norm2 = nn.LayerNorm(self.feat_channels)
 
+        # 激活函数
         self.act = nn.ReLU(inplace=True)
 
-        num_output = self.feat_channels * pooler_resolution**2
-        self.out_layer = nn.Linear(num_output, self.feat_channels)
-        self.norm3 = nn.LayerNorm(self.feat_channels)
+        # 输出层
+        num_output = self.feat_channels * pooler_resolution**2  # 输出维度
+        self.out_layer = nn.Linear(num_output, self.feat_channels)  # 输出线性层
+        self.norm3 = nn.LayerNorm(self.feat_channels)  # 输出归一化层
 
     def forward(self, proposals: Tensor, roi_feats: Tensor) -> Tensor:
+        """前向传播
+
+        Args:
+            proposals: 提案特征,shape: (1, Bs * num_boxes, self.feat_channels)
+            roi_feats: ROI特征,shape: (pooler_res**2, Bs * num_boxes, self.feat_channels)
+
+        Returns:
+            features: 处理后的特征,shape: (1, Bs * num_boxes, self.feat_channels)
+        """
+        # 1. 准备特征和动态参数
+        # (pooler_res**2, N, C) -> (N, pooler_res**2, C)
         features = roi_feats.transpose(0, 1)
+        # (1, N, C) -> (N, C) -> (N, dynamic_num * num_params)
         parameters = self.dynamic_layer(proposals.squeeze(0))
 
+        # 2. 分割并应用动态卷积层
+        # 使用 chunk 减少切片操作
         param_list = parameters.chunk(self.dynamic_num, dim=1)
 
+        # 第一层动态卷积
         param1 = param_list[0].view(-1, self.feat_channels, self.dynamic_dim)
-        features = torch.bmm(features, param1)
+        features = torch.bmm(features, param1)  # (N, 49, dynamic_dim)
         features = self.norm1(features)
         features = self.act(features)
 
+        # 第二层动态卷积
         param2 = param_list[1].view(-1, self.dynamic_dim, self.feat_channels)
-        features = torch.bmm(features, param2)
+        features = torch.bmm(features, param2)  # (N, 49, feat_channels)
         features = self.norm2(features)
         features = self.act(features)
 
-        features = features.reshape(features.size(0), -1)
+        # 3. 展平并通过输出层
+        # 使用 reshape 而非 flatten 以保持兼容性，squeeze(0) 的逆操作
+        features = features.reshape(features.size(0), -1)  # (N, 49*feat_channels)
         features = self.out_layer(features)
         features = self.norm3(features)
         features = self.act(features)
 
-        return features.unsqueeze(0)
-
-
-class LinearCrossAttention(nn.Module):
-
-    def __init__(
-        self,
-        feat_channels: int,
-        pooler_resolution: int = 7,
-        num_heads: int = 8,
-        dropout: float = 0.0,
-    ) -> None:
-        super().__init__()
-        self.feat_channels = feat_channels
-        self.num_heads = num_heads
-        self.head_dim = feat_channels // num_heads
-        self.pooler_res = pooler_resolution
-
-        self.q_proj = nn.Linear(feat_channels, feat_channels)
-        self.k_proj = nn.Linear(feat_channels, feat_channels)
-        self.v_proj = nn.Linear(feat_channels, feat_channels)
-        self.out_proj = nn.Linear(feat_channels, feat_channels)
-
-        self.norm1 = nn.LayerNorm(feat_channels)
-        self.norm2 = nn.LayerNorm(feat_channels)
-        self.act = nn.ReLU(inplace=True)
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(self, proposals: Tensor, roi_feats: Tensor) -> Tensor:
-        proposals_squeezed = proposals.squeeze(0)
-        N = proposals_squeezed.shape[0]
-
-        roi_flat = roi_feats.permute(1, 0, 2).reshape(
-            N, self.pooler_res**2, self.feat_channels
-        )
-
-        q = self.q_proj(proposals_squeezed)
-        k = self.k_proj(roi_flat)
-        v = self.v_proj(roi_flat)
-
-        q = q.reshape(N, self.num_heads, self.head_dim)
-        k = k.reshape(N, self.pooler_res**2, self.num_heads, self.head_dim)
-        v = v.reshape(N, self.pooler_res**2, self.num_heads, self.head_dim)
-
-        q = nn.functional.elu(q) + 1
-        k = nn.functional.elu(k) + 1
-
-        kv = torch.einsum("nshd,nshd->nhd", k, v)
-        k_sum = k.sum(dim=1)
-
-        z = 1.0 / (q * k_sum).sum(dim=-1, keepdim=True).clamp(min=1e-6)
-        out = q * kv * z
-
-        out = out.reshape(N, self.feat_channels)
-        out = self.out_proj(out)
-        out = self.norm1(out)
-        out = self.act(out)
-
-        return out.unsqueeze(0)
-
-
-class LinearSelfAttention(nn.Module):
-
-    def __init__(
-        self,
-        feat_channels: int,
-        num_heads: int = 8,
-        dropout: float = 0.0,
-    ) -> None:
-        super().__init__()
-        self.feat_channels = feat_channels
-        self.num_heads = num_heads
-        self.head_dim = feat_channels // num_heads
-
-        self.q_proj = nn.Linear(feat_channels, feat_channels)
-        self.k_proj = nn.Linear(feat_channels, feat_channels)
-        self.v_proj = nn.Linear(feat_channels, feat_channels)
-        self.out_proj = nn.Linear(feat_channels, feat_channels)
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(
-        self, query: Tensor, key: Tensor, value: Tensor
-    ) -> Tuple[Tensor, None]:
-        L, N, C = query.shape
-
-        q = self.q_proj(query)
-        k = self.k_proj(key)
-        v = self.v_proj(value)
-
-        q = q.reshape(L, N, self.num_heads, self.head_dim).permute(1, 0, 2, 3)
-        k = k.reshape(L, N, self.num_heads, self.head_dim).permute(1, 0, 2, 3)
-        v = v.reshape(L, N, self.num_heads, self.head_dim).permute(1, 0, 2, 3)
-
-        q = nn.functional.elu(q) + 1
-        k = nn.functional.elu(k) + 1
-
-        kv = torch.einsum("nshd,nshd->nhd", k, v)
-        k_sum = k.sum(dim=1)
-
-        z = 1.0 / (q * k_sum.unsqueeze(1)).sum(dim=-1, keepdim=True).clamp(min=1e-6)
-        out = q * kv.unsqueeze(1) * z
-
-        out = out.permute(1, 0, 2, 3).reshape(L, N, C)
-        out = self.out_proj(out)
-
-        return self.dropout(out), None
+        return features.unsqueeze(0)  # (1, N, feat_channels)
 
 
 if __name__ == "__main__":
