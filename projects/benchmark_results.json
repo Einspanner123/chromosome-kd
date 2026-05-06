@@ -1,0 +1,30 @@
+[
+  {
+    "config": "ldmdet_baseline.py",
+    "sampling_steps": 1,
+    "fps": 17.8,
+    "latency_ms": 56.1,
+    "device": "cuda:0"
+  },
+  {
+    "config": "ldmdet_baseline.py",
+    "sampling_steps": 2,
+    "fps": 12.1,
+    "latency_ms": 82.5,
+    "device": "cuda:0"
+  },
+  {
+    "config": "ldmdet_baseline.py",
+    "sampling_steps": 4,
+    "fps": 7.4,
+    "latency_ms": 135.0,
+    "device": "cuda:0"
+  },
+  {
+    "config": "ldmdet_baseline.py",
+    "sampling_steps": 8,
+    "fps": 4.1,
+    "latency_ms": 242.9,
+    "device": "cuda:0"
+  }
+]

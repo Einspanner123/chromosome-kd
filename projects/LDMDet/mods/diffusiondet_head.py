@@ -29,16 +29,16 @@ class DiffusionDetHead(nn.Module):
         snr_scale: float = 2.0,
         timesteps: int = 1000,
         sampling_timesteps: int = 1,
-        solver_type: str = "euler",  # "euler" or "heun"
+        solver_type: str = "euler",
         self_condition: bool = False,
         box_renewal: bool = True,
         use_ensemble: bool = True,
         deep_supervision: bool = True,
         ddim_sampling_eta: float = 1.0,
-        diffusion_type: str = "ddpm",  # "ddpm" or "rectified_flow"
-        rf_schedule: str = "linear",  # "linear" or "power" or "shifted"
-        rf_power: float = 1.0,  # 用于 power schedule
-        rf_shift: float = 1.0,  # 用于 shifted schedule (如 SD3 中的 3.0)
+        diffusion_type: str = "ddpm",
+        rf_schedule: str = "linear",
+        rf_power: float = 1.0,
+        rf_shift: float = 1.0,
         single_head: nn.Module = None,
         roi_extractor: nn.Module = None,
         criterion: nn.Module = None,
@@ -46,6 +46,17 @@ class DiffusionDetHead(nn.Module):
         nms_thr: float = 0.5,
         score_thr: float = 0.05,
         min_keep: int = 60,
+        ot_coupling: bool = False,
+        ot_matcher: str = "nearest",
+        ot_epsilon: float = 1.0,
+        ot_num_iters: int = 20,
+        ot_sample: bool = False,
+        roi_share: bool = False,
+        roi_share_iou_thr: float = 0.95,
+        proposal_prune_ratios: Optional[List[float]] = None,
+        domain_adaptive_prior: bool = False,
+        go_lsd: bool = False,
+        go_lsd_weight: float = 1.0,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -65,29 +76,35 @@ class DiffusionDetHead(nn.Module):
         self.rf_power = rf_power
         self.rf_shift = rf_shift
         self.solver_type = solver_type
+        self.roi_share = roi_share
+        self.roi_share_iou_thr = roi_share_iou_thr
+        self.proposal_prune_ratios = proposal_prune_ratios
+        self.domain_adaptive_prior = domain_adaptive_prior
+        self.go_lsd = go_lsd
+        self.go_lsd_weight = go_lsd_weight
 
-        # 测试配置
         self.use_nms = use_nms
         self.nms_thr = nms_thr
         self.score_thr = score_thr
         self.min_keep = min_keep
+        self.ot_coupling = ot_coupling
+        self.ot_matcher = ot_matcher
+        self.ot_epsilon = ot_epsilon
+        self.ot_num_iters = ot_num_iters
+        self.ot_sample = ot_sample
 
-        # ROI 特征提取器和损失函数
         self.roi_extractor = roi_extractor
         self.criterion = criterion
 
-        # 构建扩散过程参数
         if self.diffusion_type == "ddpm":
             self._build_diffusion_buffers()
         elif self.diffusion_type == "rectified_flow":
             self.rf = RectifiedFlow(snr_scale=snr_scale)
 
-        # 构建检测头序列 (迭代去噪)
         self.head_series = nn.ModuleList(
             [copy.deepcopy(single_head) for _ in range(num_heads)]
         )
 
-        # 时间步嵌入 MLP
         time_dim = feat_channels * 4
         self.time_mlp = nn.Sequential(
             SinusoidalPositionEmbeddings(feat_channels),
@@ -99,6 +116,18 @@ class DiffusionDetHead(nn.Module):
         self.prior_prob = prior_prob
         self._init_weights()
 
+        if self.domain_adaptive_prior:
+            self.domain_encoder = nn.Sequential(
+                nn.Linear(feat_channels, feat_channels),
+                nn.LayerNorm(feat_channels),
+                nn.ReLU(inplace=True),
+                nn.Linear(feat_channels, 8),
+            )
+            nn.init.zeros_(self.domain_encoder[-1].weight)
+            nn.init.zeros_(self.domain_encoder[-1].bias)
+        else:
+            self.domain_encoder = None
+
     def loss(
         self,
         features: Tuple[Tensor],
@@ -106,16 +135,13 @@ class DiffusionDetHead(nn.Module):
         gt_bboxes: List[Tensor],
         gt_labels: List[Tensor],
     ) -> Dict[str, Tensor]:
-        """训练损失计算接口"""
         device = features[0].device
         bs = len(img_metas)
 
-        # 1. 准备真值数据并归一化
         targets = []
         for i in range(bs):
             h, w = img_metas[i].img_shape[:2]
             scale = gt_bboxes[i].new_tensor([w, h, w, h])
-            # 归一化 xyxy
             norm_bboxes = gt_bboxes[i] / scale
             targets.append(
                 InstanceData(
@@ -125,54 +151,104 @@ class DiffusionDetHead(nn.Module):
                 )
             )
 
-        # 2. 扩散过程：生成训练所需的噪声框
         if self.diffusion_type == "ddpm":
             t = torch.randint(0, self.timesteps, (bs,), device=device).long()
         else:
-            # Rectified Flow 使用 [0, 1] 之间的连续时间步
             t = torch.rand((bs,), device=device)
-            # 训练时也应用 shift 变换以匹配推理分布
             if self.rf_schedule == "shifted":
                 s = self.rf_shift
                 t = s * t / (1 + (s - 1) * t)
+
+        if self.domain_adaptive_prior:
+            domain_mu, domain_sigma = self._get_domain_prior(
+                features, bs, self.num_proposals, device
+            )
 
         x_boxes = []
         for i in range(bs):
             num_gt = gt_bboxes[i].shape[0]
             if num_gt > 0:
-                # 随机重复采样 GT 框到 num_proposals 个
-                idx = torch.randint(0, num_gt, (self.num_proposals,), device=device)
-                sample_bboxes = targets[i].bboxes[idx]
-                # xyxy -> cxcywh
-                sample_bboxes = bbox_xyxy_to_cxcywh(sample_bboxes)
-                # [0, 1] -> [-snr, snr]
-                x_start = (sample_bboxes * 2 - 1) * self.snr_scale
+                noise = None
+                if self.ot_coupling and self.diffusion_type == "rectified_flow":
+                    norm_gt_cxcywh = bbox_xyxy_to_cxcywh(targets[i].bboxes)
+                    gt_diffusion = (norm_gt_cxcywh * 2 - 1) * self.snr_scale
+                    noise = torch.randn(self.num_proposals, 4, device=device)
+
+                    if self.ot_matcher == "sinkhorn":
+                        cost = torch.cdist(noise, gt_diffusion, p=2)
+                        n_prop, n_gt = cost.shape
+                        a = torch.ones(n_prop, device=device) / n_prop
+                        proposals_per_gt = max(n_prop // max(n_gt, 1), 1)
+                        gt_mass = torch.full(
+                            (n_gt,), proposals_per_gt / n_prop, device=device
+                        )
+                        b = gt_mass / gt_mass.sum()
+                        log_k = -cost / self.ot_epsilon
+                        log_u = torch.zeros(n_prop, device=device)
+                        log_v = torch.zeros(n_gt, device=device)
+                        for _ in range(self.ot_num_iters):
+                            log_u = torch.log(a + 1e-10) - torch.logsumexp(
+                                log_k + log_v.unsqueeze(0), dim=1
+                            )
+                            log_v = torch.log(b + 1e-10) - torch.logsumexp(
+                                log_k + log_u.unsqueeze(1), dim=0
+                            )
+                        transport = torch.exp(
+                            log_u.unsqueeze(1) + log_k + log_v.unsqueeze(0)
+                        )
+                        if self.ot_sample:
+                            row_probs = transport / transport.sum(
+                                dim=1, keepdim=True
+                            ).clamp_min(1e-10)
+                            matched_gt_idx = torch.multinomial(row_probs, 1).squeeze(-1)
+                        else:
+                            matched_gt_idx = transport.argmax(dim=1)
+                    else:
+                        cost = torch.cdist(noise, gt_diffusion, p=2)
+                        matched_gt_idx = cost.argmin(dim=1)
+
+                    x_start = gt_diffusion[matched_gt_idx]
+                else:
+                    idx = torch.randint(0, num_gt, (self.num_proposals,), device=device)
+                    sample_bboxes = targets[i].bboxes[idx]
+                    sample_bboxes = bbox_xyxy_to_cxcywh(sample_bboxes)
+                    x_start = (sample_bboxes * 2 - 1) * self.snr_scale
 
                 if self.diffusion_type == "ddpm":
-                    # DDPM 加噪
                     x_noisy = self.q_sample(x_start, t[i : i + 1])
                 else:
-                    # Rectified Flow 加噪: x_t = (1-t)x_0 + t*x_1
-                    x_noisy, _ = self.rf.q_sample(x_start, t=t[i : i + 1])
+                    if self.domain_adaptive_prior:
+                        noise = self._sample_adaptive_noise(
+                            domain_mu[i : i + 1], domain_sigma[i : i + 1], x_start.shape
+                        )
+                        x_noisy, _ = self.rf.q_sample(
+                            x_start, x_noise=noise, t=t[i : i + 1]
+                        )
+                    else:
+                        if noise is not None:
+                            x_noisy, _ = self.rf.q_sample(
+                                x_start, x_noise=noise, t=t[i : i + 1]
+                            )
+                        else:
+                            x_noisy, _ = self.rf.q_sample(x_start, t=t[i : i + 1])
                 x_boxes.append(x_noisy)
             else:
-                # 全纯噪声
-                x_boxes.append(torch.randn(self.num_proposals, 4, device=device))
+                if self.domain_adaptive_prior:
+                    noise = self._sample_adaptive_noise(
+                        domain_mu[i : i + 1],
+                        domain_sigma[i : i + 1],
+                        (self.num_proposals, 4),
+                    )
+                    x_boxes.append(noise)
+                else:
+                    x_boxes.append(torch.randn(self.num_proposals, 4, device=device))
 
-        x_noisy_batch = torch.stack(x_boxes)  # [bs, num_proposals, 4]
-        # 转换为 xyxy 格式用于 RoIAlign
+        x_noisy_batch = torch.stack(x_boxes)
         curr_bboxes = self._raw_to_xyxy(x_noisy_batch, img_metas)
 
-        # 3. 前向传播获取预测结果
-        # 对于 RF，我们可能需要将 t 缩放到 [0, timesteps] 以适配预训练的时间嵌入
         t_input = t if self.diffusion_type == "ddpm" else t * self.timesteps
         all_cls_logits, all_pred_bboxes = self(features, curr_bboxes, t_input)
 
-        # 4. 整理输出格式并计算损失
-        # all_cls_logits: [num_heads, bs, num_proposals, num_classes]
-        # all_pred_bboxes: [num_heads, bs, num_proposals, 4] (图像空间的 xyxy)
-
-        # 归一化预测框以适配 Matcher
         norm_pred_bboxes = all_pred_bboxes.clone()
         for i, meta in enumerate(img_metas):
             h, w = meta.img_shape[:2]
@@ -194,33 +270,79 @@ class DiffusionDetHead(nn.Module):
         if self.criterion is None:
             raise ValueError("Criterion is not initialized in DiffusionDetHead")
 
-        return self.criterion(outputs, targets)
+        losses = self.criterion(outputs, targets)
+
+        if self.go_lsd and self.training and self.num_heads > 1:
+            lsd_losses = self._compute_go_lsd_loss(
+                all_cls_logits, all_pred_bboxes, norm_pred_bboxes
+            )
+            for k, v in lsd_losses.items():
+                losses[k] = v * self.go_lsd_weight
+
+        return losses
+
+    def _get_domain_prior(
+        self, features: Tuple[Tensor], bs: int, num_boxes: int, device: torch.device
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        coarse_feat = features[0].mean(dim=[2, 3])
+        params = self.domain_encoder(coarse_feat)
+        mu = params[:, :4]
+        log_sigma = params[:, 4:]
+        sigma = torch.exp(log_sigma)
+        mu = mu.view(bs, 1, 4)
+        sigma = sigma.view(bs, 1, 4)
+        return mu, sigma
+
+    def _compute_go_lsd_loss(
+        self, all_cls_logits: Tensor, all_pred_bboxes: Tensor, norm_pred_bboxes: Tensor
+    ) -> Dict[str, Tensor]:
+        num_heads = all_cls_logits.shape[0]
+        teacher_cls = all_cls_logits[-1].detach()
+        teacher_boxes = norm_pred_bboxes[-1].detach()
+        lsd_losses = {}
+
+        for h in range(num_heads - 1):
+            student_cls = all_cls_logits[h]
+            student_boxes = norm_pred_bboxes[h]
+            lsd_losses[f"lsd_head{h}_cls"] = F.kl_div(
+                F.log_softmax(student_cls, dim=-1),
+                F.softmax(teacher_cls, dim=-1),
+                reduction="batchmean",
+            )
+            lsd_losses[f"lsd_head{h}_bbox"] = F.l1_loss(student_boxes, teacher_boxes)
+
+        return lsd_losses
+
+    def _sample_adaptive_noise(self, mu, sigma, shape):
+        raw = torch.randn(shape, device=mu.device)
+        while mu.dim() < raw.dim():
+            mu = mu.unsqueeze(1)
+            sigma = sigma.unsqueeze(1)
+        result = mu + sigma * raw
+        while result.dim() > len(shape):
+            result = result.squeeze(0)
+        return result
 
     def _init_weights(self):
-        """初始化权重"""
         bias_value = -math.log((1 - self.prior_prob) / self.prior_prob)
         for _, m in self.named_modules():
             if isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight)
                 if m.bias is not None:
-                    # 如果是分类层（最后一层），使用先验概率初始化偏置
                     if m.out_features in [self.num_classes, self.num_classes + 1]:
                         nn.init.constant_(m.bias, bias_value)
                     else:
                         nn.init.constant_(m.bias, 0)
 
     def _build_diffusion_buffers(self):
-        """构建并注册扩散过程所需的常量 buffer"""
         betas = cosine_noise_schedule(self.timesteps)
         alphas = 1.0 - betas
         alphas_cumprod = torch.cumprod(alphas, dim=0)
         alphas_cumprod_prev = F.pad(alphas_cumprod[:-1], (1, 0), value=1.0)
 
-        # 转换为 float32 减少计算开销并保持类型一致性
         alphas_cumprod = alphas_cumprod.float()
         alphas_cumprod_prev = alphas_cumprod_prev.float()
 
-        # 注册 buffers
         self.register_buffer("alphas_cumprod", alphas_cumprod)
         self.register_buffer("alphas_cumprod_prev", alphas_cumprod_prev)
         self.register_buffer("sqrt_alphas_cumprod", torch.sqrt(alphas_cumprod))
@@ -234,7 +356,6 @@ class DiffusionDetHead(nn.Module):
             "sqrt_recipm1_alphas_cumprod", torch.sqrt(1.0 / alphas_cumprod - 1)
         )
 
-        # 后验分布 q(x_{t-1} | x_t, x_0) 参数
         posterior_variance = (
             betas.float() * (1.0 - alphas_cumprod_prev) / (1.0 - alphas_cumprod)
         )
@@ -247,7 +368,6 @@ class DiffusionDetHead(nn.Module):
     def q_sample(
         self, x_start: Tensor, t: Tensor, noise: Optional[Tensor] = None
     ) -> Tensor:
-        """前向扩散采样: x_t = sqrt(alpha_t_bar) * x_0 + sqrt(1 - alpha_t_bar) * noise"""
         if noise is None:
             noise = torch.randn_like(x_start)
 
@@ -259,7 +379,6 @@ class DiffusionDetHead(nn.Module):
         return sqrt_alphas_cumprod_t * x_start + sqrt_one_minus_alphas_cumprod_t * noise
 
     def predict_noise_from_start(self, x_t: Tensor, t: Tensor, x0: Tensor) -> Tensor:
-        """从预测的 x0 还原噪声"""
         sqrt_recip_alphas_cumprod_t = load_buffer(
             self.sqrt_recip_alphas_cumprod, t, x_t.shape
         )
@@ -268,25 +387,62 @@ class DiffusionDetHead(nn.Module):
         )
         return (sqrt_recip_alphas_cumprod_t * x_t - x0) / sqrt_recipm1_alphas_cumprod_t
 
+    @staticmethod
+    def _bbox_mean_iou(bboxes_a: Tensor, bboxes_b: Tensor) -> float:
+        lt = torch.max(bboxes_a[..., :2], bboxes_b[..., :2])
+        rb = torch.min(bboxes_a[..., 2:], bboxes_b[..., 2:])
+        wh = (rb - lt).clamp(min=0)
+        inter = wh[..., 0] * wh[..., 1]
+        area_a = (bboxes_a[..., 2] - bboxes_a[..., 0]) * (
+            bboxes_a[..., 3] - bboxes_a[..., 1]
+        )
+        area_b = (bboxes_b[..., 2] - bboxes_b[..., 0]) * (
+            bboxes_b[..., 3] - bboxes_b[..., 1]
+        )
+        iou = inter / (area_a + area_b - inter + 1e-6)
+        return iou.mean().item()
+
+    def _prune_proposals(
+        self,
+        cls_logits: Tensor,
+        pred_bboxes: Tensor,
+        curr_proposals: Tensor,
+        keep_ratio: float,
+    ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+        if keep_ratio >= 1.0:
+            return cls_logits, pred_bboxes, curr_proposals, None
+
+        bs, num_boxes = cls_logits.shape[:2]
+        keep_k = max(int(num_boxes * keep_ratio), self.min_keep)
+
+        scores = torch.sigmoid(cls_logits).max(-1)[0]
+        _, topk_idx = scores.topk(keep_k, dim=1)
+
+        pruned_cls = torch.gather(
+            cls_logits, 1, topk_idx.unsqueeze(-1).expand(-1, -1, cls_logits.shape[-1])
+        )
+        pruned_bboxes = torch.gather(
+            pred_bboxes, 1, topk_idx.unsqueeze(-1).expand(-1, -1, 4)
+        )
+
+        if curr_proposals is not None:
+            p = curr_proposals.view(bs, num_boxes, -1)
+            pruned_p = torch.gather(
+                p, 1, topk_idx.unsqueeze(-1).expand(-1, -1, p.shape[-1])
+            ).view(1, bs * keep_k, -1)
+        else:
+            pruned_p = None
+
+        return pruned_cls, pruned_bboxes, pruned_p, topk_idx
+
     def forward(
         self,
         features: Tuple[Tensor],
         bboxes: Tensor,
         t: Tensor,
         proposals: Optional[Tensor] = None,
+        skip_prune: bool = False,
     ) -> Tuple[Tensor, Tensor]:
-        """前向传播，迭代去噪
-
-        Args:
-            features: FPN 特征元组
-            bboxes: 当前边界框 [bs, num_proposals, 4] (xyxy)
-            t: 当前时间步 [bs]
-            proposals: 可选的提案特征 [bs, num_proposals, feat_channels]
-
-        Returns:
-            all_cls_logits: [num_heads, bs, num_proposals, num_classes]
-            all_pred_bboxes: [num_heads, bs, num_proposals, 4]
-        """
         time_emb = self.time_mlp(t)
 
         inter_cls_logits = []
@@ -294,20 +450,53 @@ class DiffusionDetHead(nn.Module):
 
         curr_bboxes = bboxes
         curr_proposals = proposals
+        cached_roi_features = None
+        cached_roi_bboxes = None
 
-        for head in self.head_series:
-            # single_head 的 forward 签名: (features, bboxes, proposals, pooler, time_emb)
-            cls_logits, pred_bboxes, curr_proposals = head(
-                features, curr_bboxes, curr_proposals, self.roi_extractor, time_emb
-            )
+        for head_idx, head in enumerate(self.head_series):
+            if (
+                self.roi_share
+                and head_idx > 0
+                and cached_roi_features is not None
+                and cached_roi_bboxes is not None
+            ):
+                iou = self._bbox_mean_iou(curr_bboxes, cached_roi_bboxes)
+                use_cached = iou >= self.roi_share_iou_thr
+            else:
+                use_cached = False
+
+            if use_cached:
+                cls_logits, pred_bboxes, curr_proposals = head.forward_with_cached_roi(
+                    features, curr_bboxes, curr_proposals, cached_roi_features, time_emb
+                )
+            else:
+                cls_logits, pred_bboxes, curr_proposals, roi_features = head(
+                    features, curr_bboxes, curr_proposals, self.roi_extractor, time_emb
+                )
+                if self.roi_share:
+                    cached_roi_features = roi_features
+                    cached_roi_bboxes = curr_bboxes.detach().clone()
+
+            if (
+                not skip_prune
+                and self.proposal_prune_ratios is not None
+                and not self.training
+            ):
+                ratio_idx = min(head_idx, len(self.proposal_prune_ratios) - 1)
+                ratio = self.proposal_prune_ratios[ratio_idx]
+                if ratio < 1.0:
+                    cls_logits, pred_bboxes, curr_proposals, _ = self._prune_proposals(
+                        cls_logits, pred_bboxes, curr_proposals, ratio
+                    )
+                    cached_roi_features = None
+                    cached_roi_bboxes = None
 
             inter_cls_logits.append(cls_logits)
             inter_pred_bboxes.append(pred_bboxes)
 
-            # 迭代更新边界框 (detach 以防梯度在迭代间传导)
             curr_bboxes = pred_bboxes.detach()
 
-        if self.deep_supervision:
+        if self.deep_supervision and self.training:
             return torch.stack(inter_cls_logits), torch.stack(inter_pred_bboxes)
         else:
             return inter_cls_logits[-1:], inter_pred_bboxes[-1:]
@@ -319,24 +508,19 @@ class DiffusionDetHead(nn.Module):
         t: float,
         img_metas: List[ImageMeta],
     ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
-        """在指定时间步 t 进行前向预测并返回 [cls_logits, pred_bboxes, x0_raw, logits_0_raw]"""
         bs, device = x_raw.shape[0], x_raw.device
         curr_bboxes = self._raw_to_xyxy(x_raw, img_metas)
 
-        # 缩放时间步以适配时间嵌入
         t_input = torch.full((bs,), t * self.timesteps, device=device)
 
-        # 前向预测
-        cls_logits_seq, pred_bboxes_seq = self(features, curr_bboxes, t_input)
+        cls_logits_seq, pred_bboxes_seq = self(
+            features, curr_bboxes, t_input, skip_prune=True
+        )
 
-        # 取最后一个 head 的输出
         last_cls_logits = cls_logits_seq[-1]
         last_pred_bboxes = pred_bboxes_seq[-1]
 
-        # 将图像空间的 xyxy 转回扩散空间的 raw 框 (x0)
         x0_raw = self._xyxy_to_raw(last_pred_bboxes, img_metas)
-
-        # 对于分类 Logit，我们直接将其作为扩散空间的 x0 预测 (logits_0_raw)
         logits_0_raw = last_cls_logits
 
         return last_cls_logits, last_pred_bboxes, x0_raw, logits_0_raw
@@ -349,11 +533,9 @@ class DiffusionDetHead(nn.Module):
         rescale: bool = True,
         return_trajectory: bool = False,
     ) -> List[DetectionResult]:
-        """推理模式的前向传播"""
         device = features[0].device
         bs = len(img_metas)
 
-        # 1. 准备采样时间序列
         if self.diffusion_type == "ddpm":
             times = torch.linspace(
                 -1, self.timesteps - 1, steps=self.sampling_timesteps + 1, device=device
@@ -361,16 +543,12 @@ class DiffusionDetHead(nn.Module):
             times = list(reversed(times.int().tolist()))
             time_pairs = list(zip(times[:-1], times[1:]))
         else:
-            # Rectified Flow: t 从 1.0 (noise) 到 0.0 (data)
             times = torch.linspace(
                 1.0, 0.0, steps=self.sampling_timesteps + 1, device=device
             )
-            # 应用非线性 schedule
             if self.rf_schedule == "power":
-                # power > 1.0 会让采样点更靠近 t=0 (数据端)
                 times = times.pow(self.rf_power)
             elif self.rf_schedule == "shifted":
-                # 常见于 SD3/Flux 的 shift 变换: t = s*t / (1 + (s-1)*t)
                 s = self.rf_shift
                 times = s * times / (1 + (s - 1) * times)
 
@@ -378,47 +556,45 @@ class DiffusionDetHead(nn.Module):
             for i in range(len(times) - 1):
                 time_pairs.append((times[i].item(), times[i + 1].item()))
 
-        # 初始随机噪声框
-        x_raw = torch.randn(bs, self.num_proposals, 4, device=device)
+        if self.domain_adaptive_prior:
+            domain_mu, domain_sigma = self._get_domain_prior(
+                features, bs, self.num_proposals, device
+            )
+            x_raw = self._sample_adaptive_noise(
+                domain_mu, domain_sigma, (bs, self.num_proposals, 4)
+            )
+        else:
+            x_raw = torch.randn(bs, self.num_proposals, 4, device=device)
 
-        # 存储集成结果和轨迹
         ensemble_results = []
-        trajectory = []  # 记录每一步的 [bboxes, scores, labels]
+        trajectory = []
 
-        # 2. 迭代采样 (Decoupled Ensemble 模式)
         for t_curr, t_next in time_pairs:
-            # --- 步骤 A: 获取当前位置的预测 ---
             cls_logits, pred_bboxes, x0_raw, logits_0_raw = self._forward_at_t(
                 features, x_raw, t_curr, img_metas
             )
 
-            # 记录轨迹
             if return_trajectory:
                 trajectory.append((cls_logits.detach(), pred_bboxes.detach()))
 
-            # 将当前预测加入集成池
             if self.use_ensemble:
                 ensemble_results.append((cls_logits, pred_bboxes))
 
-            # --- 步骤 B: 状态更新 (Solver) ---
             if self.diffusion_type == "ddpm":
-                # DDIM 更新逻辑
                 curr_bboxes_xyxy, x_raw = self._ddim_step(
                     t_curr, t_next, x_raw, cls_logits, pred_bboxes, img_metas
                 )
                 if t_next < 0:
                     break
             else:
-                # Rectified Flow 更新逻辑
                 if self.solver_type == "heun" and t_next > 0:
-                    # Heun Step (二阶)
+
                     def model_fn(x_tmp, t_tmp):
                         _, _, x0_tmp, _ = self._forward_at_t(
                             features, x_tmp, t_tmp, img_metas
                         )
                         return x0_tmp, None
 
-                    # 获取二阶修正后的结果
                     x_raw = self.rf.heun_step(
                         x_raw,
                         x0_raw,
@@ -427,19 +603,15 @@ class DiffusionDetHead(nn.Module):
                         model_fn,
                     )
                 else:
-                    # Euler Step (一阶)
                     x_raw = self.rf.step(x_raw, x0_raw, t_curr, t_next)
 
-                # 框更新策略 (Box Renewal)
-                if self.box_renewal:
+                should_renew = self.box_renewal and self.sampling_timesteps > 1
+                if should_renew:
                     x_raw = self._apply_box_renewal(x_raw, cls_logits)
 
                 if t_next <= 0:
-                    # 最后一步的预测也加入集成 (如果尚未加入)
-                    # 注意：通常最后一步 t=0 时不需要再跑一次 forward
                     break
 
-        # 3. 后处理
         results = self._post_process(ensemble_results, img_metas, rescale)
 
         if return_trajectory:
@@ -448,7 +620,6 @@ class DiffusionDetHead(nn.Module):
         return results
 
     def _apply_box_renewal(self, x_raw: Tensor, cls_logits: Tensor) -> Tensor:
-        """通用的框更新策略"""
         bs, device = x_raw.shape[0], x_raw.device
         scores = torch.sigmoid(cls_logits).max(-1)[0]
         x_raw_new = x_raw.clone()
@@ -465,7 +636,6 @@ class DiffusionDetHead(nn.Module):
         return x_raw_new
 
     def _xyxy_to_raw(self, bboxes: Tensor, img_metas: List[ImageMeta]) -> Tensor:
-        """将图像空间的 xyxy 框转回扩散空间的 raw 框 (cxcywh)"""
         x0 = bboxes.clone()
         for i, meta in enumerate(img_metas):
             h, w = meta.img_shape[:2]
@@ -476,14 +646,10 @@ class DiffusionDetHead(nn.Module):
         return x0
 
     def _raw_to_xyxy(self, raw_bboxes: Tensor, img_metas: List[ImageMeta]) -> Tensor:
-        """将扩散空间的 raw 框转为图像空间的 xyxy 框"""
-        # [-snr, snr] -> [0, 1]
         bboxes = (
             (raw_bboxes.clamp(-self.snr_scale, self.snr_scale) / self.snr_scale) + 1
         ) / 2
-        # cxcywh -> xyxy
         bboxes = bbox_cxcywh_to_xyxy(bboxes)
-        # 映射到图像尺寸
         for i, meta in enumerate(img_metas):
             h, w = meta.img_shape[:2]
             scale = bboxes.new_tensor([w, h, w, h])
@@ -493,17 +659,13 @@ class DiffusionDetHead(nn.Module):
     def _ddim_step(
         self, t_curr, t_next, x_raw, cls_logits, pred_bboxes, img_metas: List[ImageMeta]
     ):
-        """执行一步 DDIM 采样"""
         bs, device = x_raw.shape[0], x_raw.device
 
-        # 将预测的 xyxy 转回扩散空间的 cxcywh (x0)
         x0 = self._xyxy_to_raw(pred_bboxes, img_metas)
 
-        # 预测噪声
         t_batch = torch.full((bs,), t_curr, device=device, dtype=torch.long)
         pred_noise = self.predict_noise_from_start(x_raw, t_batch, x0)
 
-        # DDIM 参数
         alpha = self.alphas_cumprod[t_curr]
         alpha_next = self.alphas_cumprod[t_next]
         sigma = (
@@ -512,12 +674,11 @@ class DiffusionDetHead(nn.Module):
         )
         c = (1 - alpha_next - sigma**2).sqrt()
 
-        # 更新 x_raw
         noise = torch.randn_like(x_raw)
         x_raw_next = x0 * alpha_next.sqrt() + c * pred_noise + sigma * noise
 
-        # 框更新策略 (Box Renewal)
-        if self.box_renewal:
+        should_renew = self.box_renewal and self.sampling_timesteps > 1
+        if should_renew:
             x_raw_next = self._apply_box_renewal(x_raw_next, cls_logits)
 
         return self._raw_to_xyxy(x_raw_next, img_metas), x_raw_next
@@ -525,7 +686,6 @@ class DiffusionDetHead(nn.Module):
     def _post_process(
         self, ensemble_results, img_metas: List[ImageMeta], rescale: bool
     ) -> List[DetectionResult]:
-        """后处理：集成、NMS、缩放"""
         results_list = []
         bs = len(img_metas)
 
@@ -536,30 +696,28 @@ class DiffusionDetHead(nn.Module):
 
             for cls_logits, pred_bboxes in ensemble_results:
                 scores = torch.sigmoid(cls_logits[i])
-                # 获取每个框的最大得分和类别
                 conf, labels = scores.max(-1)
                 all_scores.append(conf)
                 all_bboxes.append(pred_bboxes[i])
                 all_labels.append(labels)
 
-            # 合并集成结果
             final_scores = torch.cat(all_scores)
             final_bboxes = torch.cat(all_bboxes)
             final_labels = torch.cat(all_labels)
 
-            # NMS
             if self.use_nms:
                 keep = batched_nms(
-                    final_bboxes,
-                    final_scores,
-                    final_labels,
-                    self.nms_thr,
+                    final_bboxes, final_scores, final_labels, iou_threshold=self.nms_thr
                 )
                 final_scores = final_scores[keep]
                 final_bboxes = final_bboxes[keep]
                 final_labels = final_labels[keep]
 
-            # 缩放回原始尺寸
+            keep = final_scores > self.score_thr
+            final_scores = final_scores[keep]
+            final_bboxes = final_bboxes[keep]
+            final_labels = final_labels[keep]
+
             if rescale:
                 scale_factor = img_metas[i].scale_factor
                 if scale_factor is None:
@@ -580,7 +738,6 @@ class DiffusionDetHead(nn.Module):
                 if not isinstance(scale_factor, Tensor):
                     scale_factor = final_bboxes.new_tensor(scale_factor)
 
-                # Ensure scale_factor is [1, 4] for broadcasting if final_bboxes is [N, 4]
                 if scale_factor.dim() == 1:
                     scale_factor = scale_factor.unsqueeze(0)
 

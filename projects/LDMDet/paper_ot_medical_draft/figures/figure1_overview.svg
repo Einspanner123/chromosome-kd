@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="600" viewBox="0 0 1100 600">
+<defs>
+<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+<path d="M0,0 L0,6 L9,3 z" fill="#34495e"/>
+</marker>
+</defs>
+<rect width="1100" height="600" fill="white"/>
+<text x="550.0" y="36" font-size="24" text-anchor="middle" font-family="Arial">Figure 1. Paper Overview</text>
+<rect x="70" y="120" width="220" height="120" rx="10" ry="10" fill="#f3f6fb" stroke="#2c3e50" stroke-width="2"/>
+<text x="180.0" y="170.0" font-size="18" text-anchor="middle" font-family="Arial"><tspan x="180.0" dy="0">Low-dimensional</tspan><tspan x="180.0" dy="18">chromosome detection</tspan></text>
+<rect x="360" y="120" width="220" height="120" rx="10" ry="10" fill="#f3f6fb" stroke="#2c3e50" stroke-width="2"/>
+<text x="470.0" y="170.0" font-size="18" text-anchor="middle" font-family="Arial"><tspan x="470.0" dy="0">Deterministic OT</tspan><tspan x="470.0" dy="18">coupling</tspan></text>
+<rect x="650" y="120" width="290" height="120" rx="10" ry="10" fill="#fdecea" stroke="#c0392b" stroke-width="2"/>
+<text x="795.0" y="170.0" font-size="18" text-anchor="middle" font-family="Arial"><tspan x="795.0" dy="0">Diversity collapse</tspan><tspan x="795.0" dy="18">+ argmax control loss</tspan></text>
+<rect x="360" y="360" width="220" height="120" rx="10" ry="10" fill="#eafaf1" stroke="#1e8449" stroke-width="2"/>
+<text x="470.0" y="410.0" font-size="18" text-anchor="middle" font-family="Arial"><tspan x="470.0" dy="0">Stochastic</tspan><tspan x="470.0" dy="18">coupling</tspan></text>
+<rect x="650" y="360" width="290" height="120" rx="10" ry="10" fill="#eafaf1" stroke="#1e8449" stroke-width="2"/>
+<text x="795.0" y="410.0" font-size="18" text-anchor="middle" font-family="Arial"><tspan x="795.0" dy="0">Recovered diversity</tspan><tspan x="795.0" dy="18">and better mAP</tspan></text>
+<line x1="290" y1="180" x2="360" y2="180" stroke="#34495e" stroke-width="2.5" marker-end="url(#arrow)"/>
+<line x1="580" y1="180" x2="650" y2="180" stroke="#34495e" stroke-width="2.5" marker-end="url(#arrow)"/>
+<line x1="470" y1="240" x2="470" y2="360" stroke="#34495e" stroke-width="2.5" marker-end="url(#arrow)"/>
+<line x1="580" y1="420" x2="650" y2="420" stroke="#34495e" stroke-width="2.5" marker-end="url(#arrow)"/>
+<text x="70" y="545" font-size="16" font-family="Arial">Replace with the final polished teaser figure after quantitative plots are fixed.</text>
+</svg>

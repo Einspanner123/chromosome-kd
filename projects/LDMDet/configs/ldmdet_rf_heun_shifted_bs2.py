@@ -13,7 +13,12 @@ model = dict(
 )
 
 # 优化器配置
-optim_wrapper = dict(optimizer=dict(type="AdamW", lr=0.00005, weight_decay=0.0001))
+optim_wrapper = dict(
+    optimizer=dict(
+        type="AdamW", lr=0.00005, weight_decay=0.0001, _delete_=True
+    ),
+    clip_grad=dict(max_norm=1.0, norm_type=2),
+)
 
 # 训练配置
 max_epoch = 150

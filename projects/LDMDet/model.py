@@ -4,6 +4,11 @@ from typing import Any, Dict, List, Tuple
 import torch
 import torch.nn as nn
 
+torch.set_float32_matmul_precision("high")
+if torch.backends.cudnn.is_available():
+    torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.allow_tf32 = True
+
 from mmdet.models.detectors.base import BaseDetector
 from mmdet.registry import MODELS
 from mmdet.structures import DetDataSample
@@ -150,6 +155,8 @@ class LDMDet(BaseDetector):
         if "type" not in cfg_copy:
             cfg_copy["type"] = "PurePyTorchDiffusionDetHead"
 
+        torch_compile = cfg_copy.pop("torch_compile", False)
+
         # 将实例化的子组件传入
         cfg_copy.update(
             dict(
@@ -162,7 +169,12 @@ class LDMDet(BaseDetector):
         )
 
         obj_cls = MODELS.get(cfg_copy["type"])
-        return MODELS.build(self._filter_kwargs(obj_cls, cfg_copy))
+        head = MODELS.build(self._filter_kwargs(obj_cls, cfg_copy))
+
+        if torch_compile and hasattr(torch, "compile"):
+            head.forward = torch.compile(head.forward, dynamic=True)
+
+        return head
 
     def _build_criterion(self, cfg: ConfigType) -> nn.Module:
         """构建损失函数组件"""
