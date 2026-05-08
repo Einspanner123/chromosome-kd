@@ -19,8 +19,6 @@ from pathlib import Path
 import numpy as np
 import torch
 from mmengine.config import Config
-from mmengine.logging import MMLogger
-from mmengine.registry import DefaultScope
 
 from mmdet.apis import init_detector
 from mmdet.registry import DATASETS, METRICS
@@ -43,7 +41,7 @@ CLASS_NAMES = [
 
 # Models to evaluate: (label, config_path, checkpoint_path)
 # Paths are relative to the repo root.
-REPO = Path(__file__).resolve().parents[3]  # chromo-kd root
+REPO = Path(__file__).resolve().parents[4]  # chromo-kd root
 
 MODELS: list[tuple[str, str, str]] = [
     (
@@ -73,7 +71,12 @@ MODELS: list[tuple[str, str, str]] = [
     ),
 ]
 
+# Parse --device from command line, e.g. --device cuda:1
 DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
+for i, arg in enumerate(sys.argv):
+    if arg == "--device" and i + 1 < len(sys.argv):
+        DEVICE = sys.argv[i + 1]
+        break
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -87,8 +90,6 @@ def _resolve(path: str) -> Path:
 
 def _load_model(config_path: Path, checkpoint_path: Path, device: str):
     cfg = Config.fromfile(str(config_path))
-    # DefaultScope is needed so that MMEngine registries resolve correctly
-    DefaultScope.get_default_scope()
     model = init_detector(cfg, str(checkpoint_path), device=device)
     return model, cfg
 
@@ -109,17 +110,35 @@ def _evaluate_model(
 
     dataset = DATASETS.build(dataset_cfg)
 
-    results: list = []
+    results: list[dict] = []
     for i in range(len(dataset)):
         data = dataset[i]
-        data = model.data_preprocessor(data, False)
-        batch_inputs, batch_data_samples = data["inputs"], data["data_samples"]
-        if isinstance(batch_inputs, torch.Tensor):
-            batch_inputs = batch_inputs.unsqueeze(0).to(device)
-        batch_data_samples = [batch_data_samples]
+        # Capture metainfo from the original data_sample before test_step
+        ds = data["data_samples"]
+        ds0 = ds if not isinstance(ds, list) else ds[0]
+        img_id = ds0.img_id if hasattr(ds0, "img_id") else i
+        ori_shape = ds0.ori_shape if hasattr(ds0, "ori_shape") else (800, 1333)
+        gt_instances = ds0.instances if hasattr(ds0, "instances") else None
+
+        data["inputs"] = data["inputs"].unsqueeze(0).to(device)
+        if not isinstance(data["data_samples"], list):
+            data["data_samples"] = [data["data_samples"]]
         with torch.no_grad():
-            out = model.test_step(batch_inputs)
-        results.extend(out)
+            out = model.test_step(data)
+        for r in (out if isinstance(out, list) else [out]):
+            d: dict = {}
+            if hasattr(r, "pred_instances") and r.pred_instances is not None:
+                pi = r.pred_instances
+                d["pred_instances"] = {
+                    "bboxes": pi.bboxes.cpu(),
+                    "scores": pi.scores.cpu(),
+                    "labels": pi.labels.cpu(),
+                }
+            d["img_id"] = getattr(r, "img_id", img_id)
+            d["ori_shape"] = getattr(r, "ori_shape", ori_shape)
+            if gt_instances is not None:
+                d["instances"] = gt_instances
+            results.append(d)
 
     # Build evaluator with classwise enabled
     evaluator = METRICS.build(
@@ -207,7 +226,10 @@ def main():
 
         # Free GPU memory
         del model
-        torch.cuda.empty_cache()
+        try:
+            torch.cuda.empty_cache()
+        except RuntimeError:
+            pass
 
     # Identify baseline
     baseline_label = MODELS[0][0]

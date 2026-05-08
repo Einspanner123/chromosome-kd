@@ -1,16 +1,9 @@
 import math
-import sys
-from pathlib import Path
 from typing import List
 
 import torch
 import torch.nn as nn
 from torch import Tensor
-
-# 将当前文件所在目录添加到 sys.path
-current_dir = Path(__file__).resolve().parent
-if str(current_dir) not in sys.path:
-    sys.path.append(str(current_dir))
 
 
 DEFAULT_SCALE_CLAMP = math.log(100000.0 / 16)

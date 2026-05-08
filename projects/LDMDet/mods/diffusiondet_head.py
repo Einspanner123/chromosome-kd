@@ -1,7 +1,9 @@
 
 import copy
+import glob as glob_mod
 import math
 import os
+import random
 from typing import Dict, List, Optional, Tuple
 
 import torch
@@ -32,7 +34,6 @@ class DiffusionDetHead(nn.Module):
         timesteps: int = 1000,
         sampling_timesteps: int = 1,
         solver_type: str = "euler",  # "euler" or "heun"
-        self_condition: bool = False,
         box_renewal: bool = True,
         use_ensemble: bool = True,
         deep_supervision: bool = True,
@@ -93,9 +94,6 @@ class DiffusionDetHead(nn.Module):
         use_consistency_loss: bool = False,  # Consistency Loss (x0 一致性约束)
         consistency_loss_weight: float = 1.0,  # Consistency Loss 权重
         consistency_loss_num_points: int = 4,  # Consistency Loss 采样点数
-        # === Gradient Surgery 参数 ===
-        use_pcgrad: bool = False,  # PCGrad: 投影冲突梯度
-        pcgrad_main_task: str = "det",  # 主任务: "det" 或 "vel"
         # === Velocity Detach 参数 ===
         velocity_detach: bool = False,  # 切断 velocity_head 到共享层的梯度
     ):
@@ -107,7 +105,6 @@ class DiffusionDetHead(nn.Module):
         self.snr_scale = snr_scale
         self.timesteps = timesteps
         self.sampling_timesteps = sampling_timesteps
-        self.self_condition = self_condition
         self.box_renewal = box_renewal
         self.use_ensemble = use_ensemble
         self.deep_supervision = deep_supervision
@@ -153,8 +150,6 @@ class DiffusionDetHead(nn.Module):
         self.use_consistency_loss = use_consistency_loss
         self.consistency_loss_weight = consistency_loss_weight
         self.consistency_loss_num_points = consistency_loss_num_points
-        self.use_pcgrad = use_pcgrad
-        self.pcgrad_main_task = pcgrad_main_task
         self.velocity_detach = velocity_detach
 
         # 测试配置
@@ -292,8 +287,6 @@ class DiffusionDetHead(nn.Module):
         return matched_gt_idx
 
     def _get_reflow_pairs(self, bs: int, device: torch.device):
-        import glob as glob_mod
-
         if not self.reflow_pairs_dir or not os.path.isdir(self.reflow_pairs_dir):
             return None
 
@@ -304,7 +297,6 @@ class DiffusionDetHead(nn.Module):
             for pf in pair_files:
                 d = torch.load(pf, map_location="cpu")
                 self._reflow_pairs_cache.append((d["z"], d["b_pred"]))
-            import random
             random.shuffle(self._reflow_pairs_cache)
             self._reflow_pairs_idx = 0
 
@@ -312,7 +304,6 @@ class DiffusionDetHead(nn.Module):
         pairs_b = []
         for _ in range(bs):
             if self._reflow_pairs_idx >= len(self._reflow_pairs_cache):
-                import random
                 random.shuffle(self._reflow_pairs_cache)
                 self._reflow_pairs_idx = 0
             z, b = self._reflow_pairs_cache[self._reflow_pairs_idx]
@@ -339,48 +330,25 @@ class DiffusionDetHead(nn.Module):
         log_probs = torch.log(probs[bin_indices] + 1e-10)
         return t, log_probs
 
-    def loss(
+    def _build_training_targets(
         self,
-        features: Tuple[Tensor],
-        img_metas: List[ImageMeta],
+        bs: int,
+        device: torch.device,
+        t: Tensor,
+        targets: List[InstanceData],
         gt_bboxes: List[Tensor],
-        gt_labels: List[Tensor],
-    ) -> Dict[str, Tensor]:
-        """训练损失计算接口"""
-        device = features[0].device
-        bs = len(img_metas)
+        img_metas: List[ImageMeta],
+    ) -> Tuple[List[Tensor], List[Tensor], List[Tensor]]:
+        """构建训练配对: 对每张图生成 (x_noisy, x_start, x_noise) 三元组.
 
-        # 1. 准备真值数据并归一化
-        targets = []
-        for i in range(bs):
-            h, w = self._get_img_shape(img_metas[i])[:2]
-            scale = gt_bboxes[i].new_tensor([w, h, w, h])
-            norm_bboxes = gt_bboxes[i] / scale
-            targets.append(
-                InstanceData(
-                    labels=gt_labels[i],
-                    bboxes=norm_bboxes,
-                    img_shape=(h, w),
-                )
-            )
-
-        # 2. 扩散过程：生成训练所需的噪声框
-        if self.diffusion_type == "ddpm":
-            t = torch.randint(0, self.timesteps, (bs,), device=device).long()
-            lsas_log_probs = None
-        else:
-            if self.use_lsas:
-                t, lsas_log_probs = self._sample_time_lsas(bs, device)
-            else:
-                t = torch.rand((bs,), device=device)
-                lsas_log_probs = None
-                if self.rf_schedule == "shifted":
-                    s = self.rf_shift
-                    t = s * t / (1 + (s - 1) * t)
-
+        Returns:
+            x_boxes: 每个样本的 x_t 噪声框列表
+            x_starts: 每个样本的扩散空间 GT (x_0) 列表
+            x_noises: 每个样本的噪声源 (x_1) 列表
+        """
         x_boxes = []
-        x_starts = []  # 记录每个 proposal 对应的 x_start (扩散空间 GT)
-        x_noises = []  # 记录每个 proposal 的噪声源
+        x_starts = []
+        x_noises = []
 
         if self.use_reflow and self.diffusion_type == "rectified_flow" and self.training:
             reflow_batch = self._get_reflow_pairs(bs, device)
@@ -393,116 +361,203 @@ class DiffusionDetHead(nn.Module):
                     x_starts.append(x_start)
                     x_noises.append(noise)
                     x_boxes.append(x_noisy)
-            else:
-                for i in range(bs):
-                    noise = torch.randn(self.num_proposals, 4, device=device)
-                    x_boxes.append(noise)
-                    x_starts.append(torch.zeros_like(noise))
-                    x_noises.append(noise)
-        else:
+                return x_boxes, x_starts, x_noises
+            # fall through to random noise if reflow pairs unavailable
             for i in range(bs):
-                num_gt = gt_bboxes[i].shape[0]
-                if num_gt > 0:
-                    # --- 先准备 GT 在扩散空间的表示 ---
-                    norm_gt_cxcywh = bbox_xyxy_to_cxcywh(targets[i].bboxes)  # (K, 4)
-                    gt_diffusion = (norm_gt_cxcywh * 2 - 1) * self.snr_scale  # (K, 4)
+                noise = torch.randn(self.num_proposals, 4, device=device)
+                x_boxes.append(noise)
+                x_starts.append(torch.zeros_like(noise))
+                x_noises.append(noise)
+            return x_boxes, x_starts, x_noises
 
-                    # --- 采样噪声 ---
-                    noise = torch.randn(self.num_proposals, 4, device=device)  # (N, 4)
+        for i in range(bs):
+            num_gt = gt_bboxes[i].shape[0]
+            if num_gt == 0:
+                noise = torch.randn(self.num_proposals, 4, device=device)
+                x_boxes.append(noise)
+                x_starts.append(torch.zeros_like(noise))
+                x_noises.append(noise)
+                continue
 
-                    if self.ot_coupling and self.diffusion_type == "rectified_flow":
-                        if self.ot_matcher == "sinkhorn":
-                            if self.ot_group_hierarchical:
-                                matched_gt_idx = self._run_group_hierarchical_ot(
-                                    noise, gt_diffusion, targets[i].labels, device)
-                            else:
-                                cost = torch.cdist(noise, gt_diffusion, p=2)
-                                N, K = cost.shape
-                                a = torch.ones(N, device=device) / N
-                                proposals_per_gt = max(N // max(K, 1), 1)
-                                gt_mass = torch.full((K,), proposals_per_gt / N, device=device)
-                                b = gt_mass / gt_mass.sum()
-                                log_K_mat = -cost / self.ot_epsilon
-                                log_u = torch.zeros(N, device=device)
-                                log_v = torch.zeros(K, device=device)
-                                for _ in range(self.ot_num_iters):
-                                    log_u = torch.log(a + 1e-10) - torch.logsumexp(log_K_mat + log_v.unsqueeze(0), dim=1)
-                                    log_v = torch.log(b + 1e-10) - torch.logsumexp(log_K_mat + log_u.unsqueeze(1), dim=0)
-                                transport = torch.exp(log_u.unsqueeze(1) + log_K_mat + log_v.unsqueeze(0))
-                                if self.ot_sample:
-                                    row_probs = transport / transport.sum(dim=1, keepdim=True)
-                                    matched_gt_idx = torch.multinomial(row_probs, 1).squeeze(-1)
-                                else:
-                                    matched_gt_idx = transport.argmax(dim=1)
-                            x_start = gt_diffusion[matched_gt_idx]
-                        else:
-                            cost = torch.cdist(noise, gt_diffusion, p=2)
-                            matched_gt_idx = cost.argmin(dim=1)
-                            x_start = gt_diffusion[matched_gt_idx]
+            # GT in diffusion space
+            norm_gt_cxcywh = bbox_xyxy_to_cxcywh(targets[i].bboxes)
+            gt_diffusion = (norm_gt_cxcywh * 2 - 1) * self.snr_scale
+            noise = torch.randn(self.num_proposals, 4, device=device)
 
-                        if self.ot_init_mode == "guided":
-                            x_start = noise + self.ot_init_scale * (x_start - noise)
-                    else:
-                        # === 原始随机耦合 ===
-                        idx = torch.randint(0, num_gt, (self.num_proposals,), device=device)
-                        sample_bboxes = targets[i].bboxes[idx]
-                        sample_bboxes = bbox_xyxy_to_cxcywh(sample_bboxes)
-                        x_start = (sample_bboxes * 2 - 1) * self.snr_scale
+            # Coupling
+            if self.ot_coupling and self.diffusion_type == "rectified_flow":
+                x_start = self._couple_ot(noise, gt_diffusion, targets[i].labels, device)
+            else:
+                idx = torch.randint(0, num_gt, (self.num_proposals,), device=device)
+                sample_bboxes = bbox_xyxy_to_cxcywh(targets[i].bboxes[idx])
+                x_start = (sample_bboxes * 2 - 1) * self.snr_scale
 
-                    if self.diffusion_type == "ddpm":
-                        x_noisy = self.q_sample(x_start, t[i : i + 1])
-                        x_starts.append(x_start)
-                        x_noises.append(torch.zeros_like(x_start))  # placeholder
-                    else:
-                        x_noisy, _ = self.rf.q_sample(x_start, x_noise=noise, t=t[i : i + 1])
-                        x_starts.append(x_start)
-                        x_noises.append(noise)
-                    x_boxes.append(x_noisy)
-                else:
-                    noise = torch.randn(self.num_proposals, 4, device=device)
-                    x_boxes.append(noise)
-                    x_starts.append(torch.zeros_like(noise))
-                    x_noises.append(noise)
+            # Forward diffusion
+            if self.diffusion_type == "ddpm":
+                x_noisy = self.q_sample(x_start, t[i : i + 1])
+                x_starts.append(x_start)
+                x_noises.append(torch.zeros_like(x_start))
+            else:
+                x_noisy, _ = self.rf.q_sample(x_start, x_noise=noise, t=t[i : i + 1])
+                x_starts.append(x_start)
+                x_noises.append(noise)
+            x_boxes.append(x_noisy)
 
+        return x_boxes, x_starts, x_noises
+
+    def _couple_ot(
+        self, noise: Tensor, gt_diffusion: Tensor, gt_labels: Tensor, device: torch.device
+    ) -> Tensor:
+        """OT 耦合: 将噪声提案与 GT 框配对, 返回配对的 x_start."""
+        if self.ot_matcher == "sinkhorn":
+            if self.ot_group_hierarchical:
+                matched_gt_idx = self._run_group_hierarchical_ot(
+                    noise, gt_diffusion, gt_labels, device)
+            else:
+                matched_gt_idx = self._sinkhorn_match(noise, gt_diffusion, device)
+        else:
+            cost = torch.cdist(noise, gt_diffusion, p=2)
+            matched_gt_idx = cost.argmin(dim=1)
+
+        x_start = gt_diffusion[matched_gt_idx]
+        if self.ot_init_mode == "guided":
+            x_start = noise + self.ot_init_scale * (x_start - noise)
+        return x_start
+
+    def _sinkhorn_match(
+        self, noise: Tensor, gt_diffusion: Tensor, device: torch.device
+    ) -> Tensor:
+        """Sinkhorn OT 匹配: 返回每个噪声提案对应的 GT 索引."""
+        cost = torch.cdist(noise, gt_diffusion, p=2)
+        N, K = cost.shape
+        a = torch.ones(N, device=device) / N
+        proposals_per_gt = max(N // max(K, 1), 1)
+        gt_mass = torch.full((K,), proposals_per_gt / N, device=device)
+        b = gt_mass / gt_mass.sum()
+
+        log_K_mat = -cost / self.ot_epsilon
+        log_u = torch.zeros(N, device=device)
+        log_v = torch.zeros(K, device=device)
+        for _ in range(self.ot_num_iters):
+            log_u = torch.log(a + 1e-10) - torch.logsumexp(log_K_mat + log_v.unsqueeze(0), dim=1)
+            log_v = torch.log(b + 1e-10) - torch.logsumexp(log_K_mat + log_u.unsqueeze(1), dim=0)
+        transport = torch.exp(log_u.unsqueeze(1) + log_K_mat + log_v.unsqueeze(0))
+
+        if self.ot_sample:
+            row_probs = transport / transport.sum(dim=1, keepdim=True)
+            return torch.multinomial(row_probs, 1).squeeze(-1)
+        return transport.argmax(dim=1)
+
+    def loss(
+        self,
+        features: Tuple[Tensor],
+        img_metas: List[ImageMeta],
+        gt_bboxes: List[Tensor],
+        gt_labels: List[Tensor],
+    ) -> Dict[str, Tensor]:
+        """训练损失计算接口"""
+        device = features[0].device
+        bs = len(img_metas)
+
+        # 1. 准备真值数据并归一化
+        targets = self._normalize_targets(gt_bboxes, gt_labels, img_metas, bs)
+
+        # 2. 时间步采样
+        t, lsas_log_probs = self._sample_t(bs, device)
+
+        # 3. 构建训练配对
+        x_boxes, x_starts, x_noises = self._build_training_targets(
+            bs, device, t, targets, gt_bboxes, img_metas)
         x_noisy_batch = torch.stack(x_boxes)
         curr_bboxes = self._raw_to_xyxy(x_noisy_batch, img_metas)
 
-        # 3. TRD 自条件化: 先做一次前向获取 x_0 预测, 再做第二次前向
+        # 4. 前向传播 (含 TRD 自条件化)
         t_input = t if self.diffusion_type == "ddpm" else t * self.timesteps
+        all_cls_logits, all_pred_bboxes, all_objectness, all_velocity = (
+            self._forward_trd(features, curr_bboxes, t, t_input, x_noisy_batch,
+                              img_metas, bs))
 
-        if self.use_trd and self.diffusion_type == "rectified_flow" and self.training:
-            sc_mask = torch.rand(bs, device=device) < self.trd_self_cond_prob
-            if sc_mask.any():
-                with torch.no_grad():
-                    all_cls_sc, all_pred_sc, _, _ = self(features, curr_bboxes, t_input)
-                    x0_sc = self._xyxy_to_raw(all_pred_sc[-1], img_metas)
-                x_noisy_sc = x_noisy_batch.clone()
-                t_view = t.view(-1, 1, 1)
-                v_ot_est = (x_noisy_sc - x0_sc) / torch.clamp(t_view, min=1e-5)
-                x_noisy_sc[sc_mask] = (x_noisy_sc + self.cat_delta_t * v_ot_est)[sc_mask]
-                t_sc = t.clone()
-                t_sc[sc_mask] = (t[sc_mask] + self.cat_delta_t).clamp(0, 1)
-                t_input_sc = t_sc * self.timesteps
-                curr_bboxes_sc = self._raw_to_xyxy(x_noisy_sc, img_metas)
-                all_cls_logits, all_pred_bboxes, all_objectness, all_velocity = self(
-                    features, curr_bboxes_sc, t_input_sc
-                )
-            else:
-                all_cls_logits, all_pred_bboxes, all_objectness, all_velocity = self(
-                    features, curr_bboxes, t_input
-                )
-        else:
-            all_cls_logits, all_pred_bboxes, all_objectness, all_velocity = self(
-                features, curr_bboxes, t_input
-            )
+        # 5. 归一化并计算检测损失
+        norm_pred_bboxes = self._normalize_pred_bboxes(all_pred_bboxes, img_metas)
+        outputs = self._build_outputs(all_cls_logits, norm_pred_bboxes, all_objectness)
+        losses = self.criterion(outputs, targets)
 
-        # 4. 归一化预测框
-        norm_pred_bboxes = all_pred_bboxes.clone()
+        if self.use_reflow and self.reflow_det_loss_scale != 1.0:
+            for k in ("loss_cls", "loss_bbox", "loss_giou"):
+                if k in losses:
+                    losses[k] = losses[k] * self.reflow_det_loss_scale
+
+        # 6. 辅助损失
+        self._add_velocity_loss(losses, all_velocity, x_starts, x_noises, device)
+        self._add_cat_loss(losses, features, t, x_starts, x_noises,
+                           all_pred_bboxes, img_metas, bs, device)
+        self._add_lsas_loss(losses, lsas_log_probs)
+        self._add_itd_loss(losses, features, x_starts, x_noises, img_metas, bs, device)
+        self._add_consistency_loss(losses, features, x_starts, x_noises,
+                                   all_pred_bboxes, img_metas, bs, device)
+        self._add_consistency_cd_loss(losses, features, t, x_starts,
+                                      all_pred_bboxes, img_metas, bs, device)
+
+        return losses
+
+    # ---- 损失计算辅助方法 ----
+
+    def _normalize_targets(
+        self, gt_bboxes: List[Tensor], gt_labels: List[Tensor],
+        img_metas: List[ImageMeta], bs: int,
+    ) -> List[InstanceData]:
+        targets = []
+        for i in range(bs):
+            h, w = self._get_img_shape(img_metas[i])[:2]
+            scale = gt_bboxes[i].new_tensor([w, h, w, h])
+            targets.append(InstanceData(
+                labels=gt_labels[i],
+                bboxes=gt_bboxes[i] / scale,
+                img_shape=(h, w),
+            ))
+        return targets
+
+    def _sample_t(self, bs: int, device: torch.device) -> Tuple[Tensor, Optional[Tensor]]:
+        if self.diffusion_type == "ddpm":
+            return torch.randint(0, self.timesteps, (bs,), device=device).long(), None
+        if self.use_lsas:
+            return self._sample_time_lsas(bs, device)
+        t = torch.rand((bs,), device=device)
+        if self.rf_schedule == "shifted":
+            t = self.rf_shift * t / (1 + (self.rf_shift - 1) * t)
+        return t, None
+
+    def _forward_trd(
+        self, features, curr_bboxes, t, t_input, x_noisy_batch, img_metas, bs,
+    ) -> Tuple:
+        """前向传播, 可选 TRD 自条件化."""
+        if not (self.use_trd and self.diffusion_type == "rectified_flow" and self.training):
+            return self(features, curr_bboxes, t_input)
+
+        sc_mask = torch.rand(bs, device=t.device) < self.trd_self_cond_prob
+        if not sc_mask.any():
+            return self(features, curr_bboxes, t_input)
+
+        with torch.no_grad():
+            _, all_pred_sc, _, _ = self(features, curr_bboxes, t_input)
+            x0_sc = self._xyxy_to_raw(all_pred_sc[-1], img_metas)
+        x_noisy_sc = x_noisy_batch.clone()
+        t_view = t.view(-1, 1, 1)
+        v_ot_est = (x_noisy_sc - x0_sc) / torch.clamp(t_view, min=1e-5)
+        x_noisy_sc[sc_mask] = (x_noisy_sc + self.cat_delta_t * v_ot_est)[sc_mask]
+        t_sc = t.clone()
+        t_sc[sc_mask] = (t[sc_mask] + self.cat_delta_t).clamp(0, 1)
+        curr_bboxes_sc = self._raw_to_xyxy(x_noisy_sc, img_metas)
+        return self(features, curr_bboxes_sc, t_sc * self.timesteps)
+
+    def _normalize_pred_bboxes(self, all_pred_bboxes: Tensor, img_metas) -> Tensor:
+        normed = all_pred_bboxes.clone()
         for i, meta in enumerate(img_metas):
             h, w = self._get_img_shape(meta)[:2]
-            scale = norm_pred_bboxes.new_tensor([w, h, w, h])
-            norm_pred_bboxes[:, i] /= scale
+            normed[:, i] /= normed.new_tensor([w, h, w, h])
+        return normed
 
+    def _build_outputs(self, all_cls_logits, norm_pred_bboxes, all_objectness) -> ModelOutput:
         outputs = ModelOutput(
             pred_logits=all_cls_logits[-1],
             pred_boxes=norm_pred_bboxes[-1],
@@ -514,180 +569,152 @@ class DiffusionDetHead(nn.Module):
                     pred_logits=all_cls_logits[i],
                     pred_boxes=norm_pred_bboxes[i],
                     pred_objectness=(
-                        all_objectness[i]
-                        if all_objectness[0] is not None
-                        else None
-                    ),
+                        all_objectness[i] if all_objectness[0] is not None else None),
                 )
                 for i in range(self.num_heads - 1)
             ]
+        return outputs
 
-        if self.criterion is None:
-            raise ValueError("Criterion is not initialized in DiffusionDetHead")
+    def _add_velocity_loss(
+        self, losses: dict, all_velocity: list,
+        x_starts: list, x_noises: list, device: torch.device,
+    ):
+        if not (self.prediction_mode == "velocity"
+                and all_velocity[0] is not None
+                and self.diffusion_type == "rectified_flow"):
+            return
+        v_target = torch.stack(x_starts) - torch.stack(x_noises)
+        vel_weight = self.velocity_loss_weight
+        if self.use_reflow and self.reflow_velocity_warmup_steps > 0:
+            self._reflow_train_step += 1
+            vel_weight *= min(self._reflow_train_step / self.reflow_velocity_warmup_steps, 1.0)
 
-        losses = self.criterion(outputs, targets)
+        last_v = all_velocity[-1]
+        if last_v is not None:
+            losses["loss_velocity"] = F.mse_loss(last_v, v_target) * vel_weight
+        if self.deep_supervision and self.num_heads > 1:
+            aux = torch.tensor(0.0, device=device)
+            n = 0
+            for hi in range(self.num_heads - 1):
+                if all_velocity[hi] is not None:
+                    aux = aux + F.mse_loss(all_velocity[hi], v_target)
+                    n += 1
+            if n > 0:
+                losses["loss_velocity_aux"] = aux / n * vel_weight * 0.5
 
-        if self.use_reflow and self.reflow_det_loss_scale != 1.0:
-            det_keys = {"loss_cls", "loss_bbox", "loss_giou"}
-            for k in det_keys:
-                if k in losses:
-                    losses[k] = losses[k] * self.reflow_det_loss_scale
+    def _add_cat_loss(
+        self, losses: dict, features, t, x_starts, x_noises,
+        all_pred_bboxes, img_metas, bs, device,
+    ):
+        if not (self.use_cat and self.diffusion_type == "rectified_flow" and self.training):
+            return
+        x_start_batch = torch.stack(x_starts)
+        x_noise_batch = torch.stack(x_noises)
+        dt = self.cat_delta_t
+        with torch.no_grad():
+            t2 = (t + dt).clamp(0, 1)
+            t2_view = t2.view(-1, 1, 1)
+            x_t2 = (1.0 - t2_view) * x_start_batch + t2_view * x_noise_batch
+            curr_bboxes_t2 = self._raw_to_xyxy(x_t2, img_metas)
+            _, all_pred_t2, _, _ = self(features, curr_bboxes_t2, t2 * self.timesteps)
+            x0_t2 = self._xyxy_to_raw(all_pred_t2[-1], img_metas)
+        x0_t1 = self._xyxy_to_raw(all_pred_bboxes[-1], img_metas)
+        losses["loss_curvature"] = F.mse_loss(x0_t1, x0_t2.detach()) * self.cat_weight
 
-        # 5. Velocity loss (with deep supervision)
-        if (
-            self.prediction_mode == "velocity"
-            and all_velocity[0] is not None
-            and self.diffusion_type == "rectified_flow"
-        ):
-            x_start_batch = torch.stack(x_starts)
-            x_noise_batch = torch.stack(x_noises)
-            v_target = x_start_batch - x_noise_batch
+    @staticmethod
+    def _add_lsas_loss(losses: dict, lsas_log_probs: Optional[Tensor]):
+        if lsas_log_probs is None:
+            return
+        with torch.no_grad():
+            total = sum(losses.values())
+        losses["loss_lsas"] = total.detach() * (-lsas_log_probs).mean() * 0.01
 
-            vel_weight = self.velocity_loss_weight
-            if self.use_reflow and self.reflow_velocity_warmup_steps > 0:
-                self._reflow_train_step += 1
-                warmup_frac = min(self._reflow_train_step / self.reflow_velocity_warmup_steps, 1.0)
-                vel_weight = vel_weight * warmup_frac
+    def _add_itd_loss(
+        self, losses: dict, features, x_starts, x_noises,
+        img_metas, bs, device,
+    ):
+        if not (self.use_itd and self.diffusion_type == "rectified_flow" and self.training):
+            return
+        x_start_batch = torch.stack(x_starts)
+        x_noise_batch = torch.stack(x_noises)
+        v_target = x_start_batch - x_noise_batch
 
-            last_v = all_velocity[-1]
-            if last_v is not None:
-                losses["loss_velocity"] = F.mse_loss(last_v, v_target) * vel_weight
+        if self.itd_sampling == "uniform":
+            t_points = torch.linspace(0.1, 0.9, steps=self.itd_num_points, device=device)
+        else:
+            t_points = 0.1 + 0.8 * torch.rand(self.itd_num_points, device=device)
 
-            if self.deep_supervision and self.num_heads > 1:
-                aux_vel_loss = torch.tensor(0.0, device=device)
-                num_aux = 0
-                for hi in range(self.num_heads - 1):
-                    if all_velocity[hi] is not None:
-                        aux_vel_loss = aux_vel_loss + F.mse_loss(all_velocity[hi], v_target)
-                        num_aux += 1
-                if num_aux > 0:
-                    losses["loss_velocity_aux"] = aux_vel_loss / num_aux * vel_weight * 0.5
+        total = torch.tensor(0.0, device=device)
+        n = 0
+        for t_k in t_points:
+            t_k_batch = t_k.expand(bs)
+            t_k_view = t_k_batch.view(-1, 1, 1)
+            x_tk = (1.0 - t_k_view) * x_start_batch + t_k_view * x_noise_batch
+            curr_bboxes_tk = self._raw_to_xyxy(x_tk, img_metas)
+            _, _, _, all_vel_tk = self(features, curr_bboxes_tk, t_k_batch * self.timesteps)
+            if all_vel_tk[-1] is not None:
+                total = total + F.mse_loss(all_vel_tk[-1], v_target)
+                n += 1
+        if n > 0:
+            losses["loss_itd"] = total / n * self.itd_weight
 
-        # 6. CAT: x0 一致性正则化 (等价于曲率惩罚, 但数值稳定)
-        # 理论: 若 ODE 路径为直线, 则 v = const, x0^{pred} 在不同 t 应一致
-        # 实现: 对比相邻时间步的 x0 预测, 惩罚不一致性
-        if self.use_cat and self.diffusion_type == "rectified_flow" and self.training:
-            x_start_batch = torch.stack(x_starts)
-            x_noise_batch = torch.stack(x_noises)
-            dt = self.cat_delta_t
-            with torch.no_grad():
-                t2 = (t + dt).clamp(0, 1)
-                t2_view = t2.view(-1, 1, 1)
-                x_t2 = (1.0 - t2_view) * x_start_batch + t2_view * x_noise_batch
-                curr_bboxes_t2 = self._raw_to_xyxy(x_t2, img_metas)
-                t2_input = t2 * self.timesteps
-                _, all_pred_t2, _, _ = self(features, curr_bboxes_t2, t2_input)
-                x0_t2 = self._xyxy_to_raw(all_pred_t2[-1], img_metas)
+    def _add_consistency_loss(
+        self, losses: dict, features, x_starts, x_noises,
+        all_pred_bboxes, img_metas, bs, device,
+    ):
+        if not (self.use_consistency_loss
+                and self.diffusion_type == "rectified_flow" and self.training):
+            return
+        x_start_batch = torch.stack(x_starts)
+        x_noise_batch = torch.stack(x_noises)
+        t_points = torch.linspace(
+            0.1, 0.9, steps=self.consistency_loss_num_points, device=device)
+        x0_main = self._xyxy_to_raw(all_pred_bboxes[-1], img_metas)
 
-            x0_t1 = self._xyxy_to_raw(all_pred_bboxes[-1], img_metas)
-            losses["loss_curvature"] = F.mse_loss(x0_t1, x0_t2.detach()) * self.cat_weight
+        total = torch.tensor(0.0, device=device)
+        n = 0
+        for t_k in t_points:
+            t_k_batch = t_k.expand(bs)
+            t_k_view = t_k_batch.view(-1, 1, 1)
+            x_tk = (1.0 - t_k_view) * x_start_batch + t_k_view * x_noise_batch
+            curr_bboxes_tk = self._raw_to_xyxy(x_tk, img_metas)
+            _, all_pred_tk, _, _ = self(features, curr_bboxes_tk, t_k_batch * self.timesteps)
+            total = total + F.mse_loss(self._xyxy_to_raw(all_pred_tk[-1], img_metas),
+                                       x0_main.detach())
+            n += 1
+        if n > 0:
+            losses["loss_consistency"] = total / n * self.consistency_loss_weight
 
-        # 7. LSAS: 重要性加权
-        if self.use_lsas and lsas_log_probs is not None:
-            with torch.no_grad():
-                total_loss_val = sum(losses.values())
-            log_weight = -lsas_log_probs
-            losses["loss_lsas"] = total_loss_val.detach() * log_weight.mean() * 0.01
+    def _add_consistency_cd_loss(
+        self, losses: dict, features, t, x_starts,
+        all_pred_bboxes, img_metas, bs, device,
+    ):
+        if not (self.use_consistency
+                and self.diffusion_type == "rectified_flow" and self.training):
+            return
+        K = self.consistency_num_timesteps
+        indices = torch.randint(1, K, (bs,), device=device)
+        t_n = indices.float() / K
+        t_n_minus_1 = (indices - 1).float() / K
 
-        # 8. Intermediate Trajectory Distillation (ITD)
-        # 在多个中间时间步提供 velocity 监督, 约束 ODE 路径为直线
-        # 核心: 对 K 个中间时间步 t_k, 构造 x_{t_k} 并前向, 计算 velocity loss
-        # 直线 ODE 的 velocity 为常数: v = x_0 - x_1 (对所有 t_k 相同)
-        if self.use_itd and self.diffusion_type == "rectified_flow" and self.training:
-            x_start_batch_itd = torch.stack(x_starts)
-            x_noise_batch_itd = torch.stack(x_noises)
-            v_target_itd = x_start_batch_itd - x_noise_batch_itd
+        x_noise_cd = torch.randn(bs, self.num_proposals, 4, device=device)
+        x_start_cd = torch.stack(x_starts)
+        t_n_view = t_n.view(-1, 1, 1)
+        x_tn = (1.0 - t_n_view) * x_start_cd + t_n_view * x_noise_cd
 
-            if self.itd_sampling == "uniform":
-                t_points = torch.linspace(
-                    0.1, 0.9, steps=self.itd_num_points, device=device
-                )
-            else:
-                t_points = 0.1 + 0.8 * torch.rand(self.itd_num_points, device=device)
+        with torch.no_grad():
+            curr_bboxes_tn = self._raw_to_xyxy(x_tn, img_metas)
+            _, all_pred_tn, _, _ = self(features, curr_bboxes_tn, t_n * self.timesteps)
+            x0_tn = self._xyxy_to_raw(all_pred_tn[-1], img_metas)
+            x_tnm1 = self.rf.step(x_tn, x0_tn, t_n[0].item(), t_n_minus_1[0].item())
+            curr_bboxes_tnm1 = self._raw_to_xyxy(x_tnm1, img_metas)
+            _, all_pred_tnm1, _, _ = self(features, curr_bboxes_tnm1,
+                                          t_n_minus_1 * self.timesteps)
+            x0_tnm1 = self._xyxy_to_raw(all_pred_tnm1[-1], img_metas)
 
-            itd_loss_total = torch.tensor(0.0, device=device)
-            num_valid = 0
-            for t_k in t_points:
-                t_k_batch = t_k.expand(bs)
-                t_k_view = t_k_batch.view(-1, 1, 1)
-                x_tk = (1.0 - t_k_view) * x_start_batch_itd + t_k_view * x_noise_batch_itd
-
-                curr_bboxes_tk = self._raw_to_xyxy(x_tk, img_metas)
-                t_k_input = t_k_batch * self.timesteps
-                _, _, _, all_vel_tk = self(features, curr_bboxes_tk, t_k_input)
-
-                if all_vel_tk[-1] is not None:
-                    itd_loss_total = itd_loss_total + F.mse_loss(all_vel_tk[-1], v_target_itd)
-                    num_valid += 1
-
-            if num_valid > 0:
-                itd_loss_total = itd_loss_total / num_valid
-            losses["loss_itd"] = itd_loss_total * self.itd_weight
-
-        # 8.5 Consistency Loss: x0 一致性约束
-        # 理论: 若 ODE 路径为直线, 则 x0^{pred}(x_t, t) 对所有 t 应一致
-        # 实现: 对 K 个中间时间步 t_k, 前向预测 x0, 惩罚与主预测 x0 的差异
-        # 与 ITD 的区别: ITD 约束 velocity 一致 (间接), Consistency 约束 x0 一致 (直接)
-        if self.use_consistency_loss and self.diffusion_type == "rectified_flow" and self.training:
-            x_start_batch_cl = torch.stack(x_starts)
-            x_noise_batch_cl = torch.stack(x_noises)
-
-            t_points = torch.linspace(
-                0.1, 0.9, steps=self.consistency_loss_num_points, device=device
-            )
-
-            x0_main = self._xyxy_to_raw(all_pred_bboxes[-1], img_metas)
-
-            cl_loss_total = torch.tensor(0.0, device=device)
-            num_valid_cl = 0
-            for t_k in t_points:
-                t_k_batch = t_k.expand(bs)
-                t_k_view = t_k_batch.view(-1, 1, 1)
-                x_tk = (1.0 - t_k_view) * x_start_batch_cl + t_k_view * x_noise_batch_cl
-
-                curr_bboxes_tk = self._raw_to_xyxy(x_tk, img_metas)
-                t_k_input = t_k_batch * self.timesteps
-                _, all_pred_tk, _, _ = self(features, curr_bboxes_tk, t_k_input)
-                x0_tk = self._xyxy_to_raw(all_pred_tk[-1], img_metas)
-
-                cl_loss_total = cl_loss_total + F.mse_loss(x0_tk, x0_main.detach())
-                num_valid_cl += 1
-
-            if num_valid_cl > 0:
-                cl_loss_total = cl_loss_total / num_valid_cl
-            losses["loss_consistency"] = cl_loss_total * self.consistency_loss_weight
-
-        # 9. Consistency Distillation: 单步推理约束
-        # f_student(b_tn, tn) ≈ f_ema(b_{tn-1}, tn-1)
-        if self.use_consistency and self.diffusion_type == "rectified_flow" and self.training:
-            K = self.consistency_num_timesteps
-            indices = torch.randint(1, K, (bs,), device=device)
-            t_n = indices.float() / K
-            t_n_minus_1 = (indices - 1).float() / K
-
-            x_noise_cd = torch.randn(bs, self.num_proposals, 4, device=device)
-            x_start_cd = torch.stack(x_starts)
-            t_n_view = t_n.view(-1, 1, 1)
-            x_tn = (1.0 - t_n_view) * x_start_cd + t_n_view * x_noise_cd
-
-            with torch.no_grad():
-                curr_bboxes_tn = self._raw_to_xyxy(x_tn, img_metas)
-                t_n_input = t_n * self.timesteps
-                _, all_pred_tn, _, _ = self(features, curr_bboxes_tn, t_n_input)
-                x0_tn = self._xyxy_to_raw(all_pred_tn[-1], img_metas)
-                x_tn_minus_1 = self.rf.step(x_tn, x0_tn, t_n[0].item(), t_n_minus_1[0].item())
-
-            if hasattr(self, "_ema_head") and self._ema_head is not None:
-                with torch.no_grad():
-                    curr_bboxes_tnm1 = self._raw_to_xyxy(x_tn_minus_1, img_metas)
-                    t_nm1_input = t_n_minus_1 * self.timesteps
-                    _, all_pred_tnm1, _, _ = self._ema_head(features, curr_bboxes_tnm1, t_nm1_input)
-                    x0_ema_tnm1 = self._xyxy_to_raw(all_pred_tnm1[-1], img_metas)
-
-                x0_student_tn = self._xyxy_to_raw(all_pred_bboxes[-1], img_metas)
-                losses["loss_consistency"] = F.mse_loss(x0_student_tn, x0_ema_tnm1.detach()) * self.consistency_weight
-
-        return losses
+        x0_student = self._xyxy_to_raw(all_pred_bboxes[-1], img_metas)
+        losses["loss_consistency_cd"] = (
+            F.mse_loss(x0_student, x0_tnm1.detach()) * self.consistency_weight)
 
     def _init_weights(self):
         """初始化权重"""

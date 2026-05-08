@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -311,6 +311,31 @@ class DiffusionDetMatcher(nn.Module):
         return fg_mask.nonzero().squeeze(1), matched_gt_inds
 
 
+class FlowMatchingVelocityLoss(nn.Module):
+    """Flow Matching 速度场 MSE Loss
+
+    L_flow = ||v_pred - (b_gt - z)||²
+    仅对前景 (matched) 提议框计算。
+    """
+
+    def __init__(self, loss_weight: float = 5.0):
+        super().__init__()
+        self.loss_weight = loss_weight
+
+    def forward(
+        self,
+        v_pred: Tensor,
+        v_target: Tensor,
+        fg_mask: Optional[Tensor] = None,
+    ) -> Tensor:
+        if fg_mask is not None:
+            v_pred = v_pred[fg_mask]
+            v_target = v_target[fg_mask]
+        if v_pred.numel() == 0:
+            return v_pred.sum() * 0
+        return F.mse_loss(v_pred, v_target) * self.loss_weight
+
+
 class DiffusionDetCriterion(nn.Module):
     """DiffusionDet 损失计算核心类 (纯 PyTorch)"""
 
@@ -322,6 +347,7 @@ class DiffusionDetCriterion(nn.Module):
         loss_bbox: nn.Module,
         loss_giou: nn.Module,
         deep_supervision: bool = True,
+        loss_objectness_weight: float = 1.0,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -330,6 +356,7 @@ class DiffusionDetCriterion(nn.Module):
         self.loss_bbox = loss_bbox
         self.loss_giou = loss_giou
         self.deep_supervision = deep_supervision
+        self.loss_objectness_weight = loss_objectness_weight
 
     def forward(
         self, outputs: ModelOutput, targets: List[InstanceData]
@@ -361,7 +388,13 @@ class DiffusionDetCriterion(nn.Module):
         # 计算回归损失
         loss_bbox, loss_giou = self._loss_boxes(outputs, targets, indices)
 
-        return {"loss_cls": loss_cls, "loss_bbox": loss_bbox, "loss_giou": loss_giou}
+        losses = {"loss_cls": loss_cls, "loss_bbox": loss_bbox, "loss_giou": loss_giou}
+
+        if outputs.pred_objectness is not None:
+            loss_obj = self._loss_objectness(outputs, targets, indices)
+            losses["loss_objectness"] = loss_obj
+
+        return losses
 
     def _loss_classification(
         self,
@@ -419,3 +452,23 @@ class DiffusionDetCriterion(nn.Module):
         loss_giou = self.loss_giou(src_boxes_pos, tgt_boxes_pos)
 
         return loss_bbox / num_pos, loss_giou / num_pos
+
+    def _loss_objectness(
+        self,
+        outputs: ModelOutput,
+        targets: List[InstanceData],
+        indices: List[Tuple[Tensor, Tensor]],
+    ) -> Tensor:
+        pred_obj = outputs.pred_objectness  # [B, N, 1]
+        bs, num_queries = pred_obj.shape[:2]
+        device = pred_obj.device
+
+        target_obj = torch.zeros(bs, num_queries, device=device)
+        for i, (src_idx, gt_idx) in enumerate(indices):
+            if len(src_idx) > 0:
+                target_obj[i, src_idx] = 1.0
+
+        loss_obj = F.binary_cross_entropy_with_logits(
+            pred_obj.squeeze(-1), target_obj, reduction="mean"
+        )
+        return loss_obj * self.loss_objectness_weight
