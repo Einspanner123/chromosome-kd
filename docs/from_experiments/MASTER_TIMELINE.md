@@ -1,7 +1,7 @@
 # LDMDet 完整理论与实验路线
 
 > 从 DiffusionDet 基线到 Flow Matching + OT 理论的完整研究轨迹
-> 最后更新：2026-05-12
+> 最后更新：2026-05-13（经两轮交叉校验，包含 60+ 实验日志核查）
 
 ---
 
@@ -80,10 +80,12 @@ AdaLN-Zero: MLP 最后一层零初始化 → $v_\theta|_{\text{init}} = 0$ → �
 
 | 实验 | mAP | 核心配置 |
 |---|---|---|
-| `diffusiondet_baseline` | ~0.45 | DiffusionDet 原论文复现（DDPM, scale-shift, 1步） |
-| `ldmdet_baseline` | 0.725 | 染色体数据集基线（DDPM, scale-shift, 4步推理） |
+| `diffusiondet_baseline` | 0.001（未收敛） | DiffusionDet 原论文复现（DDPM, scale-shift），训练失败，所有 epoch mAP=0 |
+| `ldmdet_baseline` | 0.725 | 染色体数据集基线（DDPM, scale-shift, **1步推理**） |
+| `ldmdet_baseline_step4` | 0.709 | 4步推理版本，配置仅步数不同，反低于1步（反常，需排查 DDPM 实现） |
+| `chromodet_baseline` | 0.717 | 早期基线，在 ldmdet_baseline 之前 |
 
-**关键**：DiffusionDet 在染色体数据集上基线 0.725，为后续改进提供参照。
+**关键**：`ldmdet_baseline` 使用 1 步推理即达到 0.725，4 步推理反降至 0.709——这在 DDPM 体系下反常（通常多步 > 单步）。可能的解释是 DDPM 1 步推理实际走了 DDIM skip 路径，需进一步排查代码实现。`diffusiondet_baseline` 在 work_dirs 中训练完全未收敛，~0.45 可能来自其他分支的早期实验。
 
 ### 阶段 1：RF 基础改进（路径直化）
 
@@ -132,7 +134,7 @@ AdaLN-Zero: MLP 最后一层零初始化 → $v_\theta|_{\text{init}} = 0$ → �
 - trd_full（0.752）与 group_hierarchical_stoch（0.752）并列 SOTA，但走的是两条正交路径：
   - **路径 A（group_hierarchical）**：优化耦合策略（群组层次 OT + stochastic）
   - **路径 B（trd_full）**：优化训练动力学（TRD + CAT + LSAS + velocity）
-- 两条路径理论上可以叠加——这是当前未探索的最大潜力点
+- **两条路径的组合已被实验探索，但结果为负交互**：`group_hierarchical_trd`=0.746, `stochastic_eps5_trd_cat`=0.740, `sinkhorn_trd_cat_lsas`=0.743，全部低于单路径最佳 0.752（详见 §七）
 
 ### 阶段 4：Reflow 单步推理探索
 
@@ -142,7 +144,7 @@ AdaLN-Zero: MLP 最后一层零初始化 → $v_\theta|_{\text{init}} = 0$ → �
 | Reflow v2（微调，val配对） | 0.739 | 1 | Epoch 1 最佳，后续退化 |
 | Reflow v3（微调，train配对） | 0.739 | 1 | 配对来源非关键问题 |
 | Reflow v4（修复velocity_head） | 0.739 | 1 | grad_norm=183.7，梯度爆炸 |
-| Reflow v5（warmup+调参） | **0.734** | 19 | grad_norm 正常化，但最佳 mAP 降低 |
+| Reflow v5（warmup+调参） | **0.739** | 1 | grad_norm 正常化，但 epoch 1 最佳后持续退化 |
 | Reflow v6（第2轮 Reflow） | 0.739 | 1 | 边际收益递减 |
 | ITD（中间轨迹蒸馏） | — | — | 理论提出，实验结果待确认 |
 
@@ -157,7 +159,7 @@ AdaLN-Zero: MLP 最后一层零初始化 → $v_\theta|_{\text{init}} = 0$ → �
 
 | 实验方向 | 结果 | 失败原因 |
 |---|---|---|
-| Scale-Conditioned FM (sc_noise, sc_loss, sc_combined) | 负收益 | 流速场偏移破坏最优性，重加权破坏变分原理 |
+| Scale-Conditioned FM (sc_noise=0.738, sc_loss=0.745, sc_combined=0.736) | 略低于 adaln 基线，sc_loss 接近持平 | 流速场偏移破坏最优性，重加权破坏变分原理（但 sc_loss 损失较小） |
 | KaryoFlow 排列学习 | 不可行 | 信息量不足 (25.8 bits << 178 bits) |
 
 **理论贡献**：两个负结果均有严格的数学分析，构成论文的"负面结果 + 理论解释"部分。
@@ -226,49 +228,61 @@ Sinkhorn + Stochastic Coupling 在随机耦合（最大多样性，零传输结�
 ### 5.1 基线体系
 
 ```
-diffusiondet_baseline/       - DiffusionDet 原论文基线
-ldmdet_baseline/             - 染色体数据集 DDPM 基线 (0.725)
-ldmdet_baseline_fair/        - 公平对比基线
-ldmdet_baseline_step4/       - 4步推理基线
-chromo_coco_detection/       - COCO 数据集基线
+diffusiondet_baseline/       - DiffusionDet 原论文基线（训练未收敛, 0.001）
+chromodet_baseline/          - 早期基线 (0.717)
+ldmdet_baseline/             - 染色体数据集 DDPM 基线, 1步推理 (0.725)
+ldmdet_baseline_fair/        - 公平对比基线 (0.705)
+ldmdet_baseline_step4/       - 4步推理基线，反低于1步 (0.709)
+chromo_coco_detection/       - COCO 数据集基线（无有效日志）
 ```
 
 ### 5.2 RF 核心改进链
 
 ```
-ldmdet_rf_heun_shifted_*     - RF + Heun + Shifted schedule 各变体
+ldmdet_rf_heun_shifted/      - RF + Heun + Shifted (0.749)
+ldmdet_rf_heun_shifted_bs2/  - batch_size=2 变体 (0.748)
+ldmdet_rf_heun_shifted_bs2_reproduce/ - 复现 (0.748)
+ldmdet_rf_heun_shifted_bs2_optimized/ - 优化版（无有效日志）
+ldmdet_rf_heun_shifted_dist/ - 分布式训练 (0.745)
+ldmdet_rf_heun_shifted_muon/ - Muon 优化器 (0.737)
+ldmdet_rf_heun_logit_shifted/ - Logit shifted (0.742)
+ldmdet_rf_shifted/           - RF + Shifted（训练失败, 0.466）
+ldmdet_rf_shifted_schdule_step1/ - RF + Shifted Schedule + 1步推理 (0.726)
+ldmdet_rf_shifted_all/       - RF shifted 全特征 (0.740)
 ldmdet_flowdet_adaln/        - AdaLN-Zero（最佳单模型，0.751）
-ldmdet_flowdet_adaln_cat/    - + Curvature-Aware Training（训练崩溃）
-ldmdet_flowdet_adaln_obj/    - + Objectness 分支
+ldmdet_flowdet_adaln_cat/    - + CAT（无 OT，0.740；各运行差异大）
+ldmdet_flowdet_adaln_obj/    - + Objectness 分支 (0.740)
+ldmdet_flowdet_convnext/     - ConvNeXt backbone 探索（训练失败, 0.001）
 ```
 
 ### 5.3 OT 耦合全系列
 
 ```
+ldmdet_flowdet_ot_coupling/                        - OT 耦合非 adaln 版 (0.749)
 ldmdet_flowdet_adaln_ot/                          - Nearest OT (0.735)
-ldmdet_flowdet_sinkhorn/                           - Sinkhorn OT 基础
+ldmdet_flowdet_sinkhorn/                           - Sinkhorn OT 基础 (0.720)
 ldmdet_flowdet_adaln_ot_sinkhorn/                  - Sinkhorn argmax eps=1 (0.748)
-ldmdet_flowdet_adaln_ot_sinkhorn_eps5/             - argmax eps=5
-ldmdet_flowdet_adaln_ot_sinkhorn_eps10/            - argmax eps=10
-ldmdet_flowdet_adaln_ot_sinkhorn_eps50/            - argmax eps=50
-ldmdet_flowdet_adaln_ot_sinkhorn_eps100/           - argmax eps=100
-ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps05/     - Stochastic eps=0.5
-ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps1/      - Stochastic eps=1
-ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps2/      - Stochastic eps=2
-ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps3/      - Stochastic eps=3
+ldmdet_flowdet_adaln_ot_sinkhorn_eps5/             - argmax eps=5 (0.745)
+ldmdet_flowdet_adaln_ot_sinkhorn_eps10/            - argmax eps=10 (0.745)
+ldmdet_flowdet_adaln_ot_sinkhorn_eps50/            - argmax eps=50 (0.747)
+ldmdet_flowdet_adaln_ot_sinkhorn_eps100/           - argmax eps=100 (0.733)
+ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps05/     - Stochastic eps=0.5 (0.742)
+ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps1/      - Stochastic eps=1 (0.748)
+ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps2/      - Stochastic eps=2 (0.744)
+ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps3/      - Stochastic eps=3 (0.741)
 ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5/      - Stochastic eps=5 (0.751)
-ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps10/     - Stochastic eps=10
+ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps10/     - Stochastic eps=10 (0.747)
 ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps50/     - Stochastic eps=50 (0.736, 退化)
-ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5_repro/ - 复现实验
-ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5_seed2/ - 多 seed 验证
+ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5_repro/ - 复现实验 (0.738, 可复现性差)
+ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5_seed2/ - 多 seed 验证 (0.750)
 ```
 
 ### 5.4 群组层次 OT
 
 ```
-ldmdet_flowdet_adaln_group_hierarchical/           - 群组层次 (argmax)
+ldmdet_flowdet_adaln_group_hierarchical/           - 群组层次 argmax (0.734)
 ldmdet_flowdet_adaln_group_hierarchical_stoch/     - 群组层次 stochastic (0.752)
-ldmdet_group_hierarchical_stoch_seed2/             - 多 seed 验证
+ldmdet_group_hierarchical_stoch_seed2/             - 多 seed 验证 (0.747)
 ```
 
 ### 5.5 TRD 系列
@@ -279,25 +293,62 @@ ldmdet_flowdet_adaln_trd_only/                     - TRD + velocity (0.746)
 ldmdet_flowdet_adaln_trd_full/                     - TRD+CAT+LSAS+velocity+Heun (0.752)
 ```
 
-### 5.6 Reflow 系列（单步推理）
+### 5.6 组合实验（两条 SOTA 路径）
+
+```
+ldmdet_group_hierarchical_trd/                     - 群组层次 + TRD 组合 (0.746)
+ldmdet_flowdet_adaln_stochastic_eps5_trd_cat/      - Stochastic + TRD + CAT (0.740)
+ldmdet_sinkhorn_trd_cat_lsas/                      - Sinkhorn + TRD + CAT + LSAS (0.743)
+```
+
+### 5.7 辅助模块消融
+
+```
+ldmdet_flowdet_adaln_cat_only/                     - CAT 单独使用 (0.744)
+ldmdet_flowdet_full/                               - 全特征组合 (0.740)
+ldmdet_flowdet_velocity/                           - Velocity 预测 (0.738)
+ldmdet_flowdet_structured_noise/                   - 结构化噪声 (0.742)
+ldmdet_flowdet_adaln_crossattn/                    - Cross-Attention v1 (0.745)
+ldmdet_flowdet_adaln_crossattn_v2/                 - Cross-Attention v2 (0.737)
+ldmdet_flowdet_adaln_lsas/                         - LSAS (0.743)
+```
+
+### 5.8 阶段式训练
+
+```
+ldmdet_phase1/                                     - 阶段1 (0.745)
+ldmdet_phaseA/                                     - 阶段A (0.714)
+ldmdet_phaseB/                                     - 阶段B (0.731)
+ldmdet_phaseC/                                     - 阶段C (0.701)
+ldmdet_phase1+2/                                   - 阶段1+2 (0.727)
+ldmdet_phase1+2+3/                                 - 阶段1+2+3 (0.686)
+ldmdet_phase1+2_dap/                               - 阶段1+2 dap (0.714)
+ldmdet_phase1+2_eval_T1/                           - 阶段1+2 T1评估
+```
+
+### 5.9 Reflow 系列（单步推理）
 
 ```
 ldmdet_flowdet_adaln_reflow/                       - Reflow v1（从零训练）
 ldmdet_flowdet_adaln_reflow_v2/                    - Reflow v2（微调，val配对）
 ldmdet_flowdet_adaln_reflow_*                      - Reflow v3-v6
-ldmdet_flowdet_adaln_reflow_det_only/              - 仅检测 loss
-ldmdet_flowdet_adaln_reflow_det_only_30ep/         - det_only 长训练
-ldmdet_flowdet_adaln_reflow_det_only_lr1e6/        - det_only 低学习率
-ldmdet_flowdet_adaln_reflow_freeze/                - 冻结共享层
-ldmdet_flowdet_adaln_reflow_freeze_stage2/         - 两阶段训练
-ldmdet_flowdet_adaln_reflow_itd/                   - 中间轨迹蒸馏 (ITD)
-ldmdet_flowdet_adaln_reflow_lr1e6_vel/             - 低 lr velocity
-ldmdet_flowdet_adaln_reflow_consistency/           - Consistency Distillation
-ldmdet_flowdet_adaln_reflow_pcgrad/                - PCGrad 梯度冲突缓解
-ldmdet_flowdet_adaln_reflow_vel_detach/            - Velocity detachment
+ldmdet_flowdet_adaln_reflow_det_only/              - 仅检测 loss (0.742)
+ldmdet_flowdet_adaln_reflow_det_only_30ep/         - det_only 长训练 (0.739)
+ldmdet_flowdet_adaln_reflow_det_only_lr1e6/        - det_only 低学习率 (0.741)
+ldmdet_flowdet_adaln_reflow_freeze/                - 冻结共享层 (0.740)
+ldmdet_flowdet_adaln_reflow_freeze_stage2/         - 两阶段训练 (0.740)
+ldmdet_flowdet_adaln_reflow_itd/                   - 中间轨迹蒸馏 (ITD) (0.738)
+ldmdet_flowdet_adaln_reflow_lr1e6_vel/             - 低 lr velocity (0.740)
+ldmdet_flowdet_adaln_reflow_consistency/           - Consistency Distillation (0.740)
+ldmdet_flowdet_adaln_reflow_pcgrad/                - PCGrad 梯度冲突缓解 (0.740)
+ldmdet_flowdet_adaln_reflow_vel_detach/            - Velocity detachment (0.740)
+ldmdet_flowdet_adaln_reflow_v5_long/               - v5 长训练 (0.741)
+ldmdet_flowdet_adaln_reflow_v5_s03/                - v5 seed=0.3 (0.740)
+ldmdet_flowdet_adaln_reflow_v5_s07/                - v5 seed=0.7 (0.740)
+ldmdet_flowdet_adaln_reflow_v5_s10/                - v5 seed=1.0 (0.740)
 ```
 
-### 5.7 诊断与工具实验
+### 5.10 诊断与工具实验
 
 ```
 eval_multistep/                                    - 多步评估诊断
@@ -306,7 +357,7 @@ coco_random/                                       - COCO 随机耦合对比
 coco_ot_sinkhorn_eps5/                             - COCO OT 对比
 ```
 
-### 5.8 探索性实验
+### 5.11 探索性实验
 
 ```
 karyoflow_overfit/overfit2/overfit3/               - KaryoFlow 过拟合探索
@@ -315,9 +366,9 @@ ldmdet_flowdet_adaln_crossattn/                    - Cross-Attention
 ldmdet_flowdet_adaln_crossattn_v2/                 - Cross-Attention v2
 ldmdet_flowdet_adaln_convnext/                     - ConvNeXt backbone
 ldmdet_flowdet_adaln_lsas/                         - Loss-Sensitive Adaptive Scheduling
-ldmdet_flowdet_objectness/                         - Objectness 分支
-ldmdet_single_chromo_*                             - 单染色体实验
-scale_conditioned_*                                - Scale-Conditioned 系列（负结果）
+ldmdet_flowdet_objectness/                         - Objectness 分支 (0.739)
+ldmdet_single_chromo_*                             - 单染色体实验 (argmax_eps1=0.594, argmax_eps5=0.627, hard_ot=0.683, random=0.676, stoch_eps5=0.681)
+scale_conditioned_*                                - Scale-Conditioned 系列 (sc_loss=0.745, sc_noise=0.738, sc_combined=0.736)
 ablations/                                         - 消融实验集合
 ```
 
@@ -333,7 +384,7 @@ ablations/                                         - 消融实验集合
 | `trd_full` | **0.752** | 0.940 | 0.835 | TRD + CAT + LSAS + velocity + Heun |
 | `adaln` (vanilla) | 0.751 | 0.943 | 0.843 | AdaLN-Zero + Heun（无 OT） |
 | `sinkhorn_sample_eps5` | 0.751 | 0.945 | 0.839 | Sinkhorn Stochastic eps=5 |
-| `ot_coupling` | 0.749 | 0.941 | 0.836 | Nearest OT |
+| `ot_coupling` | 0.749 | 0.941 | 0.836 | Nearest OT（非 adaln 版，无 objectness） |
 | `ot_sinkhorn` | 0.748 | 0.947 | 0.840 | Sinkhorn argmax eps=1 |
 | `trd_only` | 0.746 | 0.942 | 0.834 | TRD + velocity |
 
@@ -342,7 +393,7 @@ ablations/                                         - 消融实验集合
 | 实验 | 1步 mAP | vs 4步基线 |
 |---|---|---|
 | Reflow v6 (2轮 Reflow) | 0.739 | -0.013 |
-| Reflow v5 (1轮 Reflow) | 0.734 | -0.018 |
+| Reflow v5 (1轮 Reflow) | 0.739 (train) / 0.731 (eval) | -0.013 / -0.021 |
 | TRD-Full (无 Reflow) | 0.728 | -0.024 |
 
 ### 6.3 效率-精度前沿
@@ -358,7 +409,9 @@ ablations/                                         - 消融实验集合
 
 ---
 
-## 七、两条正交 SOTA 路径的互补性
+## 七、两条 SOTA 路径的组合：已探索但存在负交互
+
+### 7.1 正交路径对比
 
 | 维度 | 路径 A (group_hierarchical) | 路径 B (trd_full) |
 |---|---|---|
@@ -366,9 +419,29 @@ ablations/                                         - 消融实验集合
 | 关键模块 | 群组层次 OT + stochastic | TRD + CAT + LSAS + velocity |
 | 推理时行为 | 无额外计算 | TRD 自条件精化（需额外前向） |
 | 耦合方式 | Sinkhorn Stochastic | Nearest OT |
-| 与对方的兼容性 | ✅ 可用 TRD 精化 | ✅ 可用群组层次 OT |
 
-**未探索的最大潜力**：两条路径的组合——取群组层次 stochastic OT 的耦合，加 TRD/CAT/LSAS 的训练动力学优化，预期 mAP 0.753-0.754。
+### 7.2 组合实验结果（全为负交互）
+
+| 组合实验 | mAP | 配置 | vs 最佳单路径 (0.752) |
+|---|---|---|---|
+| `group_hierarchical_trd` | **0.746** | 群组层次 OT + stochastic + TRD | **-0.006** |
+| `sinkhorn_trd_cat_lsas` | **0.743** | Sinkhorn stochastic + TRD + CAT + LSAS | **-0.009** |
+| `stochastic_eps5_trd_cat` | **0.740** | Sinkhorn stochastic + TRD + CAT | **-0.012** |
+
+**三个组合实验全部低于任一单路径最佳值 0.752。** 这不是"未探索"，而是"已探索但组合效应为负"。
+
+### 7.3 负交互的可能原因
+
+1. **机制冲突**：OT 耦合优化了传输路径使每步预测更确定，而 TRD 依赖前一步预测的不确定性来提供精化信号——两者存在功能层面的矛盾
+2. **边际收益递减**：训练动力学优化（TRD/CAT/LSAS）的收益在 OT 已优化后的路径上递减更快
+3. **超参数耦合**：组合引入了更大的超参数空间，当前配置可能未找到最优组合点
+4. **梯度干扰**：CAT 的曲率惩罚可能与 OT 的确定性配对在梯度方向上产生新的冲突
+
+### 7.4 对论文的影响
+
+- 这构成一个重要的**负结果发现**：耦合优化和训练动力学优化虽然理论上正交，但实践中存在负交互
+- 不被此否定整体方向——两条路径各自独立到达 0.752 反而证明了方法的鲁棒性
+- 理解负交互的机制本身是新的研究问题，可以作为论文的 discussion 部分
 
 ---
 
@@ -387,19 +460,23 @@ ablations/                                         - 消融实验集合
 
 1. **硬 OT 耦合（argmax）**：在低维空间导致多样性坍缩，反而不如随机
 2. **Sinkhorn + argmax 管线**：ε 参数被 argmax 短路，无法调控多样性
-3. **CAT（曲率正则化）单独使用**：导致训练崩溃（实现有 bug）
-4. **Scale-Conditioned FM**：三种理论原因导致必然无效
-5. **KaryoFlow 端到端排列学习**：信息论下界不可达
-6. **多次 Reflow**：边际收益递减，第2轮几乎无收益
+3. **CAT（曲率正则化）**：`cat` 与 OT 组合时有一运行全部 eval 为 0，`cat_only` (0.744) 单独使用正常——问题出在特定组合而非 CAT 本身
+4. **Stochastic OT 可复现性**：`repro`=0.738 远低于原始 0.751（差 1.3%），对随机种子敏感；同时 `seed2`=0.750 较接近，说明存在统计波动
+5. **两条 SOTA 路径的直接组合**：`group_hierarchical_trd`=0.746，存在负交互（详见 §七）
+6. **Scale-Conditioned FM**：三种理论原因导致必然无效，但 sc_loss=0.745 下降幅度较小（vs adaln -0.006）
+7. **KaryoFlow 端到端排列学习**：信息论下界不可达
+8. **多次 Reflow**：边际收益递减，第2轮几乎无收益
 
 ### 8.3 仍待解决的问题
 
 1. **Reflow 退化陷阱**：梯度冲突（cos=-0.104）的稳定解决方案
 2. **velocity loss 收敛天花板**：~0.23-0.30 后停滞
 3. **1步 vs 4步的 1.3% 差距**：当前 Reflow 只能缩小到 1.3%
-4. **两条 SOTA 路径的组合**：理论上有叠加效应，待实验验证
-5. **COCO 通用性验证**：当前所有实验均在染色体数据集
-6. **更大 ε（ε=1-3）的 Stochastic 实验**：理论上最优区间，待实测
+4. **两条 SOTA 路径的负交互根因**：已确认组合 < 单路径，需要理解负交互机制
+5. **Stochastic OT 可复现性**：repro=0.738 vs seed2=0.750，波动范围 1.2%，需多 seed 统计
+6. **COCO 通用性验证**：当前所有实验均在染色体数据集
+7. **更大 ε（ε=1-3）的 Stochastic 实验**：理论上最优区间，待实测
+8. **ldmdet_baseline 的 1步 > 4步 反常**：需排查 DDPM 1步推理是否实际走了 DDIM skip
 
 ---
 
@@ -409,7 +486,7 @@ ablations/                                         - 消融实验集合
 
 1. 基于扩散的目标检测中，OD E路径直度由耦合质量、修正曲率和时间分配三者共同决定，而非单一因素
 2. 在低维检测空间（$\mathbb{R}^4$）中，OT 耦合导致训练多样性严重坍缩（$\Delta H = \log K$），而 Stochastic Coupling 是最优修复方案
-3. 通过耦合策略优化（群组层次 OT）和训练动力学优化（TRD+C AT+LSAS）两条正交路径，可以达到 0.752 mAP，且两者理论上可叠加
+3. 通过耦合策略优化（群组层次 OT）和训练动力学优化（TRD+CAT+LSAS）两条正交路径，各自独立达到 0.752 mAP；但两路径的直接组合存在负交互（< 0.752），揭示了耦合与训练动力学之间的深层冲突
 
 ### 9.2 三大贡献
 
@@ -424,6 +501,7 @@ ablations/                                         - 消融实验集合
 3. **"更多 Reflow 更好"** → 边际收益递减，根因是梯度冲突而非路径不够直
 4. **"Scale-Conditioned 可以改善小物体检测"** → 流速场偏移和变分原理破坏导致必然无效
 5. **"端到端排列学习可行"** → 信息论下界（178 bits）远超可用信息量（25.8 bits）
+6. **"OT + TRD 组合必然叠加"** → 直接组合存在负交互（0.746 < 0.752），耦合优化和训练动力学优化存在机制冲突
 
 ---
 
@@ -431,10 +509,11 @@ ablations/                                         - 消融实验集合
 
 ### P0：论文必需（1-2周）
 
-1. **两条 SOTA 路径的组合实验**：Group-Hierarchical Stochastic OT + TRD + Heun（预期 0.753-0.754）
-2. **Stochastic ε=1.0 和 ε=2.0 实验**：验证理论预测的最优 ε 区间
-3. **COCO 数据集验证**：RF + AdaLN + Shifted 在 COCO 上的通用性证明
-4. **完整消融表**：补齐所有模块的消融实验数据
+1. **分析两条 SOTA 路径的负交互根因**：已确认组合 < 单路径（§七），需理解机制并寻找绕过负交互的方案
+2. **Stochastic ε=1.0 和 ε=2.0 实验**：验证理论预测的最优 ε 区间（目前仅测了 ε=5 和 ε=50）
+3. **Stochastic OT 多 seed 统计**：解决 repro=0.738 的可复现性问题，至少 3 seed 取均值
+4. **COCO 数据集验证**：RF + AdaLN + Shifted 在 COCO 上的通用性证明
+5. **完整消融表**：补齐所有模块的消融实验数据（含已遗漏的 15+ 个实验）
 
 ### P1：强化论文（2-4周）
 
@@ -464,4 +543,4 @@ ablations/                                         - 消融实验集合
 
 ---
 
-*本文档整合了 work_dirs 中所有实验分支的 markdown 文档、实验日志和理论分析。主要来源：THEORY_FRAMEWORK.md, OT_DIVERSITY_COLLAPSE_PROOF.md, experiment_summary.md, SOTA_ANALYSIS.md, THEORY_WHY_FAILED.md, IMPROVEMENT_PLAN.md, LDMDet_Architecture.md, WEEK1_REPRO_PROTOCOL.md, Research_Plan.md, PAPER_FRAMEWORK.md, 以及 research_qna 中的 11 篇中文研究方向文档。*
+*本文档整合了 work_dirs 中所有实验分支的 markdown 文档、实验日志和理论分析。主要来源：THEORY_FRAMEWORK.md, OT_DIVERSITY_COLLAPSE_PROOF.md, experiment_summary.md, SOTA_ANALYSIS.md, THEORY_WHY_FAILED.md, IMPROVEMENT_PLAN.md, LDMDet_Architecture.md, WEEK1_REPRO_PROTOCOL.md, Research_Plan.md, PAPER_FRAMEWORK.md, 以及 research_qna 中的 11 篇中文研究方向文档。2026-05-13 经过两轮交叉校验，修正了 13 处数值/结论错误，补充了 15+ 个遗漏实验，所有 mAP 数值均经 work_dirs 日志逐一核查。*
