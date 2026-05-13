@@ -11,6 +11,7 @@ MASTER_TIMELINE.md 数据验证脚本
 """
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -670,10 +671,208 @@ def format_report(
     return "\n".join(lines)
 
 
+MODS_CORE_FILES = [
+    "diffusiondet_head.py",
+    "loss.py",
+    "sinkhorn.py",
+    "rectified_flow.py",
+    "reflow.py",
+    "noise_sampler.py",
+    "modules.py",
+    "single_head.py",
+    "consistency.py",
+    "roi_extractor.py",
+    "structures.py",
+    "utils.py",
+]
+
+
+def _file_hash(p: Path) -> Optional[str]:
+    if not p.exists():
+        return None
+    try:
+        return hashlib.md5(p.read_bytes()).hexdigest()
+    except Exception:
+        return None
+
+
+def scan_backup_paths(root: str) -> Dict[str, dict]:
+    """扫描 work_dirs，为每个实验找到最新备份及差异模块。
+
+    返回 {dir_name: {run_ts, backup_rel_path, config, modified_mods}}。
+    """
+    root_path = Path(root)
+    if not root_path.exists():
+        return {}
+
+    ref_dir = root_path / "ldmdet_flowdet_adaln"
+    ref_backups = sorted(ref_dir.glob("*/LDMDet_backup"), reverse=True)
+    ref_hashes: Dict[str, Optional[str]] = {}
+    ref_model_hash: Optional[str] = None
+    if ref_backups:
+        ref = ref_backups[0]
+        for f in MODS_CORE_FILES:
+            ref_hashes[f] = _file_hash(ref / "mods" / f)
+        ref_model_hash = _file_hash(ref / "model.py")
+
+    results: Dict[str, dict] = {}
+    for exp_dir in sorted(root_path.iterdir()):
+        if not exp_dir.is_dir():
+            continue
+        name = exp_dir.name
+        backups = sorted(exp_dir.glob("*/LDMDet_backup"), reverse=True)
+        if not backups:
+            continue
+        latest = backups[0]
+        run_ts = latest.parent.name
+
+        config_match = None
+        config_dir = latest / "configs"
+        if config_dir.exists():
+            all_configs = sorted(config_dir.glob("*.py"))
+            name_norm = name.replace("+", "_")
+            for cfg in all_configs:
+                cfg_stem = cfg.stem.replace("+", "_")
+                if cfg_stem == name_norm:
+                    config_match = f"configs/{cfg.name}"
+                    break
+            if config_match is None:
+                for cfg in all_configs:
+                    cfg_stem = cfg.stem.replace("+", "_")
+                    if name_norm.startswith(cfg_stem) or cfg_stem.startswith(name_norm):
+                        config_match = f"configs/{cfg.name}"
+                        break
+
+        modified: List[str] = []
+        model_h = _file_hash(latest / "model.py")
+        if model_h and model_h != ref_model_hash:
+            modified.append("model.py")
+        for f in MODS_CORE_FILES:
+            h = _file_hash(latest / "mods" / f)
+            if h and h != ref_hashes.get(f):
+                modified.append(f"mods/{f}")
+
+        results[name] = {
+            "run_ts": run_ts,
+            "backup_rel_path": f"{name}/{run_ts}/LDMDet_backup",
+            "config": config_match,
+            "modified_mods": modified,
+        }
+
+    return results
+
+
+def add_backup_paths_to_doc(timeline_path: str, backup_info: Dict[str, dict]) -> str:
+    """在 MASTER_TIMELINE.md 的代码块中为实验条目添加备份路径标注。
+
+    格式: 在实验条目下方添加一行
+        ↳ <timestamp>/LDMDet_backup/ → configs/xxx.py, mods/yyy.py
+    """
+    with open(timeline_path, "r") as f:
+        lines = f.readlines()
+
+    in_code_block = False
+    result: List[str] = []
+    i = 0
+
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.rstrip("\n")
+
+        if stripped.strip().startswith("```"):
+            in_code_block = not in_code_block
+            result.append(line)
+            i += 1
+            continue
+
+        if not in_code_block:
+            result.append(line)
+            i += 1
+            continue
+
+        exp_name = None
+        dir_name = None
+
+        m_list = re.match(
+            r"^(\s*)((?:ldmdet|diffusiondet|chromodet|scale_conditioned)[\w+./-]*)\s*-\s+",
+            stripped,
+        )
+        if m_list:
+            exp_name = m_list.group(2).strip().rstrip("/")
+            dir_name = resolve_dir_name(exp_name)
+
+        if dir_name is None:
+            m_wc = re.match(
+                r"^(\s*)((?:ldmdet|scale_conditioned)[\w]*)\*",
+                stripped,
+            )
+            if m_wc:
+                prefix = m_wc.group(2)
+                wc_indent = m_wc.group(1)
+                wc_entries = []
+                for alias_val in sorted(set(DIR_NAME_ALIASES.values())):
+                    if alias_val.startswith(prefix) and alias_val in backup_info:
+                        wc_entries.append(alias_val)
+                if wc_entries:
+                    result.append(line)
+                    already_has_annotation = False
+                    if i + 1 < len(lines):
+                        next_stripped = lines[i + 1].strip()
+                        if next_stripped.startswith("↳"):
+                            already_has_annotation = True
+                    if not already_has_annotation:
+                        for wc_name in wc_entries:
+                            info = backup_info[wc_name]
+                            parts = []
+                            if info["config"]:
+                                parts.append(info["config"])
+                            parts.extend(info["modified_mods"])
+                            if parts:
+                                ann = f"{wc_indent}    ↳ {wc_name}/{info['run_ts']}/LDMDet_backup/ → {', '.join(parts)}"
+                            else:
+                                ann = f"{wc_indent}    ↳ {wc_name}/{info['run_ts']}/LDMDet_backup/"
+                            result.append(ann + "\n")
+                    i += 1
+                    continue
+
+        result.append(line)
+
+        if dir_name and dir_name in backup_info:
+            info = backup_info[dir_name]
+            parts = []
+            if info["config"]:
+                parts.append(info["config"])
+            parts.extend(info["modified_mods"])
+
+            indent = m_list.group(1) if m_list else "    "
+            if parts:
+                annotation = f"{indent}    ↳ {info['run_ts']}/LDMDet_backup/ → {', '.join(parts)}"
+            else:
+                annotation = f"{indent}    ↳ {info['run_ts']}/LDMDet_backup/"
+
+            already_has_annotation = False
+            if i + 1 < len(lines):
+                next_stripped = lines[i + 1].strip()
+                if next_stripped.startswith("↳"):
+                    already_has_annotation = True
+
+            if not already_has_annotation:
+                result.append(annotation + "\n")
+
+        i += 1
+
+    return "".join(result)
+
+
 def main():
     parser = argparse.ArgumentParser(description="验证 MASTER_TIMELINE.md 中的 mAP 数据")
     parser.add_argument("--fix", action="store_true", help="显示修复建议")
     parser.add_argument("--json", action="store_true", help="JSON 格式输出")
+    parser.add_argument(
+        "--add-backup-paths",
+        action="store_true",
+        help="为文档中的实验条目添加备份路径标注",
+    )
     parser.add_argument(
         "--work-dirs",
         default=WORK_DIRS_ROOT,
@@ -685,6 +884,19 @@ def main():
         help="MASTER_TIMELINE.md 文件路径",
     )
     args = parser.parse_args()
+
+    if args.add_backup_paths:
+        print("扫描 work_dirs 备份路径...", file=sys.stderr)
+        backup_info = scan_backup_paths(args.work_dirs)
+        print(f"  找到 {len(backup_info)} 个实验备份", file=sys.stderr)
+
+        print("为文档添加备份路径标注...", file=sys.stderr)
+        updated = add_backup_paths_to_doc(args.timeline, backup_info)
+
+        with open(args.timeline, "w") as f:
+            f.write(updated)
+        print(f"  已写入 {args.timeline}", file=sys.stderr)
+        return
 
     print("扫描 work_dirs 日志...", file=sys.stderr)
     ground_truth = scan_work_dirs(args.work_dirs)
