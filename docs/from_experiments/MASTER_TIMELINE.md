@@ -352,7 +352,7 @@ ldmdet_flowdet_structured_noise/                   - 结构化噪声 (0.742)
 ldmdet_flowdet_adaln_crossattn/                    - Cross-Attention v1 (0.745)
     ↳ 20260503_021743/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_crossattn.py, model.py, mods/diffusiondet_head.py, mods/loss.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
 ldmdet_flowdet_adaln_crossattn_v2/                 - Cross-Attention v2 (0.737)
-    ↳ 20260503_162641/LDMDet_backup/ → configs/ldmdet_flowdet_adaln.py, model.py, mods/diffusiondet_head.py, mods/loss.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
+    ↳ 20260503_162641/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_crossattn.py, model.py, mods/diffusiondet_head.py, mods/loss.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
 ldmdet_flowdet_adaln_lsas/                         - LSAS (0.743)
     ↳ 20260410_220847/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_lsas.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
 ```
@@ -382,32 +382,20 @@ ldmdet_phase1+2_eval_T1/                           - 阶段1+2 T1评估
 ```
 ldmdet_flowdet_adaln_reflow/                       - Reflow v1（从零训练）
     ↳ 20260413_212531/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-ldmdet_flowdet_adaln_reflow_v2/                    - Reflow v2（微调，val配对）
-    ↳ 20260414_104819/LDMDet_backup/ → configs/ldmdet_flowdet_adaln.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-ldmdet_flowdet_adaln_reflow_*                      - Reflow v3-v6
-    ↳ ldmdet_flowdet_adaln_reflow_consistency/20260419_012005/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow_consistency.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-    ↳ ldmdet_flowdet_adaln_reflow_det_only/20260420_145858/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow_det_only.py, model.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-    ↳ ldmdet_flowdet_adaln_reflow_det_only_30ep/20260420_163323/LDMDet_backup/ → configs/ldmdet_flowdet_adaln.py, model.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-    ↳ ldmdet_flowdet_adaln_reflow_det_only_lr1e6/20260420_210205/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow_det_only_lr1e6.py, model.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-    ↳ ldmdet_flowdet_adaln_reflow_freeze/20260418_154154/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow_freeze.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-    ↳ ldmdet_flowdet_adaln_reflow_freeze_stage2/20260421_101140/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow_freeze_stage2.py, model.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-    ↳ ldmdet_flowdet_adaln_reflow_itd/20260417_003853/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow_itd.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-    ↳ ldmdet_flowdet_adaln_reflow_lr1e6_vel/20260420_222217/LDMDet_backup/
-    ↳ ldmdet_flowdet_adaln_reflow_pcgrad/20260419_222547/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow_pcgrad.py, model.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-    ↳ ldmdet_flowdet_adaln_reflow_v2/20260414_104819/LDMDet_backup/ → configs/ldmdet_flowdet_adaln.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-    ↳ ldmdet_flowdet_adaln_reflow_v3/20260414_202306/LDMDet_backup/ → configs/ldmdet_flowdet_adaln.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-    ↳ ldmdet_flowdet_adaln_reflow_v4/20260415_104048/LDMDet_backup/ → configs/ldmdet_flowdet_adaln.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-    ↳ ldmdet_flowdet_adaln_reflow_v5/20260415_155618/LDMDet_backup/ → configs/ldmdet_flowdet_adaln.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-    ↳ ldmdet_flowdet_adaln_reflow_v5_long/20260416_144657/LDMDet_backup/ → configs/ldmdet_flowdet_adaln.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-    ↳ ldmdet_flowdet_adaln_reflow_v5_s03/20260416_103423/LDMDet_backup/ → configs/ldmdet_flowdet_adaln.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-    ↳ ldmdet_flowdet_adaln_reflow_v5_s07/20260416_111430/LDMDet_backup/ → configs/ldmdet_flowdet_adaln.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-    ↳ ldmdet_flowdet_adaln_reflow_v5_s10/20260416_115456/LDMDet_backup/ → configs/ldmdet_flowdet_adaln.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-    ↳ ldmdet_flowdet_adaln_reflow_v6/20260416_165522/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow_v6.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-    ↳ ldmdet_flowdet_adaln_reflow_vel_detach/20260420_094419/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow_vel_detach.py, model.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
+ldmdet_flowdet_adaln_reflow_v2/                    - Reflow v2（微调，val配对）(0.739)
+    ↳ 20260414_104819/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
+ldmdet_flowdet_adaln_reflow_v3/                    - Reflow v3（微调，train配对）(0.739)
+    ↳ 20260414_202306/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
+ldmdet_flowdet_adaln_reflow_v4/                    - Reflow v4（修复velocity_head）(0.739)
+    ↳ 20260415_104048/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
+ldmdet_flowdet_adaln_reflow_v5/                    - Reflow v5（warmup+调参）(0.739)
+    ↳ 20260415_155618/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
+ldmdet_flowdet_adaln_reflow_v6/                    - Reflow v6（第2轮 Reflow）(0.739)
+    ↳ 20260416_165522/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow_v6.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
 ldmdet_flowdet_adaln_reflow_det_only/              - 仅检测 loss (0.742)
     ↳ 20260420_145858/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow_det_only.py, model.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
 ldmdet_flowdet_adaln_reflow_det_only_30ep/         - det_only 长训练 (0.739)
-    ↳ 20260420_163323/LDMDet_backup/ → configs/ldmdet_flowdet_adaln.py, model.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
+    ↳ 20260420_163323/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow_det_only.py, model.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
 ldmdet_flowdet_adaln_reflow_det_only_lr1e6/        - det_only 低学习率 (0.741)
     ↳ 20260420_210205/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow_det_only_lr1e6.py, model.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
 ldmdet_flowdet_adaln_reflow_freeze/                - 冻结共享层 (0.740)
@@ -417,7 +405,7 @@ ldmdet_flowdet_adaln_reflow_freeze_stage2/         - 两阶段训练 (0.740)
 ldmdet_flowdet_adaln_reflow_itd/                   - 中间轨迹蒸馏 (ITD) (0.738)
     ↳ 20260417_003853/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow_itd.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
 ldmdet_flowdet_adaln_reflow_lr1e6_vel/             - 低 lr velocity (0.740)
-    ↳ 20260420_222217/LDMDet_backup/
+    ↳ 20260420_222217/LDMDet_backup/ (仅文档，无代码备份); config→../ldmdet_flowdet_adaln_reflow_lr1e6_vel.py
 ldmdet_flowdet_adaln_reflow_consistency/           - Consistency Distillation (0.740)
     ↳ 20260419_012005/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow_consistency.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
 ldmdet_flowdet_adaln_reflow_pcgrad/                - PCGrad 梯度冲突缓解 (0.740)
@@ -425,13 +413,13 @@ ldmdet_flowdet_adaln_reflow_pcgrad/                - PCGrad 梯度冲突缓解 (
 ldmdet_flowdet_adaln_reflow_vel_detach/            - Velocity detachment (0.740)
     ↳ 20260420_094419/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow_vel_detach.py, model.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
 ldmdet_flowdet_adaln_reflow_v5_long/               - v5 长训练 (0.741)
-    ↳ 20260416_144657/LDMDet_backup/ → configs/ldmdet_flowdet_adaln.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
+    ↳ 20260416_144657/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
 ldmdet_flowdet_adaln_reflow_v5_s03/                - v5 seed=0.3 (0.740)
-    ↳ 20260416_103423/LDMDet_backup/ → configs/ldmdet_flowdet_adaln.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
+    ↳ 20260416_103423/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
 ldmdet_flowdet_adaln_reflow_v5_s07/                - v5 seed=0.7 (0.740)
-    ↳ 20260416_111430/LDMDet_backup/ → configs/ldmdet_flowdet_adaln.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
+    ↳ 20260416_111430/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
 ldmdet_flowdet_adaln_reflow_v5_s10/                - v5 seed=1.0 (0.740)
-    ↳ 20260416_115456/LDMDet_backup/ → configs/ldmdet_flowdet_adaln.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
+    ↳ 20260416_115456/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_reflow.py, mods/diffusiondet_head.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
 ```
 
 ### 5.10 诊断与工具实验
@@ -451,7 +439,7 @@ karyoflow_v1/                                      - KaryoFlow v1
 ldmdet_flowdet_adaln_crossattn/                    - Cross-Attention
     ↳ 20260503_021743/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_crossattn.py, model.py, mods/diffusiondet_head.py, mods/loss.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
 ldmdet_flowdet_adaln_crossattn_v2/                 - Cross-Attention v2
-    ↳ 20260503_162641/LDMDet_backup/ → configs/ldmdet_flowdet_adaln.py, model.py, mods/diffusiondet_head.py, mods/loss.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
+    ↳ 20260503_162641/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_crossattn.py, model.py, mods/diffusiondet_head.py, mods/loss.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
 ldmdet_flowdet_adaln_convnext/                     - ConvNeXt backbone
     ↳ 20260503_194026/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_convnext.py, model.py, mods/diffusiondet_head.py, mods/loss.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/modules.py, mods/single_head.py
 ldmdet_flowdet_adaln_lsas/                         - Loss-Sensitive Adaptive Scheduling

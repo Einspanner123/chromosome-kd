@@ -728,35 +728,50 @@ def scan_backup_paths(root: str) -> Dict[str, dict]:
 
         config_match = None
         config_dir = latest / "configs"
-        if config_dir.exists():
-            all_configs = sorted(config_dir.glob("*.py"))
+        has_code = any(p.suffix == ".py" for p in latest.rglob("*") if p.is_file())
+        if config_dir.exists() and has_code:
+            all_configs = sorted(config_dir.rglob("*.py"))
             name_norm = name.replace("+", "_")
+            best_match = None
+            best_score = -1
             for cfg in all_configs:
                 cfg_stem = cfg.stem.replace("+", "_")
+                rel = str(cfg.relative_to(config_dir))
                 if cfg_stem == name_norm:
-                    config_match = f"configs/{cfg.name}"
+                    config_match = f"configs/{rel}"
+                    best_match = None
                     break
-            if config_match is None:
-                for cfg in all_configs:
-                    cfg_stem = cfg.stem.replace("+", "_")
-                    if name_norm.startswith(cfg_stem) or cfg_stem.startswith(name_norm):
-                        config_match = f"configs/{cfg.name}"
-                        break
+                if name_norm.startswith(cfg_stem) or cfg_stem.startswith(name_norm):
+                    overlap = min(len(name_norm), len(cfg_stem))
+                    if overlap > best_score:
+                        best_score = overlap
+                        best_match = f"configs/{rel}"
+            if config_match is None and best_match is not None:
+                config_match = best_match
+        if config_match is None:
+            root_cfg = exp_dir / f"{name}.py"
+            if root_cfg.exists():
+                config_match = f"../{name}.py"
 
         modified: List[str] = []
-        model_h = _file_hash(latest / "model.py")
-        if model_h and model_h != ref_model_hash:
-            modified.append("model.py")
-        for f in MODS_CORE_FILES:
-            h = _file_hash(latest / "mods" / f)
-            if h and h != ref_hashes.get(f):
-                modified.append(f"mods/{f}")
+        if not has_code:
+            incomplete = True
+        else:
+            incomplete = False
+            model_h = _file_hash(latest / "model.py")
+            if model_h and model_h != ref_model_hash:
+                modified.append("model.py")
+            for f in MODS_CORE_FILES:
+                h = _file_hash(latest / "mods" / f)
+                if h and h != ref_hashes.get(f):
+                    modified.append(f"mods/{f}")
 
         results[name] = {
             "run_ts": run_ts,
             "backup_rel_path": f"{name}/{run_ts}/LDMDet_backup",
             "config": config_match,
             "modified_mods": modified,
+            "incomplete": incomplete,
         }
 
     return results
@@ -839,16 +854,21 @@ def add_backup_paths_to_doc(timeline_path: str, backup_info: Dict[str, dict]) ->
 
         if dir_name and dir_name in backup_info:
             info = backup_info[dir_name]
-            parts = []
-            if info["config"]:
-                parts.append(info["config"])
-            parts.extend(info["modified_mods"])
-
             indent = m_list.group(1) if m_list else "    "
-            if parts:
-                annotation = f"{indent}    ↳ {info['run_ts']}/LDMDet_backup/ → {', '.join(parts)}"
+
+            if info.get("incomplete"):
+                annotation = f"{indent}    ↳ {info['run_ts']}/LDMDet_backup/ (仅文档，无代码备份)"
+                if info["config"]:
+                    annotation += f"; config→{info['config']}"
             else:
-                annotation = f"{indent}    ↳ {info['run_ts']}/LDMDet_backup/"
+                parts = []
+                if info["config"]:
+                    parts.append(info["config"])
+                parts.extend(info["modified_mods"])
+                if parts:
+                    annotation = f"{indent}    ↳ {info['run_ts']}/LDMDet_backup/ → {', '.join(parts)}"
+                else:
+                    annotation = f"{indent}    ↳ {info['run_ts']}/LDMDet_backup/"
 
             already_has_annotation = False
             if i + 1 < len(lines):
@@ -862,6 +882,259 @@ def add_backup_paths_to_doc(timeline_path: str, backup_info: Dict[str, dict]) ->
         i += 1
 
     return "".join(result)
+
+
+def parse_backup_annotations(
+    timeline_path: str,
+) -> List[dict]:
+    """解析文档中已有的 ↳ 标注行，提取结构化信息。"""
+    annotations = []
+    with open(timeline_path, "r") as f:
+        lines = f.readlines()
+
+    in_code_block = False
+    last_exp_line = None
+    last_exp_name = None
+    last_dir_name = None
+
+    for line_no, line in enumerate(lines, 1):
+        stripped = line.strip()
+
+        if stripped.startswith("```"):
+            in_code_block = not in_code_block
+            continue
+
+        if not in_code_block:
+            continue
+
+        m_list = re.match(
+            r"^(\s*)((?:ldmdet|diffusiondet|chromodet|scale_conditioned)[\w+./-]*)\s*-\s+",
+            stripped,
+        )
+        if m_list:
+            last_exp_line = line_no
+            last_exp_name = m_list.group(2).strip().rstrip("/")
+            last_dir_name = resolve_dir_name(last_exp_name)
+            continue
+
+        m_wc = re.match(
+            r"^(\s*)((?:ldmdet|scale_conditioned)[\w]*)\*",
+            stripped,
+        )
+        if m_wc:
+            last_exp_line = line_no
+            last_exp_name = m_wc.group(2).strip()
+            last_dir_name = None
+            continue
+
+        ann_match = re.match(r"^\s*↳\s+(.+?)/(\d{8}_\d{6})/LDMDet_backup/(?:\s*→\s*(.+))?$", stripped)
+        if ann_match:
+            ann_dir = ann_match.group(1).strip()
+            ann_ts = ann_match.group(2)
+            ann_files_str = ann_match.group(3)
+            ann_files = []
+            if ann_files_str:
+                ann_files = [f.strip() for f in ann_files_str.split(",") if f.strip()]
+
+            resolved_dir = resolve_dir_name(ann_dir) or ann_dir
+            annotations.append({
+                "line": line_no,
+                "parent_exp_line": last_exp_line,
+                "parent_exp_name": last_exp_name,
+                "dir_name": resolved_dir,
+                "timestamp": ann_ts,
+                "files": ann_files,
+                "raw": stripped,
+            })
+            continue
+
+        ann_match2 = re.match(r"^\s*↳\s+(\d{8}_\d{6})/LDMDet_backup/(?:\s*→\s*(.+))?$", stripped)
+        if ann_match2:
+            ann_ts = ann_match2.group(1)
+            ann_files_str = ann_match2.group(2)
+            ann_files = []
+            if ann_files_str:
+                ann_files = [f.strip() for f in ann_files_str.split(",") if f.strip()]
+
+            annotations.append({
+                "line": line_no,
+                "parent_exp_line": last_exp_line,
+                "parent_exp_name": last_exp_name,
+                "dir_name": last_dir_name,
+                "timestamp": ann_ts,
+                "files": ann_files,
+                "raw": stripped,
+            })
+
+    return annotations
+
+
+def validate_backup_paths(
+    annotations: List[dict],
+    work_dirs_root: str,
+    backup_info: Dict[str, dict],
+) -> List[dict]:
+    """验证文档中已有 ↳ 标注的正确性。"""
+    root = Path(work_dirs_root)
+    results = []
+
+    for ann in annotations:
+        issues = []
+        dir_name = ann["dir_name"]
+        ts = ann["timestamp"]
+        doc_files = ann["files"]
+
+        if dir_name is None:
+            results.append({**ann, "status": "UNRESOLVED_DIR", "issues": ["无法解析目录名"]})
+            continue
+
+        exp_dir = root / dir_name
+        if not exp_dir.exists():
+            results.append({**ann, "status": "DIR_NOT_FOUND", "issues": [f"目录不存在: {dir_name}"]})
+            continue
+
+        ts_dir = exp_dir / ts / "LDMDet_backup"
+        if not ts_dir.exists():
+            results.append({**ann, "status": "TS_NOT_FOUND", "issues": [f"时间戳目录不存在: {ts}"]})
+            continue
+
+        ts_contents = set()
+        for p in ts_dir.rglob("*"):
+            if p.is_file():
+                rel = str(p.relative_to(ts_dir))
+                ts_contents.add(rel)
+
+        has_code = any(
+            f.endswith(".py") for f in ts_contents
+        )
+        if not has_code:
+            issues.append("backup 仅含文档，无代码文件")
+
+        doc_config = None
+        doc_mods = []
+        for f in doc_files:
+            if f.startswith("configs/"):
+                doc_config = f
+            else:
+                doc_mods.append(f)
+
+        if doc_files and not has_code:
+            issues.append(f"文档列出 {len(doc_files)} 个文件但 backup 无代码")
+
+        if doc_config:
+            config_path = ts_dir / doc_config
+            if not config_path.exists():
+                issues.append(f"配置文件不存在: {doc_config}")
+
+                if dir_name in backup_info:
+                    expected = backup_info[dir_name].get("config")
+                    if expected:
+                        expected_path = ts_dir / expected
+                        if expected_path.exists():
+                            issues.append(f"  正确配置应为: {expected}")
+            else:
+                if dir_name in backup_info:
+                    expected = backup_info[dir_name].get("config")
+                    if expected and expected != doc_config:
+                        config_stem = Path(doc_config).stem.replace("+", "_")
+                        name_norm = dir_name.replace("+", "_")
+                        expected_stem = Path(expected).stem.replace("+", "_")
+                        if expected_stem == name_norm and config_stem != name_norm:
+                            issues.append(
+                                f"配置文件不精确: 文档={doc_config}, "
+                                f"更精确匹配={expected}"
+                            )
+                        elif name_norm.startswith(expected_stem) and not name_norm.startswith(config_stem):
+                            issues.append(
+                                f"配置文件不精确: 文档={doc_config}, "
+                                f"更精确匹配={expected}"
+                            )
+                        elif expected_stem.startswith(config_stem) and expected_stem != config_stem:
+                            exp_overlap = len(expected_stem)
+                            doc_overlap = len(config_stem)
+                            if exp_overlap > doc_overlap:
+                                issues.append(
+                                    f"配置文件不精确: 文档={doc_config}, "
+                                    f"更精确匹配={expected}"
+                                )
+
+        for mod_file in doc_mods:
+            mod_path = ts_dir / mod_file
+            if not mod_path.exists():
+                issues.append(f"文件不存在: {mod_file}")
+
+        if doc_files and has_code:
+            actual_configs = set()
+            for p in (ts_dir / "configs").rglob("*.py") if (ts_dir / "configs").exists() else []:
+                rel = str(p.relative_to(ts_dir))
+                actual_configs.add(rel)
+            if actual_configs and not doc_config:
+                name_norm = dir_name.replace("+", "_")
+                matching = [c for c in actual_configs if Path(c).stem.replace("+", "_") == name_norm]
+                if matching:
+                    issues.append(f"缺少配置文件标注，应包含: {matching[0]}")
+
+        if not issues:
+            results.append({**ann, "status": "OK", "issues": []})
+        else:
+            results.append({**ann, "status": "ISSUE", "issues": issues})
+
+    return results
+
+
+def format_backup_report(backup_results: List[dict]) -> str:
+    """格式化 backup 路径验证报告。"""
+    lines = []
+    lines.append("=" * 72)
+    lines.append("Backup 路径标注验证报告")
+    lines.append("=" * 72)
+
+    ok_count = sum(1 for r in backup_results if r["status"] == "OK")
+    issue_count = sum(1 for r in backup_results if r["status"] == "ISSUE")
+    other_count = len(backup_results) - ok_count - issue_count
+
+    lines.append(f"\n📊 汇总: {len(backup_results)} 条 ↳ 标注")
+    lines.append(f"  ✅ 正确: {ok_count}")
+    lines.append(f"  ⚠️  有问题: {issue_count}")
+    lines.append(f"  ❓ 其他: {other_count}")
+
+    if issue_count > 0:
+        lines.append(f"\n{'=' * 72}")
+        lines.append(f"⚠️  有问题的标注（{issue_count} 条）")
+        lines.append("-" * 72)
+        for r in backup_results:
+            if r["status"] == "ISSUE":
+                dir_name = r["dir_name"] or "?"
+                lines.append(
+                    f"  L{r['line']:3d} | {dir_name:<50s} | "
+                    f"ts={r['timestamp']}"
+                )
+                for issue in r["issues"]:
+                    lines.append(f"       ⚠ {issue}")
+
+    if other_count > 0:
+        lines.append(f"\n{'=' * 72}")
+        lines.append(f"❓ 无法验证的标注（{other_count} 条）")
+        lines.append("-" * 72)
+        for r in backup_results:
+            if r["status"] not in ("OK", "ISSUE"):
+                dir_name = r["dir_name"] or "?"
+                lines.append(
+                    f"  L{r['line']:3d} | {dir_name:<50s} | "
+                    f"状态={r['status']}"
+                )
+                for issue in r.get("issues", []):
+                    lines.append(f"       ⚠ {issue}")
+
+    lines.append("")
+    lines.append("=" * 72)
+    if issue_count == 0:
+        lines.append("🎉 所有 backup 路径标注均正确！")
+    else:
+        lines.append(f"⚠️  发现 {issue_count} 条标注有问题，请检查上方详情。")
+    lines.append("=" * 72)
+
+    return "\n".join(lines)
 
 
 def main():
@@ -912,12 +1185,19 @@ def main():
         ground_truth, claims, mentioned_dirs
     )
 
+    print("验证 backup 路径标注...", file=sys.stderr)
+    backup_info = scan_backup_paths(args.work_dirs)
+    annotations = parse_backup_annotations(args.timeline)
+    print(f"  找到 {len(annotations)} 条 ↳ 标注", file=sys.stderr)
+    backup_results = validate_backup_paths(annotations, args.work_dirs, backup_info)
+
     if args.json:
         output = {
             "ground_truth": ground_truth,
             "validation": validation_results,
             "truly_missing": truly_missing,
             "no_map_value": no_map_value,
+            "backup_validation": backup_results,
         }
         print(json.dumps(output, indent=2, ensure_ascii=False))
     else:
@@ -926,8 +1206,13 @@ def main():
         )
         print(report)
 
+        backup_report = format_backup_report(backup_results)
+        print()
+        print(backup_report)
+
     mismatch_count = sum(1 for r in validation_results if r["status"] == "MISMATCH")
-    sys.exit(1 if mismatch_count > 0 else 0)
+    backup_issue_count = sum(1 for r in backup_results if r["status"] == "ISSUE")
+    sys.exit(1 if (mismatch_count > 0 or backup_issue_count > 0) else 0)
 
 
 if __name__ == "__main__":
