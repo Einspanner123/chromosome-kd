@@ -453,9 +453,9 @@ ldmdet_single_chromo_*                             - 单染色体实验 (argmax_
     ↳ ldmdet_single_chromo_random/20260507_112622/LDMDet_backup/ → configs/ldmdet_single_chromo_random.py, model.py, mods/diffusiondet_head.py, mods/loss.py, mods/modules.py, mods/single_head.py
     ↳ ldmdet_single_chromo_stoch_eps5/20260507_174041/LDMDet_backup/ → configs/ldmdet_single_chromo_stoch_eps5.py, model.py, mods/diffusiondet_head.py, mods/loss.py, mods/modules.py, mods/single_head.py
 scale_conditioned_*                                - Scale-Conditioned 系列 (sc_loss=0.745, sc_noise=0.738, sc_combined=0.736)
-    ↳ scale_conditioned_sc_combined/20260502_032114/LDMDet_backup/ → model.py, mods/diffusiondet_head.py, mods/loss.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-    ↳ scale_conditioned_sc_loss/20260501_193234/LDMDet_backup/ → model.py, mods/diffusiondet_head.py, mods/loss.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
-    ↳ scale_conditioned_sc_noise/20260501_140011/LDMDet_backup/ → model.py, mods/diffusiondet_head.py, mods/loss.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
+    ↳ scale_conditioned_sc_combined/20260502_032114/LDMDet_backup/ → configs/scale_conditioned/sc_combined.py, model.py, mods/diffusiondet_head.py, mods/loss.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
+    ↳ scale_conditioned_sc_loss/20260501_193234/LDMDet_backup/ → configs/scale_conditioned/sc_loss.py, model.py, mods/diffusiondet_head.py, mods/loss.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
+    ↳ scale_conditioned_sc_noise/20260501_140011/LDMDet_backup/ → configs/scale_conditioned/sc_noise.py, model.py, mods/diffusiondet_head.py, mods/loss.py, mods/sinkhorn.py, mods/noise_sampler.py, mods/single_head.py
 ablations/                                         - 消融实验集合
 ```
 

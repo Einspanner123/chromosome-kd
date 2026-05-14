@@ -80,7 +80,6 @@ DIR_NAME_ALIASES = {
     "ldmdet_flowdet_adaln_trd": "ldmdet_flowdet_adaln_trd",
     "ldmdet_flowdet_adaln_trd_only": "ldmdet_flowdet_adaln_trd_only",
     "ldmdet_flowdet_adaln_trd_full": "ldmdet_flowdet_adaln_trd_full",
-    "ldmdet_flowdet_adaln_lsas": "ldmdet_flowdet_adaln_lsas",
     "ldmdet_group_hierarchical_trd": "ldmdet_group_hierarchical_trd",
     "ldmdet_flowdet_adaln_stochastic_eps5_trd_cat": "ldmdet_flowdet_adaln_stochastic_eps5_trd_cat",
     "ldmdet_sinkhorn_trd_cat_lsas": "ldmdet_sinkhorn_trd_cat_lsas",
@@ -735,23 +734,52 @@ def scan_backup_paths(root: str) -> Dict[str, dict]:
             best_match = None
             best_score = -1
             for cfg in all_configs:
-                cfg_stem = cfg.stem.replace("+", "_")
                 rel = str(cfg.relative_to(config_dir))
+                rel_stem = rel.replace("/", "_").replace("\\", "_").removesuffix(".py").replace("+", "_")
+                if rel_stem == name_norm:
+                    config_match = f"configs/{rel}"
+                    best_match = None
+                    break
+                cfg_stem = cfg.stem.replace("+", "_")
                 if cfg_stem == name_norm:
                     config_match = f"configs/{rel}"
                     best_match = None
                     break
-                if name_norm.startswith(cfg_stem) or cfg_stem.startswith(name_norm):
-                    overlap = min(len(name_norm), len(cfg_stem))
-                    if overlap > best_score:
-                        best_score = overlap
-                        best_match = f"configs/{rel}"
+                for candidate in (cfg_stem, rel_stem):
+                    if name_norm.startswith(candidate) or candidate.startswith(name_norm):
+                        overlap = min(len(name_norm), len(candidate))
+                        if overlap > best_score:
+                            best_score = overlap
+                            best_match = f"configs/{rel}"
+                    if candidate.endswith(name_norm) or name_norm.endswith(candidate):
+                        overlap = min(len(name_norm), len(candidate))
+                        if overlap > best_score:
+                            best_score = overlap
+                            best_match = f"configs/{rel}"
             if config_match is None and best_match is not None:
                 config_match = best_match
         if config_match is None:
             root_cfg = exp_dir / f"{name}.py"
             if root_cfg.exists():
                 config_match = f"../{name}.py"
+            else:
+                best_root = None
+                best_root_score = -1
+                for root_py in sorted(exp_dir.glob("*.py")):
+                    py_stem = root_py.stem.replace("+", "_")
+                    for candidate in (py_stem,):
+                        if name_norm.startswith(candidate) or candidate.startswith(name_norm):
+                            overlap = min(len(name_norm), len(candidate))
+                            if overlap > best_root_score:
+                                best_root_score = overlap
+                                best_root = root_py.name
+                        if candidate.endswith(name_norm) or name_norm.endswith(candidate):
+                            overlap = min(len(name_norm), len(candidate))
+                            if overlap > best_root_score:
+                                best_root_score = overlap
+                                best_root = root_py.name
+                if best_root is not None:
+                    config_match = f"../{best_root}"
 
         modified: List[str] = []
         if not has_code:
@@ -948,13 +976,23 @@ def parse_backup_annotations(
             })
             continue
 
-        ann_match2 = re.match(r"^\s*↳\s+(\d{8}_\d{6})/LDMDet_backup/(?:\s*→\s*(.+))?$", stripped)
+        ann_match2 = re.match(r"^\s*↳\s+(\d{8}_\d{6})/LDMDet_backup/\s*(.*)$", stripped)
         if ann_match2:
             ann_ts = ann_match2.group(1)
-            ann_files_str = ann_match2.group(2)
+            ann_rest = ann_match2.group(2).strip()
             ann_files = []
-            if ann_files_str:
-                ann_files = [f.strip() for f in ann_files_str.split(",") if f.strip()]
+            ann_incomplete = False
+            ann_config_hint = None
+
+            if ann_rest.startswith("(仅文档，无代码备份)"):
+                ann_incomplete = True
+                rest_after = ann_rest[len("(仅文档，无代码备份)"):].strip()
+                config_m = re.match(r";\s*config→(.+)", rest_after)
+                if config_m:
+                    ann_config_hint = config_m.group(1).strip()
+            elif ann_rest.startswith("→"):
+                files_str = ann_rest[1:].strip()
+                ann_files = [f.strip() for f in files_str.split(",") if f.strip()]
 
             annotations.append({
                 "line": line_no,
@@ -963,6 +1001,8 @@ def parse_backup_annotations(
                 "dir_name": last_dir_name,
                 "timestamp": ann_ts,
                 "files": ann_files,
+                "incomplete": ann_incomplete,
+                "config_hint": ann_config_hint,
                 "raw": stripped,
             })
 
@@ -1007,7 +1047,8 @@ def validate_backup_paths(
         has_code = any(
             f.endswith(".py") for f in ts_contents
         )
-        if not has_code:
+        is_incomplete = ann.get("incomplete", False)
+        if not has_code and not is_incomplete:
             issues.append("backup 仅含文档，无代码文件")
 
         doc_config = None
@@ -1018,8 +1059,17 @@ def validate_backup_paths(
             else:
                 doc_mods.append(f)
 
-        if doc_files and not has_code:
+        if doc_files and not has_code and not is_incomplete:
             issues.append(f"文档列出 {len(doc_files)} 个文件但 backup 无代码")
+
+        config_hint = ann.get("config_hint")
+        if is_incomplete and config_hint:
+            if config_hint.startswith("../"):
+                hint_path = exp_dir / config_hint[3:]
+            else:
+                hint_path = ts_dir / config_hint
+            if not hint_path.exists():
+                issues.append(f"config_hint 指向的文件不存在: {config_hint}")
 
         if doc_config:
             config_path = ts_dir / doc_config
