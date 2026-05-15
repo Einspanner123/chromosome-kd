@@ -37,7 +37,7 @@ jobs:
       - name: Install PyTorch CPU
         run: pip install torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cpu
       - name: Install MMCV
-        run: pip install -U openmim && mim install mmcv>=2.1.0
+        run: pip install -U openmim && mim install "mmcv>=2.1.0,<2.2.0"
       - name: Install mmengine and mmdet
         run: pip install mmengine && pip install -e .
         env:
