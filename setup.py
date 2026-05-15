@@ -7,13 +7,7 @@ import shutil
 import sys
 import warnings
 
-import torch
 from setuptools import find_packages, setup
-from torch.utils.cpp_extension import (
-    BuildExtension,
-    CppExtension,
-    CUDAExtension,
-)
 
 
 def readme():
@@ -32,6 +26,8 @@ def get_version():
 
 
 def make_cuda_ext(name, module, sources, sources_cuda=[]):
+    import torch
+    from torch.utils.cpp_extension import CppExtension, CUDAExtension
 
     define_macros = []
     extra_compile_args = {'cxx': []}
@@ -196,6 +192,11 @@ def add_mim_extension():
 
 
 if __name__ == '__main__':
+    try:
+        from torch.utils.cpp_extension import BuildExtension
+    except ImportError:
+        from setuptools.command.build_ext import build_ext as BuildExtension
+
     add_mim_extension()
     setup(
         name='mmdet',
