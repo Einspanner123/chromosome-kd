@@ -39,7 +39,7 @@ jobs:
       - name: Install MMCV
         run: pip install -U openmim && mim install mmcv>=2.1.0
       - name: Install mmengine and mmdet
-        run: pip install mmengine && pip install -e .
+        run: pip install mmengine && pip install --no-build-isolation -e .
         env:
           FORCE_CUDA: "0"
       - name: Import check
