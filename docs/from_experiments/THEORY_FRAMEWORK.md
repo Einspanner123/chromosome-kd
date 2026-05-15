@@ -2,9 +2,9 @@
 
 ## 从工程改进到数学原理的统一
 
-> **修订版**：基于 60+ 实验结果对原始理论进行系统性修正
-> 修正日期：2026-05-14
-> 修正摘要：修正 7 处理论错误，新增 3 个定理，重构核心原理
+> **二次修订版**：基于代码审计对一次修正进行精确化
+> 修正日期：2026-05-14（二次修正）
+> 修正摘要：一次修正 7 处理论错误，新增 3 个定理；二次修正 3 处理论-代码偏差，新增 3 个代码问题记录
 
 ---
 
@@ -21,6 +21,14 @@
 | E5 | OT + TRD 组合应叠加增益 | 组合实验全为负交互 (0.740-0.746) | 新增机制冲突定理（§7） |
 | E6 | Reflow 应持续改善路径直度 | Epoch 1 最佳后持续退化 | 新增梯度冲突理论（§6） |
 | E7 | 速度场分解中 OT 分量可直接解析计算 | 实际训练中 OT 分量依赖耦合策略 | 修正分解定理的适用条件（§2.2 修正） |
+
+**二次修正**（代码审计发现的理论-代码偏差）：
+
+| 编号 | 一次修正主张 | 代码审计发现 | 二次修正内容 |
+|---|---|---|---|
+| E8 | AdaLN-Zero 初始时 `fc_feature = h`（原始 proposal 特征） | Block 2 (Instance Interaction) 无 α 门控，初始时 `fc_feature = h + inst_interact(h, f_roi)` | 弱化"时间无关基线"为"时间条件维度零初始化"（§1.3 二次修正） |
+| E9 | CAT 惩罚曲率 $\|\partial v_\theta/\partial t\|^2$ | 代码惩罚 $\|x_0^{pred}(t) - x_0^{pred}(t+\Delta t)\|^2$，同时惩罚速度大小和曲率 | 精确描述 CAT 的实际目标为 $x_0$ 一致性正则化（§4.2 二次修正） |
+| E10 | CAT-OT 冲突因"Voronoi 边界跳变与曲率平滑化矛盾" | CAT 的 $x_{t+\Delta t}$ 使用相同 OT 配对构造，但 Voronoi 边界随 $t$ 移动导致配对不一致 | 精确描述三方矛盾机制（§7.3 二次修正） |
 
 ---
 
@@ -123,25 +131,45 @@ nn.init.zeros_(self.adaln_mlp[-1].bias)
 
 **修正**：AdaLN-Zero 零初始化保证**时间条件残差为零**，即 $\alpha(0) = \gamma(0) = \beta(0) = 0$，使得初始时网络输出与时间 $t$ 无关。但 $v_\theta|_{\text{init}} \neq 0$，因为 `cls_head` 和 `reg_head` 非零初始化。
 
-**严格论证**：
+**严格论证（二次修正版）**：
 
 初始化时，`adaln_mlp` 输出全零，因此：
-- Self-Attention 块：$h_{SA} = h + \alpha_1 \cdot \text{Attn}(\cdots) = h + 0 = h$（恒等）
-- FFN 块：$h_{FFN} = h + \alpha_2 \cdot \text{FFN}(\cdots) = h + 0 = h$（恒等）
+- Block 1 (Self-Attention)：$h_{SA} = h + \alpha_1 \cdot \text{Attn}(\cdots) = h + 0 = h$（恒等）
+- Block 3 (FFN)：$h_{FFN} = h + \alpha_2 \cdot \text{FFN}(\cdots) = h + 0 = h$（恒等）
 
-因此 `fc_feature = h`（原始 proposal 特征，未经时间调制）。但：
+~~因此 `fc_feature = h`（原始 proposal 特征，未经时间调制）。~~
 
-$$x_0^{pred} = \text{apply\_deltas}(\text{reg\_head}(h), \text{bboxes})$$
+**二次修正**：代码审计发现 Block 2 (Instance Interaction) **不受 $\alpha$ 门控**：
 
-由于 `reg_head` 非零初始化，$x_0^{pred} \neq x_t$，因此 $v_\theta = (x_t - x_0^{pred})/t \neq 0$。
+```python
+# single_head.py Block 2
+inst_out = self.inst_interact(proposals, roi_features)
+proposals = proposals + self.dropout2(inst_out)  # ← 无 alpha 门控，直接残差
+```
 
-**AdaLN-Zero 的真正优势**：
+因此初始化时 `fc_feature` 并非原始 proposal 特征 $h$，而是：
 
-1. **时间无关基线**：初始时模型输出不依赖 $t$，即 $x_0^{pred}(x_t, t) = x_0^{pred}(x_t)$。网络从"不使用时间信息"的状态出发，逐步学习时间条件调制。这是**残差学习**在时间条件维度的体现。
+$$\text{fc\_feature} = h + \text{inst\_interact}(h, f_{roi})$$
 
-2. **梯度稳定性**：初始时时间条件的梯度为零，避免随机时间调制对已训练好的空间特征的破坏。对比 Scale-shift：随机初始化的 $\gamma, \beta$ 在训练初期引入与时间相关的随机扰动，可能干扰空间特征的学习。
+其中 $\text{inst\_interact}$ 的参数为 Xavier 非零初始化。这意味着初始时 `fc_feature` 已经包含了 ROI 特征的空间交互信息，且此信息**不受时间条件控制**。
 
-3. **曲率论证（修正）**：初始速度场为 $v_\theta(x_t, t) = (x_t - x_0^{pred}(x_t))/t$。由于 $x_0^{pred}$ 不依赖 $t$，此速度场的 $t$-依赖性完全来自 $x_t/t$ 项，其曲率 $\frac{dv_\theta}{dt}$ 非零但结构简单。关键在于：**训练过程中学到的曲率修正从零开始增长**，而非从随机值开始。这保证了学到的曲率是最小必要的。
+因此初始速度场为：
+
+$$v_\theta(x_t, t) = \frac{x_t - x_0^{pred}}{t}, \quad x_0^{pred} = \text{apply\_deltas}(\text{reg\_head}(h + \text{inst\_interact}(h, f_{roi})), \text{bboxes})$$
+
+由于 `reg_head` 非零初始化且 `inst_interact` 非零初始化，$x_0^{pred} \neq x_t$，因此 $v_\theta|_{\text{init}} \neq 0$。初始速度场的非零性来自两个独立来源：(1) `reg_head` 的非零权重，(2) `inst_interact` 的非零空间特征交互。
+
+**AdaLN-Zero 的真正保证**：AdaLN-Zero 零初始化保证的是**时间条件维度上的零初始化**，而非速度场的零初始化。具体地：
+
+1. **时间无关性**：初始时模型输出不依赖 $t$，即 $x_0^{pred}(x_t, t) = x_0^{pred}(x_t)$。Block 1 和 Block 3 的时间条件残差为零（$\alpha = \gamma = \beta = 0$），Block 2 本身不使用时间条件。网络从"不使用时间信息"的状态出发，逐步学习时间条件调制。这是**残差学习**在时间条件维度的体现。
+
+2. **空间特征独立性**：Block 2 的 `inst_interact` 在初始时已活跃，但它的行为与时间 $t$ 无关——它处理的是 proposal 之间的空间关系和 proposal-ROI 之间的特征交互，这些关系本身不依赖扩散时间步。这是一个**合理的设计选择**：空间关系应该从训练一开始就参与特征构建，而非等待时间条件学习后才介入。
+
+3. **梯度稳定性**：初始时时间条件的梯度为零，避免随机时间调制对已训练好的空间特征的破坏。对比 Scale-shift：随机初始化的 $\gamma, \beta$ 在训练初期引入与时间相关的随机扰动，可能干扰空间特征的学习。
+
+4. **曲率论证（修正）**：初始速度场为 $v_\theta(x_t, t) = (x_t - x_0^{pred}(x_t))/t$。由于 $x_0^{pred}$ 不依赖 $t$（时间条件残差为零），此速度场的 $t$-依赖性完全来自 $x_t/t$ 项，其曲率 $\frac{dv_\theta}{dt}$ 非零但结构简单。关键在于：**训练过程中学到的曲率修正从零开始增长**，而非从随机值开始。这保证了学到的曲率是最小必要的。
+
+> **⚠️ 代码审计发现的问题**：Block 2 (Instance Interaction) 不受 AdaLN-Zero 的 $\alpha$ 门控，导致初始时 `fc_feature` 已包含非零的空间特征交互。这意味着"时间无关基线"的主张需要弱化——初始时模型确实不使用时间信息，但**已经使用了 ROI 空间特征信息**。如果未来需要真正的"零基线"初始化（$v_\theta|_{\text{init}} = 0$），需要同时：(1) 给 Block 2 增加 $\alpha_3$ 门控，(2) 将 `adaln_mlp` 输出扩展为 9 组参数（3 个 block × 3 参数），(3) 零初始化 $\alpha_3$。但这可能削弱模型在初始阶段学习空间关系的能力，需实验验证。
 
 **实验验证**：`ldmdet_flowdet_adaln` (0.751) vs `ldmdet_rf_heun_shifted_bs2` (0.748，使用 scale-shift)，+0.3% mAP。若对比更早的 scale-shift 基线，AdaLN-Zero 的增益为 +1.1%（0.740→0.751）。✅
 
@@ -338,13 +366,59 @@ $$v_\theta(x_t, t, f) = v_\pi(x_t, t) + \delta v_\phi(x_t, t, f)$$
 
 ### 4.2 Curvature-Aware Training (CAT)
 
-**目标**：直接最小化路径曲率，降低离散化误差上界。
+**目标**：降低 ODE 路径的离散化误差上界。
 
-**正则化项**：
+**理论正则化项**（曲率惩罚）：
 
-$$\mathcal{L}_{curv} = \mathbb{E}_t \left[\left\|\frac{\partial v_\theta}{\partial t}\right\|^2\right] \approx \mathbb{E}_t \left[\left\|\frac{v_\theta(x_{t+\Delta t}, t+\Delta t) - v_\theta(x_t, t)}{\Delta t}\right\|^2\right]$$
+$$\mathcal{L}_{curv}^{theory} = \mathbb{E}_t \left[\left\|\frac{\partial v_\theta}{\partial t}\right\|^2\right] \approx \mathbb{E}_t \left[\left\|\frac{v_\theta(x_{t+\Delta t}, t+\Delta t) - v_\theta(x_t, t)}{\Delta t}\right\|^2\right]$$
 
-**实验修正**：`cat_only` (0.744) 略低于 `adaln` (0.751)，说明曲率正则化单独使用时过度约束了模型的表达能力。CAT 与 OT 组合时甚至导致训练崩溃（eval=0）。这表明曲率正则化与确定性耦合之间存在不兼容性——OT 使速度场在每个 Voronoi 单元内更确定，而 CAT 惩罚速度场的时间变化率，两者在边界处产生冲突。
+**代码实际实现**（二次修正）：
+
+代码审计发现，CAT 的实际实现并非惩罚速度场的时间导数，而是惩罚 **$x_0$ 预测的时间一致性**：
+
+```python
+# diffusiondet_head.py _add_cat_loss
+t2 = (t + dt).clamp(0, 1)
+x_t2 = (1.0 - t2_view) * x_start_batch + t2_view * x_noise_batch
+# ...
+x0_t2 = self._xyxy_to_raw(all_pred_t2[-1], img_metas)  # t+dt 处的 x0 预测
+x0_t1 = self._xyxy_to_raw(all_pred_bboxes[-1], img_metas)  # t 处的 x0 预测
+losses["loss_curvature"] = F.mse_loss(x0_t1, x0_t2.detach()) * self.cat_weight
+```
+
+即实际目标为：
+
+$$\mathcal{L}_{CAT}^{code} = \mathbb{E}_t \left[\left\|x_0^{pred}(t) - x_0^{pred}(t+\Delta t)\right\|^2\right]$$
+
+**理论目标与代码实现的精确关系**：
+
+由 $x_0^{pred} = x_t - t \cdot v_\theta$，对 $t$ 求导：
+
+$$\frac{\partial x_0^{pred}}{\partial t} = \frac{\partial x_t}{\partial t} - v_\theta - t \cdot \frac{\partial v_\theta}{\partial t}$$
+
+在 RF 中 $\frac{\partial x_t}{\partial t} = x_1 - x_0 = v^*$（沿真实路径），但模型预测路径上 $\frac{\partial x_t}{\partial t} = v_\theta$，因此：
+
+$$\frac{\partial x_0^{pred}}{\partial t} = v_\theta - v_\theta - t \cdot \frac{\partial v_\theta}{\partial t} = -t \cdot \frac{\partial v_\theta}{\partial t}$$
+
+但这仅在模型完美拟合时成立。实际中 $x_0^{pred}$ 的时间导数包含额外项：
+
+$$\frac{\partial x_0^{pred}}{\partial t} \approx -v_\theta - t \cdot \frac{\partial v_\theta}{\partial t}$$
+
+因此代码实现的 $\mathcal{L}_{CAT}^{code}$ 可分解为：
+
+$$\mathcal{L}_{CAT}^{code} \approx \Delta t^2 \cdot \underbrace{\|v_\theta\|^2}_{\text{速度大小惩罚}} + \Delta t^2 \cdot t^2 \cdot \underbrace{\left\|\frac{\partial v_\theta}{\partial t}\right\|^2}_{\text{曲率惩罚}} + \text{交叉项}$$
+
+**关键差异**：代码实现同时约束了两个目标：
+1. **速度场范数小**（$\|v_\theta\|^2$）：路径短，传输代价低
+2. **速度场变化率小**（$\|\partial v_\theta/\partial t\|^2$）：曲率低，离散化误差小
+
+而理论目标仅约束第 2 项。代码实现比理论描述**更激进**——它不仅要求速度场平滑，还要求速度场本身小。
+
+**这解释了 CAT 单独使用时性能下降（0.744 < 0.751）**：过度的 $x_0$ 一致性约束限制了模型在不同时间步做出不同预测的能力。在检测任务中，不同时间步的 $x_0$ 预测本应不同（$t$ 越小，$x_t$ 越接近噪声，预测越不确定），强制 $x_0^{pred}(t) \approx x_0^{pred}(t+\Delta t)$ 等价于要求模型在所有时间步给出相同的预测，这与扩散模型的多步精化机制矛盾。
+
+> **⚠️ 代码审计发现的问题**：CAT 的代码实现惩罚 $x_0$ 预测的时间一致性 $\|x_0^{pred}(t) - x_0^{pred}(t+\Delta t)\|^2$，而非理论描述的曲率 $\|\partial v_\theta/\partial t\|^2$。前者比后者更激进，同时惩罚速度大小和曲率。如果未来需要实现纯曲率正则化，应改为惩罚速度的时间导数：$\mathcal{L}_{curv}^{pure} = \|v_\theta(x_{t+\Delta t}, t+\Delta t) - v_\theta(x_t, t)\|^2 / \Delta t^2$，其中 $v_\theta = (x_t - x_0^{pred})/t$ 从模型输出推导。但需注意：(1) $t \approx 0$ 处 $v_\theta$ 的数值不稳定（除以接近零的 $t$），(2) 纯曲率正则化可能不足以约束速度大小，(3) 需要重新调参和实验验证。
+
+**实验修正**：`cat_only` (0.744) 略低于 `adaln` (0.751)，说明 $x_0$ 一致性正则化单独使用时过度约束了模型的时间条件表达能力。CAT 与 OT 组合时甚至导致训练崩溃（eval=0），原因见定理 7.2 的精确分析。
 
 ### 4.3 Loss-Sensitive Adaptive Scheduling (LSAS)
 
@@ -502,20 +576,67 @@ $$x_{t+\Delta t}^{TRD} = x_t + \Delta t \cdot \hat{v}_\pi \neq x_t + \Delta t \c
 
 此误差在 Stochastic 耦合下被放大（因 $v_\pi^{(i)}$ 的方差大），而在确定性耦合（nearest OT）下不存在（因 $v_\pi^{(i)} = \hat{v}_\pi$ 恒成立）。
 
-### 7.3 CAT 与 OT 的曲率冲突
+### 7.3 CAT 与 OT 的曲率冲突（二次修正）
 
-**定理 7.2**（CAT-OT 曲率冲突）：CAT 的曲率惩罚与 OT 耦合的确定性配对在 Voronoi 边界处产生梯度冲突。
+**定理 7.2**（CAT-OT 冲突——精确版）：CAT 的 $x_0$ 一致性正则化与 OT 耦合在 Voronoi 边界处产生不可调和的梯度冲突，导致训练崩溃。
 
-**论证**：
+**论证（代码层面精确分析）**：
 
-OT 耦合将噪声空间划分为 Voronoi 单元，每个单元内速度场近似常数。但在 Voronoi 边界处，速度场发生跳变（从 $v_k$ 跳到 $v_j$），曲率无穷大。
+**Step 1：CAT 的 $x_{t+\Delta t}$ 构造方式**
 
-CAT 惩罚速度场的时间导数 $\|\partial v_\theta / \partial t\|^2$，试图使速度场平滑。但在 Voronoi 边界附近，平滑化要求与 OT 的硬分配产生矛盾：
+CAT 在计算 $x_{t+\Delta t}$ 时使用与 $x_t$ **相同的 OT 配对**：
 
-- OT 要求边界两侧的速度场分别拟合 $v_k$ 和 $v_j$（两个不同的常数）
-- CAT 要求速度场在边界处也平滑变化
+```python
+# diffusiondet_head.py _add_cat_loss
+x_start_batch = torch.stack(x_starts)   # OT 耦合后的 x_0
+x_noise_batch = torch.stack(x_noises)   # 原始噪声 x_1
+x_t2 = (1.0 - t2_view) * x_start_batch + t2_view * x_noise_batch
+```
 
-两者不可同时满足。实验中，CAT + OT 组合导致训练崩溃（eval=0），而 CAT 单独使用正常（0.744），证实了这一冲突。
+这里 `x_start_batch` 和 `x_noise_batch` 在两次前向传播间不变，隐含假设：$x_t$ 和 $x_{t+\Delta t}$ 沿**同一条 OT 配对的直线路径**，速度场应为常数。
+
+**Step 2：OT 耦合下 Voronoi 边界的时间依赖性**
+
+OT 耦合将噪声空间划分为 Voronoi 单元 $\mathcal{V}_k$。$x_t \in \mathcal{V}_k$ 的条件为：
+
+$$\left\|\frac{x_t - b_k}{1-t}\right\| \leq \left\|\frac{x_t - b_j}{1-t}\right\|, \quad \forall j \neq k$$
+
+化简得 Voronoi 边界超平面方程：
+
+$$2(x_t - b_k)^\top(b_k - b_j) + (1-t)\|b_k - b_j\|^2 = 0$$
+
+边界法向为 $(b_k - b_j)$，截距为 $(1-t)\|b_k - b_j\|^2 / 2$。**截距随 $t$ 线性变化**：当 $t$ 增加 $\Delta t$ 时，边界向 $b_k$ 方向移动 $\Delta t \cdot \|b_k - b_j\|^2 / 2$。
+
+**Step 3：冲突的精确机制**
+
+CAT 的 $x_{t+\Delta t}$ 使用相同的 OT 配对构造，意味着 CAT 假设 $x_t$ 和 $x_{t+\Delta t}$ 属于同一个 Voronoi 单元（配对不变）。但由于 Voronoi 边界随 $t$ 移动，$x_{t+\Delta t}$ 可能跨越到相邻的 Voronoi 单元 $\mathcal{V}_j$。
+
+此时出现三方矛盾：
+
+| 约束来源 | 要求 | 代码位置 |
+|---|---|---|
+| OT 耦合 | $v^* = b_j - z$（新单元的速度） | `_couple_ot` 返回的 `x_start` |
+| CAT 构造 | $x_{t+\Delta t}$ 沿旧配对的直线路径 | `x_t2 = (1-t2)*x_start + t2*x_noise` |
+| CAT loss | $x_0^{pred}(t) \approx x_0^{pred}(t+\Delta t)$ | `F.mse_loss(x0_t1, x0_t2.detach())` |
+
+具体地：
+- CAT 构造的 $x_{t+\Delta t}$ 位于旧配对 $(z, b_k)$ 的直线路径上，期望模型预测 $x_0^{pred}(t+\Delta t) \approx b_k$
+- 但 OT 耦合在 $x_{t+\Delta t}$ 处可能分配 $b_j$（因为 $x_{t+\Delta t}$ 已跨越 Voronoi 边界），检测损失要求 $x_0^{pred}(t+\Delta t) \approx b_j$
+- CAT loss 惩罚 $x_0^{pred}(t) \neq x_0^{pred}(t+\Delta t)$，即惩罚 $b_k \neq b_j$，但 $b_k \neq b_j$ 是 Voronoi 结构的必然结果
+
+**Step 4：崩溃的动力学解释**
+
+当 CAT + OT 组合训练时，梯度更新陷入三方拉锯：
+
+1. 检测损失 $\mathcal{L}_{det}$ 推动模型在 $x_{t+\Delta t}$ 处预测 $b_j$（OT 配对的目标）
+2. CAT 损失 $\mathcal{L}_{CAT}$ 推动模型在 $x_{t+\Delta t}$ 处预测 $b_k$（与 $x_t$ 处一致）
+3. 两者梯度方向相反，且 $b_k \neq b_j$ 使得冲突不可调和
+
+在 Voronoi 边界附近，这种冲突的样本比例随训练进行而增加（模型学会在边界附近产生不确定预测，增加边界跨越的概率），形成正反馈循环，最终导致训练崩溃（eval=0）。
+
+**对比**：CAT 单独使用时（无 OT 耦合），随机耦合下不存在 Voronoi 结构，$v^*$ 在不同 $t$ 处的变化是连续的（条件期望的平滑变化），CAT 的平滑化约束与训练信号兼容，因此不会崩溃（0.744）。
+
+> **⚠️ 代码审计发现的问题**：CAT 的 $x_{t+\Delta t}$ 构造使用与 $x_t$ 相同的 OT 配对，但 Voronoi 边界随 $t$ 变化导致 $x_{t+\Delta t}$ 可能属于不同 Voronoi 单元。这是 CAT + OT 崩溃的代码层面根源。如果未来需要让 CAT 与 OT 兼容，有两个方向：(1) 为 $x_{t+\Delta t}$ 重新运行 OT 耦合（`x_start_t2 = _couple_ot(x_t2, gt_diffusion, labels, device)`），使 CAT 的构造与 OT 的配对一致，但这引入额外计算开销；(2) 在 CAT loss 中排除 Voronoi 边界附近的样本（通过检测 $x_0^{pred}(t)$ 与最近 GT 的距离是否接近次近 GT 的距离来识别边界样本），但这需要额外的边界检测逻辑。
 
 ### 7.4 对论文的影响
 
@@ -552,5 +673,234 @@ CAT 惩罚速度场的时间导数 $\|\partial v_\theta / \partial t\|^2$，试�
 3. **检测最优传输四因素原理**（修正核心原理）：增加训练信号多样性作为第四因素
 4. **Reflow 梯度冲突定理**（新增定理 6.1）：检测损失与速度损失的梯度方向系统性冲突
 5. **耦合-训练动力学冲突定理**（新增定理 7.1）：Stochastic OT 与 TRD 自条件化的结构性矛盾
-6. **CAT-OT 曲率冲突定理**（新增定理 7.2）：Voronoi 边界跳变与曲率平滑化的不可调和矛盾
-7. **AdaLN-Zero 修正**（修正命题 1.3）：零初始化保证时间条件残差为零，而非速度场为零
+6. **CAT-OT 冲突定理**（新增定理 7.2，二次修正）：$x_0$ 一致性正则化与 OT Voronoi 边界时间依赖性的三方矛盾
+7. **AdaLN-Zero 修正**（修正命题 1.3，二次修正）：零初始化保证时间条件维度零初始化，Block 2 不受 α 门控导致初始时已包含空间特征交互
+
+**二次修正新增贡献**：
+8. **CAT 实际目标与理论目标的差异**（§4.2 二次修正）：代码惩罚 $x_0$ 一致性（同时约束速度大小和曲率），理论仅约束曲率，差异解释了 CAT 单独使用时性能下降
+9. **CAT-OT 崩溃的代码层面精确机制**（§7.3 二次修正）：CAT 的 $x_{t+\Delta t}$ 使用相同 OT 配对构造，但 Voronoi 边界随 $t$ 移动导致三方矛盾（OT 要求 $b_j$，CAT 构造隐含 $b_k$，CAT loss 惩罚 $b_k \neq b_j$）
+
+---
+
+## 附录 A：代码审计发现的问题（待修复）
+
+> 以下问题由代码审计发现，记录于此供后续实验参考。实验存档中的备份代码不应修改，新实验应在独立分支中进行。
+
+### A.1 velocity loss 目标符号不一致
+
+**严重程度**：🔴 高（混淆源，不影响当前推理结果但影响理论一致性）
+
+**问题描述**：
+
+RF 速度定义（`rectified_flow.py:61`）：
+```python
+velocity = x_noise - x_start  # v = x_1 - x_0
+```
+
+velocity loss 目标（`diffusiondet_head.py:586`）：
+```python
+v_target = torch.stack(x_starts) - torch.stack(x_noises)  # v* = x_0 - x_1 = -v
+```
+
+两者符号相反：`velocity_head` 学习的是反向速度 $-v$，而非 RF 定义的正向速度 $v$。
+
+**影响**：
+- 当前不影响推理结果：velocity_head 的输出仅用于 loss 计算，ODE 采样使用 `x_0^{pred}` 推导速度
+- 如果未来用 velocity_head 输出做 ODE 积分，方向会反转
+- 与定理 6.1 的梯度冲突推导不一致（推导中假设 $v_\theta$ 与 RF 定义同向）
+
+**修复方案**：
+```python
+# diffusiondet_head.py:586 修改为
+v_target = torch.stack(x_noises) - torch.stack(x_starts)  # v* = x_1 - x_0 = v
+```
+
+MSE loss 对符号不敏感，修改后训练结果不变，但理论一致性恢复。
+
+### A.2 DDPM 多步推理性能低于单步
+
+**严重程度**：🟡 中（DDPM baseline 的 bug，不影响 RF 路线）
+
+**问题描述**：
+
+`ldmdet_baseline` (1步, 0.725) > `ldmdet_baseline_step4` (4步, 0.709)，多步推理反而更差。
+
+**根因分析**：
+
+`_ddim_step`（`diffusiondet_head.py:1043`）中：
+```python
+alpha = self.alphas_cumprod[t_curr]
+alpha_next = self.alphas_cumprod[t_next]  # ← t_next 可能为负数
+```
+
+当 `t_next < 0` 时，Python 负索引返回 `alphas_cumprod[-1]`（最后一个元素），导致 `alpha_next` 错误。虽然外层循环有 `if t_next < 0: break`，但 `_ddim_step` 内部已经用错误的 `alpha_next` 计算了 `x_raw_next`。
+
+**修复方案**：
+```python
+def _ddim_step(self, t_curr, t_next, x_raw, cls_logits, pred_bboxes, img_metas):
+    x0 = self._xyxy_to_raw(pred_bboxes, img_metas)
+    if t_next < 0:
+        return self._raw_to_xyxy(x0, img_metas), x0  # 直接返回 x0 预测
+    # ... 原有逻辑
+```
+
+### A.3 Stochastic Coupling 可复现性差
+
+**严重程度**：🟡 中（影响实验结论的置信度）
+
+**问题描述**：
+
+`sinkhorn_sample_eps5` 主实验 0.751，复现 0.738，seed2 0.750，方差 0.013 mAP（典型实验方差 ~0.002-0.005）。
+
+**根因**：`torch.multinomial` 在小 batch size (bs=2) 下随机性大，每次迭代从传输矩阵中采样配对，不同种子导致训练轨迹差异大。
+
+**修复方案**：
+
+方案 1（轻量）：固定 `torch.multinomial` 的 generator：
+```python
+gen = torch.Generator(device=device)
+gen.manual_seed(self.ot_sample_seed)
+return torch.multinomial(row_probs, 1, generator=gen).squeeze(-1)
+```
+
+方案 2（根本）：增大 batch size（bs=2 → bs=4-8），降低单次采样的方差。
+
+方案 3（替代）：使用 Gumbel-Softmax 实现可微的 Stochastic Coupling：
+```python
+tau = self.ot_gumbel_tau  # 温度参数
+gumbel_noise = -torch.log(-torch.log(torch.rand_like(row_probs)))
+return F.softmax((row_probs.log() + gumbel_noise) / tau, dim=1)
+```
+
+---
+
+## 附录 B：设计改进方案（待实验验证）
+
+> 以下方案由代码审计和理论分析推导得出，尚未经过实验验证。记录于此供后续实验参考。
+
+### B.1 Reflow 分阶段训练
+
+**针对问题**：定理 6.1 的梯度冲突（$\rho = -0.104$），Epoch 1 后持续退化。
+
+**方案**：
+
+| 阶段 | Epoch | freeze_shared | velocity_detach | 学习率 | 目标 |
+|---|---|---|---|---|---|
+| Phase 1 | 1 | False | False | 1e-4 | 同时优化检测和速度，利用预训练初始化 |
+| Phase 2 | 2+ | True | False | 5e-5 | 冻结共享层，只精调 velocity_head |
+
+**理论依据**：Epoch 1 最佳说明预训练参数已接近检测损失的局部最优。Phase 2 冻结共享层消除梯度冲突，velocity_head 从冻结的共享特征中学习速度预测。
+
+**代码修改**：在 `diffusiondet_head.py` 中增加 epoch 级别的参数冻结逻辑：
+```python
+def on_epoch_start(self, epoch):
+    if self.use_reflow and epoch >= 2:
+        self.freeze_shared = True
+        self._freeze_shared_layers()
+```
+
+**预期效果**：消除 Epoch 2+ 的退化，velocity loss 可能收敛到更低值（因无梯度冲突干扰）。
+
+### B.2 TRD 使用解析传输速度
+
+**针对问题**：定理 7.1 的 Stochastic OT + TRD 冲突。
+
+**方案**：
+
+将 TRD 的自条件化速度估计从"模型预测"改为"当前 OT 配对的解析速度"：
+
+```python
+# 修改前：用模型预测估计 v_π
+with torch.no_grad():
+    _, all_pred_sc, _, _ = self(features, curr_bboxes, t_input)
+    x0_sc = self._xyxy_to_raw(all_pred_sc[-1], img_metas)
+v_ot_est = (x_noisy_sc - x0_sc) / torch.clamp(t_view, min=1e-5)
+
+# 修改后：用当前 OT 配对的解析速度
+v_ot_est = x_noise_batch - x_start_batch  # v* = x_1 - x_0，解析可得
+```
+
+**理论依据**：TRD 的自条件化步骤需要与当前迭代的 OT 配对一致。使用解析速度 $v^* = x_1 - x_0$ 保证前进方向与当前 OT 配对完全一致，消除 Stochastic OT 的随机性引入的不一致性。
+
+**预期效果**：Stochastic OT + TRD 组合不再产生负交互，mAP 应接近或超过 0.752。
+
+**风险**：解析速度 $v^*$ 是训练目标速度，不是模型实际学到的速度。TRD 前进到 $x_{t+\Delta t}$ 后，模型在该点的预测可能与解析速度外推的位置不一致，引入新的训练噪声。需要实验验证哪种估计更优。
+
+### B.3 TRD 与 CAT 解耦步长参数
+
+**针对问题**：TRD 和 CAT 共享 `cat_delta_t` 参数，但最优步长可能不同。
+
+**方案**：
+
+引入独立的 `trd_delta_t` 参数：
+
+```python
+# diffusiondet_head.py __init__
+self.trd_delta_t = trd_delta_t if trd_delta_t is not None else cat_delta_t
+```
+
+在 `_forward_trd` 中使用 `self.trd_delta_t`，在 `_add_cat_loss` 中使用 `self.cat_delta_t`。
+
+**理论依据**：
+- TRD 需要较大的步长（~0.05-0.1）以提供有意义的自条件化信号
+- CAT 需要较小的步长（~0.01-0.02）以精确估计 $x_0$ 一致性
+
+**预期效果**：独立调参后 TRD 和 CAT 可能各自达到更优性能。
+
+### B.4 纯曲率正则化 CAT
+
+**针对问题**：§4.2 发现 CAT 代码惩罚 $x_0$ 一致性而非纯曲率，比理论更激进。
+
+**方案**：
+
+修改 CAT loss 为惩罚速度的时间导数：
+
+```python
+# 修改前
+losses["loss_curvature"] = F.mse_loss(x0_t1, x0_t2.detach()) * self.cat_weight
+
+# 修改后：纯曲率正则化
+t_view_safe = t_view.clamp(min=0.01)  # 避免 t≈0 处数值不稳定
+v_t1 = (x_noisy_t1 - x0_t1) / t_view_safe
+t2_view_safe = t2_view.clamp(min=0.01)
+v_t2 = (x_noisy_t2 - x0_t2.detach()) / t2_view_safe
+losses["loss_curvature"] = F.mse_loss(v_t1, v_t2) * self.cat_weight
+```
+
+**理论依据**：纯曲率正则化仅约束 $\|\partial v_\theta/\partial t\|^2$，不约束速度大小 $\|v_\theta\|^2$，比当前实现更温和。
+
+**风险**：
+1. $t \approx 0$ 处 $v_\theta = (x_t - x_0^{pred})/t$ 数值不稳定
+2. 纯曲率正则化可能不足以约束速度大小，导致路径过长
+3. 需要重新调参和实验验证
+
+### B.5 CAT 与 OT 兼容化
+
+**针对问题**：§7.3 发现 CAT 的 $x_{t+\Delta t}$ 使用相同 OT 配对构造，但 Voronoi 边界随 $t$ 移动导致三方矛盾。
+
+**方案 1：为 $x_{t+\Delta t}$ 重新运行 OT 耦合**
+
+```python
+# 在 _add_cat_loss 中
+x_t2_raw = (1.0 - t2_view) * gt_diffusion + t2_view * noise  # 用原始 GT 和噪声构造
+x_start_t2 = self._couple_ot(x_t2_raw, gt_diffusion, labels, device)  # 重新配对
+x_t2 = (1.0 - t2_view) * x_start_t2 + t2_view * noise  # 用新配对构造 x_{t+dt}
+```
+
+**理论依据**：使 CAT 的构造与 OT 的配对一致，消除三方矛盾。
+
+**风险**：引入额外 OT 计算开销（每步训练多一次 Sinkhorn 迭代）。
+
+**方案 2：在 CAT loss 中排除 Voronoi 边界样本**
+
+```python
+# 检测边界样本：x_0^{pred} 与最近 GT 和次近 GT 的距离比
+dists = torch.cdist(x0_t1, gt_diffusion)
+d1, d2 = dists.sort(dim=1).values[:, :2].unbind(dim=1)
+boundary_mask = (d2 / (d1 + 1e-5)) < self.cat_boundary_threshold  # 距离比接近 1 = 边界
+losses["loss_curvature"] = F.mse_loss(x0_t1[~boundary_mask], x0_t2[~boundary_mask].detach()) * self.cat_weight
+```
+
+**理论依据**：边界样本是 CAT-OT 冲突的根源，排除后 CAT 的平滑化约束与 OT 的训练信号兼容。
+
+**风险**：减少有效训练样本，且边界阈值需要调参。
