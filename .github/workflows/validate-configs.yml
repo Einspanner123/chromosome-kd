@@ -35,10 +35,8 @@ jobs:
         run: pip install torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cpu
       - name: Install MMCV
         run: pip install -U openmim && mim install mmcv>=2.1.0
-      - name: Install runtime dependencies
-        run: pip install -r requirements/runtime.txt
-      - name: Build and install
-        run: pip install -e .
+      - name: Install mmengine
+        run: pip install mmengine
       - name: Validate chromodet configs
         run: |
           python -c "

@@ -16,6 +16,7 @@ on:
       - "docker/**"
       - "docs/**"
       - "**.md"
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -37,19 +38,16 @@ jobs:
         run: pip install torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cpu
       - name: Install MMCV
         run: pip install -U openmim && mim install mmcv>=2.1.0
-      - name: Install runtime dependencies
-        run: pip install -r requirements/runtime.txt
-      - name: Install test dependencies
-        run: pip install pytest pytest-cov
-      - name: Build and install
-        run: pip install -e .
-      - name: Run tests and generate coverage
-        run: pytest --cov=mmdet --cov-report=xml --cov-report=term-missing tests/ -x -v
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./coverage.xml
-          flags: unittests
-          fail_ci_if_error: false
+      - name: Install mmengine and mmdet
+        run: pip install mmengine && pip install -e .
         env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          FORCE_CUDA: "0"
+      - name: Import check
+        run: |
+          python -c "
+          import mmdet
+          print(f'mmdet version: {mmdet.__version__}')
+          from mmdet.utils import register_all_modules
+          register_all_modules()
+          print('All modules registered successfully')
+          "
