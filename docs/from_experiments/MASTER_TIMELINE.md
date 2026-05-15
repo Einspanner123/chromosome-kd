@@ -88,6 +88,8 @@ ______________________________________________________________________
 
 **关键**：`ldmdet_baseline` 使用 1 步推理即达到 0.725，4 步推理反降至 0.709——这在 DDPM 体系下反常（通常多步 > 单步）。可能的解释是 DDPM 1 步推理实际走了 DDIM skip 路径，需进一步排查代码实现。`diffusiondet_baseline` 在 work_dirs 中训练完全未收敛，~0.45 可能来自其他分支的早期实验。
 
+> **代码审计 / 重跑标注（2026-05-15）**：`projects/LDMDet/mods/diffusiondet_head.py::_ddim_step` 在 `t_next < 0` 时存在负索引风险。DDPM baseline、DDPM 4-step 和 RF-vs-DDPM 数值对比应修复后重跑。
+
 ### 阶段 1：RF 基础改进（路径直化）
 
 | 实验                         | mAP       | mAP@50 | mAP@75 | 核心改进                         |
@@ -103,6 +105,8 @@ ______________________________________________________________________
 - AdaLN-Zero 额外 +0.4%，零初始化收益显著
 - **AdaLN 是单项最大改进（+1.8% vs RF baseline）**
 
+> **代码审计 / 重跑标注（2026-05-15）**：Shifted 与 AdaLN 主线未发现必须修正的实现问题；RF 对 DDPM 的绝对增益需等待 DDPM 采样修复后重新确认。AdaLN 结论应表述为“时间条件残差零初始化”，而非“速度场零初始化”。
+
 ### 阶段 2：OT 耦合探索（传输优化）
 
 | 实验                               | mAP         | 关键参数                    | 发现                   |
@@ -112,14 +116,16 @@ ______________________________________________________________________
 | `ot_sinkhorn_eps5/10/50/100`       | 0.733-0.748 | Sinkhorn argmax, 多 eps     | ε 扫描曲线异常平坦     |
 | `sinkhorn_sample_eps5`             | **0.751**   | Sinkhorn stochastic, eps=5  | ✅ 随机采样恢复性能    |
 | `sinkhorn_sample_eps50`            | 0.736       | Sinkhorn stochastic, eps=50 | ❌ 过大 ε 有损         |
-| `group_hierarchical_stoch`         | **0.752**   | 群组层次 OT + stochastic    | ✅ 最优耦合策略        |
+| `group_hierarchical_stoch`         | **0.752**   | 群组层次 OT + stochastic    | ✅ 当前单次最佳耦合策略 |
 
 **关键发现**：
 
 - **硬 OT（argmax）在所有 ε 下都不如随机耦合**，因为确定性分配消除了训练多样性
 - Stochastic Coupling (从传输矩阵采样) 修复了这个问题，在 eps=5 时达到 0.751
-- 群组层次 OT（利用染色体 A-G 组 + 性染色体先验）额外 +0.001，达到 0.752
+- 群组层次 OT（利用染色体 A-G 组 + 性染色体先验）单次运行额外 +0.001，达到 0.752；该差异需多 seed 验证
 - **多样性 > 传输效率**：在低维检测空间，保持训练信号的多样性比最小化传输代价更重要
+
+> **代码审计 / 重跑标注（2026-05-15）**：stochastic OT 和 group-hierarchical stochastic 使用 `torch.multinomial`，当前缺少固定 generator，且已有 0.751/0.738/0.750 的复现实验波动。所有 stochastic SOTA 数值和 “+0.001” 级别结论必须用 5 seed mean ± std 重报；硬 OT 负结果可作为趋势保留。
 
 ### 阶段 3：训练动力学优化（辅助机制）
 
@@ -135,10 +141,12 @@ ______________________________________________________________________
 **关键发现**：
 
 - TRD/CAT/LSAS/velocity 的单独增益都很小（0.001-0.004），但组合效应显著
-- trd_full（0.752）与 group_hierarchical_stoch（0.752）并列 SOTA，但走的是两条正交路径：
+- trd_full（0.752）与 group_hierarchical_stoch（0.752）单次结果接近当前最佳，但都需要修正/多 seed 后确认；两者走的是两条正交路径：
   - **路径 A（group_hierarchical）**：优化耦合策略（群组层次 OT + stochastic）
   - **路径 B（trd_full）**：优化训练动力学（TRD + CAT + LSAS + velocity）
 - **两条路径的组合已被实验探索，但结果为负交互**：`group_hierarchical_trd`=0.746, `stochastic_eps5_trd_cat`=0.740, `sinkhorn_trd_cat_lsas`=0.743，全部低于单路径最佳 0.752（详见 §七）
+
+> **代码审计 / 重跑标注（2026-05-15）**：TRD/velocity/CAT 相关数值均需谨慎。当前 `velocity_loss` 与 ITD 的目标符号和 RF 定义相反；CAT 实现是 `$x_0$ 一致性` 而非纯曲率；TRD 复用 `cat_delta_t`。修复后应重跑 `trd_only`、`trd_full`、`velocity`、`cat_only`、`stochastic_eps5_trd_cat`、`sinkhorn_trd_cat_lsas`、`group_hierarchical_trd`。
 
 ### 阶段 4：Reflow 单步推理探索
 
@@ -160,6 +168,8 @@ ______________________________________________________________________
 - 多次 Reflow 边际收益递减：v2(+0.011) → v6(+0.011)
 - **最佳 1步推理 mAP=0.739（Reflow v6），与 4步基线 0.752 差距 1.3%**
 
+> **代码审计 / 重跑标注（2026-05-15）**：Reflow 全系列依赖 velocity target。修复 `v_target = x_noises - x_starts` 后，需要重新测 Reflow 曲线、velocity loss 天花板、`cos(g_det,g_vel)` 和 1-step/4-step gap。当前结论只能说明“旧代码下 Reflow 退化”。
+
 ### 阶段 5：Scale-Conditioned 与 KaryoFlow 失败探索
 
 | 实验方向                                                                | 结果                                | 失败原因                                                        |
@@ -168,6 +178,8 @@ ______________________________________________________________________
 | KaryoFlow 排列学习                                                      | 不可行                              | 信息量不足 (25.8 bits \<\< 178 bits)                            |
 
 **理论贡献**：两个负结果均有机制分析和可检验解释，构成论文的"负面结果 + 理论解释"部分；严格证明口径以 `THEORY_FRAMEWORK.md` 三次修正版为准。
+
+> **代码审计 / 重跑标注（2026-05-15）**：Scale-Conditioned 未发现明确实现 bug，但“必然无效”应降级为“当前实现无收益”。KaryoFlow 的信息论结论是方向性论证，不等价于否定所有核型结构先验；后续可转向 KCEC（软倍性配额 + 同源交换对称性），见 `THEORY_FRAMEWORK.md §8.6`。
 
 ______________________________________________________________________
 
@@ -213,7 +225,7 @@ Sinkhorn + Stochastic Coupling 在随机耦合（最大多样性，零传输结�
 
 **解决方案**：两阶段训练（Stage 1: 冻结 velocity_head 训练检测 → Stage 2: 冻结共享层训练 velocity_head）。
 
-### 4.5 Scale-Conditioned FM 为何必然无效
+### 4.5 Scale-Conditioned FM 为何当前实现无效
 
 三个理论原因：
 
@@ -557,7 +569,7 @@ ______________________________________________________________________
 3. **CAT（曲率正则化）**：`cat` 与 OT 组合时有一运行全部 eval 为 0，`cat_only` (0.744) 单独使用正常——问题出在特定组合而非 CAT 本身
 4. **Stochastic OT 可复现性**：`repro`=0.738 远低于原始 0.751（差 1.3%），对随机种子敏感；同时 `seed2`=0.750 较接近，说明存在统计波动
 5. **两条 SOTA 路径的直接组合**：`group_hierarchical_trd`=0.746，存在负交互（详见 §七）
-6. **Scale-Conditioned FM**：三种理论原因导致必然无效，但 sc_loss=0.745 下降幅度较小（vs adaln -0.006）
+6. **Scale-Conditioned FM**：当前三种实现均未带来收益，但 sc_loss=0.745 下降幅度较小（vs adaln -0.006），不应表述为“必然无效”
 7. **KaryoFlow 端到端排列学习**：信息论下界不可达
 8. **多次 Reflow**：边际收益递减，第2轮几乎无收益
 
@@ -580,20 +592,20 @@ ______________________________________________________________________
 
 1. 基于扩散的目标检测中，训练效果由耦合质量、索引多样性、速度时间变化和时间采样四个因素共同影响，而非单一因素
 2. 在低维检测空间（$\\mathbb{R}^4$）中，硬 OT 可能导致目标索引多样性坍缩，而 Stochastic Coupling 能缓解这一问题
-3. 下一步顶会级主线应从 geometry-only OT 转向 Detection-Aware Entropic Coupling，将检测匹配代价和索引熵约束纳入训练耦合
+3. 下一步顶会级主线应从 geometry-only OT 转向 Karyotype-Constrained Entropic Coupling，将核型配额、同源交换对称性、形态先验和索引熵约束纳入训练耦合
 
 ### 9.2 三大贡献
 
 1. **LDMDet 检测器**：基于 Rectified Flow + AdaLN-Zero + Shifted Schedule 的高效扩散检测器，4步推理达到 0.752 mAP
 2. **OT Diversity Collapse 命题**：从目标索引熵角度解释硬 OT 在低维检测框空间中的负效果，提出 CAM 命题揭示 Sinkhorn+argmax 管线的缺陷
-3. **Detection-Aware Entropic Coupling 方向**：在 stochastic coupling 的基础上引入检测代价和熵约束，目标是获得训练-only、可泛化、正向提升的耦合机制
+3. **Karyotype-Constrained Entropic Coupling 方向**：在 stochastic coupling 的基础上引入软倍性配额、同源交换对称性、形态先验和熵约束，目标是获得训练-only、可泛化、正向提升的染色体耦合机制
 
 ### 9.3 五个需修正的认知
 
 1. **"OT 总是好的"** → 只有在高维空间成立，低维检测中多样性损失严重
 2. **"大 ε 增加多样性"** → 对 argmax 无效（CAM 定理），只对 Stochastic Coupling 有效
 3. **"更多 Reflow 更好"** → 边际收益递减，根因是梯度冲突而非路径不够直
-4. **"Scale-Conditioned 可以改善小物体检测"** → 流速场偏移和变分原理破坏导致必然无效
+4. **"Scale-Conditioned 可以改善小物体检测"** → 当前实现下未验证收益，可能因流速场偏移和重加权目标不匹配导致退化
 5. **"端到端排列学习可行"** → 信息论下界（178 bits）远超可用信息量（25.8 bits）
 6. **"OT + TRD 组合必然叠加"** → 直接组合存在负交互（0.746 \< 0.752），耦合优化和训练动力学优化存在机制冲突
 
@@ -603,24 +615,25 @@ ______________________________________________________________________
 
 ### P0：论文必需（1-2周）
 
-1. **分析两条 SOTA 路径的负交互根因**：已确认组合 \< 单路径（§七），需理解机制并寻找绕过负交互的方案
-2. **Stochastic ε=1.0 和 ε=2.0 实验**：验证理论预测的最优 ε 区间（目前仅测了 ε=5 和 ε=50）
-3. **Stochastic OT 多 seed 统计**：解决 repro=0.738 的可复现性问题，至少 3 seed 取均值
-4. **COCO 数据集验证**：RF + AdaLN + Shifted 在 COCO 上的通用性证明
-5. **完整消融表**：补齐所有模块的消融实验数据（含已遗漏的 15+ 个实验）
+1. **先修代码再重跑关键结论**：修复 DDPM `_ddim_step`、velocity/ITD target 符号、TRD/CAT 步长解耦、CAT 纯曲率版本和 stochastic generator。
+2. **Stochastic OT 多 seed 统计**：解决 repro=0.738 的可复现性问题，至少 5 seed 报告 mean ± std。
+3. **KCEC 首版实验**：实现 soft ploidy quota + homolog exchangeability + morphology cost 的训练-only coupling，目标超过 group_hierarchical_stoch 的多 seed 均值。
+4. **Stochastic ε=1.0 和 ε=2.0 实验**：验证理论预测的候选 ε 区间。
+5. **完整消融表**：补齐所有模块的消融实验数据，尤其是 KCEC 的 group/quota/morph/slack 消融。
 
 ### P1：强化论文（2-4周）
 
-5. **两阶段 Reflow 训练**：Stage 1 冻结 velocity_head 训练检测 → Stage 2 冻结共享层训练 velocity_head
-6. **Reflow + ITD（中间轨迹蒸馏）**：在多个中间时间步提供 velocity 监督
-7. **推理速度 Benchmark**：完整 FPS 测量（1/2/4/8/16步）
-8. **更强的 Backbone**：Swin-T / ConvNeXt
+6. **COCO 数据集验证**：RF + AdaLN + Shifted 在 COCO 上的通用性证明；KCEC 作为染色体专属贡献，DAEC 作为通用化扩展。
+7. **两阶段 Reflow 训练**：Stage 1 冻结 velocity_head 训练检测 → Stage 2 冻结共享层训练 velocity_head。
+8. **Reflow + ITD（中间轨迹蒸馏）**：在多个中间时间步提供 velocity 监督。
+9. **推理速度 Benchmark**：完整 FPS 测量（1/2/4/8/16步）。
+10. **更强的 Backbone**：Swin-T / ConvNeXt。
 
 ### P2：探索性（4周+）
 
-09. **自适应群组划分**：不依赖固定生物学分类的动态聚类
-10. **学习型 ε 调度**：训练初期大 ε（多样性），后期小 ε（效率）
-11. **与 C²OT / W-CFM 的结合**：条件加权 + Stochastic Coupling
+11. **自适应群组划分**：不依赖固定生物学分类的动态聚类。
+12. **学习型 ε 调度**：训练初期大 ε（多样性），后期小 ε（效率）。
+13. **与 C²OT / W-CFM 的结合**：条件加权 + Stochastic Coupling。
 
 ______________________________________________________________________
 

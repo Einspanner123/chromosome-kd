@@ -84,6 +84,8 @@ $$|x_1 - x_0|^2 = \\left|\\int_0^1 v(t) dt\\right|^2 \\leq \\left(\\int_0^1 |v(t
 
 **实验验证**：`ldmdet_rf` (0.733) > `ldmdet_baseline` (0.725)，+0.8% mAP，与理论预测一致。✅
 
+> **代码审计 / 重跑标注（2026-05-15）**：该结论依赖 DDPM baseline。当前 `projects/LDMDet/mods/diffusiondet_head.py::_ddim_step` 在 `t_next < 0` 时仍先访问 `self.alphas_cumprod[t_next]`，会触发 Python 负索引，影响 `ldmdet_baseline` 与 `ldmdet_baseline_step4` 的公平性。应先修复 `_ddim_step` 的终止步逻辑，再重跑 `ldmdet_baseline`、`ldmdet_baseline_step4` 以及 RF-vs-DDPM 公平对比。RF 本身的直线路径命题不受影响，但 `+0.8 mAP` 数值需要重验。
+
 ______________________________________________________________________
 
 ### 1.2 Linear → Shifted Schedule：重要性采样
@@ -117,6 +119,8 @@ $$\\left|\\frac{\\partial \\mathcal{L}_{det}}{\\partial (\\delta v)}\\right| = t
 **推论**：$t \\approx 1$ 处的速度误差被放大 $t$ 倍后影响检测损失。Shifted schedule 在 $t \\approx 1$ 处分配 9 倍于 $t \\approx 0$ 处的采样密度，与敏感度分布匹配。
 
 **实验验证**：`ldmdet_rf_shifted_schedule` (0.747) > `ldmdet_rf` (0.733)，+1.4% mAP。✅
+
+> **代码审计 / 重跑标注（2026-05-15）**：未发现 shifted schedule 实现层面的必须修正项。若作为论文主结论，建议在同一 solver、batch size、训练轮数下补 3 seed 均值；但不属于“修代码后必须重跑”的问题。
 
 ______________________________________________________________________
 
@@ -192,6 +196,8 @@ $$v\_\\theta(x_t, t) = \\frac{x_t - x_0^{pred}}{t}, \\quad x_0^{pred} = \\text{a
 
 **实验验证**：`ldmdet_flowdet_adaln` (0.751) vs `ldmdet_rf_heun_shifted_bs2` (0.748，使用 scale-shift)，+0.3% mAP。若对比更早的 scale-shift 基线，AdaLN-Zero 的增益为 +1.1%（0.740→0.751）。✅
 
+> **代码审计 / 重跑标注（2026-05-15）**：AdaLN-Zero 当前实现与“时间条件残差为零”的修正版理论一致，但 `single_head.py` 中 Instance Interaction 不受 `alpha` 门控，因此不能用现有实验支持“全 block 零基线”或“初始速度场为零”。无需为修正版 AdaLN 结论重跑；若要验证“给 Instance Interaction 增加 alpha3 门控是否更优”，应作为新 ablation 重跑。
+
 ______________________________________________________________________
 
 ### 1.4 Random → OT Coupling：多样性-传输效率权衡（重大修正）
@@ -258,6 +264,8 @@ $$R_{idx}=\\frac{\\log K}{\\log K + d\\cdot \\log(1/\\tau)}$$
 
 **推论 1.4c**（CAM 命题）：Sinkhorn + argmax 管线中，argmax 操作会显著削弱 $\\epsilon$ 对采样多样性的调控能力，因此 $\\epsilon$ 扫描曲线可能异常平坦。该命题可通过报告 $H(Y\mid X_t)$ 随 $\\epsilon$ 的变化来验证。
 
+> **代码审计 / 重跑标注（2026-05-15）**：`_sinkhorn_match` 和 `_run_group_hierarchical_ot` 中 `torch.multinomial` 未显式传入固定 `torch.Generator`，且文档已有 `sinkhorn_sample_eps5` 主实验 0.751、repro 0.738、seed2 0.750 的大幅波动。所有依赖 stochastic coupling 的数值结论（`sinkhorn_sample_eps*`、`group_hierarchical_stoch`、组合实验中的 stochastic OT）都应以至少 5 seed 的 mean ± std 重跑；若要提升工程可复现性，可增加 `ot_sample_seed` 或记录每次采样 RNG 状态。硬 OT / argmax 的趋势结论不受 multinomial 随机性影响。
+
 ______________________________________________________________________
 
 ### 1.5 Gaussian → Structured Noise：源分布优化
@@ -269,6 +277,8 @@ ______________________________________________________________________
 **命题 1.5**：GT 框中心在 $\[0,1\]$ 范围内，网格噪声中心也在 $\[0,1\]$ 附近，而高斯噪声中心在 $(-\\infty, +\\infty)$。因此 $W_2^2(\\mu\_{grid}, \\mu\_{gt}) \< W_2^2(\\mathcal{N}(0,I), \\mu\_{gt})$。
 
 **实验修正**：`ldmdet_flowdet_structured_noise` (0.742) \< `ldmdet_flowdet_adaln` (0.751)。结构化噪声虽减小 $W_2^2$，但限制了噪声分布的覆盖范围，可能损害模型对极端位置的泛化能力。此改进的收益被泛化损失抵消，与 OT 耦合的多样性问题类似。
+
+> **代码审计 / 重跑标注（2026-05-15）**：未在当前主线代码中发现结构化噪声结论对应的明确实现 bug。但该结论目前只说明“当前结构化噪声设计无收益”，不能排除更好的染色体先验噪声。论文中应保留为负结果；若要强 claim，需补多 seed 与覆盖率统计。
 
 ______________________________________________________________________
 
@@ -407,6 +417,8 @@ $$v\_\\theta(x_t, t, f) = v\_\\pi(x_t, t) + \\delta v\_\\phi(x_t, t, f)$$
 
 **实验验证**：`trd_only` (0.746) > `adaln` (0.751)? 否，0.746 \< 0.751。TRD 单独使用时不如 AdaLN 基线。但 `trd_full` (0.752) > `adaln` (0.751)，说明 TRD 需要与 CAT + LSAS + velocity 组合才能发挥效果。这提示 TRD 的收益主要来自训练动力学的整体改善，而非单纯的误差分解。
 
+> **代码审计 / 重跑标注（2026-05-15）**：`prediction_mode='velocity'` 的实验受 velocity target 符号问题影响：`rectified_flow.py` 定义速度为 `x_noise - x_start`，但 `_add_velocity_loss` 与 ITD 使用 `x_start - x_noise`。因此 `trd_only`、`trd_full`、`velocity`、`ITD`、所有 Reflow 以及所有含 velocity loss 的组合实验都应在修正目标符号后重跑。另一个实现问题是 TRD 训练/推理复用 `cat_delta_t`，建议新增 `trd_delta_t` 后重跑 TRD 与 TRD+CAT 消融。
+
 ### 4.2 Curvature-Aware Training (CAT)
 
 **目标**：降低 ODE 路径的离散化误差上界。
@@ -464,6 +476,8 @@ $$\\mathcal{L}_{CAT}^{code} \\approx \\Delta t^2 \\cdot \\underbrace{|v_\\theta|
 
 **实验修正**：`cat_only` (0.744) 略低于 `adaln` (0.751)，说明 $x_0$ 一致性正则化单独使用时过度约束了模型的时间条件表达能力。CAT 与 OT 组合时甚至导致训练崩溃（eval=0），可能原因见机制假说 7.2。
 
+> **代码审计 / 重跑标注（2026-05-15）**：当前 CAT 实现评估的是 `$x_0$ 一致性正则化`，不是纯曲率正则化。因此 `cat_only` 与 CAT+OT 的负结果只能对应当前代码实现，不能否定“纯曲率 CAT”。若论文要使用 Curvature-Aware Training 这个机制名，应实现 `v_theta(t)` 的时间差分正则并重跑 `cat_only`、`trd_full`、`stochastic_eps5_trd_cat`、`sinkhorn_trd_cat_lsas`。此外 CAT+OT 还应重跑“t+dt 重新 OT 配对”或“边界样本 mask”版本，以验证 §7.3 的冲突假说。
+
 ### 4.3 Loss-Sensitive Adaptive Scheduling (LSAS)
 
 **目标**：从检测损失敏感度推导最优时间采样分布。
@@ -473,6 +487,8 @@ $$\\mathcal{L}_{CAT}^{code} \\approx \\Delta t^2 \\cdot \\underbrace{|v_\\theta|
 $$p^\*(t) \\propto t \\cdot \\sqrt{\\mathbb{E}\\left\[\\left|\\nabla\_{x_0} \\mathcal{L}\_{det}\\right|^2\\right\]}$$
 
 **实验验证**：`lsas` (0.743) 单独使用效果有限，但在 `trd_full` 组合中贡献 +0.001-0.002。LSAS 的收益被其他机制部分覆盖（shifted schedule 已提供了粗粒度的时间偏向）。
+
+> **代码审计 / 重跑标注（2026-05-15）**：LSAS 单独实验未发现必须修正项。但 `trd_full` 中的 LSAS 贡献与 velocity/CAT/TRD 混合，且增益小于典型随机波动；修正 velocity target、CAT 目标和 TRD 步长后，需要重新做组合消融才能确认 LSAS 的边际收益。
 
 ______________________________________________________________________
 
@@ -534,6 +550,8 @@ $$\\rho = \\cos\\left(\\nabla\_{\\theta\_{\\text{shared}}} \\mathcal{L}_{det}, \
 当 $\\rho \< 0$ 时，两个损失的梯度方向相反，优化一个会恶化另一个。
 
 **实验测量**：$\\rho = -0.104$，86.8% 的层存在梯度冲突。
+
+> **代码审计 / 重跑标注（2026-05-15）**：该梯度冲突测量使用的 velocity target 方向需要核对。由于当前 `_add_velocity_loss` 目标与 RF 定义相反，`rho=-0.104` 可作为“当前代码下的冲突证据”，但不能直接作为修正后 velocity loss 的理论证据。应在修正 `v_target = x_noises - x_starts` 后重新测量 `cos(g_det, g_vel)`、逐层冲突比例和 Reflow 曲线。
 
 **机制推导（非严格证明）**：
 
@@ -598,6 +616,8 @@ ______________________________________________________________________
 | sinkhorn_stochastic + TRD + CAT        | 0.740 | **-0.012**            |
 
 三个组合实验全部低于任一单路径最佳值。
+
+> **代码审计 / 重跑标注（2026-05-15）**：组合负交互结论在当前代码下成立，但不应被写成最终结构性定论。`sinkhorn_trd_cat_lsas` 和 `stochastic_eps5_trd_cat` 同时受 stochastic seed 方差、velocity target 符号、CAT 目标不一致、TRD 使用 `cat_delta_t` 等因素影响；`group_hierarchical_trd` 至少受 stochastic seed 方差和 TRD 自条件估计误差影响。建议修正后重跑：`group_hierarchical_trd`、`stochastic_eps5_trd_cat`、`sinkhorn_trd_cat_lsas`，并增加“analytic/current-pair TRD velocity”和“TRD/CAT delta_t 解耦”版本。
 
 ### 7.2 机制冲突假说
 
@@ -763,32 +783,92 @@ $$\\min_\pi C_{trans}(\pi)+\\lambda B_{match}(\pi) \quad \text{s.t.}\quad H(Y\mi
 4. **消融**：去掉 $C^{cls}$、$C^{scale}$、$C^{group}$、$C^{unc}$、熵约束和 stochastic sampling，验证每一项的边际作用。
 5. **推理成本**：报告训练时增加的耦合计算，并确认推理 FLOPs/latency 不变。
 
-### 8.6 备选突破点
+### 8.6 染色体专属突破点：Karyotype-Constrained Entropic Coupling (KCEC)
 
-若 DAEC 增益不足，次优先级方向如下：
+DAEC 是通用检测突破点；若目标是围绕**染色体检测**形成更有辨识度的顶会级创新，推荐进一步做 **Karyotype-Constrained Entropic Coupling (KCEC)**。
+
+**核心观察**：染色体检测不是普通 COCO 式独立目标检测。每张核型图像天然满足近似固定的集合结构：
+
+- 常染色体类别通常满足二倍体配额：$q_c=2,\ c\in\{1,\dots,22\}$。
+- 性染色体满足有限模式：XX、XY 或异常核型的少量偏离。
+- 染色体类别存在 A-G 组、尺寸、着丝粒位置和臂比等连续形态先验。
+- 同源染色体是 exchangeable 的：两个 1 号染色体之间交换不应被视为不同结构。
+
+现有 group-hierarchical stochastic 只使用了粗粒度 A-G 组先验，但没有把**核型配额、同源交换对称性、异常核型弹性**写入耦合目标。因此它只能带来约 +0.001 的单次提升，且 seed2 降到 0.747，说明先验利用还不够稳。
+
+**方法定义**：把训练耦合从 proposal-to-GT matching 提升为 proposal-to-karyotype-slot matching。设 $s=(c,r)$ 表示染色体类别 $c$ 的第 $r$ 个槽位，$r\in\{1,\dots,q_c\}$。构造 proposal $i$ 到槽位 $s$ 的代价：
+
+$$C_{i,s}=\\alpha C^{box}_{i,s}+\\beta C^{cls}_{i,c}+\\gamma C^{morph}_{i,c}+\\eta C^{group}_{i,c}+\\rho C^{count}_{c}$$
+
+其中 $C^{morph}$ 来自长度、宽度、面积、臂比或可学习 morphology embedding；$C^{count}$ 是当前图像的核型配额/异常模式先验。求解带配额的熵正则耦合：
+
+$$\\pi^\*=\\arg\\min_{\pi\ge0}\langle C,\pi\rangle-\tau H(\pi)$$
+
+$$\\sum_s \pi_{i,s}=a_i,\quad \sum_i \pi_{i,(c,r)}=b_{c,r},\quad b_{c,r}\propto 1/q_c$$
+
+为了处理异常核型，不应把配额写死为硬约束，而应引入 slack slots：
+
+$$\\sum_i \pi_{i,(c,r)} + u_{c,r}=b_{c,r},\quad \lambda_{slack}\sum_{c,r}|u_{c,r}|$$
+
+这样正常样本利用强核型先验，异常样本仍可通过 slack 解释，不会被错误强制成 46 条标准核型。
+
+**理论亮点**：KCEC 的创新不只是“加先验”，而是把染色体检测建模为**商空间上的集合流匹配**：
+
+$$\\mathcal{Y}_{karyo}=\\left(\prod_c \{b_{c,1},\dots,b_{c,q_c}\}/S_{q_c}\right)\times \mathcal{A}$$
+
+其中 $S_{q_c}$ 表示同源染色体交换群，$\mathcal{A}$ 表示异常核型 slack 空间。模型学习的是等价类上的 flow，而不是任意编号的 GT 实例。这能同时解释三个现象：
+
+1. hard OT 过早选择单个 GT 实例，破坏同源 exchangeability；
+2. random coupling 保留多样性但没有利用核型配额；
+3. group-hierarchical stochastic 有效但不稳定，因为它只用了组级先验，没有用类别配额和同源对称性。
+
+**为什么可能正向提升**：
+
+- 对易混类别（如相邻编号、同组染色体），KCEC 用形态和配额减少错误匹配。
+- 对同源染色体，KCEC 在 quotient space 中保持交换不变性，减少无意义的 slot-level 噪声。
+- 对 dense/overlap 区域，熵正则保留多候选监督，避免 hard OT 坍缩。
+- 对异常核型，slack slots 提供可解释偏离，避免强先验伤害泛化。
+
+**建议实验路径**：
+
+1. 先实现训练-only KCEC：只改 coupling，不改推理结构。目标是超过 `group_hierarchical_stoch` 的多 seed 均值。
+2. 报告三类分层指标：整体 mAP、同组易混类别 mAP、异常/非标准样本 recall。
+3. 做先验消融：group-only、group+quota、group+quota+morph、group+quota+morph+slack。
+4. 做 exchangeability 验证：同源染色体 GT 顺序随机置换时，训练 loss 和最终 mAP 应保持稳定。
+5. 与 DAEC 的关系：KCEC 是 DAEC 的染色体特化版本；若 KCEC 在染色体上显著提升，DAEC 可作为通用化扩展。
+
+**顶会级表述**：
+
+> We formulate chromosome detection as flow matching on a karyotype quotient space, where homologous chromosomes are exchangeable and chromosome counts impose soft ploidy constraints. This yields Karyotype-Constrained Entropic Coupling, a training-only matching mechanism that combines transport efficiency, target-index entropy, morphology priors, and ploidy consistency.
+
+若实验成立，KCEC 比 DAEC 更适合作为染色体论文的核心贡献：它不仅解释 OT 失败，还利用染色体任务的独特结构给出正向提升机制。
+
+### 8.7 其他备选突破点
+
+若 DAEC/KCEC 增益不足，次优先级方向如下：
 
 - **Entropy-Scheduled Coupling**：训练早期保持高 $H(Y\mid X_t)$，后期逐步降低熵以提高传输效率。风险是容易退化为调参型贡献，创新强度弱于 DAEC。
 - **Boundary-Aware Coupling**：显式检测 Voronoi/assignment 边界，对边界样本使用软耦合，对内部样本使用硬耦合。理论清晰，但实现和可视化复杂。
 - **Coupling-Conditioned Head**：把耦合不确定性作为条件输入检测头，使模型知道当前监督来自确定匹配还是多候选匹配。可能有增益，但会增加推理或架构复杂度。
 
-综合判断：**DAEC 是最适合冲顶会的主线**，因为它能把当前项目最强的理论发现（低维 OT 多样性坍缩）转化为一个通用、训练-only、可消融、可能正向提升的方法。
+综合判断：**DAEC 是通用检测主线，KCEC 是染色体论文更优先的主线**。KCEC 直接利用核型配额、同源交换对称性和形态先验，更有希望在当前染色体数据上形成稳定正向提升。
 
 ______________________________________________________________________
 
 ## 9. 修正后的实验验证状态
 
-| 理论预测                                | 实验结果                             | 状态                  |
-| --------------------------------------- | ------------------------------------ | --------------------- |
-| RF 直线路径优于 DDPM 弯曲路径           | +0.8% mAP                            | ✅ 一致               |
-| Shifted schedule 集中优化高敏感度时间步 | +1.4% mAP                            | ✅ 一致               |
-| AdaLN-Zero 时间条件残差从零增长         | +1.1% mAP                            | ✅ 一致               |
-| OT 耦合减小传输代价                     | 确实减小 $\|v^\*\|^2$                | ✅ 机制正确           |
-| OT 耦合应提升性能                       | hard OT (0.735) \< random (0.751)    | ❌ 原理论错误，已修正 |
-| Stochastic Coupling 恢复多样性          | eps=5 达到 0.751                     | ✅ 一致               |
-| TRD 减小离散化误差                      | trd_full (0.752) > adaln (0.751)     | ✅ 一致（需组合）     |
-| Reflow 应持续改善路径直度               | Epoch 1 后持续退化                   | ❌ 原理论错误，已修正 |
-| OT + TRD 组合应叠加                     | 组合全为负交互                       | ❌ 原理论错误，已修正 |
-| Scale-Conditioned FM 改善小物体         | sc_combined (0.736) \< adaln (0.751) | ✅ 负结果理论正确     |
+| 理论预测                                | 实验结果                             | 状态                  | 代码/重跑要求 |
+| --------------------------------------- | ------------------------------------ | --------------------- | ------------- |
+| RF 直线路径优于 DDPM 弯曲路径           | +0.8% mAP                            | ✅ 方向一致           | 修复 DDPM `_ddim_step` 后重跑数值 |
+| Shifted schedule 集中优化高敏感度时间步 | +1.4% mAP                            | ✅ 一致               | 无已知代码修正项，建议多 seed |
+| AdaLN-Zero 时间条件残差从零增长         | +1.1% mAP                            | ✅ 一致               | 无需重跑修正版结论；全 block 门控是新消融 |
+| OT 耦合减小传输代价                     | 确实减小 $\|v^\*\|^2$                | ✅ 机制正确           | 建议补 $C_{trans}$ 统计 |
+| OT 耦合应提升性能                       | hard OT (0.735) \< random (0.751)    | ❌ 原理论错误，已修正 | hard OT 结论可保留；random/stoch 对照需多 seed |
+| Stochastic Coupling 恢复多样性          | eps=5 达到 0.751                     | ⚠️ 趋势支持           | 必须多 seed；可加固定 generator |
+| TRD 减小离散化误差                      | trd_full (0.752) > adaln (0.751)     | ⚠️ 当前代码下成立     | 修 velocity target、TRD/CAT 步长后重跑 |
+| Reflow 应持续改善路径直度               | Epoch 1 后持续退化                   | ❌ 原理论错误，已修正 | 修 velocity target 后重测梯度冲突与 Reflow |
+| OT + TRD 组合应叠加                     | 组合全为负交互                       | ⚠️ 当前代码下负交互   | 修 stochastic/velocity/CAT/TRD 后重跑组合 |
+| Scale-Conditioned FM 改善小物体         | sc_combined (0.736) \< adaln (0.751) | ⚠️ 负结果趋势         | 无已知代码修正项，但不应写“必然无效” |
 
 ______________________________________________________________________
 
@@ -802,7 +882,8 @@ ______________________________________________________________________
 6. **CAT-OT 冲突假说**（§7.3）：$x_0$ 一致性正则化与 OT Voronoi 边界时间依赖性可能形成三方矛盾。
 7. **AdaLN-Zero 修正**（§1.3）：零初始化保证时间条件维度零初始化，而非保证速度场为零。
 8. **CAT 实际目标与理论目标的差异**（§4.2）：代码惩罚 $x_0$ 一致性，同时约束速度大小和曲率，强于纯曲率正则。
-9. **Detection-Aware Entropic Coupling 研究主线**（§8）：将几何传输、检测匹配代价和索引熵约束统一为训练-only 的 stochastic coupling，是最有希望形成顶会级正向贡献的下一步。
+9. **Detection-Aware Entropic Coupling 研究主线**（§8.2）：将几何传输、检测匹配代价和索引熵约束统一为训练-only 的 stochastic coupling，是通用目标检测方向的顶会级候选贡献。
+10. **Karyotype-Constrained Entropic Coupling 染色体主线**（§8.6）：将同源交换对称性、软倍性配额、形态先验和异常核型 slack 写入耦合目标，是更贴合染色体任务的顶会级候选贡献。
 
 ______________________________________________________________________
 
@@ -839,11 +920,11 @@ v_target = torch.stack(x_starts) - torch.stack(x_noises)  # v* = x_0 - x_1 = -v
 **修复方案**：
 
 ```python
-# diffusiondet_head.py:586 修改为
+# projects/LDMDet/mods/diffusiondet_head.py:_add_velocity_loss 修改为
 v_target = torch.stack(x_noises) - torch.stack(x_starts)  # v* = x_1 - x_0 = v
 ```
 
-MSE loss 对符号不敏感，修改后训练结果不变，但理论一致性恢复。
+虽然 velocity head 本身可以学习相反方向，但符号会改变辅助头输出语义、梯度测量解释、未来直接使用 velocity 做 ODE 积分时的方向，以及 ITD/Reflow 相关推导。因此修复后应重跑所有 `prediction_mode='velocity'`、ITD、Reflow 和含 velocity loss 的组合实验，而不是假设数值不变。
 
 ### A.2 DDPM 多步推理性能低于单步
 
