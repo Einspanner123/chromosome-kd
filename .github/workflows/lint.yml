@@ -3,7 +3,8 @@ name: lint
 on:
   pull_request:
   push:
-    branches: [main, master]
+    branches: [main, master, "experiment/*"]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

@@ -12,6 +12,8 @@ on:
       - "configs/**"
       - "chromodet/**"
       - "mmdet/**"
+      - ".github/workflows/validate-configs.yml"
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

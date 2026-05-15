@@ -9,7 +9,7 @@ on:
       - "docs/**"
       - "**.md"
   push:
-    branches: [main, master]
+    branches: [main, master, "experiment/*"]
     paths-ignore:
       - ".dev_scripts/**"
       - "demo/**"
@@ -36,7 +36,7 @@ jobs:
       - name: Install PyTorch CPU
         run: pip install torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cpu
       - name: Install MMCV
-        run: pip install mmcv>=2.1.0
+        run: pip install "mmcv>=2.1.0"
       - name: Install runtime dependencies
         run: pip install -r requirements/runtime.txt
       - name: Install test dependencies
