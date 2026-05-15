@@ -43,8 +43,9 @@ def convert(ckpt):
         if 'module.backbone.body' in k:
             new_k = k.replace('module.backbone.body', 'backbone')
             if 'patch_embed.proj' in new_k:
-                new_k = new_k.replace('patch_embed.proj',
-                                      'patch_embed.projection')
+                new_k = new_k.replace(
+                    'patch_embed.proj', 'patch_embed.projection'
+                )
             elif 'pos_drop' in new_k:
                 new_k = new_k.replace('pos_drop', 'drop_after_pos')
 
@@ -68,14 +69,16 @@ def convert(ckpt):
             old_k = old_k.replace('.bias', '')
             new_k = k.replace(old_k, convert_dict_fpn[old_k])
         elif 'module.language_backbone' in k:
-            new_k = k.replace('module.language_backbone',
-                              'language_model.language_backbone')
+            new_k = k.replace(
+                'module.language_backbone', 'language_model.language_backbone'
+            )
             if 'pooler' in k:
                 continue
         elif 'module.rpn' in k:
             if 'module.rpn.head.scales' in k:
-                new_k = k.replace('module.rpn.head.scales',
-                                  'bbox_head.head.scales')
+                new_k = k.replace(
+                    'module.rpn.head.scales', 'bbox_head.head.scales'
+                )
             else:
                 new_k = k.replace('module.rpn', 'bbox_head')
 
@@ -97,12 +100,15 @@ def convert(ckpt):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Convert keys to mmdet style.')
+        description='Convert keys to mmdet style.'
+    )
     parser.add_argument(
-        'src', default='glip_a_tiny_o365.pth', help='src model path or url')
+        'src', default='glip_a_tiny_o365.pth', help='src model path or url'
+    )
     # The dst path must be a full path of the new checkpoint.
     parser.add_argument(
-        '--dst', default='glip_tiny_a_mmdet.pth', help='save path')
+        '--dst', default='glip_tiny_a_mmdet.pth', help='save path'
+    )
     args = parser.parse_args()
 
     checkpoint = CheckpointLoader.load_checkpoint(args.src, map_location='cpu')
@@ -116,7 +122,7 @@ def main():
     torch.save(weight, args.dst)
 
     sha = subprocess.check_output(['sha256sum', args.dst]).decode()
-    final_file = args.dst.replace('.pth', '') + '-{}.pth'.format(sha[:8])
+    final_file = args.dst.replace('.pth', '') + f'-{sha[:8]}.pth'
     subprocess.Popen(['mv', args.dst, final_file])
     print(f'Done!!, save to {final_file}')
 

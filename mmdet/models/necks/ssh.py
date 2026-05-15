@@ -28,12 +28,14 @@ class SSHContextModule(BaseModule):
             Defaults to None.
     """
 
-    def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 conv_cfg: OptConfigType = None,
-                 norm_cfg: ConfigType = dict(type='BN'),
-                 init_cfg: OptMultiConfig = None):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        conv_cfg: OptConfigType = None,
+        norm_cfg: ConfigType = dict(type='BN'),
+        init_cfg: OptMultiConfig = None,
+    ):
         super().__init__(init_cfg=init_cfg)
         assert out_channels % 4 == 0
 
@@ -58,7 +60,8 @@ class SSHContextModule(BaseModule):
             padding=1,
             conv_cfg=conv_cfg,
             norm_cfg=norm_cfg,
-            act_cfg=None)
+            act_cfg=None,
+        )
 
         self.conv7x7_2 = ConvModule(
             self.out_channels // 4,
@@ -108,12 +111,14 @@ class SSHDetModule(BaseModule):
             Defaults to None.
     """
 
-    def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 conv_cfg: OptConfigType = None,
-                 norm_cfg: ConfigType = dict(type='BN'),
-                 init_cfg: OptMultiConfig = None):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        conv_cfg: OptConfigType = None,
+        norm_cfg: ConfigType = dict(type='BN'),
+        init_cfg: OptMultiConfig = None,
+    ):
         super().__init__(init_cfg=init_cfg)
         assert out_channels % 4 == 0
 
@@ -128,13 +133,15 @@ class SSHDetModule(BaseModule):
             padding=1,
             conv_cfg=conv_cfg,
             norm_cfg=norm_cfg,
-            act_cfg=None)
+            act_cfg=None,
+        )
 
         self.context_module = SSHContextModule(
             in_channels=self.in_channels,
             out_channels=self.out_channels,
             conv_cfg=conv_cfg,
-            norm_cfg=norm_cfg)
+            norm_cfg=norm_cfg,
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         conv3x3 = self.conv3x3(x)
@@ -167,10 +174,14 @@ class SSH(BaseModule):
         >>> in_channels = [8, 16, 32, 64]
         >>> out_channels = [16, 32, 64, 128]
         >>> scales = [340, 170, 84, 43]
-        >>> inputs = [torch.rand(1, c, s, s)
-        ...           for c, s in zip(in_channels, scales)]
-        >>> self = SSH(num_scales=4, in_channels=in_channels,
-        ...           out_channels=out_channels)
+        >>> inputs = [
+        ...     torch.rand(1, c, s, s) for c, s in zip(in_channels, scales)
+        ... ]
+        >>> self = SSH(
+        ...     num_scales=4,
+        ...     in_channels=in_channels,
+        ...     out_channels=out_channels,
+        ... )
         >>> outputs = self.forward(inputs)
         >>> for i in range(len(outputs)):
         ...     print(f'outputs[{i}].shape = {outputs[i].shape}')
@@ -180,16 +191,19 @@ class SSH(BaseModule):
         outputs[3].shape = torch.Size([1, 128, 43, 43])
     """
 
-    def __init__(self,
-                 num_scales: int,
-                 in_channels: List[int],
-                 out_channels: List[int],
-                 conv_cfg: OptConfigType = None,
-                 norm_cfg: ConfigType = dict(type='BN'),
-                 init_cfg: OptMultiConfig = dict(
-                     type='Xavier', layer='Conv2d', distribution='uniform')):
+    def __init__(
+        self,
+        num_scales: int,
+        in_channels: List[int],
+        out_channels: List[int],
+        conv_cfg: OptConfigType = None,
+        norm_cfg: ConfigType = dict(type='BN'),
+        init_cfg: OptMultiConfig = dict(
+            type='Xavier', layer='Conv2d', distribution='uniform'
+        ),
+    ):
         super().__init__(init_cfg=init_cfg)
-        assert (num_scales == len(in_channels) == len(out_channels))
+        assert num_scales == len(in_channels) == len(out_channels)
         self.num_scales = num_scales
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -202,7 +216,9 @@ class SSH(BaseModule):
                     in_channels=in_c,
                     out_channels=out_c,
                     conv_cfg=conv_cfg,
-                    norm_cfg=norm_cfg))
+                    norm_cfg=norm_cfg,
+                ),
+            )
 
     def forward(self, inputs: Tuple[torch.Tensor]) -> tuple:
         assert len(inputs) == self.num_scales

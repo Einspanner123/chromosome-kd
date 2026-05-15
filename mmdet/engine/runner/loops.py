@@ -30,8 +30,8 @@ class TeacherStudentValLoop(ValLoop):
             # compute metrics
             metrics = self.evaluator.evaluate(len(self.dataloader.dataset))
             multi_metrics.update(
-                {'/'.join((_predict_on, k)): v
-                 for k, v in metrics.items()})
+                {'/'.join((_predict_on, k)): v for k, v in metrics.items()}
+            )
         model.semi_test_cfg['predict_on'] = predict_on
 
         self.runner.call_hook('after_val_epoch', metrics=multi_metrics)

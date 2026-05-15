@@ -12,24 +12,30 @@ from mmengine.utils.path import mkdir_or_exist
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Download datasets for training')
+        description='Download datasets for training'
+    )
     parser.add_argument(
-        '--dataset-name', type=str, help='dataset name', default='coco2017')
+        '--dataset-name', type=str, help='dataset name', default='coco2017'
+    )
     parser.add_argument(
         '--save-dir',
         type=str,
         help='the dir to save dataset',
-        default='data/coco')
+        default='data/coco',
+    )
     parser.add_argument(
         '--unzip',
         action='store_true',
-        help='whether unzip dataset or not, zipped files will be saved')
+        help='whether unzip dataset or not, zipped files will be saved',
+    )
     parser.add_argument(
         '--delete',
         action='store_true',
-        help='delete the download zipped files')
+        help='delete the download zipped files',
+    )
     parser.add_argument(
-        '--threads', type=int, help='number of threading', default=4)
+        '--threads', type=int, help='number of threading', default=4
+    )
     args = parser.parse_args()
     return args
 
@@ -102,8 +108,10 @@ def download_objects365v2(url, dir, unzip=True, delete=False, threads=1):
     # process annotations
     full_url = []
     for _url in url:
-        if 'zhiyuan_objv2_train.tar.gz' in _url or \
-                'zhiyuan_objv2_val.json' in _url:
+        if (
+            'zhiyuan_objv2_train.tar.gz' in _url
+            or 'zhiyuan_objv2_val.json' in _url
+        ):
             full_url.append(_url)
         elif 'train' in _url:
             for i in range(51):
@@ -140,33 +148,33 @@ def main():
             'http://images.cocodataset.org/zips/val2017.zip',
             'http://images.cocodataset.org/zips/test2017.zip',
             'http://images.cocodataset.org/zips/unlabeled2017.zip',
-            'http://images.cocodataset.org/annotations/annotations_trainval2017.zip',  # noqa
-            'http://images.cocodataset.org/annotations/stuff_annotations_trainval2017.zip',  # noqa
-            'http://images.cocodataset.org/annotations/panoptic_annotations_trainval2017.zip',  # noqa
-            'http://images.cocodataset.org/annotations/image_info_test2017.zip',  # noqa
-            'http://images.cocodataset.org/annotations/image_info_unlabeled2017.zip',  # noqa
+            'http://images.cocodataset.org/annotations/annotations_trainval2017.zip',
+            'http://images.cocodataset.org/annotations/stuff_annotations_trainval2017.zip',
+            'http://images.cocodataset.org/annotations/panoptic_annotations_trainval2017.zip',
+            'http://images.cocodataset.org/annotations/image_info_test2017.zip',
+            'http://images.cocodataset.org/annotations/image_info_unlabeled2017.zip',
         ],
         coco2014=[
             'http://images.cocodataset.org/zips/train2014.zip',
             'http://images.cocodataset.org/zips/val2014.zip',
             'http://images.cocodataset.org/zips/test2014.zip',
-            'http://images.cocodataset.org/annotations/annotations_trainval2014.zip',  # noqa
-            'http://images.cocodataset.org/annotations/image_info_test2014.zip'  # noqa
+            'http://images.cocodataset.org/annotations/annotations_trainval2014.zip',
+            'http://images.cocodataset.org/annotations/image_info_test2014.zip',
         ],
         lvis=[
-            'https://s3-us-west-2.amazonaws.com/dl.fbaipublicfiles.com/LVIS/lvis_v1_train.json.zip',  # noqa
-            'https://s3-us-west-2.amazonaws.com/dl.fbaipublicfiles.com/LVIS/lvis_v1_train.json.zip',  # noqa
+            'https://s3-us-west-2.amazonaws.com/dl.fbaipublicfiles.com/LVIS/lvis_v1_train.json.zip',
+            'https://s3-us-west-2.amazonaws.com/dl.fbaipublicfiles.com/LVIS/lvis_v1_train.json.zip',
         ],
         voc2007=[
-            'http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtrainval_06-Nov-2007.tar',  # noqa
-            'http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtest_06-Nov-2007.tar',  # noqa
-            'http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCdevkit_08-Jun-2007.tar',  # noqa
+            'http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtrainval_06-Nov-2007.tar',
+            'http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtest_06-Nov-2007.tar',
+            'http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCdevkit_08-Jun-2007.tar',
         ],
         voc2012=[
-            'http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar',  # noqa
+            'http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar',
         ],
         balloon=[
-            # src link: https://github.com/matterport/Mask_RCNN/releases/download/v2.1/balloon_dataset.zip # noqa
+            # src link: https://github.com/matterport/Mask_RCNN/releases/download/v2.1/balloon_dataset.zip
             'https://download.openmmlab.com/mmyolo/data/balloon_dataset.zip'
         ],
         # Note: There is no download link for Objects365-V1 right now. If you
@@ -174,25 +182,25 @@ def main():
         # http://www.objects365.org/ to concat the author.
         objects365v2=[
             # training annotations
-            'https://dorc.ks3-cn-beijing.ksyun.com/data-set/2020Objects365%E6%95%B0%E6%8D%AE%E9%9B%86/train/zhiyuan_objv2_train.tar.gz',  # noqa
+            'https://dorc.ks3-cn-beijing.ksyun.com/data-set/2020Objects365%E6%95%B0%E6%8D%AE%E9%9B%86/train/zhiyuan_objv2_train.tar.gz',
             # validation annotations
-            'https://dorc.ks3-cn-beijing.ksyun.com/data-set/2020Objects365%E6%95%B0%E6%8D%AE%E9%9B%86/val/zhiyuan_objv2_val.json',  # noqa
+            'https://dorc.ks3-cn-beijing.ksyun.com/data-set/2020Objects365%E6%95%B0%E6%8D%AE%E9%9B%86/val/zhiyuan_objv2_val.json',
             # training url root
-            'https://dorc.ks3-cn-beijing.ksyun.com/data-set/2020Objects365%E6%95%B0%E6%8D%AE%E9%9B%86/train/',  # noqa
+            'https://dorc.ks3-cn-beijing.ksyun.com/data-set/2020Objects365%E6%95%B0%E6%8D%AE%E9%9B%86/train/',
             # validation url root_1
-            'https://dorc.ks3-cn-beijing.ksyun.com/data-set/2020Objects365%E6%95%B0%E6%8D%AE%E9%9B%86/val/images/v1/',  # noqa
+            'https://dorc.ks3-cn-beijing.ksyun.com/data-set/2020Objects365%E6%95%B0%E6%8D%AE%E9%9B%86/val/images/v1/',
             # validation url root_2
-            'https://dorc.ks3-cn-beijing.ksyun.com/data-set/2020Objects365%E6%95%B0%E6%8D%AE%E9%9B%86/val/images/v2/'  # noqa
+            'https://dorc.ks3-cn-beijing.ksyun.com/data-set/2020Objects365%E6%95%B0%E6%8D%AE%E9%9B%86/val/images/v2/',
         ],
         ade20k_2016=[
             # training images and semantic segmentation annotations
-            'http://data.csail.mit.edu/places/ADEchallenge/ADEChallengeData2016.zip',  # noqa
+            'http://data.csail.mit.edu/places/ADEchallenge/ADEChallengeData2016.zip',
             # instance segmentation annotations
-            'http://sceneparsing.csail.mit.edu/data/ChallengeData2017/annotations_instance.tar',  # noqa
+            'http://sceneparsing.csail.mit.edu/data/ChallengeData2017/annotations_instance.tar',
             # img categories ids
-            'https://raw.githubusercontent.com/CSAILVision/placeschallenge/master/instancesegmentation/imgCatIds.json',  # noqa
+            'https://raw.githubusercontent.com/CSAILVision/placeschallenge/master/instancesegmentation/imgCatIds.json',
             # category mapping
-            'https://raw.githubusercontent.com/CSAILVision/placeschallenge/master/instancesegmentation/categoryMapping.txt'  # noqa
+            'https://raw.githubusercontent.com/CSAILVision/placeschallenge/master/instancesegmentation/categoryMapping.txt',
         ],
         refcoco=[
             # images
@@ -202,12 +210,15 @@ def main():
             # refcoco+ annotations
             'https://bvisionweb1.cs.unc.edu/licheng/referit/data/refcoco+.zip',
             # refcocog annotations
-            'https://bvisionweb1.cs.unc.edu/licheng/referit/data/refcocog.zip'
-        ])
-    url = data2url.get(args.dataset_name, None)
+            'https://bvisionweb1.cs.unc.edu/licheng/referit/data/refcocog.zip',
+        ],
+    )
+    url = data2url.get(args.dataset_name)
     if url is None:
-        print('Only support ADE20K, COCO, RefCOCO, VOC, LVIS, '
-              'balloon, and Objects365v2 now!')
+        print(
+            'Only support ADE20K, COCO, RefCOCO, VOC, LVIS, '
+            'balloon, and Objects365v2 now!'
+        )
         return
     if args.dataset_name == 'objects365v2':
         download_objects365v2(
@@ -215,14 +226,16 @@ def main():
             dir=path,
             unzip=args.unzip,
             delete=args.delete,
-            threads=args.threads)
+            threads=args.threads,
+        )
     else:
         download(
             url,
             dir=path,
             unzip=args.unzip,
             delete=args.delete,
-            threads=args.threads)
+            threads=args.threads,
+        )
 
 
 if __name__ == '__main__':

@@ -10,14 +10,15 @@ from torch import Tensor
 
 # References: https://github.com/ZFTurbo/Weighted-Boxes-Fusion
 def weighted_boxes_fusion(
-        bboxes_list: list,
-        scores_list: list,
-        labels_list: list,
-        weights: list = None,
-        iou_thr: float = 0.55,
-        skip_box_thr: float = 0.0,
-        conf_type: str = 'avg',
-        allows_overflow: bool = False) -> Tuple[Tensor, Tensor, Tensor]:
+    bboxes_list: list,
+    scores_list: list,
+    labels_list: list,
+    weights: list = None,
+    iou_thr: float = 0.55,
+    skip_box_thr: float = 0.0,
+    conf_type: str = 'avg',
+    allows_overflow: bool = False,
+) -> Tuple[Tensor, Tensor, Tensor]:
     """weighted boxes fusion <https://arxiv.org/abs/1910.13302> is a method for
     fusing predictions from different object detection models, which utilizes
     confidence scores of all proposed bounding boxes to construct averaged
@@ -49,22 +50,29 @@ def weighted_boxes_fusion(
     if weights is None:
         weights = np.ones(len(bboxes_list))
     if len(weights) != len(bboxes_list):
-        print('Warning: incorrect number of weights {}. Must be: '
-              '{}. Set weights equal to 1.'.format(
-                  len(weights), len(bboxes_list)))
+        print(
+            f'Warning: incorrect number of weights {len(weights)}. Must be: '
+            f'{len(bboxes_list)}. Set weights equal to 1.'
+        )
         weights = np.ones(len(bboxes_list))
     weights = np.array(weights)
 
     if conf_type not in [
-            'avg', 'max', 'box_and_model_avg', 'absent_model_aware_avg'
+        'avg',
+        'max',
+        'box_and_model_avg',
+        'absent_model_aware_avg',
     ]:
-        print('Unknown conf_type: {}. Must be "avg", '
-              '"max" or "box_and_model_avg", '
-              'or "absent_model_aware_avg"'.format(conf_type))
+        print(
+            f'Unknown conf_type: {conf_type}. Must be "avg", '
+            '"max" or "box_and_model_avg", '
+            'or "absent_model_aware_avg"'
+        )
         exit()
 
-    filtered_boxes = prefilter_boxes(bboxes_list, scores_list, labels_list,
-                                     weights, skip_box_thr)
+    filtered_boxes = prefilter_boxes(
+        bboxes_list, scores_list, labels_list, weights, skip_box_thr
+    )
     if len(filtered_boxes) == 0:
         return torch.Tensor(), torch.Tensor(), torch.Tensor()
 
@@ -77,13 +85,15 @@ def weighted_boxes_fusion(
 
         # Clusterize boxes
         for j in range(0, len(boxes)):
-            index, best_iou = find_matching_box_fast(weighted_boxes, boxes[j],
-                                                     iou_thr)
+            index, best_iou = find_matching_box_fast(
+                weighted_boxes, boxes[j], iou_thr
+            )
 
             if index != -1:
                 new_boxes[index].append(boxes[j])
                 weighted_boxes[index] = get_weighted_box(
-                    new_boxes[index], conf_type)
+                    new_boxes[index], conf_type
+                )
             else:
                 new_boxes.append([boxes[j].copy()])
                 weighted_boxes = np.vstack((weighted_boxes, boxes[j].copy()))
@@ -94,13 +104,19 @@ def weighted_boxes_fusion(
             if conf_type == 'box_and_model_avg':
                 clustered_boxes = np.array(clustered_boxes)
                 # weighted average for boxes
-                weighted_boxes[i, 1] = weighted_boxes[i, 1] * len(
-                    clustered_boxes) / weighted_boxes[i, 2]
+                weighted_boxes[i, 1] = (
+                    weighted_boxes[i, 1]
+                    * len(clustered_boxes)
+                    / weighted_boxes[i, 2]
+                )
                 # identify unique model index by model index column
                 _, idx = np.unique(clustered_boxes[:, 3], return_index=True)
                 # rescale by unique model weights
-                weighted_boxes[i, 1] = weighted_boxes[i, 1] * clustered_boxes[
-                    idx, 2].sum() / weights.sum()
+                weighted_boxes[i, 1] = (
+                    weighted_boxes[i, 1]
+                    * clustered_boxes[idx, 2].sum()
+                    / weights.sum()
+                )
             elif conf_type == 'absent_model_aware_avg':
                 clustered_boxes = np.array(clustered_boxes)
                 # get unique model index in the cluster
@@ -109,17 +125,23 @@ def weighted_boxes_fusion(
                 mask = np.ones(len(weights), dtype=bool)
                 mask[models] = False
                 # absent model aware weighted average
-                weighted_boxes[
-                    i, 1] = weighted_boxes[i, 1] * len(clustered_boxes) / (
-                        weighted_boxes[i, 2] + weights[mask].sum())
+                weighted_boxes[i, 1] = (
+                    weighted_boxes[i, 1]
+                    * len(clustered_boxes)
+                    / (weighted_boxes[i, 2] + weights[mask].sum())
+                )
             elif conf_type == 'max':
                 weighted_boxes[i, 1] = weighted_boxes[i, 1] / weights.max()
             elif not allows_overflow:
-                weighted_boxes[i, 1] = weighted_boxes[i, 1] * min(
-                    len(weights), len(clustered_boxes)) / weights.sum()
+                weighted_boxes[i, 1] = (
+                    weighted_boxes[i, 1]
+                    * min(len(weights), len(clustered_boxes))
+                    / weights.sum()
+                )
             else:
-                weighted_boxes[i, 1] = weighted_boxes[i, 1] * len(
-                    clustered_boxes) / weights.sum()
+                weighted_boxes[i, 1] = (
+                    weighted_boxes[i, 1] * len(clustered_boxes) / weights.sum()
+                )
         overall_boxes.append(weighted_boxes)
     overall_boxes = np.concatenate(overall_boxes, axis=0)
     overall_boxes = overall_boxes[overall_boxes[:, 1].argsort()[::-1]]
@@ -136,17 +158,18 @@ def prefilter_boxes(boxes, scores, labels, weights, thr):
     new_boxes = dict()
 
     for t in range(len(boxes)):
-
         if len(boxes[t]) != len(scores[t]):
-            print('Error. Length of boxes arrays not equal to '
-                  'length of scores array: {} != {}'.format(
-                      len(boxes[t]), len(scores[t])))
+            print(
+                'Error. Length of boxes arrays not equal to '
+                f'length of scores array: {len(boxes[t])} != {len(scores[t])}'
+            )
             exit()
 
         if len(boxes[t]) != len(labels[t]):
-            print('Error. Length of boxes arrays not equal to '
-                  'length of labels array: {} != {}'.format(
-                      len(boxes[t]), len(labels[t])))
+            print(
+                'Error. Length of boxes arrays not equal to '
+                f'length of labels array: {len(boxes[t])} != {len(labels[t])}'
+            )
             exit()
 
         for j in range(len(boxes[t])):
@@ -168,13 +191,19 @@ def prefilter_boxes(boxes, scores, labels, weights, thr):
                 warnings.warn('Y2 < Y1 value in box. Swap them.')
                 y1, y2 = y2, y1
             if (x2 - x1) * (y2 - y1) == 0.0:
-                warnings.warn('Zero area box skipped: {}.'.format(box_part))
+                warnings.warn(f'Zero area box skipped: {box_part}.')
                 continue
 
             # [label, score, weight, model index, x1, y1, x2, y2]
             b = [
                 int(label),
-                float(score) * weights[t], weights[t], t, x1, y1, x2, y2
+                float(score) * weights[t],
+                weights[t],
+                t,
+                x1,
+                y1,
+                x2,
+                y2,
             ]
 
             if label not in new_boxes:
@@ -196,7 +225,7 @@ def get_weighted_box(boxes, conf_type='avg'):
     conf_list = []
     w = 0
     for b in boxes:
-        box[4:] += (b[1] * b[4:])
+        box[4:] += b[1] * b[4:]
         conf += b[1]
         conf_list.append(b[1])
         w += b[2]

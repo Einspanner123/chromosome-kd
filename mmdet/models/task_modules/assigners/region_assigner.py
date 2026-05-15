@@ -12,10 +12,11 @@ from .base_assigner import BaseAssigner
 
 
 def calc_region(
-        bbox: Tensor,
-        ratio: float,
-        stride: int,
-        featmap_size: Optional[Tuple[int, int]] = None) -> Tuple[Tensor]:
+    bbox: Tensor,
+    ratio: float,
+    stride: int,
+    featmap_size: Optional[Tuple[int, int]] = None,
+) -> Tuple[Tensor]:
     """Calculate region of the box defined by the ratio, the ratio is from the
     center of the box to every edge."""
     # project bbox on the feature
@@ -32,8 +33,9 @@ def calc_region(
     return (x1, y1, x2, y2)
 
 
-def anchor_ctr_inside_region_flags(anchors: Tensor, stride: int,
-                                   region: Tuple[Tensor]) -> Tensor:
+def anchor_ctr_inside_region_flags(
+    anchors: Tensor, stride: int, region: Tuple[Tensor]
+) -> Tensor:
     """Get the flag indicate whether anchor centers are inside regions."""
     x1, y1, x2, y2 = region
     f_anchors = anchors / stride
@@ -60,22 +62,24 @@ class RegionAssigner(BaseAssigner):
         ignore_ratio (float): ratio of the region to define ignore samples.
     """
 
-    def __init__(self,
-                 center_ratio: float = 0.2,
-                 ignore_ratio: float = 0.5) -> None:
+    def __init__(
+        self, center_ratio: float = 0.2, ignore_ratio: float = 0.5
+    ) -> None:
         self.center_ratio = center_ratio
         self.ignore_ratio = ignore_ratio
 
-    def assign(self,
-               pred_instances: InstanceData,
-               gt_instances: InstanceData,
-               img_meta: dict,
-               featmap_sizes: List[Tuple[int, int]],
-               num_level_anchors: List[int],
-               anchor_scale: int,
-               anchor_strides: List[int],
-               gt_instances_ignore: Optional[InstanceData] = None,
-               allowed_border: int = 0) -> AssignResult:
+    def assign(
+        self,
+        pred_instances: InstanceData,
+        gt_instances: InstanceData,
+        img_meta: dict,
+        featmap_sizes: List[Tuple[int, int]],
+        num_level_anchors: List[int],
+        anchor_scale: int,
+        anchor_strides: List[int],
+        gt_instances_ignore: Optional[InstanceData] = None,
+        allowed_border: int = 0,
+    ) -> AssignResult:
         """Assign gt to anchors.
 
         This method assign a gt bbox to every bbox (proposal/anchor), each bbox
@@ -134,37 +138,43 @@ class RegionAssigner(BaseAssigner):
 
         if num_gts == 0 or num_bboxes == 0:
             # No ground truth or boxes, return empty assignment
-            max_overlaps = gt_bboxes.new_zeros((num_bboxes, ))
-            assigned_gt_inds = gt_bboxes.new_zeros((num_bboxes, ),
-                                                   dtype=torch.long)
-            assigned_labels = gt_bboxes.new_full((num_bboxes, ),
-                                                 -1,
-                                                 dtype=torch.long)
+            max_overlaps = gt_bboxes.new_zeros((num_bboxes,))
+            assigned_gt_inds = gt_bboxes.new_zeros(
+                (num_bboxes,), dtype=torch.long
+            )
+            assigned_labels = gt_bboxes.new_full(
+                (num_bboxes,), -1, dtype=torch.long
+            )
             return AssignResult(
                 num_gts=num_gts,
                 gt_inds=assigned_gt_inds,
                 max_overlaps=max_overlaps,
-                labels=assigned_labels)
+                labels=assigned_labels,
+            )
 
         num_lvls = len(mlvl_anchors)
         r1 = (1 - self.center_ratio) / 2
         r2 = (1 - self.ignore_ratio) / 2
 
-        scale = torch.sqrt((gt_bboxes[:, 2] - gt_bboxes[:, 0]) *
-                           (gt_bboxes[:, 3] - gt_bboxes[:, 1]))
+        scale = torch.sqrt(
+            (gt_bboxes[:, 2] - gt_bboxes[:, 0])
+            * (gt_bboxes[:, 3] - gt_bboxes[:, 1])
+        )
         min_anchor_size = scale.new_full(
-            (1, ), float(anchor_scale * anchor_strides[0]))
+            (1,), float(anchor_scale * anchor_strides[0])
+        )
         target_lvls = torch.floor(
-            torch.log2(scale) - torch.log2(min_anchor_size) + 0.5)
+            torch.log2(scale) - torch.log2(min_anchor_size) + 0.5
+        )
         target_lvls = target_lvls.clamp(min=0, max=num_lvls - 1).long()
 
         # 1. assign 0 (negative) by default
         mlvl_assigned_gt_inds = []
         mlvl_ignore_flags = []
         for lvl in range(num_lvls):
-            assigned_gt_inds = gt_bboxes.new_full((num_level_anchors[lvl], ),
-                                                  0,
-                                                  dtype=torch.long)
+            assigned_gt_inds = gt_bboxes.new_full(
+                (num_level_anchors[lvl],), 0, dtype=torch.long
+            )
             ignore_flags = torch.zeros_like(assigned_gt_inds)
             mlvl_assigned_gt_inds.append(assigned_gt_inds)
             mlvl_ignore_flags.append(ignore_flags)
@@ -182,12 +192,14 @@ class RegionAssigner(BaseAssigner):
 
             # 2. Assign -1 to ignore flags
             ignore_flags = anchor_ctr_inside_region_flags(
-                anchors, stride, ignore_region)
+                anchors, stride, ignore_region
+            )
             mlvl_assigned_gt_inds[lvl][ignore_flags] = -1
 
             # 3. Assign gt_bboxes to pos flags
-            pos_flags = anchor_ctr_inside_region_flags(anchors, stride,
-                                                       ctr_region)
+            pos_flags = anchor_ctr_inside_region_flags(
+                anchors, stride, ctr_region
+            )
             mlvl_assigned_gt_inds[lvl][pos_flags] = gt_id + 1
 
             # 4. Assign -1 to ignore adjacent lvl
@@ -196,20 +208,24 @@ class RegionAssigner(BaseAssigner):
                 d_anchors = mlvl_anchors[d_lvl]
                 d_featmap_size = featmap_sizes[d_lvl]
                 d_stride = anchor_strides[d_lvl]
-                d_ignore_region = calc_region(gt_bbox, r2, d_stride,
-                                              d_featmap_size)
+                d_ignore_region = calc_region(
+                    gt_bbox, r2, d_stride, d_featmap_size
+                )
                 ignore_flags = anchor_ctr_inside_region_flags(
-                    d_anchors, d_stride, d_ignore_region)
+                    d_anchors, d_stride, d_ignore_region
+                )
                 mlvl_ignore_flags[d_lvl][ignore_flags] = 1
             if lvl < num_lvls - 1:
                 u_lvl = lvl + 1
                 u_anchors = mlvl_anchors[u_lvl]
                 u_featmap_size = featmap_sizes[u_lvl]
                 u_stride = anchor_strides[u_lvl]
-                u_ignore_region = calc_region(gt_bbox, r2, u_stride,
-                                              u_featmap_size)
+                u_ignore_region = calc_region(
+                    gt_bbox, r2, u_stride, u_featmap_size
+                )
                 ignore_flags = anchor_ctr_inside_region_flags(
-                    u_anchors, u_stride, u_ignore_region)
+                    u_anchors, u_stride, u_ignore_region
+                )
                 mlvl_ignore_flags[u_lvl][ignore_flags] = 1
 
         # 4. (cont.) Assign -1 to ignore adjacent lvl
@@ -219,21 +235,29 @@ class RegionAssigner(BaseAssigner):
 
         # 5. Assign -1 to anchor outside of image
         flat_assigned_gt_inds = torch.cat(mlvl_assigned_gt_inds)
-        assert (flat_assigned_gt_inds.shape[0] == flat_anchors.shape[0] ==
-                flat_valid_flags.shape[0])
-        inside_flags = anchor_inside_flags(flat_anchors, flat_valid_flags,
-                                           img_meta['img_shape'],
-                                           allowed_border)
+        assert (
+            flat_assigned_gt_inds.shape[0]
+            == flat_anchors.shape[0]
+            == flat_valid_flags.shape[0]
+        )
+        inside_flags = anchor_inside_flags(
+            flat_anchors,
+            flat_valid_flags,
+            img_meta['img_shape'],
+            allowed_border,
+        )
         outside_flags = ~inside_flags
         flat_assigned_gt_inds[outside_flags] = -1
 
         assigned_labels = torch.zeros_like(flat_assigned_gt_inds)
         pos_flags = flat_assigned_gt_inds > 0
-        assigned_labels[pos_flags] = gt_labels[flat_assigned_gt_inds[pos_flags]
-                                               - 1]
+        assigned_labels[pos_flags] = gt_labels[
+            flat_assigned_gt_inds[pos_flags] - 1
+        ]
 
         return AssignResult(
             num_gts=num_gts,
             gt_inds=flat_assigned_gt_inds,
             max_overlaps=None,
-            labels=assigned_labels)
+            labels=assigned_labels,
+        )

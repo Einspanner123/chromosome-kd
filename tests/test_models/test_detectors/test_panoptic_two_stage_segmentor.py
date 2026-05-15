@@ -11,7 +11,6 @@ from mmdet.utils import register_all_modules
 
 
 class TestTwoStagePanopticSegmentor(unittest.TestCase):
-
     def setUp(self):
         register_all_modules()
 
@@ -34,7 +33,7 @@ class TestTwoStagePanopticSegmentor(unittest.TestCase):
         assert detector.with_semantic_head
         assert detector.with_panoptic_fusion_head
 
-    @parameterized.expand([('cpu', ), ('cuda', )])
+    @parameterized.expand([('cpu',), ('cuda',)])
     def test_forward_loss_mode(self, device):
         model_cfg = self._create_model_cfg()
         detector = MODELS.build(model_cfg)
@@ -48,13 +47,14 @@ class TestTwoStagePanopticSegmentor(unittest.TestCase):
             image_shapes=[(3, 128, 127), (3, 91, 92)],
             sem_seg_output_strides=1,
             with_mask=True,
-            with_semantic=True)
+            with_semantic=True,
+        )
         data = detector.data_preprocessor(packed_inputs, True)
         # Test loss mode
         losses = detector.forward(**data, mode='loss')
         self.assertIsInstance(losses, dict)
 
-    @parameterized.expand([('cpu', ), ('cuda', )])
+    @parameterized.expand([('cpu',), ('cuda',)])
     def test_forward_predict_mode(self, device):
         model_cfg = self._create_model_cfg()
         detector = MODELS.build(model_cfg)
@@ -66,7 +66,8 @@ class TestTwoStagePanopticSegmentor(unittest.TestCase):
             image_shapes=[(3, 128, 127), (3, 91, 92)],
             sem_seg_output_strides=1,
             with_mask=True,
-            with_semantic=True)
+            with_semantic=True,
+        )
         data = detector.data_preprocessor(packed_inputs, False)
         # Test forward test
         detector.eval()
@@ -75,7 +76,7 @@ class TestTwoStagePanopticSegmentor(unittest.TestCase):
             self.assertEqual(len(batch_results), 2)
             self.assertIsInstance(batch_results[0], DetDataSample)
 
-    @parameterized.expand([('cpu', ), ('cuda', )])
+    @parameterized.expand([('cpu',), ('cuda',)])
     def test_forward_tensor_mode(self, device):
         model_cfg = self._create_model_cfg()
         detector = MODELS.build(model_cfg)
@@ -84,10 +85,12 @@ class TestTwoStagePanopticSegmentor(unittest.TestCase):
         detector = detector.to(device)
 
         packed_inputs = demo_mm_inputs(
-            2, [[3, 128, 128], [3, 125, 130]],
+            2,
+            [[3, 128, 128], [3, 125, 130]],
             sem_seg_output_strides=1,
             with_mask=True,
-            with_semantic=True)
+            with_semantic=True,
+        )
         data = detector.data_preprocessor(packed_inputs, False)
         out = detector.forward(**data, mode='tensor')
         self.assertIsInstance(out, tuple)

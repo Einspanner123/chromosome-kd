@@ -17,9 +17,11 @@ model = dict(
             use_morphology_aware=use_morphology_aware,  # 形态感知
             assigner=dict(
                 type='ChromoDetMatcher',
-                use_morphology_aware=use_morphology_aware),
+                use_morphology_aware=use_morphology_aware,
+            ),
         ),
-    ))
+    ),
+)
 
 randomness = dict(
     deterministic=False,  # 使用确定性CUDA计算

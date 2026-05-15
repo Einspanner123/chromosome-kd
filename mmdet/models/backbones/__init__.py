@@ -19,9 +19,24 @@ from .swin import SwinTransformer
 from .trident_resnet import TridentResNet
 
 __all__ = [
-    'RegNet', 'ResNet', 'ResNetV1d', 'ResNeXt', 'SSDVGG', 'HRNet',
-    'MobileNetV2', 'Res2Net', 'HourglassNet', 'DetectoRS_ResNet',
-    'DetectoRS_ResNeXt', 'Darknet', 'ResNeSt', 'TridentResNet', 'CSPDarknet',
-    'SwinTransformer', 'PyramidVisionTransformer',
-    'PyramidVisionTransformerV2', 'EfficientNet', 'CSPNeXt'
+    'SSDVGG',
+    'CSPDarknet',
+    'CSPNeXt',
+    'Darknet',
+    'DetectoRS_ResNeXt',
+    'DetectoRS_ResNet',
+    'EfficientNet',
+    'HRNet',
+    'HourglassNet',
+    'MobileNetV2',
+    'PyramidVisionTransformer',
+    'PyramidVisionTransformerV2',
+    'RegNet',
+    'Res2Net',
+    'ResNeSt',
+    'ResNeXt',
+    'ResNet',
+    'ResNetV1d',
+    'SwinTransformer',
+    'TridentResNet',
 ]

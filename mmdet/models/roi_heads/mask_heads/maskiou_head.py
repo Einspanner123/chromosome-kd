@@ -52,8 +52,8 @@ class MaskIoUHead(BaseModule):
         init_cfg: OptMultiConfig = [
             dict(type='Kaiming', override=dict(name='convs')),
             dict(type='Caffe2Xavier', override=dict(name='fcs')),
-            dict(type='Normal', std=0.01, override=dict(name='fc_mask_iou'))
-        ]
+            dict(type='Normal', std=0.01, override=dict(name='fc_mask_iou')),
+        ],
     ) -> None:
         super().__init__(init_cfg=init_cfg)
         self.in_channels = in_channels
@@ -75,15 +75,19 @@ class MaskIoUHead(BaseModule):
                     self.conv_out_channels,
                     3,
                     stride=stride,
-                    padding=1))
+                    padding=1,
+                )
+            )
 
         roi_feat_size = _pair(roi_feat_size)
         pooled_area = (roi_feat_size[0] // 2) * (roi_feat_size[1] // 2)
         self.fcs = nn.ModuleList()
         for i in range(num_fcs):
             in_channels = (
-                self.conv_out_channels *
-                pooled_area if i == 0 else self.fc_out_channels)
+                self.conv_out_channels * pooled_area
+                if i == 0
+                else self.fc_out_channels
+            )
             self.fcs.append(Linear(in_channels, self.fc_out_channels))
 
         self.fc_mask_iou = Linear(self.fc_out_channels, self.num_classes)
@@ -114,11 +118,15 @@ class MaskIoUHead(BaseModule):
         mask_iou = self.fc_mask_iou(x)
         return mask_iou
 
-    def loss_and_target(self, mask_iou_pred: Tensor, mask_preds: Tensor,
-                        mask_targets: Tensor,
-                        sampling_results: List[SamplingResult],
-                        batch_gt_instances: InstanceList,
-                        rcnn_train_cfg: ConfigDict) -> dict:
+    def loss_and_target(
+        self,
+        mask_iou_pred: Tensor,
+        mask_preds: Tensor,
+        mask_targets: Tensor,
+        sampling_results: List[SamplingResult],
+        batch_gt_instances: InstanceList,
+        rcnn_train_cfg: ConfigDict,
+    ) -> dict:
         """Calculate the loss and targets of MaskIoUHead.
 
         Args:
@@ -144,20 +152,26 @@ class MaskIoUHead(BaseModule):
             batch_gt_instances=batch_gt_instances,
             mask_preds=mask_preds,
             mask_targets=mask_targets,
-            rcnn_train_cfg=rcnn_train_cfg)
+            rcnn_train_cfg=rcnn_train_cfg,
+        )
 
         pos_inds = mask_iou_targets > 0
         if pos_inds.sum() > 0:
-            loss_mask_iou = self.loss_iou(mask_iou_pred[pos_inds],
-                                          mask_iou_targets[pos_inds])
+            loss_mask_iou = self.loss_iou(
+                mask_iou_pred[pos_inds], mask_iou_targets[pos_inds]
+            )
         else:
             loss_mask_iou = mask_iou_pred.sum() * 0
         return dict(loss_mask_iou=loss_mask_iou)
 
-    def get_targets(self, sampling_results: List[SamplingResult],
-                    batch_gt_instances: InstanceList, mask_preds: Tensor,
-                    mask_targets: Tensor,
-                    rcnn_train_cfg: ConfigDict) -> Tensor:
+    def get_targets(
+        self,
+        sampling_results: List[SamplingResult],
+        batch_gt_instances: InstanceList,
+        mask_preds: Tensor,
+        mask_targets: Tensor,
+        rcnn_train_cfg: ConfigDict,
+    ) -> Tensor:
         """Compute target of mask IoU.
 
         Mask IoU target is the IoU of the predicted mask (inside a bbox) and
@@ -188,8 +202,9 @@ class MaskIoUHead(BaseModule):
 
         # compute the area ratio of gt areas inside the proposals and
         # the whole instance
-        area_ratios = map(self._get_area_ratio, pos_proposals,
-                          pos_assigned_gt_inds, gt_masks)
+        area_ratios = map(
+            self._get_area_ratio, pos_proposals, pos_assigned_gt_inds, gt_masks
+        )
         area_ratios = torch.cat(list(area_ratios))
         assert mask_targets.size(0) == area_ratios.size(0)
 
@@ -203,12 +218,16 @@ class MaskIoUHead(BaseModule):
         gt_full_areas = mask_targets.sum((-1, -2)) / (area_ratios + 1e-7)
 
         mask_iou_targets = overlap_areas / (
-            mask_pred_areas + gt_full_areas - overlap_areas)
+            mask_pred_areas + gt_full_areas - overlap_areas
+        )
         return mask_iou_targets
 
-    def _get_area_ratio(self, pos_proposals: Tensor,
-                        pos_assigned_gt_inds: Tensor,
-                        gt_masks: InstanceData) -> Tensor:
+    def _get_area_ratio(
+        self,
+        pos_proposals: Tensor,
+        pos_assigned_gt_inds: Tensor,
+        gt_masks: InstanceData,
+    ) -> Tensor:
         """Compute area ratio of the gt mask inside the proposal and the gt
         mask of the corresponding instance.
 
@@ -238,16 +257,21 @@ class MaskIoUHead(BaseModule):
                 gt_mask_in_proposal = gt_mask.crop(bbox)
 
                 ratio = gt_mask_in_proposal.areas[0] / (
-                    gt_instance_mask_area[pos_assigned_gt_inds[i]] + 1e-7)
+                    gt_instance_mask_area[pos_assigned_gt_inds[i]] + 1e-7
+                )
                 area_ratios.append(ratio)
-            area_ratios = torch.from_numpy(np.stack(area_ratios)).float().to(
-                pos_proposals.device)
+            area_ratios = (
+                torch.from_numpy(np.stack(area_ratios))
+                .float()
+                .to(pos_proposals.device)
+            )
         else:
-            area_ratios = pos_proposals.new_zeros((0, ))
+            area_ratios = pos_proposals.new_zeros((0,))
         return area_ratios
 
-    def predict_by_feat(self, mask_iou_preds: Tuple[Tensor],
-                        results_list: InstanceList) -> InstanceList:
+    def predict_by_feat(
+        self, mask_iou_preds: Tuple[Tensor], results_list: InstanceList
+    ) -> InstanceList:
         """Predict the mask iou and calculate it into ``results.scores``.
 
         Args:
@@ -272,6 +296,7 @@ class MaskIoUHead(BaseModule):
         for results, mask_iou_pred in zip(results_list, mask_iou_preds):
             labels = results.labels
             scores = results.scores
-            results.scores = scores * mask_iou_pred[range(labels.size(0)),
-                                                    labels]
+            results.scores = (
+                scores * mask_iou_pred[range(labels.size(0)), labels]
+            )
         return results_list

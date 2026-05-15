@@ -18,7 +18,8 @@ class WIDERFaceDataset(XMLDataset):
     Conversion scripts can be found in
     https://github.com/sovrasov/wider-face-pascal-voc-annotations
     """
-    METAINFO = {'classes': ('face', ), 'palette': [(0, 255, 0)]}
+
+    METAINFO = {'classes': ('face',), 'palette': [(0, 255, 0)]}
 
     def load_data_list(self) -> List[dict]:
         """Load annotation from XML style ann_file.
@@ -26,11 +27,11 @@ class WIDERFaceDataset(XMLDataset):
         Returns:
             list[dict]: Annotation info from XML file.
         """
-        assert self._metainfo.get('classes', None) is not None, \
+        assert self._metainfo.get('classes', None) is not None, (
             'classes in `XMLDataset` can not be None.'
+        )
         self.cat2label = {
-            cat: i
-            for i, cat in enumerate(self._metainfo['classes'])
+            cat: i for i, cat in enumerate(self._metainfo['classes'])
         }
 
         data_list = []
@@ -63,22 +64,25 @@ class WIDERFaceDataset(XMLDataset):
         """
         data_info = {}
         img_id = img_info['img_id']
-        xml_path = osp.join(self.data_prefix['img'], 'Annotations',
-                            f'{img_id}.xml')
+        xml_path = osp.join(
+            self.data_prefix['img'], 'Annotations', f'{img_id}.xml'
+        )
         data_info['img_id'] = img_id
         data_info['xml_path'] = xml_path
 
         # deal with xml file
         with get_local_path(
-                xml_path, backend_args=self.backend_args) as local_path:
+            xml_path, backend_args=self.backend_args
+        ) as local_path:
             raw_ann_info = ET.parse(local_path)
         root = raw_ann_info.getroot()
         size = root.find('size')
         width = int(size.find('width').text)
         height = int(size.find('height').text)
         folder = root.find('folder').text
-        img_path = osp.join(self.data_prefix['img'], folder,
-                            img_info['file_name'])
+        img_path = osp.join(
+            self.data_prefix['img'], folder, img_info['file_name']
+        )
         data_info['img_path'] = img_path
 
         data_info['height'] = height
@@ -86,5 +90,6 @@ class WIDERFaceDataset(XMLDataset):
 
         # Coordinates are in range [0, width - 1 or height - 1]
         data_info['instances'] = self._parse_instance_info(
-            raw_ann_info, minus_one=False)
+            raw_ann_info, minus_one=False
+        )
         return data_info

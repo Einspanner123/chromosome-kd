@@ -38,8 +38,9 @@ class ChannelMapper(BaseModule):
         >>> import torch
         >>> in_channels = [2, 3, 5, 7]
         >>> scales = [340, 170, 84, 43]
-        >>> inputs = [torch.rand(1, c, s, s)
-        ...           for c, s in zip(in_channels, scales)]
+        >>> inputs = [
+        ...     torch.rand(1, c, s, s) for c, s in zip(in_channels, scales)
+        ... ]
         >>> self = ChannelMapper(in_channels, 11, 3).eval()
         >>> outputs = self.forward(inputs)
         >>> for i in range(len(outputs)):
@@ -61,7 +62,8 @@ class ChannelMapper(BaseModule):
         bias: Union[bool, str] = 'auto',
         num_outs: int = None,
         init_cfg: OptMultiConfig = dict(
-            type='Xavier', layer='Conv2d', distribution='uniform')
+            type='Xavier', layer='Conv2d', distribution='uniform'
+        ),
     ) -> None:
         super().__init__(init_cfg=init_cfg)
         assert isinstance(in_channels, list)
@@ -79,7 +81,9 @@ class ChannelMapper(BaseModule):
                     conv_cfg=conv_cfg,
                     norm_cfg=norm_cfg,
                     act_cfg=act_cfg,
-                    bias=bias))
+                    bias=bias,
+                )
+            )
         if num_outs > len(in_channels):
             self.extra_convs = nn.ModuleList()
             for i in range(len(in_channels), num_outs):
@@ -97,7 +101,9 @@ class ChannelMapper(BaseModule):
                         conv_cfg=conv_cfg,
                         norm_cfg=norm_cfg,
                         act_cfg=act_cfg,
-                        bias=bias))
+                        bias=bias,
+                    )
+                )
 
     def forward(self, inputs: Tuple[Tensor]) -> Tuple[Tensor]:
         """Forward function."""

@@ -49,16 +49,17 @@ def bbox_map_eval(det_result, annotation, nproc=4):
         bbox_det_result = [det_result]
     # mAP
     iou_thrs = np.linspace(
-        .5, 0.95, int(np.round((0.95 - .5) / .05)) + 1, endpoint=True)
+        0.5, 0.95, int(np.round((0.95 - 0.5) / 0.05)) + 1, endpoint=True
+    )
 
     processes = []
     workers = Pool(processes=nproc)
     for thr in iou_thrs:
-        p = workers.apply_async(eval_map, (bbox_det_result, [annotation]), {
-            'iou_thr': thr,
-            'logger': 'silent',
-            'nproc': 1
-        })
+        p = workers.apply_async(
+            eval_map,
+            (bbox_det_result, [annotation]),
+            {'iou_thr': thr, 'logger': 'silent', 'nproc': 1},
+        )
         processes.append(p)
 
     workers.close()
@@ -90,12 +91,9 @@ class ResultVisualizer:
         self.runner = runner
         self.evaluator = runner.test_evaluator
 
-    def _save_image_gts_results(self,
-                                dataset,
-                                results,
-                                performances,
-                                out_dir=None,
-                                task='det'):
+    def _save_image_gts_results(
+        self, dataset, results, performances, out_dir=None, task='det'
+    ):
         """Display or save image with groung truths and predictions from a
         model.
 
@@ -133,11 +131,14 @@ class ResultVisualizer:
 
                 pred_instances = InstanceData()
                 pred_instances.bboxes = results[index]['pred_instances'][
-                    'bboxes']
+                    'bboxes'
+                ]
                 pred_instances.labels = results[index]['pred_instances'][
-                    'labels']
+                    'labels'
+                ]
                 pred_instances.scores = results[index]['pred_instances'][
-                    'scores']
+                    'scores'
+                ]
 
                 data_samples = DetDataSample()
                 data_samples.pred_instances = pred_instances
@@ -151,7 +152,8 @@ class ResultVisualizer:
 
                 pred_panoptic_seg = PixelData()
                 pred_panoptic_seg.sem_seg = results[index][
-                    'pred_panoptic_seg']['sem_seg']
+                    'pred_panoptic_seg'
+                ]['sem_seg']
 
                 data_samples = DetDataSample()
                 data_samples.pred_panoptic_seg = pred_panoptic_seg
@@ -165,13 +167,12 @@ class ResultVisualizer:
                 show=self.show,
                 draw_gt=False,
                 pred_score_thr=self.score_thr,
-                out_file=out_file)
+                out_file=out_file,
+            )
 
-    def evaluate_and_show(self,
-                          dataset,
-                          results,
-                          topk=20,
-                          show_dir='work_dir'):
+    def evaluate_and_show(
+        self, dataset, results, topk=20, show_dir='work_dir'
+    ):
         """Evaluate and show results.
 
         Args:
@@ -195,21 +196,27 @@ class ResultVisualizer:
 
         if 'pred_panoptic_seg' in results[0].keys():
             good_samples, bad_samples = self.panoptic_evaluate(
-                dataset, results, topk=topk)
+                dataset, results, topk=topk
+            )
             self._save_image_gts_results(
-                dataset, results, good_samples, good_dir, task='seg')
+                dataset, results, good_samples, good_dir, task='seg'
+            )
             self._save_image_gts_results(
-                dataset, results, bad_samples, bad_dir, task='seg')
+                dataset, results, bad_samples, bad_dir, task='seg'
+            )
         elif 'pred_instances' in results[0].keys():
             good_samples, bad_samples = self.detection_evaluate(
-                dataset, results, topk=topk)
+                dataset, results, topk=topk
+            )
             self._save_image_gts_results(
-                dataset, results, good_samples, good_dir, task='det')
+                dataset, results, good_samples, good_dir, task='det'
+            )
             self._save_image_gts_results(
-                dataset, results, bad_samples, bad_dir, task='det')
+                dataset, results, bad_samples, bad_dir, task='det'
+            )
         else:
-            raise 'expect \'pred_panoptic_seg\' or \'pred_instances\' \
-                in dict result'
+            raise "expect 'pred_panoptic_seg' or 'pred_instances' \
+                in dict result"
 
     def detection_evaluate(self, dataset, results, topk=20, eval_fn=None):
         """Evaluation for object detection.
@@ -240,8 +247,7 @@ class ResultVisualizer:
         prog_bar = ProgressBar(len(results))
         _mAPs = {}
         data_info = {}
-        for i, (result, ) in enumerate(zip(results)):
-
+        for i, (result,) in enumerate(zip(results)):
             # self.dataset[i] should not call directly
             # because there is a risk of mismatch
             data_info = dataset.prepare_data(i)
@@ -257,14 +263,15 @@ class ResultVisualizer:
             for label in range(len(dataset.metainfo['classes'])):
                 index = np.where(pred_labels == label)[0]
                 pred_bbox_scores = np.hstack(
-                    [pred_bboxes[index], pred_scores[index].reshape((-1, 1))])
+                    [pred_bboxes[index], pred_scores[index].reshape((-1, 1))]
+                )
                 dets.append(pred_bbox_scores)
             mAP = eval_fn(dets, data_info)
 
             _mAPs[i] = mAP
             prog_bar.update()
         # descending select topk image
-        _mAPs = list(sorted(_mAPs.items(), key=lambda kv: kv[1]))
+        _mAPs = sorted(_mAPs.items(), key=lambda kv: kv[1])
         good_mAPs = _mAPs[-topk:]
         bad_mAPs = _mAPs[:topk]
 
@@ -307,7 +314,7 @@ class ResultVisualizer:
             prog_bar.update()
 
         # descending select topk image
-        pqs = list(sorted(pqs.items(), key=lambda kv: kv[1]))
+        pqs = sorted(pqs.items(), key=lambda kv: kv[1])
         good_pqs = pqs[-topk:]
         bad_pqs = pqs[:topk]
 
@@ -316,29 +323,35 @@ class ResultVisualizer:
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='MMDet eval image prediction result for each')
+        description='MMDet eval image prediction result for each'
+    )
     parser.add_argument('config', help='test config file path')
     parser.add_argument(
-        'prediction_path', help='prediction path where test pkl result')
+        'prediction_path', help='prediction path where test pkl result'
+    )
     parser.add_argument(
-        'show_dir', help='directory where painted images will be saved')
+        'show_dir', help='directory where painted images will be saved'
+    )
     parser.add_argument('--show', action='store_true', help='show results')
     parser.add_argument(
         '--wait-time',
         type=float,
         default=0,
-        help='the interval of show (s), 0 is block')
+        help='the interval of show (s), 0 is block',
+    )
     parser.add_argument(
         '--topk',
         default=20,
         type=int,
         help='saved Number of the highest topk '
-        'and lowest topk after index sorting')
+        'and lowest topk after index sorting',
+    )
     parser.add_argument(
         '--show-score-thr',
         type=float,
         default=0,
-        help='score threshold (default: 0.)')
+        help='score threshold (default: 0.)',
+    )
     parser.add_argument(
         '--cfg-options',
         nargs='+',
@@ -348,7 +361,8 @@ def parse_args():
         'be overwritten is a list, it should be like key="[a,b]" or key=a,b '
         'It also allows nested list/tuple values, e.g. key="[(a,b),(c,d)]" '
         'Note that the quotation marks are necessary and that no white space '
-        'is allowed.')
+        'is allowed.',
+    )
     args = parser.parse_args()
     return args
 
@@ -373,17 +387,22 @@ def main():
     cfg.test_dataloader.dataset.test_mode = True
 
     cfg.test_dataloader.pop('batch_size', 0)
-    if cfg.train_dataloader.dataset.type in ('MultiImageMixDataset',
-                                             'ClassBalancedDataset',
-                                             'RepeatDataset'):
+    if cfg.train_dataloader.dataset.type in (
+        'MultiImageMixDataset',
+        'ClassBalancedDataset',
+        'RepeatDataset',
+    ):
         cfg.test_dataloader.dataset.pipeline = get_loading_pipeline(
-            cfg.train_dataloader.dataset.dataset.pipeline)
-    elif cfg.train_dataloader.dataset.type in ('ConcatDataset', ):
+            cfg.train_dataloader.dataset.dataset.pipeline
+        )
+    elif cfg.train_dataloader.dataset.type in ('ConcatDataset',):
         cfg.test_dataloader.dataset.pipeline = get_loading_pipeline(
-            cfg.train_dataloader.dataset.datasets[0].pipeline)
+            cfg.train_dataloader.dataset.datasets[0].pipeline
+        )
     else:
         cfg.test_dataloader.dataset.pipeline = get_loading_pipeline(
-            cfg.train_dataloader.dataset.pipeline)
+            cfg.train_dataloader.dataset.pipeline
+        )
     dataset = DATASETS.build(cfg.test_dataloader.dataset)
     outputs = load(args.prediction_path)
 
@@ -397,10 +416,12 @@ def main():
         # if 'runner_type' is set in the cfg
         runner = RUNNERS.build(cfg)
 
-    result_visualizer = ResultVisualizer(args.show, args.wait_time,
-                                         args.show_score_thr, runner)
+    result_visualizer = ResultVisualizer(
+        args.show, args.wait_time, args.show_score_thr, runner
+    )
     result_visualizer.evaluate_and_show(
-        dataset, outputs, topk=args.topk, show_dir=args.show_dir)
+        dataset, outputs, topk=args.topk, show_dir=args.show_dir
+    )
 
 
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 
-# Please refer to https://mmengine.readthedocs.io/en/latest/advanced_tutorials/config.html#a-pure-python-style-configuration-file-beta for more details. # noqa
+# Please refer to https://mmengine.readthedocs.io/en/latest/advanced_tutorials/config.html#a-pure-python-style-configuration-file-beta for more details.
 # mmcv >= 2.0.1
 # mmengine >= 0.8.0
 
@@ -15,7 +15,8 @@ with read_base():
 train_pipeline = [
     dict(type=LoadImageFromFile, backend_args=backend_args),
     dict(
-        type=LoadAnnotations, with_bbox=True, with_mask=True, poly2mask=False),
+        type=LoadAnnotations, with_bbox=True, with_mask=True, poly2mask=False
+    ),
     dict(type=Resize, scale=(1333, 800), keep_ratio=True),
     dict(type=RandomFlip, prob=0.5),
     dict(type=PackDetInputs),

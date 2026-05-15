@@ -9,7 +9,8 @@ from mmengine.utils import digit_version
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Process a checkpoint to be published')
+        description='Process a checkpoint to be published'
+    )
     parser.add_argument('in_file', help='input checkpoint filename')
     parser.add_argument('out_file', help='output checkpoint filename')
     parser.add_argument(
@@ -17,7 +18,8 @@ def parse_args():
         nargs='+',
         type=str,
         default=['meta', 'state_dict'],
-        help='keys to save in the published checkpoint')
+        help='keys to save in the published checkpoint',
+    )
     args = parser.parse_args()
     return args
 
@@ -33,7 +35,8 @@ def process_checkpoint(in_file, out_file, save_keys=['meta', 'state_dict']):
                 f'Key `{k}` will be removed because it is not in '
                 f'save_keys. If you want to keep it, '
                 f'please set --save-keys.',
-                logger='current')
+                logger='current',
+            )
             checkpoint.pop(k, None)
 
     # if it is necessary to remove some sensitive data in checkpoint['meta'],
@@ -50,7 +53,8 @@ def process_checkpoint(in_file, out_file, save_keys=['meta', 'state_dict']):
     final_file = out_file_name + f'-{sha[:8]}.pth'
     subprocess.Popen(['mv', out_file, final_file])
     print_log(
-        f'The published model is saved at {final_file}.', logger='current')
+        f'The published model is saved at {final_file}.', logger='current'
+    )
 
 
 def main():

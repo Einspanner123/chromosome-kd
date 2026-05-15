@@ -23,11 +23,13 @@ class CheckInvalidLossHook(Hook):
     def __init__(self, interval: int = 50) -> None:
         self.interval = interval
 
-    def after_train_iter(self,
-                         runner: Runner,
-                         batch_idx: int,
-                         data_batch: Optional[dict] = None,
-                         outputs: Optional[dict] = None) -> None:
+    def after_train_iter(
+        self,
+        runner: Runner,
+        batch_idx: int,
+        data_batch: Optional[dict] = None,
+        outputs: Optional[dict] = None,
+    ) -> None:
         """Regularly check whether the loss is valid every n iterations.
 
         Args:
@@ -38,5 +40,6 @@ class CheckInvalidLossHook(Hook):
             outputs (dict, Optional): Outputs from model. Defaults to None.
         """
         if self.every_n_train_iters(runner, self.interval):
-            assert torch.isfinite(outputs['loss']), \
-                runner.logger.info('loss become infinite or NaN!')
+            assert torch.isfinite(outputs['loss']), runner.logger.info(
+                'loss become infinite or NaN!'
+            )

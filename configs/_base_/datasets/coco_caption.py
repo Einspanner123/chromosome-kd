@@ -22,21 +22,23 @@ test_pipeline = [
     dict(
         type='LoadImageFromFile',
         imdecode_backend='pillow',
-        backend_args=backend_args),
+        backend_args=backend_args,
+    ),
     dict(
         type='Resize',
         scale=(224, 224),
         interpolation='bicubic',
-        backend='pillow'),
+        backend='pillow',
+    ),
     dict(type='PackInputs', meta_keys=['image_id']),
 ]
 
 # ann_file download from
-# train dataset: https://storage.googleapis.com/sfr-vision-language-research/datasets/coco_karpathy_train.json # noqa
-# val dataset: https://storage.googleapis.com/sfr-vision-language-research/datasets/coco_karpathy_val.json # noqa
-# test dataset: https://storage.googleapis.com/sfr-vision-language-research/datasets/coco_karpathy_test.json # noqa
-# val evaluator: https://storage.googleapis.com/sfr-vision-language-research/datasets/coco_karpathy_val_gt.json # noqa
-# test evaluator: https://storage.googleapis.com/sfr-vision-language-research/datasets/coco_karpathy_test_gt.json # noqa
+# train dataset: https://storage.googleapis.com/sfr-vision-language-research/datasets/coco_karpathy_train.json
+# val dataset: https://storage.googleapis.com/sfr-vision-language-research/datasets/coco_karpathy_val.json
+# test dataset: https://storage.googleapis.com/sfr-vision-language-research/datasets/coco_karpathy_test.json
+# val evaluator: https://storage.googleapis.com/sfr-vision-language-research/datasets/coco_karpathy_val_gt.json
+# test evaluator: https://storage.googleapis.com/sfr-vision-language-research/datasets/coco_karpathy_test_gt.json
 val_dataloader = dict(
     batch_size=1,
     num_workers=2,
@@ -48,7 +50,8 @@ val_dataloader = dict(
         data_root=data_root,
         ann_file='annotations/coco_karpathy_val.json',
         pipeline=test_pipeline,
-    ))
+    ),
+)
 
 val_evaluator = dict(
     type='COCOCaptionMetric',

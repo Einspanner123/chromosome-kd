@@ -19,27 +19,31 @@ class MaskFormerFusionHead(BasePanopticFusionHead):
     """MaskFormer fusion head which postprocesses results for panoptic
     segmentation, instance segmentation and semantic segmentation."""
 
-    def __init__(self,
-                 num_things_classes: int = 80,
-                 num_stuff_classes: int = 53,
-                 test_cfg: OptConfigType = None,
-                 loss_panoptic: OptConfigType = None,
-                 init_cfg: OptMultiConfig = None,
-                 **kwargs):
+    def __init__(
+        self,
+        num_things_classes: int = 80,
+        num_stuff_classes: int = 53,
+        test_cfg: OptConfigType = None,
+        loss_panoptic: OptConfigType = None,
+        init_cfg: OptMultiConfig = None,
+        **kwargs,
+    ):
         super().__init__(
             num_things_classes=num_things_classes,
             num_stuff_classes=num_stuff_classes,
             test_cfg=test_cfg,
             loss_panoptic=loss_panoptic,
             init_cfg=init_cfg,
-            **kwargs)
+            **kwargs,
+        )
 
     def loss(self, **kwargs):
         """MaskFormerFusionHead has no training loss."""
         return dict()
 
-    def panoptic_postprocess(self, mask_cls: Tensor,
-                             mask_pred: Tensor) -> PixelData:
+    def panoptic_postprocess(
+        self, mask_cls: Tensor, mask_pred: Tensor
+    ) -> PixelData:
         """Panoptic segmengation inference.
 
         Args:
@@ -70,10 +74,12 @@ class MaskFormerFusionHead(BasePanopticFusionHead):
         cur_prob_masks = cur_scores.view(-1, 1, 1) * cur_masks
 
         h, w = cur_masks.shape[-2:]
-        panoptic_seg = torch.full((h, w),
-                                  self.num_classes,
-                                  dtype=torch.int32,
-                                  device=cur_masks.device)
+        panoptic_seg = torch.full(
+            (h, w),
+            self.num_classes,
+            dtype=torch.int32,
+            device=cur_masks.device,
+        )
         if cur_masks.shape[0] == 0:
             # We didn't detect any mask :(
             pass
@@ -100,13 +106,15 @@ class MaskFormerFusionHead(BasePanopticFusionHead):
                         panoptic_seg[mask] = pred_class
                     else:
                         panoptic_seg[mask] = (
-                            pred_class + instance_id * INSTANCE_OFFSET)
+                            pred_class + instance_id * INSTANCE_OFFSET
+                        )
                         instance_id += 1
 
         return PixelData(sem_seg=panoptic_seg[None])
 
-    def semantic_postprocess(self, mask_cls: Tensor,
-                             mask_pred: Tensor) -> PixelData:
+    def semantic_postprocess(
+        self, mask_cls: Tensor, mask_pred: Tensor
+    ) -> PixelData:
         """Semantic segmengation postprocess.
 
         Args:
@@ -123,8 +131,9 @@ class MaskFormerFusionHead(BasePanopticFusionHead):
         # TODO add semantic segmentation result
         raise NotImplementedError
 
-    def instance_postprocess(self, mask_cls: Tensor,
-                             mask_pred: Tensor) -> InstanceData:
+    def instance_postprocess(
+        self, mask_cls: Tensor, mask_pred: Tensor
+    ) -> InstanceData:
         """Instance segmengation postprocess.
 
         Args:
@@ -151,10 +160,15 @@ class MaskFormerFusionHead(BasePanopticFusionHead):
         # shape (num_queries, num_class)
         scores = F.softmax(mask_cls, dim=-1)[:, :-1]
         # shape (num_queries * num_class, )
-        labels = torch.arange(self.num_classes, device=mask_cls.device).\
-            unsqueeze(0).repeat(num_queries, 1).flatten(0, 1)
+        labels = (
+            torch.arange(self.num_classes, device=mask_cls.device)
+            .unsqueeze(0)
+            .repeat(num_queries, 1)
+            .flatten(0, 1)
+        )
         scores_per_image, top_indices = scores.flatten(0, 1).topk(
-            max_per_image, sorted=False)
+            max_per_image, sorted=False
+        )
         labels_per_image = labels[top_indices]
 
         query_indices = top_indices // self.num_classes
@@ -167,9 +181,9 @@ class MaskFormerFusionHead(BasePanopticFusionHead):
         mask_pred = mask_pred[is_thing]
 
         mask_pred_binary = (mask_pred > 0).float()
-        mask_scores_per_image = (mask_pred.sigmoid() *
-                                 mask_pred_binary).flatten(1).sum(1) / (
-                                     mask_pred_binary.flatten(1).sum(1) + 1e-6)
+        mask_scores_per_image = (
+            mask_pred.sigmoid() * mask_pred_binary
+        ).flatten(1).sum(1) / (mask_pred_binary.flatten(1).sum(1) + 1e-6)
         det_scores = scores_per_image * mask_scores_per_image
         mask_pred_binary = mask_pred_binary.bool()
         bboxes = mask2bbox(mask_pred_binary)
@@ -181,12 +195,14 @@ class MaskFormerFusionHead(BasePanopticFusionHead):
         results.masks = mask_pred_binary
         return results
 
-    def predict(self,
-                mask_cls_results: Tensor,
-                mask_pred_results: Tensor,
-                batch_data_samples: SampleList,
-                rescale: bool = False,
-                **kwargs) -> List[dict]:
+    def predict(
+        self,
+        mask_cls_results: Tensor,
+        mask_pred_results: Tensor,
+        batch_data_samples: SampleList,
+        rescale: bool = False,
+        **kwargs,
+    ) -> List[dict]:
         """Test segment without test-time aumengtation.
 
         Only the output of last decoder layers was used.
@@ -226,12 +242,14 @@ class MaskFormerFusionHead(BasePanopticFusionHead):
         panoptic_on = self.test_cfg.get('panoptic_on', True)
         semantic_on = self.test_cfg.get('semantic_on', False)
         instance_on = self.test_cfg.get('instance_on', False)
-        assert not semantic_on, 'segmantic segmentation '\
-            'results are not supported yet.'
+        assert not semantic_on, (
+            'segmantic segmentation results are not supported yet.'
+        )
 
         results = []
         for mask_cls_result, mask_pred_result, meta in zip(
-                mask_cls_results, mask_pred_results, batch_img_metas):
+            mask_cls_results, mask_pred_results, batch_img_metas
+        ):
             # remove padding
             img_height, img_width = meta['img_shape'][:2]
             mask_pred_result = mask_pred_result[:, :img_height, :img_width]
@@ -243,22 +261,26 @@ class MaskFormerFusionHead(BasePanopticFusionHead):
                     mask_pred_result[:, None],
                     size=(ori_height, ori_width),
                     mode='bilinear',
-                    align_corners=False)[:, 0]
+                    align_corners=False,
+                )[:, 0]
 
             result = dict()
             if panoptic_on:
                 pan_results = self.panoptic_postprocess(
-                    mask_cls_result, mask_pred_result)
+                    mask_cls_result, mask_pred_result
+                )
                 result['pan_results'] = pan_results
 
             if instance_on:
                 ins_results = self.instance_postprocess(
-                    mask_cls_result, mask_pred_result)
+                    mask_cls_result, mask_pred_result
+                )
                 result['ins_results'] = ins_results
 
             if semantic_on:
                 sem_results = self.semantic_postprocess(
-                    mask_cls_result, mask_pred_result)
+                    mask_cls_result, mask_pred_result
+                )
                 result['sem_results'] = sem_results
 
             results.append(result)

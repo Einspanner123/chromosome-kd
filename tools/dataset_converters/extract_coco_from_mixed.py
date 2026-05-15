@@ -14,7 +14,7 @@ def extract_coco(args):
         'licenses': json_data['licenses'],
         'categories': json_data['categories'],
         'images': [],
-        'annotations': []
+        'annotations': [],
     }
     del json_data
 
@@ -27,17 +27,19 @@ def extract_coco(args):
             img_ann_info = coco.loadAnns(ann_ids)
             new_json_data['annotations'].extend(img_ann_info)
     if args.out_ann is None:
-        out_ann = osp.dirname(
-            args.mixed_ann) + '/final_mixed_train_only_coco.json'
+        out_ann = (
+            osp.dirname(args.mixed_ann) + '/final_mixed_train_only_coco.json'
+        )
         mmengine.dump(new_json_data, out_ann)
-        print('save new json to {}'.format(out_ann))
+        print(f'save new json to {out_ann}')
     else:
         mmengine.dump(new_json_data, args.out_ann)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        'split mixed goldg to coco.', add_help=True)
+        'split mixed goldg to coco.', add_help=True
+    )
     parser.add_argument('mixed_ann', type=str)
     parser.add_argument('--out-ann', '-o', type=str)
     args = parser.parse_args()

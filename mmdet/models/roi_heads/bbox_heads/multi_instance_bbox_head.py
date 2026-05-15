@@ -52,25 +52,34 @@ class MultiInstanceBBoxHead(BBoxHead):
         fc_out_channels (int): The number of fc out channels. Defaults to 1024.
         init_cfg (dict or list[dict], optional): Initialization config dict.
             Defaults to None.
-    """  # noqa: W605
+    """
 
-    def __init__(self,
-                 num_instance: int = 2,
-                 with_refine: bool = False,
-                 num_shared_convs: int = 0,
-                 num_shared_fcs: int = 2,
-                 num_cls_convs: int = 0,
-                 num_cls_fcs: int = 0,
-                 num_reg_convs: int = 0,
-                 num_reg_fcs: int = 0,
-                 conv_out_channels: int = 256,
-                 fc_out_channels: int = 1024,
-                 init_cfg: Optional[Union[dict, ConfigDict]] = None,
-                 *args,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        num_instance: int = 2,
+        with_refine: bool = False,
+        num_shared_convs: int = 0,
+        num_shared_fcs: int = 2,
+        num_cls_convs: int = 0,
+        num_cls_fcs: int = 0,
+        num_reg_convs: int = 0,
+        num_reg_fcs: int = 0,
+        conv_out_channels: int = 256,
+        fc_out_channels: int = 1024,
+        init_cfg: Optional[Union[dict, ConfigDict]] = None,
+        *args,
+        **kwargs,
+    ) -> None:
         super().__init__(*args, init_cfg=init_cfg, **kwargs)
-        assert (num_shared_convs + num_shared_fcs + num_cls_convs +
-                num_cls_fcs + num_reg_convs + num_reg_fcs > 0)
+        assert (
+            num_shared_convs
+            + num_shared_fcs
+            + num_cls_convs
+            + num_cls_fcs
+            + num_reg_convs
+            + num_reg_fcs
+            > 0
+        )
         assert num_instance == 2, 'Currently only 2 instances are supported'
         if num_cls_convs > 0 or num_reg_convs > 0:
             assert num_shared_fcs == 0
@@ -90,10 +99,14 @@ class MultiInstanceBBoxHead(BBoxHead):
         self.with_refine = with_refine
 
         # add shared convs and fcs
-        self.shared_convs, self.shared_fcs, last_layer_dim = \
+        self.shared_convs, self.shared_fcs, last_layer_dim = (
             self._add_conv_fc_branch(
-                self.num_shared_convs, self.num_shared_fcs, self.in_channels,
-                True)
+                self.num_shared_convs,
+                self.num_shared_fcs,
+                self.in_channels,
+                True,
+            )
+        )
         self.shared_out_channels = last_layer_dim
         self.relu = nn.ReLU(inplace=True)
 
@@ -101,7 +114,7 @@ class MultiInstanceBBoxHead(BBoxHead):
             refine_model_cfg = {
                 'type': 'Linear',
                 'in_features': self.shared_out_channels + 20,
-                'out_features': self.shared_out_channels
+                'out_features': self.shared_out_channels,
             }
             self.shared_fcs_ref = MODELS.build(refine_model_cfg)
             self.fc_cls_ref = nn.ModuleList()
@@ -118,14 +131,16 @@ class MultiInstanceBBoxHead(BBoxHead):
         for k in range(self.num_instance):
             # add cls specific branch
             cls_convs, cls_fcs, cls_last_dim = self._add_conv_fc_branch(
-                self.num_cls_convs, self.num_cls_fcs, self.shared_out_channels)
+                self.num_cls_convs, self.num_cls_fcs, self.shared_out_channels
+            )
             self.cls_convs.append(cls_convs)
             self.cls_fcs.append(cls_fcs)
             self.cls_last_dim.append(cls_last_dim)
 
             # add reg specific branch
             reg_convs, reg_fcs, reg_last_dim = self._add_conv_fc_branch(
-                self.num_reg_convs, self.num_reg_fcs, self.shared_out_channels)
+                self.num_reg_convs, self.num_reg_fcs, self.shared_out_channels
+            )
             self.reg_convs.append(reg_convs)
             self.reg_fcs.append(reg_fcs)
             self.reg_last_dim.append(reg_last_dim)
@@ -139,23 +154,26 @@ class MultiInstanceBBoxHead(BBoxHead):
             if self.with_cls:
                 if self.custom_cls_channels:
                     cls_channels = self.loss_cls.get_cls_channels(
-                        self.num_classes)
+                        self.num_classes
+                    )
                 else:
                     cls_channels = self.num_classes + 1
                 cls_predictor_cfg_ = self.cls_predictor_cfg.copy()  # deepcopy
                 cls_predictor_cfg_.update(
-                    in_features=self.cls_last_dim[k],
-                    out_features=cls_channels)
+                    in_features=self.cls_last_dim[k], out_features=cls_channels
+                )
                 self.fc_cls.append(MODELS.build(cls_predictor_cfg_))
                 if self.with_refine:
                     self.fc_cls_ref.append(MODELS.build(cls_predictor_cfg_))
 
             if self.with_reg:
-                out_dim_reg = (4 if self.reg_class_agnostic else 4 *
-                               self.num_classes)
+                out_dim_reg = (
+                    4 if self.reg_class_agnostic else 4 * self.num_classes
+                )
                 reg_predictor_cfg_ = self.reg_predictor_cfg.copy()
                 reg_predictor_cfg_.update(
-                    in_features=self.reg_last_dim[k], out_features=out_dim_reg)
+                    in_features=self.reg_last_dim[k], out_features=out_dim_reg
+                )
                 self.fc_reg.append(MODELS.build(reg_predictor_cfg_))
                 if self.with_refine:
                     self.fc_reg_ref.append(MODELS.build(reg_predictor_cfg_))
@@ -175,15 +193,18 @@ class MultiInstanceBBoxHead(BBoxHead):
                     override=[
                         dict(name='shared_fcs'),
                         dict(name='cls_fcs'),
-                        dict(name='reg_fcs')
-                    ])
+                        dict(name='reg_fcs'),
+                    ],
+                )
             ]
 
-    def _add_conv_fc_branch(self,
-                            num_branch_convs: int,
-                            num_branch_fcs: int,
-                            in_channels: int,
-                            is_shared: bool = False) -> tuple:
+    def _add_conv_fc_branch(
+        self,
+        num_branch_convs: int,
+        num_branch_fcs: int,
+        in_channels: int,
+        is_shared: bool = False,
+    ) -> tuple:
         """Add shared or separable branch.
 
         convs -> avg pool (optional) -> fcs
@@ -194,25 +215,30 @@ class MultiInstanceBBoxHead(BBoxHead):
         if num_branch_convs > 0:
             for i in range(num_branch_convs):
                 conv_in_channels = (
-                    last_layer_dim if i == 0 else self.conv_out_channels)
+                    last_layer_dim if i == 0 else self.conv_out_channels
+                )
                 branch_convs.append(
                     ConvModule(
-                        conv_in_channels, self.conv_out_channels, 3,
-                        padding=1))
+                        conv_in_channels, self.conv_out_channels, 3, padding=1
+                    )
+                )
             last_layer_dim = self.conv_out_channels
         # add branch specific fc layers
         branch_fcs = nn.ModuleList()
         if num_branch_fcs > 0:
             # for shared branch, only consider self.with_avg_pool
             # for separated branches, also consider self.num_shared_fcs
-            if (is_shared
-                    or self.num_shared_fcs == 0) and not self.with_avg_pool:
+            if (
+                is_shared or self.num_shared_fcs == 0
+            ) and not self.with_avg_pool:
                 last_layer_dim *= self.roi_feat_area
             for i in range(num_branch_fcs):
                 fc_in_channels = (
-                    last_layer_dim if i == 0 else self.fc_out_channels)
+                    last_layer_dim if i == 0 else self.fc_out_channels
+                )
                 branch_fcs.append(
-                    nn.Linear(fc_in_channels, self.fc_out_channels))
+                    nn.Linear(fc_in_channels, self.fc_out_channels)
+                )
             last_layer_dim = self.fc_out_channels
         return branch_convs, branch_fcs, last_layer_dim
 
@@ -281,8 +307,9 @@ class MultiInstanceBBoxHead(BBoxHead):
             bbox_pred_ref = list()
             for k in range(self.num_instance):
                 feat_ref = cls_score[k].softmax(dim=-1)
-                feat_ref = torch.cat((bbox_pred[k], feat_ref[:, 1][:, None]),
-                                     dim=1).repeat(1, 4)
+                feat_ref = torch.cat(
+                    (bbox_pred[k], feat_ref[:, 1][:, None]), dim=1
+                ).repeat(1, 4)
                 feat_ref = torch.cat((x_ref, feat_ref), dim=1)
                 feat_ref = F.relu_(self.shared_fcs_ref(feat_ref))
 
@@ -300,10 +327,12 @@ class MultiInstanceBBoxHead(BBoxHead):
 
         return cls_score, bbox_pred
 
-    def get_targets(self,
-                    sampling_results: List[SamplingResult],
-                    rcnn_train_cfg: ConfigDict,
-                    concat: bool = True) -> tuple:
+    def get_targets(
+        self,
+        sampling_results: List[SamplingResult],
+        rcnn_train_cfg: ConfigDict,
+        concat: bool = True,
+    ) -> tuple:
         """Calculate the ground truth for all samples in a batch according to
         the sampling_results.
 
@@ -345,26 +374,32 @@ class MultiInstanceBBoxHead(BBoxHead):
         bbox_weights = []
         label_weights = []
         for i in range(len(sampling_results)):
-            sample_bboxes = torch.cat([
-                sampling_results[i].pos_gt_bboxes,
-                sampling_results[i].neg_gt_bboxes
-            ])
+            sample_bboxes = torch.cat(
+                [
+                    sampling_results[i].pos_gt_bboxes,
+                    sampling_results[i].neg_gt_bboxes,
+                ]
+            )
             sample_priors = sampling_results[i].priors
             sample_priors = sample_priors.repeat(1, self.num_instance).reshape(
-                -1, 4)
+                -1, 4
+            )
             sample_bboxes = sample_bboxes.reshape(-1, 4)
 
             if not self.reg_decoded_bbox:
-                _bbox_targets = self.bbox_coder.encode(sample_priors,
-                                                       sample_bboxes)
+                _bbox_targets = self.bbox_coder.encode(
+                    sample_priors, sample_bboxes
+                )
             else:
                 _bbox_targets = sample_priors
             _bbox_targets = _bbox_targets.reshape(-1, self.num_instance * 4)
             _bbox_weights = torch.ones(_bbox_targets.shape)
-            _labels = torch.cat([
-                sampling_results[i].pos_gt_labels,
-                sampling_results[i].neg_gt_labels
-            ])
+            _labels = torch.cat(
+                [
+                    sampling_results[i].pos_gt_labels,
+                    sampling_results[i].neg_gt_labels,
+                ]
+            )
             _labels_weights = torch.ones(_labels.shape)
 
             bbox_targets.append(_bbox_targets)
@@ -379,9 +414,17 @@ class MultiInstanceBBoxHead(BBoxHead):
             bbox_weights = torch.cat(bbox_weights, 0)
         return labels, label_weights, bbox_targets, bbox_weights
 
-    def loss(self, cls_score: Tensor, bbox_pred: Tensor, rois: Tensor,
-             labels: Tensor, label_weights: Tensor, bbox_targets: Tensor,
-             bbox_weights: Tensor, **kwargs) -> dict:
+    def loss(
+        self,
+        cls_score: Tensor,
+        bbox_pred: Tensor,
+        rois: Tensor,
+        labels: Tensor,
+        label_weights: Tensor,
+        bbox_targets: Tensor,
+        bbox_weights: Tensor,
+        **kwargs,
+    ) -> dict:
         """Calculate the loss based on the network predictions and targets.
 
         Args:
@@ -412,12 +455,22 @@ class MultiInstanceBBoxHead(BBoxHead):
         """
         losses = dict()
         if bbox_pred.numel():
-            loss_0 = self.emd_loss(bbox_pred[:, 0:4], cls_score[:, 0:2],
-                                   bbox_pred[:, 4:8], cls_score[:, 2:4],
-                                   bbox_targets, labels)
-            loss_1 = self.emd_loss(bbox_pred[:, 4:8], cls_score[:, 2:4],
-                                   bbox_pred[:, 0:4], cls_score[:, 0:2],
-                                   bbox_targets, labels)
+            loss_0 = self.emd_loss(
+                bbox_pred[:, 0:4],
+                cls_score[:, 0:2],
+                bbox_pred[:, 4:8],
+                cls_score[:, 2:4],
+                bbox_targets,
+                labels,
+            )
+            loss_1 = self.emd_loss(
+                bbox_pred[:, 4:8],
+                cls_score[:, 2:4],
+                bbox_pred[:, 0:4],
+                cls_score[:, 0:2],
+                bbox_targets,
+                labels,
+            )
             loss = torch.cat([loss_0, loss_1], dim=1)
             _, min_indices = loss.min(dim=1)
             loss_emd = loss[torch.arange(loss.shape[0]), min_indices]
@@ -427,9 +480,15 @@ class MultiInstanceBBoxHead(BBoxHead):
         losses['loss_rcnn_emd'] = loss_emd
         return losses
 
-    def emd_loss(self, bbox_pred_0: Tensor, cls_score_0: Tensor,
-                 bbox_pred_1: Tensor, cls_score_1: Tensor, targets: Tensor,
-                 labels: Tensor) -> Tensor:
+    def emd_loss(
+        self,
+        bbox_pred_0: Tensor,
+        cls_score_0: Tensor,
+        bbox_pred_1: Tensor,
+        cls_score_1: Tensor,
+        targets: Tensor,
+        labels: Tensor,
+    ) -> Tensor:
         """Calculate the emd loss.
 
         Note:
@@ -460,10 +519,12 @@ class MultiInstanceBBoxHead(BBoxHead):
             torch.Tensor: The calculated loss.
         """
 
-        bbox_pred = torch.cat([bbox_pred_0, bbox_pred_1],
-                              dim=1).reshape(-1, bbox_pred_0.shape[-1])
-        cls_score = torch.cat([cls_score_0, cls_score_1],
-                              dim=1).reshape(-1, cls_score_0.shape[-1])
+        bbox_pred = torch.cat([bbox_pred_0, bbox_pred_1], dim=1).reshape(
+            -1, bbox_pred_0.shape[-1]
+        )
+        cls_score = torch.cat([cls_score_0, cls_score_1], dim=1).reshape(
+            -1, cls_score_0.shape[-1]
+        )
         targets = targets.reshape(-1, 4)
         labels = labels.long().flatten()
 
@@ -489,13 +550,14 @@ class MultiInstanceBBoxHead(BBoxHead):
         return loss.reshape(-1, 1)
 
     def _predict_by_feat_single(
-            self,
-            roi: Tensor,
-            cls_score: Tensor,
-            bbox_pred: Tensor,
-            img_meta: dict,
-            rescale: bool = False,
-            rcnn_test_cfg: Optional[ConfigDict] = None) -> InstanceData:
+        self,
+        roi: Tensor,
+        cls_score: Tensor,
+        bbox_pred: Tensor,
+        img_meta: dict,
+        rescale: bool = False,
+        rcnn_test_cfg: Optional[ConfigDict] = None,
+    ) -> InstanceData:
         """Transform a single image's features extracted from the head into
         bbox results.
 
@@ -530,22 +592,27 @@ class MultiInstanceBBoxHead(BBoxHead):
 
         results = InstanceData()
         if roi.shape[0] == 0:
-            return empty_instances([img_meta],
-                                   roi.device,
-                                   task_type='bbox',
-                                   instance_results=[results])[0]
+            return empty_instances(
+                [img_meta],
+                roi.device,
+                task_type='bbox',
+                instance_results=[results],
+            )[0]
 
         scores = cls_score.softmax(dim=-1) if cls_score is not None else None
         img_shape = img_meta['img_shape']
         bboxes = self.bbox_coder.decode(
-            roi[..., 1:], bbox_pred, max_shape=img_shape)
+            roi[..., 1:], bbox_pred, max_shape=img_shape
+        )
 
         if rescale and bboxes.size(0) > 0:
             assert img_meta.get('scale_factor') is not None
             scale_factor = bboxes.new_tensor(img_meta['scale_factor']).repeat(
-                (1, 2))
+                (1, 2)
+            )
             bboxes = (bboxes.view(bboxes.size(0), -1, 4) / scale_factor).view(
-                bboxes.size()[0], -1)
+                bboxes.size()[0], -1
+            )
 
         if rcnn_test_cfg is None:
             # This means that it is aug test.
@@ -555,13 +622,19 @@ class MultiInstanceBBoxHead(BBoxHead):
         else:
             roi_idx = np.tile(
                 np.arange(bboxes.shape[0] / self.num_instance)[:, None],
-                (1, self.num_instance)).reshape(-1, 1)[:, 0]
-            roi_idx = torch.from_numpy(roi_idx).to(bboxes.device).reshape(
-                -1, 1)
+                (1, self.num_instance),
+            ).reshape(-1, 1)[:, 0]
+            roi_idx = (
+                torch.from_numpy(roi_idx).to(bboxes.device).reshape(-1, 1)
+            )
             bboxes = torch.cat([bboxes, roi_idx], dim=1)
             det_bboxes, det_scores = self.set_nms(
-                bboxes, scores[:, 1], rcnn_test_cfg.score_thr,
-                rcnn_test_cfg.nms['iou_threshold'], rcnn_test_cfg.max_per_img)
+                bboxes,
+                scores[:, 1],
+                rcnn_test_cfg.score_thr,
+                rcnn_test_cfg.nms['iou_threshold'],
+                rcnn_test_cfg.max_per_img,
+            )
 
             results.bboxes = det_bboxes[:, :-1]
             results.scores = det_scores
@@ -570,11 +643,13 @@ class MultiInstanceBBoxHead(BBoxHead):
         return results
 
     @staticmethod
-    def set_nms(bboxes: Tensor,
-                scores: Tensor,
-                score_thr: float,
-                iou_threshold: float,
-                max_num: int = -1) -> Tuple[Tensor, Tensor]:
+    def set_nms(
+        bboxes: Tensor,
+        scores: Tensor,
+        score_thr: float,
+        iou_threshold: float,
+        max_num: int = -1,
+    ) -> Tuple[Tensor, Tensor]:
         """NMS for multi-instance prediction. Please refer to
         https://github.com/Purkialo/CrowdDet for more details.
 

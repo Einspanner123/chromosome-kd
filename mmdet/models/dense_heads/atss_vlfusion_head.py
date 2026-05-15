@@ -21,47 +21,56 @@ except ImportError:
 from mmdet.registry import MODELS
 from mmdet.structures.bbox import cat_boxes
 from mmdet.utils import InstanceList, OptInstanceList, reduce_mean
-from ..utils import (BertEncoderLayer, VLFuse, filter_scores_and_topk,
-                     permute_and_flatten, select_single_mlvl,
-                     unpack_gt_instances)
+from ..utils import (
+    BertEncoderLayer,
+    VLFuse,
+    filter_scores_and_topk,
+    permute_and_flatten,
+    select_single_mlvl,
+    unpack_gt_instances,
+)
 from ..utils.vlfuse_helper import MAX_CLAMP_VALUE
 from .atss_head import ATSSHead
 
 
-def convert_grounding_to_cls_scores(logits: Tensor,
-                                    positive_maps: List[dict]) -> Tensor:
+def convert_grounding_to_cls_scores(
+    logits: Tensor, positive_maps: List[dict]
+) -> Tensor:
     """Convert logits to class scores."""
     assert len(positive_maps) == logits.shape[0]  # batch size
 
-    scores = torch.zeros(logits.shape[0], logits.shape[1],
-                         len(positive_maps[0])).to(logits.device)
+    scores = torch.zeros(
+        logits.shape[0], logits.shape[1], len(positive_maps[0])
+    ).to(logits.device)
     if positive_maps is not None:
         if all(x == positive_maps[0] for x in positive_maps):
             # only need to compute once
             positive_map = positive_maps[0]
             for label_j in positive_map:
-                scores[:, :, label_j -
-                       1] = logits[:, :,
-                                   torch.LongTensor(positive_map[label_j]
-                                                    )].mean(-1)
+                scores[:, :, label_j - 1] = logits[
+                    :, :, torch.LongTensor(positive_map[label_j])
+                ].mean(-1)
         else:
             for i, positive_map in enumerate(positive_maps):
                 for label_j in positive_map:
                     scores[i, :, label_j - 1] = logits[
-                        i, :, torch.LongTensor(positive_map[label_j])].mean(-1)
+                        i, :, torch.LongTensor(positive_map[label_j])
+                    ].mean(-1)
     return scores
 
 
 class Conv3x3Norm(nn.Module):
     """Conv3x3 and norm."""
 
-    def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 stride: int,
-                 groups: int = 1,
-                 use_dcn: bool = False,
-                 norm_type: Optional[Union[Sequence, str]] = None):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        stride: int,
+        groups: int = 1,
+        use_dcn: bool = False,
+        norm_type: Optional[Union[Sequence, str]] = None,
+    ):
         super().__init__()
 
         if use_dcn:
@@ -71,7 +80,8 @@ class Conv3x3Norm(nn.Module):
                 kernel_size=3,
                 stride=stride,
                 padding=1,
-                groups=groups)
+                groups=groups,
+            )
         else:
             self.conv = nn.Conv2d(
                 in_channels,
@@ -79,7 +89,8 @@ class Conv3x3Norm(nn.Module):
                 kernel_size=3,
                 stride=stride,
                 padding=1,
-                groups=groups)
+                groups=groups,
+            )
 
         if isinstance(norm_type, Sequence):
             assert len(norm_type) == 2
@@ -91,7 +102,8 @@ class Conv3x3Norm(nn.Module):
             bn_op = nn.BatchNorm2d(out_channels)
         elif norm_type == 'gn':
             bn_op = nn.GroupNorm(
-                num_groups=gn_group, num_channels=out_channels)
+                num_groups=gn_group, num_channels=out_channels
+            )
         if norm_type is not None:
             self.bn = bn_op
         else:
@@ -107,10 +119,9 @@ class Conv3x3Norm(nn.Module):
 class DyReLU(nn.Module):
     """Dynamic ReLU."""
 
-    def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 expand_ratio: int = 4):
+    def __init__(
+        self, in_channels: int, out_channels: int, expand_ratio: int = 4
+    ):
         super().__init__()
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.expand_ratio = expand_ratio
@@ -119,9 +130,11 @@ class DyReLU(nn.Module):
         self.fc = nn.Sequential(
             nn.Linear(in_channels, in_channels // expand_ratio),
             nn.ReLU(inplace=True),
-            nn.Linear(in_channels // expand_ratio,
-                      out_channels * self.expand_ratio),
-            nn.Hardsigmoid(inplace=True))
+            nn.Linear(
+                in_channels // expand_ratio, out_channels * self.expand_ratio
+            ),
+            nn.Hardsigmoid(inplace=True),
+        )
 
     def forward(self, x) -> Tensor:
         x_out = x
@@ -141,13 +154,15 @@ class DyReLU(nn.Module):
 class DyConv(nn.Module):
     """Dynamic Convolution."""
 
-    def __init__(self,
-                 conv_func: Callable,
-                 in_channels: int,
-                 out_channels: int,
-                 use_dyfuse: bool = True,
-                 use_dyrelu: bool = False,
-                 use_dcn: bool = False):
+    def __init__(
+        self,
+        conv_func: Callable,
+        in_channels: int,
+        out_channels: int,
+        use_dyfuse: bool = True,
+        use_dyrelu: bool = False,
+        use_dcn: bool = False,
+    ):
         super().__init__()
 
         self.dyconvs = nn.ModuleList()
@@ -159,7 +174,8 @@ class DyConv(nn.Module):
             self.attnconv = nn.Sequential(
                 nn.AdaptiveAvgPool2d(1),
                 nn.Conv2d(in_channels, 1, kernel_size=1),
-                nn.ReLU(inplace=True))
+                nn.ReLU(inplace=True),
+            )
             self.h_sigmoid = nn.Hardsigmoid(inplace=True)
         else:
             self.attnconv = None
@@ -171,7 +187,8 @@ class DyConv(nn.Module):
 
         if use_dcn:
             self.offset = nn.Conv2d(
-                in_channels, 27, kernel_size=3, stride=1, padding=1)
+                in_channels, 27, kernel_size=3, stride=1, padding=1
+            )
         else:
             self.offset = None
 
@@ -195,7 +212,6 @@ class DyConv(nn.Module):
 
         out_vis_feats = []
         for level, feature in enumerate(visual_feats):
-
             offset_conv_args = {}
             if self.offset is not None:
                 offset_mask = self.offset(feature)
@@ -206,17 +222,23 @@ class DyConv(nn.Module):
             temp_feats = [self.dyconvs[1](feature, **offset_conv_args)]
 
             if level > 0:
-                temp_feats.append(self.dyconvs[2](visual_feats[level - 1],
-                                                  **offset_conv_args))
+                temp_feats.append(
+                    self.dyconvs[2](
+                        visual_feats[level - 1], **offset_conv_args
+                    )
+                )
             if level < len(visual_feats) - 1:
                 temp_feats.append(
                     F.upsample_bilinear(
-                        self.dyconvs[0](visual_feats[level + 1],
-                                        **offset_conv_args),
-                        size=[feature.size(2),
-                              feature.size(3)]))
+                        self.dyconvs[0](
+                            visual_feats[level + 1], **offset_conv_args
+                        ),
+                        size=[feature.size(2), feature.size(3)],
+                    )
+                )
             mean_feats = torch.mean(
-                torch.stack(temp_feats), dim=0, keepdim=False)
+                torch.stack(temp_feats), dim=0, keepdim=False
+            )
 
             if self.attnconv is not None:
                 attn_feat = []
@@ -229,7 +251,8 @@ class DyConv(nn.Module):
                 spa_pyr_attn = self.h_sigmoid(torch.stack(attn_feat))
 
                 mean_feats = torch.mean(
-                    res_feat * spa_pyr_attn, dim=0, keepdim=False)
+                    res_feat * spa_pyr_attn, dim=0, keepdim=False
+                )
 
             out_vis_feats.append(mean_feats)
 
@@ -243,23 +266,26 @@ class DyConv(nn.Module):
 class VLFusionModule(BaseModel):
     """Visual-lang Fusion Module."""
 
-    def __init__(self,
-                 in_channels: int,
-                 feat_channels: int,
-                 num_base_priors: int,
-                 early_fuse: bool = False,
-                 num_dyhead_blocks: int = 6,
-                 lang_model_name: str = 'bert-base-uncased',
-                 use_dyrelu: bool = True,
-                 use_dyfuse: bool = True,
-                 use_dcn: bool = True,
-                 use_checkpoint: bool = False,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        in_channels: int,
+        feat_channels: int,
+        num_base_priors: int,
+        early_fuse: bool = False,
+        num_dyhead_blocks: int = 6,
+        lang_model_name: str = 'bert-base-uncased',
+        use_dyrelu: bool = True,
+        use_dyfuse: bool = True,
+        use_dcn: bool = True,
+        use_checkpoint: bool = False,
+        **kwargs,
+    ) -> None:
         super().__init__(**kwargs)
         if BertConfig is None:
             raise RuntimeError(
                 'transformers is not installed, please install it by: '
-                'pip install transformers.')
+                'pip install transformers.'
+            )
         self.in_channels = in_channels
         self.feat_channels = feat_channels
         self.num_base_priors = num_base_priors
@@ -288,45 +314,61 @@ class VLFusionModule(BaseModel):
                     BertEncoderLayer(
                         self.lang_cfg,
                         clamp_min_for_underflow=True,
-                        clamp_max_for_overflow=True))
+                        clamp_max_for_overflow=True,
+                    )
+                )
 
             # vision branch
             dyhead_tower.append(
                 DyConv(
                     lambda i, o, s: Conv3x3Norm(
-                        i, o, s, use_dcn=self.use_dcn, norm_type=['gn', 16]),
+                        i, o, s, use_dcn=self.use_dcn, norm_type=['gn', 16]
+                    ),
                     self.in_channels if i == 0 else self.feat_channels,
                     self.feat_channels,
-                    use_dyrelu=(self.use_dyrelu
-                                and self.in_channels == self.feat_channels)
-                    if i == 0 else self.use_dyrelu,
-                    use_dyfuse=(self.use_dyfuse
-                                and self.in_channels == self.feat_channels)
-                    if i == 0 else self.use_dyfuse,
-                    use_dcn=(self.use_dcn
-                             and self.in_channels == self.feat_channels)
-                    if i == 0 else self.use_dcn,
-                ))
+                    use_dyrelu=(
+                        self.use_dyrelu
+                        and self.in_channels == self.feat_channels
+                    )
+                    if i == 0
+                    else self.use_dyrelu,
+                    use_dyfuse=(
+                        self.use_dyfuse
+                        and self.in_channels == self.feat_channels
+                    )
+                    if i == 0
+                    else self.use_dyfuse,
+                    use_dcn=(
+                        self.use_dcn and self.in_channels == self.feat_channels
+                    )
+                    if i == 0
+                    else self.use_dcn,
+                )
+            )
 
         self.add_module('dyhead_tower', nn.Sequential(*dyhead_tower))
 
         self.bbox_pred = nn.Conv2d(
-            self.feat_channels, self.num_base_priors * 4, kernel_size=1)
+            self.feat_channels, self.num_base_priors * 4, kernel_size=1
+        )
         self.centerness = nn.Conv2d(
-            self.feat_channels, self.num_base_priors * 1, kernel_size=1)
+            self.feat_channels, self.num_base_priors * 1, kernel_size=1
+        )
         self.dot_product_projection_text = nn.Linear(
-            self.lang_dim,
-            self.num_base_priors * self.feat_channels,
-            bias=True)
+            self.lang_dim, self.num_base_priors * self.feat_channels, bias=True
+        )
         self.log_scale = nn.Parameter(torch.Tensor([0.0]), requires_grad=True)
         self.bias_lang = nn.Parameter(
-            torch.zeros(self.lang_dim), requires_grad=True)
+            torch.zeros(self.lang_dim), requires_grad=True
+        )
         self.bias0 = nn.Parameter(
-            torch.Tensor([bias_value]), requires_grad=True)
+            torch.Tensor([bias_value]), requires_grad=True
+        )
         self.scales = nn.ModuleList([Scale(1.0) for _ in range(5)])
 
-    def forward(self, visual_feats: Tuple[Tensor],
-                language_feats: dict) -> Tuple:
+    def forward(
+        self, visual_feats: Tuple[Tensor], language_feats: dict
+    ) -> Tuple:
         feat_inputs = {'visual': visual_feats, 'lang': language_feats}
         dyhead_tower = self.dyhead_tower(feat_inputs)
 
@@ -336,10 +378,12 @@ class VLFusionModule(BaseModel):
             embedding = language_feats['embedded']
 
         embedding = F.normalize(embedding, p=2, dim=-1)
-        dot_product_proj_tokens = self.dot_product_projection_text(embedding /
-                                                                   2.0)
-        dot_product_proj_tokens_bias = torch.matmul(
-            embedding, self.bias_lang) + self.bias0
+        dot_product_proj_tokens = self.dot_product_projection_text(
+            embedding / 2.0
+        )
+        dot_product_proj_tokens_bias = (
+            torch.matmul(embedding, self.bias_lang) + self.bias0
+        )
 
         bbox_preds = []
         centerness = []
@@ -354,18 +398,25 @@ class VLFusionModule(BaseModel):
             centerness.append(self.centerness(visual))
 
             dot_product_proj_queries = permute_and_flatten(
-                visual, B, self.num_base_priors, C, H, W)
+                visual, B, self.num_base_priors, C, H, W
+            )
 
             bias = dot_product_proj_tokens_bias.unsqueeze(1).repeat(
-                1, self.num_base_priors, 1)
+                1, self.num_base_priors, 1
+            )
             dot_product_logit = (
-                torch.matmul(dot_product_proj_queries,
-                             dot_product_proj_tokens.transpose(-1, -2)) /
-                self.log_scale.exp()) + bias
+                torch.matmul(
+                    dot_product_proj_queries,
+                    dot_product_proj_tokens.transpose(-1, -2),
+                )
+                / self.log_scale.exp()
+            ) + bias
             dot_product_logit = torch.clamp(
-                dot_product_logit, max=MAX_CLAMP_VALUE)
+                dot_product_logit, max=MAX_CLAMP_VALUE
+            )
             dot_product_logit = torch.clamp(
-                dot_product_logit, min=-MAX_CLAMP_VALUE)
+                dot_product_logit, min=-MAX_CLAMP_VALUE
+            )
             cls_logits.append(dot_product_logit)
 
         return bbox_preds, centerness, cls_logits
@@ -384,14 +435,16 @@ class ATSSVLFusionHead(ATSSHead):
             Defaults to 'bert-base-uncased'.
     """
 
-    def __init__(self,
-                 *args,
-                 early_fuse: bool = False,
-                 use_checkpoint: bool = False,
-                 num_dyhead_blocks: int = 6,
-                 lang_model_name: str = 'bert-base-uncased',
-                 init_cfg=None,
-                 **kwargs):
+    def __init__(
+        self,
+        *args,
+        early_fuse: bool = False,
+        use_checkpoint: bool = False,
+        num_dyhead_blocks: int = 6,
+        lang_model_name: str = 'bert-base-uncased',
+        init_cfg=None,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs, init_cfg=init_cfg)
         self.head = VLFusionModule(
             in_channels=self.in_channels,
@@ -400,41 +453,53 @@ class ATSSVLFusionHead(ATSSHead):
             early_fuse=early_fuse,
             use_checkpoint=use_checkpoint,
             num_dyhead_blocks=num_dyhead_blocks,
-            lang_model_name=lang_model_name)
+            lang_model_name=lang_model_name,
+        )
         self.text_masks = None
 
     def _init_layers(self) -> None:
         """No need to initialize the ATSS head layer."""
         pass
 
-    def forward(self, visual_feats: Tuple[Tensor],
-                language_feats: dict) -> Tuple[Tensor]:
+    def forward(
+        self, visual_feats: Tuple[Tensor], language_feats: dict
+    ) -> Tuple[Tensor]:
         """Forward function."""
-        bbox_preds, centerness, cls_logits = self.head(visual_feats,
-                                                       language_feats)
+        bbox_preds, centerness, cls_logits = self.head(
+            visual_feats, language_feats
+        )
         return cls_logits, bbox_preds, centerness
 
-    def loss(self, visual_feats: Tuple[Tensor], language_feats: dict,
-             batch_data_samples):
+    def loss(
+        self,
+        visual_feats: Tuple[Tensor],
+        language_feats: dict,
+        batch_data_samples,
+    ):
         outputs = unpack_gt_instances(batch_data_samples)
-        (batch_gt_instances, batch_gt_instances_ignore,
-         batch_img_metas) = outputs
+        (batch_gt_instances, batch_gt_instances_ignore, batch_img_metas) = (
+            outputs
+        )
 
         outs = self(visual_feats, language_feats)
         self.text_masks = language_feats['masks']
-        loss_inputs = outs + (batch_gt_instances, batch_img_metas,
-                              batch_gt_instances_ignore)
+        loss_inputs = outs + (
+            batch_gt_instances,
+            batch_img_metas,
+            batch_gt_instances_ignore,
+        )
         losses = self.loss_by_feat(*loss_inputs)
         return losses
 
     def loss_by_feat(
-            self,
-            cls_scores: List[Tensor],
-            bbox_preds: List[Tensor],
-            centernesses: List[Tensor],
-            batch_gt_instances: InstanceList,
-            batch_img_metas: List[dict],
-            batch_gt_instances_ignore: OptInstanceList = None) -> dict:
+        self,
+        cls_scores: List[Tensor],
+        bbox_preds: List[Tensor],
+        centernesses: List[Tensor],
+        batch_gt_instances: InstanceList,
+        batch_img_metas: List[dict],
+        batch_gt_instances_ignore: OptInstanceList = None,
+    ) -> dict:
         """Calculate the loss based on the features extracted by the detection
         head.
 
@@ -463,19 +528,28 @@ class ATSSVLFusionHead(ATSSHead):
 
         device = cls_scores[0].device
         anchor_list, valid_flag_list = self.get_anchors(
-            featmap_sizes, batch_img_metas, device=device)
+            featmap_sizes, batch_img_metas, device=device
+        )
 
         cls_reg_targets = self.get_targets(
             anchor_list,
             valid_flag_list,
             batch_gt_instances,
             batch_img_metas,
-            batch_gt_instances_ignore=batch_gt_instances_ignore)
+            batch_gt_instances_ignore=batch_gt_instances_ignore,
+        )
 
-        (anchor_list, labels_list, label_weights_list, bbox_targets_list,
-         bbox_weights_list, avg_factor) = cls_reg_targets
+        (
+            anchor_list,
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            bbox_weights_list,
+            avg_factor,
+        ) = cls_reg_targets
         avg_factor = reduce_mean(
-            torch.tensor(avg_factor, dtype=torch.float, device=device)).item()
+            torch.tensor(avg_factor, dtype=torch.float, device=device)
+        ).item()
 
         anchors = torch.cat(anchor_list, dim=1)
         labels = torch.cat(labels_list, dim=1)
@@ -487,15 +561,19 @@ class ATSSVLFusionHead(ATSSHead):
         bbox_preds_ = []
         for bbox_pred, centerness in zip(bbox_preds, centernesses):
             centernesses_.append(
-                centerness.permute(0, 2, 3,
-                                   1).reshape(cls_scores.size(0), -1, 1))
+                centerness.permute(0, 2, 3, 1).reshape(
+                    cls_scores.size(0), -1, 1
+                )
+            )
             bbox_preds_.append(
-                bbox_pred.permute(0, 2, 3,
-                                  1).reshape(cls_scores.size(0), -1, 4))
+                bbox_pred.permute(0, 2, 3, 1).reshape(
+                    cls_scores.size(0), -1, 4
+                )
+            )
         bbox_preds = torch.cat(bbox_preds_, dim=1)
         centernesses = torch.cat(centernesses_, dim=1)
 
-        losses_cls, losses_bbox, loss_centerness, bbox_avg_factor = \
+        losses_cls, losses_bbox, loss_centerness, bbox_avg_factor = (
             self._loss_by_feat(
                 anchors,
                 cls_scores,
@@ -504,19 +582,29 @@ class ATSSVLFusionHead(ATSSHead):
                 labels,
                 label_weights,
                 bbox_targets,
-                avg_factor=avg_factor)
+                avg_factor=avg_factor,
+            )
+        )
 
         bbox_avg_factor = reduce_mean(bbox_avg_factor).clamp_(min=1).item()
         losses_bbox = losses_bbox / bbox_avg_factor
         return dict(
             loss_cls=losses_cls,
             loss_bbox=losses_bbox,
-            loss_centerness=loss_centerness)
+            loss_centerness=loss_centerness,
+        )
 
-    def _loss_by_feat(self, anchors: Tensor, cls_score: Tensor,
-                      bbox_pred: Tensor, centerness: Tensor, labels: Tensor,
-                      label_weights: Tensor, bbox_targets: Tensor,
-                      avg_factor: float) -> dict:
+    def _loss_by_feat(
+        self,
+        anchors: Tensor,
+        cls_score: Tensor,
+        bbox_pred: Tensor,
+        centerness: Tensor,
+        labels: Tensor,
+        label_weights: Tensor,
+        bbox_targets: Tensor,
+        avg_factor: float,
+    ) -> dict:
         """Calculate the loss of all scale level based on the features
         extracted by the detection head.
 
@@ -530,13 +618,14 @@ class ATSSVLFusionHead(ATSSHead):
         pos_inds = (labels.sum(-1) > 0).reshape(-1)
 
         # Loss is not computed for the padded regions of the text.
-        assert (self.text_masks.dim() == 2)
+        assert self.text_masks.dim() == 2
         text_mask = (self.text_masks > 0).unsqueeze(1)
         text_mask = text_mask.repeat(1, cls_score.size(1), 1)
         cls_score = torch.masked_select(cls_score, text_mask).contiguous()
         labels = torch.masked_select(labels, text_mask)
-        label_weights = label_weights[...,
-                                      None].repeat(1, 1, text_mask.size(-1))
+        label_weights = label_weights[..., None].repeat(
+            1, 1, text_mask.size(-1)
+        )
         label_weights = torch.masked_select(label_weights, text_mask)
 
         bbox_pred = bbox_pred.reshape(-1, 4)
@@ -547,7 +636,8 @@ class ATSSVLFusionHead(ATSSHead):
 
         # classification loss
         loss_cls = self.loss_cls(
-            cls_score, labels, label_weights, avg_factor=avg_factor)
+            cls_score, labels, label_weights, avg_factor=avg_factor
+        )
 
         if pos_inds.sum() > 0:
             pos_bbox_targets = bbox_targets[pos_inds]
@@ -556,7 +646,8 @@ class ATSSVLFusionHead(ATSSHead):
             pos_centerness = centerness[pos_inds]
 
             centerness_targets = self.centerness_target(
-                pos_anchors, pos_bbox_targets)
+                pos_anchors, pos_bbox_targets
+            )
 
             if torch.isnan(centerness_targets).any():
                 print('=====Centerness includes NaN=====')
@@ -570,40 +661,49 @@ class ATSSVLFusionHead(ATSSHead):
                 if pos_bbox_targets.shape[0] == 0:
                     loss_bbox = bbox_pred.sum() * 0
                     loss_centerness = centerness.sum() * 0
-                    centerness_targets = bbox_targets.new_tensor(0.)
-                    return loss_cls, loss_bbox, loss_centerness, \
-                        centerness_targets.sum()
+                    centerness_targets = bbox_targets.new_tensor(0.0)
+                    return (
+                        loss_cls,
+                        loss_bbox,
+                        loss_centerness,
+                        centerness_targets.sum(),
+                    )
 
             # The decoding process takes the offset into consideration.
             pos_anchors[:, 2:] += 1
             pos_decode_bbox_pred = self.bbox_coder.decode(
-                pos_anchors, pos_bbox_pred)
+                pos_anchors, pos_bbox_pred
+            )
 
             # regression loss
             loss_bbox = self.loss_bbox(
                 pos_decode_bbox_pred,
                 pos_bbox_targets,
                 weight=centerness_targets,
-                avg_factor=1.0)
+                avg_factor=1.0,
+            )
 
             # centerness loss
             loss_centerness = self.loss_centerness(
-                pos_centerness, centerness_targets, avg_factor=avg_factor)
+                pos_centerness, centerness_targets, avg_factor=avg_factor
+            )
         else:
             loss_bbox = bbox_pred.sum() * 0
             loss_centerness = centerness.sum() * 0
-            centerness_targets = bbox_targets.new_tensor(0.)
+            centerness_targets = bbox_targets.new_tensor(0.0)
 
         return loss_cls, loss_bbox, loss_centerness, centerness_targets.sum()
 
-    def _get_targets_single(self,
-                            flat_anchors: Tensor,
-                            valid_flags: Tensor,
-                            num_level_anchors: List[int],
-                            gt_instances: InstanceData,
-                            img_meta: dict,
-                            gt_instances_ignore: Optional[InstanceData] = None,
-                            unmap_outputs: bool = True) -> tuple:
+    def _get_targets_single(
+        self,
+        flat_anchors: Tensor,
+        valid_flags: Tensor,
+        num_level_anchors: List[int],
+        gt_instances: InstanceData,
+        img_meta: dict,
+        gt_instances_ignore: Optional[InstanceData] = None,
+        unmap_outputs: bool = True,
+    ) -> tuple:
         """Compute regression, classification targets for anchors in a single
         image.
 
@@ -648,21 +748,25 @@ class ATSSVLFusionHead(ATSSHead):
 
         num_level_anchors_inside = num_level_anchors
         pred_instances = InstanceData(priors=anchors)
-        assign_result = self.assigner.assign(pred_instances,
-                                             num_level_anchors_inside,
-                                             gt_instances, gt_instances_ignore)
+        assign_result = self.assigner.assign(
+            pred_instances,
+            num_level_anchors_inside,
+            gt_instances,
+            gt_instances_ignore,
+        )
 
-        sampling_result = self.sampler.sample(assign_result, pred_instances,
-                                              gt_instances)
+        sampling_result = self.sampler.sample(
+            assign_result, pred_instances, gt_instances
+        )
 
         num_valid_anchors = anchors.shape[0]
         bbox_targets = torch.zeros_like(anchors)
         bbox_weights = torch.zeros_like(anchors)
 
         # ===== this change =====
-        labels = anchors.new_full((num_valid_anchors, self.feat_channels),
-                                  0,
-                                  dtype=torch.float32)
+        labels = anchors.new_full(
+            (num_valid_anchors, self.feat_channels), 0, dtype=torch.float32
+        )
         label_weights = anchors.new_zeros(num_valid_anchors, dtype=torch.float)
         pos_inds = sampling_result.pos_inds
         neg_inds = sampling_result.neg_inds
@@ -671,14 +775,16 @@ class ATSSVLFusionHead(ATSSHead):
                 pos_bbox_targets = sampling_result.pos_gt_bboxes
             else:
                 pos_bbox_targets = self.bbox_coder.encode(
-                    sampling_result.pos_priors, sampling_result.pos_gt_bboxes)
+                    sampling_result.pos_priors, sampling_result.pos_gt_bboxes
+                )
 
             bbox_targets[pos_inds, :] = pos_bbox_targets
             bbox_weights[pos_inds, :] = 1.0
 
             # ===== this change =====
             labels[pos_inds] = gt_instances.positive_maps[
-                sampling_result.pos_assigned_gt_inds]
+                sampling_result.pos_assigned_gt_inds
+            ]
             if self.train_cfg['pos_weight'] <= 0:
                 label_weights[pos_inds] = 1.0
             else:
@@ -686,8 +792,16 @@ class ATSSVLFusionHead(ATSSHead):
         if len(neg_inds) > 0:
             label_weights[neg_inds] = 1.0
 
-        return (anchors, labels, label_weights, bbox_targets, bbox_weights,
-                pos_inds, neg_inds, sampling_result)
+        return (
+            anchors,
+            labels,
+            label_weights,
+            bbox_targets,
+            bbox_weights,
+            pos_inds,
+            neg_inds,
+            sampling_result,
+        )
 
     def centerness_target(self, anchors: Tensor, gts: Tensor) -> Tensor:
         """Calculate the centerness between anchors and gts.
@@ -711,16 +825,19 @@ class ATSSVLFusionHead(ATSSHead):
         left_right = torch.stack([l_, r_], dim=1)
         top_bottom = torch.stack([t_, b_], dim=1)
         centerness = torch.sqrt(
-            (left_right.min(dim=-1)[0] / left_right.max(dim=-1)[0]) *
-            (top_bottom.min(dim=-1)[0] / top_bottom.max(dim=-1)[0]))
+            (left_right.min(dim=-1)[0] / left_right.max(dim=-1)[0])
+            * (top_bottom.min(dim=-1)[0] / top_bottom.max(dim=-1)[0])
+        )
         # assert not torch.isnan(centerness).any()
         return centerness
 
-    def predict(self,
-                visual_feats: Tuple[Tensor],
-                language_feats: dict,
-                batch_data_samples,
-                rescale: bool = True):
+    def predict(
+        self,
+        visual_feats: Tuple[Tensor],
+        language_feats: dict,
+        batch_data_samples,
+        rescale: bool = True,
+    ):
         """Perform forward propagation of the detection head and predict
         detection results on the features of the upstream network.
 
@@ -751,18 +868,21 @@ class ATSSVLFusionHead(ATSSHead):
             *outs,
             batch_img_metas=batch_img_metas,
             batch_token_positive_maps=batch_token_positive_maps,
-            rescale=rescale)
+            rescale=rescale,
+        )
         return predictions
 
-    def predict_by_feat(self,
-                        cls_logits: List[Tensor],
-                        bbox_preds: List[Tensor],
-                        score_factors: List[Tensor],
-                        batch_img_metas: Optional[List[dict]] = None,
-                        batch_token_positive_maps: Optional[List[dict]] = None,
-                        cfg: Optional[ConfigDict] = None,
-                        rescale: bool = False,
-                        with_nms: bool = True) -> InstanceList:
+    def predict_by_feat(
+        self,
+        cls_logits: List[Tensor],
+        bbox_preds: List[Tensor],
+        score_factors: List[Tensor],
+        batch_img_metas: Optional[List[dict]] = None,
+        batch_token_positive_maps: Optional[List[dict]] = None,
+        cfg: Optional[ConfigDict] = None,
+        rescale: bool = False,
+        with_nms: bool = True,
+    ) -> InstanceList:
         """Transform a batch of output features extracted from the head into
         bbox results.
 
@@ -810,7 +930,8 @@ class ATSSVLFusionHead(ATSSHead):
         mlvl_priors = self.prior_generator.grid_priors(
             featmap_sizes,
             dtype=bbox_preds[0].dtype,
-            device=bbox_preds[0].device)
+            device=bbox_preds[0].device,
+        )
 
         result_list = []
 
@@ -818,11 +939,14 @@ class ATSSVLFusionHead(ATSSHead):
             img_meta = batch_img_metas[img_id]
             token_positive_maps = batch_token_positive_maps[img_id]
             bbox_pred_list = select_single_mlvl(
-                bbox_preds, img_id, detach=True)
+                bbox_preds, img_id, detach=True
+            )
             score_factor_list = select_single_mlvl(
-                score_factors, img_id, detach=True)
+                score_factors, img_id, detach=True
+            )
             cls_logit_list = select_single_mlvl(
-                cls_logits, img_id, detach=True)
+                cls_logits, img_id, detach=True
+            )
 
             results = self._predict_by_feat_single(
                 bbox_pred_list=bbox_pred_list,
@@ -833,20 +957,23 @@ class ATSSVLFusionHead(ATSSHead):
                 img_meta=img_meta,
                 cfg=cfg,
                 rescale=rescale,
-                with_nms=with_nms)
+                with_nms=with_nms,
+            )
             result_list.append(results)
         return result_list
 
-    def _predict_by_feat_single(self,
-                                bbox_pred_list: List[Tensor],
-                                score_factor_list: List[Tensor],
-                                cls_logit_list: List[Tensor],
-                                mlvl_priors: List[Tensor],
-                                token_positive_maps: dict,
-                                img_meta: dict,
-                                cfg: ConfigDict,
-                                rescale: bool = True,
-                                with_nms: bool = True) -> InstanceData:
+    def _predict_by_feat_single(
+        self,
+        bbox_pred_list: List[Tensor],
+        score_factor_list: List[Tensor],
+        cls_logit_list: List[Tensor],
+        mlvl_priors: List[Tensor],
+        token_positive_maps: dict,
+        img_meta: dict,
+        cfg: ConfigDict,
+        rescale: bool = True,
+        with_nms: bool = True,
+    ) -> InstanceData:
         """Transform a single image's features extracted from the head into
         bbox results.
 
@@ -898,20 +1025,30 @@ class ATSSVLFusionHead(ATSSHead):
         mlvl_scores = []
         mlvl_labels = []
 
-        for level_idx, (bbox_pred, score_factor, cls_logit, priors) in \
-                enumerate(zip(bbox_pred_list,
-                              score_factor_list, cls_logit_list, mlvl_priors)):
+        for level_idx, (
+            bbox_pred,
+            score_factor,
+            cls_logit,
+            priors,
+        ) in enumerate(
+            zip(bbox_pred_list, score_factor_list, cls_logit_list, mlvl_priors)
+        ):
             bbox_pred = bbox_pred.permute(1, 2, 0).reshape(
-                -1, self.bbox_coder.encode_size)
+                -1, self.bbox_coder.encode_size
+            )
             score_factor = score_factor.permute(1, 2, 0).reshape(-1).sigmoid()
 
             scores = convert_grounding_to_cls_scores(
                 logits=cls_logit.sigmoid()[None],
-                positive_maps=[token_positive_maps])[0]
+                positive_maps=[token_positive_maps],
+            )[0]
 
             results = filter_scores_and_topk(
-                scores, score_thr, nms_pre,
-                dict(bbox_pred=bbox_pred, priors=priors))
+                scores,
+                score_thr,
+                nms_pre,
+                dict(bbox_pred=bbox_pred, priors=priors),
+            )
 
             scores, labels, keep_idxs, filtered_results = results
 
@@ -939,7 +1076,8 @@ class ATSSVLFusionHead(ATSSHead):
             cfg=cfg,
             rescale=rescale,
             with_nms=with_nms,
-            img_meta=img_meta)
+            img_meta=img_meta,
+        )
 
         if len(predictions) > 0:
             # Note: GLIP adopts a very strange bbox decoder logic,

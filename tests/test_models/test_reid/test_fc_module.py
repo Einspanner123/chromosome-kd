@@ -7,7 +7,6 @@ from mmdet.models import FcModule
 
 
 class TestFcModule(TestCase):
-
     def test_forward(self):
         inputs = torch.rand(32, 128)
 

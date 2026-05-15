@@ -32,14 +32,18 @@ def count_download_image(download_json_dir, logger):
     len = 0
 
     for file in parquet_files:
-        with open(os.path.join(download_json_dir, file), 'r') as f:
+        with open(os.path.join(download_json_dir, file)) as f:
             data = json.load(f)
             len = len + int(data['successes'])
-        logger.info(file + 'has ' + str(data['successes']) +
-                    ' successful images')
+        logger.info(
+            file + 'has ' + str(data['successes']) + ' successful images'
+        )
 
-    logger.info('all files finished.', str(len),
-                'images have been successfully downloaded.')
+    logger.info(
+        'all files finished.',
+        str(len),
+        'images have been successfully downloaded.',
+    )
 
 
 def tar_processing(tar_path, output_dir, logger):
@@ -49,7 +53,7 @@ def tar_processing(tar_path, output_dir, logger):
     cnt = 0
 
     for file in json_files:
-        with open(os.path.join(filepath, file), 'r') as f:
+        with open(os.path.join(filepath, file)) as f:
             df = json.load(f)
         cnt = cnt + 1
         all_data.extend([df])
@@ -94,14 +98,15 @@ def cp_rm(filepath, output_dir):
     target_dir = os.path.join(output_dir, 'images')
     if not os.path.exists(os.path.join(output_dir, 'images')):
         os.mkdir(os.path.join(output_dir, 'images'))
-    os.system('mv -f {} {}'.format(filepath, target_dir))
+    os.system(f'mv -f {filepath} {target_dir}')
 
 
 def main(args):
     logger = create_logger(args.log_name)
     all_file_name = [
         os.path.join(args.image_dir, file)
-        for file in os.listdir(args.image_dir) if file.endswith('.tar')
+        for file in os.listdir(args.image_dir)
+        if file.endswith('.tar')
     ]
     all_file_name.sort()
     func = partial(tar_processing, output_dir=args.output_dir, logger=logger)

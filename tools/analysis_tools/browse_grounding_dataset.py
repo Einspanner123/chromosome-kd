@@ -20,7 +20,8 @@ def parse_args():
         '-o',
         default=None,
         type=str,
-        help='If there is no display interface, you can save it')
+        help='If there is no display interface, you can save it',
+    )
     parser.add_argument('--not-show', default=False, action='store_true')
     parser.add_argument('--show-num', '-n', type=int, default=30)
     parser.add_argument('--shuffle', default=False, action='store_true')
@@ -28,7 +29,8 @@ def parse_args():
         '--show-interval',
         type=float,
         default=0,
-        help='the interval of show (s)')
+        help='the interval of show (s)',
+    )
     parser.add_argument(
         '--cfg-options',
         nargs='+',
@@ -38,7 +40,8 @@ def parse_args():
         'be overwritten is a list, it should be like key="[a,b]" or key=a,b '
         'It also allows nested list/tuple values, e.g. key="[(a,b),(c,d)]" '
         'Note that the quotation marks are necessary and that no white space '
-        'is allowed.')
+        'is allowed.',
+    )
     args = parser.parse_args()
     return args
 
@@ -52,14 +55,16 @@ def draw_all_character(visualizer, characters, w):
                 str(char),
                 positions=np.array([start_index, y_index]),
                 colors=(0, 0, 0),
-                font_families='monospace')
+                font_families='monospace',
+            )
             start_index += len(char) * 8
         else:
             visualizer.draw_texts(
                 str(char[0]),
                 positions=np.array([start_index, y_index]),
                 colors=char[1],
-                font_families='monospace')
+                font_families='monospace',
+            )
             start_index += len(char[0]) * 8
 
         if start_index > w - 10:
@@ -88,10 +93,11 @@ def main():
     dataset_index = list(range(len(dataset)))
     if args.shuffle:
         import random
+
         random.shuffle(dataset_index)
 
     progress_bar = ProgressBar(len(dataset))
-    for i in dataset_index[:args.show_num]:
+    for i in dataset_index[: args.show_num]:
         item = dataset[i]
         img = item['inputs'].permute(1, 2, 0).numpy()
         data_sample = item['data_samples'].numpy()
@@ -103,8 +109,11 @@ def main():
         base_name = osp.basename(item['data_samples'].img_path)
         name, extension = osp.splitext(base_name)
 
-        out_file = osp.join(args.output_dir, name + '_' + str(i) +
-                            extension) if args.output_dir is not None else None
+        out_file = (
+            osp.join(args.output_dir, name + '_' + str(i) + extension)
+            if args.output_dir is not None
+            else None
+        )
 
         img = img[..., [2, 1, 0]]  # bgr to rgb
         gt_bboxes = gt_instances.get('bboxes', None)
@@ -125,7 +134,8 @@ def main():
 
             for label, bbox, color in zip(gt_labels, gt_bboxes, colors):
                 visualizer.draw_bboxes(
-                    bbox, edge_colors=color, face_colors=color, alpha=0.3)
+                    bbox, edge_colors=color, face_colors=color, alpha=0.3
+                )
                 visualizer.draw_bboxes(bbox, edge_colors=color, alpha=1)
 
             drawn_img = visualizer.get_image()
@@ -155,16 +165,22 @@ def main():
                     characters.append([w, (0, 0, 0)])
                 start_index = end_index
 
-            drawn_text = draw_all_character(visualizer, characters,
-                                            img.shape[1])
+            drawn_text = draw_all_character(
+                visualizer, characters, img.shape[1]
+            )
             drawn_img = np.concatenate((drawn_img, drawn_text), axis=0)
         else:
             gt_labels = gt_instances.labels
             text = data_sample.text
             label_names = []
             for label in gt_labels:
-                label_names.append(text[
-                    tokens_positive[label][0][0]:tokens_positive[label][0][1]])
+                label_names.append(
+                    text[
+                        tokens_positive[label][0][0] : tokens_positive[label][
+                            0
+                        ][1]
+                    ]
+                )
             gt_instances.label_names = label_names
             data_sample.gt_instances = gt_instances
 
@@ -175,20 +191,23 @@ def main():
                 draw_pred=False,
                 show=False,
                 wait_time=0,
-                out_file=None)
+                out_file=None,
+            )
             drawn_img = visualizer.get_image()
 
             new_image = np.ones((100, img.shape[1], 3), dtype=np.uint8) * 255
             visualizer.set_image(new_image)
 
             characters = [char for char in text]
-            drawn_text = draw_all_character(visualizer, characters,
-                                            img.shape[1])
+            drawn_text = draw_all_character(
+                visualizer, characters, img.shape[1]
+            )
             drawn_img = np.concatenate((drawn_img, drawn_text), axis=0)
 
         if not args.not_show:
             visualizer.show(
-                drawn_img, win_name=base_name, wait_time=args.show_interval)
+                drawn_img, win_name=base_name, wait_time=args.show_interval
+            )
 
         if out_file is not None:
             imwrite(drawn_img[..., ::-1], out_file)

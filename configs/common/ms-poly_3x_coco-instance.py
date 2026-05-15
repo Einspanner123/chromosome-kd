@@ -23,13 +23,11 @@ backend_args = None
 train_pipeline = [
     dict(type='LoadImageFromFile', backend_args=backend_args),
     dict(
-        type='LoadAnnotations',
-        with_bbox=True,
-        with_mask=True,
-        poly2mask=False),
+        type='LoadAnnotations', with_bbox=True, with_mask=True, poly2mask=False
+    ),
     dict(
-        type='RandomResize', scale=[(1333, 640), (1333, 800)],
-        keep_ratio=True),
+        type='RandomResize', scale=[(1333, 640), (1333, 800)], keep_ratio=True
+    ),
     dict(type='RandomFlip', prob=0.5),
     dict(type='PackDetInputs'),
 ]
@@ -37,14 +35,18 @@ test_pipeline = [
     dict(type='LoadImageFromFile', backend_args=backend_args),
     dict(type='Resize', scale=(1333, 800), keep_ratio=True),
     dict(
-        type='LoadAnnotations',
-        with_bbox=True,
-        with_mask=True,
-        poly2mask=False),
+        type='LoadAnnotations', with_bbox=True, with_mask=True, poly2mask=False
+    ),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+        ),
+    ),
 ]
 
 train_dataloader = dict(
@@ -63,7 +65,10 @@ train_dataloader = dict(
             data_prefix=dict(img='train2017/'),
             filter_cfg=dict(filter_empty_gt=True, min_size=32),
             pipeline=train_pipeline,
-            backend_args=backend_args)))
+            backend_args=backend_args,
+        ),
+    ),
+)
 val_dataloader = dict(
     batch_size=2,
     num_workers=2,
@@ -77,14 +82,17 @@ val_dataloader = dict(
         data_prefix=dict(img='val2017/'),
         test_mode=True,
         pipeline=test_pipeline,
-        backend_args=backend_args))
+        backend_args=backend_args,
+    ),
+)
 test_dataloader = val_dataloader
 
 val_evaluator = dict(
     type='CocoMetric',
     ann_file=data_root + 'annotations/instances_val2017.json',
     metric=['bbox', 'segm'],
-    backend_args=backend_args)
+    backend_args=backend_args,
+)
 test_evaluator = val_evaluator
 
 # training schedule for 3x with `RepeatDataset`
@@ -96,20 +104,23 @@ test_cfg = dict(type='TestLoop')
 # Experiments show that using milestones=[9, 11] has higher performance
 param_scheduler = [
     dict(
-        type='LinearLR', start_factor=0.001, by_epoch=False, begin=0, end=500),
+        type='LinearLR', start_factor=0.001, by_epoch=False, begin=0, end=500
+    ),
     dict(
         type='MultiStepLR',
         begin=0,
         end=12,
         by_epoch=True,
         milestones=[9, 11],
-        gamma=0.1)
+        gamma=0.1,
+    ),
 ]
 
 # optimizer
 optim_wrapper = dict(
     type='OptimWrapper',
-    optimizer=dict(type='SGD', lr=0.02, momentum=0.9, weight_decay=0.0001))
+    optimizer=dict(type='SGD', lr=0.02, momentum=0.9, weight_decay=0.0001),
+)
 
 # Default setting for scaling LR automatically
 #   - `enable` means enable scaling LR automatically

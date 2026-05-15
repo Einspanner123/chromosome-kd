@@ -14,11 +14,21 @@ from torch import Tensor
 
 from mmdet.registry import MODELS, TASK_UTILS
 from mmdet.structures.bbox import distance2bbox
-from mmdet.utils import (ConfigType, InstanceList, OptConfigType,
-                         OptInstanceList, reduce_mean)
+from mmdet.utils import (
+    ConfigType,
+    InstanceList,
+    OptConfigType,
+    OptInstanceList,
+    reduce_mean,
+)
 from ..task_modules.prior_generators import anchor_inside_flags
-from ..utils import (filter_scores_and_topk, images_to_levels, multi_apply,
-                     sigmoid_geometric_mean, unmap)
+from ..utils import (
+    filter_scores_and_topk,
+    images_to_levels,
+    multi_apply,
+    sigmoid_geometric_mean,
+    unmap,
+)
 from .atss_head import ATSSHead
 
 
@@ -36,12 +46,14 @@ class TaskDecomposition(nn.Module):
         normalization layer. Defaults to None.
     """
 
-    def __init__(self,
-                 feat_channels: int,
-                 stacked_convs: int,
-                 la_down_rate: int = 8,
-                 conv_cfg: OptConfigType = None,
-                 norm_cfg: OptConfigType = None) -> None:
+    def __init__(
+        self,
+        feat_channels: int,
+        stacked_convs: int,
+        la_down_rate: int = 8,
+        conv_cfg: OptConfigType = None,
+        norm_cfg: OptConfigType = None,
+    ) -> None:
         super().__init__()
         self.feat_channels = feat_channels
         self.stacked_convs = stacked_convs
@@ -54,7 +66,10 @@ class TaskDecomposition(nn.Module):
                 self.in_channels // la_down_rate,
                 self.stacked_convs,
                 1,
-                padding=0), nn.Sigmoid())
+                padding=0,
+            ),
+            nn.Sigmoid(),
+        )
 
         self.reduction_conv = ConvModule(
             self.in_channels,
@@ -64,7 +79,8 @@ class TaskDecomposition(nn.Module):
             padding=0,
             conv_cfg=conv_cfg,
             norm_cfg=norm_cfg,
-            bias=norm_cfg is None)
+            bias=norm_cfg is None,
+        )
 
     def init_weights(self) -> None:
         """Initialize the parameters."""
@@ -73,9 +89,9 @@ class TaskDecomposition(nn.Module):
                 normal_init(m, std=0.001)
         normal_init(self.reduction_conv.conv, std=0.01)
 
-    def forward(self,
-                feat: Tensor,
-                avg_feat: Optional[Tensor] = None) -> Tensor:
+    def forward(
+        self, feat: Tensor, avg_feat: Optional[Tensor] = None
+    ) -> Tensor:
         """Forward function of task decomposition module."""
         b, c, h, w = feat.shape
         if avg_feat is None:
@@ -86,14 +102,17 @@ class TaskDecomposition(nn.Module):
         # conv weight, and then compute the convolution between new conv weight
         # and feature map, in order to save memory and FLOPs.
         conv_weight = weight.reshape(
-            b, 1, self.stacked_convs,
-            1) * self.reduction_conv.conv.weight.reshape(
-                1, self.feat_channels, self.stacked_convs, self.feat_channels)
-        conv_weight = conv_weight.reshape(b, self.feat_channels,
-                                          self.in_channels)
+            b, 1, self.stacked_convs, 1
+        ) * self.reduction_conv.conv.weight.reshape(
+            1, self.feat_channels, self.stacked_convs, self.feat_channels
+        )
+        conv_weight = conv_weight.reshape(
+            b, self.feat_channels, self.in_channels
+        )
         feat = feat.reshape(b, self.in_channels, h * w)
-        feat = torch.bmm(conv_weight, feat).reshape(b, self.feat_channels, h,
-                                                    w)
+        feat = torch.bmm(conv_weight, feat).reshape(
+            b, self.feat_channels, h, w
+        )
         if self.norm_cfg is not None:
             feat = self.reduction_conv.norm(feat)
         feat = self.reduction_conv.activate(feat)
@@ -128,33 +147,39 @@ class TOODHead(ATSSHead):
         >>> assert len(cls_score) == len(self.scales)
     """
 
-    def __init__(self,
-                 num_classes: int,
-                 in_channels: int,
-                 num_dcn: int = 0,
-                 anchor_type: str = 'anchor_free',
-                 initial_loss_cls: ConfigType = dict(
-                     type='FocalLoss',
-                     use_sigmoid=True,
-                     activated=True,
-                     gamma=2.0,
-                     alpha=0.25,
-                     loss_weight=1.0),
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        num_classes: int,
+        in_channels: int,
+        num_dcn: int = 0,
+        anchor_type: str = 'anchor_free',
+        initial_loss_cls: ConfigType = dict(
+            type='FocalLoss',
+            use_sigmoid=True,
+            activated=True,
+            gamma=2.0,
+            alpha=0.25,
+            loss_weight=1.0,
+        ),
+        **kwargs,
+    ) -> None:
         assert anchor_type in ['anchor_free', 'anchor_based']
         self.num_dcn = num_dcn
         self.anchor_type = anchor_type
         super().__init__(
-            num_classes=num_classes, in_channels=in_channels, **kwargs)
+            num_classes=num_classes, in_channels=in_channels, **kwargs
+        )
 
         if self.train_cfg:
             self.initial_epoch = self.train_cfg['initial_epoch']
             self.initial_assigner = TASK_UTILS.build(
-                self.train_cfg['initial_assigner'])
+                self.train_cfg['initial_assigner']
+            )
             self.initial_loss_cls = MODELS.build(initial_loss_cls)
             self.assigner = self.initial_assigner
             self.alignment_assigner = TASK_UTILS.build(
-                self.train_cfg['assigner'])
+                self.train_cfg['assigner']
+            )
             self.alpha = self.train_cfg['alpha']
             self.beta = self.train_cfg['beta']
 
@@ -176,36 +201,57 @@ class TOODHead(ATSSHead):
                     stride=1,
                     padding=1,
                     conv_cfg=conv_cfg,
-                    norm_cfg=self.norm_cfg))
+                    norm_cfg=self.norm_cfg,
+                )
+            )
 
-        self.cls_decomp = TaskDecomposition(self.feat_channels,
-                                            self.stacked_convs,
-                                            self.stacked_convs * 8,
-                                            self.conv_cfg, self.norm_cfg)
-        self.reg_decomp = TaskDecomposition(self.feat_channels,
-                                            self.stacked_convs,
-                                            self.stacked_convs * 8,
-                                            self.conv_cfg, self.norm_cfg)
+        self.cls_decomp = TaskDecomposition(
+            self.feat_channels,
+            self.stacked_convs,
+            self.stacked_convs * 8,
+            self.conv_cfg,
+            self.norm_cfg,
+        )
+        self.reg_decomp = TaskDecomposition(
+            self.feat_channels,
+            self.stacked_convs,
+            self.stacked_convs * 8,
+            self.conv_cfg,
+            self.norm_cfg,
+        )
 
         self.tood_cls = nn.Conv2d(
             self.feat_channels,
             self.num_base_priors * self.cls_out_channels,
             3,
-            padding=1)
+            padding=1,
+        )
         self.tood_reg = nn.Conv2d(
-            self.feat_channels, self.num_base_priors * 4, 3, padding=1)
+            self.feat_channels, self.num_base_priors * 4, 3, padding=1
+        )
 
         self.cls_prob_module = nn.Sequential(
-            nn.Conv2d(self.feat_channels * self.stacked_convs,
-                      self.feat_channels // 4, 1), nn.ReLU(inplace=True),
-            nn.Conv2d(self.feat_channels // 4, 1, 3, padding=1))
+            nn.Conv2d(
+                self.feat_channels * self.stacked_convs,
+                self.feat_channels // 4,
+                1,
+            ),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(self.feat_channels // 4, 1, 3, padding=1),
+        )
         self.reg_offset_module = nn.Sequential(
-            nn.Conv2d(self.feat_channels * self.stacked_convs,
-                      self.feat_channels // 4, 1), nn.ReLU(inplace=True),
-            nn.Conv2d(self.feat_channels // 4, 4 * 2, 3, padding=1))
+            nn.Conv2d(
+                self.feat_channels * self.stacked_convs,
+                self.feat_channels // 4,
+                1,
+            ),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(self.feat_channels // 4, 4 * 2, 3, padding=1),
+        )
 
         self.scales = nn.ModuleList(
-            [Scale(1.0) for _ in self.prior_generator.strides])
+            [Scale(1.0) for _ in self.prior_generator.strides]
+        )
 
     def init_weights(self) -> None:
         """Initialize weights of the head."""
@@ -245,10 +291,12 @@ class TOODHead(ATSSHead):
         cls_scores = []
         bbox_preds = []
         for idx, (x, scale, stride) in enumerate(
-                zip(feats, self.scales, self.prior_generator.strides)):
+            zip(feats, self.scales, self.prior_generator.strides)
+        ):
             b, c, h, w = x.shape
             anchor = self.prior_generator.single_level_grid_priors(
-                (h, w), idx, device=x.device)
+                (h, w), idx, device=x.device
+            )
             anchor = torch.cat([anchor for _ in range(b)])
             # extract task interactive features
             inter_feats = []
@@ -271,28 +319,38 @@ class TOODHead(ATSSHead):
             if self.anchor_type == 'anchor_free':
                 reg_dist = scale(self.tood_reg(reg_feat).exp()).float()
                 reg_dist = reg_dist.permute(0, 2, 3, 1).reshape(-1, 4)
-                reg_bbox = distance2bbox(
-                    self.anchor_center(anchor) / stride[0],
-                    reg_dist).reshape(b, h, w, 4).permute(0, 3, 1,
-                                                          2)  # (b, c, h, w)
+                reg_bbox = (
+                    distance2bbox(
+                        self.anchor_center(anchor) / stride[0], reg_dist
+                    )
+                    .reshape(b, h, w, 4)
+                    .permute(0, 3, 1, 2)
+                )  # (b, c, h, w)
             elif self.anchor_type == 'anchor_based':
                 reg_dist = scale(self.tood_reg(reg_feat)).float()
                 reg_dist = reg_dist.permute(0, 2, 3, 1).reshape(-1, 4)
-                reg_bbox = self.bbox_coder.decode(anchor, reg_dist).reshape(
-                    b, h, w, 4).permute(0, 3, 1, 2) / stride[0]
+                reg_bbox = (
+                    self.bbox_coder.decode(anchor, reg_dist)
+                    .reshape(b, h, w, 4)
+                    .permute(0, 3, 1, 2)
+                    / stride[0]
+                )
             else:
                 raise NotImplementedError(
                     f'Unknown anchor type: {self.anchor_type}.'
-                    f'Please use `anchor_free` or `anchor_based`.')
+                    f'Please use `anchor_free` or `anchor_based`.'
+                )
             reg_offset = self.reg_offset_module(feat)
-            bbox_pred = self.deform_sampling(reg_bbox.contiguous(),
-                                             reg_offset.contiguous())
+            bbox_pred = self.deform_sampling(
+                reg_bbox.contiguous(), reg_offset.contiguous()
+            )
 
             # After deform_sampling, some boxes will become invalid (The
             # left-top point is at the right or bottom of the right-bottom
             # point), which will make the GIoULoss negative.
-            invalid_bbox_idx = (bbox_pred[:, [0]] > bbox_pred[:, [2]]) | \
-                               (bbox_pred[:, [1]] > bbox_pred[:, [3]])
+            invalid_bbox_idx = (bbox_pred[:, [0]] > bbox_pred[:, [2]]) | (
+                bbox_pred[:, [1]] > bbox_pred[:, [3]]
+            )
             invalid_bbox_idx = invalid_bbox_idx.expand_as(bbox_pred)
             bbox_pred = torch.where(invalid_bbox_idx, reg_bbox, bbox_pred)
 
@@ -326,11 +384,17 @@ class TOODHead(ATSSHead):
         anchors_cy = (anchors[:, 3] + anchors[:, 1]) / 2
         return torch.stack([anchors_cx, anchors_cy], dim=-1)
 
-    def loss_by_feat_single(self, anchors: Tensor, cls_score: Tensor,
-                            bbox_pred: Tensor, labels: Tensor,
-                            label_weights: Tensor, bbox_targets: Tensor,
-                            alignment_metrics: Tensor,
-                            stride: Tuple[int, int]) -> dict:
+    def loss_by_feat_single(
+        self,
+        anchors: Tensor,
+        cls_score: Tensor,
+        bbox_pred: Tensor,
+        labels: Tensor,
+        label_weights: Tensor,
+        bbox_targets: Tensor,
+        alignment_metrics: Tensor,
+        stride: Tuple[int, int],
+    ) -> dict:
         """Calculate the loss of a single scale level based on the features
         extracted by the detection head.
 
@@ -356,25 +420,36 @@ class TOODHead(ATSSHead):
         """
         assert stride[0] == stride[1], 'h stride is not equal to w stride!'
         anchors = anchors.reshape(-1, 4)
-        cls_score = cls_score.permute(0, 2, 3, 1).reshape(
-            -1, self.cls_out_channels).contiguous()
+        cls_score = (
+            cls_score.permute(0, 2, 3, 1)
+            .reshape(-1, self.cls_out_channels)
+            .contiguous()
+        )
         bbox_pred = bbox_pred.permute(0, 2, 3, 1).reshape(-1, 4)
         bbox_targets = bbox_targets.reshape(-1, 4)
         labels = labels.reshape(-1)
         alignment_metrics = alignment_metrics.reshape(-1)
         label_weights = label_weights.reshape(-1)
-        targets = labels if self.epoch < self.initial_epoch else (
-            labels, alignment_metrics)
-        cls_loss_func = self.initial_loss_cls \
-            if self.epoch < self.initial_epoch else self.loss_cls
+        targets = (
+            labels
+            if self.epoch < self.initial_epoch
+            else (labels, alignment_metrics)
+        )
+        cls_loss_func = (
+            self.initial_loss_cls
+            if self.epoch < self.initial_epoch
+            else self.loss_cls
+        )
 
         loss_cls = cls_loss_func(
-            cls_score, targets, label_weights, avg_factor=1.0)
+            cls_score, targets, label_weights, avg_factor=1.0
+        )
 
         # FG cat_id: [0, num_classes -1], BG cat_id: num_classes
         bg_class_ind = self.num_classes
-        pos_inds = ((labels >= 0)
-                    & (labels < bg_class_ind)).nonzero().squeeze(1)
+        pos_inds = (
+            ((labels >= 0) & (labels < bg_class_ind)).nonzero().squeeze(1)
+        )
 
         if len(pos_inds) > 0:
             pos_bbox_targets = bbox_targets[pos_inds]
@@ -385,30 +460,37 @@ class TOODHead(ATSSHead):
             pos_decode_bbox_targets = pos_bbox_targets / stride[0]
 
             # regression loss
-            pos_bbox_weight = self.centerness_target(
-                pos_anchors, pos_bbox_targets
-            ) if self.epoch < self.initial_epoch else alignment_metrics[
-                pos_inds]
+            pos_bbox_weight = (
+                self.centerness_target(pos_anchors, pos_bbox_targets)
+                if self.epoch < self.initial_epoch
+                else alignment_metrics[pos_inds]
+            )
 
             loss_bbox = self.loss_bbox(
                 pos_decode_bbox_pred,
                 pos_decode_bbox_targets,
                 weight=pos_bbox_weight,
-                avg_factor=1.0)
+                avg_factor=1.0,
+            )
         else:
             loss_bbox = bbox_pred.sum() * 0
-            pos_bbox_weight = bbox_targets.new_tensor(0.)
+            pos_bbox_weight = bbox_targets.new_tensor(0.0)
 
-        return loss_cls, loss_bbox, alignment_metrics.sum(
-        ), pos_bbox_weight.sum()
+        return (
+            loss_cls,
+            loss_bbox,
+            alignment_metrics.sum(),
+            pos_bbox_weight.sum(),
+        )
 
     def loss_by_feat(
-            self,
-            cls_scores: List[Tensor],
-            bbox_preds: List[Tensor],
-            batch_gt_instances: InstanceList,
-            batch_img_metas: List[dict],
-            batch_gt_instances_ignore: OptInstanceList = None) -> dict:
+        self,
+        cls_scores: List[Tensor],
+        bbox_preds: List[Tensor],
+        batch_gt_instances: InstanceList,
+        batch_img_metas: List[dict],
+        batch_gt_instances_ignore: OptInstanceList = None,
+    ) -> dict:
         """Calculate the loss based on the features extracted by the detection
         head.
 
@@ -437,18 +519,28 @@ class TOODHead(ATSSHead):
 
         device = cls_scores[0].device
         anchor_list, valid_flag_list = self.get_anchors(
-            featmap_sizes, batch_img_metas, device=device)
+            featmap_sizes, batch_img_metas, device=device
+        )
 
-        flatten_cls_scores = torch.cat([
-            cls_score.permute(0, 2, 3, 1).reshape(num_imgs, -1,
-                                                  self.cls_out_channels)
-            for cls_score in cls_scores
-        ], 1)
-        flatten_bbox_preds = torch.cat([
-            bbox_pred.permute(0, 2, 3, 1).reshape(num_imgs, -1, 4) * stride[0]
-            for bbox_pred, stride in zip(bbox_preds,
-                                         self.prior_generator.strides)
-        ], 1)
+        flatten_cls_scores = torch.cat(
+            [
+                cls_score.permute(0, 2, 3, 1).reshape(
+                    num_imgs, -1, self.cls_out_channels
+                )
+                for cls_score in cls_scores
+            ],
+            1,
+        )
+        flatten_bbox_preds = torch.cat(
+            [
+                bbox_pred.permute(0, 2, 3, 1).reshape(num_imgs, -1, 4)
+                * stride[0]
+                for bbox_pred, stride in zip(
+                    bbox_preds, self.prior_generator.strides
+                )
+            ],
+            1,
+        )
 
         cls_reg_targets = self.get_targets(
             flatten_cls_scores,
@@ -457,12 +549,18 @@ class TOODHead(ATSSHead):
             valid_flag_list,
             batch_gt_instances,
             batch_img_metas,
-            batch_gt_instances_ignore=batch_gt_instances_ignore)
-        (anchor_list, labels_list, label_weights_list, bbox_targets_list,
-         alignment_metrics_list) = cls_reg_targets
+            batch_gt_instances_ignore=batch_gt_instances_ignore,
+        )
+        (
+            anchor_list,
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            alignment_metrics_list,
+        ) = cls_reg_targets
 
-        losses_cls, losses_bbox, \
-            cls_avg_factors, bbox_avg_factors = multi_apply(
+        losses_cls, losses_bbox, cls_avg_factors, bbox_avg_factors = (
+            multi_apply(
                 self.loss_by_feat_single,
                 anchor_list,
                 cls_scores,
@@ -471,25 +569,30 @@ class TOODHead(ATSSHead):
                 label_weights_list,
                 bbox_targets_list,
                 alignment_metrics_list,
-                self.prior_generator.strides)
+                self.prior_generator.strides,
+            )
+        )
 
         cls_avg_factor = reduce_mean(sum(cls_avg_factors)).clamp_(min=1).item()
         losses_cls = list(map(lambda x: x / cls_avg_factor, losses_cls))
 
-        bbox_avg_factor = reduce_mean(
-            sum(bbox_avg_factors)).clamp_(min=1).item()
+        bbox_avg_factor = (
+            reduce_mean(sum(bbox_avg_factors)).clamp_(min=1).item()
+        )
         losses_bbox = list(map(lambda x: x / bbox_avg_factor, losses_bbox))
         return dict(loss_cls=losses_cls, loss_bbox=losses_bbox)
 
-    def _predict_by_feat_single(self,
-                                cls_score_list: List[Tensor],
-                                bbox_pred_list: List[Tensor],
-                                score_factor_list: List[Tensor],
-                                mlvl_priors: List[Tensor],
-                                img_meta: dict,
-                                cfg: Optional[ConfigDict] = None,
-                                rescale: bool = False,
-                                with_nms: bool = True) -> InstanceData:
+    def _predict_by_feat_single(
+        self,
+        cls_score_list: List[Tensor],
+        bbox_pred_list: List[Tensor],
+        score_factor_list: List[Tensor],
+        mlvl_priors: List[Tensor],
+        img_meta: dict,
+        cfg: Optional[ConfigDict] = None,
+        rescale: bool = False,
+        with_nms: bool = True,
+    ) -> InstanceData:
         """Transform a single image's features extracted from the head into
         bbox results.
 
@@ -539,13 +642,17 @@ class TOODHead(ATSSHead):
         mlvl_scores = []
         mlvl_labels = []
         for cls_score, bbox_pred, priors, stride in zip(
-                cls_score_list, bbox_pred_list, mlvl_priors,
-                self.prior_generator.strides):
+            cls_score_list,
+            bbox_pred_list,
+            mlvl_priors,
+            self.prior_generator.strides,
+        ):
             assert cls_score.size()[-2:] == bbox_pred.size()[-2:]
 
             bbox_pred = bbox_pred.permute(1, 2, 0).reshape(-1, 4) * stride[0]
-            scores = cls_score.permute(1, 2,
-                                       0).reshape(-1, self.cls_out_channels)
+            scores = cls_score.permute(1, 2, 0).reshape(
+                -1, self.cls_out_channels
+            )
 
             # After https://github.com/open-mmlab/mmdetection/pull/6268/,
             # this operation keeps fewer bboxes under the same `nms_pre`.
@@ -553,8 +660,11 @@ class TOODHead(ATSSHead):
             # find a slight drop in performance, you can set a larger
             # `nms_pre` than before.
             results = filter_scores_and_topk(
-                scores, cfg.score_thr, nms_pre,
-                dict(bbox_pred=bbox_pred, priors=priors))
+                scores,
+                cfg.score_thr,
+                nms_pre,
+                dict(bbox_pred=bbox_pred, priors=priors),
+            )
             scores, labels, keep_idxs, filtered_results = results
 
             bboxes = filtered_results['bbox_pred']
@@ -573,17 +683,20 @@ class TOODHead(ATSSHead):
             cfg=cfg,
             rescale=rescale,
             with_nms=with_nms,
-            img_meta=img_meta)
+            img_meta=img_meta,
+        )
 
-    def get_targets(self,
-                    cls_scores: List[List[Tensor]],
-                    bbox_preds: List[List[Tensor]],
-                    anchor_list: List[List[Tensor]],
-                    valid_flag_list: List[List[Tensor]],
-                    batch_gt_instances: InstanceList,
-                    batch_img_metas: List[dict],
-                    batch_gt_instances_ignore: OptInstanceList = None,
-                    unmap_outputs: bool = True) -> tuple:
+    def get_targets(
+        self,
+        cls_scores: List[List[Tensor]],
+        bbox_preds: List[List[Tensor]],
+        anchor_list: List[List[Tensor]],
+        valid_flag_list: List[List[Tensor]],
+        batch_gt_instances: InstanceList,
+        batch_img_metas: List[dict],
+        batch_gt_instances_ignore: OptInstanceList = None,
+        unmap_outputs: bool = True,
+    ) -> tuple:
         """Compute regression and classification targets for anchors in
         multiple images.
 
@@ -648,55 +761,79 @@ class TOODHead(ATSSHead):
         self.epoch = message_hub.get_info('epoch')
 
         if self.epoch < self.initial_epoch:
-            (all_anchors, all_labels, all_label_weights, all_bbox_targets,
-             all_bbox_weights, pos_inds_list, neg_inds_list,
-             sampling_result) = multi_apply(
-                 super()._get_targets_single,
-                 anchor_list,
-                 valid_flag_list,
-                 num_level_anchors_list,
-                 batch_gt_instances,
-                 batch_img_metas,
-                 batch_gt_instances_ignore,
-                 unmap_outputs=unmap_outputs)
+            (
+                all_anchors,
+                all_labels,
+                all_label_weights,
+                all_bbox_targets,
+                all_bbox_weights,
+                pos_inds_list,
+                neg_inds_list,
+                sampling_result,
+            ) = multi_apply(
+                super()._get_targets_single,
+                anchor_list,
+                valid_flag_list,
+                num_level_anchors_list,
+                batch_gt_instances,
+                batch_img_metas,
+                batch_gt_instances_ignore,
+                unmap_outputs=unmap_outputs,
+            )
             all_assign_metrics = [
                 weight[..., 0] for weight in all_bbox_weights
             ]
         else:
-            (all_anchors, all_labels, all_label_weights, all_bbox_targets,
-             all_assign_metrics) = multi_apply(
-                 self._get_targets_single,
-                 cls_scores,
-                 bbox_preds,
-                 anchor_list,
-                 valid_flag_list,
-                 batch_gt_instances,
-                 batch_img_metas,
-                 batch_gt_instances_ignore,
-                 unmap_outputs=unmap_outputs)
+            (
+                all_anchors,
+                all_labels,
+                all_label_weights,
+                all_bbox_targets,
+                all_assign_metrics,
+            ) = multi_apply(
+                self._get_targets_single,
+                cls_scores,
+                bbox_preds,
+                anchor_list,
+                valid_flag_list,
+                batch_gt_instances,
+                batch_img_metas,
+                batch_gt_instances_ignore,
+                unmap_outputs=unmap_outputs,
+            )
 
         # split targets to a list w.r.t. multiple levels
         anchors_list = images_to_levels(all_anchors, num_level_anchors)
         labels_list = images_to_levels(all_labels, num_level_anchors)
-        label_weights_list = images_to_levels(all_label_weights,
-                                              num_level_anchors)
-        bbox_targets_list = images_to_levels(all_bbox_targets,
-                                             num_level_anchors)
-        norm_alignment_metrics_list = images_to_levels(all_assign_metrics,
-                                                       num_level_anchors)
+        label_weights_list = images_to_levels(
+            all_label_weights, num_level_anchors
+        )
+        bbox_targets_list = images_to_levels(
+            all_bbox_targets, num_level_anchors
+        )
+        norm_alignment_metrics_list = images_to_levels(
+            all_assign_metrics, num_level_anchors
+        )
 
-        return (anchors_list, labels_list, label_weights_list,
-                bbox_targets_list, norm_alignment_metrics_list)
+        return (
+            anchors_list,
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            norm_alignment_metrics_list,
+        )
 
-    def _get_targets_single(self,
-                            cls_scores: Tensor,
-                            bbox_preds: Tensor,
-                            flat_anchors: Tensor,
-                            valid_flags: Tensor,
-                            gt_instances: InstanceData,
-                            img_meta: dict,
-                            gt_instances_ignore: Optional[InstanceData] = None,
-                            unmap_outputs: bool = True) -> tuple:
+    def _get_targets_single(
+        self,
+        cls_scores: Tensor,
+        bbox_preds: Tensor,
+        flat_anchors: Tensor,
+        valid_flags: Tensor,
+        gt_instances: InstanceData,
+        img_meta: dict,
+        gt_instances_ignore: Optional[InstanceData] = None,
+        unmap_outputs: bool = True,
+    ) -> tuple:
         """Compute regression, classification targets for anchors in a single
         image.
 
@@ -731,38 +868,48 @@ class TOODHead(ATSSHead):
                 norm_alignment_metrics (Tensor): Normalized alignment metrics
                     of all priors in the image with shape (N,).
         """
-        inside_flags = anchor_inside_flags(flat_anchors, valid_flags,
-                                           img_meta['img_shape'][:2],
-                                           self.train_cfg['allowed_border'])
+        inside_flags = anchor_inside_flags(
+            flat_anchors,
+            valid_flags,
+            img_meta['img_shape'][:2],
+            self.train_cfg['allowed_border'],
+        )
         if not inside_flags.any():
             raise ValueError(
                 'There is no valid anchor inside the image boundary. Please '
                 'check the image size and anchor sizes, or set '
-                '``allowed_border`` to -1 to skip the condition.')
+                '``allowed_border`` to -1 to skip the condition.'
+            )
         # assign gt and sample anchors
         anchors = flat_anchors[inside_flags, :]
         pred_instances = InstanceData(
             priors=anchors,
             scores=cls_scores[inside_flags, :],
-            bboxes=bbox_preds[inside_flags, :])
-        assign_result = self.alignment_assigner.assign(pred_instances,
-                                                       gt_instances,
-                                                       gt_instances_ignore,
-                                                       self.alpha, self.beta)
+            bboxes=bbox_preds[inside_flags, :],
+        )
+        assign_result = self.alignment_assigner.assign(
+            pred_instances,
+            gt_instances,
+            gt_instances_ignore,
+            self.alpha,
+            self.beta,
+        )
         assign_ious = assign_result.max_overlaps
         assign_metrics = assign_result.assign_metrics
 
-        sampling_result = self.sampler.sample(assign_result, pred_instances,
-                                              gt_instances)
+        sampling_result = self.sampler.sample(
+            assign_result, pred_instances, gt_instances
+        )
 
         num_valid_anchors = anchors.shape[0]
         bbox_targets = torch.zeros_like(anchors)
-        labels = anchors.new_full((num_valid_anchors, ),
-                                  self.num_classes,
-                                  dtype=torch.long)
+        labels = anchors.new_full(
+            (num_valid_anchors,), self.num_classes, dtype=torch.long
+        )
         label_weights = anchors.new_zeros(num_valid_anchors, dtype=torch.float)
         norm_alignment_metrics = anchors.new_zeros(
-            num_valid_anchors, dtype=torch.float)
+            num_valid_anchors, dtype=torch.float
+        )
 
         pos_inds = sampling_result.pos_inds
         neg_inds = sampling_result.neg_inds
@@ -780,14 +927,19 @@ class TOODHead(ATSSHead):
             label_weights[neg_inds] = 1.0
 
         class_assigned_gt_inds = torch.unique(
-            sampling_result.pos_assigned_gt_inds)
+            sampling_result.pos_assigned_gt_inds
+        )
         for gt_inds in class_assigned_gt_inds:
-            gt_class_inds = pos_inds[sampling_result.pos_assigned_gt_inds ==
-                                     gt_inds]
+            gt_class_inds = pos_inds[
+                sampling_result.pos_assigned_gt_inds == gt_inds
+            ]
             pos_alignment_metrics = assign_metrics[gt_class_inds]
             pos_ious = assign_ious[gt_class_inds]
-            pos_norm_alignment_metrics = pos_alignment_metrics / (
-                pos_alignment_metrics.max() + 10e-8) * pos_ious.max()
+            pos_norm_alignment_metrics = (
+                pos_alignment_metrics
+                / (pos_alignment_metrics.max() + 10e-8)
+                * pos_ious.max()
+            )
             norm_alignment_metrics[gt_class_inds] = pos_norm_alignment_metrics
 
         # map up to original set of anchors
@@ -795,11 +947,19 @@ class TOODHead(ATSSHead):
             num_total_anchors = flat_anchors.size(0)
             anchors = unmap(anchors, num_total_anchors, inside_flags)
             labels = unmap(
-                labels, num_total_anchors, inside_flags, fill=self.num_classes)
-            label_weights = unmap(label_weights, num_total_anchors,
-                                  inside_flags)
+                labels, num_total_anchors, inside_flags, fill=self.num_classes
+            )
+            label_weights = unmap(
+                label_weights, num_total_anchors, inside_flags
+            )
             bbox_targets = unmap(bbox_targets, num_total_anchors, inside_flags)
-            norm_alignment_metrics = unmap(norm_alignment_metrics,
-                                           num_total_anchors, inside_flags)
-        return (anchors, labels, label_weights, bbox_targets,
-                norm_alignment_metrics)
+            norm_alignment_metrics = unmap(
+                norm_alignment_metrics, num_total_anchors, inside_flags
+            )
+        return (
+            anchors,
+            labels,
+            label_weights,
+            bbox_targets,
+            norm_alignment_metrics,
+        )

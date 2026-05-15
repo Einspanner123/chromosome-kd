@@ -11,35 +11,32 @@ def print_coco_results(results):
     def _print(result, ap=1, iouThr=None, areaRng='all', maxDets=100):
         titleStr = 'Average Precision' if ap == 1 else 'Average Recall'
         typeStr = '(AP)' if ap == 1 else '(AR)'
-        iouStr = '0.50:0.95' \
-            if iouThr is None else f'{iouThr:0.2f}'
+        iouStr = '0.50:0.95' if iouThr is None else f'{iouThr:0.2f}'
         iStr = f' {titleStr:<18} {typeStr} @[ IoU={iouStr:<9} | '
         iStr += f'area={areaRng:>6s} | maxDets={maxDets:>3d} ] = {result:0.3f}'
         print(iStr)
 
-    stats = np.zeros((12, ))
+    stats = np.zeros((12,))
     stats[0] = _print(results[0], 1)
-    stats[1] = _print(results[1], 1, iouThr=.5)
-    stats[2] = _print(results[2], 1, iouThr=.75)
+    stats[1] = _print(results[1], 1, iouThr=0.5)
+    stats[2] = _print(results[2], 1, iouThr=0.75)
     stats[3] = _print(results[3], 1, areaRng='small')
     stats[4] = _print(results[4], 1, areaRng='medium')
     stats[5] = _print(results[5], 1, areaRng='large')
     # TODO support recall metric
-    '''
+    """
     stats[6] = _print(results[6], 0, maxDets=1)
     stats[7] = _print(results[7], 0, maxDets=10)
     stats[8] = _print(results[8], 0)
     stats[9] = _print(results[9], 0, areaRng='small')
     stats[10] = _print(results[10], 0, areaRng='medium')
     stats[11] = _print(results[11], 0, areaRng='large')
-    '''
+    """
 
 
-def get_coco_style_results(filename,
-                           task='bbox',
-                           metric=None,
-                           prints='mPC',
-                           aggregate='benchmark'):
+def get_coco_style_results(
+    filename, task='bbox', metric=None, prints='mPC', aggregate='benchmark'
+):
 
     assert aggregate in ['benchmark', 'all']
 
@@ -66,7 +63,12 @@ def get_coco_style_results(filename,
 
     for metric_name in metrics:
         assert metric_name in [
-            'mAP', 'mAP_50', 'mAP_75', 'mAP_s', 'mAP_m', 'mAP_l'
+            'mAP',
+            'mAP_50',
+            'mAP_75',
+            'mAP_s',
+            'mAP_m',
+            'mAP_l',
         ]
 
     eval_output = load(filename)
@@ -156,21 +158,27 @@ def get_voc_style_results(filename, prints='mPC', aggregate='benchmark'):
     if 'P' in prints:
         print(f'Performance on Clean Data [P] in AP50 = {np.mean(P):0.3f}')
     if 'mPC' in prints:
-        print('Mean Performance under Corruption [mPC] in AP50 = '
-              f'{np.mean(mPC):0.3f}')
+        print(
+            'Mean Performance under Corruption [mPC] in AP50 = '
+            f'{np.mean(mPC):0.3f}'
+        )
     if 'rPC' in prints:
-        print('Relative Performance under Corruption [rPC] in % = '
-              f'{np.mean(rPC) * 100:0.1f}')
+        print(
+            'Relative Performance under Corruption [rPC] in % = '
+            f'{np.mean(rPC) * 100:0.1f}'
+        )
 
     return np.mean(results, axis=2, keepdims=True)
 
 
-def get_results(filename,
-                dataset='coco',
-                task='bbox',
-                metric=None,
-                prints='mPC',
-                aggregate='benchmark'):
+def get_results(
+    filename,
+    dataset='coco',
+    task='bbox',
+    metric=None,
+    prints='mPC',
+    aggregate='benchmark',
+):
     assert dataset in ['coco', 'voc', 'cityscapes']
 
     if dataset in ['coco', 'cityscapes']:
@@ -179,7 +187,8 @@ def get_results(filename,
             task=task,
             metric=metric,
             prints=prints,
-            aggregate=aggregate)
+            aggregate=aggregate,
+        )
     elif dataset == 'voc':
         if task != 'bbox':
             print('Only bbox analysis is supported for Pascal VOC')
@@ -188,7 +197,8 @@ def get_results(filename,
             print('Only the AP50 metric is supported for Pascal VOC')
             print('Will report AP50 metric\n')
         results = get_voc_style_results(
-            filename, prints=prints, aggregate=aggregate)
+            filename, prints=prints, aggregate=aggregate
+        )
 
     return results
 
@@ -215,37 +225,53 @@ def main():
         type=str,
         choices=['coco', 'voc', 'cityscapes'],
         default='coco',
-        help='dataset type')
+        help='dataset type',
+    )
     parser.add_argument(
         '--task',
         type=str,
         nargs='+',
         choices=['bbox', 'segm'],
         default=['bbox'],
-        help='task to report')
+        help='task to report',
+    )
     parser.add_argument(
         '--metric',
         nargs='+',
         choices=[
-            None, 'AP', 'AP50', 'AP75', 'APs', 'APm', 'APl', 'AR1', 'AR10',
-            'AR100', 'ARs', 'ARm', 'ARl'
+            None,
+            'AP',
+            'AP50',
+            'AP75',
+            'APs',
+            'APm',
+            'APl',
+            'AR1',
+            'AR10',
+            'AR100',
+            'ARs',
+            'ARm',
+            'ARl',
         ],
         default=None,
-        help='metric to report')
+        help='metric to report',
+    )
     parser.add_argument(
         '--prints',
         type=str,
         nargs='+',
         choices=['P', 'mPC', 'rPC'],
         default='mPC',
-        help='corruption benchmark metric to print')
+        help='corruption benchmark metric to print',
+    )
     parser.add_argument(
         '--aggregate',
         type=str,
         choices=['all', 'benchmark'],
         default='benchmark',
         help='aggregate all results or only those \
-        for benchmark corruptions')
+        for benchmark corruptions',
+    )
 
     args = parser.parse_args()
 
@@ -256,7 +282,8 @@ def main():
             task=task,
             metric=args.metric,
             prints=args.prints,
-            aggregate=args.aggregate)
+            aggregate=args.aggregate,
+        )
 
 
 if __name__ == '__main__':

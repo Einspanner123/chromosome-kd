@@ -11,7 +11,6 @@ from mmdet.datasets.samplers import GroupMultiSourceSampler, MultiSourceSampler
 
 
 class DummyDataset(Dataset):
-
     def __init__(self, length, flag):
         self.length = length
         self.flag = flag
@@ -27,15 +26,18 @@ class DummyDataset(Dataset):
         return dict(
             width=self.shapes[idx][0],
             height=self.shapes[idx][1],
-            flag=self.flag)
+            flag=self.flag,
+        )
 
 
 class DummyConcatDataset(ConcatDataset):
-
     def _get_ori_dataset_idx(self, idx):
         dataset_idx = bisect.bisect_right(self.cumulative_sizes, idx)
-        sample_idx = idx if dataset_idx == 0 else idx - self.cumulative_sizes[
-            dataset_idx - 1]
+        sample_idx = (
+            idx
+            if dataset_idx == 0
+            else idx - self.cumulative_sizes[dataset_idx - 1]
+        )
         return dataset_idx, sample_idx
 
     def get_data_info(self, idx: int):
@@ -44,7 +46,6 @@ class DummyConcatDataset(ConcatDataset):
 
 
 class TestMultiSourceSampler(TestCase):
-
     @patch('mmengine.dist.get_dist_info', return_value=(7, 8))
     def setUp(self, mock):
         self.length_a = 100
@@ -57,17 +58,21 @@ class TestMultiSourceSampler(TestCase):
         # test dataset is not ConcatDataset
         with self.assertRaises(AssertionError):
             MultiSourceSampler(
-                self.dataset_a, batch_size=5, source_ratio=[1, 4])
+                self.dataset_a, batch_size=5, source_ratio=[1, 4]
+            )
         # test invalid batch_size
         with self.assertRaises(AssertionError):
             MultiSourceSampler(
-                self.dataset_a, batch_size=-5, source_ratio=[1, 4])
+                self.dataset_a, batch_size=-5, source_ratio=[1, 4]
+            )
         # test source_ratio longer then dataset
         with self.assertRaises(AssertionError):
             MultiSourceSampler(
-                self.dataset, batch_size=5, source_ratio=[1, 2, 4])
+                self.dataset, batch_size=5, source_ratio=[1, 2, 4]
+            )
         sampler = MultiSourceSampler(
-            self.dataset, batch_size=5, source_ratio=[1, 4])
+            self.dataset, batch_size=5, source_ratio=[1, 4]
+        )
         sampler = iter(sampler)
         flags = []
         for i in range(100):
@@ -78,7 +83,6 @@ class TestMultiSourceSampler(TestCase):
 
 
 class TestGroupMultiSourceSampler(TestCase):
-
     @patch('mmengine.dist.get_dist_info', return_value=(7, 8))
     def setUp(self, mock):
         self.length_a = 100
@@ -89,7 +93,8 @@ class TestGroupMultiSourceSampler(TestCase):
 
     def test_group_multi_source_sampler(self):
         sampler = GroupMultiSourceSampler(
-            self.dataset, batch_size=5, source_ratio=[1, 4])
+            self.dataset, batch_size=5, source_ratio=[1, 4]
+        )
         sampler = iter(sampler)
         flags = []
         groups = []
@@ -102,6 +107,7 @@ class TestGroupMultiSourceSampler(TestCase):
         flags_gt = ['a', 'b', 'b', 'b', 'b'] * 20
         self.assertEqual(flags, flags_gt)
         groups = set(
-            [sum(x) for x in (groups[k:k + 5] for k in range(0, 100, 5))])
+            [sum(x) for x in (groups[k : k + 5] for k in range(0, 100, 5))]
+        )
         groups_gt = set([0, 5])
         self.assertEqual(groups, groups_gt)

@@ -15,27 +15,30 @@ from .base_panoptic_fusion_head import BasePanopticFusionHead
 class HeuristicFusionHead(BasePanopticFusionHead):
     """Fusion Head with Heuristic method."""
 
-    def __init__(self,
-                 num_things_classes: int = 80,
-                 num_stuff_classes: int = 53,
-                 test_cfg: OptConfigType = None,
-                 init_cfg: OptMultiConfig = None,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        num_things_classes: int = 80,
+        num_stuff_classes: int = 53,
+        test_cfg: OptConfigType = None,
+        init_cfg: OptMultiConfig = None,
+        **kwargs,
+    ) -> None:
         super().__init__(
             num_things_classes=num_things_classes,
             num_stuff_classes=num_stuff_classes,
             test_cfg=test_cfg,
             loss_panoptic=None,
             init_cfg=init_cfg,
-            **kwargs)
+            **kwargs,
+        )
 
     def loss(self, **kwargs) -> dict:
         """HeuristicFusionHead has no training loss."""
         return dict()
 
-    def _lay_masks(self,
-                   mask_results: InstanceData,
-                   overlap_thr: float = 0.5) -> Tensor:
+    def _lay_masks(
+        self, mask_results: InstanceData, overlap_thr: float = 0.5
+    ) -> Tensor:
         """Lay instance masks to a result map.
 
         Args:
@@ -54,7 +57,8 @@ class HeuristicFusionHead(BasePanopticFusionHead):
 
         num_insts = bboxes.shape[0]
         id_map = torch.zeros(
-            masks.shape[-2:], device=bboxes.device, dtype=torch.long)
+            masks.shape[-2:], device=bboxes.device, dtype=torch.long
+        )
         if num_insts == 0:
             return id_map, labels
 
@@ -69,8 +73,9 @@ class HeuristicFusionHead(BasePanopticFusionHead):
         for idx in range(bboxes.shape[0]):
             _cls = labels[idx]
             _mask = segm_masks[idx]
-            instance_id_map = torch.ones_like(
-                _mask, dtype=torch.long) * instance_id
+            instance_id_map = (
+                torch.ones_like(_mask, dtype=torch.long) * instance_id
+            )
             area = _mask.sum()
             if area == 0:
                 continue
@@ -88,12 +93,13 @@ class HeuristicFusionHead(BasePanopticFusionHead):
         if len(left_labels) > 0:
             instance_labels = torch.stack(left_labels)
         else:
-            instance_labels = bboxes.new_zeros((0, ), dtype=torch.long)
+            instance_labels = bboxes.new_zeros((0,), dtype=torch.long)
         assert instance_id == (len(instance_labels) + 1)
         return id_map, instance_labels
 
-    def _predict_single(self, mask_results: InstanceData, seg_preds: Tensor,
-                        **kwargs) -> PixelData:
+    def _predict_single(
+        self, mask_results: InstanceData, seg_preds: Tensor, **kwargs
+    ) -> PixelData:
         """Fuse the results of instance and semantic segmentations.
 
         Args:
@@ -105,8 +111,9 @@ class HeuristicFusionHead(BasePanopticFusionHead):
         Returns:
             Tensor: The panoptic segmentation result, (H, W).
         """
-        id_map, labels = self._lay_masks(mask_results,
-                                         self.test_cfg.mask_overlap)
+        id_map, labels = self._lay_masks(
+            mask_results, self.test_cfg.mask_overlap
+        )
 
         seg_results = seg_preds.argmax(dim=0)
         seg_results = seg_results + self.num_things_classes
@@ -124,21 +131,30 @@ class HeuristicFusionHead(BasePanopticFusionHead):
             instance_id += 1
 
         ids, counts = torch.unique(
-            pan_results % INSTANCE_OFFSET, return_counts=True)
+            pan_results % INSTANCE_OFFSET, return_counts=True
+        )
         stuff_ids = ids[ids >= self.num_things_classes]
         stuff_counts = counts[ids >= self.num_things_classes]
         ignore_stuff_ids = stuff_ids[
-            stuff_counts < self.test_cfg.stuff_area_limit]
+            stuff_counts < self.test_cfg.stuff_area_limit
+        ]
 
         assert pan_results.ndim == 2
-        pan_results[(pan_results.unsqueeze(2) == ignore_stuff_ids.reshape(
-            1, 1, -1)).any(dim=2)] = self.num_classes
+        pan_results[
+            (
+                pan_results.unsqueeze(2) == ignore_stuff_ids.reshape(1, 1, -1)
+            ).any(dim=2)
+        ] = self.num_classes
 
         pan_results = PixelData(sem_seg=pan_results[None].int())
         return pan_results
 
-    def predict(self, mask_results_list: InstanceList,
-                seg_preds_list: List[Tensor], **kwargs) -> PixelList:
+    def predict(
+        self,
+        mask_results_list: InstanceList,
+        seg_preds_list: List[Tensor],
+        **kwargs,
+    ) -> PixelList:
         """Predict results by fusing the results of instance and semantic
         segmentations.
 

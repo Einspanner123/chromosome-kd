@@ -11,7 +11,6 @@ from mmdet.utils import register_all_modules
 
 
 class TestMaskFormer(unittest.TestCase):
-
     def setUp(self):
         register_all_modules()
 
@@ -27,24 +26,23 @@ class TestMaskFormer(unittest.TestCase):
         ]
         model_cfg.panoptic_head.feat_channels = base_channels
         model_cfg.panoptic_head.out_channels = base_channels
-        model_cfg.panoptic_head.pixel_decoder.encoder.\
-            layer_cfg.self_attn_cfg.embed_dims = base_channels
-        model_cfg.panoptic_head.pixel_decoder.encoder.\
-            layer_cfg.ffn_cfg.embed_dims = base_channels
-        model_cfg.panoptic_head.pixel_decoder.encoder.\
-            layer_cfg.ffn_cfg.feedforward_channels = base_channels * 8
-        model_cfg.panoptic_head.pixel_decoder.\
-            positional_encoding.num_feats = base_channels // 2
-        model_cfg.panoptic_head.positional_encoding.\
-            num_feats = base_channels // 2
-        model_cfg.panoptic_head.transformer_decoder.\
-            layer_cfg.self_attn_cfg.embed_dims = base_channels
-        model_cfg.panoptic_head.transformer_decoder. \
-            layer_cfg.cross_attn_cfg.embed_dims = base_channels
-        model_cfg.panoptic_head.transformer_decoder.\
-            layer_cfg.ffn_cfg.embed_dims = base_channels
-        model_cfg.panoptic_head.transformer_decoder.\
-            layer_cfg.ffn_cfg.feedforward_channels = base_channels * 8
+        model_cfg.panoptic_head.pixel_decoder.encoder.layer_cfg.self_attn_cfg.embed_dims = base_channels
+        model_cfg.panoptic_head.pixel_decoder.encoder.layer_cfg.ffn_cfg.embed_dims = base_channels
+        model_cfg.panoptic_head.pixel_decoder.encoder.layer_cfg.ffn_cfg.feedforward_channels = (
+            base_channels * 8
+        )
+        model_cfg.panoptic_head.pixel_decoder.positional_encoding.num_feats = (
+            base_channels // 2
+        )
+        model_cfg.panoptic_head.positional_encoding.num_feats = (
+            base_channels // 2
+        )
+        model_cfg.panoptic_head.transformer_decoder.layer_cfg.self_attn_cfg.embed_dims = base_channels
+        model_cfg.panoptic_head.transformer_decoder.layer_cfg.cross_attn_cfg.embed_dims = base_channels
+        model_cfg.panoptic_head.transformer_decoder.layer_cfg.ffn_cfg.embed_dims = base_channels
+        model_cfg.panoptic_head.transformer_decoder.layer_cfg.ffn_cfg.feedforward_channels = (
+            base_channels * 8
+        )
         return model_cfg
 
     def test_init(self):
@@ -54,7 +52,7 @@ class TestMaskFormer(unittest.TestCase):
         assert detector.backbone
         assert detector.panoptic_head
 
-    @parameterized.expand([('cpu', ), ('cuda', )])
+    @parameterized.expand([('cpu',), ('cuda',)])
     def test_forward_loss_mode(self, device):
         model_cfg = self._create_model_cfg()
         detector = MODELS.build(model_cfg)
@@ -68,13 +66,14 @@ class TestMaskFormer(unittest.TestCase):
             image_shapes=[(3, 128, 127), (3, 91, 92)],
             sem_seg_output_strides=1,
             with_mask=True,
-            with_semantic=True)
+            with_semantic=True,
+        )
         data = detector.data_preprocessor(packed_inputs, True)
         # Test loss mode
         losses = detector.forward(**data, mode='loss')
         self.assertIsInstance(losses, dict)
 
-    @parameterized.expand([('cpu', ), ('cuda', )])
+    @parameterized.expand([('cpu',), ('cuda',)])
     def test_forward_predict_mode(self, device):
         model_cfg = self._create_model_cfg()
         detector = MODELS.build(model_cfg)
@@ -86,7 +85,8 @@ class TestMaskFormer(unittest.TestCase):
             image_shapes=[(3, 128, 127), (3, 91, 92)],
             sem_seg_output_strides=1,
             with_mask=True,
-            with_semantic=True)
+            with_semantic=True,
+        )
         data = detector.data_preprocessor(packed_inputs, False)
         # Test forward test
         detector.eval()
@@ -95,7 +95,7 @@ class TestMaskFormer(unittest.TestCase):
             self.assertEqual(len(batch_results), 2)
             self.assertIsInstance(batch_results[0], DetDataSample)
 
-    @parameterized.expand([('cpu', ), ('cuda', )])
+    @parameterized.expand([('cpu',), ('cuda',)])
     def test_forward_tensor_mode(self, device):
         model_cfg = self._create_model_cfg()
         detector = MODELS.build(model_cfg)
@@ -104,17 +104,18 @@ class TestMaskFormer(unittest.TestCase):
         detector = detector.to(device)
 
         packed_inputs = demo_mm_inputs(
-            2, [[3, 128, 128], [3, 125, 130]],
+            2,
+            [[3, 128, 128], [3, 125, 130]],
             sem_seg_output_strides=1,
             with_mask=True,
-            with_semantic=True)
+            with_semantic=True,
+        )
         data = detector.data_preprocessor(packed_inputs, False)
         out = detector.forward(**data, mode='tensor')
         self.assertIsInstance(out, tuple)
 
 
 class TestMask2Former(unittest.TestCase):
-
     def setUp(self):
         register_all_modules()
 
@@ -129,41 +130,49 @@ class TestMask2Former(unittest.TestCase):
         ]
         model_cfg.panoptic_head.feat_channels = base_channels
         model_cfg.panoptic_head.out_channels = base_channels
-        model_cfg.panoptic_head.pixel_decoder.encoder.\
-            layer_cfg.self_attn_cfg.embed_dims = base_channels
-        model_cfg.panoptic_head.pixel_decoder.encoder.\
-            layer_cfg.ffn_cfg.embed_dims = base_channels
-        model_cfg.panoptic_head.pixel_decoder.encoder.\
-            layer_cfg.ffn_cfg.feedforward_channels = base_channels * 4
-        model_cfg.panoptic_head.pixel_decoder.\
-            positional_encoding.num_feats = base_channels // 2
-        model_cfg.panoptic_head.positional_encoding.\
-            num_feats = base_channels // 2
-        model_cfg.panoptic_head.transformer_decoder.\
-            layer_cfg.self_attn_cfg.embed_dims = base_channels
-        model_cfg.panoptic_head.transformer_decoder. \
-            layer_cfg.cross_attn_cfg.embed_dims = base_channels
-        model_cfg.panoptic_head.transformer_decoder.\
-            layer_cfg.ffn_cfg.embed_dims = base_channels
-        model_cfg.panoptic_head.transformer_decoder.\
-            layer_cfg.ffn_cfg.feedforward_channels = base_channels * 8
+        model_cfg.panoptic_head.pixel_decoder.encoder.layer_cfg.self_attn_cfg.embed_dims = base_channels
+        model_cfg.panoptic_head.pixel_decoder.encoder.layer_cfg.ffn_cfg.embed_dims = base_channels
+        model_cfg.panoptic_head.pixel_decoder.encoder.layer_cfg.ffn_cfg.feedforward_channels = (
+            base_channels * 4
+        )
+        model_cfg.panoptic_head.pixel_decoder.positional_encoding.num_feats = (
+            base_channels // 2
+        )
+        model_cfg.panoptic_head.positional_encoding.num_feats = (
+            base_channels // 2
+        )
+        model_cfg.panoptic_head.transformer_decoder.layer_cfg.self_attn_cfg.embed_dims = base_channels
+        model_cfg.panoptic_head.transformer_decoder.layer_cfg.cross_attn_cfg.embed_dims = base_channels
+        model_cfg.panoptic_head.transformer_decoder.layer_cfg.ffn_cfg.embed_dims = base_channels
+        model_cfg.panoptic_head.transformer_decoder.layer_cfg.ffn_cfg.feedforward_channels = (
+            base_channels * 8
+        )
 
         return model_cfg
 
     def test_init(self):
         model_cfg = self._create_model_cfg(
-            'mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py')
+            'mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py'
+        )
         detector = MODELS.build(model_cfg)
         detector.init_weights()
         assert detector.backbone
         assert detector.panoptic_head
 
-    @parameterized.expand([
-        ('cpu', 'mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py'),
-        ('cpu', 'mask2former/mask2former_r50_8xb2-lsj-50e_coco.py'),
-        ('cuda', 'mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py'),
-        ('cuda', 'mask2former/mask2former_r50_8xb2-lsj-50e_coco.py')
-    ])
+    @parameterized.expand(
+        [
+            (
+                'cpu',
+                'mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py',
+            ),
+            ('cpu', 'mask2former/mask2former_r50_8xb2-lsj-50e_coco.py'),
+            (
+                'cuda',
+                'mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py',
+            ),
+            ('cuda', 'mask2former/mask2former_r50_8xb2-lsj-50e_coco.py'),
+        ]
+    )
     def test_forward_loss_mode(self, device, cfg_path):
         print(device, cfg_path)
         with_semantic = 'panoptic' in cfg_path
@@ -179,18 +188,27 @@ class TestMask2Former(unittest.TestCase):
             image_shapes=[(3, 128, 127), (3, 91, 92)],
             sem_seg_output_strides=1,
             with_mask=True,
-            with_semantic=with_semantic)
+            with_semantic=with_semantic,
+        )
         data = detector.data_preprocessor(packed_inputs, True)
         # Test loss mode
         losses = detector.forward(**data, mode='loss')
         self.assertIsInstance(losses, dict)
 
-    @parameterized.expand([
-        ('cpu', 'mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py'),
-        ('cpu', 'mask2former/mask2former_r50_8xb2-lsj-50e_coco.py'),
-        ('cuda', 'mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py'),
-        ('cuda', 'mask2former/mask2former_r50_8xb2-lsj-50e_coco.py')
-    ])
+    @parameterized.expand(
+        [
+            (
+                'cpu',
+                'mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py',
+            ),
+            ('cpu', 'mask2former/mask2former_r50_8xb2-lsj-50e_coco.py'),
+            (
+                'cuda',
+                'mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py',
+            ),
+            ('cuda', 'mask2former/mask2former_r50_8xb2-lsj-50e_coco.py'),
+        ]
+    )
     def test_forward_predict_mode(self, device, cfg_path):
         with_semantic = 'panoptic' in cfg_path
         model_cfg = self._create_model_cfg(cfg_path)
@@ -203,7 +221,8 @@ class TestMask2Former(unittest.TestCase):
             image_shapes=[(3, 128, 127), (3, 91, 92)],
             sem_seg_output_strides=1,
             with_mask=True,
-            with_semantic=with_semantic)
+            with_semantic=with_semantic,
+        )
         data = detector.data_preprocessor(packed_inputs, False)
         # Test forward test
         detector.eval()
@@ -212,12 +231,20 @@ class TestMask2Former(unittest.TestCase):
             self.assertEqual(len(batch_results), 2)
             self.assertIsInstance(batch_results[0], DetDataSample)
 
-    @parameterized.expand([
-        ('cpu', 'mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py'),
-        ('cpu', 'mask2former/mask2former_r50_8xb2-lsj-50e_coco.py'),
-        ('cuda', 'mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py'),
-        ('cuda', 'mask2former/mask2former_r50_8xb2-lsj-50e_coco.py')
-    ])
+    @parameterized.expand(
+        [
+            (
+                'cpu',
+                'mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py',
+            ),
+            ('cpu', 'mask2former/mask2former_r50_8xb2-lsj-50e_coco.py'),
+            (
+                'cuda',
+                'mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py',
+            ),
+            ('cuda', 'mask2former/mask2former_r50_8xb2-lsj-50e_coco.py'),
+        ]
+    )
     def test_forward_tensor_mode(self, device, cfg_path):
         with_semantic = 'panoptic' in cfg_path
         model_cfg = self._create_model_cfg(cfg_path)
@@ -227,10 +254,12 @@ class TestMask2Former(unittest.TestCase):
         detector = detector.to(device)
 
         packed_inputs = demo_mm_inputs(
-            2, [[3, 128, 128], [3, 125, 130]],
+            2,
+            [[3, 128, 128], [3, 125, 130]],
             sem_seg_output_strides=1,
             with_mask=True,
-            with_semantic=with_semantic)
+            with_semantic=with_semantic,
+        )
         data = detector.data_preprocessor(packed_inputs, False)
         out = detector.forward(**data, mode='tensor')
         self.assertIsInstance(out, tuple)

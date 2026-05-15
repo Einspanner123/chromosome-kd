@@ -6,7 +6,6 @@ from mmdet.models.roi_heads.bbox_heads import SCNetBBoxHead
 
 
 class TestSCNetBBoxHead(unittest.TestCase):
-
     def test_forward(self):
         x = torch.rand((2, 1, 16, 16))
         bbox_head = SCNetBBoxHead(

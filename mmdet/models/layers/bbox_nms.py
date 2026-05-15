@@ -17,7 +17,7 @@ def multiclass_nms(
     max_num: int = -1,
     score_factors: Optional[Tensor] = None,
     return_inds: bool = False,
-    box_dim: int = 4
+    box_dim: int = 4,
 ) -> Union[Tuple[Tensor, Tensor, Tensor], Tuple[Tensor, Tensor]]:
     """NMS for multi-class bboxes.
 
@@ -48,7 +48,8 @@ def multiclass_nms(
         bboxes = multi_bboxes.view(multi_scores.size(0), -1, box_dim)
     else:
         bboxes = multi_bboxes[:, None].expand(
-            multi_scores.size(0), num_classes, box_dim)
+            multi_scores.size(0), num_classes, box_dim
+        )
 
     scores = multi_scores[:, :-1]
 
@@ -68,7 +69,8 @@ def multiclass_nms(
     if score_factors is not None:
         # expand the shape to match original shape of score
         score_factors = score_factors.view(-1, 1).expand(
-            multi_scores.size(0), num_classes)
+            multi_scores.size(0), num_classes
+        )
         score_factors = score_factors.reshape(-1)
         scores = scores * score_factors
 
@@ -85,8 +87,10 @@ def multiclass_nms(
 
     if bboxes.numel() == 0:
         if torch.onnx.is_in_onnx_export():
-            raise RuntimeError('[ONNX Error] Can not record NMS '
-                               'as it has not been executed this time')
+            raise RuntimeError(
+                '[ONNX Error] Can not record NMS '
+                'as it has not been executed this time'
+            )
         dets = torch.cat([bboxes, scores[:, None]], -1)
         if return_inds:
             return dets, labels, inds
@@ -112,7 +116,7 @@ def fast_nms(
     score_thr: float,
     iou_thr: float,
     top_k: int,
-    max_num: int = -1
+    max_num: int = -1,
 ) -> Union[Tuple[Tensor, Tensor, Tensor], Tuple[Tensor, Tensor]]:
     """Fast NMS in `YOLACT <https://arxiv.org/abs/1904.02689>`_.
 
@@ -162,8 +166,9 @@ def fast_nms(
     keep *= scores > score_thr
 
     # Assign each kept detection to its corresponding class
-    classes = torch.arange(
-        num_classes, device=boxes.device)[:, None].expand_as(keep)
+    classes = torch.arange(num_classes, device=boxes.device)[
+        :, None
+    ].expand_as(keep)
     classes = classes[keep]
 
     boxes = boxes[keep]

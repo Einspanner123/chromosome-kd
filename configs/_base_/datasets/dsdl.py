@@ -16,7 +16,7 @@ train_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True),
     dict(type='Resize', scale=(1333, 800), keep_ratio=True),
     dict(type='RandomFlip', prob=0.5),
-    dict(type='PackDetInputs')
+    dict(type='PackDetInputs'),
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile', backend_args=backend_args),
@@ -25,8 +25,15 @@ test_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor', 'instances'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+            'instances',
+        ),
+    ),
 ]
 
 train_dataloader = dict(
@@ -40,7 +47,9 @@ train_dataloader = dict(
         data_root=data_root,
         ann_file=train_ann,
         filter_cfg=dict(filter_empty_gt=True, min_size=32, bbox_min_size=32),
-        pipeline=train_pipeline))
+        pipeline=train_pipeline,
+    ),
+)
 
 val_dataloader = dict(
     batch_size=1,
@@ -53,7 +62,9 @@ val_dataloader = dict(
         data_root=data_root,
         ann_file=val_ann,
         test_mode=True,
-        pipeline=test_pipeline))
+        pipeline=test_pipeline,
+    ),
+)
 
 test_dataloader = val_dataloader
 

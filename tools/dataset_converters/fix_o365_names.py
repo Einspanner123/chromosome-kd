@@ -1,4 +1,4 @@
-# Reference: https://github.com/shenyunhang/APE/blob/main/datasets/tools/objects3652coco/fix_o365_names.py # noqa
+# Reference: https://github.com/shenyunhang/APE/blob/main/datasets/tools/objects3652coco/fix_o365_names.py
 import argparse
 import copy
 import json
@@ -7,20 +7,22 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--ann',
-        default='data/objects365v2/annotations/zhiyuan_objv2_train.json')
+        default='data/objects365v2/annotations/zhiyuan_objv2_train.json',
+    )
     parser.add_argument(
         '--fix_name_map',
-        default='tools/dataset_converters/zhiyuan_objv2_train_names_fix.csv')
+        default='tools/dataset_converters/zhiyuan_objv2_train_names_fix.csv',
+    )
     args = parser.parse_args()
 
     new_names = {}
     old_names = {}
-    with open(args.fix_name_map, 'r') as f:
+    with open(args.fix_name_map) as f:
         for line in f:
             tmp = line.strip().split(',')
             old_names[int(tmp[0])] = tmp[1]
             new_names[int(tmp[0])] = tmp[2]
-    data = json.load(open(args.ann, 'r'))
+    data = json.load(open(args.ann))
 
     cat_info = copy.deepcopy(data['categories'])
 

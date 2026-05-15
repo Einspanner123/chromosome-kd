@@ -5,4 +5,6 @@ model = dict(
         single_head=dict(
             interact_type='linear_cross_attn',
             self_attn_type='linear',
-        ), ))
+        ),
+    )
+)

@@ -7,11 +7,12 @@ from mmdet.registry import TASK_UTILS
 
 
 class TestKalmanFilter(TestCase):
-
     @classmethod
     def setUpClass(cls):
         init_default_scope('mmdet')
-        motion = dict(type='KalmanFilter', )
+        motion = dict(
+            type='KalmanFilter',
+        )
         cls.kf = TASK_UTILS.build(motion)
 
     def test_init(self):

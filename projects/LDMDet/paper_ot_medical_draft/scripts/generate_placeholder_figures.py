@@ -26,21 +26,17 @@ def svg_header(width, height, title):
     ]
 
 
-def add_box(parts,
-            x,
-            y,
-            width,
-            height,
-            text,
-            fill='#f3f6fb',
-            stroke='#2c3e50'):
+def add_box(
+    parts, x, y, width, height, text, fill='#f3f6fb', stroke='#2c3e50'
+):
     parts.append(
         f'<rect x="{x}" y="{y}" width="{width}" height="{height}" rx="10" ry="10" fill="{fill}" stroke="{stroke}" stroke-width="2"/>'
     )
     parts.append(
         f'<text x="{x + width / 2}" y="{y + height / 2 - 10}" font-size="18" text-anchor="middle" font-family="Arial">'
         f'{wrap_tspans(text, x + width / 2, y + height / 2 - 10)}'
-        '</text>')
+        '</text>'
+    )
 
 
 def add_arrow(parts, x1, y1, x2, y2):
@@ -66,7 +62,8 @@ def figure_overview():
         120,
         'Diversity collapse\n+ argmax control loss',
         fill='#fdecea',
-        stroke='#c0392b')
+        stroke='#c0392b',
+    )
     add_box(
         parts,
         360,
@@ -75,7 +72,8 @@ def figure_overview():
         120,
         'Stochastic\ncoupling',
         fill='#eafaf1',
-        stroke='#1e8449')
+        stroke='#1e8449',
+    )
     add_box(
         parts,
         650,
@@ -84,7 +82,8 @@ def figure_overview():
         120,
         'Recovered diversity\nand better mAP',
         fill='#eafaf1',
-        stroke='#1e8449')
+        stroke='#1e8449',
+    )
     add_arrow(parts, 290, 180, 360, 180)
     add_arrow(parts, 580, 180, 650, 180)
     add_arrow(parts, 470, 240, 470, 360)
@@ -144,16 +143,36 @@ def figure_epsilon():
     parts.append(
         '<text x="740" y="130" font-size="18" text-anchor="middle" font-family="Arial">Bias-dominated</text>'
     )
-    points_map = [(80, 410), (120, 360), (230, 270), (300, 225), (430, 185),
-                  (520, 210), (760, 315), (980, 385)]
-    points_div = [(80, 425), (120, 395), (230, 315), (300, 235), (430, 185),
-                  (520, 165), (760, 150), (980, 150)]
+    points_map = [
+        (80, 410),
+        (120, 360),
+        (230, 270),
+        (300, 225),
+        (430, 185),
+        (520, 210),
+        (760, 315),
+        (980, 385),
+    ]
+    points_div = [
+        (80, 425),
+        (120, 395),
+        (230, 315),
+        (300, 235),
+        (430, 185),
+        (520, 165),
+        (760, 150),
+        (980, 150),
+    ]
     parts.append(
-        '<polyline fill="none" stroke="#2c3e50" stroke-width="3" points="' +
-        ' '.join(f'{x},{y}' for x, y in points_map) + '"/>')
+        '<polyline fill="none" stroke="#2c3e50" stroke-width="3" points="'
+        + ' '.join(f'{x},{y}' for x, y in points_map)
+        + '"/>'
+    )
     parts.append(
-        '<polyline fill="none" stroke="#1e8449" stroke-width="3" points="' +
-        ' '.join(f'{x},{y}' for x, y in points_div) + '"/>')
+        '<polyline fill="none" stroke="#1e8449" stroke-width="3" points="'
+        + ' '.join(f'{x},{y}' for x, y in points_div)
+        + '"/>'
+    )
     for x, y in points_map:
         parts.append(f'<circle cx="{x}" cy="{y}" r="5" fill="#2c3e50"/>')
     for x, y in points_div:
@@ -183,9 +202,11 @@ def figure_dataset():
         300,
         160,
         'Representative image\nplaceholder',
-        fill='#f7f9f9')
+        fill='#f7f9f9',
+    )
     add_box(
-        parts, 400, 320, 300, 160, 'Stats panel\nplaceholder', fill='#f7f9f9')
+        parts, 400, 320, 300, 160, 'Stats panel\nplaceholder', fill='#f7f9f9'
+    )
     add_box(
         parts,
         720,
@@ -193,7 +214,8 @@ def figure_dataset():
         300,
         160,
         'Representative image\nplaceholder',
-        fill='#f7f9f9')
+        fill='#f7f9f9',
+    )
     add_arrow(parts, 230, 240, 230, 320)
     add_arrow(parts, 870, 240, 870, 320)
     parts.append(

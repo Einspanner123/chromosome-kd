@@ -9,7 +9,6 @@ from mmdet.utils import register_all_modules
 
 
 class TestLinearReIDHead(TestCase):
-
     @classmethod
     def setUpClass(cls) -> None:
         register_all_modules()
@@ -23,7 +22,8 @@ class TestLinearReIDHead(TestCase):
             loss_cls=dict(type='mmpretrain.CrossEntropyLoss', loss_weight=1.0),
             loss_triplet=dict(type='TripletLoss', margin=0.3, loss_weight=1.0),
             norm_cfg=dict(type='BN1d'),
-            act_cfg=dict(type='ReLU'))
+            act_cfg=dict(type='ReLU'),
+        )
         cls.head = MODELS.build(head_cfg)
         cls.inputs = (torch.rand(4, 128), torch.rand(4, 128))
         cls.data_samples = [
@@ -46,4 +46,4 @@ class TestLinearReIDHead(TestCase):
             assert isinstance(pred, ReIDDataSample)
             assert isinstance(pred.pred_feature, torch.Tensor)
             assert isinstance(pred.gt_label.label, torch.Tensor)
-            assert pred.pred_feature.shape == (32, )
+            assert pred.pred_feature.shape == (32,)

@@ -9,7 +9,6 @@ from mmdet.structures import DetDataSample
 
 
 class TestMaskFormerFusionHead(unittest.TestCase):
-
     def test_loss(self):
         head = MaskFormerFusionHead(num_things_classes=2, num_stuff_classes=2)
         result = head.loss()
@@ -24,14 +23,16 @@ class TestMaskFormerFusionHead(unittest.TestCase):
                 metainfo={
                     'batch_input_shape': (32, 32),
                     'img_shape': (32, 30),
-                    'ori_shape': (30, 30)
-                }),
+                    'ori_shape': (30, 30),
+                }
+            ),
             DetDataSample(
                 metainfo={
                     'batch_input_shape': (32, 32),
                     'img_shape': (32, 30),
-                    'ori_shape': (29, 30)
-                })
+                    'ori_shape': (29, 30),
+                }
+            ),
         ]
 
         # get panoptic and instance segmentation results
@@ -43,30 +44,43 @@ class TestMaskFormerFusionHead(unittest.TestCase):
                 max_per_image=10,
                 object_mask_thr=0.3,
                 iou_thr=0.3,
-                filter_low_score=False))
+                filter_low_score=False,
+            )
+        )
         head = MaskFormerFusionHead(
-            num_things_classes=2, num_stuff_classes=2, test_cfg=test_cfg)
+            num_things_classes=2, num_stuff_classes=2, test_cfg=test_cfg
+        )
         results = head.predict(
             mask_cls_results,
             mask_pred_results,
             batch_data_samples,
-            rescale=False)
+            rescale=False,
+        )
         for i in range(len(results)):
-            self.assertEqual(results[i]['pan_results'].sem_seg.shape[-2:],
-                             batch_data_samples[i].img_shape)
-            self.assertEqual(results[i]['ins_results'].masks.shape[-2:],
-                             batch_data_samples[i].img_shape)
+            self.assertEqual(
+                results[i]['pan_results'].sem_seg.shape[-2:],
+                batch_data_samples[i].img_shape,
+            )
+            self.assertEqual(
+                results[i]['ins_results'].masks.shape[-2:],
+                batch_data_samples[i].img_shape,
+            )
 
         results = head.predict(
             mask_cls_results,
             mask_pred_results,
             batch_data_samples,
-            rescale=True)
+            rescale=True,
+        )
         for i in range(len(results)):
-            self.assertEqual(results[i]['pan_results'].sem_seg.shape[-2:],
-                             batch_data_samples[i].ori_shape)
-            self.assertEqual(results[i]['ins_results'].masks.shape[-2:],
-                             batch_data_samples[i].ori_shape)
+            self.assertEqual(
+                results[i]['pan_results'].sem_seg.shape[-2:],
+                batch_data_samples[i].ori_shape,
+            )
+            self.assertEqual(
+                results[i]['ins_results'].masks.shape[-2:],
+                batch_data_samples[i].ori_shape,
+            )
 
         # get empty results
         test_cfg = Config(
@@ -77,14 +91,18 @@ class TestMaskFormerFusionHead(unittest.TestCase):
                 max_per_image=10,
                 object_mask_thr=0.3,
                 iou_thr=0.3,
-                filter_low_score=False))
+                filter_low_score=False,
+            )
+        )
         head = MaskFormerFusionHead(
-            num_things_classes=2, num_stuff_classes=2, test_cfg=test_cfg)
+            num_things_classes=2, num_stuff_classes=2, test_cfg=test_cfg
+        )
         results = head.predict(
             mask_cls_results,
             mask_pred_results,
             batch_data_samples,
-            rescale=True)
+            rescale=True,
+        )
         for i in range(len(results)):
             self.assertEqual(results[i], dict())
 
@@ -97,12 +115,16 @@ class TestMaskFormerFusionHead(unittest.TestCase):
                 max_per_image=10,
                 object_mask_thr=0.3,
                 iou_thr=0.3,
-                filter_low_score=False))
+                filter_low_score=False,
+            )
+        )
         head = MaskFormerFusionHead(
-            num_things_classes=2, num_stuff_classes=2, test_cfg=test_cfg)
+            num_things_classes=2, num_stuff_classes=2, test_cfg=test_cfg
+        )
         with self.assertRaises(AssertionError):
             results = head.predict(
                 mask_cls_results,
                 mask_pred_results,
                 batch_data_samples,
-                rescale=True)
+                rescale=True,
+            )

@@ -8,8 +8,10 @@ import torch
 from mmengine.structures import BaseDataElement, LabelData
 
 
-def format_label(value: Union[torch.Tensor, np.ndarray, Sequence, int],
-                 num_classes: int = None) -> LabelData:
+def format_label(
+    value: Union[torch.Tensor, np.ndarray, Sequence, int],
+    num_classes: int = None,
+) -> LabelData:
     """Convert label of various python types to :obj:`mmengine.LabelData`.
 
     Supported types are: :class:`numpy.ndarray`, :class:`torch.Tensor`,
@@ -41,8 +43,10 @@ def format_label(value: Union[torch.Tensor, np.ndarray, Sequence, int],
     if num_classes is not None:
         metainfo['num_classes'] = num_classes
         if value.max() >= num_classes:
-            raise ValueError(f'The label data ({value}) should not '
-                             f'exceed num_classes ({num_classes}).')
+            raise ValueError(
+                f'The label data ({value}) should not '
+                f'exceed num_classes ({num_classes}).'
+            )
     label = LabelData(label=value, metainfo=metainfo)
     return label
 
@@ -91,15 +95,18 @@ class ReIDDataSample(BaseDataElement):
 
     def set_gt_score(self, value: torch.Tensor) -> 'ReIDDataSample':
         """Set score of ``gt_label``."""
-        assert isinstance(value, torch.Tensor), \
+        assert isinstance(value, torch.Tensor), (
             f'The value should be a torch.Tensor but got {type(value)}.'
-        assert value.ndim == 1, \
+        )
+        assert value.ndim == 1, (
             f'The dims of value should be 1, but got {value.ndim}.'
+        )
 
         if 'num_classes' in self:
-            assert value.size(0) == self.num_classes, \
-                f"The length of value ({value.size(0)}) doesn't "\
+            assert value.size(0) == self.num_classes, (
+                f"The length of value ({value.size(0)}) doesn't "
                 f'match the num_classes ({self.num_classes}).'
+            )
             metainfo = {'num_classes': self.num_classes}
         else:
             metainfo = {'num_classes': value.size(0)}

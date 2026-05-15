@@ -6,8 +6,11 @@ from torch import Tensor, nn
 
 from mmdet.registry import MODELS
 from ..layers import SinePositionalEncoding
-from ..layers.transformer import (DABDetrTransformerDecoder,
-                                  DABDetrTransformerEncoder, inverse_sigmoid)
+from ..layers.transformer import (
+    DABDetrTransformerDecoder,
+    DABDetrTransformerEncoder,
+    inverse_sigmoid,
+)
 from .detr import DETR
 
 
@@ -28,14 +31,17 @@ class DABDETR(DETR):
         num_patterns (int): Inspired by Anchor-DETR. Defaults to 0.
     """
 
-    def __init__(self,
-                 *args,
-                 with_random_refpoints: bool = False,
-                 num_patterns: int = 0,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        *args,
+        with_random_refpoints: bool = False,
+        num_patterns: int = 0,
+        **kwargs,
+    ) -> None:
         self.with_random_refpoints = with_random_refpoints
-        assert isinstance(num_patterns, int), \
+        assert isinstance(num_patterns, int), (
             f'num_patterns should be int but {num_patterns}.'
+        )
         self.num_patterns = num_patterns
 
         super().__init__(*args, **kwargs)
@@ -43,7 +49,8 @@ class DABDETR(DETR):
     def _init_layers(self) -> None:
         """Initialize layers except for backbone, neck and bbox_head."""
         self.positional_encoding = SinePositionalEncoding(
-            **self.positional_encoding)
+            **self.positional_encoding
+        )
         self.encoder = DABDetrTransformerEncoder(**self.encoder)
         self.decoder = DABDetrTransformerDecoder(**self.decoder)
         self.embed_dims = self.encoder.embed_dims
@@ -53,17 +60,19 @@ class DABDETR(DETR):
             self.patterns = nn.Embedding(self.num_patterns, self.embed_dims)
 
         num_feats = self.positional_encoding.num_feats
-        assert num_feats * 2 == self.embed_dims, \
-            f'embed_dims should be exactly 2 times of num_feats. ' \
+        assert num_feats * 2 == self.embed_dims, (
+            f'embed_dims should be exactly 2 times of num_feats. '
             f'Found {self.embed_dims} and {num_feats}.'
+        )
 
     def init_weights(self) -> None:
         """Initialize weights for Transformer and other components."""
-        super(DABDETR, self).init_weights()
+        super().init_weights()
         if self.with_random_refpoints:
             uniform_init(self.query_embedding)
-            self.query_embedding.weight.data[:, :2] = \
-                inverse_sigmoid(self.query_embedding.weight.data[:, :2])
+            self.query_embedding.weight.data[:, :2] = inverse_sigmoid(
+                self.query_embedding.weight.data[:, :2]
+            )
             self.query_embedding.weight.data[:, :2].requires_grad = False
 
     def pre_decoder(self, memory: Tensor) -> Tuple[Dict, Dict]:
@@ -90,22 +99,32 @@ class DABDETR(DETR):
         query_pos = self.query_embedding.weight
         query_pos = query_pos.unsqueeze(0).repeat(batch_size, 1, 1)
         if self.num_patterns == 0:
-            query = query_pos.new_zeros(batch_size, self.num_queries,
-                                        self.embed_dims)
+            query = query_pos.new_zeros(
+                batch_size, self.num_queries, self.embed_dims
+            )
         else:
-            query = self.patterns.weight[:, None, None, :]\
-                .repeat(1, self.num_queries, batch_size, 1)\
-                .view(-1, batch_size, self.embed_dims)\
+            query = (
+                self.patterns.weight[:, None, None, :]
+                .repeat(1, self.num_queries, batch_size, 1)
+                .view(-1, batch_size, self.embed_dims)
                 .permute(1, 0, 2)
+            )
             query_pos = query_pos.repeat(1, self.num_patterns, 1)
 
         decoder_inputs_dict = dict(
-            query_pos=query_pos, query=query, memory=memory)
+            query_pos=query_pos, query=query, memory=memory
+        )
         head_inputs_dict = dict()
         return decoder_inputs_dict, head_inputs_dict
 
-    def forward_decoder(self, query: Tensor, query_pos: Tensor, memory: Tensor,
-                        memory_mask: Tensor, memory_pos: Tensor) -> Dict:
+    def forward_decoder(
+        self,
+        query: Tensor,
+        query_pos: Tensor,
+        memory: Tensor,
+        memory_mask: Tensor,
+        memory_pos: Tensor,
+    ) -> Dict:
         """Forward with Transformer decoder.
 
         Args:
@@ -131,9 +150,9 @@ class DABDETR(DETR):
             query_pos=query_pos,
             key_pos=memory_pos,
             key_padding_mask=memory_mask,
-            reg_branches=self.bbox_head.
-            fc_reg  # iterative refinement for anchor boxes
+            reg_branches=self.bbox_head.fc_reg,  # iterative refinement for anchor boxes
         )
         head_inputs_dict = dict(
-            hidden_states=hidden_states, references=references)
+            hidden_states=hidden_states, references=references
+        )
         return head_inputs_dict

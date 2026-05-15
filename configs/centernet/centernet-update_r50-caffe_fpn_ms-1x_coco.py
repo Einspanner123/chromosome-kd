@@ -1,6 +1,7 @@
 _base_ = [
     '../_base_/datasets/coco_detection.py',
-    '../_base_/schedules/schedule_1x.py', '../_base_/default_runtime.py'
+    '../_base_/schedules/schedule_1x.py',
+    '../_base_/default_runtime.py',
 ]
 
 model = dict(
@@ -11,7 +12,8 @@ model = dict(
         mean=[103.530, 116.280, 123.675],
         std=[1.0, 1.0, 1.0],
         bgr_to_rgb=False,
-        pad_size_divisor=32),
+        pad_size_divisor=32,
+    ),
     backbone=dict(
         type='ResNet',
         depth=50,
@@ -23,7 +25,9 @@ model = dict(
         style='caffe',
         init_cfg=dict(
             type='Pretrained',
-            checkpoint='open-mmlab://detectron2/resnet50_caffe')),
+            checkpoint='open-mmlab://detectron2/resnet50_caffe',
+        ),
+    ),
     neck=dict(
         type='FPN',
         in_channels=[256, 512, 1024, 2048],
@@ -34,7 +38,8 @@ model = dict(
         # There is a chance to get 40.3 after switching init_cfg,
         # otherwise it is about 39.9~40.1
         init_cfg=dict(type='Caffe2Xavier', layer='Conv2d'),
-        relu_before_extra_convs=True),
+        relu_before_extra_convs=True,
+    ),
     bbox_head=dict(
         type='CenterNetUpdateHead',
         num_classes=80,
@@ -51,7 +56,8 @@ model = dict(
             type='GaussianFocalLoss',
             pos_weight=0.25,
             neg_weight=0.75,
-            loss_weight=1.0),
+            loss_weight=1.0,
+        ),
         loss_bbox=dict(type='GIoULoss', loss_weight=2.0),
     ),
     train_cfg=None,
@@ -60,7 +66,9 @@ model = dict(
         min_bbox_size=0,
         score_thr=0.05,
         nms=dict(type='nms', iou_threshold=0.6),
-        max_per_img=100))
+        max_per_img=100,
+    ),
+)
 
 # single-scale training is about 39.3
 train_pipeline = [
@@ -68,11 +76,18 @@ train_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True),
     dict(
         type='RandomChoiceResize',
-        scales=[(1333, 640), (1333, 672), (1333, 704), (1333, 736),
-                (1333, 768), (1333, 800)],
-        keep_ratio=True),
+        scales=[
+            (1333, 640),
+            (1333, 672),
+            (1333, 704),
+            (1333, 736),
+            (1333, 768),
+            (1333, 800),
+        ],
+        keep_ratio=True,
+    ),
     dict(type='RandomFlip', prob=0.5),
-    dict(type='PackDetInputs')
+    dict(type='PackDetInputs'),
 ]
 
 train_dataloader = dict(dataset=dict(pipeline=train_pipeline))
@@ -84,20 +99,23 @@ param_scheduler = [
         start_factor=0.00025,
         by_epoch=False,
         begin=0,
-        end=4000),
+        end=4000,
+    ),
     dict(
         type='MultiStepLR',
         begin=0,
         end=12,
         by_epoch=True,
         milestones=[8, 11],
-        gamma=0.1)
+        gamma=0.1,
+    ),
 ]
 
 optim_wrapper = dict(
     optimizer=dict(lr=0.01),
     # Experiments show that there is no need to turn on clip_grad.
-    paramwise_cfg=dict(norm_decay_mult=0.))
+    paramwise_cfg=dict(norm_decay_mult=0.0),
+)
 
 # NOTE: `auto_scale_lr` is for automatically scaling LR,
 # USER SHOULD NOT CHANGE ITS VALUES.

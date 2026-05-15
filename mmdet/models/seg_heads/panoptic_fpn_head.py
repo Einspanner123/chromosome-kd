@@ -43,26 +43,30 @@ class PanopticFPNHead(BaseSemanticHead):
         loss_seg (Union[ConfigDict, dict]): the loss of the semantic head.
     """
 
-    def __init__(self,
-                 num_things_classes: int = 80,
-                 num_stuff_classes: int = 53,
-                 in_channels: int = 256,
-                 inner_channels: int = 128,
-                 start_level: int = 0,
-                 end_level: int = 4,
-                 conv_cfg: OptConfigType = None,
-                 norm_cfg: ConfigType = dict(
-                     type='GN', num_groups=32, requires_grad=True),
-                 loss_seg: ConfigType = dict(
-                     type='CrossEntropyLoss', ignore_index=-1,
-                     loss_weight=1.0),
-                 init_cfg: OptMultiConfig = None) -> None:
-        seg_rescale_factor = 1 / 2**(start_level + 2)
+    def __init__(
+        self,
+        num_things_classes: int = 80,
+        num_stuff_classes: int = 53,
+        in_channels: int = 256,
+        inner_channels: int = 128,
+        start_level: int = 0,
+        end_level: int = 4,
+        conv_cfg: OptConfigType = None,
+        norm_cfg: ConfigType = dict(
+            type='GN', num_groups=32, requires_grad=True
+        ),
+        loss_seg: ConfigType = dict(
+            type='CrossEntropyLoss', ignore_index=-1, loss_weight=1.0
+        ),
+        init_cfg: OptMultiConfig = None,
+    ) -> None:
+        seg_rescale_factor = 1 / 2 ** (start_level + 2)
         super().__init__(
             num_classes=num_stuff_classes + 1,
             seg_rescale_factor=seg_rescale_factor,
             loss_seg=loss_seg,
-            init_cfg=init_cfg)
+            init_cfg=init_cfg,
+        )
         self.num_things_classes = num_things_classes
         self.num_stuff_classes = num_stuff_classes
         # Used feature layers are [start_level, end_level)
@@ -81,7 +85,8 @@ class PanopticFPNHead(BaseSemanticHead):
                     num_upsample=i if i > 0 else 0,
                     conv_cfg=conv_cfg,
                     norm_cfg=norm_cfg,
-                ))
+                )
+            )
         self.conv_logits = nn.Conv2d(inner_channels, self.num_classes, 1)
 
     def _set_things_to_void(self, gt_semantic_seg: Tensor) -> Tensor:
@@ -94,19 +99,21 @@ class PanopticFPNHead(BaseSemanticHead):
         gt_semantic_seg = gt_semantic_seg.int()
         fg_mask = gt_semantic_seg < self.num_things_classes
         bg_mask = (gt_semantic_seg >= self.num_things_classes) * (
-            gt_semantic_seg < self.num_things_classes + self.num_stuff_classes)
+            gt_semantic_seg < self.num_things_classes + self.num_stuff_classes
+        )
 
         new_gt_seg = torch.clone(gt_semantic_seg)
-        new_gt_seg = torch.where(bg_mask,
-                                 gt_semantic_seg - self.num_things_classes,
-                                 new_gt_seg)
-        new_gt_seg = torch.where(fg_mask,
-                                 fg_mask.int() * self.num_stuff_classes,
-                                 new_gt_seg)
+        new_gt_seg = torch.where(
+            bg_mask, gt_semantic_seg - self.num_things_classes, new_gt_seg
+        )
+        new_gt_seg = torch.where(
+            fg_mask, fg_mask.int() * self.num_stuff_classes, new_gt_seg
+        )
         return new_gt_seg
 
-    def loss(self, x: Union[Tensor, Tuple[Tensor]],
-             batch_data_samples: SampleList) -> Dict[str, Tensor]:
+    def loss(
+        self, x: Union[Tensor, Tuple[Tensor]], batch_data_samples: SampleList
+    ) -> Dict[str, Tensor]:
         """
         Args:
             x (Union[Tensor, Tuple[Tensor]]): Feature maps.
@@ -128,7 +135,8 @@ class PanopticFPNHead(BaseSemanticHead):
             gt_semantic_segs = F.interpolate(
                 gt_semantic_segs.float(),
                 scale_factor=self.seg_rescale_factor,
-                mode='nearest').squeeze(1)
+                mode='nearest',
+            ).squeeze(1)
 
         # Things classes will be merged to one class in PanopticFPN.
         gt_semantic_segs = self._set_things_to_void(gt_semantic_segs)
@@ -139,7 +147,8 @@ class PanopticFPNHead(BaseSemanticHead):
 
         loss_seg = self.loss_seg(
             seg_preds.reshape(-1, self.num_classes),  # => [NxHxW, C]
-            gt_semantic_segs.reshape(-1).long())
+            gt_semantic_segs.reshape(-1).long(),
+        )
 
         return dict(loss_seg=loss_seg)
 

@@ -9,7 +9,6 @@ from mmdet.utils import register_all_modules
 
 
 class TestByteTracker(TestCase):
-
     @classmethod
     def setUpClass(cls):
         register_all_modules(init_default_scope=True)
@@ -23,7 +22,8 @@ class TestByteTracker(TestCase):
             num_tentatives=3,
             vel_consist_weight=0.2,
             vel_delta_t=3,
-            num_frames_retain=30)
+            num_frames_retain=30,
+        )
         cls.tracker = MODELS.build(cfg)
         cls.tracker.kf = TASK_UTILS.build(dict(type='KalmanFilter'))
         cls.num_frames_retain = cfg['num_frames_retain']
@@ -37,15 +37,18 @@ class TestByteTracker(TestCase):
             video_len = len(track_data_sample)
             for frame_id in range(video_len):
                 img_data_sample = track_data_sample[frame_id]
-                img_data_sample.pred_instances = \
+                img_data_sample.pred_instances = (
                     img_data_sample.gt_instances.clone()
+                )
                 # add fake scores
                 scores = torch.ones(len(img_data_sample.gt_instances.bboxes))
                 img_data_sample.pred_instances.scores = torch.FloatTensor(
-                    scores)
+                    scores
+                )
 
                 pred_track_instances = self.tracker.track(
-                    data_sample=img_data_sample)
+                    data_sample=img_data_sample
+                )
 
                 bboxes = pred_track_instances.bboxes
                 labels = pred_track_instances.labels

@@ -12,7 +12,6 @@ from mmdet.models.roi_heads.mask_heads import FusedSemanticHead
 
 
 class TestNumClassCheckHook(TestCase):
-
     def setUp(self):
         # Setup NumClassCheckHook
         hook = NumClassCheckHook()
@@ -30,13 +29,16 @@ class TestNumClassCheckHook(TestCase):
         # Setup dataset
         metainfo = dict(classes=None)
         self.none_classmeta_dataset = BaseDataset(
-            metainfo=metainfo, lazy_init=True)
+            metainfo=metainfo, lazy_init=True
+        )
         metainfo = dict(classes='class_name')
         self.str_classmeta_dataset = BaseDataset(
-            metainfo=metainfo, lazy_init=True)
+            metainfo=metainfo, lazy_init=True
+        )
         metainfo = dict(classes=('bus', 'car'))
         self.normal_classmeta_dataset = BaseDataset(
-            metainfo=metainfo, lazy_init=True)
+            metainfo=metainfo, lazy_init=True
+        )
 
         # Setup valid model
         valid_model = nn.Module()
@@ -46,7 +48,8 @@ class TestNumClassCheckHook(TestCase):
             fusion_level=0,
             num_convs=1,
             in_channels=1,
-            conv_out_channels=1)
+            conv_out_channels=1,
+        )
         valid_model.add_module('semantic_head', fused_semantic_head)
         rpn_head = nn.Module()
         rpn_head.num_classes = 1

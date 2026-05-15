@@ -12,7 +12,7 @@ from mmengine.fileio import get
 def _parse_label_file(label_file):
     index_list = []
     classes_names = []
-    with open(label_file, 'r') as f:
+    with open(label_file) as f:
         reader = csv.reader(f)
         for line in reader:
             classes_names.append(line[1])
@@ -45,13 +45,14 @@ def oi2odvg(args):
         output = osp.join(args.input_dir, 'openimages_label_map.json')
     else:
         output = osp.join(
-            osp.dirname(args.out_ann), 'openimages_label_map.json')
+            osp.dirname(args.out_ann), 'openimages_label_map.json'
+        )
     with open(output, 'w') as f:
         json.dump(label_map, f)
 
     metas = []
     skip_count = 0
-    with open(ann_file, 'r') as f:
+    with open(ann_file) as f:
         reader = csv.reader(f)
         last_img_id = None
         _filename_shape = [0, 0]
@@ -71,7 +72,7 @@ def oi2odvg(args):
                 float(line[4]),  # xmin
                 float(line[6]),  # ymin
                 float(line[5]),  # xmax
-                float(line[7])  # ymax
+                float(line[7]),  # ymax
             ]
 
             # is_occluded = True if int(line[8]) == 1 else False
@@ -91,7 +92,8 @@ def oi2odvg(args):
             if filename != _filename_shape[0]:
                 if args.img_prefix is not None:
                     _filename = osp.join(
-                        osp.dirname(args.input_dir), args.img_prefix, filename)
+                        osp.dirname(args.input_dir), args.img_prefix, filename
+                    )
                 else:
                     _filename = osp.join(osp.dirname(args.input_dir), filename)
                 img_bytes = get(_filename, backend_args)
@@ -106,7 +108,7 @@ def oi2odvg(args):
                 max(bbox[0] * w, 0),
                 max(bbox[1] * h, 0),
                 min(bbox[2] * w, w),
-                min(bbox[3] * h, h)
+                min(bbox[3] * h, h),
             ]
 
             x1, y1, x2, y2 = bbox
@@ -123,7 +125,7 @@ def oi2odvg(args):
                 'width': w,
                 'bbox': bbox,
                 'label': label,
-                'category': category
+                'category': category,
             }
 
             if img_id != last_img_id:
@@ -137,9 +139,7 @@ def oi2odvg(args):
                     'filename': _filename,
                     'height': _h,
                     'width': _w,
-                    'detection': {
-                        'instances': copy_instances
-                    }
+                    'detection': {'instances': copy_instances},
                 }
                 metas.append(meta_ifo)
                 instances = []
@@ -154,9 +154,7 @@ def oi2odvg(args):
             'filename': _filename,
             'height': _h,
             'width': _w,
-            'detection': {
-                'instances': instances
-            }
+            'detection': {'instances': instances},
         }
         metas.append(meta_ifo)
 
@@ -168,18 +166,20 @@ def oi2odvg(args):
     with jsonlines.open(out_path, mode='w') as writer:
         writer.write_all(metas)
 
-    print('skip {} instances'.format(skip_count))
-    print('save to {}'.format(out_path))
+    print(f'skip {skip_count} instances')
+    print(f'save to {out_path}')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        'openimages to odvg format.', add_help=True)
+        'openimages to odvg format.', add_help=True
+    )
     parser.add_argument(
         '--input-dir',
         default='data/OpenImages/annotations',
         type=str,
-        help='input list name')
+        help='input list name',
+    )
     parser.add_argument('--img-prefix', default='OpenImages/train/')
     parser.add_argument('--out-ann', '-o', type=str)
     args = parser.parse_args()

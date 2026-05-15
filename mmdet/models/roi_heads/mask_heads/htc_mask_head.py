@@ -26,13 +26,16 @@ class HTCMaskHead(FCNMaskHead):
                 self.conv_out_channels,
                 1,
                 conv_cfg=self.conv_cfg,
-                norm_cfg=self.norm_cfg)
+                norm_cfg=self.norm_cfg,
+            )
 
-    def forward(self,
-                x: Tensor,
-                res_feat: Optional[Tensor] = None,
-                return_logits: bool = True,
-                return_feat: bool = True) -> Union[Tensor, List[Tensor]]:
+    def forward(
+        self,
+        x: Tensor,
+        res_feat: Optional[Tensor] = None,
+        return_logits: bool = True,
+        return_feat: bool = True,
+    ) -> Union[Tensor, List[Tensor]]:
         """
         Args:
             x (Tensor): Feature map.

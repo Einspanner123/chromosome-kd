@@ -38,7 +38,8 @@ class CopyProjectHook(Hook):
         abs_src_path = os.path.abspath(self.src_path)
 
         runner.logger.info(
-            f'Backing up project code from {abs_src_path} to {dst_path}...')
+            f'Backing up project code from {abs_src_path} to {dst_path}...'
+        )
 
         if os.path.exists(dst_path):
             shutil.rmtree(dst_path)
@@ -48,9 +49,10 @@ class CopyProjectHook(Hook):
             shutil.copytree(
                 abs_src_path,
                 dst_path,
-                ignore=shutil.ignore_patterns('__pycache__', '*.pyc',
-                                              'work_dirs', 'data'),
+                ignore=shutil.ignore_patterns(
+                    '__pycache__', '*.pyc', 'work_dirs', 'data'
+                ),
             )
             runner.logger.info('Project code backup completed.')
         except Exception as e:
-            runner.logger.error(f'Failed to backup project code: {str(e)}')
+            runner.logger.error(f'Failed to backup project code: {e!s}')

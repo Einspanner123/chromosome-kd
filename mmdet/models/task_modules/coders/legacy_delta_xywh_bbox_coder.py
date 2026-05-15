@@ -34,16 +34,21 @@ class LegacyDeltaXYWHBBoxCoder(BaseBBoxCoder):
             target for delta coordinates
     """
 
-    def __init__(self,
-                 target_means: Sequence[float] = (0., 0., 0., 0.),
-                 target_stds: Sequence[float] = (1., 1., 1., 1.),
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        target_means: Sequence[float] = (0.0, 0.0, 0.0, 0.0),
+        target_stds: Sequence[float] = (1.0, 1.0, 1.0, 1.0),
+        **kwargs,
+    ) -> None:
         super().__init__(**kwargs)
         self.means = target_means
         self.stds = target_stds
 
-    def encode(self, bboxes: Union[Tensor, BaseBoxes],
-               gt_bboxes: Union[Tensor, BaseBoxes]) -> Tensor:
+    def encode(
+        self,
+        bboxes: Union[Tensor, BaseBoxes],
+        gt_bboxes: Union[Tensor, BaseBoxes],
+    ) -> Tensor:
         """Get box regression transformation deltas that can be used to
         transform the ``bboxes`` into the ``gt_bboxes``.
 
@@ -60,17 +65,19 @@ class LegacyDeltaXYWHBBoxCoder(BaseBBoxCoder):
         gt_bboxes = get_box_tensor(gt_bboxes)
         assert bboxes.size(0) == gt_bboxes.size(0)
         assert bboxes.size(-1) == gt_bboxes.size(-1) == 4
-        encoded_bboxes = legacy_bbox2delta(bboxes, gt_bboxes, self.means,
-                                           self.stds)
+        encoded_bboxes = legacy_bbox2delta(
+            bboxes, gt_bboxes, self.means, self.stds
+        )
         return encoded_bboxes
 
     def decode(
         self,
         bboxes: Union[Tensor, BaseBoxes],
         pred_bboxes: Tensor,
-        max_shape: Optional[Union[Sequence[int], Tensor,
-                                  Sequence[Sequence[int]]]] = None,
-        wh_ratio_clip: Optional[float] = 16 / 1000
+        max_shape: Optional[
+            Union[Sequence[int], Tensor, Sequence[Sequence[int]]]
+        ] = None,
+        wh_ratio_clip: Optional[float] = 16 / 1000,
     ) -> Union[Tensor, BaseBoxes]:
         """Apply transformation `pred_bboxes` to `boxes`.
 
@@ -87,13 +94,20 @@ class LegacyDeltaXYWHBBoxCoder(BaseBBoxCoder):
         """
         bboxes = get_box_tensor(bboxes)
         assert pred_bboxes.size(0) == bboxes.size(0)
-        decoded_bboxes = legacy_delta2bbox(bboxes, pred_bboxes, self.means,
-                                           self.stds, max_shape, wh_ratio_clip)
+        decoded_bboxes = legacy_delta2bbox(
+            bboxes,
+            pred_bboxes,
+            self.means,
+            self.stds,
+            max_shape,
+            wh_ratio_clip,
+        )
 
         if self.use_box_type:
-            assert decoded_bboxes.size(-1) == 4, \
-                ('Cannot warp decoded boxes with box type when decoded boxes'
-                 'have shape of (N, num_classes * 4)')
+            assert decoded_bboxes.size(-1) == 4, (
+                'Cannot warp decoded boxes with box type when decoded boxes'
+                'have shape of (N, num_classes * 4)'
+            )
             decoded_bboxes = HorizontalBoxes(decoded_bboxes)
         return decoded_bboxes
 
@@ -101,8 +115,8 @@ class LegacyDeltaXYWHBBoxCoder(BaseBBoxCoder):
 def legacy_bbox2delta(
     proposals: Tensor,
     gt: Tensor,
-    means: Sequence[float] = (0., 0., 0., 0.),
-    stds: Sequence[float] = (1., 1., 1., 1.)
+    means: Sequence[float] = (0.0, 0.0, 0.0, 0.0),
+    stds: Sequence[float] = (1.0, 1.0, 1.0, 1.0),
 ) -> Tensor:
     """Compute deltas of proposals w.r.t. gt in the MMDet V1.x manner.
 
@@ -148,14 +162,16 @@ def legacy_bbox2delta(
     return deltas
 
 
-def legacy_delta2bbox(rois: Tensor,
-                      deltas: Tensor,
-                      means: Sequence[float] = (0., 0., 0., 0.),
-                      stds: Sequence[float] = (1., 1., 1., 1.),
-                      max_shape: Optional[
-                          Union[Sequence[int], Tensor,
-                                Sequence[Sequence[int]]]] = None,
-                      wh_ratio_clip: float = 16 / 1000) -> Tensor:
+def legacy_delta2bbox(
+    rois: Tensor,
+    deltas: Tensor,
+    means: Sequence[float] = (0.0, 0.0, 0.0, 0.0),
+    stds: Sequence[float] = (1.0, 1.0, 1.0, 1.0),
+    max_shape: Optional[
+        Union[Sequence[int], Tensor, Sequence[Sequence[int]]]
+    ] = None,
+    wh_ratio_clip: float = 16 / 1000,
+) -> Tensor:
     """Apply deltas to shift/scale base boxes in the MMDet V1.x manner.
 
     Typically the rois are anchor or proposed bounding boxes and the deltas are

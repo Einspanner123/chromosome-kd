@@ -19,10 +19,12 @@ class CameraMotionCompensation:
         stop_eps (float): Terminate threshold. Defaults to 0.001.
     """
 
-    def __init__(self,
-                 warp_mode: str = 'cv2.MOTION_EUCLIDEAN',
-                 num_iters: int = 50,
-                 stop_eps: float = 0.001):
+    def __init__(
+        self,
+        warp_mode: str = 'cv2.MOTION_EUCLIDEAN',
+        num_iters: int = 50,
+        stop_eps: float = 0.001,
+    ):
         self.warp_mode = eval(warp_mode)
         self.num_iters = num_iters
         self.stop_eps = stop_eps
@@ -33,21 +35,26 @@ class CameraMotionCompensation:
         ref_img = cv2.cvtColor(ref_img, cv2.COLOR_BGR2GRAY)
 
         warp_matrix = np.eye(2, 3, dtype=np.float32)
-        criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
-                    self.num_iters, self.stop_eps)
-        cc, warp_matrix = cv2.findTransformECC(img, ref_img, warp_matrix,
-                                               self.warp_mode, criteria, None,
-                                               1)
+        criteria = (
+            cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
+            self.num_iters,
+            self.stop_eps,
+        )
+        cc, warp_matrix = cv2.findTransformECC(
+            img, ref_img, warp_matrix, self.warp_mode, criteria, None, 1
+        )
         warp_matrix = torch.from_numpy(warp_matrix)
         return warp_matrix
 
     def warp_bboxes(self, bboxes: Tensor, warp_matrix: Tensor) -> Tensor:
         """Warp bounding boxes according to the warping matrix."""
         tl, br = bboxes[:, :2], bboxes[:, 2:]
-        tl = torch.cat((tl, torch.ones(tl.shape[0], 1).to(bboxes.device)),
-                       dim=1)
-        br = torch.cat((br, torch.ones(tl.shape[0], 1).to(bboxes.device)),
-                       dim=1)
+        tl = torch.cat(
+            (tl, torch.ones(tl.shape[0], 1).to(bboxes.device)), dim=1
+        )
+        br = torch.cat(
+            (br, torch.ones(tl.shape[0], 1).to(bboxes.device)), dim=1
+        )
         trans_tl = torch.mm(warp_matrix, tl.t()).t()
         trans_br = torch.mm(warp_matrix, br.t()).t()
         trans_bboxes = torch.cat((trans_tl, trans_br), dim=1)
@@ -62,8 +69,15 @@ class CameraMotionCompensation:
         means[:, :4] = warped_cxcyah
         return means
 
-    def track(self, img: Tensor, ref_img: Tensor, tracks: dict,
-              num_samples: int, frame_id: int, metainfo: dict) -> dict:
+    def track(
+        self,
+        img: Tensor,
+        ref_img: Tensor,
+        tracks: dict,
+        num_samples: int,
+        frame_id: int,
+        metainfo: dict,
+    ) -> dict:
         """Tracking forward."""
         img = img.squeeze(0).cpu().numpy().transpose((1, 2, 0))
         ref_img = ref_img.squeeze(0).cpu().numpy().transpose((1, 2, 0))

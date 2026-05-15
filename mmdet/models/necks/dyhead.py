@@ -28,16 +28,19 @@ class DyDCNv2(nn.Module):
             Default: dict(type='GN', num_groups=16, requires_grad=True).
     """
 
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 stride=1,
-                 norm_cfg=dict(type='GN', num_groups=16, requires_grad=True)):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        stride=1,
+        norm_cfg=dict(type='GN', num_groups=16, requires_grad=True),
+    ):
         super().__init__()
         self.with_norm = norm_cfg is not None
         bias = not self.with_norm
         self.conv = ModulatedDeformConv2d(
-            in_channels, out_channels, 3, stride=stride, padding=1, bias=bias)
+            in_channels, out_channels, 3, stride=stride, padding=1, bias=bias
+        )
         if self.with_norm:
             self.norm = build_norm_layer(norm_cfg, out_channels)[1]
 
@@ -65,11 +68,13 @@ class DyHeadBlock(nn.Module):
             divisor=6.0).
     """
 
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 zero_init_offset=True,
-                 act_cfg=dict(type='HSigmoid', bias=3.0, divisor=6.0)):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        zero_init_offset=True,
+        act_cfg=dict(type='HSigmoid', bias=3.0, divisor=6.0),
+    ):
         super().__init__()
         self.zero_init_offset = zero_init_offset
         # (offset_x, offset_y, mask) * kernel_size_y * kernel_size_x
@@ -80,10 +85,14 @@ class DyHeadBlock(nn.Module):
         self.spatial_conv_mid = DyDCNv2(in_channels, out_channels)
         self.spatial_conv_low = DyDCNv2(in_channels, out_channels, stride=2)
         self.spatial_conv_offset = nn.Conv2d(
-            in_channels, self.offset_and_mask_dim, 3, padding=1)
+            in_channels, self.offset_and_mask_dim, 3, padding=1
+        )
         self.scale_attn_module = nn.Sequential(
-            nn.AdaptiveAvgPool2d(1), nn.Conv2d(out_channels, 1, 1),
-            nn.ReLU(inplace=True), build_activation_layer(act_cfg))
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(out_channels, 1, 1),
+            nn.ReLU(inplace=True),
+            build_activation_layer(act_cfg),
+        )
         self.task_attn_module = DyReLU(out_channels)
         self._init_weights()
 
@@ -100,8 +109,8 @@ class DyHeadBlock(nn.Module):
         for level in range(len(x)):
             # calculate offset and mask of DCNv2 from middle-level feature
             offset_and_mask = self.spatial_conv_offset(x[level])
-            offset = offset_and_mask[:, :self.offset_dim, :, :]
-            mask = offset_and_mask[:, self.offset_dim:, :, :].sigmoid()
+            offset = offset_and_mask[:, : self.offset_dim, :, :]
+            mask = offset_and_mask[:, self.offset_dim :, :, :].sigmoid()
 
             mid_feat = self.spatial_conv_mid(x[level], offset, mask)
             sum_feat = mid_feat * self.scale_attn_module(mid_feat)
@@ -117,7 +126,8 @@ class DyHeadBlock(nn.Module):
                     self.spatial_conv_high(x[level + 1], offset, mask),
                     size=x[level].shape[-2:],
                     mode='bilinear',
-                    align_corners=True)
+                    align_corners=True,
+                )
                 sum_feat += high_feat * self.scale_attn_module(high_feat)
                 summed_levels += 1
             outs.append(self.task_attn_module(sum_feat / summed_levels))
@@ -142,14 +152,18 @@ class DyHead(BaseModule):
             Default: None.
     """
 
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 num_blocks=6,
-                 zero_init_offset=True,
-                 init_cfg=None):
-        assert init_cfg is None, 'To prevent abnormal initialization ' \
-                                 'behavior, init_cfg is not allowed to be set'
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        num_blocks=6,
+        zero_init_offset=True,
+        init_cfg=None,
+    ):
+        assert init_cfg is None, (
+            'To prevent abnormal initialization '
+            'behavior, init_cfg is not allowed to be set'
+        )
         super().__init__(init_cfg=init_cfg)
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -163,7 +177,9 @@ class DyHead(BaseModule):
                 DyHeadBlock(
                     in_channels,
                     self.out_channels,
-                    zero_init_offset=zero_init_offset))
+                    zero_init_offset=zero_init_offset,
+                )
+            )
         self.dyhead_blocks = nn.Sequential(*dyhead_blocks)
 
     def forward(self, inputs):

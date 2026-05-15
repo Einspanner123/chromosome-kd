@@ -27,10 +27,12 @@ def reduce_loss(loss: Tensor, reduction: str) -> Tensor:
         return loss.sum()
 
 
-def weight_reduce_loss(loss: Tensor,
-                       weight: Optional[Tensor] = None,
-                       reduction: str = 'mean',
-                       avg_factor: Optional[float] = None) -> Tensor:
+def weight_reduce_loss(
+    loss: Tensor,
+    weight: Optional[Tensor] = None,
+    reduction: str = 'mean',
+    avg_factor: Optional[float] = None,
+) -> Tensor:
     """Apply element-wise weight and reduce loss.
 
     Args:
@@ -97,12 +99,14 @@ def weighted_loss(loss_func: Callable) -> Callable:
     """
 
     @functools.wraps(loss_func)
-    def wrapper(pred: Tensor,
-                target: Tensor,
-                weight: Optional[Tensor] = None,
-                reduction: str = 'mean',
-                avg_factor: Optional[int] = None,
-                **kwargs) -> Tensor:
+    def wrapper(
+        pred: Tensor,
+        target: Tensor,
+        weight: Optional[Tensor] = None,
+        reduction: str = 'mean',
+        avg_factor: Optional[int] = None,
+        **kwargs,
+    ) -> Tensor:
         """
         Args:
             pred (Tensor): The prediction.

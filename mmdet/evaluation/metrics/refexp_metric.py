@@ -15,12 +15,14 @@ from ..functional import bbox_overlaps
 class RefExpMetric(BaseMetric):
     default_prefix: Optional[str] = 'refexp'
 
-    def __init__(self,
-                 ann_file: Optional[str] = None,
-                 metric: str = 'bbox',
-                 topk=(1, 5, 10),
-                 iou_thrs: float = 0.5,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        ann_file: Optional[str] = None,
+        metric: str = 'bbox',
+        topk=(1, 5, 10),
+        iou_thrs: float = 0.5,
+        **kwargs,
+    ) -> None:
         super().__init__(**kwargs)
         self.metric = metric
         self.topk = topk
@@ -42,12 +44,9 @@ class RefExpMetric(BaseMetric):
         logger: MMLogger = MMLogger.get_current_instance()
 
         dataset2score = {
-            'refcoco': {k: 0.0
-                        for k in self.topk},
-            'refcoco+': {k: 0.0
-                         for k in self.topk},
-            'refcocog': {k: 0.0
-                         for k in self.topk},
+            'refcoco': dict.fromkeys(self.topk, 0.0),
+            'refcoco+': dict.fromkeys(self.topk, 0.0),
+            'refcocog': dict.fromkeys(self.topk, 0.0),
         }
         dataset2count = {'refcoco': 0.0, 'refcoco+': 0.0, 'refcocog': 0.0}
 
@@ -66,8 +65,9 @@ class RefExpMetric(BaseMetric):
                 target_bbox[2] + target_bbox[0],
                 target_bbox[3] + target_bbox[1],
             ]
-            iou = bbox_overlaps(result['bboxes'],
-                                np.array(converted_bbox).reshape(-1, 4))
+            iou = bbox_overlaps(
+                result['bboxes'], np.array(converted_bbox).reshape(-1, 4)
+            )
             for k in self.topk:
                 if max(iou[:k]) >= self.iou_thrs:
                     dataset2score[img_info['dataset_name']][k] += 1.0
@@ -86,7 +86,8 @@ class RefExpMetric(BaseMetric):
             results[key] = sorted([v for k, v in value.items()])
             mean_precision += sum(results[key])
             logger.info(
-                f' Dataset: {key} - Precision @ 1, 5, 10: {results[key]}')
+                f' Dataset: {key} - Precision @ 1, 5, 10: {results[key]}'
+            )
 
         # `mean_precision` key is used for saving the best checkpoint
         out_results = {'mean_precision': mean_precision / 9.0}

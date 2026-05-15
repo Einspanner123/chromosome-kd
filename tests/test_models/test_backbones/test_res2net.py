@@ -18,7 +18,8 @@ def test_res2net_bottle2neck():
 
     # Test Res2Net Bottle2neck structure
     block = Bottle2neck(
-        64, 64, base_width=26, stride=2, scales=4, style='pytorch')
+        64, 64, base_width=26, stride=2, scales=4, style='pytorch'
+    )
     assert block.scales == 4
 
     # Test Res2Net Bottle2neck with DCN
@@ -31,7 +32,8 @@ def test_res2net_bottle2neck():
             base_width=26,
             scales=4,
             dcn=dcn,
-            conv_cfg=dict(type='Conv'))
+            conv_cfg=dict(type='Conv'),
+        )
     Bottle2neck(64, 64, dcn=dcn)
 
     # Test Res2Net Bottle2neck forward

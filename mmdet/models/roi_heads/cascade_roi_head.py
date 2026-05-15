@@ -12,8 +12,13 @@ from mmdet.models.test_time_augs import merge_aug_masks
 from mmdet.registry import MODELS, TASK_UTILS
 from mmdet.structures import SampleList
 from mmdet.structures.bbox import bbox2roi, get_box_tensor
-from mmdet.utils import (ConfigType, InstanceList, MultiConfig, OptConfigType,
-                         OptMultiConfig)
+from mmdet.utils import (
+    ConfigType,
+    InstanceList,
+    MultiConfig,
+    OptConfigType,
+    OptMultiConfig,
+)
 from ..utils.misc import empty_instances, unpack_gt_instances
 from .base_roi_head import BaseRoIHead
 
@@ -25,21 +30,24 @@ class CascadeRoIHead(BaseRoIHead):
     https://arxiv.org/abs/1712.00726
     """
 
-    def __init__(self,
-                 num_stages: int,
-                 stage_loss_weights: Union[List[float], Tuple[float]],
-                 bbox_roi_extractor: OptMultiConfig = None,
-                 bbox_head: OptMultiConfig = None,
-                 mask_roi_extractor: OptMultiConfig = None,
-                 mask_head: OptMultiConfig = None,
-                 shared_head: OptConfigType = None,
-                 train_cfg: OptConfigType = None,
-                 test_cfg: OptConfigType = None,
-                 init_cfg: OptMultiConfig = None) -> None:
+    def __init__(
+        self,
+        num_stages: int,
+        stage_loss_weights: Union[List[float], Tuple[float]],
+        bbox_roi_extractor: OptMultiConfig = None,
+        bbox_head: OptMultiConfig = None,
+        mask_roi_extractor: OptMultiConfig = None,
+        mask_head: OptMultiConfig = None,
+        shared_head: OptConfigType = None,
+        train_cfg: OptConfigType = None,
+        test_cfg: OptConfigType = None,
+        init_cfg: OptMultiConfig = None,
+    ) -> None:
         assert bbox_roi_extractor is not None
         assert bbox_head is not None
-        assert shared_head is None, \
+        assert shared_head is None, (
             'Shared head is not supported in Cascade RCNN anymore'
+        )
 
         self.num_stages = num_stages
         self.stage_loss_weights = stage_loss_weights
@@ -51,10 +59,12 @@ class CascadeRoIHead(BaseRoIHead):
             shared_head=shared_head,
             train_cfg=train_cfg,
             test_cfg=test_cfg,
-            init_cfg=init_cfg)
+            init_cfg=init_cfg,
+        )
 
-    def init_bbox_head(self, bbox_roi_extractor: MultiConfig,
-                       bbox_head: MultiConfig) -> None:
+    def init_bbox_head(
+        self, bbox_roi_extractor: MultiConfig, bbox_head: MultiConfig
+    ) -> None:
         """Initialize box head and box roi extractor.
 
         Args:
@@ -76,8 +86,9 @@ class CascadeRoIHead(BaseRoIHead):
             self.bbox_roi_extractor.append(MODELS.build(roi_extractor))
             self.bbox_head.append(MODELS.build(head))
 
-    def init_mask_head(self, mask_roi_extractor: MultiConfig,
-                       mask_head: MultiConfig) -> None:
+    def init_mask_head(
+        self, mask_roi_extractor: MultiConfig, mask_head: MultiConfig
+    ) -> None:
         """Initialize mask head and mask roi extractor.
 
         Args:
@@ -112,15 +123,18 @@ class CascadeRoIHead(BaseRoIHead):
         if self.train_cfg is not None:
             for idx, rcnn_train_cfg in enumerate(self.train_cfg):
                 self.bbox_assigner.append(
-                    TASK_UTILS.build(rcnn_train_cfg.assigner))
+                    TASK_UTILS.build(rcnn_train_cfg.assigner)
+                )
                 self.current_stage = idx
                 self.bbox_sampler.append(
                     TASK_UTILS.build(
-                        rcnn_train_cfg.sampler,
-                        default_args=dict(context=self)))
+                        rcnn_train_cfg.sampler, default_args=dict(context=self)
+                    )
+                )
 
-    def _bbox_forward(self, stage: int, x: Tuple[Tensor],
-                      rois: Tensor) -> dict:
+    def _bbox_forward(
+        self, stage: int, x: Tuple[Tensor], rois: Tensor
+    ) -> dict:
         """Box head forward function used in both training and testing.
 
         Args:
@@ -138,17 +152,23 @@ class CascadeRoIHead(BaseRoIHead):
         """
         bbox_roi_extractor = self.bbox_roi_extractor[stage]
         bbox_head = self.bbox_head[stage]
-        bbox_feats = bbox_roi_extractor(x[:bbox_roi_extractor.num_inputs],
-                                        rois)
+        bbox_feats = bbox_roi_extractor(
+            x[: bbox_roi_extractor.num_inputs], rois
+        )
         # do not support caffe_c4 model anymore
         cls_score, bbox_pred = bbox_head(bbox_feats)
 
         bbox_results = dict(
-            cls_score=cls_score, bbox_pred=bbox_pred, bbox_feats=bbox_feats)
+            cls_score=cls_score, bbox_pred=bbox_pred, bbox_feats=bbox_feats
+        )
         return bbox_results
 
-    def bbox_loss(self, stage: int, x: Tuple[Tensor],
-                  sampling_results: List[SamplingResult]) -> dict:
+    def bbox_loss(
+        self,
+        stage: int,
+        x: Tuple[Tensor],
+        sampling_results: List[SamplingResult],
+    ) -> dict:
         """Run forward function and calculate loss for box head in training.
 
         Args:
@@ -179,13 +199,15 @@ class CascadeRoIHead(BaseRoIHead):
             bbox_pred=bbox_results['bbox_pred'],
             rois=rois,
             sampling_results=sampling_results,
-            rcnn_train_cfg=self.train_cfg[stage])
+            rcnn_train_cfg=self.train_cfg[stage],
+        )
         bbox_results.update(bbox_loss_and_target)
 
         return bbox_results
 
-    def _mask_forward(self, stage: int, x: Tuple[Tensor],
-                      rois: Tensor) -> dict:
+    def _mask_forward(
+        self, stage: int, x: Tuple[Tensor], rois: Tensor
+    ) -> dict:
         """Mask head forward function used in both training and testing.
 
         Args:
@@ -201,17 +223,22 @@ class CascadeRoIHead(BaseRoIHead):
         """
         mask_roi_extractor = self.mask_roi_extractor[stage]
         mask_head = self.mask_head[stage]
-        mask_feats = mask_roi_extractor(x[:mask_roi_extractor.num_inputs],
-                                        rois)
+        mask_feats = mask_roi_extractor(
+            x[: mask_roi_extractor.num_inputs], rois
+        )
         # do not support caffe_c4 model anymore
         mask_preds = mask_head(mask_feats)
 
         mask_results = dict(mask_preds=mask_preds)
         return mask_results
 
-    def mask_loss(self, stage: int, x: Tuple[Tensor],
-                  sampling_results: List[SamplingResult],
-                  batch_gt_instances: InstanceList) -> dict:
+    def mask_loss(
+        self,
+        stage: int,
+        x: Tuple[Tensor],
+        sampling_results: List[SamplingResult],
+        batch_gt_instances: InstanceList,
+    ) -> dict:
         """Run forward function and calculate loss for mask head in training.
 
         Args:
@@ -237,13 +264,18 @@ class CascadeRoIHead(BaseRoIHead):
             mask_preds=mask_results['mask_preds'],
             sampling_results=sampling_results,
             batch_gt_instances=batch_gt_instances,
-            rcnn_train_cfg=self.train_cfg[stage])
+            rcnn_train_cfg=self.train_cfg[stage],
+        )
         mask_results.update(mask_loss_and_target)
 
         return mask_results
 
-    def loss(self, x: Tuple[Tensor], rpn_results_list: InstanceList,
-             batch_data_samples: SampleList) -> dict:
+    def loss(
+        self,
+        x: Tuple[Tensor],
+        rpn_results_list: InstanceList,
+        batch_data_samples: SampleList,
+    ) -> dict:
         """Perform forward propagation and loss calculation of the detection
         roi on the features of the upstream network.
 
@@ -261,8 +293,9 @@ class CascadeRoIHead(BaseRoIHead):
         # TODO: May add a new function in baseroihead
         assert len(rpn_results_list) == len(batch_data_samples)
         outputs = unpack_gt_instances(batch_data_samples)
-        batch_gt_instances, batch_gt_instances_ignore, batch_img_metas \
-            = outputs
+        batch_gt_instances, batch_gt_instances_ignore, batch_img_metas = (
+            outputs
+        )
 
         num_imgs = len(batch_data_samples)
         losses = dict()
@@ -284,14 +317,17 @@ class CascadeRoIHead(BaseRoIHead):
                     results.priors = results.pop('bboxes')
 
                     assign_result = bbox_assigner.assign(
-                        results, batch_gt_instances[i],
-                        batch_gt_instances_ignore[i])
+                        results,
+                        batch_gt_instances[i],
+                        batch_gt_instances_ignore[i],
+                    )
 
                     sampling_result = bbox_sampler.sample(
                         assign_result,
                         results,
                         batch_gt_instances[i],
-                        feats=[lvl_feat[i][None] for lvl_feat in x])
+                        feats=[lvl_feat[i][None] for lvl_feat in x],
+                    )
                     sampling_results.append(sampling_result)
 
             # bbox head forward and loss
@@ -299,34 +335,40 @@ class CascadeRoIHead(BaseRoIHead):
 
             for name, value in bbox_results['loss_bbox'].items():
                 losses[f's{stage}.{name}'] = (
-                    value * stage_loss_weight if 'loss' in name else value)
+                    value * stage_loss_weight if 'loss' in name else value
+                )
 
             # mask head forward and loss
             if self.with_mask:
-                mask_results = self.mask_loss(stage, x, sampling_results,
-                                              batch_gt_instances)
+                mask_results = self.mask_loss(
+                    stage, x, sampling_results, batch_gt_instances
+                )
                 for name, value in mask_results['loss_mask'].items():
                     losses[f's{stage}.{name}'] = (
-                        value * stage_loss_weight if 'loss' in name else value)
+                        value * stage_loss_weight if 'loss' in name else value
+                    )
 
             # refine bboxes
             if stage < self.num_stages - 1:
                 bbox_head = self.bbox_head[stage]
                 with torch.no_grad():
                     results_list = bbox_head.refine_bboxes(
-                        sampling_results, bbox_results, batch_img_metas)
+                        sampling_results, bbox_results, batch_img_metas
+                    )
                     # Empty proposal
                     if results_list is None:
                         break
         return losses
 
-    def predict_bbox(self,
-                     x: Tuple[Tensor],
-                     batch_img_metas: List[dict],
-                     rpn_results_list: InstanceList,
-                     rcnn_test_cfg: ConfigType,
-                     rescale: bool = False,
-                     **kwargs) -> InstanceList:
+    def predict_bbox(
+        self,
+        x: Tuple[Tensor],
+        batch_img_metas: List[dict],
+        rpn_results_list: InstanceList,
+        rcnn_test_cfg: ConfigType,
+        rescale: bool = False,
+        **kwargs,
+    ) -> InstanceList:
         """Perform forward propagation of the bbox head and predict detection
         results on the features of the upstream network.
 
@@ -362,14 +404,16 @@ class CascadeRoIHead(BaseRoIHead):
                 task_type='bbox',
                 box_type=self.bbox_head[-1].predict_box_type,
                 num_classes=self.bbox_head[-1].num_classes,
-                score_per_cls=rcnn_test_cfg is None)
+                score_per_cls=rcnn_test_cfg is None,
+            )
 
         rois, cls_scores, bbox_preds = self._refine_roi(
             x=x,
             rois=rois,
             batch_img_metas=batch_img_metas,
             num_proposals_per_img=num_proposals_per_img,
-            **kwargs)
+            **kwargs,
+        )
 
         results_list = self.bbox_head[-1].predict_by_feat(
             rois=rois,
@@ -377,14 +421,17 @@ class CascadeRoIHead(BaseRoIHead):
             bbox_preds=bbox_preds,
             batch_img_metas=batch_img_metas,
             rescale=rescale,
-            rcnn_test_cfg=rcnn_test_cfg)
+            rcnn_test_cfg=rcnn_test_cfg,
+        )
         return results_list
 
-    def predict_mask(self,
-                     x: Tuple[Tensor],
-                     batch_img_metas: List[dict],
-                     results_list: List[InstanceData],
-                     rescale: bool = False) -> List[InstanceData]:
+    def predict_mask(
+        self,
+        x: Tuple[Tensor],
+        batch_img_metas: List[dict],
+        results_list: List[InstanceData],
+        rescale: bool = False,
+    ) -> List[InstanceData]:
         """Perform forward propagation of the mask head and predict detection
         results on the features of the upstream network.
 
@@ -417,7 +464,8 @@ class CascadeRoIHead(BaseRoIHead):
                 mask_rois.device,
                 task_type='mask',
                 instance_results=results_list,
-                mask_thr_binary=self.test_cfg.mask_thr_binary)
+                mask_thr_binary=self.test_cfg.mask_thr_binary,
+            )
             return results_list
 
         num_mask_rois_per_img = [len(res) for res in results_list]
@@ -440,12 +488,18 @@ class CascadeRoIHead(BaseRoIHead):
             batch_img_metas=batch_img_metas,
             rcnn_test_cfg=self.test_cfg,
             rescale=rescale,
-            activate_map=True)
+            activate_map=True,
+        )
         return results_list
 
-    def _refine_roi(self, x: Tuple[Tensor], rois: Tensor,
-                    batch_img_metas: List[dict],
-                    num_proposals_per_img: Sequence[int], **kwargs) -> tuple:
+    def _refine_roi(
+        self,
+        x: Tuple[Tensor],
+        rois: Tensor,
+        batch_img_metas: List[dict],
+        num_proposals_per_img: Sequence[int],
+        **kwargs,
+    ) -> tuple:
         """Multi-stage refinement of RoI.
 
         Args:
@@ -468,7 +522,8 @@ class CascadeRoIHead(BaseRoIHead):
         ms_scores = []
         for stage in range(self.num_stages):
             bbox_results = self._bbox_forward(
-                stage=stage, x=x, rois=rois, **kwargs)
+                stage=stage, x=x, rois=rois, **kwargs
+            )
 
             # split batch bbox prediction back to each image
             cls_scores = bbox_results['cls_score']
@@ -486,9 +541,10 @@ class CascadeRoIHead(BaseRoIHead):
                     bbox_preds = bbox_preds.split(num_proposals_per_img, 0)
                 else:
                     bbox_preds = self.bbox_head[stage].bbox_pred_split(
-                        bbox_preds, num_proposals_per_img)
+                        bbox_preds, num_proposals_per_img
+                    )
             else:
-                bbox_preds = (None, ) * len(batch_img_metas)
+                bbox_preds = (None,) * len(batch_img_metas)
 
             if stage < self.num_stages - 1:
                 bbox_head = self.bbox_head[stage]
@@ -504,11 +560,15 @@ class CascadeRoIHead(BaseRoIHead):
                         # Refactor `bbox_head.regress_by_class` to only accept
                         # box tensor without img_idx concatenated.
                         refined_bboxes = bbox_head.regress_by_class(
-                            rois[i][:, 1:], bbox_label, bbox_preds[i],
-                            batch_img_metas[i])
+                            rois[i][:, 1:],
+                            bbox_label,
+                            bbox_preds[i],
+                            batch_img_metas[i],
+                        )
                         refined_bboxes = get_box_tensor(refined_bboxes)
                         refined_rois = torch.cat(
-                            [rois[i][:, [0]], refined_bboxes], dim=1)
+                            [rois[i][:, [0]], refined_bboxes], dim=1
+                        )
                         refine_rois_list.append(refined_rois)
                 rois = torch.cat(refine_rois_list)
 
@@ -519,8 +579,12 @@ class CascadeRoIHead(BaseRoIHead):
         ]
         return rois, cls_scores, bbox_preds
 
-    def forward(self, x: Tuple[Tensor], rpn_results_list: InstanceList,
-                batch_data_samples: SampleList) -> tuple:
+    def forward(
+        self,
+        x: Tuple[Tensor],
+        rpn_results_list: InstanceList,
+        batch_data_samples: SampleList,
+    ) -> tuple:
         """Network forward process. Usually includes backbone, neck and head
         forward without any post-processing.
 
@@ -547,7 +611,8 @@ class CascadeRoIHead(BaseRoIHead):
         # bbox head
         if self.with_bbox:
             rois, cls_scores, bbox_preds = self._refine_roi(
-                x, rois, batch_img_metas, num_proposals_per_img)
+                x, rois, batch_img_metas, num_proposals_per_img
+            )
             results = results + (cls_scores, bbox_preds)
         # mask head
         if self.with_mask:
@@ -564,5 +629,5 @@ class CascadeRoIHead(BaseRoIHead):
                 aug_mask = [mask[i] for mask in aug_masks]
                 merged_mask = merge_aug_masks(aug_mask, batch_img_metas[i])
                 merged_masks.append(merged_mask)
-            results = results + (merged_masks, )
+            results = results + (merged_masks,)
         return results

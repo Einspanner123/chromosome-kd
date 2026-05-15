@@ -28,26 +28,30 @@ class MaskTrackRCNN(BaseMOTModel):
             Defaults to None.
     """
 
-    def __init__(self,
-                 detector: Optional[dict] = None,
-                 track_head: Optional[dict] = None,
-                 tracker: Optional[dict] = None,
-                 data_preprocessor: OptConfigType = None,
-                 init_cfg: OptMultiConfig = None):
+    def __init__(
+        self,
+        detector: Optional[dict] = None,
+        track_head: Optional[dict] = None,
+        tracker: Optional[dict] = None,
+        data_preprocessor: OptConfigType = None,
+        init_cfg: OptMultiConfig = None,
+    ):
         super().__init__(data_preprocessor, init_cfg)
 
         if detector is not None:
             self.detector = MODELS.build(detector)
-        assert hasattr(self.detector, 'roi_head'), \
+        assert hasattr(self.detector, 'roi_head'), (
             'MaskTrack R-CNN only supports two stage detectors.'
+        )
 
         if track_head is not None:
             self.track_head = MODELS.build(track_head)
         if tracker is not None:
             self.tracker = MODELS.build(tracker)
 
-    def loss(self, inputs: Tensor, data_samples: TrackSampleList,
-             **kwargs) -> dict:
+    def loss(
+        self, inputs: Tensor, data_samples: TrackSampleList, **kwargs
+    ) -> dict:
         """Calculate losses from a batch of inputs and data samples.
 
         Args:
@@ -64,8 +68,9 @@ class MaskTrackRCNN(BaseMOTModel):
         """
 
         assert inputs.dim() == 5, 'The img must be 5D Tensor (N, T, C, H, W).'
-        assert inputs.size(1) == 2, \
+        assert inputs.size(1) == 2, (
             'MaskTrackRCNN can only have 1 key frame and 1 reference frame.'
+        )
 
         # split the data_samples into two aspects: key frames and reference
         # frames
@@ -95,13 +100,14 @@ class MaskTrackRCNN(BaseMOTModel):
         # RPN forward and loss
         if self.detector.with_rpn:
             proposal_cfg = self.detector.train_cfg.get(
-                'rpn_proposal', self.detector.test_cfg.rpn)
+                'rpn_proposal', self.detector.test_cfg.rpn
+            )
 
-            rpn_losses, rpn_results_list = self.detector.rpn_head. \
-                loss_and_predict(x,
-                                 key_data_samples,
-                                 proposal_cfg=proposal_cfg,
-                                 **kwargs)
+            rpn_losses, rpn_results_list = (
+                self.detector.rpn_head.loss_and_predict(
+                    x, key_data_samples, proposal_cfg=proposal_cfg, **kwargs
+                )
+            )
 
             # avoid get same name with roi_head loss
             keys = rpn_losses.keys()
@@ -119,21 +125,25 @@ class MaskTrackRCNN(BaseMOTModel):
                 for key_data_sample in key_data_samples
             ]
 
-        losses_detect = self.detector.roi_head.loss(x, rpn_results_list,
-                                                    key_data_samples, **kwargs)
+        losses_detect = self.detector.roi_head.loss(
+            x, rpn_results_list, key_data_samples, **kwargs
+        )
         losses.update(losses_detect)
 
-        losses_track = self.track_head.loss(x, ref_x, rpn_results_list,
-                                            data_samples, **kwargs)
+        losses_track = self.track_head.loss(
+            x, ref_x, rpn_results_list, data_samples, **kwargs
+        )
         losses.update(losses_track)
 
         return losses
 
-    def predict(self,
-                inputs: Tensor,
-                data_samples: TrackSampleList,
-                rescale: bool = True,
-                **kwargs) -> TrackSampleList:
+    def predict(
+        self,
+        inputs: Tensor,
+        data_samples: TrackSampleList,
+        rescale: bool = True,
+        **kwargs,
+    ) -> TrackSampleList:
         """Test without augmentation.
 
         Args:
@@ -152,8 +162,9 @@ class MaskTrackRCNN(BaseMOTModel):
         """
         assert inputs.dim() == 5, 'The img must be 5D Tensor (N, T, C, H, W).'
 
-        assert len(data_samples) == 1, \
+        assert len(data_samples) == 1, (
             'MaskTrackRCNN only support 1 batch size per gpu for now.'
+        )
 
         track_data_sample = data_samples[0]
         video_len = len(track_data_sample)
@@ -166,16 +177,19 @@ class MaskTrackRCNN(BaseMOTModel):
             x = self.detector.extract_feat(single_img)
 
             rpn_results_list = self.detector.rpn_head.predict(
-                x, [img_data_sample])
+                x, [img_data_sample]
+            )
             # det_results List[InstanceData]
             det_results = self.detector.roi_head.predict(
-                x, rpn_results_list, [img_data_sample], rescale=rescale)
+                x, rpn_results_list, [img_data_sample], rescale=rescale
+            )
             assert len(det_results) == 1, 'Batch inference is not supported.'
             assert 'masks' in det_results[0], 'There are no mask results.'
 
             img_data_sample.pred_instances = det_results[0]
             frame_pred_track_instances = self.tracker.track(
-                model=self, feats=x, data_sample=img_data_sample, **kwargs)
+                model=self, feats=x, data_sample=img_data_sample, **kwargs
+            )
             img_data_sample.pred_track_instances = frame_pred_track_instances
 
         return [track_data_sample]

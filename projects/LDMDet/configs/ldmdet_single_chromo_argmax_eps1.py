@@ -1,4 +1,5 @@
 """LDMDet on single_chromosomes_object — Sinkhorn argmax eps=1."""
+
 _base_ = ['./ldmdet_single_chromo_random.py']
 model = dict(
     bbox_head=dict(
@@ -6,5 +7,7 @@ model = dict(
         ot_matcher='sinkhorn',
         ot_epsilon=1.0,
         ot_num_iters=20,
-        ot_sample=False))
+        ot_sample=False,
+    )
+)
 work_dir = 'work_dirs/ldmdet_single_chromo_argmax_eps1'

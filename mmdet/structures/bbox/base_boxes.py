@@ -10,8 +10,16 @@ from mmdet.structures.mask.structures import BitmapMasks, PolygonMasks
 
 T = TypeVar('T')
 DeviceType = Union[str, torch.device]
-IndexType = Union[slice, int, list, torch.LongTensor, torch.cuda.LongTensor,
-                  torch.BoolTensor, torch.cuda.BoolTensor, np.ndarray]
+IndexType = Union[
+    slice,
+    int,
+    list,
+    torch.LongTensor,
+    torch.cuda.LongTensor,
+    torch.BoolTensor,
+    torch.cuda.BoolTensor,
+    np.ndarray,
+]
 MaskType = Union[BitmapMasks, PolygonMasks]
 
 
@@ -53,16 +61,20 @@ class BaseBoxes(metaclass=ABCMeta):
     # Should override it in subclass.
     box_dim: int = 0
 
-    def __init__(self,
-                 data: Union[Tensor, np.ndarray, Sequence],
-                 dtype: Optional[torch.dtype] = None,
-                 device: Optional[DeviceType] = None,
-                 clone: bool = True) -> None:
+    def __init__(
+        self,
+        data: Union[Tensor, np.ndarray, Sequence],
+        dtype: Optional[torch.dtype] = None,
+        device: Optional[DeviceType] = None,
+        clone: bool = True,
+    ) -> None:
         if isinstance(data, (np.ndarray, Tensor, Sequence)):
             data = torch.as_tensor(data)
         else:
-            raise TypeError('boxes should be Tensor, ndarray, or Sequence, ',
-                            f'but got {type(data)}')
+            raise TypeError(
+                'boxes should be Tensor, ndarray, or Sequence, ',
+                f'but got {type(data)}',
+            )
 
         if device is not None or dtype is not None:
             data = data.to(dtype=dtype, device=device)
@@ -73,10 +85,11 @@ class BaseBoxes(metaclass=ABCMeta):
         if data.numel() == 0:
             data = data.reshape((-1, self.box_dim))
 
-        assert data.dim() >= 2 and data.size(-1) == self.box_dim, \
-            ('The boxes dimension must >= 2 and the length of the last '
-             f'dimension must be {self.box_dim}, but got boxes with '
-             f'shape {data.shape}.')
+        assert data.dim() >= 2 and data.size(-1) == self.box_dim, (
+            'The boxes dimension must >= 2 and the length of the last '
+            f'dimension must be {self.box_dim}, but got boxes with '
+            f'shape {data.shape}.'
+        )
         self.tensor = data
 
     def convert_to(self, dst_type: Union[str, type]) -> 'BaseBoxes':
@@ -89,11 +102,14 @@ class BaseBoxes(metaclass=ABCMeta):
             :obj:`BaseBoxes`: destination box type object .
         """
         from .box_type import convert_box_type
+
         return convert_box_type(self, dst_type=dst_type)
 
-    def empty_boxes(self: T,
-                    dtype: Optional[torch.dtype] = None,
-                    device: Optional[DeviceType] = None) -> T:
+    def empty_boxes(
+        self: T,
+        dtype: Optional[torch.dtype] = None,
+        device: Optional[DeviceType] = None,
+    ) -> T:
         """Create empty box.
 
         Args:
@@ -104,14 +120,17 @@ class BaseBoxes(metaclass=ABCMeta):
             T: empty boxes with shape of (0, box_dim).
         """
         empty_box = self.tensor.new_zeros(
-            0, self.box_dim, dtype=dtype, device=device)
+            0, self.box_dim, dtype=dtype, device=device
+        )
         return type(self)(empty_box, clone=False)
 
-    def fake_boxes(self: T,
-                   sizes: Tuple[int],
-                   fill: float = 0,
-                   dtype: Optional[torch.dtype] = None,
-                   device: Optional[DeviceType] = None) -> T:
+    def fake_boxes(
+        self: T,
+        sizes: Tuple[int],
+        fill: float = 0,
+        dtype: Optional[torch.dtype] = None,
+        device: Optional[DeviceType] = None,
+    ) -> T:
         """Create fake boxes with specific sizes and fill values.
 
         Args:
@@ -125,7 +144,8 @@ class BaseBoxes(metaclass=ABCMeta):
             T: Fake boxes with shape of ``sizes``.
         """
         fake_boxes = self.tensor.new_full(
-            sizes, fill, dtype=dtype, device=device)
+            sizes, fill, dtype=dtype, device=device
+        )
         return type(self)(fake_boxes, clone=False)
 
     def __getitem__(self: T, index: IndexType) -> T:
@@ -149,8 +169,9 @@ class BaseBoxes(metaclass=ABCMeta):
 
     def __setitem__(self: T, index: IndexType, values: Union[Tensor, T]) -> T:
         """Rewrite setitem to protect the last dimension shape."""
-        assert type(values) is type(self), \
+        assert type(values) is type(self), (
             'The value to be set must be the same box type as self'
+        )
         values = values.tensor
 
         if isinstance(index, np.ndarray):
@@ -281,9 +302,11 @@ class BaseBoxes(metaclass=ABCMeta):
         assert dims[-1] == -1 or dims[-1] == self.tensor.dim() - 1
         return type(self)(self.tensor.permute(dims), clone=False)
 
-    def split(self: T,
-              split_size_or_sections: Union[int, Sequence[int]],
-              dim: int = 0) -> List[T]:
+    def split(
+        self: T,
+        split_size_or_sections: Union[int, Sequence[int]],
+        dim: int = 0,
+    ) -> List[T]:
         """Reload ``split`` from self.tensor."""
         assert dim != -1 and dim != self.tensor.dim() - 1
         boxes_list = self.tensor.split(split_size_or_sections, dim=dim)
@@ -308,8 +331,9 @@ class BaseBoxes(metaclass=ABCMeta):
 
     def squeeze(self: T, dim: Optional[int] = None) -> T:
         """Reload ``squeeze`` from self.tensor."""
-        boxes = self.tensor.squeeze() if dim is None else \
-            self.tensor.squeeze(dim)
+        boxes = (
+            self.tensor.squeeze() if dim is None else self.tensor.squeeze(dim)
+        )
         return type(self)(boxes, clone=False)
 
     def unsqueeze(self: T, dim: int) -> T:
@@ -383,9 +407,9 @@ class BaseBoxes(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def flip_(self,
-              img_shape: Tuple[int, int],
-              direction: str = 'horizontal') -> None:
+    def flip_(
+        self, img_shape: Tuple[int, int], direction: str = 'horizontal'
+    ) -> None:
         """Flip boxes horizontally or vertically in-place.
 
         Args:
@@ -468,10 +492,12 @@ class BaseBoxes(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def is_inside(self,
-                  img_shape: Tuple[int, int],
-                  all_inside: bool = False,
-                  allowed_border: int = 0) -> BoolTensor:
+    def is_inside(
+        self,
+        img_shape: Tuple[int, int],
+        all_inside: bool = False,
+        allowed_border: int = 0,
+    ) -> BoolTensor:
         """Find boxes inside the image.
 
         Args:
@@ -489,9 +515,9 @@ class BaseBoxes(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def find_inside_points(self,
-                           points: Tensor,
-                           is_aligned: bool = False) -> BoolTensor:
+    def find_inside_points(
+        self, points: Tensor, is_aligned: bool = False
+    ) -> BoolTensor:
         """Find inside box points. Boxes dimension must be 2.
 
         Args:
@@ -510,11 +536,13 @@ class BaseBoxes(metaclass=ABCMeta):
         pass
 
     @abstractstaticmethod
-    def overlaps(boxes1: 'BaseBoxes',
-                 boxes2: 'BaseBoxes',
-                 mode: str = 'iou',
-                 is_aligned: bool = False,
-                 eps: float = 1e-6) -> Tensor:
+    def overlaps(
+        boxes1: 'BaseBoxes',
+        boxes2: 'BaseBoxes',
+        mode: str = 'iou',
+        is_aligned: bool = False,
+        eps: float = 1e-6,
+    ) -> Tensor:
         """Calculate overlap between two set of boxes with their types
         converted to the present box type.
 

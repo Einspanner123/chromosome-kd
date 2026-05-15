@@ -15,14 +15,16 @@ from mmdet.utils import register_all_modules
 # TODO: support fuse_conv_bn, visualization, and format_only
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='MMTrack test (and eval) a model')
+        description='MMTrack test (and eval) a model'
+    )
     parser.add_argument('config', help='test config file path')
     parser.add_argument('--checkpoint', help='checkpoint file')
     parser.add_argument('--detector', help='detection checkpoint file')
     parser.add_argument('--reid', help='reid checkpoint file')
     parser.add_argument(
         '--work-dir',
-        help='the directory to save the file containing evaluation metrics')
+        help='the directory to save the file containing evaluation metrics',
+    )
     parser.add_argument(
         '--cfg-options',
         nargs='+',
@@ -32,12 +34,14 @@ def parse_args():
         'be overwritten is a list, it should be like key="[a,b]" or key=a,b '
         'It also allows nested list/tuple values, e.g. key="[(a,b),(c,d)]" '
         'Note that the quotation marks are necessary and that no white space '
-        'is allowed.')
+        'is allowed.',
+    )
     parser.add_argument(
         '--launcher',
         choices=['none', 'pytorch', 'slurm', 'mpi'],
         default='none',
-        help='job launcher')
+        help='job launcher',
+    )
     parser.add_argument('--local-rank', type=int, default=0)
     args = parser.parse_args()
     if 'LOCAL_RANK' not in os.environ:
@@ -64,8 +68,9 @@ def main():
         cfg.work_dir = args.work_dir
     elif cfg.get('work_dir', None) is None:
         # use config filename as default work_dir if cfg.work_dir is None
-        cfg.work_dir = osp.join('./work_dirs',
-                                osp.splitext(osp.basename(args.config))[0])
+        cfg.work_dir = osp.join(
+            './work_dirs', osp.splitext(osp.basename(args.config))[0]
+        )
 
     cfg.load_from = args.checkpoint
 
@@ -84,13 +89,15 @@ def main():
         model = runner.model
 
     if args.detector:
-        assert not (args.checkpoint and args.detector), \
+        assert not (args.checkpoint and args.detector), (
             'Error: checkpoint and detector checkpoint cannot both exist'
+        )
         load_checkpoint(model.detector, args.detector)
 
     if args.reid:
-        assert not (args.checkpoint and args.reid), \
-             'Error: checkpoint and reid checkpoint cannot both exist'
+        assert not (args.checkpoint and args.reid), (
+            'Error: checkpoint and reid checkpoint cannot both exist'
+        )
         load_checkpoint(model.reid, args.reid)
 
     # start testing

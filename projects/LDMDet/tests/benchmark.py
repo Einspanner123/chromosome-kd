@@ -51,7 +51,8 @@ def get_model():
             type='FPN',
             in_channels=[256, 512, 1024, 2048],
             out_channels=256,
-            num_outs=4),
+            num_outs=4,
+        ),
         bbox_head=dict(
             type='PurePyTorchDiffusionDetHead',
             num_classes=num_classes,
@@ -67,7 +68,8 @@ def get_model():
             roi_extractor=dict(
                 type='PurePyTorchSingleRoIExtractor',
                 roi_layer=dict(
-                    type='RoIAlign', output_size=7, sampling_ratio=2),
+                    type='RoIAlign', output_size=7, sampling_ratio=2
+                ),
                 out_channels=256,
                 featmap_strides=[4, 8, 16, 32],
             ),
@@ -81,11 +83,13 @@ def get_model():
                         dict(
                             type='PurePyTorchBBoxL1Cost',
                             weight=5.0,
-                            box_format='xyxy'),
+                            box_format='xyxy',
+                        ),
                         dict(
                             type='PurePyTorchIoUCost',
                             iou_mode='giou',
-                            weight=2.0),
+                            weight=2.0,
+                        ),
                     ],
                 ),
                 loss_cls=dict(type='PurePyTorchFocalLoss', loss_weight=2.0),
@@ -118,11 +122,13 @@ def benchmark():
                 ori_shape=(800, 800),
                 pad_shape=(800, 800),
                 batch_input_shape=(800, 800),
-            ))
+            )
+        )
         # 训练模式需要的 GT
         gt_instances = InstanceData()
-        gt_instances.bboxes = torch.tensor([[10, 10, 100, 100]],
-                                           dtype=torch.float32).to(device)
+        gt_instances.bboxes = torch.tensor(
+            [[10, 10, 100, 100]], dtype=torch.float32
+        ).to(device)
         gt_instances.labels = torch.tensor([0], dtype=torch.int64).to(device)
         data_sample.gt_instances = gt_instances
         data_samples.append(data_sample)
@@ -130,9 +136,8 @@ def benchmark():
     # 预热
     print('Warming up...')
     for _ in range(10):
-        with torch.no_grad():
-            with torch.cuda.amp.autocast():
-                model.test_step(dict(inputs=img, data_samples=data_samples))
+        with torch.no_grad(), torch.cuda.amp.autocast():
+            model.test_step(dict(inputs=img, data_samples=data_samples))
 
     # 测试推理延迟
     print('Measuring inference latency (Mixed Precision)...')
@@ -146,14 +151,13 @@ def benchmark():
     )
     latencies = []
 
-    with torch.no_grad():
-        with torch.cuda.amp.autocast():
-            for _ in range(num_iters):
-                starter.record()
-                model.test_step(dict(inputs=img, data_samples=data_samples))
-                ender.record()
-                torch.cuda.synchronize()
-                latencies.append(starter.elapsed_time(ender))
+    with torch.no_grad(), torch.cuda.amp.autocast():
+        for _ in range(num_iters):
+            starter.record()
+            model.test_step(dict(inputs=img, data_samples=data_samples))
+            ender.record()
+            torch.cuda.synchronize()
+            latencies.append(starter.elapsed_time(ender))
 
     avg_latency = sum(latencies) / num_iters
     fps = (batch_size * 1000) / avg_latency
@@ -162,7 +166,8 @@ def benchmark():
 
     # 测试训练延迟 (Forward + Backward)
     print(
-        'Measuring training latency (Forward + Backward, Mixed Precision)...')
+        'Measuring training latency (Forward + Backward, Mixed Precision)...'
+    )
     model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     scaler = torch.cuda.amp.GradScaler()

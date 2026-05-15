@@ -9,7 +9,8 @@ with read_base():
 # learning policy
 max_epochs = 500
 train_cfg.update(
-    type=EpochBasedTrainLoop, max_epochs=max_epochs, val_interval=10)
+    type=EpochBasedTrainLoop, max_epochs=max_epochs, val_interval=10
+)
 
 param_scheduler = [
     dict(
@@ -18,7 +19,8 @@ param_scheduler = [
         end=max_epochs,
         by_epoch=True,
         milestones=[334],
-        gamma=0.1)
+        gamma=0.1,
+    )
 ]
 
 # only keep latest 2 checkpoints

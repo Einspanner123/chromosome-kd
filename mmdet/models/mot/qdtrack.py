@@ -30,13 +30,15 @@ class QDTrack(BaseMOTModel):
             Defaults to None.
     """
 
-    def __init__(self,
-                 detector: Optional[dict] = None,
-                 track_head: Optional[dict] = None,
-                 tracker: Optional[dict] = None,
-                 freeze_detector: bool = False,
-                 data_preprocessor: OptConfigType = None,
-                 init_cfg: OptMultiConfig = None):
+    def __init__(
+        self,
+        detector: Optional[dict] = None,
+        track_head: Optional[dict] = None,
+        tracker: Optional[dict] = None,
+        freeze_detector: bool = False,
+        data_preprocessor: OptConfigType = None,
+        init_cfg: OptMultiConfig = None,
+    ):
         super().__init__(data_preprocessor, init_cfg)
         if detector is not None:
             self.detector = MODELS.build(detector)
@@ -51,11 +53,13 @@ class QDTrack(BaseMOTModel):
         if self.freeze_detector:
             self.freeze_module('detector')
 
-    def predict(self,
-                inputs: Tensor,
-                data_samples: TrackSampleList,
-                rescale: bool = True,
-                **kwargs) -> TrackSampleList:
+    def predict(
+        self,
+        inputs: Tensor,
+        data_samples: TrackSampleList,
+        rescale: bool = True,
+        **kwargs,
+    ) -> TrackSampleList:
         """Predict results from a video and data samples with post- processing.
 
         Args:
@@ -73,11 +77,13 @@ class QDTrack(BaseMOTModel):
             TrackSampleList: Tracking results of the inputs.
         """
         assert inputs.dim() == 5, 'The img must be 5D Tensor (N, T, C, H, W).'
-        assert inputs.size(0) == 1, \
+        assert inputs.size(0) == 1, (
             'QDTrack inference only support 1 batch size per gpu for now.'
+        )
 
-        assert len(data_samples) == 1, \
+        assert len(data_samples) == 1, (
             'QDTrack only support 1 batch size per gpu for now.'
+        )
 
         track_data_sample = data_samples[0]
         video_len = len(track_data_sample)
@@ -89,10 +95,12 @@ class QDTrack(BaseMOTModel):
             single_img = inputs[:, frame_id].contiguous()
             x = self.detector.extract_feat(single_img)
             rpn_results_list = self.detector.rpn_head.predict(
-                x, [img_data_sample])
+                x, [img_data_sample]
+            )
             # det_results List[InstanceData]
             det_results = self.detector.roi_head.predict(
-                x, rpn_results_list, [img_data_sample], rescale=rescale)
+                x, rpn_results_list, [img_data_sample], rescale=rescale
+            )
             assert len(det_results) == 1, 'Batch inference is not supported.'
             img_data_sample.pred_instances = det_results[0]
             frame_pred_track_instances = self.tracker.track(
@@ -100,13 +108,15 @@ class QDTrack(BaseMOTModel):
                 img=single_img,
                 feats=x,
                 data_sample=img_data_sample,
-                **kwargs)
+                **kwargs,
+            )
             img_data_sample.pred_track_instances = frame_pred_track_instances
 
         return [track_data_sample]
 
-    def loss(self, inputs: Tensor, data_samples: TrackSampleList,
-             **kwargs) -> Union[dict, tuple]:
+    def loss(
+        self, inputs: Tensor, data_samples: TrackSampleList, **kwargs
+    ) -> Union[dict, tuple]:
         """Calculate losses from a batch of inputs and data samples.
 
         Args:
@@ -123,8 +133,9 @@ class QDTrack(BaseMOTModel):
         """
         # modify the inputs shape to fit mmdet
         assert inputs.dim() == 5, 'The img must be 5D Tensor (N, T, C, H, W).'
-        assert inputs.size(1) == 2, \
+        assert inputs.size(1) == 2, (
             'QDTrack can only have 1 key frame and 1 reference frame.'
+        )
 
         # split the data_samples into two aspects: key frames and reference
         # frames
@@ -135,8 +146,9 @@ class QDTrack(BaseMOTModel):
             key_frame_inds.append(track_data_sample.key_frames_inds[0])
             ref_frame_inds.append(track_data_sample.ref_frames_inds[0])
             key_data_sample = track_data_sample.get_key_frames()[0]
-            key_data_sample.gt_instances.labels = \
-                torch.zeros_like(key_data_sample.gt_instances.labels)
+            key_data_sample.gt_instances.labels = torch.zeros_like(
+                key_data_sample.gt_instances.labels
+            )
             key_data_samples.append(key_data_sample)
             ref_data_sample = track_data_sample.get_ref_frames()[0]
             ref_data_samples.append(ref_data_sample)
@@ -152,18 +164,19 @@ class QDTrack(BaseMOTModel):
 
         losses = dict()
         # RPN head forward and loss
-        assert self.detector.with_rpn, \
+        assert self.detector.with_rpn, (
             'QDTrack only support detector with RPN.'
+        )
 
-        proposal_cfg = self.detector.train_cfg.get('rpn_proposal',
-                                                   self.detector.test_cfg.rpn)
-        rpn_losses, rpn_results_list = self.detector.rpn_head. \
-            loss_and_predict(x,
-                             key_data_samples,
-                             proposal_cfg=proposal_cfg,
-                             **kwargs)
+        proposal_cfg = self.detector.train_cfg.get(
+            'rpn_proposal', self.detector.test_cfg.rpn
+        )
+        rpn_losses, rpn_results_list = self.detector.rpn_head.loss_and_predict(
+            x, key_data_samples, proposal_cfg=proposal_cfg, **kwargs
+        )
         ref_rpn_results_list = self.detector.rpn_head.predict(
-            ref_x, ref_data_samples, **kwargs)
+            ref_x, ref_data_samples, **kwargs
+        )
 
         # avoid get same name with roi_head loss
         keys = rpn_losses.keys()
@@ -173,14 +186,20 @@ class QDTrack(BaseMOTModel):
         losses.update(rpn_losses)
 
         # roi_head loss
-        losses_detect = self.detector.roi_head.loss(x, rpn_results_list,
-                                                    key_data_samples, **kwargs)
+        losses_detect = self.detector.roi_head.loss(
+            x, rpn_results_list, key_data_samples, **kwargs
+        )
         losses.update(losses_detect)
 
         # tracking head loss
-        losses_track = self.track_head.loss(x, ref_x, rpn_results_list,
-                                            ref_rpn_results_list, data_samples,
-                                            **kwargs)
+        losses_track = self.track_head.loss(
+            x,
+            ref_x,
+            rpn_results_list,
+            ref_rpn_results_list,
+            data_samples,
+            **kwargs,
+        )
         losses.update(losses_track)
 
         return losses

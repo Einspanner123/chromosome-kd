@@ -8,7 +8,6 @@ from .utils import ToyBaseBoxes
 
 
 class TestBaseBoxes(TestCase):
-
     def test_init(self):
         box_tensor = torch.rand((3, 4, 4))
         boxes = ToyBaseBoxes(box_tensor)
@@ -21,7 +20,7 @@ class TestBaseBoxes(TestCase):
             self.assertTrue(boxes.tensor.is_cuda)
 
         with self.assertRaises(AssertionError):
-            box_tensor = torch.rand((4, ))
+            box_tensor = torch.rand((4,))
             boxes = ToyBaseBoxes(box_tensor)
 
         with self.assertRaises(AssertionError):

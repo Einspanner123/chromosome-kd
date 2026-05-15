@@ -23,9 +23,10 @@ def sigmoid_focal_loss(
     """
     p = torch.sigmoid(inputs)
     ce_loss = F.binary_cross_entropy_with_logits(
-        inputs, targets, reduction='none')
+        inputs, targets, reduction='none'
+    )
     p_t = p * targets + (1 - p) * (1 - targets)
-    loss = ce_loss * ((1 - p_t)**gamma)
+    loss = ce_loss * ((1 - p_t) ** gamma)
 
     if alpha >= 0:
         alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
@@ -41,12 +42,14 @@ def sigmoid_focal_loss(
 class FocalLoss(nn.Module):
     """Focal Loss 封装类"""
 
-    def __init__(self,
-                 use_sigmoid=True,
-                 alpha=0.25,
-                 gamma=2.0,
-                 reduction='sum',
-                 loss_weight=2.0):
+    def __init__(
+        self,
+        use_sigmoid=True,
+        alpha=0.25,
+        gamma=2.0,
+        reduction='sum',
+        loss_weight=2.0,
+    ):
         super().__init__()
         assert use_sigmoid, 'Currently only supports sigmoid focal loss'
         self.alpha = alpha
@@ -71,8 +74,9 @@ class FocalLoss(nn.Module):
                 flat_one_hot[valid_mask, flat_target[valid_mask]] = 1.0
             target = flat_one_hot.reshape(pred.shape)
 
-        loss = sigmoid_focal_loss(pred, target, self.alpha, self.gamma,
-                                  self.reduction)
+        loss = sigmoid_focal_loss(
+            pred, target, self.alpha, self.gamma, self.reduction
+        )
         return loss * self.loss_weight
 
 
@@ -87,7 +91,8 @@ class GIoULoss(nn.Module):
     def forward(self, pred: Tensor, target: Tensor) -> Tensor:
         """pred/target: [N, 4] (xyxy)"""
         loss = ops.generalized_box_iou_loss(
-            pred, target, reduction=self.reduction)
+            pred, target, reduction=self.reduction
+        )
         return loss * self.loss_weight
 
 
@@ -108,7 +113,6 @@ class L1Loss(nn.Module):
 
 
 class FocalLossCost:
-
     def __init__(self, alpha=0.25, gamma=2.0, weight=2.0, eps=1e-8):
         self.alpha = alpha
         self.gamma = gamma
@@ -129,19 +133,25 @@ class FocalLossCost:
         """
         out_prob = pred_logits.sigmoid()
         # 计算所有类别的负样本 cost
-        neg_cost_class = (-(1 - self.alpha) * (out_prob**self.gamma) *
-                          torch.log(1 - out_prob + self.eps))
+        neg_cost_class = (
+            -(1 - self.alpha)
+            * (out_prob**self.gamma)
+            * torch.log(1 - out_prob + self.eps)
+        )
         # 计算所有类别的正样本 cost
-        pos_cost_class = (-self.alpha * ((1 - out_prob)**self.gamma) *
-                          torch.log(out_prob + self.eps))
+        pos_cost_class = (
+            -self.alpha
+            * ((1 - out_prob) ** self.gamma)
+            * torch.log(out_prob + self.eps)
+        )
         # 为每个 GT 选择对应的类别 cost
-        cost_class = pos_cost_class[:, gt_labels] - neg_cost_class[:,
-                                                                   gt_labels]
+        cost_class = (
+            pos_cost_class[:, gt_labels] - neg_cost_class[:, gt_labels]
+        )
         return cost_class * self.weight
 
 
 class BBoxL1Cost:
-
     def __init__(self, weight=5.0):
         self.weight = weight
 
@@ -160,7 +170,6 @@ class BBoxL1Cost:
 
 
 class IoUCost:
-
     def __init__(self, iou_mode='giou', weight=2.0):
         self.iou_mode = iou_mode
         self.weight = weight
@@ -210,8 +219,9 @@ class DiffusionDetMatcher(nn.Module):
             ]
 
     @torch.no_grad()
-    def forward(self, outputs: ModelOutput,
-                targets: List[InstanceData]) -> List[Tuple[Tensor, Tensor]]:
+    def forward(
+        self, outputs: ModelOutput, targets: List[InstanceData]
+    ) -> List[Tuple[Tensor, Tensor]]:
         """
         outputs: ModelOutput containing pred_logits [B, N, C] and pred_boxes [B, N, 4]
         targets: list of InstanceData containing labels [M] and bboxes [M, 4]
@@ -222,13 +232,15 @@ class DiffusionDetMatcher(nn.Module):
 
         batch_indices = []
         for i in range(batch_size):
-            indices = self._single_assign(pred_logits[i], pred_bboxes[i],
-                                          targets[i])
+            indices = self._single_assign(
+                pred_logits[i], pred_bboxes[i], targets[i]
+            )
             batch_indices.append(indices)
         return batch_indices
 
-    def _single_assign(self, pred_logits: Tensor, pred_bboxes: Tensor,
-                       target: InstanceData) -> Tuple[Tensor, Tensor]:
+    def _single_assign(
+        self, pred_logits: Tensor, pred_bboxes: Tensor, target: InstanceData
+    ) -> Tuple[Tensor, Tensor]:
         gt_bboxes = target.bboxes
         gt_labels = target.labels
         num_gt = gt_bboxes.size(0)
@@ -236,8 +248,8 @@ class DiffusionDetMatcher(nn.Module):
         if num_gt == 0:
             device = pred_bboxes.device
             return torch.zeros(
-                0, dtype=torch.long, device=device), torch.zeros(
-                    0, dtype=torch.long, device=device)
+                0, dtype=torch.long, device=device
+            ), torch.zeros(0, dtype=torch.long, device=device)
 
         # 1. 计算各项 Cost
         cost_list = []
@@ -247,7 +259,8 @@ class DiffusionDetMatcher(nn.Module):
 
         # 2. 计算是否在 GT 框内或中心范围内
         is_in_boxes_anchor, is_in_boxes_and_center = self._get_in_gt_info(
-            pred_bboxes, gt_bboxes)
+            pred_bboxes, gt_bboxes
+        )
 
         # 将不在范围内的预测框 Cost 调大
         cost_list.append((~is_in_boxes_and_center) * 100.0)
@@ -258,8 +271,9 @@ class DiffusionDetMatcher(nn.Module):
         pairwise_ious = ops.box_iou(pred_bboxes, gt_bboxes)
         return self._dynamic_k_matching(cost_matrix, pairwise_ious, num_gt)
 
-    def _get_in_gt_info(self, pred_bboxes: Tensor,
-                        gt_bboxes: Tensor) -> Tuple[Tensor, Tensor]:
+    def _get_in_gt_info(
+        self, pred_bboxes: Tensor, gt_bboxes: Tensor
+    ) -> Tuple[Tensor, Tensor]:
         # pred_bboxes/gt_bboxes 都是 xyxy 归一化格式
         pred_ctrs = (pred_bboxes[:, :2] + pred_bboxes[:, 2:]) / 2
         gt_ctrs = (gt_bboxes[:, :2] + gt_bboxes[:, 2:]) / 2
@@ -273,18 +287,22 @@ class DiffusionDetMatcher(nn.Module):
 
         # 检查预测框中心是否在 GT 中心一定半径内
         lt_c = pred_ctrs.unsqueeze(1) - (
-            gt_ctrs - self.center_radius * gt_wh).unsqueeze(0)
-        rb_c = (gt_ctrs + self.center_radius *
-                gt_wh).unsqueeze(0) - pred_ctrs.unsqueeze(1)
-        is_in_centers = torch.cat([lt_c, rb_c],
-                                  dim=-1).min(-1)[0] > 0  # [N, M]
+            gt_ctrs - self.center_radius * gt_wh
+        ).unsqueeze(0)
+        rb_c = (gt_ctrs + self.center_radius * gt_wh).unsqueeze(
+            0
+        ) - pred_ctrs.unsqueeze(1)
+        is_in_centers = (
+            torch.cat([lt_c, rb_c], dim=-1).min(-1)[0] > 0
+        )  # [N, M]
 
         is_in_boxes_anchor = is_in_boxes.any(1) | is_in_centers.any(1)
         is_in_boxes_and_center = is_in_boxes & is_in_centers
         return is_in_boxes_anchor, is_in_boxes_and_center
 
-    def _dynamic_k_matching(self, cost: Tensor, pairwise_ious: Tensor,
-                            num_gt: int) -> Tuple[Tensor, Tensor]:
+    def _dynamic_k_matching(
+        self, cost: Tensor, pairwise_ious: Tensor, num_gt: int
+    ) -> Tuple[Tensor, Tensor]:
         matching_matrix = torch.zeros_like(cost)
         # 为每个 GT 选择动态 K
         candidate_topk = min(self.candidate_topk, pairwise_ious.size(0))
@@ -293,7 +311,8 @@ class DiffusionDetMatcher(nn.Module):
 
         for gt_idx in range(num_gt):
             _, pos_idx = torch.topk(
-                cost[:, gt_idx], k=dynamic_ks[gt_idx], largest=False)
+                cost[:, gt_idx], k=dynamic_ks[gt_idx], largest=False
+            )
             matching_matrix[pos_idx, gt_idx] = 1.0
 
         # 处理一个预测框匹配多个 GT 的情况：选择 Cost 最小的那个
@@ -356,8 +375,9 @@ class DiffusionDetCriterion(nn.Module):
         self.deep_supervision = deep_supervision
         self.loss_objectness_weight = loss_objectness_weight
 
-    def forward(self, outputs: ModelOutput,
-                targets: List[InstanceData]) -> Dict[str, Tensor]:
+    def forward(
+        self, outputs: ModelOutput, targets: List[InstanceData]
+    ) -> Dict[str, Tensor]:
         """
         outputs: ModelOutput containing pred_logits, pred_boxes and optional aux_outputs
         targets: list of InstanceData containing labels, bboxes and img_shape
@@ -374,8 +394,9 @@ class DiffusionDetCriterion(nn.Module):
 
         return losses
 
-    def _get_loss(self, outputs: ModelOutput,
-                  targets: List[InstanceData]) -> Dict[str, Tensor]:
+    def _get_loss(
+        self, outputs: ModelOutput, targets: List[InstanceData]
+    ) -> Dict[str, Tensor]:
         indices = self.matcher(outputs, targets)
 
         # 计算分类损失
@@ -387,7 +408,7 @@ class DiffusionDetCriterion(nn.Module):
         losses = {
             'loss_cls': loss_cls,
             'loss_bbox': loss_bbox,
-            'loss_giou': loss_giou
+            'loss_giou': loss_giou,
         }
 
         if outputs.pred_objectness is not None:
@@ -406,9 +427,9 @@ class DiffusionDetCriterion(nn.Module):
         bs, num_queries = src_logits.shape[:2]
 
         # 构造目标分类标签
-        target_classes = src_logits.new_full((bs, num_queries),
-                                             self.num_classes,
-                                             dtype=torch.long)
+        target_classes = src_logits.new_full(
+            (bs, num_queries), self.num_classes, dtype=torch.long
+        )
         num_pos = 0
         for i, (src_idx, gt_idx) in enumerate(indices):
             if len(src_idx) > 0:
@@ -417,7 +438,8 @@ class DiffusionDetCriterion(nn.Module):
 
         # 损失计算
         loss_cls = self.loss_cls(
-            src_logits.flatten(0, 1), target_classes.flatten(0, 1))
+            src_logits.flatten(0, 1), target_classes.flatten(0, 1)
+        )
         # 按照正样本数量归一化 (参考原版实现)
         return loss_cls / max(num_pos, 1)
 
@@ -447,7 +469,8 @@ class DiffusionDetCriterion(nn.Module):
         # L1 损失使用 cxcywh 格式 (遵循原版)
         loss_bbox = self.loss_bbox(
             bbox_xyxy_to_cxcywh(src_boxes_pos),
-            bbox_xyxy_to_cxcywh(tgt_boxes_pos))
+            bbox_xyxy_to_cxcywh(tgt_boxes_pos),
+        )
 
         # GIoU 损失
         loss_giou = self.loss_giou(src_boxes_pos, tgt_boxes_pos)
@@ -470,5 +493,6 @@ class DiffusionDetCriterion(nn.Module):
                 target_obj[i, src_idx] = 1.0
 
         loss_obj = F.binary_cross_entropy_with_logits(
-            pred_obj.squeeze(-1), target_obj, reduction='mean')
+            pred_obj.squeeze(-1), target_obj, reduction='mean'
+        )
         return loss_obj * self.loss_objectness_weight

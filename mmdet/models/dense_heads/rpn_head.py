@@ -12,8 +12,13 @@ from mmengine.structures import InstanceData
 from torch import Tensor
 
 from mmdet.registry import MODELS
-from mmdet.structures.bbox import (cat_boxes, empty_box_as, get_box_tensor,
-                                   get_box_wh, scale_boxes)
+from mmdet.structures.bbox import (
+    cat_boxes,
+    empty_box_as,
+    get_box_tensor,
+    get_box_wh,
+    scale_boxes,
+)
 from mmdet.utils import InstanceList, MultiConfig, OptInstanceList
 from .anchor_head import AnchorHead
 
@@ -30,22 +35,24 @@ class RPNHead(AnchorHead):
             list[dict]): Initialization config dict.
         num_convs (int): Number of convolution layers in the head.
             Defaults to 1.
-    """  # noqa: W605
+    """
 
-    def __init__(self,
-                 in_channels: int,
-                 num_classes: int = 1,
-                 init_cfg: MultiConfig = dict(
-                     type='Normal', layer='Conv2d', std=0.01),
-                 num_convs: int = 1,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        in_channels: int,
+        num_classes: int = 1,
+        init_cfg: MultiConfig = dict(type='Normal', layer='Conv2d', std=0.01),
+        num_convs: int = 1,
+        **kwargs,
+    ) -> None:
         self.num_convs = num_convs
         assert num_classes == 1
         super().__init__(
             num_classes=num_classes,
             in_channels=in_channels,
             init_cfg=init_cfg,
-            **kwargs)
+            **kwargs,
+        )
 
     def _init_layers(self) -> None:
         """Initialize layers of the head."""
@@ -65,17 +72,21 @@ class RPNHead(AnchorHead):
                         self.feat_channels,
                         3,
                         padding=1,
-                        inplace=False))
+                        inplace=False,
+                    )
+                )
             self.rpn_conv = nn.Sequential(*rpn_convs)
         else:
             self.rpn_conv = nn.Conv2d(
-                self.in_channels, self.feat_channels, 3, padding=1)
-        self.rpn_cls = nn.Conv2d(self.feat_channels,
-                                 self.num_base_priors * self.cls_out_channels,
-                                 1)
+                self.in_channels, self.feat_channels, 3, padding=1
+            )
+        self.rpn_cls = nn.Conv2d(
+            self.feat_channels, self.num_base_priors * self.cls_out_channels, 1
+        )
         reg_dim = self.bbox_coder.encode_size
-        self.rpn_reg = nn.Conv2d(self.feat_channels,
-                                 self.num_base_priors * reg_dim, 1)
+        self.rpn_reg = nn.Conv2d(
+            self.feat_channels, self.num_base_priors * reg_dim, 1
+        )
 
     def forward_single(self, x: Tensor) -> Tuple[Tensor, Tensor]:
         """Forward feature of a single scale level.
@@ -96,13 +107,14 @@ class RPNHead(AnchorHead):
         rpn_bbox_pred = self.rpn_reg(x)
         return rpn_cls_score, rpn_bbox_pred
 
-    def loss_by_feat(self,
-                     cls_scores: List[Tensor],
-                     bbox_preds: List[Tensor],
-                     batch_gt_instances: InstanceList,
-                     batch_img_metas: List[dict],
-                     batch_gt_instances_ignore: OptInstanceList = None) \
-            -> dict:
+    def loss_by_feat(
+        self,
+        cls_scores: List[Tensor],
+        bbox_preds: List[Tensor],
+        batch_gt_instances: InstanceList,
+        batch_img_metas: List[dict],
+        batch_gt_instances_ignore: OptInstanceList = None,
+    ) -> dict:
         """Calculate the loss based on the features extracted by the detection
         head.
 
@@ -127,19 +139,23 @@ class RPNHead(AnchorHead):
             bbox_preds,
             batch_gt_instances,
             batch_img_metas,
-            batch_gt_instances_ignore=batch_gt_instances_ignore)
+            batch_gt_instances_ignore=batch_gt_instances_ignore,
+        )
         return dict(
-            loss_rpn_cls=losses['loss_cls'], loss_rpn_bbox=losses['loss_bbox'])
+            loss_rpn_cls=losses['loss_cls'], loss_rpn_bbox=losses['loss_bbox']
+        )
 
-    def _predict_by_feat_single(self,
-                                cls_score_list: List[Tensor],
-                                bbox_pred_list: List[Tensor],
-                                score_factor_list: List[Tensor],
-                                mlvl_priors: List[Tensor],
-                                img_meta: dict,
-                                cfg: ConfigDict,
-                                rescale: bool = False,
-                                with_nms: bool = True) -> InstanceData:
+    def _predict_by_feat_single(
+        self,
+        cls_score_list: List[Tensor],
+        bbox_pred_list: List[Tensor],
+        score_factor_list: List[Tensor],
+        mlvl_priors: List[Tensor],
+        img_meta: dict,
+        cfg: ConfigDict,
+        rescale: bool = False,
+        with_nms: bool = True,
+    ) -> InstanceData:
         """Transform a single image's features extracted from the head into
         bbox results.
 
@@ -185,15 +201,16 @@ class RPNHead(AnchorHead):
         mlvl_valid_priors = []
         mlvl_scores = []
         level_ids = []
-        for level_idx, (cls_score, bbox_pred, priors) in \
-                enumerate(zip(cls_score_list, bbox_pred_list,
-                              mlvl_priors)):
+        for level_idx, (cls_score, bbox_pred, priors) in enumerate(
+            zip(cls_score_list, bbox_pred_list, mlvl_priors)
+        ):
             assert cls_score.size()[-2:] == bbox_pred.size()[-2:]
 
             reg_dim = self.bbox_coder.encode_size
             bbox_pred = bbox_pred.permute(1, 2, 0).reshape(-1, reg_dim)
-            cls_score = cls_score.permute(1, 2,
-                                          0).reshape(-1, self.cls_out_channels)
+            cls_score = cls_score.permute(1, 2, 0).reshape(
+                -1, self.cls_out_channels
+            )
             if self.use_sigmoid_cls:
                 scores = cls_score.sigmoid()
             else:
@@ -217,9 +234,8 @@ class RPNHead(AnchorHead):
 
             # use level id to implement the separate level nms
             level_ids.append(
-                scores.new_full((scores.size(0), ),
-                                level_idx,
-                                dtype=torch.long))
+                scores.new_full((scores.size(0),), level_idx, dtype=torch.long)
+            )
 
         bbox_pred = torch.cat(mlvl_bbox_preds)
         priors = cat_boxes(mlvl_valid_priors)
@@ -231,14 +247,17 @@ class RPNHead(AnchorHead):
         results.level_ids = torch.cat(level_ids)
 
         return self._bbox_post_process(
-            results=results, cfg=cfg, rescale=rescale, img_meta=img_meta)
+            results=results, cfg=cfg, rescale=rescale, img_meta=img_meta
+        )
 
-    def _bbox_post_process(self,
-                           results: InstanceData,
-                           cfg: ConfigDict,
-                           rescale: bool = False,
-                           with_nms: bool = True,
-                           img_meta: Optional[dict] = None) -> InstanceData:
+    def _bbox_post_process(
+        self,
+        results: InstanceData,
+        cfg: ConfigDict,
+        rescale: bool = False,
+        with_nms: bool = True,
+        img_meta: Optional[dict] = None,
+    ) -> InstanceData:
         """bbox post-processing method.
 
         The boxes would be rescaled to the original image scale and do
@@ -281,16 +300,18 @@ class RPNHead(AnchorHead):
 
         if results.bboxes.numel() > 0:
             bboxes = get_box_tensor(results.bboxes)
-            det_bboxes, keep_idxs = batched_nms(bboxes, results.scores,
-                                                results.level_ids, cfg.nms)
+            det_bboxes, keep_idxs = batched_nms(
+                bboxes, results.scores, results.level_ids, cfg.nms
+            )
             results = results[keep_idxs]
             # some nms would reweight the score, such as softnms
             results.scores = det_bboxes[:, -1]
-            results = results[:cfg.max_per_img]
+            results = results[: cfg.max_per_img]
             # TODO: This would unreasonably show the 0th class label
             #  in visualization
             results.labels = results.scores.new_zeros(
-                len(results), dtype=torch.long)
+                len(results), dtype=torch.long
+            )
             del results.level_ids
         else:
             # To avoid some potential error

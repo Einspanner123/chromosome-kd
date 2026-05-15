@@ -22,8 +22,9 @@ def palette_val(palette: List[tuple]) -> List[tuple]:
     return new_palette
 
 
-def get_palette(palette: Union[List[tuple], str, tuple],
-                num_classes: int) -> List[Tuple[int]]:
+def get_palette(
+    palette: Union[List[tuple], str, tuple], num_classes: int
+) -> List[Tuple[int]]:
     """Get palette from various inputs.
 
     Args:
@@ -48,28 +49,32 @@ def get_palette(palette: Union[List[tuple], str, tuple],
         dataset_palette = [tuple(c) for c in palette]
     elif palette == 'coco':
         from mmdet.datasets import CocoDataset, CocoPanopticDataset
+
         dataset_palette = CocoDataset.METAINFO['palette']
         if len(dataset_palette) < num_classes:
             dataset_palette = CocoPanopticDataset.METAINFO['palette']
     elif palette == 'citys':
         from mmdet.datasets import CityscapesDataset
+
         dataset_palette = CityscapesDataset.METAINFO['palette']
     elif palette == 'voc':
         from mmdet.datasets import VOCDataset
+
         dataset_palette = VOCDataset.METAINFO['palette']
     elif is_str(palette):
         dataset_palette = [mmcv.color_val(palette)[::-1]] * num_classes
     else:
         raise TypeError(f'Invalid type for palette: {type(palette)}')
 
-    assert len(dataset_palette) >= num_classes, \
+    assert len(dataset_palette) >= num_classes, (
         'The length of palette should not be less than `num_classes`.'
+    )
     return dataset_palette
 
 
-def _get_adaptive_scales(areas: np.ndarray,
-                         min_area: int = 800,
-                         max_area: int = 30000) -> np.ndarray:
+def _get_adaptive_scales(
+    areas: np.ndarray, min_area: int = 800, max_area: int = 30000
+) -> np.ndarray:
     """Get adaptive scales according to areas.
 
     The scale range is [0.5, 1.0]. When the area is less than

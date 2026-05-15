@@ -21,7 +21,6 @@ Output: deff_results.json
 
 from __future__ import annotations
 import json
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -32,8 +31,17 @@ OUTPUT = SCRIPT_DIR.parent / 'deff_results.json'
 N_PROPOSALS = 500
 N_TARGETS = 46
 N_GROUPS = 8  # chromosome groups (A-G + X/Y)
-TARGETS_PER_GROUP = [3, 2, 7, 3, 3, 2, 2, 1,
-                     1]  # approximate sizes, will truncate
+TARGETS_PER_GROUP = [
+    3,
+    2,
+    7,
+    3,
+    3,
+    2,
+    2,
+    1,
+    1,
+]  # approximate sizes, will truncate
 SNR_SCALE = 2.0  # matches paper: x0 normalized to [-s, s]^4
 SINKHORN_ITERS = 20
 N_SAMPLE_DRAWS = 100  # stochastic sampling draws per realization
@@ -63,18 +71,28 @@ def sinkhorn(C: np.ndarray, eps: float, n_iters: int = 20) -> np.ndarray:
     for _ in range(n_iters):
         # f = log_a - logsumexp(-C/eps + g, axis=1)
         log_Kg = -C / eps + g[None, :]  # (N, M)
-        f = log_a - np.max(
-            log_Kg, axis=1) - np.log(
+        f = (
+            log_a
+            - np.max(log_Kg, axis=1)
+            - np.log(
                 np.sum(
                     np.exp(log_Kg - np.max(log_Kg, axis=1, keepdims=True)),
-                    axis=1))
+                    axis=1,
+                )
+            )
+        )
         # g = log_b - logsumexp(-C/eps + f, axis=0)
         log_Kf = -C / eps + f[:, None]  # (N, M)
-        g = log_b - np.max(
-            log_Kf, axis=0) - np.log(
+        g = (
+            log_b
+            - np.max(log_Kf, axis=0)
+            - np.log(
                 np.sum(
                     np.exp(log_Kf - np.max(log_Kf, axis=0, keepdims=True)),
-                    axis=0))
+                    axis=0,
+                )
+            )
+        )
 
     # Reconstruct P = diag(exp(f)) @ K @ diag(exp(g))
     P = np.exp(f[:, None] - C / eps + g[None, :])
@@ -97,12 +115,26 @@ def sample_clustered_targets(rng: np.random.Generator) -> np.ndarray:
     the paper: targets in the same cluster compete for nearby proposals.
     """
     # Group centers scattered across a limited region (mimics metaphase spread)
-    group_centers = rng.uniform(-SNR_SCALE * 0.5, SNR_SCALE * 0.5,
-                                (N_GROUPS, 4))
+    group_centers = rng.uniform(
+        -SNR_SCALE * 0.5, SNR_SCALE * 0.5, (N_GROUPS, 4)
+    )
     targets = []
     # Realistic chromosome group sizes (A through Y, approx)
-    sizes = [3, 2, 7, 3, 3, 2, 2, 1, 1, 7, 3, 2,
-             2]  # truncated to 8 groups: take first 8
+    sizes = [
+        3,
+        2,
+        7,
+        3,
+        3,
+        2,
+        2,
+        1,
+        1,
+        7,
+        3,
+        2,
+        2,
+    ]  # truncated to 8 groups: take first 8
     actual_sizes = [3, 2, 7, 3, 3, 2, 2, 24]  # last group = all remaining
     # Actually: simpler approach — 8 groups with various sizes summing to 46
     sizes = [8, 7, 7, 6, 6, 5, 4, 3]  # sums to 46
@@ -134,7 +166,8 @@ def compute_for_epsilon(eps: float) -> dict:
         # --- Argmax decoding ---
         assignments_argmax = P.argmax(axis=1)  # (N,)
         col_mass_argmax = np.bincount(
-            assignments_argmax, minlength=N_TARGETS).astype(float)
+            assignments_argmax, minlength=N_TARGETS
+        ).astype(float)
         argmax_vals.append(effective_match_count(col_mass_argmax))
 
         # --- Stochastic decoding (sample many times, average D_eff) ---
@@ -142,18 +175,23 @@ def compute_for_epsilon(eps: float) -> dict:
         P_norm = P / P.sum(axis=1, keepdims=True)
         for _ in range(N_SAMPLE_DRAWS):
             # Sample one assignment per proposal
-            sampled = np.array([
-                RNG.choice(N_TARGETS, p=P_norm[i]) for i in range(N_PROPOSALS)
-            ])
+            sampled = np.array(
+                [
+                    RNG.choice(N_TARGETS, p=P_norm[i])
+                    for i in range(N_PROPOSALS)
+                ]
+            )
             col_mass_sampled = np.bincount(
-                sampled, minlength=N_TARGETS).astype(float)
+                sampled, minlength=N_TARGETS
+            ).astype(float)
             stoch_sampled_vals.append(effective_match_count(col_mass_sampled))
 
     # For stochastic: averaged over all draws × realizations
     stoch_arr = np.array(stoch_sampled_vals)
     # Group by realization (N_SAMPLE_DRAWS per realization)
-    stoch_per_realization = stoch_arr.reshape(N_REALIZATIONS,
-                                              N_SAMPLE_DRAWS).mean(axis=1)
+    stoch_per_realization = stoch_arr.reshape(
+        N_REALIZATIONS, N_SAMPLE_DRAWS
+    ).mean(axis=1)
 
     return {
         'epsilon': eps,
@@ -181,17 +219,17 @@ def main():
         results.append(r)
         print(
             f'  ε={eps:6.2f}  '
-            f"D_eff(argmax)={r['D_eff_argmax_mean']:.2f}±{r['D_eff_argmax_std']:.2f}  "
-            f"D_eff(stoch)={r['D_eff_stoch_mean']:.2f}±{r['D_eff_stoch_std']:.2f}"
+            f'D_eff(argmax)={r["D_eff_argmax_mean"]:.2f}±{r["D_eff_argmax_std"]:.2f}  '
+            f'D_eff(stoch)={r["D_eff_stoch_mean"]:.2f}±{r["D_eff_stoch_std"]:.2f}'
         )
 
     output = {
-        'description':
-        ('D_eff (effective match count) computed from Sinkhorn transport matrices. '
-         'N=500 proposals (Gaussian), M=46 targets (uniform in [-2,2]^4), '
-         '20 Sinkhorn iterations, 100 realizations per epsilon.'),
-        'results':
-        results,
+        'description': (
+            'D_eff (effective match count) computed from Sinkhorn transport matrices. '
+            'N=500 proposals (Gaussian), M=46 targets (uniform in [-2,2]^4), '
+            '20 Sinkhorn iterations, 100 realizations per epsilon.'
+        ),
+        'results': results,
     }
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)

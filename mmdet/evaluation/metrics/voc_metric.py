@@ -43,17 +43,18 @@ class VOCMetric(BaseMetric):
 
     default_prefix: Optional[str] = 'pascal_voc'
 
-    def __init__(self,
-                 iou_thrs: Union[float, List[float]] = 0.5,
-                 scale_ranges: Optional[List[tuple]] = None,
-                 metric: Union[str, List[str]] = 'mAP',
-                 proposal_nums: Sequence[int] = (100, 300, 1000),
-                 eval_mode: str = '11points',
-                 collect_device: str = 'cpu',
-                 prefix: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        iou_thrs: Union[float, List[float]] = 0.5,
+        scale_ranges: Optional[List[tuple]] = None,
+        metric: Union[str, List[str]] = 'mAP',
+        proposal_nums: Sequence[int] = (100, 300, 1000),
+        eval_mode: str = '11points',
+        collect_device: str = 'cpu',
+        prefix: Optional[str] = None,
+    ) -> None:
         super().__init__(collect_device=collect_device, prefix=prefix)
-        self.iou_thrs = [iou_thrs] if isinstance(iou_thrs, float) \
-            else iou_thrs
+        self.iou_thrs = [iou_thrs] if isinstance(iou_thrs, float) else iou_thrs
         self.scale_ranges = scale_ranges
         # voc evaluation metrics
         if not isinstance(metric, str):
@@ -62,11 +63,13 @@ class VOCMetric(BaseMetric):
         allowed_metrics = ['recall', 'mAP']
         if metric not in allowed_metrics:
             raise KeyError(
-                f"metric should be one of 'recall', 'mAP', but got {metric}.")
+                f"metric should be one of 'recall', 'mAP', but got {metric}."
+            )
         self.metric = metric
         self.proposal_nums = proposal_nums
-        assert eval_mode in ['area', '11points'], \
+        assert eval_mode in ['area', '11points'], (
             'Unrecognized mode, only "area" and "11points" are supported'
+        )
         self.eval_mode = eval_mode
 
     # TODO: data_batch is no longer needed, consider adjusting the
@@ -90,7 +93,8 @@ class VOCMetric(BaseMetric):
                 labels=gt_instances['labels'].cpu().numpy(),
                 bboxes=gt_instances['bboxes'].cpu().numpy(),
                 bboxes_ignore=gt_ignore_instances['bboxes'].cpu().numpy(),
-                labels_ignore=gt_ignore_instances['labels'].cpu().numpy())
+                labels_ignore=gt_ignore_instances['labels'].cpu().numpy(),
+            )
 
             pred = data_sample['pred_instances']
             pred_bboxes = pred['bboxes'].cpu().numpy()
@@ -101,7 +105,8 @@ class VOCMetric(BaseMetric):
             for label in range(len(self.dataset_meta['classes'])):
                 index = np.where(pred_labels == label)[0]
                 pred_bbox_scores = np.hstack(
-                    [pred_bboxes[index], pred_scores[index].reshape((-1, 1))])
+                    [pred_bboxes[index], pred_scores[index].reshape((-1, 1))]
+                )
                 dets.append(pred_bbox_scores)
 
             self.results.append((ann, dets))
@@ -125,13 +130,17 @@ class VOCMetric(BaseMetric):
             if dataset_type in ['VOC2007', 'VOC2012']:
                 dataset_name = 'voc'
                 if dataset_type == 'VOC2007' and self.eval_mode != '11points':
-                    warnings.warn('Pascal VOC2007 uses `11points` as default '
-                                  'evaluate mode, but you are using '
-                                  f'{self.eval_mode}.')
+                    warnings.warn(
+                        'Pascal VOC2007 uses `11points` as default '
+                        'evaluate mode, but you are using '
+                        f'{self.eval_mode}.'
+                    )
                 elif dataset_type == 'VOC2012' and self.eval_mode != 'area':
-                    warnings.warn('Pascal VOC2012 uses `area` as default '
-                                  'evaluate mode, but you are using '
-                                  f'{self.eval_mode}.')
+                    warnings.warn(
+                        'Pascal VOC2012 uses `area` as default '
+                        'evaluate mode, but you are using '
+                        f'{self.eval_mode}.'
+                    )
             else:
                 dataset_name = self.dataset_meta['classes']
 
@@ -151,7 +160,8 @@ class VOCMetric(BaseMetric):
                     dataset=dataset_name,
                     logger=logger,
                     eval_mode=self.eval_mode,
-                    use_legacy_coordinate=True)
+                    use_legacy_coordinate=True,
+                )
                 mean_aps.append(mean_ap)
                 eval_results[f'AP{int(iou_thr * 100):02d}'] = round(mean_ap, 3)
             eval_results['mAP'] = sum(mean_aps) / len(mean_aps)
@@ -165,7 +175,8 @@ class VOCMetric(BaseMetric):
                 self.proposal_nums,
                 self.iou_thrs,
                 logger=logger,
-                use_legacy_coordinate=True)
+                use_legacy_coordinate=True,
+            )
             for i, num in enumerate(self.proposal_nums):
                 for j, iou_thr in enumerate(self.iou_thrs):
                     eval_results[f'recall@{num}@{iou_thr}'] = recalls[i, j]

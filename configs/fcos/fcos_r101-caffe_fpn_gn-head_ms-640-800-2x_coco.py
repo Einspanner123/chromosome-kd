@@ -6,7 +6,10 @@ model = dict(
         depth=101,
         init_cfg=dict(
             type='Pretrained',
-            checkpoint='open-mmlab://detectron/resnet101_caffe')))
+            checkpoint='open-mmlab://detectron/resnet101_caffe',
+        ),
+    )
+)
 
 # dataset settings
 train_pipeline = [
@@ -15,9 +18,10 @@ train_pipeline = [
     dict(
         type='RandomChoiceResize',
         scales=[(1333, 640), (1333, 800)],
-        keep_ratio=True),
+        keep_ratio=True,
+    ),
     dict(type='RandomFlip', prob=0.5),
-    dict(type='PackDetInputs')
+    dict(type='PackDetInputs'),
 ]
 train_dataloader = dict(dataset=dict(pipeline=train_pipeline))
 
@@ -34,5 +38,6 @@ param_scheduler = [
         end=max_epochs,
         by_epoch=True,
         milestones=[16, 22],
-        gamma=0.1)
+        gamma=0.1,
+    ),
 ]

@@ -17,25 +17,28 @@ from .kd_one_stage import KnowledgeDistillationSingleStageDetector
 class LAD(KnowledgeDistillationSingleStageDetector):
     """Implementation of `LAD <https://arxiv.org/pdf/2108.10520.pdf>`_."""
 
-    def __init__(self,
-                 backbone: ConfigType,
-                 neck: ConfigType,
-                 bbox_head: ConfigType,
-                 teacher_backbone: ConfigType,
-                 teacher_neck: ConfigType,
-                 teacher_bbox_head: ConfigType,
-                 teacher_ckpt: Optional[str] = None,
-                 eval_teacher: bool = True,
-                 train_cfg: OptConfigType = None,
-                 test_cfg: OptConfigType = None,
-                 data_preprocessor: OptConfigType = None) -> None:
+    def __init__(
+        self,
+        backbone: ConfigType,
+        neck: ConfigType,
+        bbox_head: ConfigType,
+        teacher_backbone: ConfigType,
+        teacher_neck: ConfigType,
+        teacher_bbox_head: ConfigType,
+        teacher_ckpt: Optional[str] = None,
+        eval_teacher: bool = True,
+        train_cfg: OptConfigType = None,
+        test_cfg: OptConfigType = None,
+        data_preprocessor: OptConfigType = None,
+    ) -> None:
         super(KnowledgeDistillationSingleStageDetector, self).__init__(
             backbone=backbone,
             neck=neck,
             bbox_head=bbox_head,
             train_cfg=train_cfg,
             test_cfg=test_cfg,
-            data_preprocessor=data_preprocessor)
+            data_preprocessor=data_preprocessor,
+        )
         self.eval_teacher = eval_teacher
         self.teacher_model = nn.Module()
         self.teacher_model.backbone = MODELS.build(teacher_backbone)
@@ -46,13 +49,16 @@ class LAD(KnowledgeDistillationSingleStageDetector):
         self.teacher_model.bbox_head = MODELS.build(teacher_bbox_head)
         if teacher_ckpt is not None:
             load_checkpoint(
-                self.teacher_model, teacher_ckpt, map_location='cpu')
+                self.teacher_model, teacher_ckpt, map_location='cpu'
+            )
 
     @property
     def with_teacher_neck(self) -> bool:
         """bool: whether the detector has a teacher_neck"""
-        return hasattr(self.teacher_model, 'neck') and \
-            self.teacher_model.neck is not None
+        return (
+            hasattr(self.teacher_model, 'neck')
+            and self.teacher_model.neck is not None
+        )
 
     def extract_teacher_feat(self, batch_inputs: Tensor) -> Tensor:
         """Directly extract teacher features from the backbone+neck."""
@@ -61,8 +67,9 @@ class LAD(KnowledgeDistillationSingleStageDetector):
             x = self.teacher_model.neck(x)
         return x
 
-    def loss(self, batch_inputs: Tensor,
-             batch_data_samples: SampleList) -> dict:
+    def loss(
+        self, batch_inputs: Tensor, batch_data_samples: SampleList
+    ) -> dict:
         """
         Args:
             batch_inputs (Tensor): Input images of shape (N, C, H, W).
@@ -75,19 +82,25 @@ class LAD(KnowledgeDistillationSingleStageDetector):
             dict[str, Tensor]: A dictionary of loss components.
         """
         outputs = unpack_gt_instances(batch_data_samples)
-        batch_gt_instances, batch_gt_instances_ignore, batch_img_metas \
-            = outputs
+        batch_gt_instances, batch_gt_instances_ignore, batch_img_metas = (
+            outputs
+        )
         # get label assignment from the teacher
         with torch.no_grad():
             x_teacher = self.extract_teacher_feat(batch_inputs)
             outs_teacher = self.teacher_model.bbox_head(x_teacher)
-            label_assignment_results = \
+            label_assignment_results = (
                 self.teacher_model.bbox_head.get_label_assignment(
-                    *outs_teacher, batch_gt_instances, batch_img_metas,
-                    batch_gt_instances_ignore)
+                    *outs_teacher,
+                    batch_gt_instances,
+                    batch_img_metas,
+                    batch_gt_instances_ignore,
+                )
+            )
 
         # the student use the label assignment from the teacher to learn
         x = self.extract_feat(batch_inputs)
-        losses = self.bbox_head.loss(x, label_assignment_results,
-                                     batch_data_samples)
+        losses = self.bbox_head.loss(
+            x, label_assignment_results, batch_data_samples
+        )
         return losses

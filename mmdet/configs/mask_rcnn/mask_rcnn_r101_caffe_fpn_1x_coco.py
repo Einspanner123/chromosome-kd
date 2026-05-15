@@ -1,6 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 
-# Please refer to https://mmengine.readthedocs.io/en/latest/advanced_tutorials/config.html#a-pure-python-style-configuration-file-beta for more details. # noqa
+# Please refer to https://mmengine.readthedocs.io/en/latest/advanced_tutorials/config.html#a-pure-python-style-configuration-file-beta for more details.
 # mmcv >= 2.0.1
 # mmengine >= 0.8.0
 
@@ -16,4 +16,7 @@ model = dict(
         depth=101,
         init_cfg=dict(
             type=PretrainedInit,
-            checkpoint='open-mmlab://detectron2/resnet101_caffe')))
+            checkpoint='open-mmlab://detectron2/resnet101_caffe',
+        ),
+    )
+)

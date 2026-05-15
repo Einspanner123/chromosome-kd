@@ -12,10 +12,18 @@ from torch import Tensor
 
 from mmdet.registry import MODELS, TASK_UTILS
 from mmdet.structures import SampleList
-from mmdet.structures.bbox import (bbox_cxcywh_to_xyxy, bbox_overlaps,
-                                   bbox_xyxy_to_cxcywh)
-from mmdet.utils import (ConfigType, InstanceList, OptInstanceList,
-                         OptMultiConfig, reduce_mean)
+from mmdet.structures.bbox import (
+    bbox_cxcywh_to_xyxy,
+    bbox_overlaps,
+    bbox_xyxy_to_cxcywh,
+)
+from mmdet.utils import (
+    ConfigType,
+    InstanceList,
+    OptInstanceList,
+    OptMultiConfig,
+    reduce_mean,
+)
 from ..losses import QualityFocalLoss
 from ..utils import multi_apply
 
@@ -51,43 +59,51 @@ class DETRHead(BaseModule):
     _version = 2
 
     def __init__(
-            self,
-            num_classes: int,
-            embed_dims: int = 256,
-            num_reg_fcs: int = 2,
-            sync_cls_avg_factor: bool = False,
-            loss_cls: ConfigType = dict(
-                type='CrossEntropyLoss',
-                bg_cls_weight=0.1,
-                use_sigmoid=False,
-                loss_weight=1.0,
-                class_weight=1.0),
-            loss_bbox: ConfigType = dict(type='L1Loss', loss_weight=5.0),
-            loss_iou: ConfigType = dict(type='GIoULoss', loss_weight=2.0),
-            train_cfg: ConfigType = dict(
-                assigner=dict(
-                    type='HungarianAssigner',
-                    match_costs=[
-                        dict(type='ClassificationCost', weight=1.),
-                        dict(type='BBoxL1Cost', weight=5.0, box_format='xywh'),
-                        dict(type='IoUCost', iou_mode='giou', weight=2.0)
-                    ])),
-            test_cfg: ConfigType = dict(max_per_img=100),
-            init_cfg: OptMultiConfig = None) -> None:
+        self,
+        num_classes: int,
+        embed_dims: int = 256,
+        num_reg_fcs: int = 2,
+        sync_cls_avg_factor: bool = False,
+        loss_cls: ConfigType = dict(
+            type='CrossEntropyLoss',
+            bg_cls_weight=0.1,
+            use_sigmoid=False,
+            loss_weight=1.0,
+            class_weight=1.0,
+        ),
+        loss_bbox: ConfigType = dict(type='L1Loss', loss_weight=5.0),
+        loss_iou: ConfigType = dict(type='GIoULoss', loss_weight=2.0),
+        train_cfg: ConfigType = dict(
+            assigner=dict(
+                type='HungarianAssigner',
+                match_costs=[
+                    dict(type='ClassificationCost', weight=1.0),
+                    dict(type='BBoxL1Cost', weight=5.0, box_format='xywh'),
+                    dict(type='IoUCost', iou_mode='giou', weight=2.0),
+                ],
+            )
+        ),
+        test_cfg: ConfigType = dict(max_per_img=100),
+        init_cfg: OptMultiConfig = None,
+    ) -> None:
         super().__init__(init_cfg=init_cfg)
         self.bg_cls_weight = 0
         self.sync_cls_avg_factor = sync_cls_avg_factor
         class_weight = loss_cls.get('class_weight', None)
         if class_weight is not None and (self.__class__ is DETRHead):
-            assert isinstance(class_weight, float), 'Expected ' \
-                'class_weight to have type float. Found ' \
+            assert isinstance(class_weight, float), (
+                'Expected '
+                'class_weight to have type float. Found '
                 f'{type(class_weight)}.'
+            )
             # NOTE following the official DETR repo, bg_cls_weight means
             # relative classification weight of the no-object class.
             bg_cls_weight = loss_cls.get('bg_cls_weight', class_weight)
-            assert isinstance(bg_cls_weight, float), 'Expected ' \
-                'bg_cls_weight to have type float. Found ' \
+            assert isinstance(bg_cls_weight, float), (
+                'Expected '
+                'bg_cls_weight to have type float. Found '
                 f'{type(bg_cls_weight)}.'
+            )
             class_weight = torch.ones(num_classes + 1) * class_weight
             # set background class as the last indice
             class_weight[num_classes] = bg_cls_weight
@@ -97,8 +113,9 @@ class DETRHead(BaseModule):
             self.bg_cls_weight = bg_cls_weight
 
         if train_cfg:
-            assert 'assigner' in train_cfg, 'assigner should be provided ' \
-                                            'when train_cfg is set.'
+            assert 'assigner' in train_cfg, (
+                'assigner should be provided when train_cfg is set.'
+            )
             assigner = train_cfg['assigner']
             self.assigner = TASK_UTILS.build(assigner)
             if train_cfg.get('sampler', None) is not None:
@@ -131,14 +148,15 @@ class DETRHead(BaseModule):
             self.num_reg_fcs,
             dict(type='ReLU', inplace=True),
             dropout=0.0,
-            add_residual=False)
+            add_residual=False,
+        )
         # NOTE the activations of reg_branch here is the same as
         # those in transformer, but they are actually different
         # in DAB-DETR (prelu in transformer and relu in reg_branch)
         self.fc_reg = Linear(self.embed_dims, 4)
 
     def forward(self, hidden_states: Tensor) -> Tuple[Tensor]:
-        """"Forward function.
+        """ "Forward function.
 
         Args:
             hidden_states (Tensor): Features from transformer decoder. If
@@ -158,11 +176,13 @@ class DETRHead(BaseModule):
         """
         layers_cls_scores = self.fc_cls(hidden_states)
         layers_bbox_preds = self.fc_reg(
-            self.activate(self.reg_ffn(hidden_states))).sigmoid()
+            self.activate(self.reg_ffn(hidden_states))
+        ).sigmoid()
         return layers_cls_scores, layers_bbox_preds
 
-    def loss(self, hidden_states: Tensor,
-             batch_data_samples: SampleList) -> dict:
+    def loss(
+        self, hidden_states: Tensor, batch_data_samples: SampleList
+    ) -> dict:
         """Perform forward propagation and loss calculation of the detection
         head on the features of the upstream network.
 
@@ -194,9 +214,9 @@ class DETRHead(BaseModule):
         all_layers_bbox_preds: Tensor,
         batch_gt_instances: InstanceList,
         batch_img_metas: List[dict],
-        batch_gt_instances_ignore: OptInstanceList = None
+        batch_gt_instances_ignore: OptInstanceList = None,
     ) -> Dict[str, Tensor]:
-        """"Loss function.
+        """ "Loss function.
 
         Only outputs from the last feature level are used for computing
         losses by default.
@@ -222,16 +242,18 @@ class DETRHead(BaseModule):
         Returns:
             dict[str, Tensor]: A dictionary of loss components.
         """
-        assert batch_gt_instances_ignore is None, \
-            f'{self.__class__.__name__} only supports ' \
+        assert batch_gt_instances_ignore is None, (
+            f'{self.__class__.__name__} only supports '
             'for batch_gt_instances_ignore setting to None.'
+        )
 
         losses_cls, losses_bbox, losses_iou = multi_apply(
             self.loss_by_feat_single,
             all_layers_cls_scores,
             all_layers_bbox_preds,
             batch_gt_instances=batch_gt_instances,
-            batch_img_metas=batch_img_metas)
+            batch_img_metas=batch_img_metas,
+        )
 
         loss_dict = dict()
         # loss from the last decoder layer
@@ -240,17 +262,22 @@ class DETRHead(BaseModule):
         loss_dict['loss_iou'] = losses_iou[-1]
         # loss from other decoder layers
         num_dec_layer = 0
-        for loss_cls_i, loss_bbox_i, loss_iou_i in \
-                zip(losses_cls[:-1], losses_bbox[:-1], losses_iou[:-1]):
+        for loss_cls_i, loss_bbox_i, loss_iou_i in zip(
+            losses_cls[:-1], losses_bbox[:-1], losses_iou[:-1]
+        ):
             loss_dict[f'd{num_dec_layer}.loss_cls'] = loss_cls_i
             loss_dict[f'd{num_dec_layer}.loss_bbox'] = loss_bbox_i
             loss_dict[f'd{num_dec_layer}.loss_iou'] = loss_iou_i
             num_dec_layer += 1
         return loss_dict
 
-    def loss_by_feat_single(self, cls_scores: Tensor, bbox_preds: Tensor,
-                            batch_gt_instances: InstanceList,
-                            batch_img_metas: List[dict]) -> Tuple[Tensor]:
+    def loss_by_feat_single(
+        self,
+        cls_scores: Tensor,
+        bbox_preds: Tensor,
+        batch_gt_instances: InstanceList,
+        batch_img_metas: List[dict],
+    ) -> Tuple[Tensor]:
         """Loss function for outputs from a single decoder layer of a single
         feature level.
 
@@ -273,10 +300,20 @@ class DETRHead(BaseModule):
         num_imgs = cls_scores.size(0)
         cls_scores_list = [cls_scores[i] for i in range(num_imgs)]
         bbox_preds_list = [bbox_preds[i] for i in range(num_imgs)]
-        cls_reg_targets = self.get_targets(cls_scores_list, bbox_preds_list,
-                                           batch_gt_instances, batch_img_metas)
-        (labels_list, label_weights_list, bbox_targets_list, bbox_weights_list,
-         num_total_pos, num_total_neg) = cls_reg_targets
+        cls_reg_targets = self.get_targets(
+            cls_scores_list,
+            bbox_preds_list,
+            batch_gt_instances,
+            batch_img_metas,
+        )
+        (
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            bbox_weights_list,
+            num_total_pos,
+            num_total_neg,
+        ) = cls_reg_targets
         labels = torch.cat(labels_list, 0)
         label_weights = torch.cat(label_weights_list, 0)
         bbox_targets = torch.cat(bbox_targets_list, 0)
@@ -285,17 +322,20 @@ class DETRHead(BaseModule):
         # classification loss
         cls_scores = cls_scores.reshape(-1, self.cls_out_channels)
         # construct weighted avg_factor to match with the official DETR repo
-        cls_avg_factor = num_total_pos * 1.0 + \
-            num_total_neg * self.bg_cls_weight
+        cls_avg_factor = (
+            num_total_pos * 1.0 + num_total_neg * self.bg_cls_weight
+        )
         if self.sync_cls_avg_factor:
             cls_avg_factor = reduce_mean(
-                cls_scores.new_tensor([cls_avg_factor]))
+                cls_scores.new_tensor([cls_avg_factor])
+            )
         cls_avg_factor = max(cls_avg_factor, 1)
 
         if isinstance(self.loss_cls, QualityFocalLoss):
             bg_class_ind = self.num_classes
-            pos_inds = ((labels >= 0)
-                        & (labels < bg_class_ind)).nonzero().squeeze(1)
+            pos_inds = (
+                ((labels >= 0) & (labels < bg_class_ind)).nonzero().squeeze(1)
+            )
             scores = label_weights.new_zeros(labels.shape)
             pos_bbox_targets = bbox_targets[pos_inds]
             pos_decode_bbox_targets = bbox_cxcywh_to_xyxy(pos_bbox_targets)
@@ -304,14 +344,18 @@ class DETRHead(BaseModule):
             scores[pos_inds] = bbox_overlaps(
                 pos_decode_bbox_pred.detach(),
                 pos_decode_bbox_targets,
-                is_aligned=True)
+                is_aligned=True,
+            )
             loss_cls = self.loss_cls(
-                cls_scores, (labels, scores),
+                cls_scores,
+                (labels, scores),
                 label_weights,
-                avg_factor=cls_avg_factor)
+                avg_factor=cls_avg_factor,
+            )
         else:
             loss_cls = self.loss_cls(
-                cls_scores, labels, label_weights, avg_factor=cls_avg_factor)
+                cls_scores, labels, label_weights, avg_factor=cls_avg_factor
+            )
 
         # Compute the average number of gt boxes across all gpus, for
         # normalization purposes
@@ -321,10 +365,15 @@ class DETRHead(BaseModule):
         # construct factors used for rescale bboxes
         factors = []
         for img_meta, bbox_pred in zip(batch_img_metas, bbox_preds):
-            img_h, img_w, = img_meta['img_shape']
-            factor = bbox_pred.new_tensor([img_w, img_h, img_w,
-                                           img_h]).unsqueeze(0).repeat(
-                                               bbox_pred.size(0), 1)
+            (
+                img_h,
+                img_w,
+            ) = img_meta['img_shape']
+            factor = (
+                bbox_pred.new_tensor([img_w, img_h, img_w, img_h])
+                .unsqueeze(0)
+                .repeat(bbox_pred.size(0), 1)
+            )
             factors.append(factor)
         factors = torch.cat(factors, 0)
 
@@ -337,17 +386,22 @@ class DETRHead(BaseModule):
 
         # regression IoU loss, defaultly GIoU loss
         loss_iou = self.loss_iou(
-            bboxes, bboxes_gt, bbox_weights, avg_factor=num_total_pos)
+            bboxes, bboxes_gt, bbox_weights, avg_factor=num_total_pos
+        )
 
         # regression L1 loss
         loss_bbox = self.loss_bbox(
-            bbox_preds, bbox_targets, bbox_weights, avg_factor=num_total_pos)
+            bbox_preds, bbox_targets, bbox_weights, avg_factor=num_total_pos
+        )
         return loss_cls, loss_bbox, loss_iou
 
-    def get_targets(self, cls_scores_list: List[Tensor],
-                    bbox_preds_list: List[Tensor],
-                    batch_gt_instances: InstanceList,
-                    batch_img_metas: List[dict]) -> tuple:
+    def get_targets(
+        self,
+        cls_scores_list: List[Tensor],
+        bbox_preds_list: List[Tensor],
+        batch_gt_instances: InstanceList,
+        batch_img_metas: List[dict],
+    ) -> tuple:
         """Compute regression and classification targets for a batch image.
 
         Outputs from a single decoder layer of a single feature level are used.
@@ -375,19 +429,38 @@ class DETRHead(BaseModule):
             - num_total_pos (int): Number of positive samples in all images.
             - num_total_neg (int): Number of negative samples in all images.
         """
-        (labels_list, label_weights_list, bbox_targets_list, bbox_weights_list,
-         pos_inds_list,
-         neg_inds_list) = multi_apply(self._get_targets_single,
-                                      cls_scores_list, bbox_preds_list,
-                                      batch_gt_instances, batch_img_metas)
-        num_total_pos = sum((inds.numel() for inds in pos_inds_list))
-        num_total_neg = sum((inds.numel() for inds in neg_inds_list))
-        return (labels_list, label_weights_list, bbox_targets_list,
-                bbox_weights_list, num_total_pos, num_total_neg)
+        (
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            bbox_weights_list,
+            pos_inds_list,
+            neg_inds_list,
+        ) = multi_apply(
+            self._get_targets_single,
+            cls_scores_list,
+            bbox_preds_list,
+            batch_gt_instances,
+            batch_img_metas,
+        )
+        num_total_pos = sum(inds.numel() for inds in pos_inds_list)
+        num_total_neg = sum(inds.numel() for inds in neg_inds_list)
+        return (
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            bbox_weights_list,
+            num_total_pos,
+            num_total_neg,
+        )
 
-    def _get_targets_single(self, cls_score: Tensor, bbox_pred: Tensor,
-                            gt_instances: InstanceData,
-                            img_meta: dict) -> tuple:
+    def _get_targets_single(
+        self,
+        cls_score: Tensor,
+        bbox_pred: Tensor,
+        gt_instances: InstanceData,
+        img_meta: dict,
+    ) -> tuple:
         """Compute regression and classification targets for one image.
 
         Outputs from a single decoder layer of a single feature level are used.
@@ -414,8 +487,9 @@ class DETRHead(BaseModule):
             - neg_inds (Tensor): Sampled negative indices for each image.
         """
         img_h, img_w = img_meta['img_shape']
-        factor = bbox_pred.new_tensor([img_w, img_h, img_w,
-                                       img_h]).unsqueeze(0)
+        factor = bbox_pred.new_tensor([img_w, img_h, img_w, img_h]).unsqueeze(
+            0
+        )
         num_bboxes = bbox_pred.size(0)
         # convert bbox_pred from xywh, normalized to xyxy, unnormalized
         bbox_pred = bbox_cxcywh_to_xyxy(bbox_pred)
@@ -426,21 +500,28 @@ class DETRHead(BaseModule):
         assign_result = self.assigner.assign(
             pred_instances=pred_instances,
             gt_instances=gt_instances,
-            img_meta=img_meta)
+            img_meta=img_meta,
+        )
 
         gt_bboxes = gt_instances.bboxes
         gt_labels = gt_instances.labels
-        pos_inds = torch.nonzero(
-            assign_result.gt_inds > 0, as_tuple=False).squeeze(-1).unique()
-        neg_inds = torch.nonzero(
-            assign_result.gt_inds == 0, as_tuple=False).squeeze(-1).unique()
+        pos_inds = (
+            torch.nonzero(assign_result.gt_inds > 0, as_tuple=False)
+            .squeeze(-1)
+            .unique()
+        )
+        neg_inds = (
+            torch.nonzero(assign_result.gt_inds == 0, as_tuple=False)
+            .squeeze(-1)
+            .unique()
+        )
         pos_assigned_gt_inds = assign_result.gt_inds[pos_inds] - 1
         pos_gt_bboxes = gt_bboxes[pos_assigned_gt_inds.long(), :]
 
         # label targets
-        labels = gt_bboxes.new_full((num_bboxes, ),
-                                    self.num_classes,
-                                    dtype=torch.long)
+        labels = gt_bboxes.new_full(
+            (num_bboxes,), self.num_classes, dtype=torch.long
+        )
         labels[pos_inds] = gt_labels[pos_assigned_gt_inds]
         label_weights = gt_bboxes.new_ones(num_bboxes)
 
@@ -455,12 +536,18 @@ class DETRHead(BaseModule):
         pos_gt_bboxes_normalized = pos_gt_bboxes / factor
         pos_gt_bboxes_targets = bbox_xyxy_to_cxcywh(pos_gt_bboxes_normalized)
         bbox_targets[pos_inds] = pos_gt_bboxes_targets
-        return (labels, label_weights, bbox_targets, bbox_weights, pos_inds,
-                neg_inds)
+        return (
+            labels,
+            label_weights,
+            bbox_targets,
+            bbox_weights,
+            pos_inds,
+            neg_inds,
+        )
 
     def loss_and_predict(
-            self, hidden_states: Tuple[Tensor],
-            batch_data_samples: SampleList) -> Tuple[dict, InstanceList]:
+        self, hidden_states: Tuple[Tensor], batch_data_samples: SampleList
+    ) -> Tuple[dict, InstanceList]:
         """Perform forward propagation of the head, then calculate loss and
         predictions from the features and data samples. Over-write because
         img_metas are needed as inputs for bbox_head.
@@ -490,13 +577,16 @@ class DETRHead(BaseModule):
         losses = self.loss_by_feat(*loss_inputs)
 
         predictions = self.predict_by_feat(
-            *outs, batch_img_metas=batch_img_metas)
+            *outs, batch_img_metas=batch_img_metas
+        )
         return losses, predictions
 
-    def predict(self,
-                hidden_states: Tuple[Tensor],
-                batch_data_samples: SampleList,
-                rescale: bool = True) -> InstanceList:
+    def predict(
+        self,
+        hidden_states: Tuple[Tensor],
+        batch_data_samples: SampleList,
+        rescale: bool = True,
+    ) -> InstanceList:
         """Perform forward propagation of the detection head and predict
         detection results on the features of the upstream network. Over-write
         because img_metas are needed as inputs for bbox_head.
@@ -522,15 +612,18 @@ class DETRHead(BaseModule):
         outs = self(last_layer_hidden_state)
 
         predictions = self.predict_by_feat(
-            *outs, batch_img_metas=batch_img_metas, rescale=rescale)
+            *outs, batch_img_metas=batch_img_metas, rescale=rescale
+        )
 
         return predictions
 
-    def predict_by_feat(self,
-                        layer_cls_scores: Tensor,
-                        layer_bbox_preds: Tensor,
-                        batch_img_metas: List[dict],
-                        rescale: bool = True) -> InstanceList:
+    def predict_by_feat(
+        self,
+        layer_cls_scores: Tensor,
+        layer_bbox_preds: Tensor,
+        batch_img_metas: List[dict],
+        rescale: bool = True,
+    ) -> InstanceList:
         """Transform network outputs for a batch into bbox predictions.
 
         Args:
@@ -566,16 +659,19 @@ class DETRHead(BaseModule):
             cls_score = cls_scores[img_id]
             bbox_pred = bbox_preds[img_id]
             img_meta = batch_img_metas[img_id]
-            results = self._predict_by_feat_single(cls_score, bbox_pred,
-                                                   img_meta, rescale)
+            results = self._predict_by_feat_single(
+                cls_score, bbox_pred, img_meta, rescale
+            )
             result_list.append(results)
         return result_list
 
-    def _predict_by_feat_single(self,
-                                cls_score: Tensor,
-                                bbox_pred: Tensor,
-                                img_meta: dict,
-                                rescale: bool = True) -> InstanceData:
+    def _predict_by_feat_single(
+        self,
+        cls_score: Tensor,
+        bbox_pred: Tensor,
+        img_meta: dict,
+        rescale: bool = True,
+    ) -> InstanceData:
         """Transform outputs from the last decoder layer into bbox predictions
         for each image.
 
@@ -625,7 +721,8 @@ class DETRHead(BaseModule):
         if rescale:
             assert img_meta.get('scale_factor') is not None
             det_bboxes /= det_bboxes.new_tensor(
-                img_meta['scale_factor']).repeat((1, 2))
+                img_meta['scale_factor']
+            ).repeat((1, 2))
 
         results = InstanceData()
         results.bboxes = det_bboxes

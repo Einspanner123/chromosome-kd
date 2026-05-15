@@ -7,6 +7,7 @@ Output: paper_ot_medical_draft/figures/*.pdf
 Usage:
     python scripts/generate_figures.py
 """
+
 from __future__ import annotations
 import json
 import os
@@ -17,7 +18,6 @@ import matplotlib
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 import numpy as np
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 
@@ -31,20 +31,22 @@ REPO = PROJ_DIR.parent  # chromo-kd root
 os.makedirs(FIG_DIR, exist_ok=True)
 
 # ---- Style ----
-plt.rcParams.update({
-    'font.family': 'serif',
-    'font.size': 11,
-    'axes.titlesize': 13,
-    'axes.labelsize': 12,
-    'legend.fontsize': 10,
-    'xtick.labelsize': 9,
-    'ytick.labelsize': 9,
-    'figure.dpi': 150,
-    'savefig.dpi': 300,
-    'savefig.bbox': 'tight',
-    'axes.spines.top': False,
-    'axes.spines.right': False,
-})
+plt.rcParams.update(
+    {
+        'font.family': 'serif',
+        'font.size': 11,
+        'axes.titlesize': 13,
+        'axes.labelsize': 12,
+        'legend.fontsize': 10,
+        'xtick.labelsize': 9,
+        'ytick.labelsize': 9,
+        'figure.dpi': 150,
+        'savefig.dpi': 300,
+        'savefig.bbox': 'tight',
+        'axes.spines.top': False,
+        'axes.spines.right': False,
+    }
+)
 
 COLORS = {
     'random': '#2E86AB',  # blue
@@ -83,8 +85,30 @@ CLASS_NAMES = [
     'Y',
 ]
 GROUPS = [
-    'A', 'A', 'A', 'B', 'B', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'D', 'D', 'D',
-    'E', 'E', 'E', 'F', 'F', 'G', 'G', 'X', 'Y'
+    'A',
+    'A',
+    'A',
+    'B',
+    'B',
+    'C',
+    'C',
+    'C',
+    'C',
+    'C',
+    'C',
+    'C',
+    'D',
+    'D',
+    'D',
+    'E',
+    'E',
+    'E',
+    'F',
+    'F',
+    'G',
+    'G',
+    'X',
+    'Y',
 ]
 
 
@@ -128,17 +152,20 @@ def fig1_overview(per_class):
         ha='center',
         va='center',
         fontsize=16,
-        fontweight='bold')
+        fontweight='bold',
+    )
 
     # ---- Row 1: The Problem ----
     # Box 1: OT intuition
-    box1 = FancyBboxPatch((0.5, 3.8),
-                          3.5,
-                          1.4,
-                          boxstyle='round,pad=0.1',
-                          facecolor='#FFF3E0',
-                          edgecolor='#E65100',
-                          linewidth=2)
+    box1 = FancyBboxPatch(
+        (0.5, 3.8),
+        3.5,
+        1.4,
+        boxstyle='round,pad=0.1',
+        facecolor='#FFF3E0',
+        edgecolor='#E65100',
+        linewidth=2,
+    )
     ax.add_patch(box1)
     ax.text(
         2.25,
@@ -147,30 +174,35 @@ def fig1_overview(per_class):
         ha='center',
         fontsize=12,
         fontweight='bold',
-        color='#E65100')
+        color='#E65100',
+    )
     ax.text(
         2.25,
         4.4,
         'Optimal Transport coupling\nshortens transport paths &\nbenefits generation models',
         ha='center',
         fontsize=9.5,
-        color='#333')
+        color='#333',
+    )
 
     # Arrow to Box 2
     ax.annotate(
         '',
         xy=(5.5, 4.5),
         xytext=(4.0, 4.5),
-        arrowprops=dict(arrowstyle='->', color='#555', lw=2))
+        arrowprops=dict(arrowstyle='->', color='#555', lw=2),
+    )
 
     # Box 2: The Discovery
-    box2 = FancyBboxPatch((5.5, 3.8),
-                          3.5,
-                          1.4,
-                          boxstyle='round,pad=0.1',
-                          facecolor='#FFEBEE',
-                          edgecolor='#B71C1C',
-                          linewidth=2)
+    box2 = FancyBboxPatch(
+        (5.5, 3.8),
+        3.5,
+        1.4,
+        boxstyle='round,pad=0.1',
+        facecolor='#FFEBEE',
+        edgecolor='#B71C1C',
+        linewidth=2,
+    )
     ax.add_patch(box2)
     ax.text(
         7.25,
@@ -179,30 +211,37 @@ def fig1_overview(per_class):
         ha='center',
         fontsize=12,
         fontweight='bold',
-        color='#B71C1C')
+        color='#B71C1C',
+    )
     ax.text(
         7.25,
         4.35,
-        f"OT harms dense detection:\nRandom mAP = {per_class.get('Random (AdaLN)', {}).get('mAP', 0.751):.3f}\nHard OT mAP = {per_class.get('Hard OT', {}).get('mAP', 0.735):.3f}",
+        f'OT harms dense detection:\nRandom mAP = {per_class.get("Random (AdaLN)", {}).get("mAP", 0.751):.3f}\nHard OT mAP = {per_class.get("Hard OT", {}).get("mAP", 0.735):.3f}',
         ha='center',
         fontsize=9.5,
-        color='#333')
+        color='#333',
+    )
 
     # ---- Row 2: The Mechanism ----
-    arrow_down = FancyArrowPatch((4.0, 3.8), (2.5, 3.0),
-                                 arrowstyle='->',
-                                 color='#555',
-                                 lw=1.5,
-                                 connectionstyle='arc3,rad=-0.2')
+    arrow_down = FancyArrowPatch(
+        (4.0, 3.8),
+        (2.5, 3.0),
+        arrowstyle='->',
+        color='#555',
+        lw=1.5,
+        connectionstyle='arc3,rad=-0.2',
+    )
     ax.add_patch(arrow_down)
 
-    box3 = FancyBboxPatch((0.5, 1.6),
-                          4.0,
-                          1.3,
-                          boxstyle='round,pad=0.1',
-                          facecolor='#E3F2FD',
-                          edgecolor='#1565C0',
-                          linewidth=2)
+    box3 = FancyBboxPatch(
+        (0.5, 1.6),
+        4.0,
+        1.3,
+        boxstyle='round,pad=0.1',
+        facecolor='#E3F2FD',
+        edgecolor='#1565C0',
+        linewidth=2,
+    )
     ax.add_patch(box3)
     ax.text(
         2.5,
@@ -211,22 +250,26 @@ def fig1_overview(per_class):
         ha='center',
         fontsize=11,
         fontweight='bold',
-        color='#1565C0')
+        color='#1565C0',
+    )
     ax.text(
         2.5,
         2.15,
         'Conditional velocity entropy\nH(V|Z): 3.841 → 0.000 nats\nTotal variance: 5.169 → 2.401',
         ha='center',
         fontsize=9,
-        color='#333')
+        color='#333',
+    )
 
-    box4 = FancyBboxPatch((5.5, 1.6),
-                          4.0,
-                          1.3,
-                          boxstyle='round,pad=0.1',
-                          facecolor='#E8F5E9',
-                          edgecolor='#2E7D32',
-                          linewidth=2)
+    box4 = FancyBboxPatch(
+        (5.5, 1.6),
+        4.0,
+        1.3,
+        boxstyle='round,pad=0.1',
+        facecolor='#E8F5E9',
+        edgecolor='#2E7D32',
+        linewidth=2,
+    )
     ax.add_patch(box4)
     ax.text(
         7.5,
@@ -235,14 +278,16 @@ def fig1_overview(per_class):
         ha='center',
         fontsize=11,
         fontweight='bold',
-        color='#2E7D32')
+        color='#2E7D32',
+    )
     ax.text(
         7.5,
         2.15,
         'Argmax destroys ε control\nD_eff frozen at 2.80 across ε\nStochastic restores D_eff to 5.31',
         ha='center',
         fontsize=9,
-        color='#333')
+        color='#333',
+    )
 
     # ---- Row 3: The Solution ----
     ax.annotate(
@@ -253,15 +298,19 @@ def fig1_overview(per_class):
             arrowstyle='->',
             color='#555',
             lw=1.5,
-            connectionstyle='arc3,rad=0.2'))
+            connectionstyle='arc3,rad=0.2',
+        ),
+    )
 
-    box5 = FancyBboxPatch((3, 0.2),
-                          4.5,
-                          0.9,
-                          boxstyle='round,pad=0.1',
-                          facecolor='#C8E6C9',
-                          edgecolor='#1B5E20',
-                          linewidth=2)
+    box5 = FancyBboxPatch(
+        (3, 0.2),
+        4.5,
+        0.9,
+        boxstyle='round,pad=0.1',
+        facecolor='#C8E6C9',
+        edgecolor='#1B5E20',
+        linewidth=2,
+    )
     ax.add_patch(box5)
     ax.text(
         5.25,
@@ -270,14 +319,16 @@ def fig1_overview(per_class):
         ha='center',
         fontsize=12,
         fontweight='bold',
-        color='#1B5E20')
+        color='#1B5E20',
+    )
     ax.text(
         5.25,
         0.5,
-        f"Sample from Sinkhorn matrix → mAP = {per_class.get('Sinkhorn sample eps=5', {}).get('mAP', 0.750):.3f}\nPreserves diversity + transport structure",
+        f'Sample from Sinkhorn matrix → mAP = {per_class.get("Sinkhorn sample eps=5", {}).get("mAP", 0.750):.3f}\nPreserves diversity + transport structure',
         ha='center',
         fontsize=9.5,
-        color='#333')
+        color='#333',
+    )
 
     fig.tight_layout(pad=0.5)
     fig.savefig(FIG_DIR / 'figure1_overview.pdf')
@@ -293,8 +344,10 @@ def fig2_coupling():
     fig, axes = plt.subplots(1, 4, figsize=(14, 3.8))
 
     titles = [
-        '(a) Random Coupling', '(b) Hard OT', '(c) Sinkhorn + Argmax',
-        '(d) Stochastic Coupling'
+        '(a) Random Coupling',
+        '(b) Hard OT',
+        '(c) Sinkhorn + Argmax',
+        '(d) Stochastic Coupling',
     ]
     N, M = 30, 20  # proposals × targets for visualization
 
@@ -350,10 +403,12 @@ def fig2_coupling():
             transform=ax.transAxes,
             ha='center',
             fontsize=8,
-            color='#555')
+            color='#555',
+        )
 
     plt.colorbar(
-        im, ax=axes, label='Assignment probability', shrink=0.6, pad=0.02)
+        im, ax=axes, label='Assignment probability', shrink=0.6, pad=0.02
+    )
     fig.tight_layout()
     fig.savefig(FIG_DIR / 'figure2_coupling.pdf')
     fig.savefig(FIG_DIR / 'figure2_coupling.png')
@@ -393,7 +448,8 @@ def fig3_epsilon():
         color=COLORS['random'],
         lw=2.5,
         markersize=8,
-        label=r'$\rho(\varepsilon)$ Diversity Recovery')
+        label=r'$\rho(\varepsilon)$ Diversity Recovery',
+    )
     ax1.semilogx(
         eps_vals,
         eta,
@@ -401,7 +457,8 @@ def fig3_epsilon():
         color=COLORS['hard_ot'],
         lw=2.5,
         markersize=8,
-        label=r'$\eta(\varepsilon)$ Transport Efficiency')
+        label=r'$\eta(\varepsilon)$ Transport Efficiency',
+    )
     ax1.set_xlabel(r'$\varepsilon$ (log scale)')
     ax1.set_ylabel(r'$\rho(\varepsilon)$ / $\eta(\varepsilon)$', color='#333')
     ax1.set_ylim(-0.05, 1.15)
@@ -419,7 +476,8 @@ def fig3_epsilon():
         color='#333',
         lw=2.5,
         markersize=10,
-        label='mAP')
+        label='mAP',
+    )
     ax2.set_ylabel('mAP', color='#333')
     ax2.set_ylim(0.730, 0.756)
     ax2.legend(loc='upper right', frameon=True)
@@ -431,21 +489,24 @@ def fig3_epsilon():
         fontsize=10,
         color='#B71C1C',
         ha='center',
-        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
+        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8),
+    )
     ax1.annotate(
         'Sweet Spot\n($0.5\\leq\\varepsilon\\leq 5$)',
         xy=(1.5, 0.92),
         fontsize=10,
         color='#1B5E20',
         ha='center',
-        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
+        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8),
+    )
     ax1.annotate(
         'Bias-dominated\n($\\varepsilon>5$)',
         xy=(20, 1.05),
         fontsize=10,
         color='#E65100',
         ha='center',
-        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
+        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8),
+    )
     ax2.annotate(
         f'mAP={0.750:.3f}',
         xy=(5, 0.750),
@@ -453,10 +514,12 @@ def fig3_epsilon():
         fontsize=10,
         fontweight='bold',
         ha='center',
-        arrowprops=dict(arrowstyle='->', color='#333'))
+        arrowprops=dict(arrowstyle='->', color='#333'),
+    )
 
     ax1.set_title(
-        'Epsilon Sweep: Three-Regime Structure', fontweight='bold', pad=10)
+        'Epsilon Sweep: Three-Regime Structure', fontweight='bold', pad=10
+    )
     fig.tight_layout()
     fig.savefig(FIG_DIR / 'figure3_epsilon.pdf')
     fig.savefig(FIG_DIR / 'figure3_epsilon.png')
@@ -490,15 +553,17 @@ def fig4_dataset():
             except Exception:
                 pass
         ax.set_title(
-            f'Dataset A: 24-class chromosome\n(avg 46 objects/image)',
+            'Dataset A: 24-class chromosome\n(avg 46 objects/image)',
             fontsize=10,
-            fontweight='bold')
+            fontweight='bold',
+        )
         ax.axis('off')
 
     fig.suptitle(
         'Dataset: Dense Multi-Instance Chromosome Detection',
         fontweight='bold',
-        fontsize=14)
+        fontsize=14,
+    )
     fig.tight_layout()
     fig.savefig(FIG_DIR / 'figure4_dataset.pdf')
     fig.savefig(FIG_DIR / 'figure4_dataset.png')
@@ -539,7 +604,8 @@ def fig5_per_class_ap(per_class):
         color=COLORS['random'],
         label='Random (0.751 mAP)',
         edgecolor='white',
-        linewidth=0.5)
+        linewidth=0.5,
+    )
     bars2 = ax.bar(
         x - 0.5 * width,
         hardot_ap,
@@ -547,7 +613,8 @@ def fig5_per_class_ap(per_class):
         color=COLORS['hard_ot'],
         label='Hard OT (0.735 mAP)',
         edgecolor='white',
-        linewidth=0.5)
+        linewidth=0.5,
+    )
     bars3 = ax.bar(
         x + 0.5 * width,
         argmax_ap,
@@ -555,7 +622,8 @@ def fig5_per_class_ap(per_class):
         color=COLORS['argmax'],
         label='Sinkhorn argmax ε=5 (0.744 mAP)',
         edgecolor='white',
-        linewidth=0.5)
+        linewidth=0.5,
+    )
     bars4 = ax.bar(
         x + 1.5 * width,
         stoch_ap,
@@ -563,7 +631,8 @@ def fig5_per_class_ap(per_class):
         color=COLORS['stochastic'],
         label='Stochastic ε=5 (0.750 mAP)',
         edgecolor='white',
-        linewidth=0.5)
+        linewidth=0.5,
+    )
 
     ax.set_ylabel('Average Precision')
     ax.set_xticks(x)
@@ -587,7 +656,8 @@ def fig5_per_class_ap(per_class):
             ha='center',
             fontsize=9,
             fontweight='bold',
-            color='#666')
+            color='#666',
+        )
 
     # Arrow showing OT drops 22/24
     ax.annotate(
@@ -601,10 +671,13 @@ def fig5_per_class_ap(per_class):
             boxstyle='round,pad=0.3',
             facecolor='#FFEBEE',
             edgecolor='#B71C1C',
-            alpha=0.9))
+            alpha=0.9,
+        ),
+    )
 
     ax.set_title(
-        'Per-Class AP: Coupling Strategy Comparison', fontweight='bold')
+        'Per-Class AP: Coupling Strategy Comparison', fontweight='bold'
+    )
     fig.tight_layout()
     fig.savefig(FIG_DIR / 'figure5_per_class_ap.pdf')
     fig.savefig(FIG_DIR / 'figure5_per_class_ap.png')
@@ -617,7 +690,11 @@ def fig6_entropy():
     """Bar chart comparing entropy/variance across coupling strategies."""
     # Data from velocity_entropy_results.json
     categories = [
-        'H(V|Z)', 'H(V|X_t)', 'Total Var', 'Between Var', 'Within Var'
+        'H(V|Z)',
+        'H(V|X_t)',
+        'Total Var',
+        'Between Var',
+        'Within Var',
     ]
     random_vals = [3.841, 3.381, 5.169, 1.781, 3.388]
     hardot_vals = [0.000, 0.000, 2.401, 0.538, 1.864]
@@ -635,28 +712,32 @@ def fig6_entropy():
         width,
         color=COLORS['random'],
         label='Random',
-        edgecolor='white')
+        edgecolor='white',
+    )
     ax.bar(
         x - 0.5 * width,
         hardot_vals,
         width,
         color=COLORS['hard_ot'],
         label='Hard OT',
-        edgecolor='white')
+        edgecolor='white',
+    )
     ax.bar(
         x + 0.5 * width,
         stoch1_vals,
         width,
         color=COLORS['argmax'],
         label='Stochastic ε=1',
-        edgecolor='white')
+        edgecolor='white',
+    )
     ax.bar(
         x + 1.5 * width,
         stoch5_vals,
         width,
         color=COLORS['stochastic'],
         label='Stochastic ε=5',
-        edgecolor='white')
+        edgecolor='white',
+    )
 
     ax.set_xticks(x)
     ax.set_xticklabels(categories, fontsize=10)
@@ -673,8 +754,9 @@ def fig6_entropy():
         color='#B71C1C',
         ha='center',
         bbox=dict(
-            boxstyle='round,pad=0.3', facecolor='#FFEBEE',
-            edgecolor='#B71C1C'))
+            boxstyle='round,pad=0.3', facecolor='#FFEBEE', edgecolor='#B71C1C'
+        ),
+    )
     ax.annotate(
         'Recovered\nby Stochastic',
         xy=(0, 3.4),
@@ -683,12 +765,14 @@ def fig6_entropy():
         color='#1B5E20',
         ha='center',
         bbox=dict(
-            boxstyle='round,pad=0.3', facecolor='#E8F5E9',
-            edgecolor='#1B5E20'))
+            boxstyle='round,pad=0.3', facecolor='#E8F5E9', edgecolor='#1B5E20'
+        ),
+    )
 
     ax.set_title(
         'Mechanism Verification: Entropy & Variance Statistics',
-        fontweight='bold')
+        fontweight='bold',
+    )
     fig.tight_layout()
     fig.savefig(FIG_DIR / 'figure6_entropy.pdf')
     fig.savefig(FIG_DIR / 'figure6_entropy.png')
@@ -702,7 +786,8 @@ def fig7_deff():
     deff = load_json('deff_results.json')
     if not deff or 'results' not in deff:
         print(
-            'WARNING: deff_results.json not found. Run compute_deff.py first.')
+            'WARNING: deff_results.json not found. Run compute_deff.py first.'
+        )
         return
 
     results = deff['results']
@@ -723,7 +808,8 @@ def fig7_deff():
         lw=2.5,
         markersize=8,
         capsize=4,
-        label='Sinkhorn + Argmax')
+        label='Sinkhorn + Argmax',
+    )
     ax.errorbar(
         eps_vals,
         deff_stoch,
@@ -733,14 +819,16 @@ def fig7_deff():
         lw=2.5,
         markersize=8,
         capsize=4,
-        label='Sinkhorn Sampling')
+        label='Sinkhorn Sampling',
+    )
 
     ax.set_xscale('log')
     ax.set_xlabel(r'$\varepsilon$ (log scale)')
     ax.set_ylabel(r'Effective Match Count $D_{\mathrm{eff}}$')
     ax.set_title(
         r'$D_{\mathrm{eff}}$ vs $\varepsilon$: Argmax Destroys Diversity Control',
-        fontweight='bold')
+        fontweight='bold',
+    )
     ax.legend(loc='lower right', frameon=True)
     ax.grid(True, alpha=0.3, which='both')
 
@@ -753,7 +841,8 @@ def fig7_deff():
         color='#B71C1C',
         ha='center',
         arrowprops=dict(arrowstyle='->', color='#B71C1C'),
-        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
+        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8),
+    )
     ax.annotate(
         'Stochastic: D_eff grows with ε',
         xy=(5, deff_stoch[eps_vals == 5][0]),
@@ -762,7 +851,8 @@ def fig7_deff():
         color='#1B5E20',
         ha='center',
         arrowprops=dict(arrowstyle='->', color='#1B5E20'),
-        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
+        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8),
+    )
 
     fig.tight_layout()
     fig.savefig(FIG_DIR / 'figure_deff.pdf')
@@ -792,5 +882,5 @@ if __name__ == '__main__':
     fig7_deff()
 
     print(
-        f"\nDone! {len(list(FIG_DIR.glob('*.pdf')))} PDF figures saved to {FIG_DIR}"
+        f'\nDone! {len(list(FIG_DIR.glob("*.pdf")))} PDF figures saved to {FIG_DIR}'
     )

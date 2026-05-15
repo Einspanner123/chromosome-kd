@@ -58,4 +58,5 @@ model = dict(
                 candidate_topk=5,
             ),
         ),
-    ))
+    )
+)

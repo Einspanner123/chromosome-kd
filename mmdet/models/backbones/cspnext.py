@@ -51,14 +51,23 @@ class CSPNeXt(BaseModule):
         init_cfg (:obj:`ConfigDict` or dict or list[dict] or
             list[:obj:`ConfigDict`]): Initialization config dict.
     """
+
     # From left to right:
     # in_channels, out_channels, num_blocks, add_identity, use_spp
     arch_settings = {
-        'P5': [[64, 128, 3, True, False], [128, 256, 6, True, False],
-               [256, 512, 6, True, False], [512, 1024, 3, False, True]],
-        'P6': [[64, 128, 3, True, False], [128, 256, 6, True, False],
-               [256, 512, 6, True, False], [512, 768, 3, True, False],
-               [768, 1024, 3, False, True]]
+        'P5': [
+            [64, 128, 3, True, False],
+            [128, 256, 6, True, False],
+            [256, 512, 6, True, False],
+            [512, 1024, 3, False, True],
+        ],
+        'P6': [
+            [64, 128, 3, True, False],
+            [128, 256, 6, True, False],
+            [256, 512, 6, True, False],
+            [512, 768, 3, True, False],
+            [768, 1024, 3, False, True],
+        ],
     }
 
     def __init__(
@@ -83,18 +92,22 @@ class CSPNeXt(BaseModule):
             a=math.sqrt(5),
             distribution='uniform',
             mode='fan_in',
-            nonlinearity='leaky_relu')
+            nonlinearity='leaky_relu',
+        ),
     ) -> None:
         super().__init__(init_cfg=init_cfg)
         arch_setting = self.arch_settings[arch]
         if arch_ovewrite:
             arch_setting = arch_ovewrite
         assert set(out_indices).issubset(
-            i for i in range(len(arch_setting) + 1))
+            i for i in range(len(arch_setting) + 1)
+        )
         if frozen_stages not in range(-1, len(arch_setting) + 1):
-            raise ValueError('frozen_stages must be in range(-1, '
-                             'len(arch_setting) + 1). But received '
-                             f'{frozen_stages}')
+            raise ValueError(
+                'frozen_stages must be in range(-1, '
+                'len(arch_setting) + 1). But received '
+                f'{frozen_stages}'
+            )
 
         self.out_indices = out_indices
         self.frozen_stages = frozen_stages
@@ -109,7 +122,8 @@ class CSPNeXt(BaseModule):
                 padding=1,
                 stride=2,
                 norm_cfg=norm_cfg,
-                act_cfg=act_cfg),
+                act_cfg=act_cfg,
+            ),
             ConvModule(
                 int(arch_setting[0][0] * widen_factor // 2),
                 int(arch_setting[0][0] * widen_factor // 2),
@@ -117,7 +131,8 @@ class CSPNeXt(BaseModule):
                 padding=1,
                 stride=1,
                 norm_cfg=norm_cfg,
-                act_cfg=act_cfg),
+                act_cfg=act_cfg,
+            ),
             ConvModule(
                 int(arch_setting[0][0] * widen_factor // 2),
                 int(arch_setting[0][0] * widen_factor),
@@ -125,11 +140,18 @@ class CSPNeXt(BaseModule):
                 padding=1,
                 stride=1,
                 norm_cfg=norm_cfg,
-                act_cfg=act_cfg))
+                act_cfg=act_cfg,
+            ),
+        )
         self.layers = ['stem']
 
-        for i, (in_channels, out_channels, num_blocks, add_identity,
-                use_spp) in enumerate(arch_setting):
+        for i, (
+            in_channels,
+            out_channels,
+            num_blocks,
+            add_identity,
+            use_spp,
+        ) in enumerate(arch_setting):
             in_channels = int(in_channels * widen_factor)
             out_channels = int(out_channels * widen_factor)
             num_blocks = max(round(num_blocks * deepen_factor), 1)
@@ -142,7 +164,8 @@ class CSPNeXt(BaseModule):
                 padding=1,
                 conv_cfg=conv_cfg,
                 norm_cfg=norm_cfg,
-                act_cfg=act_cfg)
+                act_cfg=act_cfg,
+            )
             stage.append(conv_layer)
             if use_spp:
                 spp = SPPBottleneck(
@@ -151,7 +174,8 @@ class CSPNeXt(BaseModule):
                     kernel_sizes=spp_kernel_sizes,
                     conv_cfg=conv_cfg,
                     norm_cfg=norm_cfg,
-                    act_cfg=act_cfg)
+                    act_cfg=act_cfg,
+                )
                 stage.append(spp)
             csp_layer = CSPLayer(
                 out_channels,
@@ -164,7 +188,8 @@ class CSPNeXt(BaseModule):
                 channel_attention=channel_attention,
                 conv_cfg=conv_cfg,
                 norm_cfg=norm_cfg,
-                act_cfg=act_cfg)
+                act_cfg=act_cfg,
+            )
             stage.append(csp_layer)
             self.add_module(f'stage{i + 1}', nn.Sequential(*stage))
             self.layers.append(f'stage{i + 1}')

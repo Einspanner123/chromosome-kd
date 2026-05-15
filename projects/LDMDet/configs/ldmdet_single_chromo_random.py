@@ -2,12 +2,13 @@
 
 Inherits the RF + Heun + AdaLN-Zero recipe.
 """
+
 _base_ = ['./ldmdet_flowdet_adaln.py']
 
 # Dataset
 dataset_type = 'CocoDataset'
 data_root = '/data/linkst/datasets/single_chromosomes_object/'
-classes = ('chromosomes', )
+classes = ('chromosomes',)
 METAINFO = {'classes': classes, 'palette': [(220, 20, 60)]}
 
 backend_args = None
@@ -25,8 +26,14 @@ test_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor')),
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+        ),
+    ),
 ]
 
 train_dataloader = dict(
@@ -43,7 +50,9 @@ train_dataloader = dict(
         data_prefix=dict(img='JEPG/'),
         filter_cfg=dict(filter_empty_gt=True, min_size=32),
         pipeline=train_pipeline,
-        backend_args=backend_args))
+        backend_args=backend_args,
+    ),
+)
 
 val_dataloader = dict(
     batch_size=1,
@@ -59,7 +68,9 @@ val_dataloader = dict(
         data_prefix=dict(img='JEPG/'),
         test_mode=True,
         pipeline=test_pipeline,
-        backend_args=backend_args))
+        backend_args=backend_args,
+    ),
+)
 test_dataloader = val_dataloader
 
 val_evaluator = dict(
@@ -67,7 +78,8 @@ val_evaluator = dict(
     ann_file=data_root + 'annotations/val.json',
     metric='bbox',
     format_only=False,
-    backend_args=backend_args)
+    backend_args=backend_args,
+)
 
 model = dict(
     bbox_head=dict(
@@ -75,7 +87,8 @@ model = dict(
         single_head=dict(num_classes=1),
         criterion=dict(num_classes=1),
         ot_coupling=False,
-    ), )
+    ),
+)
 
 load_from = None
 work_dir = 'work_dirs/ldmdet_single_chromo_random'

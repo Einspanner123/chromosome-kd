@@ -9,7 +9,6 @@ from mmdet.registry import TASK_UTILS
 
 
 class TestAppearanceFreeLink(TestCase):
-
     @classmethod
     def setUpClass(cls):
         init_default_scope('mmdet')

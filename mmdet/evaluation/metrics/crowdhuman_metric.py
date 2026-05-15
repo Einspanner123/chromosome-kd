@@ -62,22 +62,25 @@ class CrowdHumanMetric(BaseMetric):
         num_ji_process (int): The number of processes to evaluation JI.
             Defaults to 10.
     """
+
     default_prefix: Optional[str] = 'crowd_human'
 
-    def __init__(self,
-                 ann_file: str,
-                 metric: Union[str, List[str]] = ['AP', 'MR', 'JI'],
-                 format_only: bool = False,
-                 outfile_prefix: Optional[str] = None,
-                 file_client_args: dict = None,
-                 backend_args: dict = None,
-                 collect_device: str = 'cpu',
-                 prefix: Optional[str] = None,
-                 eval_mode: int = 0,
-                 iou_thres: float = 0.5,
-                 compare_matching_method: Optional[str] = None,
-                 mr_ref: str = 'CALTECH_-2',
-                 num_ji_process: int = 10) -> None:
+    def __init__(
+        self,
+        ann_file: str,
+        metric: Union[str, List[str]] = ['AP', 'MR', 'JI'],
+        format_only: bool = False,
+        outfile_prefix: Optional[str] = None,
+        file_client_args: dict = None,
+        backend_args: dict = None,
+        collect_device: str = 'cpu',
+        prefix: Optional[str] = None,
+        eval_mode: int = 0,
+        iou_thres: float = 0.5,
+        compare_matching_method: Optional[str] = None,
+        mr_ref: str = 'CALTECH_-2',
+        num_ji_process: int = 10,
+    ) -> None:
         super().__init__(collect_device=collect_device, prefix=prefix)
 
         self.ann_file = ann_file
@@ -86,8 +89,10 @@ class CrowdHumanMetric(BaseMetric):
         allowed_metrics = ['MR', 'AP', 'JI']
         for metric in self.metrics:
             if metric not in allowed_metrics:
-                raise KeyError(f"metric should be one of 'MR', 'AP', 'JI',"
-                               f'but got {metric}.')
+                raise KeyError(
+                    f"metric should be one of 'MR', 'AP', 'JI',"
+                    f'but got {metric}.'
+                )
 
         self.format_only = format_only
         if self.format_only:
@@ -100,17 +105,21 @@ class CrowdHumanMetric(BaseMetric):
             raise RuntimeError(
                 'The `file_client_args` is deprecated, '
                 'please use `backend_args` instead, please refer to'
-                'https://github.com/open-mmlab/mmdetection/blob/main/configs/_base_/datasets/coco_detection.py'  # noqa: E501
+                'https://github.com/open-mmlab/mmdetection/blob/main/configs/_base_/datasets/coco_detection.py'
             )
 
-        assert eval_mode in [0, 1, 2], \
+        assert eval_mode in [0, 1, 2], (
             "Unknown eval mode. mr_ref should be one of '0', '1', '2'."
-        assert compare_matching_method is None or \
-               compare_matching_method == 'VOC', \
-               'The alternative compare_matching_method is VOC.' \
-               'This parameter defaults to CALTECH(None)'
-        assert mr_ref == 'CALTECH_-2' or mr_ref == 'CALTECH_-4', \
+        )
+        assert (
+            compare_matching_method is None or compare_matching_method == 'VOC'
+        ), (
+            'The alternative compare_matching_method is VOC.'
+            'This parameter defaults to CALTECH(None)'
+        )
+        assert mr_ref == 'CALTECH_-2' or mr_ref == 'CALTECH_-4', (
             "mr_ref should be one of 'CALTECH_-2', 'CALTECH_-4'."
+        )
         self.eval_mode = eval_mode
         self.iou_thres = iou_thres
         self.compare_matching_method = compare_matching_method
@@ -142,8 +151,9 @@ class CrowdHumanMetric(BaseMetric):
         dump(bbox_json_results, result_file_path)
         return result_file_path
 
-    def process(self, data_batch: Sequence[dict],
-                data_samples: Sequence[dict]) -> None:
+    def process(
+        self, data_batch: Sequence[dict], data_samples: Sequence[dict]
+    ) -> None:
         """Process one batch of data samples and predictions. The processed
         results should be stored in ``self.results``, which will be used to
         compute the metrics when all batches have been processed.
@@ -162,7 +172,8 @@ class CrowdHumanMetric(BaseMetric):
             pred_scores = data_sample['pred_instances']['scores'].cpu().numpy()
 
             pred_bbox_scores = np.hstack(
-                [pred_bboxes, pred_scores.reshape((-1, 1))])
+                [pred_bboxes, pred_scores.reshape((-1, 1))]
+            )
 
             self.results.append((ann, pred_bbox_scores))
 
@@ -228,20 +239,26 @@ class CrowdHumanMetric(BaseMetric):
         Returns:
             Dict[Image]: The detection result packaged by Image
         """
-        gt_str = get_text(
-            self.ann_file, backend_args=self.backend_args).strip().split('\n')
+        gt_str = (
+            get_text(self.ann_file, backend_args=self.backend_args)
+            .strip()
+            .split('\n')
+        )
         gt_records = [json.loads(line) for line in gt_str]
 
         pred_records = load(result_file, backend_args=self.backend_args)
         eval_samples = dict()
         for gt_record, pred_record in zip(gt_records, pred_records):
-            assert gt_record['ID'] == pred_record['ID'], \
+            assert gt_record['ID'] == pred_record['ID'], (
                 'please set val_dataloader.sampler.shuffle=False and try again'
+            )
             eval_samples[pred_record['ID']] = Image(self.eval_mode)
-            eval_samples[pred_record['ID']].load(gt_record, 'box', None,
-                                                 PERSON_CLASSES, True)
-            eval_samples[pred_record['ID']].load(pred_record, 'box', None,
-                                                 PERSON_CLASSES, False)
+            eval_samples[pred_record['ID']].load(
+                gt_record, 'box', None, PERSON_CLASSES, True
+            )
+            eval_samples[pred_record['ID']].load(
+                pred_record, 'box', None, PERSON_CLASSES, False
+            )
             eval_samples[pred_record['ID']].clip_all_boader()
         return eval_samples
 
@@ -342,15 +359,29 @@ class CrowdHumanMetric(BaseMetric):
             # CALTECH_MRREF_2: anchor points (from 10^-2 to 1) as in
             # P.Dollar's paper
             ref = [
-                0.0100, 0.0178, 0.03160, 0.0562, 0.1000, 0.1778, 0.3162,
-                0.5623, 1.000
+                0.0100,
+                0.0178,
+                0.03160,
+                0.0562,
+                0.1000,
+                0.1778,
+                0.3162,
+                0.5623,
+                1.000,
             ]
         else:
             # CALTECH_MRREF_4: anchor points (from 10^-4 to 1) as in
             # S.Zhang's paper
             ref = [
-                0.0001, 0.0003, 0.00100, 0.0032, 0.0100, 0.0316, 0.1000,
-                0.3162, 1.000
+                0.0001,
+                0.0003,
+                0.00100,
+                0.0032,
+                0.0100,
+                0.0316,
+                0.1000,
+                0.3162,
+                1.000,
             ]
 
         tp, fp = 0.0, 0.0
@@ -387,6 +418,7 @@ class CrowdHumanMetric(BaseMetric):
             ji(float): result of jaccard index.
         """
         import math
+
         res_line = []
         res_ji = []
         for i in range(10):
@@ -402,7 +434,8 @@ class CrowdHumanMetric(BaseMetric):
                 sample_data = dict(records[start:end])
                 p = Process(
                     target=self.compute_ji_with_ignore,
-                    args=(result_queue, sample_data, score_thr))
+                    args=(result_queue, sample_data, score_thr),
+                )
                 p.start()
                 procs.append(p)
             for i in range(total):
@@ -411,7 +444,7 @@ class CrowdHumanMetric(BaseMetric):
             for p in procs:
                 p.join()
             line, mean_ratio = self.gather(results)
-            line = 'score_thr:{:.1f}, {}'.format(score_thr, line)
+            line = f'score_thr:{score_thr:.1f}, {line}'
             res_line.append(line)
             res_ji.append(mean_ratio)
         return max(res_ji)
@@ -438,15 +471,19 @@ class CrowdHumanMetric(BaseMetric):
             # get the unmatched_indices
             matched_indices = np.array([j for (j, _) in matches])
             unmatched_indices = list(
-                set(np.arange(dt_boxes.shape[0])) - set(matched_indices))
-            num_ignore_dt = self.get_ignores(dt_boxes[unmatched_indices],
-                                             gt_boxes[~gt_tag, :4])
+                set(np.arange(dt_boxes.shape[0])) - set(matched_indices)
+            )
+            num_ignore_dt = self.get_ignores(
+                dt_boxes[unmatched_indices], gt_boxes[~gt_tag, :4]
+            )
             matched_indices = np.array([j for (_, j) in matches])
             unmatched_indices = list(
-                set(np.arange(gt_boxes[gt_tag].shape[0])) -
-                set(matched_indices))
+                set(np.arange(gt_boxes[gt_tag].shape[0]))
+                - set(matched_indices)
+            )
             num_ignore_gt = self.get_ignores(
-                gt_boxes[gt_tag][unmatched_indices], gt_boxes[~gt_tag, :4])
+                gt_boxes[gt_tag][unmatched_indices], gt_boxes[~gt_tag, :4]
+            )
             # compute results
             eps = 1e-6
             k = len(matches)
@@ -463,7 +500,8 @@ class CrowdHumanMetric(BaseMetric):
                 noise=noise,
                 k=k,
                 m=m,
-                n=n)
+                n=n,
+            )
             result_queue.put_nowait(result_dict)
 
     @staticmethod
@@ -478,8 +516,7 @@ class CrowdHumanMetric(BaseMetric):
         valids = np.sum([rb['k'] for rb in results])
         total = np.sum([rb['n'] for rb in results])
         gtn = np.sum([rb['m'] for rb in results])
-        line = 'mean_ratio:{:.4f}, valids:{}, total:{}, gtn:{}'\
-            .format(mean_ratio, valids, total, gtn)
+        line = f'mean_ratio:{mean_ratio:.4f}, valids:{valids}, total:{total}, gtn:{gtn}'
         return line, mean_ratio
 
     def compute_ji_matching(self, dt_boxes, gt_boxes):
@@ -500,7 +537,8 @@ class CrowdHumanMetric(BaseMetric):
         input_ = copy.deepcopy(ious)
         input_[input_ < self.iou_thres] = 0
         match_scipy = maximum_bipartite_matching(
-            csr_matrix(input_), perm_type='column')
+            csr_matrix(input_), perm_type='column'
+        )
         matches_ = []
         for i in range(len(match_scipy)):
             if match_scipy[i] != -1:
@@ -518,7 +556,7 @@ class CrowdHumanMetric(BaseMetric):
             return 0
 
 
-class Image(object):
+class Image:
     """Data structure for evaluation of CrowdHuman.
 
     Note:
@@ -593,8 +631,9 @@ class Image(object):
             self.height = record['height']
         if gt_flag:
             self.gt_num = len(record['gtboxes'])
-            body_bbox, head_bbox = self.load_gt_boxes(record, 'gtboxes',
-                                                      class_names)
+            body_bbox, head_bbox = self.load_gt_boxes(
+                record, 'gtboxes', class_names
+            )
             if self.eval_mode == 0:
                 self.gt_boxes = body_bbox
                 self.ign_num = (body_bbox[:, -1] == -1).sum()
@@ -602,28 +641,38 @@ class Image(object):
                 self.gt_boxes = head_bbox
                 self.ign_num = (head_bbox[:, -1] == -1).sum()
             else:
-                gt_tag = np.array([
-                    body_bbox[i, -1] != -1 and head_bbox[i, -1] != -1
-                    for i in range(len(body_bbox))
-                ])
+                gt_tag = np.array(
+                    [
+                        body_bbox[i, -1] != -1 and head_bbox[i, -1] != -1
+                        for i in range(len(body_bbox))
+                    ]
+                )
                 self.ign_num = (gt_tag == 0).sum()
                 self.gt_boxes = np.hstack(
-                    (body_bbox[:, :-1], head_bbox[:, :-1],
-                     gt_tag.reshape(-1, 1)))
+                    (
+                        body_bbox[:, :-1],
+                        head_bbox[:, :-1],
+                        gt_tag.reshape(-1, 1),
+                    )
+                )
 
         if not gt_flag:
             self.dt_num = len(record['dtboxes'])
             if self.eval_mode == 0:
-                self.dt_boxes = self.load_det_boxes(record, 'dtboxes',
-                                                    body_key, 'score')
+                self.dt_boxes = self.load_det_boxes(
+                    record, 'dtboxes', body_key, 'score'
+                )
             elif self.eval_mode == 1:
-                self.dt_boxes = self.load_det_boxes(record, 'dtboxes',
-                                                    head_key, 'score')
+                self.dt_boxes = self.load_det_boxes(
+                    record, 'dtboxes', head_key, 'score'
+                )
             else:
-                body_dtboxes = self.load_det_boxes(record, 'dtboxes', body_key,
-                                                   'score')
-                head_dtboxes = self.load_det_boxes(record, 'dtboxes', head_key,
-                                                   'score')
+                body_dtboxes = self.load_det_boxes(
+                    record, 'dtboxes', body_key, 'score'
+                )
+                head_dtboxes = self.load_det_boxes(
+                    record, 'dtboxes', head_key, 'score'
+                )
                 self.dt_boxes = np.hstack((body_dtboxes, head_dtboxes))
 
     @staticmethod
@@ -672,24 +721,31 @@ class Image(object):
                 assert key_tag in dict_input[key_name][0]
         if key_score:
             if key_tag:
-                bboxes = np.vstack([
-                    np.hstack((rb[key_box], rb[key_score], rb[key_tag]))
-                    for rb in dict_input[key_name]
-                ])
-            else:
-                bboxes = np.vstack([
-                    np.hstack((rb[key_box], rb[key_score]))
-                    for rb in dict_input[key_name]
-                ])
-        else:
-            if key_tag:
-                bboxes = np.vstack([
-                    np.hstack((rb[key_box], rb[key_tag]))
-                    for rb in dict_input[key_name]
-                ])
+                bboxes = np.vstack(
+                    [
+                        np.hstack((rb[key_box], rb[key_score], rb[key_tag]))
+                        for rb in dict_input[key_name]
+                    ]
+                )
             else:
                 bboxes = np.vstack(
-                    [rb[key_box] for rb in dict_input[key_name]])
+                    [
+                        np.hstack((rb[key_box], rb[key_score]))
+                        for rb in dict_input[key_name]
+                    ]
+                )
+        else:
+            if key_tag:
+                bboxes = np.vstack(
+                    [
+                        np.hstack((rb[key_box], rb[key_tag]))
+                        for rb in dict_input[key_name]
+                    ]
+                )
+            else:
+                bboxes = np.vstack(
+                    [rb[key_box] for rb in dict_input[key_name]]
+                )
         bboxes[:, 2:4] += bboxes[:, :2]
         return bboxes
 
@@ -708,19 +764,25 @@ class Image(object):
         assert self.gt_boxes.shape[-1] >= 4
         assert self.width is not None and self.height is not None
         if self.eval_mode == 2:
-            self.dt_boxes[:, :4] = _clip_boundary(self.dt_boxes[:, :4],
-                                                  self.height, self.width)
-            self.gt_boxes[:, :4] = _clip_boundary(self.gt_boxes[:, :4],
-                                                  self.height, self.width)
-            self.dt_boxes[:, 4:8] = _clip_boundary(self.dt_boxes[:, 4:8],
-                                                   self.height, self.width)
-            self.gt_boxes[:, 4:8] = _clip_boundary(self.gt_boxes[:, 4:8],
-                                                   self.height, self.width)
+            self.dt_boxes[:, :4] = _clip_boundary(
+                self.dt_boxes[:, :4], self.height, self.width
+            )
+            self.gt_boxes[:, :4] = _clip_boundary(
+                self.gt_boxes[:, :4], self.height, self.width
+            )
+            self.dt_boxes[:, 4:8] = _clip_boundary(
+                self.dt_boxes[:, 4:8], self.height, self.width
+            )
+            self.gt_boxes[:, 4:8] = _clip_boundary(
+                self.gt_boxes[:, 4:8], self.height, self.width
+            )
         else:
-            self.dt_boxes = _clip_boundary(self.dt_boxes, self.height,
-                                           self.width)
-            self.gt_boxes = _clip_boundary(self.gt_boxes, self.height,
-                                           self.width)
+            self.dt_boxes = _clip_boundary(
+                self.dt_boxes, self.height, self.width
+            )
+            self.gt_boxes = _clip_boundary(
+                self.gt_boxes, self.height, self.width
+            )
 
     def compare_voc(self, thres):
         """Match the detection results with the ground_truth by VOC.

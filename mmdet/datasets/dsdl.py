@@ -30,15 +30,17 @@ class DSDLDetDataset(BaseDetDataset):
 
     METAINFO = {}
 
-    def __init__(self,
-                 with_bbox: bool = True,
-                 with_polygon: bool = False,
-                 with_mask: bool = False,
-                 with_imagelevel_label: bool = False,
-                 with_hierarchy: bool = False,
-                 specific_key_path: dict = {},
-                 pre_transform: dict = {},
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        with_bbox: bool = True,
+        with_polygon: bool = False,
+        with_mask: bool = False,
+        with_imagelevel_label: bool = False,
+        with_hierarchy: bool = False,
+        specific_key_path: dict = {},
+        pre_transform: dict = {},
+        **kwargs,
+    ) -> None:
 
         if DSDLDataset is None:
             raise RuntimeError(
@@ -50,8 +52,9 @@ class DSDLDetDataset(BaseDetDataset):
 
         loc_config = dict(type='LocalFileReader', working_dir='')
         if kwargs.get('data_root'):
-            kwargs['ann_file'] = os.path.join(kwargs['data_root'],
-                                              kwargs['ann_file'])
+            kwargs['ann_file'] = os.path.join(
+                kwargs['data_root'], kwargs['ann_file']
+            )
         self.required_fields = ['Image', 'ImageShape', 'Label', 'ignore_flag']
         if with_bbox:
             self.required_fields.append('Bbox')
@@ -61,11 +64,13 @@ class DSDLDetDataset(BaseDetDataset):
             self.required_fields.append('LabelMap')
         if with_imagelevel_label:
             self.required_fields.append('image_level_labels')
-            assert 'image_level_labels' in specific_key_path.keys(
-            ), '`image_level_labels` not specified in `specific_key_path` !'
+            assert 'image_level_labels' in specific_key_path, (
+                '`image_level_labels` not specified in `specific_key_path` !'
+            )
 
         self.extra_keys = [
-            key for key in self.specific_key_path.keys()
+            key
+            for key in self.specific_key_path.keys()
             if key not in self.required_fields
         ]
 
@@ -87,8 +92,9 @@ class DSDLDetDataset(BaseDetDataset):
         """
         if self.with_hierarchy:
             # get classes_names and relation_matrix
-            classes_names, relation_matrix = \
+            classes_names, relation_matrix = (
                 self.dsdldataset.class_dom.get_hierarchy_info()
+            )
             self._metainfo['classes'] = tuple(classes_names)
             self._metainfo['RELATION_MATRIX'] = relation_matrix
 
@@ -101,8 +107,9 @@ class DSDLDetDataset(BaseDetDataset):
             # basic image info, including image id, path and size.
             datainfo = dict(
                 img_id=i,
-                img_path=os.path.join(self.data_prefix['img_path'],
-                                      data['Image'][0].location),
+                img_path=os.path.join(
+                    self.data_prefix['img_path'], data['Image'][0].location
+                ),
                 width=data['ImageShape'][0].width,
                 height=data['ImageShape'][0].height,
             )
@@ -175,10 +182,16 @@ class DSDLDetDataset(BaseDetDataset):
         if self.test_mode:
             return self.data_list
 
-        filter_empty_gt = self.filter_cfg.get('filter_empty_gt', False) \
-            if self.filter_cfg is not None else False
-        min_size = self.filter_cfg.get('min_size', 0) \
-            if self.filter_cfg is not None else 0
+        filter_empty_gt = (
+            self.filter_cfg.get('filter_empty_gt', False)
+            if self.filter_cfg is not None
+            else False
+        )
+        min_size = (
+            self.filter_cfg.get('min_size', 0)
+            if self.filter_cfg is not None
+            else 0
+        )
 
         valid_data_list = []
         for i, data_info in enumerate(self.data_list):

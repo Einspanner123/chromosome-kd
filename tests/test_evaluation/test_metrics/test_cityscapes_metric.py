@@ -16,22 +16,23 @@ except ImportError:
 
 
 class TestCityScapesMetric(unittest.TestCase):
-
     def setUp(self):
         self.tmp_dir = tempfile.TemporaryDirectory()
 
     def tearDown(self):
         self.tmp_dir.cleanup()
 
-    @unittest.skipIf(cityscapesscripts is None,
-                     'cityscapesscripts is not installed.')
+    @unittest.skipIf(
+        cityscapesscripts is None, 'cityscapesscripts is not installed.'
+    )
     def test_init(self):
         # test with outfile_prefix = None
         with self.assertRaises(AssertionError):
             CityScapesMetric(outfile_prefix=None)
 
-    @unittest.skipIf(cityscapesscripts is None,
-                     'cityscapesscripts is not installed.')
+    @unittest.skipIf(
+        cityscapesscripts is None, 'cityscapesscripts is not installed.'
+    )
     def test_evaluate(self):
         dummy_mask1 = np.zeros((1, 20, 20), dtype=np.uint8)
         dummy_mask1[:, :10, :10] = 1
@@ -59,30 +60,43 @@ class TestCityScapesMetric(unittest.TestCase):
         masks2[:10, :10] = 24 * 1000 + 1
         Image.fromarray(masks2).save(img_path2)
 
-        data_samples = [{
-            'img_path': img_path1,
-            'pred_instances': {
-                'scores': torch.from_numpy(np.array([1.0])),
-                'labels': torch.from_numpy(np.array([0])),
-                'masks': torch.from_numpy(dummy_mask1)
-            }
-        }, {
-            'img_path': img_path2,
-            'pred_instances': {
-                'scores': torch.from_numpy(np.array([0.98])),
-                'labels': torch.from_numpy(np.array([1])),
-                'masks': torch.from_numpy(dummy_mask2)
-            }
-        }]
+        data_samples = [
+            {
+                'img_path': img_path1,
+                'pred_instances': {
+                    'scores': torch.from_numpy(np.array([1.0])),
+                    'labels': torch.from_numpy(np.array([0])),
+                    'masks': torch.from_numpy(dummy_mask1),
+                },
+            },
+            {
+                'img_path': img_path2,
+                'pred_instances': {
+                    'scores': torch.from_numpy(np.array([0.98])),
+                    'labels': torch.from_numpy(np.array([1])),
+                    'masks': torch.from_numpy(dummy_mask2),
+                },
+            },
+        ]
 
         target = {'cityscapes/mAP': 0.5, 'cityscapes/AP@50': 0.5}
         metric = CityScapesMetric(
             seg_prefix=self.seg_prefix,
             format_only=False,
-            outfile_prefix=self.outfile_prefix)
+            outfile_prefix=self.outfile_prefix,
+        )
         metric.dataset_meta = dict(
-            classes=('person', 'rider', 'car', 'truck', 'bus', 'train',
-                     'motorcycle', 'bicycle'))
+            classes=(
+                'person',
+                'rider',
+                'car',
+                'truck',
+                'bus',
+                'train',
+                'motorcycle',
+                'bicycle',
+            )
+        )
         metric.process({}, data_samples)
         results = metric.evaluate(size=2)
         self.assertDictEqual(results, target)
@@ -93,10 +107,20 @@ class TestCityScapesMetric(unittest.TestCase):
         metric = CityScapesMetric(
             seg_prefix=self.seg_prefix,
             format_only=True,
-            outfile_prefix=self.outfile_prefix)
+            outfile_prefix=self.outfile_prefix,
+        )
         metric.dataset_meta = dict(
-            classes=('person', 'rider', 'car', 'truck', 'bus', 'train',
-                     'motorcycle', 'bicycle'))
+            classes=(
+                'person',
+                'rider',
+                'car',
+                'truck',
+                'bus',
+                'train',
+                'motorcycle',
+                'bicycle',
+            )
+        )
         metric.process({}, data_samples)
         results = metric.evaluate(size=2)
         self.assertDictEqual(results, dict())

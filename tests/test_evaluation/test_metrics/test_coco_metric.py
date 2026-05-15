@@ -11,7 +11,6 @@ from mmdet.evaluation import CocoMetric
 
 
 class TestCocoMetric(TestCase):
-
     def _create_dummy_coco_json(self, json_name):
         dummy_mask = np.zeros((10, 10), order='F', dtype=np.uint8)
         dummy_mask[:5, :5] = 1
@@ -79,16 +78,26 @@ class TestCocoMetric(TestCase):
 
         fake_json = {
             'images': [image],
-            'annotations':
-            [annotation_1, annotation_2, annotation_3, annotation_4],
-            'categories': categories
+            'annotations': [
+                annotation_1,
+                annotation_2,
+                annotation_3,
+                annotation_4,
+            ],
+            'categories': categories,
         }
 
         dump(fake_json, json_name)
 
     def _create_dummy_results(self):
-        bboxes = np.array([[50, 60, 70, 80], [100, 120, 130, 150],
-                           [150, 160, 190, 200], [250, 260, 350, 360]])
+        bboxes = np.array(
+            [
+                [50, 60, 70, 80],
+                [100, 120, 130, 150],
+                [150, 160, 190, 200],
+                [250, 260, 350, 360],
+            ]
+        )
         scores = np.array([1.0, 0.98, 0.96, 0.95])
         labels = np.array([0, 0, 1, 0])
         dummy_mask = np.zeros((4, 10, 10), dtype=np.uint8)
@@ -97,7 +106,8 @@ class TestCocoMetric(TestCase):
             bboxes=torch.from_numpy(bboxes),
             scores=torch.from_numpy(scores),
             labels=torch.from_numpy(labels),
-            masks=torch.from_numpy(dummy_mask))
+            masks=torch.from_numpy(dummy_mask),
+        )
 
     def setUp(self):
         self.tmp_dir = tempfile.TemporaryDirectory()
@@ -121,11 +131,13 @@ class TestCocoMetric(TestCase):
         coco_metric = CocoMetric(
             ann_file=fake_json_file,
             classwise=False,
-            outfile_prefix=f'{self.tmp_dir.name}/test')
+            outfile_prefix=f'{self.tmp_dir.name}/test',
+        )
         coco_metric.dataset_meta = dict(classes=['car', 'bicycle'])
         coco_metric.process(
             {},
-            [dict(pred_instances=dummy_pred, img_id=0, ori_shape=(640, 640))])
+            [dict(pred_instances=dummy_pred, img_id=0, ori_shape=(640, 640))],
+        )
         eval_results = coco_metric.evaluate(size=1)
         target = {
             'coco/bbox_mAP': 1.0,
@@ -137,18 +149,21 @@ class TestCocoMetric(TestCase):
         }
         self.assertDictEqual(eval_results, target)
         self.assertTrue(
-            osp.isfile(osp.join(self.tmp_dir.name, 'test.bbox.json')))
+            osp.isfile(osp.join(self.tmp_dir.name, 'test.bbox.json'))
+        )
 
         # test box and segm coco dataset evaluation
         coco_metric = CocoMetric(
             ann_file=fake_json_file,
             metric=['bbox', 'segm'],
             classwise=False,
-            outfile_prefix=f'{self.tmp_dir.name}/test')
+            outfile_prefix=f'{self.tmp_dir.name}/test',
+        )
         coco_metric.dataset_meta = dict(classes=['car', 'bicycle'])
         coco_metric.process(
             {},
-            [dict(pred_instances=dummy_pred, img_id=0, ori_shape=(640, 640))])
+            [dict(pred_instances=dummy_pred, img_id=0, ori_shape=(640, 640))],
+        )
         eval_results = coco_metric.evaluate(size=1)
         target = {
             'coco/bbox_mAP': 1.0,
@@ -166,29 +181,41 @@ class TestCocoMetric(TestCase):
         }
         self.assertDictEqual(eval_results, target)
         self.assertTrue(
-            osp.isfile(osp.join(self.tmp_dir.name, 'test.bbox.json')))
+            osp.isfile(osp.join(self.tmp_dir.name, 'test.bbox.json'))
+        )
         self.assertTrue(
-            osp.isfile(osp.join(self.tmp_dir.name, 'test.segm.json')))
+            osp.isfile(osp.join(self.tmp_dir.name, 'test.segm.json'))
+        )
 
         # test invalid custom metric_items
-        with self.assertRaisesRegex(KeyError,
-                                    'metric item "invalid" is not supported'):
+        with self.assertRaisesRegex(
+            KeyError, 'metric item "invalid" is not supported'
+        ):
             coco_metric = CocoMetric(
-                ann_file=fake_json_file, metric_items=['invalid'])
+                ann_file=fake_json_file, metric_items=['invalid']
+            )
             coco_metric.dataset_meta = dict(classes=['car', 'bicycle'])
-            coco_metric.process({}, [
-                dict(
-                    pred_instances=dummy_pred, img_id=0, ori_shape=(640, 640))
-            ])
+            coco_metric.process(
+                {},
+                [
+                    dict(
+                        pred_instances=dummy_pred,
+                        img_id=0,
+                        ori_shape=(640, 640),
+                    )
+                ],
+            )
             coco_metric.evaluate(size=1)
 
         # test custom metric_items
         coco_metric = CocoMetric(
-            ann_file=fake_json_file, metric_items=['mAP_m'])
+            ann_file=fake_json_file, metric_items=['mAP_m']
+        )
         coco_metric.dataset_meta = dict(classes=['car', 'bicycle'])
         coco_metric.process(
             {},
-            [dict(pred_instances=dummy_pred, img_id=0, ori_shape=(640, 640))])
+            [dict(pred_instances=dummy_pred, img_id=0, ori_shape=(640, 640))],
+        )
         eval_results = coco_metric.evaluate(size=1)
         target = {
             'coco/bbox_mAP_m': 1.0,
@@ -203,13 +230,15 @@ class TestCocoMetric(TestCase):
 
         # test single coco dataset evaluation
         coco_metric = CocoMetric(
-            ann_file=fake_json_file, metric='bbox', classwise=True)
+            ann_file=fake_json_file, metric='bbox', classwise=True
+        )
         # coco_metric1 = CocoMetric(
         #     ann_file=fake_json_file, metric='bbox', classwise=True)
         coco_metric.dataset_meta = dict(classes=['car', 'bicycle'])
         coco_metric.process(
             {},
-            [dict(pred_instances=dummy_pred, img_id=0, ori_shape=(640, 640))])
+            [dict(pred_instances=dummy_pred, img_id=0, ori_shape=(640, 640))],
+        )
         eval_results = coco_metric.evaluate(size=1)
         target = {
             'coco/bbox_mAP': 1.0,
@@ -230,7 +259,8 @@ class TestCocoMetric(TestCase):
 
         # test single coco dataset evaluation
         coco_metric = CocoMetric(
-            ann_file=fake_json_file, metric='bbox', iou_thrs=[0.3, 0.6])
+            ann_file=fake_json_file, metric='bbox', iou_thrs=[0.3, 0.6]
+        )
         coco_metric.dataset_meta = dict(classes=['car', 'bicycle'])
         self.assertEqual(coco_metric.iou_thrs, [0.3, 0.6])
 
@@ -242,11 +272,13 @@ class TestCocoMetric(TestCase):
 
         # test default proposal nums
         coco_metric = CocoMetric(
-            ann_file=fake_json_file, metric='proposal_fast')
+            ann_file=fake_json_file, metric='proposal_fast'
+        )
         coco_metric.dataset_meta = dict(classes=['car', 'bicycle'])
         coco_metric.process(
             {},
-            [dict(pred_instances=dummy_pred, img_id=0, ori_shape=(640, 640))])
+            [dict(pred_instances=dummy_pred, img_id=0, ori_shape=(640, 640))],
+        )
         eval_results = coco_metric.evaluate(size=1)
         target = {'coco/AR@100': 1.0, 'coco/AR@300': 1.0, 'coco/AR@1000': 1.0}
         self.assertDictEqual(eval_results, target)
@@ -255,11 +287,13 @@ class TestCocoMetric(TestCase):
         coco_metric = CocoMetric(
             ann_file=fake_json_file,
             metric='proposal_fast',
-            proposal_nums=(2, 4))
+            proposal_nums=(2, 4),
+        )
         coco_metric.dataset_meta = dict(classes=['car', 'bicycle'])
         coco_metric.process(
             {},
-            [dict(pred_instances=dummy_pred, img_id=0, ori_shape=(640, 640))])
+            [dict(pred_instances=dummy_pred, img_id=0, ori_shape=(640, 640))],
+        )
         eval_results = coco_metric.evaluate(size=1)
         target = {'coco/AR@2': 0.5, 'coco/AR@4': 1.0}
         self.assertDictEqual(eval_results, target)
@@ -274,7 +308,8 @@ class TestCocoMetric(TestCase):
         coco_metric.dataset_meta = dict(classes=['car', 'bicycle'])
         coco_metric.process(
             {},
-            [dict(pred_instances=dummy_pred, img_id=0, ori_shape=(640, 640))])
+            [dict(pred_instances=dummy_pred, img_id=0, ori_shape=(640, 640))],
+        )
         eval_results = coco_metric.evaluate(size=1)
         print(eval_results)
         target = {
@@ -283,7 +318,7 @@ class TestCocoMetric(TestCase):
             'coco/AR@1000': 1.0,
             'coco/AR_s@1000': 1.0,
             'coco/AR_m@1000': 1.0,
-            'coco/AR_l@1000': 1.0
+            'coco/AR_l@1000': 1.0,
         }
         self.assertDictEqual(eval_results, target)
 
@@ -301,10 +336,12 @@ class TestCocoMetric(TestCase):
             bboxes=torch.from_numpy(bboxes),
             scores=torch.from_numpy(scores),
             labels=torch.from_numpy(labels),
-            masks=torch.from_numpy(dummy_mask))
+            masks=torch.from_numpy(dummy_mask),
+        )
         coco_metric.process(
             {},
-            [dict(pred_instances=empty_pred, img_id=0, ori_shape=(640, 640))])
+            [dict(pred_instances=empty_pred, img_id=0, ori_shape=(640, 640))],
+        )
         # coco api Index error will be caught
         coco_metric.evaluate(size=1)
 
@@ -315,40 +352,50 @@ class TestCocoMetric(TestCase):
         dummy_mask[:5, :5] = 1
         rle_mask = mask_util.encode(dummy_mask)
         rle_mask['counts'] = rle_mask['counts'].decode('utf-8')
-        instances = [{
-            'bbox_label': 0,
-            'bbox': [50, 60, 70, 80],
-            'ignore_flag': 0,
-            'mask': rle_mask,
-        }, {
-            'bbox_label': 0,
-            'bbox': [100, 120, 130, 150],
-            'ignore_flag': 0,
-            'mask': rle_mask,
-        }, {
-            'bbox_label': 1,
-            'bbox': [150, 160, 190, 200],
-            'ignore_flag': 0,
-            'mask': rle_mask,
-        }, {
-            'bbox_label': 0,
-            'bbox': [250, 260, 350, 360],
-            'ignore_flag': 0,
-            'mask': rle_mask,
-        }]
+        instances = [
+            {
+                'bbox_label': 0,
+                'bbox': [50, 60, 70, 80],
+                'ignore_flag': 0,
+                'mask': rle_mask,
+            },
+            {
+                'bbox_label': 0,
+                'bbox': [100, 120, 130, 150],
+                'ignore_flag': 0,
+                'mask': rle_mask,
+            },
+            {
+                'bbox_label': 1,
+                'bbox': [150, 160, 190, 200],
+                'ignore_flag': 0,
+                'mask': rle_mask,
+            },
+            {
+                'bbox_label': 0,
+                'bbox': [250, 260, 350, 360],
+                'ignore_flag': 0,
+                'mask': rle_mask,
+            },
+        ]
         coco_metric = CocoMetric(
             ann_file=None,
             metric=['bbox', 'segm'],
             classwise=False,
-            outfile_prefix=f'{self.tmp_dir.name}/test')
+            outfile_prefix=f'{self.tmp_dir.name}/test',
+        )
         coco_metric.dataset_meta = dict(classes=['car', 'bicycle'])
-        coco_metric.process({}, [
-            dict(
-                pred_instances=dummy_pred,
-                img_id=0,
-                ori_shape=(640, 640),
-                instances=instances)
-        ])
+        coco_metric.process(
+            {},
+            [
+                dict(
+                    pred_instances=dummy_pred,
+                    img_id=0,
+                    ori_shape=(640, 640),
+                    instances=instances,
+                )
+            ],
+        )
         eval_results = coco_metric.evaluate(size=1)
         print(eval_results)
         target = {
@@ -367,11 +414,14 @@ class TestCocoMetric(TestCase):
         }
         self.assertDictEqual(eval_results, target)
         self.assertTrue(
-            osp.isfile(osp.join(self.tmp_dir.name, 'test.bbox.json')))
+            osp.isfile(osp.join(self.tmp_dir.name, 'test.bbox.json'))
+        )
         self.assertTrue(
-            osp.isfile(osp.join(self.tmp_dir.name, 'test.segm.json')))
+            osp.isfile(osp.join(self.tmp_dir.name, 'test.segm.json'))
+        )
         self.assertTrue(
-            osp.isfile(osp.join(self.tmp_dir.name, 'test.gt.json')))
+            osp.isfile(osp.join(self.tmp_dir.name, 'test.gt.json'))
+        )
 
     def test_format_only(self):
         # create dummy data
@@ -384,18 +434,21 @@ class TestCocoMetric(TestCase):
                 ann_file=fake_json_file,
                 classwise=False,
                 format_only=True,
-                outfile_prefix=None)
+                outfile_prefix=None,
+            )
 
         coco_metric = CocoMetric(
             ann_file=fake_json_file,
             metric='bbox',
             classwise=False,
             format_only=True,
-            outfile_prefix=f'{self.tmp_dir.name}/test')
+            outfile_prefix=f'{self.tmp_dir.name}/test',
+        )
         coco_metric.dataset_meta = dict(classes=['car', 'bicycle'])
         coco_metric.process(
             {},
-            [dict(pred_instances=dummy_pred, img_id=0, ori_shape=(640, 640))])
+            [dict(pred_instances=dummy_pred, img_id=0, ori_shape=(640, 640))],
+        )
         eval_results = coco_metric.evaluate(size=1)
         self.assertDictEqual(eval_results, dict())
         self.assertTrue(osp.exists(f'{self.tmp_dir.name}/test.bbox.json'))

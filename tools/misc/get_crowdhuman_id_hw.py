@@ -7,6 +7,7 @@ Example:
     python tools/misc/get_crowdhuman_id_hw.py ${CONFIG} \
     --dataset ${DATASET_TYPE}
 """
+
 import argparse
 import json
 import logging
@@ -25,12 +26,14 @@ def parse_args():
     parser.add_argument(
         '--dataset',
         choices=['train', 'val'],
-        help='Collect image metas from which dataset')
+        help='Collect image metas from which dataset',
+    )
     parser.add_argument(
         '--nproc',
         default=10,
         type=int,
-        help='Processes used for get image metas')
+        help='Processes used for get image metas',
+    )
     args = parser.parse_args()
     return args
 
@@ -38,7 +41,7 @@ def parse_args():
 def get_image_metas(anno_str, img_prefix):
     id_hw = {}
     anno_dict = json.loads(anno_str)
-    img_path = osp.join(img_prefix, f"{anno_dict['ID']}.jpg")
+    img_path = osp.join(img_prefix, f'{anno_dict["ID"]}.jpg')
     img_id = anno_dict['ID']
     img_bytes = get(img_path)
     img = mmcv.imfrombytes(img_bytes, backend='cv2')
@@ -53,14 +56,18 @@ def main():
     cfg = Config.fromfile(args.config)
     dataset = args.dataset
     dataloader_cfg = cfg.get(f'{dataset}_dataloader')
-    ann_file = osp.join(dataloader_cfg.dataset.data_root,
-                        dataloader_cfg.dataset.ann_file)
-    img_prefix = osp.join(dataloader_cfg.dataset.data_root,
-                          dataloader_cfg.dataset.data_prefix['img'])
+    ann_file = osp.join(
+        dataloader_cfg.dataset.data_root, dataloader_cfg.dataset.ann_file
+    )
+    img_prefix = osp.join(
+        dataloader_cfg.dataset.data_root,
+        dataloader_cfg.dataset.data_prefix['img'],
+    )
 
     # load image metas
     print_log(
-        f'loading CrowdHuman {dataset} annotation...', level=logging.INFO)
+        f'loading CrowdHuman {dataset} annotation...', level=logging.INFO
+    )
     anno_strs = get_text(ann_file).strip().split('\n')
     pool = Pool(args.nproc)
     # get image metas with multiple processes
@@ -78,8 +85,8 @@ def main():
     data_root = osp.dirname(ann_file)
     save_path = osp.join(data_root, f'id_hw_{dataset}.json')
     print_log(
-        f'\nsaving "id_hw_{dataset}.json" in "{data_root}"',
-        level=logging.INFO)
+        f'\nsaving "id_hw_{dataset}.json" in "{data_root}"', level=logging.INFO
+    )
     dump(id_hw, save_path, file_format='json')
 
 

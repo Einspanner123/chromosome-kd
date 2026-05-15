@@ -8,8 +8,13 @@ from numpy import ndarray
 from torch import Tensor
 
 from mmdet.registry import MODELS, TASK_UTILS
-from mmdet.utils import (ConfigType, InstanceList, MultiConfig, OptConfigType,
-                         OptInstanceList)
+from mmdet.utils import (
+    ConfigType,
+    InstanceList,
+    MultiConfig,
+    OptConfigType,
+    OptInstanceList,
+)
 from ..task_modules.prior_generators import MlvlPointGenerator
 from ..utils import multi_apply
 from .base_dense_head import BaseDenseHead
@@ -48,7 +53,7 @@ class AnchorFreeHead(BaseDenseHead):
             anchor-free head.
         init_cfg (:obj:`ConfigDict` or dict or list[:obj:`ConfigDict` or \
             dict]): Initialization config dict.
-    """  # noqa: W605
+    """
 
     _version = 1
 
@@ -66,7 +71,8 @@ class AnchorFreeHead(BaseDenseHead):
             use_sigmoid=True,
             gamma=2.0,
             alpha=0.25,
-            loss_weight=1.0),
+            loss_weight=1.0,
+        ),
         loss_bbox: ConfigType = dict(type='IoULoss', loss_weight=1.0),
         bbox_coder: ConfigType = dict(type='DistancePointBBoxCoder'),
         conv_cfg: OptConfigType = None,
@@ -78,7 +84,9 @@ class AnchorFreeHead(BaseDenseHead):
             layer='Conv2d',
             std=0.01,
             override=dict(
-                type='Normal', name='conv_cls', std=0.01, bias_prob=0.01))
+                type='Normal', name='conv_cls', std=0.01, bias_prob=0.01
+            ),
+        ),
     ) -> None:
         super().__init__(init_cfg=init_cfg)
         self.num_classes = num_classes
@@ -136,7 +144,9 @@ class AnchorFreeHead(BaseDenseHead):
                     padding=1,
                     conv_cfg=conv_cfg,
                     norm_cfg=self.norm_cfg,
-                    bias=self.conv_bias))
+                    bias=self.conv_bias,
+                )
+            )
 
     def _init_reg_convs(self) -> None:
         """Initialize bbox regression conv layers of the head."""
@@ -156,28 +166,34 @@ class AnchorFreeHead(BaseDenseHead):
                     padding=1,
                     conv_cfg=conv_cfg,
                     norm_cfg=self.norm_cfg,
-                    bias=self.conv_bias))
+                    bias=self.conv_bias,
+                )
+            )
 
     def _init_predictor(self) -> None:
         """Initialize predictor layers of the head."""
         self.conv_cls = nn.Conv2d(
-            self.feat_channels, self.cls_out_channels, 3, padding=1)
+            self.feat_channels, self.cls_out_channels, 3, padding=1
+        )
         self.conv_reg = nn.Conv2d(self.feat_channels, 4, 3, padding=1)
 
-    def _load_from_state_dict(self, state_dict: dict, prefix: str,
-                              local_metadata: dict, strict: bool,
-                              missing_keys: Union[List[str], str],
-                              unexpected_keys: Union[List[str], str],
-                              error_msgs: Union[List[str], str]) -> None:
+    def _load_from_state_dict(
+        self,
+        state_dict: dict,
+        prefix: str,
+        local_metadata: dict,
+        strict: bool,
+        missing_keys: Union[List[str], str],
+        unexpected_keys: Union[List[str], str],
+        error_msgs: Union[List[str], str],
+    ) -> None:
         """Hack some keys of the model state dict so that can load checkpoints
         of previous version."""
-        version = local_metadata.get('version', None)
+        version = local_metadata.get('version')
         if version is None:
             # the key is different in early versions
             # for example, 'fcos_cls' become 'conv_cls' now
-            bbox_head_keys = [
-                k for k in state_dict.keys() if k.startswith(prefix)
-            ]
+            bbox_head_keys = [k for k in state_dict if k.startswith(prefix)]
             ori_predictor_keys = []
             new_predictor_keys = []
             # e.g. 'fcos_cls' or 'fcos_reg'
@@ -201,10 +217,17 @@ class AnchorFreeHead(BaseDenseHead):
                     ori_predictor_keys.pop(-1)
             for i in range(len(new_predictor_keys)):
                 state_dict[new_predictor_keys[i]] = state_dict.pop(
-                    ori_predictor_keys[i])
-        super()._load_from_state_dict(state_dict, prefix, local_metadata,
-                                      strict, missing_keys, unexpected_keys,
-                                      error_msgs)
+                    ori_predictor_keys[i]
+                )
+        super()._load_from_state_dict(
+            state_dict,
+            prefix,
+            local_metadata,
+            strict,
+            missing_keys,
+            unexpected_keys,
+            error_msgs,
+        )
 
     def forward(self, x: Tuple[Tensor]) -> Tuple[List[Tensor], List[Tensor]]:
         """Forward features from the upstream network.
@@ -249,12 +272,13 @@ class AnchorFreeHead(BaseDenseHead):
 
     @abstractmethod
     def loss_by_feat(
-            self,
-            cls_scores: List[Tensor],
-            bbox_preds: List[Tensor],
-            batch_gt_instances: InstanceList,
-            batch_img_metas: List[dict],
-            batch_gt_instances_ignore: OptInstanceList = None) -> dict:
+        self,
+        cls_scores: List[Tensor],
+        bbox_preds: List[Tensor],
+        batch_gt_instances: InstanceList,
+        batch_img_metas: List[dict],
+        batch_gt_instances_ignore: OptInstanceList = None,
+    ) -> dict:
         """Calculate the loss based on the features extracted by the detection
         head.
 
@@ -279,8 +303,9 @@ class AnchorFreeHead(BaseDenseHead):
         raise NotImplementedError
 
     @abstractmethod
-    def get_targets(self, points: List[Tensor],
-                    batch_gt_instances: InstanceList) -> Any:
+    def get_targets(
+        self, points: List[Tensor], batch_gt_instances: InstanceList
+    ) -> Any:
         """Compute regression, classification and centerness targets for points
         in multiple images.
 
@@ -294,10 +319,12 @@ class AnchorFreeHead(BaseDenseHead):
         raise NotImplementedError
 
     # TODO refactor aug_test
-    def aug_test(self,
-                 aug_batch_feats: List[Tensor],
-                 aug_batch_img_metas: List[List[Tensor]],
-                 rescale: bool = False) -> List[ndarray]:
+    def aug_test(
+        self,
+        aug_batch_feats: List[Tensor],
+        aug_batch_img_metas: List[List[Tensor]],
+        rescale: bool = False,
+    ) -> List[ndarray]:
         """Test function with test time augmentation.
 
         Args:
@@ -314,4 +341,5 @@ class AnchorFreeHead(BaseDenseHead):
             list[ndarray]: bbox results of each class
         """
         return self.aug_test_bboxes(
-            aug_batch_feats, aug_batch_img_metas, rescale=rescale)
+            aug_batch_feats, aug_batch_img_metas, rescale=rescale
+        )

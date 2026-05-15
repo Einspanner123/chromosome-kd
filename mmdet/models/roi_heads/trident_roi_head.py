@@ -23,14 +23,16 @@ class TridentRoIHead(StandardRoIHead):
             `test_branch_idx` will be used.
     """
 
-    def __init__(self, num_branch: int, test_branch_idx: int,
-                 **kwargs) -> None:
+    def __init__(
+        self, num_branch: int, test_branch_idx: int, **kwargs
+    ) -> None:
         self.num_branch = num_branch
         self.test_branch_idx = test_branch_idx
         super().__init__(**kwargs)
 
-    def merge_trident_bboxes(self,
-                             trident_results: InstanceList) -> InstanceData:
+    def merge_trident_bboxes(
+        self, trident_results: InstanceList
+    ) -> InstanceData:
         """Merge bbox predictions of each branch.
 
         Args:
@@ -57,14 +59,16 @@ class TridentRoIHead(StandardRoIHead):
             results.labels = labels[keep]
 
         if self.test_cfg['max_per_img'] > 0:
-            results = results[:self.test_cfg['max_per_img']]
+            results = results[: self.test_cfg['max_per_img']]
         return results
 
-    def predict(self,
-                x: Tuple[Tensor],
-                rpn_results_list: InstanceList,
-                batch_data_samples: SampleList,
-                rescale: bool = False) -> InstanceList:
+    def predict(
+        self,
+        x: Tuple[Tensor],
+        rpn_results_list: InstanceList,
+        batch_data_samples: SampleList,
+        rescale: bool = False,
+    ) -> InstanceList:
         """Perform forward propagation of the roi head and predict detection
         results on the features of the upstream network.
 
@@ -99,14 +103,20 @@ class TridentRoIHead(StandardRoIHead):
             x=x,
             rpn_results_list=rpn_results_list,
             batch_data_samples=batch_data_samples,
-            rescale=rescale)
+            rescale=rescale,
+        )
 
-        num_branch = self.num_branch \
-            if self.training or self.test_branch_idx == -1 else 1
+        num_branch = (
+            self.num_branch
+            if self.training or self.test_branch_idx == -1
+            else 1
+        )
 
         merged_results_list = []
         for i in range(len(batch_data_samples) // num_branch):
             merged_results_list.append(
-                self.merge_trident_bboxes(results_list[i * num_branch:(i + 1) *
-                                                       num_branch]))
+                self.merge_trident_bboxes(
+                    results_list[i * num_branch : (i + 1) * num_branch]
+                )
+            )
         return merged_results_list

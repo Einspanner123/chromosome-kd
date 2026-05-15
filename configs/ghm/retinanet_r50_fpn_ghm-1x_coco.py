@@ -7,12 +7,16 @@ model = dict(
             bins=30,
             momentum=0.75,
             use_sigmoid=True,
-            loss_weight=1.0),
+            loss_weight=1.0,
+        ),
         loss_bbox=dict(
             _delete_=True,
             type='GHMR',
             mu=0.02,
             bins=10,
             momentum=0.7,
-            loss_weight=10.0)))
+            loss_weight=10.0,
+        ),
+    )
+)
 optim_wrapper = dict(clip_grad=dict(max_norm=35, norm_type=2))

@@ -11,13 +11,15 @@ from mmdet.utils import OptConfigType, OptMultiConfig
 class BasePanopticFusionHead(BaseModule, metaclass=ABCMeta):
     """Base class for panoptic heads."""
 
-    def __init__(self,
-                 num_things_classes: int = 80,
-                 num_stuff_classes: int = 53,
-                 test_cfg: OptConfigType = None,
-                 loss_panoptic: OptConfigType = None,
-                 init_cfg: OptMultiConfig = None,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        num_things_classes: int = 80,
+        num_stuff_classes: int = 53,
+        test_cfg: OptConfigType = None,
+        loss_panoptic: OptConfigType = None,
+        init_cfg: OptMultiConfig = None,
+        **kwargs,
+    ) -> None:
         super().__init__(init_cfg=init_cfg)
         self.num_things_classes = num_things_classes
         self.num_stuff_classes = num_stuff_classes

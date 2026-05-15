@@ -13,15 +13,16 @@ from mmdet.registry import METRICS
 
 @METRICS.register_module()
 class DODCocoMetric(BaseMetric):
-
     default_prefix: Optional[str] = 'dod'
 
-    def __init__(self,
-                 ann_file: Optional[str] = None,
-                 collect_device: str = 'cpu',
-                 outfile_prefix: Optional[str] = None,
-                 backend_args: dict = None,
-                 prefix: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        ann_file: Optional[str] = None,
+        collect_device: str = 'cpu',
+        outfile_prefix: Optional[str] = None,
+        backend_args: dict = None,
+        prefix: Optional[str] = None,
+    ) -> None:
         super().__init__(collect_device=collect_device, prefix=prefix)
         self.outfile_prefix = outfile_prefix
         with get_local_path(ann_file, backend_args=backend_args) as local_path:
@@ -117,16 +118,15 @@ class DODCocoMetric(BaseMetric):
         ap_sum_short = sum([sum(aps_lens[i]) for i in range(0, 4)])
         ap_sum_mid = sum([sum(aps_lens[i]) for i in range(4, 7)])
         ap_sum_long = sum([sum(aps_lens[i]) for i in range(7, 10)])
-        ap_sum_very_long = sum([
-            sum(aps_lens[i]) for i in range(10,
-                                            max(counter_lens.keys()) + 1)
-        ])
+        ap_sum_very_long = sum(
+            [sum(aps_lens[i]) for i in range(10, max(counter_lens.keys()) + 1)]
+        )
         c_sum_short = sum([counter_lens[i] for i in range(1, 4)])
         c_sum_mid = sum([counter_lens[i] for i in range(4, 7)])
         c_sum_long = sum([counter_lens[i] for i in range(7, 10)])
         c_sum_very_long = sum(
-            [counter_lens[i] for i in range(10,
-                                            max(counter_lens.keys()) + 1)])
+            [counter_lens[i] for i in range(10, max(counter_lens.keys()) + 1)]
+        )
         map_short = ap_sum_short / c_sum_short
         map_mid = ap_sum_mid / c_sum_mid
         map_long = ap_sum_long / c_sum_long
@@ -144,7 +144,7 @@ class DODCocoMetric(BaseMetric):
             'AR@1000': 8,
             'AR_s@1000': 9,
             'AR_m@1000': 10,
-            'AR_l@1000': 11
+            'AR_l@1000': 11,
         }
         metric_items = ['mAP', 'mAP_50', 'mAP_75', 'mAP_s', 'mAP_m', 'mAP_l']
 
@@ -155,13 +155,17 @@ class DODCocoMetric(BaseMetric):
             eval_results[key] = float(f'{round(val, 3)}')
 
         ap = cocoEval.stats[:6]
-        logger.info(f'mAP_copypaste: {ap[0]:.3f} '
-                    f'{ap[1]:.3f} {ap[2]:.3f} {ap[3]:.3f} '
-                    f'{ap[4]:.3f} {ap[5]:.3f}')
+        logger.info(
+            f'mAP_copypaste: {ap[0]:.3f} '
+            f'{ap[1]:.3f} {ap[2]:.3f} {ap[3]:.3f} '
+            f'{ap[4]:.3f} {ap[5]:.3f}'
+        )
 
-        logger.info(f'mAP over reference length: short - {map_short:.4f}, '
-                    f'mid - {map_mid:.4f}, long - {map_long:.4f}, '
-                    f'very long - {map_very_long:.4f}')
+        logger.info(
+            f'mAP over reference length: short - {map_short:.4f}, '
+            f'mid - {map_mid:.4f}, long - {map_long:.4f}, '
+            f'very long - {map_very_long:.4f}'
+        )
         eval_results['mAP_short'] = float(f'{round(map_short, 3)}')
         eval_results['mAP_mid'] = float(f'{round(map_mid, 3)}')
         eval_results['mAP_long'] = float(f'{round(map_long, 3)}')

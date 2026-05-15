@@ -17,4 +17,7 @@ model = dict(
             up_group=1,
             encoder_kernel=3,
             encoder_dilation=1,
-            compressed_channels=64)))
+            compressed_channels=64,
+        ),
+    ),
+)

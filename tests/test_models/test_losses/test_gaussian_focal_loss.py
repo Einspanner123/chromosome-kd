@@ -6,7 +6,6 @@ from mmdet.models.losses import GaussianFocalLoss
 
 
 class TestGaussianFocalLoss(unittest.TestCase):
-
     def test_forward(self):
         pred = torch.rand((10, 4))
         target = torch.rand((10, 4))

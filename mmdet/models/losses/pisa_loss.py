@@ -10,16 +10,18 @@ from ..task_modules.coders import BaseBBoxCoder
 from ..task_modules.samplers import SamplingResult
 
 
-def isr_p(cls_score: Tensor,
-          bbox_pred: Tensor,
-          bbox_targets: Tuple[Tensor],
-          rois: Tensor,
-          sampling_results: List[SamplingResult],
-          loss_cls: nn.Module,
-          bbox_coder: BaseBBoxCoder,
-          k: float = 2,
-          bias: float = 0,
-          num_class: int = 80) -> tuple:
+def isr_p(
+    cls_score: Tensor,
+    bbox_pred: Tensor,
+    bbox_targets: Tuple[Tensor],
+    rois: Tensor,
+    sampling_results: List[SamplingResult],
+    loss_cls: nn.Module,
+    bbox_coder: BaseBBoxCoder,
+    k: float = 2,
+    bias: float = 0,
+    num_class: int = 80,
+) -> tuple:
     """Importance-based Sample Reweighting (ISR_P), positive part.
 
     Args:
@@ -42,8 +44,9 @@ def isr_p(cls_score: Tensor,
     """
 
     labels, label_weights, bbox_targets, bbox_weights = bbox_targets
-    pos_label_inds = ((labels >= 0) &
-                      (labels < num_class)).nonzero().reshape(-1)
+    pos_label_inds = (
+        ((labels >= 0) & (labels < num_class)).nonzero().reshape(-1)
+    )
     pos_labels = labels[pos_label_inds]
 
     # if no positive samples, return the original targets
@@ -107,10 +110,12 @@ def isr_p(cls_score: Tensor,
 
     # normalize to make the new weighted loss value equal to the original loss
     pos_loss_cls = loss_cls(
-        cls_score[pos_label_inds], pos_labels, reduction_override='none')
+        cls_score[pos_label_inds], pos_labels, reduction_override='none'
+    )
     if pos_loss_cls.dim() > 1:
-        ori_pos_loss_cls = pos_loss_cls * label_weights[pos_label_inds][:,
-                                                                        None]
+        ori_pos_loss_cls = (
+            pos_loss_cls * label_weights[pos_label_inds][:, None]
+        )
         new_pos_loss_cls = pos_loss_cls * pos_imp_weights[:, None]
     else:
         ori_pos_loss_cls = pos_loss_cls * label_weights[pos_label_inds]
@@ -123,16 +128,18 @@ def isr_p(cls_score: Tensor,
     return bbox_targets
 
 
-def carl_loss(cls_score: Tensor,
-              labels: Tensor,
-              bbox_pred: Tensor,
-              bbox_targets: Tensor,
-              loss_bbox: nn.Module,
-              k: float = 1,
-              bias: float = 0.2,
-              avg_factor: Optional[int] = None,
-              sigmoid: bool = False,
-              num_class: int = 80) -> dict:
+def carl_loss(
+    cls_score: Tensor,
+    labels: Tensor,
+    bbox_pred: Tensor,
+    bbox_targets: Tensor,
+    loss_bbox: nn.Module,
+    k: float = 1,
+    bias: float = 0.2,
+    avg_factor: Optional[int] = None,
+    sigmoid: bool = False,
+    num_class: int = 80,
+) -> dict:
     """Classification-Aware Regression Loss (CARL).
 
     Args:
@@ -151,10 +158,11 @@ def carl_loss(cls_score: Tensor,
     Return:
         dict: CARL loss dict.
     """
-    pos_label_inds = ((labels >= 0) &
-                      (labels < num_class)).nonzero().reshape(-1)
+    pos_label_inds = (
+        ((labels >= 0) & (labels < num_class)).nonzero().reshape(-1)
+    )
     if pos_label_inds.numel() == 0:
-        return dict(loss_carl=cls_score.sum()[None] * 0.)
+        return dict(loss_carl=cls_score.sum()[None] * 0.0)
     pos_labels = labels[pos_label_inds]
 
     # multiply pos_cls_score with the corresponding bbox weight
@@ -179,9 +187,13 @@ def carl_loss(cls_score: Tensor,
         pos_bbox_preds = bbox_pred[pos_label_inds, pos_labels]
     else:
         pos_bbox_preds = bbox_pred[pos_label_inds]
-    ori_loss_reg = loss_bbox(
-        pos_bbox_preds,
-        bbox_targets[pos_label_inds],
-        reduction_override='none') / avg_factor
+    ori_loss_reg = (
+        loss_bbox(
+            pos_bbox_preds,
+            bbox_targets[pos_label_inds],
+            reduction_override='none',
+        )
+        / avg_factor
+    )
     loss_carl = (ori_loss_reg * carl_loss_weights[:, None]).sum()
     return dict(loss_carl=loss_carl[None])

@@ -11,7 +11,8 @@ from tqdm import tqdm
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='YouTube-VIS to COCO Video format')
+        description='YouTube-VIS to COCO Video format'
+    )
     parser.add_argument(
         '-i',
         '--input',
@@ -51,7 +52,8 @@ def convert_vis(ann_dir, save_dir, dataset_version, mode='train'):
         official_anns = mmengine.load(osp.join(ann_dir, f'{mode}.json'))
     elif dataset_version == '2021':
         official_anns = mmengine.load(
-            osp.join(ann_dir, mode, 'instances.json'))
+            osp.join(ann_dir, mode, 'instances.json')
+        )
     VIS['categories'] = copy.deepcopy(official_anns['categories'])
 
     has_annotations = mode == 'train'
@@ -67,7 +69,8 @@ def convert_vis(ann_dir, save_dir, dataset_version, mode='train'):
             id=video_info['id'],
             name=video_name,
             width=video_info['width'],
-            height=video_info['height'])
+            height=video_info['height'],
+        )
         VIS['videos'].append(video)
 
         num_frames = len(video_info['file_names'])
@@ -84,7 +87,8 @@ def convert_vis(ann_dir, save_dir, dataset_version, mode='train'):
                 width=width,
                 id=records['img_id'],
                 frame_id=frame_id,
-                video_id=video_info['id'])
+                video_id=video_info['id'],
+            )
             VIS['images'].append(image)
 
             if has_annotations:
@@ -118,7 +122,8 @@ def convert_vis(ann_dir, save_dir, dataset_version, mode='train'):
                         bbox=bbox,
                         segmentation=segmentation,
                         area=area,
-                        iscrowd=ann_info['iscrowd'])
+                        iscrowd=ann_info['iscrowd'],
+                    )
 
                     if category_id not in obj_num_classes:
                         obj_num_classes[category_id] = 1
@@ -133,10 +138,11 @@ def convert_vis(ann_dir, save_dir, dataset_version, mode='train'):
     if not osp.isdir(save_dir):
         os.makedirs(save_dir)
     mmengine.dump(
-        VIS, osp.join(save_dir, f'youtube_vis_{dataset_version}_{mode}.json'))
+        VIS, osp.join(save_dir, f'youtube_vis_{dataset_version}_{mode}.json')
+    )
     print(f'-----YouTube VIS {dataset_version} {mode}------')
-    print(f'{records["vid_id"]- 1} videos')
-    print(f'{records["img_id"]- 1} images')
+    print(f'{records["vid_id"] - 1} videos')
+    print(f'{records["img_id"] - 1} images')
     if has_annotations:
         print(f'{records["ann_id"] - 1} objects')
         print(f'{records["global_instance_id"] - 1} instances')

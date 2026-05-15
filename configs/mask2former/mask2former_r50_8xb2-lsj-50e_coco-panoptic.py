@@ -1,5 +1,6 @@
 _base_ = [
-    '../_base_/datasets/coco_panoptic.py', '../_base_/default_runtime.py'
+    '../_base_/datasets/coco_panoptic.py',
+    '../_base_/default_runtime.py',
 ]
 image_size = (1024, 1024)
 batch_augments = [
@@ -10,7 +11,8 @@ batch_augments = [
         pad_mask=True,
         mask_pad_value=0,
         pad_seg=True,
-        seg_pad_value=255)
+        seg_pad_value=255,
+    )
 ]
 data_preprocessor = dict(
     type='DetDataPreprocessor',
@@ -22,7 +24,8 @@ data_preprocessor = dict(
     mask_pad_value=0,
     pad_seg=True,
     seg_pad_value=255,
-    batch_augments=batch_augments)
+    batch_augments=batch_augments,
+)
 
 num_things_classes = 80
 num_stuff_classes = 53
@@ -39,7 +42,8 @@ model = dict(
         norm_cfg=dict(type='BN', requires_grad=False),
         norm_eval=True,
         style='pytorch',
-        init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet50')),
+        init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet50'),
+    ),
     panoptic_head=dict(
         type='Mask2FormerHead',
         in_channels=[256, 512, 1024, 2048],  # pass to pixel_decoder inside
@@ -64,14 +68,19 @@ model = dict(
                         num_levels=3,
                         num_points=4,
                         dropout=0.0,
-                        batch_first=True),
+                        batch_first=True,
+                    ),
                     ffn_cfg=dict(
                         embed_dims=256,
                         feedforward_channels=1024,
                         num_fcs=2,
                         ffn_drop=0.0,
-                        act_cfg=dict(type='ReLU', inplace=True)))),
-            positional_encoding=dict(num_feats=128, normalize=True)),
+                        act_cfg=dict(type='ReLU', inplace=True),
+                    ),
+                ),
+            ),
+            positional_encoding=dict(num_feats=128, normalize=True),
+        ),
         enforce_decoder_input_project=False,
         positional_encoding=dict(num_feats=128, normalize=True),
         transformer_decoder=dict(  # Mask2FormerTransformerDecoder
@@ -79,33 +88,34 @@ model = dict(
             num_layers=9,
             layer_cfg=dict(  # Mask2FormerTransformerDecoderLayer
                 self_attn_cfg=dict(  # MultiheadAttention
-                    embed_dims=256,
-                    num_heads=8,
-                    dropout=0.0,
-                    batch_first=True),
+                    embed_dims=256, num_heads=8, dropout=0.0, batch_first=True
+                ),
                 cross_attn_cfg=dict(  # MultiheadAttention
-                    embed_dims=256,
-                    num_heads=8,
-                    dropout=0.0,
-                    batch_first=True),
+                    embed_dims=256, num_heads=8, dropout=0.0, batch_first=True
+                ),
                 ffn_cfg=dict(
                     embed_dims=256,
                     feedforward_channels=2048,
                     num_fcs=2,
                     ffn_drop=0.0,
-                    act_cfg=dict(type='ReLU', inplace=True))),
-            init_cfg=None),
+                    act_cfg=dict(type='ReLU', inplace=True),
+                ),
+            ),
+            init_cfg=None,
+        ),
         loss_cls=dict(
             type='CrossEntropyLoss',
             use_sigmoid=False,
             loss_weight=2.0,
             reduction='mean',
-            class_weight=[1.0] * num_classes + [0.1]),
+            class_weight=[1.0] * num_classes + [0.1],
+        ),
         loss_mask=dict(
             type='CrossEntropyLoss',
             use_sigmoid=True,
             reduction='mean',
-            loss_weight=5.0),
+            loss_weight=5.0,
+        ),
         loss_dice=dict(
             type='DiceLoss',
             use_sigmoid=True,
@@ -113,13 +123,16 @@ model = dict(
             reduction='mean',
             naive_dice=True,
             eps=1.0,
-            loss_weight=5.0)),
+            loss_weight=5.0,
+        ),
+    ),
     panoptic_fusion_head=dict(
         type='MaskFormerFusionHead',
         num_things_classes=num_things_classes,
         num_stuff_classes=num_stuff_classes,
         loss_panoptic=None,
-        init_cfg=None),
+        init_cfg=None,
+    ),
     train_cfg=dict(
         num_points=12544,
         oversample_ratio=3.0,
@@ -129,10 +142,13 @@ model = dict(
             match_costs=[
                 dict(type='ClassificationCost', weight=2.0),
                 dict(
-                    type='CrossEntropyLossCost', weight=5.0, use_sigmoid=True),
-                dict(type='DiceCost', weight=5.0, pred_act=True, eps=1.0)
-            ]),
-        sampler=dict(type='MaskPseudoSampler')),
+                    type='CrossEntropyLossCost', weight=5.0, use_sigmoid=True
+                ),
+                dict(type='DiceCost', weight=5.0, pred_act=True, eps=1.0),
+            ],
+        ),
+        sampler=dict(type='MaskPseudoSampler'),
+    ),
     test_cfg=dict(
         panoptic_on=True,
         # For now, the dataset does not support
@@ -144,8 +160,10 @@ model = dict(
         iou_thr=0.8,
         # In Mask2Former's panoptic postprocessing,
         # it will filter mask area where score is less than 0.5 .
-        filter_low_score=True),
-    init_cfg=None)
+        filter_low_score=True,
+    ),
+    init_cfg=None,
+)
 
 # dataset settings
 data_root = 'data/coco/'
@@ -153,27 +171,31 @@ train_pipeline = [
     dict(
         type='LoadImageFromFile',
         to_float32=True,
-        backend_args={{_base_.backend_args}}),
+        backend_args={{_base_.backend_args}},
+    ),
     dict(
         type='LoadPanopticAnnotations',
         with_bbox=True,
         with_mask=True,
         with_seg=True,
-        backend_args={{_base_.backend_args}}),
+        backend_args={{_base_.backend_args}},
+    ),
     dict(type='RandomFlip', prob=0.5),
     # large scale jittering
     dict(
         type='RandomResize',
         scale=image_size,
         ratio_range=(0.1, 2.0),
-        keep_ratio=True),
+        keep_ratio=True,
+    ),
     dict(
         type='RandomCrop',
         crop_size=image_size,
         crop_type='absolute',
         recompute_bbox=True,
-        allow_negative_crop=True),
-    dict(type='PackDetInputs')
+        allow_negative_crop=True,
+    ),
+    dict(type='PackDetInputs'),
 ]
 
 train_dataloader = dict(dataset=dict(pipeline=train_pipeline))
@@ -183,12 +205,14 @@ val_evaluator = [
         type='CocoPanopticMetric',
         ann_file=data_root + 'annotations/panoptic_val2017.json',
         seg_prefix=data_root + 'annotations/panoptic_val2017/',
-        backend_args={{_base_.backend_args}}),
+        backend_args={{_base_.backend_args}},
+    ),
     dict(
         type='CocoMetric',
         ann_file=data_root + 'annotations/instances_val2017.json',
         metric=['bbox', 'segm'],
-        backend_args={{_base_.backend_args}})
+        backend_args={{_base_.backend_args}},
+    ),
 ]
 test_evaluator = val_evaluator
 
@@ -201,7 +225,8 @@ optim_wrapper = dict(
         lr=0.0001,
         weight_decay=0.05,
         eps=1e-8,
-        betas=(0.9, 0.999)),
+        betas=(0.9, 0.999),
+    ),
     paramwise_cfg=dict(
         custom_keys={
             'backbone': dict(lr_mult=0.1, decay_mult=1.0),
@@ -209,8 +234,10 @@ optim_wrapper = dict(
             'query_feat': embed_multi,
             'level_embed': embed_multi,
         },
-        norm_decay_mult=0.0),
-    clip_grad=dict(max_norm=0.01, norm_type=2))
+        norm_decay_mult=0.0,
+    ),
+    clip_grad=dict(max_norm=0.01, norm_type=2),
+)
 
 # learning policy
 max_iters = 368750
@@ -220,7 +247,8 @@ param_scheduler = dict(
     end=max_iters,
     by_epoch=False,
     milestones=[327778, 355092],
-    gamma=0.1)
+    gamma=0.1,
+)
 
 # Before 365001th iteration, we do evaluation every 5000 iterations.
 # After 365000th iteration, we do evaluation every 368750 iterations,
@@ -231,7 +259,8 @@ train_cfg = dict(
     type='IterBasedTrainLoop',
     max_iters=max_iters,
     val_interval=interval,
-    dynamic_intervals=dynamic_intervals)
+    dynamic_intervals=dynamic_intervals,
+)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -241,7 +270,9 @@ default_hooks = dict(
         by_epoch=False,
         save_last=True,
         max_keep_ckpts=3,
-        interval=interval))
+        interval=interval,
+    )
+)
 log_processor = dict(type='LogProcessor', window_size=50, by_epoch=False)
 
 # Default setting for scaling LR automatically

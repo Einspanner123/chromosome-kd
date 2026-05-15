@@ -1,5 +1,5 @@
 _base_ = [
-    '../bytetrack/bytetrack_yolox_x_8xb4-amp-80e_crowdhuman-mot17halftrain_test-mot17halfval.py',  # noqa: E501
+    '../bytetrack/bytetrack_yolox_x_8xb4-amp-80e_crowdhuman-mot17halftrain_test-mot17halfval.py',
 ]
 
 model = dict(
@@ -15,4 +15,6 @@ model = dict(
         num_tentatives=3,
         vel_consist_weight=0.2,
         vel_delta_t=3,
-        num_frames_retain=30))
+        num_frames_retain=30,
+    ),
+)

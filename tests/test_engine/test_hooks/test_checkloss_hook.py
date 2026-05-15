@@ -8,7 +8,6 @@ from mmdet.engine.hooks import CheckInvalidLossHook
 
 
 class TestCheckInvalidLossHook(TestCase):
-
     def test_after_train_iter(self):
         n = 50
         hook = CheckInvalidLossHook(n)

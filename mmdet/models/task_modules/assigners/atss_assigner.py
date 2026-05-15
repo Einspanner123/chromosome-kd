@@ -30,8 +30,12 @@ def bbox_center_distance(bboxes: Tensor, priors: Tensor) -> Tensor:
     priors_cy = (priors[:, 1] + priors[:, 3]) / 2.0
     priors_points = torch.stack((priors_cx, priors_cy), dim=1)
 
-    distances = (priors_points[:, None, :] -
-                 bbox_points[None, :, :]).pow(2).sum(-1).sqrt()
+    distances = (
+        (priors_points[:, None, :] - bbox_points[None, :, :])
+        .pow(2)
+        .sum(-1)
+        .sqrt()
+    )
 
     return distances
 
@@ -60,11 +64,13 @@ class ATSSAssigner(BaseAssigner):
             ignoring any bboxes. Defaults to -1.
     """
 
-    def __init__(self,
-                 topk: int,
-                 alpha: Optional[float] = None,
-                 iou_calculator: ConfigType = dict(type='BboxOverlaps2D'),
-                 ignore_iof_thr: float = -1) -> None:
+    def __init__(
+        self,
+        topk: int,
+        alpha: Optional[float] = None,
+        iou_calculator: ConfigType = dict(type='BboxOverlaps2D'),
+        ignore_iof_thr: float = -1,
+    ) -> None:
         self.topk = topk
         self.alpha = alpha
         self.iou_calculator = TASK_UTILS.build(iou_calculator)
@@ -72,11 +78,11 @@ class ATSSAssigner(BaseAssigner):
 
     # https://github.com/sfzhang15/ATSS/blob/master/atss_core/modeling/rpn/atss/loss.py
     def assign(
-            self,
-            pred_instances: InstanceData,
-            num_level_priors: List[int],
-            gt_instances: InstanceData,
-            gt_instances_ignore: Optional[InstanceData] = None
+        self,
+        pred_instances: InstanceData,
+        num_level_priors: List[int],
+        gt_instances: InstanceData,
+        gt_instances_ignore: Optional[InstanceData] = None,
     ) -> AssignResult:
         """Assign gt to priors.
 
@@ -127,22 +133,25 @@ class ATSSAssigner(BaseAssigner):
         priors = priors[:, :4]
         num_gt, num_priors = gt_bboxes.size(0), priors.size(0)
 
-        message = 'Invalid alpha parameter because cls_scores or ' \
-                  'bbox_preds are None. If you want to use the ' \
-                  'cost-based ATSSAssigner,  please set cls_scores, ' \
-                  'bbox_preds and self.alpha at the same time. '
+        message = (
+            'Invalid alpha parameter because cls_scores or '
+            'bbox_preds are None. If you want to use the '
+            'cost-based ATSSAssigner,  please set cls_scores, '
+            'bbox_preds and self.alpha at the same time. '
+        )
 
         # compute iou between all bbox and gt
         if self.alpha is None:
             # ATSSAssigner
             overlaps = self.iou_calculator(priors, gt_bboxes)
-            if ('scores' in pred_instances or 'bboxes' in pred_instances):
+            if 'scores' in pred_instances or 'bboxes' in pred_instances:
                 warnings.warn(message)
 
         else:
             # Dynamic cost ATSSAssigner in DDOD
-            assert ('scores' in pred_instances
-                    and 'bboxes' in pred_instances), message
+            assert 'scores' in pred_instances and 'bboxes' in pred_instances, (
+                message
+            )
             cls_scores = pred_instances.scores
             bbox_preds = pred_instances.bboxes
 
@@ -156,32 +165,38 @@ class ATSSAssigner(BaseAssigner):
             assert cls_cost.shape == overlaps.shape
 
             # overlaps is actually a cost matrix
-            overlaps = cls_cost**(1 - self.alpha) * overlaps**self.alpha
+            overlaps = cls_cost ** (1 - self.alpha) * overlaps**self.alpha
 
         # assign 0 by default
-        assigned_gt_inds = overlaps.new_full((num_priors, ),
-                                             0,
-                                             dtype=torch.long)
+        assigned_gt_inds = overlaps.new_full(
+            (num_priors,), 0, dtype=torch.long
+        )
 
         if num_gt == 0 or num_priors == 0:
             # No ground truth or boxes, return empty assignment
-            max_overlaps = overlaps.new_zeros((num_priors, ))
+            max_overlaps = overlaps.new_zeros((num_priors,))
             if num_gt == 0:
                 # No truth, assign everything to background
                 assigned_gt_inds[:] = 0
-            assigned_labels = overlaps.new_full((num_priors, ),
-                                                -1,
-                                                dtype=torch.long)
+            assigned_labels = overlaps.new_full(
+                (num_priors,), -1, dtype=torch.long
+            )
             return AssignResult(
-                num_gt, assigned_gt_inds, max_overlaps, labels=assigned_labels)
+                num_gt, assigned_gt_inds, max_overlaps, labels=assigned_labels
+            )
 
         # compute center distance between all bbox and gt
         distances = bbox_center_distance(gt_bboxes, priors)
 
-        if (self.ignore_iof_thr > 0 and gt_bboxes_ignore is not None
-                and gt_bboxes_ignore.numel() > 0 and priors.numel() > 0):
+        if (
+            self.ignore_iof_thr > 0
+            and gt_bboxes_ignore is not None
+            and gt_bboxes_ignore.numel() > 0
+            and priors.numel() > 0
+        ):
             ignore_overlaps = self.iou_calculator(
-                priors, gt_bboxes_ignore, mode='iof')
+                priors, gt_bboxes_ignore, mode='iof'
+            )
             ignore_max_overlaps, _ = ignore_overlaps.max(dim=1)
             ignore_idxs = ignore_max_overlaps > self.ignore_iof_thr
             distances[ignore_idxs, :] = INF
@@ -197,7 +212,8 @@ class ATSSAssigner(BaseAssigner):
             distances_per_level = distances[start_idx:end_idx, :]
             selectable_k = min(self.topk, priors_per_level)
             _, topk_idxs_per_level = distances_per_level.topk(
-                selectable_k, dim=0, largest=False)
+                selectable_k, dim=0, largest=False
+            )
             candidate_idxs.append(topk_idxs_per_level + start_idx)
             start_idx = end_idx
         candidate_idxs = torch.cat(candidate_idxs, dim=0)
@@ -216,10 +232,18 @@ class ATSSAssigner(BaseAssigner):
             candidate_idxs[:, gt_idx] += gt_idx * num_priors
         priors_cx = (priors[:, 0] + priors[:, 2]) / 2.0
         priors_cy = (priors[:, 1] + priors[:, 3]) / 2.0
-        ep_priors_cx = priors_cx.view(1, -1).expand(
-            num_gt, num_priors).contiguous().view(-1)
-        ep_priors_cy = priors_cy.view(1, -1).expand(
-            num_gt, num_priors).contiguous().view(-1)
+        ep_priors_cx = (
+            priors_cx.view(1, -1)
+            .expand(num_gt, num_priors)
+            .contiguous()
+            .view(-1)
+        )
+        ep_priors_cy = (
+            priors_cy.view(1, -1)
+            .expand(num_gt, num_priors)
+            .contiguous()
+            .view(-1)
+        )
         candidate_idxs = candidate_idxs.view(-1)
 
         # calculate the left, top, right, bottom distance between positive
@@ -234,21 +258,26 @@ class ATSSAssigner(BaseAssigner):
 
         # if an anchor box is assigned to multiple gts,
         # the one with the highest IoU will be selected.
-        overlaps_inf = torch.full_like(overlaps,
-                                       -INF).t().contiguous().view(-1)
+        overlaps_inf = (
+            torch.full_like(overlaps, -INF).t().contiguous().view(-1)
+        )
         index = candidate_idxs.view(-1)[is_pos.view(-1)]
         overlaps_inf[index] = overlaps.t().contiguous().view(-1)[index]
         overlaps_inf = overlaps_inf.view(num_gt, -1).t()
 
         max_overlaps, argmax_overlaps = overlaps_inf.max(dim=1)
-        assigned_gt_inds[
-            max_overlaps != -INF] = argmax_overlaps[max_overlaps != -INF] + 1
+        assigned_gt_inds[max_overlaps != -INF] = (
+            argmax_overlaps[max_overlaps != -INF] + 1
+        )
 
-        assigned_labels = assigned_gt_inds.new_full((num_priors, ), -1)
+        assigned_labels = assigned_gt_inds.new_full((num_priors,), -1)
         pos_inds = torch.nonzero(
-            assigned_gt_inds > 0, as_tuple=False).squeeze()
+            assigned_gt_inds > 0, as_tuple=False
+        ).squeeze()
         if pos_inds.numel() > 0:
-            assigned_labels[pos_inds] = gt_labels[assigned_gt_inds[pos_inds] -
-                                                  1]
+            assigned_labels[pos_inds] = gt_labels[
+                assigned_gt_inds[pos_inds] - 1
+            ]
         return AssignResult(
-            num_gt, assigned_gt_inds, max_overlaps, labels=assigned_labels)
+            num_gt, assigned_gt_inds, max_overlaps, labels=assigned_labels
+        )

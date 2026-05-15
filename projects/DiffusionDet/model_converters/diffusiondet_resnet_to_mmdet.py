@@ -18,12 +18,13 @@ def convert(src, dst):
         key_name_split = k.split('.')
         if 'backbone.fpn_lateral' in k:
             lateral_id = int(key_name_split[-2][-1])
-            name = f'neck.lateral_convs.{lateral_id - 2}.' \
-                   f'conv.{key_name_split[-1]}'
+            name = (
+                f'neck.lateral_convs.{lateral_id - 2}.'
+                f'conv.{key_name_split[-1]}'
+            )
         elif 'backbone.fpn_output' in k:
             lateral_id = int(key_name_split[-2][-1])
-            name = f'neck.fpn_convs.{lateral_id - 2}.conv.' \
-                   f'{key_name_split[-1]}'
+            name = f'neck.fpn_convs.{lateral_id - 2}.conv.{key_name_split[-1]}'
         elif 'backbone.bottom_up.stem.conv1.norm.' in k:
             name = f'backbone.bn1.{key_name_split[-1]}'
         elif 'backbone.bottom_up.stem.conv1.' in k:
@@ -33,26 +34,34 @@ def convert(src, dst):
             res_id = int(key_name_split[2][-1]) - 1
             # deal with short cut
             if 'shortcut' in key_name_split[4]:
-                if 'shortcut' == key_name_split[-2]:
-                    name = f'backbone.layer{res_id}.' \
-                           f'{key_name_split[3]}.downsample.0.' \
-                           f'{key_name_split[-1]}'
-                elif 'shortcut' == key_name_split[-3]:
-                    name = f'backbone.layer{res_id}.' \
-                           f'{key_name_split[3]}.downsample.1.' \
-                           f'{key_name_split[-1]}'
+                if key_name_split[-2] == 'shortcut':
+                    name = (
+                        f'backbone.layer{res_id}.'
+                        f'{key_name_split[3]}.downsample.0.'
+                        f'{key_name_split[-1]}'
+                    )
+                elif key_name_split[-3] == 'shortcut':
+                    name = (
+                        f'backbone.layer{res_id}.'
+                        f'{key_name_split[3]}.downsample.1.'
+                        f'{key_name_split[-1]}'
+                    )
                 else:
                     print(f'Unvalid key {k}')
             # deal with conv
             elif 'conv' in key_name_split[-2]:
                 conv_id = int(key_name_split[-2][-1])
-                name = f'backbone.layer{res_id}.{key_name_split[3]}' \
-                       f'.conv{conv_id}.{key_name_split[-1]}'
+                name = (
+                    f'backbone.layer{res_id}.{key_name_split[3]}'
+                    f'.conv{conv_id}.{key_name_split[-1]}'
+                )
             # deal with BN
             elif key_name_split[-2] == 'norm':
                 conv_id = int(key_name_split[-3][-1])
-                name = f'backbone.layer{res_id}.{key_name_split[3]}.' \
-                       f'bn{conv_id}.{key_name_split[-1]}'
+                name = (
+                    f'backbone.layer{res_id}.{key_name_split[3]}.'
+                    f'bn{conv_id}.{key_name_split[-1]}'
+                )
             else:
                 print(f'{k} is invalid')
 
@@ -66,8 +75,8 @@ def convert(src, dst):
 
         if not isinstance(v, np.ndarray) and not isinstance(v, torch.Tensor):
             raise ValueError(
-                'Unsupported type found in checkpoint! {}: {}'.format(
-                    k, type(v)))
+                f'Unsupported type found in checkpoint! {k}: {type(v)}'
+            )
         if not isinstance(v, torch.Tensor):
             dst_state_dict[name] = torch.from_numpy(v)
         else:

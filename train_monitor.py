@@ -15,8 +15,9 @@ def get_gpu_memory_usage(gpu_id):
     """
     try:
         cmd = f'nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits -i {gpu_id}'
-        output = subprocess.check_output(
-            cmd, shell=True).decode('utf-8').strip()
+        output = (
+            subprocess.check_output(cmd, shell=True).decode('utf-8').strip()
+        )
         return int(output)
     except Exception as e:
         print(f'获取 GPU {gpu_id} 显存失败: {e}')
@@ -61,17 +62,26 @@ def wait_for_process_and_memory(pid, gpu_ids, mem_threshold=500):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='训练任务启动脚本（带进程监控功能）')
+    parser = argparse.ArgumentParser(
+        description='训练任务启动脚本（带进程监控功能）'
+    )
     parser.add_argument(
-        'config', help='训练配置文件路径 (例如: projects/LDMDet/configs/xxx.py)')
+        'config',
+        help='训练配置文件路径 (例如: projects/LDMDet/configs/xxx.py)',
+    )
     parser.add_argument(
-        '--gpu', type=str, default='0', help='指定 GPU ID，多个用逗号分隔 (默认: 0)')
+        '--gpu',
+        type=str,
+        default='0',
+        help='指定 GPU ID，多个用逗号分隔 (默认: 0)',
+    )
     parser.add_argument('--pid', type=int, help='要监控的进程 PID (可选)')
     parser.add_argument(
         '--mem-threshold',
         type=int,
         default=1000,
-        help='显存释放阈值 MiB (默认: 1000)')
+        help='显存释放阈值 MiB (默认: 1000)',
+    )
 
     args = parser.parse_args()
 
@@ -94,7 +104,7 @@ def main():
 
     train_cmd = [sys.executable, 'tools/train.py', args.config]
 
-    print(f"\033[1;32m正在启动训练任务: {' '.join(train_cmd)}\033[0m")
+    print(f'\033[1;32m正在启动训练任务: {" ".join(train_cmd)}\033[0m')
     print(f'\033[1;34m环境变量: CUDA_VISIBLE_DEVICES={args.gpu}\033[0m')
 
     try:

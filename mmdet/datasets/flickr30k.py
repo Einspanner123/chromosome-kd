@@ -11,8 +11,7 @@ from .base_det_dataset import BaseDetDataset
 def convert_phrase_ids(phrase_ids: list) -> list:
     unique_elements = sorted(set(phrase_ids))
     element_to_new_label = {
-        element: label
-        for label, element in enumerate(unique_elements)
+        element: label for label, element in enumerate(unique_elements)
     }
     phrase_ids = [element_to_new_label[element] for element in phrase_ids]
     return phrase_ids
@@ -43,7 +42,7 @@ class Flickr30kDataset(BaseDetDataset):
             width = coco_img['width']
             height = coco_img['height']
             tokens_positive = coco_img['tokens_positive_eval']
-            phrases = [caption[i[0][0]:i[0][1]] for i in tokens_positive]
+            phrases = [caption[i[0][0] : i[0][1]] for i in tokens_positive]
             phrase_ids = []
 
             instances = []
@@ -51,14 +50,13 @@ class Flickr30kDataset(BaseDetDataset):
             for anno in annos:
                 instance = {
                     'bbox': [
-                        anno['bbox'][0], anno['bbox'][1],
+                        anno['bbox'][0],
+                        anno['bbox'][1],
                         anno['bbox'][0] + anno['bbox'][2],
-                        anno['bbox'][1] + anno['bbox'][3]
+                        anno['bbox'][1] + anno['bbox'][3],
                     ],
-                    'bbox_label':
-                    anno['category_id'],
-                    'ignore_flag':
-                    anno['iscrowd']
+                    'bbox_label': anno['category_id'],
+                    'ignore_flag': anno['iscrowd'],
                 }
                 phrase_ids.append(anno['phrase_ids'])
                 instances.append(instance)
@@ -76,6 +74,7 @@ class Flickr30kDataset(BaseDetDataset):
                     phrase_ids=phrase_ids,
                     tokens_positive=tokens_positive,
                     phrases=phrases,
-                ))
+                )
+            )
 
         return data_list

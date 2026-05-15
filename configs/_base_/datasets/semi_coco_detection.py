@@ -52,7 +52,8 @@ sup_pipeline = [
     dict(
         type='MultiBranch',
         branch_field=branch_field,
-        sup=dict(type='PackDetInputs'))
+        sup=dict(type='PackDetInputs'),
+    ),
 ]
 
 # pipeline used to augment unlabeled data weakly,
@@ -62,9 +63,17 @@ weak_pipeline = [
     dict(type='RandomFlip', prob=0.5),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor', 'flip', 'flip_direction',
-                   'homography_matrix')),
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+            'flip',
+            'flip_direction',
+            'homography_matrix',
+        ),
+    ),
 ]
 
 # pipeline used to augment unlabeled data strongly,
@@ -77,14 +86,23 @@ strong_pipeline = [
         transforms=[
             dict(type='RandAugment', aug_space=color_space, aug_num=1),
             dict(type='RandAugment', aug_space=geometric, aug_num=1),
-        ]),
+        ],
+    ),
     dict(type='RandomErasing', n_patches=(1, 5), ratio=(0, 0.2)),
     dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor', 'flip', 'flip_direction',
-                   'homography_matrix')),
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+            'flip',
+            'flip_direction',
+            'homography_matrix',
+        ),
+    ),
 ]
 
 # pipeline used to augment unlabeled data into different views
@@ -96,7 +114,7 @@ unsup_pipeline = [
         branch_field=branch_field,
         unsup_teacher=weak_pipeline,
         unsup_student=strong_pipeline,
-    )
+    ),
 ]
 
 test_pipeline = [
@@ -104,8 +122,14 @@ test_pipeline = [
     dict(type='Resize', scale=(1333, 800), keep_ratio=True),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+        ),
+    ),
 ]
 
 batch_size = 5
@@ -130,7 +154,8 @@ labeled_dataset = dict(
     data_prefix=dict(img='train2017/'),
     filter_cfg=dict(filter_empty_gt=True, min_size=32),
     pipeline=sup_pipeline,
-    backend_args=backend_args)
+    backend_args=backend_args,
+)
 
 unlabeled_dataset = dict(
     type=dataset_type,
@@ -139,7 +164,8 @@ unlabeled_dataset = dict(
     data_prefix=dict(img='unlabeled2017/'),
     filter_cfg=dict(filter_empty_gt=False),
     pipeline=unsup_pipeline,
-    backend_args=backend_args)
+    backend_args=backend_args,
+)
 
 train_dataloader = dict(
     batch_size=batch_size,
@@ -148,9 +174,12 @@ train_dataloader = dict(
     sampler=dict(
         type='GroupMultiSourceSampler',
         batch_size=batch_size,
-        source_ratio=[1, 4]),
+        source_ratio=[1, 4],
+    ),
     dataset=dict(
-        type='ConcatDataset', datasets=[labeled_dataset, unlabeled_dataset]))
+        type='ConcatDataset', datasets=[labeled_dataset, unlabeled_dataset]
+    ),
+)
 
 val_dataloader = dict(
     batch_size=1,
@@ -165,7 +194,9 @@ val_dataloader = dict(
         data_prefix=dict(img='val2017/'),
         test_mode=True,
         pipeline=test_pipeline,
-        backend_args=backend_args))
+        backend_args=backend_args,
+    ),
+)
 
 test_dataloader = val_dataloader
 
@@ -174,5 +205,6 @@ val_evaluator = dict(
     ann_file=data_root + 'annotations/instances_val2017.json',
     metric='bbox',
     format_only=False,
-    backend_args=backend_args)
+    backend_args=backend_args,
+)
 test_evaluator = val_evaluator

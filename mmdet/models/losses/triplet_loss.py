@@ -22,19 +22,18 @@ class TripletLoss(BaseModule):
             Defaults to True.
     """
 
-    def __init__(self,
-                 margin: float = 0.3,
-                 loss_weight: float = 1.0,
-                 hard_mining=True):
-        super(TripletLoss, self).__init__()
+    def __init__(
+        self, margin: float = 0.3, loss_weight: float = 1.0, hard_mining=True
+    ):
+        super().__init__()
         self.margin = margin
         self.ranking_loss = nn.MarginRankingLoss(margin=margin)
         self.loss_weight = loss_weight
         self.hard_mining = hard_mining
 
     def hard_mining_triplet_loss_forward(
-            self, inputs: torch.Tensor,
-            targets: torch.LongTensor) -> torch.Tensor:
+        self, inputs: torch.Tensor, targets: torch.LongTensor
+    ) -> torch.Tensor:
         """
         Args:
             inputs (torch.Tensor): feature matrix with shape
@@ -49,8 +48,11 @@ class TripletLoss(BaseModule):
         batch_size = inputs.size(0)
 
         # Compute Euclidean distance
-        dist = torch.pow(inputs, 2).sum(
-            dim=1, keepdim=True).expand(batch_size, batch_size)
+        dist = (
+            torch.pow(inputs, 2)
+            .sum(dim=1, keepdim=True)
+            .expand(batch_size, batch_size)
+        )
         dist = dist + dist.t()
         dist.addmm_(inputs, inputs.t(), beta=1, alpha=-2)
         dist = dist.clamp(min=1e-12).sqrt()  # for numerical stability
@@ -58,7 +60,8 @@ class TripletLoss(BaseModule):
         # For each anchor, find the furthest positive sample
         # and nearest negative sample in the embedding space
         mask = targets.expand(batch_size, batch_size).eq(
-            targets.expand(batch_size, batch_size).t())
+            targets.expand(batch_size, batch_size).t()
+        )
         dist_ap, dist_an = [], []
         for i in range(batch_size):
             dist_ap.append(dist[i][mask[i]].max().unsqueeze(0))
@@ -70,8 +73,9 @@ class TripletLoss(BaseModule):
         y = torch.ones_like(dist_an)
         return self.loss_weight * self.ranking_loss(dist_an, dist_ap, y)
 
-    def forward(self, inputs: torch.Tensor,
-                targets: torch.LongTensor) -> torch.Tensor:
+    def forward(
+        self, inputs: torch.Tensor, targets: torch.LongTensor
+    ) -> torch.Tensor:
         """
         Args:
             inputs (torch.Tensor): feature matrix with shape

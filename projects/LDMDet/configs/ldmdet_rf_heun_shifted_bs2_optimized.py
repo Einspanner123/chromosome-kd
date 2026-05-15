@@ -15,7 +15,8 @@ model = dict(
         rf_schedule='shifted',  # 启用非线性 Shifted Schedule
         rf_shift=3.0,  # 针对染色体目标的采样密度增强
         snr_scale=2.0,
-    ))
+    )
+)
 
 # 1. 效率优化：启用 AMP (自动混合精度)
 # 这将大幅提升训练速度并减少显存占用，从而抵消确定性计算带来的开销

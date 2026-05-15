@@ -9,6 +9,7 @@ model = dict(
         drop_path_rate=0.4,
     ),
     neck=dict(in_channels=[384, 768, 1536]),
-    bbox_head=dict(early_fuse=True, num_dyhead_blocks=8, use_checkpoint=True))
+    bbox_head=dict(early_fuse=True, num_dyhead_blocks=8, use_checkpoint=True),
+)
 
-load_from = 'https://download.openmmlab.com/mmdetection/v3.0/glip/glip_l_mmdet-abfe026b.pth'  # noqa
+load_from = 'https://download.openmmlab.com/mmdetection/v3.0/glip/glip_l_mmdet-abfe026b.pth'

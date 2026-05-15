@@ -4,9 +4,9 @@
 Usage:
     python projects/LDMDet/tools/tta_eval.py <config> <checkpoint> [--device cuda:0]
 """
+
 from __future__ import annotations
 import argparse
-import json
 import sys
 from pathlib import Path
 
@@ -50,12 +50,18 @@ def merge_results(
 
     merged = []
     for i, meta in enumerate(img_metas):
-        img_w = meta.img_shape[1] if hasattr(
-            meta, 'img_shape') else meta['img_shape'][1]
+        img_w = (
+            meta.img_shape[1]
+            if hasattr(meta, 'img_shape')
+            else meta['img_shape'][1]
+        )
 
         # Original
-        bo, so, lo = results_orig[i].bboxes, results_orig[
-            i].scores, results_orig[i].labels
+        bo, so, lo = (
+            results_orig[i].bboxes,
+            results_orig[i].scores,
+            results_orig[i].labels,
+        )
         # Flipped (flip bboxes back)
         bf = hflip_bboxes(results_flip[i].bboxes, img_w)
         sf, lf = results_flip[i].scores, results_flip[i].labels
@@ -77,7 +83,8 @@ def merge_results(
                 bboxes=all_b[keep_nms],
                 scores=all_s[keep_nms],
                 labels=all_l[keep_nms],
-            ))
+            )
+        )
     return merged
 
 
@@ -128,8 +135,11 @@ def main():
         # For flipped inference, we need to flip the image and also flip GT bboxes.
         # But flipping GT inside data_samples is messy.
         # Alternative: just use the predict method directly.
-        img_meta = data_samples.img_shape if hasattr(
-            data_samples, 'img_shape') else data_samples['img_shape']
+        img_meta = (
+            data_samples.img_shape
+            if hasattr(data_samples, 'img_shape')
+            else data_samples['img_shape']
+        )
         img_metas_list.append(data_samples)
 
         # Use model.predict (encoder-only inference, bypasses test_step eval)
@@ -147,7 +157,8 @@ def main():
             ann_file=ann_file,
             metric='bbox',
             classwise=True,
-        ))
+        )
+    )
     evaluator.dataset_meta = dataset.metainfo
     for r in results_orig:
         evaluator.process({}, [r])

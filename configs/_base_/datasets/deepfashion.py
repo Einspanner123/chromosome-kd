@@ -22,7 +22,7 @@ train_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True, with_mask=True),
     dict(type='Resize', scale=(750, 1101), keep_ratio=True),
     dict(type='RandomFlip', prob=0.5),
-    dict(type='PackDetInputs')
+    dict(type='PackDetInputs'),
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile', backend_args=backend_args),
@@ -30,8 +30,14 @@ test_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True, with_mask=True),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+        ),
+    ),
 ]
 train_dataloader = dict(
     batch_size=2,
@@ -49,7 +55,10 @@ train_dataloader = dict(
             data_prefix=dict(img='Img/'),
             filter_cfg=dict(filter_empty_gt=True, min_size=32),
             pipeline=train_pipeline,
-            backend_args=backend_args)))
+            backend_args=backend_args,
+        ),
+    ),
+)
 val_dataloader = dict(
     batch_size=1,
     num_workers=2,
@@ -63,7 +72,9 @@ val_dataloader = dict(
         data_prefix=dict(img='Img/'),
         test_mode=True,
         pipeline=test_pipeline,
-        backend_args=backend_args))
+        backend_args=backend_args,
+    ),
+)
 test_dataloader = dict(
     batch_size=1,
     num_workers=2,
@@ -77,19 +88,23 @@ test_dataloader = dict(
         data_prefix=dict(img='Img/'),
         test_mode=True,
         pipeline=test_pipeline,
-        backend_args=backend_args))
+        backend_args=backend_args,
+    ),
+)
 
 val_evaluator = dict(
     type='CocoMetric',
-    ann_file=data_root +
-    'Anno/segmentation/DeepFashion_segmentation_query.json',
+    ann_file=data_root
+    + 'Anno/segmentation/DeepFashion_segmentation_query.json',
     metric=['bbox', 'segm'],
     format_only=False,
-    backend_args=backend_args)
+    backend_args=backend_args,
+)
 test_evaluator = dict(
     type='CocoMetric',
-    ann_file=data_root +
-    'Anno/segmentation/DeepFashion_segmentation_gallery.json',
+    ann_file=data_root
+    + 'Anno/segmentation/DeepFashion_segmentation_gallery.json',
     metric=['bbox', 'segm'],
     format_only=False,
-    backend_args=backend_args)
+    backend_args=backend_args,
+)

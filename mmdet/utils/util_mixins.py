@@ -14,10 +14,11 @@ This code was copied from the ubelt library: https://github.com/Erotemic/ubelt
 Example:
     >>> # Objects that define __nice__ have a default __str__ and __repr__
     >>> class Student(NiceRepr):
-    ...    def __init__(self, name):
-    ...        self.name = name
-    ...    def __nice__(self):
-    ...        return self.name
+    ...     def __init__(self, name):
+    ...         self.name = name
+    ...
+    ...     def __nice__(self):
+    ...         return self.name
     >>> s1 = Student('Alice')
     >>> s2 = Student('Bob')
     >>> print(f's1 = {s1}')
@@ -28,14 +29,16 @@ Example:
 Example:
     >>> # Objects that define __len__ have a default __nice__
     >>> class Group(NiceRepr):
-    ...    def __init__(self, data):
-    ...        self.data = data
-    ...    def __len__(self):
-    ...        return len(self.data)
+    ...     def __init__(self, data):
+    ...         self.data = data
+    ...
+    ...     def __len__(self):
+    ...         return len(self.data)
     >>> g = Group([1, 2, 3])
     >>> print(f'g = {g}')
     g = <Group(3)>
 """
+
 import warnings
 
 
@@ -50,15 +53,15 @@ class NiceRepr:
 
     Example:
         >>> class Foo(NiceRepr):
-        ...    def __nice__(self):
-        ...        return 'info'
+        ...     def __nice__(self):
+        ...         return 'info'
         >>> foo = Foo()
         >>> assert str(foo) == '<Foo(info)>'
         >>> assert repr(foo).startswith('<Foo(info) at ')
 
     Example:
         >>> class Bar(NiceRepr):
-        ...    pass
+        ...     pass
         >>> bar = Bar()
         >>> import pytest
         >>> with pytest.warns(None) as record:
@@ -67,8 +70,8 @@ class NiceRepr:
 
     Example:
         >>> class Baz(NiceRepr):
-        ...    def __len__(self):
-        ...        return 5
+        ...     def __len__(self):
+        ...         return 5
         >>> baz = Baz()
         >>> assert str(baz) == '<Baz(5)>'
     """
@@ -82,7 +85,8 @@ class NiceRepr:
         else:
             # In all other cases force the subclass to overload __nice__
             raise NotImplementedError(
-                f'Define the __nice__ method for {self.__class__!r}')
+                f'Define the __nice__ method for {self.__class__!r}'
+            )
 
     def __repr__(self):
         """str: the string of the module"""

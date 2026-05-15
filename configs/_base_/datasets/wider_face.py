@@ -23,7 +23,7 @@ train_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True),
     dict(type='Resize', scale=img_scale, keep_ratio=True),
     dict(type='RandomFlip', prob=0.5),
-    dict(type='PackDetInputs')
+    dict(type='PackDetInputs'),
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile', backend_args=backend_args),
@@ -31,8 +31,14 @@ test_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+        ),
+    ),
 ]
 
 train_dataloader = dict(
@@ -48,7 +54,9 @@ train_dataloader = dict(
         ann_file='train.txt',
         data_prefix=dict(img='WIDER_train'),
         filter_cfg=dict(filter_empty_gt=True, bbox_min_size=17, min_size=32),
-        pipeline=train_pipeline))
+        pipeline=train_pipeline,
+    ),
+)
 
 val_dataloader = dict(
     batch_size=1,
@@ -62,12 +70,15 @@ val_dataloader = dict(
         ann_file='val.txt',
         data_prefix=dict(img='WIDER_val'),
         test_mode=True,
-        pipeline=test_pipeline))
+        pipeline=test_pipeline,
+    ),
+)
 test_dataloader = val_dataloader
 
 val_evaluator = dict(
     # TODO: support WiderFace-Evaluation for easy, medium, hard cases
     type='VOCMetric',
     metric='mAP',
-    eval_mode='11points')
+    eval_mode='11points',
+)
 test_evaluator = val_evaluator

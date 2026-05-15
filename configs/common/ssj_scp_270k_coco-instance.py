@@ -29,20 +29,22 @@ load_pipeline = [
         type='RandomResize',
         scale=image_size,
         ratio_range=(0.8, 1.25),
-        keep_ratio=True),
+        keep_ratio=True,
+    ),
     dict(
         type='RandomCrop',
         crop_type='absolute_range',
         crop_size=image_size,
         recompute_bbox=True,
-        allow_negative_crop=True),
+        allow_negative_crop=True,
+    ),
     dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
     dict(type='RandomFlip', prob=0.5),
     dict(type='Pad', size=image_size),
 ]
 train_pipeline = [
     dict(type='CopyPaste', max_num_pasted=100),
-    dict(type='PackDetInputs')
+    dict(type='PackDetInputs'),
 ]
 
 train_dataloader = dict(
@@ -56,5 +58,8 @@ train_dataloader = dict(
             data_prefix=dict(img='train2017/'),
             filter_cfg=dict(filter_empty_gt=True, min_size=32),
             pipeline=load_pipeline,
-            backend_args=backend_args),
-        pipeline=train_pipeline))
+            backend_args=backend_args,
+        ),
+        pipeline=train_pipeline,
+    )
+)

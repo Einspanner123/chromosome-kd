@@ -90,16 +90,19 @@ def plot_steps_map_updated():
         xy=(4, 0.747),
         xytext=(1, 0.714),
         arrowprops=dict(
-            arrowstyle='->', color='red', lw=2, linestyle=':', alpha=0.6),
+            arrowstyle='->', color='red', lw=2, linestyle=':', alpha=0.6
+        ),
     )
     plt.text(
-        2.2, 0.735, '+3.3% Gain', color='red', fontweight='bold', rotation=20)
+        2.2, 0.735, '+3.3% Gain', color='red', fontweight='bold', rotation=20
+    )
 
     plt.title(
         'Performance Gain in Few-step Regime',
         fontsize=20,
         fontweight='bold',
-        pad=25)
+        pad=25,
+    )
     plt.xlabel('Sampling Steps ($T_{sampling}$)', fontsize=15)
     plt.ylabel('Detection Accuracy (mAP)', fontsize=15)
     plt.xticks(steps)

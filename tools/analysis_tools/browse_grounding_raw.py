@@ -34,7 +34,8 @@ def parse_args():
         '-o',
         default=None,
         type=str,
-        help='If there is no display interface, you can save it')
+        help='If there is no display interface, you can save it',
+    )
     parser.add_argument('--not-show', default=False, action='store_true')
     parser.add_argument('--show-num', '-n', type=int, default=30)
     parser.add_argument('--shuffle', default=False, action='store_true')
@@ -42,7 +43,8 @@ def parse_args():
         '--show-interval',
         type=float,
         default=0,
-        help='the interval of show (s)')
+        help='the interval of show (s)',
+    )
     args = parser.parse_args()
     return args
 
@@ -56,14 +58,16 @@ def draw_all_character(visualizer, characters, w):
                 str(char),
                 positions=np.array([start_index, y_index]),
                 colors=(0, 0, 0),
-                font_families='monospace')
+                font_families='monospace',
+            )
             start_index += len(char) * 8
         else:
             visualizer.draw_texts(
                 str(char[0]),
                 positions=np.array([start_index, y_index]),
                 colors=char[1],
-                font_families='monospace')
+                font_families='monospace',
+            )
             start_index += len(char[0]) * 8
 
         if start_index > w - 10:
@@ -79,22 +83,23 @@ def main():
     assert args.show_num > 0
 
     local_path = osp.join(args.data_root, args.ann_file)
-    with open(local_path, 'r') as f:
+    with open(local_path) as f:
         data_list = [json.loads(line) for line in f]
 
     dataset_index = list(range(len(data_list)))
     if args.shuffle:
         import random
+
         random.shuffle(dataset_index)
 
     if args.label_map_file is not None:
         label_map_file = osp.join(args.data_root, args.label_map_file)
-        with open(label_map_file, 'r') as file:
+        with open(label_map_file) as file:
             label_map = json.load(file)
 
     visualizer = DetLocalVisualizer()
 
-    for i in dataset_index[:args.show_num]:
+    for i in dataset_index[: args.show_num]:
         item = data_list[i]
 
         img_path = osp.join(args.data_root, args.img_prefix, item['filename'])
@@ -107,8 +112,11 @@ def main():
 
         base_name, extension = osp.splitext(item['filename'])
 
-        out_file = osp.join(args.output_dir, base_name + '_' + str(i) +
-                            extension) if args.output_dir is not None else None
+        out_file = (
+            osp.join(args.output_dir, base_name + '_' + str(i) + extension)
+            if args.output_dir is not None
+            else None
+        )
 
         if args.output_dir is not None:
             mkdir_or_exist(args.output_dir)
@@ -139,7 +147,8 @@ def main():
                 draw_pred=False,
                 show=not args.not_show,
                 wait_time=args.show_interval,
-                out_file=out_file)
+                out_file=out_file,
+            )
         elif 'grounding' in item:
             anno = item['grounding']
             text = anno['caption']
@@ -163,12 +172,14 @@ def main():
                     bbox,
                     edge_colors=colors[i],
                     face_colors=colors[i],
-                    alpha=0.3)
+                    alpha=0.3,
+                )
                 visualizer.draw_bboxes(bbox, edge_colors=colors[i], alpha=1)
 
                 if 'score' in region:
                     areas = (bbox[:, 3] - bbox[:, 1]) * (
-                        bbox[:, 2] - bbox[:, 0])
+                        bbox[:, 2] - bbox[:, 0]
+                    )
                     scales = _get_adaptive_scales(areas)
                     score = region['score'][0]
                     score = [str(s) for s in score]
@@ -180,12 +191,16 @@ def main():
                         bbox[:, :2].astype(np.int32),
                         colors=(255, 255, 255),
                         font_sizes=font_sizes,
-                        bboxes=[{
-                            'facecolor': 'black',
-                            'alpha': 0.8,
-                            'pad': 0.7,
-                            'edgecolor': 'none'
-                        }] * len(bbox))
+                        bboxes=[
+                            {
+                                'facecolor': 'black',
+                                'alpha': 0.8,
+                                'pad': 0.7,
+                                'edgecolor': 'none',
+                            }
+                        ]
+                        * len(bbox),
+                    )
 
             drawn_img = visualizer.get_image()
             new_image = np.ones((100, img.shape[1], 3), dtype=np.uint8) * 255
@@ -210,15 +225,15 @@ def main():
                     characters.append([w, (0, 0, 0)])
                 start_index = end_index
 
-            drawn_text = draw_all_character(visualizer, characters,
-                                            img.shape[1])
+            drawn_text = draw_all_character(
+                visualizer, characters, img.shape[1]
+            )
             drawn_img = np.concatenate((drawn_img, drawn_text), axis=0)
 
             if not args.not_show:
                 visualizer.show(
-                    drawn_img,
-                    win_name=base_name,
-                    wait_time=args.show_interval)
+                    drawn_img, win_name=base_name, wait_time=args.show_interval
+                )
 
             if out_file is not None:
                 imwrite(drawn_img[..., ::-1], out_file)
@@ -244,7 +259,8 @@ def main():
                     bbox,
                     edge_colors=colors[i],
                     face_colors=colors[i],
-                    alpha=0.3)
+                    alpha=0.3,
+                )
                 visualizer.draw_bboxes(bbox, edge_colors=colors[i], alpha=1)
             drawn_img = visualizer.get_image()
 
@@ -257,14 +273,15 @@ def main():
             chunk_size = max(min(img.shape[1] - 400, 70), 50)
             for i, p in enumerate(phrases):
                 chunk_p = [
-                    p[i:i + chunk_size] for i in range(0, len(p), chunk_size)
+                    p[i : i + chunk_size] for i in range(0, len(p), chunk_size)
                 ]
                 for cp in chunk_p:
                     visualizer.draw_texts(
                         cp,
                         positions=np.array([start_index, y_index]),
                         colors=colors[i],
-                        font_families='monospace')
+                        font_families='monospace',
+                    )
                     y_index += 15
 
             drawn_text = visualizer.get_image()
@@ -272,9 +289,8 @@ def main():
 
             if not args.not_show:
                 visualizer.show(
-                    drawn_img,
-                    win_name=base_name,
-                    wait_time=args.show_interval)
+                    drawn_img, win_name=base_name, wait_time=args.show_interval
+                )
 
             if out_file is not None:
                 imwrite(drawn_img[..., ::-1], out_file)

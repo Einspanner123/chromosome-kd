@@ -29,14 +29,18 @@ class EmbeddingRPNHead(BaseModule):
             dict]): Initialization config dict. Defaults to None.
     """
 
-    def __init__(self,
-                 num_proposals: int = 100,
-                 proposal_feature_channel: int = 256,
-                 init_cfg: OptConfigType = None,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        num_proposals: int = 100,
+        proposal_feature_channel: int = 256,
+        init_cfg: OptConfigType = None,
+        **kwargs,
+    ) -> None:
         # `**kwargs` is necessary to avoid some potential error.
-        assert init_cfg is None, 'To prevent abnormal initialization ' \
-                                 'behavior, init_cfg is not allowed to be set'
+        assert init_cfg is None, (
+            'To prevent abnormal initialization '
+            'behavior, init_cfg is not allowed to be set'
+        )
         super().__init__(init_cfg=init_cfg)
         self.num_proposals = num_proposals
         self.proposal_feature_channel = proposal_feature_channel
@@ -46,7 +50,8 @@ class EmbeddingRPNHead(BaseModule):
         """Initialize a sparse set of proposal boxes and proposal features."""
         self.init_proposal_bboxes = nn.Embedding(self.num_proposals, 4)
         self.init_proposal_features = nn.Embedding(
-            self.num_proposals, self.proposal_feature_channel)
+            self.num_proposals, self.proposal_feature_channel
+        )
 
     def init_weights(self) -> None:
         """Initialize the init_proposal_bboxes as normalized.
@@ -58,8 +63,9 @@ class EmbeddingRPNHead(BaseModule):
         nn.init.constant_(self.init_proposal_bboxes.weight[:, :2], 0.5)
         nn.init.constant_(self.init_proposal_bboxes.weight[:, 2:], 1)
 
-    def _decode_init_proposals(self, x: List[Tensor],
-                               batch_data_samples: SampleList) -> InstanceList:
+    def _decode_init_proposals(
+        self, x: List[Tensor], batch_data_samples: SampleList
+    ) -> InstanceList:
         """Decode init_proposal_bboxes according to the size of images and
         expand dimension of init_proposal_features to batch_size.
 
@@ -101,7 +107,8 @@ class EmbeddingRPNHead(BaseModule):
             rpn_results = InstanceData()
             rpn_results.bboxes = proposals[idx]
             rpn_results.imgs_whwh = imgs_whwh[idx].repeat(
-                self.num_proposals, 1)
+                self.num_proposals, 1
+            )
             rpn_results.features = self.init_proposal_features.weight.clone()
             rpn_results_list.append(rpn_results)
         return rpn_results_list
@@ -111,22 +118,27 @@ class EmbeddingRPNHead(BaseModule):
         head on the features of the upstream network."""
         raise NotImplementedError(
             'EmbeddingRPNHead does not have `loss`, please use '
-            '`predict` or `loss_and_predict` instead.')
+            '`predict` or `loss_and_predict` instead.'
+        )
 
-    def predict(self, x: List[Tensor], batch_data_samples: SampleList,
-                **kwargs) -> InstanceList:
+    def predict(
+        self, x: List[Tensor], batch_data_samples: SampleList, **kwargs
+    ) -> InstanceList:
         """Perform forward propagation of the detection head and predict
         detection results on the features of the upstream network."""
         # `**kwargs` is necessary to avoid some potential error.
         return self._decode_init_proposals(
-            x=x, batch_data_samples=batch_data_samples)
+            x=x, batch_data_samples=batch_data_samples
+        )
 
-    def loss_and_predict(self, x: List[Tensor], batch_data_samples: SampleList,
-                         **kwargs) -> tuple:
+    def loss_and_predict(
+        self, x: List[Tensor], batch_data_samples: SampleList, **kwargs
+    ) -> tuple:
         """Perform forward propagation of the head, then calculate loss and
         predictions from the features and data samples."""
         # `**kwargs` is necessary to avoid some potential error.
         predictions = self._decode_init_proposals(
-            x=x, batch_data_samples=batch_data_samples)
+            x=x, batch_data_samples=batch_data_samples
+        )
 
         return dict(), predictions

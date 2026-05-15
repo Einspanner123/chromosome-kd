@@ -76,7 +76,8 @@ class YTVISeval:
         self.cocoDt = cocoDt  # detections COCO API
         self.params = {}  # evaluation parameters
         self.evalVids = defaultdict(
-            list)  # per-image per-category evaluation results [KxAxI] elements
+            list
+        )  # per-image per-category evaluation results [KxAxI] elements
         self.eval = {}  # accumulated evaluation results
         self._gts = defaultdict(list)  # gt for evaluation
         self._dts = defaultdict(list)  # dt for evaluation
@@ -89,10 +90,10 @@ class YTVISeval:
             self.params.catIds = sorted(cocoGt.getCatIds())
 
     def _prepare(self):
-        '''
+        """
         Prepare ._gts and ._dts for evaluation based on params
         :return: None
-        '''
+        """
 
         def _toMask(anns, coco):
             # modify ann['segmentation'] by reference
@@ -110,9 +111,11 @@ class YTVISeval:
         p = self.params
         if p.useCats:
             gts = self.cocoGt.loadAnns(
-                self.cocoGt.getAnnIds(vidIds=p.vidIds, catIds=p.catIds))
+                self.cocoGt.getAnnIds(vidIds=p.vidIds, catIds=p.catIds)
+            )
             dts = self.cocoDt.loadAnns(
-                self.cocoDt.getAnnIds(vidIds=p.vidIds, catIds=p.catIds))
+                self.cocoDt.getAnnIds(vidIds=p.vidIds, catIds=p.catIds)
+            )
         else:
             gts = self.cocoGt.loadAnns(self.cocoGt.getAnnIds(vidIds=p.vidIds))
             dts = self.cocoDt.loadAnns(self.cocoDt.getAnnIds(vidIds=p.vidIds))
@@ -134,24 +137,26 @@ class YTVISeval:
         for dt in dts:
             self._dts[dt['video_id'], dt['category_id']].append(dt)
         self.evalVids = defaultdict(
-            list)  # per-image per-category evaluation results
+            list
+        )  # per-image per-category evaluation results
         self.eval = {}  # accumulated evaluation results
 
     def evaluate(self):
-        '''
+        """
         Run per image evaluation on given images and store
         results (a list of dict) in self.evalVids
         :return: None
-        '''
+        """
         tic = time.time()
         print('Running per image evaluation...')
         p = self.params
         # add backward compatibility if useSegm is specified in params
         if p.useSegm is not None:
             p.iouType = 'segm' if p.useSegm == 1 else 'bbox'
-            print('useSegm (deprecated) is not None. Running {} evaluation'.
-                  format(p.iouType))
-        print('Evaluate annotation type *{}*'.format(p.iouType))
+            print(
+                f'useSegm (deprecated) is not None. Running {p.iouType} evaluation'
+            )
+        print(f'Evaluate annotation type *{p.iouType}*')
         p.vidIds = list(np.unique(p.vidIds))
         if p.useCats:
             p.catIds = list(np.unique(p.catIds))
@@ -166,19 +171,24 @@ class YTVISeval:
             computeIoU = self.computeIoU
         elif p.iouType == 'keypoints':
             computeIoU = self.computeOks
-        self.ious = {(vidId, catId): computeIoU(vidId, catId)
-                     for vidId in p.vidIds for catId in catIds}
+        self.ious = {
+            (vidId, catId): computeIoU(vidId, catId)
+            for vidId in p.vidIds
+            for catId in catIds
+        }
 
         evaluateVid = self.evaluateVid
         maxDet = p.maxDets[-1]
 
         self.evalImgs = [
-            evaluateVid(vidId, catId, areaRng, maxDet) for catId in catIds
-            for areaRng in p.areaRng for vidId in p.vidIds
+            evaluateVid(vidId, catId, areaRng, maxDet)
+            for catId in catIds
+            for areaRng in p.areaRng
+            for vidId in p.vidIds
         ]
         self._paramsEval = copy.deepcopy(self.params)
         toc = time.time()
-        print('DONE (t={:0.2f}s).'.format(toc - tic))
+        print(f'DONE (t={toc - tic:0.2f}s).')
 
     def computeIoU(self, vidId, catId):
         p = self.params
@@ -193,7 +203,7 @@ class YTVISeval:
         inds = np.argsort([-d['score'] for d in dt], kind='mergesort')
         dt = [dt[i] for i in inds]
         if len(dt) > p.maxDets[-1]:
-            dt = dt[0:p.maxDets[-1]]
+            dt = dt[0 : p.maxDets[-1]]
 
         if p.iouType == 'segm':
             g = [g['segmentations'] for g in gt]
@@ -207,8 +217,8 @@ class YTVISeval:
         # compute iou between each dt and gt region
 
         def iou_seq(d_seq, g_seq):
-            i = .0
-            u = .0
+            i = 0.0
+            u = 0.0
             for d, g in zip(d_seq, g_seq):
                 if d and g:
                     i += maskUtils.area(maskUtils.merge([d, g], True))
@@ -217,10 +227,11 @@ class YTVISeval:
                     u += maskUtils.area(g)
                 elif d and not g:
                     u += maskUtils.area(d)
-            if not u > .0:
-                print('Mask sizes in video {} and category {} may not match!'.
-                      format(vidId, catId))
-            iou = i / u if u > .0 else .0
+            if not u > 0.0:
+                print(
+                    f'Mask sizes in video {vidId} and category {catId} may not match!'
+                )
+            iou = i / u if u > 0.0 else 0.0
             return iou
 
         ious = np.zeros([len(d), len(g)])
@@ -237,16 +248,36 @@ class YTVISeval:
         inds = np.argsort([-d['score'] for d in dts], kind='mergesort')
         dts = [dts[i] for i in inds]
         if len(dts) > p.maxDets[-1]:
-            dts = dts[0:p.maxDets[-1]]
+            dts = dts[0 : p.maxDets[-1]]
         # if len(gts) == 0 and len(dts) == 0:
         if len(gts) == 0 or len(dts) == 0:
             return []
         ious = np.zeros((len(dts), len(gts)))
-        sigmas = np.array([
-            .26, .25, .25, .35, .35, .79, .79, .72, .72, .62, .62, 1.07, 1.07,
-            .87, .87, .89, .89
-        ]) / 10.0
-        vars = (sigmas * 2)**2
+        sigmas = (
+            np.array(
+                [
+                    0.26,
+                    0.25,
+                    0.25,
+                    0.35,
+                    0.35,
+                    0.79,
+                    0.79,
+                    0.72,
+                    0.72,
+                    0.62,
+                    0.62,
+                    1.07,
+                    1.07,
+                    0.87,
+                    0.87,
+                    0.89,
+                    0.89,
+                ]
+            )
+            / 10.0
+        )
+        vars = (sigmas * 2) ** 2
         k = len(sigmas)
         # compute oks between each detection and ground truth object
         for j, gt in enumerate(gts):
@@ -271,23 +302,29 @@ class YTVISeval:
                     dy = yd - yg
                 else:
                     # measure minimum distance to keypoints
-                    z = np.zeros((k))
+                    z = np.zeros(k)
                     dx = np.max((z, x0 - xd), axis=0) + np.max(
-                        (z, xd - x1), axis=0)
+                        (z, xd - x1), axis=0
+                    )
                     dy = np.max((z, y0 - yd), axis=0) + np.max(
-                        (z, yd - y1), axis=0)
-                e = (dx**2 + dy**2) / vars / (gt['avg_area'] +
-                                              np.spacing(1)) / 2
+                        (z, yd - y1), axis=0
+                    )
+                e = (
+                    (dx**2 + dy**2)
+                    / vars
+                    / (gt['avg_area'] + np.spacing(1))
+                    / 2
+                )
                 if k1 > 0:
                     e = e[vg > 0]
                 ious[i, j] = np.sum(np.exp(-e)) / e.shape[0]
         return ious
 
     def evaluateVid(self, vidId, catId, aRng, maxDet):
-        '''
+        """
         perform evaluation for single category and image
         :return: dict (single image results)
-        '''
+        """
         p = self.params
         if p.useCats:
             gt = self._gts[vidId, catId]
@@ -299,8 +336,9 @@ class YTVISeval:
             return None
 
         for g in gt:
-            if g['ignore'] or (g['avg_area'] < aRng[0]
-                               or g['avg_area'] > aRng[1]):
+            if g['ignore'] or (
+                g['avg_area'] < aRng[0] or g['avg_area'] > aRng[1]
+            ):
                 g['_ignore'] = 1
             else:
                 g['_ignore'] = 0
@@ -312,8 +350,11 @@ class YTVISeval:
         dt = [dt[i] for i in dtind[0:maxDet]]
         iscrowd = [int(o['iscrowd']) for o in gt]
         # load computed ious
-        ious = self.ious[vidId, catId][:, gtind] if len(
-            self.ious[vidId, catId]) > 0 else self.ious[vidId, catId]
+        ious = (
+            self.ious[vidId, catId][:, gtind]
+            if len(self.ious[vidId, catId]) > 0
+            else self.ious[vidId, catId]
+        )
 
         T = len(p.iouThrs)
         G = len(gt)
@@ -349,11 +390,12 @@ class YTVISeval:
                     dtm[tind, dind] = gt[m]['id']
                     gtm[tind, m] = d['id']
         # set unmatched detections outside of area range to ignore
-        a = np.array([
-            d['avg_area'] < aRng[0] or d['avg_area'] > aRng[1] for d in dt
-        ]).reshape((1, len(dt)))
-        dtIg = np.logical_or(dtIg, np.logical_and(dtm == 0, np.repeat(a, T,
-                                                                      0)))
+        a = np.array(
+            [d['avg_area'] < aRng[0] or d['avg_area'] > aRng[1] for d in dt]
+        ).reshape((1, len(dt)))
+        dtIg = np.logical_or(
+            dtIg, np.logical_and(dtm == 0, np.repeat(a, T, 0))
+        )
         # store results for given image and category
         return {
             'video_id': vidId,
@@ -390,7 +432,8 @@ class YTVISeval:
         A = len(p.areaRng)
         M = len(p.maxDets)
         precision = -np.ones(
-            (T, R, K, A, M))  # -1 for the precision of absent categories
+            (T, R, K, A, M)
+        )  # -1 for the precision of absent categories
         recall = -np.ones((T, K, A, M))
         scores = -np.ones((T, R, K, A, M))
 
@@ -405,7 +448,8 @@ class YTVISeval:
         k_list = [n for n, k in enumerate(p.catIds) if k in setK]
         m_list = [m for n, m in enumerate(p.maxDets) if m in setM]
         a_list = [
-            n for n, a in enumerate(map(lambda x: tuple(x), p.areaRng))
+            n
+            for n, a in enumerate(map(lambda x: tuple(x), p.areaRng))
             if a in setA
         ]
         i_list = [n for n, i in enumerate(p.vidIds) if i in setI]
@@ -422,24 +466,26 @@ class YTVISeval:
                     if len(E) == 0:
                         continue
                     dtScores = np.concatenate(
-                        [e['dtScores'][0:maxDet] for e in E])
+                        [e['dtScores'][0:maxDet] for e in E]
+                    )
 
                     inds = np.argsort(-dtScores, kind='mergesort')
                     dtScoresSorted = dtScores[inds]
 
                     dtm = np.concatenate(
-                        [e['dtMatches'][:, 0:maxDet] for e in E], axis=1)[:,
-                                                                          inds]
+                        [e['dtMatches'][:, 0:maxDet] for e in E], axis=1
+                    )[:, inds]
                     dtIg = np.concatenate(
-                        [e['dtIgnore'][:, 0:maxDet] for e in E], axis=1)[:,
-                                                                         inds]
+                        [e['dtIgnore'][:, 0:maxDet] for e in E], axis=1
+                    )[:, inds]
                     gtIg = np.concatenate([e['gtIgnore'] for e in E])
                     npig = np.count_nonzero(gtIg == 0)
                     if npig == 0:
                         continue
                     tps = np.logical_and(dtm, np.logical_not(dtIg))
                     fps = np.logical_and(
-                        np.logical_not(dtm), np.logical_not(dtIg))
+                        np.logical_not(dtm), np.logical_not(dtIg)
+                    )
 
                     tp_sum = np.cumsum(tps, axis=1).astype(dtype=np.float)
                     fp_sum = np.cumsum(fps, axis=1).astype(dtype=np.float)
@@ -449,8 +495,8 @@ class YTVISeval:
                         nd_ori = len(tp)
                         rc = tp / npig
                         pr = tp / (fp + tp + np.spacing(1))
-                        q = np.zeros((R, ))
-                        ss = np.zeros((R, ))
+                        q = np.zeros((R,))
+                        ss = np.zeros((R,))
 
                         if nd_ori:
                             recall[t, k, a, m] = rc[-1]
@@ -483,7 +529,7 @@ class YTVISeval:
             'scores': scores,
         }
         toc = time.time()
-        print('DONE (t={:0.2f}s).'.format(toc - tic))
+        print(f'DONE (t={toc - tic:0.2f}s).')
 
     def summarize(self):
         """Compute and display summary metrics for evaluation results.
@@ -494,12 +540,17 @@ class YTVISeval:
 
         def _summarize(ap=1, iouThr=None, areaRng='all', maxDets=100):
             p = self.params
-            iStr = ' {:<18} {} @[ IoU={:<9} | area={:>6s} | ' \
-                   'maxDets={:>3d} ] = {:0.3f}'
+            iStr = (
+                ' {:<18} {} @[ IoU={:<9} | area={:>6s} | '
+                'maxDets={:>3d} ] = {:0.3f}'
+            )
             titleStr = 'Average Precision' if ap == 1 else 'Average Recall'
             typeStr = '(AP)' if ap == 1 else '(AR)'
-            iouStr = '{:0.2f}:{:0.2f}'.format(p.iouThrs[0], p.iouThrs[-1]) \
-                if iouThr is None else '{:0.2f}'.format(iouThr)
+            iouStr = (
+                f'{p.iouThrs[0]:0.2f}:{p.iouThrs[-1]:0.2f}'
+                if iouThr is None
+                else f'{iouThr:0.2f}'
+            )
 
             aind = [
                 i for i, aRng in enumerate(p.areaRngLbl) if aRng == areaRng
@@ -525,43 +576,54 @@ class YTVISeval:
             else:
                 mean_s = np.mean(s[s > -1])
             print(
-                iStr.format(titleStr, typeStr, iouStr, areaRng, maxDets,
-                            mean_s))
+                iStr.format(
+                    titleStr, typeStr, iouStr, areaRng, maxDets, mean_s
+                )
+            )
             return mean_s
 
         def _summarizeDets():
-            stats = np.zeros((12, ))
+            stats = np.zeros((12,))
             stats[0] = _summarize(1)
-            stats[1] = _summarize(1, iouThr=.5, maxDets=self.params.maxDets[2])
+            stats[1] = _summarize(
+                1, iouThr=0.5, maxDets=self.params.maxDets[2]
+            )
             stats[2] = _summarize(
-                1, iouThr=.75, maxDets=self.params.maxDets[2])
+                1, iouThr=0.75, maxDets=self.params.maxDets[2]
+            )
             stats[3] = _summarize(
-                1, areaRng='small', maxDets=self.params.maxDets[2])
+                1, areaRng='small', maxDets=self.params.maxDets[2]
+            )
             stats[4] = _summarize(
-                1, areaRng='medium', maxDets=self.params.maxDets[2])
+                1, areaRng='medium', maxDets=self.params.maxDets[2]
+            )
             stats[5] = _summarize(
-                1, areaRng='large', maxDets=self.params.maxDets[2])
+                1, areaRng='large', maxDets=self.params.maxDets[2]
+            )
             stats[6] = _summarize(0, maxDets=self.params.maxDets[0])
             stats[7] = _summarize(0, maxDets=self.params.maxDets[1])
             stats[8] = _summarize(0, maxDets=self.params.maxDets[2])
             stats[9] = _summarize(
-                0, areaRng='small', maxDets=self.params.maxDets[2])
+                0, areaRng='small', maxDets=self.params.maxDets[2]
+            )
             stats[10] = _summarize(
-                0, areaRng='medium', maxDets=self.params.maxDets[2])
+                0, areaRng='medium', maxDets=self.params.maxDets[2]
+            )
             stats[11] = _summarize(
-                0, areaRng='large', maxDets=self.params.maxDets[2])
+                0, areaRng='large', maxDets=self.params.maxDets[2]
+            )
             return stats
 
         def _summarizeKps():
-            stats = np.zeros((10, ))
+            stats = np.zeros((10,))
             stats[0] = _summarize(1, maxDets=20)
-            stats[1] = _summarize(1, maxDets=20, iouThr=.5)
-            stats[2] = _summarize(1, maxDets=20, iouThr=.75)
+            stats[1] = _summarize(1, maxDets=20, iouThr=0.5)
+            stats[2] = _summarize(1, maxDets=20, iouThr=0.75)
             stats[3] = _summarize(1, maxDets=20, areaRng='medium')
             stats[4] = _summarize(1, maxDets=20, areaRng='large')
             stats[5] = _summarize(0, maxDets=20)
-            stats[6] = _summarize(0, maxDets=20, iouThr=.5)
-            stats[7] = _summarize(0, maxDets=20, iouThr=.75)
+            stats[6] = _summarize(0, maxDets=20, iouThr=0.5)
+            stats[7] = _summarize(0, maxDets=20, iouThr=0.75)
             stats[8] = _summarize(0, maxDets=20, areaRng='medium')
             stats[9] = _summarize(0, maxDets=20, areaRng='large')
             return stats
@@ -588,12 +650,18 @@ class Params:
         # np.arange causes trouble.  the data point on arange
         # is slightly larger than the true value
         self.iouThrs = np.linspace(
-            .5, 0.95, int(np.round((0.95 - .5) / .05)) + 1, endpoint=True)
+            0.5, 0.95, int(np.round((0.95 - 0.5) / 0.05)) + 1, endpoint=True
+        )
         self.recThrs = np.linspace(
-            .0, 1.00, int(np.round((1.00 - .0) / .01)) + 1, endpoint=True)
+            0.0, 1.00, int(np.round((1.00 - 0.0) / 0.01)) + 1, endpoint=True
+        )
         self.maxDets = [1, 10, 100]
-        self.areaRng = [[0**2, 1e5**2], [0**2, 128**2], [128**2, 256**2],
-                        [256**2, 1e5**2]]
+        self.areaRng = [
+            [0**2, 1e5**2],
+            [0**2, 128**2],
+            [128**2, 256**2],
+            [256**2, 1e5**2],
+        ]
         self.areaRngLbl = ['all', 'small', 'medium', 'large']
         self.useCats = 1
 
@@ -603,9 +671,11 @@ class Params:
         # np.arange causes trouble.  the data point on arange
         # is slightly larger than the true value
         self.iouThrs = np.linspace(
-            .5, 0.95, int(np.round((0.95 - .5) / .05)) + 1, endpoint=True)
+            0.5, 0.95, int(np.round((0.95 - 0.5) / 0.05)) + 1, endpoint=True
+        )
         self.recThrs = np.linspace(
-            .0, 1.00, int(np.round((1.00 - .0) / .01)) + 1, endpoint=True)
+            0.0, 1.00, int(np.round((1.00 - 0.0) / 0.01)) + 1, endpoint=True
+        )
         self.maxDets = [20]
         self.areaRng = [[0**2, 1e5**2], [32**2, 96**2], [96**2, 1e5**2]]
         self.areaRngLbl = ['all', 'medium', 'large']

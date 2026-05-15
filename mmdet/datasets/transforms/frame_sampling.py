@@ -17,12 +17,14 @@ class BaseFrameSample(BaseTransform):
             collected.
     """
 
-    def __init__(self,
-                 collect_video_keys: List[str] = ['video_id', 'video_length']):
+    def __init__(
+        self, collect_video_keys: List[str] = ['video_id', 'video_length']
+    ):
         self.collect_video_keys = collect_video_keys
 
-    def prepare_data(self, video_infos: dict,
-                     sampled_inds: List[int]) -> Dict[str, List]:
+    def prepare_data(
+        self, video_infos: dict, sampled_inds: List[int]
+    ) -> Dict[str, List]:
         """Prepare data for the subsequent pipeline.
 
         Args:
@@ -64,7 +66,8 @@ class BaseFrameSample(BaseTransform):
             assert isinstance(video_infos['key_frame_id'], int)
         else:
             key_frame_id = random.sample(
-                list(range(video_infos['video_length'])), 1)[0]
+                list(range(video_infos['video_length'])), 1
+            )[0]
         results = self.prepare_data(video_infos, [key_frame_id])
 
         return results
@@ -90,11 +93,13 @@ class UniformRefFrameSample(BaseFrameSample):
             collected.
     """
 
-    def __init__(self,
-                 num_ref_imgs: int = 1,
-                 frame_range: Union[int, List[int]] = 10,
-                 filter_key_img: bool = True,
-                 collect_video_keys: List[str] = ['video_id', 'video_length']):
+    def __init__(
+        self,
+        num_ref_imgs: int = 1,
+        frame_range: Union[int, List[int]] = 10,
+        filter_key_img: bool = True,
+        collect_video_keys: List[str] = ['video_id', 'video_length'],
+    ):
         self.num_ref_imgs = num_ref_imgs
         self.filter_key_img = filter_key_img
         if isinstance(frame_range, int):
@@ -125,12 +130,12 @@ class UniformRefFrameSample(BaseFrameSample):
             right = min(key_frame_id + self.frame_range[1], video_length - 1)
             frame_ids = list(range(0, video_length))
 
-            valid_ids = frame_ids[left:right + 1]
+            valid_ids = frame_ids[left : right + 1]
             if self.filter_key_img and key_frame_id in valid_ids:
                 valid_ids.remove(key_frame_id)
-            assert len(
-                valid_ids
-            ) > 0, 'After filtering key frame, there are no valid frames'
+            assert len(valid_ids) > 0, (
+                'After filtering key frame, there are no valid frames'
+            )
             if len(valid_ids) < self.num_ref_imgs:
                 valid_ids = valid_ids * self.num_ref_imgs
             ref_frame_ids = random.sample(valid_ids, self.num_ref_imgs)
@@ -159,10 +164,12 @@ class UniformRefFrameSample(BaseFrameSample):
             assert isinstance(video_infos['key_frame_id'], int)
         else:
             key_frame_id = random.sample(
-                list(range(video_infos['video_length'])), 1)[0]
+                list(range(video_infos['video_length'])), 1
+            )[0]
 
         (sampled_frames_ids, key_frame_flags) = self.sampling_frames(
-            video_infos['video_length'], key_frame_id=key_frame_id)
+            video_infos['video_length'], key_frame_id=key_frame_id
+        )
         results = self.prepare_data(video_infos, sampled_frames_ids)
         results['key_frame_flags'] = key_frame_flags
 

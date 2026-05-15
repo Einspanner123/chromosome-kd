@@ -3,8 +3,11 @@ import warnings
 from collections import OrderedDict
 from typing import Sequence, Union
 
-from mmengine.dist import (broadcast_object_list, collect_results,
-                           is_main_process)
+from mmengine.dist import (
+    broadcast_object_list,
+    collect_results,
+    is_main_process,
+)
 from mmengine.evaluator import BaseMetric, Evaluator
 from mmengine.evaluator.metric import _to_cpu
 from mmengine.registry import EVALUATOR
@@ -28,8 +31,11 @@ class MultiDatasetsEvaluator(Evaluator):
             datasets.
     """
 
-    def __init__(self, metrics: Union[ConfigType, BaseMetric, Sequence],
-                 dataset_prefixes: Sequence[str]) -> None:
+    def __init__(
+        self,
+        metrics: Union[ConfigType, BaseMetric, Sequence],
+        dataset_prefixes: Sequence[str],
+    ) -> None:
         super().__init__(metrics)
         self.dataset_prefixes = dataset_prefixes
         self._setups = False
@@ -40,8 +46,9 @@ class MultiDatasetsEvaluator(Evaluator):
             dataset_slices = self.dataset_meta[0]['cumulative_sizes']
             if not self._setups:
                 self._setups = True
-                for dataset_meta, metric in zip(self.dataset_meta,
-                                                self.metrics):
+                for dataset_meta, metric in zip(
+                    self.dataset_meta, self.metrics
+                ):
                     metric.dataset_meta = dataset_meta
         else:
             dataset_slices = self.dataset_meta['cumulative_sizes']
@@ -67,22 +74,26 @@ class MultiDatasetsEvaluator(Evaluator):
         assert len(dataset_slices) == len(self.dataset_prefixes)
 
         for dataset_prefix, start, end, metric in zip(
-                self.dataset_prefixes, [0] + dataset_slices[:-1],
-                dataset_slices, self.metrics):
+            self.dataset_prefixes,
+            [0] + dataset_slices[:-1],
+            dataset_slices,
+            self.metrics,
+        ):
             if len(metric.results) == 0:
                 warnings.warn(
                     f'{metric.__class__.__name__} got empty `self.results`.'
                     'Please ensure that the processed results are properly '
-                    'added into `self.results` in `process` method.')
+                    'added into `self.results` in `process` method.'
+                )
 
-            results = collect_results(metric.results, size,
-                                      metric.collect_device)
+            results = collect_results(
+                metric.results, size, metric.collect_device
+            )
 
             if is_main_process():
                 # cast all tensors in results list to cpu
                 results = _to_cpu(results)
-                _metrics = metric.compute_metrics(
-                    results[start:end])  # type: ignore
+                _metrics = metric.compute_metrics(results[start:end])  # type: ignore
 
                 if metric.prefix:
                     final_prefix = '/'.join((dataset_prefix, metric.prefix))
@@ -90,17 +101,17 @@ class MultiDatasetsEvaluator(Evaluator):
                     final_prefix = dataset_prefix
                 print(f'================{final_prefix}================')
                 metric_results = {
-                    '/'.join((final_prefix, k)): v
-                    for k, v in _metrics.items()
+                    '/'.join((final_prefix, k)): v for k, v in _metrics.items()
                 }
 
                 # Check metric name conflicts
-                for name in metric_results.keys():
+                for name in metric_results:
                     if name in metrics_results:
                         raise ValueError(
                             'There are multiple evaluation results with '
                             f'the same metric name {name}. Please make '
-                            'sure all metrics have different prefixes.')
+                            'sure all metrics have different prefixes.'
+                        )
                 metrics_results.update(metric_results)
             metric.results.clear()
         if is_main_process():

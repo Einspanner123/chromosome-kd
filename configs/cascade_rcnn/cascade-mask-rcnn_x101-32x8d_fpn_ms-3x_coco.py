@@ -8,7 +8,8 @@ model = dict(
         mean=[103.530, 116.280, 123.675],
         std=[57.375, 57.120, 58.395],
         bgr_to_rgb=False,
-        pad_size_divisor=32),
+        pad_size_divisor=32,
+    ),
     backbone=dict(
         type='ResNeXt',
         depth=101,
@@ -21,4 +22,7 @@ model = dict(
         style='pytorch',
         init_cfg=dict(
             type='Pretrained',
-            checkpoint='open-mmlab://detectron2/resnext101_32x8d')))
+            checkpoint='open-mmlab://detectron2/resnext101_32x8d',
+        ),
+    ),
+)

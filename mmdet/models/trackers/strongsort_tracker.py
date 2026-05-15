@@ -34,7 +34,7 @@ def cosine_distance(x: Tensor, y: Tensor) -> np.ndarray:
     y = y.cpu().numpy()
     x = x / np.linalg.norm(x, axis=1, keepdims=True)
     y = y / np.linalg.norm(y, axis=1, keepdims=True)
-    dists = 1. - np.dot(x, y.T)
+    dists = 1.0 - np.dot(x, y.T)
     return dists
 
 
@@ -63,23 +63,34 @@ class StrongSORTTracker(SORTTracker):
             a track. Defaults to 2.
     """
 
-    def __init__(self,
-                 motion: Optional[dict] = None,
-                 obj_score_thr: float = 0.6,
-                 reid: dict = dict(
-                     num_samples=None,
-                     img_scale=(256, 128),
-                     img_norm_cfg=None,
-                     match_score_thr=0.3,
-                     motion_weight=0.02),
-                 match_iou_thr: float = 0.7,
-                 num_tentatives: int = 2,
-                 **kwargs):
+    def __init__(
+        self,
+        motion: Optional[dict] = None,
+        obj_score_thr: float = 0.6,
+        reid: dict = dict(
+            num_samples=None,
+            img_scale=(256, 128),
+            img_norm_cfg=None,
+            match_score_thr=0.3,
+            motion_weight=0.02,
+        ),
+        match_iou_thr: float = 0.7,
+        num_tentatives: int = 2,
+        **kwargs,
+    ):
         if motmetrics is None:
-            raise RuntimeError('motmetrics is not installed,\
-                 please install it by: pip install motmetrics')
-        super().__init__(motion, obj_score_thr, reid, match_iou_thr,
-                         num_tentatives, **kwargs)
+            raise RuntimeError(
+                'motmetrics is not installed,\
+                 please install it by: pip install motmetrics'
+            )
+        super().__init__(
+            motion,
+            obj_score_thr,
+            reid,
+            match_iou_thr,
+            num_tentatives,
+            **kwargs,
+        )
 
     def update_track(self, id: int, obj: Tuple[Tensor]) -> None:
         """Update a track."""
@@ -99,15 +110,18 @@ class StrongSORTTracker(SORTTracker):
         bbox = bbox.squeeze(0).cpu().numpy()
         score = float(self.tracks[id].scores[-1].cpu())
         self.tracks[id].mean, self.tracks[id].covariance = self.kf.update(
-            self.tracks[id].mean, self.tracks[id].covariance, bbox, score)
+            self.tracks[id].mean, self.tracks[id].covariance, bbox, score
+        )
 
-    def track(self,
-              model: torch.nn.Module,
-              img: Tensor,
-              data_sample: TrackDataSample,
-              data_preprocessor: OptConfigType = None,
-              rescale: bool = False,
-              **kwargs) -> InstanceData:
+    def track(
+        self,
+        model: torch.nn.Module,
+        img: Tensor,
+        data_sample: TrackDataSample,
+        data_preprocessor: OptConfigType = None,
+        rescale: bool = False,
+        **kwargs,
+    ) -> InstanceData:
         """Tracking forward function.
 
         Args:
@@ -147,9 +161,11 @@ class StrongSORTTracker(SORTTracker):
                 img_norm_cfg = dict(
                     mean=data_preprocessor.get('mean', [0, 0, 0]),
                     std=data_preprocessor.get('std', [1, 1, 1]),
-                    to_bgr=data_preprocessor.get('rgb_to_bgr', False))
-                reid_img = imrenormalize(img, img_norm_cfg,
-                                         self.reid['img_norm_cfg'])
+                    to_bgr=data_preprocessor.get('rgb_to_bgr', False),
+                )
+                reid_img = imrenormalize(
+                    img, img_norm_cfg, self.reid['img_norm_cfg']
+                )
             else:
                 reid_img = img.clone()
 
@@ -163,32 +179,43 @@ class StrongSORTTracker(SORTTracker):
             ids = torch.arange(
                 self.num_tracks,
                 self.num_tracks + num_new_tracks,
-                dtype=torch.long).to(bboxes.device)
+                dtype=torch.long,
+            ).to(bboxes.device)
             self.num_tracks += num_new_tracks
             if self.with_reid:
-                crops = self.crop_imgs(reid_img, metainfo, bboxes.clone(),
-                                       rescale)
+                crops = self.crop_imgs(
+                    reid_img, metainfo, bboxes.clone(), rescale
+                )
                 if crops.size(0) > 0:
                     embeds = model.reid(crops, mode='tensor')
                 else:
                     embeds = crops.new_zeros((0, model.reid.head.out_channels))
         else:
-            ids = torch.full((bboxes.size(0), ), -1,
-                             dtype=torch.long).to(bboxes.device)
+            ids = torch.full((bboxes.size(0),), -1, dtype=torch.long).to(
+                bboxes.device
+            )
 
             # motion
             if model.with_cmc:
                 num_samples = 1
-                self.tracks = model.cmc.track(self.last_img, img, self.tracks,
-                                              num_samples, frame_id, metainfo)
+                self.tracks = model.cmc.track(
+                    self.last_img,
+                    img,
+                    self.tracks,
+                    num_samples,
+                    frame_id,
+                    metainfo,
+                )
 
             self.tracks, motion_dists = self.motion.track(
-                self.tracks, bbox_xyxy_to_cxcyah(bboxes))
+                self.tracks, bbox_xyxy_to_cxcyah(bboxes)
+            )
 
             active_ids = self.confirmed_ids
             if self.with_reid:
-                crops = self.crop_imgs(reid_img, metainfo, bboxes.clone(),
-                                       rescale)
+                crops = self.crop_imgs(
+                    reid_img, metainfo, bboxes.clone(), rescale
+                )
                 embeds = model.reid(crops, mode='tensor')
 
                 # reid
@@ -197,20 +224,23 @@ class StrongSORTTracker(SORTTracker):
                         'embeds',
                         active_ids,
                         self.reid.get('num_samples', None),
-                        behavior='mean')
+                        behavior='mean',
+                    )
                     reid_dists = cosine_distance(track_embeds, embeds)
                     valid_inds = [list(self.ids).index(_) for _ in active_ids]
-                    reid_dists[~np.isfinite(motion_dists[
-                        valid_inds, :])] = np.nan
+                    reid_dists[~np.isfinite(motion_dists[valid_inds, :])] = (
+                        np.nan
+                    )
 
                     weight_motion = self.reid.get('motion_weight')
-                    match_dists = (1 - weight_motion) * reid_dists + \
-                        weight_motion * motion_dists[valid_inds]
+                    match_dists = (
+                        1 - weight_motion
+                    ) * reid_dists + weight_motion * motion_dists[valid_inds]
 
                     # support multi-class association
-                    track_labels = torch.tensor([
-                        self.tracks[id]['labels'][-1] for id in active_ids
-                    ]).to(bboxes.device)
+                    track_labels = torch.tensor(
+                        [self.tracks[id]['labels'][-1] for id in active_ids]
+                    ).to(bboxes.device)
                     cate_match = labels[None, :] == track_labels[:, None]
                     cate_cost = ((1 - cate_match.int()) * 1e6).cpu().numpy()
                     match_dists = match_dists + cate_cost
@@ -224,7 +254,9 @@ class StrongSORTTracker(SORTTracker):
                             ids[c] = active_ids[r]
 
             active_ids = [
-                id for id in self.ids if id not in ids
+                id
+                for id in self.ids
+                if id not in ids
                 and self.tracks[id].frame_ids[-1] == frame_id - 1
             ]
             if len(active_ids) > 0:
@@ -233,9 +265,9 @@ class StrongSORTTracker(SORTTracker):
                 ious = bbox_overlaps(track_bboxes, bboxes[active_dets])
 
                 # support multi-class association
-                track_labels = torch.tensor([
-                    self.tracks[id]['labels'][-1] for id in active_ids
-                ]).to(bboxes.device)
+                track_labels = torch.tensor(
+                    [self.tracks[id]['labels'][-1] for id in active_ids]
+                ).to(bboxes.device)
                 cate_match = labels[None, active_dets] == track_labels[:, None]
                 cate_cost = (1 - cate_match.int()) * 1e6
 
@@ -251,7 +283,8 @@ class StrongSORTTracker(SORTTracker):
             ids[new_track_inds] = torch.arange(
                 self.num_tracks,
                 self.num_tracks + new_track_inds.sum(),
-                dtype=torch.long).to(bboxes.device)
+                dtype=torch.long,
+            ).to(bboxes.device)
             self.num_tracks += new_track_inds.sum()
 
         self.update(
@@ -260,7 +293,8 @@ class StrongSORTTracker(SORTTracker):
             scores=scores,
             labels=labels,
             embeds=embeds if self.with_reid else None,
-            frame_ids=frame_id)
+            frame_ids=frame_id,
+        )
         self.last_img = img
 
         # update pred_track_instances

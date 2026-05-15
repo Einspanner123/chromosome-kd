@@ -1,6 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 
-# Please refer to https://mmengine.readthedocs.io/en/latest/advanced_tutorials/config.html#a-pure-python-style-configuration-file-beta for more details. # noqa
+# Please refer to https://mmengine.readthedocs.io/en/latest/advanced_tutorials/config.html#a-pure-python-style-configuration-file-beta for more details.
 # mmcv >= 2.0.1
 # mmengine >= 0.8.0
 
@@ -21,4 +21,7 @@ model = dict(
         norm_cfg=dict(type=BatchNorm2d, requires_grad=True),
         style='pytorch',
         init_cfg=dict(
-            type=PretrainedInit, checkpoint='open-mmlab://resnext101_64x4d')))
+            type=PretrainedInit, checkpoint='open-mmlab://resnext101_64x4d'
+        ),
+    )
+)

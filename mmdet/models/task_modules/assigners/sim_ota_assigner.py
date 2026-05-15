@@ -32,23 +32,27 @@ class SimOTAAssigner(BaseAssigner):
             Defaults to dict(type='BboxOverlaps2D').
     """
 
-    def __init__(self,
-                 center_radius: float = 2.5,
-                 candidate_topk: int = 10,
-                 iou_weight: float = 3.0,
-                 cls_weight: float = 1.0,
-                 iou_calculator: ConfigType = dict(type='BboxOverlaps2D')):
+    def __init__(
+        self,
+        center_radius: float = 2.5,
+        candidate_topk: int = 10,
+        iou_weight: float = 3.0,
+        cls_weight: float = 1.0,
+        iou_calculator: ConfigType = dict(type='BboxOverlaps2D'),
+    ):
         self.center_radius = center_radius
         self.candidate_topk = candidate_topk
         self.iou_weight = iou_weight
         self.cls_weight = cls_weight
         self.iou_calculator = TASK_UTILS.build(iou_calculator)
 
-    def assign(self,
-               pred_instances: InstanceData,
-               gt_instances: InstanceData,
-               gt_instances_ignore: Optional[InstanceData] = None,
-               **kwargs) -> AssignResult:
+    def assign(
+        self,
+        pred_instances: InstanceData,
+        gt_instances: InstanceData,
+        gt_instances_ignore: Optional[InstanceData] = None,
+        **kwargs,
+    ) -> AssignResult:
         """Assign gt to priors using SimOTA.
 
         Args:
@@ -79,39 +83,44 @@ class SimOTAAssigner(BaseAssigner):
         num_bboxes = decoded_bboxes.size(0)
 
         # assign 0 by default
-        assigned_gt_inds = decoded_bboxes.new_full((num_bboxes, ),
-                                                   0,
-                                                   dtype=torch.long)
+        assigned_gt_inds = decoded_bboxes.new_full(
+            (num_bboxes,), 0, dtype=torch.long
+        )
         if num_gt == 0 or num_bboxes == 0:
             # No ground truth or boxes, return empty assignment
-            max_overlaps = decoded_bboxes.new_zeros((num_bboxes, ))
-            assigned_labels = decoded_bboxes.new_full((num_bboxes, ),
-                                                      -1,
-                                                      dtype=torch.long)
+            max_overlaps = decoded_bboxes.new_zeros((num_bboxes,))
+            assigned_labels = decoded_bboxes.new_full(
+                (num_bboxes,), -1, dtype=torch.long
+            )
             return AssignResult(
-                num_gt, assigned_gt_inds, max_overlaps, labels=assigned_labels)
+                num_gt, assigned_gt_inds, max_overlaps, labels=assigned_labels
+            )
 
         valid_mask, is_in_boxes_and_center = self.get_in_gt_and_in_center_info(
-            priors, gt_bboxes)
+            priors, gt_bboxes
+        )
         valid_decoded_bbox = decoded_bboxes[valid_mask]
         valid_pred_scores = pred_scores[valid_mask]
         num_valid = valid_decoded_bbox.size(0)
         if num_valid == 0:
             # No valid bboxes, return empty assignment
-            max_overlaps = decoded_bboxes.new_zeros((num_bboxes, ))
-            assigned_labels = decoded_bboxes.new_full((num_bboxes, ),
-                                                      -1,
-                                                      dtype=torch.long)
+            max_overlaps = decoded_bboxes.new_zeros((num_bboxes,))
+            assigned_labels = decoded_bboxes.new_full(
+                (num_bboxes,), -1, dtype=torch.long
+            )
             return AssignResult(
-                num_gt, assigned_gt_inds, max_overlaps, labels=assigned_labels)
+                num_gt, assigned_gt_inds, max_overlaps, labels=assigned_labels
+            )
 
         pairwise_ious = self.iou_calculator(valid_decoded_bbox, gt_bboxes)
         iou_cost = -torch.log(pairwise_ious + EPS)
 
         gt_onehot_label = (
-            F.one_hot(gt_labels.to(torch.int64),
-                      pred_scores.shape[-1]).float().unsqueeze(0).repeat(
-                          num_valid, 1, 1))
+            F.one_hot(gt_labels.to(torch.int64), pred_scores.shape[-1])
+            .float()
+            .unsqueeze(0)
+            .repeat(num_valid, 1, 1)
+        )
 
         valid_pred_scores = valid_pred_scores.unsqueeze(1).repeat(1, num_gt, 1)
         # disable AMP autocast and calculate BCE with FP32 to avoid overflow
@@ -121,29 +130,36 @@ class SimOTAAssigner(BaseAssigner):
                     valid_pred_scores.to(dtype=torch.float32),
                     gt_onehot_label,
                     reduction='none',
-                ).sum(-1).to(dtype=valid_pred_scores.dtype))
+                )
+                .sum(-1)
+                .to(dtype=valid_pred_scores.dtype)
+            )
 
         cost_matrix = (
-            cls_cost * self.cls_weight + iou_cost * self.iou_weight +
-            (~is_in_boxes_and_center) * INF)
+            cls_cost * self.cls_weight
+            + iou_cost * self.iou_weight
+            + (~is_in_boxes_and_center) * INF
+        )
 
-        matched_pred_ious, matched_gt_inds = \
-            self.dynamic_k_matching(
-                cost_matrix, pairwise_ious, num_gt, valid_mask)
+        matched_pred_ious, matched_gt_inds = self.dynamic_k_matching(
+            cost_matrix, pairwise_ious, num_gt, valid_mask
+        )
 
         # convert to AssignResult format
         assigned_gt_inds[valid_mask] = matched_gt_inds + 1
-        assigned_labels = assigned_gt_inds.new_full((num_bboxes, ), -1)
+        assigned_labels = assigned_gt_inds.new_full((num_bboxes,), -1)
         assigned_labels[valid_mask] = gt_labels[matched_gt_inds].long()
-        max_overlaps = assigned_gt_inds.new_full((num_bboxes, ),
-                                                 -INF,
-                                                 dtype=torch.float32)
+        max_overlaps = assigned_gt_inds.new_full(
+            (num_bboxes,), -INF, dtype=torch.float32
+        )
         max_overlaps[valid_mask] = matched_pred_ious
         return AssignResult(
-            num_gt, assigned_gt_inds, max_overlaps, labels=assigned_labels)
+            num_gt, assigned_gt_inds, max_overlaps, labels=assigned_labels
+        )
 
     def get_in_gt_and_in_center_info(
-            self, priors: Tensor, gt_bboxes: Tensor) -> Tuple[Tensor, Tensor]:
+        self, priors: Tensor, gt_bboxes: Tensor
+    ) -> Tuple[Tensor, Tensor]:
         """Get the information of which prior is in gt bboxes and gt center
         priors."""
         num_gt = gt_bboxes.size(0)
@@ -186,12 +202,17 @@ class SimOTAAssigner(BaseAssigner):
         # both in boxes and centers, shape: [num_fg, num_gt]
         is_in_boxes_and_centers = (
             is_in_gts[is_in_gts_or_centers, :]
-            & is_in_cts[is_in_gts_or_centers, :])
+            & is_in_cts[is_in_gts_or_centers, :]
+        )
         return is_in_gts_or_centers, is_in_boxes_and_centers
 
-    def dynamic_k_matching(self, cost: Tensor, pairwise_ious: Tensor,
-                           num_gt: int,
-                           valid_mask: Tensor) -> Tuple[Tensor, Tensor]:
+    def dynamic_k_matching(
+        self,
+        cost: Tensor,
+        pairwise_ious: Tensor,
+        num_gt: int,
+        valid_mask: Tensor,
+    ) -> Tuple[Tensor, Tensor]:
         """Use IoU and matching cost to calculate the dynamic top-k positive
         targets."""
         matching_matrix = torch.zeros_like(cost, dtype=torch.uint8)
@@ -202,7 +223,8 @@ class SimOTAAssigner(BaseAssigner):
         dynamic_ks = torch.clamp(topk_ious.sum(0).int(), min=1)
         for gt_idx in range(num_gt):
             _, pos_idx = torch.topk(
-                cost[:, gt_idx], k=dynamic_ks[gt_idx], largest=False)
+                cost[:, gt_idx], k=dynamic_ks[gt_idx], largest=False
+            )
             matching_matrix[:, gt_idx][pos_idx] = 1
 
         del topk_ious, dynamic_ks, pos_idx
@@ -210,7 +232,8 @@ class SimOTAAssigner(BaseAssigner):
         prior_match_gt_mask = matching_matrix.sum(1) > 1
         if prior_match_gt_mask.sum() > 0:
             cost_min, cost_argmin = torch.min(
-                cost[prior_match_gt_mask, :], dim=1)
+                cost[prior_match_gt_mask, :], dim=1
+            )
             matching_matrix[prior_match_gt_mask, :] *= 0
             matching_matrix[prior_match_gt_mask, cost_argmin] = 1
         # get foreground mask inside box and center prior
@@ -218,6 +241,7 @@ class SimOTAAssigner(BaseAssigner):
         valid_mask[valid_mask.clone()] = fg_mask_inboxes
 
         matched_gt_inds = matching_matrix[fg_mask_inboxes, :].argmax(1)
-        matched_pred_ious = (matching_matrix *
-                             pairwise_ious).sum(1)[fg_mask_inboxes]
+        matched_pred_ious = (matching_matrix * pairwise_ious).sum(1)[
+            fg_mask_inboxes
+        ]
         return matched_pred_ious, matched_gt_inds

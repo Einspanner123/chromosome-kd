@@ -37,7 +37,8 @@ def quality_focal_loss(pred, target, beta=2.0):
     scale_factor = pred_sigmoid
     zerolabel = scale_factor.new_zeros(pred.shape)
     loss = F.binary_cross_entropy_with_logits(
-        pred, zerolabel, reduction='none') * scale_factor.pow(beta)
+        pred, zerolabel, reduction='none'
+    ) * scale_factor.pow(beta)
 
     # FG cat_id: [0, num_classes -1], BG cat_id: num_classes
     bg_class_ind = pred.size(1)
@@ -46,8 +47,8 @@ def quality_focal_loss(pred, target, beta=2.0):
     # positives are supervised by bbox quality (IoU) score
     scale_factor = score[pos] - pred_sigmoid[pos, pos_label]
     loss[pos, pos_label] = F.binary_cross_entropy_with_logits(
-        pred[pos, pos_label], score[pos],
-        reduction='none') * scale_factor.abs().pow(beta)
+        pred[pos, pos_label], score[pos], reduction='none'
+    ) * scale_factor.abs().pow(beta)
 
     loss = loss.sum(dim=1, keepdim=False)
     return loss
@@ -81,14 +82,15 @@ def quality_focal_loss_tensor_target(pred, target, beta=2.0, activated=False):
     target = target.type_as(pred)
 
     zerolabel = scale_factor.new_zeros(pred.shape)
-    loss = loss_function(
-        pred, zerolabel, reduction='none') * scale_factor.pow(beta)
+    loss = loss_function(pred, zerolabel, reduction='none') * scale_factor.pow(
+        beta
+    )
 
-    pos = (target != 0)
+    pos = target != 0
     scale_factor = target[pos] - pred_sigmoid[pos]
     loss[pos] = loss_function(
-        pred[pos], target[pos],
-        reduction='none') * scale_factor.abs().pow(beta)
+        pred[pos], target[pos], reduction='none'
+    ) * scale_factor.abs().pow(beta)
 
     loss = loss.sum(dim=1, keepdim=False)
     return loss
@@ -124,7 +126,8 @@ def quality_focal_loss_with_prob(pred, target, beta=2.0):
     scale_factor = pred_sigmoid
     zerolabel = scale_factor.new_zeros(pred.shape)
     loss = F.binary_cross_entropy(
-        pred, zerolabel, reduction='none') * scale_factor.pow(beta)
+        pred, zerolabel, reduction='none'
+    ) * scale_factor.pow(beta)
 
     # FG cat_id: [0, num_classes -1], BG cat_id: num_classes
     bg_class_ind = pred.size(1)
@@ -133,8 +136,8 @@ def quality_focal_loss_with_prob(pred, target, beta=2.0):
     # positives are supervised by bbox quality (IoU) score
     scale_factor = score[pos] - pred_sigmoid[pos, pos_label]
     loss[pos, pos_label] = F.binary_cross_entropy(
-        pred[pos, pos_label], score[pos],
-        reduction='none') * scale_factor.abs().pow(beta)
+        pred[pos, pos_label], score[pos], reduction='none'
+    ) * scale_factor.abs().pow(beta)
 
     loss = loss.sum(dim=1, keepdim=False)
     return loss
@@ -160,8 +163,10 @@ def distribution_focal_loss(pred, label):
     dis_right = dis_left + 1
     weight_left = dis_right.float() - label
     weight_right = label - dis_left.float()
-    loss = F.cross_entropy(pred, dis_left, reduction='none') * weight_left \
+    loss = (
+        F.cross_entropy(pred, dis_left, reduction='none') * weight_left
         + F.cross_entropy(pred, dis_right, reduction='none') * weight_right
+    )
     return loss
 
 
@@ -184,13 +189,15 @@ class QualityFocalLoss(nn.Module):
             Defaults to False.
     """
 
-    def __init__(self,
-                 use_sigmoid=True,
-                 beta=2.0,
-                 reduction='mean',
-                 loss_weight=1.0,
-                 activated=False):
-        super(QualityFocalLoss, self).__init__()
+    def __init__(
+        self,
+        use_sigmoid=True,
+        beta=2.0,
+        reduction='mean',
+        loss_weight=1.0,
+        activated=False,
+    ):
+        super().__init__()
         assert use_sigmoid is True, 'Only sigmoid in QFL supported now.'
         self.use_sigmoid = use_sigmoid
         self.beta = beta
@@ -198,12 +205,14 @@ class QualityFocalLoss(nn.Module):
         self.loss_weight = loss_weight
         self.activated = activated
 
-    def forward(self,
-                pred,
-                target,
-                weight=None,
-                avg_factor=None,
-                reduction_override=None):
+    def forward(
+        self,
+        pred,
+        target,
+        weight=None,
+        avg_factor=None,
+        reduction_override=None,
+    ):
         """Forward function.
 
         Args:
@@ -225,7 +234,8 @@ class QualityFocalLoss(nn.Module):
         """
         assert reduction_override in (None, 'none', 'mean', 'sum')
         reduction = (
-            reduction_override if reduction_override else self.reduction)
+            reduction_override if reduction_override else self.reduction
+        )
         if self.use_sigmoid:
             if self.activated:
                 calculate_loss_func = quality_focal_loss_with_prob
@@ -235,7 +245,8 @@ class QualityFocalLoss(nn.Module):
                 # the target shape with (N,C) or (N,C,...), which means
                 # the target is one-hot form with soft weights.
                 calculate_loss_func = partial(
-                    quality_focal_loss_tensor_target, activated=self.activated)
+                    quality_focal_loss_tensor_target, activated=self.activated
+                )
 
             loss_cls = self.loss_weight * calculate_loss_func(
                 pred,
@@ -243,7 +254,8 @@ class QualityFocalLoss(nn.Module):
                 weight,
                 beta=self.beta,
                 reduction=reduction,
-                avg_factor=avg_factor)
+                avg_factor=avg_factor,
+            )
         else:
             raise NotImplementedError
         return loss_cls
@@ -261,16 +273,18 @@ class DistributionFocalLoss(nn.Module):
     """
 
     def __init__(self, reduction='mean', loss_weight=1.0):
-        super(DistributionFocalLoss, self).__init__()
+        super().__init__()
         self.reduction = reduction
         self.loss_weight = loss_weight
 
-    def forward(self,
-                pred,
-                target,
-                weight=None,
-                avg_factor=None,
-                reduction_override=None):
+    def forward(
+        self,
+        pred,
+        target,
+        weight=None,
+        avg_factor=None,
+        reduction_override=None,
+    ):
         """Forward function.
 
         Args:
@@ -289,7 +303,9 @@ class DistributionFocalLoss(nn.Module):
         """
         assert reduction_override in (None, 'none', 'mean', 'sum')
         reduction = (
-            reduction_override if reduction_override else self.reduction)
+            reduction_override if reduction_override else self.reduction
+        )
         loss_cls = self.loss_weight * distribution_focal_loss(
-            pred, target, weight, reduction=reduction, avg_factor=avg_factor)
+            pred, target, weight, reduction=reduction, avg_factor=avg_factor
+        )
         return loss_cls

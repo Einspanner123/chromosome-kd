@@ -11,11 +11,11 @@ from mmdet.utils import register_all_modules
 
 
 class TestDynamicRoIHead(TestCase):
-
     def setUp(self):
         register_all_modules()
         self.roi_head_cfg = get_roi_head_cfg(
-            'dynamic_rcnn/dynamic-rcnn_r50_fpn_1x_coco.py')
+            'dynamic_rcnn/dynamic-rcnn_r50_fpn_1x_coco.py'
+        )
 
     def test_init(self):
         roi_head = MODELS.build(self.roi_head_cfg)
@@ -33,8 +33,10 @@ class TestDynamicRoIHead(TestCase):
         feats = []
         for i in range(len(roi_head.bbox_roi_extractor.featmap_strides)):
             feats.append(
-                torch.rand(1, 256, s // (2**(i + 2)),
-                           s // (2**(i + 2))).to(device=device))
+                torch.rand(
+                    1, 256, s // (2 ** (i + 2)), s // (2 ** (i + 2))
+                ).to(device=device)
+            )
 
         image_shapes = [(3, s, s)]
         batch_data_samples = demo_mm_inputs(
@@ -43,9 +45,11 @@ class TestDynamicRoIHead(TestCase):
             num_items=[1],
             num_classes=4,
             with_mask=True,
-            device=device)['data_samples']
+            device=device,
+        )['data_samples']
         proposals_list = demo_mm_proposals(
-            image_shapes=image_shapes, num_proposals=100, device=device)
+            image_shapes=image_shapes, num_proposals=100, device=device
+        )
         out = roi_head.loss(feats, proposals_list, batch_data_samples)
         loss_cls = out['loss_cls']
         loss_bbox = out['loss_bbox']
@@ -58,14 +62,19 @@ class TestDynamicRoIHead(TestCase):
             num_items=[0],
             num_classes=4,
             with_mask=True,
-            device=device)['data_samples']
+            device=device,
+        )['data_samples']
         proposals_list = demo_mm_proposals(
-            image_shapes=image_shapes, num_proposals=100, device=device)
+            image_shapes=image_shapes, num_proposals=100, device=device
+        )
         out = roi_head.loss(feats, proposals_list, batch_data_samples)
         empty_cls_loss = out['loss_cls']
         empty_bbox_loss = out['loss_bbox']
-        self.assertGreater(empty_cls_loss.sum(), 0,
-                           'cls loss should be non-zero')
+        self.assertGreater(
+            empty_cls_loss.sum(), 0, 'cls loss should be non-zero'
+        )
         self.assertEqual(
-            empty_bbox_loss.sum(), 0,
-            'there should be no box loss when there are no true boxes')
+            empty_bbox_loss.sum(),
+            0,
+            'there should be no box loss when there are no true boxes',
+        )

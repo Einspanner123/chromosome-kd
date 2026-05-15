@@ -23,8 +23,11 @@ def get_layer_id_for_convnext(var_name, max_layer_id):
         ``LearningRateDecayOptimizerConstructor``.
     """
 
-    if var_name in ('backbone.cls_token', 'backbone.mask_token',
-                    'backbone.pos_embed'):
+    if var_name in (
+        'backbone.cls_token',
+        'backbone.mask_token',
+        'backbone.pos_embed',
+    ):
         return 0
     elif var_name.startswith('backbone.downsample_layers'):
         stage_id = int(var_name.split('.')[2])
@@ -66,10 +69,11 @@ def get_stage_id_for_convnext(var_name, max_stage_id):
         ``LearningRateDecayOptimizerConstructor``.
     """
 
-    if var_name in ('backbone.cls_token', 'backbone.mask_token',
-                    'backbone.pos_embed'):
-        return 0
-    elif var_name.startswith('backbone.downsample_layers'):
+    if var_name in (
+        'backbone.cls_token',
+        'backbone.mask_token',
+        'backbone.pos_embed',
+    ) or var_name.startswith('backbone.downsample_layers'):
         return 0
     elif var_name.startswith('backbone.stages'):
         stage_id = int(var_name.split('.')[2])
@@ -83,8 +87,9 @@ class LearningRateDecayOptimizerConstructor(DefaultOptimWrapperConstructor):
     # Different learning rates are set for different layers of backbone.
     # Note: Currently, this optimizer constructor is built for ConvNeXt.
 
-    def add_params(self, params: List[dict], module: nn.Module,
-                   **kwargs) -> None:
+    def add_params(
+        self, params: List[dict], module: nn.Module, **kwargs
+    ) -> None:
         """Add all parameters of module to the params list.
 
         The parameters of the given module will be added to the list of param
@@ -102,23 +107,29 @@ class LearningRateDecayOptimizerConstructor(DefaultOptimWrapperConstructor):
         num_layers = self.paramwise_cfg.get('num_layers') + 2
         decay_rate = self.paramwise_cfg.get('decay_rate')
         decay_type = self.paramwise_cfg.get('decay_type', 'layer_wise')
-        logger.info('Build LearningRateDecayOptimizerConstructor  '
-                    f'{decay_type} {decay_rate} - {num_layers}')
+        logger.info(
+            'Build LearningRateDecayOptimizerConstructor  '
+            f'{decay_type} {decay_rate} - {num_layers}'
+        )
         weight_decay = self.base_wd
         for name, param in module.named_parameters():
             if not param.requires_grad:
                 continue  # frozen weights
-            if len(param.shape) == 1 or name.endswith('.bias') or name in (
-                    'pos_embed', 'cls_token'):
+            if (
+                len(param.shape) == 1
+                or name.endswith('.bias')
+                or name in ('pos_embed', 'cls_token')
+            ):
                 group_name = 'no_decay'
-                this_weight_decay = 0.
+                this_weight_decay = 0.0
             else:
                 group_name = 'decay'
                 this_weight_decay = weight_decay
             if 'layer_wise' in decay_type:
                 if 'ConvNeXt' in module.backbone.__class__.__name__:
                     layer_id = get_layer_id_for_convnext(
-                        name, self.paramwise_cfg.get('num_layers'))
+                        name, self.paramwise_cfg.get('num_layers')
+                    )
                     logger.info(f'set param {name} as id {layer_id}')
                 else:
                     raise NotImplementedError()
@@ -131,7 +142,7 @@ class LearningRateDecayOptimizerConstructor(DefaultOptimWrapperConstructor):
             group_name = f'layer_{layer_id}_{group_name}'
 
             if group_name not in parameter_groups:
-                scale = decay_rate**(num_layers - layer_id - 1)
+                scale = decay_rate ** (num_layers - layer_id - 1)
 
                 parameter_groups[group_name] = {
                     'weight_decay': this_weight_decay,

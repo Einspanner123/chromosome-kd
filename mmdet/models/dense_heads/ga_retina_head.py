@@ -15,14 +15,16 @@ from .guided_anchor_head import FeatureAdaption, GuidedAnchorHead
 class GARetinaHead(GuidedAnchorHead):
     """Guided-Anchor-based RetinaNet head."""
 
-    def __init__(self,
-                 num_classes: int,
-                 in_channels: int,
-                 stacked_convs: int = 4,
-                 conv_cfg: OptConfigType = None,
-                 norm_cfg: OptConfigType = None,
-                 init_cfg: OptMultiConfig = None,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        num_classes: int,
+        in_channels: int,
+        stacked_convs: int = 4,
+        conv_cfg: OptConfigType = None,
+        norm_cfg: OptConfigType = None,
+        init_cfg: OptMultiConfig = None,
+        **kwargs,
+    ) -> None:
         if init_cfg is None:
             init_cfg = dict(
                 type='Normal',
@@ -33,13 +35,16 @@ class GARetinaHead(GuidedAnchorHead):
                         type='Normal',
                         name='conv_loc',
                         std=0.01,
-                        bias_prob=0.01),
+                        bias_prob=0.01,
+                    ),
                     dict(
                         type='Normal',
                         name='retina_cls',
                         std=0.01,
-                        bias_prob=0.01)
-                ])
+                        bias_prob=0.01,
+                    ),
+                ],
+            )
         self.stacked_convs = stacked_convs
         self.conv_cfg = conv_cfg
         self.norm_cfg = norm_cfg
@@ -47,7 +52,8 @@ class GARetinaHead(GuidedAnchorHead):
             num_classes=num_classes,
             in_channels=in_channels,
             init_cfg=init_cfg,
-            **kwargs)
+            **kwargs,
+        )
 
     def _init_layers(self) -> None:
         """Initialize layers of the head."""
@@ -64,7 +70,9 @@ class GARetinaHead(GuidedAnchorHead):
                     stride=1,
                     padding=1,
                     conv_cfg=self.conv_cfg,
-                    norm_cfg=self.norm_cfg))
+                    norm_cfg=self.norm_cfg,
+                )
+            )
             self.reg_convs.append(
                 ConvModule(
                     chn,
@@ -73,7 +81,9 @@ class GARetinaHead(GuidedAnchorHead):
                     stride=1,
                     padding=1,
                     conv_cfg=self.conv_cfg,
-                    norm_cfg=self.norm_cfg))
+                    norm_cfg=self.norm_cfg,
+                )
+            )
 
         self.conv_loc = nn.Conv2d(self.feat_channels, 1, 1)
         num_anchors = self.square_anchor_generator.num_base_priors[0]
@@ -82,19 +92,23 @@ class GARetinaHead(GuidedAnchorHead):
             self.feat_channels,
             self.feat_channels,
             kernel_size=3,
-            deform_groups=self.deform_groups)
+            deform_groups=self.deform_groups,
+        )
         self.feature_adaption_reg = FeatureAdaption(
             self.feat_channels,
             self.feat_channels,
             kernel_size=3,
-            deform_groups=self.deform_groups)
+            deform_groups=self.deform_groups,
+        )
         self.retina_cls = MaskedConv2d(
             self.feat_channels,
             self.num_base_priors * self.cls_out_channels,
             3,
-            padding=1)
+            padding=1,
+        )
         self.retina_reg = MaskedConv2d(
-            self.feat_channels, self.num_base_priors * 4, 3, padding=1)
+            self.feat_channels, self.num_base_priors * 4, 3, padding=1
+        )
 
     def forward_single(self, x: Tensor) -> Tuple[Tensor]:
         """Forward feature map of a single scale level."""

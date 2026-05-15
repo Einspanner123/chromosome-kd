@@ -36,14 +36,17 @@ class COCOCaptionMetric(BaseMetric):
             `retrieval_type` for unambiguous results. Defaults to TR.
     """
 
-    def __init__(self,
-                 ann_file: str,
-                 collect_device: str = 'cpu',
-                 prefix: Optional[str] = None):
+    def __init__(
+        self,
+        ann_file: str,
+        collect_device: str = 'cpu',
+        prefix: Optional[str] = None,
+    ):
         if COCOEvalCap is None:
             raise RuntimeError(
                 'COCOEvalCap is not installed, please install it by: '
-                'pip install pycocoevalcap')
+                'pip install pycocoevalcap'
+            )
 
         super().__init__(collect_device=collect_device, prefix=prefix)
         self.ann_file = ann_file
@@ -81,7 +84,6 @@ class COCOCaptionMetric(BaseMetric):
         # NOTICE: don't access `self.results` from the method.
 
         with tempfile.TemporaryDirectory() as temp_dir:
-
             eval_result_file = save_result(
                 result=results,
                 result_dir=temp_dir,

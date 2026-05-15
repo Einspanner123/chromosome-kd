@@ -14,7 +14,6 @@ from mmdet.structures import DetDataSample, TrackDataSample
 
 
 class TestYouTubeVISMetric(TestCase):
-
     @classmethod
     def setUpClass(cls):
         init_default_scope('mmdet')
@@ -37,7 +36,8 @@ class TestYouTubeVISMetric(TestCase):
             scores=torch.from_numpy(scores),
             labels=torch.from_numpy(labels),
             instances_id=torch.from_numpy(instance_id),
-            masks=torch.from_numpy(dummy_mask))
+            masks=torch.from_numpy(dummy_mask),
+        )
 
     def test_format_only(self):
         outfile_prefix = f'{self.tmp_dir.name}/result'
@@ -46,19 +46,22 @@ class TestYouTubeVISMetric(TestCase):
                 type='YouTubeVISMetric',
                 format_only=True,
                 outfile_prefix=outfile_prefix,
-            ))
+            )
+        )
         dummy_pred = self._create_dummy_results(track_id=0)
         dummy_mask = np.zeros((720, 1280), order='F', dtype=np.uint8)
         dummy_mask[100:150, 100:150] = 1
         rle_mask = mask_util.encode(dummy_mask)
         rle_mask['counts'] = rle_mask['counts'].decode('utf-8')
-        instances = [{
-            'bbox_label': 0,
-            'bbox': [100, 100, 150, 150],
-            'ignore_flag': 0,
-            'instance_id': 1,
-            'mask': rle_mask,
-        }]
+        instances = [
+            {
+                'bbox_label': 0,
+                'bbox': [100, 100, 150, 150],
+                'ignore_flag': 0,
+                'instance_id': 1,
+                'mask': rle_mask,
+            }
+        ]
         vis_metric.dataset_meta = dict(classes=['car', 'train'])
         data_batch = dict(inputs=None, data_samples=None)
         gt_insatnce = InstanceData(**dummy_pred)
@@ -70,7 +73,9 @@ class TestYouTubeVISMetric(TestCase):
                 video_id=1,
                 ori_video_length=1,
                 ori_shape=(720, 1280),
-                instances=instances))
+                instances=instances,
+            )
+        )
         track_data_sample = TrackDataSample()
         track_data_sample.video_data_samples = [img_data_sample]
         predictions = []
@@ -91,25 +96,30 @@ class TestYouTubeVISMetric(TestCase):
         dummy_mask[100:150, 100:150] = 1
         rle_mask = mask_util.encode(dummy_mask)
         rle_mask['counts'] = rle_mask['counts'].decode('utf-8')
-        instances_1 = [{
-            'bbox_label': 0,
-            'bbox': [100, 100, 150, 150],
-            'ignore_flag': 0,
-            'instance_id': 1,
-            'mask': rle_mask,
-        }]
-        instances_2 = [{
-            'bbox_label': 0,
-            'bbox': [100, 100, 150, 150],
-            'ignore_flag': 0,
-            'instance_id': 2,
-            'mask': rle_mask,
-        }]
+        instances_1 = [
+            {
+                'bbox_label': 0,
+                'bbox': [100, 100, 150, 150],
+                'ignore_flag': 0,
+                'instance_id': 1,
+                'mask': rle_mask,
+            }
+        ]
+        instances_2 = [
+            {
+                'bbox_label': 0,
+                'bbox': [100, 100, 150, 150],
+                'ignore_flag': 0,
+                'instance_id': 2,
+                'mask': rle_mask,
+            }
+        ]
         vis_metric = METRICS.build(
             dict(
                 type='YouTubeVISMetric',
                 outfile_prefix=f'{self.tmp_dir.name}/test',
-            ))
+            )
+        )
 
         vis_metric.dataset_meta = dict(classes=['car', 'train'])
         data_batch = dict(inputs=None, data_samples=None)
@@ -122,7 +132,9 @@ class TestYouTubeVISMetric(TestCase):
                 video_id=1,
                 ori_video_length=2,
                 ori_shape=(720, 1280),
-                instances=instances_1))
+                instances=instances_1,
+            )
+        )
         gt_insatnce_2 = InstanceData(**dummy_pred_2)
         img_data_sample_2 = DetDataSample()
         img_data_sample_2.pred_track_instances = gt_insatnce_2
@@ -132,10 +144,13 @@ class TestYouTubeVISMetric(TestCase):
                 video_id=1,
                 ori_video_length=2,
                 ori_shape=(720, 1280),
-                instances=instances_1))
+                instances=instances_1,
+            )
+        )
         track_data_sample = TrackDataSample()
         track_data_sample.video_data_samples = [
-            img_data_sample, img_data_sample_2
+            img_data_sample,
+            img_data_sample_2,
         ]
         predictions = []
         if isinstance(track_data_sample, BaseDataElement):
@@ -151,7 +166,9 @@ class TestYouTubeVISMetric(TestCase):
                 video_id=2,
                 ori_video_length=1,
                 ori_shape=(720, 1280),
-                instances=instances_2))
+                instances=instances_2,
+            )
+        )
         track_data_sample = TrackDataSample()
         track_data_sample.video_data_samples = [img_data_sample]
         predictions = []

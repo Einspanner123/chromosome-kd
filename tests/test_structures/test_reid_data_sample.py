@@ -16,13 +16,13 @@ def _equal(a, b):
 
 
 class TestReIDDataSample(TestCase):
-
     def test_init(self):
         img_shape = (256, 128)
         ori_shape = (64, 64)
         num_classes = 5
         meta_info = dict(
-            img_shape=img_shape, ori_shape=ori_shape, num_classes=num_classes)
+            img_shape=img_shape, ori_shape=ori_shape, num_classes=num_classes
+        )
         data_sample = ReIDDataSample(metainfo=meta_info)
         self.assertIn('img_shape', data_sample)
         self.assertIn('ori_shape', data_sample)
@@ -70,7 +70,7 @@ class TestReIDDataSample(TestCase):
         self.assertTrue(_equal(label.label, torch.from_numpy(_label)))
 
         # Test Sequence
-        _label = [1, 2, 3.]
+        _label = [1, 2, 3.0]
         method(_label)
         label = data_sample.get('gt_label')
         self.assertIsInstance(label, LabelData)

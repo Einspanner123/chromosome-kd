@@ -5,19 +5,30 @@ data_root = 'data/flickr30k_entities/'
 
 test_pipeline = [
     dict(
-        type='LoadImageFromFile', backend_args=None,
-        imdecode_backend='pillow'),
+        type='LoadImageFromFile', backend_args=None, imdecode_backend='pillow'
+    ),
     dict(
         type='FixScaleResize',
         scale=(800, 1333),
         keep_ratio=True,
-        backend='pillow'),
+        backend='pillow',
+    ),
     dict(type='LoadAnnotations', with_bbox=True),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor', 'text', 'custom_entities',
-                   'tokens_positive', 'phrase_ids', 'phrases'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+            'text',
+            'custom_entities',
+            'tokens_positive',
+            'phrase_ids',
+            'phrases',
+        ),
+    ),
 ]
 
 dataset_Flickr30k_val = dict(
@@ -46,12 +57,14 @@ datasets = [dataset_Flickr30k_val, dataset_Flickr30k_test]
 metrics = [val_evaluator_Flickr30k, test_evaluator_Flickr30k]
 
 val_dataloader = dict(
-    dataset=dict(_delete_=True, type='ConcatDataset', datasets=datasets))
+    dataset=dict(_delete_=True, type='ConcatDataset', datasets=datasets)
+)
 test_dataloader = val_dataloader
 
 val_evaluator = dict(
     _delete_=True,
     type='MultiDatasetsEvaluator',
     metrics=metrics,
-    dataset_prefixes=dataset_prefixes)
+    dataset_prefixes=dataset_prefixes,
+)
 test_evaluator = val_evaluator

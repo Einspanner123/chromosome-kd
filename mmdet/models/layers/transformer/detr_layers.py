@@ -29,11 +29,13 @@ class DetrTransformerEncoder(BaseModule):
             the initialization. Defaults to None.
     """
 
-    def __init__(self,
-                 num_layers: int,
-                 layer_cfg: ConfigType,
-                 num_cp: int = -1,
-                 init_cfg: OptConfigType = None) -> None:
+    def __init__(
+        self,
+        num_layers: int,
+        layer_cfg: ConfigType,
+        num_cp: int = -1,
+        init_cfg: OptConfigType = None,
+    ) -> None:
 
         super().__init__(init_cfg=init_cfg)
         self.num_layers = num_layers
@@ -44,24 +46,32 @@ class DetrTransformerEncoder(BaseModule):
 
     def _init_layers(self) -> None:
         """Initialize encoder layers."""
-        self.layers = ModuleList([
-            DetrTransformerEncoderLayer(**self.layer_cfg)
-            for _ in range(self.num_layers)
-        ])
+        self.layers = ModuleList(
+            [
+                DetrTransformerEncoderLayer(**self.layer_cfg)
+                for _ in range(self.num_layers)
+            ]
+        )
 
         if self.num_cp > 0:
             if checkpoint_wrapper is None:
                 raise NotImplementedError(
                     'If you want to reduce GPU memory usage, \
                     please install fairscale by executing the \
-                    following command: pip install fairscale.')
+                    following command: pip install fairscale.'
+                )
             for i in range(self.num_cp):
                 self.layers[i] = checkpoint_wrapper(self.layers[i])
 
         self.embed_dims = self.layers[0].embed_dims
 
-    def forward(self, query: Tensor, query_pos: Tensor,
-                key_padding_mask: Tensor, **kwargs) -> Tensor:
+    def forward(
+        self,
+        query: Tensor,
+        query_pos: Tensor,
+        key_padding_mask: Tensor,
+        **kwargs,
+    ) -> Tensor:
         """Forward function of encoder.
 
         Args:
@@ -96,12 +106,14 @@ class DetrTransformerDecoder(BaseModule):
             the initialization. Defaults to None.
     """
 
-    def __init__(self,
-                 num_layers: int,
-                 layer_cfg: ConfigType,
-                 post_norm_cfg: OptConfigType = dict(type='LN'),
-                 return_intermediate: bool = True,
-                 init_cfg: Union[dict, ConfigDict] = None) -> None:
+    def __init__(
+        self,
+        num_layers: int,
+        layer_cfg: ConfigType,
+        post_norm_cfg: OptConfigType = dict(type='LN'),
+        return_intermediate: bool = True,
+        init_cfg: Union[dict, ConfigDict] = None,
+    ) -> None:
         super().__init__(init_cfg=init_cfg)
         self.layer_cfg = layer_cfg
         self.num_layers = num_layers
@@ -111,17 +123,27 @@ class DetrTransformerDecoder(BaseModule):
 
     def _init_layers(self) -> None:
         """Initialize decoder layers."""
-        self.layers = ModuleList([
-            DetrTransformerDecoderLayer(**self.layer_cfg)
-            for _ in range(self.num_layers)
-        ])
+        self.layers = ModuleList(
+            [
+                DetrTransformerDecoderLayer(**self.layer_cfg)
+                for _ in range(self.num_layers)
+            ]
+        )
         self.embed_dims = self.layers[0].embed_dims
-        self.post_norm = build_norm_layer(self.post_norm_cfg,
-                                          self.embed_dims)[1]
+        self.post_norm = build_norm_layer(self.post_norm_cfg, self.embed_dims)[
+            1
+        ]
 
-    def forward(self, query: Tensor, key: Tensor, value: Tensor,
-                query_pos: Tensor, key_pos: Tensor, key_padding_mask: Tensor,
-                **kwargs) -> Tensor:
+    def forward(
+        self,
+        query: Tensor,
+        key: Tensor,
+        value: Tensor,
+        query_pos: Tensor,
+        key_pos: Tensor,
+        key_padding_mask: Tensor,
+        **kwargs,
+    ) -> Tensor:
         """Forward function of decoder
         Args:
             query (Tensor): The input query, has shape (bs, num_queries, dim).
@@ -148,7 +170,8 @@ class DetrTransformerDecoder(BaseModule):
                 query_pos=query_pos,
                 key_pos=key_pos,
                 key_padding_mask=key_padding_mask,
-                **kwargs)
+                **kwargs,
+            )
             if self.return_intermediate:
                 intermediate.append(self.post_norm(query))
         query = self.post_norm(query)
@@ -173,17 +196,21 @@ class DetrTransformerEncoderLayer(BaseModule):
             the initialization. Defaults to None.
     """
 
-    def __init__(self,
-                 self_attn_cfg: OptConfigType = dict(
-                     embed_dims=256, num_heads=8, dropout=0.0),
-                 ffn_cfg: OptConfigType = dict(
-                     embed_dims=256,
-                     feedforward_channels=1024,
-                     num_fcs=2,
-                     ffn_drop=0.,
-                     act_cfg=dict(type='ReLU', inplace=True)),
-                 norm_cfg: OptConfigType = dict(type='LN'),
-                 init_cfg: OptConfigType = None) -> None:
+    def __init__(
+        self,
+        self_attn_cfg: OptConfigType = dict(
+            embed_dims=256, num_heads=8, dropout=0.0
+        ),
+        ffn_cfg: OptConfigType = dict(
+            embed_dims=256,
+            feedforward_channels=1024,
+            num_fcs=2,
+            ffn_drop=0.0,
+            act_cfg=dict(type='ReLU', inplace=True),
+        ),
+        norm_cfg: OptConfigType = dict(type='LN'),
+        init_cfg: OptConfigType = None,
+    ) -> None:
 
         super().__init__(init_cfg=init_cfg)
 
@@ -191,9 +218,11 @@ class DetrTransformerEncoderLayer(BaseModule):
         if 'batch_first' not in self.self_attn_cfg:
             self.self_attn_cfg['batch_first'] = True
         else:
-            assert self.self_attn_cfg['batch_first'] is True, 'First \
+            assert self.self_attn_cfg['batch_first'] is True, (
+                'First \
             dimension of all DETRs in mmdet is `batch`, \
             please set `batch_first` flag.'
+            )
 
         self.ffn_cfg = ffn_cfg
         self.norm_cfg = norm_cfg
@@ -210,8 +239,13 @@ class DetrTransformerEncoderLayer(BaseModule):
         ]
         self.norms = ModuleList(norms_list)
 
-    def forward(self, query: Tensor, query_pos: Tensor,
-                key_padding_mask: Tensor, **kwargs) -> Tensor:
+    def forward(
+        self,
+        query: Tensor,
+        query_pos: Tensor,
+        key_padding_mask: Tensor,
+        **kwargs,
+    ) -> Tensor:
         """Forward function of an encoder layer.
 
         Args:
@@ -230,7 +264,8 @@ class DetrTransformerEncoderLayer(BaseModule):
             query_pos=query_pos,
             key_pos=query_pos,
             key_padding_mask=key_padding_mask,
-            **kwargs)
+            **kwargs,
+        )
         query = self.norms[0](query)
         query = self.ffn(query)
         query = self.norms[1](query)
@@ -254,26 +289,24 @@ class DetrTransformerDecoderLayer(BaseModule):
             the initialization. Defaults to None.
     """
 
-    def __init__(self,
-                 self_attn_cfg: OptConfigType = dict(
-                     embed_dims=256,
-                     num_heads=8,
-                     dropout=0.0,
-                     batch_first=True),
-                 cross_attn_cfg: OptConfigType = dict(
-                     embed_dims=256,
-                     num_heads=8,
-                     dropout=0.0,
-                     batch_first=True),
-                 ffn_cfg: OptConfigType = dict(
-                     embed_dims=256,
-                     feedforward_channels=1024,
-                     num_fcs=2,
-                     ffn_drop=0.,
-                     act_cfg=dict(type='ReLU', inplace=True),
-                 ),
-                 norm_cfg: OptConfigType = dict(type='LN'),
-                 init_cfg: OptConfigType = None) -> None:
+    def __init__(
+        self,
+        self_attn_cfg: OptConfigType = dict(
+            embed_dims=256, num_heads=8, dropout=0.0, batch_first=True
+        ),
+        cross_attn_cfg: OptConfigType = dict(
+            embed_dims=256, num_heads=8, dropout=0.0, batch_first=True
+        ),
+        ffn_cfg: OptConfigType = dict(
+            embed_dims=256,
+            feedforward_channels=1024,
+            num_fcs=2,
+            ffn_drop=0.0,
+            act_cfg=dict(type='ReLU', inplace=True),
+        ),
+        norm_cfg: OptConfigType = dict(type='LN'),
+        init_cfg: OptConfigType = None,
+    ) -> None:
 
         super().__init__(init_cfg=init_cfg)
 
@@ -282,16 +315,20 @@ class DetrTransformerDecoderLayer(BaseModule):
         if 'batch_first' not in self.self_attn_cfg:
             self.self_attn_cfg['batch_first'] = True
         else:
-            assert self.self_attn_cfg['batch_first'] is True, 'First \
+            assert self.self_attn_cfg['batch_first'] is True, (
+                'First \
             dimension of all DETRs in mmdet is `batch`, \
             please set `batch_first` flag.'
+            )
 
         if 'batch_first' not in self.cross_attn_cfg:
             self.cross_attn_cfg['batch_first'] = True
         else:
-            assert self.cross_attn_cfg['batch_first'] is True, 'First \
+            assert self.cross_attn_cfg['batch_first'] is True, (
+                'First \
             dimension of all DETRs in mmdet is `batch`, \
             please set `batch_first` flag.'
+            )
 
         self.ffn_cfg = ffn_cfg
         self.norm_cfg = norm_cfg
@@ -309,16 +346,18 @@ class DetrTransformerDecoderLayer(BaseModule):
         ]
         self.norms = ModuleList(norms_list)
 
-    def forward(self,
-                query: Tensor,
-                key: Tensor = None,
-                value: Tensor = None,
-                query_pos: Tensor = None,
-                key_pos: Tensor = None,
-                self_attn_mask: Tensor = None,
-                cross_attn_mask: Tensor = None,
-                key_padding_mask: Tensor = None,
-                **kwargs) -> Tensor:
+    def forward(
+        self,
+        query: Tensor,
+        key: Tensor = None,
+        value: Tensor = None,
+        query_pos: Tensor = None,
+        key_pos: Tensor = None,
+        self_attn_mask: Tensor = None,
+        cross_attn_mask: Tensor = None,
+        key_padding_mask: Tensor = None,
+        **kwargs,
+    ) -> Tensor:
         """
         Args:
             query (Tensor): The input query, has shape (bs, num_queries, dim).
@@ -356,7 +395,8 @@ class DetrTransformerDecoderLayer(BaseModule):
             query_pos=query_pos,
             key_pos=query_pos,
             attn_mask=self_attn_mask,
-            **kwargs)
+            **kwargs,
+        )
         query = self.norms[0](query)
         query = self.cross_attn(
             query=query,
@@ -366,7 +406,8 @@ class DetrTransformerDecoderLayer(BaseModule):
             key_pos=key_pos,
             attn_mask=cross_attn_mask,
             key_padding_mask=key_padding_mask,
-            **kwargs)
+            **kwargs,
+        )
         query = self.norms[1](query)
         query = self.ffn(query)
         query = self.norms[2](query)

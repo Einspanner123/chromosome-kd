@@ -3,4 +3,7 @@ model = dict(
     backbone=dict(
         depth=101,
         init_cfg=dict(
-            type='Pretrained', checkpoint='open-mmlab://jhu/resnet101_gn_ws')))
+            type='Pretrained', checkpoint='open-mmlab://jhu/resnet101_gn_ws'
+        ),
+    )
+)

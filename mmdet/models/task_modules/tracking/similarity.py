@@ -4,10 +4,12 @@ import torch.nn.functional as F
 from torch import Tensor
 
 
-def embed_similarity(key_embeds: Tensor,
-                     ref_embeds: Tensor,
-                     method: str = 'dot_product',
-                     temperature: int = -1) -> Tensor:
+def embed_similarity(
+    key_embeds: Tensor,
+    ref_embeds: Tensor,
+    method: str = 'dot_product',
+    temperature: int = -1,
+) -> Tensor:
     """Calculate feature similarity from embeddings.
 
     Args:

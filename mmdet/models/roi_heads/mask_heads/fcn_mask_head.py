@@ -27,34 +27,42 @@ GPU_MEM_LIMIT = 1024**3  # 1 GB memory limit
 
 @MODELS.register_module()
 class FCNMaskHead(BaseModule):
-
-    def __init__(self,
-                 num_convs: int = 4,
-                 roi_feat_size: int = 14,
-                 in_channels: int = 256,
-                 conv_kernel_size: int = 3,
-                 conv_out_channels: int = 256,
-                 num_classes: int = 80,
-                 class_agnostic: int = False,
-                 upsample_cfg: ConfigType = dict(
-                     type='deconv', scale_factor=2),
-                 conv_cfg: OptConfigType = None,
-                 norm_cfg: OptConfigType = None,
-                 predictor_cfg: ConfigType = dict(type='Conv'),
-                 loss_mask: ConfigType = dict(
-                     type='CrossEntropyLoss', use_mask=True, loss_weight=1.0),
-                 init_cfg: OptMultiConfig = None) -> None:
-        assert init_cfg is None, 'To prevent abnormal initialization ' \
-                                 'behavior, init_cfg is not allowed to be set'
+    def __init__(
+        self,
+        num_convs: int = 4,
+        roi_feat_size: int = 14,
+        in_channels: int = 256,
+        conv_kernel_size: int = 3,
+        conv_out_channels: int = 256,
+        num_classes: int = 80,
+        class_agnostic: int = False,
+        upsample_cfg: ConfigType = dict(type='deconv', scale_factor=2),
+        conv_cfg: OptConfigType = None,
+        norm_cfg: OptConfigType = None,
+        predictor_cfg: ConfigType = dict(type='Conv'),
+        loss_mask: ConfigType = dict(
+            type='CrossEntropyLoss', use_mask=True, loss_weight=1.0
+        ),
+        init_cfg: OptMultiConfig = None,
+    ) -> None:
+        assert init_cfg is None, (
+            'To prevent abnormal initialization '
+            'behavior, init_cfg is not allowed to be set'
+        )
         super().__init__(init_cfg=init_cfg)
         self.upsample_cfg = upsample_cfg.copy()
         if self.upsample_cfg['type'] not in [
-                None, 'deconv', 'nearest', 'bilinear', 'carafe'
+            None,
+            'deconv',
+            'nearest',
+            'bilinear',
+            'carafe',
         ]:
             raise ValueError(
                 f'Invalid upsample method {self.upsample_cfg["type"]}, '
                 'accepted methods are "deconv", "nearest", "bilinear", '
-                '"carafe"')
+                '"carafe"'
+            )
         self.num_convs = num_convs
         # WARN: roi_feat_size is reserved and not used
         self.roi_feat_size = _pair(roi_feat_size)
@@ -73,7 +81,8 @@ class FCNMaskHead(BaseModule):
         self.convs = ModuleList()
         for i in range(self.num_convs):
             in_channels = (
-                self.in_channels if i == 0 else self.conv_out_channels)
+                self.in_channels if i == 0 else self.conv_out_channels
+            )
             padding = (self.conv_kernel_size - 1) // 2
             self.convs.append(
                 ConvModule(
@@ -82,9 +91,12 @@ class FCNMaskHead(BaseModule):
                     self.conv_kernel_size,
                     padding=padding,
                     conv_cfg=conv_cfg,
-                    norm_cfg=norm_cfg))
+                    norm_cfg=norm_cfg,
+                )
+            )
         upsample_in_channels = (
-            self.conv_out_channels if self.num_convs > 0 else in_channels)
+            self.conv_out_channels if self.num_convs > 0 else in_channels
+        )
         upsample_cfg_ = self.upsample_cfg.copy()
         if self.upsample_method is None:
             self.upsample = None
@@ -93,28 +105,35 @@ class FCNMaskHead(BaseModule):
                 in_channels=upsample_in_channels,
                 out_channels=self.conv_out_channels,
                 kernel_size=self.scale_factor,
-                stride=self.scale_factor)
+                stride=self.scale_factor,
+            )
             self.upsample = build_upsample_layer(upsample_cfg_)
         elif self.upsample_method == 'carafe':
             upsample_cfg_.update(
-                channels=upsample_in_channels, scale_factor=self.scale_factor)
+                channels=upsample_in_channels, scale_factor=self.scale_factor
+            )
             self.upsample = build_upsample_layer(upsample_cfg_)
         else:
             # suppress warnings
-            align_corners = (None
-                             if self.upsample_method == 'nearest' else False)
+            align_corners = (
+                None if self.upsample_method == 'nearest' else False
+            )
             upsample_cfg_.update(
                 scale_factor=self.scale_factor,
                 mode=self.upsample_method,
-                align_corners=align_corners)
+                align_corners=align_corners,
+            )
             self.upsample = build_upsample_layer(upsample_cfg_)
 
         out_channels = 1 if self.class_agnostic else self.num_classes
         logits_in_channel = (
             self.conv_out_channels
-            if self.upsample_method == 'deconv' else upsample_in_channels)
-        self.conv_logits = build_conv_layer(self.predictor_cfg,
-                                            logits_in_channel, out_channels, 1)
+            if self.upsample_method == 'deconv'
+            else upsample_in_channels
+        )
+        self.conv_logits = build_conv_layer(
+            self.predictor_cfg, logits_in_channel, out_channels, 1
+        )
         self.relu = nn.ReLU(inplace=True)
         self.debug_imgs = None
 
@@ -128,7 +147,8 @@ class FCNMaskHead(BaseModule):
                 m.init_weights()
             elif hasattr(m, 'weight') and hasattr(m, 'bias'):
                 nn.init.kaiming_normal_(
-                    m.weight, mode='fan_out', nonlinearity='relu')
+                    m.weight, mode='fan_out', nonlinearity='relu'
+                )
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, x: Tensor) -> Tensor:
@@ -149,9 +169,12 @@ class FCNMaskHead(BaseModule):
         mask_preds = self.conv_logits(x)
         return mask_preds
 
-    def get_targets(self, sampling_results: List[SamplingResult],
-                    batch_gt_instances: InstanceList,
-                    rcnn_train_cfg: ConfigDict) -> Tensor:
+    def get_targets(
+        self,
+        sampling_results: List[SamplingResult],
+        batch_gt_instances: InstanceList,
+        rcnn_train_cfg: ConfigDict,
+    ) -> Tensor:
         """Calculate the ground truth for all samples in a batch according to
         the sampling_results.
 
@@ -171,14 +194,18 @@ class FCNMaskHead(BaseModule):
             res.pos_assigned_gt_inds for res in sampling_results
         ]
         gt_masks = [res.masks for res in batch_gt_instances]
-        mask_targets = mask_target(pos_proposals, pos_assigned_gt_inds,
-                                   gt_masks, rcnn_train_cfg)
+        mask_targets = mask_target(
+            pos_proposals, pos_assigned_gt_inds, gt_masks, rcnn_train_cfg
+        )
         return mask_targets
 
-    def loss_and_target(self, mask_preds: Tensor,
-                        sampling_results: List[SamplingResult],
-                        batch_gt_instances: InstanceList,
-                        rcnn_train_cfg: ConfigDict) -> dict:
+    def loss_and_target(
+        self,
+        mask_preds: Tensor,
+        sampling_results: List[SamplingResult],
+        batch_gt_instances: InstanceList,
+        rcnn_train_cfg: ConfigDict,
+    ) -> dict:
         """Calculate the loss based on the features extracted by the mask head.
 
         Args:
@@ -197,7 +224,8 @@ class FCNMaskHead(BaseModule):
         mask_targets = self.get_targets(
             sampling_results=sampling_results,
             batch_gt_instances=batch_gt_instances,
-            rcnn_train_cfg=rcnn_train_cfg)
+            rcnn_train_cfg=rcnn_train_cfg,
+        )
 
         pos_labels = torch.cat([res.pos_gt_labels for res in sampling_results])
 
@@ -206,22 +234,26 @@ class FCNMaskHead(BaseModule):
             loss_mask = mask_preds.sum()
         else:
             if self.class_agnostic:
-                loss_mask = self.loss_mask(mask_preds, mask_targets,
-                                           torch.zeros_like(pos_labels))
+                loss_mask = self.loss_mask(
+                    mask_preds, mask_targets, torch.zeros_like(pos_labels)
+                )
             else:
-                loss_mask = self.loss_mask(mask_preds, mask_targets,
-                                           pos_labels)
+                loss_mask = self.loss_mask(
+                    mask_preds, mask_targets, pos_labels
+                )
         loss['loss_mask'] = loss_mask
         # TODO: which algorithm requires mask_targets?
         return dict(loss_mask=loss, mask_targets=mask_targets)
 
-    def predict_by_feat(self,
-                        mask_preds: Tuple[Tensor],
-                        results_list: List[InstanceData],
-                        batch_img_metas: List[dict],
-                        rcnn_test_cfg: ConfigDict,
-                        rescale: bool = False,
-                        activate_map: bool = False) -> InstanceList:
+    def predict_by_feat(
+        self,
+        mask_preds: Tuple[Tensor],
+        results_list: List[InstanceData],
+        batch_img_metas: List[dict],
+        rcnn_test_cfg: ConfigDict,
+        rescale: bool = False,
+        activate_map: bool = False,
+    ) -> InstanceList:
         """Transform a batch of output features extracted from the head into
         mask results.
 
@@ -262,7 +294,8 @@ class FCNMaskHead(BaseModule):
                     bboxes.device,
                     task_type='mask',
                     instance_results=[results],
-                    mask_thr_binary=rcnn_test_cfg.mask_thr_binary)[0]
+                    mask_thr_binary=rcnn_test_cfg.mask_thr_binary,
+                )[0]
             else:
                 im_mask = self._predict_by_feat_single(
                     mask_preds=mask_preds[img_id],
@@ -271,18 +304,21 @@ class FCNMaskHead(BaseModule):
                     img_meta=img_meta,
                     rcnn_test_cfg=rcnn_test_cfg,
                     rescale=rescale,
-                    activate_map=activate_map)
+                    activate_map=activate_map,
+                )
                 results.masks = im_mask
         return results_list
 
-    def _predict_by_feat_single(self,
-                                mask_preds: Tensor,
-                                bboxes: Tensor,
-                                labels: Tensor,
-                                img_meta: dict,
-                                rcnn_test_cfg: ConfigDict,
-                                rescale: bool = False,
-                                activate_map: bool = False) -> Tensor:
+    def _predict_by_feat_single(
+        self,
+        mask_preds: Tensor,
+        bboxes: Tensor,
+        labels: Tensor,
+        img_meta: dict,
+        rcnn_test_cfg: ConfigDict,
+        rescale: bool = False,
+        activate_map: bool = False,
+    ) -> Tensor:
         """Get segmentation masks from mask_preds and bboxes.
 
         Args:
@@ -312,23 +348,35 @@ class FCNMaskHead(BaseModule):
             >>> inputs = torch.rand(N, self.in_channels, H, W)
             >>> mask_preds = self.forward(inputs)
             >>> # Each input is associated with some bounding box
-            >>> bboxes = torch.Tensor([[1, 1, 42, 42 ]] * N)
+            >>> bboxes = torch.Tensor([[1, 1, 42, 42]] * N)
             >>> labels = torch.randint(0, C, size=(N,))
-            >>> rcnn_test_cfg = Config({'mask_thr_binary': 0, })
+            >>> rcnn_test_cfg = Config(
+            ...     {
+            ...         'mask_thr_binary': 0,
+            ...     }
+            ... )
             >>> ori_shape = (H * 4, W * 4)
             >>> scale_factor = (1, 1)
             >>> rescale = False
-            >>> img_meta = {'scale_factor': scale_factor,
-            ...             'ori_shape': ori_shape}
+            >>> img_meta = {
+            ...     'scale_factor': scale_factor,
+            ...     'ori_shape': ori_shape,
+            ... }
             >>> # Encoded masks are a list for each category.
             >>> encoded_masks = self._get_seg_masks_single(
-            ...     mask_preds, bboxes, labels,
-            ...     img_meta, rcnn_test_cfg, rescale)
+            ...     mask_preds,
+            ...     bboxes,
+            ...     labels,
+            ...     img_meta,
+            ...     rcnn_test_cfg,
+            ...     rescale,
+            ... )
             >>> assert encoded_masks.size()[0] == N
             >>> assert encoded_masks.size()[1:] == ori_shape
         """
         scale_factor = bboxes.new_tensor(img_meta['scale_factor']).repeat(
-            (1, 2))
+            (1, 2)
+        )
         img_h, img_w = img_meta['ori_shape'][:2]
         device = bboxes.device
 
@@ -362,10 +410,17 @@ class FCNMaskHead(BaseModule):
             # so we need to change the types of img_w and img_h to int.
             # See https://github.com/open-mmlab/mmdetection/pull/5191
             num_chunks = int(
-                np.ceil(N * int(img_h) * int(img_w) * BYTES_PER_FLOAT /
-                        GPU_MEM_LIMIT))
-            assert (num_chunks <=
-                    N), 'Default GPU_MEM_LIMIT is too small; try increasing it'
+                np.ceil(
+                    N
+                    * int(img_h)
+                    * int(img_w)
+                    * BYTES_PER_FLOAT
+                    / GPU_MEM_LIMIT
+                )
+            )
+            assert num_chunks <= N, (
+                'Default GPU_MEM_LIMIT is too small; try increasing it'
+            )
         chunks = torch.chunk(torch.arange(N, device=device), num_chunks)
 
         threshold = rcnn_test_cfg.mask_thr_binary
@@ -374,7 +429,8 @@ class FCNMaskHead(BaseModule):
             img_h,
             img_w,
             device=device,
-            dtype=torch.bool if threshold >= 0 else torch.uint8)
+            dtype=torch.bool if threshold >= 0 else torch.uint8,
+        )
 
         if not self.class_agnostic:
             mask_preds = mask_preds[range(N), labels][:, None]
@@ -385,7 +441,8 @@ class FCNMaskHead(BaseModule):
                 bboxes[inds],
                 img_h,
                 img_w,
-                skip_empty=device.type == 'cpu')
+                skip_empty=device.type == 'cpu',
+            )
 
             if threshold >= 0:
                 masks_chunk = (masks_chunk >= threshold).to(dtype=torch.bool)
@@ -393,15 +450,17 @@ class FCNMaskHead(BaseModule):
                 # for visualization and debugging
                 masks_chunk = (masks_chunk * 255).to(dtype=torch.uint8)
 
-            im_mask[(inds, ) + spatial_inds] = masks_chunk
+            im_mask[(inds,) + spatial_inds] = masks_chunk
         return im_mask
 
 
-def _do_paste_mask(masks: Tensor,
-                   boxes: Tensor,
-                   img_h: int,
-                   img_w: int,
-                   skip_empty: bool = True) -> tuple:
+def _do_paste_mask(
+    masks: Tensor,
+    boxes: Tensor,
+    img_h: int,
+    img_w: int,
+    skip_empty: bool = True,
+) -> tuple:
     """Paste instance masks according to boxes.
 
     This implementation is modified from
@@ -434,12 +493,14 @@ def _do_paste_mask(masks: Tensor,
     device = masks.device
     if skip_empty:
         x0_int, y0_int = torch.clamp(
-            boxes.min(dim=0).values.floor()[:2] - 1,
-            min=0).to(dtype=torch.int32)
-        x1_int = torch.clamp(
-            boxes[:, 2].max().ceil() + 1, max=img_w).to(dtype=torch.int32)
-        y1_int = torch.clamp(
-            boxes[:, 3].max().ceil() + 1, max=img_h).to(dtype=torch.int32)
+            boxes.min(dim=0).values.floor()[:2] - 1, min=0
+        ).to(dtype=torch.int32)
+        x1_int = torch.clamp(boxes[:, 2].max().ceil() + 1, max=img_w).to(
+            dtype=torch.int32
+        )
+        y1_int = torch.clamp(boxes[:, 3].max().ceil() + 1, max=img_h).to(
+            dtype=torch.int32
+        )
     else:
         x0_int, y0_int = 0, 0
         x1_int, y1_int = img_w, img_h
@@ -466,7 +527,8 @@ def _do_paste_mask(masks: Tensor,
     grid = torch.stack([gx, gy], dim=3)
 
     img_masks = F.grid_sample(
-        masks.to(dtype=torch.float32), grid, align_corners=False)
+        masks.to(dtype=torch.float32), grid, align_corners=False
+    )
 
     if skip_empty:
         return img_masks[:, 0], (slice(y0_int, y1_int), slice(x0_int, x1_int))

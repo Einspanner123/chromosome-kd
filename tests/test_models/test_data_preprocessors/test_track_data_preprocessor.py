@@ -6,7 +6,6 @@ from mmdet.testing import demo_track_inputs
 
 
 class TestTrackDataPreprocessor(TestCase):
-
     def test_init(self):
         # test mean is None
         processor = TrackDataPreprocessor()
@@ -31,10 +30,8 @@ class TestTrackDataPreprocessor(TestCase):
         processor = TrackDataPreprocessor(mean=[0, 0, 0], std=[1, 1, 1])
 
         data = demo_track_inputs(
-            batch_size=1,
-            num_frames=1,
-            image_shapes=(3, 11, 10),
-            num_items=[1])
+            batch_size=1, num_frames=1, image_shapes=(3, 11, 10), num_items=[1]
+        )
         out_data = processor(data)
         inputs, data_samples = out_data['inputs'], out_data['data_samples']
         self.assertEqual(inputs.shape, (1, 1, 3, 11, 10))
@@ -42,7 +39,8 @@ class TestTrackDataPreprocessor(TestCase):
 
         # test channel_conversion
         processor = TrackDataPreprocessor(
-            mean=[0., 0., 0.], std=[1., 1., 1.], bgr_to_rgb=True)
+            mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0], bgr_to_rgb=True
+        )
         out_data = processor(data)
         inputs, data_samples = out_data['inputs'], out_data['data_samples']
         self.assertEqual(len(data_samples), 1)
@@ -52,7 +50,8 @@ class TestTrackDataPreprocessor(TestCase):
             batch_size=2,
             num_frames=2,
             image_shapes=[(3, 10, 11), (3, 9, 14)],
-            num_items=[1, 1])
+            num_items=[1, 1],
+        )
         out_data = processor(data)
         inputs, data_samples = out_data['inputs'], out_data['data_samples']
         self.assertEqual(inputs.shape, (2, 2, 3, 10, 14))
@@ -62,15 +61,18 @@ class TestTrackDataPreprocessor(TestCase):
             batch_size=2,
             num_frames=2,
             image_shapes=[(3, 10, 11), (3, 9, 24)],
-            num_items=[1, 1])
+            num_items=[1, 1],
+        )
         processor = TrackDataPreprocessor(
-            mean=[0., 0., 0.], std=[1., 1., 1.], pad_size_divisor=5)
+            mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0], pad_size_divisor=5
+        )
         out_data = processor(data)
         inputs, data_samples = out_data['inputs'], out_data['data_samples']
         self.assertEqual(inputs.shape, (2, 2, 3, 10, 25))
         self.assertEqual(len(data_samples), 2)
-        for track_data_sample, expected_shape in zip(data_samples, [(10, 15),
-                                                                    (10, 25)]):
+        for track_data_sample, expected_shape in zip(
+            data_samples, [(10, 15), (10, 25)]
+        ):
             for det_data_sample in track_data_sample.video_data_samples:
                 self.assertEqual(det_data_sample.pad_shape, expected_shape)
 
@@ -80,7 +82,8 @@ class TestTrackDataPreprocessor(TestCase):
             num_frames=2,
             image_shapes=[(3, 10, 11), (3, 9, 24)],
             num_items=[1, 1],
-            with_mask=True)
+            with_mask=True,
+        )
         processor = TrackDataPreprocessor(pad_mask=True, mask_pad_value=0)
         mask_pad_sums = []
         for track_data_sample in data['data_samples']:
@@ -91,12 +94,16 @@ class TestTrackDataPreprocessor(TestCase):
         out_data = processor(data, training=True)
         inputs, data_samples = out_data['inputs'], out_data['data_samples']
         for track_data_sample, expected_shape, mask_pad_sum in zip(
-                data_samples, [(10, 24), (10, 24)], mask_pad_sums):
+            data_samples, [(10, 24), (10, 24)], mask_pad_sums
+        ):
             for i, det_data_sample in enumerate(
-                    track_data_sample.video_data_samples):
+                track_data_sample.video_data_samples
+            ):
                 self.assertEqual(
                     det_data_sample.gt_instances.masks.masks.shape[-2:],
-                    expected_shape)
+                    expected_shape,
+                )
                 self.assertEqual(
                     det_data_sample.gt_instances.masks.masks.sum(),
-                    mask_pad_sum[i])
+                    mask_pad_sum[i],
+                )

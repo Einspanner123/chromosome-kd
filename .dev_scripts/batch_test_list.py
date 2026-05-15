@@ -14,7 +14,7 @@ autoassign = dict(
 )
 carafe = dict(
     config='configs/carafe/faster_rcnn_r50_fpn_carafe_1x_coco.py',
-    checkpoint='faster_rcnn_r50_fpn_carafe_1x_coco_bbox_mAP-0.386_20200504_175733-385a75b7.pth',  # noqa
+    checkpoint='faster_rcnn_r50_fpn_carafe_1x_coco_bbox_mAP-0.386_20200504_175733-385a75b7.pth',
     eval='bbox',
     metric=dict(bbox_mAP=38.6),
 )
@@ -39,14 +39,14 @@ cascade_rpn = dict(
     metric=dict(bbox_mAP=40.4),
 )
 centripetalnet = dict(
-    config='configs/centripetalnet/centripetalnet_hourglass104_mstest_16x6_210e_coco.py',  # noqa
-    checkpoint='centripetalnet_hourglass104_mstest_16x6_210e_coco_20200915_204804-3ccc61e5.pth',  # noqa
+    config='configs/centripetalnet/centripetalnet_hourglass104_mstest_16x6_210e_coco.py',
+    checkpoint='centripetalnet_hourglass104_mstest_16x6_210e_coco_20200915_204804-3ccc61e5.pth',
     eval='bbox',
     metric=dict(bbox_mAP=44.7),
 )
 cornernet = dict(
     config='configs/cornernet/cornernet_hourglass104_mstest_8x6_210e_coco.py',
-    checkpoint='cornernet_hourglass104_mstest_8x6_210e_coco_20200825_150618-79b44c30.pth',  # noqa
+    checkpoint='cornernet_hourglass104_mstest_8x6_210e_coco_20200825_150618-79b44c30.pth',
     eval='bbox',
     metric=dict(bbox_mAP=41.2),
 )
@@ -58,7 +58,7 @@ dcn = dict(
 )
 deformable_detr = dict(
     config='configs/deformable_detr/deformable_detr_r50_16x2_50e_coco.py',
-    checkpoint='deformable_detr_r50_16x2_50e_coco_20210419_220030-a12b9512.pth',  # noqa
+    checkpoint='deformable_detr_r50_16x2_50e_coco_20210419_220030-a12b9512.pth',
     eval='bbox',
     metric=dict(bbox_mAP=44.5),
 )
@@ -87,8 +87,8 @@ dynamic_rcnn = dict(
     metric=dict(bbox_mAP=38.9),
 )
 empirical_attention = dict(
-    config='configs/empirical_attention/faster_rcnn_r50_fpn_attention_1111_1x_coco.py',  # noqa
-    checkpoint='faster_rcnn_r50_fpn_attention_1111_1x_coco_20200130-403cccba.pth',  # noqa
+    config='configs/empirical_attention/faster_rcnn_r50_fpn_attention_1111_1x_coco.py',
+    checkpoint='faster_rcnn_r50_fpn_attention_1111_1x_coco_20200130-403cccba.pth',
     eval='bbox',
     metric=dict(bbox_mAP=40.0),
 )
@@ -99,8 +99,8 @@ faster_rcnn = dict(
     metric=dict(bbox_mAP=37.4),
 )
 fcos = dict(
-    config='configs/fcos/fcos_center-normbbox-centeronreg-giou_r50_caffe_fpn_gn-head_1x_coco.py',  # noqa
-    checkpoint='fcos_center-normbbox-centeronreg-giou_r50_caffe_fpn_gn-head_1x_coco-0a0d75a8.pth',  # noqa
+    config='configs/fcos/fcos_center-normbbox-centeronreg-giou_r50_caffe_fpn_gn-head_1x_coco.py',
+    checkpoint='fcos_center-normbbox-centeronreg-giou_r50_caffe_fpn_gn-head_1x_coco-0a0d75a8.pth',
     eval='bbox',
     metric=dict(bbox_mAP=38.7),
 )
@@ -123,8 +123,8 @@ fsaf = dict(
     metric=dict(bbox_mAP=37.4),
 )
 gcnet = dict(
-    config='configs/gcnet/mask_rcnn_r50_fpn_syncbn-backbone_r16_gcb_c3-c5_1x_coco.py',  # noqa
-    checkpoint='mask_rcnn_r50_fpn_syncbn-backbone_r16_gcb_c3-c5_1x_coco_20200202-587b99aa.pth',  # noqa
+    config='configs/gcnet/mask_rcnn_r50_fpn_syncbn-backbone_r16_gcb_c3-c5_1x_coco.py',
+    checkpoint='mask_rcnn_r50_fpn_syncbn-backbone_r16_gcb_c3-c5_1x_coco_20200202-587b99aa.pth',
     eval=['bbox', 'segm'],
     metric=dict(bbox_mAP=40.4, segm_mAP=36.2),
 )
@@ -154,20 +154,20 @@ grid_rcnn = dict(
 )
 groie = dict(
     config='configs/groie/faster_rcnn_r50_fpn_groie_1x_coco.py',
-    checkpoint='faster_rcnn_r50_fpn_groie_1x_coco_20200604_211715-66ee9516.pth',  # noqa
+    checkpoint='faster_rcnn_r50_fpn_groie_1x_coco_20200604_211715-66ee9516.pth',
     eval='bbox',
     metric=dict(bbox_mAP=38.3),
 )
 guided_anchoring = [
     dict(
-        config='configs/guided_anchoring/ga_retinanet_r50_caffe_fpn_1x_coco.py',  # noqa
+        config='configs/guided_anchoring/ga_retinanet_r50_caffe_fpn_1x_coco.py',
         checkpoint='ga_retinanet_r50_caffe_fpn_1x_coco_20201020-39581c6f.pth',
         eval='bbox',
         metric=dict(bbox_mAP=36.9),
     ),
     dict(
         config='configs/guided_anchoring/ga_faster_r50_caffe_fpn_1x_coco.py',
-        checkpoint='ga_faster_r50_caffe_fpn_1x_coco_20200702_000718-a11ccfe6.pth',  # noqa
+        checkpoint='ga_faster_r50_caffe_fpn_1x_coco_20200702_000718-a11ccfe6.pth',
         eval='bbox',
         metric=dict(bbox_mAP=39.6),
     ),
@@ -203,8 +203,8 @@ ms_rcnn = dict(
     metric=dict(bbox_mAP=38.2, segm_mAP=36.0),
 )
 nas_fcos = dict(
-    config='configs/nas_fcos/nas_fcos_nashead_r50_caffe_fpn_gn-head_4x4_1x_coco.py',  # noqa
-    checkpoint='nas_fcos_nashead_r50_caffe_fpn_gn-head_4x4_1x_coco_20200520-1bdba3ce.pth',  # noqa
+    config='configs/nas_fcos/nas_fcos_nashead_r50_caffe_fpn_gn-head_4x4_1x_coco.py',
+    checkpoint='nas_fcos_nashead_r50_caffe_fpn_gn-head_4x4_1x_coco_20200520-1bdba3ce.pth',
     eval='bbox',
     metric=dict(bbox_mAP=39.4),
 )
@@ -222,7 +222,7 @@ paa = dict(
 )
 pafpn = dict(
     config='configs/pafpn/faster_rcnn_r50_pafpn_1x_coco.py',
-    checkpoint='faster_rcnn_r50_pafpn_1x_coco_bbox_mAP-0.375_20200503_105836-b7b4b9bd.pth',  # noqa
+    checkpoint='faster_rcnn_r50_pafpn_1x_coco_bbox_mAP-0.375_20200503_105836-b7b4b9bd.pth',
     eval='bbox',
     metric=dict(bbox_mAP=37.5),
 )
@@ -240,7 +240,7 @@ point_rend = dict(
 )
 regnet = dict(
     config='configs/regnet/mask_rcnn_regnetx-3.2GF_fpn_1x_coco.py',
-    checkpoint='mask_rcnn_regnetx-3.2GF_fpn_1x_coco_20200520_163141-2a9d1814.pth',  # noqa
+    checkpoint='mask_rcnn_regnetx-3.2GF_fpn_1x_coco_20200520_163141-2a9d1814.pth',
     eval=['bbox', 'segm'],
     metric=dict(bbox_mAP=40.4, segm_mAP=36.7),
 )
@@ -257,8 +257,8 @@ res2net = dict(
     metric=dict(bbox_mAP=43.0),
 )
 resnest = dict(
-    config='configs/resnest/faster_rcnn_s50_fpn_syncbn-backbone+head_mstrain-range_1x_coco.py',  # noqa
-    checkpoint='faster_rcnn_s50_fpn_syncbn-backbone+head_mstrain-range_1x_coco_20200926_125502-20289c16.pth',  # noqa
+    config='configs/resnest/faster_rcnn_s50_fpn_syncbn-backbone+head_mstrain-range_1x_coco.py',
+    checkpoint='faster_rcnn_s50_fpn_syncbn-backbone+head_mstrain-range_1x_coco_20200926_125502-20289c16.pth',
     eval='bbox',
     metric=dict(bbox_mAP=42.0),
 )
@@ -309,7 +309,7 @@ ssd = [
     ),
     dict(
         config='configs/ssd/ssdlite_mobilenetv2_scratch_600e_coco.py',
-        checkpoint='ssdlite_mobilenetv2_scratch_600e_coco_20210629_110627-974d9307.pth',# noqa
+        checkpoint='ssdlite_mobilenetv2_scratch_600e_coco_20210629_110627-974d9307.pth',
         eval='bbox',
         metric=dict(bbox_mAP=21.3),
     ),
@@ -346,13 +346,13 @@ yolof = dict(
 )
 centernet = dict(
     config='configs/centernet/centernet_resnet18_dcnv2_140e_coco.py',
-    checkpoint='centernet_resnet18_dcnv2_140e_coco_20210702_155131-c8cd631f.pth',  # noqa
+    checkpoint='centernet_resnet18_dcnv2_140e_coco_20210702_155131-c8cd631f.pth',
     eval='bbox',
     metric=dict(bbox_mAP=29.5),
 )
 yolox = dict(
     config='configs/yolox/yolox_tiny_8x8_300e_coco.py',
-    checkpoint='yolox_tiny_8x8_300e_coco_20210806_234250-4ff3b67e.pth',  # noqa
+    checkpoint='yolox_tiny_8x8_300e_coco_20210806_234250-4ff3b67e.pth',
     eval='bbox',
     metric=dict(bbox_mAP=31.5),
 )

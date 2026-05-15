@@ -1,5 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-# Modified from https://github.com/facebookresearch/detectron2/tree/master/projects/PointRend/point_head/point_head.py  # noqa
+# Modified from https://github.com/facebookresearch/detectron2/tree/master/projects/PointRend/point_head/point_head.py
 
 from typing import List, Tuple
 
@@ -12,8 +12,10 @@ from mmengine.structures import InstanceData
 from torch import Tensor
 
 from mmdet.models.task_modules.samplers import SamplingResult
-from mmdet.models.utils import (get_uncertain_point_coords_with_randomness,
-                                get_uncertainty)
+from mmdet.models.utils import (
+    get_uncertain_point_coords_with_randomness,
+    get_uncertainty,
+)
 from mmdet.registry import MODELS
 from mmdet.structures.bbox import bbox2roi
 from mmdet.utils import ConfigType, InstanceList, MultiConfig, OptConfigType
@@ -59,9 +61,11 @@ class MaskPointHead(BaseModule):
         norm_cfg: OptConfigType = None,
         act_cfg: ConfigType = dict(type='ReLU'),
         loss_point: ConfigType = dict(
-            type='CrossEntropyLoss', use_mask=True, loss_weight=1.0),
+            type='CrossEntropyLoss', use_mask=True, loss_weight=1.0
+        ),
         init_cfg: MultiConfig = dict(
-            type='Normal', std=0.001, override=dict(name='fc_logits'))
+            type='Normal', std=0.001, override=dict(name='fc_logits')
+        ),
     ) -> None:
         super().__init__(init_cfg=init_cfg)
         self.num_fcs = num_fcs
@@ -85,17 +89,20 @@ class MaskPointHead(BaseModule):
                 padding=0,
                 conv_cfg=conv_cfg,
                 norm_cfg=norm_cfg,
-                act_cfg=act_cfg)
+                act_cfg=act_cfg,
+            )
             self.fcs.append(fc)
             fc_in_channels = fc_channels
             fc_in_channels += num_classes if self.coarse_pred_each_layer else 0
 
         out_channels = 1 if self.class_agnostic else self.num_classes
         self.fc_logits = nn.Conv1d(
-            fc_in_channels, out_channels, kernel_size=1, stride=1, padding=0)
+            fc_in_channels, out_channels, kernel_size=1, stride=1, padding=0
+        )
 
-    def forward(self, fine_grained_feats: Tensor,
-                coarse_feats: Tensor) -> Tensor:
+    def forward(
+        self, fine_grained_feats: Tensor, coarse_feats: Tensor
+    ) -> Tensor:
         """Classify each point base on fine grained and coarse feats.
 
         Args:
@@ -116,10 +123,14 @@ class MaskPointHead(BaseModule):
                 x = torch.cat((x, coarse_feats), dim=1)
         return self.fc_logits(x)
 
-    def get_targets(self, rois: Tensor, rel_roi_points: Tensor,
-                    sampling_results: List[SamplingResult],
-                    batch_gt_instances: InstanceList,
-                    cfg: ConfigType) -> Tensor:
+    def get_targets(
+        self,
+        rois: Tensor,
+        rel_roi_points: Tensor,
+        sampling_results: List[SamplingResult],
+        batch_gt_instances: InstanceList,
+        cfg: ConfigType,
+    ) -> Tensor:
         """Get training targets of MaskPointHead for all images.
 
         Args:
@@ -141,7 +152,7 @@ class MaskPointHead(BaseModule):
         rois_list = []
         rel_roi_points_list = []
         for batch_ind in range(num_imgs):
-            inds = (rois[:, 0] == batch_ind)
+            inds = rois[:, 0] == batch_ind
             rois_list.append(rois[inds])
             rel_roi_points_list.append(rel_roi_points[inds])
         pos_assigned_gt_inds_list = [
@@ -149,9 +160,14 @@ class MaskPointHead(BaseModule):
         ]
         cfg_list = [cfg for _ in range(num_imgs)]
 
-        point_targets = map(self._get_targets_single, rois_list,
-                            rel_roi_points_list, pos_assigned_gt_inds_list,
-                            batch_gt_instances, cfg_list)
+        point_targets = map(
+            self._get_targets_single,
+            rois_list,
+            rel_roi_points_list,
+            pos_assigned_gt_inds_list,
+            batch_gt_instances,
+            cfg_list,
+        )
         point_targets = list(point_targets)
 
         if len(point_targets) > 0:
@@ -159,31 +175,40 @@ class MaskPointHead(BaseModule):
 
         return point_targets
 
-    def _get_targets_single(self, rois: Tensor, rel_roi_points: Tensor,
-                            pos_assigned_gt_inds: Tensor,
-                            gt_instances: InstanceData,
-                            cfg: ConfigType) -> Tensor:
+    def _get_targets_single(
+        self,
+        rois: Tensor,
+        rel_roi_points: Tensor,
+        pos_assigned_gt_inds: Tensor,
+        gt_instances: InstanceData,
+        cfg: ConfigType,
+    ) -> Tensor:
         """Get training target of MaskPointHead for each image."""
         num_pos = rois.size(0)
         num_points = cfg.num_points
         if num_pos > 0:
-            gt_masks_th = (
-                gt_instances.masks.to_tensor(rois.dtype,
-                                             rois.device).index_select(
-                                                 0, pos_assigned_gt_inds))
+            gt_masks_th = gt_instances.masks.to_tensor(
+                rois.dtype, rois.device
+            ).index_select(0, pos_assigned_gt_inds)
             gt_masks_th = gt_masks_th.unsqueeze(1)
             rel_img_points = rel_roi_point_to_rel_img_point(
-                rois, rel_roi_points, gt_masks_th)
-            point_targets = point_sample(gt_masks_th,
-                                         rel_img_points).squeeze(1)
+                rois, rel_roi_points, gt_masks_th
+            )
+            point_targets = point_sample(gt_masks_th, rel_img_points).squeeze(
+                1
+            )
         else:
             point_targets = rois.new_zeros((0, num_points))
         return point_targets
 
-    def loss_and_target(self, point_pred: Tensor, rel_roi_points: Tensor,
-                        sampling_results: List[SamplingResult],
-                        batch_gt_instances: InstanceList,
-                        cfg: ConfigType) -> dict:
+    def loss_and_target(
+        self,
+        point_pred: Tensor,
+        rel_roi_points: Tensor,
+        sampling_results: List[SamplingResult],
+        batch_gt_instances: InstanceList,
+        cfg: ConfigType,
+    ) -> dict:
         """Calculate loss for MaskPointHead.
 
         Args:
@@ -204,18 +229,21 @@ class MaskPointHead(BaseModule):
         rois = bbox2roi([res.pos_bboxes for res in sampling_results])
         pos_labels = torch.cat([res.pos_gt_labels for res in sampling_results])
 
-        point_target = self.get_targets(rois, rel_roi_points, sampling_results,
-                                        batch_gt_instances, cfg)
+        point_target = self.get_targets(
+            rois, rel_roi_points, sampling_results, batch_gt_instances, cfg
+        )
         if self.class_agnostic:
-            loss_point = self.loss_point(point_pred, point_target,
-                                         torch.zeros_like(pos_labels))
+            loss_point = self.loss_point(
+                point_pred, point_target, torch.zeros_like(pos_labels)
+            )
         else:
             loss_point = self.loss_point(point_pred, point_target, pos_labels)
 
         return dict(loss_point=loss_point, point_target=point_target)
 
-    def get_roi_rel_points_train(self, mask_preds: Tensor, labels: Tensor,
-                                 cfg: ConfigType) -> Tensor:
+    def get_roi_rel_points_train(
+        self, mask_preds: Tensor, labels: Tensor, cfg: ConfigType
+    ) -> Tensor:
         """Get ``num_points`` most uncertain points with random points during
         train.
 
@@ -236,12 +264,17 @@ class MaskPointHead(BaseModule):
             that contains the coordinates sampled points.
         """
         point_coords = get_uncertain_point_coords_with_randomness(
-            mask_preds, labels, cfg.num_points, cfg.oversample_ratio,
-            cfg.importance_sample_ratio)
+            mask_preds,
+            labels,
+            cfg.num_points,
+            cfg.oversample_ratio,
+            cfg.importance_sample_ratio,
+        )
         return point_coords
 
-    def get_roi_rel_points_test(self, mask_preds: Tensor, label_preds: Tensor,
-                                cfg: ConfigType) -> Tuple[Tensor, Tensor]:
+    def get_roi_rel_points_test(
+        self, mask_preds: Tensor, label_preds: Tensor, cfg: ConfigType
+    ) -> Tuple[Tensor, Tensor]:
         """Get ``num_points`` most uncertain points during test.
 
         Args:

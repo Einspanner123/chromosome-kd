@@ -13,15 +13,16 @@ from mmdet.testing import demo_track_inputs, get_detector_cfg
 
 
 class TestQDTrack(TestCase):
-
     @classmethod
     def setUpClass(cls):
         init_default_scope('mmdet')
 
-    @parameterized.expand([
-        'qdtrack/qdtrack_faster-rcnn_r50_fpn_8xb2-4e_mot17halftrain_'
-        'test-mot17halfval.py',
-    ])
+    @parameterized.expand(
+        [
+            'qdtrack/qdtrack_faster-rcnn_r50_fpn_8xb2-4e_mot17halftrain_'
+            'test-mot17halfval.py',
+        ]
+    )
     def test_qdtrack_init(self, cfg_file):
         model = get_detector_cfg(cfg_file)
 
@@ -29,13 +30,19 @@ class TestQDTrack(TestCase):
         assert model.detector
         assert model.track_head
 
-    @parameterized.expand([
-        ('qdtrack/qdtrack_faster-rcnn_r50_fpn_8xb2-4e_mot17'
-         'halftrain_test-mot17halfval.py', ('cpu', 'cuda')),
-    ])
+    @parameterized.expand(
+        [
+            (
+                'qdtrack/qdtrack_faster-rcnn_r50_fpn_8xb2-4e_mot17'
+                'halftrain_test-mot17halfval.py',
+                ('cpu', 'cuda'),
+            ),
+        ]
+    )
     def test_qdtrack_forward_loss_mode(self, cfg_file, devices):
         message_hub = MessageHub.get_instance(
-            f'test_qdtrack_forward_loss_mode-{time.time()}')
+            f'test_qdtrack_forward_loss_mode-{time.time()}'
+        )
         message_hub.update_info('iter', 0)
         message_hub.update_info('epoch', 0)
         assert all([device in ['cpu', 'cuda'] for device in devices])
@@ -55,20 +62,27 @@ class TestQDTrack(TestCase):
                 num_frames=2,
                 key_frames_inds=[0],
                 image_shapes=(3, 128, 128),
-                num_items=None)
+                num_items=None,
+            )
             out_data = model.data_preprocessor(packed_inputs, True)
             inputs, data_samples = out_data['inputs'], out_data['data_samples']
             # Test forward
             losses = model.forward(inputs, data_samples, mode='loss')
             assert isinstance(losses, dict)
 
-    @parameterized.expand([
-        ('qdtrack/qdtrack_faster-rcnn_r50_fpn_8xb2-4e_mot17'
-         'halftrain_test-mot17halfval.py', ('cpu', 'cuda')),
-    ])
+    @parameterized.expand(
+        [
+            (
+                'qdtrack/qdtrack_faster-rcnn_r50_fpn_8xb2-4e_mot17'
+                'halftrain_test-mot17halfval.py',
+                ('cpu', 'cuda'),
+            ),
+        ]
+    )
     def test_qdtrack_forward_predict_mode(self, cfg_file, devices):
         message_hub = MessageHub.get_instance(
-            f'test_bytetrack_forward_predict_mode-{time.time()}')
+            f'test_bytetrack_forward_predict_mode-{time.time()}'
+        )
         message_hub.update_info('iter', 0)
         message_hub.update_info('epoch', 0)
 
@@ -84,7 +98,8 @@ class TestQDTrack(TestCase):
                 model = model.cuda()
 
             packed_inputs = demo_track_inputs(
-                batch_size=1, num_frames=1, image_shapes=(3, 128, 128))
+                batch_size=1, num_frames=1, image_shapes=(3, 128, 128)
+            )
             out_data = model.data_preprocessor(packed_inputs, False)
 
             # Test forward test

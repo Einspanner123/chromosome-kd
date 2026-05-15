@@ -25,28 +25,31 @@ class BaseDetDataset(BaseDataset):
             Defaults to None.
     """
 
-    def __init__(self,
-                 *args,
-                 seg_map_suffix: str = '.png',
-                 proposal_file: Optional[str] = None,
-                 file_client_args: dict = None,
-                 backend_args: dict = None,
-                 return_classes: bool = False,
-                 caption_prompt: Optional[dict] = None,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        *args,
+        seg_map_suffix: str = '.png',
+        proposal_file: Optional[str] = None,
+        file_client_args: dict = None,
+        backend_args: dict = None,
+        return_classes: bool = False,
+        caption_prompt: Optional[dict] = None,
+        **kwargs,
+    ) -> None:
         self.seg_map_suffix = seg_map_suffix
         self.proposal_file = proposal_file
         self.backend_args = backend_args
         self.return_classes = return_classes
         self.caption_prompt = caption_prompt
         if self.caption_prompt is not None:
-            assert self.return_classes, \
+            assert self.return_classes, (
                 'return_classes must be True when using caption_prompt'
+            )
         if file_client_args is not None:
             raise RuntimeError(
                 'The `file_client_args` is deprecated, '
                 'please use `backend_args` instead, please refer to'
-                'https://github.com/open-mmlab/mmdetection/blob/main/configs/_base_/datasets/coco_detection.py'  # noqa: E501
+                'https://github.com/open-mmlab/mmdetection/blob/main/configs/_base_/datasets/coco_detection.py'
             )
         super().__init__(*args, **kwargs)
 
@@ -106,15 +109,16 @@ class BaseDetDataset(BaseDataset):
         if not is_abs(self.proposal_file):
             self.proposal_file = osp.join(self.data_root, self.proposal_file)
         proposals_list = load(
-            self.proposal_file, backend_args=self.backend_args)
+            self.proposal_file, backend_args=self.backend_args
+        )
         assert len(self.data_list) == len(proposals_list)
         for data_info in self.data_list:
             img_path = data_info['img_path']
             # `file_name` is the key to obtain the proposals from the
             # `proposals_list`.
             file_name = osp.join(
-                osp.split(osp.split(img_path)[0])[-1],
-                osp.split(img_path)[-1])
+                osp.split(osp.split(img_path)[0])[-1], osp.split(img_path)[-1]
+            )
             proposals = proposals_list[file_name]
             data_info['proposals'] = proposals
 

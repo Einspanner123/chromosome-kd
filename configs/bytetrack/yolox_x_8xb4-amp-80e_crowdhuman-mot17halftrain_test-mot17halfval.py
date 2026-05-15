@@ -1,5 +1,5 @@
 _base_ = [
-    '../strongsort/yolox_x_8xb4-80e_crowdhuman-mot17halftrain_test-mot17halfval.py'  # noqa: E501
+    '../strongsort/yolox_x_8xb4-80e_crowdhuman-mot17halftrain_test-mot17halfval.py'
 ]
 
 # fp16 settings

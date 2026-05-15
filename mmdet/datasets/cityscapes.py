@@ -1,6 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-# Modified from https://github.com/facebookresearch/detectron2/blob/master/detectron2/data/datasets/cityscapes.py # noqa
-# and https://github.com/mcordts/cityscapesScripts/blob/master/cityscapesscripts/evaluation/evalInstanceLevelSemanticLabeling.py # noqa
+# Modified from https://github.com/facebookresearch/detectron2/blob/master/detectron2/data/datasets/cityscapes.py
+# and https://github.com/mcordts/cityscapesScripts/blob/master/cityscapesscripts/evaluation/evalInstanceLevelSemanticLabeling.py
 
 from typing import List
 
@@ -13,10 +13,26 @@ class CityscapesDataset(CocoDataset):
     """Dataset for Cityscapes."""
 
     METAINFO = {
-        'classes': ('person', 'rider', 'car', 'truck', 'bus', 'train',
-                    'motorcycle', 'bicycle'),
-        'palette': [(220, 20, 60), (255, 0, 0), (0, 0, 142), (0, 0, 70),
-                    (0, 60, 100), (0, 80, 100), (0, 0, 230), (119, 11, 32)]
+        'classes': (
+            'person',
+            'rider',
+            'car',
+            'truck',
+            'bus',
+            'train',
+            'motorcycle',
+            'bicycle',
+        ),
+        'palette': [
+            (220, 20, 60),
+            (255, 0, 0),
+            (0, 0, 142),
+            (0, 0, 70),
+            (0, 60, 100),
+            (0, 80, 100),
+            (0, 0, 230),
+            (119, 11, 32),
+        ],
     }
 
     def filter_data(self) -> List[dict]:
@@ -49,10 +65,12 @@ class CityscapesDataset(CocoDataset):
             img_id = data_info['img_id']
             width = data_info['width']
             height = data_info['height']
-            all_is_crowd = all([
-                instance['ignore_flag'] == 1
-                for instance in data_info['instances']
-            ])
+            all_is_crowd = all(
+                [
+                    instance['ignore_flag'] == 1
+                    for instance in data_info['instances']
+                ]
+            )
             if filter_empty_gt and (img_id not in ids_in_cat or all_is_crowd):
                 continue
             if min(width, height) >= min_size:

@@ -44,7 +44,7 @@ class NASFPN(BaseModule):
         start_level: int = 0,
         end_level: int = -1,
         norm_cfg: OptConfigType = None,
-        init_cfg: MultiConfig = dict(type='Caffe2Xavier', layer='Conv2d')
+        init_cfg: MultiConfig = dict(type='Caffe2Xavier', layer='Conv2d'),
     ) -> None:
         super().__init__(init_cfg=init_cfg)
         assert isinstance(in_channels, list)
@@ -74,7 +74,8 @@ class NASFPN(BaseModule):
                 out_channels,
                 1,
                 norm_cfg=norm_cfg,
-                act_cfg=None)
+                act_cfg=None,
+            )
             self.lateral_convs.append(l_conv)
 
         # add extra downsample layers (stride-2 pooling or conv)
@@ -82,9 +83,11 @@ class NASFPN(BaseModule):
         self.extra_downsamples = nn.ModuleList()
         for i in range(extra_levels):
             extra_conv = ConvModule(
-                out_channels, out_channels, 1, norm_cfg=norm_cfg, act_cfg=None)
+                out_channels, out_channels, 1, norm_cfg=norm_cfg, act_cfg=None
+            )
             self.extra_downsamples.append(
-                nn.Sequential(extra_conv, nn.MaxPool2d(2, 2)))
+                nn.Sequential(extra_conv, nn.MaxPool2d(2, 2))
+            )
 
         # add NAS FPN connections
         self.fpn_stages = ModuleList()
@@ -94,39 +97,46 @@ class NASFPN(BaseModule):
             stage['gp_64_4'] = GlobalPoolingCell(
                 in_channels=out_channels,
                 out_channels=out_channels,
-                out_norm_cfg=norm_cfg)
+                out_norm_cfg=norm_cfg,
+            )
             # sum(p4_1, p4) -> p4_2
             stage['sum_44_4'] = SumCell(
                 in_channels=out_channels,
                 out_channels=out_channels,
-                out_norm_cfg=norm_cfg)
+                out_norm_cfg=norm_cfg,
+            )
             # sum(p4_2, p3) -> p3_out
             stage['sum_43_3'] = SumCell(
                 in_channels=out_channels,
                 out_channels=out_channels,
-                out_norm_cfg=norm_cfg)
+                out_norm_cfg=norm_cfg,
+            )
             # sum(p3_out, p4_2) -> p4_out
             stage['sum_34_4'] = SumCell(
                 in_channels=out_channels,
                 out_channels=out_channels,
-                out_norm_cfg=norm_cfg)
+                out_norm_cfg=norm_cfg,
+            )
             # sum(p5, gp(p4_out, p3_out)) -> p5_out
             stage['gp_43_5'] = GlobalPoolingCell(with_out_conv=False)
             stage['sum_55_5'] = SumCell(
                 in_channels=out_channels,
                 out_channels=out_channels,
-                out_norm_cfg=norm_cfg)
+                out_norm_cfg=norm_cfg,
+            )
             # sum(p7, gp(p5_out, p4_2)) -> p7_out
             stage['gp_54_7'] = GlobalPoolingCell(with_out_conv=False)
             stage['sum_77_7'] = SumCell(
                 in_channels=out_channels,
                 out_channels=out_channels,
-                out_norm_cfg=norm_cfg)
+                out_norm_cfg=norm_cfg,
+            )
             # gp(p7_out, p5_out) -> p6_out
             stage['gp_75_6'] = GlobalPoolingCell(
                 in_channels=out_channels,
                 out_channels=out_channels,
-                out_norm_cfg=norm_cfg)
+                out_norm_cfg=norm_cfg,
+            )
             self.fpn_stages.append(stage)
 
     def forward(self, inputs: Tuple[Tensor]) -> tuple:

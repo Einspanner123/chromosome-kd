@@ -31,8 +31,12 @@ def get_uncertainty(mask_preds: Tensor, labels: Tensor) -> Tensor:
 
 
 def get_uncertain_point_coords_with_randomness(
-        mask_preds: Tensor, labels: Tensor, num_points: int,
-        oversample_ratio: float, importance_sample_ratio: float) -> Tensor:
+    mask_preds: Tensor,
+    labels: Tensor,
+    num_points: int,
+    oversample_ratio: float,
+    importance_sample_ratio: float,
+) -> Tensor:
     """Get ``num_points`` most uncertain points with random points during
     train.
 
@@ -60,7 +64,8 @@ def get_uncertain_point_coords_with_randomness(
     batch_size = mask_preds.shape[0]
     num_sampled = int(num_points * oversample_ratio)
     point_coords = torch.rand(
-        batch_size, num_sampled, 2, device=mask_preds.device)
+        batch_size, num_sampled, 2, device=mask_preds.device
+    )
     point_logits = point_sample(mask_preds, point_coords)
     # It is crucial to calculate uncertainty based on the sampled
     # prediction value for the points. Calculating uncertainties of the
@@ -75,14 +80,18 @@ def get_uncertain_point_coords_with_randomness(
     num_uncertain_points = int(importance_sample_ratio * num_points)
     num_random_points = num_points - num_uncertain_points
     idx = torch.topk(
-        point_uncertainties[:, 0, :], k=num_uncertain_points, dim=1)[1]
+        point_uncertainties[:, 0, :], k=num_uncertain_points, dim=1
+    )[1]
     shift = num_sampled * torch.arange(
-        batch_size, dtype=torch.long, device=mask_preds.device)
+        batch_size, dtype=torch.long, device=mask_preds.device
+    )
     idx += shift[:, None]
     point_coords = point_coords.view(-1, 2)[idx.view(-1), :].view(
-        batch_size, num_uncertain_points, 2)
+        batch_size, num_uncertain_points, 2
+    )
     if num_random_points > 0:
         rand_roi_coords = torch.rand(
-            batch_size, num_random_points, 2, device=mask_preds.device)
+            batch_size, num_random_points, 2, device=mask_preds.device
+        )
         point_coords = torch.cat((point_coords, rand_roi_coords), dim=1)
     return point_coords

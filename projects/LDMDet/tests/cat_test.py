@@ -76,8 +76,9 @@ for num_images, boxes_per_image in test_configs:
     print(f'\n测试配置: {num_images} 张图像，每张 {boxes_per_image} 个边界框')
     test_data = create_test_data(num_images, boxes_per_image)
 
-    current_time = benchmark_function(current_bbox2roi, test_data, 'current',
-                                      50)
+    current_time = benchmark_function(
+        current_bbox2roi, test_data, 'current', 50
+    )
     print(f'  当前实现平均耗时: {current_time:.4f} ms')
 
 print('\n=== 可能的优化方案 ===')
@@ -110,7 +111,8 @@ def optimized_bbox2roi_v2(bbox_list):
         total_boxes,
         box_dim + 1,
         dtype=bbox_list[0].dtype,
-        device=bbox_list[0].device)
+        device=bbox_list[0].device,
+    )
 
     start_idx = 0
     for img_id, bboxes in enumerate(bbox_list):
@@ -146,8 +148,9 @@ print('\n=== 实际性能对比 ===')
 test_data = create_test_data(5, 200)
 
 current_time = benchmark_function(current_bbox2roi, test_data, 'current', 50)
-optimized_time = benchmark_function(optimized_bbox2roi_v2, test_data,
-                                    'optimized', 50)
+optimized_time = benchmark_function(
+    optimized_bbox2roi_v2, test_data, 'optimized', 50
+)
 
 print(f'当前实现平均耗时: {current_time:.4f} ms')
 print(f'优化实现平均耗时: {optimized_time:.4f} ms')
@@ -181,7 +184,8 @@ def final_optimized_bbox2roi(bbox_list):
         total_boxes,
         box_dim + 1,
         dtype=bbox_list[0].dtype,
-        device=bbox_list[0].device)
+        device=bbox_list[0].device,
+    )
 
     # 填充数据
     start_idx = 0

@@ -25,14 +25,17 @@ class ReIDMetrics(BaseMetric):
             If prefix is not provided in the argument, self.default_prefix
             will be used instead. Default: None
     """
+
     allowed_metrics = ['mAP', 'CMC']
     default_prefix: Optional[str] = 'reid-metric'
 
-    def __init__(self,
-                 metric: Union[str, Sequence[str]] = 'mAP',
-                 metric_options: Optional[dict] = None,
-                 collect_device: str = 'cpu',
-                 prefix: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        metric: Union[str, Sequence[str]] = 'mAP',
+        metric_options: Optional[dict] = None,
+        collect_device: str = 'cpu',
+        prefix: Optional[str] = None,
+    ) -> None:
         super().__init__(collect_device, prefix)
 
         if isinstance(metric, list):
@@ -47,7 +50,8 @@ class ReIDMetrics(BaseMetric):
         self.metrics = metrics
 
         self.metric_options = metric_options or dict(
-            rank_list=[1, 5, 10, 20], max_rank=20)
+            rank_list=[1, 5, 10, 20], max_rank=20
+        )
         for rank in self.metric_options['rank_list']:
             assert 1 <= rank <= self.metric_options['max_rank']
 
@@ -69,7 +73,8 @@ class ReIDMetrics(BaseMetric):
             assert isinstance(gt_label['label'], torch.Tensor)
             result = dict(
                 pred_feature=pred_feature.data.cpu(),
-                gt_label=gt_label['label'].cpu())
+                gt_label=gt_label['label'].cpu(),
+            )
             self.results.append(result)
 
     def compute_metrics(self, results: list) -> dict:
@@ -99,7 +104,7 @@ class ReIDMetrics(BaseMetric):
 
         all_cmc = []
         all_AP = []
-        num_valid_q = 0.
+        num_valid_q = 0.0
         for q_idx in range(n):
             # remove self
             raw_cmc = matches[q_idx][1:]
@@ -111,19 +116,20 @@ class ReIDMetrics(BaseMetric):
             cmc = raw_cmc.cumsum()
             cmc[cmc > 1] = 1
 
-            all_cmc.append(cmc[:self.metric_options['max_rank']])
-            num_valid_q += 1.
+            all_cmc.append(cmc[: self.metric_options['max_rank']])
+            num_valid_q += 1.0
 
             # compute average precision
             num_rel = raw_cmc.sum()
             tmp_cmc = raw_cmc.cumsum()
-            tmp_cmc = [x / (i + 1.) for i, x in enumerate(tmp_cmc)]
+            tmp_cmc = [x / (i + 1.0) for i, x in enumerate(tmp_cmc)]
             tmp_cmc = np.asarray(tmp_cmc) * raw_cmc
             AP = tmp_cmc.sum() / num_rel
             all_AP.append(AP)
 
-        assert num_valid_q > 0, \
+        assert num_valid_q > 0, (
             'Error: all query identities do not appear in gallery'
+        )
 
         all_cmc = np.asarray(all_cmc)
         all_cmc = all_cmc.sum(0) / num_valid_q

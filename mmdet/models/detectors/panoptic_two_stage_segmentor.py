@@ -21,18 +21,19 @@ class TwoStagePanopticSegmentor(TwoStageDetector):
     """
 
     def __init__(
-            self,
-            backbone: ConfigType,
-            neck: OptConfigType = None,
-            rpn_head: OptConfigType = None,
-            roi_head: OptConfigType = None,
-            train_cfg: OptConfigType = None,
-            test_cfg: OptConfigType = None,
-            data_preprocessor: OptConfigType = None,
-            init_cfg: OptMultiConfig = None,
-            # for panoptic segmentation
-            semantic_head: OptConfigType = None,
-            panoptic_fusion_head: OptConfigType = None) -> None:
+        self,
+        backbone: ConfigType,
+        neck: OptConfigType = None,
+        rpn_head: OptConfigType = None,
+        roi_head: OptConfigType = None,
+        train_cfg: OptConfigType = None,
+        test_cfg: OptConfigType = None,
+        data_preprocessor: OptConfigType = None,
+        init_cfg: OptMultiConfig = None,
+        # for panoptic segmentation
+        semantic_head: OptConfigType = None,
+        panoptic_fusion_head: OptConfigType = None,
+    ) -> None:
         super().__init__(
             backbone=backbone,
             neck=neck,
@@ -41,7 +42,8 @@ class TwoStagePanopticSegmentor(TwoStageDetector):
             train_cfg=train_cfg,
             test_cfg=test_cfg,
             data_preprocessor=data_preprocessor,
-            init_cfg=init_cfg)
+            init_cfg=init_cfg,
+        )
 
         if semantic_head is not None:
             self.semantic_head = MODELS.build(semantic_head)
@@ -52,26 +54,32 @@ class TwoStagePanopticSegmentor(TwoStageDetector):
             panoptic_fusion_head_.update(test_cfg=panoptic_cfg)
             self.panoptic_fusion_head = MODELS.build(panoptic_fusion_head_)
 
-            self.num_things_classes = self.panoptic_fusion_head.\
-                num_things_classes
-            self.num_stuff_classes = self.panoptic_fusion_head.\
-                num_stuff_classes
+            self.num_things_classes = (
+                self.panoptic_fusion_head.num_things_classes
+            )
+            self.num_stuff_classes = (
+                self.panoptic_fusion_head.num_stuff_classes
+            )
             self.num_classes = self.panoptic_fusion_head.num_classes
 
     @property
     def with_semantic_head(self) -> bool:
         """bool: whether the detector has semantic head"""
-        return hasattr(self,
-                       'semantic_head') and self.semantic_head is not None
+        return (
+            hasattr(self, 'semantic_head') and self.semantic_head is not None
+        )
 
     @property
     def with_panoptic_fusion_head(self) -> bool:
         """bool: whether the detector has panoptic fusion head"""
-        return hasattr(self, 'panoptic_fusion_head') and \
-            self.panoptic_fusion_head is not None
+        return (
+            hasattr(self, 'panoptic_fusion_head')
+            and self.panoptic_fusion_head is not None
+        )
 
-    def loss(self, batch_inputs: Tensor,
-             batch_data_samples: SampleList) -> dict:
+    def loss(
+        self, batch_inputs: Tensor, batch_data_samples: SampleList
+    ) -> dict:
         """
         Args:
             batch_inputs (Tensor): Input images of shape (N, C, H, W).
@@ -89,16 +97,19 @@ class TwoStagePanopticSegmentor(TwoStageDetector):
 
         # RPN forward and loss
         if self.with_rpn:
-            proposal_cfg = self.train_cfg.get('rpn_proposal',
-                                              self.test_cfg.rpn)
+            proposal_cfg = self.train_cfg.get(
+                'rpn_proposal', self.test_cfg.rpn
+            )
             rpn_data_samples = copy.deepcopy(batch_data_samples)
             # set cat_id of gt_labels to 0 in RPN
             for data_sample in rpn_data_samples:
-                data_sample.gt_instances.labels = \
-                    torch.zeros_like(data_sample.gt_instances.labels)
+                data_sample.gt_instances.labels = torch.zeros_like(
+                    data_sample.gt_instances.labels
+                )
 
             rpn_losses, rpn_results_list = self.rpn_head.loss_and_predict(
-                x, rpn_data_samples, proposal_cfg=proposal_cfg)
+                x, rpn_data_samples, proposal_cfg=proposal_cfg
+            )
             # avoid get same name with roi_head loss
             keys = rpn_losses.keys()
             for key in list(keys):
@@ -114,8 +125,9 @@ class TwoStagePanopticSegmentor(TwoStageDetector):
                 data_sample.proposals for data_sample in batch_data_samples
             ]
 
-        roi_losses = self.roi_head.loss(x, rpn_results_list,
-                                        batch_data_samples)
+        roi_losses = self.roi_head.loss(
+            x, rpn_results_list, batch_data_samples
+        )
         losses.update(roi_losses)
 
         semantic_loss = self.semantic_head.loss(x, batch_data_samples)
@@ -123,10 +135,12 @@ class TwoStagePanopticSegmentor(TwoStageDetector):
 
         return losses
 
-    def predict(self,
-                batch_inputs: Tensor,
-                batch_data_samples: SampleList,
-                rescale: bool = True) -> SampleList:
+    def predict(
+        self,
+        batch_inputs: Tensor,
+        batch_data_samples: SampleList,
+        rescale: bool = True,
+    ) -> SampleList:
         """Predict results from a batch of inputs and data samples with post-
         processing.
 
@@ -153,27 +167,32 @@ class TwoStagePanopticSegmentor(TwoStageDetector):
         # If there are no pre-defined proposals, use RPN to get proposals
         if batch_data_samples[0].get('proposals', None) is None:
             rpn_results_list = self.rpn_head.predict(
-                x, batch_data_samples, rescale=False)
+                x, batch_data_samples, rescale=False
+            )
         else:
             rpn_results_list = [
                 data_sample.proposals for data_sample in batch_data_samples
             ]
 
         results_list = self.roi_head.predict(
-            x, rpn_results_list, batch_data_samples, rescale=rescale)
+            x, rpn_results_list, batch_data_samples, rescale=rescale
+        )
 
         seg_preds = self.semantic_head.predict(x, batch_img_metas, rescale)
 
         results_list = self.panoptic_fusion_head.predict(
-            results_list, seg_preds)
+            results_list, seg_preds
+        )
 
         batch_data_samples = self.add_pred_to_datasample(
-            batch_data_samples, results_list)
+            batch_data_samples, results_list
+        )
         return batch_data_samples
 
     # TODO the code has not been verified and needs to be refactored later.
-    def _forward(self, batch_inputs: Tensor,
-                 batch_data_samples: SampleList) -> tuple:
+    def _forward(
+        self, batch_inputs: Tensor, batch_data_samples: SampleList
+    ) -> tuple:
         """Network forward process. Usually includes backbone, neck and head
         forward without any post-processing.
 
@@ -195,7 +214,8 @@ class TwoStagePanopticSegmentor(TwoStageDetector):
                 data_samples.metainfo for data_samples in batch_data_samples
             ]
             rpn_results_list = self.rpn_head.predict_by_feat(
-                *rpn_outs, batch_img_metas=batch_img_metas, rescale=False)
+                *rpn_outs, batch_img_metas=batch_img_metas, rescale=False
+            )
         else:
             # TODO: Not checked currently.
             rpn_results_list = [
@@ -208,12 +228,13 @@ class TwoStagePanopticSegmentor(TwoStageDetector):
 
         # semantic_head
         sem_outs = self.semantic_head.forward(x)
-        results = results + (sem_outs['seg_preds'], )
+        results = results + (sem_outs['seg_preds'],)
 
         return results
 
-    def add_pred_to_datasample(self, data_samples: SampleList,
-                               results_list: List[PixelData]) -> SampleList:
+    def add_pred_to_datasample(
+        self, data_samples: SampleList, results_list: List[PixelData]
+    ) -> SampleList:
         """Add predictions to `DetDataSample`.
 
         Args:

@@ -8,7 +8,6 @@ from mmdet.models.task_modules.assigners import TopkHungarianAssigner
 
 
 class TestTopkHungarianAssigner(TestCase):
-
     def test_init(self):
         with self.assertRaises(AssertionError):
             TopkHungarianAssigner(topk=0)
@@ -27,8 +26,9 @@ class TestTopkHungarianAssigner(TestCase):
         gt_labels = torch.LongTensor([])
         img_meta = dict(img_shape=(10, 8))
 
-        assign_result = assigner.assign(pred_class_scores, pred_bboxes,
-                                        gt_bboxes, gt_labels, img_meta)
+        assign_result = assigner.assign(
+            pred_class_scores, pred_bboxes, gt_bboxes, gt_labels, img_meta
+        )
 
         self.assertTrue(torch.all(assign_result.gt_inds == 0))
         self.assertTrue(torch.all(assign_result.labels == -1))
@@ -36,14 +36,17 @@ class TestTopkHungarianAssigner(TestCase):
         # test with gt bboxes
         gt_bboxes = torch.FloatTensor([[0, 0, 5, 7], [3, 5, 7, 8]])
         gt_labels = torch.LongTensor([1, 20])
-        assign_result = assigner.assign(pred_class_scores, pred_bboxes,
-                                        gt_bboxes, gt_labels, img_meta)
+        assign_result = assigner.assign(
+            pred_class_scores, pred_bboxes, gt_bboxes, gt_labels, img_meta
+        )
 
         self.assertTrue(torch.all(assign_result.gt_inds > -1))
-        self.assertEqual((assign_result.gt_inds > 0).sum(),
-                         gt_bboxes.size(0) * topk)
-        self.assertEqual((assign_result.labels > -1).sum(),
-                         gt_bboxes.size(0) * topk)
+        self.assertEqual(
+            (assign_result.gt_inds > 0).sum(), gt_bboxes.size(0) * topk
+        )
+        self.assertEqual(
+            (assign_result.labels > -1).sum(), gt_bboxes.size(0) * topk
+        )
 
     def test_bbox_match_cost(self):
         num_classes = 80
@@ -59,26 +62,34 @@ class TestTopkHungarianAssigner(TestCase):
         # test IoUCost
         assigner = TopkHungarianAssigner(
             topk=topk,
-            iou_cost=ConfigDict(dict(type='IoUCost', iou_mode='iou')))
-        assign_result = assigner.assign(pred_class_scores, pred_bboxes,
-                                        gt_bboxes, gt_labels, img_meta)
+            iou_cost=ConfigDict(dict(type='IoUCost', iou_mode='iou')),
+        )
+        assign_result = assigner.assign(
+            pred_class_scores, pred_bboxes, gt_bboxes, gt_labels, img_meta
+        )
 
         self.assertTrue(torch.all(assign_result.gt_inds > -1))
-        self.assertEqual((assign_result.gt_inds > 0).sum(),
-                         gt_bboxes.size(0) * topk)
-        self.assertEqual((assign_result.labels > -1).sum(),
-                         gt_bboxes.size(0) * topk)
+        self.assertEqual(
+            (assign_result.gt_inds > 0).sum(), gt_bboxes.size(0) * topk
+        )
+        self.assertEqual(
+            (assign_result.labels > -1).sum(), gt_bboxes.size(0) * topk
+        )
 
         # test BBoxL1Cost
         assigner = TopkHungarianAssigner(
-            topk=4, reg_cost=ConfigDict(dict(type='BBoxL1Cost')))
-        assign_result = assigner.assign(pred_class_scores, pred_bboxes,
-                                        gt_bboxes, gt_labels, img_meta)
+            topk=4, reg_cost=ConfigDict(dict(type='BBoxL1Cost'))
+        )
+        assign_result = assigner.assign(
+            pred_class_scores, pred_bboxes, gt_bboxes, gt_labels, img_meta
+        )
         self.assertTrue(torch.all(assign_result.gt_inds > -1))
-        self.assertEqual((assign_result.gt_inds > 0).sum(),
-                         gt_bboxes.size(0) * topk)
-        self.assertEqual((assign_result.labels > -1).sum(),
-                         gt_bboxes.size(0) * topk)
+        self.assertEqual(
+            (assign_result.gt_inds > 0).sum(), gt_bboxes.size(0) * topk
+        )
+        self.assertEqual(
+            (assign_result.labels > -1).sum(), gt_bboxes.size(0) * topk
+        )
 
     def test_cls_match_cost(self):
         num_classes = 80
@@ -93,22 +104,30 @@ class TestTopkHungarianAssigner(TestCase):
 
         # test FocalLossCost
         assigner = TopkHungarianAssigner(
-            topk=topk, cls_cost=dict(type='FocalLossCost'))
-        assign_result = assigner.assign(pred_class_scores, pred_bboxes,
-                                        gt_bboxes, gt_labels, img_meta)
+            topk=topk, cls_cost=dict(type='FocalLossCost')
+        )
+        assign_result = assigner.assign(
+            pred_class_scores, pred_bboxes, gt_bboxes, gt_labels, img_meta
+        )
         self.assertTrue(torch.all(assign_result.gt_inds > -1))
-        self.assertEqual((assign_result.gt_inds > 0).sum(),
-                         gt_bboxes.size(0) * topk)
-        self.assertEqual((assign_result.labels > -1).sum(),
-                         gt_bboxes.size(0) * topk)
+        self.assertEqual(
+            (assign_result.gt_inds > 0).sum(), gt_bboxes.size(0) * topk
+        )
+        self.assertEqual(
+            (assign_result.labels > -1).sum(), gt_bboxes.size(0) * topk
+        )
 
         # test ClassificationCost
         assigner = TopkHungarianAssigner(
-            topk=4, cls_cost=dict(type='ClassificationCost'))
-        assign_result = assigner.assign(pred_class_scores, pred_bboxes,
-                                        gt_bboxes, gt_labels, img_meta)
+            topk=4, cls_cost=dict(type='ClassificationCost')
+        )
+        assign_result = assigner.assign(
+            pred_class_scores, pred_bboxes, gt_bboxes, gt_labels, img_meta
+        )
         self.assertTrue(torch.all(assign_result.gt_inds > -1))
-        self.assertEqual((assign_result.gt_inds > 0).sum(),
-                         gt_bboxes.size(0) * topk)
-        self.assertEqual((assign_result.labels > -1).sum(),
-                         gt_bboxes.size(0) * topk)
+        self.assertEqual(
+            (assign_result.gt_inds > 0).sum(), gt_bboxes.size(0) * topk
+        )
+        self.assertEqual(
+            (assign_result.labels > -1).sum(), gt_bboxes.size(0) * topk
+        )

@@ -24,7 +24,7 @@ class DropBlock(nn.Module):
     """
 
     def __init__(self, drop_prob, block_size, warmup_iters=2000, **kwargs):
-        super(DropBlock, self).__init__()
+        super().__init__()
         assert block_size % 2 == 1
         assert 0 < drop_prob <= 1
         assert warmup_iters >= 0
@@ -55,7 +55,8 @@ class DropBlock(nn.Module):
             input=mask,
             stride=(1, 1),
             kernel_size=(self.block_size, self.block_size),
-            padding=self.block_size // 2)
+            padding=self.block_size // 2,
+        )
         mask = 1 - mask
         x = x * mask * mask.numel() / (eps + mask.sum())
         return x
@@ -73,14 +74,20 @@ class DropBlock(nn.Module):
         Returns:
             float: The value of gamma.
         """
-        gamma = (self.drop_prob * feat_size[0] * feat_size[1])
-        gamma /= ((feat_size[0] - self.block_size + 1) *
-                  (feat_size[1] - self.block_size + 1))
-        gamma /= (self.block_size**2)
-        factor = (1.0 if self.iter_cnt > self.warmup_iters else self.iter_cnt /
-                  self.warmup_iters)
+        gamma = self.drop_prob * feat_size[0] * feat_size[1]
+        gamma /= (feat_size[0] - self.block_size + 1) * (
+            feat_size[1] - self.block_size + 1
+        )
+        gamma /= self.block_size**2
+        factor = (
+            1.0
+            if self.iter_cnt > self.warmup_iters
+            else self.iter_cnt / self.warmup_iters
+        )
         return gamma * factor
 
     def extra_repr(self):
-        return (f'drop_prob={self.drop_prob}, block_size={self.block_size}, '
-                f'warmup_iters={self.warmup_iters}')
+        return (
+            f'drop_prob={self.drop_prob}, block_size={self.block_size}, '
+            f'warmup_iters={self.warmup_iters}'
+        )

@@ -12,7 +12,6 @@ from mods.single_head import SingleDiffusionDetHead
 
 
 class TestSingleDiffusionDetHead(unittest.TestCase):
-
     def setUp(self):
         """测试前的初始化工作"""
         # 基础配置
@@ -51,8 +50,9 @@ class TestSingleDiffusionDetHead(unittest.TestCase):
         bboxes[..., 2:] = bboxes[..., :2] + torch.abs(bboxes[..., 2:]) + 1.0
 
         # Proposals: (Batch, Num_Boxes, C)
-        proposals = torch.randn(self.batch_size, self.num_boxes,
-                                self.feat_channels)
+        proposals = torch.randn(
+            self.batch_size, self.num_boxes, self.feat_channels
+        )
 
         # Time Embedding
         time_emb = torch.randn(self.batch_size, self.feat_channels * 4)
@@ -64,7 +64,6 @@ class TestSingleDiffusionDetHead(unittest.TestCase):
         feat_channels = self.feat_channels
 
         class MockPooler(nn.Module):
-
             def forward(self, feats, rois):
                 # rois shape: (N, 5)
                 num_rois = rois.shape[0]
@@ -79,7 +78,8 @@ class TestSingleDiffusionDetHead(unittest.TestCase):
 
         with torch.no_grad():
             class_logits, pred_bboxes, obj_features = self.model(
-                features, bboxes, proposals, pooler, time_emb)
+                features, bboxes, proposals, pooler, time_emb
+            )
 
         # 验证 Class Logits 形状
         expected_cls_dim = self.num_classes  # use_focal_loss=True
@@ -116,8 +116,9 @@ class TestSingleDiffusionDetHead(unittest.TestCase):
 
         # proposals 设为 None
         with torch.no_grad():
-            class_logits, pred_bboxes, _ = self.model(features, bboxes, None,
-                                                      pooler, time_emb)
+            class_logits, pred_bboxes, _ = self.model(
+                features, bboxes, None, pooler, time_emb
+            )
 
         self.assertEqual(class_logits.shape[0], self.batch_size)
 

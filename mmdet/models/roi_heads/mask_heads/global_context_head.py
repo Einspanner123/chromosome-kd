@@ -45,7 +45,8 @@ class GlobalContextHead(BaseModule):
         norm_cfg: OptConfigType = None,
         conv_to_res: bool = False,
         init_cfg: MultiConfig = dict(
-            type='Normal', std=0.01, override=dict(name='fc'))
+            type='Normal', std=0.01, override=dict(name='fc')
+        ),
     ) -> None:
         super().__init__(init_cfg=init_cfg)
         self.num_convs = num_convs
@@ -66,7 +67,8 @@ class GlobalContextHead(BaseModule):
                 self.conv_out_channels,
                 num_res_blocks,
                 conv_cfg=self.conv_cfg,
-                norm_cfg=self.norm_cfg)
+                norm_cfg=self.norm_cfg,
+            )
             self.num_convs = num_res_blocks
         else:
             self.convs = nn.ModuleList()
@@ -79,7 +81,9 @@ class GlobalContextHead(BaseModule):
                         3,
                         padding=1,
                         conv_cfg=self.conv_cfg,
-                        norm_cfg=self.norm_cfg))
+                        norm_cfg=self.norm_cfg,
+                    )
+                )
 
         self.pool = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Linear(conv_out_channels, num_classes)

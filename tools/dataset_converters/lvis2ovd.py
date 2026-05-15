@@ -17,18 +17,19 @@ def lvis2ovd(args):
         data = [json.loads(d) for d in f]
     for i in range(len(data)):
         instance = [
-            inst for inst in data[i]['detection']['instances']
+            inst
+            for inst in data[i]['detection']['instances']
             if inst['label'] in base_class_ids
         ]
         data[i]['detection']['instances'] = instance
     with jsonlines.open(
-            ann_path + 'lvis_v1_train_od_norare.json', mode='w') as writer:
+        ann_path + 'lvis_v1_train_od_norare.json', mode='w'
+    ) as writer:
         writer.write_all(data)
 
     label_map = json.load(open(ann_path + 'lvis_v1_label_map.json'))
     label_map = {
-        k: v
-        for k, v in label_map.items() if int(k) in base_class_ids
+        k: v for k, v in label_map.items() if int(k) in base_class_ids
     }
     json.dump(label_map, open(ann_path + 'lvis_v1_label_map_norare.json', 'w'))
 

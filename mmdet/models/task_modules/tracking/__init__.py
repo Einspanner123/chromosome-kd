@@ -6,6 +6,9 @@ from .kalman_filter import KalmanFilter
 from .similarity import embed_similarity
 
 __all__ = [
-    'KalmanFilter', 'InterpolateTracklets', 'embed_similarity',
-    'AppearanceFreeLink', 'CameraMotionCompensation'
+    'AppearanceFreeLink',
+    'CameraMotionCompensation',
+    'InterpolateTracklets',
+    'KalmanFilter',
+    'embed_similarity',
 ]

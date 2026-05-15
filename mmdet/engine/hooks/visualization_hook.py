@@ -50,14 +50,16 @@ class DetVisualizationHook(Hook):
             corresponding backend. Defaults to None.
     """
 
-    def __init__(self,
-                 draw: bool = False,
-                 interval: int = 50,
-                 score_thr: float = 0.3,
-                 show: bool = False,
-                 wait_time: float = 0.,
-                 test_out_dir: Optional[str] = None,
-                 backend_args: dict = None):
+    def __init__(
+        self,
+        draw: bool = False,
+        interval: int = 50,
+        score_thr: float = 0.3,
+        show: bool = False,
+        wait_time: float = 0.0,
+        test_out_dir: Optional[str] = None,
+        backend_args: dict = None,
+    ):
         self._visualizer: Visualizer = Visualizer.get_current_instance()
         self.interval = interval
         self.score_thr = score_thr
@@ -65,10 +67,12 @@ class DetVisualizationHook(Hook):
         if self.show:
             # No need to think about vis backends.
             self._visualizer._vis_backends = {}
-            warnings.warn('The show is True, it means that only '
-                          'the prediction results are visualized '
-                          'without storing data, so vis_backends '
-                          'needs to be excluded.')
+            warnings.warn(
+                'The show is True, it means that only '
+                'the prediction results are visualized '
+                'without storing data, so vis_backends '
+                'needs to be excluded.'
+            )
 
         self.wait_time = wait_time
         self.backend_args = backend_args
@@ -76,8 +80,13 @@ class DetVisualizationHook(Hook):
         self.test_out_dir = test_out_dir
         self._test_index = 0
 
-    def after_val_iter(self, runner: Runner, batch_idx: int, data_batch: dict,
-                       outputs: Sequence[DetDataSample]) -> None:
+    def after_val_iter(
+        self,
+        runner: Runner,
+        batch_idx: int,
+        data_batch: dict,
+        outputs: Sequence[DetDataSample],
+    ) -> None:
         """Run after every ``self.interval`` validation iterations.
 
         Args:
@@ -107,10 +116,16 @@ class DetVisualizationHook(Hook):
                 show=self.show,
                 wait_time=self.wait_time,
                 pred_score_thr=self.score_thr,
-                step=total_curr_iter)
+                step=total_curr_iter,
+            )
 
-    def after_test_iter(self, runner: Runner, batch_idx: int, data_batch: dict,
-                        outputs: Sequence[DetDataSample]) -> None:
+    def after_test_iter(
+        self,
+        runner: Runner,
+        batch_idx: int,
+        data_batch: dict,
+        outputs: Sequence[DetDataSample],
+    ) -> None:
         """Run after every testing iterations.
 
         Args:
@@ -124,8 +139,9 @@ class DetVisualizationHook(Hook):
             return
 
         if self.test_out_dir is not None:
-            self.test_out_dir = osp.join(runner.work_dir, runner.timestamp,
-                                         self.test_out_dir)
+            self.test_out_dir = osp.join(
+                runner.work_dir, runner.timestamp, self.test_out_dir
+            )
             mkdir_or_exist(self.test_out_dir)
 
         for data_sample in outputs:
@@ -148,7 +164,8 @@ class DetVisualizationHook(Hook):
                 wait_time=self.wait_time,
                 pred_score_thr=self.score_thr,
                 out_file=out_file,
-                step=self._test_index)
+                step=self._test_index,
+            )
 
 
 @HOOKS.register_module()
@@ -183,14 +200,16 @@ class TrackVisualizationHook(Hook):
             Defaults to ``None``.
     """
 
-    def __init__(self,
-                 draw: bool = False,
-                 frame_interval: int = 30,
-                 score_thr: float = 0.3,
-                 show: bool = False,
-                 wait_time: float = 0.,
-                 test_out_dir: Optional[str] = None,
-                 backend_args: dict = None) -> None:
+    def __init__(
+        self,
+        draw: bool = False,
+        frame_interval: int = 30,
+        score_thr: float = 0.3,
+        show: bool = False,
+        wait_time: float = 0.0,
+        test_out_dir: Optional[str] = None,
+        backend_args: dict = None,
+    ) -> None:
         self._visualizer: Visualizer = Visualizer.get_current_instance()
         self.frame_interval = frame_interval
         self.score_thr = score_thr
@@ -198,10 +217,12 @@ class TrackVisualizationHook(Hook):
         if self.show:
             # No need to think about vis backends.
             self._visualizer._vis_backends = {}
-            warnings.warn('The show is True, it means that only '
-                          'the prediction results are visualized '
-                          'without storing data, so vis_backends '
-                          'needs to be excluded.')
+            warnings.warn(
+                'The show is True, it means that only '
+                'the prediction results are visualized '
+                'without storing data, so vis_backends '
+                'needs to be excluded.'
+            )
 
         self.wait_time = wait_time
         self.backend_args = backend_args
@@ -209,8 +230,13 @@ class TrackVisualizationHook(Hook):
         self.test_out_dir = test_out_dir
         self.image_idx = 0
 
-    def after_val_iter(self, runner: Runner, batch_idx: int, data_batch: dict,
-                       outputs: Sequence[TrackDataSample]) -> None:
+    def after_val_iter(
+        self,
+        runner: Runner,
+        batch_idx: int,
+        data_batch: dict,
+        outputs: Sequence[TrackDataSample],
+    ) -> None:
         """Run after every ``self.interval`` validation iteration.
 
         Args:
@@ -222,16 +248,18 @@ class TrackVisualizationHook(Hook):
         if self.draw is False:
             return
 
-        assert len(outputs) == 1, \
+        assert len(outputs) == 1, (
             'only batch_size=1 is supported while validating.'
+        )
 
         sampler = runner.val_dataloader.sampler
         if isinstance(sampler, TrackImgSampler):
             if self.every_n_inner_iters(batch_idx, self.frame_interval):
                 total_curr_iter = runner.iter + batch_idx
                 track_data_sample = outputs[0]
-                self.visualize_single_image(track_data_sample[0],
-                                            total_curr_iter)
+                self.visualize_single_image(
+                    track_data_sample[0], total_curr_iter
+                )
         else:
             # video visualization DefaultSampler
             if self.every_n_inner_iters(batch_idx, 1):
@@ -240,15 +268,22 @@ class TrackVisualizationHook(Hook):
 
                 for frame_id in range(video_length):
                     if frame_id % self.frame_interval == 0:
-                        total_curr_iter = runner.iter + self.image_idx + \
-                                          frame_id
+                        total_curr_iter = (
+                            runner.iter + self.image_idx + frame_id
+                        )
                         img_data_sample = track_data_sample[frame_id]
-                        self.visualize_single_image(img_data_sample,
-                                                    total_curr_iter)
+                        self.visualize_single_image(
+                            img_data_sample, total_curr_iter
+                        )
                 self.image_idx = self.image_idx + video_length
 
-    def after_test_iter(self, runner: Runner, batch_idx: int, data_batch: dict,
-                        outputs: Sequence[TrackDataSample]) -> None:
+    def after_test_iter(
+        self,
+        runner: Runner,
+        batch_idx: int,
+        data_batch: dict,
+        outputs: Sequence[TrackDataSample],
+    ) -> None:
         """Run after every testing iteration.
 
         Args:
@@ -260,12 +295,14 @@ class TrackVisualizationHook(Hook):
         if self.draw is False:
             return
 
-        assert len(outputs) == 1, \
+        assert len(outputs) == 1, (
             'only batch_size=1 is supported while testing.'
+        )
 
         if self.test_out_dir is not None:
-            self.test_out_dir = osp.join(runner.work_dir, runner.timestamp,
-                                         self.test_out_dir)
+            self.test_out_dir = osp.join(
+                runner.work_dir, runner.timestamp, self.test_out_dir
+            )
             mkdir_or_exist(self.test_out_dir)
 
         sampler = runner.test_dataloader.sampler
@@ -282,12 +319,14 @@ class TrackVisualizationHook(Hook):
                 for frame_id in range(video_length):
                     if frame_id % self.frame_interval == 0:
                         img_data_sample = track_data_sample[frame_id]
-                        self.visualize_single_image(img_data_sample,
-                                                    self.image_idx + frame_id)
+                        self.visualize_single_image(
+                            img_data_sample, self.image_idx + frame_id
+                        )
                 self.image_idx = self.image_idx + video_length
 
-    def visualize_single_image(self, img_data_sample: DetDataSample,
-                               step: int) -> None:
+    def visualize_single_image(
+        self, img_data_sample: DetDataSample, step: int
+    ) -> None:
         """
         Args:
             img_data_sample (DetDataSample): single image output.
@@ -301,8 +340,9 @@ class TrackVisualizationHook(Hook):
         if self.test_out_dir is not None:
             video_name = img_path.split('/')[-3]
             mkdir_or_exist(osp.join(self.test_out_dir, video_name))
-            out_file = osp.join(self.test_out_dir, video_name,
-                                osp.basename(img_path))
+            out_file = osp.join(
+                self.test_out_dir, video_name, osp.basename(img_path)
+            )
 
         self._visualizer.add_datasample(
             osp.basename(img_path) if self.show else 'test_img',
@@ -312,7 +352,8 @@ class TrackVisualizationHook(Hook):
             wait_time=self.wait_time,
             pred_score_thr=self.score_thr,
             out_file=out_file,
-            step=step)
+            step=step,
+        )
 
 
 def draw_all_character(visualizer, characters, w):
@@ -324,14 +365,16 @@ def draw_all_character(visualizer, characters, w):
                 str(char),
                 positions=np.array([start_index, y_index]),
                 colors=(0, 0, 0),
-                font_families='monospace')
+                font_families='monospace',
+            )
             start_index += len(char) * 8
         else:
             visualizer.draw_texts(
                 str(char[0]),
                 positions=np.array([start_index, y_index]),
                 colors=char[1],
-                font_families='monospace')
+                font_families='monospace',
+            )
             start_index += len(char[0]) * 8
 
         if start_index > w - 10:
@@ -344,9 +387,13 @@ def draw_all_character(visualizer, characters, w):
 
 @HOOKS.register_module()
 class GroundingVisualizationHook(DetVisualizationHook):
-
-    def after_test_iter(self, runner: Runner, batch_idx: int, data_batch: dict,
-                        outputs: Sequence[DetDataSample]) -> None:
+    def after_test_iter(
+        self,
+        runner: Runner,
+        batch_idx: int,
+        data_batch: dict,
+        outputs: Sequence[DetDataSample],
+    ) -> None:
         """Run after every testing iterations.
 
         Args:
@@ -360,8 +407,9 @@ class GroundingVisualizationHook(DetVisualizationHook):
             return
 
         if self.test_out_dir is not None:
-            self.test_out_dir = osp.join(runner.work_dir, runner.timestamp,
-                                         self.test_out_dir)
+            self.test_out_dir = osp.join(
+                runner.work_dir, runner.timestamp, self.test_out_dir
+            )
             mkdir_or_exist(self.test_out_dir)
 
         for data_sample in outputs:
@@ -393,7 +441,8 @@ class GroundingVisualizationHook(DetVisualizationHook):
                 print(gt_labels, tokens_positive, gt_bboxes, img_path)
                 pred_instances = data_sample.pred_instances
                 pred_instances = pred_instances[
-                    pred_instances.scores > self.score_thr]
+                    pred_instances.scores > self.score_thr
+                ]
                 pred_labels = pred_instances.labels
                 pred_bboxes = pred_instances.bboxes
                 pred_scores = pred_instances.scores
@@ -417,14 +466,17 @@ class GroundingVisualizationHook(DetVisualizationHook):
 
                 for label, bbox, color in zip(gt_labels, gt_bboxes, colors):
                     self._visualizer.draw_bboxes(
-                        bbox, edge_colors=color, face_colors=color, alpha=0.3)
+                        bbox, edge_colors=color, face_colors=color, alpha=0.3
+                    )
                     self._visualizer.draw_bboxes(
-                        bbox, edge_colors=color, alpha=1)
+                        bbox, edge_colors=color, alpha=1
+                    )
 
                 drawn_img = self._visualizer.get_image()
 
-                new_image = np.ones(
-                    (100, img.shape[1], 3), dtype=np.uint8) * 255
+                new_image = (
+                    np.ones((100, img.shape[1], 3), dtype=np.uint8) * 255
+                )
                 self._visualizer.set_image(new_image)
 
                 if tokens_positive == -1:  # REC
@@ -452,21 +504,26 @@ class GroundingVisualizationHook(DetVisualizationHook):
                         characters.append([w, (0, 0, 0)])
                     start_index = end_index
 
-                drawn_text = draw_all_character(self._visualizer, characters,
-                                                img.shape[1])
+                drawn_text = draw_all_character(
+                    self._visualizer, characters, img.shape[1]
+                )
                 drawn_gt_img = np.concatenate((drawn_img, drawn_text), axis=0)
 
                 self._visualizer.set_image(img)
 
-                for label, bbox, color in zip(pred_labels, pred_bboxes,
-                                              colors):
+                for label, bbox, color in zip(
+                    pred_labels, pred_bboxes, colors
+                ):
                     self._visualizer.draw_bboxes(
-                        bbox, edge_colors=color, face_colors=color, alpha=0.3)
+                        bbox, edge_colors=color, face_colors=color, alpha=0.3
+                    )
                     self._visualizer.draw_bboxes(
-                        bbox, edge_colors=color, alpha=1)
+                        bbox, edge_colors=color, alpha=1
+                    )
                 print(pred_labels, pred_bboxes, pred_scores, colors)
                 areas = (pred_bboxes[:, 3] - pred_bboxes[:, 1]) * (
-                    pred_bboxes[:, 2] - pred_bboxes[:, 0])
+                    pred_bboxes[:, 2] - pred_bboxes[:, 0]
+                )
                 scales = _get_adaptive_scales(areas)
                 score = [str(round(s.item(), 2)) for s in pred_scores]
                 font_sizes = [int(13 * scales[i]) for i in range(len(scales))]
@@ -475,30 +532,39 @@ class GroundingVisualizationHook(DetVisualizationHook):
                     pred_bboxes[:, :2].int(),
                     colors=(255, 255, 255),
                     font_sizes=font_sizes,
-                    bboxes=[{
-                        'facecolor': 'black',
-                        'alpha': 0.8,
-                        'pad': 0.7,
-                        'edgecolor': 'none'
-                    }] * len(pred_bboxes))
+                    bboxes=[
+                        {
+                            'facecolor': 'black',
+                            'alpha': 0.8,
+                            'pad': 0.7,
+                            'edgecolor': 'none',
+                        }
+                    ]
+                    * len(pred_bboxes),
+                )
 
                 drawn_img = self._visualizer.get_image()
 
-                new_image = np.ones(
-                    (100, img.shape[1], 3), dtype=np.uint8) * 255
+                new_image = (
+                    np.ones((100, img.shape[1], 3), dtype=np.uint8) * 255
+                )
                 self._visualizer.set_image(new_image)
-                drawn_text = draw_all_character(self._visualizer, characters,
-                                                img.shape[1])
-                drawn_pred_img = np.concatenate((drawn_img, drawn_text),
-                                                axis=0)
-                drawn_img = np.concatenate((drawn_gt_img, drawn_pred_img),
-                                           axis=1)
+                drawn_text = draw_all_character(
+                    self._visualizer, characters, img.shape[1]
+                )
+                drawn_pred_img = np.concatenate(
+                    (drawn_img, drawn_text), axis=0
+                )
+                drawn_img = np.concatenate(
+                    (drawn_gt_img, drawn_pred_img), axis=1
+                )
 
                 if self.show:
                     self._visualizer.show(
                         drawn_img,
                         win_name=osp.basename(img_path),
-                        wait_time=self.wait_time)
+                        wait_time=self.wait_time,
+                    )
                 if out_file is not None:
                     mmcv.imwrite(drawn_img[..., ::-1], out_file)
                 else:
@@ -512,4 +578,5 @@ class GroundingVisualizationHook(DetVisualizationHook):
                     wait_time=self.wait_time,
                     pred_score_thr=self.score_thr,
                     out_file=out_file,
-                    step=self._test_index)
+                    step=self._test_index,
+                )

@@ -7,13 +7,14 @@ import torch.optim as optim
 from mmengine.optim.scheduler import _ParamScheduler
 from mmengine.testing import assert_allclose
 
-from mmdet.engine.schedulers import (QuadraticWarmupLR,
-                                     QuadraticWarmupMomentum,
-                                     QuadraticWarmupParamScheduler)
+from mmdet.engine.schedulers import (
+    QuadraticWarmupLR,
+    QuadraticWarmupMomentum,
+    QuadraticWarmupParamScheduler,
+)
 
 
 class ToyModel(torch.nn.Module):
-
     def __init__(self):
         super().__init__()
         self.conv1 = torch.nn.Conv2d(1, 1, 1)
@@ -24,7 +25,6 @@ class ToyModel(torch.nn.Module):
 
 
 class TestQuadraticWarmupScheduler(TestCase):
-
     def setUp(self):
         """Setup the model and optimizer which are used in every test method.
 
@@ -33,27 +33,26 @@ class TestQuadraticWarmupScheduler(TestCase):
         """
         self.model = ToyModel()
         self.optimizer = optim.SGD(
-            self.model.parameters(), lr=0.05, momentum=0.01, weight_decay=5e-4)
+            self.model.parameters(), lr=0.05, momentum=0.01, weight_decay=5e-4
+        )
 
-    def _test_scheduler_value(self,
-                              schedulers,
-                              targets,
-                              epochs=10,
-                              param_name='lr'):
+    def _test_scheduler_value(
+        self, schedulers, targets, epochs=10, param_name='lr'
+    ):
         if isinstance(schedulers, _ParamScheduler):
             schedulers = [schedulers]
         for epoch in range(epochs):
-            for param_group, target in zip(self.optimizer.param_groups,
-                                           targets):
+            for param_group, target in zip(
+                self.optimizer.param_groups, targets
+            ):
                 print(param_group[param_name])
                 assert_allclose(
                     target[epoch],
                     param_group[param_name],
-                    msg='{} is wrong in epoch {}: expected {}, got {}'.format(
-                        param_name, epoch, target[epoch],
-                        param_group[param_name]),
+                    msg=f'{param_name} is wrong in epoch {epoch}: expected {target[epoch]}, got {param_group[param_name]}',
                     atol=1e-5,
-                    rtol=0)
+                    rtol=0,
+                )
             [scheduler.step() for scheduler in schedulers]
 
     def test_quadratic_warmup_scheduler(self):
@@ -63,10 +62,12 @@ class TestQuadraticWarmupScheduler(TestCase):
         iters = 5
         warmup_factor = [pow((i + 1) / float(iters), 2) for i in range(iters)]
         single_targets = [x * 0.05 for x in warmup_factor] + [0.05] * (
-            epochs - iters)
+            epochs - iters
+        )
         targets = [single_targets, [x * epochs for x in single_targets]]
         scheduler = QuadraticWarmupParamScheduler(
-            self.optimizer, param_name='lr', end=iters)
+            self.optimizer, param_name='lr', end=iters
+        )
         self._test_scheduler_value(scheduler, targets, epochs)
 
     def test_quadratic_warmup_scheduler_convert_iterbased(self):
@@ -77,13 +78,12 @@ class TestQuadraticWarmupScheduler(TestCase):
         iters = end * epoch_length
         warmup_factor = [pow((i + 1) / float(iters), 2) for i in range(iters)]
         single_targets = [x * 0.05 for x in warmup_factor] + [0.05] * (
-            epochs * epoch_length - iters)
+            epochs * epoch_length - iters
+        )
         targets = [single_targets, [x * epochs for x in single_targets]]
         scheduler = QuadraticWarmupParamScheduler.build_iter_from_epoch(
-            self.optimizer,
-            param_name='lr',
-            end=end,
-            epoch_length=epoch_length)
+            self.optimizer, param_name='lr', end=end, epoch_length=epoch_length
+        )
         self._test_scheduler_value(scheduler, targets, epochs * epoch_length)
 
     def test_quadratic_warmup_lr(self):
@@ -91,7 +91,8 @@ class TestQuadraticWarmupScheduler(TestCase):
         iters = 5
         warmup_factor = [pow((i + 1) / float(iters), 2) for i in range(iters)]
         single_targets = [x * 0.05 for x in warmup_factor] + [0.05] * (
-            epochs - iters)
+            epochs - iters
+        )
         targets = [single_targets, [x * epochs for x in single_targets]]
         scheduler = QuadraticWarmupLR(self.optimizer, end=iters)
         self._test_scheduler_value(scheduler, targets, epochs)
@@ -101,8 +102,10 @@ class TestQuadraticWarmupScheduler(TestCase):
         iters = 5
         warmup_factor = [pow((i + 1) / float(iters), 2) for i in range(iters)]
         single_targets = [x * 0.01 for x in warmup_factor] + [0.01] * (
-            epochs - iters)
+            epochs - iters
+        )
         targets = [single_targets, [x * epochs for x in single_targets]]
         scheduler = QuadraticWarmupMomentum(self.optimizer, end=iters)
         self._test_scheduler_value(
-            scheduler, targets, epochs, param_name='momentum')
+            scheduler, targets, epochs, param_name='momentum'
+        )

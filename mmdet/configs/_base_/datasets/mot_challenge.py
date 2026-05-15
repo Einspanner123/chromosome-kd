@@ -1,13 +1,21 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from mmcv.transforms import (LoadImageFromFile, RandomResize,
-                             TransformBroadcaster)
+from mmcv.transforms import (
+    LoadImageFromFile,
+    RandomResize,
+    TransformBroadcaster,
+)
 
 from mmdet.datasets import MOTChallengeDataset
 from mmdet.datasets.samplers import TrackImgSampler
-from mmdet.datasets.transforms import (LoadTrackAnnotations, PackTrackInputs,
-                                       PhotoMetricDistortion, RandomCrop,
-                                       RandomFlip, Resize,
-                                       UniformRefFrameSample)
+from mmdet.datasets.transforms import (
+    LoadTrackAnnotations,
+    PackTrackInputs,
+    PhotoMetricDistortion,
+    RandomCrop,
+    RandomFlip,
+    Resize,
+    UniformRefFrameSample,
+)
 from mmdet.evaluation import MOTChallengeMetric
 
 # dataset settings
@@ -22,7 +30,8 @@ train_pipeline = [
         type=UniformRefFrameSample,
         num_ref_imgs=1,
         frame_range=10,
-        filter_key_img=True),
+        filter_key_img=True,
+    ),
     dict(
         type=TransformBroadcaster,
         share_random_params=True,
@@ -34,23 +43,27 @@ train_pipeline = [
                 scale=img_scale,
                 ratio_range=(0.8, 1.2),
                 keep_ratio=True,
-                clip_object_border=False),
-            dict(type=PhotoMetricDistortion)
-        ]),
+                clip_object_border=False,
+            ),
+            dict(type=PhotoMetricDistortion),
+        ],
+    ),
     dict(
         type=TransformBroadcaster,
         # different cropped positions for different frames
         share_random_params=False,
         transforms=[
             dict(type=RandomCrop, crop_size=img_scale, bbox_clip_border=False)
-        ]),
+        ],
+    ),
     dict(
         type=TransformBroadcaster,
         share_random_params=True,
         transforms=[
             dict(type=RandomFlip, prob=0.5),
-        ]),
-    dict(type=PackTrackInputs)
+        ],
+    ),
+    dict(type=PackTrackInputs),
 ]
 
 test_pipeline = [
@@ -59,9 +72,10 @@ test_pipeline = [
         transforms=[
             dict(type=LoadImageFromFile, backend_args=backend_args),
             dict(type=Resize, scale=img_scale, keep_ratio=True),
-            dict(type=LoadTrackAnnotations)
-        ]),
-    dict(type=PackTrackInputs)
+            dict(type=LoadTrackAnnotations),
+        ],
+    ),
+    dict(type=PackTrackInputs),
 ]
 
 # dataloader
@@ -76,8 +90,10 @@ train_dataloader = dict(
         visibility_thr=-1,
         ann_file='annotations/half-train_cocoformat.json',
         data_prefix=dict(img_path='train'),
-        metainfo=dict(classes=('pedestrian', )),
-        pipeline=train_pipeline))
+        metainfo=dict(classes=('pedestrian',)),
+        pipeline=train_pipeline,
+    ),
+)
 val_dataloader = dict(
     batch_size=1,
     num_workers=2,
@@ -92,10 +108,13 @@ val_dataloader = dict(
         ann_file='annotations/half-val_cocoformat.json',
         data_prefix=dict(img_path='train'),
         test_mode=True,
-        pipeline=test_pipeline))
+        pipeline=test_pipeline,
+    ),
+)
 test_dataloader = val_dataloader
 
 # evaluator
 val_evaluator = dict(
-    type=MOTChallengeMetric, metric=['HOTA', 'CLEAR', 'Identity'])
+    type=MOTChallengeMetric, metric=['HOTA', 'CLEAR', 'Identity']
+)
 test_evaluator = val_evaluator

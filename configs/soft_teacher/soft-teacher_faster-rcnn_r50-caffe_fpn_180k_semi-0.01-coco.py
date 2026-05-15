@@ -6,4 +6,5 @@ unlabeled_dataset = _base_.unlabeled_dataset
 labeled_dataset.ann_file = 'semi_anns/instances_train2017.1@1.json'
 unlabeled_dataset.ann_file = 'semi_anns/instances_train2017.1@1-unlabeled.json'
 train_dataloader = dict(
-    dataset=dict(datasets=[labeled_dataset, unlabeled_dataset]))
+    dataset=dict(datasets=[labeled_dataset, unlabeled_dataset])
+)

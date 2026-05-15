@@ -21,16 +21,19 @@ class AspectRatioBatchSampler(BatchSampler):
             its size would be less than ``batch_size``.
     """
 
-    def __init__(self,
-                 sampler: Sampler,
-                 batch_size: int,
-                 drop_last: bool = False) -> None:
+    def __init__(
+        self, sampler: Sampler, batch_size: int, drop_last: bool = False
+    ) -> None:
         if not isinstance(sampler, Sampler):
-            raise TypeError('sampler should be an instance of ``Sampler``, '
-                            f'but got {sampler}')
+            raise TypeError(
+                'sampler should be an instance of ``Sampler``, '
+                f'but got {sampler}'
+            )
         if not isinstance(batch_size, int) or batch_size <= 0:
-            raise ValueError('batch_size should be a positive integer value, '
-                             f'but got batch_size={batch_size}')
+            raise ValueError(
+                'batch_size should be a positive integer value, '
+                f'but got batch_size={batch_size}'
+            )
         self.sampler = sampler
         self.batch_size = batch_size
         self.drop_last = drop_last
@@ -50,8 +53,9 @@ class AspectRatioBatchSampler(BatchSampler):
                 del bucket[:]
 
         # yield the rest data and reset the bucket
-        left_data = self._aspect_ratio_buckets[0] + self._aspect_ratio_buckets[
-            1]
+        left_data = (
+            self._aspect_ratio_buckets[0] + self._aspect_ratio_buckets[1]
+        )
         self._aspect_ratio_buckets = [[] for _ in range(2)]
         while len(left_data) > 0:
             if len(left_data) <= self.batch_size:
@@ -59,8 +63,8 @@ class AspectRatioBatchSampler(BatchSampler):
                     yield left_data[:]
                 left_data = []
             else:
-                yield left_data[:self.batch_size]
-                left_data = left_data[self.batch_size:]
+                yield left_data[: self.batch_size]
+                left_data = left_data[self.batch_size :]
 
     def __len__(self) -> int:
         if self.drop_last:
@@ -103,8 +107,9 @@ class TrackAspectRatioBatchSampler(AspectRatioBatchSampler):
                 del bucket[:]
 
         # yield the rest data and reset the bucket
-        left_data = self._aspect_ratio_buckets[0] + self._aspect_ratio_buckets[
-            1]
+        left_data = (
+            self._aspect_ratio_buckets[0] + self._aspect_ratio_buckets[1]
+        )
         self._aspect_ratio_buckets = [[] for _ in range(2)]
         while len(left_data) > 0:
             if len(left_data) <= self.batch_size:
@@ -112,8 +117,8 @@ class TrackAspectRatioBatchSampler(AspectRatioBatchSampler):
                     yield left_data[:]
                 left_data = []
             else:
-                yield left_data[:self.batch_size]
-                left_data = left_data[self.batch_size:]
+                yield left_data[: self.batch_size]
+                left_data = left_data[self.batch_size :]
 
 
 @DATA_SAMPLERS.register_module()
@@ -131,14 +136,18 @@ class MultiDataAspectRatioBatchSampler(BatchSampler):
         its size would be less than ``batch_size``.
     """
 
-    def __init__(self,
-                 sampler: Sampler,
-                 batch_size: Sequence[int],
-                 num_datasets: int,
-                 drop_last: bool = True) -> None:
+    def __init__(
+        self,
+        sampler: Sampler,
+        batch_size: Sequence[int],
+        num_datasets: int,
+        drop_last: bool = True,
+    ) -> None:
         if not isinstance(sampler, Sampler):
-            raise TypeError('sampler should be an instance of ``Sampler``, '
-                            f'but got {sampler}')
+            raise TypeError(
+                'sampler should be an instance of ``Sampler``, '
+                f'but got {sampler}'
+            )
         self.sampler = sampler
         self.batch_size = batch_size
         self.num_datasets = num_datasets
@@ -169,8 +178,8 @@ class MultiDataAspectRatioBatchSampler(BatchSampler):
                         yield left_data[:]
                     left_data = []
                 else:
-                    yield left_data[:self.batch_size[i]]
-                    left_data = left_data[self.batch_size[i]:]
+                    yield left_data[: self.batch_size[i]]
+                    left_data = left_data[self.batch_size[i] :]
 
         self._buckets = [[] for _ in range(2 * self.num_datasets)]
 
@@ -188,6 +197,7 @@ class MultiDataAspectRatioBatchSampler(BatchSampler):
         else:
             lens = 0
             for i in range(self.num_datasets):
-                lens += (sizes[i] + self.batch_size[i] -
-                         1) // self.batch_size[i]
+                lens += (sizes[i] + self.batch_size[i] - 1) // self.batch_size[
+                    i
+                ]
             return lens

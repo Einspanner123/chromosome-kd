@@ -43,8 +43,7 @@ class AdaptiveAvgPool2d(nn.AdaptiveAvgPool2d):
             else:
                 output_size = [
                     v if v is not None else d
-                    for v, d in zip(output_size,
-                                    x.size()[-2:])
+                    for v, d in zip(output_size, x.size()[-2:])
                 ]
             output_size = [*x.shape[:2], *output_size]
             empty = NewEmptyTensorOp.apply(x, output_size)
@@ -54,7 +53,7 @@ class AdaptiveAvgPool2d(nn.AdaptiveAvgPool2d):
 
 
 # Modified from
-# https://github.com/facebookresearch/detectron2/blob/main/detectron2/layers/batch_norm.py#L13 # noqa
+# https://github.com/facebookresearch/detectron2/blob/main/detectron2/layers/batch_norm.py#L13
 @MODELS.register_module('FrozenBN')
 class FrozenBatchNorm2d(nn.Module):
     """BatchNorm2d where the batch statistics and the affine parameters are
@@ -104,8 +103,7 @@ class FrozenBatchNorm2d(nn.Module):
             )
 
     def __repr__(self):
-        return 'FrozenBatchNorm2d(num_features={}, eps={})'.format(
-            self.num_features, self.eps)
+        return f'FrozenBatchNorm2d(num_features={self.num_features}, eps={self.eps})'
 
     @classmethod
     def convert_frozen_batchnorm(cls, module):

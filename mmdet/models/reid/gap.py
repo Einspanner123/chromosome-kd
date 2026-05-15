@@ -16,7 +16,7 @@ class GlobalAveragePooling(BaseModule):
     """
 
     def __init__(self, kernel_size=None, stride=None):
-        super(GlobalAveragePooling, self).__init__()
+        super().__init__()
         if kernel_size is None and stride is None:
             self.gap = nn.AdaptiveAvgPool2d((1, 1))
         else:
@@ -25,16 +25,17 @@ class GlobalAveragePooling(BaseModule):
     def forward(self, inputs):
         if isinstance(inputs, tuple):
             outs = tuple([self.gap(x) for x in inputs])
-            outs = tuple([
-                out.view(x.size(0),
-                         torch.tensor(out.size()[1:]).prod())
-                for out, x in zip(outs, inputs)
-            ])
+            outs = tuple(
+                [
+                    out.view(x.size(0), torch.tensor(out.size()[1:]).prod())
+                    for out, x in zip(outs, inputs)
+                ]
+            )
         elif isinstance(inputs, torch.Tensor):
             outs = self.gap(inputs)
             outs = outs.view(
-                inputs.size(0),
-                torch.tensor(outs.size()[1:]).prod())
+                inputs.size(0), torch.tensor(outs.size()[1:]).prod()
+            )
         else:
             raise TypeError('neck inputs should be tuple or torch.tensor')
         return outs

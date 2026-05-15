@@ -7,8 +7,9 @@ import torch
 from torch import Tensor
 
 
-def imrenormalize(img: Union[Tensor, np.ndarray], img_norm_cfg: dict,
-                  new_img_norm_cfg: dict) -> Union[Tensor, np.ndarray]:
+def imrenormalize(
+    img: Union[Tensor, np.ndarray], img_norm_cfg: dict, new_img_norm_cfg: dict
+) -> Union[Tensor, np.ndarray]:
     """Re-normalize the image.
 
     Args:
@@ -32,8 +33,9 @@ def imrenormalize(img: Union[Tensor, np.ndarray], img_norm_cfg: dict,
         return _imrenormalize(img, img_norm_cfg, new_img_norm_cfg)
 
 
-def _imrenormalize(img: Union[Tensor, np.ndarray], img_norm_cfg: dict,
-                   new_img_norm_cfg: dict) -> Union[Tensor, np.ndarray]:
+def _imrenormalize(
+    img: Union[Tensor, np.ndarray], img_norm_cfg: dict, new_img_norm_cfg: dict
+) -> Union[Tensor, np.ndarray]:
     """Re-normalize the image."""
     img_norm_cfg = img_norm_cfg.copy()
     new_img_norm_cfg = new_img_norm_cfg.copy()

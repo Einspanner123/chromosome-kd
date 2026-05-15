@@ -7,6 +7,7 @@ Example:
     python tools/misc/get_image_metas.py ${CONFIG} \
     --out ${OUTPUT FILE NAME}
 """
+
 import argparse
 import csv
 import os.path as osp
@@ -24,17 +25,20 @@ def parse_args():
         '--dataset',
         default='val',
         choices=['train', 'val', 'test'],
-        help='Collect image metas from which dataset')
+        help='Collect image metas from which dataset',
+    )
     parser.add_argument(
         '--out',
         default='validation-image-metas.pkl',
         help='The output image metas file name. The save dir is in the '
-        'same directory as `dataset.ann_file` path')
+        'same directory as `dataset.ann_file` path',
+    )
     parser.add_argument(
         '--nproc',
         default=4,
         type=int,
-        help='Processes used for get image metas')
+        help='Processes used for get image metas',
+    )
     args = parser.parse_args()
     return args
 
@@ -42,7 +46,7 @@ def parse_args():
 def get_metas_from_csv_style_ann_file(ann_file):
     data_infos = []
     cp_filename = None
-    with open(ann_file, 'r') as f:
+    with open(ann_file) as f:
         reader = csv.reader(f)
         for i, line in enumerate(reader):
             if i == 0:
@@ -89,10 +93,13 @@ def main():
     # load config files
     cfg = Config.fromfile(args.config)
     dataloader_cfg = cfg.get(f'{args.dataset}_dataloader')
-    ann_file = osp.join(dataloader_cfg.dataset.data_root,
-                        dataloader_cfg.dataset.ann_file)
-    img_prefix = osp.join(dataloader_cfg.dataset.data_root,
-                          dataloader_cfg.dataset.data_prefix['img'])
+    ann_file = osp.join(
+        dataloader_cfg.dataset.data_root, dataloader_cfg.dataset.ann_file
+    )
+    img_prefix = osp.join(
+        dataloader_cfg.dataset.data_root,
+        dataloader_cfg.dataset.data_prefix['img'],
+    )
 
     print(f'{"-" * 5} Start Processing {"-" * 5}')
     if ann_file.endswith('csv'):
@@ -101,8 +108,9 @@ def main():
         data_infos = get_metas_from_txt_style_ann_file(ann_file)
     else:
         shuffix = ann_file.split('.')[-1]
-        raise NotImplementedError('File name must be csv or txt suffix but '
-                                  f'get {shuffix}')
+        raise NotImplementedError(
+            f'File name must be csv or txt suffix but get {shuffix}'
+        )
 
     print(f'Successfully load annotation file from {ann_file}')
     print(f'Processing {len(data_infos)} images...')

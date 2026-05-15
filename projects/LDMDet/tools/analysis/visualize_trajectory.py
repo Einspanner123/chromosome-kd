@@ -34,15 +34,18 @@ def visualize_trajectory(config_path, checkpoint_path, img_path, out_dir):
         # inputs 应该是一个 list of tensor
         data_for_preprocessor = dict(
             inputs=[data['inputs'].to('cuda:0')],
-            data_samples=[data['data_samples']])
+            data_samples=[data['data_samples']],
+        )
         preprocessed_data = model.data_preprocessor(
-            data_for_preprocessor, training=False)
+            data_for_preprocessor, training=False
+        )
         batch_inputs = preprocessed_data['inputs']
         data_samples = preprocessed_data['data_samples']
 
         # 调用我们新增的 return_trajectory 功能
         results = model.predict(
-            batch_inputs, data_samples, return_trajectory=True)
+            batch_inputs, data_samples, return_trajectory=True
+        )
         data_sample = results[0]
         trajectory = data_sample.metainfo['sampling_trajectory']
 
@@ -107,7 +110,8 @@ if __name__ == '__main__':
     parser.add_argument('checkpoint', help='Checkpoint file path')
     parser.add_argument('img', help='Image file path')
     parser.add_argument(
-        '--out-dir', default='trajectory_vis', help='Output directory')
+        '--out-dir', default='trajectory_vis', help='Output directory'
+    )
     args = parser.parse_args()
 
     visualize_trajectory(args.config, args.checkpoint, args.img, args.out_dir)

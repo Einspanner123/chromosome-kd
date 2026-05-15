@@ -131,4 +131,6 @@ print('✓ tensor.shape 和 tensor.size() 在功能上基本等价')
 print('✓ 主要区别在于访问方式：shape 是属性，size() 是方法')
 print('✓ size() 可以接受维度参数，而 shape 需要通过索引访问特定维度')
 print('✓ 在您的代码中，bboxes.size(0) 和 bboxes.shape[0] 完全等价')
-print('✓ 推荐在不需要特定维度参数时使用 shape，在需要特定维度时可以选择任一方式')
+print(
+    '✓ 推荐在不需要特定维度参数时使用 shape，在需要特定维度时可以选择任一方式'
+)

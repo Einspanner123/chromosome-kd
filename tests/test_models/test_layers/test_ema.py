@@ -11,17 +11,18 @@ from mmdet.models.layers import ExpMomentumEMA
 
 
 class TestEMA(TestCase):
-
     def test_exp_momentum_ema(self):
         model = nn.Sequential(nn.Conv2d(1, 5, kernel_size=3), nn.Linear(5, 10))
         # Test invalid gamma
-        with self.assertRaisesRegex(AssertionError,
-                                    'gamma must be greater than 0'):
+        with self.assertRaisesRegex(
+            AssertionError, 'gamma must be greater than 0'
+        ):
             ExpMomentumEMA(model, gamma=-1)
 
         # Test EMA
         model = torch.nn.Sequential(
-            torch.nn.Conv2d(1, 5, kernel_size=3), torch.nn.Linear(5, 10))
+            torch.nn.Conv2d(1, 5, kernel_size=3), torch.nn.Linear(5, 10)
+        )
         momentum = 0.1
         gamma = 4
 
@@ -39,7 +40,8 @@ class TestEMA(TestCase):
                 else:
                     m = (1 - momentum) * math.exp(-(1 + i) / gamma) + momentum
                     updated_averaged_params.append(
-                        (p_avg * (1 - m) + p * m).clone())
+                        (p_avg * (1 - m) + p * m).clone()
+                    )
             ema_model.update_parameters(model)
             averaged_params = updated_averaged_params
 
@@ -48,11 +50,14 @@ class TestEMA(TestCase):
 
     def test_exp_momentum_ema_update_buffer(self):
         model = nn.Sequential(
-            nn.Conv2d(1, 5, kernel_size=3), nn.BatchNorm2d(5, momentum=0.3),
-            nn.Linear(5, 10))
+            nn.Conv2d(1, 5, kernel_size=3),
+            nn.BatchNorm2d(5, momentum=0.3),
+            nn.Linear(5, 10),
+        )
         # Test invalid gamma
-        with self.assertRaisesRegex(AssertionError,
-                                    'gamma must be greater than 0'):
+        with self.assertRaisesRegex(
+            AssertionError, 'gamma must be greater than 0'
+        ):
             ExpMomentumEMA(model, gamma=-1)
 
         # Test EMA with momentum annealing.
@@ -60,7 +65,8 @@ class TestEMA(TestCase):
         gamma = 4
 
         ema_model = ExpMomentumEMA(
-            model, gamma=gamma, momentum=momentum, update_buffers=True)
+            model, gamma=gamma, momentum=momentum, update_buffers=True
+        )
         averaged_params = [
             torch.zeros_like(param)
             for param in itertools.chain(model.parameters(), model.buffers())
@@ -70,8 +76,10 @@ class TestEMA(TestCase):
         for i in range(n_updates):
             updated_averaged_params = []
             params = [
-                param for param in itertools.chain(model.parameters(),
-                                                   model.buffers())
+                param
+                for param in itertools.chain(
+                    model.parameters(), model.buffers()
+                )
                 if param.size() != torch.Size([])
             ]
             for p, p_avg in zip(params, averaged_params):
@@ -81,13 +89,16 @@ class TestEMA(TestCase):
                 else:
                     m = (1 - momentum) * math.exp(-(1 + i) / gamma) + momentum
                     updated_averaged_params.append(
-                        (p_avg * (1 - m) + p * m).clone())
+                        (p_avg * (1 - m) + p * m).clone()
+                    )
             ema_model.update_parameters(model)
             averaged_params = updated_averaged_params
 
         ema_params = [
-            param for param in itertools.chain(ema_model.module.parameters(),
-                                               ema_model.module.buffers())
+            param
+            for param in itertools.chain(
+                ema_model.module.parameters(), ema_model.module.buffers()
+            )
             if param.size() != torch.Size([])
         ]
         for p_target, p_ema in zip(averaged_params, ema_params):

@@ -1,7 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import json
-import os
-import sys
 from collections import defaultdict
 from itertools import combinations
 
@@ -36,7 +34,7 @@ def print_coco_structure(json_file: str):
 
     try:
         # 加载JSON文件
-        with open(json_file, 'r', encoding='utf-8') as f:
+        with open(json_file, encoding='utf-8') as f:
             coco_data = json.load(f)
 
         print('COCO JSON注释结构 (树状视图):')
@@ -49,7 +47,7 @@ def print_coco_structure(json_file: str):
     except json.JSONDecodeError:
         print(f'错误: {json_file} 不是有效的JSON文件')
     except Exception as e:
-        print(f'处理出错: {str(e)}')
+        print(f'处理出错: {e!s}')
 
 
 def visualize_bbox_sizes(json_file: str, save_path: str = None):
@@ -61,7 +59,7 @@ def visualize_bbox_sizes(json_file: str, save_path: str = None):
     """
     try:
         # Load JSON file
-        with open(json_file, 'r', encoding='utf-8') as f:
+        with open(json_file, encoding='utf-8') as f:
             coco_data = json.load(f)
 
         # Extract bounding boxes
@@ -166,7 +164,7 @@ def visualize_bbox_sizes(json_file: str, save_path: str = None):
     except json.JSONDecodeError:
         print(f'Error: {json_file} is not a valid JSON file')
     except Exception as e:
-        print(f'Error processing file: {str(e)}')
+        print(f'Error processing file: {e!s}')
 
 
 def visualize_center_distances(json_file: str, save_path: str = None):
@@ -179,13 +177,12 @@ def visualize_center_distances(json_file: str, save_path: str = None):
     """
     try:
         # Load JSON file
-        with open(json_file, 'r', encoding='utf-8') as f:
+        with open(json_file, encoding='utf-8') as f:
             coco_data = json.load(f)
 
         # Create category id to name mapping
         category_map = {
-            cat['id']: cat['name']
-            for cat in coco_data['categories']
+            cat['id']: cat['name'] for cat in coco_data['categories']
         }
 
         # Group annotations by image
@@ -199,11 +196,13 @@ def visualize_center_distances(json_file: str, save_path: str = None):
             category_id = annotation['category_id']
             category_name = category_map[category_id]
 
-            image_annotations[image_id].append({
-                'center': (center_x, center_y),
-                'category_id': category_id,
-                'category_name': category_name
-            })
+            image_annotations[image_id].append(
+                {
+                    'center': (center_x, center_y),
+                    'category_id': category_id,
+                    'category_name': category_name,
+                }
+            )
 
         if not image_annotations:
             print('No annotations found in the dataset')
@@ -218,8 +217,10 @@ def visualize_center_distances(json_file: str, save_path: str = None):
             # Calculate distances between all pairs in the same image
             for ann1, ann2 in combinations(annotations, 2):
                 # Calculate Euclidean distance
-                dist = np.sqrt((ann1['center'][0] - ann2['center'][0])**2 +
-                               (ann1['center'][1] - ann2['center'][1])**2)
+                dist = np.sqrt(
+                    (ann1['center'][0] - ann2['center'][0]) ** 2
+                    + (ann1['center'][1] - ann2['center'][1]) ** 2
+                )
 
                 all_distances.append(dist)
 
@@ -257,7 +258,8 @@ def visualize_center_distances(json_file: str, save_path: str = None):
                 same_category_data,
                 bins=30,
                 alpha=0.7,
-                label=categories_sampled)
+                label=categories_sampled,
+            )
             axes[0, 1].set_xlabel('Distance (pixels)')
             axes[0, 1].set_ylabel('Frequency')
             axes[0, 1].set_title('Same Category Distance Distribution')
@@ -270,7 +272,8 @@ def visualize_center_distances(json_file: str, save_path: str = None):
         labels = []
         if diff_category_distances['between_categories']:
             data_for_comparison.append(
-                diff_category_distances['between_categories'])
+                diff_category_distances['between_categories']
+            )
             labels.append('Between Categories')
         if same_category_distances:
             # Combine all same category distances
@@ -282,7 +285,8 @@ def visualize_center_distances(json_file: str, save_path: str = None):
 
         if data_for_comparison:
             axes[1, 0].hist(
-                data_for_comparison, bins=50, alpha=0.7, label=labels)
+                data_for_comparison, bins=50, alpha=0.7, label=labels
+            )
             axes[1, 0].set_xlabel('Distance (pixels)')
             axes[1, 0].set_ylabel('Frequency')
             axes[1, 0].set_title('Within vs Between Categories Distance')
@@ -294,8 +298,8 @@ def visualize_center_distances(json_file: str, save_path: str = None):
         if same_category_data:
             axes[1, 1].boxplot(
                 same_category_data,
-                labels=[cat[:10]
-                        for cat in categories_sampled])  # Truncate labels
+                labels=[cat[:10] for cat in categories_sampled],
+            )  # Truncate labels
             axes[1, 1].set_title('Distance Distribution by Category')
             axes[1, 1].set_ylabel('Distance (pixels)')
             axes[1, 1].tick_params(axis='x', rotation=45)
@@ -331,7 +335,7 @@ def visualize_center_distances(json_file: str, save_path: str = None):
     except json.JSONDecodeError:
         print(f'Error: {json_file} is not a valid JSON file')
     except Exception as e:
-        print(f'Error processing file: {str(e)}')
+        print(f'Error processing file: {e!s}')
 
 
 def main():

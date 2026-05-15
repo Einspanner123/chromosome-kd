@@ -5,9 +5,13 @@ import torch
 from torch import Tensor
 
 
-def preprocess_panoptic_gt(gt_labels: Tensor, gt_masks: Tensor,
-                           gt_semantic_seg: Tensor, num_things: int,
-                           num_stuff: int) -> Tuple[Tensor, Tensor]:
+def preprocess_panoptic_gt(
+    gt_labels: Tensor,
+    gt_masks: Tensor,
+    gt_semantic_seg: Tensor,
+    num_things: int,
+    num_stuff: int,
+) -> Tuple[Tensor, Tensor]:
     """Preprocess the ground truth for a image.
 
     Args:
@@ -34,7 +38,8 @@ def preprocess_panoptic_gt(gt_labels: Tensor, gt_masks: Tensor,
     """
     num_classes = num_things + num_stuff
     things_masks = gt_masks.to_tensor(
-        dtype=torch.bool, device=gt_labels.device)
+        dtype=torch.bool, device=gt_labels.device
+    )
 
     if gt_semantic_seg is None:
         masks = things_masks.long()
@@ -47,7 +52,8 @@ def preprocess_panoptic_gt(gt_labels: Tensor, gt_masks: Tensor,
         gt_semantic_seg,
         sorted=False,
         return_inverse=False,
-        return_counts=False)
+        return_counts=False,
+    )
     stuff_masks_list = []
     stuff_labels_list = []
     for label in semantic_labels:

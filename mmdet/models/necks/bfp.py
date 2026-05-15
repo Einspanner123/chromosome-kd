@@ -46,7 +46,8 @@ class BFP(BaseModule):
         conv_cfg: OptConfigType = None,
         norm_cfg: OptConfigType = None,
         init_cfg: OptMultiConfig = dict(
-            type='Xavier', layer='Conv2d', distribution='uniform')
+            type='Xavier', layer='Conv2d', distribution='uniform'
+        ),
     ) -> None:
         super().__init__(init_cfg=init_cfg)
         assert refine_type in [None, 'conv', 'non_local']
@@ -67,14 +68,16 @@ class BFP(BaseModule):
                 3,
                 padding=1,
                 conv_cfg=self.conv_cfg,
-                norm_cfg=self.norm_cfg)
+                norm_cfg=self.norm_cfg,
+            )
         elif self.refine_type == 'non_local':
             self.refine = NonLocal2d(
                 self.in_channels,
                 reduction=1,
                 use_scale=False,
                 conv_cfg=self.conv_cfg,
-                norm_cfg=self.norm_cfg)
+                norm_cfg=self.norm_cfg,
+            )
 
     def forward(self, inputs: Tuple[Tensor]) -> Tuple[Tensor]:
         """Forward function."""
@@ -86,10 +89,12 @@ class BFP(BaseModule):
         for i in range(self.num_levels):
             if i < self.refine_level:
                 gathered = F.adaptive_max_pool2d(
-                    inputs[i], output_size=gather_size)
+                    inputs[i], output_size=gather_size
+                )
             else:
                 gathered = F.interpolate(
-                    inputs[i], size=gather_size, mode='nearest')
+                    inputs[i], size=gather_size, mode='nearest'
+                )
             feats.append(gathered)
 
         bsf = sum(feats) / len(feats)

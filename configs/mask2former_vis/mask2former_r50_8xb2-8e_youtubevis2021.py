@@ -8,13 +8,17 @@ train_dataloader = dict(
     dataset=dict(
         data_root=data_root,
         dataset_version=dataset_version,
-        ann_file='annotations/youtube_vis_2021_train.json'))
+        ann_file='annotations/youtube_vis_2021_train.json',
+    )
+)
 
 val_dataloader = dict(
     dataset=dict(
         data_root=data_root,
         dataset_version=dataset_version,
-        ann_file='annotations/youtube_vis_2021_valid.json'))
+        ann_file='annotations/youtube_vis_2021_valid.json',
+    )
+)
 test_dataloader = val_dataloader
 
 # learning policy
@@ -27,11 +31,15 @@ param_scheduler = dict(
     milestones=[
         5500,
     ],
-    gamma=0.1)
+    gamma=0.1,
+)
 # runtime settings
 train_cfg = dict(
-    type='IterBasedTrainLoop', max_iters=max_iters, val_interval=8001)
+    type='IterBasedTrainLoop', max_iters=max_iters, val_interval=8001
+)
 
 default_hooks = dict(
     checkpoint=dict(
-        type='CheckpointHook', by_epoch=False, save_last=True, interval=500))
+        type='CheckpointHook', by_epoch=False, save_last=True, interval=500
+    )
+)

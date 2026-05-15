@@ -22,46 +22,75 @@ def parse_args():
     parser.add_argument(
         '--out',
         type=str,
-        help='dump predictions to a pickle file for offline evaluation')
+        help='dump predictions to a pickle file for offline evaluation',
+    )
     parser.add_argument(
         '--corruptions',
         type=str,
         nargs='+',
         default='benchmark',
         choices=[
-            'all', 'benchmark', 'noise', 'blur', 'weather', 'digital',
-            'holdout', 'None', 'gaussian_noise', 'shot_noise', 'impulse_noise',
-            'defocus_blur', 'glass_blur', 'motion_blur', 'zoom_blur', 'snow',
-            'frost', 'fog', 'brightness', 'contrast', 'elastic_transform',
-            'pixelate', 'jpeg_compression', 'speckle_noise', 'gaussian_blur',
-            'spatter', 'saturate'
+            'all',
+            'benchmark',
+            'noise',
+            'blur',
+            'weather',
+            'digital',
+            'holdout',
+            'None',
+            'gaussian_noise',
+            'shot_noise',
+            'impulse_noise',
+            'defocus_blur',
+            'glass_blur',
+            'motion_blur',
+            'zoom_blur',
+            'snow',
+            'frost',
+            'fog',
+            'brightness',
+            'contrast',
+            'elastic_transform',
+            'pixelate',
+            'jpeg_compression',
+            'speckle_noise',
+            'gaussian_blur',
+            'spatter',
+            'saturate',
         ],
-        help='corruptions')
+        help='corruptions',
+    )
     parser.add_argument(
         '--work-dir',
-        help='the directory to save the file containing evaluation metrics')
+        help='the directory to save the file containing evaluation metrics',
+    )
     parser.add_argument(
         '--severities',
         type=int,
         nargs='+',
         default=[0, 1, 2, 3, 4, 5],
-        help='corruption severity levels')
+        help='corruption severity levels',
+    )
     parser.add_argument(
         '--summaries',
         type=bool,
         default=False,
-        help='Print summaries for every corruption and severity')
+        help='Print summaries for every corruption and severity',
+    )
     parser.add_argument('--show', action='store_true', help='show results')
     parser.add_argument(
-        '--show-dir', help='directory where painted images will be saved')
+        '--show-dir', help='directory where painted images will be saved'
+    )
     parser.add_argument(
-        '--wait-time', type=float, default=2, help='the interval of show (s)')
+        '--wait-time', type=float, default=2, help='the interval of show (s)'
+    )
     parser.add_argument('--seed', type=int, default=None, help='random seed')
     parser.add_argument(
         '--launcher',
         choices=['none', 'pytorch', 'slurm', 'mpi'],
         default='none',
-        help='job launcher')
+        help='job launcher',
+    )
     parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument(
         '--final-prints',
@@ -69,13 +98,15 @@ def parse_args():
         nargs='+',
         choices=['P', 'mPC', 'rPC'],
         default='mPC',
-        help='corruption benchmark metric to print at the end')
+        help='corruption benchmark metric to print at the end',
+    )
     parser.add_argument(
         '--final-prints-aggregate',
         type=str,
         choices=['all', 'benchmark'],
         default='benchmark',
-        help='aggregate all results or only those for benchmark corruptions')
+        help='aggregate all results or only those for benchmark corruptions',
+    )
     parser.add_argument(
         '--cfg-options',
         nargs='+',
@@ -85,7 +116,8 @@ def parse_args():
         'be overwritten is a list, it should be like key="[a,b]" or key=a,b '
         'It also allows nested list/tuple values, e.g. key="[(a,b),(c,d)]" '
         'Note that the quotation marks are necessary and that no white space '
-        'is allowed.')
+        'is allowed.',
+    )
     args = parser.parse_args()
     if 'LOCAL_RANK' not in os.environ:
         os.environ['LOCAL_RANK'] = str(args.local_rank)
@@ -95,9 +127,10 @@ def parse_args():
 def main():
     args = parse_args()
 
-    assert args.out or args.show or args.show_dir, \
-        ('Please specify at least one operation (save or show the results) '
-         'with the argument "--out", "--show" or "show-dir"')
+    assert args.out or args.show or args.show_dir, (
+        'Please specify at least one operation (save or show the results) '
+        'with the argument "--out", "--show" or "show-dir"'
+    )
 
     # load config
     cfg = Config.fromfile(args.config)
@@ -111,8 +144,9 @@ def main():
         cfg.work_dir = args.work_dir
     elif cfg.get('work_dir', None) is None:
         # use config filename as default work_dir if cfg.work_dir is None
-        cfg.work_dir = osp.join('./work_dirs',
-                                osp.splitext(osp.basename(args.config))[0])
+        cfg.work_dir = osp.join(
+            './work_dirs', osp.splitext(osp.basename(args.config))[0]
+        )
 
     cfg.model.backbone.init_cfg.type = None
     cfg.test_dataloader.dataset.test_mode = True
@@ -132,37 +166,70 @@ def main():
 
     # add `DumpResults` dummy metric
     if args.out is not None:
-        assert args.out.endswith(('.pkl', '.pickle')), \
+        assert args.out.endswith(('.pkl', '.pickle')), (
             'The dump file must be a pkl file.'
+        )
         runner.test_evaluator.metrics.append(
-            DumpResults(out_file_path=args.out))
+            DumpResults(out_file_path=args.out)
+        )
 
     if 'all' in args.corruptions:
         corruptions = [
-            'gaussian_noise', 'shot_noise', 'impulse_noise', 'defocus_blur',
-            'glass_blur', 'motion_blur', 'zoom_blur', 'snow', 'frost', 'fog',
-            'brightness', 'contrast', 'elastic_transform', 'pixelate',
-            'jpeg_compression', 'speckle_noise', 'gaussian_blur', 'spatter',
-            'saturate'
+            'gaussian_noise',
+            'shot_noise',
+            'impulse_noise',
+            'defocus_blur',
+            'glass_blur',
+            'motion_blur',
+            'zoom_blur',
+            'snow',
+            'frost',
+            'fog',
+            'brightness',
+            'contrast',
+            'elastic_transform',
+            'pixelate',
+            'jpeg_compression',
+            'speckle_noise',
+            'gaussian_blur',
+            'spatter',
+            'saturate',
         ]
     elif 'benchmark' in args.corruptions:
         corruptions = [
-            'gaussian_noise', 'shot_noise', 'impulse_noise', 'defocus_blur',
-            'glass_blur', 'motion_blur', 'zoom_blur', 'snow', 'frost', 'fog',
-            'brightness', 'contrast', 'elastic_transform', 'pixelate',
-            'jpeg_compression'
+            'gaussian_noise',
+            'shot_noise',
+            'impulse_noise',
+            'defocus_blur',
+            'glass_blur',
+            'motion_blur',
+            'zoom_blur',
+            'snow',
+            'frost',
+            'fog',
+            'brightness',
+            'contrast',
+            'elastic_transform',
+            'pixelate',
+            'jpeg_compression',
         ]
     elif 'noise' in args.corruptions:
         corruptions = ['gaussian_noise', 'shot_noise', 'impulse_noise']
     elif 'blur' in args.corruptions:
         corruptions = [
-            'defocus_blur', 'glass_blur', 'motion_blur', 'zoom_blur'
+            'defocus_blur',
+            'glass_blur',
+            'motion_blur',
+            'zoom_blur',
         ]
     elif 'weather' in args.corruptions:
         corruptions = ['snow', 'frost', 'fog', 'brightness']
     elif 'digital' in args.corruptions:
         corruptions = [
-            'contrast', 'elastic_transform', 'pixelate', 'jpeg_compression'
+            'contrast',
+            'elastic_transform',
+            'pixelate',
+            'jpeg_compression',
         ]
     elif 'holdout' in args.corruptions:
         corruptions = ['speckle_noise', 'gaussian_blur', 'spatter', 'saturate']
@@ -178,8 +245,9 @@ def main():
         for sev_i, corruption_severity in enumerate(args.severities):
             # evaluate severity 0 (= no corruption) only once
             if corr_i > 0 and corruption_severity == 0:
-                aggregated_results[corruption][0] = \
-                    aggregated_results[corruptions[0]][0]
+                aggregated_results[corruption][0] = aggregated_results[
+                    corruptions[0]
+                ][0]
                 continue
 
             test_loader_cfg = copy.deepcopy(cfg.test_dataloader)
@@ -188,7 +256,8 @@ def main():
                 corruption_trans = dict(
                     type='Corrupt',
                     corruption=corruption,
-                    severity=corruption_severity)
+                    severity=corruption_severity,
+                )
                 # TODO: hard coded "1", we assume that the first step is
                 # loading images, which needs to be fixed in the future
                 test_loader_cfg.dataset.pipeline.insert(1, corruption_trans)
@@ -206,16 +275,20 @@ def main():
             eval_results = runner.test()
             if args.out:
                 eval_results_filename = (
-                    osp.splitext(args.out)[0] + '_results' +
-                    osp.splitext(args.out)[1])
-                aggregated_results[corruption][
-                    corruption_severity] = eval_results
+                    osp.splitext(args.out)[0]
+                    + '_results'
+                    + osp.splitext(args.out)[1]
+                )
+                aggregated_results[corruption][corruption_severity] = (
+                    eval_results
+                )
                 dump(aggregated_results, eval_results_filename)
 
     rank, _ = get_dist_info()
     if rank == 0:
         eval_results_filename = (
-            osp.splitext(args.out)[0] + '_results' + osp.splitext(args.out)[1])
+            osp.splitext(args.out)[0] + '_results' + osp.splitext(args.out)[1]
+        )
         # print final results
         print('\nAggregated results:')
         prints = args.final_prints
@@ -226,13 +299,15 @@ def main():
                 eval_results_filename,
                 dataset='voc',
                 prints=prints,
-                aggregate=aggregate)
+                aggregate=aggregate,
+            )
         else:
             get_results(
                 eval_results_filename,
                 dataset='coco',
                 prints=prints,
-                aggregate=aggregate)
+                aggregate=aggregate,
+            )
 
 
 if __name__ == '__main__':

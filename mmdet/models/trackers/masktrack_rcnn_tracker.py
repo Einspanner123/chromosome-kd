@@ -27,16 +27,23 @@ class MaskTrackRCNNTracker(BaseTracker):
                 computing match score.
     """
 
-    def __init__(self,
-                 match_weights: dict = dict(
-                     det_score=1.0, iou=2.0, det_label=10.0),
-                 **kwargs):
+    def __init__(
+        self,
+        match_weights: dict = dict(det_score=1.0, iou=2.0, det_label=10.0),
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.match_weights = match_weights
 
-    def get_match_score(self, bboxes: Tensor, labels: Tensor, scores: Tensor,
-                        prev_bboxes: Tensor, prev_labels: Tensor,
-                        similarity_logits: Tensor) -> Tensor:
+    def get_match_score(
+        self,
+        bboxes: Tensor,
+        labels: Tensor,
+        scores: Tensor,
+        prev_bboxes: Tensor,
+        prev_labels: Tensor,
+        similarity_logits: Tensor,
+    ) -> Tensor:
         """Get the match score.
 
         Args:
@@ -68,8 +75,9 @@ class MaskTrackRCNNTracker(BaseTracker):
         label_deltas = torch.cat((label_deltas_dummy, label_deltas), dim=1)
 
         match_score = similarity_scores.log()
-        match_score += self.match_weights['det_score'] * \
-            scores.view(-1, 1).log()
+        match_score += (
+            self.match_weights['det_score'] * scores.view(-1, 1).log()
+        )
         match_score += self.match_weights['iou'] * ious
         match_score += self.match_weights['det_label'] * label_deltas
 
@@ -94,12 +102,14 @@ class MaskTrackRCNNTracker(BaseTracker):
                     best_match_scores[match_id - 1] = match_score
         return ids, best_match_scores
 
-    def track(self,
-              model: torch.nn.Module,
-              feats: List[torch.Tensor],
-              data_sample: DetDataSample,
-              rescale=True,
-              **kwargs) -> InstanceData:
+    def track(
+        self,
+        model: torch.nn.Module,
+        feats: List[torch.Tensor],
+        data_sample: DetDataSample,
+        rescale=True,
+        **kwargs,
+    ) -> InstanceData:
         """Tracking forward function.
 
         Args:
@@ -139,17 +149,20 @@ class MaskTrackRCNNTracker(BaseTracker):
         rescaled_bboxes = bboxes.clone()
         if rescale:
             scale_factor = rescaled_bboxes.new_tensor(
-                metainfo['scale_factor']).repeat((1, 2))
+                metainfo['scale_factor']
+            ).repeat((1, 2))
             rescaled_bboxes = rescaled_bboxes * scale_factor
         roi_feats, _ = model.track_head.extract_roi_feats(
-            feats, [rescaled_bboxes])
+            feats, [rescaled_bboxes]
+        )
 
         if self.empty:
             num_new_tracks = bboxes.size(0)
             ids = torch.arange(
                 self.num_tracks,
                 self.num_tracks + num_new_tracks,
-                dtype=torch.long)
+                dtype=torch.long,
+            )
             self.num_tracks += num_new_tracks
         else:
             prev_bboxes = self.get('bboxes')
@@ -157,10 +170,16 @@ class MaskTrackRCNNTracker(BaseTracker):
             prev_roi_feats = self.get('roi_feats')
 
             similarity_logits = model.track_head.predict(
-                roi_feats, prev_roi_feats)
-            match_scores = self.get_match_score(bboxes, labels, scores,
-                                                prev_bboxes, prev_labels,
-                                                similarity_logits)
+                roi_feats, prev_roi_feats
+            )
+            match_scores = self.get_match_score(
+                bboxes,
+                labels,
+                scores,
+                prev_bboxes,
+                prev_labels,
+                similarity_logits,
+            )
             ids, _ = self.assign_ids(match_scores)
 
         valid_inds = ids > -1
@@ -178,7 +197,8 @@ class MaskTrackRCNNTracker(BaseTracker):
             scores=scores,
             masks=masks,
             roi_feats=roi_feats,
-            frame_ids=frame_id)
+            frame_ids=frame_id,
+        )
         # update pred_track_instances
         pred_track_instances.bboxes = bboxes
         pred_track_instances.masks = masks

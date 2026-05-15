@@ -34,11 +34,12 @@ class DABDETRHead(ConditionalDETRHead):
         if self.loss_cls.use_sigmoid:
             bias_init = bias_init_with_prob(0.01)
             nn.init.constant_(self.fc_cls.bias, bias_init)
-        constant_init(self.fc_reg.layers[-1], 0., bias=0.)
+        constant_init(self.fc_reg.layers[-1], 0.0, bias=0.0)
 
-    def forward(self, hidden_states: Tensor,
-                references: Tensor) -> Tuple[Tensor, Tensor]:
-        """"Forward function.
+    def forward(
+        self, hidden_states: Tensor, references: Tensor
+    ) -> Tuple[Tensor, Tensor]:
+        """ "Forward function.
 
         Args:
             hidden_states (Tensor): Features from transformer decoder. If
@@ -64,16 +65,19 @@ class DABDETRHead(ConditionalDETRHead):
         layers_cls_scores = self.fc_cls(hidden_states)
         references_before_sigmoid = inverse_sigmoid(references, eps=1e-3)
         tmp_reg_preds = self.fc_reg(hidden_states)
-        tmp_reg_preds[..., :references_before_sigmoid.
-                      size(-1)] += references_before_sigmoid
+        tmp_reg_preds[..., : references_before_sigmoid.size(-1)] += (
+            references_before_sigmoid
+        )
         layers_bbox_preds = tmp_reg_preds.sigmoid()
         return layers_cls_scores, layers_bbox_preds
 
-    def predict(self,
-                hidden_states: Tensor,
-                references: Tensor,
-                batch_data_samples: SampleList,
-                rescale: bool = True) -> InstanceList:
+    def predict(
+        self,
+        hidden_states: Tensor,
+        references: Tensor,
+        batch_data_samples: SampleList,
+        rescale: bool = True,
+    ) -> InstanceList:
         """Perform forward propagation of the detection head and predict
         detection results on the features of the upstream network. Over-write
         because img_metas are needed as inputs for bbox_head.
@@ -102,5 +106,6 @@ class DABDETRHead(ConditionalDETRHead):
         outs = self(last_layer_hidden_state, last_layer_reference)
 
         predictions = self.predict_by_feat(
-            *outs, batch_img_metas=batch_img_metas, rescale=rescale)
+            *outs, batch_img_metas=batch_img_metas, rescale=rescale
+        )
         return predictions

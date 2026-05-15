@@ -33,7 +33,8 @@ def plot_density():
         'Corrected Time-Shifted Schedule',
         fontsize=18,
         fontweight='bold',
-        pad=20)
+        pad=20,
+    )
     plt.xlabel('Inference Step Index (Normalized 0 to 1)', fontsize=14)
     plt.ylabel('Effective Time Step $t$ (0: Data, 1: Noise)', fontsize=14)
     plt.legend()
@@ -73,7 +74,8 @@ def plot_density():
         pad=20,
     )
     plt.xlabel(
-        'Effective Time Step $t$ (0: Data $\leftarrow$ 1: Noise)', fontsize=14)
+        r'Effective Time Step $t$ (0: Data $\leftarrow$ 1: Noise)', fontsize=14
+    )
     plt.xlim(-0.05, 1.05)
     plt.gca().invert_xaxis()  # 翻转坐标轴，符合从噪声到数据的直觉
     plt.grid(axis='x', linestyle='--', alpha=0.3)

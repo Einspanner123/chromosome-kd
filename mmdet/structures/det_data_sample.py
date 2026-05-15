@@ -32,8 +32,7 @@ class DetDataSample(BaseDataElement):
          >>> from mmdet.structures import DetDataSample
 
          >>> data_sample = DetDataSample()
-         >>> img_meta = dict(img_shape=(800, 1196),
-         ...                 pad_shape=(800, 1216))
+         >>> img_meta = dict(img_shape=(800, 1196), pad_shape=(800, 1216))
          >>> gt_instances = InstanceData(metainfo=img_meta)
          >>> gt_instances.bboxes = torch.rand((5, 4))
          >>> gt_instances.labels = torch.rand((5,))
@@ -73,14 +72,16 @@ class DetDataSample(BaseDataElement):
          >>> pred_track_instances.bboxes = torch.rand((5, 4))
          >>> pred_track_instances.scores = torch.rand((5,))
          >>> data_sample = DetDataSample(
-         ...    pred_track_instances=pred_track_instances)
+         ...     pred_track_instances=pred_track_instances
+         ... )
          >>> assert 'pred_track_instances' in data_sample
 
          >>> data_sample = DetDataSample()
          >>> gt_instances_data = dict(
-         ...                        bboxes=torch.rand(2, 4),
-         ...                        labels=torch.rand(2),
-         ...                        masks=np.random.rand(2, 2, 2))
+         ...     bboxes=torch.rand(2, 4),
+         ...     labels=torch.rand(2),
+         ...     masks=np.random.rand(2, 2, 2),
+         ... )
          >>> gt_instances = InstanceData(**gt_instances_data)
          >>> data_sample.gt_instances = gt_instances
          >>> assert 'gt_instances' in data_sample

@@ -19,9 +19,9 @@ class BaseTracker(metaclass=ABCMeta):
              Defaults to 10.
     """
 
-    def __init__(self,
-                 momentums: Optional[dict] = None,
-                 num_frames_retain: int = 10) -> None:
+    def __init__(
+        self, momentums: Optional[dict] = None, num_frames_retain: int = 10
+    ) -> None:
         super().__init__()
         if momentums is not None:
             assert isinstance(momentums, dict), 'momentums must be a dict'
@@ -59,7 +59,7 @@ class BaseTracker(metaclass=ABCMeta):
                 obligatory in the keys.
         """
         memo_items = [k for k, v in kwargs.items() if v is not None]
-        rm_items = [k for k in kwargs.keys() if k not in memo_items]
+        rm_items = [k for k in kwargs if k not in memo_items]
         for item in rm_items:
             kwargs.pop(item)
         if not hasattr(self, 'memo_items'):
@@ -73,8 +73,9 @@ class BaseTracker(metaclass=ABCMeta):
         assert 'frame_ids' in memo_items
         frame_id = int(kwargs['frame_ids'])
         if isinstance(kwargs['frame_ids'], int):
-            kwargs['frame_ids'] = torch.tensor([kwargs['frame_ids']] *
-                                               num_objs)
+            kwargs['frame_ids'] = torch.tensor(
+                [kwargs['frame_ids']] * num_objs
+            )
         # cur_frame_id = int(kwargs['frame_ids'][0])
         for k, v in kwargs.items():
             if len(v) != num_objs:
@@ -139,11 +140,13 @@ class BaseTracker(metaclass=ABCMeta):
             outs[k] = torch.cat(v, dim=0)
         return outs
 
-    def get(self,
-            item: str,
-            ids: Optional[list] = None,
-            num_samples: Optional[int] = None,
-            behavior: Optional[str] = None) -> torch.Tensor:
+    def get(
+        self,
+        item: str,
+        ids: Optional[list] = None,
+        num_samples: Optional[int] = None,
+        behavior: Optional[str] = None,
+    ) -> torch.Tensor:
         """Get the buffer of a specific item.
 
         Args:
@@ -183,11 +186,13 @@ class BaseTracker(metaclass=ABCMeta):
         """Tracking forward function."""
         pass
 
-    def crop_imgs(self,
-                  img: torch.Tensor,
-                  meta_info: dict,
-                  bboxes: torch.Tensor,
-                  rescale: bool = False) -> torch.Tensor:
+    def crop_imgs(
+        self,
+        img: torch.Tensor,
+        meta_info: dict,
+        bboxes: torch.Tensor,
+        rescale: bool = False,
+    ) -> torch.Tensor:
         """Crop the images according to some bounding boxes. Typically for re-
         identification sub-module.
 
@@ -209,7 +214,8 @@ class BaseTracker(metaclass=ABCMeta):
         if rescale:
             factor_x, factor_y = meta_info['scale_factor']
             bboxes[:, :4] *= torch.tensor(
-                [factor_x, factor_y, factor_x, factor_y]).to(bboxes.device)
+                [factor_x, factor_y, factor_x, factor_y]
+            ).to(bboxes.device)
         bboxes[:, 0] = torch.clamp(bboxes[:, 0], min=0, max=w - 1)
         bboxes[:, 1] = torch.clamp(bboxes[:, 1], min=0, max=h - 1)
         bboxes[:, 2] = torch.clamp(bboxes[:, 2], min=1, max=w)
@@ -228,7 +234,8 @@ class BaseTracker(metaclass=ABCMeta):
                     crop_img,
                     size=self.reid['img_scale'],
                     mode='bilinear',
-                    align_corners=False)
+                    align_corners=False,
+                )
             crop_imgs.append(crop_img)
 
         if len(crop_imgs) > 0:

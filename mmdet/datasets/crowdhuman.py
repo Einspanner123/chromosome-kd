@@ -30,9 +30,9 @@ class CrowdHumanDataset(BaseDetDataset):
     """
 
     METAINFO = {
-        'classes': ('person', ),
+        'classes': ('person',),
         # palette is a list of color tuples, which is used for visualization.
-        'palette': [(220, 20, 60)]
+        'palette': [(220, 20, 60)],
     }
 
     def __init__(self, data_root, ann_file, extra_ann_file=None, **kwargs):
@@ -53,7 +53,8 @@ class CrowdHumanDataset(BaseDetDataset):
                 print_log(
                     'extra_ann_file does not exist, prepare to collect '
                     'image height and width...',
-                    level=logging.INFO)
+                    level=logging.INFO,
+                )
                 self.extra_anns = {}
             else:
                 self.extra_ann_exist = True
@@ -65,9 +66,12 @@ class CrowdHumanDataset(BaseDetDataset):
 
         Returns:
             List[dict]: A list of annotation.
-        """  # noqa: E501
-        anno_strs = get_text(
-            self.ann_file, backend_args=self.backend_args).strip().split('\n')
+        """
+        anno_strs = (
+            get_text(self.ann_file, backend_args=self.backend_args)
+            .strip()
+            .split('\n')
+        )
         print_log('loading CrowdHuman annotation...', level=logging.INFO)
         data_list = []
         prog_bar = ProgressBar(len(anno_strs))
@@ -84,11 +88,13 @@ class CrowdHumanDataset(BaseDetDataset):
                 warnings.warn(
                     'Cache files can not be saved automatically! To speed up'
                     'loading the dataset, please manually generate the cache'
-                    ' file by file tools/misc/get_crowdhuman_id_hw.py')
+                    ' file by file tools/misc/get_crowdhuman_id_hw.py'
+                )
 
             print_log(
                 f'\nsave extra_ann_file in {self.data_root}',
-                level=logging.INFO)
+                level=logging.INFO,
+            )
 
         del self.extra_anns
         print_log('\nDone', level=logging.INFO)
@@ -104,8 +110,9 @@ class CrowdHumanDataset(BaseDetDataset):
             Union[dict, List[dict]]: Parsed annotation.
         """
         data_info = {}
-        img_path = osp.join(self.data_prefix['img'],
-                            f"{raw_data_info['ID']}.jpg")
+        img_path = osp.join(
+            self.data_prefix['img'], f'{raw_data_info["ID"]}.jpg'
+        )
         data_info['img_path'] = img_path
         data_info['img_id'] = raw_data_info['ID']
 
@@ -117,7 +124,8 @@ class CrowdHumanDataset(BaseDetDataset):
             del img, img_bytes
         else:
             data_info['height'], data_info['width'] = self.extra_anns[
-                raw_data_info['ID']]
+                raw_data_info['ID']
+            ]
 
         instances = []
         for i, ann in enumerate(raw_data_info['gtboxes']):
@@ -127,7 +135,8 @@ class CrowdHumanDataset(BaseDetDataset):
                 instance['ignore_flag'] = 1
             else:
                 instance['bbox_label'] = self.metainfo['classes'].index(
-                    ann['tag'])
+                    ann['tag']
+                )
                 instance['ignore_flag'] = 0
             if 'extra' in ann:
                 if 'ignore' in ann['extra']:
@@ -146,11 +155,17 @@ class CrowdHumanDataset(BaseDetDataset):
             instance['fbox'] = bbox
             hbox = ann['hbox']
             instance['hbox'] = [
-                hbox[0], hbox[1], hbox[0] + hbox[2], hbox[1] + hbox[3]
+                hbox[0],
+                hbox[1],
+                hbox[0] + hbox[2],
+                hbox[1] + hbox[3],
             ]
             vbox = ann['vbox']
             instance['vbox'] = [
-                vbox[0], vbox[1], vbox[0] + vbox[2], vbox[1] + vbox[3]
+                vbox[0],
+                vbox[1],
+                vbox[0] + vbox[2],
+                vbox[1] + vbox[3],
             ]
 
             instances.append(instance)

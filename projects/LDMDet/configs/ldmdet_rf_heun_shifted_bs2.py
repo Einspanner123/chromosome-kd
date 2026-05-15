@@ -9,12 +9,14 @@ model = dict(
         rf_schedule='shifted',  # 启用非线性 Shifted Schedule
         rf_shift=3.0,  # 数据端采样密度增强
         snr_scale=2.0,
-    ))
+    )
+)
 
 # 优化器配置
 optim_wrapper = dict(
     optimizer=dict(
-        type='AdamW', lr=0.00005, weight_decay=0.0001, _delete_=True),
+        type='AdamW', lr=0.00005, weight_decay=0.0001, _delete_=True
+    ),
     clip_grad=dict(max_norm=1.0, norm_type=2),
 )
 

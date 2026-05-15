@@ -32,7 +32,7 @@ def process_item(args, filename):
     path = osp.join(args.mdetr_anno_dir, filename)
     coco = COCO(path)
 
-    ids = list(sorted(coco.imgs.keys()))
+    ids = sorted(coco.imgs.keys())
 
     out_results = []
     for img_id in tqdm(ids):
@@ -64,9 +64,10 @@ def process_item(args, filename):
             if anno.get('iscrowd', False):
                 continue
             bbox_xyxy = [
-                x1, y1,
+                x1,
+                y1,
                 min(x1 + w, int(img_info['width'])),
-                min(y1 + h, int(img_info['height']))
+                min(y1 + h, int(img_info['height'])),
             ]
 
             tokens_positive = sorted(tokens_positive, key=lambda x: x[0])
@@ -78,12 +79,13 @@ def process_item(args, filename):
                 end_index = token[1]
                 if pre_end_index + 1 == start_index:
                     if caption[token[0] - 1] == ' ':
-                        phrase[
-                            -1] = phrase[-1] + ' ' + caption[token[0]:token[1]]
+                        phrase[-1] = (
+                            phrase[-1] + ' ' + caption[token[0] : token[1]]
+                        )
                     else:
-                        phrase.append(caption[token[0]:token[1]])
+                        phrase.append(caption[token[0] : token[1]])
                 else:
-                    phrase.append(caption[token[0]:token[1]])
+                    phrase.append(caption[token[0] : token[1]])
                 pre_end_index = end_index
 
             key = ' '.join(phrase)
@@ -92,7 +94,7 @@ def process_item(args, filename):
                 regions[key] = {
                     'bbox': bbox_xyxy,
                     'phrase': phrase,
-                    'tokens_positive': tokens_positive
+                    'tokens_positive': tokens_positive,
                 }
             else:
                 old_box = regions[key]['bbox']
@@ -107,9 +109,7 @@ def process_item(args, filename):
             'filename': file_name,
             'height': int(img_info['height']),
             'width': int(img_info['width']),
-            'grounding': {
-                'caption': caption
-            }
+            'grounding': {'caption': caption},
         }
 
         region_list = []
@@ -117,11 +117,13 @@ def process_item(args, filename):
             phrase = value['phrase']
             if len(phrase) == 1:
                 phrase = phrase[0]
-            region_list.append({
-                'bbox': value['bbox'],
-                'phrase': phrase,
-                'tokens_positive': value['tokens_positive']
-            })
+            region_list.append(
+                {
+                    'bbox': value['bbox'],
+                    'phrase': phrase,
+                    'tokens_positive': value['tokens_positive'],
+                }
+            )
         out_dict['grounding']['regions'] = region_list
         out_results.append(out_dict)
 

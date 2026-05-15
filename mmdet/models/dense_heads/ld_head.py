@@ -28,24 +28,33 @@ class LDHead(GFLHead):
             Distillation Loss (LD), T is the temperature for distillation.
     """
 
-    def __init__(self,
-                 num_classes: int,
-                 in_channels: int,
-                 loss_ld: ConfigType = dict(
-                     type='LocalizationDistillationLoss',
-                     loss_weight=0.25,
-                     T=10),
-                 **kwargs) -> dict:
+    def __init__(
+        self,
+        num_classes: int,
+        in_channels: int,
+        loss_ld: ConfigType = dict(
+            type='LocalizationDistillationLoss', loss_weight=0.25, T=10
+        ),
+        **kwargs,
+    ) -> dict:
 
         super().__init__(
-            num_classes=num_classes, in_channels=in_channels, **kwargs)
+            num_classes=num_classes, in_channels=in_channels, **kwargs
+        )
         self.loss_ld = MODELS.build(loss_ld)
 
-    def loss_by_feat_single(self, anchors: Tensor, cls_score: Tensor,
-                            bbox_pred: Tensor, labels: Tensor,
-                            label_weights: Tensor, bbox_targets: Tensor,
-                            stride: Tuple[int], soft_targets: Tensor,
-                            avg_factor: int):
+    def loss_by_feat_single(
+        self,
+        anchors: Tensor,
+        cls_score: Tensor,
+        bbox_pred: Tensor,
+        labels: Tensor,
+        label_weights: Tensor,
+        bbox_targets: Tensor,
+        stride: Tuple[int],
+        soft_targets: Tensor,
+        avg_factor: int,
+    ):
         """Calculate the loss of a single scale level based on the features
         extracted by the detection head.
 
@@ -76,13 +85,15 @@ class LDHead(GFLHead):
         """
         assert stride[0] == stride[1], 'h stride is not equal to w stride!'
         anchors = anchors.reshape(-1, 4)
-        cls_score = cls_score.permute(0, 2, 3,
-                                      1).reshape(-1, self.cls_out_channels)
-        bbox_pred = bbox_pred.permute(0, 2, 3,
-                                      1).reshape(-1, 4 * (self.reg_max + 1))
-        soft_targets = soft_targets.permute(0, 2, 3,
-                                            1).reshape(-1,
-                                                       4 * (self.reg_max + 1))
+        cls_score = cls_score.permute(0, 2, 3, 1).reshape(
+            -1, self.cls_out_channels
+        )
+        bbox_pred = bbox_pred.permute(0, 2, 3, 1).reshape(
+            -1, 4 * (self.reg_max + 1)
+        )
+        soft_targets = soft_targets.permute(0, 2, 3, 1).reshape(
+            -1, 4 * (self.reg_max + 1)
+        )
 
         bbox_targets = bbox_targets.reshape(-1, 4)
         labels = labels.reshape(-1)
@@ -90,8 +101,9 @@ class LDHead(GFLHead):
 
         # FG cat_id: [0, num_classes -1], BG cat_id: num_classes
         bg_class_ind = self.num_classes
-        pos_inds = ((labels >= 0)
-                    & (labels < bg_class_ind)).nonzero().squeeze(1)
+        pos_inds = (
+            ((labels >= 0) & (labels < bg_class_ind)).nonzero().squeeze(1)
+        )
         score = label_weights.new_zeros(labels.shape)
 
         if len(pos_inds) > 0:
@@ -104,40 +116,45 @@ class LDHead(GFLHead):
             weight_targets = weight_targets.max(dim=1)[0][pos_inds]
             pos_bbox_pred_corners = self.integral(pos_bbox_pred)
             pos_decode_bbox_pred = self.bbox_coder.decode(
-                pos_anchor_centers, pos_bbox_pred_corners)
+                pos_anchor_centers, pos_bbox_pred_corners
+            )
             pos_decode_bbox_targets = pos_bbox_targets / stride[0]
             score[pos_inds] = bbox_overlaps(
                 pos_decode_bbox_pred.detach(),
                 pos_decode_bbox_targets,
-                is_aligned=True)
+                is_aligned=True,
+            )
             pred_corners = pos_bbox_pred.reshape(-1, self.reg_max + 1)
             pos_soft_targets = soft_targets[pos_inds]
             soft_corners = pos_soft_targets.reshape(-1, self.reg_max + 1)
 
-            target_corners = self.bbox_coder.encode(pos_anchor_centers,
-                                                    pos_decode_bbox_targets,
-                                                    self.reg_max).reshape(-1)
+            target_corners = self.bbox_coder.encode(
+                pos_anchor_centers, pos_decode_bbox_targets, self.reg_max
+            ).reshape(-1)
 
             # regression loss
             loss_bbox = self.loss_bbox(
                 pos_decode_bbox_pred,
                 pos_decode_bbox_targets,
                 weight=weight_targets,
-                avg_factor=1.0)
+                avg_factor=1.0,
+            )
 
             # dfl loss
             loss_dfl = self.loss_dfl(
                 pred_corners,
                 target_corners,
                 weight=weight_targets[:, None].expand(-1, 4).reshape(-1),
-                avg_factor=4.0)
+                avg_factor=4.0,
+            )
 
             # ld loss
             loss_ld = self.loss_ld(
                 pred_corners,
                 soft_corners,
                 weight=weight_targets[:, None].expand(-1, 4).reshape(-1),
-                avg_factor=4.0)
+                avg_factor=4.0,
+            )
 
         else:
             loss_ld = bbox_pred.sum() * 0
@@ -147,14 +164,20 @@ class LDHead(GFLHead):
 
         # cls (qfl) loss
         loss_cls = self.loss_cls(
-            cls_score, (labels, score),
+            cls_score,
+            (labels, score),
             weight=label_weights,
-            avg_factor=avg_factor)
+            avg_factor=avg_factor,
+        )
 
         return loss_cls, loss_bbox, loss_dfl, loss_ld, weight_targets.sum()
 
-    def loss(self, x: List[Tensor], out_teacher: Tuple[Tensor],
-             batch_data_samples: SampleList) -> dict:
+    def loss(
+        self,
+        x: List[Tensor],
+        out_teacher: Tuple[Tensor],
+        batch_data_samples: SampleList,
+    ) -> dict:
         """
         Args:
             x (list[Tensor]): Features from FPN.
@@ -170,26 +193,32 @@ class LDHead(GFLHead):
             - proposal_list (list[Tensor]): Proposals of each image.
         """
         outputs = unpack_gt_instances(batch_data_samples)
-        batch_gt_instances, batch_gt_instances_ignore, batch_img_metas \
-            = outputs
+        batch_gt_instances, batch_gt_instances_ignore, batch_img_metas = (
+            outputs
+        )
 
         outs = self(x)
         soft_targets = out_teacher[1]
-        loss_inputs = outs + (batch_gt_instances, batch_img_metas,
-                              soft_targets)
+        loss_inputs = outs + (
+            batch_gt_instances,
+            batch_img_metas,
+            soft_targets,
+        )
         losses = self.loss_by_feat(
-            *loss_inputs, batch_gt_instances_ignore=batch_gt_instances_ignore)
+            *loss_inputs, batch_gt_instances_ignore=batch_gt_instances_ignore
+        )
 
         return losses
 
     def loss_by_feat(
-            self,
-            cls_scores: List[Tensor],
-            bbox_preds: List[Tensor],
-            batch_gt_instances: InstanceList,
-            batch_img_metas: List[dict],
-            soft_targets: List[Tensor],
-            batch_gt_instances_ignore: OptInstanceList = None) -> dict:
+        self,
+        cls_scores: List[Tensor],
+        bbox_preds: List[Tensor],
+        batch_gt_instances: InstanceList,
+        batch_img_metas: List[dict],
+        soft_targets: List[Tensor],
+        batch_gt_instances_ignore: OptInstanceList = None,
+    ) -> dict:
         """Compute losses of the head.
 
         Args:
@@ -218,23 +247,32 @@ class LDHead(GFLHead):
 
         device = cls_scores[0].device
         anchor_list, valid_flag_list = self.get_anchors(
-            featmap_sizes, batch_img_metas, device=device)
+            featmap_sizes, batch_img_metas, device=device
+        )
 
         cls_reg_targets = self.get_targets(
             anchor_list,
             valid_flag_list,
             batch_gt_instances,
             batch_img_metas,
-            batch_gt_instances_ignore=batch_gt_instances_ignore)
+            batch_gt_instances_ignore=batch_gt_instances_ignore,
+        )
 
-        (anchor_list, labels_list, label_weights_list, bbox_targets_list,
-         bbox_weights_list, avg_factor) = cls_reg_targets
+        (
+            anchor_list,
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            bbox_weights_list,
+            avg_factor,
+        ) = cls_reg_targets
 
         avg_factor = reduce_mean(
-            torch.tensor(avg_factor, dtype=torch.float, device=device)).item()
+            torch.tensor(avg_factor, dtype=torch.float, device=device)
+        ).item()
 
-        losses_cls, losses_bbox, losses_dfl, losses_ld, \
-            avg_factor = multi_apply(
+        losses_cls, losses_bbox, losses_dfl, losses_ld, avg_factor = (
+            multi_apply(
                 self.loss_by_feat_single,
                 anchor_list,
                 cls_scores,
@@ -244,7 +282,9 @@ class LDHead(GFLHead):
                 bbox_targets_list,
                 self.prior_generator.strides,
                 soft_targets,
-                avg_factor=avg_factor)
+                avg_factor=avg_factor,
+            )
+        )
 
         avg_factor = sum(avg_factor) + 1e-6
         avg_factor = reduce_mean(avg_factor).item()
@@ -254,4 +294,5 @@ class LDHead(GFLHead):
             loss_cls=losses_cls,
             loss_bbox=losses_bbox,
             loss_dfl=losses_dfl,
-            loss_ld=losses_ld)
+            loss_ld=losses_ld,
+        )

@@ -86,7 +86,7 @@ id_map = {
     76: 87,
     77: 88,
     78: 89,
-    79: 90
+    79: 90,
 }
 key_list_coco = list(id_map.keys())
 val_list_coco = list(id_map.values())
@@ -177,7 +177,7 @@ def dump_coco_label_map(args):
         '87': 'scissors',
         '88': 'teddy bear',
         '89': 'hair drier',
-        '90': 'toothbrush'
+        '90': 'toothbrush',
     }
     new_map = {}
     for key, value in ori_map.items():
@@ -194,7 +194,7 @@ def dump_coco_label_map(args):
 
 
 def dump_o365v1_label_map(args):
-    with open(args.input, 'r') as f:
+    with open(args.input) as f:
         j = json.load(f)
     o_dict = {}
     for category in j['categories']:
@@ -210,7 +210,7 @@ def dump_o365v1_label_map(args):
 
 
 def dump_o365v2_label_map(args):
-    with open(args.input, 'r') as f:
+    with open(args.input) as f:
         j = json.load(f)
     o_dict = {}
     for category in j['categories']:
@@ -226,7 +226,7 @@ def dump_o365v2_label_map(args):
 
 
 def dump_v3det_label_map(args):
-    with open(args.input, 'r') as f:
+    with open(args.input) as f:
         j = json.load(f)
     o_dict = {}
     for category in j['categories']:
@@ -308,31 +308,30 @@ def coco2odvg(args):
             category = nms[label]
             ind = val_list.index(label)
             label_trans = key_list[ind]
-            instance_list.append({
-                'bbox': bbox_xyxy,
-                'label': label_trans,
-                'category': category
-            })
-        metas.append({
-            'filename': img_info['file_name'],
-            'height': img_info['height'],
-            'width': img_info['width'],
-            'detection': {
-                'instances': instance_list
+            instance_list.append(
+                {'bbox': bbox_xyxy, 'label': label_trans, 'category': category}
+            )
+        metas.append(
+            {
+                'filename': img_info['file_name'],
+                'height': img_info['height'],
+                'width': img_info['width'],
+                'detection': {'instances': instance_list},
             }
-        })
+        )
 
     with jsonlines.open(out_path, mode='w') as writer:
         writer.write_all(metas)
 
-    print('save to {}'.format(out_path))
+    print(f'save to {out_path}')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('coco to odvg format.', add_help=True)
     parser.add_argument('input', type=str, help='input json file name')
     parser.add_argument(
-        '--output', '-o', type=str, help='output json file name')
+        '--output', '-o', type=str, help='output json file name'
+    )
     parser.add_argument(
         '--dataset',
         '-d',

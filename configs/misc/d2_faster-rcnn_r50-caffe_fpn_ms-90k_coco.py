@@ -7,11 +7,11 @@ model = dict(
     detector=dict(
         # The settings in `d2_detector` will merged into default settings
         # in detectron2. More details please refer to
-        # https://github.com/facebookresearch/detectron2/blob/main/detectron2/config/defaults.py    # noqa
+        # https://github.com/facebookresearch/detectron2/blob/main/detectron2/config/defaults.py
         meta_architecture='GeneralizedRCNN',
         # If you want to finetune the detector, you can use the
         # checkpoint released by detectron2, for example:
-        # weights='detectron2://COCO-Detection/faster_rcnn_R_50_FPN_1x/137257794/model_final_b275ba.pkl'     # noqa
+        # weights='detectron2://COCO-Detection/faster_rcnn_R_50_FPN_1x/137257794/model_final_b275ba.pkl'
         weights='detectron2://ImageNetPretrained/MSRA/R-50.pkl',
         mask_on=False,
         pixel_mean=[103.530, 116.280, 123.675],
@@ -21,14 +21,17 @@ model = dict(
             depth=50,
             out_features=['res2', 'res3', 'res4', 'res5'],
             num_groups=1,
-            norm='FrozenBN'),
+            norm='FrozenBN',
+        ),
         fpn=dict(
-            in_features=['res2', 'res3', 'res4', 'res5'], out_channels=256),
+            in_features=['res2', 'res3', 'res4', 'res5'], out_channels=256
+        ),
         anchor_generator=dict(
             name='DefaultAnchorGenerator',
             sizes=[[32], [64], [128], [256], [512]],
             aspect_ratios=[[0.5, 1.0, 2.0]],
-            angles=[[-90, 0, 90]]),
+            angles=[[-90, 0, 90]],
+        ),
         proposal_generator=dict(name='RPN'),
         rpn=dict(
             head_name='StandardRPNHead',
@@ -48,7 +51,8 @@ model = dict(
             pre_nms_topk_test=1000,
             post_nms_topk_test=1000,
             nms_thresh=0.7,
-            conv_dims=[-1]),
+            conv_dims=[-1],
+        ),
         roi_heads=dict(
             name='StandardROIHeads',
             num_classes=80,
@@ -59,7 +63,8 @@ model = dict(
             positive_fraction=0.25,
             score_thresh_test=0.05,
             nms_thresh_test=0.5,
-            proposal_append_gt=True),
+            proposal_append_gt=True,
+        ),
         roi_box_head=dict(
             name='FastRCNNConvFCHead',
             num_fc=2,
@@ -72,4 +77,7 @@ model = dict(
             bbox_reg_loss_weight=1.0,
             bbox_reg_weights=(10.0, 10.0, 5.0, 5.0),
             smooth_l1_beta=0.0,
-            cls_agnostic_bbox_reg=False)))
+            cls_agnostic_bbox_reg=False,
+        ),
+    ),
+)

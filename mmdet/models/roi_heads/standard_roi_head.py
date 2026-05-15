@@ -24,10 +24,12 @@ class StandardRoIHead(BaseRoIHead):
         if self.train_cfg:
             self.bbox_assigner = TASK_UTILS.build(self.train_cfg.assigner)
             self.bbox_sampler = TASK_UTILS.build(
-                self.train_cfg.sampler, default_args=dict(context=self))
+                self.train_cfg.sampler, default_args=dict(context=self)
+            )
 
-    def init_bbox_head(self, bbox_roi_extractor: ConfigType,
-                       bbox_head: ConfigType) -> None:
+    def init_bbox_head(
+        self, bbox_roi_extractor: ConfigType, bbox_head: ConfigType
+    ) -> None:
         """Initialize box head and box roi extractor.
 
         Args:
@@ -38,8 +40,9 @@ class StandardRoIHead(BaseRoIHead):
         self.bbox_roi_extractor = MODELS.build(bbox_roi_extractor)
         self.bbox_head = MODELS.build(bbox_head)
 
-    def init_mask_head(self, mask_roi_extractor: ConfigType,
-                       mask_head: ConfigType) -> None:
+    def init_mask_head(
+        self, mask_roi_extractor: ConfigType, mask_head: ConfigType
+    ) -> None:
         """Initialize mask head and mask roi extractor.
 
         Args:
@@ -56,10 +59,12 @@ class StandardRoIHead(BaseRoIHead):
         self.mask_head = MODELS.build(mask_head)
 
     # TODO: Need to refactor later
-    def forward(self,
-                x: Tuple[Tensor],
-                rpn_results_list: InstanceList,
-                batch_data_samples: SampleList = None) -> tuple:
+    def forward(
+        self,
+        x: Tuple[Tensor],
+        rpn_results_list: InstanceList,
+        batch_data_samples: SampleList = None,
+    ) -> tuple:
         """Network forward process. Usually includes backbone, neck and head
         forward without any post-processing.
 
@@ -82,17 +87,23 @@ class StandardRoIHead(BaseRoIHead):
         # bbox head
         if self.with_bbox:
             bbox_results = self._bbox_forward(x, rois)
-            results = results + (bbox_results['cls_score'],
-                                 bbox_results['bbox_pred'])
+            results = results + (
+                bbox_results['cls_score'],
+                bbox_results['bbox_pred'],
+            )
         # mask head
         if self.with_mask:
             mask_rois = rois[:100]
             mask_results = self._mask_forward(x, mask_rois)
-            results = results + (mask_results['mask_preds'], )
+            results = results + (mask_results['mask_preds'],)
         return results
 
-    def loss(self, x: Tuple[Tensor], rpn_results_list: InstanceList,
-             batch_data_samples: List[DetDataSample]) -> dict:
+    def loss(
+        self,
+        x: Tuple[Tensor],
+        rpn_results_list: InstanceList,
+        batch_data_samples: List[DetDataSample],
+    ) -> dict:
         """Perform forward propagation and loss calculation of the detection
         roi on the features of the upstream network.
 
@@ -120,13 +131,16 @@ class StandardRoIHead(BaseRoIHead):
             rpn_results.priors = rpn_results.pop('bboxes')
 
             assign_result = self.bbox_assigner.assign(
-                rpn_results, batch_gt_instances[i],
-                batch_gt_instances_ignore[i])
+                rpn_results,
+                batch_gt_instances[i],
+                batch_gt_instances_ignore[i],
+            )
             sampling_result = self.bbox_sampler.sample(
                 assign_result,
                 rpn_results,
                 batch_gt_instances[i],
-                feats=[lvl_feat[i][None] for lvl_feat in x])
+                feats=[lvl_feat[i][None] for lvl_feat in x],
+            )
             sampling_results.append(sampling_result)
 
         losses = dict()
@@ -137,9 +151,12 @@ class StandardRoIHead(BaseRoIHead):
 
         # mask head forward and loss
         if self.with_mask:
-            mask_results = self.mask_loss(x, sampling_results,
-                                          bbox_results['bbox_feats'],
-                                          batch_gt_instances)
+            mask_results = self.mask_loss(
+                x,
+                sampling_results,
+                bbox_results['bbox_feats'],
+                batch_gt_instances,
+            )
             losses.update(mask_results['loss_mask'])
 
         return losses
@@ -161,17 +178,20 @@ class StandardRoIHead(BaseRoIHead):
         """
         # TODO: a more flexible way to decide which feature maps to use
         bbox_feats = self.bbox_roi_extractor(
-            x[:self.bbox_roi_extractor.num_inputs], rois)
+            x[: self.bbox_roi_extractor.num_inputs], rois
+        )
         if self.with_shared_head:
             bbox_feats = self.shared_head(bbox_feats)
         cls_score, bbox_pred = self.bbox_head(bbox_feats)
 
         bbox_results = dict(
-            cls_score=cls_score, bbox_pred=bbox_pred, bbox_feats=bbox_feats)
+            cls_score=cls_score, bbox_pred=bbox_pred, bbox_feats=bbox_feats
+        )
         return bbox_results
 
-    def bbox_loss(self, x: Tuple[Tensor],
-                  sampling_results: List[SamplingResult]) -> dict:
+    def bbox_loss(
+        self, x: Tuple[Tensor], sampling_results: List[SamplingResult]
+    ) -> dict:
         """Perform forward propagation and loss calculation of the bbox head on
         the features of the upstream network.
 
@@ -195,14 +215,19 @@ class StandardRoIHead(BaseRoIHead):
             bbox_pred=bbox_results['bbox_pred'],
             rois=rois,
             sampling_results=sampling_results,
-            rcnn_train_cfg=self.train_cfg)
+            rcnn_train_cfg=self.train_cfg,
+        )
 
         bbox_results.update(loss_bbox=bbox_loss_and_target['loss_bbox'])
         return bbox_results
 
-    def mask_loss(self, x: Tuple[Tensor],
-                  sampling_results: List[SamplingResult], bbox_feats: Tensor,
-                  batch_gt_instances: InstanceList) -> dict:
+    def mask_loss(
+        self,
+        x: Tuple[Tensor],
+        sampling_results: List[SamplingResult],
+        bbox_feats: Tensor,
+        batch_gt_instances: InstanceList,
+    ) -> dict:
         """Perform forward propagation and loss calculation of the mask head on
         the features of the upstream network.
 
@@ -234,31 +259,39 @@ class StandardRoIHead(BaseRoIHead):
                     torch.ones(
                         res.pos_priors.shape[0],
                         device=device,
-                        dtype=torch.uint8))
+                        dtype=torch.uint8,
+                    )
+                )
                 pos_inds.append(
                     torch.zeros(
                         res.neg_priors.shape[0],
                         device=device,
-                        dtype=torch.uint8))
+                        dtype=torch.uint8,
+                    )
+                )
             pos_inds = torch.cat(pos_inds)
 
             mask_results = self._mask_forward(
-                x, pos_inds=pos_inds, bbox_feats=bbox_feats)
+                x, pos_inds=pos_inds, bbox_feats=bbox_feats
+            )
 
         mask_loss_and_target = self.mask_head.loss_and_target(
             mask_preds=mask_results['mask_preds'],
             sampling_results=sampling_results,
             batch_gt_instances=batch_gt_instances,
-            rcnn_train_cfg=self.train_cfg)
+            rcnn_train_cfg=self.train_cfg,
+        )
 
         mask_results.update(loss_mask=mask_loss_and_target['loss_mask'])
         return mask_results
 
-    def _mask_forward(self,
-                      x: Tuple[Tensor],
-                      rois: Tensor = None,
-                      pos_inds: Optional[Tensor] = None,
-                      bbox_feats: Optional[Tensor] = None) -> dict:
+    def _mask_forward(
+        self,
+        x: Tuple[Tensor],
+        rois: Tensor = None,
+        pos_inds: Optional[Tensor] = None,
+        bbox_feats: Optional[Tensor] = None,
+    ) -> dict:
         """Mask head forward function used in both training and testing.
 
         Args:
@@ -275,11 +308,13 @@ class StandardRoIHead(BaseRoIHead):
                 - `mask_preds` (Tensor): Mask prediction.
                 - `mask_feats` (Tensor): Extract mask RoI features.
         """
-        assert ((rois is not None) ^
-                (pos_inds is not None and bbox_feats is not None))
+        assert (rois is not None) ^ (
+            pos_inds is not None and bbox_feats is not None
+        )
         if rois is not None:
             mask_feats = self.mask_roi_extractor(
-                x[:self.mask_roi_extractor.num_inputs], rois)
+                x[: self.mask_roi_extractor.num_inputs], rois
+            )
             if self.with_shared_head:
                 mask_feats = self.shared_head(mask_feats)
         else:
@@ -290,12 +325,14 @@ class StandardRoIHead(BaseRoIHead):
         mask_results = dict(mask_preds=mask_preds, mask_feats=mask_feats)
         return mask_results
 
-    def predict_bbox(self,
-                     x: Tuple[Tensor],
-                     batch_img_metas: List[dict],
-                     rpn_results_list: InstanceList,
-                     rcnn_test_cfg: ConfigType,
-                     rescale: bool = False) -> InstanceList:
+    def predict_bbox(
+        self,
+        x: Tuple[Tensor],
+        batch_img_metas: List[dict],
+        rpn_results_list: InstanceList,
+        rcnn_test_cfg: ConfigType,
+        rescale: bool = False,
+    ) -> InstanceList:
         """Perform forward propagation of the bbox head and predict detection
         results on the features of the upstream network.
 
@@ -330,7 +367,8 @@ class StandardRoIHead(BaseRoIHead):
                 task_type='bbox',
                 box_type=self.bbox_head.predict_box_type,
                 num_classes=self.bbox_head.num_classes,
-                score_per_cls=rcnn_test_cfg is None)
+                score_per_cls=rcnn_test_cfg is None,
+            )
 
         bbox_results = self._bbox_forward(x, rois)
 
@@ -349,9 +387,10 @@ class StandardRoIHead(BaseRoIHead):
                 bbox_preds = bbox_preds.split(num_proposals_per_img, 0)
             else:
                 bbox_preds = self.bbox_head.bbox_pred_split(
-                    bbox_preds, num_proposals_per_img)
+                    bbox_preds, num_proposals_per_img
+                )
         else:
-            bbox_preds = (None, ) * len(proposals)
+            bbox_preds = (None,) * len(proposals)
 
         result_list = self.bbox_head.predict_by_feat(
             rois=rois,
@@ -359,14 +398,17 @@ class StandardRoIHead(BaseRoIHead):
             bbox_preds=bbox_preds,
             batch_img_metas=batch_img_metas,
             rcnn_test_cfg=rcnn_test_cfg,
-            rescale=rescale)
+            rescale=rescale,
+        )
         return result_list
 
-    def predict_mask(self,
-                     x: Tuple[Tensor],
-                     batch_img_metas: List[dict],
-                     results_list: InstanceList,
-                     rescale: bool = False) -> InstanceList:
+    def predict_mask(
+        self,
+        x: Tuple[Tensor],
+        batch_img_metas: List[dict],
+        results_list: InstanceList,
+        rescale: bool = False,
+    ) -> InstanceList:
         """Perform forward propagation of the mask head and predict detection
         results on the features of the upstream network.
 
@@ -400,7 +442,8 @@ class StandardRoIHead(BaseRoIHead):
                 mask_rois.device,
                 task_type='mask',
                 instance_results=results_list,
-                mask_thr_binary=self.test_cfg.mask_thr_binary)
+                mask_thr_binary=self.test_cfg.mask_thr_binary,
+            )
             return results_list
 
         mask_results = self._mask_forward(x, mask_rois)
@@ -415,5 +458,6 @@ class StandardRoIHead(BaseRoIHead):
             results_list=results_list,
             batch_img_metas=batch_img_metas,
             rcnn_test_cfg=self.test_cfg,
-            rescale=rescale)
+            rescale=rescale,
+        )
         return results_list

@@ -46,21 +46,25 @@ class SemSegMetric(BaseMetric):
             will be used instead. Defaults to None.
     """
 
-    def __init__(self,
-                 iou_metrics: Sequence[str] = ['mIoU'],
-                 beta: int = 1,
-                 collect_device: str = 'cpu',
-                 output_dir: Optional[str] = None,
-                 format_only: bool = False,
-                 backend_args: dict = None,
-                 prefix: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        iou_metrics: Sequence[str] = ['mIoU'],
+        beta: int = 1,
+        collect_device: str = 'cpu',
+        output_dir: Optional[str] = None,
+        format_only: bool = False,
+        backend_args: dict = None,
+        prefix: Optional[str] = None,
+    ) -> None:
         super().__init__(collect_device=collect_device, prefix=prefix)
 
         if isinstance(iou_metrics, str):
             iou_metrics = [iou_metrics]
         if not set(iou_metrics).issubset(set(['mIoU', 'mDice', 'mFscore'])):
-            raise KeyError(f'metrics {iou_metrics} is not supported. '
-                           f'Only supports mIoU/mDice/mFscore.')
+            raise KeyError(
+                f'metrics {iou_metrics} is not supported. '
+                f'Only supports mIoU/mDice/mFscore.'
+            )
         self.metrics = iou_metrics
         self.beta = beta
         self.output_dir = output_dir
@@ -84,20 +88,28 @@ class SemSegMetric(BaseMetric):
             pred_label = data_sample['pred_sem_seg']['sem_seg'].squeeze()
             # format_only always for test dataset without ground truth
             if not self.format_only:
-                label = data_sample['gt_sem_seg']['sem_seg'].squeeze().to(
-                    pred_label)
+                label = (
+                    data_sample['gt_sem_seg']['sem_seg']
+                    .squeeze()
+                    .to(pred_label)
+                )
                 ignore_index = data_sample['pred_sem_seg'].get(
-                    'ignore_index', 255)
+                    'ignore_index', 255
+                )
                 self.results.append(
-                    self._compute_pred_stats(pred_label, label, num_classes,
-                                             ignore_index))
+                    self._compute_pred_stats(
+                        pred_label, label, num_classes, ignore_index
+                    )
+                )
 
             # format_result
             if self.output_dir is not None:
-                basename = osp.splitext(osp.basename(
-                    data_sample['img_path']))[0]
+                basename = osp.splitext(osp.basename(data_sample['img_path']))[
+                    0
+                ]
                 png_filename = osp.abspath(
-                    osp.join(self.output_dir, f'{basename}.png'))
+                    osp.join(self.output_dir, f'{basename}.png')
+                )
                 output_mask = pred_label.cpu().numpy()
                 output = Image.fromarray(output_mask.astype(np.uint8))
                 imwrite(output, png_filename, backend_args=self.backend_args)
@@ -122,10 +134,12 @@ class SemSegMetric(BaseMetric):
         ret_metrics = self.get_return_metrics(results)
 
         # summary table
-        ret_metrics_summary = OrderedDict({
-            ret_metric: np.round(np.nanmean(ret_metric_value) * 100, 2)
-            for ret_metric, ret_metric_value in ret_metrics.items()
-        })
+        ret_metrics_summary = OrderedDict(
+            {
+                ret_metric: np.round(np.nanmean(ret_metric_value) * 100, 2)
+                for ret_metric, ret_metric_value in ret_metrics.items()
+            }
+        )
         metrics = dict()
         for key, val in ret_metrics_summary.items():
             if key == 'aAcc':
@@ -137,9 +151,13 @@ class SemSegMetric(BaseMetric):
 
         return metrics
 
-    def _compute_pred_stats(self, pred_label: torch.tensor,
-                            label: torch.tensor, num_classes: int,
-                            ignore_index: int):
+    def _compute_pred_stats(
+        self,
+        pred_label: torch.tensor,
+        label: torch.tensor,
+        num_classes: int,
+        ignore_index: int,
+    ):
         """Parse semantic segmentation predictions.
 
         Args:
@@ -163,17 +181,21 @@ class SemSegMetric(BaseMetric):
 
         intersect = pred_label[pred_label == label]
         area_intersect = torch.histc(
-            intersect.float(), bins=num_classes, min=0, max=num_classes - 1)
+            intersect.float(), bins=num_classes, min=0, max=num_classes - 1
+        )
         area_pred_label = torch.histc(
-            pred_label.float(), bins=num_classes, min=0, max=num_classes - 1)
+            pred_label.float(), bins=num_classes, min=0, max=num_classes - 1
+        )
         area_label = torch.histc(
-            label.float(), bins=num_classes, min=0, max=num_classes - 1)
+            label.float(), bins=num_classes, min=0, max=num_classes - 1
+        )
         area_union = area_pred_label + area_label - area_intersect
         result = dict(
             area_intersect=area_intersect,
             area_union=area_union,
             area_pred_label=area_pred_label,
-            area_label=area_label)
+            area_label=area_label,
+        )
         return result
 
     def get_return_metrics(self, results: list) -> dict:
@@ -199,8 +221,11 @@ class SemSegMetric(BaseMetric):
             Returns:
                 [torch.tensor]: The f-score value.
             """
-            score = (1 + beta**2) * (precision * recall) / (
-                (beta**2 * precision) + recall)
+            score = (
+                (1 + beta**2)
+                * (precision * recall)
+                / ((beta**2 * precision) + recall)
+            )
             return score
 
         total_area_intersect = sum([r['area_intersect'] for r in results])
@@ -217,18 +242,23 @@ class SemSegMetric(BaseMetric):
                 ret_metrics['IoU'] = iou
                 ret_metrics['Acc'] = acc
             elif metric == 'mDice':
-                dice = 2 * total_area_intersect / (
-                    total_area_pred_label + total_area_label)
+                dice = (
+                    2
+                    * total_area_intersect
+                    / (total_area_pred_label + total_area_label)
+                )
                 acc = total_area_intersect / total_area_label
                 ret_metrics['Dice'] = dice
                 ret_metrics['Acc'] = acc
             elif metric == 'mFscore':
                 precision = total_area_intersect / total_area_pred_label
                 recall = total_area_intersect / total_area_label
-                f_value = torch.tensor([
-                    f_score(x[0], x[1], self.beta)
-                    for x in zip(precision, recall)
-                ])
+                f_value = torch.tensor(
+                    [
+                        f_score(x[0], x[1], self.beta)
+                        for x in zip(precision, recall)
+                    ]
+                )
                 ret_metrics['Fscore'] = f_value
                 ret_metrics['Precision'] = precision
                 ret_metrics['Recall'] = recall
@@ -242,9 +272,10 @@ class SemSegMetric(BaseMetric):
 
 
 def print_semantic_table(
-        results: dict,
-        class_names: list,
-        logger: Optional[Union['MMLogger', str]] = None) -> None:
+    results: dict,
+    class_names: list,
+    logger: Optional[Union['MMLogger', str]] = None,
+) -> None:
     """Print semantic segmentation evaluation results table.
 
     Args:
@@ -255,10 +286,12 @@ def print_semantic_table(
     """
     # each class table
     results.pop('aAcc', None)
-    ret_metrics_class = OrderedDict({
-        ret_metric: np.round(ret_metric_value * 100, 2)
-        for ret_metric, ret_metric_value in results.items()
-    })
+    ret_metrics_class = OrderedDict(
+        {
+            ret_metric: np.round(ret_metric_value * 100, 2)
+            for ret_metric, ret_metric_value in results.items()
+        }
+    )
 
     print_log('per class results:', logger)
     if PrettyTable:
@@ -271,9 +304,11 @@ def print_semantic_table(
     else:
         logger.warning(
             '`prettytable` is not installed, for better table format, '
-            'please consider installing it with "pip install prettytable"')
+            'please consider installing it with "pip install prettytable"'
+        )
         print_result = {}
-        for class_name, iou, acc in zip(class_names, ret_metrics_class['IoU'],
-                                        ret_metrics_class['Acc']):
+        for class_name, iou, acc in zip(
+            class_names, ret_metrics_class['IoU'], ret_metrics_class['Acc']
+        ):
             print_result[class_name] = {'IoU': iou, 'Acc': acc}
         print_log(print_result, logger)

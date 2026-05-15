@@ -10,11 +10,11 @@ from mmdet.structures import DetDataSample
 
 
 class TestEmbeddingRPNHead(TestCase):
-
     def test_init(self):
         """Test init rpn head."""
         rpn_head = EmbeddingRPNHead(
-            num_proposals=100, proposal_feature_channel=256)
+            num_proposals=100, proposal_feature_channel=256
+        )
         rpn_head.init_weights()
         self.assertTrue(rpn_head.init_proposal_bboxes)
         self.assertTrue(rpn_head.init_proposal_features)
@@ -27,10 +27,11 @@ class TestEmbeddingRPNHead(TestCase):
             'scale_factor': 1,
         }
         rpn_head = EmbeddingRPNHead(
-            num_proposals=100, proposal_feature_channel=256)
+            num_proposals=100, proposal_feature_channel=256
+        )
 
         feats = [
-            torch.rand(2, 1, s // (2**(i + 2)), s // (2**(i + 2)))
+            torch.rand(2, 1, s // (2 ** (i + 2)), s // (2 ** (i + 2)))
             for i in range(5)
         ]
 

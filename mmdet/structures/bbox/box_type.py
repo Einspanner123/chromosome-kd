@@ -39,9 +39,9 @@ def _register_box(name: str, box_type: Type, force: bool = False) -> None:
     _box_type_to_name[box_type] = name
 
 
-def register_box(name: str,
-                 box_type: Type = None,
-                 force: bool = False) -> Union[Type, Callable]:
+def register_box(
+    name: str, box_type: Type = None, force: bool = False
+) -> Union[Type, Callable]:
     """Register a box type.
 
     A record will be added to ``bbox_types``, whose key is the box type name
@@ -86,10 +86,12 @@ def register_box(name: str,
     return _register
 
 
-def _register_box_converter(src_type: Union[str, type],
-                            dst_type: Union[str, type],
-                            converter: Callable,
-                            force: bool = False) -> None:
+def _register_box_converter(
+    src_type: Union[str, type],
+    dst_type: Union[str, type],
+    converter: Callable,
+    force: bool = False,
+) -> None:
     """Register a box converter.
 
     Args:
@@ -105,16 +107,20 @@ def _register_box_converter(src_type: Union[str, type],
 
     converter_name = src_type_name + '2' + dst_type_name
     if not force and converter_name in box_converters:
-        raise KeyError(f'The box converter from {src_type_name} to '
-                       f'{dst_type_name} has been registered.')
+        raise KeyError(
+            f'The box converter from {src_type_name} to '
+            f'{dst_type_name} has been registered.'
+        )
 
     box_converters[converter_name] = converter
 
 
-def register_box_converter(src_type: Union[str, type],
-                           dst_type: Union[str, type],
-                           converter: Optional[Callable] = None,
-                           force: bool = False) -> Callable:
+def register_box_converter(
+    src_type: Union[str, type],
+    dst_type: Union[str, type],
+    converter: Optional[Callable] = None,
+    force: bool = False,
+) -> Callable:
     """Register a box converter.
 
     A record will be added to ``box_converter``, whose key is
@@ -150,13 +156,15 @@ def register_box_converter(src_type: Union[str, type],
             src_type=src_type,
             dst_type=dst_type,
             converter=converter,
-            force=force)
+            force=force,
+        )
         return converter
 
     # use it as a decorator: @register_box_converter(name)
     def _register(func):
         _register_box_converter(
-            src_type=src_type, dst_type=dst_type, converter=func, force=force)
+            src_type=src_type, dst_type=dst_type, converter=func, force=force
+        )
         return func
 
     return _register
@@ -173,24 +181,30 @@ def get_box_type(box_type: Union[str, type]) -> Tuple[str, type]:
     """
     if isinstance(box_type, str):
         type_name = box_type.lower()
-        assert type_name in box_types, \
+        assert type_name in box_types, (
             f"Box type {type_name} hasn't been registered in box_types."
+        )
         type_cls = box_types[type_name]
     elif issubclass(box_type, BaseBoxes):
-        assert box_type in _box_type_to_name, \
+        assert box_type in _box_type_to_name, (
             f"Box type {box_type} hasn't been registered in box_types."
+        )
         type_name = _box_type_to_name[box_type]
         type_cls = box_type
     else:
-        raise KeyError('box_type must be a str or class inheriting from '
-                       f'BaseBoxes, but got {type(box_type)}.')
+        raise KeyError(
+            'box_type must be a str or class inheriting from '
+            f'BaseBoxes, but got {type(box_type)}.'
+        )
     return type_name, type_cls
 
 
-def convert_box_type(boxes: BoxType,
-                     *,
-                     src_type: Union[str, type] = None,
-                     dst_type: Union[str, type] = None) -> BoxType:
+def convert_box_type(
+    boxes: BoxType,
+    *,
+    src_type: Union[str, type] = None,
+    dst_type: Union[str, type] = None,
+) -> BoxType:
     """Convert boxes from source type to destination type.
 
     If ``boxes`` is a instance of BaseBoxes, the ``src_type`` will be set
@@ -221,15 +235,18 @@ def convert_box_type(boxes: BoxType,
         if isinstance(boxes, np.ndarray):
             is_numpy = True
     else:
-        raise TypeError('boxes must be a instance of BaseBoxes, Tensor or '
-                        f'ndarray, but get {type(boxes)}.')
+        raise TypeError(
+            'boxes must be a instance of BaseBoxes, Tensor or '
+            f'ndarray, but get {type(boxes)}.'
+        )
 
     if src_type_name == dst_type_name:
         return boxes
 
     converter_name = src_type_name + '2' + dst_type_name
-    assert converter_name in box_converters, \
+    assert converter_name in box_converters, (
         "Convert function hasn't been registered in box_converters."
+    )
     converter = box_converters[converter_name]
 
     if is_box_cls:
@@ -262,17 +279,20 @@ def autocast_box_type(dst_box_type='hbox') -> Callable:
     def decorator(func: Callable) -> Callable:
 
         def wrapper(self, results: dict, *args, **kwargs) -> dict:
-            if ('gt_bboxes' not in results
-                    or isinstance(results['gt_bboxes'], BaseBoxes)):
+            if 'gt_bboxes' not in results or isinstance(
+                results['gt_bboxes'], BaseBoxes
+            ):
                 return func(self, results)
             elif isinstance(results['gt_bboxes'], np.ndarray):
                 results['gt_bboxes'] = box_type_cls(
-                    results['gt_bboxes'], clone=False)
+                    results['gt_bboxes'], clone=False
+                )
                 if 'mix_results' in results:
                     for res in results['mix_results']:
                         if isinstance(res['gt_bboxes'], np.ndarray):
                             res['gt_bboxes'] = box_type_cls(
-                                res['gt_bboxes'], clone=False)
+                                res['gt_bboxes'], clone=False
+                            )
 
                 _results = func(self, results, *args, **kwargs)
 
@@ -289,7 +309,8 @@ def autocast_box_type(dst_box_type='hbox') -> Callable:
                 raise TypeError(
                     "auto_box_type requires results['gt_bboxes'] to "
                     'be BaseBoxes or np.ndarray, but got '
-                    f"{type(results['gt_bboxes'])}")
+                    f'{type(results["gt_bboxes"])}'
+                )
 
         return wrapper
 

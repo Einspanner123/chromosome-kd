@@ -53,7 +53,7 @@ def plot_trajectories():
 
     # 添加标注
     plt.annotate(
-        'Data ($\mathbf{x}_0$)',
+        r'Data ($\mathbf{x}_0$)',
         xy=start,
         xytext=(-40, -30),
         textcoords='offset points',
@@ -63,7 +63,7 @@ def plot_trajectories():
     )
 
     plt.annotate(
-        'Noise ($\mathbf{x}_1$)',
+        r'Noise ($\mathbf{x}_1$)',
         xy=end,
         xytext=(10, 10),
         textcoords='offset points',
@@ -76,7 +76,8 @@ def plot_trajectories():
         'Probability Flow Trajectory Comparison',
         fontsize=18,
         fontweight='bold',
-        pad=20)
+        pad=20,
+    )
     plt.axis('equal')
     plt.axis('off')
     plt.legend(loc='upper left', fontsize=12, frameon=True, shadow=True)

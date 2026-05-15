@@ -18,8 +18,12 @@ class PISARoIHead(StandardRoIHead):
     r"""The RoI head for `Prime Sample Attention in Object Detection
     <https://arxiv.org/abs/1904.04821>`_."""
 
-    def loss(self, x: Tuple[Tensor], rpn_results_list: InstanceList,
-             batch_data_samples: List[DetDataSample]) -> dict:
+    def loss(
+        self,
+        x: Tuple[Tensor],
+        rpn_results_list: InstanceList,
+        batch_data_samples: List[DetDataSample],
+    ) -> dict:
         """Perform forward propagation and loss calculation of the detection
         roi on the features of the upstream network.
 
@@ -48,13 +52,16 @@ class PISARoIHead(StandardRoIHead):
             rpn_results.priors = rpn_results.pop('bboxes')
 
             assign_result = self.bbox_assigner.assign(
-                rpn_results, batch_gt_instances[i],
-                batch_gt_instances_ignore[i])
+                rpn_results,
+                batch_gt_instances[i],
+                batch_gt_instances_ignore[i],
+            )
             sampling_result = self.bbox_sampler.sample(
                 assign_result,
                 rpn_results,
                 batch_gt_instances[i],
-                feats=[lvl_feat[i][None] for lvl_feat in x])
+                feats=[lvl_feat[i][None] for lvl_feat in x],
+            )
             if isinstance(sampling_result, tuple):
                 sampling_result, neg_label_weight = sampling_result
             sampling_results.append(sampling_result)
@@ -64,22 +71,28 @@ class PISARoIHead(StandardRoIHead):
         # bbox head forward and loss
         if self.with_bbox:
             bbox_results = self.bbox_loss(
-                x, sampling_results, neg_label_weights=neg_label_weights)
+                x, sampling_results, neg_label_weights=neg_label_weights
+            )
             losses.update(bbox_results['loss_bbox'])
 
         # mask head forward and loss
         if self.with_mask:
-            mask_results = self.mask_loss(x, sampling_results,
-                                          bbox_results['bbox_feats'],
-                                          batch_gt_instances)
+            mask_results = self.mask_loss(
+                x,
+                sampling_results,
+                bbox_results['bbox_feats'],
+                batch_gt_instances,
+            )
             losses.update(mask_results['loss_mask'])
 
         return losses
 
-    def bbox_loss(self,
-                  x: Tuple[Tensor],
-                  sampling_results: List[SamplingResult],
-                  neg_label_weights: List[Tensor] = None) -> dict:
+    def bbox_loss(
+        self,
+        x: Tuple[Tensor],
+        sampling_results: List[SamplingResult],
+        neg_label_weights: List[Tensor] = None,
+    ) -> dict:
         """Perform forward propagation and loss calculation of the bbox head on
         the features of the upstream network.
 
@@ -97,8 +110,9 @@ class PISARoIHead(StandardRoIHead):
         """
         rois = bbox2roi([res.priors for res in sampling_results])
         bbox_results = self._bbox_forward(x, rois)
-        bbox_targets = self.bbox_head.get_targets(sampling_results,
-                                                  self.train_cfg)
+        bbox_targets = self.bbox_head.get_targets(
+            sampling_results, self.train_cfg
+        )
 
         # neg_label_weights obtained by sampler is image-wise, mapping back to
         # the corresponding location in label weights
@@ -108,8 +122,9 @@ class PISARoIHead(StandardRoIHead):
             for i in range(len(sampling_results)):
                 num_pos = sampling_results[i].pos_inds.size(0)
                 num_neg = sampling_results[i].neg_inds.size(0)
-                label_weights[cur_num_rois + num_pos:cur_num_rois + num_pos +
-                              num_neg] = neg_label_weights[i]
+                label_weights[
+                    cur_num_rois + num_pos : cur_num_rois + num_pos + num_neg
+                ] = neg_label_weights[i]
                 cur_num_rois += num_pos + num_neg
 
         cls_score = bbox_results['cls_score']
@@ -127,9 +142,11 @@ class PISARoIHead(StandardRoIHead):
                 self.bbox_head.loss_cls,
                 self.bbox_head.bbox_coder,
                 **isr_cfg,
-                num_class=self.bbox_head.num_classes)
-        loss_bbox = self.bbox_head.loss(cls_score, bbox_pred, rois,
-                                        *bbox_targets)
+                num_class=self.bbox_head.num_classes,
+            )
+        loss_bbox = self.bbox_head.loss(
+            cls_score, bbox_pred, rois, *bbox_targets
+        )
 
         # Add CARL Loss
         carl_cfg = self.train_cfg.get('carl', None)
@@ -141,7 +158,8 @@ class PISARoIHead(StandardRoIHead):
                 bbox_targets[2],
                 self.bbox_head.loss_bbox,
                 **carl_cfg,
-                num_class=self.bbox_head.num_classes)
+                num_class=self.bbox_head.num_classes,
+            )
             loss_bbox.update(loss_carl)
 
         bbox_results.update(loss_bbox=loss_bbox)

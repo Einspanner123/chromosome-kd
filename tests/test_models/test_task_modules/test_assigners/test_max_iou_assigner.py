@@ -4,7 +4,8 @@
 CommandLine:
     pytest  tests/test_core/test_bbox/test_assigners/test_max_iou_assigner.py
     xdoctest  tests/test_core/test_bbox/test_assigners/test_max_iou_assigner.py zero
-""" # noqa
+"""
+
 import pytest
 import torch
 from mmengine.structures import InstanceData
@@ -18,16 +19,20 @@ def test_max_iou_assigner(neg_iou_thr):
         pos_iou_thr=0.5,
         neg_iou_thr=neg_iou_thr,
     )
-    priors = torch.FloatTensor([
-        [0, 0, 10, 10],
-        [10, 10, 20, 20],
-        [5, 5, 15, 15],
-        [32, 32, 38, 42],
-    ])
-    gt_bboxes = torch.FloatTensor([
-        [0, 0, 10, 9],
-        [0, 10, 10, 19],
-    ])
+    priors = torch.FloatTensor(
+        [
+            [0, 0, 10, 10],
+            [10, 10, 20, 20],
+            [5, 5, 15, 15],
+            [32, 32, 38, 42],
+        ]
+    )
+    gt_bboxes = torch.FloatTensor(
+        [
+            [0, 0, 10, 9],
+            [0, 10, 10, 19],
+        ]
+    )
     gt_labels = torch.LongTensor([2, 3])
 
     pred_instances = InstanceData(priors=priors)
@@ -48,26 +53,33 @@ def test_max_iou_assigner_with_ignore():
         ignore_iof_thr=0.5,
         ignore_wrt_candidates=False,
     )
-    priors = torch.FloatTensor([
-        [0, 0, 10, 10],
-        [10, 10, 20, 20],
-        [5, 5, 15, 15],
-        [30, 32, 40, 42],
-    ])
-    gt_bboxes = torch.FloatTensor([
-        [0, 0, 10, 9],
-        [0, 10, 10, 19],
-    ])
+    priors = torch.FloatTensor(
+        [
+            [0, 0, 10, 10],
+            [10, 10, 20, 20],
+            [5, 5, 15, 15],
+            [30, 32, 40, 42],
+        ]
+    )
+    gt_bboxes = torch.FloatTensor(
+        [
+            [0, 0, 10, 9],
+            [0, 10, 10, 19],
+        ]
+    )
     gt_labels = torch.LongTensor([2, 3])
-    gt_bboxes_ignore = torch.Tensor([
-        [30, 30, 40, 40],
-    ])
+    gt_bboxes_ignore = torch.Tensor(
+        [
+            [30, 30, 40, 40],
+        ]
+    )
 
     pred_instances = InstanceData(priors=priors)
     gt_instances = InstanceData(bboxes=gt_bboxes, labels=gt_labels)
     gt_instances_ignore = InstanceData(bboxes=gt_bboxes_ignore)
     assign_result = self.assign(
-        pred_instances, gt_instances, gt_instances_ignore=gt_instances_ignore)
+        pred_instances, gt_instances, gt_instances_ignore=gt_instances_ignore
+    )
 
     expected_gt_inds = torch.LongTensor([1, 0, 2, -1])
     assert torch.all(assign_result.gt_inds == expected_gt_inds)
@@ -79,12 +91,14 @@ def test_max_iou_assigner_with_empty_gt():
         pos_iou_thr=0.5,
         neg_iou_thr=0.5,
     )
-    priors = torch.FloatTensor([
-        [0, 0, 10, 10],
-        [10, 10, 20, 20],
-        [5, 5, 15, 15],
-        [32, 32, 38, 42],
-    ])
+    priors = torch.FloatTensor(
+        [
+            [0, 0, 10, 10],
+            [10, 10, 20, 20],
+            [5, 5, 15, 15],
+            [32, 32, 38, 42],
+        ]
+    )
     gt_bboxes = torch.empty(0, 4)
     gt_labels = torch.empty(0)
 
@@ -103,10 +117,12 @@ def test_max_iou_assigner_with_empty_priors():
         neg_iou_thr=0.5,
     )
     priors = torch.empty((0, 4))
-    gt_bboxes = torch.FloatTensor([
-        [0, 0, 10, 9],
-        [0, 10, 10, 19],
-    ])
+    gt_bboxes = torch.FloatTensor(
+        [
+            [0, 0, 10, 9],
+            [0, 10, 10, 19],
+        ]
+    )
     gt_labels = torch.LongTensor([2, 3])
 
     pred_instances = InstanceData(priors=priors)
@@ -114,7 +130,7 @@ def test_max_iou_assigner_with_empty_priors():
     # Test with gt_labels
     assign_result = self.assign(pred_instances, gt_instances)
     assert len(assign_result.gt_inds) == 0
-    assert tuple(assign_result.labels.shape) == (0, )
+    assert tuple(assign_result.labels.shape) == (0,)
 
 
 def test_max_iou_assigner_with_empty_boxes_and_ignore():
@@ -126,13 +142,17 @@ def test_max_iou_assigner_with_empty_boxes_and_ignore():
         ignore_iof_thr=0.5,
     )
     priors = torch.empty((0, 4))
-    gt_bboxes = torch.FloatTensor([
-        [0, 0, 10, 9],
-        [0, 10, 10, 19],
-    ])
-    gt_bboxes_ignore = torch.Tensor([
-        [30, 30, 40, 40],
-    ])
+    gt_bboxes = torch.FloatTensor(
+        [
+            [0, 0, 10, 9],
+            [0, 10, 10, 19],
+        ]
+    )
+    gt_bboxes_ignore = torch.Tensor(
+        [
+            [30, 30, 40, 40],
+        ]
+    )
     gt_labels = torch.LongTensor([2, 3])
 
     pred_instances = InstanceData(priors=priors)
@@ -141,9 +161,10 @@ def test_max_iou_assigner_with_empty_boxes_and_ignore():
 
     # Test with gt_labels
     assign_result = self.assign(
-        pred_instances, gt_instances, gt_instances_ignore=gt_instances_ignore)
+        pred_instances, gt_instances, gt_instances_ignore=gt_instances_ignore
+    )
     assert len(assign_result.gt_inds) == 0
-    assert tuple(assign_result.labels.shape) == (0, )
+    assert tuple(assign_result.labels.shape) == (0,)
 
 
 def test_max_iou_assigner_with_empty_priors_and_gt():

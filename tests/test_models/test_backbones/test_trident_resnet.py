@@ -15,40 +15,48 @@ def test_trident_resnet_bottleneck():
     with pytest.raises(AssertionError):
         # Style must be in ['pytorch', 'caffe']
         TridentBottleneck(
-            *trident_build_config, inplanes=64, planes=64, style='tensorflow')
+            *trident_build_config, inplanes=64, planes=64, style='tensorflow'
+        )
 
     with pytest.raises(AssertionError):
         # Allowed positions are 'after_conv1', 'after_conv2', 'after_conv3'
         plugins = [
             dict(
-                cfg=dict(type='ContextBlock', ratio=1. / 16),
-                position='after_conv4')
+                cfg=dict(type='ContextBlock', ratio=1.0 / 16),
+                position='after_conv4',
+            )
         ]
         TridentBottleneck(
-            *trident_build_config, inplanes=64, planes=16, plugins=plugins)
+            *trident_build_config, inplanes=64, planes=16, plugins=plugins
+        )
 
     with pytest.raises(AssertionError):
         # Need to specify different postfix to avoid duplicate plugin name
         plugins = [
             dict(
-                cfg=dict(type='ContextBlock', ratio=1. / 16),
-                position='after_conv3'),
+                cfg=dict(type='ContextBlock', ratio=1.0 / 16),
+                position='after_conv3',
+            ),
             dict(
-                cfg=dict(type='ContextBlock', ratio=1. / 16),
-                position='after_conv3')
+                cfg=dict(type='ContextBlock', ratio=1.0 / 16),
+                position='after_conv3',
+            ),
         ]
         TridentBottleneck(
-            *trident_build_config, inplanes=64, planes=16, plugins=plugins)
+            *trident_build_config, inplanes=64, planes=16, plugins=plugins
+        )
 
     with pytest.raises(KeyError):
         # Plugin type is not supported
         plugins = [dict(cfg=dict(type='WrongPlugin'), position='after_conv3')]
         TridentBottleneck(
-            *trident_build_config, inplanes=64, planes=16, plugins=plugins)
+            *trident_build_config, inplanes=64, planes=16, plugins=plugins
+        )
 
     # Test Bottleneck with checkpoint forward
     block = TridentBottleneck(
-        *trident_build_config, inplanes=64, planes=16, with_cp=True)
+        *trident_build_config, inplanes=64, planes=16, with_cp=True
+    )
     assert block.with_cp
     x = torch.randn(1, 64, 56, 56)
     x_out = block(x)
@@ -60,11 +68,13 @@ def test_trident_resnet_bottleneck():
         inplanes=64,
         planes=64,
         stride=2,
-        style='pytorch')
+        style='pytorch',
+    )
     assert block.conv1.stride == (1, 1)
     assert block.conv2.stride == (2, 2)
     block = TridentBottleneck(
-        *trident_build_config, inplanes=64, planes=64, stride=2, style='caffe')
+        *trident_build_config, inplanes=64, planes=64, stride=2, style='caffe'
+    )
     assert block.conv1.stride == (2, 2)
     assert block.conv2.stride == (1, 1)
 
@@ -77,11 +87,13 @@ def test_trident_resnet_bottleneck():
     # Test Bottleneck with 1 ContextBlock after conv3
     plugins = [
         dict(
-            cfg=dict(type='ContextBlock', ratio=1. / 16),
-            position='after_conv3')
+            cfg=dict(type='ContextBlock', ratio=1.0 / 16),
+            position='after_conv3',
+        )
     ]
     block = TridentBottleneck(
-        *trident_build_config, inplanes=64, planes=16, plugins=plugins)
+        *trident_build_config, inplanes=64, planes=16, plugins=plugins
+    )
     assert block.context_block.in_channels == 64
     x = torch.randn(1, 64, 56, 56)
     x_out = block(x)
@@ -95,11 +107,14 @@ def test_trident_resnet_bottleneck():
                 spatial_range=-1,
                 num_heads=8,
                 attention_type='0010',
-                kv_stride=2),
-            position='after_conv2')
+                kv_stride=2,
+            ),
+            position='after_conv2',
+        )
     ]
     block = TridentBottleneck(
-        *trident_build_config, inplanes=64, planes=16, plugins=plugins)
+        *trident_build_config, inplanes=64, planes=16, plugins=plugins
+    )
     assert block.gen_attention_block.in_channels == 16
     x = torch.randn(1, 64, 56, 56)
     x_out = block(x)
@@ -114,15 +129,19 @@ def test_trident_resnet_bottleneck():
                 spatial_range=-1,
                 num_heads=8,
                 attention_type='0010',
-                kv_stride=2),
-            position='after_conv2'),
+                kv_stride=2,
+            ),
+            position='after_conv2',
+        ),
         dict(cfg=dict(type='NonLocal2d'), position='after_conv2'),
         dict(
-            cfg=dict(type='ContextBlock', ratio=1. / 16),
-            position='after_conv3')
+            cfg=dict(type='ContextBlock', ratio=1.0 / 16),
+            position='after_conv3',
+        ),
     ]
     block = TridentBottleneck(
-        *trident_build_config, inplanes=64, planes=16, plugins=plugins)
+        *trident_build_config, inplanes=64, planes=16, plugins=plugins
+    )
     assert block.gen_attention_block.in_channels == 16
     assert block.nonlocal_block.in_channels == 16
     assert block.context_block.in_channels == 64
@@ -134,17 +153,21 @@ def test_trident_resnet_bottleneck():
     # conv3
     plugins = [
         dict(
-            cfg=dict(type='ContextBlock', ratio=1. / 16, postfix=1),
-            position='after_conv2'),
+            cfg=dict(type='ContextBlock', ratio=1.0 / 16, postfix=1),
+            position='after_conv2',
+        ),
         dict(
-            cfg=dict(type='ContextBlock', ratio=1. / 16, postfix=2),
-            position='after_conv3'),
+            cfg=dict(type='ContextBlock', ratio=1.0 / 16, postfix=2),
+            position='after_conv3',
+        ),
         dict(
-            cfg=dict(type='ContextBlock', ratio=1. / 16, postfix=3),
-            position='after_conv3')
+            cfg=dict(type='ContextBlock', ratio=1.0 / 16, postfix=3),
+            position='after_conv3',
+        ),
     ]
     block = TridentBottleneck(
-        *trident_build_config, inplanes=64, planes=16, plugins=plugins)
+        *trident_build_config, inplanes=64, planes=16, plugins=plugins
+    )
     assert block.context_block1.in_channels == 16
     assert block.context_block2.in_channels == 64
     assert block.context_block3.in_channels == 64
@@ -160,7 +183,7 @@ def test_trident_resnet_backbone():
         strides=(1, 2, 2),
         dilations=(1, 1, 1),
         trident_dilations=(1, 2, 3),
-        out_indices=(2, ),
+        out_indices=(2,),
     )
     """Test tridentresnet backbone."""
     with pytest.raises(AssertionError):

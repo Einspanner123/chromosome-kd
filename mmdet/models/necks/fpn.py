@@ -82,7 +82,8 @@ class FPN(BaseModule):
         act_cfg: OptConfigType = None,
         upsample_cfg: ConfigType = dict(mode='nearest'),
         init_cfg: MultiConfig = dict(
-            type='Xavier', layer='Conv2d', distribution='uniform')
+            type='Xavier', layer='Conv2d', distribution='uniform'
+        ),
     ) -> None:
         super().__init__(init_cfg=init_cfg)
         assert isinstance(in_channels, list)
@@ -124,7 +125,8 @@ class FPN(BaseModule):
                 conv_cfg=conv_cfg,
                 norm_cfg=norm_cfg if not self.no_norm_on_lateral else None,
                 act_cfg=act_cfg,
-                inplace=False)
+                inplace=False,
+            )
             fpn_conv = ConvModule(
                 out_channels,
                 out_channels,
@@ -133,7 +135,8 @@ class FPN(BaseModule):
                 conv_cfg=conv_cfg,
                 norm_cfg=norm_cfg,
                 act_cfg=act_cfg,
-                inplace=False)
+                inplace=False,
+            )
 
             self.lateral_convs.append(l_conv)
             self.fpn_convs.append(fpn_conv)
@@ -155,7 +158,8 @@ class FPN(BaseModule):
                     conv_cfg=conv_cfg,
                     norm_cfg=norm_cfg,
                     act_cfg=act_cfg,
-                    inplace=False)
+                    inplace=False,
+                )
                 self.fpn_convs.append(extra_fpn_conv)
 
     def forward(self, inputs: Tuple[Tensor]) -> tuple:
@@ -184,11 +188,13 @@ class FPN(BaseModule):
             if 'scale_factor' in self.upsample_cfg:
                 # fix runtime error of "+=" inplace operation in PyTorch 1.10
                 laterals[i - 1] = laterals[i - 1] + F.interpolate(
-                    laterals[i], **self.upsample_cfg)
+                    laterals[i], **self.upsample_cfg
+                )
             else:
                 prev_shape = laterals[i - 1].shape[2:]
                 laterals[i - 1] = laterals[i - 1] + F.interpolate(
-                    laterals[i], size=prev_shape, **self.upsample_cfg)
+                    laterals[i], size=prev_shape, **self.upsample_cfg
+                )
 
         # build outputs
         # part 1: from original levels

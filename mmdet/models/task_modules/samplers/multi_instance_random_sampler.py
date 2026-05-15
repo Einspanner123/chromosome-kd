@@ -23,8 +23,9 @@ class MultiInsRandomSampler(RandomSampler):
         replaced by `MultiInsRandomSampler`
     """
 
-    def _sample_pos(self, assign_result: AssignResult, num_expected: int,
-                    **kwargs) -> Union[Tensor, ndarray]:
+    def _sample_pos(
+        self, assign_result: AssignResult, num_expected: int, **kwargs
+    ) -> Union[Tensor, ndarray]:
         """Randomly sample some positive samples.
 
         Args:
@@ -35,7 +36,8 @@ class MultiInsRandomSampler(RandomSampler):
             Tensor or ndarray: sampled indices.
         """
         pos_inds = torch.nonzero(
-            assign_result.labels[:, 0] > 0, as_tuple=False)
+            assign_result.labels[:, 0] > 0, as_tuple=False
+        )
         if pos_inds.numel() != 0:
             pos_inds = pos_inds.squeeze(1)
         if pos_inds.numel() <= num_expected:
@@ -43,8 +45,9 @@ class MultiInsRandomSampler(RandomSampler):
         else:
             return self.random_choice(pos_inds, num_expected)
 
-    def _sample_neg(self, assign_result: AssignResult, num_expected: int,
-                    **kwargs) -> Union[Tensor, ndarray]:
+    def _sample_neg(
+        self, assign_result: AssignResult, num_expected: int, **kwargs
+    ) -> Union[Tensor, ndarray]:
         """Randomly sample some negative samples.
 
         Args:
@@ -55,7 +58,8 @@ class MultiInsRandomSampler(RandomSampler):
             Tensor or ndarray: sampled indices.
         """
         neg_inds = torch.nonzero(
-            assign_result.labels[:, 0] == 0, as_tuple=False)
+            assign_result.labels[:, 0] == 0, as_tuple=False
+        )
         if neg_inds.numel() != 0:
             neg_inds = neg_inds.squeeze(1)
         if len(neg_inds) <= num_expected:
@@ -63,9 +67,13 @@ class MultiInsRandomSampler(RandomSampler):
         else:
             return self.random_choice(neg_inds, num_expected)
 
-    def sample(self, assign_result: AssignResult, pred_instances: InstanceData,
-               gt_instances: InstanceData,
-               **kwargs) -> MultiInstanceSamplingResult:
+    def sample(
+        self,
+        assign_result: AssignResult,
+        pred_instances: InstanceData,
+        gt_instances: InstanceData,
+        **kwargs,
+    ) -> MultiInstanceSamplingResult:
         """Sample positive and negative bboxes.
 
         Args:
@@ -86,8 +94,9 @@ class MultiInsRandomSampler(RandomSampler):
             :obj:`MultiInstanceSamplingResult`: Sampling result.
         """
 
-        assert 'batch_gt_instances_ignore' in kwargs, \
+        assert 'batch_gt_instances_ignore' in kwargs, (
             'batch_gt_instances_ignore is necessary for MultiInsRandomSampler'
+        )
 
         gt_bboxes = gt_instances.bboxes
         ignore_bboxes = kwargs['batch_gt_instances_ignore'].bboxes
@@ -97,15 +106,17 @@ class MultiInsRandomSampler(RandomSampler):
             priors = priors[None, :]
         priors = priors[:, :4]
 
-        gt_flags = priors.new_zeros((priors.shape[0], ), dtype=torch.uint8)
+        gt_flags = priors.new_zeros((priors.shape[0],), dtype=torch.uint8)
         priors = torch.cat([priors, gt_and_ignore_bboxes], dim=0)
         gt_ones = priors.new_ones(
-            gt_and_ignore_bboxes.shape[0], dtype=torch.uint8)
+            gt_and_ignore_bboxes.shape[0], dtype=torch.uint8
+        )
         gt_flags = torch.cat([gt_flags, gt_ones])
 
         num_expected_pos = int(self.num * self.pos_fraction)
-        pos_inds = self.pos_sampler._sample_pos(assign_result,
-                                                num_expected_pos)
+        pos_inds = self.pos_sampler._sample_pos(
+            assign_result, num_expected_pos
+        )
         # We found that sampled indices have duplicated items occasionally.
         # (may be a bug of PyTorch)
         pos_inds = pos_inds.unique()
@@ -116,8 +127,9 @@ class MultiInsRandomSampler(RandomSampler):
             neg_upper_bound = int(self.neg_pos_ub * _pos)
             if num_expected_neg > neg_upper_bound:
                 num_expected_neg = neg_upper_bound
-        neg_inds = self.neg_sampler._sample_neg(assign_result,
-                                                num_expected_neg)
+        neg_inds = self.neg_sampler._sample_neg(
+            assign_result, num_expected_neg
+        )
         neg_inds = neg_inds.unique()
 
         sampling_result = MultiInstanceSamplingResult(
@@ -126,5 +138,6 @@ class MultiInsRandomSampler(RandomSampler):
             priors=priors,
             gt_and_ignore_bboxes=gt_and_ignore_bboxes,
             assign_result=assign_result,
-            gt_flags=gt_flags)
+            gt_flags=gt_flags,
+        )
         return sampling_result

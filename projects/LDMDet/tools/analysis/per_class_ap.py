@@ -27,7 +27,9 @@ from mmdet.registry import DATASETS, METRICS
 # ---------------------------------------------------------------------------
 
 # COCO annotation file for the chromosome validation set
-ANN_FILE = 'data/Chromosome20240904_NoAug_NoResize_coco/valid/_annotations.coco.json'
+ANN_FILE = (
+    'data/Chromosome20240904_NoAug_NoResize_coco/valid/_annotations.coco.json'
+)
 
 # Class names (must match the dataset)
 CLASS_NAMES = [
@@ -124,8 +126,11 @@ def _evaluate_model(
     test_dataset_cfg = cfg_copy.test_dataloader.dataset
     val_dataset_cfg = cfg_copy.val_dataloader.dataset
     # Prefer val dataset, fall back to test
-    dataset_cfg = val_dataset_cfg if hasattr(
-        cfg_copy, 'val_dataloader') else test_dataset_cfg
+    dataset_cfg = (
+        val_dataset_cfg
+        if hasattr(cfg_copy, 'val_dataloader')
+        else test_dataset_cfg
+    )
 
     dataset = DATASETS.build(dataset_cfg)
 
@@ -144,7 +149,7 @@ def _evaluate_model(
             data['data_samples'] = [data['data_samples']]
         with torch.no_grad():
             out = model.test_step(data)
-        for r in (out if isinstance(out, list) else [out]):
+        for r in out if isinstance(out, list) else [out]:
             d: dict = {}
             if hasattr(r, 'pred_instances') and r.pred_instances is not None:
                 pi = r.pred_instances
@@ -167,7 +172,8 @@ def _evaluate_model(
             metric='bbox',
             classwise=True,
             format_only=False,
-        ))
+        )
+    )
     evaluator.dataset_meta = dataset.metainfo
 
     for data_sample in results:
@@ -252,13 +258,15 @@ def main():
         all_results[label] = {
             'per_class': per_class,
             'mAP': round(float(metrics.get('coco/bbox_mAP', float('nan'))), 4),
-            'AP50':
-            round(float(metrics.get('coco/bbox_mAP_50', float('nan'))), 4),
-            'AP75':
-            round(float(metrics.get('coco/bbox_mAP_75', float('nan'))), 4),
+            'AP50': round(
+                float(metrics.get('coco/bbox_mAP_50', float('nan'))), 4
+            ),
+            'AP75': round(
+                float(metrics.get('coco/bbox_mAP_75', float('nan'))), 4
+            ),
         }
         print(
-            f"  mAP={all_results[label]['mAP']}  AP50={all_results[label]['AP50']}  AP75={all_results[label]['AP75']}"
+            f'  mAP={all_results[label]["mAP"]}  AP50={all_results[label]["AP50"]}  AP75={all_results[label]["AP75"]}'
         )
         print()
 
@@ -283,7 +291,7 @@ def main():
     print('=' * 120)
 
     # Header
-    header = f"{'Class':>5} {'Group':<14}"
+    header = f'{"Class":>5} {"Group":<14}'
     for label in [m[0] for m in MODELS]:
         if label in all_results:
             header += f' {label:>26}'
@@ -294,7 +302,7 @@ def main():
         row = f'{cls_name:>5} {group_labels[i]:<14}'
         for label in [m[0] for m in MODELS]:
             if label not in all_results:
-                row += f" {'N/A':>26}"
+                row += f' {"N/A":>26}'
                 continue
             val = all_results[label]['per_class'].get(cls_name, float('nan'))
             delta = val - baseline_pc.get(cls_name, 0)
@@ -303,10 +311,10 @@ def main():
 
     # Summary row
     print('-' * 120)
-    summary = f"{'mAP':>5} {'':<14}"
+    summary = f'{"mAP":>5} {"":<14}'
     for label in [m[0] for m in MODELS]:
         if label not in all_results:
-            summary += f" {'N/A':>26}"
+            summary += f' {"N/A":>26}'
             continue
         val = all_results[label]['mAP']
         delta = val - all_results[baseline_label]['mAP']
@@ -324,7 +332,7 @@ def main():
         row = f'  {grp:<14}'
         for label in [m[0] for m in MODELS]:
             if label not in all_results:
-                row += f" {'N/A':>26}"
+                row += f' {"N/A":>26}'
                 continue
             vals = [
                 all_results[label]['per_class'][CLASS_NAMES[i]]
@@ -350,18 +358,21 @@ def main():
         deltas = []
         for cls_name in CLASS_NAMES:
             delta = all_results[hard_ot_label]['per_class'].get(
-                cls_name, 0) - baseline_pc.get(cls_name, 0)
+                cls_name, 0
+            ) - baseline_pc.get(cls_name, 0)
             deltas.append(
-                (cls_name, delta, group_labels[CLASS_NAMES.index(cls_name)]))
+                (cls_name, delta, group_labels[CLASS_NAMES.index(cls_name)])
+            )
         deltas.sort(key=lambda x: x[1])  # most negative first
         print(
-            f"{'Class':>5} {'Group':<14} {'Delta':>8} {'Baseline AP':>12} {'Hard OT AP':>12}"
+            f'{"Class":>5} {"Group":<14} {"Delta":>8} {"Baseline AP":>12} {"Hard OT AP":>12}'
         )
         print('-' * 60)
         for cls_name, delta, grp in deltas:
             base_ap = baseline_pc.get(cls_name, float('nan'))
             hard_ap = all_results[hard_ot_label]['per_class'].get(
-                cls_name, float('nan'))
+                cls_name, float('nan')
+            )
             marker = ' *** LARGEST DROP' if delta < -0.03 else ''
             print(
                 f'{cls_name:>5} {grp:<14} {delta:>+8.4f} {base_ap:>12.4f} {hard_ap:>12.4f}{marker}'

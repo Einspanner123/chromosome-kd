@@ -20,8 +20,9 @@ class COCO(_COCO):
     def __init__(self, annotation_file=None):
         if getattr(pycocotools, '__version__', '0') >= '12.0.2':
             warnings.warn(
-                'mmpycocotools is deprecated. Please install official pycocotools by "pip install pycocotools"',  # noqa: E501
-                UserWarning)
+                'mmpycocotools is deprecated. Please install official pycocotools by "pip install pycocotools"',
+                UserWarning,
+            )
         super().__init__(annotation_file=annotation_file)
         self.img_ann_map = self.imgToAnns
         self.cat_img_map = self.catToImgs
@@ -60,7 +61,7 @@ class COCOPanoptic(COCO):
     """
 
     def __init__(self, annotation_file: Optional[str] = None) -> None:
-        super(COCOPanoptic, self).__init__(annotation_file)
+        super().__init__(annotation_file)
 
     def createIndex(self) -> None:
         """Create index."""
@@ -78,7 +79,7 @@ class COCOPanoptic(COCO):
                     # segment_id is not unique in coco dataset orz...
                     # annotations from different images but
                     # may have same segment_id
-                    if seg_ann['id'] in anns.keys():
+                    if seg_ann['id'] in anns:
                         anns[seg_ann['id']].append(seg_ann)
                     else:
                         anns[seg_ann['id']] = [seg_ann]
@@ -92,7 +93,8 @@ class COCOPanoptic(COCO):
         if 'images' in self.dataset:
             for img_info in self.dataset['images']:
                 img_info['segm_file'] = img_info['file_name'].replace(
-                    '.jpg', '.png')
+                    '.jpg', '.png'
+                )
                 imgs[img_info['id']] = img_info
 
         if 'categories' in self.dataset:
@@ -112,8 +114,9 @@ class COCOPanoptic(COCO):
         self.imgs = imgs
         self.cats = cats
 
-    def load_anns(self,
-                  ids: Union[List[int], int] = []) -> Optional[List[dict]]:
+    def load_anns(
+        self, ids: Union[List[int], int] = []
+    ) -> Optional[List[dict]]:
         """Load anns with the specified ids.
 
         ``self.anns`` is a list of annotation lists instead of a

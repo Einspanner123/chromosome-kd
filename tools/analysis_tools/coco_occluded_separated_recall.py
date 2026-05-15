@@ -11,30 +11,36 @@ from mmdet.evaluation import CocoOccludedSeparatedMetric
 def main():
     parser = ArgumentParser(
         description='Compute recall of COCO occluded and separated masks '
-        'presented in paper https://arxiv.org/abs/2210.10046.')
+        'presented in paper https://arxiv.org/abs/2210.10046.'
+    )
     parser.add_argument('result', help='result file (pkl format) path')
     parser.add_argument('--out', help='file path to save evaluation results')
     parser.add_argument(
         '--score-thr',
         type=float,
         default=0.3,
-        help='Score threshold for the recall calculation. Defaults to 0.3')
+        help='Score threshold for the recall calculation. Defaults to 0.3',
+    )
     parser.add_argument(
         '--iou-thr',
         type=float,
         default=0.75,
-        help='IoU threshold for the recall calculation. Defaults to 0.75.')
+        help='IoU threshold for the recall calculation. Defaults to 0.75.',
+    )
     parser.add_argument(
         '--ann',
         default='data/coco/annotations/instances_val2017.json',
-        help='coco annotation file path')
+        help='coco annotation file path',
+    )
     args = parser.parse_args()
 
     results = mmengine.load(args.result)
-    assert 'masks' in results[0]['pred_instances'], \
+    assert 'masks' in results[0]['pred_instances'], (
         'The results must be predicted by instance segmentation model.'
+    )
     metric = CocoOccludedSeparatedMetric(
-        ann_file=args.ann, iou_thr=args.iou_thr, score_thr=args.score_thr)
+        ann_file=args.ann, iou_thr=args.iou_thr, score_thr=args.score_thr
+    )
     metric.dataset_meta = CocoDataset.METAINFO
     for datasample in results:
         metric.process(data_batch=None, data_samples=[datasample])

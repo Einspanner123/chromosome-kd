@@ -1,6 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 
-# Please refer to https://mmengine.readthedocs.io/en/latest/advanced_tutorials/config.html#a-pure-python-style-configuration-file-beta for more details. # noqa
+# Please refer to https://mmengine.readthedocs.io/en/latest/advanced_tutorials/config.html#a-pure-python-style-configuration-file-beta for more details.
 # mmcv >= 2.0.1
 # mmengine >= 0.8.0
 
@@ -19,5 +19,6 @@ param_scheduler = [
         end=24,
         by_epoch=True,
         milestones=[16, 22],
-        gamma=0.1)
+        gamma=0.1,
+    ),
 ]

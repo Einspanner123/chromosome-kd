@@ -40,12 +40,13 @@ class RandomFlip_GLIP(RandomFlip):
         """Flip images, bounding boxes, and semantic segmentation map."""
         # flip image
         results['img'] = mmcv.imflip(
-            results['img'], direction=results['flip_direction'])
+            results['img'], direction=results['flip_direction']
+        )
 
         img_shape = results['img'].shape[:2]
 
         # flip bboxes
-        if results.get('gt_bboxes', None) is not None:
+        if results.get('gt_bboxes') is not None:
             results['gt_bboxes'].flip_(img_shape, results['flip_direction'])
             # Only change this line
             if results['flip_direction'] == 'horizontal':
@@ -53,14 +54,16 @@ class RandomFlip_GLIP(RandomFlip):
 
         # TODO: check it
         # flip masks
-        if results.get('gt_masks', None) is not None:
+        if results.get('gt_masks') is not None:
             results['gt_masks'] = results['gt_masks'].flip(
-                results['flip_direction'])
+                results['flip_direction']
+            )
 
         # flip segs
-        if results.get('gt_seg_map', None) is not None:
+        if results.get('gt_seg_map') is not None:
             results['gt_seg_map'] = mmcv.imflip(
-                results['gt_seg_map'], direction=results['flip_direction'])
+                results['gt_seg_map'], direction=results['flip_direction']
+            )
 
         # record homography matrix for flip
         self._record_homography_matrix(results)

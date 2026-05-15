@@ -10,8 +10,14 @@ test_pipeline = [
     dict(type='LoadPanopticAnnotations', backend_args=backend_args),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+        ),
+    ),
 ]
 
 val_dataloader = dict(
@@ -27,12 +33,15 @@ val_dataloader = dict(
         data_prefix=dict(img='images/validation/', seg='ade20k_panoptic_val/'),
         test_mode=True,
         pipeline=test_pipeline,
-        backend_args=backend_args))
+        backend_args=backend_args,
+    ),
+)
 test_dataloader = val_dataloader
 
 val_evaluator = dict(
     type='CocoPanopticMetric',
     ann_file=data_root + 'ade20k_panoptic_val.json',
     seg_prefix=data_root + 'ade20k_panoptic_val/',
-    backend_args=backend_args)
+    backend_args=backend_args,
+)
 test_evaluator = val_evaluator

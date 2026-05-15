@@ -78,9 +78,8 @@ class SCNetBBoxHead(ConvFCBBoxHead):
         return cls_score, bbox_pred
 
     def forward(
-            self,
-            x: Tensor,
-            return_shared_feat: bool = False) -> Union[Tensor, Tuple[Tensor]]:
+        self, x: Tensor, return_shared_feat: bool = False
+    ) -> Union[Tensor, Tuple[Tensor]]:
         """Forward function.
 
         Args:
@@ -96,6 +95,6 @@ class SCNetBBoxHead(ConvFCBBoxHead):
         out = self._forward_cls_reg(x_shared)
 
         if return_shared_feat:
-            out += (x_shared, )
+            out += (x_shared,)
 
         return out

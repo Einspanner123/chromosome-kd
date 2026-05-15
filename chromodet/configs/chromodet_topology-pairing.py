@@ -21,4 +21,8 @@ model = dict(
             assigner=dict(
                 type='ChromoDetMatcher',
                 use_topology_pairing=use_topology_pairing,
-                topology_weight=topology_weight))))
+                topology_weight=topology_weight,
+            ),
+        ),
+    ),
+)

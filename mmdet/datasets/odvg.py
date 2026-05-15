@@ -13,17 +13,19 @@ from .base_det_dataset import BaseDetDataset
 class ODVGDataset(BaseDetDataset):
     """object detection and visual grounding dataset."""
 
-    def __init__(self,
-                 *args,
-                 data_root: str = '',
-                 label_map_file: Optional[str] = None,
-                 need_text: bool = True,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        *args,
+        data_root: str = '',
+        label_map_file: Optional[str] = None,
+        need_text: bool = True,
+        **kwargs,
+    ) -> None:
         self.dataset_mode = 'VG'
         self.need_text = need_text
         if label_map_file:
             label_map_file = osp.join(data_root, label_map_file)
-            with open(label_map_file, 'r') as file:
+            with open(label_map_file) as file:
                 self.label_map = json.load(file)
             self.dataset_mode = 'OD'
         super().__init__(*args, data_root=data_root, **kwargs)
@@ -31,9 +33,9 @@ class ODVGDataset(BaseDetDataset):
 
     def load_data_list(self) -> List[dict]:
         with get_local_path(
-                self.ann_file, backend_args=self.backend_args) as local_path:
-            with open(local_path, 'r') as f:
-                data_list = [json.loads(line) for line in f]
+            self.ann_file, backend_args=self.backend_args
+        ) as local_path, open(local_path) as f:
+            data_list = [json.loads(line) for line in f]
 
         out_data_list = []
         for data in data_list:
@@ -94,7 +96,7 @@ class ODVGDataset(BaseDetDataset):
                         instance['bbox_label'] = i
                         phrases[i] = {
                             'phrase': phrase,
-                            'tokens_positive': tokens_positive
+                            'tokens_positive': tokens_positive,
                         }
                         instances.append(instance)
                 data_info['instances'] = instances

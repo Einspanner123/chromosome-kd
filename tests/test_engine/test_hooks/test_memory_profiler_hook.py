@@ -6,7 +6,6 @@ from mmdet.engine.hooks import MemoryProfilerHook
 
 
 class TestMemoryProfilerHook(TestCase):
-
     def test_after_train_iter(self):
         hook = MemoryProfilerHook(2)
         runner = Mock()

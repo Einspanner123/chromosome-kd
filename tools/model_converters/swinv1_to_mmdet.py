@@ -14,8 +14,11 @@ def swin_converter(ckpt):
     def correct_unfold_reduction_order(x):
         out_channel, in_channel = x.shape
         x = x.reshape(out_channel, 4, in_channel // 4)
-        x = x[:, [0, 2, 1, 3], :].transpose(1,
-                                            2).reshape(out_channel, in_channel)
+        x = (
+            x[:, [0, 2, 1, 3], :]
+            .transpose(1, 2)
+            .reshape(out_channel, in_channel)
+        )
         return x
 
     def correct_unfold_norm_order(x):
@@ -62,7 +65,8 @@ def swin_converter(ckpt):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Convert keys to mmdet style.')
+        description='Convert keys to mmdet style.'
+    )
     parser.add_argument('src', help='src model path or url')
     # The dst path must be a full path of the new checkpoint.
     parser.add_argument('dst', help='save path')
@@ -77,7 +81,7 @@ def main():
     torch.save(swin_converter(state_dict), args.dst)
 
     sha = subprocess.check_output(['sha256sum', args.dst]).decode()
-    final_file = args.dst.replace('.pth', '') + '-{}.pth'.format(sha[:8])
+    final_file = args.dst.replace('.pth', '') + f'-{sha[:8]}.pth'
     subprocess.Popen(['mv', args.dst, final_file])
     print(f'Done!!, save to {final_file}')
 

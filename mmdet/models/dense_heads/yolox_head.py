@@ -14,8 +14,13 @@ from torch import Tensor
 
 from mmdet.registry import MODELS, TASK_UTILS
 from mmdet.structures.bbox import bbox_xyxy_to_cxcywh
-from mmdet.utils import (ConfigType, OptConfigType, OptInstanceList,
-                         OptMultiConfig, reduce_mean)
+from mmdet.utils import (
+    ConfigType,
+    OptConfigType,
+    OptInstanceList,
+    OptMultiConfig,
+    reduce_mean,
+)
 from ..task_modules.prior_generators import MlvlPointGenerator
 from ..task_modules.samplers import PseudoSampler
 from ..utils import multi_apply
@@ -79,20 +84,24 @@ class YOLOXHead(BaseDenseHead):
             type='CrossEntropyLoss',
             use_sigmoid=True,
             reduction='sum',
-            loss_weight=1.0),
+            loss_weight=1.0,
+        ),
         loss_bbox: ConfigType = dict(
             type='IoULoss',
             mode='square',
             eps=1e-16,
             reduction='sum',
-            loss_weight=5.0),
+            loss_weight=5.0,
+        ),
         loss_obj: ConfigType = dict(
             type='CrossEntropyLoss',
             use_sigmoid=True,
             reduction='sum',
-            loss_weight=1.0),
+            loss_weight=1.0,
+        ),
         loss_l1: ConfigType = dict(
-            type='L1Loss', reduction='sum', loss_weight=1.0),
+            type='L1Loss', reduction='sum', loss_weight=1.0
+        ),
         train_cfg: OptConfigType = None,
         test_cfg: OptConfigType = None,
         init_cfg: OptMultiConfig = dict(
@@ -101,7 +110,8 @@ class YOLOXHead(BaseDenseHead):
             a=math.sqrt(5),
             distribution='uniform',
             mode='fan_in',
-            nonlinearity='leaky_relu')
+            nonlinearity='leaky_relu',
+        ),
     ) -> None:
 
         super().__init__(init_cfg=init_cfg)
@@ -157,8 +167,9 @@ class YOLOXHead(BaseDenseHead):
 
     def _build_stacked_convs(self) -> nn.Sequential:
         """Initialize conv layers of a single level head."""
-        conv = DepthwiseSeparableConvModule \
-            if self.use_depthwise else ConvModule
+        conv = (
+            DepthwiseSeparableConvModule if self.use_depthwise else ConvModule
+        )
         stacked_convs = []
         for i in range(self.stacked_convs):
             chn = self.in_channels if i == 0 else self.feat_channels
@@ -176,7 +187,9 @@ class YOLOXHead(BaseDenseHead):
                     conv_cfg=conv_cfg,
                     norm_cfg=self.norm_cfg,
                     act_cfg=self.act_cfg,
-                    bias=self.conv_bias))
+                    bias=self.conv_bias,
+                )
+            )
         return nn.Sequential(*stacked_convs)
 
     def _build_predictor(self) -> Tuple[nn.Module, nn.Module, nn.Module]:
@@ -188,18 +201,24 @@ class YOLOXHead(BaseDenseHead):
 
     def init_weights(self) -> None:
         """Initialize weights of the head."""
-        super(YOLOXHead, self).init_weights()
+        super().init_weights()
         # Use prior in model initialization to improve stability
         bias_init = bias_init_with_prob(0.01)
-        for conv_cls, conv_obj in zip(self.multi_level_conv_cls,
-                                      self.multi_level_conv_obj):
+        for conv_cls, conv_obj in zip(
+            self.multi_level_conv_cls, self.multi_level_conv_obj
+        ):
             conv_cls.bias.data.fill_(bias_init)
             conv_obj.bias.data.fill_(bias_init)
 
-    def forward_single(self, x: Tensor, cls_convs: nn.Module,
-                       reg_convs: nn.Module, conv_cls: nn.Module,
-                       conv_reg: nn.Module,
-                       conv_obj: nn.Module) -> Tuple[Tensor, Tensor, Tensor]:
+    def forward_single(
+        self,
+        x: Tensor,
+        cls_convs: nn.Module,
+        reg_convs: nn.Module,
+        conv_cls: nn.Module,
+        conv_reg: nn.Module,
+        conv_obj: nn.Module,
+    ) -> Tuple[Tensor, Tensor, Tensor]:
         """Forward feature of a single scale level."""
 
         cls_feat = cls_convs(x)
@@ -222,20 +241,26 @@ class YOLOXHead(BaseDenseHead):
             predictions, and objectnesses.
         """
 
-        return multi_apply(self.forward_single, x, self.multi_level_cls_convs,
-                           self.multi_level_reg_convs,
-                           self.multi_level_conv_cls,
-                           self.multi_level_conv_reg,
-                           self.multi_level_conv_obj)
+        return multi_apply(
+            self.forward_single,
+            x,
+            self.multi_level_cls_convs,
+            self.multi_level_reg_convs,
+            self.multi_level_conv_cls,
+            self.multi_level_conv_reg,
+            self.multi_level_conv_obj,
+        )
 
-    def predict_by_feat(self,
-                        cls_scores: List[Tensor],
-                        bbox_preds: List[Tensor],
-                        objectnesses: Optional[List[Tensor]],
-                        batch_img_metas: Optional[List[dict]] = None,
-                        cfg: Optional[ConfigDict] = None,
-                        rescale: bool = False,
-                        with_nms: bool = True) -> List[InstanceData]:
+    def predict_by_feat(
+        self,
+        cls_scores: List[Tensor],
+        bbox_preds: List[Tensor],
+        objectnesses: Optional[List[Tensor]],
+        batch_img_metas: Optional[List[dict]] = None,
+        cfg: Optional[ConfigDict] = None,
+        rescale: bool = False,
+        with_nms: bool = True,
+    ) -> List[InstanceData]:
         """Transform a batch of output features extracted by the head into
         bbox results.
         Args:
@@ -278,12 +303,14 @@ class YOLOXHead(BaseDenseHead):
             featmap_sizes,
             dtype=cls_scores[0].dtype,
             device=cls_scores[0].device,
-            with_stride=True)
+            with_stride=True,
+        )
 
         # flatten cls_scores, bbox_preds and objectness
         flatten_cls_scores = [
-            cls_score.permute(0, 2, 3, 1).reshape(num_imgs, -1,
-                                                  self.cls_out_channels)
+            cls_score.permute(0, 2, 3, 1).reshape(
+                num_imgs, -1, self.cls_out_channels
+            )
             for cls_score in cls_scores
         ]
         flatten_bbox_preds = [
@@ -305,13 +332,15 @@ class YOLOXHead(BaseDenseHead):
         result_list = []
         for img_id, img_meta in enumerate(batch_img_metas):
             max_scores, labels = torch.max(flatten_cls_scores[img_id], 1)
-            valid_mask = flatten_objectness[
-                img_id] * max_scores >= cfg.score_thr
+            valid_mask = (
+                flatten_objectness[img_id] * max_scores >= cfg.score_thr
+            )
             results = InstanceData(
                 bboxes=flatten_bboxes[img_id][valid_mask],
-                scores=max_scores[valid_mask] *
-                flatten_objectness[img_id][valid_mask],
-                labels=labels[valid_mask])
+                scores=max_scores[valid_mask]
+                * flatten_objectness[img_id][valid_mask],
+                labels=labels[valid_mask],
+            )
 
             result_list.append(
                 self._bbox_post_process(
@@ -319,7 +348,9 @@ class YOLOXHead(BaseDenseHead):
                     cfg=cfg,
                     rescale=rescale,
                     with_nms=with_nms,
-                    img_meta=img_meta))
+                    img_meta=img_meta,
+                )
+            )
 
         return result_list
 
@@ -340,20 +371,22 @@ class YOLOXHead(BaseDenseHead):
         xys = (bbox_preds[..., :2] * priors[:, 2:]) + priors[:, :2]
         whs = bbox_preds[..., 2:].exp() * priors[:, 2:]
 
-        tl_x = (xys[..., 0] - whs[..., 0] / 2)
-        tl_y = (xys[..., 1] - whs[..., 1] / 2)
-        br_x = (xys[..., 0] + whs[..., 0] / 2)
-        br_y = (xys[..., 1] + whs[..., 1] / 2)
+        tl_x = xys[..., 0] - whs[..., 0] / 2
+        tl_y = xys[..., 1] - whs[..., 1] / 2
+        br_x = xys[..., 0] + whs[..., 0] / 2
+        br_y = xys[..., 1] + whs[..., 1] / 2
 
         decoded_bboxes = torch.stack([tl_x, tl_y, br_x, br_y], -1)
         return decoded_bboxes
 
-    def _bbox_post_process(self,
-                           results: InstanceData,
-                           cfg: ConfigDict,
-                           rescale: bool = False,
-                           with_nms: bool = True,
-                           img_meta: Optional[dict] = None) -> InstanceData:
+    def _bbox_post_process(
+        self,
+        results: InstanceData,
+        cfg: ConfigDict,
+        rescale: bool = False,
+        with_nms: bool = True,
+        img_meta: Optional[dict] = None,
+    ) -> InstanceData:
         """bbox post-processing method.
 
         The boxes would be rescaled to the original image scale and do
@@ -386,24 +419,27 @@ class YOLOXHead(BaseDenseHead):
         if rescale:
             assert img_meta.get('scale_factor') is not None
             results.bboxes /= results.bboxes.new_tensor(
-                img_meta['scale_factor']).repeat((1, 2))
+                img_meta['scale_factor']
+            ).repeat((1, 2))
 
         if with_nms and results.bboxes.numel() > 0:
-            det_bboxes, keep_idxs = batched_nms(results.bboxes, results.scores,
-                                                results.labels, cfg.nms)
+            det_bboxes, keep_idxs = batched_nms(
+                results.bboxes, results.scores, results.labels, cfg.nms
+            )
             results = results[keep_idxs]
             # some nms would reweight the score, such as softnms
             results.scores = det_bboxes[:, -1]
         return results
 
     def loss_by_feat(
-            self,
-            cls_scores: Sequence[Tensor],
-            bbox_preds: Sequence[Tensor],
-            objectnesses: Sequence[Tensor],
-            batch_gt_instances: Sequence[InstanceData],
-            batch_img_metas: Sequence[dict],
-            batch_gt_instances_ignore: OptInstanceList = None) -> dict:
+        self,
+        cls_scores: Sequence[Tensor],
+        bbox_preds: Sequence[Tensor],
+        objectnesses: Sequence[Tensor],
+        batch_gt_instances: Sequence[InstanceData],
+        batch_img_metas: Sequence[dict],
+        batch_gt_instances_ignore: OptInstanceList = None,
+    ) -> dict:
         """Calculate the loss based on the features extracted by the detection
         head.
 
@@ -438,11 +474,13 @@ class YOLOXHead(BaseDenseHead):
             featmap_sizes,
             dtype=cls_scores[0].dtype,
             device=cls_scores[0].device,
-            with_stride=True)
+            with_stride=True,
+        )
 
         flatten_cls_preds = [
-            cls_pred.permute(0, 2, 3, 1).reshape(num_imgs, -1,
-                                                 self.cls_out_channels)
+            cls_pred.permute(0, 2, 3, 1).reshape(
+                num_imgs, -1, self.cls_out_channels
+            )
             for cls_pred in cls_scores
         ]
         flatten_bbox_preds = [
@@ -460,20 +498,31 @@ class YOLOXHead(BaseDenseHead):
         flatten_priors = torch.cat(mlvl_priors)
         flatten_bboxes = self._bbox_decode(flatten_priors, flatten_bbox_preds)
 
-        (pos_masks, cls_targets, obj_targets, bbox_targets, l1_targets,
-         num_fg_imgs) = multi_apply(
-             self._get_targets_single,
-             flatten_priors.unsqueeze(0).repeat(num_imgs, 1, 1),
-             flatten_cls_preds.detach(), flatten_bboxes.detach(),
-             flatten_objectness.detach(), batch_gt_instances, batch_img_metas,
-             batch_gt_instances_ignore)
+        (
+            pos_masks,
+            cls_targets,
+            obj_targets,
+            bbox_targets,
+            l1_targets,
+            num_fg_imgs,
+        ) = multi_apply(
+            self._get_targets_single,
+            flatten_priors.unsqueeze(0).repeat(num_imgs, 1, 1),
+            flatten_cls_preds.detach(),
+            flatten_bboxes.detach(),
+            flatten_objectness.detach(),
+            batch_gt_instances,
+            batch_img_metas,
+            batch_gt_instances_ignore,
+        )
 
         # The experimental results show that 'reduce_mean' can improve
         # performance on the COCO dataset.
         num_pos = torch.tensor(
             sum(num_fg_imgs),
             dtype=torch.float,
-            device=flatten_cls_preds.device)
+            device=flatten_cls_preds.device,
+        )
         num_total_samples = max(reduce_mean(num_pos), 1.0)
 
         pos_masks = torch.cat(pos_masks, 0)
@@ -483,15 +532,24 @@ class YOLOXHead(BaseDenseHead):
         if self.use_l1:
             l1_targets = torch.cat(l1_targets, 0)
 
-        loss_obj = self.loss_obj(flatten_objectness.view(-1, 1),
-                                 obj_targets) / num_total_samples
+        loss_obj = (
+            self.loss_obj(flatten_objectness.view(-1, 1), obj_targets)
+            / num_total_samples
+        )
         if num_pos > 0:
-            loss_cls = self.loss_cls(
-                flatten_cls_preds.view(-1, self.num_classes)[pos_masks],
-                cls_targets) / num_total_samples
-            loss_bbox = self.loss_bbox(
-                flatten_bboxes.view(-1, 4)[pos_masks],
-                bbox_targets) / num_total_samples
+            loss_cls = (
+                self.loss_cls(
+                    flatten_cls_preds.view(-1, self.num_classes)[pos_masks],
+                    cls_targets,
+                )
+                / num_total_samples
+            )
+            loss_bbox = (
+                self.loss_bbox(
+                    flatten_bboxes.view(-1, 4)[pos_masks], bbox_targets
+                )
+                / num_total_samples
+            )
         else:
             # Avoid cls and reg branch not participating in the gradient
             # propagation when there is no ground-truth in the images.
@@ -501,13 +559,17 @@ class YOLOXHead(BaseDenseHead):
             loss_bbox = flatten_bboxes.sum() * 0
 
         loss_dict = dict(
-            loss_cls=loss_cls, loss_bbox=loss_bbox, loss_obj=loss_obj)
+            loss_cls=loss_cls, loss_bbox=loss_bbox, loss_obj=loss_obj
+        )
 
         if self.use_l1:
             if num_pos > 0:
-                loss_l1 = self.loss_l1(
-                    flatten_bbox_preds.view(-1, 4)[pos_masks],
-                    l1_targets) / num_total_samples
+                loss_l1 = (
+                    self.loss_l1(
+                        flatten_bbox_preds.view(-1, 4)[pos_masks], l1_targets
+                    )
+                    / num_total_samples
+                )
             else:
                 # Avoid cls and reg branch not participating in the gradient
                 # propagation when there is no ground-truth in the images.
@@ -520,14 +582,15 @@ class YOLOXHead(BaseDenseHead):
 
     @torch.no_grad()
     def _get_targets_single(
-            self,
-            priors: Tensor,
-            cls_preds: Tensor,
-            decoded_bboxes: Tensor,
-            objectness: Tensor,
-            gt_instances: InstanceData,
-            img_meta: dict,
-            gt_instances_ignore: Optional[InstanceData] = None) -> tuple:
+        self,
+        priors: Tensor,
+        cls_preds: Tensor,
+        decoded_bboxes: Tensor,
+        objectness: Tensor,
+        gt_instances: InstanceData,
+        img_meta: dict,
+        gt_instances_ignore: Optional[InstanceData] = None,
+    ) -> tuple:
         """Compute classification, regression, and objectness targets for
         priors in a single image.
 
@@ -569,48 +632,68 @@ class YOLOXHead(BaseDenseHead):
             l1_target = cls_preds.new_zeros((0, 4))
             obj_target = cls_preds.new_zeros((num_priors, 1))
             foreground_mask = cls_preds.new_zeros(num_priors).bool()
-            return (foreground_mask, cls_target, obj_target, bbox_target,
-                    l1_target, 0)
+            return (
+                foreground_mask,
+                cls_target,
+                obj_target,
+                bbox_target,
+                l1_target,
+                0,
+            )
 
         # YOLOX uses center priors with 0.5 offset to assign targets,
         # but use center priors without offset to regress bboxes.
         offset_priors = torch.cat(
-            [priors[:, :2] + priors[:, 2:] * 0.5, priors[:, 2:]], dim=-1)
+            [priors[:, :2] + priors[:, 2:] * 0.5, priors[:, 2:]], dim=-1
+        )
 
         scores = cls_preds.sigmoid() * objectness.unsqueeze(1).sigmoid()
         pred_instances = InstanceData(
-            bboxes=decoded_bboxes, scores=scores.sqrt_(), priors=offset_priors)
+            bboxes=decoded_bboxes, scores=scores.sqrt_(), priors=offset_priors
+        )
         assign_result = self.assigner.assign(
             pred_instances=pred_instances,
             gt_instances=gt_instances,
-            gt_instances_ignore=gt_instances_ignore)
+            gt_instances_ignore=gt_instances_ignore,
+        )
 
-        sampling_result = self.sampler.sample(assign_result, pred_instances,
-                                              gt_instances)
+        sampling_result = self.sampler.sample(
+            assign_result, pred_instances, gt_instances
+        )
         pos_inds = sampling_result.pos_inds
         num_pos_per_img = pos_inds.size(0)
 
         pos_ious = assign_result.max_overlaps[pos_inds]
         # IOU aware classification score
-        cls_target = F.one_hot(sampling_result.pos_gt_labels,
-                               self.num_classes) * pos_ious.unsqueeze(-1)
+        cls_target = F.one_hot(
+            sampling_result.pos_gt_labels, self.num_classes
+        ) * pos_ious.unsqueeze(-1)
         obj_target = torch.zeros_like(objectness).unsqueeze(-1)
         obj_target[pos_inds] = 1
         bbox_target = sampling_result.pos_gt_bboxes
         l1_target = cls_preds.new_zeros((num_pos_per_img, 4))
         if self.use_l1:
-            l1_target = self._get_l1_target(l1_target, bbox_target,
-                                            priors[pos_inds])
+            l1_target = self._get_l1_target(
+                l1_target, bbox_target, priors[pos_inds]
+            )
         foreground_mask = torch.zeros_like(objectness).to(torch.bool)
         foreground_mask[pos_inds] = 1
-        return (foreground_mask, cls_target, obj_target, bbox_target,
-                l1_target, num_pos_per_img)
+        return (
+            foreground_mask,
+            cls_target,
+            obj_target,
+            bbox_target,
+            l1_target,
+            num_pos_per_img,
+        )
 
-    def _get_l1_target(self,
-                       l1_target: Tensor,
-                       gt_bboxes: Tensor,
-                       priors: Tensor,
-                       eps: float = 1e-8) -> Tensor:
+    def _get_l1_target(
+        self,
+        l1_target: Tensor,
+        gt_bboxes: Tensor,
+        priors: Tensor,
+        eps: float = 1e-8,
+    ) -> Tensor:
         """Convert gt bboxes to center offset and log width height."""
         gt_cxcywh = bbox_xyxy_to_cxcywh(gt_bboxes)
         l1_target[:, :2] = (gt_cxcywh[:, :2] - priors[:, :2]) / priors[:, 2:]

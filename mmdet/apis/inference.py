@@ -52,8 +52,10 @@ def init_detector(
     if isinstance(config, (str, Path)):
         config = Config.fromfile(config)
     elif not isinstance(config, Config):
-        raise TypeError('config must be a filename or Config object, '
-                        f'but got {type(config)}')
+        raise TypeError(
+            'config must be a filename or Config object, '
+            f'but got {type(config)}'
+        )
     if cfg_options is not None:
         config.merge_from_dict(cfg_options)
     elif 'init_cfg' in config.model.backbone:
@@ -89,7 +91,8 @@ def init_detector(
             warnings.simplefilter('once')
             warnings.warn(
                 'dataset_meta or class names are not saved in the '
-                'checkpoint\'s meta data, use COCO classes by default.')
+                "checkpoint's meta data, use COCO classes by default."
+            )
             model.dataset_meta = {'classes': get_classes('coco')}
 
     # Priority:  args.palette -> config -> checkpoint
@@ -107,7 +110,8 @@ def init_detector(
             if 'palette' not in model.dataset_meta:
                 warnings.warn(
                     'palette does not exist, random is used by default. '
-                    'You can also set the palette to customize.')
+                    'You can also set the palette to customize.'
+                )
                 model.dataset_meta['palette'] = 'random'
 
     model.cfg = config  # save the config in the model for convenience
@@ -160,9 +164,9 @@ def inference_detector(
 
     if model.data_preprocessor.device.type == 'cpu':
         for m in model.modules():
-            assert not isinstance(
-                m, RoIPool
-            ), 'CPU inference with RoIPool is not supported currently.'
+            assert not isinstance(m, RoIPool), (
+                'CPU inference with RoIPool is not supported currently.'
+            )
 
     result_list = []
     for i, img in enumerate(imgs):
@@ -234,9 +238,9 @@ async def async_inference_detector(model, imgs):
         datas.append(data)
 
     for m in model.modules():
-        assert not isinstance(
-            m,
-            RoIPool), 'CPU inference with RoIPool is not supported currently.'
+        assert not isinstance(m, RoIPool), (
+            'CPU inference with RoIPool is not supported currently.'
+        )
 
     # We don't restore `torch.is_grad_enabled()` value during concurrent
     # inference since execution can overlap
@@ -266,8 +270,9 @@ def build_test_pipeline(cfg: ConfigType) -> ConfigType:
     return test_pipeline
 
 
-def inference_mot(model: nn.Module, img: np.ndarray, frame_id: int,
-                  video_len: int) -> SampleList:
+def inference_mot(
+    model: nn.Module, img: np.ndarray, frame_id: int, video_len: int
+) -> SampleList:
     """Inference image(s) with the mot model.
 
     Args:
@@ -284,16 +289,17 @@ def inference_mot(model: nn.Module, img: np.ndarray, frame_id: int,
         frame_id=[frame_id],
         ori_shape=[img.shape[:2]],
         img_id=[frame_id + 1],
-        ori_video_length=[video_len])
+        ori_video_length=[video_len],
+    )
 
     test_pipeline = build_test_pipeline(cfg)
     data = test_pipeline(data)
 
     if not next(model.parameters()).is_cuda:
         for m in model.modules():
-            assert not isinstance(
-                m, RoIPool
-            ), 'CPU inference with RoIPool is not supported currently.'
+            assert not isinstance(m, RoIPool), (
+                'CPU inference with RoIPool is not supported currently.'
+            )
 
     # forward the model
     with torch.no_grad():
@@ -302,12 +308,14 @@ def inference_mot(model: nn.Module, img: np.ndarray, frame_id: int,
     return result
 
 
-def init_track_model(config: Union[str, Config],
-                     checkpoint: Optional[str] = None,
-                     detector: Optional[str] = None,
-                     reid: Optional[str] = None,
-                     device: str = 'cuda:0',
-                     cfg_options: Optional[dict] = None) -> nn.Module:
+def init_track_model(
+    config: Union[str, Config],
+    checkpoint: Optional[str] = None,
+    detector: Optional[str] = None,
+    reid: Optional[str] = None,
+    device: str = 'cuda:0',
+    cfg_options: Optional[dict] = None,
+) -> nn.Module:
     """Initialize a model from config file.
 
     Args:
@@ -330,8 +338,10 @@ def init_track_model(config: Union[str, Config],
     if isinstance(config, str):
         config = Config.fromfile(config)
     elif not isinstance(config, Config):
-        raise TypeError('config must be a filename or Config object, '
-                        f'but got {type(config)}')
+        raise TypeError(
+            'config must be a filename or Config object, '
+            f'but got {type(config)}'
+        )
     if cfg_options is not None:
         config.merge_from_dict(cfg_options)
 
@@ -349,21 +359,24 @@ def init_track_model(config: Union[str, Config],
             model.dataset_meta = checkpoint_meta['dataset_meta']
 
     if detector is not None:
-        assert not (checkpoint and detector), \
+        assert not (checkpoint and detector), (
             'Error: checkpoint and detector checkpoint cannot both exist'
+        )
         load_checkpoint(model.detector, detector, map_location='cpu')
 
     if reid is not None:
-        assert not (checkpoint and reid), \
+        assert not (checkpoint and reid), (
             'Error: checkpoint and reid checkpoint cannot both exist'
+        )
         load_checkpoint(model.reid, reid, map_location='cpu')
 
     # Some methods don't load checkpoints or checkpoints don't contain
     # 'dataset_meta'
     # VIS need dataset_meta, MOT don't need dataset_meta
     if not hasattr(model, 'dataset_meta'):
-        warnings.warn('dataset_meta or class names are missed, '
-                      'use None by default.')
+        warnings.warn(
+            'dataset_meta or class names are missed, use None by default.'
+        )
         model.dataset_meta = {'classes': None}
 
     model.cfg = config  # save the config in the model for convenience

@@ -8,8 +8,11 @@ from mmengine.dist import init_dist
 from mmengine.registry import init_default_scope
 from mmengine.utils import mkdir_or_exist
 
-from mmdet.utils.benchmark import (DataLoaderBenchmark, DatasetBenchmark,
-                                   InferenceBenchmark)
+from mmdet.utils.benchmark import (
+    DataLoaderBenchmark,
+    DatasetBenchmark,
+    InferenceBenchmark,
+)
 
 
 def parse_args():
@@ -20,32 +23,39 @@ def parse_args():
         '--task',
         choices=['inference', 'dataloader', 'dataset'],
         default='dataloader',
-        help='Which task do you want to go to benchmark')
+        help='Which task do you want to go to benchmark',
+    )
     parser.add_argument(
         '--repeat-num',
         type=int,
         default=1,
-        help='number of repeat times of measurement for averaging the results')
+        help='number of repeat times of measurement for averaging the results',
+    )
     parser.add_argument(
-        '--max-iter', type=int, default=2000, help='num of max iter')
+        '--max-iter', type=int, default=2000, help='num of max iter'
+    )
     parser.add_argument(
-        '--log-interval', type=int, default=50, help='interval of logging')
+        '--log-interval', type=int, default=50, help='interval of logging'
+    )
     parser.add_argument(
-        '--num-warmup', type=int, default=5, help='Number of warmup')
+        '--num-warmup', type=int, default=5, help='Number of warmup'
+    )
     parser.add_argument(
         '--fuse-conv-bn',
         action='store_true',
         help='Whether to fuse conv and bn, this will slightly increase'
-        'the inference speed')
+        'the inference speed',
+    )
     parser.add_argument(
         '--dataset-type',
         choices=['train', 'val', 'test'],
         default='test',
-        help='Benchmark dataset type. only supports train, val and test')
+        help='Benchmark dataset type. only supports train, val and test',
+    )
     parser.add_argument(
         '--work-dir',
-        help='the directory to save the file containing '
-        'benchmark metrics')
+        help='the directory to save the file containing benchmark metrics',
+    )
     parser.add_argument(
         '--cfg-options',
         nargs='+',
@@ -55,12 +65,14 @@ def parse_args():
         'be overwritten is a list, it should be like key="[a,b]" or key=a,b '
         'It also allows nested list/tuple values, e.g. key="[(a,b),(c,d)]" '
         'Note that the quotation marks are necessary and that no white space '
-        'is allowed.')
+        'is allowed.',
+    )
     parser.add_argument(
         '--launcher',
         choices=['none', 'pytorch', 'slurm', 'mpi'],
         default='none',
-        help='job launcher')
+        help='job launcher',
+    )
     parser.add_argument('--local_rank', type=int, default=0)
     args = parser.parse_args()
     if 'LOCAL_RANK' not in os.environ:
@@ -77,7 +89,8 @@ def inference_benchmark(args, cfg, distributed, logger):
         args.max_iter,
         args.log_interval,
         args.num_warmup,
-        logger=logger)
+        logger=logger,
+    )
     return benchmark
 
 
@@ -89,7 +102,8 @@ def dataloader_benchmark(args, cfg, distributed, logger):
         args.max_iter,
         args.log_interval,
         args.num_warmup,
-        logger=logger)
+        logger=logger,
+    )
     return benchmark
 
 
@@ -100,7 +114,8 @@ def dataset_benchmark(args, cfg, distributed, logger):
         args.max_iter,
         args.log_interval,
         args.num_warmup,
-        logger=logger)
+        logger=logger,
+    )
     return benchmark
 
 
@@ -123,7 +138,8 @@ def main():
         mkdir_or_exist(args.work_dir)
 
     logger = MMLogger.get_instance(
-        'mmdet', log_file=log_file, log_level='INFO')
+        'mmdet', log_file=log_file, log_level='INFO'
+    )
 
     benchmark = eval(f'{args.task}_benchmark')(args, cfg, distributed, logger)
     benchmark.run(args.repeat_num)

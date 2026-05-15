@@ -12,20 +12,25 @@ from .sampling_result import SamplingResult
 class MaskSamplingResult(SamplingResult):
     """Mask sampling result."""
 
-    def __init__(self,
-                 pos_inds: Tensor,
-                 neg_inds: Tensor,
-                 masks: Tensor,
-                 gt_masks: Tensor,
-                 assign_result: AssignResult,
-                 gt_flags: Tensor,
-                 avg_factor_with_neg: bool = True) -> None:
+    def __init__(
+        self,
+        pos_inds: Tensor,
+        neg_inds: Tensor,
+        masks: Tensor,
+        gt_masks: Tensor,
+        assign_result: AssignResult,
+        gt_flags: Tensor,
+        avg_factor_with_neg: bool = True,
+    ) -> None:
         self.pos_inds = pos_inds
         self.neg_inds = neg_inds
         self.num_pos = max(pos_inds.numel(), 1)
         self.num_neg = max(neg_inds.numel(), 1)
-        self.avg_factor = self.num_pos + self.num_neg \
-            if avg_factor_with_neg else self.num_pos
+        self.avg_factor = (
+            self.num_pos + self.num_neg
+            if avg_factor_with_neg
+            else self.num_pos
+        )
 
         self.pos_masks = masks[pos_inds]
         self.neg_masks = masks[neg_inds]

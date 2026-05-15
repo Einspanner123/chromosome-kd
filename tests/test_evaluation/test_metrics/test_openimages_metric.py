@@ -10,17 +10,22 @@ from mmdet.utils import register_all_modules
 
 
 class TestOpenImagesMetric(unittest.TestCase):
-
     def _create_dummy_results(self):
-        bboxes = np.array([[23.2172, 31.7541, 987.3413, 357.8443],
-                           [100, 120, 130, 150], [150, 160, 190, 200],
-                           [250, 260, 350, 360]])
+        bboxes = np.array(
+            [
+                [23.2172, 31.7541, 987.3413, 357.8443],
+                [100, 120, 130, 150],
+                [150, 160, 190, 200],
+                [250, 260, 350, 360],
+            ]
+        )
         scores = np.array([1.0, 0.98, 0.96, 0.95])
         labels = np.array([0, 0, 0, 0])
         return dict(
             bboxes=torch.from_numpy(bboxes),
             scores=torch.from_numpy(scores),
-            labels=torch.from_numpy(labels))
+            labels=torch.from_numpy(labels),
+        )
 
     def test_init(self):
         # test invalid iou_thrs
@@ -46,8 +51,10 @@ class TestOpenImagesMetric(unittest.TestCase):
                 dict(type='LoadAnnotations', with_bbox=True),
                 dict(
                     type='PackDetInputs',
-                    meta_keys=('img_id', 'img_path', 'instances'))
-            ])
+                    meta_keys=('img_id', 'img_path', 'instances'),
+                ),
+            ],
+        )
         dataset.full_init()
         data_sample = dataset[0]['data_samples'].to_dict()
         data_sample['pred_instances'] = self._create_dummy_results()
@@ -67,6 +74,6 @@ class TestOpenImagesMetric(unittest.TestCase):
         targets = {
             'openimages/AP10': 1.0,
             'openimages/AP50': 1.0,
-            'openimages/mAP': 1.0
+            'openimages/mAP': 1.0,
         }
         self.assertDictEqual(results, targets)

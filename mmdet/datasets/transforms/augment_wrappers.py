@@ -63,18 +63,28 @@ def policies_v0():
     return policies
 
 
-RANDAUG_SPACE = [[dict(type='AutoContrast')], [dict(type='Equalize')],
-                 [dict(type='Invert')], [dict(type='Rotate')],
-                 [dict(type='Posterize')], [dict(type='Solarize')],
-                 [dict(type='SolarizeAdd')], [dict(type='Color')],
-                 [dict(type='Contrast')], [dict(type='Brightness')],
-                 [dict(type='Sharpness')], [dict(type='ShearX')],
-                 [dict(type='ShearY')], [dict(type='TranslateX')],
-                 [dict(type='TranslateY')]]
+RANDAUG_SPACE = [
+    [dict(type='AutoContrast')],
+    [dict(type='Equalize')],
+    [dict(type='Invert')],
+    [dict(type='Rotate')],
+    [dict(type='Posterize')],
+    [dict(type='Solarize')],
+    [dict(type='SolarizeAdd')],
+    [dict(type='Color')],
+    [dict(type='Contrast')],
+    [dict(type='Brightness')],
+    [dict(type='Sharpness')],
+    [dict(type='ShearX')],
+    [dict(type='ShearY')],
+    [dict(type='TranslateX')],
+    [dict(type='TranslateY')],
+]
 
 
-def level_to_mag(level: Optional[int], min_mag: float,
-                 max_mag: float) -> float:
+def level_to_mag(
+    level: Optional[int], min_mag: float, max_mag: float
+) -> float:
     """Map from level to magnitude."""
     if level is None:
         return round(np.random.rand() * (max_mag - min_mag) + min_mag, 1)
@@ -144,24 +154,31 @@ class AutoAugment(RandomChoice):
         >>> results = augmentation(results)
     """
 
-    def __init__(self,
-                 policies: List[List[Union[dict, ConfigDict]]] = policies_v0(),
-                 prob: Optional[List[float]] = None) -> None:
-        assert isinstance(policies, list) and len(policies) > 0, \
+    def __init__(
+        self,
+        policies: List[List[Union[dict, ConfigDict]]] = policies_v0(),
+        prob: Optional[List[float]] = None,
+    ) -> None:
+        assert isinstance(policies, list) and len(policies) > 0, (
             'Policies must be a non-empty list.'
+        )
         for policy in policies:
-            assert isinstance(policy, list) and len(policy) > 0, \
+            assert isinstance(policy, list) and len(policy) > 0, (
                 'Each policy in policies must be a non-empty list.'
+            )
             for augment in policy:
-                assert isinstance(augment, dict) and 'type' in augment, \
-                    'Each specific augmentation must be a dict with key' \
+                assert isinstance(augment, dict) and 'type' in augment, (
+                    'Each specific augmentation must be a dict with key'
                     ' "type".'
+                )
         super().__init__(transforms=policies, prob=prob)
         self.policies = policies
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}(policies={self.policies}, ' \
-               f'prob={self.prob})'
+        return (
+            f'{self.__class__.__name__}(policies={self.policies}, '
+            f'prob={self.prob})'
+        )
 
 
 @TRANSFORMS.register_module()
@@ -221,19 +238,23 @@ class RandAugment(RandomChoice):
         >>> results = augmentation(results)
     """
 
-    def __init__(self,
-                 aug_space: List[Union[dict, ConfigDict]] = RANDAUG_SPACE,
-                 aug_num: int = 2,
-                 prob: Optional[List[float]] = None) -> None:
-        assert isinstance(aug_space, list) and len(aug_space) > 0, \
+    def __init__(
+        self,
+        aug_space: List[Union[dict, ConfigDict]] = RANDAUG_SPACE,
+        aug_num: int = 2,
+        prob: Optional[List[float]] = None,
+    ) -> None:
+        assert isinstance(aug_space, list) and len(aug_space) > 0, (
             'Augmentation space must be a non-empty list.'
+        )
         for aug in aug_space:
-            assert isinstance(aug, list) and len(aug) == 1, \
+            assert isinstance(aug, list) and len(aug) == 1, (
                 'Each augmentation in aug_space must be a list.'
+            )
             for transform in aug:
-                assert isinstance(transform, dict) and 'type' in transform, \
-                    'Each specific transform must be a dict with key' \
-                    ' "type".'
+                assert isinstance(transform, dict) and 'type' in transform, (
+                    'Each specific transform must be a dict with key "type".'
+                )
         super().__init__(transforms=aug_space, prob=prob)
         self.aug_space = aug_space
         self.aug_num = aug_num
@@ -242,7 +263,8 @@ class RandAugment(RandomChoice):
     def random_pipeline_index(self):
         indices = np.arange(len(self.transforms))
         return np.random.choice(
-            indices, self.aug_num, p=self.prob, replace=False)
+            indices, self.aug_num, p=self.prob, replace=False
+        )
 
     def transform(self, results: dict) -> dict:
         """Transform function to use RandAugment.
@@ -258,7 +280,9 @@ class RandAugment(RandomChoice):
         return results
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}(' \
-               f'aug_space={self.aug_space}, '\
-               f'aug_num={self.aug_num}, ' \
-               f'prob={self.prob})'
+        return (
+            f'{self.__class__.__name__}('
+            f'aug_space={self.aug_space}, '
+            f'aug_num={self.aug_num}, '
+            f'prob={self.prob})'
+        )

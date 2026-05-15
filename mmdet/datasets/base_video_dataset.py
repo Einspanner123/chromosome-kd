@@ -36,7 +36,8 @@ class BaseVideoDataset(BaseDataset):
         # The order of returned `cat_ids` will not
         # change with the order of the classes
         self.cat_ids = self.coco.get_cat_ids(
-            cat_names=self.metainfo['classes'])
+            cat_names=self.metainfo['classes']
+        )
         self.cat2label = {cat_id: i for i, cat_id in enumerate(self.cat_ids)}
         self.cat_img_map = copy.deepcopy(self.coco.cat_img_map)
         # used in `filter_data`
@@ -61,17 +62,19 @@ class BaseVideoDataset(BaseDataset):
                 videos[video_id] = {
                     'video_id': video_id,
                     'images': [],
-                    'video_length': 0
+                    'video_length': 0,
                 }
 
             videos[video_id]['video_length'] += 1
             ann_ids = self.coco.get_ann_ids(
-                img_ids=[img_id], cat_ids=self.cat_ids)
+                img_ids=[img_id], cat_ids=self.cat_ids
+            )
             raw_ann_info = self.coco.load_anns(ann_ids)
             total_ann_ids.extend(ann_ids)
 
             parsed_data_info = self.parse_data_info(
-                dict(raw_img_info=raw_img_info, raw_ann_info=raw_ann_info))
+                dict(raw_img_info=raw_img_info, raw_ann_info=raw_ann_info)
+            )
 
             if len(parsed_data_info['instances']) > 0:
                 self.img_ids_with_ann.add(parsed_data_info['img_id'])
@@ -81,9 +84,9 @@ class BaseVideoDataset(BaseDataset):
         data_list = [v for v in videos.values()]
 
         if self.ANN_ID_UNIQUE:
-            assert len(set(total_ann_ids)) == len(
-                total_ann_ids
-            ), f"Annotation ids in '{self.ann_file}' are not unique!"
+            assert len(set(total_ann_ids)) == len(total_ann_ids), (
+                f"Annotation ids in '{self.ann_file}' are not unique!"
+            )
 
         del self.coco
 
@@ -105,8 +108,9 @@ class BaseVideoDataset(BaseDataset):
 
         data_info.update(img_info)
         if self.data_prefix.get('img_path', None) is not None:
-            img_path = osp.join(self.data_prefix['img_path'],
-                                img_info['file_name'])
+            img_path = osp.join(
+                self.data_prefix['img_path'], img_info['file_name']
+            )
         else:
             img_path = img_info['file_name']
         data_info['img_path'] = img_path
@@ -156,7 +160,8 @@ class BaseVideoDataset(BaseDataset):
             return self.data_list
 
         num_imgs_before_filter = sum(
-            [len(info['images']) for info in self.data_list])
+            [len(info['images']) for info in self.data_list]
+        )
         num_imgs_after_filter = 0
 
         # obtain images that contain annotations of the required categories
@@ -187,12 +192,15 @@ class BaseVideoDataset(BaseDataset):
                     else:
                         video_data_info['video_length'] -= 1
                 else:
-                    if self.filter_cfg.get('filter_empty_gt',
-                                           True) and img_id not in ids_in_cat:
+                    if (
+                        self.filter_cfg.get('filter_empty_gt', True)
+                        and img_id not in ids_in_cat
+                    ):
                         video_data_info['video_length'] -= 1
                         continue
                     if min(width, height) >= self.filter_cfg.get(
-                            'min_size', 32):
+                        'min_size', 32
+                    ):
                         valid_imgs_data_info.append(data_info)
                         num_imgs_after_filter += 1
                     else:
@@ -202,7 +210,9 @@ class BaseVideoDataset(BaseDataset):
 
         print_log(
             'The number of samples before and after filtering: '
-            f'{num_imgs_before_filter} / {num_imgs_after_filter}', 'current')
+            f'{num_imgs_before_filter} / {num_imgs_after_filter}',
+            'current',
+        )
         return new_data_list
 
     def prepare_data(self, idx) -> Any:
@@ -245,10 +255,12 @@ class BaseVideoDataset(BaseDataset):
                 # TODO: the value of this key is the same as that of
                 # `video_length` in test mode
                 final_data_info['ori_video_length'].append(
-                    data_info['video_length'])
+                    data_info['video_length']
+                )
 
-            final_data_info['video_length'] = [len(frames_idx_list)
-                                               ] * len(frames_idx_list)
+            final_data_info['video_length'] = [len(frames_idx_list)] * len(
+                frames_idx_list
+            )
             return self.pipeline(final_data_info)
         else:
             # Specify `key_frame_id` for the frame sampling in the pipeline
@@ -272,12 +284,13 @@ class BaseVideoDataset(BaseDataset):
             and frame index.
         """
         if isinstance(index, tuple):
-            assert len(
-                index
-            ) == 2, f'Expect the length of index is 2, but got {len(index)}'
+            assert len(index) == 2, (
+                f'Expect the length of index is 2, but got {len(index)}'
+            )
             video_idx, frame_idx = index
-            instances = self.get_data_info(
-                video_idx)['images'][frame_idx]['instances']
+            instances = self.get_data_info(video_idx)['images'][frame_idx][
+                'instances'
+            ]
             return [instance['bbox_label'] for instance in instances]
         else:
             cat_ids = []
@@ -290,7 +303,8 @@ class BaseVideoDataset(BaseDataset):
     def num_all_imgs(self):
         """Get the number of all the images in this video dataset."""
         return sum(
-            [len(self.get_data_info(i)['images']) for i in range(len(self))])
+            [len(self.get_data_info(i)['images']) for i in range(len(self))]
+        )
 
     def get_len_per_video(self, idx):
         """Get length of one video.

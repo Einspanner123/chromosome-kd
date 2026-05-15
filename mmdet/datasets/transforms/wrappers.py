@@ -85,8 +85,9 @@ class MultiBranch(BaseTransform):
         >>> )
     """
 
-    def __init__(self, branch_field: List[str],
-                 **branch_pipelines: dict) -> None:
+    def __init__(
+        self, branch_field: List[str], **branch_pipelines: dict
+    ) -> None:
         self.branch_field = branch_field
         self.branch_pipelines = {
             branch: Compose(pipeline)
@@ -122,7 +123,7 @@ class MultiBranch(BaseTransform):
         format_results = {}
         for branch, results in multi_results.items():
             for key in results.keys():
-                if format_results.get(key, None) is None:
+                if format_results.get(key) is None:
                     format_results[key] = {branch: results[key]}
                 else:
                     format_results[key][branch] = results[key]
@@ -219,10 +220,11 @@ class ProposalBroadcaster(BaseTransform):
         Returns:
             dict: Updated result dict.
         """
-        assert results.get('proposals', None) is not None, \
-            '`proposals` should be in the results, please delete ' \
-            '`ProposalBroadcaster` in your configs, or check whether ' \
+        assert results.get('proposals') is not None, (
+            '`proposals` should be in the results, please delete '
+            '`ProposalBroadcaster` in your configs, or check whether '
             'you have load proposals successfully.'
+        )
 
         inputs = self._process_input(results)
         outputs = self._apply_transforms(inputs)
@@ -269,9 +271,11 @@ class ProposalBroadcaster(BaseTransform):
         Returns:
             dict: Updated result dict.
         """
-        assert isinstance(output_scatters, list) and \
-               isinstance(output_scatters[0], dict) and \
-               len(output_scatters) == 2
+        assert (
+            isinstance(output_scatters, list)
+            and isinstance(output_scatters[0], dict)
+            and len(output_scatters) == 2
+        )
         outputs = output_scatters[0]
         outputs['proposals'] = output_scatters[1]['gt_bboxes']
         return outputs

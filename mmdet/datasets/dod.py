@@ -16,15 +16,17 @@ from .api_wrappers import COCO
 
 @DATASETS.register_module()
 class DODDataset(BaseDetDataset):
-
-    def __init__(self,
-                 *args,
-                 data_root: Optional[str] = '',
-                 data_prefix: dict = dict(img_path=''),
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        *args,
+        data_root: Optional[str] = '',
+        data_prefix: dict = dict(img_path=''),
+        **kwargs,
+    ) -> None:
         if D3 is None:
             raise ImportError(
-                'Please install d3 by `pip install ddd-dataset`.')
+                'Please install d3 by `pip install ddd-dataset`.'
+            )
         pkl_anno_path = osp.join(data_root, data_prefix['anno'])
         self.img_root = osp.join(data_root, data_prefix['img'])
         self.d3 = D3(self.img_root, pkl_anno_path)
@@ -36,7 +38,8 @@ class DODDataset(BaseDetDataset):
             data_root=data_root,
             data_prefix=data_prefix,
             metainfo={'classes': classes},
-            **kwargs)
+            **kwargs,
+        )
 
     def load_data_list(self) -> List[dict]:
         coco = COCO(self.ann_file)

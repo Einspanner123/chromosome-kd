@@ -10,11 +10,21 @@ from mmengine.structures import InstanceData
 from torch import Tensor
 
 from mmdet.registry import MODELS
-from mmdet.utils import (ConfigType, InstanceList, OptConfigType,
-                         OptInstanceList, OptMultiConfig)
-from ..utils import (gaussian_radius, gen_gaussian_target, get_local_maximum,
-                     get_topk_from_heatmap, multi_apply,
-                     transpose_and_gather_feat)
+from mmdet.utils import (
+    ConfigType,
+    InstanceList,
+    OptConfigType,
+    OptInstanceList,
+    OptMultiConfig,
+)
+from ..utils import (
+    gaussian_radius,
+    gen_gaussian_target,
+    get_local_maximum,
+    get_topk_from_heatmap,
+    multi_apply,
+    transpose_and_gather_feat,
+)
 from .base_dense_head import BaseDenseHead
 
 
@@ -45,22 +55,25 @@ class CenterNetHead(BaseDenseHead):
             config dict.
     """
 
-    def __init__(self,
-                 in_channels: int,
-                 feat_channels: int,
-                 num_classes: int,
-                 loss_center_heatmap: ConfigType = dict(
-                     type='GaussianFocalLoss', loss_weight=1.0),
-                 loss_wh: ConfigType = dict(type='L1Loss', loss_weight=0.1),
-                 loss_offset: ConfigType = dict(
-                     type='L1Loss', loss_weight=1.0),
-                 train_cfg: OptConfigType = None,
-                 test_cfg: OptConfigType = None,
-                 init_cfg: OptMultiConfig = None) -> None:
+    def __init__(
+        self,
+        in_channels: int,
+        feat_channels: int,
+        num_classes: int,
+        loss_center_heatmap: ConfigType = dict(
+            type='GaussianFocalLoss', loss_weight=1.0
+        ),
+        loss_wh: ConfigType = dict(type='L1Loss', loss_weight=0.1),
+        loss_offset: ConfigType = dict(type='L1Loss', loss_weight=1.0),
+        train_cfg: OptConfigType = None,
+        test_cfg: OptConfigType = None,
+        init_cfg: OptMultiConfig = None,
+    ) -> None:
         super().__init__(init_cfg=init_cfg)
         self.num_classes = num_classes
-        self.heatmap_head = self._build_head(in_channels, feat_channels,
-                                             num_classes)
+        self.heatmap_head = self._build_head(
+            in_channels, feat_channels, num_classes
+        )
         self.wh_head = self._build_head(in_channels, feat_channels, 2)
         self.offset_head = self._build_head(in_channels, feat_channels, 2)
 
@@ -72,13 +85,15 @@ class CenterNetHead(BaseDenseHead):
         self.test_cfg = test_cfg
         self.fp16_enabled = False
 
-    def _build_head(self, in_channels: int, feat_channels: int,
-                    out_channels: int) -> nn.Sequential:
+    def _build_head(
+        self, in_channels: int, feat_channels: int, out_channels: int
+    ) -> nn.Sequential:
         """Build head for each branch."""
         layer = nn.Sequential(
             nn.Conv2d(in_channels, feat_channels, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(feat_channels, out_channels, kernel_size=1))
+            nn.Conv2d(feat_channels, out_channels, kernel_size=1),
+        )
         return layer
 
     def init_weights(self) -> None:
@@ -125,13 +140,14 @@ class CenterNetHead(BaseDenseHead):
         return center_heatmap_pred, wh_pred, offset_pred
 
     def loss_by_feat(
-            self,
-            center_heatmap_preds: List[Tensor],
-            wh_preds: List[Tensor],
-            offset_preds: List[Tensor],
-            batch_gt_instances: InstanceList,
-            batch_img_metas: List[dict],
-            batch_gt_instances_ignore: OptInstanceList = None) -> dict:
+        self,
+        center_heatmap_preds: List[Tensor],
+        wh_preds: List[Tensor],
+        offset_preds: List[Tensor],
+        batch_gt_instances: InstanceList,
+        batch_img_metas: List[dict],
+        batch_gt_instances_ignore: OptInstanceList = None,
+    ) -> dict:
         """Compute losses of the head.
 
         Args:
@@ -157,8 +173,12 @@ class CenterNetHead(BaseDenseHead):
                 - loss_wh (Tensor): loss of hw heatmap
                 - loss_offset (Tensor): loss of offset heatmap.
         """
-        assert len(center_heatmap_preds) == len(wh_preds) == len(
-            offset_preds) == 1
+        assert (
+            len(center_heatmap_preds)
+            == len(wh_preds)
+            == len(offset_preds)
+            == 1
+        )
         center_heatmap_pred = center_heatmap_preds[0]
         wh_pred = wh_preds[0]
         offset_pred = offset_preds[0]
@@ -170,9 +190,9 @@ class CenterNetHead(BaseDenseHead):
             gt_instances.labels for gt_instances in batch_gt_instances
         ]
         img_shape = batch_img_metas[0]['batch_input_shape']
-        target_result, avg_factor = self.get_targets(gt_bboxes, gt_labels,
-                                                     center_heatmap_pred.shape,
-                                                     img_shape)
+        target_result, avg_factor = self.get_targets(
+            gt_bboxes, gt_labels, center_heatmap_pred.shape, img_shape
+        )
 
         center_heatmap_target = target_result['center_heatmap_target']
         wh_target = target_result['wh_target']
@@ -182,24 +202,33 @@ class CenterNetHead(BaseDenseHead):
         # Since the channel of wh_target and offset_target is 2, the avg_factor
         # of loss_center_heatmap is always 1/2 of loss_wh and loss_offset.
         loss_center_heatmap = self.loss_center_heatmap(
-            center_heatmap_pred, center_heatmap_target, avg_factor=avg_factor)
+            center_heatmap_pred, center_heatmap_target, avg_factor=avg_factor
+        )
         loss_wh = self.loss_wh(
             wh_pred,
             wh_target,
             wh_offset_target_weight,
-            avg_factor=avg_factor * 2)
+            avg_factor=avg_factor * 2,
+        )
         loss_offset = self.loss_offset(
             offset_pred,
             offset_target,
             wh_offset_target_weight,
-            avg_factor=avg_factor * 2)
+            avg_factor=avg_factor * 2,
+        )
         return dict(
             loss_center_heatmap=loss_center_heatmap,
             loss_wh=loss_wh,
-            loss_offset=loss_offset)
+            loss_offset=loss_offset,
+        )
 
-    def get_targets(self, gt_bboxes: List[Tensor], gt_labels: List[Tensor],
-                    feat_shape: tuple, img_shape: tuple) -> Tuple[dict, int]:
+    def get_targets(
+        self,
+        gt_bboxes: List[Tensor],
+        gt_labels: List[Tensor],
+        feat_shape: tuple,
+        img_shape: tuple,
+    ) -> Tuple[dict, int]:
         """Compute regression and classification targets in multiple images.
 
         Args:
@@ -228,11 +257,13 @@ class CenterNetHead(BaseDenseHead):
         height_ratio = float(feat_h / img_h)
 
         center_heatmap_target = gt_bboxes[-1].new_zeros(
-            [bs, self.num_classes, feat_h, feat_w])
+            [bs, self.num_classes, feat_h, feat_w]
+        )
         wh_target = gt_bboxes[-1].new_zeros([bs, 2, feat_h, feat_w])
         offset_target = gt_bboxes[-1].new_zeros([bs, 2, feat_h, feat_w])
         wh_offset_target_weight = gt_bboxes[-1].new_zeros(
-            [bs, 2, feat_h, feat_w])
+            [bs, 2, feat_h, feat_w]
+        )
 
         for batch_id in range(bs):
             gt_bbox = gt_bboxes[batch_id]
@@ -246,12 +277,16 @@ class CenterNetHead(BaseDenseHead):
                 ctx, cty = ct
                 scale_box_h = (gt_bbox[j][3] - gt_bbox[j][1]) * height_ratio
                 scale_box_w = (gt_bbox[j][2] - gt_bbox[j][0]) * width_ratio
-                radius = gaussian_radius([scale_box_h, scale_box_w],
-                                         min_overlap=0.3)
+                radius = gaussian_radius(
+                    [scale_box_h, scale_box_w], min_overlap=0.3
+                )
                 radius = max(0, int(radius))
                 ind = gt_label[j]
-                gen_gaussian_target(center_heatmap_target[batch_id, ind],
-                                    [ctx_int, cty_int], radius)
+                gen_gaussian_target(
+                    center_heatmap_target[batch_id, ind],
+                    [ctx_int, cty_int],
+                    radius,
+                )
 
                 wh_target[batch_id, 0, cty_int, ctx_int] = scale_box_w
                 wh_target[batch_id, 1, cty_int, ctx_int] = scale_box_h
@@ -266,16 +301,19 @@ class CenterNetHead(BaseDenseHead):
             center_heatmap_target=center_heatmap_target,
             wh_target=wh_target,
             offset_target=offset_target,
-            wh_offset_target_weight=wh_offset_target_weight)
+            wh_offset_target_weight=wh_offset_target_weight,
+        )
         return target_result, avg_factor
 
-    def predict_by_feat(self,
-                        center_heatmap_preds: List[Tensor],
-                        wh_preds: List[Tensor],
-                        offset_preds: List[Tensor],
-                        batch_img_metas: Optional[List[dict]] = None,
-                        rescale: bool = True,
-                        with_nms: bool = False) -> InstanceList:
+    def predict_by_feat(
+        self,
+        center_heatmap_preds: List[Tensor],
+        wh_preds: List[Tensor],
+        offset_preds: List[Tensor],
+        batch_img_metas: Optional[List[dict]] = None,
+        rescale: bool = True,
+        with_nms: bool = False,
+    ) -> InstanceList:
         """Transform network output for a batch into bbox predictions.
 
         Args:
@@ -304,27 +342,35 @@ class CenterNetHead(BaseDenseHead):
                 - bboxes (Tensor): Has a shape (num_instances, 4),
                   the last dimension 4 arrange as (x1, y1, x2, y2).
         """
-        assert len(center_heatmap_preds) == len(wh_preds) == len(
-            offset_preds) == 1
+        assert (
+            len(center_heatmap_preds)
+            == len(wh_preds)
+            == len(offset_preds)
+            == 1
+        )
         result_list = []
         for img_id in range(len(batch_img_metas)):
             result_list.append(
                 self._predict_by_feat_single(
-                    center_heatmap_preds[0][img_id:img_id + 1, ...],
-                    wh_preds[0][img_id:img_id + 1, ...],
-                    offset_preds[0][img_id:img_id + 1, ...],
+                    center_heatmap_preds[0][img_id : img_id + 1, ...],
+                    wh_preds[0][img_id : img_id + 1, ...],
+                    offset_preds[0][img_id : img_id + 1, ...],
                     batch_img_metas[img_id],
                     rescale=rescale,
-                    with_nms=with_nms))
+                    with_nms=with_nms,
+                )
+            )
         return result_list
 
-    def _predict_by_feat_single(self,
-                                center_heatmap_pred: Tensor,
-                                wh_pred: Tensor,
-                                offset_pred: Tensor,
-                                img_meta: dict,
-                                rescale: bool = True,
-                                with_nms: bool = False) -> InstanceData:
+    def _predict_by_feat_single(
+        self,
+        center_heatmap_pred: Tensor,
+        wh_pred: Tensor,
+        offset_pred: Tensor,
+        img_meta: dict,
+        rescale: bool = True,
+        with_nms: bool = False,
+    ) -> InstanceData:
         """Transform outputs of a single image into bbox results.
 
         Args:
@@ -359,35 +405,41 @@ class CenterNetHead(BaseDenseHead):
             offset_pred,
             img_meta['batch_input_shape'],
             k=self.test_cfg.topk,
-            kernel=self.test_cfg.local_maximum_kernel)
+            kernel=self.test_cfg.local_maximum_kernel,
+        )
 
         det_bboxes = batch_det_bboxes.view([-1, 5])
         det_labels = batch_labels.view(-1)
 
-        batch_border = det_bboxes.new_tensor(img_meta['border'])[...,
-                                                                 [2, 0, 2, 0]]
+        batch_border = det_bboxes.new_tensor(img_meta['border'])[
+            ..., [2, 0, 2, 0]
+        ]
         det_bboxes[..., :4] -= batch_border
 
         if rescale and 'scale_factor' in img_meta:
             det_bboxes[..., :4] /= det_bboxes.new_tensor(
-                img_meta['scale_factor']).repeat((1, 2))
+                img_meta['scale_factor']
+            ).repeat((1, 2))
 
         if with_nms:
-            det_bboxes, det_labels = self._bboxes_nms(det_bboxes, det_labels,
-                                                      self.test_cfg)
+            det_bboxes, det_labels = self._bboxes_nms(
+                det_bboxes, det_labels, self.test_cfg
+            )
         results = InstanceData()
         results.bboxes = det_bboxes[..., :4]
         results.scores = det_bboxes[..., 4]
         results.labels = det_labels
         return results
 
-    def _decode_heatmap(self,
-                        center_heatmap_pred: Tensor,
-                        wh_pred: Tensor,
-                        offset_pred: Tensor,
-                        img_shape: tuple,
-                        k: int = 100,
-                        kernel: int = 3) -> Tuple[Tensor, Tensor]:
+    def _decode_heatmap(
+        self,
+        center_heatmap_pred: Tensor,
+        wh_pred: Tensor,
+        offset_pred: Tensor,
+        img_shape: tuple,
+        k: int = 100,
+        kernel: int = 3,
+    ) -> Tuple[Tensor, Tensor]:
         """Transform outputs into detections raw bbox prediction.
 
         Args:
@@ -412,10 +464,12 @@ class CenterNetHead(BaseDenseHead):
         inp_h, inp_w = img_shape
 
         center_heatmap_pred = get_local_maximum(
-            center_heatmap_pred, kernel=kernel)
+            center_heatmap_pred, kernel=kernel
+        )
 
         *batch_dets, topk_ys, topk_xs = get_topk_from_heatmap(
-            center_heatmap_pred, k=k)
+            center_heatmap_pred, k=k
+        )
         batch_scores, batch_index, batch_topk_labels = batch_dets
 
         wh = transpose_and_gather_feat(wh_pred, batch_index)
@@ -428,18 +482,20 @@ class CenterNetHead(BaseDenseHead):
         br_y = (topk_ys + wh[..., 1] / 2) * (inp_h / height)
 
         batch_bboxes = torch.stack([tl_x, tl_y, br_x, br_y], dim=2)
-        batch_bboxes = torch.cat((batch_bboxes, batch_scores[..., None]),
-                                 dim=-1)
+        batch_bboxes = torch.cat(
+            (batch_bboxes, batch_scores[..., None]), dim=-1
+        )
         return batch_bboxes, batch_topk_labels
 
-    def _bboxes_nms(self, bboxes: Tensor, labels: Tensor,
-                    cfg: ConfigDict) -> Tuple[Tensor, Tensor]:
+    def _bboxes_nms(
+        self, bboxes: Tensor, labels: Tensor, cfg: ConfigDict
+    ) -> Tuple[Tensor, Tensor]:
         """bboxes nms."""
         if labels.numel() > 0:
             max_num = cfg.max_per_img
-            bboxes, keep = batched_nms(bboxes[:, :4], bboxes[:,
-                                                             -1].contiguous(),
-                                       labels, cfg.nms)
+            bboxes, keep = batched_nms(
+                bboxes[:, :4], bboxes[:, -1].contiguous(), labels, cfg.nms
+            )
             if max_num > 0:
                 bboxes = bboxes[:max_num]
                 labels = labels[keep][:max_num]

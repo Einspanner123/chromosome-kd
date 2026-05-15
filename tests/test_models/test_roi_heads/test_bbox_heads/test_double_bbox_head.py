@@ -9,7 +9,6 @@ from mmdet.models.roi_heads.bbox_heads import DoubleConvFCBBoxHead
 
 
 class TestDoubleBboxHead(TestCase):
-
     @parameterized.expand(['cpu', 'cuda'])
     def test_forward_loss(self, device):
         if device == 'cuda':
@@ -21,7 +20,8 @@ class TestDoubleBboxHead(TestCase):
             num_fcs=2,
             in_channels=1,
             conv_out_channels=4,
-            fc_out_channels=4)
+            fc_out_channels=4,
+        )
         double_bbox_head = double_bbox_head.to(device=device)
 
         num_samples = 4

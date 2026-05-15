@@ -46,19 +46,22 @@ class InstaBoost(BaseTransform):
             Defaults to 0.5.
     """
 
-    def __init__(self,
-                 action_candidate: tuple = ('normal', 'horizontal', 'skip'),
-                 action_prob: tuple = (1, 0, 0),
-                 scale: tuple = (0.8, 1.2),
-                 dx: int = 15,
-                 dy: int = 15,
-                 theta: tuple = (-1, 1),
-                 color_prob: float = 0.5,
-                 hflag: bool = False,
-                 aug_ratio: float = 0.5) -> None:
+    def __init__(
+        self,
+        action_candidate: tuple = ('normal', 'horizontal', 'skip'),
+        action_prob: tuple = (1, 0, 0),
+        scale: tuple = (0.8, 1.2),
+        dx: int = 15,
+        dy: int = 15,
+        theta: tuple = (-1, 1),
+        color_prob: float = 0.5,
+        hflag: bool = False,
+        aug_ratio: float = 0.5,
+    ) -> None:
 
         import matplotlib
         import matplotlib.pyplot as plt
+
         default_backend = plt.get_backend()
 
         try:
@@ -66,15 +69,23 @@ class InstaBoost(BaseTransform):
         except ImportError:
             raise ImportError(
                 'Please run "pip install instaboostfast" '
-                'to install instaboostfast first for instaboost augmentation.')
+                'to install instaboostfast first for instaboost augmentation.'
+            )
 
         # instaboost will modify the default backend
         # and cause visualization to fail.
         matplotlib.use(default_backend)
 
-        self.cfg = instaboost.InstaBoostConfig(action_candidate, action_prob,
-                                               scale, dx, dy, theta,
-                                               color_prob, hflag)
+        self.cfg = instaboost.InstaBoostConfig(
+            action_candidate,
+            action_prob,
+            scale,
+            dx,
+            dy,
+            theta,
+            color_prob,
+            hflag,
+        )
         self.aug_ratio = aug_ratio
 
     def _load_anns(self, results: dict) -> Tuple[list, list]:
@@ -90,18 +101,17 @@ class InstaBoost(BaseTransform):
             bbox = [x1, y1, x2 - x1, y2 - y1]
 
             if instance['ignore_flag'] == 0:
-                anns.append({
-                    'category_id': label,
-                    'segmentation': mask,
-                    'bbox': bbox
-                })
+                anns.append(
+                    {'category_id': label, 'segmentation': mask, 'bbox': bbox}
+                )
             else:
                 # Ignore instances without data augmentation
                 ignore_anns.append(instance)
         return anns, ignore_anns
 
-    def _parse_anns(self, results: dict, anns: list, ignore_anns: list,
-                    img: np.ndarray) -> dict:
+    def _parse_anns(
+        self, results: dict, anns: list, ignore_anns: list, img: np.ndarray
+    ) -> dict:
         """Restore the result of instaboost processing to the original anns
         format."""
         instances = []
@@ -116,7 +126,9 @@ class InstaBoost(BaseTransform):
                     bbox=bbox,
                     bbox_label=ann['category_id'],
                     mask=ann['segmentation'],
-                    ignore_flag=0))
+                    ignore_flag=0,
+                )
+            )
 
         instances.extend(ignore_anns)
         results['img'] = img
@@ -135,13 +147,17 @@ class InstaBoost(BaseTransform):
             try:
                 import instaboostfast as instaboost
             except ImportError:
-                raise ImportError('Please run "pip install instaboostfast" '
-                                  'to install instaboostfast first.')
+                raise ImportError(
+                    'Please run "pip install instaboostfast" '
+                    'to install instaboostfast first.'
+                )
             anns, img = instaboost.get_new_data(
-                anns, img.astype(np.uint8), self.cfg, background=None)
+                anns, img.astype(np.uint8), self.cfg, background=None
+            )
 
-        results = self._parse_anns(results, anns, ignore_anns,
-                                   img.astype(ori_type))
+        results = self._parse_anns(
+            results, anns, ignore_anns, img.astype(ori_type)
+        )
         return results
 
     def __repr__(self) -> str:

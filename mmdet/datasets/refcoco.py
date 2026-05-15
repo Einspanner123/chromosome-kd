@@ -33,14 +33,16 @@ class RefCocoDataset(BaseDataset):
         **kwargs: Other keyword arguments in :class:`BaseDataset`.
     """
 
-    def __init__(self,
-                 data_root: str,
-                 ann_file: str,
-                 split_file: str,
-                 data_prefix: Dict,
-                 split: str = 'train',
-                 text_mode: str = 'random',
-                 **kwargs):
+    def __init__(
+        self,
+        data_root: str,
+        ann_file: str,
+        split_file: str,
+        data_prefix: Dict,
+        split: str = 'train',
+        text_mode: str = 'random',
+        **kwargs,
+    ):
         self.split_file = split_file
         self.split = split
 
@@ -107,8 +109,9 @@ class RefCocoDataset(BaseDataset):
         image_annot = {}
         for i in range(len(self.instances['images'])):
             coco_train_id.append(self.instances['images'][i]['id'])
-            image_annot[self.instances['images'][i]
-                        ['id']] = self.instances['images'][i]
+            image_annot[self.instances['images'][i]['id']] = self.instances[
+                'images'
+            ][i]
 
         images = []
         for image_id in list(set(image_id_list)):
@@ -143,17 +146,16 @@ class RefCocoDataset(BaseDataset):
                     text = texts
                 else:
                     raise ValueError(f'Invalid text mode "{self.text_mode}".')
-                ins = [{
-                    'mask': grounding_anno['segmentation'],
-                    'ignore_flag': 0
-                }] * len(text)
+                ins = [
+                    {'mask': grounding_anno['segmentation'], 'ignore_flag': 0}
+                ] * len(text)
                 instances.extend(ins)
                 sentences.extend(text)
             data_info = {
                 'img_path': join_path(img_prefix, image['file_name']),
                 'img_id': img_id,
                 'instances': instances,
-                'text': sentences
+                'text': sentences,
             }
             data_list.append(data_info)
 

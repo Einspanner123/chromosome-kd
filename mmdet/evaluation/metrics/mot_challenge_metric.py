@@ -13,9 +13,14 @@ try:
     import trackeval
 except ImportError:
     trackeval = None
-from mmengine.dist import (all_gather_object, barrier, broadcast,
-                           broadcast_object_list, get_dist_info,
-                           is_main_process)
+from mmengine.dist import (
+    all_gather_object,
+    barrier,
+    broadcast,
+    broadcast_object_list,
+    get_dist_info,
+    is_main_process,
+)
 from mmengine.logging import MMLogger
 
 from mmdet.registry import METRICS, TASK_UTILS
@@ -27,11 +32,11 @@ def get_tmpdir() -> str:
     rank, world_size = get_dist_info()
     MAX_LEN = 512
     # 32 is whitespace
-    dir_tensor = torch.full((MAX_LEN, ), 32, dtype=torch.uint8)
+    dir_tensor = torch.full((MAX_LEN,), 32, dtype=torch.uint8)
     if rank == 0:
         tmpdir = tempfile.mkdtemp()
         tmpdir = torch.tensor(bytearray(tmpdir.encode()), dtype=torch.uint8)
-        dir_tensor[:len(tmpdir)] = tmpdir
+        dir_tensor[: len(tmpdir)] = tmpdir
     broadcast(dir_tensor, 0)
     tmpdir = dir_tensor.cpu().numpy().tobytes().decode().rstrip()
     return tmpdir
@@ -73,21 +78,24 @@ class MOTChallengeMetric(BaseVideoMetric):
             will be used instead. Default: None
     Returns:
     """
+
     TRACKER = 'default-tracker'
     allowed_metrics = ['HOTA', 'CLEAR', 'Identity']
     allowed_benchmarks = ['MOT15', 'MOT16', 'MOT17', 'MOT20', 'DanceTrack']
     default_prefix: Optional[str] = 'motchallenge-metric'
 
-    def __init__(self,
-                 metric: Union[str, List[str]] = ['HOTA', 'CLEAR', 'Identity'],
-                 outfile_prefix: Optional[str] = None,
-                 track_iou_thr: float = 0.5,
-                 benchmark: str = 'MOT17',
-                 format_only: bool = False,
-                 use_postprocess: bool = False,
-                 postprocess_tracklet_cfg: Optional[List[dict]] = [],
-                 collect_device: str = 'cpu',
-                 prefix: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        metric: Union[str, List[str]] = ['HOTA', 'CLEAR', 'Identity'],
+        outfile_prefix: Optional[str] = None,
+        track_iou_thr: float = 0.5,
+        benchmark: str = 'MOT17',
+        format_only: bool = False,
+        use_postprocess: bool = False,
+        postprocess_tracklet_cfg: Optional[List[dict]] = [],
+        collect_device: str = 'cpu',
+        prefix: Optional[str] = None,
+    ) -> None:
         super().__init__(collect_device=collect_device, prefix=prefix)
         if trackeval is None:
             raise RuntimeError(
@@ -95,7 +103,8 @@ class MOTChallengeMetric(BaseVideoMetric):
                 'please install it by: pip install'
                 'git+https://github.com/JonathonLuiten/TrackEval.git'
                 'trackeval need low version numpy, please install it'
-                'by: pip install -U numpy==1.23.5')
+                'by: pip install -U numpy==1.23.5'
+            )
         if isinstance(metric, list):
             metrics = metric
         elif isinstance(metric, str):
@@ -122,7 +131,8 @@ class MOTChallengeMetric(BaseVideoMetric):
         self.tmp_dir = tempfile.TemporaryDirectory()
         self.tmp_dir.name = get_tmpdir()
         self.seq_info = defaultdict(
-            lambda: dict(seq_length=-1, gt_tracks=[], pred_tracks=[]))
+            lambda: dict(seq_length=-1, gt_tracks=[], pred_tracks=[])
+        )
         self.gt_dir = self._get_gt_dir()
         self.pred_dir = self._get_pred_dir(outfile_prefix)
         self.seqmap = osp.join(self.pred_dir, 'videoseq.txt')
@@ -162,15 +172,22 @@ class MOTChallengeMetric(BaseVideoMetric):
         if 'instances' in img_data_sample:
             gt_instances = img_data_sample['instances']
             gt_tracks = [
-                np.array([
-                    frame_id + 1, gt_instances[i]['instance_id'],
-                    gt_instances[i]['bbox'][0], gt_instances[i]['bbox'][1],
-                    gt_instances[i]['bbox'][2] - gt_instances[i]['bbox'][0],
-                    gt_instances[i]['bbox'][3] - gt_instances[i]['bbox'][1],
-                    gt_instances[i]['mot_conf'],
-                    gt_instances[i]['category_id'],
-                    gt_instances[i]['visibility']
-                ]) for i in range(len(gt_instances))
+                np.array(
+                    [
+                        frame_id + 1,
+                        gt_instances[i]['instance_id'],
+                        gt_instances[i]['bbox'][0],
+                        gt_instances[i]['bbox'][1],
+                        gt_instances[i]['bbox'][2]
+                        - gt_instances[i]['bbox'][0],
+                        gt_instances[i]['bbox'][3]
+                        - gt_instances[i]['bbox'][1],
+                        gt_instances[i]['mot_conf'],
+                        gt_instances[i]['category_id'],
+                        gt_instances[i]['visibility'],
+                    ]
+                )
+                for i in range(len(gt_instances))
             ]
             self.seq_info[video]['gt_tracks'].extend(gt_tracks)
 
@@ -185,16 +202,24 @@ class MOTChallengeMetric(BaseVideoMetric):
         else:
             pred_instances = img_data_sample['pred_track_instances']
             pred_tracks = [
-                np.array([
-                    frame_id + 1, pred_instances['instances_id'][i].cpu(),
-                    pred_instances['bboxes'][i][0].cpu(),
-                    pred_instances['bboxes'][i][1].cpu(),
-                    (pred_instances['bboxes'][i][2] -
-                     pred_instances['bboxes'][i][0]).cpu(),
-                    (pred_instances['bboxes'][i][3] -
-                     pred_instances['bboxes'][i][1]).cpu(),
-                    pred_instances['scores'][i].cpu()
-                ]) for i in range(len(pred_instances['instances_id']))
+                np.array(
+                    [
+                        frame_id + 1,
+                        pred_instances['instances_id'][i].cpu(),
+                        pred_instances['bboxes'][i][0].cpu(),
+                        pred_instances['bboxes'][i][1].cpu(),
+                        (
+                            pred_instances['bboxes'][i][2]
+                            - pred_instances['bboxes'][i][0]
+                        ).cpu(),
+                        (
+                            pred_instances['bboxes'][i][3]
+                            - pred_instances['bboxes'][i][1]
+                        ).cpu(),
+                        pred_instances['scores'][i].cpu(),
+                    ]
+                )
+                for i in range(len(pred_instances['instances_id']))
             ]
         self.seq_info[video]['pred_tracks'].extend(pred_tracks)
 
@@ -212,10 +237,12 @@ class MOTChallengeMetric(BaseVideoMetric):
             if self.postprocess_tracklet_cfg:
                 info = self.seq_info[video]
                 pred_tracks = np.array(info['pred_tracks'])
-                for postprocess_tracklet_methods in \
-                        self.postprocess_tracklet_methods:
-                    pred_tracks = postprocess_tracklet_methods\
-                        .forward(pred_tracks)
+                for (
+                    postprocess_tracklet_methods
+                ) in self.postprocess_tracklet_methods:
+                    pred_tracks = postprocess_tracklet_methods.forward(
+                        pred_tracks
+                    )
                 info['pred_tracks'] = pred_tracks
             self._save_one_video_gts_preds(video)
 
@@ -233,10 +260,10 @@ class MOTChallengeMetric(BaseVideoMetric):
         if self.postprocess_tracklet_cfg:
             info = self.seq_info[video]
             pred_tracks = np.array(info['pred_tracks'])
-            for postprocess_tracklet_methods in \
-                    self.postprocess_tracklet_methods:
-                pred_tracks = postprocess_tracklet_methods \
-                    .forward(pred_tracks)
+            for (
+                postprocess_tracklet_methods
+            ) in self.postprocess_tracklet_methods:
+                pred_tracks = postprocess_tracklet_methods.forward(pred_tracks)
             info['pred_tracks'] = pred_tracks
         self._save_one_video_gts_preds(video)
 
@@ -248,22 +275,36 @@ class MOTChallengeMetric(BaseVideoMetric):
 
         pred_tracks = np.array(info['pred_tracks'])
 
-        with open(pred_file, 'wt') as f:
+        with open(pred_file, 'w') as f:
             for tracks in pred_tracks:
                 line = '%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,-1,-1,-1\n' % (
-                    tracks[0], tracks[1], tracks[2], tracks[3], tracks[4],
-                    tracks[5], tracks[6])
+                    tracks[0],
+                    tracks[1],
+                    tracks[2],
+                    tracks[3],
+                    tracks[4],
+                    tracks[5],
+                    tracks[6],
+                )
                 f.writelines(line)
 
         info['pred_tracks'] = []
         # save gts
         if info['gt_tracks']:
             gt_file = osp.join(self.gt_dir, seq + '.txt')
-            with open(gt_file, 'wt') as f:
+            with open(gt_file, 'w') as f:
                 for tracks in info['gt_tracks']:
                     line = '%d,%d,%d,%d,%d,%d,%d,%d,%.5f\n' % (
-                        tracks[0], tracks[1], tracks[2], tracks[3], tracks[4],
-                        tracks[5], tracks[6], tracks[7], tracks[8])
+                        tracks[0],
+                        tracks[1],
+                        tracks[2],
+                        tracks[3],
+                        tracks[4],
+                        tracks[5],
+                        tracks[6],
+                        tracks[7],
+                        tracks[8],
+                    )
                     f.writelines(line)
             info['gt_tracks'].clear()
         # save seq info
@@ -300,13 +341,15 @@ class MOTChallengeMetric(BaseVideoMetric):
         evaluator = trackeval.Evaluator(eval_config)
         dataset = [trackeval.datasets.MotChallenge2DBox(dataset_config)]
         metrics = [
-            getattr(trackeval.metrics,
-                    metric)(dict(METRICS=[metric], THRESHOLD=0.5))
+            getattr(trackeval.metrics, metric)(
+                dict(METRICS=[metric], THRESHOLD=0.5)
+            )
             for metric in self.metrics
         ]
         output_res, _ = evaluator.evaluate(dataset, metrics)
-        output_res = output_res['MotChallenge2DBox'][
-            self.TRACKER]['COMBINED_SEQ']['pedestrian']
+        output_res = output_res['MotChallenge2DBox'][self.TRACKER][
+            'COMBINED_SEQ'
+        ]['pedestrian']
 
         if 'HOTA' in self.metrics:
             logger.info('Evaluating HOTA Metrics...')
@@ -365,8 +408,7 @@ class MOTChallengeMetric(BaseVideoMetric):
             # Add prefix to metric names
             if self.prefix:
                 _metrics = {
-                    '/'.join((self.prefix, k)): v
-                    for k, v in _metrics.items()
+                    '/'.join((self.prefix, k)): v for k, v in _metrics.items()
                 }
             metrics = [_metrics]
         else:
@@ -429,8 +471,7 @@ class MOTChallengeMetric(BaseVideoMetric):
             # If not None, specify sequences to eval
             # and their number of timesteps
             SEQ_INFO={
-                seq: info['seq_length']
-                for seq, info in self.seq_info.items()
+                seq: info['seq_length'] for seq, info in self.seq_info.items()
             },
             # '{gt_folder}/{seq}.txt'
             GT_LOC_FORMAT='{gt_folder}/{seq}.txt',

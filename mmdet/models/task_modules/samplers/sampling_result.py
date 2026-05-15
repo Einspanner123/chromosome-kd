@@ -83,21 +83,26 @@ class SamplingResult(util_mixins.NiceRepr):
         })>
     """
 
-    def __init__(self,
-                 pos_inds: Tensor,
-                 neg_inds: Tensor,
-                 priors: Tensor,
-                 gt_bboxes: Tensor,
-                 assign_result: AssignResult,
-                 gt_flags: Tensor,
-                 avg_factor_with_neg: bool = True) -> None:
+    def __init__(
+        self,
+        pos_inds: Tensor,
+        neg_inds: Tensor,
+        priors: Tensor,
+        gt_bboxes: Tensor,
+        assign_result: AssignResult,
+        gt_flags: Tensor,
+        avg_factor_with_neg: bool = True,
+    ) -> None:
         self.pos_inds = pos_inds
         self.neg_inds = neg_inds
         self.num_pos = max(pos_inds.numel(), 1)
         self.num_neg = max(neg_inds.numel(), 1)
         self.avg_factor_with_neg = avg_factor_with_neg
-        self.avg_factor = self.num_pos + self.num_neg \
-            if avg_factor_with_neg else self.num_pos
+        self.avg_factor = (
+            self.num_pos + self.num_neg
+            if avg_factor_with_neg
+            else self.num_pos
+        )
         self.pos_priors = priors[pos_inds]
         self.neg_priors = priors[neg_inds]
         self.pos_is_gt = gt_flags[pos_inds]
@@ -123,20 +128,26 @@ class SamplingResult(util_mixins.NiceRepr):
     @property
     def bboxes(self):
         """torch.Tensor: concatenated positive and negative boxes"""
-        warnings.warn('DeprecationWarning: bboxes is deprecated, '
-                      'please use "priors" instead')
+        warnings.warn(
+            'DeprecationWarning: bboxes is deprecated, '
+            'please use "priors" instead'
+        )
         return self.priors
 
     @property
     def pos_bboxes(self):
-        warnings.warn('DeprecationWarning: pos_bboxes is deprecated, '
-                      'please use "pos_priors" instead')
+        warnings.warn(
+            'DeprecationWarning: pos_bboxes is deprecated, '
+            'please use "pos_priors" instead'
+        )
         return self.pos_priors
 
     @property
     def neg_bboxes(self):
-        warnings.warn('DeprecationWarning: neg_bboxes is deprecated, '
-                      'please use "neg_priors" instead')
+        warnings.warn(
+            'DeprecationWarning: neg_bboxes is deprecated, '
+            'please use "neg_priors" instead'
+        )
         return self.neg_priors
 
     def to(self, device):
@@ -175,7 +186,7 @@ class SamplingResult(util_mixins.NiceRepr):
             'pos_assigned_gt_inds': self.pos_assigned_gt_inds,
             'num_pos': self.num_pos,
             'num_neg': self.num_neg,
-            'avg_factor': self.avg_factor
+            'avg_factor': self.avg_factor,
         }
 
     @classmethod
@@ -203,6 +214,7 @@ class SamplingResult(util_mixins.NiceRepr):
 
         from mmdet.models.task_modules.assigners import AssignResult
         from mmdet.models.task_modules.samplers import RandomSampler
+
         rng = ensure_rng(rng)
 
         # make probabilistic?
@@ -216,7 +228,8 @@ class SamplingResult(util_mixins.NiceRepr):
         priors = random_boxes(assign_result.num_preds, rng=rng)
         gt_bboxes = random_boxes(assign_result.num_gts, rng=rng)
         gt_labels = torch.randint(
-            0, 5, (assign_result.num_gts, ), dtype=torch.long)
+            0, 5, (assign_result.num_gts,), dtype=torch.long
+        )
 
         pred_instances = InstanceData()
         pred_instances.priors = priors
@@ -232,9 +245,11 @@ class SamplingResult(util_mixins.NiceRepr):
             pos_fraction,
             neg_pos_ub=neg_pos_ub,
             add_gt_as_proposals=add_gt_as_proposals,
-            rng=rng)
+            rng=rng,
+        )
         self = sampler.sample(
             assign_result=assign_result,
             pred_instances=pred_instances,
-            gt_instances=gt_instances)
+            gt_instances=gt_instances,
+        )
         return self

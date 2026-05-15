@@ -17,13 +17,15 @@ except ImportError:
 class DumpODVGResults(BaseMetric):
     default_prefix: Optional[str] = 'pl_odvg'
 
-    def __init__(self,
-                 outfile_path,
-                 img_prefix: str,
-                 score_thr: float = 0.1,
-                 collect_device: str = 'cpu',
-                 nms_thr: float = 0.5,
-                 prefix: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        outfile_path,
+        img_prefix: str,
+        score_thr: float = 0.1,
+        collect_device: str = 'cpu',
+        nms_thr: float = 0.5,
+        prefix: Optional[str] = None,
+    ) -> None:
         super().__init__(collect_device=collect_device, prefix=prefix)
         self.outfile_path = outfile_path
         self.score_thr = score_thr
@@ -31,8 +33,9 @@ class DumpODVGResults(BaseMetric):
         self.nms_thr = nms_thr
 
         if jsonlines is None:
-            raise ImportError('Please run "pip install jsonlines" to install '
-                              'this package.')
+            raise ImportError(
+                'Please run "pip install jsonlines" to install this package.'
+            )
 
     def process(self, data_batch: Any, data_samples: Sequence[dict]) -> None:
         for data_sample in data_samples:
@@ -70,8 +73,11 @@ class DumpODVGResults(BaseMetric):
 
                 if len(bboxes) > 0:
                     det_bboxes, keep = batched_nms(
-                        bboxes, scores, labels,
-                        dict(type='nms', iou_threshold=self.nms_thr))
+                        bboxes,
+                        scores,
+                        labels,
+                        dict(type='nms', iou_threshold=self.nms_thr),
+                    )
                     _scores = det_bboxes[:, -1]
                     _bboxes = det_bboxes[:, :-1]
                     _labels = labels[keep]
@@ -83,12 +89,14 @@ class DumpODVGResults(BaseMetric):
                     for bbox, score, label in zip(_bboxes, _scores, _labels):
                         round_bbox = [round(b, 2) for b in bbox]
                         round_score = round(score, 2)
-                        instances.append({
-                            'bbox': round_bbox,
-                            'score': round_score,
-                            'label': label,
-                            'category': classes_name[label]
-                        })
+                        instances.append(
+                            {
+                                'bbox': round_bbox,
+                                'score': round_score,
+                                'label': label,
+                                'category': classes_name[label],
+                            }
+                        )
                     result['detection']['instances'] = instances
                 else:
                     result['detection']['instances'] = []
@@ -102,7 +110,7 @@ class DumpODVGResults(BaseMetric):
 
                 region_list = []
                 for label, positive in enumerate(tokens_positive):
-                    phrase = [caption[pos[0]:pos[1]] for pos in positive]
+                    phrase = [caption[pos[0] : pos[1]] for pos in positive]
 
                     _bboxes = bboxes[labels == label]
                     _scores = scores[labels == label]
@@ -111,7 +119,8 @@ class DumpODVGResults(BaseMetric):
                         _scores,
                         None,
                         dict(type='nms', iou_threshold=self.nms_thr),
-                        class_agnostic=True)
+                        class_agnostic=True,
+                    )
                     _scores = det_bboxes[:, -1].numpy().tolist()
                     _bboxes = det_bboxes[:, :-1].numpy().tolist()
 
@@ -123,7 +132,7 @@ class DumpODVGResults(BaseMetric):
                         'phrase': phrase,
                         'bbox': round_bboxes,
                         'score': _scores,
-                        'tokens_positive': positive
+                        'tokens_positive': positive,
                     }
                     region_list.append(region)
                 result['grounding']['regions'] = region_list
@@ -133,6 +142,6 @@ class DumpODVGResults(BaseMetric):
         with jsonlines.open(self.outfile_path, mode='w') as writer:
             writer.write_all(results)
         print_log(
-            f'Results has been saved to {self.outfile_path}.',
-            logger='current')
+            f'Results has been saved to {self.outfile_path}.', logger='current'
+        )
         return {}

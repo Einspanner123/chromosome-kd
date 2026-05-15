@@ -5,14 +5,13 @@ from unittest import TestCase
 import torch
 from parameterized import parameterized
 
-from mmdet import *  # noqa
+from mmdet import *
 from mmdet.structures import DetDataSample
 from mmdet.testing import demo_mm_inputs, get_detector_cfg
 from mmdet.utils import register_all_modules
 
 
 class TestKDSingleStageDetector(TestCase):
-
     def setUp(self):
         register_all_modules()
 
@@ -22,18 +21,21 @@ class TestKDSingleStageDetector(TestCase):
         model.backbone.init_cfg = None
 
         from mmdet.registry import MODELS
+
         detector = MODELS.build(model)
         self.assertTrue(detector.backbone)
         self.assertTrue(detector.neck)
         self.assertTrue(detector.bbox_head)
 
-    @parameterized.expand([('ld/ld_r18-gflv1-r101_fpn_1x_coco.py', ('cpu',
-                                                                    'cuda'))])
+    @parameterized.expand(
+        [('ld/ld_r18-gflv1-r101_fpn_1x_coco.py', ('cpu', 'cuda'))]
+    )
     def test_single_stage_forward_train(self, cfg_file, devices):
         model = get_detector_cfg(cfg_file)
         model.backbone.init_cfg = None
 
         from mmdet.registry import MODELS
+
         assert all([device in ['cpu', 'cuda'] for device in devices])
 
         for device in devices:
@@ -50,13 +52,15 @@ class TestKDSingleStageDetector(TestCase):
             losses = detector.forward(**data, mode='loss')
             self.assertIsInstance(losses, dict)
 
-    @parameterized.expand([('ld/ld_r18-gflv1-r101_fpn_1x_coco.py', ('cpu',
-                                                                    'cuda'))])
+    @parameterized.expand(
+        [('ld/ld_r18-gflv1-r101_fpn_1x_coco.py', ('cpu', 'cuda'))]
+    )
     def test_single_stage_forward_test(self, cfg_file, devices):
         model = get_detector_cfg(cfg_file)
         model.backbone.init_cfg = None
 
         from mmdet.registry import MODELS
+
         assert all([device in ['cpu', 'cuda'] for device in devices])
 
         for device in devices:

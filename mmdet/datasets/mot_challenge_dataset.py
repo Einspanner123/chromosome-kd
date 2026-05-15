@@ -16,10 +16,21 @@ class MOTChallengeDataset(BaseVideoDataset):
     """
 
     METAINFO = {
-        'classes':
-        ('pedestrian', 'person_on_vehicle', 'car', 'bicycle', 'motorbike',
-         'non_mot_vehicle', 'static_person', 'distractor', 'occluder',
-         'occluder_on_ground', 'occluder_full', 'reflection', 'crowd')
+        'classes': (
+            'pedestrian',
+            'person_on_vehicle',
+            'car',
+            'bicycle',
+            'motorbike',
+            'non_mot_vehicle',
+            'static_person',
+            'distractor',
+            'occluder',
+            'occluder_on_ground',
+            'occluder_full',
+            'reflection',
+            'crowd',
+        )
     }
 
     def __init__(self, visibility_thr: float = -1, *args, **kwargs):
@@ -43,8 +54,9 @@ class MOTChallengeDataset(BaseVideoDataset):
 
         data_info.update(img_info)
         if self.data_prefix.get('img_path', None) is not None:
-            img_path = osp.join(self.data_prefix['img_path'],
-                                img_info['file_name'])
+            img_path = osp.join(
+                self.data_prefix['img_path'], img_info['file_name']
+            )
         else:
             img_path = img_info['file_name']
         data_info['img_path'] = img_path
@@ -53,8 +65,9 @@ class MOTChallengeDataset(BaseVideoDataset):
         for i, ann in enumerate(ann_info):
             instance = {}
 
-            if (not self.test_mode) and (ann['visibility'] <
-                                         self.visibility_thr):
+            if (not self.test_mode) and (
+                ann['visibility'] < self.visibility_thr
+            ):
                 continue
             if ann.get('ignore', False):
                 continue
@@ -82,7 +95,8 @@ class MOTChallengeDataset(BaseVideoDataset):
             if len(instance) > 0:
                 instances.append(instance)
         if not self.test_mode:
-            assert len(instances) > 0, f'No valid instances found in ' \
-                f'image {data_info["img_path"]}!'
+            assert len(instances) > 0, (
+                f'No valid instances found in image {data_info["img_path"]}!'
+            )
         data_info['instances'] = instances
         return data_info

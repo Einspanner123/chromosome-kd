@@ -14,6 +14,7 @@ def trigger_visualization_hook(cfg, args):
         raise RuntimeError(
             'VisualizationHook must be included in default_hooks.'
             'refer to usage '
-            '"visualization=dict(type=\'VisualizationHook\')"')
+            '"visualization=dict(type=\'VisualizationHook\')"'
+        )
 
     return cfg

@@ -8,22 +8,25 @@ from mmdet.models.task_modules.assigners import ApproxMaxIoUAssigner
 
 
 class TestApproxIoUAssigner(TestCase):
-
     def test_approx_iou_assigner(self):
         assigner = ApproxMaxIoUAssigner(
             pos_iou_thr=0.5,
             neg_iou_thr=0.5,
         )
-        bboxes = torch.FloatTensor([
-            [0, 0, 10, 10],
-            [10, 10, 20, 20],
-            [5, 5, 15, 15],
-            [32, 32, 38, 42],
-        ])
-        gt_bboxes = torch.FloatTensor([
-            [0, 0, 10, 9],
-            [0, 10, 10, 19],
-        ])
+        bboxes = torch.FloatTensor(
+            [
+                [0, 0, 10, 10],
+                [10, 10, 20, 20],
+                [5, 5, 15, 15],
+                [32, 32, 38, 42],
+            ]
+        )
+        gt_bboxes = torch.FloatTensor(
+            [
+                [0, 0, 10, 9],
+                [0, 10, 10, 19],
+            ]
+        )
         gt_labels = torch.LongTensor([2, 3])
 
         pred_instances = InstanceData()
@@ -43,12 +46,14 @@ class TestApproxIoUAssigner(TestCase):
             pos_iou_thr=0.5,
             neg_iou_thr=0.5,
         )
-        bboxes = torch.FloatTensor([
-            [0, 0, 10, 10],
-            [10, 10, 20, 20],
-            [5, 5, 15, 15],
-            [32, 32, 38, 42],
-        ])
+        bboxes = torch.FloatTensor(
+            [
+                [0, 0, 10, 10],
+                [10, 10, 20, 20],
+                [5, 5, 15, 15],
+                [32, 32, 38, 42],
+            ]
+        )
         gt_bboxes = torch.FloatTensor([])
         gt_labels = torch.LongTensor([])
 
@@ -70,10 +75,12 @@ class TestApproxIoUAssigner(TestCase):
             neg_iou_thr=0.5,
         )
         bboxes = torch.empty((0, 4))
-        gt_bboxes = torch.FloatTensor([
-            [0, 0, 10, 9],
-            [0, 10, 10, 19],
-        ])
+        gt_bboxes = torch.FloatTensor(
+            [
+                [0, 0, 10, 9],
+                [0, 10, 10, 19],
+            ]
+        )
         gt_labels = torch.LongTensor([2, 3])
 
         pred_instances = InstanceData()

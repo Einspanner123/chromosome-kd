@@ -7,7 +7,6 @@ from mmdet.models.roi_heads.mask_heads import CoarseMaskHead
 
 
 class TestCoarseMaskHead(unittest.TestCase):
-
     def test_init(self):
         with self.assertRaises(AssertionError):
             CoarseMaskHead(num_fcs=0)
@@ -26,7 +25,8 @@ class TestCoarseMaskHead(unittest.TestCase):
             downsample_factor=2,
             in_channels=32,
             conv_out_channels=32,
-            roi_feat_size=7).to(device)
+            roi_feat_size=7,
+        ).to(device)
         mask_head.init_weights()
         res = mask_head(x)
         self.assertEqual(res.shape[-2:], (3, 3))
@@ -35,7 +35,8 @@ class TestCoarseMaskHead(unittest.TestCase):
             downsample_factor=1,
             in_channels=32,
             conv_out_channels=32,
-            roi_feat_size=7).to(device)
+            roi_feat_size=7,
+        ).to(device)
         mask_head.init_weights()
         res = mask_head(x)
         self.assertEqual(res.shape[-2:], (7, 7))

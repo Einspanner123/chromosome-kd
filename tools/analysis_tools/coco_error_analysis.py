@@ -11,14 +11,16 @@ from pycocotools.cocoeval import COCOeval
 
 
 def makeplot(rs, ps, outDir, class_name, iou_type):
-    cs = np.vstack([
-        np.ones((2, 3)),
-        np.array([0.31, 0.51, 0.74]),
-        np.array([0.75, 0.31, 0.30]),
-        np.array([0.36, 0.90, 0.38]),
-        np.array([0.50, 0.39, 0.64]),
-        np.array([1, 0.6, 0]),
-    ])
+    cs = np.vstack(
+        [
+            np.ones((2, 3)),
+            np.array([0.31, 0.51, 0.74]),
+            np.array([0.75, 0.31, 0.30]),
+            np.array([0.36, 0.90, 0.38]),
+            np.array([0.50, 0.39, 0.64]),
+            np.array([1, 0.6, 0]),
+        ]
+    )
     areaNames = ['allarea', 'small', 'medium', 'large']
     types = ['C75', 'C50', 'Loc', 'Sim', 'Oth', 'BG', 'FN']
     for i in range(len(areaNames)):
@@ -56,9 +58,9 @@ def autolabel(ax, rects):
     for rect in rects:
         height = rect.get_height()
         if height > 0 and height <= 1:  # for percent values
-            text_label = '{:2.0f}'.format(height * 100)
+            text_label = f'{height * 100:2.0f}'
         else:
-            text_label = '{:2.0f}'.format(height)
+            text_label = f'{height:2.0f}'
         ax.annotate(
             text_label,
             xy=(rect.get_x() + rect.get_width() / 2, height),
@@ -87,7 +89,8 @@ def makebarplot(rs, ps, outDir, class_name, iou_type):
                 aps,
                 width / len(types),
                 label=types[i],
-            ))
+            )
+        )
 
     # Add some text for labels, title and custom x-axis tick labels, etc.
     ax.set_ylabel('Mean Average Precision (mAP)')
@@ -171,12 +174,9 @@ def make_gt_area_histogram_plot(cocoEval, outDir):
     plt.close(fig)
 
 
-def analyze_individual_category(k,
-                                cocoDt,
-                                cocoGt,
-                                catId,
-                                iou_type,
-                                areas=None):
+def analyze_individual_category(
+    k, cocoDt, cocoGt, catId, iou_type, areas=None
+):
     nm = cocoGt.loadCats(catId)[0]
     print(f'--------------analyzing {k + 1}-{nm["name"]}---------------')
     ps_ = {}
@@ -240,18 +240,22 @@ def analyze_individual_category(k,
     return k, ps_
 
 
-def analyze_results(res_file,
-                    ann_file,
-                    res_types,
-                    out_dir,
-                    extraplots=None,
-                    areas=None,
-                    score_thr=None):
+def analyze_results(
+    res_file,
+    ann_file,
+    res_types,
+    out_dir,
+    extraplots=None,
+    areas=None,
+    score_thr=None,
+):
     for res_type in res_types:
         assert res_type in ['bbox', 'segm']
     if areas:
-        assert (len(areas) == 3), '3 integers should be specified as areas, \
+        assert len(areas) == 3, (
+            '3 integers should be specified as areas, \
             representing 3 area regions'
+        )
 
     if score_thr:
         assert score_thr >= 0, 'score_thr should be bigger than 0'
@@ -267,8 +271,11 @@ def analyze_results(res_file,
 
     if score_thr:
         cocoDt.dataset['annotations'] = list(
-            filter(lambda ann: ann['score'] >= score_thr,
-                   cocoDt.dataset['annotations']))
+            filter(
+                lambda ann: ann['score'] >= score_thr,
+                cocoDt.dataset['annotations'],
+            )
+        )
         cocoDt.createIndex()
 
     for res_type in res_types:
@@ -279,7 +286,8 @@ def analyze_results(res_file,
             os.makedirs(res_directory)
         iou_type = res_type
         cocoEval = COCOeval(
-            copy.deepcopy(cocoGt), copy.deepcopy(cocoDt), iou_type)
+            copy.deepcopy(cocoGt), copy.deepcopy(cocoDt), iou_type
+        )
         cocoEval.params.imgIds = imgIds
         cocoEval.params.iouThrs = [0.75, 0.5, 0.1]
         cocoEval.params.maxDets = [100]
@@ -297,8 +305,10 @@ def analyze_results(res_file,
         catIds = cocoGt.getCatIds()
         recThrs = cocoEval.params.recThrs
         with Pool(processes=48) as pool:
-            args = [(k, cocoDt, cocoGt, catId, iou_type, areas)
-                    for k, catId in enumerate(catIds)]
+            args = [
+                (k, cocoDt, cocoGt, catId, iou_type, areas)
+                for k, catId in enumerate(catIds)
+            ]
             analyze_results = pool.starmap(analyze_individual_category, args)
         for k, catId in enumerate(catIds):
             nm = cocoGt.loadCats(catId)[0]
@@ -317,13 +327,15 @@ def analyze_results(res_file,
             ps[6, :, k, :, :] = 1.0
             makeplot(recThrs, ps[:, :, k], res_out_dir, nm['name'], iou_type)
             if extraplots:
-                makebarplot(recThrs, ps[:, :, k], res_out_dir, nm['name'],
-                            iou_type)
+                makebarplot(
+                    recThrs, ps[:, :, k], res_out_dir, nm['name'], iou_type
+                )
         makeplot(recThrs, ps, res_out_dir, 'allclass', iou_type)
         if extraplots:
             makebarplot(recThrs, ps, res_out_dir, 'allclass', iou_type)
             make_gt_area_group_numbers_plot(
-                cocoEval=cocoEval, outDir=res_out_dir, verbose=True)
+                cocoEval=cocoEval, outDir=res_out_dir, verbose=True
+            )
             make_gt_area_histogram_plot(cocoEval=cocoEval, outDir=res_out_dir)
 
 
@@ -337,11 +349,11 @@ def main():
         help='annotation file path',
     )
     parser.add_argument(
-        '--types', type=str, nargs='+', default=['bbox'], help='result types')
+        '--types', type=str, nargs='+', default=['bbox'], help='result types'
+    )
     parser.add_argument(
-        '--extraplots',
-        action='store_true',
-        help='export extra bar/stat plots')
+        '--extraplots', action='store_true', help='export extra bar/stat plots'
+    )
     parser.add_argument(
         '--score-thr',
         type=float,

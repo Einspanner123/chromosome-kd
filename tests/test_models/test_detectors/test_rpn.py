@@ -11,7 +11,6 @@ from mmdet.utils import register_all_modules
 
 
 class TestRPN(TestCase):
-
     def setUp(self):
         register_all_modules()
 
@@ -24,6 +23,7 @@ class TestRPN(TestCase):
         model.backbone.init_cfg = None
 
         from mmdet.registry import MODELS
+
         detector = MODELS.build(model)
         self.assertTrue(detector.backbone)
         self.assertTrue(detector.neck)
@@ -43,6 +43,7 @@ class TestRPN(TestCase):
         model.backbone.init_cfg = None
 
         from mmdet.registry import MODELS
+
         assert all([device in ['cpu', 'cuda'] for device in devices])
 
         for device in devices:
@@ -68,6 +69,7 @@ class TestRPN(TestCase):
         model.backbone.init_cfg = None
 
         from mmdet.registry import MODELS
+
         assert all([device in ['cpu', 'cuda'] for device in devices])
 
         for device in devices:
@@ -96,6 +98,7 @@ class TestRPN(TestCase):
         model.backbone.init_cfg = None
 
         from mmdet.registry import MODELS
+
         assert all([device in ['cpu', 'cuda'] for device in devices])
 
         for device in devices:

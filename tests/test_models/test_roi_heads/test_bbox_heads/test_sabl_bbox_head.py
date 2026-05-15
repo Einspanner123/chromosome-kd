@@ -10,7 +10,6 @@ from mmdet.models.task_modules.samplers import SamplingResult
 
 
 class TestSABLBboxHead(TestCase):
-
     def test_init(self):
         bbox_head = SABLHead(
             cls_in_channels=1,
@@ -18,7 +17,8 @@ class TestSABLBboxHead(TestCase):
             reg_in_channels=1,
             reg_offset_out_channels=1,
             reg_cls_out_channels=1,
-            num_classes=4)
+            num_classes=4,
+        )
         self.assertTrue(bbox_head.fc_cls)
         self.assertTrue(hasattr(bbox_head, 'reg_cls_fcs'))
         self.assertTrue(hasattr(bbox_head, 'reg_offset_fcs'))
@@ -28,28 +28,33 @@ class TestSABLBboxHead(TestCase):
         num_classes = 6
         bbox_head = SABLHead(reg_class_agnostic=True, num_classes=num_classes)
         s = 128
-        img_metas = [{
-            'img_shape': (s, s, 3),
-            'scale_factor': 1,
-        }]
+        img_metas = [
+            {
+                'img_shape': (s, s, 3),
+                'scale_factor': 1,
+            }
+        ]
 
         num_samples = 2
         rois = [torch.rand((num_samples, 5))]
         cls_scores = [torch.rand((num_samples, num_classes + 1))]
-        bbox_preds = [(torch.rand(
-            (num_samples, 28)), torch.rand((num_samples, 28)))]
+        bbox_preds = [
+            (torch.rand((num_samples, 28)), torch.rand((num_samples, 28)))
+        ]
 
         # with nms
         rcnn_test_cfg = ConfigDict(
-            score_thr=0.,
+            score_thr=0.0,
             nms=dict(type='nms', iou_threshold=0.5),
-            max_per_img=100)
+            max_per_img=100,
+        )
         result_list = bbox_head.predict_by_feat(
             rois=tuple(rois),
             cls_scores=tuple(cls_scores),
             bbox_preds=tuple(bbox_preds),
             batch_img_metas=img_metas,
-            rcnn_test_cfg=rcnn_test_cfg)
+            rcnn_test_cfg=rcnn_test_cfg,
+        )
 
         self.assertLessEqual(len(result_list[0]), num_samples * num_classes)
         self.assertIsInstance(result_list[0], InstanceData)
@@ -62,7 +67,8 @@ class TestSABLBboxHead(TestCase):
             rois=tuple(rois),
             cls_scores=tuple(cls_scores),
             bbox_preds=tuple(bbox_preds),
-            batch_img_metas=img_metas)
+            batch_img_metas=img_metas,
+        )
 
         self.assertIsInstance(result_list[0], InstanceData)
         self.assertEqual(len(result_list[0]), num_samples)
@@ -73,20 +79,23 @@ class TestSABLBboxHead(TestCase):
         num_samples = 0
         rois = [torch.rand((num_samples, 5))]
         cls_scores = [torch.rand((num_samples, num_classes + 1))]
-        bbox_preds = [(torch.rand(
-            (num_samples, 28)), torch.rand((num_samples, 28)))]
+        bbox_preds = [
+            (torch.rand((num_samples, 28)), torch.rand((num_samples, 28)))
+        ]
 
         # with nms
         rcnn_test_cfg = ConfigDict(
-            score_thr=0.,
+            score_thr=0.0,
             nms=dict(type='nms', iou_threshold=0.5),
-            max_per_img=100)
+            max_per_img=100,
+        )
         result_list = bbox_head.predict_by_feat(
             rois=tuple(rois),
             cls_scores=tuple(cls_scores),
             bbox_preds=tuple(bbox_preds),
             batch_img_metas=img_metas,
-            rcnn_test_cfg=rcnn_test_cfg)
+            rcnn_test_cfg=rcnn_test_cfg,
+        )
 
         self.assertIsInstance(result_list[0], InstanceData)
         self.assertEqual(len(result_list[0]), 0)
@@ -97,7 +106,8 @@ class TestSABLBboxHead(TestCase):
             rois=tuple(rois),
             cls_scores=tuple(cls_scores),
             bbox_preds=tuple(bbox_preds),
-            batch_img_metas=img_metas)
+            batch_img_metas=img_metas,
+        )
 
         self.assertIsInstance(result_list[0], InstanceData)
         self.assertEqual(len(result_list[0]), 0)
@@ -107,10 +117,12 @@ class TestSABLBboxHead(TestCase):
         num_classes = 8
         bbox_head = SABLHead(reg_class_agnostic=True, num_classes=num_classes)
         s = 20
-        img_metas = [{
-            'img_shape': (s, s, 3),
-            'scale_factor': 1,
-        }]
+        img_metas = [
+            {
+                'img_shape': (s, s, 3),
+                'scale_factor': 1,
+            }
+        ]
         sampling_results = [SamplingResult.random()]
         num_samples = 20
         rois = torch.rand((num_samples, 4))
@@ -119,18 +131,20 @@ class TestSABLBboxHead(TestCase):
         cls_scores = torch.rand((num_samples, num_classes + 1))
         cls_preds = torch.rand((num_samples, 28))
         offset_preds = torch.rand((num_samples, 28))
-        labels = torch.randint(0, num_classes + 1, (num_samples, )).long()
+        labels = torch.randint(0, num_classes + 1, (num_samples,)).long()
         bbox_targets = (labels, None, None, None)
         bbox_results = dict(
             rois=rois,
             bbox_pred=(cls_preds, offset_preds),
             cls_score=cls_scores,
-            bbox_targets=bbox_targets)
+            bbox_targets=bbox_targets,
+        )
 
         bbox_list = bbox_head.refine_bboxes(
             sampling_results=sampling_results,
             bbox_results=bbox_results,
-            batch_img_metas=img_metas)
+            batch_img_metas=img_metas,
+        )
 
         self.assertGreaterEqual(num_samples, len(bbox_list[0]))
         self.assertIsInstance(bbox_list[0], InstanceData)

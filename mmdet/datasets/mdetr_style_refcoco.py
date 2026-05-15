@@ -18,7 +18,8 @@ class MDETRStyleRefCocoDataset(BaseDetDataset):
 
     def load_data_list(self) -> List[dict]:
         with get_local_path(
-                self.ann_file, backend_args=self.backend_args) as local_path:
+            self.ann_file, backend_args=self.backend_args
+        ) as local_path:
             coco = COCO(local_path)
 
         img_ids = coco.get_img_ids()
@@ -30,8 +31,9 @@ class MDETRStyleRefCocoDataset(BaseDetDataset):
             raw_ann_info = coco.load_anns(ann_ids)
 
             data_info = {}
-            img_path = osp.join(self.data_prefix['img'],
-                                raw_img_info['file_name'])
+            img_path = osp.join(
+                self.data_prefix['img'], raw_img_info['file_name']
+            )
             data_info['img_path'] = img_path
             data_info['img_id'] = img_id
             data_info['height'] = raw_img_info['height']

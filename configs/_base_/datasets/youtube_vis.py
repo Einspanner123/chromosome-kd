@@ -10,7 +10,8 @@ train_pipeline = [
         type='UniformRefFrameSample',
         num_ref_imgs=1,
         frame_range=100,
-        filter_key_img=True),
+        filter_key_img=True,
+    ),
     dict(
         type='TransformBroadcaster',
         share_random_params=True,
@@ -19,8 +20,9 @@ train_pipeline = [
             dict(type='LoadTrackAnnotations', with_mask=True),
             dict(type='Resize', scale=(640, 360), keep_ratio=True),
             dict(type='RandomFlip', prob=0.5),
-        ]),
-    dict(type='PackTrackInputs')
+        ],
+    ),
+    dict(type='PackTrackInputs'),
 ]
 
 test_pipeline = [
@@ -30,8 +32,9 @@ test_pipeline = [
             dict(type='LoadImageFromFile', backend_args=backend_args),
             dict(type='Resize', scale=(640, 360), keep_ratio=True),
             dict(type='LoadTrackAnnotations', with_mask=True),
-        ]),
-    dict(type='PackTrackInputs')
+        ],
+    ),
+    dict(type='PackTrackInputs'),
 ]
 
 # dataloader
@@ -48,7 +51,9 @@ train_dataloader = dict(
         dataset_version=dataset_version,
         ann_file='annotations/youtube_vis_2019_train.json',
         data_prefix=dict(img_path='train/JPEGImages'),
-        pipeline=train_pipeline))
+        pipeline=train_pipeline,
+    ),
+)
 val_dataloader = dict(
     batch_size=1,
     num_workers=2,
@@ -62,5 +67,7 @@ val_dataloader = dict(
         ann_file='annotations/youtube_vis_2019_valid.json',
         data_prefix=dict(img_path='valid/JPEGImages'),
         test_mode=True,
-        pipeline=test_pipeline))
+        pipeline=test_pipeline,
+    ),
+)
 test_dataloader = val_dataloader

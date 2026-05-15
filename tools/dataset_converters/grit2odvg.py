@@ -13,8 +13,9 @@ is_debug = False
 
 
 def is_valid_caption(caption, rules={'↙️', '[CLS]', '[SEP]'}):
-    check_anno = caption.strip(
-    )[:-1]  # Remove the ending delimiter from the caption.
+    check_anno = caption.strip()[
+        :-1
+    ]  # Remove the ending delimiter from the caption.
     for ch in rules:
         if ch in check_anno:
             return False
@@ -23,7 +24,7 @@ def is_valid_caption(caption, rules={'↙️', '[CLS]', '[SEP]'}):
 
 def process_one_file(anno_file, result_queue):
     print('processing', anno_file)
-    with open(anno_file, 'r') as f:
+    with open(anno_file) as f:
         metas = json.load(f)
 
     results = []
@@ -53,16 +54,16 @@ def process_one_file(anno_file, result_queue):
         ref_exps = meta['ref_exps']
         ref_captions = [i[0:2] for i in ref_exps]
         ref_token_positives = [i[0:2] for i in ref_exps]
-        ref_captions = [caption[int(i[0]):int(i[1])] for i in ref_captions]
+        ref_captions = [caption[int(i[0]) : int(i[1])] for i in ref_captions]
         ref_boxes = [i[2:6] for i in ref_exps]
 
         regions = {}
-        for bbox, ref_caption, tokens_positive in zip(ref_boxes, ref_captions,
-                                                      ref_token_positives):
+        for bbox, ref_caption, tokens_positive in zip(
+            ref_boxes, ref_captions, ref_token_positives
+        ):
             #  If the current reference includes special delimiters,
             #  it will be filtered out.
-            if not is_valid_caption(
-                    caption, rules={'.', '？', ' ', "\'", "\""}):
+            if not is_valid_caption(caption, rules={'.', '？', ' ', "'", '"'}):
                 if is_debug:
                     print('=====ref filtered====', caption)
                 continue
@@ -83,7 +84,7 @@ def process_one_file(anno_file, result_queue):
                 round(bbox[0] * w, 3),
                 round(bbox[1] * h, 3),
                 round((bbox[2]) * w, 3),
-                round((bbox[3]) * h, 3)
+                round((bbox[3]) * h, 3),
             ]
             x1, y1, x2, y2 = box
             inter_w = max(0, min(x1 + w, int(w)) - max(x1, 0))
@@ -99,13 +100,11 @@ def process_one_file(anno_file, result_queue):
 
             if ref_caption not in regions:
                 regions[ref_caption] = {
-                    'bbox':
-                    box,
-                    'phrase':
-                    ref_caption,
-                    'tokens_positive':
-                    [[int(tokens_positive[0]),
-                      int(tokens_positive[1])]],
+                    'bbox': box,
+                    'phrase': ref_caption,
+                    'tokens_positive': [
+                        [int(tokens_positive[0]), int(tokens_positive[1])]
+                    ],
                 }
             else:
                 old_box = regions[ref_caption]['bbox']
@@ -130,9 +129,7 @@ def process_one_file(anno_file, result_queue):
             'filename': file_name,
             'height': int(h),
             'width': int(w),
-            'grounding': {
-                'caption': caption
-            }
+            'grounding': {'caption': caption},
         }
 
         region_list = []
@@ -140,11 +137,13 @@ def process_one_file(anno_file, result_queue):
             phrase = value['phrase']
             if len(phrase) == 1:
                 phrase = phrase[0]
-            region_list.append({
-                'bbox': value['bbox'],
-                'phrase': phrase,
-                'tokens_positive': value['tokens_positive']
-            })
+            region_list.append(
+                {
+                    'bbox': value['bbox'],
+                    'phrase': phrase,
+                    'tokens_positive': value['tokens_positive'],
+                }
+            )
         out_dict['grounding']['regions'] = region_list
         print(out_dict)
         results.append(out_dict)
@@ -154,7 +153,8 @@ def process_one_file(anno_file, result_queue):
 def grit2odvg(args):
     annotations_dir = osp.join(args.data_root, 'annotations')
     annos_files = [
-        osp.join(annotations_dir, anno) for anno in os.listdir(annotations_dir)
+        osp.join(annotations_dir, anno)
+        for anno in os.listdir(annotations_dir)
         if anno.endswith('.json') and not anno.endswith('vg.json')
     ]
 

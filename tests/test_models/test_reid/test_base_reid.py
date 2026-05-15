@@ -11,14 +11,15 @@ from mmdet.utils import register_all_modules
 
 
 class TestBaseReID(TestCase):
-
     @classmethod
     def setUpClass(cls) -> None:
         register_all_modules()
 
-    @parameterized.expand([
-        'reid/reid_r50_8xb32-6e_mot17train80_test-mot17val20.py',
-    ])
+    @parameterized.expand(
+        [
+            'reid/reid_r50_8xb32-6e_mot17train80_test-mot17val20.py',
+        ]
+    )
     def test_forward(self, cfg_file):
         model_cfg = get_detector_cfg(cfg_file)
         model = MODELS.build(model_cfg)
@@ -43,4 +44,4 @@ class TestBaseReID(TestCase):
             assert isinstance(pred, ReIDDataSample)
             assert isinstance(pred.pred_feature, torch.Tensor)
             assert isinstance(pred.gt_label.label, torch.Tensor)
-            assert pred.pred_feature.shape == (128, )
+            assert pred.pred_feature.shape == (128,)

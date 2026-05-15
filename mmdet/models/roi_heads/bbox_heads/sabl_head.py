@@ -63,38 +63,38 @@ class SABLHead(BBoxHead):
             Defaults to None.
     """
 
-    def __init__(self,
-                 num_classes: int,
-                 cls_in_channels: int = 256,
-                 reg_in_channels: int = 256,
-                 roi_feat_size: int = 7,
-                 reg_feat_up_ratio: int = 2,
-                 reg_pre_kernel: int = 3,
-                 reg_post_kernel: int = 3,
-                 reg_pre_num: int = 2,
-                 reg_post_num: int = 1,
-                 cls_out_channels: int = 1024,
-                 reg_offset_out_channels: int = 256,
-                 reg_cls_out_channels: int = 256,
-                 num_cls_fcs: int = 1,
-                 num_reg_fcs: int = 0,
-                 reg_class_agnostic: bool = True,
-                 norm_cfg: OptConfigType = None,
-                 bbox_coder: ConfigType = dict(
-                     type='BucketingBBoxCoder',
-                     num_buckets=14,
-                     scale_factor=1.7),
-                 loss_cls: ConfigType = dict(
-                     type='CrossEntropyLoss',
-                     use_sigmoid=False,
-                     loss_weight=1.0),
-                 loss_bbox_cls: ConfigType = dict(
-                     type='CrossEntropyLoss',
-                     use_sigmoid=True,
-                     loss_weight=1.0),
-                 loss_bbox_reg: ConfigType = dict(
-                     type='SmoothL1Loss', beta=0.1, loss_weight=1.0),
-                 init_cfg: OptMultiConfig = None) -> None:
+    def __init__(
+        self,
+        num_classes: int,
+        cls_in_channels: int = 256,
+        reg_in_channels: int = 256,
+        roi_feat_size: int = 7,
+        reg_feat_up_ratio: int = 2,
+        reg_pre_kernel: int = 3,
+        reg_post_kernel: int = 3,
+        reg_pre_num: int = 2,
+        reg_post_num: int = 1,
+        cls_out_channels: int = 1024,
+        reg_offset_out_channels: int = 256,
+        reg_cls_out_channels: int = 256,
+        num_cls_fcs: int = 1,
+        num_reg_fcs: int = 0,
+        reg_class_agnostic: bool = True,
+        norm_cfg: OptConfigType = None,
+        bbox_coder: ConfigType = dict(
+            type='BucketingBBoxCoder', num_buckets=14, scale_factor=1.7
+        ),
+        loss_cls: ConfigType = dict(
+            type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0
+        ),
+        loss_bbox_cls: ConfigType = dict(
+            type='CrossEntropyLoss', use_sigmoid=True, loss_weight=1.0
+        ),
+        loss_bbox_reg: ConfigType = dict(
+            type='SmoothL1Loss', beta=0.1, loss_weight=1.0
+        ),
+        init_cfg: OptMultiConfig = None,
+    ) -> None:
         super(BBoxHead, self).__init__(init_cfg=init_cfg)
         self.cls_in_channels = cls_in_channels
         self.reg_in_channels = reg_in_channels
@@ -123,10 +123,12 @@ class SABLHead(BBoxHead):
         self.loss_bbox_cls = MODELS.build(loss_bbox_cls)
         self.loss_bbox_reg = MODELS.build(loss_bbox_reg)
 
-        self.cls_fcs = self._add_fc_branch(self.num_cls_fcs,
-                                           self.cls_in_channels,
-                                           self.roi_feat_size,
-                                           self.cls_out_channels)
+        self.cls_fcs = self._add_fc_branch(
+            self.num_cls_fcs,
+            self.cls_in_channels,
+            self.roi_feat_size,
+            self.cls_out_channels,
+        )
 
         self.side_num = int(np.ceil(self.num_buckets / 2))
 
@@ -135,12 +137,14 @@ class SABLHead(BBoxHead):
                 reg_in_channels,
                 reg_in_channels,
                 self.reg_feat_up_ratio,
-                stride=self.reg_feat_up_ratio)
+                stride=self.reg_feat_up_ratio,
+            )
             self.upsample_y = nn.ConvTranspose1d(
                 reg_in_channels,
                 reg_in_channels,
                 self.reg_feat_up_ratio,
-                stride=self.reg_feat_up_ratio)
+                stride=self.reg_feat_up_ratio,
+            )
 
         self.reg_pre_convs = nn.ModuleList()
         for i in range(self.reg_pre_num):
@@ -150,7 +154,8 @@ class SABLHead(BBoxHead):
                 kernel_size=reg_pre_kernel,
                 padding=reg_pre_kernel // 2,
                 norm_cfg=norm_cfg,
-                act_cfg=dict(type='ReLU'))
+                act_cfg=dict(type='ReLU'),
+            )
             self.reg_pre_convs.append(reg_pre_conv)
 
         self.reg_post_conv_xs = nn.ModuleList()
@@ -161,7 +166,8 @@ class SABLHead(BBoxHead):
                 kernel_size=(1, reg_post_kernel),
                 padding=(0, reg_post_kernel // 2),
                 norm_cfg=norm_cfg,
-                act_cfg=dict(type='ReLU'))
+                act_cfg=dict(type='ReLU'),
+            )
             self.reg_post_conv_xs.append(reg_post_conv_x)
         self.reg_post_conv_ys = nn.ModuleList()
         for i in range(self.reg_post_num):
@@ -171,7 +177,8 @@ class SABLHead(BBoxHead):
                 kernel_size=(reg_post_kernel, 1),
                 padding=(reg_post_kernel // 2, 0),
                 norm_cfg=norm_cfg,
-                act_cfg=dict(type='ReLU'))
+                act_cfg=dict(type='ReLU'),
+            )
             self.reg_post_conv_ys.append(reg_post_conv_y)
 
         self.reg_conv_att_x = nn.Conv2d(reg_in_channels, 1, 1)
@@ -180,12 +187,18 @@ class SABLHead(BBoxHead):
         self.fc_cls = nn.Linear(self.cls_out_channels, self.num_classes + 1)
         self.relu = nn.ReLU(inplace=True)
 
-        self.reg_cls_fcs = self._add_fc_branch(self.num_reg_fcs,
-                                               self.reg_in_channels, 1,
-                                               self.reg_cls_out_channels)
-        self.reg_offset_fcs = self._add_fc_branch(self.num_reg_fcs,
-                                                  self.reg_in_channels, 1,
-                                                  self.reg_offset_out_channels)
+        self.reg_cls_fcs = self._add_fc_branch(
+            self.num_reg_fcs,
+            self.reg_in_channels,
+            1,
+            self.reg_cls_out_channels,
+        )
+        self.reg_offset_fcs = self._add_fc_branch(
+            self.num_reg_fcs,
+            self.reg_in_channels,
+            1,
+            self.reg_offset_out_channels,
+        )
         self.fc_reg_cls = nn.Linear(self.reg_cls_out_channels, 1)
         self.fc_reg_offset = nn.Linear(self.reg_offset_out_channels, 1)
 
@@ -200,8 +213,9 @@ class SABLHead(BBoxHead):
                         dict(type='Normal', name='reg_conv_att_y', std=0.01),
                         dict(type='Normal', name='fc_reg_cls', std=0.01),
                         dict(type='Normal', name='fc_cls', std=0.01),
-                        dict(type='Normal', name='fc_reg_offset', std=0.001)
-                    ])
+                        dict(type='Normal', name='fc_reg_offset', std=0.001),
+                    ],
+                )
             ]
             if self.reg_feat_up_ratio > 1:
                 self.init_cfg += [
@@ -210,18 +224,23 @@ class SABLHead(BBoxHead):
                         distribution='normal',
                         override=[
                             dict(name='upsample_x'),
-                            dict(name='upsample_y')
-                        ])
+                            dict(name='upsample_y'),
+                        ],
+                    )
                 ]
 
-    def _add_fc_branch(self, num_branch_fcs: int, in_channels: int,
-                       roi_feat_size: int,
-                       fc_out_channels: int) -> nn.ModuleList:
+    def _add_fc_branch(
+        self,
+        num_branch_fcs: int,
+        in_channels: int,
+        roi_feat_size: int,
+        fc_out_channels: int,
+    ) -> nn.ModuleList:
         """build fc layers."""
         in_channels = in_channels * roi_feat_size * roi_feat_size
         branch_fcs = nn.ModuleList()
         for i in range(num_branch_fcs):
-            fc_in_channels = (in_channels if i == 0 else fc_out_channels)
+            fc_in_channels = in_channels if i == 0 else fc_out_channels
             branch_fcs.append(nn.Linear(fc_in_channels, fc_out_channels))
         return branch_fcs
 
@@ -267,8 +286,9 @@ class SABLHead(BBoxHead):
         reg_fy = torch.transpose(reg_fy, 1, 2)
         return reg_fx.contiguous(), reg_fy.contiguous()
 
-    def reg_pred(self, x: Tensor, offset_fcs: nn.ModuleList,
-                 cls_fcs: nn.ModuleList) -> tuple:
+    def reg_pred(
+        self, x: Tensor, offset_fcs: nn.ModuleList, cls_fcs: nn.ModuleList
+    ) -> tuple:
         """Predict bucketing estimation (cls_pred) and fine regression (offset
         pred) with side-aware features."""
         x_offset = x.view(-1, self.reg_in_channels)
@@ -292,19 +312,21 @@ class SABLHead(BBoxHead):
         l_end = int(np.ceil(self.up_reg_feat_size / 2))
         r_start = int(np.floor(self.up_reg_feat_size / 2))
         feat_fl = feat[:, :l_end]
-        feat_fr = feat[:, r_start:].flip(dims=(1, ))
+        feat_fr = feat[:, r_start:].flip(dims=(1,))
         feat_fl = feat_fl.contiguous()
         feat_fr = feat_fr.contiguous()
         feat = torch.cat([feat_fl, feat_fr], dim=-1)
         return feat
 
-    def bbox_pred_split(self, bbox_pred: tuple,
-                        num_proposals_per_img: Sequence[int]) -> tuple:
+    def bbox_pred_split(
+        self, bbox_pred: tuple, num_proposals_per_img: Sequence[int]
+    ) -> tuple:
         """Split batch bbox prediction back to each image."""
         bucket_cls_preds, bucket_offset_preds = bbox_pred
         bucket_cls_preds = bucket_cls_preds.split(num_proposals_per_img, 0)
         bucket_offset_preds = bucket_offset_preds.split(
-            num_proposals_per_img, 0)
+            num_proposals_per_img, 0
+        )
         bbox_pred = tuple(zip(bucket_cls_preds, bucket_offset_preds))
         return bbox_pred
 
@@ -315,10 +337,12 @@ class SABLHead(BBoxHead):
         edge_cls_preds = []
         reg_fx = outs[0]
         reg_fy = outs[1]
-        offset_pred_x, cls_pred_x = self.reg_pred(reg_fx, self.reg_offset_fcs,
-                                                  self.reg_cls_fcs)
-        offset_pred_y, cls_pred_y = self.reg_pred(reg_fy, self.reg_offset_fcs,
-                                                  self.reg_cls_fcs)
+        offset_pred_x, cls_pred_x = self.reg_pred(
+            reg_fx, self.reg_offset_fcs, self.reg_cls_fcs
+        )
+        offset_pred_y, cls_pred_y = self.reg_pred(
+            reg_fy, self.reg_offset_fcs, self.reg_cls_fcs
+        )
         offset_pred_x = self.side_aware_split(offset_pred_x)
         offset_pred_y = self.side_aware_split(offset_pred_y)
         cls_pred_x = self.side_aware_split(cls_pred_x)
@@ -335,10 +359,12 @@ class SABLHead(BBoxHead):
 
         return cls_score, bbox_pred
 
-    def get_targets(self,
-                    sampling_results: List[SamplingResult],
-                    rcnn_train_cfg: ConfigDict,
-                    concat: bool = True) -> tuple:
+    def get_targets(
+        self,
+        sampling_results: List[SamplingResult],
+        rcnn_train_cfg: ConfigDict,
+        concat: bool = True,
+    ) -> tuple:
         """Calculate the ground truth for all samples in a batch according to
         the sampling_results."""
         pos_proposals = [res.pos_bboxes for res in sampling_results]
@@ -351,30 +377,49 @@ class SABLHead(BBoxHead):
             pos_gt_bboxes,
             pos_gt_labels,
             rcnn_train_cfg,
-            concat=concat)
-        (labels, label_weights, bucket_cls_targets, bucket_cls_weights,
-         bucket_offset_targets, bucket_offset_weights) = cls_reg_targets
-        return (labels, label_weights, (bucket_cls_targets,
-                                        bucket_offset_targets),
-                (bucket_cls_weights, bucket_offset_weights))
+            concat=concat,
+        )
+        (
+            labels,
+            label_weights,
+            bucket_cls_targets,
+            bucket_cls_weights,
+            bucket_offset_targets,
+            bucket_offset_weights,
+        ) = cls_reg_targets
+        return (
+            labels,
+            label_weights,
+            (bucket_cls_targets, bucket_offset_targets),
+            (bucket_cls_weights, bucket_offset_weights),
+        )
 
-    def bucket_target(self,
-                      pos_proposals_list: list,
-                      neg_proposals_list: list,
-                      pos_gt_bboxes_list: list,
-                      pos_gt_labels_list: list,
-                      rcnn_train_cfg: ConfigDict,
-                      concat: bool = True) -> tuple:
+    def bucket_target(
+        self,
+        pos_proposals_list: list,
+        neg_proposals_list: list,
+        pos_gt_bboxes_list: list,
+        pos_gt_labels_list: list,
+        rcnn_train_cfg: ConfigDict,
+        concat: bool = True,
+    ) -> tuple:
         """Compute bucketing estimation targets and fine regression targets for
         a batch of images."""
-        (labels, label_weights, bucket_cls_targets, bucket_cls_weights,
-         bucket_offset_targets, bucket_offset_weights) = multi_apply(
-             self._bucket_target_single,
-             pos_proposals_list,
-             neg_proposals_list,
-             pos_gt_bboxes_list,
-             pos_gt_labels_list,
-             cfg=rcnn_train_cfg)
+        (
+            labels,
+            label_weights,
+            bucket_cls_targets,
+            bucket_cls_weights,
+            bucket_offset_targets,
+            bucket_offset_weights,
+        ) = multi_apply(
+            self._bucket_target_single,
+            pos_proposals_list,
+            neg_proposals_list,
+            pos_gt_bboxes_list,
+            pos_gt_labels_list,
+            cfg=rcnn_train_cfg,
+        )
 
         if concat:
             labels = torch.cat(labels, 0)
@@ -383,12 +428,23 @@ class SABLHead(BBoxHead):
             bucket_cls_weights = torch.cat(bucket_cls_weights, 0)
             bucket_offset_targets = torch.cat(bucket_offset_targets, 0)
             bucket_offset_weights = torch.cat(bucket_offset_weights, 0)
-        return (labels, label_weights, bucket_cls_targets, bucket_cls_weights,
-                bucket_offset_targets, bucket_offset_weights)
+        return (
+            labels,
+            label_weights,
+            bucket_cls_targets,
+            bucket_cls_weights,
+            bucket_offset_targets,
+            bucket_offset_weights,
+        )
 
-    def _bucket_target_single(self, pos_proposals: Tensor,
-                              neg_proposals: Tensor, pos_gt_bboxes: Tensor,
-                              pos_gt_labels: Tensor, cfg: ConfigDict) -> tuple:
+    def _bucket_target_single(
+        self,
+        pos_proposals: Tensor,
+        neg_proposals: Tensor,
+        pos_gt_bboxes: Tensor,
+        pos_gt_labels: Tensor,
+        cfg: ConfigDict,
+    ) -> tuple:
         """Compute bucketing estimation targets and fine regression targets for
         a single image.
 
@@ -421,43 +477,57 @@ class SABLHead(BBoxHead):
         num_pos = pos_proposals.size(0)
         num_neg = neg_proposals.size(0)
         num_samples = num_pos + num_neg
-        labels = pos_gt_bboxes.new_full((num_samples, ),
-                                        self.num_classes,
-                                        dtype=torch.long)
+        labels = pos_gt_bboxes.new_full(
+            (num_samples,), self.num_classes, dtype=torch.long
+        )
         label_weights = pos_proposals.new_zeros(num_samples)
-        bucket_cls_targets = pos_proposals.new_zeros(num_samples,
-                                                     4 * self.side_num)
-        bucket_cls_weights = pos_proposals.new_zeros(num_samples,
-                                                     4 * self.side_num)
+        bucket_cls_targets = pos_proposals.new_zeros(
+            num_samples, 4 * self.side_num
+        )
+        bucket_cls_weights = pos_proposals.new_zeros(
+            num_samples, 4 * self.side_num
+        )
         bucket_offset_targets = pos_proposals.new_zeros(
-            num_samples, 4 * self.side_num)
+            num_samples, 4 * self.side_num
+        )
         bucket_offset_weights = pos_proposals.new_zeros(
-            num_samples, 4 * self.side_num)
+            num_samples, 4 * self.side_num
+        )
         if num_pos > 0:
             labels[:num_pos] = pos_gt_labels
             label_weights[:num_pos] = 1.0
-            (pos_bucket_offset_targets, pos_bucket_offset_weights,
-             pos_bucket_cls_targets,
-             pos_bucket_cls_weights) = self.bbox_coder.encode(
-                 pos_proposals, pos_gt_bboxes)
+            (
+                pos_bucket_offset_targets,
+                pos_bucket_offset_weights,
+                pos_bucket_cls_targets,
+                pos_bucket_cls_weights,
+            ) = self.bbox_coder.encode(pos_proposals, pos_gt_bboxes)
             bucket_cls_targets[:num_pos, :] = pos_bucket_cls_targets
             bucket_cls_weights[:num_pos, :] = pos_bucket_cls_weights
             bucket_offset_targets[:num_pos, :] = pos_bucket_offset_targets
             bucket_offset_weights[:num_pos, :] = pos_bucket_offset_weights
         if num_neg > 0:
             label_weights[-num_neg:] = 1.0
-        return (labels, label_weights, bucket_cls_targets, bucket_cls_weights,
-                bucket_offset_targets, bucket_offset_weights)
+        return (
+            labels,
+            label_weights,
+            bucket_cls_targets,
+            bucket_cls_weights,
+            bucket_offset_targets,
+            bucket_offset_weights,
+        )
 
-    def loss(self,
-             cls_score: Tensor,
-             bbox_pred: Tuple[Tensor, Tensor],
-             rois: Tensor,
-             labels: Tensor,
-             label_weights: Tensor,
-             bbox_targets: Tuple[Tensor, Tensor],
-             bbox_weights: Tuple[Tensor, Tensor],
-             reduction_override: Optional[str] = None) -> dict:
+    def loss(
+        self,
+        cls_score: Tensor,
+        bbox_pred: Tuple[Tensor, Tensor],
+        rois: Tensor,
+        labels: Tensor,
+        label_weights: Tensor,
+        bbox_targets: Tuple[Tensor, Tensor],
+        bbox_weights: Tuple[Tensor, Tensor],
+        reduction_override: Optional[str] = None,
+    ) -> dict:
         """Calculate the loss based on the network predictions and targets.
 
         Args:
@@ -489,13 +559,14 @@ class SABLHead(BBoxHead):
         """
         losses = dict()
         if cls_score is not None:
-            avg_factor = max(torch.sum(label_weights > 0).float().item(), 1.)
+            avg_factor = max(torch.sum(label_weights > 0).float().item(), 1.0)
             losses['loss_cls'] = self.loss_cls(
                 cls_score,
                 labels,
                 label_weights,
                 avg_factor=avg_factor,
-                reduction_override=reduction_override)
+                reduction_override=reduction_override,
+            )
             losses['acc'] = accuracy(cls_score, labels)
 
         if bbox_pred is not None:
@@ -511,25 +582,28 @@ class SABLHead(BBoxHead):
                 bucket_cls_targets,
                 bucket_cls_weights,
                 avg_factor=bucket_cls_targets.size(0),
-                reduction_override=reduction_override)
+                reduction_override=reduction_override,
+            )
 
             losses['loss_bbox_reg'] = self.loss_bbox_reg(
                 bucket_offset_preds,
                 bucket_offset_targets,
                 bucket_offset_weights,
                 avg_factor=bucket_offset_targets.size(0),
-                reduction_override=reduction_override)
+                reduction_override=reduction_override,
+            )
 
         return losses
 
     def _predict_by_feat_single(
-            self,
-            roi: Tensor,
-            cls_score: Tensor,
-            bbox_pred: Tuple[Tensor, Tensor],
-            img_meta: dict,
-            rescale: bool = False,
-            rcnn_test_cfg: Optional[ConfigDict] = None) -> InstanceData:
+        self,
+        roi: Tensor,
+        cls_score: Tensor,
+        bbox_pred: Tuple[Tensor, Tensor],
+        img_meta: dict,
+        rescale: bool = False,
+        rcnn_test_cfg: Optional[ConfigDict] = None,
+    ) -> InstanceData:
         """Transform a single image's features extracted from the head into
         bbox results.
 
@@ -563,7 +637,8 @@ class SABLHead(BBoxHead):
         img_shape = img_meta['img_shape']
         if bbox_pred is not None:
             bboxes, confidences = self.bbox_coder.decode(
-                roi[:, 1:], bbox_pred, img_shape)
+                roi[:, 1:], bbox_pred, img_shape
+            )
         else:
             bboxes = roi[:, 1:].clone()
             confidences = None
@@ -574,9 +649,11 @@ class SABLHead(BBoxHead):
         if rescale and bboxes.size(0) > 0:
             assert img_meta.get('scale_factor') is not None
             scale_factor = bboxes.new_tensor(img_meta['scale_factor']).repeat(
-                (1, 2))
+                (1, 2)
+            )
             bboxes = (bboxes.view(bboxes.size(0), -1, 4) / scale_factor).view(
-                bboxes.size()[0], -1)
+                bboxes.size()[0], -1
+            )
 
         if rcnn_test_cfg is None:
             results.bboxes = bboxes
@@ -588,15 +665,19 @@ class SABLHead(BBoxHead):
                 rcnn_test_cfg.score_thr,
                 rcnn_test_cfg.nms,
                 rcnn_test_cfg.max_per_img,
-                score_factors=confidences)
+                score_factors=confidences,
+            )
             results.bboxes = det_bboxes[:, :4]
             results.scores = det_bboxes[:, -1]
             results.labels = det_labels
         return results
 
-    def refine_bboxes(self, sampling_results: List[SamplingResult],
-                      bbox_results: dict,
-                      batch_img_metas: List[dict]) -> InstanceList:
+    def refine_bboxes(
+        self,
+        sampling_results: List[SamplingResult],
+        bbox_results: dict,
+        batch_img_metas: List[dict],
+    ) -> InstanceList:
         """Refine bboxes during training.
 
         Args:
@@ -625,16 +706,18 @@ class SABLHead(BBoxHead):
         if cls_scores.numel() == 0:
             return None
 
-        labels = torch.where(labels == self.num_classes,
-                             cls_scores[:, :-1].argmax(1), labels)
+        labels = torch.where(
+            labels == self.num_classes, cls_scores[:, :-1].argmax(1), labels
+        )
 
         img_ids = rois[:, 0].long().unique(sorted=True)
         assert img_ids.numel() <= len(batch_img_metas)
 
         results_list = []
         for i in range(len(batch_img_metas)):
-            inds = torch.nonzero(
-                rois[:, 0] == i, as_tuple=False).squeeze(dim=1)
+            inds = torch.nonzero(rois[:, 0] == i, as_tuple=False).squeeze(
+                dim=1
+            )
             num_rois = inds.numel()
 
             bboxes_ = rois[inds, 1:]
@@ -646,19 +729,21 @@ class SABLHead(BBoxHead):
             img_meta_ = batch_img_metas[i]
             pos_is_gts_ = pos_is_gts[i]
 
-            bboxes = self.regress_by_class(bboxes_, label_, bbox_pred_,
-                                           img_meta_)
+            bboxes = self.regress_by_class(
+                bboxes_, label_, bbox_pred_, img_meta_
+            )
             # filter gt bboxes
             pos_keep = 1 - pos_is_gts_
             keep_inds = pos_is_gts_.new_ones(num_rois)
-            keep_inds[:len(pos_is_gts_)] = pos_keep
+            keep_inds[: len(pos_is_gts_)] = pos_keep
             results = InstanceData(bboxes=bboxes[keep_inds.type(torch.bool)])
             results_list.append(results)
 
         return results_list
 
-    def regress_by_class(self, rois: Tensor, label: Tensor, bbox_pred: tuple,
-                         img_meta: dict) -> Tensor:
+    def regress_by_class(
+        self, rois: Tensor, label: Tensor, bbox_pred: tuple, img_meta: dict
+    ) -> Tensor:
         """Regress the bbox for the predicted class. Used in Cascade R-CNN.
 
         Args:
@@ -674,11 +759,13 @@ class SABLHead(BBoxHead):
         assert rois.size(1) == 4 or rois.size(1) == 5
 
         if rois.size(1) == 4:
-            new_rois, _ = self.bbox_coder.decode(rois, bbox_pred,
-                                                 img_meta['img_shape'])
+            new_rois, _ = self.bbox_coder.decode(
+                rois, bbox_pred, img_meta['img_shape']
+            )
         else:
-            bboxes, _ = self.bbox_coder.decode(rois[:, 1:], bbox_pred,
-                                               img_meta['img_shape'])
+            bboxes, _ = self.bbox_coder.decode(
+                rois[:, 1:], bbox_pred, img_meta['img_shape']
+            )
             new_rois = torch.cat((rois[:, [0]], bboxes), dim=1)
 
         return new_rois

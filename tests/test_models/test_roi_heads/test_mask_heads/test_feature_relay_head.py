@@ -10,7 +10,6 @@ from mmdet.models.roi_heads.mask_heads import FeatureRelayHead
 
 
 class TestFeatureRelayHead(TestCase):
-
     @parameterized.expand(['cpu', 'cuda'])
     def test_forward(self, device):
         if device == 'cuda':

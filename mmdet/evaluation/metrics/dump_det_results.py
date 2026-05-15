@@ -43,5 +43,6 @@ class DumpDetResults(DumpResults):
                     'Panoptic segmentation map will not be compressed. '
                     'The dumped file will be extremely large! '
                     'Suggest using `CocoPanopticMetric` to save the coco '
-                    'format json and segmentation png files directly.')
+                    'format json and segmentation png files directly.'
+                )
         self.results.extend(data_samples)

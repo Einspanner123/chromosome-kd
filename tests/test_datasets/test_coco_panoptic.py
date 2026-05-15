@@ -8,7 +8,6 @@ from mmdet.datasets import CocoPanopticDataset
 
 
 class TestCocoPanopticDataset(unittest.TestCase):
-
     def setUp(self):
         image1 = {
             'id': 0,
@@ -41,29 +40,31 @@ class TestCocoPanopticDataset(unittest.TestCase):
 
         annotations = [
             {
-                'segments_info': [{
-                    'id': 1,
-                    'category_id': 0,
-                    'area': 400,
-                    'bbox': [50, 60, 20, 20],
-                    'iscrowd': 0
-                }, {
-                    'id': 2,
-                    'category_id': 1,
-                    'area': 900,
-                    'bbox': [100, 120, 30, 30],
-                    'iscrowd': 0
-                }, {
-                    'id': 3,
-                    'category_id': 2,
-                    'iscrowd': 0,
-                    'bbox': [1, 189, 612, 285],
-                    'area': 70036
-                }],
-                'file_name':
-                'fake_name1.jpg',
-                'image_id':
-                0
+                'segments_info': [
+                    {
+                        'id': 1,
+                        'category_id': 0,
+                        'area': 400,
+                        'bbox': [50, 60, 20, 20],
+                        'iscrowd': 0,
+                    },
+                    {
+                        'id': 2,
+                        'category_id': 1,
+                        'area': 900,
+                        'bbox': [100, 120, 30, 30],
+                        'iscrowd': 0,
+                    },
+                    {
+                        'id': 3,
+                        'category_id': 2,
+                        'iscrowd': 0,
+                        'bbox': [1, 189, 612, 285],
+                        'area': 70036,
+                    },
+                ],
+                'file_name': 'fake_name1.jpg',
+                'image_id': 0,
             },
             {
                 'segments_info': [
@@ -74,91 +75,83 @@ class TestCocoPanopticDataset(unittest.TestCase):
                         'category_id': 0,
                         'area': 400,
                         'bbox': [50, 60, 20, 20],
-                        'iscrowd': 0
+                        'iscrowd': 0,
                     },
                     {
                         'id': 4,
                         'category_id': 1,
                         'area': 900,
                         'bbox': [100, 120, 30, 30],
-                        'iscrowd': 1
+                        'iscrowd': 1,
                     },
                     {
                         'id': 5,
                         'category_id': 2,
                         'iscrowd': 0,
                         'bbox': [100, 200, 200, 300],
-                        'area': 66666
+                        'area': 66666,
                     },
                     {
                         'id': 6,
                         'category_id': 0,
                         'iscrowd': 0,
                         'bbox': [1, 189, -10, 285],
-                        'area': -2
+                        'area': -2,
                     },
                     {
                         'id': 10,
                         'category_id': 0,
                         'iscrowd': 0,
                         'bbox': [1, 189, 10, -285],
-                        'area': 100
+                        'area': 100,
+                    },
+                ],
+                'file_name': 'fake_name2.jpg',
+                'image_id': 1,
+            },
+            {
+                'segments_info': [
+                    {
+                        'id': 7,
+                        'category_id': 0,
+                        'area': 25,
+                        'bbox': [0, 0, 5, 5],
+                        'iscrowd': 0,
                     }
                 ],
-                'file_name':
-                'fake_name2.jpg',
-                'image_id':
-                1
+                'file_name': 'fake_name3.jpg',
+                'image_id': 2,
             },
             {
-                'segments_info': [{
-                    'id': 7,
-                    'category_id': 0,
-                    'area': 25,
-                    'bbox': [0, 0, 5, 5],
-                    'iscrowd': 0
-                }],
-                'file_name':
-                'fake_name3.jpg',
-                'image_id':
-                2
+                'segments_info': [
+                    {
+                        'id': 8,
+                        'category_id': 0,
+                        'area': 25,
+                        'bbox': [0, 0, 400, 400],
+                        'iscrowd': 1,
+                    }
+                ],
+                'file_name': 'fake_name4.jpg',
+                'image_id': 3,
             },
-            {
-                'segments_info': [{
-                    'id': 8,
-                    'category_id': 0,
-                    'area': 25,
-                    'bbox': [0, 0, 400, 400],
-                    'iscrowd': 1
-                }],
-                'file_name':
-                'fake_name4.jpg',
-                'image_id':
-                3
-            }
         ]
 
-        categories = [{
-            'id': 0,
-            'name': 'car',
-            'supercategory': 'car',
-            'isthing': 1
-        }, {
-            'id': 1,
-            'name': 'person',
-            'supercategory': 'person',
-            'isthing': 1
-        }, {
-            'id': 2,
-            'name': 'wall',
-            'supercategory': 'wall',
-            'isthing': 0
-        }]
+        categories = [
+            {'id': 0, 'name': 'car', 'supercategory': 'car', 'isthing': 1},
+            {
+                'id': 1,
+                'name': 'person',
+                'supercategory': 'person',
+                'isthing': 1,
+            },
+            {'id': 2, 'name': 'wall', 'supercategory': 'wall', 'isthing': 0},
+        ]
 
         fake_json = {
             'images': images,
             'annotations': annotations,
-            'categories': categories
+            'categories': categories,
         }
         self.json_name = 'coco_panoptic.json'
         dump(fake_json, self.json_name)
@@ -166,7 +159,8 @@ class TestCocoPanopticDataset(unittest.TestCase):
         self.metainfo = dict(
             classes=('person', 'car', 'wall'),
             thing_classes=('person', 'car'),
-            stuff_classes=('wall', ))
+            stuff_classes=('wall',),
+        )
 
     def tearDown(self):
         os.remove(self.json_name)
@@ -178,12 +172,15 @@ class TestCocoPanopticDataset(unittest.TestCase):
             data_prefix=dict(img='imgs', seg='seg'),
             metainfo=self.metainfo,
             filter_cfg=dict(filter_empty_gt=True, min_size=32),
-            pipeline=[])
+            pipeline=[],
+        )
         self.assertEqual(dataset.metainfo['classes'], self.metainfo['classes'])
-        self.assertEqual(dataset.metainfo['thing_classes'],
-                         self.metainfo['thing_classes'])
-        self.assertEqual(dataset.metainfo['stuff_classes'],
-                         self.metainfo['stuff_classes'])
+        self.assertEqual(
+            dataset.metainfo['thing_classes'], self.metainfo['thing_classes']
+        )
+        self.assertEqual(
+            dataset.metainfo['stuff_classes'], self.metainfo['stuff_classes']
+        )
         dataset.full_init()
         # filter images of small size and images
         # with all illegal annotations
@@ -197,12 +194,15 @@ class TestCocoPanopticDataset(unittest.TestCase):
             metainfo=self.metainfo,
             test_mode=True,
             filter_cfg=dict(filter_empty_gt=True, min_size=32),
-            pipeline=[])
+            pipeline=[],
+        )
         self.assertEqual(dataset.metainfo['classes'], self.metainfo['classes'])
-        self.assertEqual(dataset.metainfo['thing_classes'],
-                         self.metainfo['thing_classes'])
-        self.assertEqual(dataset.metainfo['stuff_classes'],
-                         self.metainfo['stuff_classes'])
+        self.assertEqual(
+            dataset.metainfo['thing_classes'], self.metainfo['thing_classes']
+        )
+        self.assertEqual(
+            dataset.metainfo['stuff_classes'], self.metainfo['stuff_classes']
+        )
         dataset.full_init()
         # filter images of small size and images
         # with all illegal annotations
@@ -216,12 +216,15 @@ class TestCocoPanopticDataset(unittest.TestCase):
             data_prefix=dict(img='imgs', seg='seg'),
             metainfo=self.metainfo,
             filter_cfg=None,
-            pipeline=[])
+            pipeline=[],
+        )
         self.assertEqual(dataset.metainfo['classes'], self.metainfo['classes'])
-        self.assertEqual(dataset.metainfo['thing_classes'],
-                         self.metainfo['thing_classes'])
-        self.assertEqual(dataset.metainfo['stuff_classes'],
-                         self.metainfo['stuff_classes'])
+        self.assertEqual(
+            dataset.metainfo['thing_classes'], self.metainfo['thing_classes']
+        )
+        self.assertEqual(
+            dataset.metainfo['stuff_classes'], self.metainfo['stuff_classes']
+        )
         dataset.full_init()
         # filter images of small size and images
         # with all illegal annotations
@@ -236,12 +239,15 @@ class TestCocoPanopticDataset(unittest.TestCase):
             metainfo=self.metainfo,
             filter_cfg=None,
             test_mode=True,
-            pipeline=[])
+            pipeline=[],
+        )
         self.assertEqual(dataset.metainfo['classes'], self.metainfo['classes'])
-        self.assertEqual(dataset.metainfo['thing_classes'],
-                         self.metainfo['thing_classes'])
-        self.assertEqual(dataset.metainfo['stuff_classes'],
-                         self.metainfo['stuff_classes'])
+        self.assertEqual(
+            dataset.metainfo['thing_classes'], self.metainfo['thing_classes']
+        )
+        self.assertEqual(
+            dataset.metainfo['stuff_classes'], self.metainfo['stuff_classes']
+        )
         dataset.full_init()
         # filter images of small size and images
         # with all illegal annotations

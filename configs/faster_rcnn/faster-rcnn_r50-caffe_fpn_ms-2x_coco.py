@@ -4,7 +4,7 @@ _base_ = './faster-rcnn_r50-caffe_fpn_ms-1x_coco.py'
 # according to convenience
 # param_scheduler = [
 #     dict(
-#         type='LinearLR', start_factor=0.001, by_epoch=False, begin=0, end=500), # noqa
+#         type='LinearLR', start_factor=0.001, by_epoch=False, begin=0, end=500),
 #     dict(
 #         type='MultiStepLR',
 #         begin=0,

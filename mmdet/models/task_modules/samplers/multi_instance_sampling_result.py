@@ -24,25 +24,29 @@ class MultiInstanceSamplingResult(SamplingResult):
             positive priors. Defaults to True.
     """
 
-    def __init__(self,
-                 pos_inds: Tensor,
-                 neg_inds: Tensor,
-                 priors: Tensor,
-                 gt_and_ignore_bboxes: Tensor,
-                 assign_result: AssignResult,
-                 gt_flags: Tensor,
-                 avg_factor_with_neg: bool = True) -> None:
+    def __init__(
+        self,
+        pos_inds: Tensor,
+        neg_inds: Tensor,
+        priors: Tensor,
+        gt_and_ignore_bboxes: Tensor,
+        assign_result: AssignResult,
+        gt_flags: Tensor,
+        avg_factor_with_neg: bool = True,
+    ) -> None:
         self.neg_assigned_gt_inds = assign_result.gt_inds[neg_inds]
         self.neg_gt_labels = assign_result.labels[neg_inds]
 
         if gt_and_ignore_bboxes.numel() == 0:
             self.neg_gt_bboxes = torch.empty_like(gt_and_ignore_bboxes).view(
-                -1, 4)
+                -1, 4
+            )
         else:
             if len(gt_and_ignore_bboxes.shape) < 2:
                 gt_and_ignore_bboxes = gt_and_ignore_bboxes.view(-1, 4)
             self.neg_gt_bboxes = gt_and_ignore_bboxes[
-                self.neg_assigned_gt_inds.long(), :]
+                self.neg_assigned_gt_inds.long(), :
+            ]
 
         # To resist the minus 1 operation in `SamplingResult.init()`.
         assign_result.gt_inds += 1
@@ -53,4 +57,5 @@ class MultiInstanceSamplingResult(SamplingResult):
             gt_bboxes=gt_and_ignore_bboxes,
             assign_result=assign_result,
             gt_flags=gt_flags,
-            avg_factor_with_neg=avg_factor_with_neg)
+            avg_factor_with_neg=avg_factor_with_neg,
+        )

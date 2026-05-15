@@ -29,7 +29,8 @@ def parse_args():
         '--num-images',
         type=int,
         default=100,
-        help='num images of calculate model flops')
+        help='num images of calculate model flops',
+    )
     parser.add_argument(
         '--cfg-options',
         nargs='+',
@@ -39,7 +40,8 @@ def parse_args():
         'be overwritten is a list, it should be like key="[a,b]" or key=a,b '
         'It also allows nested list/tuple values, e.g. key="[(a,b),(c,d)]" '
         'Note that the quotation marks are necessary and that no white space '
-        'is allowed.')
+        'is allowed.',
+    )
     args = parser.parse_args()
     return args
 
@@ -50,7 +52,8 @@ def inference(args, logger):
             'Some config files, such as configs/yolact and configs/detectors,'
             'may have compatibility issues with torch.jit when torch<1.12. '
             'If you want to calculate flops for these models, '
-            'please make sure your pytorch version is >=1.12.')
+            'please make sure your pytorch version is >=1.12.'
+        )
 
     config_name = Path(args.config)
     if not config_name.exists():
@@ -72,9 +75,11 @@ def inference(args, logger):
     if hasattr(cfg, 'head_norm_cfg'):
         cfg['head_norm_cfg'] = dict(type='SyncBN', requires_grad=True)
         cfg['model']['roi_head']['bbox_head']['norm_cfg'] = dict(
-            type='SyncBN', requires_grad=True)
+            type='SyncBN', requires_grad=True
+        )
         cfg['model']['roi_head']['mask_head']['norm_cfg'] = dict(
-            type='SyncBN', requires_grad=True)
+            type='SyncBN', requires_grad=True
+        )
 
     result = {}
     avg_flops = []
@@ -100,7 +105,8 @@ def inference(args, logger):
             None,
             inputs=data['inputs'],
             show_table=False,
-            show_arch=False)
+            show_arch=False,
+        )
         avg_flops.append(outputs['flops'])
         params = outputs['params']
         result['compute_type'] = 'dataloader: load a picture from the dataset'
@@ -126,14 +132,20 @@ def main():
     compute_type = result['compute_type']
 
     if pad_shape != ori_shape:
-        print(f'{split_line}\nUse size divisor set input shape '
-              f'from {ori_shape} to {pad_shape}')
-    print(f'{split_line}\nCompute type: {compute_type}\n'
-          f'Input shape: {pad_shape}\nFlops: {flops}\n'
-          f'Params: {params}\n{split_line}')
-    print('!!!Please be cautious if you use the results in papers. '
-          'You may need to check if all ops are supported and verify '
-          'that the flops computation is correct.')
+        print(
+            f'{split_line}\nUse size divisor set input shape '
+            f'from {ori_shape} to {pad_shape}'
+        )
+    print(
+        f'{split_line}\nCompute type: {compute_type}\n'
+        f'Input shape: {pad_shape}\nFlops: {flops}\n'
+        f'Params: {params}\n{split_line}'
+    )
+    print(
+        '!!!Please be cautious if you use the results in papers. '
+        'You may need to check if all ops are supported and verify '
+        'that the flops computation is correct.'
+    )
 
 
 if __name__ == '__main__':

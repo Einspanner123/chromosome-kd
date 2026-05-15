@@ -8,6 +8,11 @@ from .sort_tracker import SORTTracker
 from .strongsort_tracker import StrongSORTTracker
 
 __all__ = [
-    'BaseTracker', 'ByteTracker', 'QuasiDenseTracker', 'SORTTracker',
-    'StrongSORTTracker', 'OCSORTTracker', 'MaskTrackRCNNTracker'
+    'BaseTracker',
+    'ByteTracker',
+    'MaskTrackRCNNTracker',
+    'OCSORTTracker',
+    'QuasiDenseTracker',
+    'SORTTracker',
+    'StrongSORTTracker',
 ]

@@ -3,10 +3,10 @@ train_pipeline = [
     dict(type='LoadImageFromFile', backend_args={{_base_.backend_args}}),
     dict(type='LoadAnnotations', with_bbox=True),
     dict(
-        type='RandomResize', scale=[(1333, 480), (1333, 960)],
-        keep_ratio=True),
+        type='RandomResize', scale=[(1333, 480), (1333, 960)], keep_ratio=True
+    ),
     dict(type='RandomFlip', prob=0.5),
-    dict(type='PackDetInputs')
+    dict(type='PackDetInputs'),
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile', backend_args={{_base_.backend_args}}),
@@ -14,8 +14,14 @@ test_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+        ),
+    ),
 ]
 train_dataloader = dict(dataset=dict(pipeline=train_pipeline))
 val_dataloader = dict(dataset=dict(pipeline=test_pipeline))
@@ -30,7 +36,8 @@ param_scheduler = [
         end=max_epochs,
         by_epoch=True,
         milestones=[16, 22],
-        gamma=0.1)
+        gamma=0.1,
+    ),
 ]
 
 train_cfg = dict(max_epochs=max_epochs)

@@ -1,6 +1,6 @@
 _base_ = [
     '../_base_/models/mask-rcnn_r50_fpn.py',
-    '../common/lsj-100e_coco-instance.py'
+    '../common/lsj-100e_coco-instance.py',
 ]
 image_size = (1024, 1024)
 batch_augments = [
@@ -16,25 +16,29 @@ model = dict(
         mean=[103.530, 116.280, 123.675],
         std=[1.0, 1.0, 1.0],
         bgr_to_rgb=False,
-
         # pad_size_divisor=32 is unnecessary in training but necessary
         # in testing.
         pad_size_divisor=32,
-        batch_augments=batch_augments),
+        batch_augments=batch_augments,
+    ),
     backbone=dict(
         frozen_stages=-1,
         norm_eval=False,
         norm_cfg=norm_cfg,
         init_cfg=None,
-        style='caffe'),
+        style='caffe',
+    ),
     neck=dict(norm_cfg=norm_cfg),
     rpn_head=dict(num_convs=2),
     roi_head=dict(
         bbox_head=dict(
             type='Shared4Conv1FCBBoxHead',
             conv_out_channels=256,
-            norm_cfg=head_norm_cfg),
-        mask_head=dict(norm_cfg=head_norm_cfg)))
+            norm_cfg=head_norm_cfg,
+        ),
+        mask_head=dict(norm_cfg=head_norm_cfg),
+    ),
+)
 
 train_pipeline = [
     dict(type='LoadImageFromFile', backend_args={{_base_.backend_args}}),
@@ -43,16 +47,18 @@ train_pipeline = [
         type='RandomResize',
         scale=image_size,
         ratio_range=(0.1, 2.0),
-        keep_ratio=True),
+        keep_ratio=True,
+    ),
     dict(
         type='RandomCrop',
         crop_type='absolute_range',
         crop_size=image_size,
         recompute_bbox=True,
-        allow_negative_crop=True),
+        allow_negative_crop=True,
+    ),
     dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
     dict(type='RandomFlip', prob=0.5),
-    dict(type='PackDetInputs')
+    dict(type='PackDetInputs'),
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile', backend_args={{_base_.backend_args}}),
@@ -60,8 +66,14 @@ test_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True, with_mask=True),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+        ),
+    ),
 ]
 
 # Use RepeatDataset to speed up training

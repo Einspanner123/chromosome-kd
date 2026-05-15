@@ -13,15 +13,16 @@ from mmdet.testing import demo_track_inputs, get_detector_cfg
 
 
 class TestDeepSORT(TestCase):
-
     @classmethod
     def setUpClass(cls):
         init_default_scope('mmdet')
 
-    @parameterized.expand([
-        'strongsort/strongsort_yolox_x_8xb4-80e_crowdhuman'
-        '-mot17halftrain_test-mot17halfval.py'
-    ])
+    @parameterized.expand(
+        [
+            'strongsort/strongsort_yolox_x_8xb4-80e_crowdhuman'
+            '-mot17halftrain_test-mot17halfval.py'
+        ]
+    )
     def test_init(self, cfg_file):
         model = get_detector_cfg(cfg_file)
         model.detector.neck.out_channels = 1
@@ -38,13 +39,19 @@ class TestDeepSORT(TestCase):
         assert model.reid
         assert model.tracker
 
-    @parameterized.expand([
-        ('strongsort/strongsort_yolox_x_8xb4-80e_crowdhuman'
-         '-mot17halftrain_test-mot17halfval.py', ('cpu', 'cuda')),
-    ])
+    @parameterized.expand(
+        [
+            (
+                'strongsort/strongsort_yolox_x_8xb4-80e_crowdhuman'
+                '-mot17halftrain_test-mot17halfval.py',
+                ('cpu', 'cuda'),
+            ),
+        ]
+    )
     def test_strongsort_forward_predict_mode(self, cfg_file, devices):
         message_hub = MessageHub.get_instance(
-            f'test_strongsort_forward_predict_mode-{time.time()}')
+            f'test_strongsort_forward_predict_mode-{time.time()}'
+        )
         message_hub.update_info('iter', 0)
         message_hub.update_info('epoch', 0)
 
@@ -73,7 +80,8 @@ class TestDeepSORT(TestCase):
                 batch_size=1,
                 num_frames=2,
                 image_shapes=[(3, 256, 256)],
-                num_classes=1)
+                num_classes=1,
+            )
             out_data = model.data_preprocessor(packed_inputs, False)
 
             # Test forward test

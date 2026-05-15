@@ -8,12 +8,13 @@ train_pipeline = [
         type='LoadPanopticAnnotations',
         with_bbox=True,
         with_mask=True,
-        with_seg=True),
+        with_seg=True,
+    ),
     dict(
-        type='RandomResize', scale=[(1333, 640), (1333, 800)],
-        keep_ratio=True),
+        type='RandomResize', scale=[(1333, 640), (1333, 800)], keep_ratio=True
+    ),
     dict(type='RandomFlip', prob=0.5),
-    dict(type='PackDetInputs')
+    dict(type='PackDetInputs'),
 ]
 train_dataloader = dict(dataset=dict(pipeline=train_pipeline))
 
@@ -24,12 +25,14 @@ train_cfg = dict(max_epochs=36, val_interval=3)
 # learning rate
 param_scheduler = [
     dict(
-        type='LinearLR', start_factor=0.001, by_epoch=False, begin=0, end=500),
+        type='LinearLR', start_factor=0.001, by_epoch=False, begin=0, end=500
+    ),
     dict(
         type='MultiStepLR',
         begin=0,
         end=36,
         by_epoch=True,
         milestones=[24, 33],
-        gamma=0.1)
+        gamma=0.1,
+    ),
 ]

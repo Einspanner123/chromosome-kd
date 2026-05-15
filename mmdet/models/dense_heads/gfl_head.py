@@ -11,12 +11,22 @@ from torch import Tensor
 
 from mmdet.registry import MODELS, TASK_UTILS
 from mmdet.structures.bbox import bbox_overlaps
-from mmdet.utils import (ConfigType, InstanceList, MultiConfig, OptConfigType,
-                         OptInstanceList, reduce_mean)
+from mmdet.utils import (
+    ConfigType,
+    InstanceList,
+    MultiConfig,
+    OptConfigType,
+    OptInstanceList,
+    reduce_mean,
+)
 from ..task_modules.prior_generators import anchor_inside_flags
 from ..task_modules.samplers import PseudoSampler
-from ..utils import (filter_scores_and_topk, images_to_levels, multi_apply,
-                     unmap)
+from ..utils import (
+    filter_scores_and_topk,
+    images_to_levels,
+    multi_apply,
+    unmap,
+)
 from .anchor_head import AnchorHead
 
 
@@ -36,8 +46,9 @@ class Integral(nn.Module):
     def __init__(self, reg_max: int = 16) -> None:
         super().__init__()
         self.reg_max = reg_max
-        self.register_buffer('project',
-                             torch.linspace(0, self.reg_max, self.reg_max + 1))
+        self.register_buffer(
+            'project', torch.linspace(0, self.reg_max, self.reg_max + 1)
+        )
 
     def forward(self, x: Tensor) -> Tensor:
         """Forward feature from the regression head to get integral result of
@@ -95,27 +106,30 @@ class GFLHead(AnchorHead):
         >>> assert len(cls_quality_score) == len(self.scales)
     """
 
-    def __init__(self,
-                 num_classes: int,
-                 in_channels: int,
-                 stacked_convs: int = 4,
-                 conv_cfg: OptConfigType = None,
-                 norm_cfg: ConfigType = dict(
-                     type='GN', num_groups=32, requires_grad=True),
-                 loss_dfl: ConfigType = dict(
-                     type='DistributionFocalLoss', loss_weight=0.25),
-                 bbox_coder: ConfigType = dict(type='DistancePointBBoxCoder'),
-                 reg_max: int = 16,
-                 init_cfg: MultiConfig = dict(
-                     type='Normal',
-                     layer='Conv2d',
-                     std=0.01,
-                     override=dict(
-                         type='Normal',
-                         name='gfl_cls',
-                         std=0.01,
-                         bias_prob=0.01)),
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        num_classes: int,
+        in_channels: int,
+        stacked_convs: int = 4,
+        conv_cfg: OptConfigType = None,
+        norm_cfg: ConfigType = dict(
+            type='GN', num_groups=32, requires_grad=True
+        ),
+        loss_dfl: ConfigType = dict(
+            type='DistributionFocalLoss', loss_weight=0.25
+        ),
+        bbox_coder: ConfigType = dict(type='DistancePointBBoxCoder'),
+        reg_max: int = 16,
+        init_cfg: MultiConfig = dict(
+            type='Normal',
+            layer='Conv2d',
+            std=0.01,
+            override=dict(
+                type='Normal', name='gfl_cls', std=0.01, bias_prob=0.01
+            ),
+        ),
+        **kwargs,
+    ) -> None:
         self.stacked_convs = stacked_convs
         self.conv_cfg = conv_cfg
         self.norm_cfg = norm_cfg
@@ -125,13 +139,15 @@ class GFLHead(AnchorHead):
             in_channels=in_channels,
             bbox_coder=bbox_coder,
             init_cfg=init_cfg,
-            **kwargs)
+            **kwargs,
+        )
 
         if self.train_cfg:
             self.assigner = TASK_UTILS.build(self.train_cfg['assigner'])
             if self.train_cfg.get('sampler', None) is not None:
                 self.sampler = TASK_UTILS.build(
-                    self.train_cfg['sampler'], default_args=dict(context=self))
+                    self.train_cfg['sampler'], default_args=dict(context=self)
+                )
             else:
                 self.sampler = PseudoSampler(context=self)
 
@@ -153,7 +169,9 @@ class GFLHead(AnchorHead):
                     stride=1,
                     padding=1,
                     conv_cfg=self.conv_cfg,
-                    norm_cfg=self.norm_cfg))
+                    norm_cfg=self.norm_cfg,
+                )
+            )
             self.reg_convs.append(
                 ConvModule(
                     chn,
@@ -162,14 +180,19 @@ class GFLHead(AnchorHead):
                     stride=1,
                     padding=1,
                     conv_cfg=self.conv_cfg,
-                    norm_cfg=self.norm_cfg))
+                    norm_cfg=self.norm_cfg,
+                )
+            )
         assert self.num_anchors == 1, 'anchor free version'
         self.gfl_cls = nn.Conv2d(
-            self.feat_channels, self.cls_out_channels, 3, padding=1)
+            self.feat_channels, self.cls_out_channels, 3, padding=1
+        )
         self.gfl_reg = nn.Conv2d(
-            self.feat_channels, 4 * (self.reg_max + 1), 3, padding=1)
+            self.feat_channels, 4 * (self.reg_max + 1), 3, padding=1
+        )
         self.scales = nn.ModuleList(
-            [Scale(1.0) for _ in self.prior_generator.strides])
+            [Scale(1.0) for _ in self.prior_generator.strides]
+        )
 
     def forward(self, x: Tuple[Tensor]) -> Tuple[List[Tensor]]:
         """Forward features from the upstream network.
@@ -230,10 +253,17 @@ class GFLHead(AnchorHead):
         anchors_cy = (anchors[..., 3] + anchors[..., 1]) / 2
         return torch.stack([anchors_cx, anchors_cy], dim=-1)
 
-    def loss_by_feat_single(self, anchors: Tensor, cls_score: Tensor,
-                            bbox_pred: Tensor, labels: Tensor,
-                            label_weights: Tensor, bbox_targets: Tensor,
-                            stride: Tuple[int], avg_factor: int) -> dict:
+    def loss_by_feat_single(
+        self,
+        anchors: Tensor,
+        cls_score: Tensor,
+        bbox_pred: Tensor,
+        labels: Tensor,
+        label_weights: Tensor,
+        bbox_targets: Tensor,
+        stride: Tuple[int],
+        avg_factor: int,
+    ) -> dict:
         """Calculate the loss of a single scale level based on the features
         extracted by the detection head.
 
@@ -263,18 +293,21 @@ class GFLHead(AnchorHead):
         """
         assert stride[0] == stride[1], 'h stride is not equal to w stride!'
         anchors = anchors.reshape(-1, 4)
-        cls_score = cls_score.permute(0, 2, 3,
-                                      1).reshape(-1, self.cls_out_channels)
-        bbox_pred = bbox_pred.permute(0, 2, 3,
-                                      1).reshape(-1, 4 * (self.reg_max + 1))
+        cls_score = cls_score.permute(0, 2, 3, 1).reshape(
+            -1, self.cls_out_channels
+        )
+        bbox_pred = bbox_pred.permute(0, 2, 3, 1).reshape(
+            -1, 4 * (self.reg_max + 1)
+        )
         bbox_targets = bbox_targets.reshape(-1, 4)
         labels = labels.reshape(-1)
         label_weights = label_weights.reshape(-1)
 
         # FG cat_id: [0, num_classes -1], BG cat_id: num_classes
         bg_class_ind = self.num_classes
-        pos_inds = ((labels >= 0)
-                    & (labels < bg_class_ind)).nonzero().squeeze(1)
+        pos_inds = (
+            ((labels >= 0) & (labels < bg_class_ind)).nonzero().squeeze(1)
+        )
         score = label_weights.new_zeros(labels.shape)
 
         if len(pos_inds) > 0:
@@ -287,30 +320,34 @@ class GFLHead(AnchorHead):
             weight_targets = weight_targets.max(dim=1)[0][pos_inds]
             pos_bbox_pred_corners = self.integral(pos_bbox_pred)
             pos_decode_bbox_pred = self.bbox_coder.decode(
-                pos_anchor_centers, pos_bbox_pred_corners)
+                pos_anchor_centers, pos_bbox_pred_corners
+            )
             pos_decode_bbox_targets = pos_bbox_targets / stride[0]
             score[pos_inds] = bbox_overlaps(
                 pos_decode_bbox_pred.detach(),
                 pos_decode_bbox_targets,
-                is_aligned=True)
+                is_aligned=True,
+            )
             pred_corners = pos_bbox_pred.reshape(-1, self.reg_max + 1)
-            target_corners = self.bbox_coder.encode(pos_anchor_centers,
-                                                    pos_decode_bbox_targets,
-                                                    self.reg_max).reshape(-1)
+            target_corners = self.bbox_coder.encode(
+                pos_anchor_centers, pos_decode_bbox_targets, self.reg_max
+            ).reshape(-1)
 
             # regression loss
             loss_bbox = self.loss_bbox(
                 pos_decode_bbox_pred,
                 pos_decode_bbox_targets,
                 weight=weight_targets,
-                avg_factor=1.0)
+                avg_factor=1.0,
+            )
 
             # dfl loss
             loss_dfl = self.loss_dfl(
                 pred_corners,
                 target_corners,
                 weight=weight_targets[:, None].expand(-1, 4).reshape(-1),
-                avg_factor=4.0)
+                avg_factor=4.0,
+            )
         else:
             loss_bbox = bbox_pred.sum() * 0
             loss_dfl = bbox_pred.sum() * 0
@@ -318,19 +355,22 @@ class GFLHead(AnchorHead):
 
         # cls (qfl) loss
         loss_cls = self.loss_cls(
-            cls_score, (labels, score),
+            cls_score,
+            (labels, score),
             weight=label_weights,
-            avg_factor=avg_factor)
+            avg_factor=avg_factor,
+        )
 
         return loss_cls, loss_bbox, loss_dfl, weight_targets.sum()
 
     def loss_by_feat(
-            self,
-            cls_scores: List[Tensor],
-            bbox_preds: List[Tensor],
-            batch_gt_instances: InstanceList,
-            batch_img_metas: List[dict],
-            batch_gt_instances_ignore: OptInstanceList = None) -> dict:
+        self,
+        cls_scores: List[Tensor],
+        bbox_preds: List[Tensor],
+        batch_gt_instances: InstanceList,
+        batch_img_metas: List[dict],
+        batch_gt_instances_ignore: OptInstanceList = None,
+    ) -> dict:
         """Calculate the loss based on the features extracted by the detection
         head.
 
@@ -359,49 +399,61 @@ class GFLHead(AnchorHead):
 
         device = cls_scores[0].device
         anchor_list, valid_flag_list = self.get_anchors(
-            featmap_sizes, batch_img_metas, device=device)
+            featmap_sizes, batch_img_metas, device=device
+        )
 
         cls_reg_targets = self.get_targets(
             anchor_list,
             valid_flag_list,
             batch_gt_instances,
             batch_img_metas,
-            batch_gt_instances_ignore=batch_gt_instances_ignore)
+            batch_gt_instances_ignore=batch_gt_instances_ignore,
+        )
 
-        (anchor_list, labels_list, label_weights_list, bbox_targets_list,
-         bbox_weights_list, avg_factor) = cls_reg_targets
+        (
+            anchor_list,
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            bbox_weights_list,
+            avg_factor,
+        ) = cls_reg_targets
 
         avg_factor = reduce_mean(
-            torch.tensor(avg_factor, dtype=torch.float, device=device)).item()
+            torch.tensor(avg_factor, dtype=torch.float, device=device)
+        ).item()
 
-        losses_cls, losses_bbox, losses_dfl,\
-            avg_factor = multi_apply(
-                self.loss_by_feat_single,
-                anchor_list,
-                cls_scores,
-                bbox_preds,
-                labels_list,
-                label_weights_list,
-                bbox_targets_list,
-                self.prior_generator.strides,
-                avg_factor=avg_factor)
+        losses_cls, losses_bbox, losses_dfl, avg_factor = multi_apply(
+            self.loss_by_feat_single,
+            anchor_list,
+            cls_scores,
+            bbox_preds,
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            self.prior_generator.strides,
+            avg_factor=avg_factor,
+        )
 
         avg_factor = sum(avg_factor)
         avg_factor = reduce_mean(avg_factor).clamp_(min=1).item()
         losses_bbox = list(map(lambda x: x / avg_factor, losses_bbox))
         losses_dfl = list(map(lambda x: x / avg_factor, losses_dfl))
         return dict(
-            loss_cls=losses_cls, loss_bbox=losses_bbox, loss_dfl=losses_dfl)
+            loss_cls=losses_cls, loss_bbox=losses_bbox, loss_dfl=losses_dfl
+        )
 
-    def _predict_by_feat_single(self,
-                                cls_score_list: List[Tensor],
-                                bbox_pred_list: List[Tensor],
-                                score_factor_list: List[Tensor],
-                                mlvl_priors: List[Tensor],
-                                img_meta: dict,
-                                cfg: ConfigDict,
-                                rescale: bool = False,
-                                with_nms: bool = True) -> InstanceData:
+    def _predict_by_feat_single(
+        self,
+        cls_score_list: List[Tensor],
+        bbox_pred_list: List[Tensor],
+        score_factor_list: List[Tensor],
+        mlvl_priors: List[Tensor],
+        img_meta: dict,
+        cfg: ConfigDict,
+        rescale: bool = False,
+        with_nms: bool = True,
+    ) -> InstanceData:
         """Transform a single image's features extracted from the head into
         bbox results.
 
@@ -447,16 +499,24 @@ class GFLHead(AnchorHead):
         mlvl_scores = []
         mlvl_labels = []
         for level_idx, (cls_score, bbox_pred, stride, priors) in enumerate(
-                zip(cls_score_list, bbox_pred_list,
-                    self.prior_generator.strides, mlvl_priors)):
+            zip(
+                cls_score_list,
+                bbox_pred_list,
+                self.prior_generator.strides,
+                mlvl_priors,
+            )
+        ):
             assert cls_score.size()[-2:] == bbox_pred.size()[-2:]
             assert stride[0] == stride[1]
 
             bbox_pred = bbox_pred.permute(1, 2, 0)
             bbox_pred = self.integral(bbox_pred) * stride[0]
 
-            scores = cls_score.permute(1, 2, 0).reshape(
-                -1, self.cls_out_channels).sigmoid()
+            scores = (
+                cls_score.permute(1, 2, 0)
+                .reshape(-1, self.cls_out_channels)
+                .sigmoid()
+            )
 
             # After https://github.com/open-mmlab/mmdetection/pull/6268/,
             # this operation keeps fewer bboxes under the same `nms_pre`.
@@ -464,15 +524,19 @@ class GFLHead(AnchorHead):
             # find a slight drop in performance, you can set a larger
             # `nms_pre` than before.
             results = filter_scores_and_topk(
-                scores, cfg.score_thr, nms_pre,
-                dict(bbox_pred=bbox_pred, priors=priors))
+                scores,
+                cfg.score_thr,
+                nms_pre,
+                dict(bbox_pred=bbox_pred, priors=priors),
+            )
             scores, labels, _, filtered_results = results
 
             bbox_pred = filtered_results['bbox_pred']
             priors = filtered_results['priors']
 
             bboxes = self.bbox_coder.decode(
-                self.anchor_center(priors), bbox_pred, max_shape=img_shape)
+                self.anchor_center(priors), bbox_pred, max_shape=img_shape
+            )
             mlvl_bboxes.append(bboxes)
             mlvl_scores.append(scores)
             mlvl_labels.append(labels)
@@ -487,15 +551,18 @@ class GFLHead(AnchorHead):
             cfg=cfg,
             rescale=rescale,
             with_nms=with_nms,
-            img_meta=img_meta)
+            img_meta=img_meta,
+        )
 
-    def get_targets(self,
-                    anchor_list: List[Tensor],
-                    valid_flag_list: List[Tensor],
-                    batch_gt_instances: InstanceList,
-                    batch_img_metas: List[dict],
-                    batch_gt_instances_ignore: OptInstanceList = None,
-                    unmap_outputs=True) -> tuple:
+    def get_targets(
+        self,
+        anchor_list: List[Tensor],
+        valid_flag_list: List[Tensor],
+        batch_gt_instances: InstanceList,
+        batch_img_metas: List[dict],
+        batch_gt_instances_ignore: OptInstanceList = None,
+        unmap_outputs=True,
+    ) -> tuple:
         """Get targets for GFL head.
 
         This method is almost the same as `AnchorHead.get_targets()`. Besides
@@ -518,43 +585,63 @@ class GFLHead(AnchorHead):
         # compute targets for each image
         if batch_gt_instances_ignore is None:
             batch_gt_instances_ignore = [None] * num_imgs
-        (all_anchors, all_labels, all_label_weights, all_bbox_targets,
-         all_bbox_weights, pos_inds_list, neg_inds_list,
-         sampling_results_list) = multi_apply(
-             self._get_targets_single,
-             anchor_list,
-             valid_flag_list,
-             num_level_anchors_list,
-             batch_gt_instances,
-             batch_img_metas,
-             batch_gt_instances_ignore,
-             unmap_outputs=unmap_outputs)
+        (
+            all_anchors,
+            all_labels,
+            all_label_weights,
+            all_bbox_targets,
+            all_bbox_weights,
+            pos_inds_list,
+            neg_inds_list,
+            sampling_results_list,
+        ) = multi_apply(
+            self._get_targets_single,
+            anchor_list,
+            valid_flag_list,
+            num_level_anchors_list,
+            batch_gt_instances,
+            batch_img_metas,
+            batch_gt_instances_ignore,
+            unmap_outputs=unmap_outputs,
+        )
         # Get `avg_factor` of all images, which calculate in `SamplingResult`.
         # When using sampling method, avg_factor is usually the sum of
         # positive and negative priors. When using `PseudoSampler`,
         # `avg_factor` is usually equal to the number of positive priors.
         avg_factor = sum(
-            [results.avg_factor for results in sampling_results_list])
+            [results.avg_factor for results in sampling_results_list]
+        )
         # split targets to a list w.r.t. multiple levels
         anchors_list = images_to_levels(all_anchors, num_level_anchors)
         labels_list = images_to_levels(all_labels, num_level_anchors)
-        label_weights_list = images_to_levels(all_label_weights,
-                                              num_level_anchors)
-        bbox_targets_list = images_to_levels(all_bbox_targets,
-                                             num_level_anchors)
-        bbox_weights_list = images_to_levels(all_bbox_weights,
-                                             num_level_anchors)
-        return (anchors_list, labels_list, label_weights_list,
-                bbox_targets_list, bbox_weights_list, avg_factor)
+        label_weights_list = images_to_levels(
+            all_label_weights, num_level_anchors
+        )
+        bbox_targets_list = images_to_levels(
+            all_bbox_targets, num_level_anchors
+        )
+        bbox_weights_list = images_to_levels(
+            all_bbox_weights, num_level_anchors
+        )
+        return (
+            anchors_list,
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            bbox_weights_list,
+            avg_factor,
+        )
 
-    def _get_targets_single(self,
-                            flat_anchors: Tensor,
-                            valid_flags: Tensor,
-                            num_level_anchors: List[int],
-                            gt_instances: InstanceData,
-                            img_meta: dict,
-                            gt_instances_ignore: Optional[InstanceData] = None,
-                            unmap_outputs: bool = True) -> tuple:
+    def _get_targets_single(
+        self,
+        flat_anchors: Tensor,
+        valid_flags: Tensor,
+        num_level_anchors: List[int],
+        gt_instances: InstanceData,
+        img_meta: dict,
+        gt_instances_ignore: Optional[InstanceData] = None,
+        unmap_outputs: bool = True,
+    ) -> tuple:
         """Compute regression, classification targets for anchors in a single
         image.
 
@@ -595,36 +682,43 @@ class GFLHead(AnchorHead):
               (num_neg,).
             - sampling_result (:obj:`SamplingResult`): Sampling results.
         """
-        inside_flags = anchor_inside_flags(flat_anchors, valid_flags,
-                                           img_meta['img_shape'][:2],
-                                           self.train_cfg['allowed_border'])
+        inside_flags = anchor_inside_flags(
+            flat_anchors,
+            valid_flags,
+            img_meta['img_shape'][:2],
+            self.train_cfg['allowed_border'],
+        )
         if not inside_flags.any():
             raise ValueError(
                 'There is no valid anchor inside the image boundary. Please '
                 'check the image size and anchor sizes, or set '
-                '``allowed_border`` to -1 to skip the condition.')
+                '``allowed_border`` to -1 to skip the condition.'
+            )
         # assign gt and sample anchors
         anchors = flat_anchors[inside_flags, :]
         num_level_anchors_inside = self.get_num_level_anchors_inside(
-            num_level_anchors, inside_flags)
+            num_level_anchors, inside_flags
+        )
         pred_instances = InstanceData(priors=anchors)
         assign_result = self.assigner.assign(
             pred_instances=pred_instances,
             num_level_priors=num_level_anchors_inside,
             gt_instances=gt_instances,
-            gt_instances_ignore=gt_instances_ignore)
+            gt_instances_ignore=gt_instances_ignore,
+        )
 
         sampling_result = self.sampler.sample(
             assign_result=assign_result,
             pred_instances=pred_instances,
-            gt_instances=gt_instances)
+            gt_instances=gt_instances,
+        )
 
         num_valid_anchors = anchors.shape[0]
         bbox_targets = torch.zeros_like(anchors)
         bbox_weights = torch.zeros_like(anchors)
-        labels = anchors.new_full((num_valid_anchors, ),
-                                  self.num_classes,
-                                  dtype=torch.long)
+        labels = anchors.new_full(
+            (num_valid_anchors,), self.num_classes, dtype=torch.long
+        )
         label_weights = anchors.new_zeros(num_valid_anchors, dtype=torch.float)
 
         pos_inds = sampling_result.pos_inds
@@ -647,17 +741,28 @@ class GFLHead(AnchorHead):
             num_total_anchors = flat_anchors.size(0)
             anchors = unmap(anchors, num_total_anchors, inside_flags)
             labels = unmap(
-                labels, num_total_anchors, inside_flags, fill=self.num_classes)
-            label_weights = unmap(label_weights, num_total_anchors,
-                                  inside_flags)
+                labels, num_total_anchors, inside_flags, fill=self.num_classes
+            )
+            label_weights = unmap(
+                label_weights, num_total_anchors, inside_flags
+            )
             bbox_targets = unmap(bbox_targets, num_total_anchors, inside_flags)
             bbox_weights = unmap(bbox_weights, num_total_anchors, inside_flags)
 
-        return (anchors, labels, label_weights, bbox_targets, bbox_weights,
-                pos_inds, neg_inds, sampling_result)
+        return (
+            anchors,
+            labels,
+            label_weights,
+            bbox_targets,
+            bbox_weights,
+            pos_inds,
+            neg_inds,
+            sampling_result,
+        )
 
-    def get_num_level_anchors_inside(self, num_level_anchors: List[int],
-                                     inside_flags: Tensor) -> List[int]:
+    def get_num_level_anchors_inside(
+        self, num_level_anchors: List[int], inside_flags: Tensor
+    ) -> List[int]:
         """Get the number of valid anchors in every level."""
 
         split_inside_flags = torch.split(inside_flags, num_level_anchors)

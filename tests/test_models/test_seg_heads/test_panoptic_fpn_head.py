@@ -9,16 +9,18 @@ from mmdet.structures import DetDataSample
 
 
 class TestPanopticFPNHead(unittest.TestCase):
-
     def test_init_weights(self):
         head = PanopticFPNHead(
             num_things_classes=2,
             num_stuff_classes=2,
             in_channels=32,
-            inner_channels=32)
+            inner_channels=32,
+        )
         head.init_weights()
-        assert_allclose(head.conv_logits.bias.data,
-                        torch.zeros_like(head.conv_logits.bias.data))
+        assert_allclose(
+            head.conv_logits.bias.data,
+            torch.zeros_like(head.conv_logits.bias.data),
+        )
 
     def test_loss(self):
         head = PanopticFPNHead(
@@ -27,14 +29,17 @@ class TestPanopticFPNHead(unittest.TestCase):
             in_channels=32,
             inner_channels=32,
             start_level=0,
-            end_level=1)
+            end_level=1,
+        )
         x = [torch.rand((2, 32, 8, 8)), torch.rand((2, 32, 4, 4))]
         data_sample1 = DetDataSample()
         data_sample1.gt_sem_seg = PixelData(
-            sem_seg=torch.randint(0, 4, (1, 7, 8)))
+            sem_seg=torch.randint(0, 4, (1, 7, 8))
+        )
         data_sample2 = DetDataSample()
         data_sample2.gt_sem_seg = PixelData(
-            sem_seg=torch.randint(0, 4, (1, 7, 8)))
+            sem_seg=torch.randint(0, 4, (1, 7, 8))
+        )
         batch_data_samples = [data_sample1, data_sample2]
         results = head.loss(x, batch_data_samples)
         self.assertIsInstance(results, dict)
@@ -46,7 +51,8 @@ class TestPanopticFPNHead(unittest.TestCase):
             in_channels=32,
             inner_channels=32,
             start_level=0,
-            end_level=1)
+            end_level=1,
+        )
         x = [torch.rand((2, 32, 8, 8)), torch.rand((2, 32, 4, 4))]
         img_meta1 = {
             'batch_input_shape': (16, 16),

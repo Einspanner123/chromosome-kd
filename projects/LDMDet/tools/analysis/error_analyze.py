@@ -41,7 +41,7 @@ def analyze_errors(results_path, ann_file, iou_thr=0.5, score_thr=0.1):
         'Dupe': 0,
         'Bkg': 0,
         'Miss': 0,
-        'TP': 0
+        'TP': 0,
     }
 
     total_gt = 0
@@ -60,11 +60,15 @@ def analyze_errors(results_path, ann_file, iou_thr=0.5, score_thr=0.1):
             gt_labels.append(ann['category_id'])
 
         gt_bboxes = (
-            torch.tensor(gt_bboxes).float() if gt_bboxes else torch.zeros(
-                (0, 4)))
+            torch.tensor(gt_bboxes).float()
+            if gt_bboxes
+            else torch.zeros((0, 4))
+        )
         gt_labels = (
-            torch.tensor(gt_labels).long() if gt_labels else torch.zeros(
-                (0, ), dtype=torch.long))
+            torch.tensor(gt_labels).long()
+            if gt_labels
+            else torch.zeros((0,), dtype=torch.long)
+        )
         total_gt += len(gt_bboxes)
 
         # 获取预测结果
@@ -127,19 +131,20 @@ def analyze_errors(results_path, ann_file, iou_thr=0.5, score_thr=0.1):
     print('      LDMDet Error Analysis')
     print('=' * 30)
     print(f'Total GT: {total_gt}')
-    print(f"True Positives: {stats['TP']}")
+    print(f'True Positives: {stats["TP"]}')
     print('-' * 30)
-    print(f"Classification Errors: {stats['Cls']}")
-    print(f"Localization Errors:   {stats['Loc']}")
-    print(f"Cls + Loc Errors:      {stats['Both']}")
-    print(f"Duplicate Errors:      {stats['Dupe']}")
-    print(f"Background Errors:     {stats['Bkg']}")
-    print(f"Missed GTs:            {stats['Miss']}")
+    print(f'Classification Errors: {stats["Cls"]}')
+    print(f'Localization Errors:   {stats["Loc"]}')
+    print(f'Cls + Loc Errors:      {stats["Both"]}')
+    print(f'Duplicate Errors:      {stats["Dupe"]}')
+    print(f'Background Errors:     {stats["Bkg"]}')
+    print(f'Missed GTs:            {stats["Miss"]}')
     print('=' * 30)
 
     # 计算影响比例 (简单示意)
     total_errors = sum(
-        [v for k, v in stats.items() if k not in ['TP', 'Miss']])
+        [v for k, v in stats.items() if k not in ['TP', 'Miss']]
+    )
     if total_errors > 0:
         print('\nError Distribution:')
         for k in ['Cls', 'Loc', 'Both', 'Dupe', 'Bkg']:

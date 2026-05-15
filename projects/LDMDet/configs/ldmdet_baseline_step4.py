@@ -5,7 +5,8 @@ _base_ = [
 ]
 
 custom_imports = dict(
-    imports=['projects.LDMDet.model'], allow_failed_imports=False)
+    imports=['projects.LDMDet.model'], allow_failed_imports=False
+)
 
 num_classes = 24
 batch_size = 4
@@ -37,7 +38,8 @@ model = dict(
         type='FPN',
         in_channels=[256, 512, 1024, 2048],
         out_channels=256,
-        num_outs=4),
+        num_outs=4,
+    ),
     bbox_head=dict(
         type='PurePyTorchDiffusionDetHead',
         num_classes=num_classes,
@@ -75,8 +77,8 @@ model = dict(
                     dict(type='PurePyTorchFocalLossCost', weight=2.0),
                     dict(type='PurePyTorchBBoxL1Cost', weight=5.0),
                     dict(
-                        type='PurePyTorchIoUCost', iou_mode='giou',
-                        weight=2.0),
+                        type='PurePyTorchIoUCost', iou_mode='giou', weight=2.0
+                    ),
                 ],
                 center_radius=2.5,
                 candidate_topk=5,
@@ -173,8 +175,13 @@ test_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor'),
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+        ),
     ),
 ]
 
@@ -185,7 +192,8 @@ train_dataloader = dict(
     sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
         filter_cfg=dict(filter_empty_gt=False, min_size=1e-5),
-        pipeline=train_pipeline),
+        pipeline=train_pipeline,
+    ),
 )
 
 val_dataloader = dict(dataset=dict(pipeline=test_pipeline))

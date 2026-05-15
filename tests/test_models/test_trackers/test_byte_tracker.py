@@ -9,7 +9,6 @@ from mmdet.utils import register_all_modules
 
 
 class TestByteTracker(TestCase):
-
     @classmethod
     def setUpClass(cls):
         register_all_modules(init_default_scope=True)
@@ -21,7 +20,8 @@ class TestByteTracker(TestCase):
             weight_iou_with_det_scores=True,
             match_iou_thrs=dict(high=0.1, low=0.5, tentative=0.3),
             num_tentatives=3,
-            num_frames_retain=30)
+            num_frames_retain=30,
+        )
         cls.tracker = MODELS.build(cfg)
         cls.tracker.kf = TASK_UTILS.build(dict(type='KalmanFilter'))
         cls.num_frames_retain = cfg['num_frames_retain']
@@ -33,11 +33,16 @@ class TestByteTracker(TestCase):
         scores = torch.ones(self.num_objs)
         ids = torch.arange(self.num_objs)
         self.tracker.update(
-            ids=ids, bboxes=bboxes, scores=scores, labels=labels, frame_ids=0)
+            ids=ids, bboxes=bboxes, scores=scores, labels=labels, frame_ids=0
+        )
 
         assert self.tracker.ids == list(ids)
         assert self.tracker.memo_items == [
-            'ids', 'bboxes', 'scores', 'labels', 'frame_ids'
+            'ids',
+            'bboxes',
+            'scores',
+            'labels',
+            'frame_ids',
         ]
 
     def test_track(self):
@@ -48,15 +53,18 @@ class TestByteTracker(TestCase):
             video_len = len(track_data_sample)
             for frame_id in range(video_len):
                 img_data_sample = track_data_sample[frame_id]
-                img_data_sample.pred_instances = \
+                img_data_sample.pred_instances = (
                     img_data_sample.gt_instances.clone()
+                )
                 # add fake scores
                 scores = torch.ones(len(img_data_sample.gt_instances.bboxes))
                 img_data_sample.pred_instances.scores = torch.FloatTensor(
-                    scores)
+                    scores
+                )
 
                 pred_track_instances = self.tracker.track(
-                    data_sample=img_data_sample)
+                    data_sample=img_data_sample
+                )
 
                 bboxes = pred_track_instances.bboxes
                 labels = pred_track_instances.labels

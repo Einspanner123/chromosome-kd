@@ -2,15 +2,18 @@ _base_ = ['./faster-rcnn_r50_fpn_8xb2-4e_mot17halftrain_test-mot17halfval']
 model = dict(
     rpn_head=dict(bbox_coder=dict(clip_border=True)),
     roi_head=dict(
-        bbox_head=dict(bbox_coder=dict(clip_border=True), num_classes=1)))
+        bbox_head=dict(bbox_coder=dict(clip_border=True), num_classes=1)
+    ),
+)
 # data
 data_root = 'data/MOT20/'
 train_dataloader = dict(dataset=dict(data_root=data_root))
 val_dataloader = dict(dataset=dict(data_root=data_root))
 test_dataloader = val_dataloader
 
-val_evaluator = dict(ann_file=data_root +
-                     'annotations/half-val_cocoformat.json')
+val_evaluator = dict(
+    ann_file=data_root + 'annotations/half-val_cocoformat.json'
+)
 test_evaluator = val_evaluator
 
 # training schedule for 8e
@@ -25,5 +28,6 @@ param_scheduler = [
         end=8,
         by_epoch=True,
         milestones=[6],
-        gamma=0.1)
+        gamma=0.1,
+    ),
 ]

@@ -13,13 +13,15 @@ class RefSegMetric(BaseMetric):
 
     def __init__(self, metric: Sequence = ('cIoU', 'mIoU'), **kwargs):
         super().__init__(**kwargs)
-        assert set(metric).issubset(['cIoU', 'mIoU']), \
+        assert set(metric).issubset(['cIoU', 'mIoU']), (
             f'Only support cIoU and mIoU, but got {metric}'
+        )
         assert len(metric) > 0, 'metrics should not be empty'
         self.metrics = metric
 
-    def compute_iou(self, pred_seg: torch.Tensor,
-                    gt_seg: torch.Tensor) -> tuple:
+    def compute_iou(
+        self, pred_seg: torch.Tensor, gt_seg: torch.Tensor
+    ) -> tuple:
         overlap = pred_seg & gt_seg
         union = pred_seg | gt_seg
         return overlap, union
@@ -36,14 +38,20 @@ class RefSegMetric(BaseMetric):
         """
         for data_sample in data_samples:
             pred_label = data_sample['pred_instances']['masks'].bool()
-            label = data_sample['gt_masks'].to_tensor(
-                pred_label.dtype, pred_label.device).bool()
+            label = (
+                data_sample['gt_masks']
+                .to_tensor(pred_label.dtype, pred_label.device)
+                .bool()
+            )
             # calculate iou
             overlap, union = self.compute_iou(pred_label, label)
 
             bs = len(pred_label)
-            iou = overlap.reshape(bs, -1).sum(-1) * 1.0 / union.reshape(
-                bs, -1).sum(-1)
+            iou = (
+                overlap.reshape(bs, -1).sum(-1)
+                * 1.0
+                / union.reshape(bs, -1).sum(-1)
+            )
             iou = torch.nan_to_num_(iou, nan=0.0)
             self.results.append((overlap.sum(), union.sum(), iou.sum(), bs))
 

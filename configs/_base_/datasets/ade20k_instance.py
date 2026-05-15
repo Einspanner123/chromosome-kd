@@ -24,8 +24,14 @@ test_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True, with_mask=True),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+        ),
+    ),
 ]
 
 val_dataloader = dict(
@@ -41,7 +47,9 @@ val_dataloader = dict(
         data_prefix=dict(img='images/validation'),
         test_mode=True,
         pipeline=test_pipeline,
-        backend_args=backend_args))
+        backend_args=backend_args,
+    ),
+)
 test_dataloader = val_dataloader
 
 val_evaluator = dict(
@@ -49,5 +57,6 @@ val_evaluator = dict(
     ann_file=data_root + 'ade20k_instance_val.json',
     metric=['bbox', 'segm'],
     format_only=False,
-    backend_args=backend_args)
+    backend_args=backend_args,
+)
 test_evaluator = val_evaluator

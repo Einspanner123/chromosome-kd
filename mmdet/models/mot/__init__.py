@@ -7,5 +7,10 @@ from .qdtrack import QDTrack
 from .strongsort import StrongSORT
 
 __all__ = [
-    'BaseMOTModel', 'ByteTrack', 'QDTrack', 'DeepSORT', 'StrongSORT', 'OCSORT'
+    'OCSORT',
+    'BaseMOTModel',
+    'ByteTrack',
+    'DeepSORT',
+    'QDTrack',
+    'StrongSORT',
 ]

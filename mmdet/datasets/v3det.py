@@ -18,15 +18,18 @@ class V3DetDataset(CocoDataset):
     }
 
     def __init__(
-            self,
-            *args,
-            metainfo: Optional[dict] = None,
-            data_root: str = '',
-            label_file='annotations/category_name_13204_v3det_2023_v1.txt',  # noqa
-            **kwargs) -> None:
+        self,
+        *args,
+        metainfo: Optional[dict] = None,
+        data_root: str = '',
+        label_file='annotations/category_name_13204_v3det_2023_v1.txt',
+        **kwargs,
+    ) -> None:
         class_names = tuple(
-            mmengine.list_from_file(os.path.join(data_root, label_file)))
+            mmengine.list_from_file(os.path.join(data_root, label_file))
+        )
         if metainfo is None:
             metainfo = {'classes': class_names}
         super().__init__(
-            *args, data_root=data_root, metainfo=metainfo, **kwargs)
+            *args, data_root=data_root, metainfo=metainfo, **kwargs
+        )

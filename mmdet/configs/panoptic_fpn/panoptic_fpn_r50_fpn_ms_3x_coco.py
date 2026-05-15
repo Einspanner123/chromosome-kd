@@ -20,10 +20,11 @@ train_pipeline = [
         type=LoadPanopticAnnotations,
         with_bbox=True,
         with_mask=True,
-        with_seg=True),
+        with_seg=True,
+    ),
     dict(type=RandomResize, scale=[(1333, 640), (1333, 800)], keep_ratio=True),
     dict(type=RandomFlip, prob=0.5),
-    dict(type=PackDetInputs)
+    dict(type=PackDetInputs),
 ]
 
 train_dataloader.update(dict(dataset=dict(pipeline=train_pipeline)))
@@ -41,5 +42,6 @@ param_scheduler = [
         end=36,
         by_epoch=True,
         milestones=[24, 33],
-        gamma=0.1)
+        gamma=0.1,
+    ),
 ]

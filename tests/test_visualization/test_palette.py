@@ -32,13 +32,13 @@ def test_palette():
     assert palette[0] == (220, 20, 60)
 
     # TODO: Awaiting refactoring
-    # palette = get_palette('coco', len(CocoPanopticDataset.METAINFO['CLASSES'])) # noqa
+    # palette = get_palette('coco', len(CocoPanopticDataset.METAINFO['CLASSES']))
     # assert len(palette) == len(CocoPanopticDataset.METAINFO['CLASSES'])
     # assert palette[-1] == (250, 141, 255)
     # palette = get_palette('voc', len(VOCDataset.METAINFO['CLASSES']))
     # assert len(palette) == len(VOCDataset.METAINFO['CLASSES'])
     # assert palette[0] == (106, 0, 228)
-    # palette = get_palette('citys', len(CityscapesDataset.METAINFO['CLASSES'])) # noqa
+    # palette = get_palette('citys', len(CityscapesDataset.METAINFO['CLASSES']))
     # assert len(palette) == len(CityscapesDataset.METAINFO['CLASSES'])
     # assert palette[0] == (220, 20, 60)
 

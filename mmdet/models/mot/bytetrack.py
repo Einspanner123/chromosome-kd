@@ -26,11 +26,13 @@ class ByteTrack(BaseMOTModel):
             Defaults to None.
     """
 
-    def __init__(self,
-                 detector: Optional[dict] = None,
-                 tracker: Optional[dict] = None,
-                 data_preprocessor: OptConfigType = None,
-                 init_cfg: OptMultiConfig = None):
+    def __init__(
+        self,
+        detector: Optional[dict] = None,
+        tracker: Optional[dict] = None,
+        data_preprocessor: OptConfigType = None,
+        init_cfg: OptMultiConfig = None,
+    ):
         super().__init__(data_preprocessor, init_cfg)
 
         if detector is not None:
@@ -55,8 +57,12 @@ class ByteTrack(BaseMOTModel):
         """
         return self.detector.loss(inputs, data_samples, **kwargs)
 
-    def predict(self, inputs: Dict[str, Tensor], data_samples: TrackSampleList,
-                **kwargs) -> TrackSampleList:
+    def predict(
+        self,
+        inputs: Dict[str, Tensor],
+        data_samples: TrackSampleList,
+        **kwargs,
+    ) -> TrackSampleList:
         """Predict results from a video and data samples with post-processing.
 
         Args:
@@ -70,12 +76,13 @@ class ByteTrack(BaseMOTModel):
             TrackSampleList: Tracking results of the inputs.
         """
         assert inputs.dim() == 5, 'The img must be 5D Tensor (N, T, C, H, W).'
-        assert inputs.size(0) == 1, \
-            'Bytetrack inference only support ' \
-            '1 batch size per gpu for now.'
-
-        assert len(data_samples) == 1, \
+        assert inputs.size(0) == 1, (
             'Bytetrack inference only support 1 batch size per gpu for now.'
+        )
+
+        assert len(data_samples) == 1, (
+            'Bytetrack inference only support 1 batch size per gpu for now.'
+        )
 
         track_data_sample = data_samples[0]
         video_len = len(track_data_sample)
@@ -88,7 +95,8 @@ class ByteTrack(BaseMOTModel):
             assert len(det_results) == 1, 'Batch inference is not supported.'
 
             pred_track_instances = self.tracker.track(
-                data_sample=det_results[0], **kwargs)
+                data_sample=det_results[0], **kwargs
+            )
             img_data_sample.pred_track_instances = pred_track_instances
 
         return [track_data_sample]

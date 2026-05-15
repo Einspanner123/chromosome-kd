@@ -28,11 +28,13 @@ class BaseMaskHead(BaseModule, metaclass=ABCMeta):
         mask results."""
         pass
 
-    def loss(self,
-             x: Union[List[Tensor], Tuple[Tensor]],
-             batch_data_samples: SampleList,
-             positive_infos: OptInstanceList = None,
-             **kwargs) -> dict:
+    def loss(
+        self,
+        x: Union[List[Tensor], Tuple[Tensor]],
+        batch_data_samples: SampleList,
+        positive_infos: OptInstanceList = None,
+        **kwargs,
+    ) -> dict:
         """Perform forward propagation and loss calculation of the mask head on
         the features of the upstream network.
 
@@ -58,14 +60,18 @@ class BaseMaskHead(BaseModule, metaclass=ABCMeta):
         else:
             outs = self(x, positive_infos)
 
-        assert isinstance(outs, tuple), 'Forward results should be a tuple, ' \
-                                        'even if only one item is returned'
+        assert isinstance(outs, tuple), (
+            'Forward results should be a tuple, '
+            'even if only one item is returned'
+        )
 
         outputs = unpack_gt_instances(batch_data_samples)
-        batch_gt_instances, batch_gt_instances_ignore, batch_img_metas \
-            = outputs
-        for gt_instances, img_metas in zip(batch_gt_instances,
-                                           batch_img_metas):
+        batch_gt_instances, batch_gt_instances_ignore, batch_img_metas = (
+            outputs
+        )
+        for gt_instances, img_metas in zip(
+            batch_gt_instances, batch_img_metas
+        ):
             img_shape = img_metas['batch_input_shape']
             gt_masks = gt_instances.masks.pad(img_shape)
             gt_instances.masks = gt_masks
@@ -76,15 +82,18 @@ class BaseMaskHead(BaseModule, metaclass=ABCMeta):
             batch_img_metas=batch_img_metas,
             positive_infos=positive_infos,
             batch_gt_instances_ignore=batch_gt_instances_ignore,
-            **kwargs)
+            **kwargs,
+        )
         return losses
 
-    def predict(self,
-                x: Tuple[Tensor],
-                batch_data_samples: SampleList,
-                rescale: bool = False,
-                results_list: OptInstanceList = None,
-                **kwargs) -> InstanceList:
+    def predict(
+        self,
+        x: Tuple[Tensor],
+        batch_data_samples: SampleList,
+        rescale: bool = False,
+        results_list: OptInstanceList = None,
+        **kwargs,
+    ) -> InstanceList:
         """Test function without test-time augmentation.
 
         Args:
@@ -123,6 +132,7 @@ class BaseMaskHead(BaseModule, metaclass=ABCMeta):
             batch_img_metas=batch_img_metas,
             rescale=rescale,
             results_list=results_list,
-            **kwargs)
+            **kwargs,
+        )
 
         return results_list

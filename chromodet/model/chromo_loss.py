@@ -8,9 +8,12 @@ from mmengine.config import ConfigDict
 from mmdet.registry import MODELS, TASK_UTILS
 from mmdet.structures.bbox import bbox_xyxy_to_cxcywh
 from mmdet.utils import ConfigType
+
 # 导入原有损失组件
-from projects.DiffusionDet.diffusiondet.loss import (DiffusionDetCriterion,
-                                                     DiffusionDetMatcher)
+from projects.DiffusionDet.diffusiondet.loss import (
+    DiffusionDetCriterion,
+    DiffusionDetMatcher,
+)
 
 
 @TASK_UTILS.register_module()
@@ -25,37 +28,37 @@ class ChromoDetCriterion(DiffusionDetCriterion):
     """
 
     def __init__(
-            self,
-            num_classes=24,
-            assigner: Union[ConfigDict, nn.Module] = None,
-            deep_supervision=True,
-            loss_cls=dict(
-                type='FocalLoss',
-                use_sigmoid=True,
-                alpha=0.25,
-                gamma=2.0,
-                reduction='sum',
-                loss_weight=2.0,
-            ),
-            loss_bbox=dict(type='L1Loss', reduction='sum', loss_weight=5.0),
-            loss_giou=dict(type='GIoULoss', reduction='sum', loss_weight=2.0),
-            # 长度先验
-            use_length_prior: bool = False,
-            loss_length=dict(type='L1Loss', reduction='sum', loss_weight=1.0),
-            aspect_ratio_target=10.0,  # 目标长宽比
-            # 形态感知
+        self,
+        num_classes=24,
+        assigner: Union[ConfigDict, nn.Module] = None,
+        deep_supervision=True,
+        loss_cls=dict(
+            type='FocalLoss',
+            use_sigmoid=True,
+            alpha=0.25,
+            gamma=2.0,
+            reduction='sum',
+            loss_weight=2.0,
+        ),
+        loss_bbox=dict(type='L1Loss', reduction='sum', loss_weight=5.0),
+        loss_giou=dict(type='GIoULoss', reduction='sum', loss_weight=2.0),
+        # 长度先验
+        use_length_prior: bool = False,
+        loss_length=dict(type='L1Loss', reduction='sum', loss_weight=1.0),
+        aspect_ratio_target=10.0,  # 目标长宽比
+        # 形态感知
         use_morphology_aware: bool = False,
-            loss_aspect_ratio=dict(
-                type='L1Loss', reduction='sum', loss_weight=0.5),
-            # 拓扑匹配
-            use_topology_pairing: bool = False,
-            loss_topology=dict(
-                type='MSELoss', reduction='sum', loss_weight=0.2),
-            # 长度排序
-            use_length_ordering: bool = False,
-            # 数量先验
-            use_count_prior: bool = False,
-            loss_count=dict(type='MSELoss', reduction='mean', loss_weight=1.0),
+        loss_aspect_ratio=dict(
+            type='L1Loss', reduction='sum', loss_weight=0.5
+        ),
+        # 拓扑匹配
+        use_topology_pairing: bool = False,
+        loss_topology=dict(type='MSELoss', reduction='sum', loss_weight=0.2),
+        # 长度排序
+        use_length_ordering: bool = False,
+        # 数量先验
+        use_count_prior: bool = False,
+        loss_count=dict(type='MSELoss', reduction='mean', loss_weight=1.0),
     ):
         super().__init__(
             num_classes=num_classes,
@@ -88,24 +91,27 @@ class ChromoDetCriterion(DiffusionDetCriterion):
 
     def forward(self, outputs, batch_gt_instances, batch_img_metas):
         # 完整重写原loss的forward方法
-        batch_indices = self.assigner(outputs, batch_gt_instances,
-                                      batch_img_metas)
+        batch_indices = self.assigner(
+            outputs, batch_gt_instances, batch_img_metas
+        )
         # Compute all the requested losses
-        loss_cls = self.loss_classification(outputs, batch_gt_instances,
-                                            batch_indices)
+        loss_cls = self.loss_classification(
+            outputs, batch_gt_instances, batch_indices
+        )
 
-        loss_bbox, loss_giou = self.loss_boxes(outputs, batch_gt_instances,
-                                               batch_indices)
+        loss_bbox, loss_giou = self.loss_boxes(
+            outputs, batch_gt_instances, batch_indices
+        )
 
         losses = dict(
-            loss_cls=loss_cls, loss_bbox=loss_bbox, loss_giou=loss_giou)
+            loss_cls=loss_cls, loss_bbox=loss_bbox, loss_giou=loss_giou
+        )
 
         # 长度损失
         if self.use_length_prior:
-            loss_length = self.loss_length_computation(outputs,
-                                                       batch_gt_instances,
-                                                       batch_indices,
-                                                       batch_img_metas)
+            loss_length = self.loss_length_computation(
+                outputs, batch_gt_instances, batch_indices, batch_img_metas
+            )
             losses['loss_length'] = loss_length
 
         # 形态约束损失
@@ -117,50 +123,57 @@ class ChromoDetCriterion(DiffusionDetCriterion):
         # 拓扑损失
         if self.use_topology_pairing:
             loss_topology = self.loss_topology_computation(
-                outputs, batch_gt_instances, batch_indices)
+                outputs, batch_gt_instances, batch_indices
+            )
             losses['loss_topology'] = loss_topology
 
         # 长度排序
         if self.use_length_ordering:
             loss_ordering = self.loss_ordinal_length_consistency(
-                outputs, batch_gt_instances, batch_indices, reduction='mean')
+                outputs, batch_gt_instances, batch_indices, reduction='mean'
+            )
             losses['loss_ordering'] = loss_ordering
 
         # 数量损失
         if self.use_count_prior:
-            loss_count = self.loss_count_computation(outputs,
-                                                     batch_gt_instances)
+            loss_count = self.loss_count_computation(
+                outputs, batch_gt_instances
+            )
             losses['loss_count'] = loss_count
 
         if self.deep_supervision:
             assert 'aux_outputs' in outputs
             for i, aux_outputs in enumerate(outputs['aux_outputs']):
-                batch_indices = self.assigner(aux_outputs, batch_gt_instances,
-                                              batch_img_metas)
-                loss_cls = self.loss_classification(aux_outputs,
-                                                    batch_gt_instances,
-                                                    batch_indices)
-                loss_bbox, loss_giou = self.loss_boxes(aux_outputs,
-                                                       batch_gt_instances,
-                                                       batch_indices)
+                batch_indices = self.assigner(
+                    aux_outputs, batch_gt_instances, batch_img_metas
+                )
+                loss_cls = self.loss_classification(
+                    aux_outputs, batch_gt_instances, batch_indices
+                )
+                loss_bbox, loss_giou = self.loss_boxes(
+                    aux_outputs, batch_gt_instances, batch_indices
+                )
                 tmp_losses = dict(
-                    loss_cls=loss_cls,
-                    loss_bbox=loss_bbox,
-                    loss_giou=loss_giou)
+                    loss_cls=loss_cls, loss_bbox=loss_bbox, loss_giou=loss_giou
+                )
                 for name, value in tmp_losses.items():
                     losses[f's.{i}.{name}'] = value
 
                 # 长度损失
                 if self.use_length_prior:
                     loss_length = self.loss_length_computation(
-                        aux_outputs, batch_gt_instances, batch_indices,
-                        batch_img_metas)
+                        aux_outputs,
+                        batch_gt_instances,
+                        batch_indices,
+                        batch_img_metas,
+                    )
                     losses[f's.{i}.loss_length'] = loss_length
 
                 # 拓扑损失
                 if self.use_topology_pairing:
                     loss_topology = self.loss_topology_computation(
-                        aux_outputs, batch_gt_instances, batch_indices)
+                        aux_outputs, batch_gt_instances, batch_indices
+                    )
                     losses[f's.{i}.loss_topology'] = loss_topology
 
                 if self.use_length_ordering:
@@ -168,12 +181,14 @@ class ChromoDetCriterion(DiffusionDetCriterion):
                         aux_outputs,
                         batch_gt_instances,
                         batch_indices,
-                        reduction='mean')
+                        reduction='mean',
+                    )
                     losses[f's.{i}.loss_ordering'] = loss_ordering
                 # 数量损失
                 if self.use_count_prior:
                     loss_count = self.loss_count_computation(
-                        aux_outputs, batch_gt_instances)
+                        aux_outputs, batch_gt_instances
+                    )
                     losses[f's.{i}.loss_count'] = loss_count
 
         return losses
@@ -257,15 +272,20 @@ class ChromoDetMatcher(DiffusionDetMatcher):
             num_gt = gt_bboxes.size(0)
 
             if num_gt == 0:
-                valid_mask = pred_bboxes.new_zeros((pred_bboxes.shape[0], ),
-                                                   dtype=torch.bool)
-                matched_gt_inds = pred_bboxes.new_zeros((gt_bboxes.shape[0], ),
-                                                        dtype=torch.long)
+                valid_mask = pred_bboxes.new_zeros(
+                    (pred_bboxes.shape[0],), dtype=torch.bool
+                )
+                matched_gt_inds = pred_bboxes.new_zeros(
+                    (gt_bboxes.shape[0],), dtype=torch.long
+                )
                 return valid_mask, matched_gt_inds
 
-            valid_mask, is_in_boxes_and_center = self.get_in_gt_and_in_center_info(
-                bbox_xyxy_to_cxcywh(pred_bboxes),
-                bbox_xyxy_to_cxcywh(gt_bboxes))
+            valid_mask, is_in_boxes_and_center = (
+                self.get_in_gt_and_in_center_info(
+                    bbox_xyxy_to_cxcywh(pred_bboxes),
+                    bbox_xyxy_to_cxcywh(gt_bboxes),
+                )
+            )
 
             # 原有匹配代价
             cost_list = []
@@ -283,6 +303,7 @@ class ChromoDetMatcher(DiffusionDetMatcher):
             cost_matrix[~valid_mask] = cost_matrix[~valid_mask] + 10000.0
 
             fg_mask_inboxes, matched_gt_inds = self.dynamic_k_matching(
-                cost_matrix, pairwise_ious, num_gt)
+                cost_matrix, pairwise_ious, num_gt
+            )
 
         return fg_mask_inboxes, matched_gt_inds

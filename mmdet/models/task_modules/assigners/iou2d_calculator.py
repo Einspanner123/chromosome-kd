@@ -5,7 +5,7 @@ from mmdet.registry import TASK_UTILS
 from mmdet.structures.bbox import bbox_overlaps, get_box_tensor
 
 
-def cast_tensor_type(x, scale=1., dtype=None):
+def cast_tensor_type(x, scale=1.0, dtype=None):
     if dtype == 'fp16':
         # scale is for preventing overflows
         x = (x / scale).half()
@@ -16,7 +16,7 @@ def cast_tensor_type(x, scale=1., dtype=None):
 class BboxOverlaps2D:
     """2D Overlaps (e.g. IoUs, GIoUs) Calculator."""
 
-    def __init__(self, scale=1., dtype=None):
+    def __init__(self, scale=1.0, dtype=None):
         self.scale = scale
         self.dtype = dtype
 
@@ -63,20 +63,23 @@ class BboxOverlaps2D:
 
     def __repr__(self):
         """str: a string describing the module"""
-        repr_str = self.__class__.__name__ + f'(' \
+        repr_str = (
+            self.__class__.__name__ + f'('
             f'scale={self.scale}, dtype={self.dtype})'
+        )
         return repr_str
 
 
 @TASK_UTILS.register_module()
 class BboxOverlaps2D_GLIP(BboxOverlaps2D):
-
     def __call__(self, bboxes1, bboxes2, mode='iou', is_aligned=False):
         TO_REMOVE = 1
         area1 = (bboxes1[:, 2] - bboxes1[:, 0] + TO_REMOVE) * (
-            bboxes1[:, 3] - bboxes1[:, 1] + TO_REMOVE)
+            bboxes1[:, 3] - bboxes1[:, 1] + TO_REMOVE
+        )
         area2 = (bboxes2[:, 2] - bboxes2[:, 0] + TO_REMOVE) * (
-            bboxes2[:, 3] - bboxes2[:, 1] + TO_REMOVE)
+            bboxes2[:, 3] - bboxes2[:, 1] + TO_REMOVE
+        )
 
         lt = torch.max(bboxes1[:, None, :2], bboxes2[:, :2])  # [N,M,2]
         rb = torch.min(bboxes1[:, None, 2:], bboxes2[:, 2:])  # [N,M,2]

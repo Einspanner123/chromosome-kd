@@ -7,7 +7,6 @@ from mmdet.models import GlobalAveragePooling
 
 
 class TestGlobalAveragePooling(TestCase):
-
     def test_forward(self):
         inputs = torch.rand(32, 128, 14, 14)
 

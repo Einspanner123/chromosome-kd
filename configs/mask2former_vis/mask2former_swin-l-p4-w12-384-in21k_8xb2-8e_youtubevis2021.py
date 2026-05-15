@@ -13,26 +13,29 @@ model = dict(
         mlp_ratio=4,
         qkv_bias=True,
         qk_scale=None,
-        drop_rate=0.,
-        attn_drop_rate=0.,
+        drop_rate=0.0,
+        attn_drop_rate=0.0,
         drop_path_rate=0.3,
         patch_norm=True,
         out_indices=(0, 1, 2, 3),
         with_cp=False,
         convert_weights=True,
         frozen_stages=-1,
-        init_cfg=None),
+        init_cfg=None,
+    ),
     track_head=dict(
         type='Mask2FormerTrackHead',
         in_channels=[192, 384, 768, 1536],
-        num_queries=200),
+        num_queries=200,
+    ),
     init_cfg=dict(
         type='Pretrained',
-        checkpoint=  # noqa: E251
-        'https://download.openmmlab.com/mmdetection/v3.0/mask2former/'
+        checkpoint='https://download.openmmlab.com/mmdetection/v3.0/mask2former/'
         'mask2former_swin-l-p4-w12-384-in21k_16xb1-lsj-100e_coco-panoptic/'
         'mask2former_swin-l-p4-w12-384-in21k_16xb1-lsj-100e_coco-panoptic_'
-        '20220407_104949-82f8d28d.pth'))
+        '20220407_104949-82f8d28d.pth',
+    ),
+)
 
 # set all layers in backbone to lr_mult=0.1
 # set all norm layers, position_embeding,
@@ -48,17 +51,22 @@ custom_keys = {
     'relative_position_bias_table': backbone_embed_multi,
     'query_embed': embed_multi,
     'query_feat': embed_multi,
-    'level_embed': embed_multi
+    'level_embed': embed_multi,
 }
-custom_keys.update({
-    f'backbone.stages.{stage_id}.blocks.{block_id}.norm': backbone_norm_multi
-    for stage_id, num_blocks in enumerate(depths)
-    for block_id in range(num_blocks)
-})
-custom_keys.update({
-    f'backbone.stages.{stage_id}.downsample.norm': backbone_norm_multi
-    for stage_id in range(len(depths) - 1)
-})
+custom_keys.update(
+    {
+        f'backbone.stages.{stage_id}.blocks.{block_id}.norm': backbone_norm_multi
+        for stage_id, num_blocks in enumerate(depths)
+        for block_id in range(num_blocks)
+    }
+)
+custom_keys.update(
+    {
+        f'backbone.stages.{stage_id}.downsample.norm': backbone_norm_multi
+        for stage_id in range(len(depths) - 1)
+    }
+)
 # optimizer
 optim_wrapper = dict(
-    paramwise_cfg=dict(custom_keys=custom_keys, norm_decay_mult=0.0))
+    paramwise_cfg=dict(custom_keys=custom_keys, norm_decay_mult=0.0)
+)

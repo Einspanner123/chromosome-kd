@@ -8,8 +8,11 @@ import numpy as np
 import torch
 import torch.distributed as dist
 from mmengine.dist import get_dist_info
-from torch._utils import (_flatten_dense_tensors, _take_tensors,
-                          _unflatten_dense_tensors)
+from torch._utils import (
+    _flatten_dense_tensors,
+    _take_tensors,
+    _unflatten_dense_tensors,
+)
 
 
 def _allreduce_coalesced(tensors, world_size, bucket_size_mb=-1):
@@ -30,7 +33,8 @@ def _allreduce_coalesced(tensors, world_size, bucket_size_mb=-1):
         dist.all_reduce(flat_tensors)
         flat_tensors.div_(world_size)
         for tensor, synced in zip(
-                bucket, _unflatten_dense_tensors(flat_tensors, bucket)):
+            bucket, _unflatten_dense_tensors(flat_tensors, bucket)
+        ):
             tensor.copy_(synced)
 
 
@@ -45,7 +49,8 @@ def allreduce_grads(params, coalesce=True, bucket_size_mb=-1):
             Defaults to -1.
     """
     grads = [
-        param.grad.data for param in params
+        param.grad.data
+        for param in params
         if param.requires_grad and param.grad is not None
     ]
     world_size = dist.get_world_size()
@@ -57,7 +62,7 @@ def allreduce_grads(params, coalesce=True, bucket_size_mb=-1):
 
 
 def reduce_mean(tensor):
-    """"Obtain the mean of tensor on different GPUs."""
+    """ "Obtain the mean of tensor on different GPUs."""
     if not (dist.is_available() and dist.is_initialized()):
         return tensor
     tensor = tensor.clone()
@@ -76,7 +81,7 @@ def tensor2obj(tensor):
     return pickle.loads(tensor.cpu().numpy().tobytes())
 
 
-@functools.lru_cache()
+@functools.lru_cache
 def _get_global_gloo_group():
     """Return a process group based on gloo backend, containing all the ranks
     The result is cached."""
@@ -108,7 +113,8 @@ def all_reduce_dict(py_dict, op='sum', group=None, to_float=True):
         OrderedDict: reduced python dict object.
     """
     warnings.warn(
-        'group` is deprecated. Currently only supports NCCL backend.')
+        'group` is deprecated. Currently only supports NCCL backend.'
+    )
     _, world_size = get_dist_info()
     if world_size == 1:
         return py_dict
@@ -124,10 +130,13 @@ def all_reduce_dict(py_dict, op='sum', group=None, to_float=True):
     tensor_numels = [py_dict[k].numel() for k in py_key]
 
     if to_float:
-        warnings.warn('Note: the "to_float" is True, you need to '
-                      'ensure that the behavior is reasonable.')
+        warnings.warn(
+            'Note: the "to_float" is True, you need to '
+            'ensure that the behavior is reasonable.'
+        )
         flatten_tensor = torch.cat(
-            [py_dict[k].flatten().float() for k in py_key])
+            [py_dict[k].flatten().float() for k in py_key]
+        )
     else:
         flatten_tensor = torch.cat([py_dict[k].flatten() for k in py_key])
 
@@ -136,8 +145,10 @@ def all_reduce_dict(py_dict, op='sum', group=None, to_float=True):
         flatten_tensor /= world_size
 
     split_tensors = [
-        x.reshape(shape) for x, shape in zip(
-            torch.split(flatten_tensor, tensor_numels), tensor_shapes)
+        x.reshape(shape)
+        for x, shape in zip(
+            torch.split(flatten_tensor, tensor_numels), tensor_shapes
+        )
     ]
     out_dict = {k: v for k, v in zip(py_key, split_tensors)}
     if isinstance(py_dict, OrderedDict):

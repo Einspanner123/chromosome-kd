@@ -50,9 +50,12 @@ class DetTTAModel(BaseTTAModel):
         super().__init__(**kwargs)
         self.tta_cfg = tta_cfg
 
-    def merge_aug_bboxes(self, aug_bboxes: List[Tensor],
-                         aug_scores: List[Tensor],
-                         img_metas: List[str]) -> Tuple[Tensor, Tensor]:
+    def merge_aug_bboxes(
+        self,
+        aug_bboxes: List[Tensor],
+        aug_scores: List[Tensor],
+        img_metas: List[str],
+    ) -> Tuple[Tensor, Tensor]:
         """Merge augmented detection bboxes and scores.
 
         Args:
@@ -72,7 +75,8 @@ class DetTTAModel(BaseTTAModel):
                 bboxes = bbox_flip(
                     bboxes=bboxes,
                     img_shape=ori_shape,
-                    direction=flip_direction)
+                    direction=flip_direction,
+                )
             recovered_bboxes.append(bboxes)
         bboxes = torch.cat(recovered_bboxes, dim=0)
         if aug_scores is None:
@@ -98,7 +102,8 @@ class DetTTAModel(BaseTTAModel):
         return merged_data_samples
 
     def _merge_single_sample(
-            self, data_samples: List[DetDataSample]) -> DetDataSample:
+        self, data_samples: List[DetDataSample]
+    ) -> DetDataSample:
         """Merge predictions which come form the different views of one image
         to one prediction.
 
@@ -113,8 +118,9 @@ class DetTTAModel(BaseTTAModel):
         aug_labels = []
         img_metas = []
         # TODO: support instance segmentation TTA
-        assert data_samples[0].pred_instances.get('masks', None) is None, \
+        assert data_samples[0].pred_instances.get('masks', None) is None, (
             'TTA of instance segmentation does not support now.'
+        )
         for data_sample in data_samples:
             aug_bboxes.append(data_sample.pred_instances.bboxes)
             aug_scores.append(data_sample.pred_instances.scores)
@@ -122,17 +128,19 @@ class DetTTAModel(BaseTTAModel):
             img_metas.append(data_sample.metainfo)
 
         merged_bboxes, merged_scores = self.merge_aug_bboxes(
-            aug_bboxes, aug_scores, img_metas)
+            aug_bboxes, aug_scores, img_metas
+        )
         merged_labels = torch.cat(aug_labels, dim=0)
 
         if merged_bboxes.numel() == 0:
             return data_samples[0]
 
-        det_bboxes, keep_idxs = batched_nms(merged_bboxes, merged_scores,
-                                            merged_labels, self.tta_cfg.nms)
+        det_bboxes, keep_idxs = batched_nms(
+            merged_bboxes, merged_scores, merged_labels, self.tta_cfg.nms
+        )
 
-        det_bboxes = det_bboxes[:self.tta_cfg.max_per_img]
-        det_labels = merged_labels[keep_idxs][:self.tta_cfg.max_per_img]
+        det_bboxes = det_bboxes[: self.tta_cfg.max_per_img]
+        det_labels = merged_labels[keep_idxs][: self.tta_cfg.max_per_img]
 
         results = InstanceData()
         _det_bboxes = det_bboxes.clone()

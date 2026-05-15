@@ -10,15 +10,14 @@ from .fpn import FPN
 
 @MODELS.register_module()
 class FPN_DropBlock(FPN):
-
-    def __init__(self,
-                 *args,
-                 plugin: Optional[dict] = dict(
-                     type='DropBlock',
-                     drop_prob=0.3,
-                     block_size=3,
-                     warmup_iters=0),
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        *args,
+        plugin: Optional[dict] = dict(
+            type='DropBlock', drop_prob=0.3, block_size=3, warmup_iters=0
+        ),
+        **kwargs,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.plugin = None
         if plugin is not None:
@@ -50,11 +49,13 @@ class FPN_DropBlock(FPN):
             if 'scale_factor' in self.upsample_cfg:
                 # fix runtime error of "+=" inplace operation in PyTorch 1.10
                 laterals[i - 1] = laterals[i - 1] + F.interpolate(
-                    laterals[i], **self.upsample_cfg)
+                    laterals[i], **self.upsample_cfg
+                )
             else:
                 prev_shape = laterals[i - 1].shape[2:]
                 laterals[i - 1] = laterals[i - 1] + F.interpolate(
-                    laterals[i], size=prev_shape, **self.upsample_cfg)
+                    laterals[i], size=prev_shape, **self.upsample_cfg
+                )
 
             if self.plugin is not None:
                 laterals[i - 1] = self.plugin(laterals[i - 1])

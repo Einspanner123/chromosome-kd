@@ -7,7 +7,6 @@ from mmdet.structures.mask import BitmapMasks, PolygonMasks
 
 
 class TestMaskStructures(TestCase):
-
     def test_bitmap_translate_same_size(self):
         mask_array = np.zeros((5, 10, 10), dtype=np.uint8)
         mask_array[:, 0:5, 0:5] = 1
@@ -55,7 +54,7 @@ class TestMaskStructures(TestCase):
         cat_mask = BitmapMasks.cat(masks)
         assert len(cat_mask) == 3 * 5
         for i, m in enumerate(masks):
-            assert_allclose(m.masks, cat_mask.masks[i * 3:(i + 1) * 3])
+            assert_allclose(m.masks, cat_mask.masks[i * 3 : (i + 1) * 3])
 
     def test_polygon_cat(self):
         # test invalid inputs
@@ -70,4 +69,4 @@ class TestMaskStructures(TestCase):
         cat_mask = PolygonMasks.cat(masks)
         assert len(cat_mask) == 3 * 5
         for i, m in enumerate(masks):
-            assert_allclose(m.masks, cat_mask.masks[i * 3:(i + 1) * 3])
+            assert_allclose(m.masks, cat_mask.masks[i * 3 : (i + 1) * 3])

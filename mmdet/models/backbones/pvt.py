@@ -11,8 +11,14 @@ from mmcv.cnn import Conv2d, build_activation_layer, build_norm_layer
 from mmcv.cnn.bricks.drop import build_dropout
 from mmcv.cnn.bricks.transformer import MultiheadAttention
 from mmengine.logging import MMLogger
-from mmengine.model import (BaseModule, ModuleList, Sequential, constant_init,
-                            normal_init, trunc_normal_init)
+from mmengine.model import (
+    BaseModule,
+    ModuleList,
+    Sequential,
+    constant_init,
+    normal_init,
+    trunc_normal_init,
+)
 from mmengine.model.weight_init import trunc_normal_
 from mmengine.runner.checkpoint import CheckpointLoader, load_state_dict
 from torch.nn.modules.utils import _pair as to_2tuple
@@ -45,15 +51,17 @@ class MixFFN(BaseModule):
             Default: None.
     """
 
-    def __init__(self,
-                 embed_dims,
-                 feedforward_channels,
-                 act_cfg=dict(type='GELU'),
-                 ffn_drop=0.,
-                 dropout_layer=None,
-                 use_conv=False,
-                 init_cfg=None):
-        super(MixFFN, self).__init__(init_cfg=init_cfg)
+    def __init__(
+        self,
+        embed_dims,
+        feedforward_channels,
+        act_cfg=dict(type='GELU'),
+        ffn_drop=0.0,
+        dropout_layer=None,
+        use_conv=False,
+        init_cfg=None,
+    ):
+        super().__init__(init_cfg=init_cfg)
 
         self.embed_dims = embed_dims
         self.feedforward_channels = feedforward_channels
@@ -66,7 +74,8 @@ class MixFFN(BaseModule):
             out_channels=feedforward_channels,
             kernel_size=1,
             stride=1,
-            bias=True)
+            bias=True,
+        )
         if use_conv:
             # 3x3 depth wise conv to provide positional encode information
             dw_conv = Conv2d(
@@ -76,20 +85,25 @@ class MixFFN(BaseModule):
                 stride=1,
                 padding=(3 - 1) // 2,
                 bias=True,
-                groups=feedforward_channels)
+                groups=feedforward_channels,
+            )
         fc2 = Conv2d(
             in_channels=feedforward_channels,
             out_channels=in_channels,
             kernel_size=1,
             stride=1,
-            bias=True)
+            bias=True,
+        )
         drop = nn.Dropout(ffn_drop)
         layers = [fc1, activate, drop, fc2, drop]
         if use_conv:
             layers.insert(1, dw_conv)
         self.layers = Sequential(*layers)
-        self.dropout_layer = build_dropout(
-            dropout_layer) if dropout_layer else torch.nn.Identity()
+        self.dropout_layer = (
+            build_dropout(dropout_layer)
+            if dropout_layer
+            else torch.nn.Identity()
+        )
 
     def forward(self, x, hw_shape, identity=None):
         out = nlc_to_nchw(x, hw_shape)
@@ -127,17 +141,19 @@ class SpatialReductionAttention(MultiheadAttention):
             Default: None.
     """
 
-    def __init__(self,
-                 embed_dims,
-                 num_heads,
-                 attn_drop=0.,
-                 proj_drop=0.,
-                 dropout_layer=None,
-                 batch_first=True,
-                 qkv_bias=True,
-                 norm_cfg=dict(type='LN'),
-                 sr_ratio=1,
-                 init_cfg=None):
+    def __init__(
+        self,
+        embed_dims,
+        num_heads,
+        attn_drop=0.0,
+        proj_drop=0.0,
+        dropout_layer=None,
+        batch_first=True,
+        qkv_bias=True,
+        norm_cfg=dict(type='LN'),
+        sr_ratio=1,
+        init_cfg=None,
+    ):
         super().__init__(
             embed_dims,
             num_heads,
@@ -146,7 +162,8 @@ class SpatialReductionAttention(MultiheadAttention):
             batch_first=batch_first,
             dropout_layer=dropout_layer,
             bias=qkv_bias,
-            init_cfg=init_cfg)
+            init_cfg=init_cfg,
+        )
 
         self.sr_ratio = sr_ratio
         if sr_ratio > 1:
@@ -154,17 +171,21 @@ class SpatialReductionAttention(MultiheadAttention):
                 in_channels=embed_dims,
                 out_channels=embed_dims,
                 kernel_size=sr_ratio,
-                stride=sr_ratio)
+                stride=sr_ratio,
+            )
             # The ret[0] of build_norm_layer is norm name.
             self.norm = build_norm_layer(norm_cfg, embed_dims)[1]
 
-        # handle the BC-breaking from https://github.com/open-mmlab/mmcv/pull/1418 # noqa
+        # handle the BC-breaking from https://github.com/open-mmlab/mmcv/pull/1418
         from mmdet import digit_version, mmcv_version
+
         if mmcv_version < digit_version('1.3.17'):
-            warnings.warn('The legacy version of forward function in'
-                          'SpatialReductionAttention is deprecated in'
-                          'mmcv>=1.3.17 and will no longer support in the'
-                          'future. Please upgrade your mmcv.')
+            warnings.warn(
+                'The legacy version of forward function in'
+                'SpatialReductionAttention is deprecated in'
+                'mmcv>=1.3.17 and will no longer support in the'
+                'future. Please upgrade your mmcv.'
+            )
             self.forward = self.legacy_forward
 
     def forward(self, x, hw_shape, identity=None):
@@ -243,20 +264,22 @@ class PVTEncoderLayer(BaseModule):
             Default: None.
     """
 
-    def __init__(self,
-                 embed_dims,
-                 num_heads,
-                 feedforward_channels,
-                 drop_rate=0.,
-                 attn_drop_rate=0.,
-                 drop_path_rate=0.,
-                 qkv_bias=True,
-                 act_cfg=dict(type='GELU'),
-                 norm_cfg=dict(type='LN'),
-                 sr_ratio=1,
-                 use_conv_ffn=False,
-                 init_cfg=None):
-        super(PVTEncoderLayer, self).__init__(init_cfg=init_cfg)
+    def __init__(
+        self,
+        embed_dims,
+        num_heads,
+        feedforward_channels,
+        drop_rate=0.0,
+        attn_drop_rate=0.0,
+        drop_path_rate=0.0,
+        qkv_bias=True,
+        act_cfg=dict(type='GELU'),
+        norm_cfg=dict(type='LN'),
+        sr_ratio=1,
+        use_conv_ffn=False,
+        init_cfg=None,
+    ):
+        super().__init__(init_cfg=init_cfg)
 
         # The ret[0] of build_norm_layer is norm name.
         self.norm1 = build_norm_layer(norm_cfg, embed_dims)[1]
@@ -269,7 +292,8 @@ class PVTEncoderLayer(BaseModule):
             dropout_layer=dict(type='DropPath', drop_prob=drop_path_rate),
             qkv_bias=qkv_bias,
             norm_cfg=norm_cfg,
-            sr_ratio=sr_ratio)
+            sr_ratio=sr_ratio,
+        )
 
         # The ret[0] of build_norm_layer is norm name.
         self.norm2 = build_norm_layer(norm_cfg, embed_dims)[1]
@@ -280,7 +304,8 @@ class PVTEncoderLayer(BaseModule):
             ffn_drop=drop_rate,
             dropout_layer=dict(type='DropPath', drop_prob=drop_path_rate),
             use_conv=use_conv_ffn,
-            act_cfg=act_cfg)
+            act_cfg=act_cfg,
+        )
 
     def forward(self, x, hw_shape):
         x = self.attn(self.norm1(x), hw_shape, identity=x)
@@ -299,7 +324,7 @@ class AbsolutePositionEmbedding(BaseModule):
             Default: 0.0.
     """
 
-    def __init__(self, pos_shape, pos_dim, drop_rate=0., init_cfg=None):
+    def __init__(self, pos_shape, pos_dim, drop_rate=0.0, init_cfg=None):
         super().__init__(init_cfg=init_cfg)
 
         if isinstance(pos_shape, int):
@@ -307,14 +332,16 @@ class AbsolutePositionEmbedding(BaseModule):
         elif isinstance(pos_shape, tuple):
             if len(pos_shape) == 1:
                 pos_shape = to_2tuple(pos_shape[0])
-            assert len(pos_shape) == 2, \
-                f'The size of image should have length 1 or 2, ' \
+            assert len(pos_shape) == 2, (
+                f'The size of image should have length 1 or 2, '
                 f'but got {len(pos_shape)}'
+            )
         self.pos_shape = pos_shape
         self.pos_dim = pos_dim
 
         self.pos_embed = nn.Parameter(
-            torch.zeros(1, pos_shape[0] * pos_shape[1], pos_dim))
+            torch.zeros(1, pos_shape[0] * pos_shape[1], pos_dim)
+        )
         self.drop = nn.Dropout(p=drop_rate)
 
     def init_weights(self):
@@ -338,13 +365,18 @@ class AbsolutePositionEmbedding(BaseModule):
         """
         assert pos_embed.ndim == 3, 'shape of pos_embed must be [B, L, C]'
         pos_h, pos_w = self.pos_shape
-        pos_embed_weight = pos_embed[:, (-1 * pos_h * pos_w):]
-        pos_embed_weight = pos_embed_weight.reshape(
-            1, pos_h, pos_w, self.pos_dim).permute(0, 3, 1, 2).contiguous()
+        pos_embed_weight = pos_embed[:, (-1 * pos_h * pos_w) :]
+        pos_embed_weight = (
+            pos_embed_weight.reshape(1, pos_h, pos_w, self.pos_dim)
+            .permute(0, 3, 1, 2)
+            .contiguous()
+        )
         pos_embed_weight = F.interpolate(
-            pos_embed_weight, size=input_shape, mode=mode)
-        pos_embed_weight = torch.flatten(pos_embed_weight,
-                                         2).transpose(1, 2).contiguous()
+            pos_embed_weight, size=input_shape, mode=mode
+        )
+        pos_embed_weight = (
+            torch.flatten(pos_embed_weight, 2).transpose(1, 2).contiguous()
+        )
         pos_embed = pos_embed_weight
 
         return pos_embed
@@ -408,31 +440,33 @@ class PyramidVisionTransformer(BaseModule):
             Default: None.
     """
 
-    def __init__(self,
-                 pretrain_img_size=224,
-                 in_channels=3,
-                 embed_dims=64,
-                 num_stages=4,
-                 num_layers=[3, 4, 6, 3],
-                 num_heads=[1, 2, 5, 8],
-                 patch_sizes=[4, 2, 2, 2],
-                 strides=[4, 2, 2, 2],
-                 paddings=[0, 0, 0, 0],
-                 sr_ratios=[8, 4, 2, 1],
-                 out_indices=(0, 1, 2, 3),
-                 mlp_ratios=[8, 8, 4, 4],
-                 qkv_bias=True,
-                 drop_rate=0.,
-                 attn_drop_rate=0.,
-                 drop_path_rate=0.1,
-                 use_abs_pos_embed=True,
-                 norm_after_stage=False,
-                 use_conv_ffn=False,
-                 act_cfg=dict(type='GELU'),
-                 norm_cfg=dict(type='LN', eps=1e-6),
-                 pretrained=None,
-                 convert_weights=True,
-                 init_cfg=None):
+    def __init__(
+        self,
+        pretrain_img_size=224,
+        in_channels=3,
+        embed_dims=64,
+        num_stages=4,
+        num_layers=[3, 4, 6, 3],
+        num_heads=[1, 2, 5, 8],
+        patch_sizes=[4, 2, 2, 2],
+        strides=[4, 2, 2, 2],
+        paddings=[0, 0, 0, 0],
+        sr_ratios=[8, 4, 2, 1],
+        out_indices=(0, 1, 2, 3),
+        mlp_ratios=[8, 8, 4, 4],
+        qkv_bias=True,
+        drop_rate=0.0,
+        attn_drop_rate=0.0,
+        drop_path_rate=0.1,
+        use_abs_pos_embed=True,
+        norm_after_stage=False,
+        use_conv_ffn=False,
+        act_cfg=dict(type='GELU'),
+        norm_cfg=dict(type='LN', eps=1e-6),
+        pretrained=None,
+        convert_weights=True,
+        init_cfg=None,
+    ):
         super().__init__(init_cfg=init_cfg)
 
         self.convert_weights = convert_weights
@@ -441,15 +475,19 @@ class PyramidVisionTransformer(BaseModule):
         elif isinstance(pretrain_img_size, tuple):
             if len(pretrain_img_size) == 1:
                 pretrain_img_size = to_2tuple(pretrain_img_size[0])
-            assert len(pretrain_img_size) == 2, \
-                f'The size of image should have length 1 or 2, ' \
+            assert len(pretrain_img_size) == 2, (
+                f'The size of image should have length 1 or 2, '
                 f'but got {len(pretrain_img_size)}'
+            )
 
-        assert not (init_cfg and pretrained), \
+        assert not (init_cfg and pretrained), (
             'init_cfg and pretrained cannot be setting at the same time'
+        )
         if isinstance(pretrained, str):
-            warnings.warn('DeprecationWarning: pretrained is deprecated, '
-                          'please use "init_cfg" instead')
+            warnings.warn(
+                'DeprecationWarning: pretrained is deprecated, '
+                'please use "init_cfg" instead'
+            )
             self.init_cfg = dict(type='Pretrained', checkpoint=pretrained)
         elif pretrained is None:
             self.init_cfg = init_cfg
@@ -464,8 +502,14 @@ class PyramidVisionTransformer(BaseModule):
         self.patch_sizes = patch_sizes
         self.strides = strides
         self.sr_ratios = sr_ratios
-        assert num_stages == len(num_layers) == len(num_heads) \
-               == len(patch_sizes) == len(strides) == len(sr_ratios)
+        assert (
+            num_stages
+            == len(num_layers)
+            == len(num_heads)
+            == len(patch_sizes)
+            == len(strides)
+            == len(sr_ratios)
+        )
 
         self.out_indices = out_indices
         assert max(out_indices) < self.num_stages
@@ -488,30 +532,36 @@ class PyramidVisionTransformer(BaseModule):
                 stride=strides[i],
                 padding=paddings[i],
                 bias=True,
-                norm_cfg=norm_cfg)
+                norm_cfg=norm_cfg,
+            )
 
             layers = ModuleList()
             if use_abs_pos_embed:
-                pos_shape = pretrain_img_size // np.prod(patch_sizes[:i + 1])
+                pos_shape = pretrain_img_size // np.prod(patch_sizes[: i + 1])
                 pos_embed = AbsolutePositionEmbedding(
                     pos_shape=pos_shape,
                     pos_dim=embed_dims_i,
-                    drop_rate=drop_rate)
-                layers.append(pos_embed)
-            layers.extend([
-                PVTEncoderLayer(
-                    embed_dims=embed_dims_i,
-                    num_heads=num_heads[i],
-                    feedforward_channels=mlp_ratios[i] * embed_dims_i,
                     drop_rate=drop_rate,
-                    attn_drop_rate=attn_drop_rate,
-                    drop_path_rate=dpr[cur + idx],
-                    qkv_bias=qkv_bias,
-                    act_cfg=act_cfg,
-                    norm_cfg=norm_cfg,
-                    sr_ratio=sr_ratios[i],
-                    use_conv_ffn=use_conv_ffn) for idx in range(num_layer)
-            ])
+                )
+                layers.append(pos_embed)
+            layers.extend(
+                [
+                    PVTEncoderLayer(
+                        embed_dims=embed_dims_i,
+                        num_heads=num_heads[i],
+                        feedforward_channels=mlp_ratios[i] * embed_dims_i,
+                        drop_rate=drop_rate,
+                        attn_drop_rate=attn_drop_rate,
+                        drop_path_rate=dpr[cur + idx],
+                        qkv_bias=qkv_bias,
+                        act_cfg=act_cfg,
+                        norm_cfg=norm_cfg,
+                        sr_ratio=sr_ratios[i],
+                        use_conv_ffn=use_conv_ffn,
+                    )
+                    for idx in range(num_layer)
+                ]
+            )
             in_channels = embed_dims_i
             # The ret[0] of build_norm_layer is norm name.
             if norm_after_stage:
@@ -524,30 +574,38 @@ class PyramidVisionTransformer(BaseModule):
     def init_weights(self):
         logger = MMLogger.get_current_instance()
         if self.init_cfg is None:
-            logger.warn(f'No pre-trained weights for '
-                        f'{self.__class__.__name__}, '
-                        f'training start from scratch')
+            logger.warn(
+                f'No pre-trained weights for '
+                f'{self.__class__.__name__}, '
+                f'training start from scratch'
+            )
             for m in self.modules():
                 if isinstance(m, nn.Linear):
-                    trunc_normal_init(m, std=.02, bias=0.)
+                    trunc_normal_init(m, std=0.02, bias=0.0)
                 elif isinstance(m, nn.LayerNorm):
                     constant_init(m, 1.0)
                 elif isinstance(m, nn.Conv2d):
-                    fan_out = m.kernel_size[0] * m.kernel_size[
-                        1] * m.out_channels
+                    fan_out = (
+                        m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                    )
                     fan_out //= m.groups
                     normal_init(m, 0, math.sqrt(2.0 / fan_out))
                 elif isinstance(m, AbsolutePositionEmbedding):
                     m.init_weights()
         else:
-            assert 'checkpoint' in self.init_cfg, f'Only support ' \
-                                                  f'specify `Pretrained` in ' \
-                                                  f'`init_cfg` in ' \
-                                                  f'{self.__class__.__name__} '
+            assert 'checkpoint' in self.init_cfg, (
+                f'Only support '
+                f'specify `Pretrained` in '
+                f'`init_cfg` in '
+                f'{self.__class__.__name__} '
+            )
             checkpoint = CheckpointLoader.load_checkpoint(
-                self.init_cfg.checkpoint, logger=logger, map_location='cpu')
-            logger.warn(f'Load pre-trained model for '
-                        f'{self.__class__.__name__} from original repo')
+                self.init_cfg.checkpoint, logger=logger, map_location='cpu'
+            )
+            logger.warn(
+                f'Load pre-trained model for '
+                f'{self.__class__.__name__} from original repo'
+            )
             if 'state_dict' in checkpoint:
                 state_dict = checkpoint['state_dict']
             elif 'model' in checkpoint:
@@ -583,13 +641,14 @@ class PyramidVisionTransformerV2(PyramidVisionTransformer):
     Transformer <https://arxiv.org/pdf/2106.13797.pdf>`_."""
 
     def __init__(self, **kwargs):
-        super(PyramidVisionTransformerV2, self).__init__(
+        super().__init__(
             patch_sizes=[7, 3, 3, 3],
             paddings=[3, 1, 1, 1],
             use_abs_pos_embed=False,
             norm_after_stage=True,
             use_conv_ffn=True,
-            **kwargs)
+            **kwargs,
+        )
 
 
 def pvt_convert(ckpt):
@@ -611,16 +670,18 @@ def pvt_convert(ckpt):
             continue
         if k.startswith('pos_embed'):
             stage_i = int(k.replace('pos_embed', ''))
-            new_k = k.replace(f'pos_embed{stage_i}',
-                              f'layers.{stage_i - 1}.1.0.pos_embed')
+            new_k = k.replace(
+                f'pos_embed{stage_i}', f'layers.{stage_i - 1}.1.0.pos_embed'
+            )
             if stage_i == 4 and v.size(1) == 50:  # 1 (cls token) + 7 * 7
                 new_v = v[:, 1:, :]  # remove cls token
             else:
                 new_v = v
         elif k.startswith('patch_embed'):
             stage_i = int(k.split('.')[0].replace('patch_embed', ''))
-            new_k = k.replace(f'patch_embed{stage_i}',
-                              f'layers.{stage_i - 1}.0')
+            new_k = k.replace(
+                f'patch_embed{stage_i}', f'layers.{stage_i - 1}.0'
+            )
             new_v = v
             if 'proj.' in new_k:
                 new_k = new_k.replace('proj.', 'projection.')
@@ -628,8 +689,10 @@ def pvt_convert(ckpt):
             stage_i = int(k.split('.')[0].replace('block', ''))
             layer_i = int(k.split('.')[1])
             new_layer_i = layer_i + use_abs_pos_embed
-            new_k = k.replace(f'block{stage_i}.{layer_i}',
-                              f'layers.{stage_i - 1}.1.{new_layer_i}')
+            new_k = k.replace(
+                f'block{stage_i}.{layer_i}',
+                f'layers.{stage_i - 1}.1.{new_layer_i}',
+            )
             new_v = v
             if 'attn.q.' in new_k:
                 sub_item_k = k.replace('q.', 'kv.')

@@ -29,12 +29,14 @@ class BasicResBlock(BaseModule):
             dict], optional): Initialization config dict. Defaults to None
     """
 
-    def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 conv_cfg: OptConfigType = None,
-                 norm_cfg: ConfigType = dict(type='BN'),
-                 init_cfg: OptMultiConfig = None) -> None:
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        conv_cfg: OptConfigType = None,
+        norm_cfg: ConfigType = dict(type='BN'),
+        init_cfg: OptMultiConfig = None,
+    ) -> None:
         super().__init__(init_cfg=init_cfg)
 
         # main path
@@ -45,7 +47,8 @@ class BasicResBlock(BaseModule):
             padding=1,
             bias=False,
             conv_cfg=conv_cfg,
-            norm_cfg=norm_cfg)
+            norm_cfg=norm_cfg,
+        )
         self.conv2 = ConvModule(
             in_channels,
             out_channels,
@@ -53,7 +56,8 @@ class BasicResBlock(BaseModule):
             bias=False,
             conv_cfg=conv_cfg,
             norm_cfg=norm_cfg,
-            act_cfg=None)
+            act_cfg=None,
+        )
 
         # identity path
         self.conv_identity = ConvModule(
@@ -62,7 +66,8 @@ class BasicResBlock(BaseModule):
             kernel_size=1,
             conv_cfg=conv_cfg,
             norm_cfg=norm_cfg,
-            act_cfg=None)
+            act_cfg=None,
+        )
 
         self.relu = nn.ReLU(inplace=True)
 
@@ -93,26 +98,26 @@ class DoubleConvFCBBoxHead(BBoxHead):
                                           /-> cls
                       \-> shared fc    ->
                                           \-> reg
-    """  # noqa: W605
+    """
 
-    def __init__(self,
-                 num_convs: int = 0,
-                 num_fcs: int = 0,
-                 conv_out_channels: int = 1024,
-                 fc_out_channels: int = 1024,
-                 conv_cfg: OptConfigType = None,
-                 norm_cfg: ConfigType = dict(type='BN'),
-                 init_cfg: MultiConfig = dict(
-                     type='Normal',
-                     override=[
-                         dict(type='Normal', name='fc_cls', std=0.01),
-                         dict(type='Normal', name='fc_reg', std=0.001),
-                         dict(
-                             type='Xavier',
-                             name='fc_branch',
-                             distribution='uniform')
-                     ]),
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        num_convs: int = 0,
+        num_fcs: int = 0,
+        conv_out_channels: int = 1024,
+        fc_out_channels: int = 1024,
+        conv_cfg: OptConfigType = None,
+        norm_cfg: ConfigType = dict(type='BN'),
+        init_cfg: MultiConfig = dict(
+            type='Normal',
+            override=[
+                dict(type='Normal', name='fc_cls', std=0.01),
+                dict(type='Normal', name='fc_reg', std=0.001),
+                dict(type='Xavier', name='fc_branch', distribution='uniform'),
+            ],
+        ),
+        **kwargs,
+    ) -> None:
         kwargs.setdefault('with_avg_pool', True)
         super().__init__(init_cfg=init_cfg, **kwargs)
         assert self.with_avg_pool
@@ -126,8 +131,9 @@ class DoubleConvFCBBoxHead(BBoxHead):
         self.norm_cfg = norm_cfg
 
         # increase the channel of input features
-        self.res_block = BasicResBlock(self.in_channels,
-                                       self.conv_out_channels)
+        self.res_block = BasicResBlock(
+            self.in_channels, self.conv_out_channels
+        )
 
         # add conv heads
         self.conv_branch = self._add_conv_branch()
@@ -149,7 +155,9 @@ class DoubleConvFCBBoxHead(BBoxHead):
                     inplanes=self.conv_out_channels,
                     planes=self.conv_out_channels // 4,
                     conv_cfg=self.conv_cfg,
-                    norm_cfg=self.norm_cfg))
+                    norm_cfg=self.norm_cfg,
+                )
+            )
         return branch_convs
 
     def _add_fc_branch(self) -> None:
@@ -157,8 +165,10 @@ class DoubleConvFCBBoxHead(BBoxHead):
         branch_fcs = ModuleList()
         for i in range(self.num_fcs):
             fc_in_channels = (
-                self.in_channels *
-                self.roi_feat_area if i == 0 else self.fc_out_channels)
+                self.in_channels * self.roi_feat_area
+                if i == 0
+                else self.fc_out_channels
+            )
             branch_fcs.append(nn.Linear(fc_in_channels, self.fc_out_channels))
         return branch_fcs
 

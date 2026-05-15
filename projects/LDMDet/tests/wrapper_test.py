@@ -57,7 +57,8 @@ def test_wrapper():
             type='FPN',
             in_channels=[64, 128, 256, 512],
             out_channels=256,
-            num_outs=4),
+            num_outs=4,
+        ),
         bbox_head=dict(
             type='PurePyTorchDiffusionDetHead',
             num_classes=num_classes,
@@ -73,7 +74,8 @@ def test_wrapper():
             roi_extractor=dict(
                 type='PurePyTorchSingleRoIExtractor',
                 roi_layer=dict(
-                    type='RoIAlign', output_size=7, sampling_ratio=2),
+                    type='RoIAlign', output_size=7, sampling_ratio=2
+                ),
                 out_channels=256,
                 featmap_strides=[4, 8, 16, 32],
             ),
@@ -87,11 +89,13 @@ def test_wrapper():
                         dict(
                             type='PurePyTorchBBoxL1Cost',
                             weight=5.0,
-                            box_format='xyxy'),
+                            box_format='xyxy',
+                        ),
                         dict(
                             type='PurePyTorchIoUCost',
                             iou_mode='giou',
-                            weight=2.0),
+                            weight=2.0,
+                        ),
                     ],
                 ),
                 loss_cls=dict(type='PurePyTorchFocalLoss', loss_weight=2.0),
@@ -124,11 +128,13 @@ def test_wrapper():
                 ori_shape=(224, 224, 3),
                 pad_shape=(224, 224, 3),
                 scale_factor=(1.0, 1.0),
-            ))
+            )
+        )
 
         gt_instances = InstanceData()
         gt_instances.bboxes = torch.tensor(
-            [[10, 10, 50, 50], [100, 100, 150, 150]], dtype=torch.float32)
+            [[10, 10, 50, 50], [100, 100, 150, 150]], dtype=torch.float32
+        )
         gt_instances.labels = torch.tensor([0, 1], dtype=torch.long)
         if torch.cuda.is_available():
             gt_instances.bboxes = gt_instances.bboxes.cuda()

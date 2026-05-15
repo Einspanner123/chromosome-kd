@@ -51,7 +51,7 @@ class SSDHead(AnchorHead):
             anchor head.
         init_cfg (:obj:`ConfigDict` or dict or list[:obj:`ConfigDict` or \
             dict], Optional): Initialization config dict.
-    """  # noqa: W605
+    """
 
     def __init__(
         self,
@@ -69,18 +69,20 @@ class SSDHead(AnchorHead):
             input_size=300,
             strides=[8, 16, 32, 64, 100, 300],
             ratios=([2], [2, 3], [2, 3], [2, 3], [2], [2]),
-            basesize_ratio_range=(0.1, 0.9)),
+            basesize_ratio_range=(0.1, 0.9),
+        ),
         bbox_coder: ConfigType = dict(
             type='DeltaXYWHBBoxCoder',
             clip_border=True,
-            target_means=[.0, .0, .0, .0],
+            target_means=[0.0, 0.0, 0.0, 0.0],
             target_stds=[1.0, 1.0, 1.0, 1.0],
         ),
         reg_decoded_bbox: bool = False,
         train_cfg: Optional[ConfigType] = None,
         test_cfg: Optional[ConfigType] = None,
         init_cfg: MultiConfig = dict(
-            type='Xavier', layer='Conv2d', distribution='uniform', bias=0)
+            type='Xavier', layer='Conv2d', distribution='uniform', bias=0
+        ),
     ) -> None:
         super(AnchorHead, self).__init__(init_cfg=init_cfg)
         self.num_classes = num_classes
@@ -112,7 +114,8 @@ class SSDHead(AnchorHead):
             self.assigner = TASK_UTILS.build(self.train_cfg['assigner'])
             if self.train_cfg.get('sampler', None) is not None:
                 self.sampler = TASK_UTILS.build(
-                    self.train_cfg['sampler'], default_args=dict(context=self))
+                    self.train_cfg['sampler'], default_args=dict(context=self)
+                )
             else:
                 self.sampler = PseudoSampler(context=self)
 
@@ -121,11 +124,13 @@ class SSDHead(AnchorHead):
         self.cls_convs = nn.ModuleList()
         self.reg_convs = nn.ModuleList()
         # TODO: Use registry to choose ConvModule type
-        conv = DepthwiseSeparableConvModule \
-            if self.use_depthwise else ConvModule
+        conv = (
+            DepthwiseSeparableConvModule if self.use_depthwise else ConvModule
+        )
 
-        for channel, num_base_priors in zip(self.in_channels,
-                                            self.num_base_priors):
+        for channel, num_base_priors in zip(
+            self.in_channels, self.num_base_priors
+        ):
             cls_layers = []
             reg_layers = []
             in_channel = channel
@@ -139,7 +144,9 @@ class SSDHead(AnchorHead):
                         padding=1,
                         conv_cfg=self.conv_cfg,
                         norm_cfg=self.norm_cfg,
-                        act_cfg=self.act_cfg))
+                        act_cfg=self.act_cfg,
+                    )
+                )
                 reg_layers.append(
                     conv(
                         in_channel,
@@ -148,7 +155,9 @@ class SSDHead(AnchorHead):
                         padding=1,
                         conv_cfg=self.conv_cfg,
                         norm_cfg=self.norm_cfg,
-                        act_cfg=self.act_cfg))
+                        act_cfg=self.act_cfg,
+                    )
+                )
                 in_channel = self.feat_channels
             # SSD-Lite head
             if self.use_depthwise:
@@ -161,7 +170,9 @@ class SSDHead(AnchorHead):
                         groups=in_channel,
                         conv_cfg=self.conv_cfg,
                         norm_cfg=self.norm_cfg,
-                        act_cfg=self.act_cfg))
+                        act_cfg=self.act_cfg,
+                    )
+                )
                 reg_layers.append(
                     ConvModule(
                         in_channel,
@@ -171,19 +182,25 @@ class SSDHead(AnchorHead):
                         groups=in_channel,
                         conv_cfg=self.conv_cfg,
                         norm_cfg=self.norm_cfg,
-                        act_cfg=self.act_cfg))
+                        act_cfg=self.act_cfg,
+                    )
+                )
             cls_layers.append(
                 nn.Conv2d(
                     in_channel,
                     num_base_priors * self.cls_out_channels,
                     kernel_size=1 if self.use_depthwise else 3,
-                    padding=0 if self.use_depthwise else 1))
+                    padding=0 if self.use_depthwise else 1,
+                )
+            )
             reg_layers.append(
                 nn.Conv2d(
                     in_channel,
                     num_base_priors * 4,
                     kernel_size=1 if self.use_depthwise else 3,
-                    padding=0 if self.use_depthwise else 1))
+                    padding=0 if self.use_depthwise else 1,
+                )
+            )
             self.cls_convs.append(nn.Sequential(*cls_layers))
             self.reg_convs.append(nn.Sequential(*reg_layers))
 
@@ -212,11 +229,17 @@ class SSDHead(AnchorHead):
             bbox_preds.append(reg_conv(feat))
         return cls_scores, bbox_preds
 
-    def loss_by_feat_single(self, cls_score: Tensor, bbox_pred: Tensor,
-                            anchor: Tensor, labels: Tensor,
-                            label_weights: Tensor, bbox_targets: Tensor,
-                            bbox_weights: Tensor,
-                            avg_factor: int) -> Tuple[Tensor, Tensor]:
+    def loss_by_feat_single(
+        self,
+        cls_score: Tensor,
+        bbox_pred: Tensor,
+        anchor: Tensor,
+        labels: Tensor,
+        label_weights: Tensor,
+        bbox_targets: Tensor,
+        bbox_weights: Tensor,
+        avg_factor: int,
+    ) -> Tuple[Tensor, Tensor]:
         """Compute loss of a single image.
 
         Args:
@@ -245,13 +268,19 @@ class SSDHead(AnchorHead):
             feature map.
         """
 
-        loss_cls_all = F.cross_entropy(
-            cls_score, labels, reduction='none') * label_weights
+        loss_cls_all = (
+            F.cross_entropy(cls_score, labels, reduction='none')
+            * label_weights
+        )
         # FG cat_id: [0, num_classes -1], BG cat_id: num_classes
-        pos_inds = ((labels >= 0) & (labels < self.num_classes)).nonzero(
-            as_tuple=False).reshape(-1)
-        neg_inds = (labels == self.num_classes).nonzero(
-            as_tuple=False).view(-1)
+        pos_inds = (
+            ((labels >= 0) & (labels < self.num_classes))
+            .nonzero(as_tuple=False)
+            .reshape(-1)
+        )
+        neg_inds = (
+            (labels == self.num_classes).nonzero(as_tuple=False).view(-1)
+        )
 
         num_pos_samples = pos_inds.size(0)
         num_neg_samples = self.train_cfg['neg_pos_ratio'] * num_pos_samples
@@ -273,7 +302,8 @@ class SSDHead(AnchorHead):
             bbox_targets,
             bbox_weights,
             beta=self.train_cfg['smoothl1_beta'],
-            avg_factor=avg_factor)
+            avg_factor=avg_factor,
+        )
         return loss_cls[None], loss_bbox
 
     def loss_by_feat(
@@ -282,7 +312,7 @@ class SSDHead(AnchorHead):
         bbox_preds: List[Tensor],
         batch_gt_instances: InstanceList,
         batch_img_metas: List[dict],
-        batch_gt_instances_ignore: OptInstanceList = None
+        batch_gt_instances_ignore: OptInstanceList = None,
     ) -> Dict[str, List[Tensor]]:
         """Compute losses of the head.
 
@@ -316,33 +346,51 @@ class SSDHead(AnchorHead):
         device = cls_scores[0].device
 
         anchor_list, valid_flag_list = self.get_anchors(
-            featmap_sizes, batch_img_metas, device=device)
+            featmap_sizes, batch_img_metas, device=device
+        )
         cls_reg_targets = self.get_targets(
             anchor_list,
             valid_flag_list,
             batch_gt_instances,
             batch_img_metas,
             batch_gt_instances_ignore=batch_gt_instances_ignore,
-            unmap_outputs=True)
-        (labels_list, label_weights_list, bbox_targets_list, bbox_weights_list,
-         avg_factor) = cls_reg_targets
+            unmap_outputs=True,
+        )
+        (
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            bbox_weights_list,
+            avg_factor,
+        ) = cls_reg_targets
 
         num_images = len(batch_img_metas)
-        all_cls_scores = torch.cat([
-            s.permute(0, 2, 3, 1).reshape(
-                num_images, -1, self.cls_out_channels) for s in cls_scores
-        ], 1)
+        all_cls_scores = torch.cat(
+            [
+                s.permute(0, 2, 3, 1).reshape(
+                    num_images, -1, self.cls_out_channels
+                )
+                for s in cls_scores
+            ],
+            1,
+        )
         all_labels = torch.cat(labels_list, -1).view(num_images, -1)
-        all_label_weights = torch.cat(label_weights_list,
-                                      -1).view(num_images, -1)
-        all_bbox_preds = torch.cat([
-            b.permute(0, 2, 3, 1).reshape(num_images, -1, 4)
-            for b in bbox_preds
-        ], -2)
-        all_bbox_targets = torch.cat(bbox_targets_list,
-                                     -2).view(num_images, -1, 4)
-        all_bbox_weights = torch.cat(bbox_weights_list,
-                                     -2).view(num_images, -1, 4)
+        all_label_weights = torch.cat(label_weights_list, -1).view(
+            num_images, -1
+        )
+        all_bbox_preds = torch.cat(
+            [
+                b.permute(0, 2, 3, 1).reshape(num_images, -1, 4)
+                for b in bbox_preds
+            ],
+            -2,
+        )
+        all_bbox_targets = torch.cat(bbox_targets_list, -2).view(
+            num_images, -1, 4
+        )
+        all_bbox_weights = torch.cat(bbox_weights_list, -2).view(
+            num_images, -1, 4
+        )
 
         # concat all level anchors to a single tensor
         all_anchors = []
@@ -358,5 +406,6 @@ class SSDHead(AnchorHead):
             all_label_weights,
             all_bbox_targets,
             all_bbox_weights,
-            avg_factor=avg_factor)
+            avg_factor=avg_factor,
+        )
         return dict(loss_cls=losses_cls, loss_bbox=losses_bbox)

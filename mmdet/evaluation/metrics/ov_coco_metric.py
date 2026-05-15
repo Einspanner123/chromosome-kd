@@ -17,7 +17,6 @@ from .coco_metric import CocoMetric
 
 @METRICS.register_module()
 class OVCocoMetric(CocoMetric):
-
     def compute_metrics(self, results: list) -> Dict[str, float]:
         """Compute the metrics from processed results.
 
@@ -44,17 +43,21 @@ class OVCocoMetric(CocoMetric):
             # use converted gt json file to initialize coco api
             logger.info('Converting ground truth to coco format...')
             coco_json_path = self.gt_to_coco_json(
-                gt_dicts=gts, outfile_prefix=outfile_prefix)
+                gt_dicts=gts, outfile_prefix=outfile_prefix
+            )
             self._coco_api = COCO(coco_json_path)
 
         # handle lazy init
         if self.cat_ids is None:
             self.cat_ids = self._coco_api.get_cat_ids(
-                cat_names=self.dataset_meta['classes'])
+                cat_names=self.dataset_meta['classes']
+            )
             self.base_cat_ids = self._coco_api.get_cat_ids(
-                cat_names=self.dataset_meta['base_classes'])
+                cat_names=self.dataset_meta['base_classes']
+            )
             self.novel_cat_ids = self._coco_api.get_cat_ids(
-                cat_names=self.dataset_meta['novel_classes'])
+                cat_names=self.dataset_meta['novel_classes']
+            )
 
         if self.img_ids is None:
             self.img_ids = self._coco_api.get_img_ids()
@@ -64,8 +67,7 @@ class OVCocoMetric(CocoMetric):
 
         eval_results = OrderedDict()
         if self.format_only:
-            logger.info('results are saved in '
-                        f'{osp.dirname(outfile_prefix)}')
+            logger.info(f'results are saved in {osp.dirname(outfile_prefix)}')
             return eval_results
 
         for metric in self.metrics:
@@ -75,7 +77,8 @@ class OVCocoMetric(CocoMetric):
             # fast eval recall
             if metric == 'proposal_fast':
                 ar = self.fast_eval_recall(
-                    preds, self.proposal_nums, self.iou_thrs, logger=logger)
+                    preds, self.proposal_nums, self.iou_thrs, logger=logger
+                )
                 log_msg = []
                 for i, num in enumerate(self.proposal_nums):
                     eval_results[f'AR@{num}'] = ar[i]
@@ -91,7 +94,7 @@ class OVCocoMetric(CocoMetric):
             try:
                 predictions = load(result_files[metric])
                 if iou_type == 'segm':
-                    # Refer to https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocotools/coco.py#L331  # noqa
+                    # Refer to https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocotools/coco.py#L331
                     # When evaluating mask AP, if the results contain bbox,
                     # cocoapi will use the box area instead of the mask area
                     # for calculating the instance area. Though the overall AP
@@ -103,7 +106,8 @@ class OVCocoMetric(CocoMetric):
 
             except IndexError:
                 logger.error(
-                    'The testing results of the whole dataset is empty.')
+                    'The testing results of the whole dataset is empty.'
+                )
                 break
 
             if self.use_mp_eval:
@@ -129,14 +133,15 @@ class OVCocoMetric(CocoMetric):
                 'AR@1000': 8,
                 'AR_s@1000': 9,
                 'AR_m@1000': 10,
-                'AR_l@1000': 11
+                'AR_l@1000': 11,
             }
             metric_items = self.metric_items
             if metric_items is not None:
                 for metric_item in metric_items:
                     if metric_item not in coco_metric_names:
                         raise KeyError(
-                            f'metric item "{metric_item}" is not supported')
+                            f'metric item "{metric_item}" is not supported'
+                        )
 
             if metric == 'proposal':
                 coco_eval.params.useCats = 0
@@ -145,13 +150,18 @@ class OVCocoMetric(CocoMetric):
                 coco_eval.summarize()
                 if metric_items is None:
                     metric_items = [
-                        'AR@100', 'AR@300', 'AR@1000', 'AR_s@1000',
-                        'AR_m@1000', 'AR_l@1000'
+                        'AR@100',
+                        'AR@300',
+                        'AR@1000',
+                        'AR_s@1000',
+                        'AR_m@1000',
+                        'AR_l@1000',
                     ]
 
                 for item in metric_items:
                     val = float(
-                        f'{coco_eval.stats[coco_metric_names[item]]:.3f}')
+                        f'{coco_eval.stats[coco_metric_names[item]]:.3f}'
+                    )
                     eval_results[item] = val
             else:
                 coco_eval.evaluate()
@@ -203,15 +213,23 @@ class OVCocoMetric(CocoMetric):
 
                     num_columns = len(results_per_category[0])
                     results_flatten = list(
-                        itertools.chain(*results_per_category))
+                        itertools.chain(*results_per_category)
+                    )
                     headers = [
-                        'category', 'mAP', 'mAP_50', 'mAP_75', 'mAP_s',
-                        'mAP_m', 'mAP_l'
+                        'category',
+                        'mAP',
+                        'mAP_50',
+                        'mAP_75',
+                        'mAP_s',
+                        'mAP_m',
+                        'mAP_l',
                     ]
-                    results_2d = itertools.zip_longest(*[
-                        results_flatten[i::num_columns]
-                        for i in range(num_columns)
-                    ])
+                    results_2d = itertools.zip_longest(
+                        *[
+                            results_flatten[i::num_columns]
+                            for i in range(num_columns)
+                        ]
+                    )
                     table_data = [headers]
                     table_data += [result for result in results_2d]
                     table = AsciiTable(table_data)
@@ -233,22 +251,35 @@ class OVCocoMetric(CocoMetric):
                 base_ap50 = precisions[0, :, base_inds, 0, -1]
                 novel_ap50 = precisions[0, :, novel_inds, 0, -1]
 
-                eval_results['base_ap'] = np.mean(
-                    base_ap[base_ap > -1]) if len(
-                        base_ap[base_ap > -1]) else -1
-                eval_results['novel_ap'] = np.mean(
-                    novel_ap[novel_ap > -1]) if len(
-                        novel_ap[novel_ap > -1]) else -1
-                eval_results['base_ap50'] = np.mean(
-                    base_ap50[base_ap50 > -1]) if len(
-                        base_ap50[base_ap50 > -1]) else -1
-                eval_results['novel_ap50'] = np.mean(
-                    novel_ap50[novel_ap50 > -1]) if len(
-                        novel_ap50[novel_ap50 > -1]) else -1
+                eval_results['base_ap'] = (
+                    np.mean(base_ap[base_ap > -1])
+                    if len(base_ap[base_ap > -1])
+                    else -1
+                )
+                eval_results['novel_ap'] = (
+                    np.mean(novel_ap[novel_ap > -1])
+                    if len(novel_ap[novel_ap > -1])
+                    else -1
+                )
+                eval_results['base_ap50'] = (
+                    np.mean(base_ap50[base_ap50 > -1])
+                    if len(base_ap50[base_ap50 > -1])
+                    else -1
+                )
+                eval_results['novel_ap50'] = (
+                    np.mean(novel_ap50[novel_ap50 > -1])
+                    if len(novel_ap50[novel_ap50 > -1])
+                    else -1
+                )
                 # ------------get novel_ap50 and base_ap50---------
                 if metric_items is None:
                     metric_items = [
-                        'mAP', 'mAP_50', 'mAP_75', 'mAP_s', 'mAP_m', 'mAP_l'
+                        'mAP',
+                        'mAP_50',
+                        'mAP_75',
+                        'mAP_s',
+                        'mAP_m',
+                        'mAP_l',
                     ]
 
                 for metric_item in metric_items:
@@ -257,9 +288,11 @@ class OVCocoMetric(CocoMetric):
                     eval_results[key] = float(f'{round(val, 3)}')
 
                 ap = coco_eval.stats[:6]
-                logger.info(f'{metric}_mAP_copypaste: {ap[0]:.3f} '
-                            f'{ap[1]:.3f} {ap[2]:.3f} {ap[3]:.3f} '
-                            f'{ap[4]:.3f} {ap[5]:.3f}')
+                logger.info(
+                    f'{metric}_mAP_copypaste: {ap[0]:.3f} '
+                    f'{ap[1]:.3f} {ap[2]:.3f} {ap[3]:.3f} '
+                    f'{ap[4]:.3f} {ap[5]:.3f}'
+                )
 
         if tmp_dir is not None:
             tmp_dir.cleanup()

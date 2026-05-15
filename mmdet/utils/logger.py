@@ -44,6 +44,7 @@ def log_img_scale(img_scale, shape_order='hw', skip_square=False):
     caller = get_caller_name()
     print_log(
         f'image shape: height={height}, width={width} in {caller}',
-        logger='current')
+        logger='current',
+    )
 
     return True

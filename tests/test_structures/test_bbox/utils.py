@@ -2,7 +2,6 @@ from mmdet.structures.bbox import BaseBoxes
 
 
 class ToyBaseBoxes(BaseBoxes):
-
     box_dim = 4
 
     @property

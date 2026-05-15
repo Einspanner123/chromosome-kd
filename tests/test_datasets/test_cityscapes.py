@@ -8,49 +8,43 @@ from mmdet.datasets import CityscapesDataset
 
 
 class TestCityscapesDataset(unittest.TestCase):
-
     def setUp(self) -> None:
         image1 = {
             'file_name': 'munster/munster_000102_000019_leftImg8bit.png',
             'height': 1024,
             'width': 2048,
             'segm_file': 'munster/munster_000102_000019_gtFine_labelIds.png',
-            'id': 0
+            'id': 0,
         }
         image2 = {
             'file_name': 'munster/munster_000157_000019_leftImg8bit.png',
             'height': 1024,
             'width': 2048,
             'segm_file': 'munster/munster_000157_000019_gtFine_labelIds.png',
-            'id': 1
+            'id': 1,
         }
         image3 = {
             'file_name': 'munster/munster_000139_000019_leftImg8bit.png',
             'height': 1024,
             'width': 2048,
             'segm_file': 'munster/munster_000139_000019_gtFine_labelIds.png',
-            'id': 2
+            'id': 2,
         }
         image4 = {
             'file_name': 'munster/munster_000034_000019_leftImg8bit.png',
             'height': 31,
             'width': 15,
             'segm_file': 'munster/munster_000034_000019_gtFine_labelIds.png',
-            'id': 3
+            'id': 3,
         }
 
         images = [image1, image2, image3, image4]
 
-        categories = [{
-            'id': 24,
-            'name': 'person'
-        }, {
-            'id': 25,
-            'name': 'rider'
-        }, {
-            'id': 26,
-            'name': 'car'
-        }]
+        categories = [
+            {'id': 24, 'name': 'person'},
+            {'id': 25, 'name': 'rider'},
+            {'id': 26, 'name': 'car'},
+        ]
 
         annotations = [
             {
@@ -58,90 +52,69 @@ class TestCityscapesDataset(unittest.TestCase):
                 'category_id': 24,
                 'bbox': [379.0, 435.0, 52.0, 124.0],
                 'area': 2595,
-                'segmentation': {
-                    'size': [1024, 2048],
-                    'counts': 'xxx'
-                },
+                'segmentation': {'size': [1024, 2048], 'counts': 'xxx'},
                 'image_id': 0,
-                'id': 0
+                'id': 0,
             },
             {
                 'iscrowd': 0,
                 'category_id': 25,
                 'bbox': [379.0, 435.0, 52.0, 124.0],
                 'area': -1,
-                'segmentation': {
-                    'size': [1024, 2048],
-                    'counts': 'xxx'
-                },
+                'segmentation': {'size': [1024, 2048], 'counts': 'xxx'},
                 'image_id': 0,
-                'id': 1
+                'id': 1,
             },
             {
                 'iscrowd': 0,
                 'category_id': 26,
                 'bbox': [379.0, 435.0, -1, 124.0],
                 'area': 2,
-                'segmentation': {
-                    'size': [1024, 2048],
-                    'counts': 'xxx'
-                },
+                'segmentation': {'size': [1024, 2048], 'counts': 'xxx'},
                 'image_id': 0,
-                'id': 2
+                'id': 2,
             },
             {
                 'iscrowd': 0,
                 'category_id': 24,
                 'bbox': [379.0, 435.0, 52.0, -1],
                 'area': 2,
-                'segmentation': {
-                    'size': [1024, 2048],
-                    'counts': 'xxx'
-                },
+                'segmentation': {'size': [1024, 2048], 'counts': 'xxx'},
                 'image_id': 0,
-                'id': 3
+                'id': 3,
             },
             {
                 'iscrowd': 0,
                 'category_id': 1,
                 'bbox': [379.0, 435.0, 52.0, 124.0],
                 'area': 2595,
-                'segmentation': {
-                    'size': [1024, 2048],
-                    'counts': 'xxx'
-                },
+                'segmentation': {'size': [1024, 2048], 'counts': 'xxx'},
                 'image_id': 0,
-                'id': 4
+                'id': 4,
             },
             {
                 'iscrowd': 1,
                 'category_id': 26,
                 'bbox': [379.0, 435.0, 52.0, 124.0],
                 'area': 2595,
-                'segmentation': {
-                    'size': [1024, 2048],
-                    'counts': 'xxx'
-                },
+                'segmentation': {'size': [1024, 2048], 'counts': 'xxx'},
                 'image_id': 1,
-                'id': 5
+                'id': 5,
             },
             {
                 'iscrowd': 0,
                 'category_id': 26,
                 'bbox': [379.0, 435.0, 10, 2],
                 'area': 2595,
-                'segmentation': {
-                    'size': [1024, 2048],
-                    'counts': 'xxx'
-                },
+                'segmentation': {'size': [1024, 2048], 'counts': 'xxx'},
                 'image_id': 3,
-                'id': 6
+                'id': 6,
             },
         ]
         fake_json = {
             'images': images,
             'annotations': annotations,
-            'categories': categories
+            'categories': categories,
         }
         self.json_name = 'cityscapes.json'
         dump(fake_json, self.json_name)
@@ -157,7 +130,8 @@ class TestCityscapesDataset(unittest.TestCase):
             data_prefix=dict(img='imgs'),
             metainfo=self.metainfo,
             filter_cfg=dict(filter_empty_gt=True, min_size=32),
-            pipeline=[])
+            pipeline=[],
+        )
         self.assertEqual(dataset.metainfo['classes'], self.metainfo['classes'])
         dataset.full_init()
         # filter images of small size and images
@@ -171,7 +145,8 @@ class TestCityscapesDataset(unittest.TestCase):
             metainfo=self.metainfo,
             test_mode=True,
             filter_cfg=dict(filter_empty_gt=True, min_size=32),
-            pipeline=[])
+            pipeline=[],
+        )
         dataset.full_init()
         # filter images of small size and images
         # with all illegal annotations
@@ -184,7 +159,8 @@ class TestCityscapesDataset(unittest.TestCase):
             data_prefix=dict(img='imgs'),
             metainfo=self.metainfo,
             filter_cfg=None,
-            pipeline=[])
+            pipeline=[],
+        )
         self.assertEqual(dataset.metainfo['classes'], self.metainfo['classes'])
         dataset.full_init()
         # filter images of small size and images
@@ -198,7 +174,8 @@ class TestCityscapesDataset(unittest.TestCase):
             metainfo=self.metainfo,
             test_mode=True,
             filter_cfg=None,
-            pipeline=[])
+            pipeline=[],
+        )
         dataset.full_init()
         # filter images of small size and images
         # with all illegal annotations

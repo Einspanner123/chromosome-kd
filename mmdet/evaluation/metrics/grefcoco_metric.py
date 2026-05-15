@@ -12,18 +12,20 @@ from mmdet.registry import METRICS
 from ..functional import bbox_overlaps
 
 
-# refer from https://github.com/henghuiding/gRefCOCO/blob/main/mdetr/datasets/refexp.py # noqa
+# refer from https://github.com/henghuiding/gRefCOCO/blob/main/mdetr/datasets/refexp.py
 @METRICS.register_module()
 class gRefCOCOMetric(BaseMetric):
     default_prefix: Optional[str] = 'grefcoco'
 
-    def __init__(self,
-                 ann_file: Optional[str] = None,
-                 metric: str = 'bbox',
-                 iou_thrs: float = 0.5,
-                 thresh_score: float = 0.7,
-                 thresh_f1: float = 1.0,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        ann_file: Optional[str] = None,
+        metric: str = 'bbox',
+        iou_thrs: float = 0.5,
+        thresh_score: float = 0.7,
+        thresh_f1: float = 1.0,
+        **kwargs,
+    ) -> None:
         super().__init__(**kwargs)
         self.metric = metric
         self.iou_thrs = iou_thrs
@@ -69,7 +71,8 @@ class gRefCOCOMetric(BaseMetric):
                     target_bbox[3] + target_bbox[1],
                 ]
                 converted_bbox_all.append(
-                    np.array(converted_bbox).reshape(-1, 4))
+                    np.array(converted_bbox).reshape(-1, 4)
+                )
             gt_bbox_all = np.concatenate(converted_bbox_all, axis=0)
 
             idx = result['scores'] >= self.thresh_score
@@ -86,7 +89,7 @@ class gRefCOCOMetric(BaseMetric):
                 else:
                     nt['TP'] += 1
                 if num_prediction >= 1:
-                    f_1 = 0.
+                    f_1 = 0.0
                 else:
                     f_1 = 1.0
             else:
@@ -116,7 +119,7 @@ class gRefCOCOMetric(BaseMetric):
         results = {
             'F1_score': score,
             'T_acc': nt['TN'] / (nt['TN'] + nt['FP']),
-            'N_acc': nt['TP'] / (nt['TP'] + nt['FN'])
+            'N_acc': nt['TP'] / (nt['TP'] + nt['FN']),
         }
         logger.info(results)
         return results

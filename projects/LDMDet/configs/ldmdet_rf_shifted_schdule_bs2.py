@@ -8,7 +8,8 @@ model = dict(
         rf_schedule='shifted',  # 使用 shifted schedule
         rf_shift=3.0,  # 增加数据端采样密度 (参考 SD3/Flux)
         snr_scale=2.0,
-    ))
+    )
+)
 
 # --- 针对 Rectified Flow 的优化器和学习率调整 ---
 # RF 的直线路径学习通常比弯曲的 DDPM 更稳定，可以使用略大的学习率
@@ -19,10 +20,13 @@ optim_wrapper = dict(
         type='AdamW',
         lr=0.00005,  # 从 0.000025 翻倍，RF 学习率耐受度更高
         weight_decay=0.0001,
-    ))
+    )
+)
 
 # 学习率调度器：延长训练周期或使用余弦退火
-max_epoch = 150  # RF 通常不需要 baseline 那么长的 200 epoch，但可以更精细地训练
+max_epoch = (
+    150  # RF 通常不需要 baseline 那么长的 200 epoch，但可以更精细地训练
+)
 train_cfg = dict(max_epochs=max_epoch)
 
 param_scheduler = [

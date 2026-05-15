@@ -10,7 +10,6 @@ from mmdet.models.roi_heads.mask_heads import HTCMaskHead
 
 
 class TestHTCMaskHead(TestCase):
-
     @parameterized.expand(['cpu', 'cuda'])
     def test_forward(self, device):
         if device == 'cuda':
@@ -22,7 +21,8 @@ class TestHTCMaskHead(TestCase):
             num_convs=1,
             in_channels=1,
             conv_out_channels=1,
-            num_classes=num_classes)
+            num_classes=num_classes,
+        )
 
         x = torch.rand((1, 1, 10, 10))
         res_feat = torch.rand((1, 1, 10, 10))

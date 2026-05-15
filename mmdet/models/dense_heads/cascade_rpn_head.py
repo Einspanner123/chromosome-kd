@@ -1,5 +1,4 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from __future__ import division
 import copy
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -13,12 +12,21 @@ from torch import Tensor
 
 from mmdet.registry import MODELS, TASK_UTILS
 from mmdet.structures import SampleList
-from mmdet.utils import (ConfigType, InstanceList, MultiConfig,
-                         OptInstanceList, OptMultiConfig)
+from mmdet.utils import (
+    ConfigType,
+    InstanceList,
+    MultiConfig,
+    OptInstanceList,
+    OptMultiConfig,
+)
 from ..task_modules.assigners import RegionAssigner
 from ..task_modules.samplers import PseudoSampler
-from ..utils import (images_to_levels, multi_apply, select_single_mlvl,
-                     unpack_gt_instances)
+from ..utils import (
+    images_to_levels,
+    multi_apply,
+    select_single_mlvl,
+    unpack_gt_instances,
+)
 from .base_dense_head import BaseDenseHead
 from .rpn_head import RPNHead
 
@@ -59,7 +67,8 @@ class AdaptiveConv(BaseModule):
         bias: bool = False,
         adapt_type: str = 'dilation',
         init_cfg: MultiConfig = dict(
-            type='Normal', std=0.01, override=dict(name='conv'))
+            type='Normal', std=0.01, override=dict(name='conv')
+        ),
     ) -> None:
         super().__init__(init_cfg=init_cfg)
         assert adapt_type in ['offset', 'dilation']
@@ -67,9 +76,10 @@ class AdaptiveConv(BaseModule):
 
         assert kernel_size == 3, 'Adaptive conv only supports kernels 3'
         if self.adapt_type == 'offset':
-            assert stride == 1 and padding == 1 and groups == 1, \
-                'Adaptive conv offset mode only supports padding: {1}, ' \
+            assert stride == 1 and padding == 1 and groups == 1, (
+                'Adaptive conv offset mode only supports padding: {1}, '
                 f'stride: {1}, groups: {1}'
+            )
             self.conv = DeformConv2d(
                 in_channels,
                 out_channels,
@@ -77,21 +87,23 @@ class AdaptiveConv(BaseModule):
                 padding=padding,
                 stride=stride,
                 groups=groups,
-                bias=bias)
+                bias=bias,
+            )
         else:
             self.conv = nn.Conv2d(
                 in_channels,
                 out_channels,
                 kernel_size,
                 padding=dilation,
-                dilation=dilation)
+                dilation=dilation,
+            )
 
     def forward(self, x: Tensor, offset: Tensor) -> Tensor:
         """Forward function."""
         if self.adapt_type == 'offset':
             N, _, H, W = x.shape
             assert offset is not None
-            assert H * W == offset.shape[1]
+            assert offset.shape[1] == H * W
             # reshape [N, NA, 18] to (N, 18, H, W)
             offset = offset.permute(0, 2, 1).reshape(N, -1, H, W)
             offset = offset.contiguous()
@@ -117,18 +129,21 @@ class StageCascadeRPNHead(RPNHead):
             Defaults to None.
     """
 
-    def __init__(self,
-                 in_channels: int,
-                 anchor_generator: ConfigType = dict(
-                     type='AnchorGenerator',
-                     scales=[8],
-                     ratios=[1.0],
-                     strides=[4, 8, 16, 32, 64]),
-                 adapt_cfg: ConfigType = dict(type='dilation', dilation=3),
-                 bridged_feature: bool = False,
-                 with_cls: bool = True,
-                 init_cfg: OptMultiConfig = None,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        in_channels: int,
+        anchor_generator: ConfigType = dict(
+            type='AnchorGenerator',
+            scales=[8],
+            ratios=[1.0],
+            strides=[4, 8, 16, 32, 64],
+        ),
+        adapt_cfg: ConfigType = dict(type='dilation', dilation=3),
+        bridged_feature: bool = False,
+        with_cls: bool = True,
+        init_cfg: OptMultiConfig = None,
+        **kwargs,
+    ) -> None:
         self.with_cls = with_cls
         self.anchor_strides = anchor_generator['strides']
         self.anchor_scales = anchor_generator['scales']
@@ -138,7 +153,8 @@ class StageCascadeRPNHead(RPNHead):
             in_channels=in_channels,
             anchor_generator=anchor_generator,
             init_cfg=init_cfg,
-            **kwargs)
+            **kwargs,
+        )
 
         # override sampling and sampler
         if self.train_cfg:
@@ -146,13 +162,15 @@ class StageCascadeRPNHead(RPNHead):
             # use PseudoSampler when sampling is False
             if self.train_cfg.get('sampler', None) is not None:
                 self.sampler = TASK_UTILS.build(
-                    self.train_cfg['sampler'], default_args=dict(context=self))
+                    self.train_cfg['sampler'], default_args=dict(context=self)
+                )
             else:
                 self.sampler = PseudoSampler(context=self)
 
         if init_cfg is None:
             self.init_cfg = dict(
-                type='Normal', std=0.01, override=[dict(name='rpn_reg')])
+                type='Normal', std=0.01, override=[dict(name='rpn_reg')]
+            )
             if self.with_cls:
                 self.init_cfg['override'].append(dict(name='rpn_cls'))
 
@@ -160,12 +178,13 @@ class StageCascadeRPNHead(RPNHead):
         """Init layers of a CascadeRPN stage."""
         adapt_cfg = copy.deepcopy(self.adapt_cfg)
         adapt_cfg['adapt_type'] = adapt_cfg.pop('type')
-        self.rpn_conv = AdaptiveConv(self.in_channels, self.feat_channels,
-                                     **adapt_cfg)
+        self.rpn_conv = AdaptiveConv(
+            self.in_channels, self.feat_channels, **adapt_cfg
+        )
         if self.with_cls:
-            self.rpn_cls = nn.Conv2d(self.feat_channels,
-                                     self.num_anchors * self.cls_out_channels,
-                                     1)
+            self.rpn_cls = nn.Conv2d(
+                self.feat_channels, self.num_anchors * self.cls_out_channels, 1
+            )
         self.rpn_reg = nn.Conv2d(self.feat_channels, self.num_anchors * 4, 1)
         self.relu = nn.ReLU(inplace=True)
 
@@ -180,19 +199,23 @@ class StageCascadeRPNHead(RPNHead):
         return bridged_x, cls_score, bbox_pred
 
     def forward(
-            self,
-            feats: List[Tensor],
-            offset_list: Optional[List[Tensor]] = None) -> Tuple[List[Tensor]]:
+        self, feats: List[Tensor], offset_list: Optional[List[Tensor]] = None
+    ) -> Tuple[List[Tensor]]:
         """Forward function."""
         if offset_list is None:
             offset_list = [None for _ in range(len(feats))]
         return multi_apply(self.forward_single, feats, offset_list)
 
-    def _region_targets_single(self, flat_anchors: Tensor, valid_flags: Tensor,
-                               gt_instances: InstanceData, img_meta: dict,
-                               gt_instances_ignore: InstanceData,
-                               featmap_sizes: List[Tuple[int, int]],
-                               num_level_anchors: List[int]) -> tuple:
+    def _region_targets_single(
+        self,
+        flat_anchors: Tensor,
+        valid_flags: Tensor,
+        gt_instances: InstanceData,
+        img_meta: dict,
+        gt_instances_ignore: InstanceData,
+        featmap_sizes: List[Tuple[int, int]],
+        num_level_anchors: List[int],
+    ) -> tuple:
         """Get anchor targets based on region for single level.
 
         Args:
@@ -236,9 +259,11 @@ class StageCascadeRPNHead(RPNHead):
             self.anchor_scales[0],
             self.anchor_strides,
             gt_instances_ignore=gt_instances_ignore,
-            allowed_border=self.train_cfg['allowed_border'])
-        sampling_result = self.sampler.sample(assign_result, pred_instances,
-                                              gt_instances)
+            allowed_border=self.train_cfg['allowed_border'],
+        )
+        sampling_result = self.sampler.sample(
+            assign_result, pred_instances, gt_instances
+        )
 
         num_anchors = flat_anchors.shape[0]
         bbox_targets = torch.zeros_like(flat_anchors)
@@ -251,7 +276,8 @@ class StageCascadeRPNHead(RPNHead):
         if len(pos_inds) > 0:
             if not self.reg_decoded_bbox:
                 pos_bbox_targets = self.bbox_coder.encode(
-                    sampling_result.pos_bboxes, sampling_result.pos_gt_bboxes)
+                    sampling_result.pos_bboxes, sampling_result.pos_gt_bboxes
+                )
             else:
                 pos_bbox_targets = sampling_result.pos_gt_bboxes
             bbox_targets[pos_inds, :] = pos_bbox_targets
@@ -264,8 +290,15 @@ class StageCascadeRPNHead(RPNHead):
         if len(neg_inds) > 0:
             label_weights[neg_inds] = 1.0
 
-        return (labels, label_weights, bbox_targets, bbox_weights, pos_inds,
-                neg_inds, sampling_result)
+        return (
+            labels,
+            label_weights,
+            bbox_targets,
+            bbox_weights,
+            pos_inds,
+            neg_inds,
+            sampling_result,
+        )
 
     def region_targets(
         self,
@@ -327,34 +360,51 @@ class StageCascadeRPNHead(RPNHead):
             concat_valid_flag_list.append(torch.cat(valid_flag_list[i]))
 
         # compute targets for each image
-        (all_labels, all_label_weights, all_bbox_targets, all_bbox_weights,
-         pos_inds_list, neg_inds_list, sampling_results_list) = multi_apply(
-             self._region_targets_single,
-             concat_anchor_list,
-             concat_valid_flag_list,
-             batch_gt_instances,
-             batch_img_metas,
-             batch_gt_instances_ignore,
-             featmap_sizes=featmap_sizes,
-             num_level_anchors=num_level_anchors)
+        (
+            all_labels,
+            all_label_weights,
+            all_bbox_targets,
+            all_bbox_weights,
+            pos_inds_list,
+            neg_inds_list,
+            sampling_results_list,
+        ) = multi_apply(
+            self._region_targets_single,
+            concat_anchor_list,
+            concat_valid_flag_list,
+            batch_gt_instances,
+            batch_img_metas,
+            batch_gt_instances_ignore,
+            featmap_sizes=featmap_sizes,
+            num_level_anchors=num_level_anchors,
+        )
         # no valid anchors
         if any([labels is None for labels in all_labels]):
             return None
         # sampled anchors of all images
         avg_factor = sum(
-            [results.avg_factor for results in sampling_results_list])
+            [results.avg_factor for results in sampling_results_list]
+        )
         # split targets to a list w.r.t. multiple levels
         labels_list = images_to_levels(all_labels, num_level_anchors)
-        label_weights_list = images_to_levels(all_label_weights,
-                                              num_level_anchors)
-        bbox_targets_list = images_to_levels(all_bbox_targets,
-                                             num_level_anchors)
-        bbox_weights_list = images_to_levels(all_bbox_weights,
-                                             num_level_anchors)
-        res = (labels_list, label_weights_list, bbox_targets_list,
-               bbox_weights_list, avg_factor)
+        label_weights_list = images_to_levels(
+            all_label_weights, num_level_anchors
+        )
+        bbox_targets_list = images_to_levels(
+            all_bbox_targets, num_level_anchors
+        )
+        bbox_weights_list = images_to_levels(
+            all_bbox_weights, num_level_anchors
+        )
+        res = (
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            bbox_weights_list,
+            avg_factor,
+        )
         if return_sampling_results:
-            res = res + (sampling_results_list, )
+            res = res + (sampling_results_list,)
         return res
 
     def get_targets(
@@ -409,7 +459,8 @@ class StageCascadeRPNHead(RPNHead):
                 batch_gt_instances,
                 batch_img_metas,
                 batch_gt_instances_ignore=batch_gt_instances_ignore,
-                return_sampling_results=return_sampling_results)
+                return_sampling_results=return_sampling_results,
+            )
         else:
             cls_reg_targets = super().get_targets(
                 anchor_list,
@@ -417,13 +468,17 @@ class StageCascadeRPNHead(RPNHead):
                 batch_gt_instances,
                 batch_img_metas,
                 batch_gt_instances_ignore=batch_gt_instances_ignore,
-                return_sampling_results=return_sampling_results)
+                return_sampling_results=return_sampling_results,
+            )
         return cls_reg_targets
 
-    def anchor_offset(self, anchor_list: List[List[Tensor]],
-                      anchor_strides: List[int],
-                      featmap_sizes: List[Tuple[int, int]]) -> List[Tensor]:
-        """ Get offset for deformable conv based on anchor shape
+    def anchor_offset(
+        self,
+        anchor_list: List[List[Tensor]],
+        anchor_strides: List[int],
+        featmap_sizes: List[Tuple[int, int]],
+    ) -> List[Tensor]:
+        """Get offset for deformable conv based on anchor shape
         NOTE: currently support deformable kernel_size=3 and dilation=1
 
         Args:
@@ -482,11 +537,14 @@ class StageCascadeRPNHead(RPNHead):
         for i in range(num_imgs):
             mlvl_offset = []
             for lvl in range(num_lvls):
-                c_offset_x, c_offset_y = _ctr_offset(anchor_list[i][lvl],
-                                                     anchor_strides[lvl],
-                                                     featmap_sizes[lvl])
-                s_offset_x, s_offset_y = _shape_offset(anchor_list[i][lvl],
-                                                       anchor_strides[lvl])
+                c_offset_x, c_offset_y = _ctr_offset(
+                    anchor_list[i][lvl],
+                    anchor_strides[lvl],
+                    featmap_sizes[lvl],
+                )
+                s_offset_x, s_offset_y = _shape_offset(
+                    anchor_list[i][lvl], anchor_strides[lvl]
+                )
 
                 # offset = ctr_offset + shape_offset
                 offset_x = s_offset_x + c_offset_x[:, None]
@@ -500,19 +558,28 @@ class StageCascadeRPNHead(RPNHead):
         offset_list = images_to_levels(offset_list, num_level_anchors)
         return offset_list
 
-    def loss_by_feat_single(self, cls_score: Tensor, bbox_pred: Tensor,
-                            anchors: Tensor, labels: Tensor,
-                            label_weights: Tensor, bbox_targets: Tensor,
-                            bbox_weights: Tensor, avg_factor: int) -> tuple:
+    def loss_by_feat_single(
+        self,
+        cls_score: Tensor,
+        bbox_pred: Tensor,
+        anchors: Tensor,
+        labels: Tensor,
+        label_weights: Tensor,
+        bbox_targets: Tensor,
+        bbox_weights: Tensor,
+        avg_factor: int,
+    ) -> tuple:
         """Loss function on single scale."""
         # classification loss
         if self.with_cls:
             labels = labels.reshape(-1)
             label_weights = label_weights.reshape(-1)
-            cls_score = cls_score.permute(0, 2, 3,
-                                          1).reshape(-1, self.cls_out_channels)
+            cls_score = cls_score.permute(0, 2, 3, 1).reshape(
+                -1, self.cls_out_channels
+            )
             loss_cls = self.loss_cls(
-                cls_score, labels, label_weights, avg_factor=avg_factor)
+                cls_score, labels, label_weights, avg_factor=avg_factor
+            )
         # regression loss
         bbox_targets = bbox_targets.reshape(-1, 4)
         bbox_weights = bbox_weights.reshape(-1, 4)
@@ -524,7 +591,8 @@ class StageCascadeRPNHead(RPNHead):
             anchors = anchors.reshape(-1, 4)
             bbox_pred = self.bbox_coder.decode(anchors, bbox_pred)
         loss_reg = self.loss_bbox(
-            bbox_pred, bbox_targets, bbox_weights, avg_factor=avg_factor)
+            bbox_pred, bbox_targets, bbox_weights, avg_factor=avg_factor
+        )
         if self.with_cls:
             return loss_cls, loss_reg
         return None, loss_reg
@@ -537,7 +605,7 @@ class StageCascadeRPNHead(RPNHead):
         bbox_preds: List[Tensor],
         batch_gt_instances: InstanceList,
         batch_img_metas: List[dict],
-        batch_gt_instances_ignore: OptInstanceList = None
+        batch_gt_instances_ignore: OptInstanceList = None,
     ) -> Dict[str, Tensor]:
         """Compute losses of the head.
 
@@ -573,9 +641,16 @@ class StageCascadeRPNHead(RPNHead):
             batch_gt_instances,
             batch_img_metas,
             batch_gt_instances_ignore=batch_gt_instances_ignore,
-            return_sampling_results=True)
-        (labels_list, label_weights_list, bbox_targets_list, bbox_weights_list,
-         avg_factor, sampling_results_list) = cls_reg_targets
+            return_sampling_results=True,
+        )
+        (
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            bbox_weights_list,
+            avg_factor,
+            sampling_results_list,
+        ) = cls_reg_targets
         if not sampling_results_list[0].avg_factor_with_neg:
             # 200 is hard-coded average factor,
             # which follows guided anchoring.
@@ -597,18 +672,21 @@ class StageCascadeRPNHead(RPNHead):
             label_weights_list,
             bbox_targets_list,
             bbox_weights_list,
-            avg_factor=avg_factor)
+            avg_factor=avg_factor,
+        )
         if self.with_cls:
             return dict(loss_rpn_cls=losses[0], loss_rpn_reg=losses[1])
         return dict(loss_rpn_reg=losses[1])
 
-    def predict_by_feat(self,
-                        anchor_list: List[List[Tensor]],
-                        cls_scores: List[Tensor],
-                        bbox_preds: List[Tensor],
-                        batch_img_metas: List[dict],
-                        cfg: Optional[ConfigDict] = None,
-                        rescale: bool = False) -> InstanceList:
+    def predict_by_feat(
+        self,
+        anchor_list: List[List[Tensor]],
+        cls_scores: List[Tensor],
+        bbox_preds: List[Tensor],
+        batch_img_metas: List[dict],
+        cfg: Optional[ConfigDict] = None,
+        rescale: bool = False,
+    ) -> InstanceList:
         """Get proposal predict. Overriding to enable input ``anchor_list``
         from outside.
 
@@ -650,17 +728,20 @@ class StageCascadeRPNHead(RPNHead):
                 mlvl_anchors=anchor_list[img_id],
                 img_meta=batch_img_metas[img_id],
                 cfg=cfg,
-                rescale=rescale)
+                rescale=rescale,
+            )
             result_list.append(proposals)
         return result_list
 
-    def _predict_by_feat_single(self,
-                                cls_scores: List[Tensor],
-                                bbox_preds: List[Tensor],
-                                mlvl_anchors: List[Tensor],
-                                img_meta: dict,
-                                cfg: ConfigDict,
-                                rescale: bool = False) -> InstanceData:
+    def _predict_by_feat_single(
+        self,
+        cls_scores: List[Tensor],
+        bbox_preds: List[Tensor],
+        mlvl_anchors: List[Tensor],
+        img_meta: dict,
+        cfg: ConfigDict,
+        rescale: bool = False,
+    ) -> InstanceData:
         """Transform outputs of a single image into bbox predictions.
 
         Args:
@@ -733,12 +814,14 @@ class StageCascadeRPNHead(RPNHead):
             mlvl_bbox_preds.append(rpn_bbox_pred)
             mlvl_valid_anchors.append(anchors)
             level_ids.append(
-                scores.new_full((scores.size(0), ), idx, dtype=torch.long))
+                scores.new_full((scores.size(0),), idx, dtype=torch.long)
+            )
 
         anchors = torch.cat(mlvl_valid_anchors)
         rpn_bbox_pred = torch.cat(mlvl_bbox_preds)
         bboxes = self.bbox_coder.decode(
-            anchors, rpn_bbox_pred, max_shape=img_meta['img_shape'])
+            anchors, rpn_bbox_pred, max_shape=img_meta['img_shape']
+        )
 
         proposals = InstanceData()
         proposals.bboxes = bboxes
@@ -746,11 +829,15 @@ class StageCascadeRPNHead(RPNHead):
         proposals.level_ids = torch.cat(level_ids)
 
         return self._bbox_post_process(
-            results=proposals, cfg=cfg, rescale=rescale, img_meta=img_meta)
+            results=proposals, cfg=cfg, rescale=rescale, img_meta=img_meta
+        )
 
-    def refine_bboxes(self, anchor_list: List[List[Tensor]],
-                      bbox_preds: List[Tensor],
-                      img_metas: List[dict]) -> List[List[Tensor]]:
+    def refine_bboxes(
+        self,
+        anchor_list: List[List[Tensor]],
+        bbox_preds: List[Tensor],
+        img_metas: List[dict],
+    ) -> List[List[Tensor]]:
         """Refine bboxes through stages."""
         num_levels = len(bbox_preds)
         new_anchor_list = []
@@ -760,8 +847,9 @@ class StageCascadeRPNHead(RPNHead):
                 bbox_pred = bbox_preds[i][img_id].detach()
                 bbox_pred = bbox_pred.permute(1, 2, 0).reshape(-1, 4)
                 img_shape = img_metas[img_id]['img_shape']
-                bboxes = self.bbox_coder.decode(anchor_list[img_id][i],
-                                                bbox_pred, img_shape)
+                bboxes = self.bbox_coder.decode(
+                    anchor_list[img_id][i], bbox_pred, img_shape
+                )
                 mlvl_anchors.append(bboxes)
             new_anchor_list.append(mlvl_anchors)
         return new_anchor_list
@@ -786,17 +874,25 @@ class StageCascadeRPNHead(RPNHead):
         featmap_sizes = [featmap.size()[-2:] for featmap in x]
         device = x[0].device
         anchor_list, valid_flag_list = self.get_anchors(
-            featmap_sizes, batch_img_metas, device=device)
+            featmap_sizes, batch_img_metas, device=device
+        )
 
         if self.adapt_cfg['type'] == 'offset':
-            offset_list = self.anchor_offset(anchor_list, self.anchor_strides,
-                                             featmap_sizes)
+            offset_list = self.anchor_offset(
+                anchor_list, self.anchor_strides, featmap_sizes
+            )
         else:
             offset_list = None
 
         x, cls_score, bbox_pred = self(x, offset_list)
-        rpn_loss_inputs = (anchor_list, valid_flag_list, cls_score, bbox_pred,
-                           batch_gt_instances, batch_img_metas)
+        rpn_loss_inputs = (
+            anchor_list,
+            valid_flag_list,
+            cls_score,
+            bbox_pred,
+            batch_gt_instances,
+            batch_img_metas,
+        )
         losses = self.loss_by_feat(*rpn_loss_inputs)
 
         return losses
@@ -832,17 +928,25 @@ class StageCascadeRPNHead(RPNHead):
         featmap_sizes = [featmap.size()[-2:] for featmap in x]
         device = x[0].device
         anchor_list, valid_flag_list = self.get_anchors(
-            featmap_sizes, batch_img_metas, device=device)
+            featmap_sizes, batch_img_metas, device=device
+        )
 
         if self.adapt_cfg['type'] == 'offset':
-            offset_list = self.anchor_offset(anchor_list, self.anchor_strides,
-                                             featmap_sizes)
+            offset_list = self.anchor_offset(
+                anchor_list, self.anchor_strides, featmap_sizes
+            )
         else:
             offset_list = None
 
         x, cls_score, bbox_pred = self(x, offset_list)
-        rpn_loss_inputs = (anchor_list, valid_flag_list, cls_score, bbox_pred,
-                           batch_gt_instances, batch_img_metas)
+        rpn_loss_inputs = (
+            anchor_list,
+            valid_flag_list,
+            cls_score,
+            bbox_pred,
+            batch_gt_instances,
+            batch_img_metas,
+        )
         losses = self.loss_by_feat(*rpn_loss_inputs)
 
         predictions = self.predict_by_feat(
@@ -850,13 +954,16 @@ class StageCascadeRPNHead(RPNHead):
             cls_score,
             bbox_pred,
             batch_img_metas=batch_img_metas,
-            cfg=proposal_cfg)
+            cfg=proposal_cfg,
+        )
         return losses, predictions
 
-    def predict(self,
-                x: Tuple[Tensor],
-                batch_data_samples: SampleList,
-                rescale: bool = False) -> InstanceList:
+    def predict(
+        self,
+        x: Tuple[Tensor],
+        batch_data_samples: SampleList,
+        rescale: bool = False,
+    ) -> InstanceList:
         """Perform forward propagation of the detection head and predict
         detection results on the features of the upstream network.
 
@@ -880,11 +987,13 @@ class StageCascadeRPNHead(RPNHead):
         featmap_sizes = [featmap.size()[-2:] for featmap in x]
         device = x[0].device
         anchor_list, _ = self.get_anchors(
-            featmap_sizes, batch_img_metas, device=device)
+            featmap_sizes, batch_img_metas, device=device
+        )
 
         if self.adapt_cfg['type'] == 'offset':
-            offset_list = self.anchor_offset(anchor_list, self.anchor_strides,
-                                             featmap_sizes)
+            offset_list = self.anchor_offset(
+                anchor_list, self.anchor_strides, featmap_sizes
+            )
         else:
             offset_list = None
 
@@ -894,7 +1003,8 @@ class StageCascadeRPNHead(RPNHead):
             cls_score,
             bbox_pred,
             batch_img_metas=batch_img_metas,
-            rescale=rescale)
+            rescale=rescale,
+        )
         return predictions
 
 
@@ -918,13 +1028,15 @@ class CascadeRPNHead(BaseDenseHead):
             list[dict]): Initialization config dict.
     """
 
-    def __init__(self,
-                 num_classes: int,
-                 num_stages: int,
-                 stages: List[ConfigType],
-                 train_cfg: List[ConfigType],
-                 test_cfg: ConfigType,
-                 init_cfg: OptMultiConfig = None) -> None:
+    def __init__(
+        self,
+        num_classes: int,
+        num_stages: int,
+        stages: List[ConfigType],
+        train_cfg: List[ConfigType],
+        test_cfg: ConfigType,
+        init_cfg: OptMultiConfig = None,
+    ) -> None:
         super().__init__(init_cfg=init_cfg)
         assert num_classes == 1, 'Only support num_classes == 1'
         assert num_stages == len(stages)
@@ -968,7 +1080,8 @@ class CascadeRPNHead(BaseDenseHead):
         featmap_sizes = [featmap.size()[-2:] for featmap in x]
         device = x[0].device
         anchor_list, valid_flag_list = self.stages[0].get_anchors(
-            featmap_sizes, batch_img_metas, device=device)
+            featmap_sizes, batch_img_metas, device=device
+        )
 
         losses = dict()
 
@@ -976,22 +1089,29 @@ class CascadeRPNHead(BaseDenseHead):
             stage = self.stages[i]
 
             if stage.adapt_cfg['type'] == 'offset':
-                offset_list = stage.anchor_offset(anchor_list,
-                                                  stage.anchor_strides,
-                                                  featmap_sizes)
+                offset_list = stage.anchor_offset(
+                    anchor_list, stage.anchor_strides, featmap_sizes
+                )
             else:
                 offset_list = None
             x, cls_score, bbox_pred = stage(x, offset_list)
-            rpn_loss_inputs = (anchor_list, valid_flag_list, cls_score,
-                               bbox_pred, batch_gt_instances, batch_img_metas)
+            rpn_loss_inputs = (
+                anchor_list,
+                valid_flag_list,
+                cls_score,
+                bbox_pred,
+                batch_gt_instances,
+                batch_img_metas,
+            )
             stage_loss = stage.loss_by_feat(*rpn_loss_inputs)
             for name, value in stage_loss.items():
-                losses['s{}.{}'.format(i, name)] = value
+                losses[f's{i}.{name}'] = value
 
             # refine boxes
             if i < self.num_stages - 1:
-                anchor_list = stage.refine_bboxes(anchor_list, bbox_pred,
-                                                  batch_img_metas)
+                anchor_list = stage.refine_bboxes(
+                    anchor_list, bbox_pred, batch_img_metas
+                )
 
         return losses
 
@@ -1026,7 +1146,8 @@ class CascadeRPNHead(BaseDenseHead):
         featmap_sizes = [featmap.size()[-2:] for featmap in x]
         device = x[0].device
         anchor_list, valid_flag_list = self.stages[0].get_anchors(
-            featmap_sizes, batch_img_metas, device=device)
+            featmap_sizes, batch_img_metas, device=device
+        )
 
         losses = dict()
 
@@ -1034,35 +1155,45 @@ class CascadeRPNHead(BaseDenseHead):
             stage = self.stages[i]
 
             if stage.adapt_cfg['type'] == 'offset':
-                offset_list = stage.anchor_offset(anchor_list,
-                                                  stage.anchor_strides,
-                                                  featmap_sizes)
+                offset_list = stage.anchor_offset(
+                    anchor_list, stage.anchor_strides, featmap_sizes
+                )
             else:
                 offset_list = None
             x, cls_score, bbox_pred = stage(x, offset_list)
-            rpn_loss_inputs = (anchor_list, valid_flag_list, cls_score,
-                               bbox_pred, batch_gt_instances, batch_img_metas)
+            rpn_loss_inputs = (
+                anchor_list,
+                valid_flag_list,
+                cls_score,
+                bbox_pred,
+                batch_gt_instances,
+                batch_img_metas,
+            )
             stage_loss = stage.loss_by_feat(*rpn_loss_inputs)
             for name, value in stage_loss.items():
-                losses['s{}.{}'.format(i, name)] = value
+                losses[f's{i}.{name}'] = value
 
             # refine boxes
             if i < self.num_stages - 1:
-                anchor_list = stage.refine_bboxes(anchor_list, bbox_pred,
-                                                  batch_img_metas)
+                anchor_list = stage.refine_bboxes(
+                    anchor_list, bbox_pred, batch_img_metas
+                )
 
         predictions = self.stages[-1].predict_by_feat(
             anchor_list,
             cls_score,
             bbox_pred,
             batch_img_metas=batch_img_metas,
-            cfg=proposal_cfg)
+            cfg=proposal_cfg,
+        )
         return losses, predictions
 
-    def predict(self,
-                x: Tuple[Tensor],
-                batch_data_samples: SampleList,
-                rescale: bool = False) -> InstanceList:
+    def predict(
+        self,
+        x: Tuple[Tensor],
+        batch_data_samples: SampleList,
+        rescale: bool = False,
+    ) -> InstanceList:
         """Perform forward propagation of the detection head and predict
         detection results on the features of the upstream network.
 
@@ -1086,25 +1217,28 @@ class CascadeRPNHead(BaseDenseHead):
         featmap_sizes = [featmap.size()[-2:] for featmap in x]
         device = x[0].device
         anchor_list, _ = self.stages[0].get_anchors(
-            featmap_sizes, batch_img_metas, device=device)
+            featmap_sizes, batch_img_metas, device=device
+        )
 
         for i in range(self.num_stages):
             stage = self.stages[i]
             if stage.adapt_cfg['type'] == 'offset':
-                offset_list = stage.anchor_offset(anchor_list,
-                                                  stage.anchor_strides,
-                                                  featmap_sizes)
+                offset_list = stage.anchor_offset(
+                    anchor_list, stage.anchor_strides, featmap_sizes
+                )
             else:
                 offset_list = None
             x, cls_score, bbox_pred = stage(x, offset_list)
             if i < self.num_stages - 1:
-                anchor_list = stage.refine_bboxes(anchor_list, bbox_pred,
-                                                  batch_img_metas)
+                anchor_list = stage.refine_bboxes(
+                    anchor_list, bbox_pred, batch_img_metas
+                )
 
         predictions = self.stages[-1].predict_by_feat(
             anchor_list,
             cls_score,
             bbox_pred,
             batch_img_metas=batch_img_metas,
-            rescale=rescale)
+            rescale=rescale,
+        )
         return predictions

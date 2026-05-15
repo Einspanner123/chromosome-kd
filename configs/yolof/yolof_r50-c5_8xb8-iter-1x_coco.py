@@ -12,19 +12,22 @@ train_cfg = dict(
     _delete_=True,
     type='IterBasedTrainLoop',
     max_iters=22500,
-    val_interval=4500)
+    val_interval=4500,
+)
 
 # learning rate policy
 param_scheduler = [
     dict(
-        type='LinearLR', start_factor=0.001, by_epoch=False, begin=0, end=500),
+        type='LinearLR', start_factor=0.001, by_epoch=False, begin=0, end=500
+    ),
     dict(
         type='MultiStepLR',
         begin=0,
         end=22500,
         by_epoch=False,
         milestones=[15000, 20000],
-        gamma=0.1)
+        gamma=0.1,
+    ),
 ]
 train_dataloader = dict(sampler=dict(type='InfiniteSampler'))
 default_hooks = dict(checkpoint=dict(by_epoch=False, interval=2500))

@@ -13,7 +13,8 @@ def test_resnest_bottleneck():
 
     # Test ResNeSt Bottleneck structure
     block = BottleneckS(
-        2, 4, radix=2, reduction_factor=4, stride=2, style='pytorch')
+        2, 4, radix=2, reduction_factor=4, stride=2, style='pytorch'
+    )
     assert block.avd_layer.stride == 2
     assert block.conv2.channels == 4
 
@@ -35,7 +36,8 @@ def test_resnest_backbone():
         base_channels=4,
         radix=2,
         reduction_factor=4,
-        out_indices=(0, 1, 2, 3))
+        out_indices=(0, 1, 2, 3),
+    )
     model.train()
 
     imgs = torch.randn(2, 3, 32, 32)

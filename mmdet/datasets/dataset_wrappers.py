@@ -3,9 +3,8 @@ import collections
 import copy
 from typing import List, Sequence, Union
 
-from mmengine.dataset import BaseDataset
+from mmengine.dataset import BaseDataset, force_full_init
 from mmengine.dataset import ConcatDataset as MMENGINE_ConcatDataset
-from mmengine.dataset import force_full_init
 
 from mmdet.registry import DATASETS, TRANSFORMS
 
@@ -35,18 +34,22 @@ class MultiImageMixDataset:
             iteration is terminated and raise the error. Default: 15.
     """
 
-    def __init__(self,
-                 dataset: Union[BaseDataset, dict],
-                 pipeline: Sequence[str],
-                 skip_type_keys: Union[Sequence[str], None] = None,
-                 max_refetch: int = 15,
-                 lazy_init: bool = False) -> None:
+    def __init__(
+        self,
+        dataset: Union[BaseDataset, dict],
+        pipeline: Sequence[str],
+        skip_type_keys: Union[Sequence[str], None] = None,
+        max_refetch: int = 15,
+        lazy_init: bool = False,
+    ) -> None:
         assert isinstance(pipeline, collections.abc.Sequence)
         if skip_type_keys is not None:
-            assert all([
-                isinstance(skip_type_key, str)
-                for skip_type_key in skip_type_keys
-            ])
+            assert all(
+                [
+                    isinstance(skip_type_key, str)
+                    for skip_type_key in skip_type_keys
+                ]
+            )
         self._skip_type_keys = skip_type_keys
 
         self.pipeline = []
@@ -67,7 +70,8 @@ class MultiImageMixDataset:
         else:
             raise TypeError(
                 'elements in datasets sequence should be config or '
-                f'`BaseDataset` instance, but got {type(dataset)}')
+                f'`BaseDataset` instance, but got {type(dataset)}'
+            )
 
         self._metainfo = self.dataset.metainfo
         if hasattr(self.dataset, 'flag'):
@@ -115,10 +119,13 @@ class MultiImageMixDataset:
 
     def __getitem__(self, idx):
         results = copy.deepcopy(self.dataset[idx])
-        for (transform, transform_type) in zip(self.pipeline,
-                                               self.pipeline_types):
-            if self._skip_type_keys is not None and \
-                    transform_type in self._skip_type_keys:
+        for transform, transform_type in zip(
+            self.pipeline, self.pipeline_types
+        ):
+            if (
+                self._skip_type_keys is not None
+                and transform_type in self._skip_type_keys
+            ):
                 continue
 
             if hasattr(transform, 'get_indexes'):
@@ -138,7 +145,8 @@ class MultiImageMixDataset:
                     raise RuntimeError(
                         'The loading pipeline of the original dataset'
                         ' always return None. Please check the correctness '
-                        'of the dataset and its pipeline.')
+                        'of the dataset and its pipeline.'
+                    )
 
             for i in range(self.max_refetch):
                 # To confirm the results passed the training pipeline
@@ -151,7 +159,8 @@ class MultiImageMixDataset:
                 raise RuntimeError(
                     'The training pipeline of the dataset wrapper'
                     ' always return None.Please check the correctness '
-                    'of the dataset and its pipeline.')
+                    'of the dataset and its pipeline.'
+                )
 
             if 'mix_results' in results:
                 results.pop('mix_results')
@@ -165,9 +174,12 @@ class MultiImageMixDataset:
             skip_type_keys (list[str], optional): Sequence of type
                 string to be skip pipeline.
         """
-        assert all([
-            isinstance(skip_type_key, str) for skip_type_key in skip_type_keys
-        ])
+        assert all(
+            [
+                isinstance(skip_type_key, str)
+                for skip_type_key in skip_type_keys
+            ]
+        )
         self._skip_type_keys = skip_type_keys
 
 
@@ -195,10 +207,12 @@ class ConcatDataset(MMENGINE_ConcatDataset):
             `New in version 0.3.0.`
     """
 
-    def __init__(self,
-                 datasets: Sequence[Union[BaseDataset, dict]],
-                 lazy_init: bool = False,
-                 ignore_keys: Union[str, List[str], None] = None):
+    def __init__(
+        self,
+        datasets: Sequence[Union[BaseDataset, dict]],
+        lazy_init: bool = False,
+        ignore_keys: Union[str, List[str], None] = None,
+    ):
         self.datasets: List[BaseDataset] = []
         for i, dataset in enumerate(datasets):
             if isinstance(dataset, dict):
@@ -208,7 +222,8 @@ class ConcatDataset(MMENGINE_ConcatDataset):
             else:
                 raise TypeError(
                     'elements in datasets sequence should be config or '
-                    f'`BaseDataset` instance, but got {type(dataset)}')
+                    f'`BaseDataset` instance, but got {type(dataset)}'
+                )
         if ignore_keys is None:
             self.ignore_keys = []
         elif isinstance(ignore_keys, str):
@@ -216,8 +231,10 @@ class ConcatDataset(MMENGINE_ConcatDataset):
         elif isinstance(ignore_keys, list):
             self.ignore_keys = ignore_keys
         else:
-            raise TypeError('ignore_keys should be a list or str, '
-                            f'but got {type(ignore_keys)}')
+            raise TypeError(
+                'ignore_keys should be a list or str, '
+                f'but got {type(ignore_keys)}'
+            )
 
         meta_keys: set = set()
         for dataset in self.datasets:
@@ -249,11 +266,13 @@ class ConcatDataset(MMENGINE_ConcatDataset):
 
             if is_all_same:
                 self._metainfo.update(
-                    dict(cumulative_sizes=self.cumulative_sizes))
+                    dict(cumulative_sizes=self.cumulative_sizes)
+                )
             else:
                 for i, dataset in enumerate(self.datasets):
                     self._metainfo[i].update(
-                        dict(cumulative_sizes=self.cumulative_sizes))
+                        dict(cumulative_sizes=self.cumulative_sizes)
+                    )
 
     def get_dataset_source(self, idx: int) -> int:
         dataset_idx, _ = self._get_ori_dataset_idx(idx)

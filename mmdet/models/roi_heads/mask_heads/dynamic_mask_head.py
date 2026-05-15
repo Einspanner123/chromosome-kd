@@ -44,30 +44,31 @@ class DynamicMaskHead(FCNMaskHead):
         loss_mask (:obj:`ConfigDict` or dict): The config for mask loss.
     """
 
-    def __init__(self,
-                 num_convs: int = 4,
-                 roi_feat_size: int = 14,
-                 in_channels: int = 256,
-                 conv_kernel_size: int = 3,
-                 conv_out_channels: int = 256,
-                 num_classes: int = 80,
-                 class_agnostic: bool = False,
-                 upsample_cfg: ConfigType = dict(
-                     type='deconv', scale_factor=2),
-                 conv_cfg: OptConfigType = None,
-                 norm_cfg: OptConfigType = None,
-                 dynamic_conv_cfg: ConfigType = dict(
-                     type='DynamicConv',
-                     in_channels=256,
-                     feat_channels=64,
-                     out_channels=256,
-                     input_feat_shape=14,
-                     with_proj=False,
-                     act_cfg=dict(type='ReLU', inplace=True),
-                     norm_cfg=dict(type='LN')),
-                 loss_mask: ConfigType = dict(
-                     type='DiceLoss', loss_weight=8.0),
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        num_convs: int = 4,
+        roi_feat_size: int = 14,
+        in_channels: int = 256,
+        conv_kernel_size: int = 3,
+        conv_out_channels: int = 256,
+        num_classes: int = 80,
+        class_agnostic: bool = False,
+        upsample_cfg: ConfigType = dict(type='deconv', scale_factor=2),
+        conv_cfg: OptConfigType = None,
+        norm_cfg: OptConfigType = None,
+        dynamic_conv_cfg: ConfigType = dict(
+            type='DynamicConv',
+            in_channels=256,
+            feat_channels=64,
+            out_channels=256,
+            input_feat_shape=14,
+            with_proj=False,
+            act_cfg=dict(type='ReLU', inplace=True),
+            norm_cfg=dict(type='LN'),
+        ),
+        loss_mask: ConfigType = dict(type='DiceLoss', loss_weight=8.0),
+        **kwargs,
+    ) -> None:
         super().__init__(
             num_convs=num_convs,
             roi_feat_size=roi_feat_size,
@@ -80,9 +81,11 @@ class DynamicMaskHead(FCNMaskHead):
             conv_cfg=conv_cfg,
             norm_cfg=norm_cfg,
             loss_mask=loss_mask,
-            **kwargs)
-        assert class_agnostic is False, \
+            **kwargs,
+        )
+        assert class_agnostic is False, (
             'DynamicMaskHead only support class_agnostic=False'
+        )
         self.fp16_enabled = False
 
         self.instance_interactive_conv = MODELS.build(dynamic_conv_cfg)
@@ -93,7 +96,7 @@ class DynamicMaskHead(FCNMaskHead):
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
-            nn.init.constant_(self.conv_logits.bias, 0.)
+            nn.init.constant_(self.conv_logits.bias, 0.0)
 
     def forward(self, roi_feat: Tensor, proposal_feat: Tensor) -> Tensor:
         """Forward function of DynamicMaskHead.
@@ -113,7 +116,8 @@ class DynamicMaskHead(FCNMaskHead):
 
         proposal_feat = proposal_feat.reshape(-1, self.in_channels)
         proposal_feat_iic = self.instance_interactive_conv(
-            proposal_feat, roi_feat)
+            proposal_feat, roi_feat
+        )
 
         x = proposal_feat_iic.permute(0, 2, 1).reshape(roi_feat.size())
 
@@ -126,10 +130,13 @@ class DynamicMaskHead(FCNMaskHead):
         mask_preds = self.conv_logits(x)
         return mask_preds
 
-    def loss_and_target(self, mask_preds: Tensor,
-                        sampling_results: List[SamplingResult],
-                        batch_gt_instances: InstanceList,
-                        rcnn_train_cfg: ConfigDict) -> dict:
+    def loss_and_target(
+        self,
+        mask_preds: Tensor,
+        sampling_results: List[SamplingResult],
+        batch_gt_instances: InstanceList,
+        rcnn_train_cfg: ConfigDict,
+    ) -> dict:
         """Calculate the loss based on the features extracted by the mask head.
 
         Args:
@@ -148,19 +155,22 @@ class DynamicMaskHead(FCNMaskHead):
         mask_targets = self.get_targets(
             sampling_results=sampling_results,
             batch_gt_instances=batch_gt_instances,
-            rcnn_train_cfg=rcnn_train_cfg)
+            rcnn_train_cfg=rcnn_train_cfg,
+        )
         pos_labels = torch.cat([res.pos_gt_labels for res in sampling_results])
 
         num_pos = pos_labels.new_ones(pos_labels.size()).float().sum()
-        avg_factor = torch.clamp(reduce_mean(num_pos), min=1.).item()
+        avg_factor = torch.clamp(reduce_mean(num_pos), min=1.0).item()
         loss = dict()
         if mask_preds.size(0) == 0:
             loss_mask = mask_preds.sum()
         else:
             loss_mask = self.loss_mask(
-                mask_preds[torch.arange(num_pos).long(), pos_labels,
-                           ...].sigmoid(),
+                mask_preds[
+                    torch.arange(num_pos).long(), pos_labels, ...
+                ].sigmoid(),
                 mask_targets,
-                avg_factor=avg_factor)
+                avg_factor=avg_factor,
+            )
         loss['loss_mask'] = loss_mask
         return dict(loss_mask=loss, mask_targets=mask_targets)

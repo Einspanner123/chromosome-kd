@@ -36,24 +36,28 @@ CLASSES = [
     dict(id=10, name='occluder_on_ground'),
     dict(id=11, name='occluder_full'),
     dict(id=12, name='reflection'),
-    dict(id=13, name='crowd')
+    dict(id=13, name='crowd'),
 ]
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Convert MOT label and detections to COCO-VID format.')
+        description='Convert MOT label and detections to COCO-VID format.'
+    )
     parser.add_argument('-i', '--input', help='path of MOT data')
     parser.add_argument(
-        '-o', '--output', help='path to save coco formatted label file')
+        '-o', '--output', help='path to save coco formatted label file'
+    )
     parser.add_argument(
         '--convert-det',
         action='store_true',
-        help='convert official detection results.')
+        help='convert official detection results.',
+    )
     parser.add_argument(
         '--split-train',
         action='store_true',
-        help='split the train set into half-train and half-validate.')
+        help='split the train set into half-train and half-validate.',
+    )
     return parser.parse_args()
 
 
@@ -64,9 +68,9 @@ def parse_gts(gts, is_mot15):
         frame_id, ins_id = map(int, gt[:2])
         bbox = list(map(float, gt[2:6]))
         if is_mot15:
-            conf = 1.
+            conf = 1.0
             category_id = 1
-            visibility = 1.
+            visibility = 1.0
         else:
             conf = float(gt[6])
             category_id = int(gt[7])
@@ -78,7 +82,8 @@ def parse_gts(gts, is_mot15):
             iscrowd=False,
             visibility=visibility,
             mot_instance_id=ins_id,
-            mot_conf=conf)
+            mot_conf=conf,
+        )
         outputs[frame_id].append(anns)
     return outputs
 
@@ -92,7 +97,11 @@ def parse_dets(dets):
         bbox = list(map(float, det[2:7]))
         # [x1, y1, x2, y2] to be consistent with mmdet
         bbox = [
-            bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3], bbox[4]
+            bbox[0],
+            bbox[1],
+            bbox[0] + bbox[2],
+            bbox[1] + bbox[3],
+            bbox[4],
         ]
         outputs[frame_id].append(bbox)
 
@@ -141,11 +150,8 @@ def main():
             width = int(infos[5].strip().split('=')[1])
             height = int(infos[6].strip().split('=')[1])
             video = dict(
-                id=vid_id,
-                name=video_name,
-                fps=fps,
-                width=width,
-                height=height)
+                id=vid_id, name=video_name, fps=fps, width=width, height=height
+            )
             # parse annotations
             if parse_gt:
                 gts = mmengine.list_from_file(f'{video_folder}/gt/gt.txt')
@@ -165,9 +171,10 @@ def main():
                     img_names = img_names[split_frame:]
                 else:
                     raise ValueError(
-                        'subset must be named with `train` or `val`')
+                        'subset must be named with `train` or `val`'
+                    )
                 mot_frame_ids = [str(int(_.split('.')[0])) for _ in img_names]
-                with open(f'{video_folder}/gt/gt_{subset}.txt', 'wt') as f:
+                with open(f'{video_folder}/gt/gt_{subset}.txt', 'w') as f:
                     for gt in gts:
                         if gt.split(',')[0] in mot_frame_ids:
                             f.writelines(f'{gt}\n')
@@ -182,7 +189,8 @@ def main():
                     height=height,
                     width=width,
                     frame_id=frame_id,
-                    mot_frame_id=mot_frame_id)
+                    mot_frame_id=mot_frame_id,
+                )
                 if parse_gt:
                     gts = img2gts[mot_frame_id]
                     for gt in gts:

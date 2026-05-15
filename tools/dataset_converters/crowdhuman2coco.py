@@ -12,7 +12,8 @@ from tqdm import tqdm
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='CrowdHuman to COCO Video format')
+        description='CrowdHuman to COCO Video format'
+    )
     parser.add_argument(
         '-i',
         '--input',
@@ -27,7 +28,7 @@ def parse_args():
 
 
 def load_odgt(filename):
-    with open(filename, 'r') as f:
+    with open(filename) as f:
         lines = f.readlines()
     data_infos = [json.loads(line.strip('\n')) for line in lines]
     return data_infos
@@ -50,21 +51,25 @@ def convert_crowdhuman(ann_dir, save_dir, mode='train'):
 
     data_infos = load_odgt(osp.join(ann_dir, f'annotation_{mode}.odgt'))
     for data_info in tqdm(data_infos):
-        img_name = osp.join('Images', f"{data_info['ID']}.jpg")
+        img_name = osp.join('Images', f'{data_info["ID"]}.jpg')
         img = Image.open(osp.join(ann_dir, mode, img_name))
         width, height = img.size[:2]
         image = dict(
             file_name=img_name,
             height=height,
             width=width,
-            id=records['img_id'])
+            id=records['img_id'],
+        )
         outputs['images'].append(image)
 
         if mode != 'test':
             for ann_info in data_info['gtboxes']:
                 bbox = ann_info['fbox']
-                if 'extra' in ann_info and 'ignore' in ann_info[
-                        'extra'] and ann_info['extra']['ignore'] == 1:
+                if (
+                    'extra' in ann_info
+                    and 'ignore' in ann_info['extra']
+                    and ann_info['extra']['ignore'] == 1
+                ):
                     iscrowd = True
                 else:
                     iscrowd = False
@@ -75,7 +80,8 @@ def convert_crowdhuman(ann_dir, save_dir, mode='train'):
                     vis_bbox=ann_info['vbox'],
                     bbox=bbox,
                     area=bbox[2] * bbox[3],
-                    iscrowd=iscrowd)
+                    iscrowd=iscrowd,
+                )
                 outputs['annotations'].append(ann)
                 records['ann_id'] += 1
         records['img_id'] += 1

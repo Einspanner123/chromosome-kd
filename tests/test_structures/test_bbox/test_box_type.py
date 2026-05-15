@@ -3,15 +3,19 @@ from unittest.mock import MagicMock
 
 import torch
 
-from mmdet.structures.bbox.box_type import (_box_type_to_name, box_converters,
-                                            box_types, convert_box_type,
-                                            get_box_type, register_box,
-                                            register_box_converter)
+from mmdet.structures.bbox.box_type import (
+    _box_type_to_name,
+    box_converters,
+    box_types,
+    convert_box_type,
+    get_box_type,
+    register_box,
+    register_box_converter,
+)
 from .utils import ToyBaseBoxes
 
 
 class TestBoxType(TestCase):
-
     def setUp(self):
         self.box_types = box_types.copy()
         self.box_converters = box_converters.copy()
@@ -90,8 +94,7 @@ class TestBoxType(TestCase):
         def converter_B(bboxes):
             return bboxes
 
-        register_box_converter('B'
-                               'A', converter_B)
+        register_box_converter('BA', converter_B)
 
         # register uncallable object
         with self.assertRaises(AssertionError):
@@ -179,12 +182,14 @@ class TestBoxType(TestCase):
         # test np.ndarray
         convert_box_type(np_bboxes_a, src_type='A', dst_type='B')
         converted_bboxes = convert_box_type(
-            np_bboxes_a, src_type='A', dst_type='A')
+            np_bboxes_a, src_type='A', dst_type='A'
+        )
         self.assertIs(converted_bboxes, np_bboxes_a)
         # test tensor
         convert_box_type(th_bboxes_a, src_type='A', dst_type='B')
         converted_bboxes = convert_box_type(
-            th_bboxes_a, src_type='A', dst_type='A')
+            th_bboxes_a, src_type='A', dst_type='A'
+        )
         self.assertIs(converted_bboxes, th_bboxes_a)
         # test other type
         with self.assertRaises(TypeError):

@@ -10,8 +10,9 @@ from mmdet.registry import DATASETS
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Evaluate metric of the '
-                                     'results saved in pkl format')
+    parser = argparse.ArgumentParser(
+        description='Evaluate metric of the results saved in pkl format'
+    )
     parser.add_argument('config', help='Config of the model')
     parser.add_argument('pkl_results', help='Results in pickle format')
     parser.add_argument(
@@ -23,7 +24,8 @@ def parse_args():
         'be overwritten is a list, it should be like key="[a,b]" or key=a,b '
         'It also allows nested list/tuple values, e.g. key="[(a,b),(c,d)]" '
         'Note that the quotation marks are necessary and that no white space '
-        'is allowed.')
+        'is allowed.',
+    )
     args = parser.parse_args()
     return args
 

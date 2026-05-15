@@ -2,18 +2,76 @@ import argparse
 import json
 import os.path
 
-base_classes = ('person', 'bicycle', 'car', 'motorcycle', 'train', 'truck',
-                'boat', 'bench', 'bird', 'horse', 'sheep', 'bear', 'zebra',
-                'giraffe', 'backpack', 'handbag', 'suitcase', 'frisbee',
-                'skis', 'kite', 'surfboard', 'bottle', 'fork', 'spoon', 'bowl',
-                'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot',
-                'pizza', 'donut', 'chair', 'bed', 'toilet', 'tv', 'laptop',
-                'mouse', 'remote', 'microwave', 'oven', 'toaster',
-                'refrigerator', 'book', 'clock', 'vase', 'toothbrush')
+base_classes = (
+    'person',
+    'bicycle',
+    'car',
+    'motorcycle',
+    'train',
+    'truck',
+    'boat',
+    'bench',
+    'bird',
+    'horse',
+    'sheep',
+    'bear',
+    'zebra',
+    'giraffe',
+    'backpack',
+    'handbag',
+    'suitcase',
+    'frisbee',
+    'skis',
+    'kite',
+    'surfboard',
+    'bottle',
+    'fork',
+    'spoon',
+    'bowl',
+    'banana',
+    'apple',
+    'sandwich',
+    'orange',
+    'broccoli',
+    'carrot',
+    'pizza',
+    'donut',
+    'chair',
+    'bed',
+    'toilet',
+    'tv',
+    'laptop',
+    'mouse',
+    'remote',
+    'microwave',
+    'oven',
+    'toaster',
+    'refrigerator',
+    'book',
+    'clock',
+    'vase',
+    'toothbrush',
+)
 
-novel_classes = ('airplane', 'bus', 'cat', 'dog', 'cow', 'elephant',
-                 'umbrella', 'tie', 'snowboard', 'skateboard', 'cup', 'knife',
-                 'cake', 'couch', 'keyboard', 'sink', 'scissors')
+novel_classes = (
+    'airplane',
+    'bus',
+    'cat',
+    'dog',
+    'cow',
+    'elephant',
+    'umbrella',
+    'tie',
+    'snowboard',
+    'skateboard',
+    'cup',
+    'knife',
+    'cake',
+    'couch',
+    'keyboard',
+    'sink',
+    'scissors',
+)
 
 
 def filter_annotation(anno_dict, split_name_list, class_id_to_split):
@@ -40,7 +98,7 @@ def filter_annotation(anno_dict, split_name_list, class_id_to_split):
 
 def coco2ovd(args):
     ann_path = os.path.join(args.data_root, 'annotations/')
-    with open(ann_path + 'instances_train2017.json', 'r') as fin:
+    with open(ann_path + 'instances_train2017.json') as fin:
         coco_train_anno_all = json.load(fin)
 
     class_id_to_split = {}
@@ -54,7 +112,7 @@ def coco2ovd(args):
     with open(ann_path + 'instances_train2017_seen_2.json', 'w') as fout:
         json.dump(coco_train_anno_all, fout)
 
-    with open(ann_path + 'instances_val2017.json', 'r') as fin:
+    with open(ann_path + 'instances_val2017.json') as fin:
         coco_val_anno_all = json.load(fin)
 
     filter_annotation(coco_val_anno_all, ['seen', 'unseen'], class_id_to_split)

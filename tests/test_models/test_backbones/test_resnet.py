@@ -22,12 +22,14 @@ def assert_params_all_zeros(module) -> bool:
     """
     weight_data = module.weight.data
     is_weight_zero = weight_data.allclose(
-        weight_data.new_zeros(weight_data.size()))
+        weight_data.new_zeros(weight_data.size())
+    )
 
     if hasattr(module, 'bias') and module.bias is not None:
         bias_data = module.bias.data
         is_bias_zero = bias_data.allclose(
-            bias_data.new_zeros(bias_data.size()))
+            bias_data.new_zeros(bias_data.size())
+        )
     else:
         is_bias_zero = True
 
@@ -44,8 +46,9 @@ def test_resnet_basic_block():
         # Not implemented yet.
         plugins = [
             dict(
-                cfg=dict(type='ContextBlock', ratio=1. / 16),
-                position='after_conv3')
+                cfg=dict(type='ContextBlock', ratio=1.0 / 16),
+                position='after_conv3',
+            )
         ]
         BasicBlock(64, 64, plugins=plugins)
 
@@ -58,8 +61,10 @@ def test_resnet_basic_block():
                     spatial_range=-1,
                     num_heads=8,
                     attention_type='0010',
-                    kv_stride=2),
-                position='after_conv2')
+                    kv_stride=2,
+                ),
+                position='after_conv2',
+            )
         ]
         BasicBlock(64, 64, plugins=plugins)
 
@@ -92,8 +97,9 @@ def test_resnet_bottleneck():
         # Allowed positions are 'after_conv1', 'after_conv2', 'after_conv3'
         plugins = [
             dict(
-                cfg=dict(type='ContextBlock', ratio=1. / 16),
-                position='after_conv4')
+                cfg=dict(type='ContextBlock', ratio=1.0 / 16),
+                position='after_conv4',
+            )
         ]
         Bottleneck(64, 16, plugins=plugins)
 
@@ -101,11 +107,13 @@ def test_resnet_bottleneck():
         # Need to specify different postfix to avoid duplicate plugin name
         plugins = [
             dict(
-                cfg=dict(type='ContextBlock', ratio=1. / 16),
-                position='after_conv3'),
+                cfg=dict(type='ContextBlock', ratio=1.0 / 16),
+                position='after_conv3',
+            ),
             dict(
-                cfg=dict(type='ContextBlock', ratio=1. / 16),
-                position='after_conv3')
+                cfg=dict(type='ContextBlock', ratio=1.0 / 16),
+                position='after_conv3',
+            ),
         ]
         Bottleneck(64, 16, plugins=plugins)
 
@@ -145,8 +153,9 @@ def test_resnet_bottleneck():
     # Test Bottleneck with 1 ContextBlock after conv3
     plugins = [
         dict(
-            cfg=dict(type='ContextBlock', ratio=1. / 16),
-            position='after_conv3')
+            cfg=dict(type='ContextBlock', ratio=1.0 / 16),
+            position='after_conv3',
+        )
     ]
     block = Bottleneck(64, 16, plugins=plugins)
     assert block.context_block.in_channels == 64
@@ -162,8 +171,10 @@ def test_resnet_bottleneck():
                 spatial_range=-1,
                 num_heads=8,
                 attention_type='0010',
-                kv_stride=2),
-            position='after_conv2')
+                kv_stride=2,
+            ),
+            position='after_conv2',
+        )
     ]
     block = Bottleneck(64, 16, plugins=plugins)
     assert block.gen_attention_block.in_channels == 16
@@ -180,12 +191,15 @@ def test_resnet_bottleneck():
                 spatial_range=-1,
                 num_heads=8,
                 attention_type='0010',
-                kv_stride=2),
-            position='after_conv2'),
+                kv_stride=2,
+            ),
+            position='after_conv2',
+        ),
         dict(cfg=dict(type='NonLocal2d'), position='after_conv2'),
         dict(
-            cfg=dict(type='ContextBlock', ratio=1. / 16),
-            position='after_conv3')
+            cfg=dict(type='ContextBlock', ratio=1.0 / 16),
+            position='after_conv3',
+        ),
     ]
     block = Bottleneck(64, 16, plugins=plugins)
     assert block.gen_attention_block.in_channels == 16
@@ -199,14 +213,17 @@ def test_resnet_bottleneck():
     # conv3
     plugins = [
         dict(
-            cfg=dict(type='ContextBlock', ratio=1. / 16, postfix=1),
-            position='after_conv2'),
+            cfg=dict(type='ContextBlock', ratio=1.0 / 16, postfix=1),
+            position='after_conv2',
+        ),
         dict(
-            cfg=dict(type='ContextBlock', ratio=1. / 16, postfix=2),
-            position='after_conv3'),
+            cfg=dict(type='ContextBlock', ratio=1.0 / 16, postfix=2),
+            position='after_conv3',
+        ),
         dict(
-            cfg=dict(type='ContextBlock', ratio=1. / 16, postfix=3),
-            position='after_conv3')
+            cfg=dict(type='ContextBlock', ratio=1.0 / 16, postfix=3),
+            position='after_conv3',
+        ),
     ]
     block = Bottleneck(64, 16, plugins=plugins)
     assert block.context_block1.in_channels == 16
@@ -227,8 +244,9 @@ def test_simplied_basic_block():
         # Not implemented yet.
         plugins = [
             dict(
-                cfg=dict(type='ContextBlock', ratio=1. / 16),
-                position='after_conv3')
+                cfg=dict(type='ContextBlock', ratio=1.0 / 16),
+                position='after_conv3',
+            )
         ]
         SimplifiedBasicBlock(64, 64, plugins=plugins)
 
@@ -241,8 +259,10 @@ def test_simplied_basic_block():
                     spatial_range=-1,
                     num_heads=8,
                     attention_type='0010',
-                    kv_stride=2),
-                position='after_conv2')
+                    kv_stride=2,
+                ),
+                position='after_conv2',
+            )
         ]
         SimplifiedBasicBlock(64, 64, plugins=plugins)
 
@@ -379,15 +399,16 @@ def test_resnet_backbone():
     with pytest.raises(AssertionError):
         # len(stage_with_dcn) == num_stages
         dcn = dict(type='DCN', deform_groups=1, fallback_on_stride=False)
-        ResNet(50, dcn=dcn, stage_with_dcn=(True, ))
+        ResNet(50, dcn=dcn, stage_with_dcn=(True,))
 
     with pytest.raises(AssertionError):
         # len(stage_with_plugin) == num_stages
         plugins = [
             dict(
-                cfg=dict(type='ContextBlock', ratio=1. / 16),
+                cfg=dict(type='ContextBlock', ratio=1.0 / 16),
                 stages=(False, True, True),
-                position='after_conv3')
+                position='after_conv3',
+            )
         ]
         ResNet(50, plugins=plugins)
 
@@ -397,7 +418,7 @@ def test_resnet_backbone():
 
     with pytest.raises(AssertionError):
         # len(strides) == len(dilations) == num_stages
-        ResNet(50, strides=(1, ), dilations=(1, 1), num_stages=3)
+        ResNet(50, strides=(1,), dilations=(1, 1), num_stages=3)
 
     with pytest.raises(TypeError):
         # pretrained must be a string path
@@ -414,7 +435,8 @@ def test_resnet_backbone():
 
     # Test ResNet50 with torchvision pretrained weight
     model = ResNet(
-        depth=50, norm_eval=True, pretrained='torchvision://resnet50')
+        depth=50, norm_eval=True, pretrained='torchvision://resnet50'
+    )
     model.train()
     assert check_norm_state(model.modules(), False)
 
@@ -512,7 +534,8 @@ def test_resnet_backbone():
     model = ResNet(
         50,
         base_channels=4,
-        norm_cfg=dict(type='GN', num_groups=2, requires_grad=True))
+        norm_cfg=dict(type='GN', num_groups=2, requires_grad=True),
+    )
     for m in model.modules():
         if is_norm(m):
             assert isinstance(m, GroupNorm)
@@ -535,14 +558,17 @@ def test_resnet_backbone():
                 spatial_range=-1,
                 num_heads=8,
                 attention_type='0010',
-                kv_stride=2),
+                kv_stride=2,
+            ),
             stages=(False, True, True, True),
-            position='after_conv2'),
+            position='after_conv2',
+        ),
         dict(cfg=dict(type='NonLocal2d'), position='after_conv2'),
         dict(
-            cfg=dict(type='ContextBlock', ratio=1. / 16),
+            cfg=dict(type='ContextBlock', ratio=1.0 / 16),
             stages=(False, True, True, False),
-            position='after_conv3')
+            position='after_conv3',
+        ),
     ]
     model = ResNet(50, plugins=plugins, base_channels=8)
     for m in model.layer1.modules():
@@ -581,13 +607,15 @@ def test_resnet_backbone():
     # conv3 in layers 2, 3, 4
     plugins = [
         dict(
-            cfg=dict(type='ContextBlock', ratio=1. / 16, postfix=1),
+            cfg=dict(type='ContextBlock', ratio=1.0 / 16, postfix=1),
             stages=(False, True, True, False),
-            position='after_conv3'),
+            position='after_conv3',
+        ),
         dict(
-            cfg=dict(type='ContextBlock', ratio=1. / 16, postfix=2),
+            cfg=dict(type='ContextBlock', ratio=1.0 / 16, postfix=2),
             stages=(False, True, True, False),
-            position='after_conv3')
+            position='after_conv3',
+        ),
     ]
 
     model = ResNet(50, plugins=plugins, base_channels=8)

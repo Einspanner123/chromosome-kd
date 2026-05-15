@@ -1,6 +1,7 @@
 _base_ = [
     '../_base_/models/mask-rcnn_r50_fpn.py',
-    '../_base_/datasets/youtube_vis.py', '../_base_/default_runtime.py'
+    '../_base_/datasets/youtube_vis.py',
+    '../_base_/default_runtime.py',
 ]
 
 detector = _base_.model
@@ -14,8 +15,7 @@ detector.test_cfg.rpn.update(dict(nms_pre=200, max_per_img=200))
 detector.test_cfg.rcnn.update(dict(score_thr=0.01))
 detector['init_cfg'] = dict(
     type='Pretrained',
-    checkpoint=  # noqa: E251
-    'https://download.openmmlab.com/mmdetection/v2.0/mask_rcnn/mask_rcnn_r50_fpn_1x_coco/mask_rcnn_r50_fpn_1x_coco_20200205-d4b0c5d6.pth'  # noqa: E501
+    checkpoint='https://download.openmmlab.com/mmdetection/v2.0/mask_rcnn/mask_rcnn_r50_fpn_1x_coco/mask_rcnn_r50_fpn_1x_coco_20200205-d4b0c5d6.pth',
 )
 del _base_.model
 
@@ -27,7 +27,8 @@ model = dict(
         std=[58.395, 57.12, 57.375],
         bgr_to_rgb=True,
         pad_mask=True,
-        pad_size_divisor=32),
+        pad_size_divisor=32,
+    ),
     detector=detector,
     track_head=dict(
         type='RoITrackHead',
@@ -35,13 +36,15 @@ model = dict(
             type='SingleRoIExtractor',
             roi_layer=dict(type='RoIAlign', output_size=7, sampling_ratio=0),
             out_channels=256,
-            featmap_strides=[4, 8, 16, 32]),
+            featmap_strides=[4, 8, 16, 32],
+        ),
         embed_head=dict(
             type='RoIEmbedHead',
             num_fcs=2,
             roi_feat_size=7,
             in_channels=256,
-            fc_out_channels=1024),
+            fc_out_channels=1024,
+        ),
         train_cfg=dict(
             assigner=dict(
                 type='MaxIoUAssigner',
@@ -49,19 +52,25 @@ model = dict(
                 neg_iou_thr=0.5,
                 min_pos_iou=0.5,
                 match_low_quality=True,
-                ignore_iof_thr=-1),
+                ignore_iof_thr=-1,
+            ),
             sampler=dict(
                 type='RandomSampler',
                 num=128,
                 pos_fraction=0.25,
                 neg_pos_ub=-1,
-                add_gt_as_proposals=True),
+                add_gt_as_proposals=True,
+            ),
             pos_weight=-1,
-            debug=False)),
+            debug=False,
+        ),
+    ),
     tracker=dict(
         type='MaskTrackRCNNTracker',
         match_weights=dict(det_score=1.0, iou=2.0, det_label=10.0),
-        num_frames_retain=20))
+        num_frames_retain=20,
+    ),
+)
 
 dataset_type = 'YouTubeVISDataset'
 data_root = 'data/youtube_vis_2019/'
@@ -81,13 +90,16 @@ train_dataloader = dict(
         dataset_version=dataset_version,
         ann_file='annotations/youtube_vis_2019_train.json',
         data_prefix=dict(img_path='train/JPEGImages'),
-        pipeline=_base_.train_pipeline))
+        pipeline=_base_.train_pipeline,
+    ),
+)
 
 # optimizer
 optim_wrapper = dict(
     type='OptimWrapper',
     optimizer=dict(type='SGD', lr=0.00125, momentum=0.9, weight_decay=0.0001),
-    clip_grad=dict(max_norm=35, norm_type=2))
+    clip_grad=dict(max_norm=35, norm_type=2),
+)
 
 # learning policy
 param_scheduler = [
@@ -96,23 +108,27 @@ param_scheduler = [
         start_factor=1.0 / 3.0,
         by_epoch=False,
         begin=0,
-        end=500),
+        end=500,
+    ),
     dict(
         type='MultiStepLR',
         begin=0,
         end=12,
         by_epoch=True,
         milestones=[8, 11],
-        gamma=0.1)
+        gamma=0.1,
+    ),
 ]
 
 # visualizer
 default_hooks = dict(
-    visualization=dict(type='TrackVisualizationHook', draw=False))
+    visualization=dict(type='TrackVisualizationHook', draw=False)
+)
 
 vis_backends = [dict(type='LocalVisBackend')]
 visualizer = dict(
-    type='TrackLocalVisualizer', vis_backends=vis_backends, name='visualizer')
+    type='TrackLocalVisualizer', vis_backends=vis_backends, name='visualizer'
+)
 
 # runtime settings
 train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=12, val_begin=13)
@@ -124,7 +140,8 @@ val_evaluator = dict(
     type='YouTubeVISMetric',
     metric='youtube_vis_ap',
     outfile_prefix='./youtube_vis_results',
-    format_only=True)
+    format_only=True,
+)
 test_evaluator = val_evaluator
 
 del detector

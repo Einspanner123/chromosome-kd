@@ -1,6 +1,6 @@
 _base_ = 'grounding_dino_swin-t_pretrain_obj365.py'
 
-load_from = 'https://download.openmmlab.com/mmdetection/v3.0/mm_grounding_dino/grounding_dino_swin-l_pretrain_obj365_goldg/grounding_dino_swin-l_pretrain_obj365_goldg-34dcdc53.pth'  # noqa
+load_from = 'https://download.openmmlab.com/mmdetection/v3.0/mm_grounding_dino/grounding_dino_swin-l_pretrain_obj365_goldg/grounding_dino_swin-l_pretrain_obj365_goldg-34dcdc53.pth'
 
 num_levels = 5
 model = dict(
@@ -17,8 +17,8 @@ model = dict(
         mlp_ratio=4,
         qkv_bias=True,
         qk_scale=None,
-        drop_rate=0.,
-        attn_drop_rate=0.,
+        drop_rate=0.0,
+        attn_drop_rate=0.0,
         drop_path_rate=0.2,
         patch_norm=True,
         out_indices=(0, 1, 2, 3),
@@ -27,10 +27,12 @@ model = dict(
         with_cp=True,
         convert_weights=True,
         frozen_stages=-1,
-        init_cfg=None),
+        init_cfg=None,
+    ),
     neck=dict(in_channels=[192, 384, 768, 1536], num_outs=num_levels),
     encoder=dict(layer_cfg=dict(self_attn_cfg=dict(num_levels=num_levels))),
-    decoder=dict(layer_cfg=dict(cross_attn_cfg=dict(num_levels=num_levels))))
+    decoder=dict(layer_cfg=dict(cross_attn_cfg=dict(num_levels=num_levels))),
+)
 
 # --------------------------- object365v2 od dataset---------------------------
 # objv2_backend_args = dict(
@@ -51,10 +53,21 @@ objv2_train_pipeline = [
             [
                 dict(
                     type='RandomChoiceResize',
-                    scales=[(480, 1333), (512, 1333), (544, 1333), (576, 1333),
-                            (608, 1333), (640, 1333), (672, 1333), (704, 1333),
-                            (736, 1333), (768, 1333), (800, 1333)],
-                    keep_ratio=True)
+                    scales=[
+                        (480, 1333),
+                        (512, 1333),
+                        (544, 1333),
+                        (576, 1333),
+                        (608, 1333),
+                        (640, 1333),
+                        (672, 1333),
+                        (704, 1333),
+                        (736, 1333),
+                        (768, 1333),
+                        (800, 1333),
+                    ],
+                    keep_ratio=True,
+                )
             ],
             [
                 dict(
@@ -62,20 +75,34 @@ objv2_train_pipeline = [
                     # The radio of all image in train dataset < 7
                     # follow the original implement
                     scales=[(400, 4200), (500, 4200), (600, 4200)],
-                    keep_ratio=True),
+                    keep_ratio=True,
+                ),
                 dict(
                     type='RandomCrop',
                     crop_type='absolute_range',
                     crop_size=(384, 600),
-                    allow_negative_crop=True),
+                    allow_negative_crop=True,
+                ),
                 dict(
                     type='RandomChoiceResize',
-                    scales=[(480, 1333), (512, 1333), (544, 1333), (576, 1333),
-                            (608, 1333), (640, 1333), (672, 1333), (704, 1333),
-                            (736, 1333), (768, 1333), (800, 1333)],
-                    keep_ratio=True)
-            ]
-        ]),
+                    scales=[
+                        (480, 1333),
+                        (512, 1333),
+                        (544, 1333),
+                        (576, 1333),
+                        (608, 1333),
+                        (640, 1333),
+                        (672, 1333),
+                        (704, 1333),
+                        (736, 1333),
+                        (768, 1333),
+                        (800, 1333),
+                    ],
+                    keep_ratio=True,
+                ),
+            ],
+        ],
+    ),
     dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
     dict(
         type='RandomSamplingNegPos',
@@ -83,12 +110,24 @@ objv2_train_pipeline = [
         num_sample_negative=85,
         # change this
         label_map_file='data/objects365v2/annotations/o365v2_label_map.json',
-        max_tokens=256),
+        max_tokens=256,
+    ),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor', 'flip', 'flip_direction', 'text',
-                   'custom_entities', 'tokens_positive', 'dataset_mode'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+            'flip',
+            'flip_direction',
+            'text',
+            'custom_entities',
+            'tokens_positive',
+            'dataset_mode',
+        ),
+    ),
 ]
 
 o365v2_dataset = dict(
@@ -123,10 +162,21 @@ oi_train_pipeline = [
             [
                 dict(
                     type='RandomChoiceResize',
-                    scales=[(480, 1333), (512, 1333), (544, 1333), (576, 1333),
-                            (608, 1333), (640, 1333), (672, 1333), (704, 1333),
-                            (736, 1333), (768, 1333), (800, 1333)],
-                    keep_ratio=True)
+                    scales=[
+                        (480, 1333),
+                        (512, 1333),
+                        (544, 1333),
+                        (576, 1333),
+                        (608, 1333),
+                        (640, 1333),
+                        (672, 1333),
+                        (704, 1333),
+                        (736, 1333),
+                        (768, 1333),
+                        (800, 1333),
+                    ],
+                    keep_ratio=True,
+                )
             ],
             [
                 dict(
@@ -134,20 +184,34 @@ oi_train_pipeline = [
                     # The radio of all image in train dataset < 7
                     # follow the original implement
                     scales=[(400, 4200), (500, 4200), (600, 4200)],
-                    keep_ratio=True),
+                    keep_ratio=True,
+                ),
                 dict(
                     type='RandomCrop',
                     crop_type='absolute_range',
                     crop_size=(384, 600),
-                    allow_negative_crop=True),
+                    allow_negative_crop=True,
+                ),
                 dict(
                     type='RandomChoiceResize',
-                    scales=[(480, 1333), (512, 1333), (544, 1333), (576, 1333),
-                            (608, 1333), (640, 1333), (672, 1333), (704, 1333),
-                            (736, 1333), (768, 1333), (800, 1333)],
-                    keep_ratio=True)
-            ]
-        ]),
+                    scales=[
+                        (480, 1333),
+                        (512, 1333),
+                        (544, 1333),
+                        (576, 1333),
+                        (608, 1333),
+                        (640, 1333),
+                        (672, 1333),
+                        (704, 1333),
+                        (736, 1333),
+                        (768, 1333),
+                        (800, 1333),
+                    ],
+                    keep_ratio=True,
+                ),
+            ],
+        ],
+    ),
     dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
     dict(
         type='RandomSamplingNegPos',
@@ -155,12 +219,24 @@ oi_train_pipeline = [
         num_sample_negative=85,
         # change this
         label_map_file='data/OpenImages/annotations/openimages_label_map.json',
-        max_tokens=256),
+        max_tokens=256,
+    ),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor', 'flip', 'flip_direction', 'text',
-                   'custom_entities', 'tokens_positive', 'dataset_mode'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+            'flip',
+            'flip_direction',
+            'text',
+            'custom_entities',
+            'tokens_positive',
+            'dataset_mode',
+        ),
+    ),
 ]
 
 oiv6_dataset = dict(
@@ -173,7 +249,8 @@ oiv6_dataset = dict(
     need_text=False,
     pipeline=oi_train_pipeline,
     return_classes=True,
-    backend_args=None)
+    backend_args=None,
+)
 
 # --------------------------- v3det od dataset---------------------------
 v3d_train_pipeline = [
@@ -186,10 +263,21 @@ v3d_train_pipeline = [
             [
                 dict(
                     type='RandomChoiceResize',
-                    scales=[(480, 1333), (512, 1333), (544, 1333), (576, 1333),
-                            (608, 1333), (640, 1333), (672, 1333), (704, 1333),
-                            (736, 1333), (768, 1333), (800, 1333)],
-                    keep_ratio=True)
+                    scales=[
+                        (480, 1333),
+                        (512, 1333),
+                        (544, 1333),
+                        (576, 1333),
+                        (608, 1333),
+                        (640, 1333),
+                        (672, 1333),
+                        (704, 1333),
+                        (736, 1333),
+                        (768, 1333),
+                        (800, 1333),
+                    ],
+                    keep_ratio=True,
+                )
             ],
             [
                 dict(
@@ -197,20 +285,34 @@ v3d_train_pipeline = [
                     # The radio of all image in train dataset < 7
                     # follow the original implement
                     scales=[(400, 4200), (500, 4200), (600, 4200)],
-                    keep_ratio=True),
+                    keep_ratio=True,
+                ),
                 dict(
                     type='RandomCrop',
                     crop_type='absolute_range',
                     crop_size=(384, 600),
-                    allow_negative_crop=True),
+                    allow_negative_crop=True,
+                ),
                 dict(
                     type='RandomChoiceResize',
-                    scales=[(480, 1333), (512, 1333), (544, 1333), (576, 1333),
-                            (608, 1333), (640, 1333), (672, 1333), (704, 1333),
-                            (736, 1333), (768, 1333), (800, 1333)],
-                    keep_ratio=True)
-            ]
-        ]),
+                    scales=[
+                        (480, 1333),
+                        (512, 1333),
+                        (544, 1333),
+                        (576, 1333),
+                        (608, 1333),
+                        (640, 1333),
+                        (672, 1333),
+                        (704, 1333),
+                        (736, 1333),
+                        (768, 1333),
+                        (800, 1333),
+                    ],
+                    keep_ratio=True,
+                ),
+            ],
+        ],
+    ),
     dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
     dict(
         type='RandomSamplingNegPos',
@@ -218,12 +320,24 @@ v3d_train_pipeline = [
         num_sample_negative=85,
         # change this
         label_map_file='data/V3Det/annotations/v3det_2023_v1_label_map.json',
-        max_tokens=256),
+        max_tokens=256,
+    ),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor', 'flip', 'flip_direction', 'text',
-                   'custom_entities', 'tokens_positive', 'dataset_mode'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+            'flip',
+            'flip_direction',
+            'text',
+            'custom_entities',
+            'tokens_positive',
+            'dataset_mode',
+        ),
+    ),
 ]
 v3det_dataset = dict(
     type='RepeatDataset',
@@ -238,7 +352,9 @@ v3det_dataset = dict(
         need_text=False,
         pipeline=v3d_train_pipeline,
         return_classes=True,
-        backend_args=None))
+        backend_args=None,
+    ),
+)
 
 # --------------------------- lvis od dataset---------------------------
 lvis_train_pipeline = [
@@ -251,10 +367,21 @@ lvis_train_pipeline = [
             [
                 dict(
                     type='RandomChoiceResize',
-                    scales=[(480, 1333), (512, 1333), (544, 1333), (576, 1333),
-                            (608, 1333), (640, 1333), (672, 1333), (704, 1333),
-                            (736, 1333), (768, 1333), (800, 1333)],
-                    keep_ratio=True)
+                    scales=[
+                        (480, 1333),
+                        (512, 1333),
+                        (544, 1333),
+                        (576, 1333),
+                        (608, 1333),
+                        (640, 1333),
+                        (672, 1333),
+                        (704, 1333),
+                        (736, 1333),
+                        (768, 1333),
+                        (800, 1333),
+                    ],
+                    keep_ratio=True,
+                )
             ],
             [
                 dict(
@@ -262,20 +389,34 @@ lvis_train_pipeline = [
                     # The radio of all image in train dataset < 7
                     # follow the original implement
                     scales=[(400, 4200), (500, 4200), (600, 4200)],
-                    keep_ratio=True),
+                    keep_ratio=True,
+                ),
                 dict(
                     type='RandomCrop',
                     crop_type='absolute_range',
                     crop_size=(384, 600),
-                    allow_negative_crop=True),
+                    allow_negative_crop=True,
+                ),
                 dict(
                     type='RandomChoiceResize',
-                    scales=[(480, 1333), (512, 1333), (544, 1333), (576, 1333),
-                            (608, 1333), (640, 1333), (672, 1333), (704, 1333),
-                            (736, 1333), (768, 1333), (800, 1333)],
-                    keep_ratio=True)
-            ]
-        ]),
+                    scales=[
+                        (480, 1333),
+                        (512, 1333),
+                        (544, 1333),
+                        (576, 1333),
+                        (608, 1333),
+                        (640, 1333),
+                        (672, 1333),
+                        (704, 1333),
+                        (736, 1333),
+                        (768, 1333),
+                        (800, 1333),
+                    ],
+                    keep_ratio=True,
+                ),
+            ],
+        ],
+    ),
     dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
     dict(
         type='RandomSamplingNegPos',
@@ -283,12 +424,24 @@ lvis_train_pipeline = [
         num_sample_negative=85,
         # change this
         label_map_file='data/coco/annotations/lvis_v1_label_map.json',
-        max_tokens=256),
+        max_tokens=256,
+    ),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor', 'flip', 'flip_direction', 'text',
-                   'custom_entities', 'tokens_positive', 'dataset_mode'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+            'flip',
+            'flip_direction',
+            'text',
+            'custom_entities',
+            'tokens_positive',
+            'dataset_mode',
+        ),
+    ),
 ]
 lvis_dataset = dict(
     type='ClassBalancedDataset',
@@ -303,7 +456,9 @@ lvis_dataset = dict(
         need_text=False,  # change this
         pipeline=lvis_train_pipeline,
         return_classes=True,
-        backend_args=None))
+        backend_args=None,
+    ),
+)
 
 # --------------------------- coco2017 od dataset---------------------------
 coco2017_train_dataset = dict(
@@ -318,7 +473,9 @@ coco2017_train_dataset = dict(
         filter_cfg=dict(filter_empty_gt=False),
         pipeline=_base_.train_pipeline,
         return_classes=True,
-        backend_args=None))
+        backend_args=None,
+    ),
+)
 
 # --------------------------- flickr30k vg dataset---------------------------
 flickr30k_dataset = dict(
@@ -333,7 +490,9 @@ flickr30k_dataset = dict(
         filter_cfg=dict(filter_empty_gt=False),
         pipeline=_base_.train_pipeline,
         return_classes=True,
-        backend_args=None))
+        backend_args=None,
+    ),
+)
 
 # --------------------------- gqa vg dataset---------------------------
 gqa_dataset = dict(
@@ -345,7 +504,8 @@ gqa_dataset = dict(
     filter_cfg=dict(filter_empty_gt=False),
     pipeline=_base_.train_pipeline,
     return_classes=True,
-    backend_args=None)
+    backend_args=None,
+)
 
 # --------------------------- coco2014 vg dataset---------------------------
 coco2014_vg_dataset = dict(
@@ -357,7 +517,8 @@ coco2014_vg_dataset = dict(
     filter_cfg=dict(filter_empty_gt=False),
     pipeline=_base_.train_pipeline,
     return_classes=True,
-    backend_args=None)
+    backend_args=None,
+)
 
 # --------------------------- refcoco vg dataset---------------------------
 refcoco_dataset = dict(
@@ -372,7 +533,9 @@ refcoco_dataset = dict(
         filter_cfg=dict(filter_empty_gt=False),
         pipeline=_base_.train_pipeline,
         return_classes=True,
-        backend_args=None))
+        backend_args=None,
+    ),
+)
 
 # --------------------------- refcoco+ vg dataset---------------------------
 refcoco_plus_dataset = dict(
@@ -387,7 +550,9 @@ refcoco_plus_dataset = dict(
         filter_cfg=dict(filter_empty_gt=False),
         pipeline=_base_.train_pipeline,
         return_classes=True,
-        backend_args=None))
+        backend_args=None,
+    ),
+)
 
 # --------------------------- refcocog vg dataset---------------------------
 refcocog_dataset = dict(
@@ -402,7 +567,9 @@ refcocog_dataset = dict(
         filter_cfg=dict(filter_empty_gt=False),
         pipeline=_base_.train_pipeline,
         return_classes=True,
-        backend_args=None))
+        backend_args=None,
+    ),
+)
 
 # --------------------------- grefcoco vg dataset---------------------------
 grefcoco_dataset = dict(
@@ -417,7 +584,9 @@ grefcoco_dataset = dict(
         filter_cfg=dict(filter_empty_gt=False),
         pipeline=_base_.train_pipeline,
         return_classes=True,
-        backend_args=None))
+        backend_args=None,
+    ),
+)
 
 # --------------------------- grit vg dataset---------------------------
 # grit_backend_args = dict(
@@ -438,10 +607,21 @@ grit_train_pipeline = [
             [
                 dict(
                     type='RandomChoiceResize',
-                    scales=[(480, 1333), (512, 1333), (544, 1333), (576, 1333),
-                            (608, 1333), (640, 1333), (672, 1333), (704, 1333),
-                            (736, 1333), (768, 1333), (800, 1333)],
-                    keep_ratio=True)
+                    scales=[
+                        (480, 1333),
+                        (512, 1333),
+                        (544, 1333),
+                        (576, 1333),
+                        (608, 1333),
+                        (640, 1333),
+                        (672, 1333),
+                        (704, 1333),
+                        (736, 1333),
+                        (768, 1333),
+                        (800, 1333),
+                    ],
+                    keep_ratio=True,
+                )
             ],
             [
                 dict(
@@ -449,31 +629,57 @@ grit_train_pipeline = [
                     # The radio of all image in train dataset < 7
                     # follow the original implement
                     scales=[(400, 4200), (500, 4200), (600, 4200)],
-                    keep_ratio=True),
+                    keep_ratio=True,
+                ),
                 dict(
                     type='RandomCrop',
                     crop_type='absolute_range',
                     crop_size=(384, 600),
-                    allow_negative_crop=True),
+                    allow_negative_crop=True,
+                ),
                 dict(
                     type='RandomChoiceResize',
-                    scales=[(480, 1333), (512, 1333), (544, 1333), (576, 1333),
-                            (608, 1333), (640, 1333), (672, 1333), (704, 1333),
-                            (736, 1333), (768, 1333), (800, 1333)],
-                    keep_ratio=True)
-            ]
-        ]),
+                    scales=[
+                        (480, 1333),
+                        (512, 1333),
+                        (544, 1333),
+                        (576, 1333),
+                        (608, 1333),
+                        (640, 1333),
+                        (672, 1333),
+                        (704, 1333),
+                        (736, 1333),
+                        (768, 1333),
+                        (800, 1333),
+                    ],
+                    keep_ratio=True,
+                ),
+            ],
+        ],
+    ),
     dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
     dict(
         type='RandomSamplingNegPos',
         tokenizer_name=_base_.lang_model_name,
         num_sample_negative=85,
-        max_tokens=256),
+        max_tokens=256,
+    ),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor', 'flip', 'flip_direction', 'text',
-                   'custom_entities', 'tokens_positive', 'dataset_mode'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+            'flip',
+            'flip_direction',
+            'text',
+            'custom_entities',
+            'tokens_positive',
+            'dataset_mode',
+        ),
+    ),
 ]
 
 grit_dataset = dict(
@@ -485,7 +691,8 @@ grit_dataset = dict(
     filter_cfg=dict(filter_empty_gt=False),
     pipeline=grit_train_pipeline,
     return_classes=True,
-    backend_args=None)
+    backend_args=None,
+)
 
 # --------------------------- dataloader---------------------------
 train_dataloader = dict(
@@ -497,22 +704,26 @@ train_dataloader = dict(
         ratio_mode=True,
         # OD ~ 1.74+1.67*0.5+0.18*2+0.12*2+0.1=3.2
         # vg ~ 0.15*2+0.62*1+0.49*1+0.12*2+0.12*2+0.08*3+0.19*2+9*0.09=3.3
-        dataset_size=[-1, 0.5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0.09]),
-    dataset=dict(datasets=[
-        o365v2_dataset,  # 1.74M
-        oiv6_dataset,  # 1.67M
-        v3det_dataset,  # 0.18M
-        coco2017_train_dataset,  # 0.12M
-        lvis_dataset,  # 0.1M
-        flickr30k_dataset,  # 0.15M
-        gqa_dataset,  # 0.62M
-        coco2014_vg_dataset,  # 0.49M
-        refcoco_dataset,  # 0.12M
-        refcoco_plus_dataset,  # 0.12M
-        refcocog_dataset,  # 0.08M
-        grefcoco_dataset,  # 0.19M
-        grit_dataset  # 9M
-    ]))
+        dataset_size=[-1, 0.5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0.09],
+    ),
+    dataset=dict(
+        datasets=[
+            o365v2_dataset,  # 1.74M
+            oiv6_dataset,  # 1.67M
+            v3det_dataset,  # 0.18M
+            coco2017_train_dataset,  # 0.12M
+            lvis_dataset,  # 0.1M
+            flickr30k_dataset,  # 0.15M
+            gqa_dataset,  # 0.62M
+            coco2014_vg_dataset,  # 0.49M
+            refcoco_dataset,  # 0.12M
+            refcoco_plus_dataset,  # 0.12M
+            refcocog_dataset,  # 0.08M
+            grefcoco_dataset,  # 0.19M
+            grit_dataset,  # 9M
+        ]
+    ),
+)
 
 # 4NODES * 8GPU
 optim_wrapper = dict(optimizer=dict(lr=0.0001))
@@ -522,7 +733,8 @@ train_cfg = dict(
     _delete_=True,
     type='IterBasedTrainLoop',
     max_iters=max_iter,
-    val_interval=13000)
+    val_interval=13000,
+)
 
 param_scheduler = [
     dict(type='LinearLR', start_factor=0.1, by_epoch=False, begin=0, end=1000),
@@ -532,9 +744,11 @@ param_scheduler = [
         end=max_iter,
         by_epoch=False,
         milestones=[210000],
-        gamma=0.1)
+        gamma=0.1,
+    ),
 ]
 
 default_hooks = dict(
-    checkpoint=dict(by_epoch=False, interval=13000, max_keep_ckpts=30))
+    checkpoint=dict(by_epoch=False, interval=13000, max_keep_ckpts=30)
+)
 log_processor = dict(by_epoch=False)

@@ -7,7 +7,8 @@ from mmengine.fileio import dump, load
 def parse_args():
     parser = argparse.ArgumentParser(
         description='Generate COCO test image information '
-        'for COCO panoptic segmentation.')
+        'for COCO panoptic segmentation.'
+    )
     parser.add_argument('data_root', help='Path to COCO annotation directory.')
     args = parser.parse_args()
 
@@ -25,8 +26,9 @@ def main():
     # has attribute `isthing`.
     test_info = test_old_info
     test_info.update({'categories': val_info['categories']})
-    dump(test_info, osp.join(data_root,
-                             'panoptic_image_info_test-dev2017.json'))
+    dump(
+        test_info, osp.join(data_root, 'panoptic_image_info_test-dev2017.json')
+    )
 
 
 if __name__ == '__main__':

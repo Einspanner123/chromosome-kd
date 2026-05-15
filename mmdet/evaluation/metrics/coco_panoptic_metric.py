@@ -14,8 +14,11 @@ from terminaltables import AsciiTable
 
 from mmdet.datasets.api_wrappers import COCOPanoptic
 from mmdet.registry import METRICS
-from ..functional import (INSTANCE_OFFSET, pq_compute_multi_core,
-                          pq_compute_single_core)
+from ..functional import (
+    INSTANCE_OFFSET,
+    pq_compute_multi_core,
+    pq_compute_single_core,
+)
 
 try:
     import panopticapi
@@ -68,24 +71,28 @@ class CocoPanopticMetric(BaseMetric):
             If prefix is not provided in the argument, self.default_prefix
             will be used instead. Defaults to None.
     """
+
     default_prefix: Optional[str] = 'coco_panoptic'
 
-    def __init__(self,
-                 ann_file: Optional[str] = None,
-                 seg_prefix: Optional[str] = None,
-                 classwise: bool = False,
-                 format_only: bool = False,
-                 outfile_prefix: Optional[str] = None,
-                 nproc: int = 32,
-                 file_client_args: dict = None,
-                 backend_args: dict = None,
-                 collect_device: str = 'cpu',
-                 prefix: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        ann_file: Optional[str] = None,
+        seg_prefix: Optional[str] = None,
+        classwise: bool = False,
+        format_only: bool = False,
+        outfile_prefix: Optional[str] = None,
+        nproc: int = 32,
+        file_client_args: dict = None,
+        backend_args: dict = None,
+        collect_device: str = 'cpu',
+        prefix: Optional[str] = None,
+    ) -> None:
         if panopticapi is None:
             raise RuntimeError(
                 'panopticapi is not installed, please install it by: '
                 'pip install git+https://github.com/cocodataset/'
-                'panopticapi.git.')
+                'panopticapi.git.'
+            )
 
         super().__init__(collect_device=collect_device, prefix=prefix)
         self.classwise = classwise
@@ -115,12 +122,13 @@ class CocoPanopticMetric(BaseMetric):
             raise RuntimeError(
                 'The `file_client_args` is deprecated, '
                 'please use `backend_args` instead, please refer to'
-                'https://github.com/open-mmlab/mmdetection/blob/main/configs/_base_/datasets/coco_detection.py'  # noqa: E501
+                'https://github.com/open-mmlab/mmdetection/blob/main/configs/_base_/datasets/coco_detection.py'
             )
 
         if ann_file:
             with get_local_path(
-                    ann_file, backend_args=self.backend_args) as local_path:
+                ann_file, backend_args=self.backend_args
+            ) as local_path:
                 self._coco_api = COCOPanoptic(local_path)
             self.categories = self._coco_api.cats
         else:
@@ -132,8 +140,9 @@ class CocoPanopticMetric(BaseMetric):
         if self.tmp_dir is not None:
             self.tmp_dir.cleanup()
 
-    def gt_to_coco_json(self, gt_dicts: Sequence[dict],
-                        outfile_prefix: str) -> Tuple[str, str]:
+    def gt_to_coco_json(
+        self, gt_dicts: Sequence[dict], outfile_prefix: str
+    ) -> Tuple[str, str]:
         """Convert ground truth to coco panoptic segmentation format json file.
 
         Args:
@@ -163,7 +172,7 @@ class CocoPanopticMetric(BaseMetric):
                 'id': img_id,
                 'width': gt_dict['width'],
                 'height': gt_dict['height'],
-                'file_name': osp.split(gt_dict['seg_map_path'])[-1]
+                'file_name': osp.split(gt_dict['seg_map_path'])[-1],
             }
             image_infos.append(image_info)
 
@@ -186,7 +195,7 @@ class CocoPanopticMetric(BaseMetric):
                     'category_id': label,
                     'isthing': isthing,
                     'iscrowd': iscrowd,
-                    'area': mask.sum()
+                    'area': mask.sum(),
                 }
                 segments_info.append(new_segment_info)
 
@@ -194,13 +203,14 @@ class CocoPanopticMetric(BaseMetric):
             annotation = dict(
                 image_id=img_id,
                 segments_info=segments_info,
-                file_name=segm_file)
+                file_name=segm_file,
+            )
             annotations.append(annotation)
             pan_png = id2rgb(pan_png)
 
         info = dict(
             date_created=str(datetime.datetime.now()),
-            description='Coco json file converted by mmdet CocoPanopticMetric.'
+            description='Coco json file converted by mmdet CocoPanopticMetric.',
         )
         coco_json = dict(
             info=info,
@@ -213,8 +223,9 @@ class CocoPanopticMetric(BaseMetric):
         dump(coco_json, converted_json_path)
         return converted_json_path, gt_folder
 
-    def result2json(self, results: Sequence[dict],
-                    outfile_prefix: str) -> Tuple[str, str]:
+    def result2json(
+        self, results: Sequence[dict], outfile_prefix: str
+    ) -> Tuple[str, str]:
         """Dump the panoptic results to a COCO style json file and a directory.
 
         Args:
@@ -244,14 +255,12 @@ class CocoPanopticMetric(BaseMetric):
         json_filename = f'{outfile_prefix}.panoptic.json'
         dump(pan_json_results, json_filename)
         return json_filename, (
-            self.seg_out_dir
-            if self.tmp_dir is None else tempfile.gettempdir())
+            self.seg_out_dir if self.tmp_dir is None else tempfile.gettempdir()
+        )
 
-    def _parse_predictions(self,
-                           pred: dict,
-                           img_id: int,
-                           segm_file: str,
-                           label2cat=None) -> dict:
+    def _parse_predictions(
+        self, pred: dict, img_id: int, segm_file: str, label2cat=None
+    ) -> dict:
         """Parse panoptic segmentation predictions.
 
         Args:
@@ -269,29 +278,33 @@ class CocoPanopticMetric(BaseMetric):
         # shape (1, H, W) -> (H, W)
         pan = pred['pred_panoptic_seg']['sem_seg'].cpu().numpy()[0]
         ignore_index = pred['pred_panoptic_seg'].get(
-            'ignore_index', len(self.dataset_meta['classes']))
+            'ignore_index', len(self.dataset_meta['classes'])
+        )
         pan_labels = np.unique(pan)
         segments_info = []
         for pan_label in pan_labels:
             sem_label = pan_label % INSTANCE_OFFSET
             # We reserve the length of dataset_meta['classes']
             # and ignore_index for VOID label
-            if sem_label == len(
-                    self.dataset_meta['classes']) or sem_label == ignore_index:
+            if (
+                sem_label == len(self.dataset_meta['classes'])
+                or sem_label == ignore_index
+            ):
                 continue
             mask = pan == pan_label
             area = mask.sum()
-            segments_info.append({
-                'id':
-                int(pan_label),
-                # when ann_file provided, sem_label should be cat_id, otherwise
-                # sem_label should be a continuous id, not the cat_id
-                # defined in dataset
-                'category_id':
-                label2cat[sem_label] if label2cat else sem_label,
-                'area':
-                int(area)
-            })
+            segments_info.append(
+                {
+                    'id': int(pan_label),
+                    # when ann_file provided, sem_label should be cat_id, otherwise
+                    # sem_label should be a continuous id, not the cat_id
+                    # defined in dataset
+                    'category_id': label2cat[sem_label]
+                    if label2cat
+                    else sem_label,
+                    'area': int(area),
+                }
+            )
         # evaluation script uses 0 for VOID label.
         pan[pan % INSTANCE_OFFSET == len(self.dataset_meta['classes'])] = VOID
         pan[pan % INSTANCE_OFFSET == ignore_index] = VOID
@@ -301,7 +314,7 @@ class CocoPanopticMetric(BaseMetric):
         result = {
             'image_id': img_id,
             'segments_info': segments_info,
-            'file_name': segm_file
+            'file_name': segm_file,
         }
 
         return result
@@ -316,26 +329,30 @@ class CocoPanopticMetric(BaseMetric):
         if self._coco_api is None:
             categories = dict()
             for id, name in enumerate(self.dataset_meta['classes']):
-                isthing = 1 if name in self.dataset_meta['thing_classes']\
-                    else 0
+                isthing = (
+                    1 if name in self.dataset_meta['thing_classes'] else 0
+                )
                 categories[id] = {'id': id, 'name': name, 'isthing': isthing}
             label2cat = None
         else:
             categories = self.categories
             cat_ids = self._coco_api.get_cat_ids(
-                cat_names=self.dataset_meta['classes'])
+                cat_names=self.dataset_meta['classes']
+            )
             label2cat = {i: cat_id for i, cat_id in enumerate(cat_ids)}
 
         for data_sample in data_samples:
             # parse pred
             img_id = data_sample['img_id']
             segm_file = osp.basename(data_sample['img_path']).replace(
-                '.jpg', '.png')
+                '.jpg', '.png'
+            )
             result = self._parse_predictions(
                 pred=data_sample,
                 img_id=img_id,
                 segm_file=segm_file,
-                label2cat=label2cat)
+                label2cat=label2cat,
+            )
 
             # parse gt
             gt = dict()
@@ -367,7 +384,7 @@ class CocoPanopticMetric(BaseMetric):
                         'category_id': label,
                         'isthing': isthing,
                         'iscrowd': iscrowd,
-                        'area': mask.sum()
+                        'area': mask.sum(),
                     }
                     segments_info.append(new_segment_info)
             else:
@@ -382,7 +399,8 @@ class CocoPanopticMetric(BaseMetric):
                 gt_folder=self.seg_prefix,
                 pred_folder=self.seg_out_dir,
                 categories=categories,
-                backend_args=self.backend_args)
+                backend_args=self.backend_args,
+            )
 
             self.results.append(pq_stats)
 
@@ -397,9 +415,11 @@ class CocoPanopticMetric(BaseMetric):
             # parse pred
             img_id = data_sample['img_id']
             segm_file = osp.basename(data_sample['img_path']).replace(
-                '.jpg', '.png')
+                '.jpg', '.png'
+            )
             result = self._parse_predictions(
-                pred=data_sample, img_id=img_id, segm_file=segm_file)
+                pred=data_sample, img_id=img_id, segm_file=segm_file
+            )
 
             # parse gt
             gt = dict()
@@ -461,47 +481,55 @@ class CocoPanopticMetric(BaseMetric):
                 # use converted gt json file to initialize coco api
                 logger.info('Converting ground truth to coco format...')
                 coco_json_path, gt_folder = self.gt_to_coco_json(
-                    gt_dicts=gts, outfile_prefix=self.outfile_prefix)
+                    gt_dicts=gts, outfile_prefix=self.outfile_prefix
+                )
                 self._coco_api = COCOPanoptic(coco_json_path)
             else:
                 gt_folder = self.seg_prefix
 
             self.cat_ids = self._coco_api.get_cat_ids(
-                cat_names=self.dataset_meta['classes'])
+                cat_names=self.dataset_meta['classes']
+            )
             self.cat2label = {
-                cat_id: i
-                for i, cat_id in enumerate(self.cat_ids)
+                cat_id: i for i, cat_id in enumerate(self.cat_ids)
             }
             self.img_ids = self._coco_api.get_img_ids()
             self.categories = self._coco_api.cats
 
             # convert predictions to coco format and dump to json file
             json_filename, pred_folder = self.result2json(
-                results=preds, outfile_prefix=self.outfile_prefix)
+                results=preds, outfile_prefix=self.outfile_prefix
+            )
 
             if self.format_only:
-                logger.info('results are saved in '
-                            f'{osp.dirname(self.outfile_prefix)}')
+                logger.info(
+                    f'results are saved in {osp.dirname(self.outfile_prefix)}'
+                )
                 return dict()
 
             imgs = self._coco_api.imgs
             gt_json = self._coco_api.img_ann_map
-            gt_json = [{
-                'image_id': k,
-                'segments_info': v,
-                'file_name': imgs[k]['segm_file']
-            } for k, v in gt_json.items()]
+            gt_json = [
+                {
+                    'image_id': k,
+                    'segments_info': v,
+                    'file_name': imgs[k]['segm_file'],
+                }
+                for k, v in gt_json.items()
+            ]
             pred_json = load(json_filename)
             pred_json = dict(
-                (el['image_id'], el) for el in pred_json['annotations'])
+                (el['image_id'], el) for el in pred_json['annotations']
+            )
 
             # match the gt_anns and pred_anns in the same image
             matched_annotations_list = []
             for gt_ann in gt_json:
                 img_id = gt_ann['image_id']
                 if img_id not in pred_json.keys():
-                    raise Exception('no prediction for the image'
-                                    ' with id: {}'.format(img_id))
+                    raise Exception(
+                        f'no prediction for the image with id: {img_id}'
+                    )
                 matched_annotations_list.append((gt_ann, pred_json[img_id]))
 
             pq_stat = pq_compute_multi_core(
@@ -510,19 +538,21 @@ class CocoPanopticMetric(BaseMetric):
                 pred_folder,
                 self.categories,
                 backend_args=self.backend_args,
-                nproc=self.nproc)
+                nproc=self.nproc,
+            )
 
         else:
             # aggregate the results generated in process
             if self._coco_api is None:
                 categories = dict()
                 for id, name in enumerate(self.dataset_meta['classes']):
-                    isthing = 1 if name in self.dataset_meta[
-                        'thing_classes'] else 0
+                    isthing = (
+                        1 if name in self.dataset_meta['thing_classes'] else 0
+                    )
                     categories[id] = {
                         'id': id,
                         'name': name,
-                        'isthing': isthing
+                        'isthing': isthing,
                     }
                 self.categories = categories
 
@@ -535,7 +565,8 @@ class CocoPanopticMetric(BaseMetric):
 
         for name, isthing in metrics:
             pq_results[name], classwise_results = pq_stat.pq_average(
-                self.categories, isthing=isthing)
+                self.categories, isthing=isthing
+            )
             if name == 'All':
                 pq_results['classwise'] = classwise_results
 
@@ -543,8 +574,10 @@ class CocoPanopticMetric(BaseMetric):
         if self.classwise:
             classwise_results = {
                 k: v
-                for k, v in zip(self.dataset_meta['classes'],
-                                pq_results['classwise'].values())
+                for k, v in zip(
+                    self.dataset_meta['classes'],
+                    pq_results['classwise'].values(),
+                )
             }
 
         print_panoptic_table(pq_results, classwise_results, logger=logger)
@@ -576,9 +609,10 @@ def parse_pq_results(pq_results: dict) -> dict:
 
 
 def print_panoptic_table(
-        pq_results: dict,
-        classwise_results: Optional[dict] = None,
-        logger: Optional[Union['MMLogger', str]] = None) -> None:
+    pq_results: dict,
+    classwise_results: Optional[dict] = None,
+    logger: Optional[Union['MMLogger', str]] = None,
+) -> None:
     """Print the panoptic evaluation results table.
 
     Args:
@@ -602,17 +636,21 @@ def print_panoptic_table(
     print_log('Panoptic Evaluation Results:\n' + table.table, logger=logger)
 
     if classwise_results is not None:
-        class_metrics = [(name, ) + tuple(f'{(metrics[k] * 100):0.3f}'
-                                          for k in ['pq', 'sq', 'rq'])
-                         for name, metrics in classwise_results.items()]
+        class_metrics = [
+            (name,)
+            + tuple(f'{(metrics[k] * 100):0.3f}' for k in ['pq', 'sq', 'rq'])
+            for name, metrics in classwise_results.items()
+        ]
         num_columns = min(8, len(class_metrics) * 4)
         results_flatten = list(itertools.chain(*class_metrics))
         headers = ['category', 'PQ', 'SQ', 'RQ'] * (num_columns // 4)
         results_2d = itertools.zip_longest(
-            *[results_flatten[i::num_columns] for i in range(num_columns)])
+            *[results_flatten[i::num_columns] for i in range(num_columns)]
+        )
         data = [headers]
         data += [result for result in results_2d]
         table = AsciiTable(data)
         print_log(
             'Classwise Panoptic Evaluation Results:\n' + table.table,
-            logger=logger)
+            logger=logger,
+        )

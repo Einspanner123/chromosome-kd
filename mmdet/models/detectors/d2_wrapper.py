@@ -23,9 +23,9 @@ except ImportError:
     detectron2 = None
 
 
-def _to_cfgnode_list(cfg: ConfigType,
-                     config_list: list = [],
-                     father_name: str = 'MODEL') -> tuple:
+def _to_cfgnode_list(
+    cfg: ConfigType, config_list: list = [], father_name: str = 'MODEL'
+) -> tuple:
     """Convert the key and value of mmengine.ConfigDict into a list.
 
     Args:
@@ -45,8 +45,9 @@ def _to_cfgnode_list(cfg: ConfigType,
     for key, value in cfg.items():
         name = f'{father_name}.{key.upper()}'
         if isinstance(value, ConfigDict) or isinstance(value, dict):
-            config_list, fater_name = \
-                _to_cfgnode_list(value, config_list, name)
+            config_list, fater_name = _to_cfgnode_list(
+                value, config_list, name
+            )
         else:
             config_list.append(name)
             config_list.append(value)
@@ -54,8 +55,9 @@ def _to_cfgnode_list(cfg: ConfigType,
     return config_list, father_name
 
 
-def convert_d2_pred_to_datasample(data_samples: SampleList,
-                                  d2_results_list: list) -> SampleList:
+def convert_d2_pred_to_datasample(
+    data_samples: SampleList, d2_results_list: list
+) -> SampleList:
     """Convert the Detectron2's result to DetDataSample.
 
     Args:
@@ -108,14 +110,17 @@ class Detectron2Wrapper(BaseDetector):
             Defaults to False.
     """
 
-    def __init__(self,
-                 detector: ConfigType,
-                 bgr_to_rgb: bool = False,
-                 rgb_to_bgr: bool = False) -> None:
+    def __init__(
+        self,
+        detector: ConfigType,
+        bgr_to_rgb: bool = False,
+        rgb_to_bgr: bool = False,
+    ) -> None:
         if detectron2 is None:
             raise ImportError('Please install Detectron2 first')
         assert not (bgr_to_rgb and rgb_to_bgr), (
-            '`bgr2rgb` and `rgb2bgr` cannot be set to True at the same time')
+            '`bgr2rgb` and `rgb2bgr` cannot be set to True at the same time'
+        )
         super().__init__()
         self._channel_conversion = rgb_to_bgr or bgr_to_rgb
         cfgnode_list, _ = _to_cfgnode_list(detector)
@@ -132,11 +137,13 @@ class Detectron2Wrapper(BaseDetector):
         change the code in Detectron2.
         """
         from detectron2.checkpoint import DetectionCheckpointer
+
         checkpointer = DetectionCheckpointer(model=self.d2_model)
         checkpointer.load(self.cfg.MODEL.WEIGHTS, checkpointables=[])
 
-    def loss(self, batch_inputs: Tensor,
-             batch_data_samples: SampleList) -> Union[dict, tuple]:
+    def loss(
+        self, batch_inputs: Tensor, batch_data_samples: SampleList
+    ) -> Union[dict, tuple]:
         """Calculate losses from a batch of inputs and data samples.
 
         The inputs will first convert to the Detectron2 type and feed into
@@ -155,7 +162,8 @@ class Detectron2Wrapper(BaseDetector):
         d2_batched_inputs = self._convert_to_d2_inputs(
             batch_inputs=batch_inputs,
             batch_data_samples=batch_data_samples,
-            training=True)
+            training=True,
+        )
 
         with self.storage as storage:  # noqa
             losses = self.d2_model(d2_batched_inputs)
@@ -163,8 +171,9 @@ class Detectron2Wrapper(BaseDetector):
         # you can use storage.latest() to get the detail information
         return losses
 
-    def predict(self, batch_inputs: Tensor,
-                batch_data_samples: SampleList) -> SampleList:
+    def predict(
+        self, batch_inputs: Tensor, batch_data_samples: SampleList
+    ) -> SampleList:
         """Predict results from a batch of inputs and data samples with post-
         processing.
 
@@ -195,11 +204,13 @@ class Detectron2Wrapper(BaseDetector):
         d2_batched_inputs = self._convert_to_d2_inputs(
             batch_inputs=batch_inputs,
             batch_data_samples=batch_data_samples,
-            training=False)
+            training=False,
+        )
         # results in detectron2 has already rescale
         d2_results_list = self.d2_model(d2_batched_inputs)
         batch_data_samples = convert_d2_pred_to_datasample(
-            data_samples=batch_data_samples, d2_results_list=d2_results_list)
+            data_samples=batch_data_samples, d2_results_list=d2_results_list
+        )
 
         return batch_data_samples
 
@@ -210,7 +221,8 @@ class Detectron2Wrapper(BaseDetector):
         processing.
         """
         raise NotImplementedError(
-            f'`_forward` is not implemented in {self.__class__.__name__}')
+            f'`_forward` is not implemented in {self.__class__.__name__}'
+        )
 
     def extract_feat(self, *args, **kwargs):
         """Extract features from images.
@@ -219,10 +231,12 @@ class Detectron2Wrapper(BaseDetector):
         """
         pass
 
-    def _convert_to_d2_inputs(self,
-                              batch_inputs: Tensor,
-                              batch_data_samples: SampleList,
-                              training=True) -> list:
+    def _convert_to_d2_inputs(
+        self,
+        batch_inputs: Tensor,
+        batch_data_samples: SampleList,
+        training=True,
+    ) -> list:
         """Convert inputs type to support Detectron2's model.
 
         Args:
@@ -276,15 +290,18 @@ class Detectron2Wrapper(BaseDetector):
                 elif isinstance(gt_masks, BitmapMasks):
                     d2_instances.gt_masks = D2_BitMasks(gt_masks.masks)
                 else:
-                    raise TypeError('The type of `gt_mask` can be '
-                                    '`PolygonMasks` or `BitMasks`, but get '
-                                    f'{type(gt_masks)}.')
+                    raise TypeError(
+                        'The type of `gt_mask` can be '
+                        '`PolygonMasks` or `BitMasks`, but get '
+                        f'{type(gt_masks)}.'
+                    )
             # convert to cpu and convert back to cuda to avoid
             # some potential error
             if training:
                 device = gt_boxes.device
                 d2_instances = filter_empty_instances(
-                    d2_instances.to('cpu')).to(device)
+                    d2_instances.to('cpu')
+                ).to(device)
                 d2_inputs['instances'] = d2_instances
             batched_d2_inputs.append(d2_inputs)
 

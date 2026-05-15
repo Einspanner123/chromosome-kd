@@ -57,7 +57,8 @@ class KnowledgeDistillationSingleStageDetector(SingleStageDetector):
             bbox_head=bbox_head,
             train_cfg=train_cfg,
             test_cfg=test_cfg,
-            data_preprocessor=data_preprocessor)
+            data_preprocessor=data_preprocessor,
+        )
         self.eval_teacher = eval_teacher
         # Build teacher model
         if isinstance(teacher_config, (str, Path)):
@@ -65,10 +66,12 @@ class KnowledgeDistillationSingleStageDetector(SingleStageDetector):
         self.teacher_model = MODELS.build(teacher_config['model'])
         if teacher_ckpt is not None:
             load_checkpoint(
-                self.teacher_model, teacher_ckpt, map_location='cpu')
+                self.teacher_model, teacher_ckpt, map_location='cpu'
+            )
 
-    def loss(self, batch_inputs: Tensor,
-             batch_data_samples: SampleList) -> dict:
+    def loss(
+        self, batch_inputs: Tensor, batch_data_samples: SampleList
+    ) -> dict:
         """
         Args:
             batch_inputs (Tensor): Input images of shape (N, C, H, W).

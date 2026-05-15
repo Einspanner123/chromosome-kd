@@ -14,8 +14,12 @@ from mmengine.structures import InstanceData
 from torch import Tensor
 
 from mmdet.registry import MODELS, TASK_UTILS
-from mmdet.utils import (ConfigType, InstanceList, OptConfigType,
-                         OptInstanceList)
+from mmdet.utils import (
+    ConfigType,
+    InstanceList,
+    OptConfigType,
+    OptInstanceList,
+)
 from ..task_modules.samplers import PseudoSampler
 from ..utils import filter_scores_and_topk, images_to_levels, multi_apply
 from .base_dense_head import BaseDenseHead
@@ -53,41 +57,42 @@ class YOLOV3Head(BaseDenseHead):
             YOLOV3 head. Defaults to None.
     """
 
-    def __init__(self,
-                 num_classes: int,
-                 in_channels: Sequence[int],
-                 out_channels: Sequence[int] = (1024, 512, 256),
-                 anchor_generator: ConfigType = dict(
-                     type='YOLOAnchorGenerator',
-                     base_sizes=[[(116, 90), (156, 198), (373, 326)],
-                                 [(30, 61), (62, 45), (59, 119)],
-                                 [(10, 13), (16, 30), (33, 23)]],
-                     strides=[32, 16, 8]),
-                 bbox_coder: ConfigType = dict(type='YOLOBBoxCoder'),
-                 featmap_strides: Sequence[int] = (32, 16, 8),
-                 one_hot_smoother: float = 0.,
-                 conv_cfg: OptConfigType = None,
-                 norm_cfg: ConfigType = dict(type='BN', requires_grad=True),
-                 act_cfg: ConfigType = dict(
-                     type='LeakyReLU', negative_slope=0.1),
-                 loss_cls: ConfigType = dict(
-                     type='CrossEntropyLoss',
-                     use_sigmoid=True,
-                     loss_weight=1.0),
-                 loss_conf: ConfigType = dict(
-                     type='CrossEntropyLoss',
-                     use_sigmoid=True,
-                     loss_weight=1.0),
-                 loss_xy: ConfigType = dict(
-                     type='CrossEntropyLoss',
-                     use_sigmoid=True,
-                     loss_weight=1.0),
-                 loss_wh: ConfigType = dict(type='MSELoss', loss_weight=1.0),
-                 train_cfg: OptConfigType = None,
-                 test_cfg: OptConfigType = None) -> None:
+    def __init__(
+        self,
+        num_classes: int,
+        in_channels: Sequence[int],
+        out_channels: Sequence[int] = (1024, 512, 256),
+        anchor_generator: ConfigType = dict(
+            type='YOLOAnchorGenerator',
+            base_sizes=[
+                [(116, 90), (156, 198), (373, 326)],
+                [(30, 61), (62, 45), (59, 119)],
+                [(10, 13), (16, 30), (33, 23)],
+            ],
+            strides=[32, 16, 8],
+        ),
+        bbox_coder: ConfigType = dict(type='YOLOBBoxCoder'),
+        featmap_strides: Sequence[int] = (32, 16, 8),
+        one_hot_smoother: float = 0.0,
+        conv_cfg: OptConfigType = None,
+        norm_cfg: ConfigType = dict(type='BN', requires_grad=True),
+        act_cfg: ConfigType = dict(type='LeakyReLU', negative_slope=0.1),
+        loss_cls: ConfigType = dict(
+            type='CrossEntropyLoss', use_sigmoid=True, loss_weight=1.0
+        ),
+        loss_conf: ConfigType = dict(
+            type='CrossEntropyLoss', use_sigmoid=True, loss_weight=1.0
+        ),
+        loss_xy: ConfigType = dict(
+            type='CrossEntropyLoss', use_sigmoid=True, loss_weight=1.0
+        ),
+        loss_wh: ConfigType = dict(type='MSELoss', loss_weight=1.0),
+        train_cfg: OptConfigType = None,
+        test_cfg: OptConfigType = None,
+    ) -> None:
         super().__init__(init_cfg=None)
         # Check params
-        assert (len(in_channels) == len(out_channels) == len(featmap_strides))
+        assert len(in_channels) == len(out_channels) == len(featmap_strides)
 
         self.num_classes = num_classes
         self.in_channels = in_channels
@@ -99,7 +104,8 @@ class YOLOV3Head(BaseDenseHead):
             self.assigner = TASK_UTILS.build(self.train_cfg['assigner'])
             if train_cfg.get('sampler', None) is not None:
                 self.sampler = TASK_UTILS.build(
-                    self.train_cfg['sampler'], context=self)
+                    self.train_cfg['sampler'], context=self
+                )
             else:
                 self.sampler = PseudoSampler()
 
@@ -119,8 +125,9 @@ class YOLOV3Head(BaseDenseHead):
         self.loss_wh = MODELS.build(loss_wh)
 
         self.num_base_priors = self.prior_generator.num_base_priors[0]
-        assert len(
-            self.prior_generator.num_base_priors) == len(featmap_strides)
+        assert len(self.prior_generator.num_base_priors) == len(
+            featmap_strides
+        )
         self._init_layers()
 
     @property
@@ -147,9 +154,11 @@ class YOLOV3Head(BaseDenseHead):
                 padding=1,
                 conv_cfg=self.conv_cfg,
                 norm_cfg=self.norm_cfg,
-                act_cfg=self.act_cfg)
-            conv_pred = nn.Conv2d(self.out_channels[i],
-                                  self.num_base_priors * self.num_attrib, 1)
+                act_cfg=self.act_cfg,
+            )
+            conv_pred = nn.Conv2d(
+                self.out_channels[i], self.num_base_priors * self.num_attrib, 1
+            )
 
             self.convs_bridge.append(conv_bridge)
             self.convs_pred.append(conv_pred)
@@ -167,8 +176,9 @@ class YOLOV3Head(BaseDenseHead):
             bias = conv_pred.bias.reshape(self.num_base_priors, -1)
             # init objectness with prior of 8 objects per feature map
             # refer to https://github.com/ultralytics/yolov3
-            nn.init.constant_(bias.data[:, 4],
-                              bias_init_with_prob(8 / (608 / stride)**2))
+            nn.init.constant_(
+                bias.data[:, 4], bias_init_with_prob(8 / (608 / stride) ** 2)
+            )
             nn.init.constant_(bias.data[:, 5:], bias_init_with_prob(0.01))
 
     def forward(self, x: Tuple[Tensor, ...]) -> tuple:
@@ -191,14 +201,16 @@ class YOLOV3Head(BaseDenseHead):
             pred_map = self.convs_pred[i](feat)
             pred_maps.append(pred_map)
 
-        return tuple(pred_maps),
+        return (tuple(pred_maps),)
 
-    def predict_by_feat(self,
-                        pred_maps: Sequence[Tensor],
-                        batch_img_metas: Optional[List[dict]],
-                        cfg: OptConfigType = None,
-                        rescale: bool = False,
-                        with_nms: bool = True) -> InstanceList:
+    def predict_by_feat(
+        self,
+        pred_maps: Sequence[Tensor],
+        batch_img_metas: Optional[List[dict]],
+        cfg: OptConfigType = None,
+        rescale: bool = False,
+        with_nms: bool = True,
+    ) -> InstanceList:
         """Transform a batch of output features extracted from the head into
         bbox results. It has been accelerated since PR #5991.
 
@@ -234,16 +246,19 @@ class YOLOV3Head(BaseDenseHead):
         featmap_sizes = [pred_map.shape[-2:] for pred_map in pred_maps]
 
         mlvl_anchors = self.prior_generator.grid_priors(
-            featmap_sizes, device=pred_maps[0].device)
+            featmap_sizes, device=pred_maps[0].device
+        )
         flatten_preds = []
         flatten_strides = []
         for pred, stride in zip(pred_maps, self.featmap_strides):
-            pred = pred.permute(0, 2, 3, 1).reshape(num_imgs, -1,
-                                                    self.num_attrib)
+            pred = pred.permute(0, 2, 3, 1).reshape(
+                num_imgs, -1, self.num_attrib
+            )
             pred[..., :2].sigmoid_()
             flatten_preds.append(pred)
             flatten_strides.append(
-                pred.new_tensor(stride).expand(pred.size(1)))
+                pred.new_tensor(stride).expand(pred.size(1))
+            )
 
         flatten_preds = torch.cat(flatten_preds, dim=1)
         flatten_bbox_preds = flatten_preds[..., :4]
@@ -251,13 +266,16 @@ class YOLOV3Head(BaseDenseHead):
         flatten_cls_scores = flatten_preds[..., 5:].sigmoid()
         flatten_anchors = torch.cat(mlvl_anchors)
         flatten_strides = torch.cat(flatten_strides)
-        flatten_bboxes = self.bbox_coder.decode(flatten_anchors,
-                                                flatten_bbox_preds,
-                                                flatten_strides.unsqueeze(-1))
+        flatten_bboxes = self.bbox_coder.decode(
+            flatten_anchors, flatten_bbox_preds, flatten_strides.unsqueeze(-1)
+        )
         results_list = []
-        for (bboxes, scores, objectness,
-             img_meta) in zip(flatten_bboxes, flatten_cls_scores,
-                              flatten_objectness, batch_img_metas):
+        for bboxes, scores, objectness, img_meta in zip(
+            flatten_bboxes,
+            flatten_cls_scores,
+            flatten_objectness,
+            batch_img_metas,
+        ):
             # Filtering out all predictions with conf < conf_thr
             conf_thr = cfg.get('conf_thr', -1)
             if conf_thr > 0:
@@ -269,7 +287,8 @@ class YOLOV3Head(BaseDenseHead):
             score_thr = cfg.get('score_thr', 0)
             nms_pre = cfg.get('nms_pre', -1)
             scores, labels, keep_idxs, _ = filter_scores_and_topk(
-                scores, score_thr, nms_pre)
+                scores, score_thr, nms_pre
+            )
 
             results = InstanceData(
                 scores=scores,
@@ -282,16 +301,18 @@ class YOLOV3Head(BaseDenseHead):
                 cfg=cfg,
                 rescale=rescale,
                 with_nms=with_nms,
-                img_meta=img_meta)
+                img_meta=img_meta,
+            )
             results_list.append(results)
         return results_list
 
     def loss_by_feat(
-            self,
-            pred_maps: Sequence[Tensor],
-            batch_gt_instances: InstanceList,
-            batch_img_metas: List[dict],
-            batch_gt_instances_ignore: OptInstanceList = None) -> dict:
+        self,
+        pred_maps: Sequence[Tensor],
+        batch_gt_instances: InstanceList,
+        batch_img_metas: List[dict],
+        batch_gt_instances_ignore: OptInstanceList = None,
+    ) -> dict:
         """Calculate the loss based on the features extracted by the detection
         head.
 
@@ -318,31 +339,39 @@ class YOLOV3Head(BaseDenseHead):
             pred_maps[i].shape[-2:] for i in range(self.num_levels)
         ]
         mlvl_anchors = self.prior_generator.grid_priors(
-            featmap_sizes, device=device)
+            featmap_sizes, device=device
+        )
         anchor_list = [mlvl_anchors for _ in range(num_imgs)]
 
         responsible_flag_list = []
         for img_id in range(num_imgs):
             responsible_flag_list.append(
-                self.responsible_flags(featmap_sizes,
-                                       batch_gt_instances[img_id].bboxes,
-                                       device))
+                self.responsible_flags(
+                    featmap_sizes, batch_gt_instances[img_id].bboxes, device
+                )
+            )
 
         target_maps_list, neg_maps_list = self.get_targets(
-            anchor_list, responsible_flag_list, batch_gt_instances)
+            anchor_list, responsible_flag_list, batch_gt_instances
+        )
 
         losses_cls, losses_conf, losses_xy, losses_wh = multi_apply(
-            self.loss_by_feat_single, pred_maps, target_maps_list,
-            neg_maps_list)
+            self.loss_by_feat_single,
+            pred_maps,
+            target_maps_list,
+            neg_maps_list,
+        )
 
         return dict(
             loss_cls=losses_cls,
             loss_conf=losses_conf,
             loss_xy=losses_xy,
-            loss_wh=losses_wh)
+            loss_wh=losses_wh,
+        )
 
-    def loss_by_feat_single(self, pred_map: Tensor, target_map: Tensor,
-                            neg_map: Tensor) -> tuple:
+    def loss_by_feat_single(
+        self, pred_map: Tensor, target_map: Tensor, neg_map: Tensor
+    ) -> tuple:
         """Calculate the loss of a single scale level based on the features
         extracted by the detection head.
 
@@ -360,15 +389,16 @@ class YOLOV3Head(BaseDenseHead):
         """
 
         num_imgs = len(pred_map)
-        pred_map = pred_map.permute(0, 2, 3,
-                                    1).reshape(num_imgs, -1, self.num_attrib)
+        pred_map = pred_map.permute(0, 2, 3, 1).reshape(
+            num_imgs, -1, self.num_attrib
+        )
         neg_mask = neg_map.float()
         pos_mask = target_map[..., 4]
         pos_and_neg_mask = neg_mask + pos_mask
         pos_mask = pos_mask.unsqueeze(dim=-1)
-        if torch.max(pos_and_neg_mask) > 1.:
+        if torch.max(pos_and_neg_mask) > 1.0:
             warnings.warn('There is overlap between pos and neg sample.')
-            pos_and_neg_mask = pos_and_neg_mask.clamp(min=0., max=1.)
+            pos_and_neg_mask = pos_and_neg_mask.clamp(min=0.0, max=1.0)
 
         pred_xy = pred_map[..., :2]
         pred_wh = pred_map[..., 2:4]
@@ -382,15 +412,19 @@ class YOLOV3Head(BaseDenseHead):
 
         loss_cls = self.loss_cls(pred_label, target_label, weight=pos_mask)
         loss_conf = self.loss_conf(
-            pred_conf, target_conf, weight=pos_and_neg_mask)
+            pred_conf, target_conf, weight=pos_and_neg_mask
+        )
         loss_xy = self.loss_xy(pred_xy, target_xy, weight=pos_mask)
         loss_wh = self.loss_wh(pred_wh, target_wh, weight=pos_mask)
 
         return loss_cls, loss_conf, loss_xy, loss_wh
 
-    def get_targets(self, anchor_list: List[List[Tensor]],
-                    responsible_flag_list: List[List[Tensor]],
-                    batch_gt_instances: List[InstanceData]) -> tuple:
+    def get_targets(
+        self,
+        anchor_list: List[List[Tensor]],
+        responsible_flag_list: List[List[Tensor]],
+        batch_gt_instances: List[InstanceData],
+    ) -> tuple:
         """Compute target maps for anchors in multiple images.
 
         Args:
@@ -415,8 +449,12 @@ class YOLOV3Head(BaseDenseHead):
         # anchor number of multi levels
         num_level_anchors = [anchors.size(0) for anchors in anchor_list[0]]
 
-        results = multi_apply(self._get_targets_single, anchor_list,
-                              responsible_flag_list, batch_gt_instances)
+        results = multi_apply(
+            self._get_targets_single,
+            anchor_list,
+            responsible_flag_list,
+            batch_gt_instances,
+        )
 
         all_target_maps, all_neg_maps = results
         assert num_imgs == len(all_target_maps) == len(all_neg_maps)
@@ -425,9 +463,12 @@ class YOLOV3Head(BaseDenseHead):
 
         return target_maps_list, neg_maps_list
 
-    def _get_targets_single(self, anchors: List[Tensor],
-                            responsible_flags: List[Tensor],
-                            gt_instances: InstanceData) -> tuple:
+    def _get_targets_single(
+        self,
+        anchors: List[Tensor],
+        responsible_flags: List[Tensor],
+        gt_instances: InstanceData,
+    ) -> tuple:
         """Generate matching bounding box prior and converted GT.
 
         Args:
@@ -451,47 +492,62 @@ class YOLOV3Head(BaseDenseHead):
         anchor_strides = []
         for i in range(len(anchors)):
             anchor_strides.append(
-                torch.tensor(self.featmap_strides[i],
-                             device=gt_bboxes.device).repeat(len(anchors[i])))
+                torch.tensor(
+                    self.featmap_strides[i], device=gt_bboxes.device
+                ).repeat(len(anchors[i]))
+            )
         concat_anchors = torch.cat(anchors)
         concat_responsible_flags = torch.cat(responsible_flags)
 
         anchor_strides = torch.cat(anchor_strides)
-        assert len(anchor_strides) == len(concat_anchors) == \
-               len(concat_responsible_flags)
+        assert (
+            len(anchor_strides)
+            == len(concat_anchors)
+            == len(concat_responsible_flags)
+        )
         pred_instances = InstanceData(
-            priors=concat_anchors, responsible_flags=concat_responsible_flags)
+            priors=concat_anchors, responsible_flags=concat_responsible_flags
+        )
 
         assign_result = self.assigner.assign(pred_instances, gt_instances)
-        sampling_result = self.sampler.sample(assign_result, pred_instances,
-                                              gt_instances)
+        sampling_result = self.sampler.sample(
+            assign_result, pred_instances, gt_instances
+        )
 
         target_map = concat_anchors.new_zeros(
-            concat_anchors.size(0), self.num_attrib)
+            concat_anchors.size(0), self.num_attrib
+        )
 
         target_map[sampling_result.pos_inds, :4] = self.bbox_coder.encode(
-            sampling_result.pos_priors, sampling_result.pos_gt_bboxes,
-            anchor_strides[sampling_result.pos_inds])
+            sampling_result.pos_priors,
+            sampling_result.pos_gt_bboxes,
+            anchor_strides[sampling_result.pos_inds],
+        )
 
         target_map[sampling_result.pos_inds, 4] = 1
 
         gt_labels_one_hot = F.one_hot(
-            gt_labels, num_classes=self.num_classes).float()
+            gt_labels, num_classes=self.num_classes
+        ).float()
         if self.one_hot_smoother != 0:  # label smooth
-            gt_labels_one_hot = gt_labels_one_hot * (
-                1 - self.one_hot_smoother
-            ) + self.one_hot_smoother / self.num_classes
+            gt_labels_one_hot = (
+                gt_labels_one_hot * (1 - self.one_hot_smoother)
+                + self.one_hot_smoother / self.num_classes
+            )
         target_map[sampling_result.pos_inds, 5:] = gt_labels_one_hot[
-            sampling_result.pos_assigned_gt_inds]
+            sampling_result.pos_assigned_gt_inds
+        ]
 
         neg_map = concat_anchors.new_zeros(
-            concat_anchors.size(0), dtype=torch.uint8)
+            concat_anchors.size(0), dtype=torch.uint8
+        )
         neg_map[sampling_result.neg_inds] = 1
 
         return target_map, neg_map
 
-    def responsible_flags(self, featmap_sizes: List[tuple], gt_bboxes: Tensor,
-                          device: str) -> List[Tensor]:
+    def responsible_flags(
+        self, featmap_sizes: List[tuple], gt_bboxes: Tensor, device: str
+    ) -> List[Tensor]:
         """Generate responsible anchor flags of grid cells in multiple scales.
 
         Args:
@@ -516,12 +572,19 @@ class YOLOV3Head(BaseDenseHead):
             gt_bboxes_grid_idx = gt_grid_y * feat_w + gt_grid_x
 
             responsible_grid = torch.zeros(
-                feat_h * feat_w, dtype=torch.uint8, device=device)
+                feat_h * feat_w, dtype=torch.uint8, device=device
+            )
             responsible_grid[gt_bboxes_grid_idx] = 1
 
-            responsible_grid = responsible_grid[:, None].expand(
-                responsible_grid.size(0),
-                self.prior_generator.num_base_priors[i]).contiguous().view(-1)
+            responsible_grid = (
+                responsible_grid[:, None]
+                .expand(
+                    responsible_grid.size(0),
+                    self.prior_generator.num_base_priors[i],
+                )
+                .contiguous()
+                .view(-1)
+            )
 
             multi_level_responsible_flags.append(responsible_grid)
         return multi_level_responsible_flags

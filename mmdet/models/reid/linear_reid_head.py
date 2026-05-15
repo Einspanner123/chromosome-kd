@@ -42,45 +42,57 @@ class LinearReIDHead(BaseModule):
             bias=0).
     """
 
-    def __init__(self,
-                 num_fcs: int,
-                 in_channels: int,
-                 fc_channels: int,
-                 out_channels: int,
-                 norm_cfg: Optional[dict] = None,
-                 act_cfg: Optional[dict] = None,
-                 num_classes: Optional[int] = None,
-                 loss_cls: Optional[dict] = None,
-                 loss_triplet: Optional[dict] = None,
-                 topk: Union[int, Tuple[int]] = (1, ),
-                 init_cfg: Union[dict, List[dict]] = dict(
-                     type='Normal', layer='Linear', mean=0, std=0.01, bias=0)):
+    def __init__(
+        self,
+        num_fcs: int,
+        in_channels: int,
+        fc_channels: int,
+        out_channels: int,
+        norm_cfg: Optional[dict] = None,
+        act_cfg: Optional[dict] = None,
+        num_classes: Optional[int] = None,
+        loss_cls: Optional[dict] = None,
+        loss_triplet: Optional[dict] = None,
+        topk: Union[int, Tuple[int]] = (1,),
+        init_cfg: Union[dict, List[dict]] = dict(
+            type='Normal', layer='Linear', mean=0, std=0.01, bias=0
+        ),
+    ):
         if mmpretrain is None:
-            raise RuntimeError('Please run "pip install openmim" and '
-                               'run "mim install mmpretrain" to '
-                               'install mmpretrain first.')
-        super(LinearReIDHead, self).__init__(init_cfg=init_cfg)
+            raise RuntimeError(
+                'Please run "pip install openmim" and '
+                'run "mim install mmpretrain" to '
+                'install mmpretrain first.'
+            )
+        super().__init__(init_cfg=init_cfg)
 
         assert isinstance(topk, (int, tuple))
         if isinstance(topk, int):
-            topk = (topk, )
+            topk = (topk,)
         for _topk in topk:
             assert _topk > 0, 'Top-k should be larger than 0'
         self.topk = topk
 
         if loss_cls is None:
             if isinstance(num_classes, int):
-                warnings.warn('Since cross entropy is not set, '
-                              'the num_classes will be ignored.')
+                warnings.warn(
+                    'Since cross entropy is not set, '
+                    'the num_classes will be ignored.'
+                )
             if loss_triplet is None:
-                raise ValueError('Please choose at least one loss in '
-                                 'triplet loss and cross entropy loss.')
+                raise ValueError(
+                    'Please choose at least one loss in '
+                    'triplet loss and cross entropy loss.'
+                )
         elif not isinstance(num_classes, int):
-            raise TypeError('The num_classes must be a current number, '
-                            'if there is cross entropy loss.')
+            raise TypeError(
+                'The num_classes must be a current number, '
+                'if there is cross entropy loss.'
+            )
         self.loss_cls = MODELS.build(loss_cls) if loss_cls else None
-        self.loss_triplet = MODELS.build(loss_triplet) \
-            if loss_triplet else None
+        self.loss_triplet = (
+            MODELS.build(loss_triplet) if loss_triplet else None
+        )
 
         self.num_fcs = num_fcs
         self.in_channels = in_channels
@@ -98,10 +110,13 @@ class LinearReIDHead(BaseModule):
         for i in range(self.num_fcs):
             in_channels = self.in_channels if i == 0 else self.fc_channels
             self.fcs.append(
-                FcModule(in_channels, self.fc_channels, self.norm_cfg,
-                         self.act_cfg))
-        in_channels = self.in_channels if self.num_fcs == 0 else \
-            self.fc_channels
+                FcModule(
+                    in_channels, self.fc_channels, self.norm_cfg, self.act_cfg
+                )
+            )
+        in_channels = (
+            self.in_channels if self.num_fcs == 0 else self.fc_channels
+        )
         self.fc_out = nn.Linear(in_channels, self.out_channels)
         if self.loss_cls:
             self.bn = nn.BatchNorm1d(self.out_channels)
@@ -118,8 +133,9 @@ class LinearReIDHead(BaseModule):
         feats = self.fc_out(feats)
         return feats
 
-    def loss(self, feats: Tuple[torch.Tensor],
-             data_samples: List[ReIDDataSample]) -> dict:
+    def loss(
+        self, feats: Tuple[torch.Tensor], data_samples: List[ReIDDataSample]
+    ) -> dict:
         """Calculate losses.
 
         Args:
@@ -137,8 +153,9 @@ class LinearReIDHead(BaseModule):
         losses = self.loss_by_feat(feats, data_samples)
         return losses
 
-    def loss_by_feat(self, feats: torch.Tensor,
-                     data_samples: List[ReIDDataSample]) -> dict:
+    def loss_by_feat(
+        self, feats: torch.Tensor, data_samples: List[ReIDDataSample]
+    ) -> dict:
         """Unpack data samples and compute loss."""
         losses = dict()
         gt_label = torch.cat([i.gt_label.label for i in data_samples])
@@ -153,15 +170,16 @@ class LinearReIDHead(BaseModule):
             losses['ce_loss'] = self.loss_cls(cls_score, gt_label)
             acc = Accuracy.calculate(cls_score, gt_label, topk=self.topk)
             losses.update(
-                {f'accuracy_top-{k}': a
-                 for k, a in zip(self.topk, acc)})
+                {f'accuracy_top-{k}': a for k, a in zip(self.topk, acc)}
+            )
 
         return losses
 
     def predict(
-            self,
-            feats: Tuple[torch.Tensor],
-            data_samples: List[ReIDDataSample] = None) -> List[ReIDDataSample]:
+        self,
+        feats: Tuple[torch.Tensor],
+        data_samples: List[ReIDDataSample] = None,
+    ) -> List[ReIDDataSample]:
         """Inference without augmentation.
 
         Args:
@@ -185,9 +203,8 @@ class LinearReIDHead(BaseModule):
         return data_samples
 
     def predict_by_feat(
-            self,
-            feats: torch.Tensor,
-            data_samples: List[ReIDDataSample] = None) -> List[ReIDDataSample]:
+        self, feats: torch.Tensor, data_samples: List[ReIDDataSample] = None
+    ) -> List[ReIDDataSample]:
         """Add prediction features to data samples."""
         if data_samples is not None:
             for data_sample, feat in zip(data_samples, feats):

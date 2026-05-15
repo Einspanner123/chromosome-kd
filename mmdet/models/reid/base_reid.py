@@ -20,15 +20,19 @@ class BaseReID(ImageClassifier):
 
     def __init__(self, *args, **kwargs):
         if mmpretrain is None:
-            raise RuntimeError('Please run "pip install openmim" and '
-                               'run "mim install mmpretrain" to '
-                               'install mmpretrain first.')
+            raise RuntimeError(
+                'Please run "pip install openmim" and '
+                'run "mim install mmpretrain" to '
+                'install mmpretrain first.'
+            )
         super().__init__(*args, **kwargs)
 
-    def forward(self,
-                inputs: torch.Tensor,
-                data_samples: Optional[List[ReIDDataSample]] = None,
-                mode: str = 'tensor'):
+    def forward(
+        self,
+        inputs: torch.Tensor,
+        data_samples: Optional[List[ReIDDataSample]] = None,
+        mode: str = 'tensor',
+    ):
         """The unified entry for a forward process in both training and test.
 
         The method should accept three modes: "tensor", "predict" and "loss":

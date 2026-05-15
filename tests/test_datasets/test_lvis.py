@@ -4,7 +4,7 @@ import unittest
 
 from mmengine.fileio import dump
 
-from mmdet.datasets import LVISV1Dataset, LVISV05Dataset
+from mmdet.datasets import LVISV05Dataset, LVISV1Dataset
 
 try:
     import lvis
@@ -13,7 +13,6 @@ except ImportError:
 
 
 class TestLVISDataset(unittest.TestCase):
-
     def setUp(self) -> None:
 
         image1 = {
@@ -25,7 +24,7 @@ class TestLVISDataset(unittest.TestCase):
             'width': 2048,
             'neg_category_ids': [],
             'not_exhaustive_category_ids': [],
-            'id': 0
+            'id': 0,
         }
         image2 = {
             'coco_url': 'http://images.cocodataset.org/train2017/1.jpg',
@@ -34,7 +33,7 @@ class TestLVISDataset(unittest.TestCase):
             'width': 2048,
             'neg_category_ids': [],
             'not_exhaustive_category_ids': [],
-            'id': 1
+            'id': 1,
         }
         image3 = {
             'coco_url': 'http://images.cocodataset.org/train2017/2.jpg',
@@ -43,7 +42,7 @@ class TestLVISDataset(unittest.TestCase):
             'width': 2048,
             'neg_category_ids': [],
             'not_exhaustive_category_ids': [],
-            'id': 2
+            'id': 2,
         }
         image4 = {
             'coco_url': 'http://images.cocodataset.org/train2017/3.jpg',
@@ -52,27 +51,31 @@ class TestLVISDataset(unittest.TestCase):
             'width': 15,
             'neg_category_ids': [],
             'not_exhaustive_category_ids': [],
-            'id': 3
+            'id': 3,
         }
 
         images = [image1, image2, image3, image4]
 
-        categories = [{
-            'id': 1,
-            'name': 'aerosol_can',
-            'frequency': 'c',
-            'image_count': 64
-        }, {
-            'id': 2,
-            'name': 'air_conditioner',
-            'frequency': 'f',
-            'image_count': 364
-        }, {
-            'id': 3,
-            'name': 'airplane',
-            'frequency': 'f',
-            'image_count': 1911
-        }]
+        categories = [
+            {
+                'id': 1,
+                'name': 'aerosol_can',
+                'frequency': 'c',
+                'image_count': 64,
+            },
+            {
+                'id': 2,
+                'name': 'air_conditioner',
+                'frequency': 'f',
+                'image_count': 364,
+            },
+            {
+                'id': 3,
+                'name': 'airplane',
+                'frequency': 'f',
+                'image_count': 1911,
+            },
+        ]
 
         annotations = [
             {
@@ -81,7 +84,7 @@ class TestLVISDataset(unittest.TestCase):
                 'area': 2595,
                 'segmentation': [[0.0, 0.0]],
                 'image_id': 0,
-                'id': 0
+                'id': 0,
             },
             {
                 'category_id': 2,
@@ -89,7 +92,7 @@ class TestLVISDataset(unittest.TestCase):
                 'area': -1,
                 'segmentation': [[0.0, 0.0]],
                 'image_id': 0,
-                'id': 1
+                'id': 1,
             },
             {
                 'category_id': 3,
@@ -97,7 +100,7 @@ class TestLVISDataset(unittest.TestCase):
                 'area': 2,
                 'segmentation': [[0.0, 0.0]],
                 'image_id': 0,
-                'id': 2
+                'id': 2,
             },
             {
                 'category_id': 1,
@@ -105,7 +108,7 @@ class TestLVISDataset(unittest.TestCase):
                 'area': 2,
                 'segmentation': [[0.0, 0.0]],
                 'image_id': 0,
-                'id': 3
+                'id': 3,
             },
             {
                 'category_id': 1,
@@ -113,7 +116,7 @@ class TestLVISDataset(unittest.TestCase):
                 'area': 2595,
                 'segmentation': [[0.0, 0.0]],
                 'image_id': 0,
-                'id': 4
+                'id': 4,
             },
             {
                 'category_id': 3,
@@ -121,7 +124,7 @@ class TestLVISDataset(unittest.TestCase):
                 'area': 2595,
                 'segmentation': [[0.0, 0.0]],
                 'image_id': 1,
-                'id': 5
+                'id': 5,
             },
             {
                 'category_id': 3,
@@ -129,19 +132,20 @@ class TestLVISDataset(unittest.TestCase):
                 'area': 2595,
                 'segmentation': [[0.0, 0.0]],
                 'image_id': 3,
-                'id': 6
+                'id': 6,
             },
         ]
         fake_json = {
             'images': images,
             'annotations': annotations,
-            'categories': categories
+            'categories': categories,
         }
         self.json_name = 'lvis.json'
         dump(fake_json, self.json_name)
 
         self.metainfo = dict(
-            classes=('aerosol_can', 'air_conditioner', 'airplane'))
+            classes=('aerosol_can', 'air_conditioner', 'airplane')
+        )
 
     def tearDown(self):
         os.remove(self.json_name)
@@ -153,7 +157,8 @@ class TestLVISDataset(unittest.TestCase):
             data_prefix=dict(img='imgs'),
             metainfo=self.metainfo,
             filter_cfg=dict(filter_empty_gt=True, min_size=32),
-            pipeline=[])
+            pipeline=[],
+        )
         self.assertEqual(dataset.metainfo['classes'], self.metainfo['classes'])
         dataset.full_init()
         # filter images of small size and images
@@ -167,7 +172,8 @@ class TestLVISDataset(unittest.TestCase):
             metainfo=self.metainfo,
             test_mode=True,
             filter_cfg=dict(filter_empty_gt=True, min_size=32),
-            pipeline=[])
+            pipeline=[],
+        )
         dataset.full_init()
         # filter images of small size and images
         # with all illegal annotations
@@ -181,7 +187,8 @@ class TestLVISDataset(unittest.TestCase):
             data_prefix=dict(img='imgs'),
             metainfo=self.metainfo,
             filter_cfg=dict(filter_empty_gt=True, min_size=32),
-            pipeline=[])
+            pipeline=[],
+        )
         self.assertEqual(dataset.metainfo['classes'], self.metainfo['classes'])
         dataset.full_init()
         # filter images of small size and images
@@ -195,7 +202,8 @@ class TestLVISDataset(unittest.TestCase):
             metainfo=self.metainfo,
             test_mode=True,
             filter_cfg=dict(filter_empty_gt=True, min_size=32),
-            pipeline=[])
+            pipeline=[],
+        )
         dataset.full_init()
         # filter images of small size and images
         # with all illegal annotations
@@ -209,7 +217,8 @@ class TestLVISDataset(unittest.TestCase):
             data_prefix=dict(img='imgs'),
             metainfo=self.metainfo,
             filter_cfg=None,
-            pipeline=[])
+            pipeline=[],
+        )
         self.assertEqual(dataset.metainfo['classes'], self.metainfo['classes'])
         dataset.full_init()
         # filter images of small size and images
@@ -223,7 +232,8 @@ class TestLVISDataset(unittest.TestCase):
             metainfo=self.metainfo,
             test_mode=True,
             filter_cfg=None,
-            pipeline=[])
+            pipeline=[],
+        )
         dataset.full_init()
         # filter images of small size and images
         # with all illegal annotations

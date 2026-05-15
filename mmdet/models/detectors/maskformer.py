@@ -15,17 +15,20 @@ class MaskFormer(SingleStageDetector):
     NOT All You Need for Semantic Segmentation
     <https://arxiv.org/pdf/2107.06278>`_."""
 
-    def __init__(self,
-                 backbone: ConfigType,
-                 neck: OptConfigType = None,
-                 panoptic_head: OptConfigType = None,
-                 panoptic_fusion_head: OptConfigType = None,
-                 train_cfg: OptConfigType = None,
-                 test_cfg: OptConfigType = None,
-                 data_preprocessor: OptConfigType = None,
-                 init_cfg: OptMultiConfig = None):
+    def __init__(
+        self,
+        backbone: ConfigType,
+        neck: OptConfigType = None,
+        panoptic_head: OptConfigType = None,
+        panoptic_fusion_head: OptConfigType = None,
+        train_cfg: OptConfigType = None,
+        test_cfg: OptConfigType = None,
+        data_preprocessor: OptConfigType = None,
+        init_cfg: OptMultiConfig = None,
+    ):
         super(SingleStageDetector, self).__init__(
-            data_preprocessor=data_preprocessor, init_cfg=init_cfg)
+            data_preprocessor=data_preprocessor, init_cfg=init_cfg
+        )
         self.backbone = MODELS.build(backbone)
         if neck is not None:
             self.neck = MODELS.build(neck)
@@ -46,8 +49,9 @@ class MaskFormer(SingleStageDetector):
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
 
-    def loss(self, batch_inputs: Tensor,
-             batch_data_samples: SampleList) -> Dict[str, Tensor]:
+    def loss(
+        self, batch_inputs: Tensor, batch_data_samples: SampleList
+    ) -> Dict[str, Tensor]:
         """
         Args:
             batch_inputs (Tensor): Input images of shape (N, C, H, W).
@@ -63,10 +67,12 @@ class MaskFormer(SingleStageDetector):
         losses = self.panoptic_head.loss(x, batch_data_samples)
         return losses
 
-    def predict(self,
-                batch_inputs: Tensor,
-                batch_data_samples: SampleList,
-                rescale: bool = True) -> SampleList:
+    def predict(
+        self,
+        batch_inputs: Tensor,
+        batch_data_samples: SampleList,
+        rescale: bool = True,
+    ) -> SampleList:
         """Predict results from a batch of inputs and data samples with post-
         processing.
 
@@ -99,18 +105,21 @@ class MaskFormer(SingleStageDetector):
         """
         feats = self.extract_feat(batch_inputs)
         mask_cls_results, mask_pred_results = self.panoptic_head.predict(
-            feats, batch_data_samples)
+            feats, batch_data_samples
+        )
         results_list = self.panoptic_fusion_head.predict(
             mask_cls_results,
             mask_pred_results,
             batch_data_samples,
-            rescale=rescale)
+            rescale=rescale,
+        )
         results = self.add_pred_to_datasample(batch_data_samples, results_list)
 
         return results
 
-    def add_pred_to_datasample(self, data_samples: SampleList,
-                               results_list: List[dict]) -> SampleList:
+    def add_pred_to_datasample(
+        self, data_samples: SampleList, results_list: List[dict]
+    ) -> SampleList:
         """Add predictions to `DetDataSample`.
 
         Args:
@@ -145,13 +154,15 @@ class MaskFormer(SingleStageDetector):
             if 'ins_results' in pred_results:
                 data_sample.pred_instances = pred_results['ins_results']
 
-            assert 'sem_results' not in pred_results, 'segmantic ' \
-                'segmentation results are not supported yet.'
+            assert 'sem_results' not in pred_results, (
+                'segmantic segmentation results are not supported yet.'
+            )
 
         return data_samples
 
-    def _forward(self, batch_inputs: Tensor,
-                 batch_data_samples: SampleList) -> Tuple[List[Tensor]]:
+    def _forward(
+        self, batch_inputs: Tensor, batch_data_samples: SampleList
+    ) -> Tuple[List[Tensor]]:
         """Network forward process. Usually includes backbone, neck and head
         forward without any post-processing.
 

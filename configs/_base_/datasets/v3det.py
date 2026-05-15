@@ -9,11 +9,18 @@ train_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True),
     dict(
         type='RandomChoiceResize',
-        scales=[(1333, 640), (1333, 672), (1333, 704), (1333, 736),
-                (1333, 768), (1333, 800)],
-        keep_ratio=True),
+        scales=[
+            (1333, 640),
+            (1333, 672),
+            (1333, 704),
+            (1333, 736),
+            (1333, 768),
+            (1333, 800),
+        ],
+        keep_ratio=True,
+    ),
     dict(type='RandomFlip', prob=0.5),
-    dict(type='PackDetInputs')
+    dict(type='PackDetInputs'),
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile', backend_args=backend_args),
@@ -22,8 +29,14 @@ test_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+        ),
+    ),
 ]
 train_dataloader = dict(
     batch_size=2,
@@ -41,7 +54,10 @@ train_dataloader = dict(
             data_prefix=dict(img=''),
             filter_cfg=dict(filter_empty_gt=True, min_size=4),
             pipeline=train_pipeline,
-            backend_args=backend_args)))
+            backend_args=backend_args,
+        ),
+    ),
+)
 val_dataloader = dict(
     batch_size=1,
     num_workers=2,
@@ -55,7 +71,9 @@ val_dataloader = dict(
         data_prefix=dict(img=''),
         test_mode=True,
         pipeline=test_pipeline,
-        backend_args=backend_args))
+        backend_args=backend_args,
+    ),
+)
 test_dataloader = val_dataloader
 
 val_evaluator = dict(
@@ -65,5 +83,6 @@ val_evaluator = dict(
     format_only=False,
     backend_args=backend_args,
     use_mp_eval=True,
-    proposal_nums=[300])
+    proposal_nums=[300],
+)
 test_evaluator = val_evaluator

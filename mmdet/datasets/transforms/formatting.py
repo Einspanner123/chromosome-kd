@@ -41,15 +41,25 @@ class PackDetInputs(BaseTransform):
             Default: ``('img_id', 'img_path', 'ori_shape', 'img_shape',
             'scale_factor', 'flip', 'flip_direction')``
     """
+
     mapping_table = {
         'gt_bboxes': 'bboxes',
         'gt_bboxes_labels': 'labels',
-        'gt_masks': 'masks'
+        'gt_masks': 'masks',
     }
 
-    def __init__(self,
-                 meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                            'scale_factor', 'flip', 'flip_direction')):
+    def __init__(
+        self,
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+            'flip',
+            'flip_direction',
+        ),
+    ):
         self.meta_keys = meta_keys
 
     def transform(self, results: dict) -> dict:
@@ -98,33 +108,40 @@ class PackDetInputs(BaseTransform):
                 continue
             if key == 'gt_masks' or isinstance(results[key], BaseBoxes):
                 if 'gt_ignore_flags' in results:
-                    instance_data[
-                        self.mapping_table[key]] = results[key][valid_idx]
-                    ignore_instance_data[
-                        self.mapping_table[key]] = results[key][ignore_idx]
+                    instance_data[self.mapping_table[key]] = results[key][
+                        valid_idx
+                    ]
+                    ignore_instance_data[self.mapping_table[key]] = results[
+                        key
+                    ][ignore_idx]
                 else:
                     instance_data[self.mapping_table[key]] = results[key]
             else:
                 if 'gt_ignore_flags' in results:
                     instance_data[self.mapping_table[key]] = to_tensor(
-                        results[key][valid_idx])
+                        results[key][valid_idx]
+                    )
                     ignore_instance_data[self.mapping_table[key]] = to_tensor(
-                        results[key][ignore_idx])
+                        results[key][ignore_idx]
+                    )
                 else:
                     instance_data[self.mapping_table[key]] = to_tensor(
-                        results[key])
+                        results[key]
+                    )
         data_sample.gt_instances = instance_data
         data_sample.ignored_instances = ignore_instance_data
 
         if 'proposals' in results:
             proposals = InstanceData(
                 bboxes=to_tensor(results['proposals']),
-                scores=to_tensor(results['proposals_scores']))
+                scores=to_tensor(results['proposals_scores']),
+            )
             data_sample.proposals = proposals
 
         if 'gt_seg_map' in results:
             gt_sem_seg_data = dict(
-                sem_seg=to_tensor(results['gt_seg_map'][None, ...].copy()))
+                sem_seg=to_tensor(results['gt_seg_map'][None, ...].copy())
+            )
             gt_sem_seg_data = PixelData(**gt_sem_seg_data)
             if 'ignore_index' in results:
                 metainfo = dict(ignore_index=results['ignore_index'])
@@ -241,8 +258,9 @@ class Transpose:
         return results
 
     def __repr__(self):
-        return self.__class__.__name__ + \
-            f'(keys={self.keys}, order={self.order})'
+        return (
+            self.__class__.__name__ + f'(keys={self.keys}, order={self.order})'
+        )
 
 
 @TRANSFORMS.register_module()
@@ -302,28 +320,40 @@ class PackTrackInputs(BaseTransform):
             'flip', 'flip_direction', 'frame_id', 'is_video_data',
             'video_id', 'video_length', 'instances').
     """
+
     mapping_table = {
         'gt_bboxes': 'bboxes',
         'gt_bboxes_labels': 'labels',
         'gt_masks': 'masks',
-        'gt_instances_ids': 'instances_ids'
+        'gt_instances_ids': 'instances_ids',
     }
 
-    def __init__(self,
-                 meta_keys: Optional[dict] = None,
-                 default_meta_keys: tuple = ('img_id', 'img_path', 'ori_shape',
-                                             'img_shape', 'scale_factor',
-                                             'flip', 'flip_direction',
-                                             'frame_id', 'video_id',
-                                             'video_length',
-                                             'ori_video_length', 'instances')):
+    def __init__(
+        self,
+        meta_keys: Optional[dict] = None,
+        default_meta_keys: tuple = (
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+            'flip',
+            'flip_direction',
+            'frame_id',
+            'video_id',
+            'video_length',
+            'ori_video_length',
+            'instances',
+        ),
+    ):
         self.meta_keys = default_meta_keys
         if meta_keys is not None:
             if isinstance(meta_keys, str):
-                meta_keys = (meta_keys, )
+                meta_keys = (meta_keys,)
             else:
-                assert isinstance(meta_keys, tuple), \
+                assert isinstance(meta_keys, tuple), (
                     'meta_keys must be str or tuple'
+                )
             self.meta_keys += meta_keys
 
     def transform(self, results: dict) -> dict:
@@ -371,11 +401,14 @@ class PackTrackInputs(BaseTransform):
                 gt_masks_list = results[key]
                 if 'gt_ignore_flags' in results:
                     for i, gt_mask in enumerate(gt_masks_list):
-                        valid_idx, ignore_idx = valid_idx_list[
-                            i], ignore_idx_list[i]
+                        valid_idx, ignore_idx = (
+                            valid_idx_list[i],
+                            ignore_idx_list[i],
+                        )
                         instance_data_list[i][mapped_key] = gt_mask[valid_idx]
                         ignore_instance_data_list[i][mapped_key] = gt_mask[
-                            ignore_idx]
+                            ignore_idx
+                        ]
 
                 else:
                     for i, gt_mask in enumerate(gt_masks_list):
@@ -385,18 +418,21 @@ class PackTrackInputs(BaseTransform):
                 anns_list = results[key]
                 if 'gt_ignore_flags' in results:
                     for i, ann in enumerate(anns_list):
-                        valid_idx, ignore_idx = valid_idx_list[
-                            i], ignore_idx_list[i]
-                        instance_data_list[i][
-                            self.mapping_table[key]] = to_tensor(
-                                ann[valid_idx])
+                        valid_idx, ignore_idx = (
+                            valid_idx_list[i],
+                            ignore_idx_list[i],
+                        )
+                        instance_data_list[i][self.mapping_table[key]] = (
+                            to_tensor(ann[valid_idx])
+                        )
                         ignore_instance_data_list[i][
-                            self.mapping_table[key]] = to_tensor(
-                                ann[ignore_idx])
+                            self.mapping_table[key]
+                        ] = to_tensor(ann[ignore_idx])
                 else:
                     for i, ann in enumerate(anns_list):
-                        instance_data_list[i][
-                            self.mapping_table[key]] = to_tensor(ann)
+                        instance_data_list[i][self.mapping_table[key]] = (
+                            to_tensor(ann)
+                        )
 
         det_data_samples_list = []
         for i in range(num_imgs):
@@ -420,9 +456,11 @@ class PackTrackInputs(BaseTransform):
             key_frames_inds = np.where(key_frame_flags)[0].tolist()
             ref_frames_inds = np.where(~key_frame_flags)[0].tolist()
             track_data_sample.set_metainfo(
-                dict(key_frames_inds=key_frames_inds))
+                dict(key_frames_inds=key_frames_inds)
+            )
             track_data_sample.set_metainfo(
-                dict(ref_frames_inds=ref_frames_inds))
+                dict(ref_frames_inds=ref_frames_inds)
+            )
 
         packed_results['data_samples'] = track_data_sample
         return packed_results
@@ -453,17 +491,24 @@ class PackReIDInputs(BaseTransform):
         meta_keys (Sequence[str], optional): The meta keys to saved in the
             ``metainfo`` of the packed ``data_sample``.
     """
-    default_meta_keys = ('img_path', 'ori_shape', 'img_shape', 'scale',
-                         'scale_factor')
+
+    default_meta_keys = (
+        'img_path',
+        'ori_shape',
+        'img_shape',
+        'scale',
+        'scale_factor',
+    )
 
     def __init__(self, meta_keys: Sequence[str] = ()) -> None:
         self.meta_keys = self.default_meta_keys
         if meta_keys is not None:
             if isinstance(meta_keys, str):
-                meta_keys = (meta_keys, )
+                meta_keys = (meta_keys,)
             else:
-                assert isinstance(meta_keys, tuple), \
+                assert isinstance(meta_keys, tuple), (
                     'meta_keys must be str or tuple.'
+                )
             self.meta_keys += meta_keys
 
     def transform(self, results: dict) -> dict:
@@ -484,8 +529,9 @@ class PackReIDInputs(BaseTransform):
         if _type == list:
             img = results['img']
             label = np.stack(label, axis=0)  # (N,)
-            assert all([type(v) == _type for v in results.values()]), \
+            assert all([type(v) == _type for v in results.values()]), (
                 'All items in the results must have the same type.'
+            )
         else:
             img = [results['img']]
 

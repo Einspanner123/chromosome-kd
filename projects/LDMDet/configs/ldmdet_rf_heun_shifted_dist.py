@@ -5,8 +5,11 @@ _base_ = ['./ldmdet_rf_heun_shifted.py']
 
 # 1. 自动缩放学习率 (MMEngine 提供自动缩放功能)
 # 如果总 batch_size 从 4 变为 8，LR 会自动从 0.00005 变为 0.0001
-optim_wrapper = dict(optimizer=dict(lr=0.00005  # 基础学习率，开启自动缩放后会根据卡数调整
-                                    ))
+optim_wrapper = dict(
+    optimizer=dict(
+        lr=0.00005  # 基础学习率，开启自动缩放后会根据卡数调整
+    )
+)
 auto_scale_lr = dict(enable=True, base_batch_size=4)
 
 # 2. 数据加载配置

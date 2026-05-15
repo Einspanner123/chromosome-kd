@@ -13,4 +13,6 @@ model = dict(
         num_outs=5,
         stack_times=7,
         start_level=1,
-        norm_cfg=dict(type='BN', requires_grad=True)))
+        norm_cfg=dict(type='BN', requires_grad=True),
+    ),
+)

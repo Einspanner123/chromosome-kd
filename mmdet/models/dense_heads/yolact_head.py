@@ -12,8 +12,13 @@ from mmengine.structures import InstanceData
 from torch import Tensor
 
 from mmdet.registry import MODELS
-from mmdet.utils import (ConfigType, InstanceList, OptConfigType,
-                         OptInstanceList, OptMultiConfig)
+from mmdet.utils import (
+    ConfigType,
+    InstanceList,
+    OptConfigType,
+    OptInstanceList,
+    OptMultiConfig,
+)
 from ..layers import fast_nms
 from ..utils import images_to_levels, multi_apply, select_single_mlvl
 from ..utils.misc import empty_instances
@@ -54,33 +59,36 @@ class YOLACTHead(AnchorHead):
             list[dict], optional): Initialization config dict.
     """
 
-    def __init__(self,
-                 num_classes: int,
-                 in_channels: int,
-                 anchor_generator: ConfigType = dict(
-                     type='AnchorGenerator',
-                     octave_base_scale=3,
-                     scales_per_octave=1,
-                     ratios=[0.5, 1.0, 2.0],
-                     strides=[8, 16, 32, 64, 128]),
-                 loss_cls: ConfigType = dict(
-                     type='CrossEntropyLoss',
-                     use_sigmoid=False,
-                     reduction='none',
-                     loss_weight=1.0),
-                 loss_bbox: ConfigType = dict(
-                     type='SmoothL1Loss', beta=1.0, loss_weight=1.5),
-                 num_head_convs: int = 1,
-                 num_protos: int = 32,
-                 use_ohem: bool = True,
-                 conv_cfg: OptConfigType = None,
-                 norm_cfg: OptConfigType = None,
-                 init_cfg: OptMultiConfig = dict(
-                     type='Xavier',
-                     distribution='uniform',
-                     bias=0,
-                     layer='Conv2d'),
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        num_classes: int,
+        in_channels: int,
+        anchor_generator: ConfigType = dict(
+            type='AnchorGenerator',
+            octave_base_scale=3,
+            scales_per_octave=1,
+            ratios=[0.5, 1.0, 2.0],
+            strides=[8, 16, 32, 64, 128],
+        ),
+        loss_cls: ConfigType = dict(
+            type='CrossEntropyLoss',
+            use_sigmoid=False,
+            reduction='none',
+            loss_weight=1.0,
+        ),
+        loss_bbox: ConfigType = dict(
+            type='SmoothL1Loss', beta=1.0, loss_weight=1.5
+        ),
+        num_head_convs: int = 1,
+        num_protos: int = 32,
+        use_ohem: bool = True,
+        conv_cfg: OptConfigType = None,
+        norm_cfg: OptConfigType = None,
+        init_cfg: OptMultiConfig = dict(
+            type='Xavier', distribution='uniform', bias=0, layer='Conv2d'
+        ),
+        **kwargs,
+    ) -> None:
         self.num_head_convs = num_head_convs
         self.num_protos = num_protos
         self.use_ohem = use_ohem
@@ -93,7 +101,8 @@ class YOLACTHead(AnchorHead):
             loss_bbox=loss_bbox,
             anchor_generator=anchor_generator,
             init_cfg=init_cfg,
-            **kwargs)
+            **kwargs,
+        )
 
     def _init_layers(self) -> None:
         """Initialize layers of the head."""
@@ -109,19 +118,24 @@ class YOLACTHead(AnchorHead):
                     stride=1,
                     padding=1,
                     conv_cfg=self.conv_cfg,
-                    norm_cfg=self.norm_cfg))
+                    norm_cfg=self.norm_cfg,
+                )
+            )
         self.conv_cls = nn.Conv2d(
             self.feat_channels,
             self.num_base_priors * self.cls_out_channels,
             3,
-            padding=1)
+            padding=1,
+        )
         self.conv_reg = nn.Conv2d(
-            self.feat_channels, self.num_base_priors * 4, 3, padding=1)
+            self.feat_channels, self.num_base_priors * 4, 3, padding=1
+        )
         self.conv_coeff = nn.Conv2d(
             self.feat_channels,
             self.num_base_priors * self.num_protos,
             3,
-            padding=1)
+            padding=1,
+        )
 
     def forward_single(self, x: Tensor) -> tuple:
         """Forward feature of a single scale level.
@@ -147,13 +161,14 @@ class YOLACTHead(AnchorHead):
         return cls_score, bbox_pred, coeff_pred
 
     def loss_by_feat(
-            self,
-            cls_scores: List[Tensor],
-            bbox_preds: List[Tensor],
-            coeff_preds: List[Tensor],
-            batch_gt_instances: InstanceList,
-            batch_img_metas: List[dict],
-            batch_gt_instances_ignore: OptInstanceList = None) -> dict:
+        self,
+        cls_scores: List[Tensor],
+        bbox_preds: List[Tensor],
+        coeff_preds: List[Tensor],
+        batch_gt_instances: InstanceList,
+        batch_img_metas: List[dict],
+        batch_gt_instances_ignore: OptInstanceList = None,
+    ) -> dict:
         """Calculate the loss based on the features extracted by the bbox head.
 
         When ``self.use_ohem == True``, it functions like ``SSDHead.loss``,
@@ -185,7 +200,8 @@ class YOLACTHead(AnchorHead):
         device = cls_scores[0].device
 
         anchor_list, valid_flag_list = self.get_anchors(
-            featmap_sizes, batch_img_metas, device=device)
+            featmap_sizes, batch_img_metas, device=device
+        )
         cls_reg_targets = self.get_targets(
             anchor_list,
             valid_flag_list,
@@ -193,27 +209,45 @@ class YOLACTHead(AnchorHead):
             batch_img_metas,
             batch_gt_instances_ignore=batch_gt_instances_ignore,
             unmap_outputs=not self.use_ohem,
-            return_sampling_results=True)
-        (labels_list, label_weights_list, bbox_targets_list, bbox_weights_list,
-         avg_factor, sampling_results) = cls_reg_targets
+            return_sampling_results=True,
+        )
+        (
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            bbox_weights_list,
+            avg_factor,
+            sampling_results,
+        ) = cls_reg_targets
 
         if self.use_ohem:
             num_images = len(batch_img_metas)
-            all_cls_scores = torch.cat([
-                s.permute(0, 2, 3, 1).reshape(
-                    num_images, -1, self.cls_out_channels) for s in cls_scores
-            ], 1)
+            all_cls_scores = torch.cat(
+                [
+                    s.permute(0, 2, 3, 1).reshape(
+                        num_images, -1, self.cls_out_channels
+                    )
+                    for s in cls_scores
+                ],
+                1,
+            )
             all_labels = torch.cat(labels_list, -1).view(num_images, -1)
-            all_label_weights = torch.cat(label_weights_list,
-                                          -1).view(num_images, -1)
-            all_bbox_preds = torch.cat([
-                b.permute(0, 2, 3, 1).reshape(num_images, -1, 4)
-                for b in bbox_preds
-            ], -2)
-            all_bbox_targets = torch.cat(bbox_targets_list,
-                                         -2).view(num_images, -1, 4)
-            all_bbox_weights = torch.cat(bbox_weights_list,
-                                         -2).view(num_images, -1, 4)
+            all_label_weights = torch.cat(label_weights_list, -1).view(
+                num_images, -1
+            )
+            all_bbox_preds = torch.cat(
+                [
+                    b.permute(0, 2, 3, 1).reshape(num_images, -1, 4)
+                    for b in bbox_preds
+                ],
+                -2,
+            )
+            all_bbox_targets = torch.cat(bbox_targets_list, -2).view(
+                num_images, -1, 4
+            )
+            all_bbox_weights = torch.cat(bbox_weights_list, -2).view(
+                num_images, -1, 4
+            )
 
             # concat all level anchors to a single tensor
             all_anchors = []
@@ -221,10 +255,12 @@ class YOLACTHead(AnchorHead):
                 all_anchors.append(torch.cat(anchor_list[i]))
 
             # check NaN and Inf
-            assert torch.isfinite(all_cls_scores).all().item(), \
+            assert torch.isfinite(all_cls_scores).all().item(), (
                 'classification scores become infinite or NaN!'
-            assert torch.isfinite(all_bbox_preds).all().item(), \
+            )
+            assert torch.isfinite(all_bbox_preds).all().item(), (
                 'bbox predications become infinite or NaN!'
+            )
 
             losses_cls, losses_bbox = multi_apply(
                 self.OHEMloss_by_feat_single,
@@ -235,7 +271,8 @@ class YOLACTHead(AnchorHead):
                 all_label_weights,
                 all_bbox_targets,
                 all_bbox_weights,
-                avg_factor=avg_factor)
+                avg_factor=avg_factor,
+            )
         else:
             # anchor number of multi levels
             num_level_anchors = [anchors.size(0) for anchors in anchor_list[0]]
@@ -243,8 +280,9 @@ class YOLACTHead(AnchorHead):
             concat_anchor_list = []
             for i in range(len(anchor_list)):
                 concat_anchor_list.append(torch.cat(anchor_list[i]))
-            all_anchor_list = images_to_levels(concat_anchor_list,
-                                               num_level_anchors)
+            all_anchor_list = images_to_levels(
+                concat_anchor_list, num_level_anchors
+            )
             losses_cls, losses_bbox = multi_apply(
                 self.loss_by_feat_single,
                 cls_scores,
@@ -254,18 +292,25 @@ class YOLACTHead(AnchorHead):
                 label_weights_list,
                 bbox_targets_list,
                 bbox_weights_list,
-                avg_factor=avg_factor)
+                avg_factor=avg_factor,
+            )
         losses = dict(loss_cls=losses_cls, loss_bbox=losses_bbox)
         # update `_raw_positive_infos`, which will be used when calling
         # `get_positive_infos`.
         self._raw_positive_infos.update(coeff_preds=coeff_preds)
         return losses
 
-    def OHEMloss_by_feat_single(self, cls_score: Tensor, bbox_pred: Tensor,
-                                anchors: Tensor, labels: Tensor,
-                                label_weights: Tensor, bbox_targets: Tensor,
-                                bbox_weights: Tensor,
-                                avg_factor: int) -> tuple:
+    def OHEMloss_by_feat_single(
+        self,
+        cls_score: Tensor,
+        bbox_pred: Tensor,
+        anchors: Tensor,
+        labels: Tensor,
+        label_weights: Tensor,
+        bbox_targets: Tensor,
+        bbox_weights: Tensor,
+        avg_factor: int,
+    ) -> tuple:
         """Compute loss of a single image. Similar to
         func:``SSDHead.loss_by_feat_single``
 
@@ -298,17 +343,20 @@ class YOLACTHead(AnchorHead):
         loss_cls_all = self.loss_cls(cls_score, labels, label_weights)
 
         # FG cat_id: [0, num_classes -1], BG cat_id: num_classes
-        pos_inds = ((labels >= 0) & (labels < self.num_classes)).nonzero(
-            as_tuple=False).reshape(-1)
-        neg_inds = (labels == self.num_classes).nonzero(
-            as_tuple=False).view(-1)
+        pos_inds = (
+            ((labels >= 0) & (labels < self.num_classes))
+            .nonzero(as_tuple=False)
+            .reshape(-1)
+        )
+        neg_inds = (
+            (labels == self.num_classes).nonzero(as_tuple=False).view(-1)
+        )
 
         num_pos_samples = pos_inds.size(0)
         if num_pos_samples == 0:
             num_neg_samples = neg_inds.size(0)
         else:
-            num_neg_samples = self.train_cfg['neg_pos_ratio'] * \
-                              num_pos_samples
+            num_neg_samples = self.train_cfg['neg_pos_ratio'] * num_pos_samples
             if num_neg_samples > neg_inds.size(0):
                 num_neg_samples = neg_inds.size(0)
         topk_loss_cls_neg, _ = loss_cls_all[neg_inds].topk(num_neg_samples)
@@ -321,7 +369,8 @@ class YOLACTHead(AnchorHead):
             # decodes the already encoded coordinates to absolute format.
             bbox_pred = self.bbox_coder.decode(anchors, bbox_pred)
         loss_bbox = self.loss_bbox(
-            bbox_pred, bbox_targets, bbox_weights, avg_factor=avg_factor)
+            bbox_pred, bbox_targets, bbox_weights, avg_factor=avg_factor
+        )
         return loss_cls[None], loss_bbox
 
     def get_positive_infos(self) -> InstanceList:
@@ -338,9 +387,9 @@ class YOLACTHead(AnchorHead):
 
         coeff_pred_list = []
         for coeff_pred_per_level in self._raw_positive_infos['coeff_preds']:
-            coeff_pred_per_level = \
-                coeff_pred_per_level.permute(
-                    0, 2, 3, 1).reshape(num_imgs, -1, self.num_protos)
+            coeff_pred_per_level = coeff_pred_per_level.permute(
+                0, 2, 3, 1
+            ).reshape(num_imgs, -1, self.num_protos)
             coeff_pred_list.append(coeff_pred_per_level)
         coeff_preds = torch.cat(coeff_pred_list, dim=1)
 
@@ -348,22 +397,25 @@ class YOLACTHead(AnchorHead):
         for idx, sampling_result in enumerate(sampling_results):
             pos_info = InstanceData()
             coeff_preds_single = coeff_preds[idx]
-            pos_info.pos_assigned_gt_inds = \
+            pos_info.pos_assigned_gt_inds = (
                 sampling_result.pos_assigned_gt_inds
+            )
             pos_info.pos_inds = sampling_result.pos_inds
             pos_info.coeffs = coeff_preds_single[sampling_result.pos_inds]
             pos_info.bboxes = sampling_result.pos_gt_bboxes
             pos_info_list.append(pos_info)
         return pos_info_list
 
-    def predict_by_feat(self,
-                        cls_scores,
-                        bbox_preds,
-                        coeff_preds,
-                        batch_img_metas,
-                        cfg=None,
-                        rescale=True,
-                        **kwargs):
+    def predict_by_feat(
+        self,
+        cls_scores,
+        bbox_preds,
+        coeff_preds,
+        batch_img_metas,
+        cfg=None,
+        rescale=True,
+        **kwargs,
+    ):
         """Similar to func:``AnchorHead.get_bboxes``, but additionally
         processes coeff_preds.
 
@@ -399,7 +451,8 @@ class YOLACTHead(AnchorHead):
         device = cls_scores[0].device
         featmap_sizes = [cls_scores[i].shape[-2:] for i in range(num_levels)]
         mlvl_priors = self.prior_generator.grid_priors(
-            featmap_sizes, device=device)
+            featmap_sizes, device=device
+        )
 
         result_list = []
         for img_id in range(len(batch_img_metas)):
@@ -414,18 +467,21 @@ class YOLACTHead(AnchorHead):
                 mlvl_priors=mlvl_priors,
                 img_meta=img_meta,
                 cfg=cfg,
-                rescale=rescale)
+                rescale=rescale,
+            )
             result_list.append(results)
         return result_list
 
-    def _predict_by_feat_single(self,
-                                cls_score_list: List[Tensor],
-                                bbox_pred_list: List[Tensor],
-                                coeff_preds_list: List[Tensor],
-                                mlvl_priors: List[Tensor],
-                                img_meta: dict,
-                                cfg: ConfigType,
-                                rescale: bool = True) -> InstanceData:
+    def _predict_by_feat_single(
+        self,
+        cls_score_list: List[Tensor],
+        bbox_pred_list: List[Tensor],
+        coeff_preds_list: List[Tensor],
+        mlvl_priors: List[Tensor],
+        img_meta: dict,
+        cfg: ConfigType,
+        rescale: bool = True,
+    ) -> InstanceData:
         """Transform a single image's features extracted from the head into
         bbox results. Similar to func:``AnchorHead._predict_by_feat_single``,
         but additionally processes coeff_preds_list and uses fast NMS instead
@@ -473,19 +529,21 @@ class YOLACTHead(AnchorHead):
         mlvl_valid_priors = []
         mlvl_scores = []
         mlvl_coeffs = []
-        for cls_score, bbox_pred, coeff_pred, priors in \
-                zip(cls_score_list, bbox_pred_list,
-                    coeff_preds_list, mlvl_priors):
+        for cls_score, bbox_pred, coeff_pred, priors in zip(
+            cls_score_list, bbox_pred_list, coeff_preds_list, mlvl_priors
+        ):
             assert cls_score.size()[-2:] == bbox_pred.size()[-2:]
-            cls_score = cls_score.permute(1, 2,
-                                          0).reshape(-1, self.cls_out_channels)
+            cls_score = cls_score.permute(1, 2, 0).reshape(
+                -1, self.cls_out_channels
+            )
             if self.use_sigmoid_cls:
                 scores = cls_score.sigmoid()
             else:
                 scores = cls_score.softmax(-1)
             bbox_pred = bbox_pred.permute(1, 2, 0).reshape(-1, 4)
-            coeff_pred = coeff_pred.permute(1, 2,
-                                            0).reshape(-1, self.num_protos)
+            coeff_pred = coeff_pred.permute(1, 2, 0).reshape(
+                -1, self.num_protos
+            )
 
             if 0 < nms_pre < scores.shape[0]:
                 # Get maximum scores for foreground classes.
@@ -510,7 +568,8 @@ class YOLACTHead(AnchorHead):
         bbox_pred = torch.cat(mlvl_bbox_preds)
         priors = torch.cat(mlvl_valid_priors)
         multi_bboxes = self.bbox_coder.decode(
-            priors, bbox_pred, max_shape=img_shape)
+            priors, bbox_pred, max_shape=img_shape
+        )
 
         multi_scores = torch.cat(mlvl_scores)
         multi_coeffs = torch.cat(mlvl_coeffs)
@@ -521,16 +580,19 @@ class YOLACTHead(AnchorHead):
             multi_coeffs=multi_coeffs,
             cfg=cfg,
             rescale=rescale,
-            img_meta=img_meta)
+            img_meta=img_meta,
+        )
 
-    def _bbox_post_process(self,
-                           multi_bboxes: Tensor,
-                           multi_scores: Tensor,
-                           multi_coeffs: Tensor,
-                           cfg: ConfigType,
-                           rescale: bool = False,
-                           img_meta: Optional[dict] = None,
-                           **kwargs) -> InstanceData:
+    def _bbox_post_process(
+        self,
+        multi_bboxes: Tensor,
+        multi_scores: Tensor,
+        multi_coeffs: Tensor,
+        cfg: ConfigType,
+        rescale: bool = False,
+        img_meta: Optional[dict] = None,
+        **kwargs,
+    ) -> InstanceData:
         """bbox post-processing method.
 
         The boxes would be rescaled to the original image scale and do
@@ -564,7 +626,8 @@ class YOLACTHead(AnchorHead):
         if rescale:
             assert img_meta.get('scale_factor') is not None
             multi_bboxes /= multi_bboxes.new_tensor(
-                img_meta['scale_factor']).repeat((1, 2))
+                img_meta['scale_factor']
+            ).repeat((1, 2))
             # mlvl_bboxes /= mlvl_bboxes.new_tensor(scale_factor)
 
         if self.use_sigmoid_cls:
@@ -575,8 +638,14 @@ class YOLACTHead(AnchorHead):
             padding = multi_scores.new_zeros(multi_scores.shape[0], 1)
             multi_scores = torch.cat([multi_scores, padding], dim=1)
         det_bboxes, det_labels, det_coeffs = fast_nms(
-            multi_bboxes, multi_scores, multi_coeffs, cfg.score_thr,
-            cfg.iou_thr, cfg.top_k, cfg.max_per_img)
+            multi_bboxes,
+            multi_scores,
+            multi_coeffs,
+            cfg.score_thr,
+            cfg.iou_thr,
+            cfg.top_k,
+            cfg.max_per_img,
+        )
         results = InstanceData()
         results.bboxes = det_bboxes[:, :4]
         results.scores = det_bboxes[:, -1]
@@ -629,11 +698,13 @@ class YOLACTProtonet(BaseMaskHead):
         test_cfg: OptConfigType = None,
         with_seg_branch: bool = True,
         loss_segm: ConfigType = dict(
-            type='CrossEntropyLoss', use_sigmoid=True, loss_weight=1.0),
+            type='CrossEntropyLoss', use_sigmoid=True, loss_weight=1.0
+        ),
         init_cfg=dict(
             type='Xavier',
             distribution='uniform',
-            override=dict(name='protonet'))
+            override=dict(name='protonet'),
+        ),
     ) -> None:
         super().__init__(init_cfg=init_cfg)
         self.in_channels = in_channels
@@ -643,9 +714,13 @@ class YOLACTProtonet(BaseMaskHead):
 
         # Segmentation branch
         self.with_seg_branch = with_seg_branch
-        self.segm_branch = SegmentationModule(
-            num_classes=num_classes, in_channels=in_channels) \
-            if with_seg_branch else None
+        self.segm_branch = (
+            SegmentationModule(
+                num_classes=num_classes, in_channels=in_channels
+            )
+            if with_seg_branch
+            else None
+        )
         self.loss_segm = MODELS.build(loss_segm) if with_seg_branch else None
 
         self.loss_mask_weight = loss_mask_weight
@@ -664,30 +739,35 @@ class YOLACTProtonet(BaseMaskHead):
         # (None,-2) -> bilinear interpolate
         in_channels = self.in_channels
         protonets = ModuleList()
-        for num_channels, kernel_size in zip(self.proto_channels,
-                                             self.proto_kernel_sizes):
+        for num_channels, kernel_size in zip(
+            self.proto_channels, self.proto_kernel_sizes
+        ):
             if kernel_size > 0:
                 layer = nn.Conv2d(
                     in_channels,
                     num_channels,
                     kernel_size,
-                    padding=kernel_size // 2)
+                    padding=kernel_size // 2,
+                )
             else:
                 if num_channels is None:
                     layer = InterpolateModule(
                         scale_factor=-kernel_size,
                         mode='bilinear',
-                        align_corners=False)
+                        align_corners=False,
+                    )
                 else:
                     layer = nn.ConvTranspose2d(
                         in_channels,
                         num_channels,
                         -kernel_size,
-                        padding=kernel_size // 2)
+                        padding=kernel_size // 2,
+                    )
             protonets.append(layer)
             protonets.append(nn.ReLU(inplace=True))
-            in_channels = num_channels if num_channels is not None \
-                else in_channels
+            in_channels = (
+                num_channels if num_channels is not None else in_channels
+            )
         if not self.include_last_relu:
             protonets = protonets[:-1]
         self.protonet = nn.Sequential(*protonets)
@@ -733,10 +813,15 @@ class YOLACTProtonet(BaseMaskHead):
             mask_pred_list.append(mask_preds)
         return mask_pred_list, segm_preds
 
-    def loss_by_feat(self, mask_preds: List[Tensor], segm_preds: List[Tensor],
-                     batch_gt_instances: InstanceList,
-                     batch_img_metas: List[dict], positive_infos: InstanceList,
-                     **kwargs) -> dict:
+    def loss_by_feat(
+        self,
+        mask_preds: List[Tensor],
+        segm_preds: List[Tensor],
+        batch_gt_instances: InstanceList,
+        batch_img_metas: List[dict],
+        positive_infos: InstanceList,
+        **kwargs,
+    ) -> dict:
         """Calculate the loss based on the features extracted by the mask head.
 
         Args:
@@ -755,13 +840,15 @@ class YOLACTProtonet(BaseMaskHead):
         Returns:
             dict[str, Tensor]: A dictionary of loss components.
         """
-        assert positive_infos is not None, \
+        assert positive_infos is not None, (
             'positive_infos should not be None in `YOLACTProtonet`'
+        )
         losses = dict()
 
         # crop
-        croped_mask_pred = self.crop_mask_preds(mask_preds, batch_img_metas,
-                                                positive_infos)
+        croped_mask_pred = self.crop_mask_preds(
+            mask_preds, batch_img_metas, positive_infos
+        )
 
         loss_mask = []
         loss_segm = []
@@ -776,38 +863,53 @@ class YOLACTProtonet(BaseMaskHead):
         for idx in range(num_imgs):
             img_meta = batch_img_metas[idx]
 
-            (mask_preds, pos_mask_targets, segm_targets, num_pos,
-             gt_bboxes_for_reweight) = self._get_targets_single(
-                 croped_mask_pred[idx], segm_preds[idx],
-                 batch_gt_instances[idx], positive_infos[idx])
+            (
+                mask_preds,
+                pos_mask_targets,
+                segm_targets,
+                num_pos,
+                gt_bboxes_for_reweight,
+            ) = self._get_targets_single(
+                croped_mask_pred[idx],
+                segm_preds[idx],
+                batch_gt_instances[idx],
+                positive_infos[idx],
+            )
 
             # segmentation loss
             if self.with_seg_branch:
                 if segm_targets is None:
-                    loss = segm_preds[idx].sum() * 0.
+                    loss = segm_preds[idx].sum() * 0.0
                 else:
                     loss = self.loss_segm(
                         segm_preds[idx],
                         segm_targets,
-                        avg_factor=segm_avg_factor)
+                        avg_factor=segm_avg_factor,
+                    )
                 loss_segm.append(loss)
             # mask loss
             total_pos += num_pos
             if num_pos == 0 or pos_mask_targets is None:
-                loss = mask_preds.sum() * 0.
+                loss = mask_preds.sum() * 0.0
             else:
                 mask_preds = torch.clamp(mask_preds, 0, 1)
-                loss = F.binary_cross_entropy(
-                    mask_preds, pos_mask_targets,
-                    reduction='none') * self.loss_mask_weight
+                loss = (
+                    F.binary_cross_entropy(
+                        mask_preds, pos_mask_targets, reduction='none'
+                    )
+                    * self.loss_mask_weight
+                )
 
                 h, w = img_meta['img_shape'][:2]
-                gt_bboxes_width = (gt_bboxes_for_reweight[:, 2] -
-                                   gt_bboxes_for_reweight[:, 0]) / w
-                gt_bboxes_height = (gt_bboxes_for_reweight[:, 3] -
-                                    gt_bboxes_for_reweight[:, 1]) / h
-                loss = loss.mean(dim=(1,
-                                      2)) / gt_bboxes_width / gt_bboxes_height
+                gt_bboxes_width = (
+                    gt_bboxes_for_reweight[:, 2] - gt_bboxes_for_reweight[:, 0]
+                ) / w
+                gt_bboxes_height = (
+                    gt_bboxes_for_reweight[:, 3] - gt_bboxes_for_reweight[:, 1]
+                ) / h
+                loss = (
+                    loss.mean(dim=(1, 2)) / gt_bboxes_width / gt_bboxes_height
+                )
                 loss = torch.sum(loss)
             loss_mask.append(loss)
 
@@ -821,9 +923,13 @@ class YOLACTProtonet(BaseMaskHead):
 
         return losses
 
-    def _get_targets_single(self, mask_preds: Tensor, segm_pred: Tensor,
-                            gt_instances: InstanceData,
-                            positive_info: InstanceData):
+    def _get_targets_single(
+        self,
+        mask_preds: Tensor,
+        segm_pred: Tensor,
+        gt_instances: InstanceData,
+        positive_info: InstanceData,
+    ):
         """Compute targets for predictions of single image.
 
         Args:
@@ -864,7 +970,8 @@ class YOLACTProtonet(BaseMaskHead):
         gt_labels = gt_instances.labels
         device = gt_bboxes.device
         gt_masks = gt_instances.masks.to_tensor(
-            dtype=torch.bool, device=device).float()
+            dtype=torch.bool, device=device
+        ).float()
         if gt_masks.size(0) == 0:
             return mask_preds, None, None, 0, None
 
@@ -873,15 +980,18 @@ class YOLACTProtonet(BaseMaskHead):
             num_classes, segm_h, segm_w = segm_pred.size()
             with torch.no_grad():
                 downsampled_masks = F.interpolate(
-                    gt_masks.unsqueeze(0), (segm_h, segm_w),
+                    gt_masks.unsqueeze(0),
+                    (segm_h, segm_w),
                     mode='bilinear',
-                    align_corners=False).squeeze(0)
+                    align_corners=False,
+                ).squeeze(0)
                 downsampled_masks = downsampled_masks.gt(0.5).float()
                 segm_targets = torch.zeros_like(segm_pred, requires_grad=False)
                 for obj_idx in range(downsampled_masks.size(0)):
                     segm_targets[gt_labels[obj_idx] - 1] = torch.max(
                         segm_targets[gt_labels[obj_idx] - 1],
-                        downsampled_masks[obj_idx])
+                        downsampled_masks[obj_idx],
+                    )
         else:
             segm_targets = None
         # process with mask targets
@@ -892,7 +1002,7 @@ class YOLACTProtonet(BaseMaskHead):
         # Thus we select only a subset.
         if num_pos > self.max_masks_to_train:
             perm = torch.randperm(num_pos)
-            select = perm[:self.max_masks_to_train]
+            select = perm[: self.max_masks_to_train]
             mask_preds = mask_preds[select]
             pos_assigned_gt_inds = pos_assigned_gt_inds[select]
             num_pos = self.max_masks_to_train
@@ -901,18 +1011,28 @@ class YOLACTProtonet(BaseMaskHead):
 
         mask_h, mask_w = mask_preds.shape[-2:]
         gt_masks = F.interpolate(
-            gt_masks.unsqueeze(0), (mask_h, mask_w),
+            gt_masks.unsqueeze(0),
+            (mask_h, mask_w),
             mode='bilinear',
-            align_corners=False).squeeze(0)
+            align_corners=False,
+        ).squeeze(0)
         gt_masks = gt_masks.gt(0.5).float()
         pos_mask_targets = gt_masks[pos_assigned_gt_inds]
 
-        return (mask_preds, pos_mask_targets, segm_targets, num_pos,
-                gt_bboxes_for_reweight)
+        return (
+            mask_preds,
+            pos_mask_targets,
+            segm_targets,
+            num_pos,
+            gt_bboxes_for_reweight,
+        )
 
-    def crop_mask_preds(self, mask_preds: List[Tensor],
-                        batch_img_metas: List[dict],
-                        positive_infos: InstanceList) -> list:
+    def crop_mask_preds(
+        self,
+        mask_preds: List[Tensor],
+        batch_img_metas: List[dict],
+        positive_infos: InstanceList,
+    ) -> list:
         """Crop predicted masks by zeroing out everything not in the predicted
         bbox.
 
@@ -927,8 +1047,9 @@ class YOLACTProtonet(BaseMaskHead):
             list: The cropped masks.
         """
         croped_mask_preds = []
-        for img_meta, mask_preds, cur_info in zip(batch_img_metas, mask_preds,
-                                                  positive_infos):
+        for img_meta, mask_preds, cur_info in zip(
+            batch_img_metas, mask_preds, positive_infos
+        ):
             bboxes_for_cropping = copy.deepcopy(cur_info.bboxes)
             h, w = img_meta['img_shape'][:2]
             bboxes_for_cropping[:, 0::2] /= w
@@ -938,10 +1059,9 @@ class YOLACTProtonet(BaseMaskHead):
             croped_mask_preds.append(mask_preds)
         return croped_mask_preds
 
-    def crop_single(self,
-                    masks: Tensor,
-                    boxes: Tensor,
-                    padding: int = 1) -> Tensor:
+    def crop_single(
+        self, masks: Tensor, boxes: Tensor, padding: int = 1
+    ) -> Tensor:
         """Crop single predicted masks by zeroing out everything not in the
         predicted bbox.
 
@@ -956,16 +1076,22 @@ class YOLACTProtonet(BaseMaskHead):
         """
         h, w, n = masks.size()
         x1, x2 = self.sanitize_coordinates(
-            boxes[:, 0], boxes[:, 2], w, padding, cast=False)
+            boxes[:, 0], boxes[:, 2], w, padding, cast=False
+        )
         y1, y2 = self.sanitize_coordinates(
-            boxes[:, 1], boxes[:, 3], h, padding, cast=False)
+            boxes[:, 1], boxes[:, 3], h, padding, cast=False
+        )
 
-        rows = torch.arange(
-            w, device=masks.device, dtype=x1.dtype).view(1, -1,
-                                                         1).expand(h, w, n)
-        cols = torch.arange(
-            h, device=masks.device, dtype=x1.dtype).view(-1, 1,
-                                                         1).expand(h, w, n)
+        rows = (
+            torch.arange(w, device=masks.device, dtype=x1.dtype)
+            .view(1, -1, 1)
+            .expand(h, w, n)
+        )
+        cols = (
+            torch.arange(h, device=masks.device, dtype=x1.dtype)
+            .view(-1, 1, 1)
+            .expand(h, w, n)
+        )
 
         masks_left = rows >= x1.view(1, 1, -1)
         masks_right = rows < x2.view(1, 1, -1)
@@ -976,12 +1102,14 @@ class YOLACTProtonet(BaseMaskHead):
 
         return masks * crop_mask.float()
 
-    def sanitize_coordinates(self,
-                             x1: Tensor,
-                             x2: Tensor,
-                             img_size: int,
-                             padding: int = 0,
-                             cast: bool = True) -> tuple:
+    def sanitize_coordinates(
+        self,
+        x1: Tensor,
+        x2: Tensor,
+        img_size: int,
+        padding: int = 0,
+        cast: bool = True,
+    ) -> tuple:
         """Sanitizes the input coordinates so that x1 < x2, x1 != x2, x1 >= 0,
         and x2 <= image_size. Also converts from relative to absolute
         coordinates and casts the results to long tensors.
@@ -1013,13 +1141,15 @@ class YOLACTProtonet(BaseMaskHead):
         x2 = torch.clamp(x2 + padding, max=img_size)
         return x1, x2
 
-    def predict_by_feat(self,
-                        mask_preds: List[Tensor],
-                        segm_preds: Tensor,
-                        results_list: InstanceList,
-                        batch_img_metas: List[dict],
-                        rescale: bool = True,
-                        **kwargs) -> InstanceList:
+    def predict_by_feat(
+        self,
+        mask_preds: List[Tensor],
+        segm_preds: Tensor,
+        results_list: InstanceList,
+        batch_img_metas: List[dict],
+        rescale: bool = True,
+        **kwargs,
+    ) -> InstanceList:
         """Transform a batch of output features extracted from the head into
         mask results.
 
@@ -1044,8 +1174,9 @@ class YOLACTProtonet(BaseMaskHead):
         """
         assert len(mask_preds) == len(results_list) == len(batch_img_metas)
 
-        croped_mask_pred = self.crop_mask_preds(mask_preds, batch_img_metas,
-                                                results_list)
+        croped_mask_pred = self.crop_mask_preds(
+            mask_preds, batch_img_metas, results_list
+        )
 
         for img_id in range(len(batch_img_metas)):
             img_meta = batch_img_metas[img_id]
@@ -1057,22 +1188,26 @@ class YOLACTProtonet(BaseMaskHead):
                     [img_meta],
                     bboxes.device,
                     task_type='mask',
-                    instance_results=[results])[0]
+                    instance_results=[results],
+                )[0]
             else:
                 im_mask = self._predict_by_feat_single(
                     mask_preds=croped_mask_pred[img_id],
                     bboxes=bboxes,
                     img_meta=img_meta,
-                    rescale=rescale)
+                    rescale=rescale,
+                )
                 results.masks = im_mask
         return results_list
 
-    def _predict_by_feat_single(self,
-                                mask_preds: Tensor,
-                                bboxes: Tensor,
-                                img_meta: dict,
-                                rescale: bool,
-                                cfg: OptConfigType = None):
+    def _predict_by_feat_single(
+        self,
+        mask_preds: Tensor,
+        bboxes: Tensor,
+        img_meta: dict,
+        rescale: bool,
+        cfg: OptConfigType = None,
+    ):
         """Transform a single image's features extracted from the head into
         mask results.
 
@@ -1099,21 +1234,28 @@ class YOLACTProtonet(BaseMaskHead):
         """
         cfg = self.test_cfg if cfg is None else cfg
         scale_factor = bboxes.new_tensor(img_meta['scale_factor']).repeat(
-            (1, 2))
+            (1, 2)
+        )
         img_h, img_w = img_meta['ori_shape'][:2]
         if rescale:  # in-placed rescale the bboxes
             scale_factor = bboxes.new_tensor(img_meta['scale_factor']).repeat(
-                (1, 2))
+                (1, 2)
+            )
             bboxes /= scale_factor
         else:
             w_scale, h_scale = scale_factor[0, 0], scale_factor[0, 1]
             img_h = np.round(img_h * h_scale.item()).astype(np.int32)
             img_w = np.round(img_w * w_scale.item()).astype(np.int32)
 
-        masks = F.interpolate(
-            mask_preds.unsqueeze(0), (img_h, img_w),
-            mode='bilinear',
-            align_corners=False).squeeze(0) > cfg.mask_thr
+        masks = (
+            F.interpolate(
+                mask_preds.unsqueeze(0),
+                (img_h, img_w),
+                mode='bilinear',
+                align_corners=False,
+            ).squeeze(0)
+            > cfg.mask_thr
+        )
 
         if cfg.mask_thr_binary < 0:
             # for visualization and debugging
@@ -1143,7 +1285,8 @@ class SegmentationModule(BaseModule):
         init_cfg: ConfigType = dict(
             type='Xavier',
             distribution='uniform',
-            override=dict(name='segm_conv'))
+            override=dict(name='segm_conv'),
+        ),
     ) -> None:
         super().__init__(init_cfg=init_cfg)
         self.in_channels = in_channels
@@ -1153,7 +1296,8 @@ class SegmentationModule(BaseModule):
     def _init_layers(self) -> None:
         """Initialize layers of the head."""
         self.segm_conv = nn.Conv2d(
-            self.in_channels, self.num_classes, kernel_size=1)
+            self.in_channels, self.num_classes, kernel_size=1
+        )
 
     def forward(self, x: Tensor) -> Tensor:
         """Forward feature from the upstream network.

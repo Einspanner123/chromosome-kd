@@ -9,7 +9,8 @@ model = dict(
         std=[58.395, 57.12, 57.375],
         bgr_to_rgb=True,
         pad_mask=True,
-        pad_size_divisor=32),
+        pad_size_divisor=32,
+    ),
     backbone=dict(
         type='ResNet',
         depth=50,
@@ -19,7 +20,8 @@ model = dict(
         norm_cfg=dict(type='BN', requires_grad=True),
         norm_eval=True,
         init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet50'),
-        style='pytorch'),
+        style='pytorch',
+    ),
     neck=dict(
         type='FPN',
         in_channels=[256, 512, 1024, 2048],
@@ -27,7 +29,8 @@ model = dict(
         start_level=1,
         add_extra_convs='on_output',  # use P5
         num_outs=5,
-        relu_before_extra_convs=True),
+        relu_before_extra_convs=True,
+    ),
     bbox_head=dict(
         type='CondInstBboxHead',
         num_params=169,
@@ -46,10 +49,13 @@ model = dict(
             use_sigmoid=True,
             gamma=2.0,
             alpha=0.25,
-            loss_weight=1.0),
+            loss_weight=1.0,
+        ),
         loss_bbox=dict(type='GIoULoss', loss_weight=1.0),
         loss_centerness=dict(
-            type='CrossEntropyLoss', use_sigmoid=True, loss_weight=1.0)),
+            type='CrossEntropyLoss', use_sigmoid=True, loss_weight=1.0
+        ),
+    ),
     mask_head=dict(
         type='CondInstMaskHead',
         num_layers=3,
@@ -65,13 +71,16 @@ model = dict(
             out_channels=8,
             mask_stride=8,
             num_stacked_convs=4,
-            norm_cfg=dict(type='BN', requires_grad=True)),
+            norm_cfg=dict(type='BN', requires_grad=True),
+        ),
         loss_mask=dict(
             type='DiceLoss',
             use_sigmoid=True,
             activate=True,
             eps=5e-6,
-            loss_weight=1.0)),
+            loss_weight=1.0,
+        ),
+    ),
     # model training and testing settings
     test_cfg=dict(
         nms_pre=1000,
@@ -79,7 +88,9 @@ model = dict(
         score_thr=0.05,
         nms=dict(type='nms', iou_threshold=0.6),
         max_per_img=100,
-        mask_thr=0.5))
+        mask_thr=0.5,
+    ),
+)
 
 # optimizer
 optim_wrapper = dict(optimizer=dict(lr=0.01))

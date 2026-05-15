@@ -6,11 +6,11 @@ import numpy as np
 from mmengine.fileio import dump, load
 from mmengine.utils import mkdir_or_exist, track_parallel_progress
 
-prog_description = '''K-Fold coco split.
+prog_description = """K-Fold coco split.
 
 To split coco data for semi-supervised object detection:
     python tools/misc/split_coco.py
-'''
+"""
 
 
 def parse_args():
@@ -19,23 +19,27 @@ def parse_args():
         '--data-root',
         type=str,
         help='The data root of coco dataset.',
-        default='./data/coco/')
+        default='./data/coco/',
+    )
     parser.add_argument(
         '--out-dir',
         type=str,
         help='The output directory of coco semi-supervised annotations.',
-        default='./data/coco/semi_anns/')
+        default='./data/coco/semi_anns/',
+    )
     parser.add_argument(
         '--labeled-percent',
         type=float,
         nargs='+',
         help='The percentage of labeled data in the training set.',
-        default=[1, 2, 5, 10])
+        default=[1, 2, 5, 10],
+    )
     parser.add_argument(
         '--fold',
         type=int,
         help='K-fold cross validation for semi-supervised object detection.',
-        default=5)
+        default=5,
+    )
     args = parser.parse_args()
     return args
 
@@ -68,9 +72,10 @@ def split_coco(data_root, out_dir, percent, fold):
     anns = load(ann_file)
 
     image_list = anns['images']
-    labeled_total = int(percent / 100. * len(image_list))
+    labeled_total = int(percent / 100.0 * len(image_list))
     labeled_inds = set(
-        np.random.choice(range(len(image_list)), size=labeled_total))
+        np.random.choice(range(len(image_list)), size=labeled_total)
+    )
     labeled_ids, labeled_images, unlabeled_images = [], [], []
 
     for i in range(len(image_list)):
@@ -104,7 +109,9 @@ def multi_wrapper(args):
 
 if __name__ == '__main__':
     args = parse_args()
-    arguments_list = [(args.data_root, args.out_dir, p, f)
-                      for f in range(1, args.fold + 1)
-                      for p in args.labeled_percent]
+    arguments_list = [
+        (args.data_root, args.out_dir, p, f)
+        for f in range(1, args.fold + 1)
+        for p in args.labeled_percent
+    ]
     track_parallel_progress(multi_wrapper, arguments_list, args.fold)

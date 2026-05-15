@@ -23,7 +23,7 @@ class AssignResult(util_mixins.NiceRepr):
         >>> # An assign result between 4 predicted boxes and 9 true boxes
         >>> # where only two boxes were assigned.
         >>> num_gts = 9
-        >>> max_overlaps = torch.LongTensor([0, .5, .9, 0])
+        >>> max_overlaps = torch.LongTensor([0, 0.5, 0.9, 0])
         >>> gt_inds = torch.LongTensor([-1, 1, 2, 0])
         >>> labels = torch.LongTensor([0, 3, 4, 0])
         >>> self = AssignResult(num_gts, gt_inds, max_overlaps, labels)
@@ -38,8 +38,13 @@ class AssignResult(util_mixins.NiceRepr):
                       labels.shape=(7,))>
     """
 
-    def __init__(self, num_gts: int, gt_inds: Tensor, max_overlaps: Tensor,
-                 labels: Tensor) -> None:
+    def __init__(
+        self,
+        num_gts: int,
+        gt_inds: Tensor,
+        max_overlaps: Tensor,
+        labels: Tensor,
+    ) -> None:
         self.num_gts = num_gts
         self.gt_inds = gt_inds
         self.max_overlaps = max_overlaps
@@ -85,8 +90,9 @@ class AssignResult(util_mixins.NiceRepr):
         if self.max_overlaps is None:
             parts.append(f'max_overlaps={self.max_overlaps!r}')
         else:
-            parts.append('max_overlaps.shape='
-                         f'{tuple(self.max_overlaps.shape)!r}')
+            parts.append(
+                f'max_overlaps.shape={tuple(self.max_overlaps.shape)!r}'
+            )
         if self.labels is None:
             parts.append(f'labels={self.labels!r}')
         else:
@@ -116,10 +122,11 @@ class AssignResult(util_mixins.NiceRepr):
             >>> print(self.info)
         """
         from ..samplers.sampling_result import ensure_rng
-        rng = ensure_rng(kwargs.get('rng', None))
 
-        num_gts = kwargs.get('num_gts', None)
-        num_preds = kwargs.get('num_preds', None)
+        rng = ensure_rng(kwargs.get('rng'))
+
+        num_gts = kwargs.get('num_gts')
+        num_preds = kwargs.get('num_preds')
         p_ignore = kwargs.get('p_ignore', 0.3)
         p_assigned = kwargs.get('p_assigned', 0.7)
         num_classes = kwargs.get('num_classes', 3)
@@ -153,8 +160,9 @@ class AssignResult(util_mixins.NiceRepr):
             is_assigned[:] = 0
             is_assigned[assigned_idxs] = True
 
-            is_ignore = torch.from_numpy(
-                rng.rand(num_preds) < p_ignore) & is_assigned
+            is_ignore = (
+                torch.from_numpy(rng.rand(num_preds) < p_ignore) & is_assigned
+            )
 
             gt_inds = torch.zeros(num_preds, dtype=torch.int64)
 
@@ -164,7 +172,8 @@ class AssignResult(util_mixins.NiceRepr):
             gt_inds[is_assigned] = true_idxs[:n_assigned].long()
 
             gt_inds = torch.from_numpy(
-                rng.randint(1, num_gts + 1, size=num_preds))
+                rng.randint(1, num_gts + 1, size=num_preds)
+            )
             gt_inds[is_ignore] = -1
             gt_inds[~is_assigned] = 0
             max_overlaps[~is_assigned] = 0
@@ -176,7 +185,8 @@ class AssignResult(util_mixins.NiceRepr):
                     # remind that we set FG labels to [0, num_class-1]
                     # since mmdet v2.0
                     # BG cat_id: num_class
-                    rng.randint(0, num_classes, size=num_preds))
+                    rng.randint(0, num_classes, size=num_preds)
+                )
                 labels[~is_assigned] = 0
 
         self = cls(num_gts, gt_inds, max_overlaps, labels)
@@ -189,10 +199,12 @@ class AssignResult(util_mixins.NiceRepr):
             gt_labels (torch.Tensor): Labels of gt boxes
         """
         self_inds = torch.arange(
-            1, len(gt_labels) + 1, dtype=torch.long, device=gt_labels.device)
+            1, len(gt_labels) + 1, dtype=torch.long, device=gt_labels.device
+        )
         self.gt_inds = torch.cat([self_inds, self.gt_inds])
 
         self.max_overlaps = torch.cat(
-            [self.max_overlaps.new_ones(len(gt_labels)), self.max_overlaps])
+            [self.max_overlaps.new_ones(len(gt_labels)), self.max_overlaps]
+        )
 
         self.labels = torch.cat([gt_labels, self.labels])

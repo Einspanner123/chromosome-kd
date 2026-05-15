@@ -8,6 +8,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from mmcv.cnn import fuse_conv_bn
+
 # TODO need update
 # from mmcv.runner import wrap_fp16_model
 from mmengine import MMLogger
@@ -26,9 +27,9 @@ except ImportError:
     psutil = None
 
 
-def custom_round(value: Union[int, float],
-                 factor: Union[int, float],
-                 precision: int = 2) -> float:
+def custom_round(
+    value: Union[int, float], factor: Union[int, float], precision: int = 2
+) -> float:
     """Custom round function."""
     return round(value / factor, precision)
 
@@ -44,8 +45,9 @@ def print_log(msg: str, logger: Optional[MMLogger] = None) -> None:
         logger.info(msg)
 
 
-def print_process_memory(p: psutil.Process,
-                         logger: Optional[MMLogger] = None) -> None:
+def print_process_memory(
+    p: psutil.Process, logger: Optional[MMLogger] = None
+) -> None:
     """print process memory info."""
     mem_used = gb_round(psutil.virtual_memory().used)
     memory_full_info = p.memory_full_info()
@@ -83,11 +85,13 @@ class BaseBenchmark:
         logger (MMLogger, optional): Formatted logger used to record messages.
     """
 
-    def __init__(self,
-                 max_iter: int,
-                 log_interval: int,
-                 num_warmup: int,
-                 logger: Optional[MMLogger] = None):
+    def __init__(
+        self,
+        max_iter: int,
+        log_interval: int,
+        num_warmup: int,
+        logger: Optional[MMLogger] = None,
+    ):
         self.max_iter = max_iter
         self.log_interval = log_interval
         self.num_warmup = num_warmup
@@ -135,26 +139,31 @@ class InferenceBenchmark(BaseBenchmark):
         logger (MMLogger, optional): Formatted logger used to record messages.
     """
 
-    def __init__(self,
-                 cfg: Config,
-                 checkpoint: str,
-                 distributed: bool,
-                 is_fuse_conv_bn: bool,
-                 max_iter: int = 2000,
-                 log_interval: int = 50,
-                 num_warmup: int = 5,
-                 logger: Optional[MMLogger] = None):
+    def __init__(
+        self,
+        cfg: Config,
+        checkpoint: str,
+        distributed: bool,
+        is_fuse_conv_bn: bool,
+        max_iter: int = 2000,
+        log_interval: int = 50,
+        num_warmup: int = 5,
+        logger: Optional[MMLogger] = None,
+    ):
         super().__init__(max_iter, log_interval, num_warmup, logger)
 
-        assert get_world_size(
-        ) == 1, 'Inference benchmark does not allow distributed multi-GPU'
+        assert get_world_size() == 1, (
+            'Inference benchmark does not allow distributed multi-GPU'
+        )
 
         self.cfg = copy.deepcopy(cfg)
         self.distributed = distributed
 
         if psutil is None:
-            raise ImportError('psutil is not installed, please install it by: '
-                              'pip install psutil')
+            raise ImportError(
+                'psutil is not installed, please install it by: '
+                'pip install psutil'
+            )
 
         self._process = psutil.Process()
         env_cfg = self.cfg.get('env_cfg')
@@ -200,7 +209,8 @@ class InferenceBenchmark(BaseBenchmark):
                 model,
                 device_ids=[torch.cuda.current_device()],
                 broadcast_buffers=False,
-                find_unused_parameters=False)
+                find_unused_parameters=False,
+            )
 
         model.eval()
         return model
@@ -211,7 +221,6 @@ class InferenceBenchmark(BaseBenchmark):
         fps = 0
 
         for i, data in enumerate(self.data_loader):
-
             if (i + 1) % self.log_interval == 0:
                 print_log('==================================', self.logger)
 
@@ -234,7 +243,9 @@ class InferenceBenchmark(BaseBenchmark):
                         f'Done image [{i + 1:<3}/{self.max_iter}], '
                         f'fps: {fps:.1f} img/s, '
                         f'times per image: {1000 / fps:.1f} ms/img, '
-                        f'cuda memory: {cuda_memory} MB', self.logger)
+                        f'cuda memory: {cuda_memory} MB',
+                        self.logger,
+                    )
                     print_process_memory(self._process, self.logger)
 
             if (i + 1) == self.max_iter:
@@ -256,18 +267,22 @@ class InferenceBenchmark(BaseBenchmark):
                 round(1000 / result['fps'], 1) for result in results
             ]
             avg_times_pre_image_ = sum(times_pre_image_list_) / len(
-                times_pre_image_list_)
+                times_pre_image_list_
+            )
 
             print_log(
                 f'Overall fps: {fps_list_}[{avg_fps_:.1f}] img/s, '
                 'times per image: '
                 f'{times_pre_image_list_}[{avg_times_pre_image_:.1f}] '
-                'ms/img', self.logger)
+                'ms/img',
+                self.logger,
+            )
         else:
             print_log(
                 f'Overall fps: {fps_list_[0]:.1f} img/s, '
                 f'times per image: {1000 / fps_list_[0]:.1f} ms/img',
-                self.logger)
+                self.logger,
+            )
 
         print_log(f'cuda memory: {get_max_cuda_memory()} MB', self.logger)
         print_process_memory(self._process, self.logger)
@@ -290,28 +305,34 @@ class DataLoaderBenchmark(BaseBenchmark):
         logger (MMLogger, optional): Formatted logger used to record messages.
     """
 
-    def __init__(self,
-                 cfg: Config,
-                 distributed: bool,
-                 dataset_type: str,
-                 max_iter: int = 2000,
-                 log_interval: int = 50,
-                 num_warmup: int = 5,
-                 logger: Optional[MMLogger] = None):
+    def __init__(
+        self,
+        cfg: Config,
+        distributed: bool,
+        dataset_type: str,
+        max_iter: int = 2000,
+        log_interval: int = 50,
+        num_warmup: int = 5,
+        logger: Optional[MMLogger] = None,
+    ):
         super().__init__(max_iter, log_interval, num_warmup, logger)
 
-        assert dataset_type in ['train', 'val', 'test'], \
-            'dataset_type only supports train,' \
+        assert dataset_type in ['train', 'val', 'test'], (
+            'dataset_type only supports train,'
             f' val and test, but got {dataset_type}'
-        assert get_world_size(
-        ) == 1, 'Dataloader benchmark does not allow distributed multi-GPU'
+        )
+        assert get_world_size() == 1, (
+            'Dataloader benchmark does not allow distributed multi-GPU'
+        )
 
         self.cfg = copy.deepcopy(cfg)
         self.distributed = distributed
 
         if psutil is None:
-            raise ImportError('psutil is not installed, please install it by: '
-                              'pip install psutil')
+            raise ImportError(
+                'psutil is not installed, please install it by: '
+                'pip install psutil'
+            )
         self._process = psutil.Process()
 
         mp_cfg = self.cfg.get('env_cfg', {}).get('mp_cfg')
@@ -359,7 +380,9 @@ class DataLoaderBenchmark(BaseBenchmark):
                         f'fps: {fps:.1f} batch/s, '
                         f'times per batch: {1000 / fps:.1f} ms/batch, '
                         f'batch size: {self.batch_size}, num_workers: '
-                        f'{self.num_workers}', self.logger)
+                        f'{self.num_workers}',
+                        self.logger,
+                    )
                     print_process_memory(self._process, self.logger)
 
             if (i + 1) == self.max_iter:
@@ -383,20 +406,25 @@ class DataLoaderBenchmark(BaseBenchmark):
                 round(1000 / result['fps'], 1) for result in results
             ]
             avg_times_pre_image_ = sum(times_pre_image_list_) / len(
-                times_pre_image_list_)
+                times_pre_image_list_
+            )
 
             print_log(
                 f'Overall fps: {fps_list_}[{avg_fps_:.1f}] img/s, '
                 'times per batch: '
                 f'{times_pre_image_list_}[{avg_times_pre_image_:.1f}] '
                 f'ms/batch, batch size: {self.batch_size}, num_workers: '
-                f'{self.num_workers}', self.logger)
+                f'{self.num_workers}',
+                self.logger,
+            )
         else:
             print_log(
                 f'Overall fps: {fps_list_[0]:.1f} batch/s, '
                 f'times per batch: {1000 / fps_list_[0]:.1f} ms/batch, '
                 f'batch size: {self.batch_size}, num_workers: '
-                f'{self.num_workers}', self.logger)
+                f'{self.num_workers}',
+                self.logger,
+            )
 
         print_process_memory(self._process, self.logger)
 
@@ -417,19 +445,23 @@ class DatasetBenchmark(BaseBenchmark):
         logger (MMLogger, optional): Formatted logger used to record messages.
     """
 
-    def __init__(self,
-                 cfg: Config,
-                 dataset_type: str,
-                 max_iter: int = 2000,
-                 log_interval: int = 50,
-                 num_warmup: int = 5,
-                 logger: Optional[MMLogger] = None):
+    def __init__(
+        self,
+        cfg: Config,
+        dataset_type: str,
+        max_iter: int = 2000,
+        log_interval: int = 50,
+        num_warmup: int = 5,
+        logger: Optional[MMLogger] = None,
+    ):
         super().__init__(max_iter, log_interval, num_warmup, logger)
-        assert dataset_type in ['train', 'val', 'test'], \
-            'dataset_type only supports train,' \
+        assert dataset_type in ['train', 'val', 'test'], (
+            'dataset_type only supports train,'
             f' val and test, but got {dataset_type}'
-        assert get_world_size(
-        ) == 1, 'Dataset benchmark does not allow distributed multi-GPU'
+        )
+        assert get_world_size() == 1, (
+            'Dataset benchmark does not allow distributed multi-GPU'
+        )
         self.cfg = copy.deepcopy(cfg)
 
         if dataset_type == 'train':
@@ -460,12 +492,15 @@ class DatasetBenchmark(BaseBenchmark):
 
             get_data_info_start_time = time.perf_counter()
             data_info = self.dataset.get_data_info(idx)
-            get_data_info_elapsed = time.perf_counter(
-            ) - get_data_info_start_time
+            get_data_info_elapsed = (
+                time.perf_counter() - get_data_info_start_time
+            )
 
             if (i + 1) % self.log_interval == 0:
-                print_log(f'get_data_info - {get_data_info_elapsed * 1000} ms',
-                          self.logger)
+                print_log(
+                    f'get_data_info - {get_data_info_elapsed * 1000} ms',
+                    self.logger,
+                )
 
             for t in self.dataset.pipeline.transforms:
                 transform_start_time = time.perf_counter()
@@ -475,7 +510,9 @@ class DatasetBenchmark(BaseBenchmark):
                 if (i + 1) % self.log_interval == 0:
                     print_log(
                         f'{t.__class__.__name__} - '
-                        f'{transform_elapsed * 1000} ms', self.logger)
+                        f'{transform_elapsed * 1000} ms',
+                        self.logger,
+                    )
 
                 if data_info is None:
                     break
@@ -490,7 +527,9 @@ class DatasetBenchmark(BaseBenchmark):
                     print_log(
                         f'Done img [{i + 1:<3}/{self.max_iter}], '
                         f'fps: {fps:.1f} img/s, '
-                        f'times per img: {1000 / fps:.1f} ms/img', self.logger)
+                        f'times per img: {1000 / fps:.1f} ms/img',
+                        self.logger,
+                    )
 
             if (i + 1) == self.max_iter:
                 fps = (i + 1 - self.num_warmup) / pure_inf_time
@@ -513,17 +552,21 @@ class DatasetBenchmark(BaseBenchmark):
                 round(1000 / result['fps'], 1) for result in results
             ]
             avg_times_pre_image_ = sum(times_pre_image_list_) / len(
-                times_pre_image_list_)
+                times_pre_image_list_
+            )
 
             print_log(
                 f'Overall fps: {fps_list_}[{avg_fps_:.1f}] img/s, '
                 'times per img: '
                 f'{times_pre_image_list_}[{avg_times_pre_image_:.1f}] '
-                'ms/img', self.logger)
+                'ms/img',
+                self.logger,
+            )
         else:
             print_log(
                 f'Overall fps: {fps_list_[0]:.1f} img/s, '
                 f'times per img: {1000 / fps_list_[0]:.1f} ms/img',
-                self.logger)
+                self.logger,
+            )
 
         return outputs

@@ -12,8 +12,11 @@ from mmdet.registry import MODELS
 try:
     import mmpretrain
     from mmpretrain.models.utils.batch_augments import RandomBatchAugment
-    from mmpretrain.structures import (batch_label_to_onehot, cat_batch_labels,
-                                       tensor_split)
+    from mmpretrain.structures import (
+        batch_label_to_onehot,
+        cat_batch_labels,
+        tensor_split,
+    )
 except ImportError:
     mmpretrain = None
 
@@ -77,19 +80,23 @@ class ReIDDataPreprocessor(BaseDataPreprocessor):
             :class:`mmpretrain.models.RandomBatchAugment`.
     """
 
-    def __init__(self,
-                 mean: Sequence[Number] = None,
-                 std: Sequence[Number] = None,
-                 pad_size_divisor: int = 1,
-                 pad_value: Number = 0,
-                 to_rgb: bool = False,
-                 to_onehot: bool = False,
-                 num_classes: Optional[int] = None,
-                 batch_augments: Optional[dict] = None):
+    def __init__(
+        self,
+        mean: Sequence[Number] = None,
+        std: Sequence[Number] = None,
+        pad_size_divisor: int = 1,
+        pad_value: Number = 0,
+        to_rgb: bool = False,
+        to_onehot: bool = False,
+        num_classes: Optional[int] = None,
+        batch_augments: Optional[dict] = None,
+    ):
         if mmpretrain is None:
-            raise RuntimeError('Please run "pip install openmim" and '
-                               'run "mim install mmpretrain" to '
-                               'install mmpretrain first.')
+            raise RuntimeError(
+                'Please run "pip install openmim" and '
+                'run "mim install mmpretrain" to '
+                'install mmpretrain first.'
+            )
         super().__init__()
         self.pad_size_divisor = pad_size_divisor
         self.pad_value = pad_value
@@ -98,14 +105,18 @@ class ReIDDataPreprocessor(BaseDataPreprocessor):
         self.num_classes = num_classes
 
         if mean is not None:
-            assert std is not None, 'To enable the normalization in ' \
+            assert std is not None, (
+                'To enable the normalization in '
                 'preprocessing, please specify both `mean` and `std`.'
+            )
             # Enable the normalization in preprocessing.
             self._enable_normalize = True
-            self.register_buffer('mean',
-                                 torch.tensor(mean).view(-1, 1, 1), False)
-            self.register_buffer('std',
-                                 torch.tensor(std).view(-1, 1, 1), False)
+            self.register_buffer(
+                'mean', torch.tensor(mean).view(-1, 1, 1), False
+            )
+            self.register_buffer(
+                'std', torch.tensor(std).view(-1, 1, 1), False
+            )
         else:
             self._enable_normalize = False
 
@@ -113,10 +124,12 @@ class ReIDDataPreprocessor(BaseDataPreprocessor):
             self.batch_augments = RandomBatchAugment(**batch_augments)
             if not self.to_onehot:
                 from mmengine.logging import MMLogger
+
                 MMLogger.get_current_instance().info(
                     'Because batch augmentations are enabled, the data '
                     'preprocessor automatically enables the `to_onehot` '
-                    'option to generate one-hot format labels.')
+                    'option to generate one-hot format labels.'
+                )
                 self.to_onehot = True
         else:
             self.batch_augments = None
@@ -151,14 +164,19 @@ class ReIDDataPreprocessor(BaseDataPreprocessor):
             if self.pad_size_divisor > 1:
                 h, w = inputs.shape[-2:]
 
-                target_h = math.ceil(
-                    h / self.pad_size_divisor) * self.pad_size_divisor
-                target_w = math.ceil(
-                    w / self.pad_size_divisor) * self.pad_size_divisor
+                target_h = (
+                    math.ceil(h / self.pad_size_divisor)
+                    * self.pad_size_divisor
+                )
+                target_w = (
+                    math.ceil(w / self.pad_size_divisor)
+                    * self.pad_size_divisor
+                )
                 pad_h = target_h - h
                 pad_w = target_w - w
-                inputs = F.pad(inputs, (0, pad_w, 0, pad_h), 'constant',
-                               self.pad_value)
+                inputs = F.pad(
+                    inputs, (0, pad_w, 0, pad_h), 'constant', self.pad_value
+                )
         else:
             # The branch if use `pseudo_collate` as the collate_fn in the
             # dataloader.
@@ -176,10 +194,11 @@ class ReIDDataPreprocessor(BaseDataPreprocessor):
 
                 processed_inputs.append(input_)
             # Combine padding and stack
-            inputs = stack_batch(processed_inputs, self.pad_size_divisor,
-                                 self.pad_value)
+            inputs = stack_batch(
+                processed_inputs, self.pad_size_divisor, self.pad_value
+            )
 
-        data_samples = data.get('data_samples', None)
+        data_samples = data.get('data_samples')
         sample_item = data_samples[0] if data_samples is not None else None
         if 'gt_label' in sample_item:
             gt_labels = [sample.gt_label for sample in data_samples]
@@ -189,15 +208,19 @@ class ReIDDataPreprocessor(BaseDataPreprocessor):
 
             batch_score = stack_batch_scores(gt_labels, device=self.device)
             if batch_score is None and self.to_onehot:
-                assert batch_label is not None, \
+                assert batch_label is not None, (
                     'Cannot generate onehot format labels because no labels.'
+                )
                 num_classes = self.num_classes or data_samples[0].get(
-                    'num_classes')
-                assert num_classes is not None, \
-                    'Cannot generate one-hot format labels because not set ' \
+                    'num_classes'
+                )
+                assert num_classes is not None, (
+                    'Cannot generate one-hot format labels because not set '
                     '`num_classes` in `data_preprocessor`.'
-                batch_score = batch_label_to_onehot(batch_label, label_indices,
-                                                    num_classes)
+                )
+                batch_score = batch_label_to_onehot(
+                    batch_label, label_indices, num_classes
+                )
 
             # ----- Batch Augmentations ----
             if training and self.batch_augments is not None:
@@ -206,8 +229,8 @@ class ReIDDataPreprocessor(BaseDataPreprocessor):
             # ----- scatter labels and scores to data samples ---
             if batch_label is not None:
                 for sample, label in zip(
-                        data_samples, tensor_split(batch_label,
-                                                   label_indices)):
+                    data_samples, tensor_split(batch_label, label_indices)
+                ):
                     sample.set_gt_label(label)
             if batch_score is not None:
                 for sample, score in zip(data_samples, batch_score):

@@ -18,15 +18,17 @@ class BaseMatchCost:
         weight (Union[float, int]): Cost weight. Defaults to 1.
     """
 
-    def __init__(self, weight: Union[float, int] = 1.) -> None:
+    def __init__(self, weight: Union[float, int] = 1.0) -> None:
         self.weight = weight
 
     @abstractmethod
-    def __call__(self,
-                 pred_instances: InstanceData,
-                 gt_instances: InstanceData,
-                 img_meta: Optional[dict] = None,
-                 **kwargs) -> Tensor:
+    def __call__(
+        self,
+        pred_instances: InstanceData,
+        gt_instances: InstanceData,
+        img_meta: Optional[dict] = None,
+        **kwargs,
+    ) -> Tensor:
         """Compute match cost.
 
         Args:
@@ -66,24 +68,26 @@ class BBoxL1Cost(BaseMatchCost):
         >>> import torch
         >>> self = BBoxL1Cost()
         >>> bbox_pred = torch.rand(1, 4)
-        >>> gt_bboxes= torch.FloatTensor([[0, 0, 2, 4], [1, 2, 3, 4]])
+        >>> gt_bboxes = torch.FloatTensor([[0, 0, 2, 4], [1, 2, 3, 4]])
         >>> factor = torch.tensor([10, 8, 10, 8])
         >>> self(bbox_pred, gt_bboxes, factor)
         tensor([[1.6172, 1.6422]])
     """
 
-    def __init__(self,
-                 box_format: str = 'xyxy',
-                 weight: Union[float, int] = 1.) -> None:
+    def __init__(
+        self, box_format: str = 'xyxy', weight: Union[float, int] = 1.0
+    ) -> None:
         super().__init__(weight=weight)
         assert box_format in ['xyxy', 'xywh']
         self.box_format = box_format
 
-    def __call__(self,
-                 pred_instances: InstanceData,
-                 gt_instances: InstanceData,
-                 img_meta: Optional[dict] = None,
-                 **kwargs) -> Tensor:
+    def __call__(
+        self,
+        pred_instances: InstanceData,
+        gt_instances: InstanceData,
+        img_meta: Optional[dict] = None,
+        **kwargs,
+    ) -> Tensor:
         """Compute match cost.
 
         Args:
@@ -107,8 +111,9 @@ class BBoxL1Cost(BaseMatchCost):
 
         # normalized
         img_h, img_w = img_meta['img_shape']
-        factor = gt_bboxes.new_tensor([img_w, img_h, img_w,
-                                       img_h]).unsqueeze(0)
+        factor = gt_bboxes.new_tensor([img_w, img_h, img_w, img_h]).unsqueeze(
+            0
+        )
         gt_bboxes = gt_bboxes / factor
         pred_bboxes = pred_bboxes / factor
 
@@ -132,22 +137,26 @@ class IoUCost(BaseMatchCost):
         ... match_costs.match_cost import IoUCost
         >>> import torch
         >>> self = IoUCost()
-        >>> bboxes = torch.FloatTensor([[1,1, 2, 2], [2, 2, 3, 4]])
+        >>> bboxes = torch.FloatTensor([[1, 1, 2, 2], [2, 2, 3, 4]])
         >>> gt_bboxes = torch.FloatTensor([[0, 0, 2, 4], [1, 2, 3, 4]])
         >>> self(bboxes, gt_bboxes)
         tensor([[-0.1250,  0.1667],
             [ 0.1667, -0.5000]])
     """
 
-    def __init__(self, iou_mode: str = 'giou', weight: Union[float, int] = 1.):
+    def __init__(
+        self, iou_mode: str = 'giou', weight: Union[float, int] = 1.0
+    ):
         super().__init__(weight=weight)
         self.iou_mode = iou_mode
 
-    def __call__(self,
-                 pred_instances: InstanceData,
-                 gt_instances: InstanceData,
-                 img_meta: Optional[dict] = None,
-                 **kwargs):
+    def __call__(
+        self,
+        pred_instances: InstanceData,
+        gt_instances: InstanceData,
+        img_meta: Optional[dict] = None,
+        **kwargs,
+    ):
         """Compute match cost.
 
         Args:
@@ -172,7 +181,8 @@ class IoUCost(BaseMatchCost):
             fp16 = False
 
         overlaps = bbox_overlaps(
-            pred_bboxes, gt_bboxes, mode=self.iou_mode, is_aligned=False)
+            pred_bboxes, gt_bboxes, mode=self.iou_mode, is_aligned=False
+        )
 
         if fp16:
             overlaps = overlaps.to(torch.float16)
@@ -207,11 +217,13 @@ class ClassificationCost(BaseMatchCost):
     def __init__(self, weight: Union[float, int] = 1) -> None:
         super().__init__(weight=weight)
 
-    def __call__(self,
-                 pred_instances: InstanceData,
-                 gt_instances: InstanceData,
-                 img_meta: Optional[dict] = None,
-                 **kwargs) -> Tensor:
+    def __call__(
+        self,
+        pred_instances: InstanceData,
+        gt_instances: InstanceData,
+        img_meta: Optional[dict] = None,
+        **kwargs,
+    ) -> Tensor:
         """Compute match cost.
 
         Args:
@@ -248,12 +260,14 @@ class FocalLossCost(BaseMatchCost):
         weight (Union[float, int]): Cost weight. Defaults to 1.
     """
 
-    def __init__(self,
-                 alpha: Union[float, int] = 0.25,
-                 gamma: Union[float, int] = 2,
-                 eps: float = 1e-12,
-                 binary_input: bool = False,
-                 weight: Union[float, int] = 1.) -> None:
+    def __init__(
+        self,
+        alpha: Union[float, int] = 0.25,
+        gamma: Union[float, int] = 2,
+        eps: float = 1e-12,
+        binary_input: bool = False,
+        weight: Union[float, int] = 1.0,
+    ) -> None:
         super().__init__(weight=weight)
         self.alpha = alpha
         self.gamma = gamma
@@ -271,10 +285,16 @@ class FocalLossCost(BaseMatchCost):
             torch.Tensor: cls_cost value with weight
         """
         cls_pred = cls_pred.sigmoid()
-        neg_cost = -(1 - cls_pred + self.eps).log() * (
-            1 - self.alpha) * cls_pred.pow(self.gamma)
-        pos_cost = -(cls_pred + self.eps).log() * self.alpha * (
-            1 - cls_pred).pow(self.gamma)
+        neg_cost = (
+            -(1 - cls_pred + self.eps).log()
+            * (1 - self.alpha)
+            * cls_pred.pow(self.gamma)
+        )
+        pos_cost = (
+            -(cls_pred + self.eps).log()
+            * self.alpha
+            * (1 - cls_pred).pow(self.gamma)
+        )
 
         cls_cost = pos_cost[:, gt_labels] - neg_cost[:, gt_labels]
         return cls_cost * self.weight
@@ -295,20 +315,29 @@ class FocalLossCost(BaseMatchCost):
         gt_labels = gt_labels.flatten(1).float()
         n = cls_pred.shape[1]
         cls_pred = cls_pred.sigmoid()
-        neg_cost = -(1 - cls_pred + self.eps).log() * (
-            1 - self.alpha) * cls_pred.pow(self.gamma)
-        pos_cost = -(cls_pred + self.eps).log() * self.alpha * (
-            1 - cls_pred).pow(self.gamma)
+        neg_cost = (
+            -(1 - cls_pred + self.eps).log()
+            * (1 - self.alpha)
+            * cls_pred.pow(self.gamma)
+        )
+        pos_cost = (
+            -(cls_pred + self.eps).log()
+            * self.alpha
+            * (1 - cls_pred).pow(self.gamma)
+        )
 
-        cls_cost = torch.einsum('nc,mc->nm', pos_cost, gt_labels) + \
-            torch.einsum('nc,mc->nm', neg_cost, (1 - gt_labels))
+        cls_cost = torch.einsum(
+            'nc,mc->nm', pos_cost, gt_labels
+        ) + torch.einsum('nc,mc->nm', neg_cost, (1 - gt_labels))
         return cls_cost / n * self.weight
 
-    def __call__(self,
-                 pred_instances: InstanceData,
-                 gt_instances: InstanceData,
-                 img_meta: Optional[dict] = None,
-                 **kwargs) -> Tensor:
+    def __call__(
+        self,
+        pred_instances: InstanceData,
+        gt_instances: InstanceData,
+        img_meta: Optional[dict] = None,
+        **kwargs,
+    ) -> Tensor:
         """Compute match cost.
 
         Args:
@@ -333,7 +362,6 @@ class FocalLossCost(BaseMatchCost):
 
 @TASK_UTILS.register_module()
 class BinaryFocalLossCost(FocalLossCost):
-
     def _focal_loss_cost(self, cls_pred: Tensor, gt_labels: Tensor) -> Tensor:
         """
         Args:
@@ -347,20 +375,29 @@ class BinaryFocalLossCost(FocalLossCost):
         cls_pred = cls_pred.flatten(1)
         gt_labels = gt_labels.flatten(1).float()
         cls_pred = cls_pred.sigmoid()
-        neg_cost = -(1 - cls_pred + self.eps).log() * (
-            1 - self.alpha) * cls_pred.pow(self.gamma)
-        pos_cost = -(cls_pred + self.eps).log() * self.alpha * (
-            1 - cls_pred).pow(self.gamma)
+        neg_cost = (
+            -(1 - cls_pred + self.eps).log()
+            * (1 - self.alpha)
+            * cls_pred.pow(self.gamma)
+        )
+        pos_cost = (
+            -(cls_pred + self.eps).log()
+            * self.alpha
+            * (1 - cls_pred).pow(self.gamma)
+        )
 
-        cls_cost = torch.einsum('nc,mc->nm', pos_cost, gt_labels) + \
-            torch.einsum('nc,mc->nm', neg_cost, (1 - gt_labels))
+        cls_cost = torch.einsum(
+            'nc,mc->nm', pos_cost, gt_labels
+        ) + torch.einsum('nc,mc->nm', neg_cost, (1 - gt_labels))
         return cls_cost * self.weight
 
-    def __call__(self,
-                 pred_instances: InstanceData,
-                 gt_instances: InstanceData,
-                 img_meta: Optional[dict] = None,
-                 **kwargs) -> Tensor:
+    def __call__(
+        self,
+        pred_instances: InstanceData,
+        gt_instances: InstanceData,
+        img_meta: Optional[dict] = None,
+        **kwargs,
+    ) -> Tensor:
         """Compute match cost.
 
         Args:
@@ -376,7 +413,8 @@ class BinaryFocalLossCost(FocalLossCost):
         # gt_instances.text_token_mask is a repeated tensor of the same length
         # of instances. Only gt_instances.text_token_mask[0] is useful
         text_token_mask = torch.nonzero(
-            gt_instances.text_token_mask[0]).squeeze(-1)
+            gt_instances.text_token_mask[0]
+        ).squeeze(-1)
         pred_scores = pred_instances.scores[:, text_token_mask]
         gt_labels = gt_instances.positive_maps[:, text_token_mask]
         return self._focal_loss_cost(pred_scores, gt_labels)
@@ -397,18 +435,21 @@ class DiceCost(BaseMatchCost):
         weight (Union[float, int]): Cost weight. Defaults to 1.
     """
 
-    def __init__(self,
-                 pred_act: bool = False,
-                 eps: float = 1e-3,
-                 naive_dice: bool = True,
-                 weight: Union[float, int] = 1.) -> None:
+    def __init__(
+        self,
+        pred_act: bool = False,
+        eps: float = 1e-3,
+        naive_dice: bool = True,
+        weight: Union[float, int] = 1.0,
+    ) -> None:
         super().__init__(weight=weight)
         self.pred_act = pred_act
         self.eps = eps
         self.naive_dice = naive_dice
 
-    def _binary_mask_dice_loss(self, mask_preds: Tensor,
-                               gt_masks: Tensor) -> Tensor:
+    def _binary_mask_dice_loss(
+        self, mask_preds: Tensor, gt_masks: Tensor
+    ) -> Tensor:
         """
         Args:
             mask_preds (Tensor): Mask prediction in shape (num_queries, *).
@@ -423,19 +464,24 @@ class DiceCost(BaseMatchCost):
         gt_masks = gt_masks.flatten(1).float()
         numerator = 2 * torch.einsum('nc,mc->nm', mask_preds, gt_masks)
         if self.naive_dice:
-            denominator = mask_preds.sum(-1)[:, None] + \
-                          gt_masks.sum(-1)[None, :]
+            denominator = (
+                mask_preds.sum(-1)[:, None] + gt_masks.sum(-1)[None, :]
+            )
         else:
-            denominator = mask_preds.pow(2).sum(1)[:, None] + \
-                          gt_masks.pow(2).sum(1)[None, :]
+            denominator = (
+                mask_preds.pow(2).sum(1)[:, None]
+                + gt_masks.pow(2).sum(1)[None, :]
+            )
         loss = 1 - (numerator + self.eps) / (denominator + self.eps)
         return loss
 
-    def __call__(self,
-                 pred_instances: InstanceData,
-                 gt_instances: InstanceData,
-                 img_meta: Optional[dict] = None,
-                 **kwargs) -> Tensor:
+    def __call__(
+        self,
+        pred_instances: InstanceData,
+        gt_instances: InstanceData,
+        img_meta: Optional[dict] = None,
+        **kwargs,
+    ) -> Tensor:
         """Compute match cost.
 
         Args:
@@ -467,14 +513,15 @@ class CrossEntropyLossCost(BaseMatchCost):
         weight (Union[float, int]): Cost weight. Defaults to 1.
     """
 
-    def __init__(self,
-                 use_sigmoid: bool = True,
-                 weight: Union[float, int] = 1.) -> None:
+    def __init__(
+        self, use_sigmoid: bool = True, weight: Union[float, int] = 1.0
+    ) -> None:
         super().__init__(weight=weight)
         self.use_sigmoid = use_sigmoid
 
-    def _binary_cross_entropy(self, cls_pred: Tensor,
-                              gt_labels: Tensor) -> Tensor:
+    def _binary_cross_entropy(
+        self, cls_pred: Tensor, gt_labels: Tensor
+    ) -> Tensor:
         """
         Args:
             cls_pred (Tensor): The prediction with shape (num_queries, 1, *) or
@@ -489,20 +536,25 @@ class CrossEntropyLossCost(BaseMatchCost):
         gt_labels = gt_labels.flatten(1).float()
         n = cls_pred.shape[1]
         pos = F.binary_cross_entropy_with_logits(
-            cls_pred, torch.ones_like(cls_pred), reduction='none')
+            cls_pred, torch.ones_like(cls_pred), reduction='none'
+        )
         neg = F.binary_cross_entropy_with_logits(
-            cls_pred, torch.zeros_like(cls_pred), reduction='none')
-        cls_cost = torch.einsum('nc,mc->nm', pos, gt_labels) + \
-            torch.einsum('nc,mc->nm', neg, 1 - gt_labels)
+            cls_pred, torch.zeros_like(cls_pred), reduction='none'
+        )
+        cls_cost = torch.einsum('nc,mc->nm', pos, gt_labels) + torch.einsum(
+            'nc,mc->nm', neg, 1 - gt_labels
+        )
         cls_cost = cls_cost / n
 
         return cls_cost
 
-    def __call__(self,
-                 pred_instances: InstanceData,
-                 gt_instances: InstanceData,
-                 img_meta: Optional[dict] = None,
-                 **kwargs) -> Tensor:
+    def __call__(
+        self,
+        pred_instances: InstanceData,
+        gt_instances: InstanceData,
+        img_meta: Optional[dict] = None,
+        **kwargs,
+    ) -> Tensor:
         """Compute match cost.
 
         Args:

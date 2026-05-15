@@ -21,11 +21,10 @@ train_pipeline = [
     dict(type='LoadImageFromFile', backend_args=backend_args),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=True),
     dict(
-        type='RandomResize',
-        scale=[(2048, 800), (2048, 1024)],
-        keep_ratio=True),
+        type='RandomResize', scale=[(2048, 800), (2048, 1024)], keep_ratio=True
+    ),
     dict(type='RandomFlip', prob=0.5),
-    dict(type='PackDetInputs')
+    dict(type='PackDetInputs'),
 ]
 
 test_pipeline = [
@@ -35,8 +34,14 @@ test_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True, with_mask=True),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+        ),
+    ),
 ]
 
 train_dataloader = dict(
@@ -55,7 +60,10 @@ train_dataloader = dict(
             data_prefix=dict(img='leftImg8bit/train/'),
             filter_cfg=dict(filter_empty_gt=True, min_size=32),
             pipeline=train_pipeline,
-            backend_args=backend_args)))
+            backend_args=backend_args,
+        ),
+    ),
+)
 
 val_dataloader = dict(
     batch_size=1,
@@ -71,22 +79,26 @@ val_dataloader = dict(
         test_mode=True,
         filter_cfg=dict(filter_empty_gt=True, min_size=32),
         pipeline=test_pipeline,
-        backend_args=backend_args))
+        backend_args=backend_args,
+    ),
+)
 
 test_dataloader = val_dataloader
 
 val_evaluator = [
     dict(
         type='CocoMetric',
-        ann_file=data_root +
-        'annotations/instancesonly_filtered_gtFine_val.json',
+        ann_file=data_root
+        + 'annotations/instancesonly_filtered_gtFine_val.json',
         metric=['bbox', 'segm'],
-        backend_args=backend_args),
+        backend_args=backend_args,
+    ),
     dict(
         type='CityScapesMetric',
         seg_prefix=data_root + 'gtFine/val',
         outfile_prefix='./work_dirs/cityscapes_metric/instance',
-        backend_args=backend_args)
+        backend_args=backend_args,
+    ),
 ]
 
 test_evaluator = val_evaluator

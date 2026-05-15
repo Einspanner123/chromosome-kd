@@ -11,7 +11,6 @@ from mmdet.datasets.samplers import AspectRatioBatchSampler
 
 
 class DummyDataset(Dataset):
-
     def __init__(self, length):
         self.length = length
         self.shapes = np.random.random((length, 2))
@@ -27,7 +26,6 @@ class DummyDataset(Dataset):
 
 
 class TestAspectRatioBatchSampler(TestCase):
-
     @patch('mmengine.dist.get_dist_info', return_value=(0, 1))
     def setUp(self, mock):
         self.length = 100
@@ -36,17 +34,20 @@ class TestAspectRatioBatchSampler(TestCase):
 
     def test_invalid_inputs(self):
         with self.assertRaisesRegex(
-                ValueError, 'batch_size should be a positive integer value'):
+            ValueError, 'batch_size should be a positive integer value'
+        ):
             AspectRatioBatchSampler(self.sampler, batch_size=-1)
 
         with self.assertRaisesRegex(
-                TypeError, 'sampler should be an instance of ``Sampler``'):
+            TypeError, 'sampler should be an instance of ``Sampler``'
+        ):
             AspectRatioBatchSampler(None, batch_size=1)
 
     def test_divisible_batch(self):
         batch_size = 5
         batch_sampler = AspectRatioBatchSampler(
-            self.sampler, batch_size=batch_size, drop_last=True)
+            self.sampler, batch_size=batch_size, drop_last=True
+        )
         self.assertEqual(len(batch_sampler), self.length // batch_size)
         for batch_idxs in batch_sampler:
             self.assertEqual(len(batch_idxs), batch_size)
@@ -58,15 +59,19 @@ class TestAspectRatioBatchSampler(TestCase):
     def test_indivisible_batch(self):
         batch_size = 7
         batch_sampler = AspectRatioBatchSampler(
-            self.sampler, batch_size=batch_size, drop_last=False)
+            self.sampler, batch_size=batch_size, drop_last=False
+        )
         all_batch_idxs = list(batch_sampler)
         self.assertEqual(
-            len(batch_sampler), (self.length + batch_size - 1) // batch_size)
+            len(batch_sampler), (self.length + batch_size - 1) // batch_size
+        )
         self.assertEqual(
-            len(all_batch_idxs), (self.length + batch_size - 1) // batch_size)
+            len(all_batch_idxs), (self.length + batch_size - 1) // batch_size
+        )
 
         batch_sampler = AspectRatioBatchSampler(
-            self.sampler, batch_size=batch_size, drop_last=True)
+            self.sampler, batch_size=batch_size, drop_last=True
+        )
         all_batch_idxs = list(batch_sampler)
         self.assertEqual(len(batch_sampler), self.length // batch_size)
         self.assertEqual(len(all_batch_idxs), self.length // batch_size)

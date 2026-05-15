@@ -11,7 +11,8 @@ model = dict(
         # 长度感知
         use_length_prior=use_length_prior,
         single_head=dict(
-            type='ChromoDetSingleHead', use_length_prior=use_length_prior),
+            type='ChromoDetSingleHead', use_length_prior=use_length_prior
+        ),
         # criterion
         criterion=dict(
             type='ChromoDetCriterion',
@@ -21,4 +22,5 @@ model = dict(
                 use_length_prior=use_length_prior,
             ),
         ),
-    ), )
+    ),
+)

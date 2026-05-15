@@ -9,12 +9,14 @@ from .utils import weight_reduce_loss, weighted_loss
 
 
 @weighted_loss
-def gaussian_focal_loss(pred: Tensor,
-                        gaussian_target: Tensor,
-                        alpha: float = 2.0,
-                        gamma: float = 4.0,
-                        pos_weight: float = 1.0,
-                        neg_weight: float = 1.0) -> Tensor:
+def gaussian_focal_loss(
+    pred: Tensor,
+    gaussian_target: Tensor,
+    alpha: float = 2.0,
+    gamma: float = 4.0,
+    pos_weight: float = 1.0,
+    neg_weight: float = 1.0,
+) -> Tensor:
     """`Focal Loss <https://arxiv.org/abs/1708.02002>`_ for targets in gaussian
     distribution.
 
@@ -38,16 +40,17 @@ def gaussian_focal_loss(pred: Tensor,
 
 
 def gaussian_focal_loss_with_pos_inds(
-        pred: Tensor,
-        gaussian_target: Tensor,
-        pos_inds: Tensor,
-        pos_labels: Tensor,
-        alpha: float = 2.0,
-        gamma: float = 4.0,
-        pos_weight: float = 1.0,
-        neg_weight: float = 1.0,
-        reduction: str = 'mean',
-        avg_factor: Optional[Union[int, float]] = None) -> Tensor:
+    pred: Tensor,
+    gaussian_target: Tensor,
+    pos_inds: Tensor,
+    pos_labels: Tensor,
+    alpha: float = 2.0,
+    gamma: float = 4.0,
+    pos_weight: float = 1.0,
+    neg_weight: float = 1.0,
+    reduction: str = 'mean',
+    avg_factor: Optional[Union[int, float]] = None,
+) -> Tensor:
     """`Focal Loss <https://arxiv.org/abs/1708.02002>`_ for targets in gaussian
     distribution.
 
@@ -109,13 +112,15 @@ class GaussianFocalLoss(nn.Module):
         neg_weight(float): Negative sample loss weight. Defaults to 1.0.
     """
 
-    def __init__(self,
-                 alpha: float = 2.0,
-                 gamma: float = 4.0,
-                 reduction: str = 'mean',
-                 loss_weight: float = 1.0,
-                 pos_weight: float = 1.0,
-                 neg_weight: float = 1.0) -> None:
+    def __init__(
+        self,
+        alpha: float = 2.0,
+        gamma: float = 4.0,
+        reduction: str = 'mean',
+        loss_weight: float = 1.0,
+        pos_weight: float = 1.0,
+        neg_weight: float = 1.0,
+    ) -> None:
         super().__init__()
         self.alpha = alpha
         self.gamma = gamma
@@ -124,14 +129,16 @@ class GaussianFocalLoss(nn.Module):
         self.pos_weight = pos_weight
         self.neg_weight = neg_weight
 
-    def forward(self,
-                pred: Tensor,
-                target: Tensor,
-                pos_inds: Optional[Tensor] = None,
-                pos_labels: Optional[Tensor] = None,
-                weight: Optional[Tensor] = None,
-                avg_factor: Optional[Union[int, float]] = None,
-                reduction_override: Optional[str] = None) -> Tensor:
+    def forward(
+        self,
+        pred: Tensor,
+        target: Tensor,
+        pos_inds: Optional[Tensor] = None,
+        pos_labels: Optional[Tensor] = None,
+        weight: Optional[Tensor] = None,
+        avg_factor: Optional[Union[int, float]] = None,
+        reduction_override: Optional[str] = None,
+    ) -> Tensor:
         """Forward function.
 
         If you want to manually determine which positions are
@@ -157,7 +164,8 @@ class GaussianFocalLoss(nn.Module):
         """
         assert reduction_override in (None, 'none', 'mean', 'sum')
         reduction = (
-            reduction_override if reduction_override else self.reduction)
+            reduction_override if reduction_override else self.reduction
+        )
         if pos_inds is not None:
             assert pos_labels is not None
             # Only used by centernet update version
@@ -171,7 +179,8 @@ class GaussianFocalLoss(nn.Module):
                 pos_weight=self.pos_weight,
                 neg_weight=self.neg_weight,
                 reduction=reduction,
-                avg_factor=avg_factor)
+                avg_factor=avg_factor,
+            )
         else:
             loss_reg = self.loss_weight * gaussian_focal_loss(
                 pred,
@@ -182,5 +191,6 @@ class GaussianFocalLoss(nn.Module):
                 pos_weight=self.pos_weight,
                 neg_weight=self.neg_weight,
                 reduction=reduction,
-                avg_factor=avg_factor)
+                avg_factor=avg_factor,
+            )
         return loss_reg

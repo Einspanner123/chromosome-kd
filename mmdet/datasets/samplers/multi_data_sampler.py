@@ -38,11 +38,13 @@ class MultiDataSampler(Sampler):
             samples evenly divisible by the world size. Defaults to True.
     """
 
-    def __init__(self,
-                 dataset: Sized,
-                 dataset_ratio: Sequence[int],
-                 seed: Optional[int] = None,
-                 round_up: bool = True) -> None:
+    def __init__(
+        self,
+        dataset: Sized,
+        dataset_ratio: Sequence[int],
+        seed: Optional[int] = None,
+        round_up: bool = True,
+    ) -> None:
         rank, world_size = get_dist_info()
         self.rank = rank
         self.world_size = world_size
@@ -61,7 +63,8 @@ class MultiDataSampler(Sampler):
             self.total_size = self.num_samples * self.world_size
         else:
             self.num_samples = math.ceil(
-                (len(self.dataset) - rank) / world_size)
+                (len(self.dataset) - rank) / world_size
+            )
             self.total_size = len(self.dataset)
 
         self.sizes = [len(dataset) for dataset in self.dataset.datasets]
@@ -79,17 +82,17 @@ class MultiDataSampler(Sampler):
         g.manual_seed(self.seed + self.epoch)
 
         indices = torch.multinomial(
-            self.weights, len(self.weights), generator=g,
-            replacement=True).tolist()
+            self.weights, len(self.weights), generator=g, replacement=True
+        ).tolist()
 
         # add extra samples to make it evenly divisible
         if self.round_up:
-            indices = (
-                indices *
-                int(self.total_size / len(indices) + 1))[:self.total_size]
+            indices = (indices * int(self.total_size / len(indices) + 1))[
+                : self.total_size
+            ]
 
         # subsample
-        indices = indices[self.rank:self.total_size:self.world_size]
+        indices = indices[self.rank : self.total_size : self.world_size]
 
         return iter(indices)
 

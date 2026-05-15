@@ -25,7 +25,7 @@ class YOLOXModeSwitchHook(Hook):
     def __init__(
         self,
         num_last_epochs: int = 15,
-        skip_type_keys: Sequence[str] = ('Mosaic', 'RandomAffine', 'MixUp')
+        skip_type_keys: Sequence[str] = ('Mosaic', 'RandomAffine', 'MixUp'),
     ) -> None:
         self.num_last_epochs = num_last_epochs
         self.skip_type_keys = skip_type_keys
@@ -40,16 +40,19 @@ class YOLOXModeSwitchHook(Hook):
         # TODO: refactor after mmengine using model wrapper
         if is_model_wrapper(model):
             model = model.module
-        epoch_to_be_switched = ((epoch + 1) >=
-                                runner.max_epochs - self.num_last_epochs)
+        epoch_to_be_switched = (
+            epoch + 1
+        ) >= runner.max_epochs - self.num_last_epochs
         if epoch_to_be_switched and not self._has_switched:
             runner.logger.info('No mosaic and mixup aug now!')
             # The dataset pipeline cannot be updated when persistent_workers
             # is True, so we need to force the dataloader's multi-process
             # restart. This is a very hacky approach.
             train_loader.dataset.update_skip_type_keys(self.skip_type_keys)
-            if hasattr(train_loader, 'persistent_workers'
-                       ) and train_loader.persistent_workers is True:
+            if (
+                hasattr(train_loader, 'persistent_workers')
+                and train_loader.persistent_workers is True
+            ):
                 train_loader._DataLoader__initialized = False
                 train_loader._iterator = None
                 self._restart_dataloader = True

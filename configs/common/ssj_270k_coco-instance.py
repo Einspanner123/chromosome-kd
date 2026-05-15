@@ -29,16 +29,18 @@ train_pipeline = [
         type='RandomResize',
         scale=image_size,
         ratio_range=(0.8, 1.25),
-        keep_ratio=True),
+        keep_ratio=True,
+    ),
     dict(
         type='RandomCrop',
         crop_type='absolute_range',
         crop_size=image_size,
         recompute_bbox=True,
-        allow_negative_crop=True),
+        allow_negative_crop=True,
+    ),
     dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
     dict(type='RandomFlip', prob=0.5),
-    dict(type='PackDetInputs')
+    dict(type='PackDetInputs'),
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile', backend_args=backend_args),
@@ -46,8 +48,14 @@ test_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True, with_mask=True),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+        ),
+    ),
 ]
 
 train_dataloader = dict(
@@ -62,7 +70,9 @@ train_dataloader = dict(
         data_prefix=dict(img='train2017/'),
         filter_cfg=dict(filter_empty_gt=True, min_size=32),
         pipeline=train_pipeline,
-        backend_args=backend_args))
+        backend_args=backend_args,
+    ),
+)
 val_dataloader = dict(
     batch_size=1,
     num_workers=2,
@@ -76,7 +86,9 @@ val_dataloader = dict(
         data_prefix=dict(img='val2017/'),
         test_mode=True,
         pipeline=test_pipeline,
-        backend_args=backend_args))
+        backend_args=backend_args,
+    ),
+)
 test_dataloader = val_dataloader
 
 val_evaluator = dict(
@@ -84,7 +96,8 @@ val_evaluator = dict(
     ann_file=data_root + 'annotations/instances_val2017.json',
     metric=['bbox', 'segm'],
     format_only=False,
-    backend_args=backend_args)
+    backend_args=backend_args,
+)
 test_evaluator = val_evaluator
 
 # The model is trained by 270k iterations with batch_size 64,
@@ -92,28 +105,31 @@ test_evaluator = val_evaluator
 
 max_iters = 270000
 train_cfg = dict(
-    type='IterBasedTrainLoop', max_iters=max_iters, val_interval=10000)
+    type='IterBasedTrainLoop', max_iters=max_iters, val_interval=10000
+)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
 # optimizer assumes bs=64
 optim_wrapper = dict(
     type='OptimWrapper',
-    optimizer=dict(type='SGD', lr=0.1, momentum=0.9, weight_decay=0.00004))
+    optimizer=dict(type='SGD', lr=0.1, momentum=0.9, weight_decay=0.00004),
+)
 
 # learning rate policy
 # lr steps at [0.9, 0.95, 0.975] of the maximum iterations
 param_scheduler = [
     dict(
-        type='LinearLR', start_factor=0.001, by_epoch=False, begin=0,
-        end=1000),
+        type='LinearLR', start_factor=0.001, by_epoch=False, begin=0, end=1000
+    ),
     dict(
         type='MultiStepLR',
         begin=0,
         end=270000,
         by_epoch=False,
         milestones=[243000, 256500, 263250],
-        gamma=0.1)
+        gamma=0.1,
+    ),
 ]
 
 default_hooks = dict(checkpoint=dict(by_epoch=False, interval=10000))

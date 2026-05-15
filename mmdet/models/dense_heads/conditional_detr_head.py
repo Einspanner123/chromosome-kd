@@ -30,9 +30,10 @@ class ConditionalDETRHead(DETRHead):
             bias_init = bias_init_with_prob(0.01)
             nn.init.constant_(self.fc_cls.bias, bias_init)
 
-    def forward(self, hidden_states: Tensor,
-                references: Tensor) -> Tuple[Tensor, Tensor]:
-        """"Forward function.
+    def forward(
+        self, hidden_states: Tensor, references: Tensor
+    ) -> Tuple[Tensor, Tensor]:
+        """ "Forward function.
 
         Args:
             hidden_states (Tensor): Features from transformer decoder. If
@@ -57,7 +58,8 @@ class ConditionalDETRHead(DETRHead):
         layers_bbox_preds = []
         for layer_id in range(hidden_states.shape[0]):
             tmp_reg_preds = self.fc_reg(
-                self.activate(self.reg_ffn(hidden_states[layer_id])))
+                self.activate(self.reg_ffn(hidden_states[layer_id]))
+            )
             tmp_reg_preds[..., :2] += references_unsigmoid
             outputs_coord = tmp_reg_preds.sigmoid()
             layers_bbox_preds.append(outputs_coord)
@@ -66,8 +68,12 @@ class ConditionalDETRHead(DETRHead):
         layers_cls_scores = self.fc_cls(hidden_states)
         return layers_cls_scores, layers_bbox_preds
 
-    def loss(self, hidden_states: Tensor, references: Tensor,
-             batch_data_samples: SampleList) -> dict:
+    def loss(
+        self,
+        hidden_states: Tensor,
+        references: Tensor,
+        batch_data_samples: SampleList,
+    ) -> dict:
         """Perform forward propagation and loss calculation of the detection
         head on the features of the upstream network.
 
@@ -95,8 +101,11 @@ class ConditionalDETRHead(DETRHead):
         return losses
 
     def loss_and_predict(
-            self, hidden_states: Tensor, references: Tensor,
-            batch_data_samples: SampleList) -> Tuple[dict, InstanceList]:
+        self,
+        hidden_states: Tensor,
+        references: Tensor,
+        batch_data_samples: SampleList,
+    ) -> Tuple[dict, InstanceList]:
         """Perform forward propagation of the head, then calculate loss and
         predictions from the features and data samples. Over-write because
         img_metas are needed as inputs for bbox_head.
@@ -128,14 +137,17 @@ class ConditionalDETRHead(DETRHead):
         losses = self.loss_by_feat(*loss_inputs)
 
         predictions = self.predict_by_feat(
-            *outs, batch_img_metas=batch_img_metas)
+            *outs, batch_img_metas=batch_img_metas
+        )
         return losses, predictions
 
-    def predict(self,
-                hidden_states: Tensor,
-                references: Tensor,
-                batch_data_samples: SampleList,
-                rescale: bool = True) -> InstanceList:
+    def predict(
+        self,
+        hidden_states: Tensor,
+        references: Tensor,
+        batch_data_samples: SampleList,
+        rescale: bool = True,
+    ) -> InstanceList:
         """Perform forward propagation of the detection head and predict
         detection results on the features of the upstream network. Over-write
         because img_metas are needed as inputs for bbox_head.
@@ -163,6 +175,7 @@ class ConditionalDETRHead(DETRHead):
         outs = self(last_layer_hidden_state, references)
 
         predictions = self.predict_by_feat(
-            *outs, batch_img_metas=batch_img_metas, rescale=rescale)
+            *outs, batch_img_metas=batch_img_metas, rescale=rescale
+        )
 
         return predictions

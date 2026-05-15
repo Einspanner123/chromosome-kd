@@ -8,31 +8,37 @@ from mmdet.models.task_modules.assigners import TaskAlignedAssigner
 
 
 class TestTaskAlignedAssigner(TestCase):
-
     def test_task_aligned_assigner(self):
 
         with self.assertRaises(AssertionError):
             TaskAlignedAssigner(topk=0)
 
         assigner = TaskAlignedAssigner(topk=13)
-        pred_score = torch.FloatTensor([[0.1, 0.2], [0.2, 0.3], [0.3, 0.4],
-                                        [0.4, 0.5]])
-        pred_bbox = torch.FloatTensor([
-            [1, 1, 12, 8],
-            [4, 4, 20, 20],
-            [1, 5, 15, 15],
-            [30, 5, 32, 42],
-        ])
-        anchor = torch.FloatTensor([
-            [0, 0, 10, 10],
-            [10, 10, 20, 20],
-            [5, 5, 15, 15],
-            [32, 32, 38, 42],
-        ])
-        gt_bboxes = torch.FloatTensor([
-            [0, 0, 10, 9],
-            [0, 10, 10, 19],
-        ])
+        pred_score = torch.FloatTensor(
+            [[0.1, 0.2], [0.2, 0.3], [0.3, 0.4], [0.4, 0.5]]
+        )
+        pred_bbox = torch.FloatTensor(
+            [
+                [1, 1, 12, 8],
+                [4, 4, 20, 20],
+                [1, 5, 15, 15],
+                [30, 5, 32, 42],
+            ]
+        )
+        anchor = torch.FloatTensor(
+            [
+                [0, 0, 10, 10],
+                [10, 10, 20, 20],
+                [5, 5, 15, 15],
+                [32, 32, 38, 42],
+            ]
+        )
+        gt_bboxes = torch.FloatTensor(
+            [
+                [0, 0, 10, 9],
+                [0, 10, 10, 19],
+            ]
+        )
         gt_labels = torch.LongTensor([0, 1])
         pred_instances = InstanceData()
         pred_instances.priors = anchor

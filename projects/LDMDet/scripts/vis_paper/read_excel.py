@@ -24,5 +24,7 @@ def read_excel_data(file_path):
 
 
 if __name__ == '__main__':
-    file_path = '/home/linkst/workplace/chromo/chromosome-kd/compare_class.XLSX'
+    file_path = (
+        '/home/linkst/workplace/chromo/chromosome-kd/compare_class.XLSX'
+    )
     read_excel_data(file_path)

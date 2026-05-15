@@ -39,23 +39,30 @@ class OpenImagesMetric(BaseMetric):
             If prefix is not provided in the argument, self.default_prefix
             will be used instead. Defaults to None.
     """
+
     default_prefix: Optional[str] = 'openimages'
 
-    def __init__(self,
-                 iou_thrs: Union[float, List[float]] = 0.5,
-                 ioa_thrs: Union[float, List[float]] = 0.5,
-                 scale_ranges: Optional[List[tuple]] = None,
-                 use_group_of: bool = True,
-                 get_supercategory: bool = True,
-                 filter_labels: bool = True,
-                 collect_device: str = 'cpu',
-                 prefix: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        iou_thrs: Union[float, List[float]] = 0.5,
+        ioa_thrs: Union[float, List[float]] = 0.5,
+        scale_ranges: Optional[List[tuple]] = None,
+        use_group_of: bool = True,
+        get_supercategory: bool = True,
+        filter_labels: bool = True,
+        collect_device: str = 'cpu',
+        prefix: Optional[str] = None,
+    ) -> None:
         super().__init__(collect_device=collect_device, prefix=prefix)
         self.iou_thrs = [iou_thrs] if isinstance(iou_thrs, float) else iou_thrs
-        self.ioa_thrs = [ioa_thrs] if (isinstance(ioa_thrs, float)
-                                       or ioa_thrs is None) else ioa_thrs
+        self.ioa_thrs = (
+            [ioa_thrs]
+            if (isinstance(ioa_thrs, float) or ioa_thrs is None)
+            else ioa_thrs
+        )
         assert isinstance(self.iou_thrs, list) and isinstance(
-            self.ioa_thrs, list)
+            self.ioa_thrs, list
+        )
         assert len(self.iou_thrs) == len(self.ioa_thrs)
 
         self.scale_ranges = scale_ranges
@@ -84,10 +91,14 @@ class OpenImagesMetric(BaseMetric):
                 supercat_instances.append(new_instance)
         return supercat_instances
 
-    def _process_predictions(self, pred_bboxes: np.ndarray,
-                             pred_scores: np.ndarray, pred_labels: np.ndarray,
-                             gt_instances: list,
-                             image_level_labels: np.ndarray) -> tuple:
+    def _process_predictions(
+        self,
+        pred_bboxes: np.ndarray,
+        pred_scores: np.ndarray,
+        pred_labels: np.ndarray,
+        gt_instances: list,
+        image_level_labels: np.ndarray,
+    ) -> tuple:
         """Process results of the corresponding class of the detection bboxes.
 
         Note: It will choose to do the following two processing according to
@@ -111,11 +122,13 @@ class OpenImagesMetric(BaseMetric):
         processed_bboxes = copy.deepcopy(pred_bboxes)
         processed_scores = copy.deepcopy(pred_scores)
         processed_labels = copy.deepcopy(pred_labels)
-        gt_labels = np.array([ins['bbox_label'] for ins in gt_instances],
-                             dtype=np.int64)
+        gt_labels = np.array(
+            [ins['bbox_label'] for ins in gt_instances], dtype=np.int64
+        )
         if image_level_labels is not None:
             allowed_classes = np.unique(
-                np.append(gt_labels, image_level_labels))
+                np.append(gt_labels, image_level_labels)
+            )
         else:
             allowed_classes = np.unique(gt_labels)
         relation_matrix = self.dataset_meta['RELATION_MATRIX']
@@ -123,17 +136,23 @@ class OpenImagesMetric(BaseMetric):
         for pred_class in pred_classes:
             classes = np.where(relation_matrix[pred_class])[0]
             for cls in classes:
-                if (cls in allowed_classes and cls != pred_class
-                        and self.get_supercategory):
+                if (
+                    cls in allowed_classes
+                    and cls != pred_class
+                    and self.get_supercategory
+                ):
                     # add super-supercategory preds
                     index = np.where(pred_labels == pred_class)[0]
                     processed_scores = np.concatenate(
-                        [processed_scores, pred_scores[index]])
+                        [processed_scores, pred_scores[index]]
+                    )
                     processed_bboxes = np.concatenate(
-                        [processed_bboxes, pred_bboxes[index]])
+                        [processed_bboxes, pred_bboxes[index]]
+                    )
                     extend_labels = np.full(index.shape, cls, dtype=np.int64)
                     processed_labels = np.concatenate(
-                        [processed_labels, extend_labels])
+                        [processed_labels, extend_labels]
+                    )
                 elif cls not in allowed_classes and self.filter_labels:
                     # remove unannotated preds
                     index = np.where(processed_labels != cls)[0]
@@ -172,7 +191,8 @@ class OpenImagesMetric(BaseMetric):
             ann = dict(
                 labels=np.array(gt_labels, dtype=np.int64),
                 bboxes=np.array(gt_bboxes, dtype=np.float32).reshape((-1, 4)),
-                gt_is_group_ofs=np.array(is_group_ofs, dtype=bool))
+                gt_is_group_ofs=np.array(is_group_ofs, dtype=bool),
+            )
 
             image_level_labels = gt.get('image_level_labels', None)
             pred = data_sample['pred_instances']
@@ -181,14 +201,19 @@ class OpenImagesMetric(BaseMetric):
             pred_labels = pred['labels'].cpu().numpy()
 
             pred_bboxes, pred_scores, pred_labels = self._process_predictions(
-                pred_bboxes, pred_scores, pred_labels, instances,
-                image_level_labels)
+                pred_bboxes,
+                pred_scores,
+                pred_labels,
+                instances,
+                image_level_labels,
+            )
 
             dets = []
             for label in range(len(self.dataset_meta['classes'])):
                 index = np.where(pred_labels == label)[0]
                 pred_bbox_scores = np.hstack(
-                    [pred_bboxes[index], pred_scores[index].reshape((-1, 1))])
+                    [pred_bboxes[index], pred_scores[index].reshape((-1, 1))]
+                )
                 dets.append(pred_bbox_scores)
             self.results.append((ann, dets))
 
@@ -212,15 +237,20 @@ class OpenImagesMetric(BaseMetric):
             print_log(
                 'Cannot infer dataset type from the length of the'
                 ' classes. Set `oid_v6` as dataset type.',
-                logger='current')
+                logger='current',
+            )
         mean_aps = []
-        for i, (iou_thr,
-                ioa_thr) in enumerate(zip(self.iou_thrs, self.ioa_thrs)):
+        for i, (iou_thr, ioa_thr) in enumerate(
+            zip(self.iou_thrs, self.ioa_thrs)
+        ):
             if self.use_group_of:
-                assert ioa_thr is not None, 'ioa_thr must have value when' \
-                                            ' using group_of in evaluation.'
-            print_log(f'\n{"-" * 15}iou_thr, ioa_thr: {iou_thr}, {ioa_thr}'
-                      f'{"-" * 15}')
+                assert ioa_thr is not None, (
+                    'ioa_thr must have value when'
+                    ' using group_of in evaluation.'
+                )
+            print_log(
+                f'\n{"-" * 15}iou_thr, ioa_thr: {iou_thr}, {ioa_thr}{"-" * 15}'
+            )
             mean_ap, _ = eval_map(
                 preds,
                 gts,
@@ -229,7 +259,8 @@ class OpenImagesMetric(BaseMetric):
                 ioa_thr=ioa_thr,
                 dataset=dataset_type,
                 logger=logger,
-                use_group_of=self.use_group_of)
+                use_group_of=self.use_group_of,
+            )
 
             mean_aps.append(mean_ap)
             eval_results[f'AP{int(iou_thr * 100):02d}'] = round(mean_ap, 3)

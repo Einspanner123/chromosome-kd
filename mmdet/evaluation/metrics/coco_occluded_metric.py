@@ -52,19 +52,19 @@ class CocoOccludedSeparatedMetric(CocoMetric):
             include 'bbox', 'segm', 'proposal', and 'proposal_fast'.
             Defaults to 'bbox'.
     """
+
     default_prefix: Optional[str] = 'coco'
 
     def __init__(
-            self,
-            *args,
-            occluded_ann:
-        str = 'https://www.robots.ox.ac.uk/~vgg/research/tpod/datasets/occluded_coco.pkl',  # noqa
-            separated_ann:
-        str = 'https://www.robots.ox.ac.uk/~vgg/research/tpod/datasets/separated_coco.pkl',  # noqa
-            score_thr: float = 0.3,
-            iou_thr: float = 0.75,
-            metric: Union[str, List[str]] = ['bbox', 'segm'],
-            **kwargs) -> None:
+        self,
+        *args,
+        occluded_ann: str = 'https://www.robots.ox.ac.uk/~vgg/research/tpod/datasets/occluded_coco.pkl',
+        separated_ann: str = 'https://www.robots.ox.ac.uk/~vgg/research/tpod/datasets/separated_coco.pkl',
+        score_thr: float = 0.3,
+        iou_thr: float = 0.75,
+        metric: Union[str, List[str]] = ['bbox', 'segm'],
+        **kwargs,
+    ) -> None:
         super().__init__(*args, metric=metric, **kwargs)
         self.occluded_ann = load(occluded_ann)
         self.separated_ann = load(separated_ann)
@@ -102,52 +102,63 @@ class CocoOccludedSeparatedMetric(CocoMetric):
             gt, dt = results[i]
             img_id = dt['img_id']
             cur_img_name = self._coco_api.imgs[img_id]['file_name']
-            if cur_img_name not in dict_det.keys():
+            if cur_img_name not in dict_det:
                 dict_det[cur_img_name] = []
 
-            for bbox, score, label, mask in zip(dt['bboxes'], dt['scores'],
-                                                dt['labels'], dt['masks']):
+            for bbox, score, label, mask in zip(
+                dt['bboxes'], dt['scores'], dt['labels'], dt['masks']
+            ):
                 cur_binary_mask = coco_mask.decode(mask)
-                dict_det[cur_img_name].append([
-                    score, self.dataset_meta['classes'][label],
-                    cur_binary_mask, bbox
-                ])
+                dict_det[cur_img_name].append(
+                    [
+                        score,
+                        self.dataset_meta['classes'][label],
+                        cur_binary_mask,
+                        bbox,
+                    ]
+                )
             dict_det[cur_img_name].sort(
                 key=lambda x: (-x[0], x[3][0], x[3][1])
             )  # rank by confidence from high to low, avoid same confidence
             prog_bar.update()
         print_log('\ncomputing occluded mask recall...', logger='current')
         occluded_correct_num, occluded_recall = self.compute_recall(
-            dict_det, gt_ann=self.occluded_ann, is_occ=True)
+            dict_det, gt_ann=self.occluded_ann, is_occ=True
+        )
         print_log(
             f'\nCOCO occluded mask recall: {occluded_recall:.2f}%',
-            logger='current')
+            logger='current',
+        )
         print_log(
             f'COCO occluded mask success num: {occluded_correct_num}',
-            logger='current')
+            logger='current',
+        )
         print_log('computing separated mask recall...', logger='current')
         separated_correct_num, separated_recall = self.compute_recall(
-            dict_det, gt_ann=self.separated_ann, is_occ=False)
+            dict_det, gt_ann=self.separated_ann, is_occ=False
+        )
         print_log(
             f'\nCOCO separated mask recall: {separated_recall:.2f}%',
-            logger='current')
+            logger='current',
+        )
         print_log(
             f'COCO separated mask success num: {separated_correct_num}',
-            logger='current')
+            logger='current',
+        )
         table_data = [
             ['mask type', 'recall', 'num correct'],
             ['occluded', f'{occluded_recall:.2f}%', occluded_correct_num],
-            ['separated', f'{separated_recall:.2f}%', separated_correct_num]
+            ['separated', f'{separated_recall:.2f}%', separated_correct_num],
         ]
         table = AsciiTable(table_data)
         print_log('\n' + table.table, logger='current')
         return dict(
-            occluded_recall=occluded_recall, separated_recall=separated_recall)
+            occluded_recall=occluded_recall, separated_recall=separated_recall
+        )
 
-    def compute_recall(self,
-                       result_dict: dict,
-                       gt_ann: list,
-                       is_occ: bool = True) -> tuple:
+    def compute_recall(
+        self, result_dict: dict, gt_ann: list, is_occ: bool = True
+    ) -> tuple:
         """Compute the recall of occluded or separated masks.
 
         Args:
@@ -166,14 +177,15 @@ class CocoOccludedSeparatedMetric(CocoMetric):
             cur_gt_bbox = cur_item[3]
             if is_occ:
                 cur_gt_bbox = [
-                    cur_gt_bbox[0], cur_gt_bbox[1],
+                    cur_gt_bbox[0],
+                    cur_gt_bbox[1],
                     cur_gt_bbox[0] + cur_gt_bbox[2],
-                    cur_gt_bbox[1] + cur_gt_bbox[3]
+                    cur_gt_bbox[1] + cur_gt_bbox[3],
                 ]
             cur_gt_class = cur_item[1]
             cur_gt_mask = coco_mask.decode(cur_item[4])
 
-            assert cur_img_name in result_dict.keys()
+            assert cur_img_name in result_dict
             cur_detections = result_dict[cur_img_name]
 
             correct_flag = False

@@ -10,15 +10,18 @@ from mmdet.models.utils import weighted_boxes_fusion
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Fusion image \
+    parser = argparse.ArgumentParser(
+        description='Fusion image \
         prediction results using Weighted \
-        Boxes Fusion from multiple models.')
+        Boxes Fusion from multiple models.'
+    )
     parser.add_argument(
         'pred-results',
         type=str,
         nargs='+',
         help='files of prediction results \
-                    from multiple models, json format.')
+                    from multiple models, json format.',
+    )
     parser.add_argument('--annotation', type=str, help='annotation file path')
     parser.add_argument(
         '--weights',
@@ -26,35 +29,42 @@ def parse_args():
         nargs='*',
         default=None,
         help='weights for each model, '
-        'remember to correspond to the above prediction path.')
+        'remember to correspond to the above prediction path.',
+    )
     parser.add_argument(
         '--fusion-iou-thr',
         type=float,
         default=0.55,
-        help='IoU value for boxes to be a match in wbf.')
+        help='IoU value for boxes to be a match in wbf.',
+    )
     parser.add_argument(
         '--skip-box-thr',
         type=float,
         default=0.0,
-        help='exclude boxes with score lower than this variable in wbf.')
+        help='exclude boxes with score lower than this variable in wbf.',
+    )
     parser.add_argument(
         '--conf-type',
         type=str,
         default='avg',
-        help='how to calculate confidence in weighted boxes in wbf.')
+        help='how to calculate confidence in weighted boxes in wbf.',
+    )
     parser.add_argument(
         '--eval-single',
         action='store_true',
-        help='whether evaluate each single model result.')
+        help='whether evaluate each single model result.',
+    )
     parser.add_argument(
         '--save-fusion-results',
         action='store_true',
-        help='whether save fusion result')
+        help='whether save fusion result',
+    )
     parser.add_argument(
         '--out-dir',
         type=str,
         default='outputs',
-        help='Output directory of images or prediction results.')
+        help='Output directory of images or prediction results.',
+    )
 
     args = parser.parse_args()
 
@@ -64,8 +74,9 @@ def parse_args():
 def main():
     args = parse_args()
 
-    assert len(args.models_name) == len(args.pred_results), \
+    assert len(args.models_name) == len(args.pred_results), (
         'the quantities of model names and prediction results are not equal'
+    )
 
     cocoGT = COCO(args.annotation)
 
@@ -73,8 +84,7 @@ def main():
 
     models_name = ['model_' + str(i) for i in range(len(args.pred_results))]
 
-    for model_name, path in \
-            zip(models_name, args.pred_results):
+    for model_name, path in zip(models_name, args.pred_results):
         pred = load(path)
         predicts_raw.append(pred)
 
@@ -90,7 +100,7 @@ def main():
         str(image_id): {
             'bboxes_list': [[] for _ in range(len(predicts_raw))],
             'scores_list': [[] for _ in range(len(predicts_raw))],
-            'labels_list': [[] for _ in range(len(predicts_raw))]
+            'labels_list': [[] for _ in range(len(predicts_raw))],
         }
         for image_id in cocoGT.getImgIds()
     }
@@ -112,15 +122,18 @@ def main():
             weights=args.weights,
             iou_thr=args.fusion_iou_thr,
             skip_box_thr=args.skip_box_thr,
-            conf_type=args.conf_type)
+            conf_type=args.conf_type,
+        )
 
         for bbox, score, label in zip(bboxes, scores, labels):
-            result.append({
-                'bbox': bbox.numpy().tolist(),
-                'category_id': int(label),
-                'image_id': int(image_id),
-                'score': float(score)
-            })
+            result.append(
+                {
+                    'bbox': bbox.numpy().tolist(),
+                    'category_id': int(label),
+                    'image_id': int(image_id),
+                    'score': float(score),
+                }
+            )
 
         prog_bar.update()
 
@@ -128,7 +141,8 @@ def main():
         out_file = args.out_dir + '/fusion_results.json'
         dump(result, file=out_file)
         print_log(
-            f'Fusion results have been saved to {out_file}.', logger='current')
+            f'Fusion results have been saved to {out_file}.', logger='current'
+        )
 
     print_log('Evaluate fusion results using wbf...')
     cocoDt = cocoGT.loadRes(result)

@@ -6,4 +6,5 @@ model = dict(
         roi_share=True,
         roi_share_iou_thr=0.95,
         torch_compile=True,
-    ))
+    )
+)

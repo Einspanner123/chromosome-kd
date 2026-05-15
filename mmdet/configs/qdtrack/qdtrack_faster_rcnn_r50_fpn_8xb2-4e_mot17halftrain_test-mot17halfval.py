@@ -10,5 +10,5 @@ from mmdet.evaluation import CocoVideoMetric, MOTChallengeMetric
 # evaluator
 val_evaluator = [
     dict(type=CocoVideoMetric, metric=['bbox'], classwise=True),
-    dict(type=MOTChallengeMetric, metric=['HOTA', 'CLEAR', 'Identity'])
+    dict(type=MOTChallengeMetric, metric=['HOTA', 'CLEAR', 'Identity']),
 ]

@@ -32,19 +32,23 @@ class QuadraticWarmupParamScheduler(_ParamScheduler):
             Defaults to False.
     """
 
-    def __init__(self,
-                 optimizer: Optimizer,
-                 param_name: str,
-                 begin: int = 0,
-                 end: int = INF,
-                 last_step: int = -1,
-                 by_epoch: bool = True,
-                 verbose: bool = False):
+    def __init__(
+        self,
+        optimizer: Optimizer,
+        param_name: str,
+        begin: int = 0,
+        end: int = INF,
+        last_step: int = -1,
+        by_epoch: bool = True,
+        verbose: bool = False,
+    ):
         if end >= INF:
-            raise ValueError('``end`` must be less than infinity,'
-                             'Please set ``end`` parameter of '
-                             '``QuadraticWarmupScheduler`` as the '
-                             'number of warmup end.')
+            raise ValueError(
+                '``end`` must be less than infinity,'
+                'Please set ``end`` parameter of '
+                '``QuadraticWarmupScheduler`` as the '
+                'number of warmup end.'
+            )
         self.total_iters = end - begin
         super().__init__(
             optimizer=optimizer,
@@ -53,23 +57,29 @@ class QuadraticWarmupParamScheduler(_ParamScheduler):
             end=end,
             last_step=last_step,
             by_epoch=by_epoch,
-            verbose=verbose)
+            verbose=verbose,
+        )
 
     @classmethod
-    def build_iter_from_epoch(cls,
-                              *args,
-                              begin=0,
-                              end=INF,
-                              by_epoch=True,
-                              epoch_length=None,
-                              **kwargs):
+    def build_iter_from_epoch(
+        cls,
+        *args,
+        begin=0,
+        end=INF,
+        by_epoch=True,
+        epoch_length=None,
+        **kwargs,
+    ):
         """Build an iter-based instance of this scheduler from an epoch-based
         config."""
-        assert by_epoch, 'Only epoch-based kwargs whose `by_epoch=True` can ' \
-                         'be converted to iter-based.'
-        assert epoch_length is not None and epoch_length > 0, \
-            f'`epoch_length` must be a positive integer, ' \
+        assert by_epoch, (
+            'Only epoch-based kwargs whose `by_epoch=True` can '
+            'be converted to iter-based.'
+        )
+        assert epoch_length is not None and epoch_length > 0, (
+            f'`epoch_length` must be a positive integer, '
             f'but got {epoch_length}.'
+        )
         by_epoch = False
         begin = begin * epoch_length
         if end != INF:
@@ -85,10 +95,11 @@ class QuadraticWarmupParamScheduler(_ParamScheduler):
             ]
 
         return [
-            group[self.param_name] + base_value *
-            (2 * self.last_step + 1) / self.total_iters**2
-            for base_value, group in zip(self.base_values,
-                                         self.optimizer.param_groups)
+            group[self.param_name]
+            + base_value * (2 * self.last_step + 1) / self.total_iters**2
+            for base_value, group in zip(
+                self.base_values, self.optimizer.param_groups
+            )
         ]
 
 
@@ -112,8 +123,9 @@ class QuadraticWarmupLR(LRSchedulerMixin, QuadraticWarmupParamScheduler):
 
 
 @PARAM_SCHEDULERS.register_module()
-class QuadraticWarmupMomentum(MomentumSchedulerMixin,
-                              QuadraticWarmupParamScheduler):
+class QuadraticWarmupMomentum(
+    MomentumSchedulerMixin, QuadraticWarmupParamScheduler
+):
     """Warm up the momentum value of each parameter group by quadratic formula.
 
     Args:

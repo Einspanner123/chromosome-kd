@@ -47,7 +47,7 @@ class PISASSDHead(SSDHead):
             anchor head.
         init_cfg (:obj:`ConfigDict` or dict or list[:obj:`ConfigDict` or \
             dict], Optional): Initialization config dict.
-    """  # noqa: W605
+    """
 
     def loss_by_feat(
         self,
@@ -55,7 +55,7 @@ class PISASSDHead(SSDHead):
         bbox_preds: List[Tensor],
         batch_gt_instances: InstanceList,
         batch_img_metas: List[dict],
-        batch_gt_instances_ignore: OptInstanceList = None
+        batch_gt_instances_ignore: OptInstanceList = None,
     ) -> Dict[str, Union[List[Tensor], Tensor]]:
         """Compute losses of the head.
 
@@ -90,7 +90,8 @@ class PISASSDHead(SSDHead):
         device = cls_scores[0].device
 
         anchor_list, valid_flag_list = self.get_anchors(
-            featmap_sizes, batch_img_metas, device=device)
+            featmap_sizes, batch_img_metas, device=device
+        )
         cls_reg_targets = self.get_targets(
             anchor_list,
             valid_flag_list,
@@ -98,26 +99,44 @@ class PISASSDHead(SSDHead):
             batch_img_metas,
             batch_gt_instances_ignore=batch_gt_instances_ignore,
             unmap_outputs=False,
-            return_sampling_results=True)
-        (labels_list, label_weights_list, bbox_targets_list, bbox_weights_list,
-         avg_factor, sampling_results_list) = cls_reg_targets
+            return_sampling_results=True,
+        )
+        (
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            bbox_weights_list,
+            avg_factor,
+            sampling_results_list,
+        ) = cls_reg_targets
 
         num_images = len(batch_img_metas)
-        all_cls_scores = torch.cat([
-            s.permute(0, 2, 3, 1).reshape(
-                num_images, -1, self.cls_out_channels) for s in cls_scores
-        ], 1)
+        all_cls_scores = torch.cat(
+            [
+                s.permute(0, 2, 3, 1).reshape(
+                    num_images, -1, self.cls_out_channels
+                )
+                for s in cls_scores
+            ],
+            1,
+        )
         all_labels = torch.cat(labels_list, -1).view(num_images, -1)
-        all_label_weights = torch.cat(label_weights_list,
-                                      -1).view(num_images, -1)
-        all_bbox_preds = torch.cat([
-            b.permute(0, 2, 3, 1).reshape(num_images, -1, 4)
-            for b in bbox_preds
-        ], -2)
-        all_bbox_targets = torch.cat(bbox_targets_list,
-                                     -2).view(num_images, -1, 4)
-        all_bbox_weights = torch.cat(bbox_weights_list,
-                                     -2).view(num_images, -1, 4)
+        all_label_weights = torch.cat(label_weights_list, -1).view(
+            num_images, -1
+        )
+        all_bbox_preds = torch.cat(
+            [
+                b.permute(0, 2, 3, 1).reshape(num_images, -1, 4)
+                for b in bbox_preds
+            ],
+            -2,
+        )
+        all_bbox_targets = torch.cat(bbox_targets_list, -2).view(
+            num_images, -1, 4
+        )
+        all_bbox_weights = torch.cat(bbox_weights_list, -2).view(
+            num_images, -1, 4
+        )
 
         # concat all level anchors to a single tensor
         all_anchors = []
@@ -125,9 +144,12 @@ class PISASSDHead(SSDHead):
             all_anchors.append(torch.cat(anchor_list[i]))
 
         isr_cfg = self.train_cfg.get('isr', None)
-        all_targets = (all_labels.view(-1), all_label_weights.view(-1),
-                       all_bbox_targets.view(-1,
-                                             4), all_bbox_weights.view(-1, 4))
+        all_targets = (
+            all_labels.view(-1),
+            all_label_weights.view(-1),
+            all_bbox_targets.view(-1, 4),
+            all_bbox_weights.view(-1, 4),
+        )
         # apply ISR-P
         if isr_cfg is not None:
             all_targets = isr_p(
@@ -139,9 +161,14 @@ class PISASSDHead(SSDHead):
                 loss_cls=CrossEntropyLoss(),
                 bbox_coder=self.bbox_coder,
                 **self.train_cfg['isr'],
-                num_class=self.num_classes)
-            (new_labels, new_label_weights, new_bbox_targets,
-             new_bbox_weights) = all_targets
+                num_class=self.num_classes,
+            )
+            (
+                new_labels,
+                new_label_weights,
+                new_bbox_targets,
+                new_bbox_weights,
+            ) = all_targets
             all_labels = new_labels.view(all_labels.shape)
             all_label_weights = new_label_weights.view(all_label_weights.shape)
             all_bbox_targets = new_bbox_targets.view(all_bbox_targets.shape)
@@ -155,16 +182,19 @@ class PISASSDHead(SSDHead):
                 all_targets[0],
                 all_bbox_preds.view(-1, 4),
                 all_targets[2],
-                SmoothL1Loss(beta=1.),
+                SmoothL1Loss(beta=1.0),
                 **self.train_cfg['carl'],
                 avg_factor=avg_factor,
-                num_class=self.num_classes)
+                num_class=self.num_classes,
+            )
 
         # check NaN and Inf
-        assert torch.isfinite(all_cls_scores).all().item(), \
+        assert torch.isfinite(all_cls_scores).all().item(), (
             'classification scores become infinite or NaN!'
-        assert torch.isfinite(all_bbox_preds).all().item(), \
+        )
+        assert torch.isfinite(all_bbox_preds).all().item(), (
             'bbox predications become infinite or NaN!'
+        )
 
         losses_cls, losses_bbox = multi_apply(
             self.loss_by_feat_single,
@@ -175,7 +205,8 @@ class PISASSDHead(SSDHead):
             all_label_weights,
             all_bbox_targets,
             all_bbox_weights,
-            avg_factor=avg_factor)
+            avg_factor=avg_factor,
+        )
         loss_dict = dict(loss_cls=losses_cls, loss_bbox=losses_bbox)
         if carl_loss_cfg is not None:
             loss_dict.update(loss_carl)

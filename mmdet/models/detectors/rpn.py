@@ -29,25 +29,30 @@ class RPN(SingleStageDetector):
             Defaults to None.
     """
 
-    def __init__(self,
-                 backbone: ConfigType,
-                 neck: ConfigType,
-                 rpn_head: ConfigType,
-                 train_cfg: ConfigType,
-                 test_cfg: ConfigType,
-                 data_preprocessor: OptConfigType = None,
-                 init_cfg: OptMultiConfig = None,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        backbone: ConfigType,
+        neck: ConfigType,
+        rpn_head: ConfigType,
+        train_cfg: ConfigType,
+        test_cfg: ConfigType,
+        data_preprocessor: OptConfigType = None,
+        init_cfg: OptMultiConfig = None,
+        **kwargs,
+    ) -> None:
         super(SingleStageDetector, self).__init__(
-            data_preprocessor=data_preprocessor, init_cfg=init_cfg)
+            data_preprocessor=data_preprocessor, init_cfg=init_cfg
+        )
         self.backbone = MODELS.build(backbone)
         self.neck = MODELS.build(neck) if neck is not None else None
         rpn_train_cfg = train_cfg['rpn'] if train_cfg is not None else None
         rpn_head_num_classes = rpn_head.get('num_classes', 1)
         if rpn_head_num_classes != 1:
-            warnings.warn('The `num_classes` should be 1 in RPN, but get '
-                          f'{rpn_head_num_classes}, please set '
-                          'rpn_head.num_classes = 1 in your config file.')
+            warnings.warn(
+                'The `num_classes` should be 1 in RPN, but get '
+                f'{rpn_head_num_classes}, please set '
+                'rpn_head.num_classes = 1 in your config file.'
+            )
             rpn_head.update(num_classes=1)
         rpn_head.update(train_cfg=rpn_train_cfg)
         rpn_head.update(test_cfg=test_cfg['rpn'])
@@ -55,8 +60,9 @@ class RPN(SingleStageDetector):
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
 
-    def loss(self, batch_inputs: Tensor,
-             batch_data_samples: SampleList) -> dict:
+    def loss(
+        self, batch_inputs: Tensor, batch_data_samples: SampleList
+    ) -> dict:
         """Calculate losses from a batch of inputs and data samples.
 
         Args:
@@ -74,8 +80,9 @@ class RPN(SingleStageDetector):
         # set cat_id of gt_labels to 0 in RPN
         rpn_data_samples = copy.deepcopy(batch_data_samples)
         for data_sample in rpn_data_samples:
-            data_sample.gt_instances.labels = \
-                torch.zeros_like(data_sample.gt_instances.labels)
+            data_sample.gt_instances.labels = torch.zeros_like(
+                data_sample.gt_instances.labels
+            )
 
         losses = self.bbox_head.loss(x, rpn_data_samples)
         return losses

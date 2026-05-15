@@ -28,19 +28,23 @@ class TrackDataSample(BaseDataElement):
         >>> from mmdet.structures import DetDataSample, TrackDataSample
         >>> track_data_sample = TrackDataSample()
         >>> # set the 1st frame
-        >>> frame1_data_sample = DetDataSample(metainfo=dict(
-        ...         img_shape=(100, 100), frame_id=0))
+        >>> frame1_data_sample = DetDataSample(
+        ...     metainfo=dict(img_shape=(100, 100), frame_id=0)
+        ... )
         >>> frame1_gt_instances = InstanceData()
         >>> frame1_gt_instances.bbox = torch.zeros([2, 4])
         >>> frame1_data_sample.gt_instances = frame1_gt_instances
         >>> # set the 2nd frame
-        >>> frame2_data_sample = DetDataSample(metainfo=dict(
-        ...         img_shape=(100, 100), frame_id=1))
+        >>> frame2_data_sample = DetDataSample(
+        ...     metainfo=dict(img_shape=(100, 100), frame_id=1)
+        ... )
         >>> frame2_gt_instances = InstanceData()
         >>> frame2_gt_instances.bbox = torch.ones([3, 4])
         >>> frame2_data_sample.gt_instances = frame2_gt_instances
-        >>> track_data_sample.video_data_samples = [frame1_data_sample,
-        ...                                         frame2_data_sample]
+        >>> track_data_sample.video_data_samples = [
+        ...     frame1_data_sample,
+        ...     frame2_data_sample,
+        ... ]
         >>> # set metainfo for track_data_sample
         >>> track_data_sample.set_metainfo(dict(key_frames_inds=[0]))
         >>> track_data_sample.set_metainfo(dict(ref_frames_inds=[1]))
@@ -101,8 +105,12 @@ class TrackDataSample(BaseDataElement):
         >>> cpu_track_data_sample = track_data_sample.cpu()
         >>> cpu_track_data_sample = track_data_sample.to('cpu')
         >>> fp16_instances = cuda_track_data_sample.to(
-        ...     device=None, dtype=torch.float16, non_blocking=False,
-        ...     copy=False, memory_format=torch.preserve_format)
+        ...     device=None,
+        ...     dtype=torch.float16,
+        ...     non_blocking=False,
+        ...     copy=False,
+        ...     memory_format=torch.preserve_format,
+        ... )
     """
 
     @property
@@ -114,9 +122,9 @@ class TrackDataSample(BaseDataElement):
         if isinstance(value, DetDataSample):
             value = [value]
         assert isinstance(value, list), 'video_data_samples must be a list'
-        assert isinstance(
-            value[0], DetDataSample
-        ), 'video_data_samples must be a list of DetDataSample, but got '
+        assert isinstance(value[0], DetDataSample), (
+            'video_data_samples must be a list of DetDataSample, but got '
+        )
         f'{value[0]}'
         self.set_field(value, '_video_data_samples', dtype=list)
 
@@ -125,13 +133,13 @@ class TrackDataSample(BaseDataElement):
         del self._video_data_samples
 
     def __getitem__(self, index):
-        assert hasattr(self,
-                       '_video_data_samples'), 'video_data_samples not set'
+        assert hasattr(self, '_video_data_samples'), (
+            'video_data_samples not set'
+        )
         return self._video_data_samples[index]
 
     def get_key_frames(self):
-        assert hasattr(self, 'key_frames_inds'), \
-            'key_frames_inds not set'
+        assert hasattr(self, 'key_frames_inds'), 'key_frames_inds not set'
         assert isinstance(self.key_frames_inds, Sequence)
         key_frames_info = []
         for index in self.key_frames_inds:
@@ -139,8 +147,7 @@ class TrackDataSample(BaseDataElement):
         return key_frames_info
 
     def get_ref_frames(self):
-        assert hasattr(self, 'ref_frames_inds'), \
-            'ref_frames_inds not set'
+        assert hasattr(self, 'ref_frames_inds'), 'ref_frames_inds not set'
         ref_frames_info = []
         assert isinstance(self.ref_frames_inds, Sequence)
         for index in self.ref_frames_inds:
@@ -148,8 +155,11 @@ class TrackDataSample(BaseDataElement):
         return ref_frames_info
 
     def __len__(self):
-        return len(self._video_data_samples) if hasattr(
-            self, '_video_data_samples') else 0
+        return (
+            len(self._video_data_samples)
+            if hasattr(self, '_video_data_samples')
+            else 0
+        )
 
     # TODO: add UT for this Tensor-like method
     # Tensor-like methods

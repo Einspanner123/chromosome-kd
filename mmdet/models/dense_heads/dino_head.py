@@ -7,8 +7,11 @@ from torch import Tensor
 
 from mmdet.registry import MODELS
 from mmdet.structures import SampleList
-from mmdet.structures.bbox import (bbox_cxcywh_to_xyxy, bbox_overlaps,
-                                   bbox_xyxy_to_cxcywh)
+from mmdet.structures.bbox import (
+    bbox_cxcywh_to_xyxy,
+    bbox_overlaps,
+    bbox_xyxy_to_cxcywh,
+)
 from mmdet.utils import InstanceList, OptInstanceList, reduce_mean
 from ..losses import QualityFocalLoss
 from ..utils import multi_apply
@@ -27,9 +30,15 @@ class DINOHead(DeformableDETRHead):
     <https://arxiv.org/abs/2203.03605>`_ .
     """
 
-    def loss(self, hidden_states: Tensor, references: List[Tensor],
-             enc_outputs_class: Tensor, enc_outputs_coord: Tensor,
-             batch_data_samples: SampleList, dn_meta: Dict[str, int]) -> dict:
+    def loss(
+        self,
+        hidden_states: Tensor,
+        references: List[Tensor],
+        enc_outputs_class: Tensor,
+        enc_outputs_coord: Tensor,
+        batch_data_samples: SampleList,
+        dn_meta: Dict[str, int],
+    ) -> dict:
         """Perform forward propagation and loss calculation of the detection
         head on the queries of the upstream network.
 
@@ -69,8 +78,13 @@ class DINOHead(DeformableDETRHead):
             batch_gt_instances.append(data_sample.gt_instances)
 
         outs = self(hidden_states, references)
-        loss_inputs = outs + (enc_outputs_class, enc_outputs_coord,
-                              batch_gt_instances, batch_img_metas, dn_meta)
+        loss_inputs = outs + (
+            enc_outputs_class,
+            enc_outputs_coord,
+            batch_gt_instances,
+            batch_img_metas,
+            dn_meta,
+        )
         losses = self.loss_by_feat(*loss_inputs)
         return losses
 
@@ -83,7 +97,7 @@ class DINOHead(DeformableDETRHead):
         batch_gt_instances: InstanceList,
         batch_img_metas: List[dict],
         dn_meta: Dict[str, int],
-        batch_gt_instances_ignore: OptInstanceList = None
+        batch_gt_instances_ignore: OptInstanceList = None,
     ) -> Dict[str, Tensor]:
         """Loss function.
 
@@ -120,14 +134,22 @@ class DINOHead(DeformableDETRHead):
             dict[str, Tensor]: A dictionary of loss components.
         """
         # extract denoising and matching part of outputs
-        (all_layers_matching_cls_scores, all_layers_matching_bbox_preds,
-         all_layers_denoising_cls_scores, all_layers_denoising_bbox_preds) = \
-            self.split_outputs(
-                all_layers_cls_scores, all_layers_bbox_preds, dn_meta)
+        (
+            all_layers_matching_cls_scores,
+            all_layers_matching_bbox_preds,
+            all_layers_denoising_cls_scores,
+            all_layers_denoising_bbox_preds,
+        ) = self.split_outputs(
+            all_layers_cls_scores, all_layers_bbox_preds, dn_meta
+        )
 
         loss_dict = super(DeformableDETRHead, self).loss_by_feat(
-            all_layers_matching_cls_scores, all_layers_matching_bbox_preds,
-            batch_gt_instances, batch_img_metas, batch_gt_instances_ignore)
+            all_layers_matching_cls_scores,
+            all_layers_matching_bbox_preds,
+            batch_gt_instances,
+            batch_img_metas,
+            batch_gt_instances_ignore,
+        )
         # NOTE DETRHead.loss_by_feat but not DeformableDETRHead.loss_by_feat
         # is called, because the encoder loss calculations are different
         # between DINO and DeformableDETR.
@@ -136,11 +158,14 @@ class DINOHead(DeformableDETRHead):
         if enc_cls_scores is not None:
             # NOTE The enc_loss calculation of the DINO is
             # different from that of Deformable DETR.
-            enc_loss_cls, enc_losses_bbox, enc_losses_iou = \
+            enc_loss_cls, enc_losses_bbox, enc_losses_iou = (
                 self.loss_by_feat_single(
-                    enc_cls_scores, enc_bbox_preds,
+                    enc_cls_scores,
+                    enc_bbox_preds,
                     batch_gt_instances=batch_gt_instances,
-                    batch_img_metas=batch_img_metas)
+                    batch_img_metas=batch_img_metas,
+                )
+            )
             loss_dict['enc_loss_cls'] = enc_loss_cls
             loss_dict['enc_loss_bbox'] = enc_losses_bbox
             loss_dict['enc_loss_iou'] = enc_losses_iou
@@ -152,23 +177,34 @@ class DINOHead(DeformableDETRHead):
                 all_layers_denoising_bbox_preds,
                 batch_gt_instances=batch_gt_instances,
                 batch_img_metas=batch_img_metas,
-                dn_meta=dn_meta)
+                dn_meta=dn_meta,
+            )
             # collate denoising loss
             loss_dict['dn_loss_cls'] = dn_losses_cls[-1]
             loss_dict['dn_loss_bbox'] = dn_losses_bbox[-1]
             loss_dict['dn_loss_iou'] = dn_losses_iou[-1]
-            for num_dec_layer, (loss_cls_i, loss_bbox_i, loss_iou_i) in \
-                    enumerate(zip(dn_losses_cls[:-1], dn_losses_bbox[:-1],
-                                  dn_losses_iou[:-1])):
+            for num_dec_layer, (
+                loss_cls_i,
+                loss_bbox_i,
+                loss_iou_i,
+            ) in enumerate(
+                zip(
+                    dn_losses_cls[:-1], dn_losses_bbox[:-1], dn_losses_iou[:-1]
+                )
+            ):
                 loss_dict[f'd{num_dec_layer}.dn_loss_cls'] = loss_cls_i
                 loss_dict[f'd{num_dec_layer}.dn_loss_bbox'] = loss_bbox_i
                 loss_dict[f'd{num_dec_layer}.dn_loss_iou'] = loss_iou_i
         return loss_dict
 
-    def loss_dn(self, all_layers_denoising_cls_scores: Tensor,
-                all_layers_denoising_bbox_preds: Tensor,
-                batch_gt_instances: InstanceList, batch_img_metas: List[dict],
-                dn_meta: Dict[str, int]) -> Tuple[List[Tensor]]:
+    def loss_dn(
+        self,
+        all_layers_denoising_cls_scores: Tensor,
+        all_layers_denoising_bbox_preds: Tensor,
+        batch_gt_instances: InstanceList,
+        batch_img_metas: List[dict],
+        dn_meta: Dict[str, int],
+    ) -> Tuple[List[Tensor]]:
         """Calculate denoising loss.
 
         Args:
@@ -200,12 +236,17 @@ class DINOHead(DeformableDETRHead):
             all_layers_denoising_bbox_preds,
             batch_gt_instances=batch_gt_instances,
             batch_img_metas=batch_img_metas,
-            dn_meta=dn_meta)
+            dn_meta=dn_meta,
+        )
 
-    def _loss_dn_single(self, dn_cls_scores: Tensor, dn_bbox_preds: Tensor,
-                        batch_gt_instances: InstanceList,
-                        batch_img_metas: List[dict],
-                        dn_meta: Dict[str, int]) -> Tuple[Tensor]:
+    def _loss_dn_single(
+        self,
+        dn_cls_scores: Tensor,
+        dn_bbox_preds: Tensor,
+        batch_gt_instances: InstanceList,
+        batch_img_metas: List[dict],
+        dn_meta: Dict[str, int],
+    ) -> Tuple[Tensor]:
         """Denoising loss for outputs from a single decoder layer.
 
         Args:
@@ -230,10 +271,17 @@ class DINOHead(DeformableDETRHead):
             Tuple[Tensor]: A tuple including `loss_cls`, `loss_box` and
             `loss_iou`.
         """
-        cls_reg_targets = self.get_dn_targets(batch_gt_instances,
-                                              batch_img_metas, dn_meta)
-        (labels_list, label_weights_list, bbox_targets_list, bbox_weights_list,
-         num_total_pos, num_total_neg) = cls_reg_targets
+        cls_reg_targets = self.get_dn_targets(
+            batch_gt_instances, batch_img_metas, dn_meta
+        )
+        (
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            bbox_weights_list,
+            num_total_pos,
+            num_total_neg,
+        ) = cls_reg_targets
         labels = torch.cat(labels_list, 0)
         label_weights = torch.cat(label_weights_list, 0)
         bbox_targets = torch.cat(bbox_targets_list, 0)
@@ -242,18 +290,23 @@ class DINOHead(DeformableDETRHead):
         # classification loss
         cls_scores = dn_cls_scores.reshape(-1, self.cls_out_channels)
         # construct weighted avg_factor to match with the official DETR repo
-        cls_avg_factor = \
+        cls_avg_factor = (
             num_total_pos * 1.0 + num_total_neg * self.bg_cls_weight
+        )
         if self.sync_cls_avg_factor:
             cls_avg_factor = reduce_mean(
-                cls_scores.new_tensor([cls_avg_factor]))
+                cls_scores.new_tensor([cls_avg_factor])
+            )
         cls_avg_factor = max(cls_avg_factor, 1)
 
         if len(cls_scores) > 0:
             if isinstance(self.loss_cls, QualityFocalLoss):
                 bg_class_ind = self.num_classes
-                pos_inds = ((labels >= 0)
-                            & (labels < bg_class_ind)).nonzero().squeeze(1)
+                pos_inds = (
+                    ((labels >= 0) & (labels < bg_class_ind))
+                    .nonzero()
+                    .squeeze(1)
+                )
                 scores = label_weights.new_zeros(labels.shape)
                 pos_bbox_targets = bbox_targets[pos_inds]
                 pos_decode_bbox_targets = bbox_cxcywh_to_xyxy(pos_bbox_targets)
@@ -262,20 +315,25 @@ class DINOHead(DeformableDETRHead):
                 scores[pos_inds] = bbox_overlaps(
                     pos_decode_bbox_pred.detach(),
                     pos_decode_bbox_targets,
-                    is_aligned=True)
+                    is_aligned=True,
+                )
                 loss_cls = self.loss_cls(
-                    cls_scores, (labels, scores),
+                    cls_scores,
+                    (labels, scores),
                     weight=label_weights,
-                    avg_factor=cls_avg_factor)
+                    avg_factor=cls_avg_factor,
+                )
             else:
                 loss_cls = self.loss_cls(
                     cls_scores,
                     labels,
                     label_weights,
-                    avg_factor=cls_avg_factor)
+                    avg_factor=cls_avg_factor,
+                )
         else:
             loss_cls = torch.zeros(
-                1, dtype=cls_scores.dtype, device=cls_scores.device)
+                1, dtype=cls_scores.dtype, device=cls_scores.device
+            )
 
         # Compute the average number of gt boxes across all gpus, for
         # normalization purposes
@@ -286,9 +344,11 @@ class DINOHead(DeformableDETRHead):
         factors = []
         for img_meta, bbox_pred in zip(batch_img_metas, dn_bbox_preds):
             img_h, img_w = img_meta['img_shape']
-            factor = bbox_pred.new_tensor([img_w, img_h, img_w,
-                                           img_h]).unsqueeze(0).repeat(
-                                               bbox_pred.size(0), 1)
+            factor = (
+                bbox_pred.new_tensor([img_w, img_h, img_w, img_h])
+                .unsqueeze(0)
+                .repeat(bbox_pred.size(0), 1)
+            )
             factors.append(factor)
         factors = torch.cat(factors)
 
@@ -301,16 +361,21 @@ class DINOHead(DeformableDETRHead):
 
         # regression IoU loss, defaultly GIoU loss
         loss_iou = self.loss_iou(
-            bboxes, bboxes_gt, bbox_weights, avg_factor=num_total_pos)
+            bboxes, bboxes_gt, bbox_weights, avg_factor=num_total_pos
+        )
 
         # regression L1 loss
         loss_bbox = self.loss_bbox(
-            bbox_preds, bbox_targets, bbox_weights, avg_factor=num_total_pos)
+            bbox_preds, bbox_targets, bbox_weights, avg_factor=num_total_pos
+        )
         return loss_cls, loss_bbox, loss_iou
 
-    def get_dn_targets(self, batch_gt_instances: InstanceList,
-                       batch_img_metas: dict, dn_meta: Dict[str,
-                                                            int]) -> tuple:
+    def get_dn_targets(
+        self,
+        batch_gt_instances: InstanceList,
+        batch_img_metas: dict,
+        dn_meta: Dict[str, int],
+    ) -> tuple:
         """Get targets in denoising part for a batch of images.
 
         Args:
@@ -334,20 +399,36 @@ class DINOHead(DeformableDETRHead):
             - num_total_pos (int): Number of positive samples in all images.
             - num_total_neg (int): Number of negative samples in all images.
         """
-        (labels_list, label_weights_list, bbox_targets_list, bbox_weights_list,
-         pos_inds_list, neg_inds_list) = multi_apply(
-             self._get_dn_targets_single,
-             batch_gt_instances,
-             batch_img_metas,
-             dn_meta=dn_meta)
-        num_total_pos = sum((inds.numel() for inds in pos_inds_list))
-        num_total_neg = sum((inds.numel() for inds in neg_inds_list))
-        return (labels_list, label_weights_list, bbox_targets_list,
-                bbox_weights_list, num_total_pos, num_total_neg)
+        (
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            bbox_weights_list,
+            pos_inds_list,
+            neg_inds_list,
+        ) = multi_apply(
+            self._get_dn_targets_single,
+            batch_gt_instances,
+            batch_img_metas,
+            dn_meta=dn_meta,
+        )
+        num_total_pos = sum(inds.numel() for inds in pos_inds_list)
+        num_total_neg = sum(inds.numel() for inds in neg_inds_list)
+        return (
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            bbox_weights_list,
+            num_total_pos,
+            num_total_neg,
+        )
 
-    def _get_dn_targets_single(self, gt_instances: InstanceData,
-                               img_meta: dict, dn_meta: Dict[str,
-                                                             int]) -> tuple:
+    def _get_dn_targets_single(
+        self,
+        gt_instances: InstanceData,
+        img_meta: dict,
+        dn_meta: Dict[str, int],
+    ) -> tuple:
         """Get targets in denoising part for one image.
 
         Args:
@@ -382,19 +463,21 @@ class DINOHead(DeformableDETRHead):
             t = t.unsqueeze(0).repeat(num_groups, 1)
             pos_assigned_gt_inds = t.flatten()
             pos_inds = torch.arange(
-                num_groups, dtype=torch.long, device=device)
+                num_groups, dtype=torch.long, device=device
+            )
             pos_inds = pos_inds.unsqueeze(1) * num_queries_each_group + t
             pos_inds = pos_inds.flatten()
         else:
-            pos_inds = pos_assigned_gt_inds = \
-                gt_bboxes.new_tensor([], dtype=torch.long)
+            pos_inds = pos_assigned_gt_inds = gt_bboxes.new_tensor(
+                [], dtype=torch.long
+            )
 
         neg_inds = pos_inds + num_queries_each_group // 2
 
         # label targets
-        labels = gt_bboxes.new_full((num_denoising_queries, ),
-                                    self.num_classes,
-                                    dtype=torch.long)
+        labels = gt_bboxes.new_full(
+            (num_denoising_queries,), self.num_classes, dtype=torch.long
+        )
         labels[pos_inds] = gt_labels[pos_assigned_gt_inds]
         label_weights = gt_bboxes.new_ones(num_denoising_queries)
 
@@ -407,19 +490,28 @@ class DINOHead(DeformableDETRHead):
         # DETR regress the relative position of boxes (cxcywh) in the image.
         # Thus the learning target should be normalized by the image size, also
         # the box format should be converted from defaultly x1y1x2y2 to cxcywh.
-        factor = gt_bboxes.new_tensor([img_w, img_h, img_w,
-                                       img_h]).unsqueeze(0)
+        factor = gt_bboxes.new_tensor([img_w, img_h, img_w, img_h]).unsqueeze(
+            0
+        )
         gt_bboxes_normalized = gt_bboxes / factor
         gt_bboxes_targets = bbox_xyxy_to_cxcywh(gt_bboxes_normalized)
         bbox_targets[pos_inds] = gt_bboxes_targets.repeat([num_groups, 1])
 
-        return (labels, label_weights, bbox_targets, bbox_weights, pos_inds,
-                neg_inds)
+        return (
+            labels,
+            label_weights,
+            bbox_targets,
+            bbox_weights,
+            pos_inds,
+            neg_inds,
+        )
 
     @staticmethod
-    def split_outputs(all_layers_cls_scores: Tensor,
-                      all_layers_bbox_preds: Tensor,
-                      dn_meta: Dict[str, int]) -> Tuple[Tensor]:
+    def split_outputs(
+        all_layers_cls_scores: Tensor,
+        all_layers_bbox_preds: Tensor,
+        dn_meta: Dict[str, int],
+    ) -> Tuple[Tensor]:
         """Split outputs of the denoising part and the matching part.
 
         For the total outputs of `num_queries_total` length, the former
@@ -461,19 +553,26 @@ class DINOHead(DeformableDETRHead):
         """
         num_denoising_queries = dn_meta['num_denoising_queries']
         if dn_meta is not None:
-            all_layers_denoising_cls_scores = \
-                all_layers_cls_scores[:, :, : num_denoising_queries, :]
-            all_layers_denoising_bbox_preds = \
-                all_layers_bbox_preds[:, :, : num_denoising_queries, :]
-            all_layers_matching_cls_scores = \
-                all_layers_cls_scores[:, :, num_denoising_queries:, :]
-            all_layers_matching_bbox_preds = \
-                all_layers_bbox_preds[:, :, num_denoising_queries:, :]
+            all_layers_denoising_cls_scores = all_layers_cls_scores[
+                :, :, :num_denoising_queries, :
+            ]
+            all_layers_denoising_bbox_preds = all_layers_bbox_preds[
+                :, :, :num_denoising_queries, :
+            ]
+            all_layers_matching_cls_scores = all_layers_cls_scores[
+                :, :, num_denoising_queries:, :
+            ]
+            all_layers_matching_bbox_preds = all_layers_bbox_preds[
+                :, :, num_denoising_queries:, :
+            ]
         else:
             all_layers_denoising_cls_scores = None
             all_layers_denoising_bbox_preds = None
             all_layers_matching_cls_scores = all_layers_cls_scores
             all_layers_matching_bbox_preds = all_layers_bbox_preds
-        return (all_layers_matching_cls_scores, all_layers_matching_bbox_preds,
-                all_layers_denoising_cls_scores,
-                all_layers_denoising_bbox_preds)
+        return (
+            all_layers_matching_cls_scores,
+            all_layers_matching_bbox_preds,
+            all_layers_denoising_cls_scores,
+            all_layers_denoising_bbox_preds,
+        )

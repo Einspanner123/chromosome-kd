@@ -10,12 +10,12 @@ except ImportError:
 
 
 class TestDSDLDetDataset(unittest.TestCase):
-
     def test_dsdldet_init(self):
         if DSDLDataset is not None:
             dataset = DSDLDetDataset(
                 data_root='tests/data/dsdl_det',
-                ann_file='set-train/train.yaml')
+                ann_file='set-train/train.yaml',
+            )
             dataset.full_init()
 
             self.assertEqual(len(dataset), 2)

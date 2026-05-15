@@ -6,11 +6,14 @@ import platform
 import shutil
 import sys
 import warnings
-from setuptools import find_packages, setup
 
 import torch
-from torch.utils.cpp_extension import (BuildExtension, CppExtension,
-                                       CUDAExtension)
+from setuptools import find_packages, setup
+from torch.utils.cpp_extension import (
+    BuildExtension,
+    CppExtension,
+    CUDAExtension,
+)
 
 
 def readme():
@@ -23,7 +26,7 @@ version_file = 'mmdet/version.py'
 
 
 def get_version():
-    with open(version_file, 'r') as f:
+    with open(version_file) as f:
         exec(compile(f.read(), version_file, 'exec'))
     return locals()['__version__']
 
@@ -50,7 +53,8 @@ def make_cuda_ext(name, module, sources, sources_cuda=[]):
         name=f'{module}.{name}',
         sources=[os.path.join(*module.split('.'), p) for p in sources],
         define_macros=define_macros,
-        extra_compile_args=extra_compile_args)
+        extra_compile_args=extra_compile_args,
+    )
 
 
 def parse_requirements(fname='requirements.txt', with_version=True):
@@ -70,6 +74,7 @@ def parse_requirements(fname='requirements.txt', with_version=True):
     import re
     import sys
     from os.path import exists
+
     require_fpath = fname
 
     def parse_line(line):
@@ -97,16 +102,17 @@ def parse_requirements(fname='requirements.txt', with_version=True):
                     if ';' in rest:
                         # Handle platform specific dependencies
                         # http://setuptools.readthedocs.io/en/latest/setuptools.html#declaring-platform-specific-dependencies
-                        version, platform_deps = map(str.strip,
-                                                     rest.split(';'))
+                        version, platform_deps = map(
+                            str.strip, rest.split(';')
+                        )
                         info['platform_deps'] = platform_deps
                     else:
-                        version = rest  # NOQA
+                        version = rest
                     info['version'] = (op, version)
             yield info
 
     def parse_require_file(fpath):
-        with open(fpath, 'r') as f:
+        with open(fpath) as f:
             for line in f.readlines():
                 line = line.strip()
                 if line and not line.startswith('#'):
@@ -155,7 +161,11 @@ def add_mim_extension():
         return
 
     filenames = [
-        'tools', 'configs', 'demo', 'model-index.yml', 'dataset-index.yml'
+        'tools',
+        'configs',
+        'demo',
+        'model-index.yml',
+        'dataset-index.yml',
     ]
     repo_path = osp.dirname(__file__)
     mim_path = osp.join(repo_path, 'mmdet', '.mim')
@@ -221,4 +231,5 @@ if __name__ == '__main__':
         },
         ext_modules=[],
         cmdclass={'build_ext': BuildExtension},
-        zip_safe=False)
+        zip_safe=False,
+    )

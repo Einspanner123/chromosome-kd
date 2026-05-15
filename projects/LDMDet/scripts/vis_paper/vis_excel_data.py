@@ -8,9 +8,30 @@ import pandas as pd
 def plot_class_radar(df):
     # 提取类别列 (A1 到 Y)
     classes = [
-        'A1', 'A2', 'A3', 'B4', 'B5', 'C6', 'C7', 'C8', 'C9', 'C10', 'C11',
-        'C12', 'D13', 'D14', 'D15', 'E16', 'E17', 'E18', 'F19', 'F20', 'G21',
-        'G22', 'X', 'Y'
+        'A1',
+        'A2',
+        'A3',
+        'B4',
+        'B5',
+        'C6',
+        'C7',
+        'C8',
+        'C9',
+        'C10',
+        'C11',
+        'C12',
+        'D13',
+        'D14',
+        'D15',
+        'E16',
+        'E17',
+        'E18',
+        'F19',
+        'F20',
+        'G21',
+        'G22',
+        'X',
+        'Y',
     ]
 
     num_vars = len(classes)
@@ -37,7 +58,8 @@ def plot_class_radar(df):
         linewidth=2,
         linestyle='solid',
         label='Baseline (DDPM)',
-        color='#95a5a6')
+        color='#95a5a6',
+    )
     ax.fill(angles, values_baseline, '#95a5a6', alpha=0.1)
 
     # 绘制 RF
@@ -49,20 +71,23 @@ def plot_class_radar(df):
         linewidth=2,
         linestyle='solid',
         label='Ours (RF-Shifted)',
-        color='#3498db')
+        color='#3498db',
+    )
     ax.fill(angles, values_rf, '#3498db', alpha=0.2)
 
     plt.title(
         'Per-class mAP Performance Comparison',
         size=20,
         fontweight='bold',
-        pad=30)
+        pad=30,
+    )
     plt.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1))
 
     plt.savefig(
         '/home/linkst/workplace/chromo/chromosome-kd/projects/LDMDet/scripts/vis_paper/class_radar.png',
         dpi=300,
-        bbox_inches='tight')
+        bbox_inches='tight',
+    )
     print('Class radar chart saved.')
 
 
@@ -84,21 +109,24 @@ def plot_scale_bars(df):
         label='Baseline',
         color='#95a5a6',
         edgecolor='black',
-        alpha=0.8)
+        alpha=0.8,
+    )
     rects2 = ax.bar(
         x + width / 2,
         rf_vals,
         width,
         label='Ours (RF-Shifted)',
         color='#3498db',
-        edgecolor='black')
+        edgecolor='black',
+    )
 
     ax.set_ylabel('mAP', fontsize=14)
     ax.set_title(
         'Performance Comparison by Scale',
         fontsize=18,
         fontweight='bold',
-        pad=20)
+        pad=20,
+    )
     ax.set_xticks(x)
     ax.set_xticklabels(labels, fontsize=12)
     ax.legend(fontsize=12)
@@ -114,7 +142,8 @@ def plot_scale_bars(df):
                 textcoords='offset points',
                 ha='center',
                 va='bottom',
-                fontweight='bold')
+                fontweight='bold',
+            )
 
     autolabel(rects1)
     autolabel(rects2)
@@ -130,19 +159,23 @@ def plot_scale_bars(df):
             ha='center',
             color='#e74c3c',
             fontweight='bold',
-            fontsize=12)
+            fontsize=12,
+        )
 
     plt.ylim(0, 0.85)
     plt.grid(axis='y', linestyle='--', alpha=0.5)
     plt.savefig(
         '/home/linkst/workplace/chromo/chromosome-kd/projects/LDMDet/scripts/vis_paper/scale_comparison.png',
         dpi=300,
-        bbox_inches='tight')
+        bbox_inches='tight',
+    )
     print('Scale comparison bar chart saved.')
 
 
 if __name__ == '__main__':
-    file_path = '/home/linkst/workplace/chromo/chromosome-kd/compare_class.XLSX'
+    file_path = (
+        '/home/linkst/workplace/chromo/chromosome-kd/compare_class.XLSX'
+    )
     df = pd.read_excel(file_path)
     plot_class_radar(df)
     plot_scale_bars(df)

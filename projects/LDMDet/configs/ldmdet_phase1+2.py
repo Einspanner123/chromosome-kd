@@ -12,4 +12,5 @@ model = dict(
         roi_extractor=dict(
             roi_layer=dict(type='RoIAlign', output_size=5, sampling_ratio=2),
         ),
-    ))
+    )
+)

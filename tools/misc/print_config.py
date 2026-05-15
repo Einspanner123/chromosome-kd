@@ -13,7 +13,8 @@ def parse_args():
     parser.add_argument(
         '--save-path',
         default=None,
-        help='save path of whole config, suffixed with .py, .json or .yml')
+        help='save path of whole config, suffixed with .py, .json or .yml',
+    )
     parser.add_argument(
         '--cfg-options',
         nargs='+',
@@ -23,7 +24,8 @@ def parse_args():
         'be overwritten is a list, it should be like key="[a,b]" or key=a,b '
         'It also allows nested list/tuple values, e.g. key="[(a,b),(c,d)]" '
         'Note that the quotation marks are necessary and that no white space '
-        'is allowed.')
+        'is allowed.',
+    )
     args = parser.parse_args()
 
     return args

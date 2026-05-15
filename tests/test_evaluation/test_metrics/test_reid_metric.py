@@ -9,7 +9,6 @@ from mmdet.structures import ReIDDataSample
 
 
 class TestReIDMetrics(TestCase):
-
     @classmethod
     def setUpClass(cls):
         init_default_scope('mmdet')
@@ -21,18 +20,24 @@ class TestReIDMetrics(TestCase):
             for i in [0, 0, 1, 1, 1, 1]
         ]
         pred_batch = [
-            dict(pred_feature=torch.tensor(
-                [1., .0, .1])),  # [x,√,x,x,x],R1=0,R5=1,AP=0.50
-            dict(pred_feature=torch.tensor(
-                [.8, .0, .0])),  # [x,√,x,x,x],R1=0,R5=1,AP=0.50
-            dict(pred_feature=torch.tensor(
-                [.1, 1., .1])),  # [√,√,x,√,x],R1=1,R5=1,AP≈0.92
-            dict(pred_feature=torch.tensor(
-                [.0, .9, .1])),  # [√,√,√,x,x],R1=1,R5=1,AP=1.00
-            dict(pred_feature=torch.tensor(
-                [.9, .1, .0])),  # [x,x,√,√,√],R1=0,R5=1,AP≈0.48
-            dict(pred_feature=torch.tensor(
-                [.0, .1, 1.])),  # [√,√,x,√,x],R1=1,R5=1,AP≈0.92
+            dict(
+                pred_feature=torch.tensor([1.0, 0.0, 0.1])
+            ),  # [x,√,x,x,x],R1=0,R5=1,AP=0.50
+            dict(
+                pred_feature=torch.tensor([0.8, 0.0, 0.0])
+            ),  # [x,√,x,x,x],R1=0,R5=1,AP=0.50
+            dict(
+                pred_feature=torch.tensor([0.1, 1.0, 0.1])
+            ),  # [√,√,x,√,x],R1=1,R5=1,AP≈0.92
+            dict(
+                pred_feature=torch.tensor([0.0, 0.9, 0.1])
+            ),  # [√,√,√,x,x],R1=1,R5=1,AP=1.00
+            dict(
+                pred_feature=torch.tensor([0.9, 0.1, 0.0])
+            ),  # [x,x,√,√,√],R1=0,R5=1,AP≈0.48
+            dict(
+                pred_feature=torch.tensor([0.0, 0.1, 1.0])
+            ),  # [√,√,x,√,x],R1=1,R5=1,AP≈0.92
         ]
         # get union
         for idx in range(len(data_samples)):
@@ -43,7 +48,8 @@ class TestReIDMetrics(TestCase):
                 type='ReIDMetrics',
                 metric=['mAP', 'CMC'],
                 metric_options=dict(rank_list=[1, 5], max_rank=5),
-            ))
+            )
+        )
 
         prefix = 'reid-metric'
         data_batch = dict(input=None, data_samples=None)

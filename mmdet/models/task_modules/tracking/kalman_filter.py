@@ -6,6 +6,7 @@ import torch
 
 try:
     import scipy.linalg
+
     HAS_SCIPY = True
 except ImportError:
     HAS_SCIPY = False
@@ -28,6 +29,7 @@ class KalmanFilter:
             the quality of detections. More details in
             https://arxiv.org/abs/2202.11983. Defaults to False.
     """
+
     chi2inv95 = {
         1: 3.8415,
         2: 5.9915,
@@ -37,13 +39,15 @@ class KalmanFilter:
         6: 12.592,
         7: 14.067,
         8: 15.507,
-        9: 16.919
+        9: 16.919,
     }
 
     def __init__(self, center_only: bool = False, use_nsa: bool = False):
         if not HAS_SCIPY:
-            raise RuntimeError('sscikit-learn is not installed,\
-                 please install it by: pip install scikit-learn')
+            raise RuntimeError(
+                'sscikit-learn is not installed,\
+                 please install it by: pip install scikit-learn'
+            )
         self.center_only = center_only
         if self.center_only:
             self.gating_threshold = self.chi2inv95[2]
@@ -51,7 +55,7 @@ class KalmanFilter:
             self.gating_threshold = self.chi2inv95[4]
 
         self.use_nsa = use_nsa
-        ndim, dt = 4, 1.
+        ndim, dt = 4, 1.0
 
         # Create Kalman filter model matrices.
         self._motion_mat = np.eye(2 * ndim, 2 * ndim)
@@ -62,8 +66,8 @@ class KalmanFilter:
         # Motion and observation uncertainty are chosen relative to the current
         # state estimate. These weights control the amount of uncertainty in
         # the model. This is a bit hacky.
-        self._std_weight_position = 1. / 20
-        self._std_weight_velocity = 1. / 160
+        self._std_weight_position = 1.0 / 20
+        self._std_weight_velocity = 1.0 / 160
 
     def initiate(self, measurement: np.array) -> Tuple[np.array, np.array]:
         """Create track from unassociated measurement.
@@ -83,17 +87,20 @@ class KalmanFilter:
 
         std = [
             2 * self._std_weight_position * measurement[3],
-            2 * self._std_weight_position * measurement[3], 1e-2,
+            2 * self._std_weight_position * measurement[3],
+            1e-2,
             2 * self._std_weight_position * measurement[3],
             10 * self._std_weight_velocity * measurement[3],
-            10 * self._std_weight_velocity * measurement[3], 1e-5,
-            10 * self._std_weight_velocity * measurement[3]
+            10 * self._std_weight_velocity * measurement[3],
+            1e-5,
+            10 * self._std_weight_velocity * measurement[3],
         ]
         covariance = np.diag(np.square(std))
         return mean, covariance
 
-    def predict(self, mean: np.array,
-                covariance: np.array) -> Tuple[np.array, np.array]:
+    def predict(
+        self, mean: np.array, covariance: np.array
+    ) -> Tuple[np.array, np.array]:
         """Run Kalman filter prediction step.
 
         Args:
@@ -110,26 +117,31 @@ class KalmanFilter:
         """
         std_pos = [
             self._std_weight_position * mean[3],
-            self._std_weight_position * mean[3], 1e-2,
-            self._std_weight_position * mean[3]
+            self._std_weight_position * mean[3],
+            1e-2,
+            self._std_weight_position * mean[3],
         ]
         std_vel = [
             self._std_weight_velocity * mean[3],
-            self._std_weight_velocity * mean[3], 1e-5,
-            self._std_weight_velocity * mean[3]
+            self._std_weight_velocity * mean[3],
+            1e-5,
+            self._std_weight_velocity * mean[3],
         ]
         motion_cov = np.diag(np.square(np.r_[std_pos, std_vel]))
 
         mean = np.dot(self._motion_mat, mean)
-        covariance = np.linalg.multi_dot(
-            (self._motion_mat, covariance, self._motion_mat.T)) + motion_cov
+        covariance = (
+            np.linalg.multi_dot(
+                (self._motion_mat, covariance, self._motion_mat.T)
+            )
+            + motion_cov
+        )
 
         return mean, covariance
 
-    def project(self,
-                mean: np.array,
-                covariance: np.array,
-                bbox_score: float = 0.) -> Tuple[np.array, np.array]:
+    def project(
+        self, mean: np.array, covariance: np.array, bbox_score: float = 0.0
+    ) -> Tuple[np.array, np.array]:
         """Project state distribution to measurement space.
 
         Args:
@@ -145,8 +157,9 @@ class KalmanFilter:
         """
         std = [
             self._std_weight_position * mean[3],
-            self._std_weight_position * mean[3], 1e-1,
-            self._std_weight_position * mean[3]
+            self._std_weight_position * mean[3],
+            1e-1,
+            self._std_weight_position * mean[3],
         ]
 
         if self.use_nsa:
@@ -156,14 +169,17 @@ class KalmanFilter:
 
         mean = np.dot(self._update_mat, mean)
         covariance = np.linalg.multi_dot(
-            (self._update_mat, covariance, self._update_mat.T))
+            (self._update_mat, covariance, self._update_mat.T)
+        )
         return mean, covariance + innovation_cov
 
-    def update(self,
-               mean: np.array,
-               covariance: np.array,
-               measurement: np.array,
-               bbox_score: float = 0.) -> Tuple[np.array, np.array]:
+    def update(
+        self,
+        mean: np.array,
+        covariance: np.array,
+        measurement: np.array,
+        bbox_score: float = 0.0,
+    ) -> Tuple[np.array, np.array]:
         """Run Kalman filter correction step.
 
         Args:
@@ -180,27 +196,33 @@ class KalmanFilter:
              (ndarray, ndarray): Returns the measurement-corrected state
              distribution.
         """
-        projected_mean, projected_cov = \
-            self.project(mean, covariance, bbox_score)
+        projected_mean, projected_cov = self.project(
+            mean, covariance, bbox_score
+        )
 
         chol_factor, lower = scipy.linalg.cho_factor(
-            projected_cov, lower=True, check_finite=False)
-        kalman_gain = scipy.linalg.cho_solve((chol_factor, lower),
-                                             np.dot(covariance,
-                                                    self._update_mat.T).T,
-                                             check_finite=False).T
+            projected_cov, lower=True, check_finite=False
+        )
+        kalman_gain = scipy.linalg.cho_solve(
+            (chol_factor, lower),
+            np.dot(covariance, self._update_mat.T).T,
+            check_finite=False,
+        ).T
         innovation = measurement - projected_mean
 
         new_mean = mean + np.dot(innovation, kalman_gain.T)
         new_covariance = covariance - np.linalg.multi_dot(
-            (kalman_gain, projected_cov, kalman_gain.T))
+            (kalman_gain, projected_cov, kalman_gain.T)
+        )
         return new_mean, new_covariance
 
-    def gating_distance(self,
-                        mean: np.array,
-                        covariance: np.array,
-                        measurements: np.array,
-                        only_position: bool = False) -> np.array:
+    def gating_distance(
+        self,
+        mean: np.array,
+        covariance: np.array,
+        measurements: np.array,
+        only_position: bool = False,
+    ) -> np.array:
         """Compute gating distance between state distribution and measurements.
 
         A suitable distance threshold can be obtained from `chi2inv95`. If
@@ -237,12 +259,14 @@ class KalmanFilter:
             d.T,
             lower=True,
             check_finite=False,
-            overwrite_b=True)
+            overwrite_b=True,
+        )
         squared_maha = np.sum(z * z, axis=0)
         return squared_maha
 
-    def track(self, tracks: dict,
-              bboxes: torch.Tensor) -> Tuple[dict, np.array]:
+    def track(
+        self, tracks: dict, bboxes: torch.Tensor
+    ) -> Tuple[dict, np.array]:
         """Track forward.
 
         Args:
@@ -255,11 +279,14 @@ class KalmanFilter:
         costs = []
         for id, track in tracks.items():
             track.mean, track.covariance = self.predict(
-                track.mean, track.covariance)
-            gating_distance = self.gating_distance(track.mean,
-                                                   track.covariance,
-                                                   bboxes.cpu().numpy(),
-                                                   self.center_only)
+                track.mean, track.covariance
+            )
+            gating_distance = self.gating_distance(
+                track.mean,
+                track.covariance,
+                bboxes.cpu().numpy(),
+                self.center_only,
+            )
             costs.append(gating_distance)
 
         costs = np.stack(costs, 0)

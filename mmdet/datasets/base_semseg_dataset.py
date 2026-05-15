@@ -77,24 +77,27 @@ class BaseSegDataset(BaseDataset):
             for details. Defaults to None.
             Notes: mmcv>=2.0.0rc4 required.
     """
+
     METAINFO: dict = dict()
 
-    def __init__(self,
-                 ann_file: str = '',
-                 img_suffix='.jpg',
-                 seg_map_suffix='.png',
-                 metainfo: Optional[dict] = None,
-                 data_root: Optional[str] = None,
-                 data_prefix: dict = dict(img_path='', seg_map_path=''),
-                 filter_cfg: Optional[dict] = None,
-                 indices: Optional[Union[int, Sequence[int]]] = None,
-                 serialize_data: bool = True,
-                 pipeline: List[Union[dict, Callable]] = [],
-                 test_mode: bool = False,
-                 lazy_init: bool = False,
-                 use_label_map: bool = False,
-                 max_refetch: int = 1000,
-                 backend_args: Optional[dict] = None) -> None:
+    def __init__(
+        self,
+        ann_file: str = '',
+        img_suffix='.jpg',
+        seg_map_suffix='.png',
+        metainfo: Optional[dict] = None,
+        data_root: Optional[str] = None,
+        data_prefix: dict = dict(img_path='', seg_map_path=''),
+        filter_cfg: Optional[dict] = None,
+        indices: Optional[Union[int, Sequence[int]]] = None,
+        serialize_data: bool = True,
+        pipeline: List[Union[dict, Callable]] = [],
+        test_mode: bool = False,
+        lazy_init: bool = False,
+        use_label_map: bool = False,
+        max_refetch: int = 1000,
+        backend_args: Optional[dict] = None,
+    ) -> None:
 
         self.img_suffix = img_suffix
         self.seg_map_suffix = seg_map_suffix
@@ -116,8 +119,9 @@ class BaseSegDataset(BaseDataset):
 
         # Get label map for custom classes
         new_classes = self._metainfo.get('classes', None)
-        self.label_map = self.get_label_map(
-            new_classes) if use_label_map else None
+        self.label_map = (
+            self.get_label_map(new_classes) if use_label_map else None
+        )
         self._metainfo.update(dict(label_map=self.label_map))
 
         # Update palette based on label map or generate palette
@@ -136,13 +140,14 @@ class BaseSegDataset(BaseDataset):
             self.full_init()
 
         if test_mode:
-            assert self._metainfo.get('classes') is not None, \
+            assert self._metainfo.get('classes') is not None, (
                 'dataset metainfo `classes` should be specified when testing'
+            )
 
     @classmethod
-    def get_label_map(cls,
-                      new_classes: Optional[Sequence] = None
-                      ) -> Union[Dict, None]:
+    def get_label_map(
+        cls, new_classes: Optional[Sequence] = None
+    ) -> Union[Dict, None]:
         """Require label mapping.
 
         The ``label_map`` is a dictionary, its keys are the old label ids and
@@ -161,14 +166,17 @@ class BaseSegDataset(BaseDataset):
                 new classes in self._metainfo
         """
         old_classes = cls.METAINFO.get('classes', None)
-        if (new_classes is not None and old_classes is not None
-                and list(new_classes) != list(old_classes)):
-
+        if (
+            new_classes is not None
+            and old_classes is not None
+            and list(new_classes) != list(old_classes)
+        ):
             label_map = {}
             if not set(new_classes).issubset(cls.METAINFO['classes']):
                 raise ValueError(
                     f'new classes {new_classes} is not a '
-                    f'subset of classes {old_classes} in METAINFO.')
+                    f'subset of classes {old_classes} in METAINFO.'
+                )
             for i, c in enumerate(old_classes):
                 if c not in new_classes:
                     # 0 is background
@@ -206,13 +214,15 @@ class BaseSegDataset(BaseDataset):
             np.random.seed(42)
             # random palette
             new_palette = np.random.randint(
-                0, 255, size=(len(classes), 3)).tolist()
+                0, 255, size=(len(classes), 3)
+            ).tolist()
             np.random.set_state(state)
         elif len(palette) >= len(classes) and self.label_map is not None:
             new_palette = []
             # return subset of palette
             for old_id, new_id in sorted(
-                    self.label_map.items(), key=lambda x: x[1]):
+                self.label_map.items(), key=lambda x: x[1]
+            ):
                 # 0 is background
                 if new_id != 0:
                     new_palette.append(palette[old_id])
@@ -221,8 +231,10 @@ class BaseSegDataset(BaseDataset):
             # Allow palette length is greater than classes.
             return palette
         else:
-            raise ValueError('palette does not match classes '
-                             f'as metainfo is {self._metainfo}.')
+            raise ValueError(
+                'palette does not match classes '
+                f'as metainfo is {self._metainfo}.'
+            )
         return new_palette
 
     def load_data_list(self) -> List[dict]:
@@ -235,14 +247,17 @@ class BaseSegDataset(BaseDataset):
         img_dir = self.data_prefix.get('img_path', None)
         ann_dir = self.data_prefix.get('seg_map_path', None)
         if not osp.isdir(self.ann_file) and self.ann_file:
-            assert osp.isfile(self.ann_file), \
+            assert osp.isfile(self.ann_file), (
                 f'Failed to load `ann_file` {self.ann_file}'
+            )
             lines = mmengine.list_from_file(
-                self.ann_file, backend_args=self.backend_args)
+                self.ann_file, backend_args=self.backend_args
+            )
             for line in lines:
                 img_name = line.strip()
                 data_info = dict(
-                    img_path=osp.join(img_dir, img_name + self.img_suffix))
+                    img_path=osp.join(img_dir, img_name + self.img_suffix)
+                )
                 if ann_dir is not None:
                     seg_map = img_name + self.seg_map_suffix
                     data_info['seg_map_path'] = osp.join(ann_dir, seg_map)
@@ -250,11 +265,12 @@ class BaseSegDataset(BaseDataset):
                 data_list.append(data_info)
         else:
             for img in fileio.list_dir_or_file(
-                    dir_path=img_dir,
-                    list_dir=False,
-                    suffix=self.img_suffix,
-                    recursive=True,
-                    backend_args=self.backend_args):
+                dir_path=img_dir,
+                list_dir=False,
+                suffix=self.img_suffix,
+                recursive=True,
+                backend_args=self.backend_args,
+            ):
                 data_info = dict(img_path=osp.join(img_dir, img))
                 if ann_dir is not None:
                     seg_map = img.replace(self.img_suffix, self.seg_map_suffix)

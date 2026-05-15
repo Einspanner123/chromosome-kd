@@ -21,10 +21,12 @@ class XMLDataset(BaseDetDataset):
             corresponding backend. Defaults to None.
     """
 
-    def __init__(self,
-                 img_subdir: str = 'JPEGImages',
-                 ann_subdir: str = 'Annotations',
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        img_subdir: str = 'JPEGImages',
+        ann_subdir: str = 'Annotations',
+        **kwargs,
+    ) -> None:
         self.img_subdir = img_subdir
         self.ann_subdir = ann_subdir
         super().__init__(**kwargs)
@@ -40,19 +42,20 @@ class XMLDataset(BaseDetDataset):
         Returns:
             list[dict]: Annotation info from XML file.
         """
-        assert self._metainfo.get('classes', None) is not None, \
+        assert self._metainfo.get('classes', None) is not None, (
             '`classes` in `XMLDataset` can not be None.'
+        )
         self.cat2label = {
-            cat: i
-            for i, cat in enumerate(self._metainfo['classes'])
+            cat: i for i, cat in enumerate(self._metainfo['classes'])
         }
 
         data_list = []
         img_ids = list_from_file(self.ann_file, backend_args=self.backend_args)
         for img_id in img_ids:
             file_name = osp.join(self.img_subdir, f'{img_id}.jpg')
-            xml_path = osp.join(self.sub_data_root, self.ann_subdir,
-                                f'{img_id}.xml')
+            xml_path = osp.join(
+                self.sub_data_root, self.ann_subdir, f'{img_id}.xml'
+            )
 
             raw_img_info = {}
             raw_img_info['img_id'] = img_id
@@ -89,8 +92,8 @@ class XMLDataset(BaseDetDataset):
 
         # deal with xml file
         with get_local_path(
-                img_info['xml_path'],
-                backend_args=self.backend_args) as local_path:
+            img_info['xml_path'], backend_args=self.backend_args
+        ) as local_path:
             raw_ann_info = ET.parse(local_path)
         root = raw_ann_info.getroot()
         size = root.find('size')
@@ -107,13 +110,14 @@ class XMLDataset(BaseDetDataset):
         data_info['width'] = width
 
         data_info['instances'] = self._parse_instance_info(
-            raw_ann_info, minus_one=True)
+            raw_ann_info, minus_one=True
+        )
 
         return data_info
 
-    def _parse_instance_info(self,
-                             raw_ann_info: ET,
-                             minus_one: bool = True) -> List[dict]:
+    def _parse_instance_info(
+        self, raw_ann_info: ET, minus_one: bool = True
+    ) -> List[dict]:
         """parse instance information.
 
         Args:
@@ -137,7 +141,7 @@ class XMLDataset(BaseDetDataset):
                 int(float(bnd_box.find('xmin').text)),
                 int(float(bnd_box.find('ymin').text)),
                 int(float(bnd_box.find('xmax').text)),
-                int(float(bnd_box.find('ymax').text))
+                int(float(bnd_box.find('ymax').text)),
             ]
 
             # VOC needs to subtract 1 from the coordinates
@@ -169,10 +173,16 @@ class XMLDataset(BaseDetDataset):
         if self.test_mode:
             return self.data_list
 
-        filter_empty_gt = self.filter_cfg.get('filter_empty_gt', False) \
-            if self.filter_cfg is not None else False
-        min_size = self.filter_cfg.get('min_size', 0) \
-            if self.filter_cfg is not None else 0
+        filter_empty_gt = (
+            self.filter_cfg.get('filter_empty_gt', False)
+            if self.filter_cfg is not None
+            else False
+        )
+        min_size = (
+            self.filter_cfg.get('min_size', 0)
+            if self.filter_cfg is not None
+            else 0
+        )
 
         valid_data_infos = []
         for i, data_info in enumerate(self.data_list):

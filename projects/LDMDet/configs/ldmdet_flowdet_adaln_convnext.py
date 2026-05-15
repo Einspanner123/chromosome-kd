@@ -21,7 +21,8 @@ model = dict(
 )
 
 optim_wrapper = dict(
-    optimizer=dict(type='AdamW', lr=5e-5, weight_decay=0.05), )
+    optimizer=dict(type='AdamW', lr=5e-5, weight_decay=0.05),
+)
 
 max_epoch = 100
 train_cfg = dict(max_epochs=max_epoch)

@@ -12,11 +12,20 @@ test_pipeline = [
         with_mask=True,
         with_bbox=False,
         with_seg=False,
-        with_label=False),
+        with_label=False,
+    ),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor', 'gt_masks', 'text'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+            'gt_masks',
+            'text',
+        ),
+    ),
 ]
 
 val_dataloader = dict(
@@ -33,7 +42,9 @@ val_dataloader = dict(
         split_file='refcoco+/refs(unc).p',
         split='val',
         text_mode='select_first',
-        pipeline=test_pipeline))
+        pipeline=test_pipeline,
+    ),
+)
 
 test_dataloader = dict(
     batch_size=1,
@@ -49,7 +60,9 @@ test_dataloader = dict(
         split_file='refcoco+/refs(unc).p',
         split='testA',  # or 'testB'
         text_mode='select_first',
-        pipeline=test_pipeline))
+        pipeline=test_pipeline,
+    ),
+)
 
 val_evaluator = dict(type='RefSegMetric', metric=['cIoU', 'mIoU'])
 test_evaluator = val_evaluator

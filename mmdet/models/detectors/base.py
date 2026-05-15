@@ -10,8 +10,12 @@ from mmdet.structures import DetDataSample, OptSampleList, SampleList
 from mmdet.utils import InstanceList, OptConfigType, OptMultiConfig
 from ..utils import samplelist_boxtype2tensor
 
-ForwardResults = Union[Dict[str, torch.Tensor], List[DetDataSample],
-                       Tuple[torch.Tensor], torch.Tensor]
+ForwardResults = Union[
+    Dict[str, torch.Tensor],
+    List[DetDataSample],
+    Tuple[torch.Tensor],
+    torch.Tensor,
+]
 
 
 class BaseDetector(BaseModel, metaclass=ABCMeta):
@@ -25,11 +29,14 @@ class BaseDetector(BaseModel, metaclass=ABCMeta):
            initialization. Defaults to None.
     """
 
-    def __init__(self,
-                 data_preprocessor: OptConfigType = None,
-                 init_cfg: OptMultiConfig = None):
+    def __init__(
+        self,
+        data_preprocessor: OptConfigType = None,
+        init_cfg: OptMultiConfig = None,
+    ):
         super().__init__(
-            data_preprocessor=data_preprocessor, init_cfg=init_cfg)
+            data_preprocessor=data_preprocessor, init_cfg=init_cfg
+        )
 
     @property
     def with_neck(self) -> bool:
@@ -46,19 +53,23 @@ class BaseDetector(BaseModel, metaclass=ABCMeta):
     @property
     def with_bbox(self) -> bool:
         """bool: whether the detector has a bbox head"""
-        return ((hasattr(self, 'roi_head') and self.roi_head.with_bbox)
-                or (hasattr(self, 'bbox_head') and self.bbox_head is not None))
+        return (hasattr(self, 'roi_head') and self.roi_head.with_bbox) or (
+            hasattr(self, 'bbox_head') and self.bbox_head is not None
+        )
 
     @property
     def with_mask(self) -> bool:
         """bool: whether the detector has a mask head"""
-        return ((hasattr(self, 'roi_head') and self.roi_head.with_mask)
-                or (hasattr(self, 'mask_head') and self.mask_head is not None))
+        return (hasattr(self, 'roi_head') and self.roi_head.with_mask) or (
+            hasattr(self, 'mask_head') and self.mask_head is not None
+        )
 
-    def forward(self,
-                inputs: torch.Tensor,
-                data_samples: OptSampleList = None,
-                mode: str = 'tensor') -> ForwardResults:
+    def forward(
+        self,
+        inputs: torch.Tensor,
+        data_samples: OptSampleList = None,
+        mode: str = 'tensor',
+    ) -> ForwardResults:
         """The unified entry for a forward process in both training and test.
 
         The method should accept three modes: "tensor", "predict" and "loss":
@@ -95,26 +106,30 @@ class BaseDetector(BaseModel, metaclass=ABCMeta):
         elif mode == 'tensor':
             return self._forward(inputs, data_samples)
         else:
-            raise RuntimeError(f'Invalid mode "{mode}". '
-                               'Only supports loss, predict and tensor mode')
+            raise RuntimeError(
+                f'Invalid mode "{mode}". '
+                'Only supports loss, predict and tensor mode'
+            )
 
     @abstractmethod
-    def loss(self, batch_inputs: Tensor,
-             batch_data_samples: SampleList) -> Union[dict, tuple]:
+    def loss(
+        self, batch_inputs: Tensor, batch_data_samples: SampleList
+    ) -> Union[dict, tuple]:
         """Calculate losses from a batch of inputs and data samples."""
         pass
 
     @abstractmethod
-    def predict(self, batch_inputs: Tensor,
-                batch_data_samples: SampleList) -> SampleList:
+    def predict(
+        self, batch_inputs: Tensor, batch_data_samples: SampleList
+    ) -> SampleList:
         """Predict results from a batch of inputs and data samples with post-
         processing."""
         pass
 
     @abstractmethod
-    def _forward(self,
-                 batch_inputs: Tensor,
-                 batch_data_samples: OptSampleList = None):
+    def _forward(
+        self, batch_inputs: Tensor, batch_data_samples: OptSampleList = None
+    ):
         """Network forward process.
 
         Usually includes backbone, neck and head forward without any post-
@@ -127,8 +142,9 @@ class BaseDetector(BaseModel, metaclass=ABCMeta):
         """Extract features from images."""
         pass
 
-    def add_pred_to_datasample(self, data_samples: SampleList,
-                               results_list: InstanceList) -> SampleList:
+    def add_pred_to_datasample(
+        self, data_samples: SampleList, results_list: InstanceList
+    ) -> SampleList:
         """Add predictions to `DetDataSample`.
 
         Args:

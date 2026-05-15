@@ -41,7 +41,6 @@ def _isArrayLike(obj):
 
 
 class YTVIS:
-
     def __init__(self, annotation_file=None):
         """Constructor of Microsoft COCO helper class for reading and
         visualizing annotations.
@@ -52,21 +51,24 @@ class YTVIS:
         :return:
         """
         # load dataset
-        self.dataset, self.anns, self.cats, self.vids = dict(), dict(), dict(
-        ), dict()
+        self.dataset, self.anns, self.cats, self.vids = (
+            dict(),
+            dict(),
+            dict(),
+            dict(),
+        )
         self.vidToAnns, self.catToVids = defaultdict(list), defaultdict(list)
         if annotation_file is not None:
             print('loading annotations into memory...')
             tic = time.time()
             if type(annotation_file) == str:
-                dataset = json.load(open(annotation_file, 'r'))
+                dataset = json.load(open(annotation_file))
             else:
                 dataset = annotation_file
-            assert type(
-                dataset
-            ) == dict, 'annotation file format {} not supported'.format(
-                type(dataset))
-            print('Done (t={:0.2f}s)'.format(time.time() - tic))
+            assert type(dataset) == dict, (
+                f'annotation file format {type(dataset)} not supported'
+            )
+            print(f'Done (t={time.time() - tic:0.2f}s)')
             self.dataset = dataset
             self.createIndex()
 
@@ -119,19 +121,28 @@ class YTVIS:
         else:
             if not len(vidIds) == 0:
                 lists = [
-                    self.vidToAnns[vidId] for vidId in vidIds
+                    self.vidToAnns[vidId]
+                    for vidId in vidIds
                     if vidId in self.vidToAnns
                 ]
                 anns = list(itertools.chain.from_iterable(lists))
             else:
                 anns = self.dataset['annotations']
-            anns = anns if len(catIds) == 0 else [
-                ann for ann in anns if ann['category_id'] in catIds
-            ]
-            anns = anns if len(areaRng) == 0 else [
-                ann for ann in anns if ann['avg_area'] > areaRng[0]
-                and ann['avg_area'] < areaRng[1]
-            ]
+            anns = (
+                anns
+                if len(catIds) == 0
+                else [ann for ann in anns if ann['category_id'] in catIds]
+            )
+            anns = (
+                anns
+                if len(areaRng) == 0
+                else [
+                    ann
+                    for ann in anns
+                    if ann['avg_area'] > areaRng[0]
+                    and ann['avg_area'] < areaRng[1]
+                ]
+            )
         if iscrowd is not None:
             ids = [ann['id'] for ann in anns if ann['iscrowd'] == iscrowd]
         else:
@@ -154,15 +165,21 @@ class YTVIS:
             cats = self.dataset['categories']
         else:
             cats = self.dataset['categories']
-            cats = cats if len(catNms) == 0 else [
-                cat for cat in cats if cat['name'] in catNms
-            ]
-            cats = cats if len(supNms) == 0 else [
-                cat for cat in cats if cat['supercategory'] in supNms
-            ]
-            cats = cats if len(catIds) == 0 else [
-                cat for cat in cats if cat['id'] in catIds
-            ]
+            cats = (
+                cats
+                if len(catNms) == 0
+                else [cat for cat in cats if cat['name'] in catNms]
+            )
+            cats = (
+                cats
+                if len(supNms) == 0
+                else [cat for cat in cats if cat['supercategory'] in supNms]
+            )
+            cats = (
+                cats
+                if len(catIds) == 0
+                else [cat for cat in cats if cat['id'] in catIds]
+            )
         ids = [cat['id'] for cat in cats]
         return ids
 
@@ -231,8 +248,9 @@ class YTVIS:
 
         print('Loading and preparing results...')
         tic = time.time()
-        if type(resFile) == str or (PYTHON_VERSION == 2
-                                    and type(resFile) == str):
+        if type(resFile) == str or (
+            PYTHON_VERSION == 2 and type(resFile) == str
+        ):
             anns = json.load(open(resFile))
         elif type(resFile) == np.ndarray:
             anns = self.loadNumpyAnnotations(resFile)
@@ -240,11 +258,13 @@ class YTVIS:
             anns = resFile
         assert type(anns) == list, 'results in not an array of objects'
         annsVidIds = [ann['video_id'] for ann in anns]
-        assert set(annsVidIds) == (set(annsVidIds) & set(self.getVidIds())), \
-               'Results do not correspond to current coco set'
+        assert set(annsVidIds) == (set(annsVidIds) & set(self.getVidIds())), (
+            'Results do not correspond to current coco set'
+        )
         if 'segmentations' in anns[0]:
             res.dataset['categories'] = copy.deepcopy(
-                self.dataset['categories'])
+                self.dataset['categories']
+            )
             for id, ann in enumerate(anns):
                 ann['areas'] = []
                 if 'bboxes' not in ann:
@@ -267,7 +287,7 @@ class YTVIS:
                 else:
                     ann['avg_area'] = np.array(l_ori).mean()
                 ann['iscrowd'] = 0
-        print('DONE (t={:0.2f}s)'.format(time.time() - tic))
+        print(f'DONE (t={time.time() - tic:0.2f}s)')
 
         res.dataset['annotations'] = anns
         res.createIndex()

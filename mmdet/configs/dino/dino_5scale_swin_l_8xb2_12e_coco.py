@@ -7,7 +7,7 @@ from mmdet.models import SwinTransformer
 with read_base():
     from .dino_4scale_r50_8xb2_12e_coco import *
 
-pretrained = 'https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_large_patch4_window12_384_22k.pth'  # noqa
+pretrained = 'https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_large_patch4_window12_384_22k.pth'
 num_levels = 5
 model.merge(
     dict(
@@ -23,8 +23,8 @@ model.merge(
             mlp_ratio=4,
             qkv_bias=True,
             qk_scale=None,
-            drop_rate=0.,
-            attn_drop_rate=0.,
+            drop_rate=0.0,
+            attn_drop_rate=0.0,
             drop_path_rate=0.2,
             patch_norm=True,
             out_indices=(0, 1, 2, 3),
@@ -32,9 +32,14 @@ model.merge(
             # in FPN, otherwise some parameter will not be used
             with_cp=True,
             convert_weights=True,
-            init_cfg=dict(type=PretrainedInit, checkpoint=pretrained)),
+            init_cfg=dict(type=PretrainedInit, checkpoint=pretrained),
+        ),
         neck=dict(in_channels=[192, 384, 768, 1536], num_outs=num_levels),
         encoder=dict(
-            layer_cfg=dict(self_attn_cfg=dict(num_levels=num_levels))),
+            layer_cfg=dict(self_attn_cfg=dict(num_levels=num_levels))
+        ),
         decoder=dict(
-            layer_cfg=dict(cross_attn_cfg=dict(num_levels=num_levels)))))
+            layer_cfg=dict(cross_attn_cfg=dict(num_levels=num_levels))
+        ),
+    )
+)

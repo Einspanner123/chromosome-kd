@@ -22,7 +22,9 @@ _base_ = ['./ldmdet_rf_heun_shifted_bs2.py']
 
 model = dict(
     bbox_head=dict(
-        single_head=dict(time_conditioning='adaln_zero', ),
+        single_head=dict(
+            time_conditioning='adaln_zero',
+        ),
         # Stochastic Sinkhorn OT (NO group hierarchy — pure Sinkhorn)
         ot_coupling=True,
         ot_matcher='sinkhorn',
@@ -46,6 +48,7 @@ model = dict(
         velocity_loss_weight=1.0,
         # Solver
         solver_type='heun',
-    ))
+    )
+)
 
 work_dir = 'work_dirs/ldmdet_sinkhorn_trd_cat_lsas'

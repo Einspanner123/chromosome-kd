@@ -11,7 +11,7 @@ val_list_lvis = [i for i in range(1, 1204)]
 
 
 def dump_lvis_label_map(args):
-    with open(args.input, 'r') as f:
+    with open(args.input) as f:
         j = json.load(f)
     o_dict = {}
     for category in j['categories']:
@@ -42,7 +42,8 @@ def lvis2odvg(args):
 
     for img_id, img_info in tqdm(lvis.imgs.items()):
         file_name = img_info['coco_url'].replace(
-            'http://images.cocodataset.org/', '')
+            'http://images.cocodataset.org/', ''
+        )
         ann_ids = lvis.get_ann_ids(img_ids=[img_id])
         raw_ann_info = lvis.load_anns(ann_ids)
         instance_list = []
@@ -57,8 +58,10 @@ def lvis2odvg(args):
                 print(f'invalid wh box of {ann}')
                 continue
             if ann['area'] <= 0 or w < 1 or h < 1:
-                print(f'invalid area box of {ann}, '
-                      f'w={img_info["width"]}, h={img_info["height"]}')
+                print(
+                    f'invalid area box of {ann}, '
+                    f'w={img_info["width"]}, h={img_info["height"]}'
+                )
                 continue
 
             if ann.get('iscrowd', False):
@@ -70,24 +73,22 @@ def lvis2odvg(args):
             category = nms[label]
             ind = val_list.index(label)
             label_trans = key_list[ind]
-            instance_list.append({
-                'bbox': bbox_xyxy,
-                'label': label_trans,
-                'category': category
-            })
-        metas.append({
-            'filename': file_name,
-            'height': img_info['height'],
-            'width': img_info['width'],
-            'detection': {
-                'instances': instance_list
+            instance_list.append(
+                {'bbox': bbox_xyxy, 'label': label_trans, 'category': category}
+            )
+        metas.append(
+            {
+                'filename': file_name,
+                'height': img_info['height'],
+                'width': img_info['width'],
+                'detection': {'instances': instance_list},
             }
-        })
+        )
 
     with jsonlines.open(out_path, mode='w') as writer:
         writer.write_all(metas)
 
-    print('save to {}'.format(out_path))
+    print(f'save to {out_path}')
 
 
 if __name__ == '__main__':

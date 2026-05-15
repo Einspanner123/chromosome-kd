@@ -57,7 +57,8 @@ class CocoVideoMetric(CocoMetric):
             warnings.warn(
                 f'{self.__class__.__name__} got empty `self.results`. Please '
                 'ensure that the processed results are properly added into '
-                '`self.results` in `process` method.')
+                '`self.results` in `process` method.'
+            )
 
         results = collect_tracking_results(self.results, self.collect_device)
 
@@ -66,8 +67,7 @@ class CocoVideoMetric(CocoMetric):
             # Add prefix to metric names
             if self.prefix:
                 _metrics = {
-                    '/'.join((self.prefix, k)): v
-                    for k, v in _metrics.items()
+                    '/'.join((self.prefix, k)): v for k, v in _metrics.items()
                 }
             metrics = [_metrics]
         else:

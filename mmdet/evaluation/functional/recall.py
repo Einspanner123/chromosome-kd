@@ -18,7 +18,7 @@ def _recalls(all_ious, proposal_nums, thrs):
         tmp_ious = np.zeros(0)
         for i in range(img_num):
             ious = all_ious[i][:, :proposal_num].copy()
-            gt_ious = np.zeros((ious.shape[0]))
+            gt_ious = np.zeros(ious.shape[0])
             if ious.size == 0:
                 tmp_ious = np.hstack((tmp_ious, gt_ious))
                 continue
@@ -62,12 +62,14 @@ def set_recall_param(proposal_nums, iou_thrs):
     return _proposal_nums, _iou_thrs
 
 
-def eval_recalls(gts,
-                 proposals,
-                 proposal_nums=None,
-                 iou_thrs=0.5,
-                 logger=None,
-                 use_legacy_coordinate=False):
+def eval_recalls(
+    gts,
+    proposals,
+    proposal_nums=None,
+    iou_thrs=0.5,
+    logger=None,
+    use_legacy_coordinate=False,
+):
     """Calculate recalls.
 
     Args:
@@ -106,7 +108,8 @@ def eval_recalls(gts,
             ious = bbox_overlaps(
                 gts[i],
                 img_proposal[:prop_num, :4],
-                use_legacy_coordinate=use_legacy_coordinate)
+                use_legacy_coordinate=use_legacy_coordinate,
+            )
         all_ious.append(ious)
     all_ious = np.array(all_ious)
     recalls = _recalls(all_ious, proposal_nums, iou_thrs)
@@ -115,12 +118,9 @@ def eval_recalls(gts,
     return recalls
 
 
-def print_recall_summary(recalls,
-                         proposal_nums,
-                         iou_thrs,
-                         row_idxs=None,
-                         col_idxs=None,
-                         logger=None):
+def print_recall_summary(
+    recalls, proposal_nums, iou_thrs, row_idxs=None, col_idxs=None, logger=None
+):
     """Print recalls in a table.
 
     Args:
@@ -166,6 +166,7 @@ def plot_num_recall(recalls, proposal_nums):
         _recalls = recalls
 
     import matplotlib.pyplot as plt
+
     f = plt.figure()
     plt.plot([0] + _proposal_nums, [0] + _recalls)
     plt.xlabel('Proposal num')
@@ -191,8 +192,9 @@ def plot_iou_recall(recalls, iou_thrs):
         _recalls = recalls
 
     import matplotlib.pyplot as plt
+
     f = plt.figure()
-    plt.plot(_iou_thrs + [1.0], _recalls + [0.])
+    plt.plot(_iou_thrs + [1.0], _recalls + [0.0])
     plt.xlabel('IoU')
     plt.ylabel('Recall')
     plt.axis([iou_thrs.min(), 1, 0, 1])

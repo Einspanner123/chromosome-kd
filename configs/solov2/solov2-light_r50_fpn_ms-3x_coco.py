@@ -6,7 +6,9 @@ model = dict(
         stacked_convs=2,
         feat_channels=256,
         scale_ranges=((1, 56), (28, 112), (56, 224), (112, 448), (224, 896)),
-        mask_feature_head=dict(out_channels=128)))
+        mask_feature_head=dict(out_channels=128),
+    )
+)
 
 # dataset settings
 train_pipeline = [
@@ -14,11 +16,18 @@ train_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True, with_mask=True),
     dict(
         type='RandomChoiceResize',
-        scales=[(768, 512), (768, 480), (768, 448), (768, 416), (768, 384),
-                (768, 352)],
-        keep_ratio=True),
+        scales=[
+            (768, 512),
+            (768, 480),
+            (768, 448),
+            (768, 416),
+            (768, 384),
+            (768, 352),
+        ],
+        keep_ratio=True,
+    ),
     dict(type='RandomFlip', prob=0.5),
-    dict(type='PackDetInputs')
+    dict(type='PackDetInputs'),
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile', backend_args={{_base_.backend_args}}),
@@ -26,8 +35,14 @@ test_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True, with_mask=True),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+        ),
+    ),
 ]
 
 train_dataloader = dict(dataset=dict(pipeline=train_pipeline))
@@ -41,16 +56,14 @@ train_cfg = dict(by_epoch=True, max_epochs=max_epochs)
 # learning rate
 param_scheduler = [
     dict(
-        type='LinearLR',
-        start_factor=1.0 / 3,
-        by_epoch=False,
-        begin=0,
-        end=500),
+        type='LinearLR', start_factor=1.0 / 3, by_epoch=False, begin=0, end=500
+    ),
     dict(
         type='MultiStepLR',
         begin=0,
         end=36,
         by_epoch=True,
         milestones=[27, 33],
-        gamma=0.1)
+        gamma=0.1,
+    ),
 ]

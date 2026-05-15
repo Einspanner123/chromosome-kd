@@ -10,85 +10,38 @@ decay_rate = 2
 base_wd = 0.05
 weight_decay = 0.05
 
-expected_stage_wise_lr_wd_convnext = [{
-    'weight_decay': 0.0,
-    'lr_scale': 128
-}, {
-    'weight_decay': 0.0,
-    'lr_scale': 1
-}, {
-    'weight_decay': 0.05,
-    'lr_scale': 64
-}, {
-    'weight_decay': 0.0,
-    'lr_scale': 64
-}, {
-    'weight_decay': 0.05,
-    'lr_scale': 32
-}, {
-    'weight_decay': 0.0,
-    'lr_scale': 32
-}, {
-    'weight_decay': 0.05,
-    'lr_scale': 16
-}, {
-    'weight_decay': 0.0,
-    'lr_scale': 16
-}, {
-    'weight_decay': 0.05,
-    'lr_scale': 8
-}, {
-    'weight_decay': 0.0,
-    'lr_scale': 8
-}, {
-    'weight_decay': 0.05,
-    'lr_scale': 128
-}, {
-    'weight_decay': 0.05,
-    'lr_scale': 1
-}]
+expected_stage_wise_lr_wd_convnext = [
+    {'weight_decay': 0.0, 'lr_scale': 128},
+    {'weight_decay': 0.0, 'lr_scale': 1},
+    {'weight_decay': 0.05, 'lr_scale': 64},
+    {'weight_decay': 0.0, 'lr_scale': 64},
+    {'weight_decay': 0.05, 'lr_scale': 32},
+    {'weight_decay': 0.0, 'lr_scale': 32},
+    {'weight_decay': 0.05, 'lr_scale': 16},
+    {'weight_decay': 0.0, 'lr_scale': 16},
+    {'weight_decay': 0.05, 'lr_scale': 8},
+    {'weight_decay': 0.0, 'lr_scale': 8},
+    {'weight_decay': 0.05, 'lr_scale': 128},
+    {'weight_decay': 0.05, 'lr_scale': 1},
+]
 
-expected_layer_wise_lr_wd_convnext = [{
-    'weight_decay': 0.0,
-    'lr_scale': 128
-}, {
-    'weight_decay': 0.0,
-    'lr_scale': 1
-}, {
-    'weight_decay': 0.05,
-    'lr_scale': 64
-}, {
-    'weight_decay': 0.0,
-    'lr_scale': 64
-}, {
-    'weight_decay': 0.05,
-    'lr_scale': 32
-}, {
-    'weight_decay': 0.0,
-    'lr_scale': 32
-}, {
-    'weight_decay': 0.05,
-    'lr_scale': 16
-}, {
-    'weight_decay': 0.0,
-    'lr_scale': 16
-}, {
-    'weight_decay': 0.05,
-    'lr_scale': 2
-}, {
-    'weight_decay': 0.0,
-    'lr_scale': 2
-}, {
-    'weight_decay': 0.05,
-    'lr_scale': 128
-}, {
-    'weight_decay': 0.05,
-    'lr_scale': 1
-}]
+expected_layer_wise_lr_wd_convnext = [
+    {'weight_decay': 0.0, 'lr_scale': 128},
+    {'weight_decay': 0.0, 'lr_scale': 1},
+    {'weight_decay': 0.05, 'lr_scale': 64},
+    {'weight_decay': 0.0, 'lr_scale': 64},
+    {'weight_decay': 0.05, 'lr_scale': 32},
+    {'weight_decay': 0.0, 'lr_scale': 32},
+    {'weight_decay': 0.05, 'lr_scale': 16},
+    {'weight_decay': 0.0, 'lr_scale': 16},
+    {'weight_decay': 0.05, 'lr_scale': 2},
+    {'weight_decay': 0.0, 'lr_scale': 2},
+    {'weight_decay': 0.05, 'lr_scale': 128},
+    {'weight_decay': 0.05, 'lr_scale': 1},
+]
 
 
 class ToyConvNeXt(nn.Module):
-
     def __init__(self):
         super().__init__()
         self.stages = nn.ModuleList()
@@ -114,7 +67,6 @@ class ToyConvNeXt(nn.Module):
 
 
 class ToyDetector(nn.Module):
-
     def __init__(self, backbone):
         super().__init__()
         self.backbone = backbone
@@ -122,7 +74,6 @@ class ToyDetector(nn.Module):
 
 
 class PseudoDataParallel(nn.Module):
-
     def __init__(self, model):
         super().__init__()
         self.module = model
@@ -149,20 +100,28 @@ def test_learning_rate_decay_optimizer_constructor():
     optim_wrapper_cfg = dict(
         type='OptimWrapper',
         optimizer=dict(
-            type='AdamW', lr=base_lr, betas=(0.9, 0.999), weight_decay=0.05))
+            type='AdamW', lr=base_lr, betas=(0.9, 0.999), weight_decay=0.05
+        ),
+    )
     # stagewise decay
     stagewise_paramwise_cfg = dict(
-        decay_rate=decay_rate, decay_type='stage_wise', num_layers=6)
+        decay_rate=decay_rate, decay_type='stage_wise', num_layers=6
+    )
     optim_constructor = LearningRateDecayOptimizerConstructor(
-        optim_wrapper_cfg, stagewise_paramwise_cfg)
+        optim_wrapper_cfg, stagewise_paramwise_cfg
+    )
     optim_wrapper = optim_constructor(model)
-    check_optimizer_lr_wd(optim_wrapper.optimizer,
-                          expected_stage_wise_lr_wd_convnext)
+    check_optimizer_lr_wd(
+        optim_wrapper.optimizer, expected_stage_wise_lr_wd_convnext
+    )
     # layerwise decay
     layerwise_paramwise_cfg = dict(
-        decay_rate=decay_rate, decay_type='layer_wise', num_layers=6)
+        decay_rate=decay_rate, decay_type='layer_wise', num_layers=6
+    )
     optim_constructor = LearningRateDecayOptimizerConstructor(
-        optim_wrapper_cfg, layerwise_paramwise_cfg)
+        optim_wrapper_cfg, layerwise_paramwise_cfg
+    )
     optim_wrapper = optim_constructor(model)
-    check_optimizer_lr_wd(optim_wrapper.optimizer,
-                          expected_layer_wise_lr_wd_convnext)
+    check_optimizer_lr_wd(
+        optim_wrapper.optimizer, expected_layer_wise_lr_wd_convnext
+    )

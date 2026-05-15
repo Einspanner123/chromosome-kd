@@ -15,19 +15,20 @@ from mmdet.registry import MODELS
 
 @MODELS.register_module()
 class EQLV2Loss(nn.Module):
-
-    def __init__(self,
-                 use_sigmoid: bool = True,
-                 reduction: str = 'mean',
-                 class_weight: Optional[Tensor] = None,
-                 loss_weight: float = 1.0,
-                 num_classes: int = 1203,
-                 use_distributed: bool = False,
-                 mu: float = 0.8,
-                 alpha: float = 4.0,
-                 gamma: int = 12,
-                 vis_grad: bool = False,
-                 test_with_obj: bool = True) -> None:
+    def __init__(
+        self,
+        use_sigmoid: bool = True,
+        reduction: str = 'mean',
+        class_weight: Optional[Tensor] = None,
+        loss_weight: float = 1.0,
+        num_classes: int = 1203,
+        use_distributed: bool = False,
+        mu: float = 0.8,
+        alpha: float = 4.0,
+        gamma: int = 12,
+        vis_grad: bool = False,
+        test_with_obj: bool = True,
+    ) -> None:
         """`Equalization Loss v2 <https://arxiv.org/abs/2012.08548>`_
 
         Args:
@@ -87,14 +88,17 @@ class EQLV2Loss(nn.Module):
         print_log(
             f'build EQL v2, gamma: {gamma}, mu: {mu}, alpha: {alpha}',
             logger='current',
-            level=logging.DEBUG)
+            level=logging.DEBUG,
+        )
 
-    def forward(self,
-                cls_score: Tensor,
-                label: Tensor,
-                weight: Optional[Tensor] = None,
-                avg_factor: Optional[int] = None,
-                reduction_override: Optional[Tensor] = None) -> Tensor:
+    def forward(
+        self,
+        cls_score: Tensor,
+        label: Tensor,
+        weight: Optional[Tensor] = None,
+        avg_factor: Optional[int] = None,
+        reduction_override: Optional[Tensor] = None,
+    ) -> Tensor:
         """`Equalization Loss v2 <https://arxiv.org/abs/2012.08548>`_
 
         Args:
@@ -129,7 +133,8 @@ class EQLV2Loss(nn.Module):
         weight = pos_w * target + neg_w * (1 - target)
 
         cls_loss = F.binary_cross_entropy_with_logits(
-            cls_score, target, reduction='none')
+            cls_score, target, reduction='none'
+        )
         cls_loss = torch.sum(cls_loss * weight) / self.n_i
 
         self.collect_grad(cls_score.detach(), target.detach(), weight.detach())
@@ -145,7 +150,7 @@ class EQLV2Loss(nn.Module):
         n_i, n_c = pred.size()
         bg_score = pred[:, -1].view(n_i, 1)
         if self.test_with_obj:
-            pred[:, :-1] *= (1 - bg_score)
+            pred[:, :-1] *= 1 - bg_score
         return pred
 
     def collect_grad(self, pred, target, weight):

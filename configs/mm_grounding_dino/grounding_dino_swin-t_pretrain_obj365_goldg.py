@@ -21,7 +21,8 @@ flickr30k_dataset = dict(
     filter_cfg=dict(filter_empty_gt=False),
     pipeline=_base_.train_pipeline,
     return_classes=True,
-    backend_args=None)
+    backend_args=None,
+)
 
 gqa_dataset = dict(
     type='ODVGDataset',
@@ -32,7 +33,9 @@ gqa_dataset = dict(
     filter_cfg=dict(filter_empty_gt=False),
     pipeline=_base_.train_pipeline,
     return_classes=True,
-    backend_args=None)
+    backend_args=None,
+)
 
 train_dataloader = dict(
-    dataset=dict(datasets=[o365v1_od_dataset, flickr30k_dataset, gqa_dataset]))
+    dataset=dict(datasets=[o365v1_od_dataset, flickr30k_dataset, gqa_dataset])
+)

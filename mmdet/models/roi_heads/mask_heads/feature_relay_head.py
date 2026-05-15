@@ -31,7 +31,7 @@ class FeatureRelayHead(BaseModule):
         out_conv_channels: int = 256,
         roi_feat_size: int = 7,
         scale_factor: int = 2,
-        init_cfg: MultiConfig = dict(type='Kaiming', layer='Linear')
+        init_cfg: MultiConfig = dict(type='Kaiming', layer='Linear'),
     ) -> None:
         super().__init__(init_cfg=init_cfg)
         assert isinstance(roi_feat_size, int)
@@ -45,7 +45,8 @@ class FeatureRelayHead(BaseModule):
 
         self.fc = nn.Linear(self.in_channels, self.out_channels)
         self.upsample = nn.Upsample(
-            scale_factor=scale_factor, mode='bilinear', align_corners=True)
+            scale_factor=scale_factor, mode='bilinear', align_corners=True
+        )
 
     def forward(self, x: Tensor) -> Optional[Tensor]:
         """Forward function.

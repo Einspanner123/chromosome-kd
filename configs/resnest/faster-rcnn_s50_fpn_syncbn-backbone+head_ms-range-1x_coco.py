@@ -5,7 +5,8 @@ model = dict(
     data_preprocessor=dict(
         mean=[123.68, 116.779, 103.939],
         std=[58.393, 57.12, 57.375],
-        bgr_to_rgb=True),
+        bgr_to_rgb=True,
+    ),
     backbone=dict(
         type='ResNeSt',
         stem_channels=64,
@@ -19,21 +20,25 @@ model = dict(
         norm_cfg=norm_cfg,
         norm_eval=False,
         style='pytorch',
-        init_cfg=dict(type='Pretrained', checkpoint='open-mmlab://resnest50')),
+        init_cfg=dict(type='Pretrained', checkpoint='open-mmlab://resnest50'),
+    ),
     roi_head=dict(
         bbox_head=dict(
             type='Shared4Conv1FCBBoxHead',
             conv_out_channels=256,
-            norm_cfg=norm_cfg)))
+            norm_cfg=norm_cfg,
+        )
+    ),
+)
 
 train_pipeline = [
     dict(type='LoadImageFromFile', backend_args={{_base_.backend_args}}),
     dict(type='LoadAnnotations', with_bbox=True),
     dict(
-        type='RandomResize', scale=[(1333, 640), (1333, 800)],
-        keep_ratio=True),
+        type='RandomResize', scale=[(1333, 640), (1333, 800)], keep_ratio=True
+    ),
     dict(type='RandomFlip', prob=0.5),
-    dict(type='PackDetInputs')
+    dict(type='PackDetInputs'),
 ]
 
 train_dataloader = dict(dataset=dict(pipeline=train_pipeline))

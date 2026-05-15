@@ -9,7 +9,8 @@ from mmengine.utils import mkdir_or_exist
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Optuna hyperparameter tuning for LDMDet')
+        description='Optuna hyperparameter tuning for LDMDet'
+    )
     parser.add_argument('config', help='base config file path')
     parser.add_argument(
         '--work-dir',
@@ -17,11 +18,14 @@ def parse_args():
         default='work_dirs/optuna_study',
     )
     parser.add_argument(
-        '--n-trials', type=int, default=20, help='number of trials')
+        '--n-trials', type=int, default=20, help='number of trials'
+    )
     parser.add_argument(
-        '--gpus', type=int, default=1, help='number of gpus to use per trial')
+        '--gpus', type=int, default=1, help='number of gpus to use per trial'
+    )
     parser.add_argument(
-        '--study-name', default='ldmdet_rf_tuning', help='optuna study name')
+        '--study-name', default='ldmdet_rf_tuning', help='optuna study name'
+    )
     return parser.parse_args()
 
 
@@ -33,15 +37,19 @@ class HparamManager:
         params = {}
         # Rectified Flow 相关
         params['model.bbox_head.rf_shift'] = trial.suggest_float(
-            'rf_shift', 1.0, 5.0)
+            'rf_shift', 1.0, 5.0
+        )
         params['model.bbox_head.snr_scale'] = trial.suggest_float(
-            'snr_scale', 0.5, 3.0)
+            'snr_scale', 0.5, 3.0
+        )
 
         # 优化器相关
         params['optim_wrapper.optimizer.lr'] = trial.suggest_float(
-            'lr', 1e-5, 1e-4, log=True)
+            'lr', 1e-5, 1e-4, log=True
+        )
         params['optim_wrapper.optimizer.weight_decay'] = trial.suggest_float(
-            'weight_decay', 1e-5, 1e-3, log=True)
+            'weight_decay', 1e-5, 1e-3, log=True
+        )
 
         # 采样步数 (可选)
         # params['model.bbox_head.sampling_timesteps'] = trial.suggest_int('sampling_timesteps', 1, 8)
@@ -59,7 +67,8 @@ class MetricExtractor:
 
         # 匹配 MMEngine 的标准日志结构
         log_files = glob.glob(
-            os.path.join(trial_work_dir, '*', 'vis_data', 'scalars.json'))
+            os.path.join(trial_work_dir, '*', 'vis_data', 'scalars.json')
+        )
         if not log_files:
             return 0.0
 
@@ -68,7 +77,7 @@ class MetricExtractor:
         latest_log = max(log_files, key=os.path.getmtime)
 
         try:
-            with open(latest_log, 'r') as f:
+            with open(latest_log) as f:
                 for line in f:
                     data = json.loads(line)
                     if 'coco/bbox_mAP' in data:
@@ -81,7 +90,6 @@ class MetricExtractor:
 
 
 class LDMDetObjective:
-
     def __init__(self, base_config_path, work_dir, gpus):
         self.base_config_path = base_config_path
         self.work_dir = work_dir
@@ -140,7 +148,7 @@ def main():
 
     # 使用绝对路径避免 URI 解析歧义
     abs_work_dir = os.path.abspath(args.work_dir)
-    storage_name = f"sqlite:///{os.path.join(abs_work_dir, 'optuna.db')}"
+    storage_name = f'sqlite:///{os.path.join(abs_work_dir, "optuna.db")}'
 
     study = optuna.create_study(
         study_name=args.study_name,

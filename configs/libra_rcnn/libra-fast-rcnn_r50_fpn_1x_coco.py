@@ -6,13 +6,15 @@ model = dict(
             type='FPN',
             in_channels=[256, 512, 1024, 2048],
             out_channels=256,
-            num_outs=5),
+            num_outs=5,
+        ),
         dict(
             type='BFP',
             in_channels=256,
             num_levels=5,
             refine_level=2,
-            refine_type='non_local')
+            refine_type='non_local',
+        ),
     ],
     roi_head=dict(
         bbox_head=dict(
@@ -22,7 +24,10 @@ model = dict(
                 alpha=0.5,
                 gamma=1.5,
                 beta=1.0,
-                loss_weight=1.0))),
+                loss_weight=1.0,
+            )
+        )
+    ),
     # model training and testing settings
     train_cfg=dict(
         rcnn=dict(
@@ -37,16 +42,23 @@ model = dict(
                     type='IoUBalancedNegSampler',
                     floor_thr=-1,
                     floor_fraction=0,
-                    num_bins=3)))))
+                    num_bins=3,
+                ),
+            )
+        )
+    ),
+)
 
 # MMEngine support the following two ways, users can choose
 # according to convenience
-# _base_.train_dataloader.dataset.proposal_file = 'libra_proposals/rpn_r50_fpn_1x_train2017.pkl'  # noqa
+# _base_.train_dataloader.dataset.proposal_file = 'libra_proposals/rpn_r50_fpn_1x_train2017.pkl'
 train_dataloader = dict(
-    dataset=dict(proposal_file='libra_proposals/rpn_r50_fpn_1x_train2017.pkl'))
+    dataset=dict(proposal_file='libra_proposals/rpn_r50_fpn_1x_train2017.pkl')
+)
 
-# _base_.val_dataloader.dataset.proposal_file = 'libra_proposals/rpn_r50_fpn_1x_val2017.pkl'  # noqa
+# _base_.val_dataloader.dataset.proposal_file = 'libra_proposals/rpn_r50_fpn_1x_val2017.pkl'
 # test_dataloader = _base_.val_dataloader
 val_dataloader = dict(
-    dataset=dict(proposal_file='libra_proposals/rpn_r50_fpn_1x_val2017.pkl'))
+    dataset=dict(proposal_file='libra_proposals/rpn_r50_fpn_1x_val2017.pkl')
+)
 test_dataloader = val_dataloader

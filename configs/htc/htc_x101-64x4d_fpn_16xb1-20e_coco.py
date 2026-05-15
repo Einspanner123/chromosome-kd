@@ -4,4 +4,7 @@ model = dict(
         type='ResNeXt',
         groups=64,
         init_cfg=dict(
-            type='Pretrained', checkpoint='open-mmlab://resnext101_64x4d')))
+            type='Pretrained', checkpoint='open-mmlab://resnext101_64x4d'
+        ),
+    )
+)

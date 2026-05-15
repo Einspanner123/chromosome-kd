@@ -12,49 +12,163 @@ from PIL import Image
 from mmdet.datasets.ade20k import ADE20KPanopticDataset
 
 ORIGINAL_CATEGORIES = [
-    'wall', 'building', 'sky', 'floor', 'tree', 'ceiling', 'road, route',
-    'bed', 'window', 'grass', 'cabinet', 'sidewalk, pavement', 'person',
-    'earth, ground', 'door', 'table', 'mountain, mount', 'plant', 'curtain',
-    'chair', 'car', 'water', 'painting, picture', 'sofa', 'shelf', 'house',
-    'sea', 'mirror', 'rug', 'field', 'armchair', 'seat', 'fence', 'desk',
-    'rock, stone', 'wardrobe, closet, press', 'lamp', 'tub', 'rail', 'cushion',
-    'base, pedestal, stand', 'box', 'column, pillar', 'signboard, sign',
-    'chest of drawers, chest, bureau, dresser', 'counter', 'sand', 'sink',
-    'skyscraper', 'fireplace', 'refrigerator, icebox',
-    'grandstand, covered stand', 'path', 'stairs', 'runway',
+    'wall',
+    'building',
+    'sky',
+    'floor',
+    'tree',
+    'ceiling',
+    'road, route',
+    'bed',
+    'window',
+    'grass',
+    'cabinet',
+    'sidewalk, pavement',
+    'person',
+    'earth, ground',
+    'door',
+    'table',
+    'mountain, mount',
+    'plant',
+    'curtain',
+    'chair',
+    'car',
+    'water',
+    'painting, picture',
+    'sofa',
+    'shelf',
+    'house',
+    'sea',
+    'mirror',
+    'rug',
+    'field',
+    'armchair',
+    'seat',
+    'fence',
+    'desk',
+    'rock, stone',
+    'wardrobe, closet, press',
+    'lamp',
+    'tub',
+    'rail',
+    'cushion',
+    'base, pedestal, stand',
+    'box',
+    'column, pillar',
+    'signboard, sign',
+    'chest of drawers, chest, bureau, dresser',
+    'counter',
+    'sand',
+    'sink',
+    'skyscraper',
+    'fireplace',
+    'refrigerator, icebox',
+    'grandstand, covered stand',
+    'path',
+    'stairs',
+    'runway',
     'case, display case, showcase, vitrine',
-    'pool table, billiard table, snooker table', 'pillow',
-    'screen door, screen', 'stairway, staircase', 'river', 'bridge, span',
-    'bookcase', 'blind, screen', 'coffee table',
-    'toilet, can, commode, crapper, pot, potty, stool, throne', 'flower',
-    'book', 'hill', 'bench', 'countertop', 'stove', 'palm, palm tree',
-    'kitchen island', 'computer', 'swivel chair', 'boat', 'bar',
-    'arcade machine', 'hovel, hut, hutch, shack, shanty', 'bus', 'towel',
-    'light', 'truck', 'tower', 'chandelier', 'awning, sunshade, sunblind',
-    'street lamp', 'booth', 'tv', 'airplane', 'dirt track', 'clothes', 'pole',
+    'pool table, billiard table, snooker table',
+    'pillow',
+    'screen door, screen',
+    'stairway, staircase',
+    'river',
+    'bridge, span',
+    'bookcase',
+    'blind, screen',
+    'coffee table',
+    'toilet, can, commode, crapper, pot, potty, stool, throne',
+    'flower',
+    'book',
+    'hill',
+    'bench',
+    'countertop',
+    'stove',
+    'palm, palm tree',
+    'kitchen island',
+    'computer',
+    'swivel chair',
+    'boat',
+    'bar',
+    'arcade machine',
+    'hovel, hut, hutch, shack, shanty',
+    'bus',
+    'towel',
+    'light',
+    'truck',
+    'tower',
+    'chandelier',
+    'awning, sunshade, sunblind',
+    'street lamp',
+    'booth',
+    'tv',
+    'airplane',
+    'dirt track',
+    'clothes',
+    'pole',
     'land, ground, soil',
     'bannister, banister, balustrade, balusters, handrail',
     'escalator, moving staircase, moving stairway',
-    'ottoman, pouf, pouffe, puff, hassock', 'bottle',
+    'ottoman, pouf, pouffe, puff, hassock',
+    'bottle',
     'buffet, counter, sideboard',
-    'poster, posting, placard, notice, bill, card', 'stage', 'van', 'ship',
+    'poster, posting, placard, notice, bill, card',
+    'stage',
+    'van',
+    'ship',
     'fountain',
-    'conveyer belt, conveyor belt, conveyer, conveyor, transporter', 'canopy',
-    'washer, automatic washer, washing machine', 'plaything, toy', 'pool',
-    'stool', 'barrel, cask', 'basket, handbasket', 'falls', 'tent', 'bag',
-    'minibike, motorbike', 'cradle', 'oven', 'ball', 'food, solid food',
-    'step, stair', 'tank, storage tank', 'trade name', 'microwave', 'pot',
-    'animal', 'bicycle', 'lake', 'dishwasher', 'screen', 'blanket, cover',
-    'sculpture', 'hood, exhaust hood', 'sconce', 'vase', 'traffic light',
-    'tray', 'trash can', 'fan', 'pier', 'crt screen', 'plate', 'monitor',
-    'bulletin board', 'shower', 'radiator', 'glass, drinking glass', 'clock',
-    'flag'
+    'conveyer belt, conveyor belt, conveyer, conveyor, transporter',
+    'canopy',
+    'washer, automatic washer, washing machine',
+    'plaything, toy',
+    'pool',
+    'stool',
+    'barrel, cask',
+    'basket, handbasket',
+    'falls',
+    'tent',
+    'bag',
+    'minibike, motorbike',
+    'cradle',
+    'oven',
+    'ball',
+    'food, solid food',
+    'step, stair',
+    'tank, storage tank',
+    'trade name',
+    'microwave',
+    'pot',
+    'animal',
+    'bicycle',
+    'lake',
+    'dishwasher',
+    'screen',
+    'blanket, cover',
+    'sculpture',
+    'hood, exhaust hood',
+    'sconce',
+    'vase',
+    'traffic light',
+    'tray',
+    'trash can',
+    'fan',
+    'pier',
+    'crt screen',
+    'plate',
+    'monitor',
+    'bulletin board',
+    'shower',
+    'radiator',
+    'glass, drinking glass',
+    'clock',
+    'flag',
 ]
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Convert ADE20K annotations to COCO format')
+        description='Convert ADE20K annotations to COCO format'
+    )
     parser.add_argument('src', help='ade20k data path')
     parser.add_argument('--task', help='task name', default='panoptic')
     args = parser.parse_args()
@@ -74,12 +188,12 @@ def prepare_instance_annotations(dataset_dir: str):
 
         # json config
         instance_config_file = dataset_dir / 'imgCatIds.json'
-        with open(instance_config_file, 'r') as f:
+        with open(instance_config_file) as f:
             category_dict = json.load(f)['categories']
 
         # catid mapping
         mapping_file = dataset_dir / 'categoryMapping.txt'
-        with open(mapping_file, 'r') as f:
+        with open(mapping_file) as f:
             map_id = {}
             for i, line in enumerate(f.readlines()):
                 if i == 0:
@@ -128,7 +242,7 @@ def prepare_instance_annotations(dataset_dir: str):
                 anno['id'] = ann_id
                 ann_id += 1
                 anno['image_id'] = image['id']
-                anno['iscrowd'] = int(0)
+                anno['iscrowd'] = 0
                 anno['category_id'] = int(map_id[instance_cat_id[0]])
 
                 inds = np.nonzero(mask)
@@ -138,12 +252,12 @@ def prepare_instance_annotations(dataset_dir: str):
                     int(xmin),
                     int(ymin),
                     int(xmax - xmin + 1),
-                    int(ymax - ymin + 1)
+                    int(ymax - ymin + 1),
                 ]
 
                 rle = mask_util.encode(
-                    np.array(mask[:, :, np.newaxis], order='F',
-                             dtype='uint8'))[0]
+                    np.array(mask[:, :, np.newaxis], order='F', dtype='uint8')
+                )[0]
                 rle['counts'] = rle['counts'].decode('utf-8')
                 anno['segmentation'] = rle
                 anno['area'] = int(mask_util.area(rle))
@@ -191,12 +305,14 @@ def prepare_panoptic_annotations(dataset_dir: str):
             new_2_old_mapping[i + len(thing_classes)] = j
 
         for old, new in old_2_new_mapping.items():
-            neworder_categories.append({
-                'id': new,
-                'name': all_classes[old],
-                'isthing': int(new < len(thing_classes)),
-                'color': palette[new]
-            })
+            neworder_categories.append(
+                {
+                    'id': new,
+                    'name': all_classes[old],
+                    'isthing': int(new < len(thing_classes)),
+                    'color': palette[new],
+                }
+            )
         categories_dict = {cat['id']: cat for cat in neworder_categories}
 
         panoptic_json_categories = neworder_categories[:]
@@ -219,7 +335,8 @@ def prepare_panoptic_annotations(dataset_dir: str):
 
             pan_seg = np.zeros(
                 (original_format.shape[0], original_format.shape[1], 3),
-                dtype=np.uint8)
+                dtype=np.uint8,
+            )
             id_generator = IdGenerator(categories_dict)
 
             filename_semantic = semantic_dir / f'{image_id}.png'
@@ -243,15 +360,20 @@ def prepare_panoptic_annotations(dataset_dir: str):
             for semantic_cat_id in np.unique(semantic_cat_ids):
                 if semantic_cat_id == 255:
                     continue
-                if categories_dict[old_2_new_mapping[int(
-                        semantic_cat_id)]]['isthing'] == 1:
+                if (
+                    categories_dict[old_2_new_mapping[int(semantic_cat_id)]][
+                        'isthing'
+                    ]
+                    == 1
+                ):
                     continue
                 mask = semantic_cat_ids == semantic_cat_id
                 # should not have any overlap
                 assert pan_seg[mask].sum() == 0
 
                 segment_id, color = id_generator.get_id_and_color(
-                    old_2_new_mapping[int(semantic_cat_id)])
+                    old_2_new_mapping[int(semantic_cat_id)]
+                )
                 pan_seg[mask] = color
 
                 area = np.sum(mask)
@@ -266,18 +388,15 @@ def prepare_panoptic_annotations(dataset_dir: str):
                 height = vert_idx[-1] - y + 1
                 bbox = [int(x), int(y), int(width), int(height)]
 
-                segm_info.append({
-                    'id':
-                    int(segment_id),
-                    'category_id':
-                    old_2_new_mapping[int(semantic_cat_id)],
-                    'area':
-                    int(area),
-                    'bbox':
-                    bbox,
-                    'iscrowd':
-                    0
-                })
+                segm_info.append(
+                    {
+                        'id': int(segment_id),
+                        'category_id': old_2_new_mapping[int(semantic_cat_id)],
+                        'area': int(area),
+                        'bbox': bbox,
+                        'iscrowd': 0,
+                    }
+                )
 
             # process things
             for thing_id in np.unique(instance_ins_ids):
@@ -289,7 +408,8 @@ def prepare_panoptic_annotations(dataset_dir: str):
                 assert len(instance_cat_id) == 1
 
                 segment_id, color = id_generator.get_id_and_color(
-                    instance_cat_id[0])
+                    instance_cat_id[0]
+                )
                 pan_seg[mask] = color
 
                 area = np.sum(mask)
@@ -304,18 +424,20 @@ def prepare_panoptic_annotations(dataset_dir: str):
                 height = vert_idx[-1] - y + 1
                 bbox = [int(x), int(y), int(width), int(height)]
 
-                segm_info.append({
-                    'id': int(segment_id),
-                    'category_id': int(instance_cat_id[0]),
-                    'area': int(area),
-                    'bbox': bbox,
-                    'iscrowd': 0
-                })
+                segm_info.append(
+                    {
+                        'id': int(segment_id),
+                        'category_id': int(instance_cat_id[0]),
+                        'area': int(area),
+                        'bbox': bbox,
+                        'iscrowd': 0,
+                    }
+                )
 
             panoptic_json_annotation = {
                 'image_id': image_id,
                 'file_name': image_id + '.png',
-                'segments_info': segm_info
+                'segments_info': segm_info,
             }
 
             Image.fromarray(pan_seg).save(out_folder / f'{image_id}.png')
@@ -328,7 +450,7 @@ def prepare_panoptic_annotations(dataset_dir: str):
         panoptic_json = {
             'images': panoptic_json_images,
             'annotations': panoptic_json_annotations,
-            'categories': panoptic_json_categories
+            'categories': panoptic_json_categories,
         }
         save_json(panoptic_json, out_file)
 
@@ -342,10 +464,11 @@ def main():
         annotation_val_path = f'{src}/ade20k_panoptic_val'
         print('Preparing ADE20K panoptic annotations ...')
         print(
-            f'Creating panoptic annotations to {annotation_train_path} and {annotation_val_path} ...'  # noqa
+            f'Creating panoptic annotations to {annotation_train_path} and {annotation_val_path} ...'
         )
         if os.path.exists(annotation_train_path) or os.path.exists(
-                annotation_val_path):
+            annotation_val_path
+        ):
             raise RuntimeError('Panoptic annotations already exist.')
         prepare_panoptic_annotations(src)
         print('Done.')
@@ -354,10 +477,11 @@ def main():
         annotation_val_path = f'{src}/ade20k_instance_val'
         print('Preparing ADE20K instance annotations ...')
         print(
-            f'Creating instance annotations to {annotation_train_path} and {annotation_val_path} ...'  # noqa
+            f'Creating instance annotations to {annotation_train_path} and {annotation_val_path} ...'
         )
         if os.path.exists(annotation_train_path) or os.path.exists(
-                annotation_val_path):
+            annotation_val_path
+        ):
             raise RuntimeError('Instance annotations already exist.')
         prepare_instance_annotations(src)
         print('Done.')

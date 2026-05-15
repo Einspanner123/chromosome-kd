@@ -18,7 +18,6 @@ register_all_modules()
 
 
 class ToyModel(nn.Module):
-
     def __init__(self):
         super().__init__()
         self.linear = nn.Linear(2, 1)
@@ -38,7 +37,6 @@ class ToyModel(nn.Module):
 
 
 class ToyModel1(BaseModel, ToyModel):
-
     def __init__(self):
         super().__init__()
 
@@ -47,7 +45,6 @@ class ToyModel1(BaseModel, ToyModel):
 
 
 class ToyModel2(BaseModel):
-
     def __init__(self):
         super().__init__()
         self.teacher = ToyModel1()
@@ -76,7 +73,6 @@ class DummyDataset(Dataset):
 
 
 class TestTeacherStudentValLoop(TestCase):
-
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
 
@@ -95,19 +91,23 @@ class TestTeacherStudentValLoop(TestCase):
                 dataset=dict(type='DummyDataset'),
                 sampler=dict(type='DefaultSampler', shuffle=True),
                 batch_size=3,
-                num_workers=0),
+                num_workers=0,
+            ),
             val_dataloader=dict(
                 dataset=dict(type='DummyDataset'),
                 sampler=dict(type='DefaultSampler', shuffle=False),
                 batch_size=3,
-                num_workers=0),
+                num_workers=0,
+            ),
             val_evaluator=evaluator,
             work_dir=self.temp_dir.name,
             default_scope='mmdet',
             optim_wrapper=OptimWrapper(
-                torch.optim.Adam(ToyModel().parameters())),
+                torch.optim.Adam(ToyModel().parameters())
+            ),
             train_cfg=dict(by_epoch=True, max_epochs=2, val_interval=1),
             val_cfg=dict(type='TeacherStudentValLoop'),
             default_hooks=dict(logger=dict(type='LoggerHook', interval=1)),
-            experiment_name='test1')
+            experiment_name='test1',
+        )
         runner.train()

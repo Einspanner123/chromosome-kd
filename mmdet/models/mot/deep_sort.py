@@ -26,12 +26,14 @@ class DeepSORT(BaseMOTModel):
             Defaults to None.
     """
 
-    def __init__(self,
-                 detector: Optional[dict] = None,
-                 reid: Optional[dict] = None,
-                 tracker: Optional[dict] = None,
-                 data_preprocessor: OptConfigType = None,
-                 init_cfg: OptConfigType = None):
+    def __init__(
+        self,
+        detector: Optional[dict] = None,
+        reid: Optional[dict] = None,
+        tracker: Optional[dict] = None,
+        data_preprocessor: OptConfigType = None,
+        init_cfg: OptConfigType = None,
+    ):
         super().__init__(data_preprocessor, init_cfg)
 
         if detector is not None:
@@ -45,18 +47,22 @@ class DeepSORT(BaseMOTModel):
 
         self.preprocess_cfg = data_preprocessor
 
-    def loss(self, inputs: Tensor, data_samples: TrackSampleList,
-             **kwargs) -> dict:
+    def loss(
+        self, inputs: Tensor, data_samples: TrackSampleList, **kwargs
+    ) -> dict:
         """Calculate losses from a batch of inputs and data samples."""
         raise NotImplementedError(
             'Please train `detector` and `reid` models firstly, then \
-                inference with SORT/DeepSORT.')
+                inference with SORT/DeepSORT.'
+        )
 
-    def predict(self,
-                inputs: Tensor,
-                data_samples: TrackSampleList,
-                rescale: bool = True,
-                **kwargs) -> TrackSampleList:
+    def predict(
+        self,
+        inputs: Tensor,
+        data_samples: TrackSampleList,
+        rescale: bool = True,
+        **kwargs,
+    ) -> TrackSampleList:
         """Predict results from a video and data samples with post- processing.
 
         Args:
@@ -77,13 +83,15 @@ class DeepSORT(BaseMOTModel):
             Each DetDataSample usually contains ``pred_track_instances``.
         """
         assert inputs.dim() == 5, 'The img must be 5D Tensor (N, T, C, H, W).'
-        assert inputs.size(0) == 1, \
-            'SORT/DeepSORT inference only support ' \
+        assert inputs.size(0) == 1, (
+            'SORT/DeepSORT inference only support '
             '1 batch size per gpu for now.'
+        )
 
-        assert len(data_samples) == 1, \
-            'SORT/DeepSORT inference only support ' \
+        assert len(data_samples) == 1, (
+            'SORT/DeepSORT inference only support '
             '1 batch size per gpu for now.'
+        )
 
         track_data_sample = data_samples[0]
         video_len = len(track_data_sample)
@@ -104,7 +112,8 @@ class DeepSORT(BaseMOTModel):
                 data_sample=det_results[0],
                 data_preprocessor=self.preprocess_cfg,
                 rescale=rescale,
-                **kwargs)
+                **kwargs,
+            )
             img_data_sample.pred_track_instances = pred_track_instances
 
         return [track_data_sample]

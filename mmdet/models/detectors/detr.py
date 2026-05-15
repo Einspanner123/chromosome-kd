@@ -7,8 +7,11 @@ from torch import Tensor, nn
 
 from mmdet.registry import MODELS
 from mmdet.structures import OptSampleList
-from ..layers import (DetrTransformerDecoder, DetrTransformerEncoder,
-                      SinePositionalEncoding)
+from ..layers import (
+    DetrTransformerDecoder,
+    DetrTransformerEncoder,
+    SinePositionalEncoding,
+)
 from .base_detr import DetectionTransformer
 
 
@@ -25,7 +28,8 @@ class DETR(DetectionTransformer):
     def _init_layers(self) -> None:
         """Initialize layers except for backbone, neck and bbox_head."""
         self.positional_encoding = SinePositionalEncoding(
-            **self.positional_encoding)
+            **self.positional_encoding
+        )
         self.encoder = DetrTransformerEncoder(**self.encoder)
         self.decoder = DetrTransformerDecoder(**self.decoder)
         self.embed_dims = self.encoder.embed_dims
@@ -35,9 +39,10 @@ class DETR(DetectionTransformer):
         self.query_embedding = nn.Embedding(self.num_queries, self.embed_dims)
 
         num_feats = self.positional_encoding.num_feats
-        assert num_feats * 2 == self.embed_dims, \
-            'embed_dims should be exactly 2 times of num_feats. ' \
+        assert num_feats * 2 == self.embed_dims, (
+            'embed_dims should be exactly 2 times of num_feats. '
             f'Found {self.embed_dims} and {num_feats}.'
+        )
 
     def init_weights(self) -> None:
         """Initialize weights for Transformer and other components."""
@@ -48,9 +53,10 @@ class DETR(DetectionTransformer):
                     nn.init.xavier_uniform_(p)
 
     def pre_transformer(
-            self,
-            img_feats: Tuple[Tensor],
-            batch_data_samples: OptSampleList = None) -> Tuple[Dict, Dict]:
+        self,
+        img_feats: Tuple[Tensor],
+        batch_data_samples: OptSampleList = None,
+    ) -> Tuple[Dict, Dict]:
         """Prepare the inputs of the Transformer.
 
         The forward procedure of the transformer is defined as:
@@ -85,9 +91,12 @@ class DETR(DetectionTransformer):
         batch_input_shape = batch_data_samples[0].batch_input_shape
         input_img_h, input_img_w = batch_input_shape
         img_shape_list = [sample.img_shape for sample in batch_data_samples]
-        same_shape_flag = all([
-            s[0] == input_img_h and s[1] == input_img_w for s in img_shape_list
-        ])
+        same_shape_flag = all(
+            [
+                s[0] == input_img_h and s[1] == input_img_w
+                for s in img_shape_list
+            ]
+        )
         if torch.onnx.is_in_onnx_export() or same_shape_flag:
             masks = None
             # [batch_size, embed_dim, h, w]
@@ -100,9 +109,11 @@ class DETR(DetectionTransformer):
             # NOTE following the official DETR repo, non-zero values represent
             # ignored positions, while zero values mean valid positions.
 
-            masks = F.interpolate(
-                masks.unsqueeze(1),
-                size=feat.shape[-2:]).to(torch.bool).squeeze(1)
+            masks = (
+                F.interpolate(masks.unsqueeze(1), size=feat.shape[-2:])
+                .to(torch.bool)
+                .squeeze(1)
+            )
             # [batch_size, embed_dim, h, w]
             pos_embed = self.positional_encoding(masks)
 
@@ -116,12 +127,14 @@ class DETR(DetectionTransformer):
 
         # prepare transformer_inputs_dict
         encoder_inputs_dict = dict(
-            feat=feat, feat_mask=masks, feat_pos=pos_embed)
+            feat=feat, feat_mask=masks, feat_pos=pos_embed
+        )
         decoder_inputs_dict = dict(memory_mask=masks, memory_pos=pos_embed)
         return encoder_inputs_dict, decoder_inputs_dict
 
-    def forward_encoder(self, feat: Tensor, feat_mask: Tensor,
-                        feat_pos: Tensor) -> Dict:
+    def forward_encoder(
+        self, feat: Tensor, feat_mask: Tensor, feat_pos: Tensor
+    ) -> Dict:
         """Forward with Transformer encoder.
 
         The forward procedure of the transformer is defined as:
@@ -142,8 +155,8 @@ class DETR(DetectionTransformer):
             `memory` of the encoder output.
         """
         memory = self.encoder(
-            query=feat, query_pos=feat_pos,
-            key_padding_mask=feat_mask)  # for self_attn
+            query=feat, query_pos=feat_pos, key_padding_mask=feat_mask
+        )  # for self_attn
         encoder_outputs_dict = dict(memory=memory)
         return encoder_outputs_dict
 
@@ -180,12 +193,19 @@ class DETR(DetectionTransformer):
         query = torch.zeros_like(query_pos)
 
         decoder_inputs_dict = dict(
-            query_pos=query_pos, query=query, memory=memory)
+            query_pos=query_pos, query=query, memory=memory
+        )
         head_inputs_dict = dict()
         return decoder_inputs_dict, head_inputs_dict
 
-    def forward_decoder(self, query: Tensor, query_pos: Tensor, memory: Tensor,
-                        memory_mask: Tensor, memory_pos: Tensor) -> Dict:
+    def forward_decoder(
+        self,
+        query: Tensor,
+        query_pos: Tensor,
+        memory: Tensor,
+        memory_mask: Tensor,
+        memory_pos: Tensor,
+    ) -> Dict:
         """Forward with Transformer decoder.
 
         The forward procedure of the transformer is defined as:
@@ -219,7 +239,8 @@ class DETR(DetectionTransformer):
             value=memory,
             query_pos=query_pos,
             key_pos=memory_pos,
-            key_padding_mask=memory_mask)  # for cross_attn
+            key_padding_mask=memory_mask,
+        )  # for cross_attn
 
         head_inputs_dict = dict(hidden_states=hidden_states)
         return head_inputs_dict

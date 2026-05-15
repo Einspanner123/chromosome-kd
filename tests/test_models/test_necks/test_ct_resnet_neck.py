@@ -7,20 +7,21 @@ from mmdet.models.necks import CTResNetNeck
 
 
 class TestCTResNetNeck(unittest.TestCase):
-
     def test_init(self):
         # num_filters/num_kernels must be same length
         with self.assertRaises(AssertionError):
             CTResNetNeck(
                 in_channels=10,
                 num_deconv_filters=(10, 10),
-                num_deconv_kernels=(4, ))
+                num_deconv_kernels=(4,),
+            )
 
         ct_resnet_neck = CTResNetNeck(
             in_channels=16,
             num_deconv_filters=(8, 8),
             num_deconv_kernels=(4, 4),
-            use_dcn=False)
+            use_dcn=False,
+        )
         ct_resnet_neck.init_weights()
 
     def test_forward(self):
@@ -32,7 +33,8 @@ class TestCTResNetNeck(unittest.TestCase):
             in_channels=in_channels,
             num_deconv_filters=num_filters,
             num_deconv_kernels=num_kernels,
-            use_dcn=False)
+            use_dcn=False,
+        )
 
         # feat must be list or tuple
         with self.assertRaises(AssertionError):
@@ -46,7 +48,8 @@ class TestCTResNetNeck(unittest.TestCase):
             ct_resnet_neck = CTResNetNeck(
                 in_channels=in_channels,
                 num_deconv_filters=num_filters,
-                num_deconv_kernels=num_kernels)
+                num_deconv_kernels=num_kernels,
+            )
             ct_resnet_neck = ct_resnet_neck.cuda()
             feat = feat.cuda()
             out_feat = ct_resnet_neck([feat])[0]

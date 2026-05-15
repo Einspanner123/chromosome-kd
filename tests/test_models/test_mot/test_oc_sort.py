@@ -13,15 +13,16 @@ from mmdet.testing import demo_mm_inputs, demo_track_inputs, get_detector_cfg
 
 
 class TestByteTrack(TestCase):
-
     @classmethod
     def setUpClass(cls):
         init_default_scope('mmdet')
 
-    @parameterized.expand([
-        'ocsort/ocsort_yolox_x_8xb4-amp-80e_crowdhuman-mot17halftrain'
-        '_test-mot17halfval.py',
-    ])
+    @parameterized.expand(
+        [
+            'ocsort/ocsort_yolox_x_8xb4-amp-80e_crowdhuman-mot17halftrain'
+            '_test-mot17halfval.py',
+        ]
+    )
     def test_bytetrack_init(self, cfg_file):
         model = get_detector_cfg(cfg_file)
         model.detector.neck.out_channels = 1
@@ -31,13 +32,19 @@ class TestByteTrack(TestCase):
         model = MODELS.build(model)
         assert model.detector
 
-    @parameterized.expand([
-        ('ocsort/ocsort_yolox_x_8xb4-amp-80e_crowdhuman-mot17halftrain_'
-         'test-mot17halfval.py', ('cpu', 'cuda')),
-    ])
+    @parameterized.expand(
+        [
+            (
+                'ocsort/ocsort_yolox_x_8xb4-amp-80e_crowdhuman-mot17halftrain_'
+                'test-mot17halfval.py',
+                ('cpu', 'cuda'),
+            ),
+        ]
+    )
     def test_bytetrack_forward_loss_mode(self, cfg_file, devices):
         message_hub = MessageHub.get_instance(
-            f'test_bytetrack_forward_loss_mode-{time.time()}')
+            f'test_bytetrack_forward_loss_mode-{time.time()}'
+        )
         message_hub.update_info('iter', 0)
         message_hub.update_info('epoch', 0)
         assert all([device in ['cpu', 'cuda'] for device in devices])
@@ -62,13 +69,19 @@ class TestByteTrack(TestCase):
             losses = model.forward(**data, mode='loss')
             assert isinstance(losses, dict)
 
-    @parameterized.expand([
-        ('ocsort/ocsort_yolox_x_8xb4-amp-80e_crowdhuman-mot17halftrain_'
-         'test-mot17halfval.py', ('cpu', 'cuda')),
-    ])
+    @parameterized.expand(
+        [
+            (
+                'ocsort/ocsort_yolox_x_8xb4-amp-80e_crowdhuman-mot17halftrain_'
+                'test-mot17halfval.py',
+                ('cpu', 'cuda'),
+            ),
+        ]
+    )
     def test_bytetrack_forward_predict_mode(self, cfg_file, devices):
         message_hub = MessageHub.get_instance(
-            f'test_bytetrack_forward_predict_mode-{time.time()}')
+            f'test_bytetrack_forward_predict_mode-{time.time()}'
+        )
         message_hub.update_info('iter', 0)
         message_hub.update_info('epoch', 0)
 
@@ -91,7 +104,8 @@ class TestByteTrack(TestCase):
                 batch_size=1,
                 num_frames=2,
                 image_shapes=[(3, 256, 256)],
-                num_classes=1)
+                num_classes=1,
+            )
             out_data = model.data_preprocessor(packed_inputs, False)
             # Test forward test
             model.eval()

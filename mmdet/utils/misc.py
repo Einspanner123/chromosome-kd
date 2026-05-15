@@ -11,8 +11,17 @@ from mmengine.config import Config, ConfigDict
 from mmengine.logging import print_log
 from mmengine.utils import scandir
 
-IMG_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm', '.tif',
-                  '.tiff', '.webp')
+IMG_EXTENSIONS = (
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.ppm',
+    '.bmp',
+    '.pgm',
+    '.tif',
+    '.tiff',
+    '.webp',
+)
 
 
 def find_latest_checkpoint(path, suffix='pth'):
@@ -59,18 +68,22 @@ def update_data_root(cfg, logger=None):
         cfg (:obj:`Config`): The model config need to modify
         logger (logging.Logger | str | None): the way to print msg
     """
-    assert isinstance(cfg, Config), \
+    assert isinstance(cfg, Config), (
         f'cfg got wrong type: {type(cfg)}, expected mmengine.Config'
+    )
 
     if 'MMDET_DATASETS' in os.environ:
         dst_root = os.environ['MMDET_DATASETS']
-        print_log(f'MMDET_DATASETS has been set to be {dst_root}.'
-                  f'Using {dst_root} as data root.')
+        print_log(
+            f'MMDET_DATASETS has been set to be {dst_root}.'
+            f'Using {dst_root} as data root.'
+        )
     else:
         return
 
-    assert isinstance(cfg, Config), \
+    assert isinstance(cfg, Config), (
         f'cfg got wrong type: {type(cfg)}, expected mmengine.Config'
+    )
 
     def update(cfg, src_str, dst_str):
         for k, v in cfg.items():
@@ -133,7 +146,8 @@ def get_file_list(source_root: str) -> [list, dict]:
     elif is_url:
         # when input source is url
         filename = os.path.basename(
-            urllib.parse.unquote(source_root).split('?')[0])
+            urllib.parse.unquote(source_root).split('?')[0]
+        )
         file_save_path = os.path.join(os.getcwd(), filename)
         print(f'Downloading source file to {file_save_path}')
         torch.hub.download_url_to_file(source_root, file_save_path)

@@ -32,14 +32,16 @@ def convert(ckpt):
             k = 'module.' + k
         if 'module.bbox_embed' in k:
             # NOTE: bbox_embed name is swin-b is different from swin-t
-            k = k.replace('module.bbox_embed',
-                          'module.transformer.decoder.bbox_embed')
+            k = k.replace(
+                'module.bbox_embed', 'module.transformer.decoder.bbox_embed'
+            )
 
         if 'module.backbone.0' in k:
             new_k = k.replace('module.backbone.0', 'backbone')
             if 'patch_embed.proj' in new_k:
-                new_k = new_k.replace('patch_embed.proj',
-                                      'patch_embed.projection')
+                new_k = new_k.replace(
+                    'patch_embed.proj', 'patch_embed.projection'
+                )
             elif 'pos_drop' in new_k:
                 new_k = new_k.replace('pos_drop', 'drop_after_pos')
 
@@ -59,8 +61,9 @@ def convert(ckpt):
                         new_v = correct_unfold_norm_order(v)
 
         elif 'module.bert' in k:
-            new_k = k.replace('module.bert',
-                              'language_model.language_backbone.body.model')
+            new_k = k.replace(
+                'module.bert', 'language_model.language_backbone.body.model'
+            )
             # new_k = k.replace('module.bert', 'bert')
 
         elif 'module.feat_map' in k:
@@ -107,30 +110,36 @@ def convert(ckpt):
 
         elif 'module.transformer.enc_output' in k:
             if 'module.transformer.enc_output' in k and 'norm' not in k:
-                new_k = k.replace('module.transformer.enc_output',
-                                  'memory_trans_fc')
+                new_k = k.replace(
+                    'module.transformer.enc_output', 'memory_trans_fc'
+                )
             if 'module.transformer.enc_output_norm' in k:
-                new_k = k.replace('module.transformer.enc_output_norm',
-                                  'memory_trans_norm')
+                new_k = k.replace(
+                    'module.transformer.enc_output_norm', 'memory_trans_norm'
+                )
 
         elif 'module.transformer.enc_out_bbox_embed.layers' in k:
             # ugly version
             if 'module.transformer.enc_out_bbox_embed.layers.0' in k:
                 new_k = k.replace(
                     'module.transformer.enc_out_bbox_embed.layers.0',
-                    'bbox_head.reg_branches.6.0')
+                    'bbox_head.reg_branches.6.0',
+                )
             if 'module.transformer.enc_out_bbox_embed.layers.1' in k:
                 new_k = k.replace(
                     'module.transformer.enc_out_bbox_embed.layers.1',
-                    'bbox_head.reg_branches.6.2')
+                    'bbox_head.reg_branches.6.2',
+                )
             if 'module.transformer.enc_out_bbox_embed.layers.2' in k:
                 new_k = k.replace(
                     'module.transformer.enc_out_bbox_embed.layers.2',
-                    'bbox_head.reg_branches.6.4')
+                    'bbox_head.reg_branches.6.4',
+                )
 
         elif 'module.transformer.tgt_embed' in k:
-            new_k = k.replace('module.transformer.tgt_embed',
-                              'query_embedding')
+            new_k = k.replace(
+                'module.transformer.tgt_embed', 'query_embedding'
+            )
 
         elif 'module.transformer.decoder' in k:
             new_k = k.replace('module.transformer.decoder', 'decoder')
@@ -149,16 +158,19 @@ def convert(ckpt):
             if 'ca_text' in new_k:
                 new_k = new_k.replace('ca_text', 'cross_attn_text')
                 if 'in_proj_weight' in new_k:
-                    new_k = new_k.replace('in_proj_weight',
-                                          'attn.in_proj_weight')
+                    new_k = new_k.replace(
+                        'in_proj_weight', 'attn.in_proj_weight'
+                    )
                 if 'in_proj_bias' in new_k:
                     new_k = new_k.replace('in_proj_bias', 'attn.in_proj_bias')
                 if 'out_proj.weight' in new_k:
-                    new_k = new_k.replace('out_proj.weight',
-                                          'attn.out_proj.weight')
+                    new_k = new_k.replace(
+                        'out_proj.weight', 'attn.out_proj.weight'
+                    )
                 if 'out_proj.bias' in new_k:
-                    new_k = new_k.replace('out_proj.bias',
-                                          'attn.out_proj.bias')
+                    new_k = new_k.replace(
+                        'out_proj.bias', 'attn.out_proj.bias'
+                    )
             if 'linear1' in new_k:
                 new_k = new_k.replace('linear1', 'ffn.layers.0.0')
             if 'linear2' in new_k:
@@ -169,8 +181,14 @@ def convert(ckpt):
                 reg_layer_id = int(new_k.split('.')[2])
                 linear_id = int(new_k.split('.')[4])
                 weight_or_bias = new_k.split('.')[-1]
-                new_k = 'bbox_head.reg_branches.' + \
-                    str(reg_layer_id)+'.'+str(2*linear_id)+'.'+weight_or_bias
+                new_k = (
+                    'bbox_head.reg_branches.'
+                    + str(reg_layer_id)
+                    + '.'
+                    + str(2 * linear_id)
+                    + '.'
+                    + weight_or_bias
+                )
 
         else:
             print('skip:', k)
@@ -182,16 +200,19 @@ def convert(ckpt):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Convert keys to mmdet style.')
+        description='Convert keys to mmdet style.'
+    )
     parser.add_argument(
         'src',
         default='groundingdino_swint_ogc.pth.pth',
-        help='src model path or url')
+        help='src model path or url',
+    )
     # The dst path must be a full path of the new checkpoint.
     parser.add_argument(
         'dst',
         default='groundingdino_swint_ogc.pth_mmdet.pth',
-        help='save path')
+        help='save path',
+    )
     args = parser.parse_args()
 
     checkpoint = CheckpointLoader.load_checkpoint(args.src, map_location='cpu')
@@ -204,7 +225,7 @@ def main():
     weight = convert(state_dict)
     torch.save(weight, args.dst)
     sha = subprocess.check_output(['sha256sum', args.dst]).decode()
-    final_file = args.dst.replace('.pth', '') + '-{}.pth'.format(sha[:8])
+    final_file = args.dst.replace('.pth', '') + f'-{sha[:8]}.pth'
     subprocess.Popen(['mv', args.dst, final_file])
     print(f'Done!!, save to {final_file}')
 

@@ -26,15 +26,17 @@ class RoITrackHead(BaseModule, metaclass=ABCMeta):
         init_cfg (dict): Configuration of initialization. Defaults to None.
     """
 
-    def __init__(self,
-                 roi_extractor: Optional[dict] = None,
-                 embed_head: Optional[dict] = None,
-                 regress_head: Optional[dict] = None,
-                 train_cfg: Optional[dict] = None,
-                 test_cfg: Optional[dict] = None,
-                 init_cfg: Optional[dict] = None,
-                 *args,
-                 **kwargs):
+    def __init__(
+        self,
+        roi_extractor: Optional[dict] = None,
+        embed_head: Optional[dict] = None,
+        regress_head: Optional[dict] = None,
+        train_cfg: Optional[dict] = None,
+        test_cfg: Optional[dict] = None,
+        init_cfg: Optional[dict] = None,
+        *args,
+        **kwargs,
+    ):
         super().__init__(init_cfg=init_cfg)
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
@@ -59,7 +61,8 @@ class RoITrackHead(BaseModule, metaclass=ABCMeta):
         if self.train_cfg:
             self.bbox_assigner = TASK_UTILS.build(self.train_cfg.assigner)
             self.bbox_sampler = TASK_UTILS.build(
-                self.train_cfg.sampler, default_args=dict(context=self))
+                self.train_cfg.sampler, default_args=dict(context=self)
+            )
 
     @property
     def with_track(self) -> bool:
@@ -67,8 +70,8 @@ class RoITrackHead(BaseModule, metaclass=ABCMeta):
         return hasattr(self, 'embed_head') and self.embed_head is not None
 
     def extract_roi_feats(
-            self, feats: List[Tensor],
-            bboxes: List[Tensor]) -> Tuple[Tuple[Tensor], List[int]]:
+        self, feats: List[Tensor], bboxes: List[Tensor]
+    ) -> Tuple[Tuple[Tensor], List[int]]:
         """Extract roi features.
 
         Args:
@@ -80,14 +83,20 @@ class RoITrackHead(BaseModule, metaclass=ABCMeta):
             the number of bboxes in each image.
         """
         rois = bbox2roi(bboxes)
-        bbox_feats = self.roi_extractor(feats[:self.roi_extractor.num_inputs],
-                                        rois)
+        bbox_feats = self.roi_extractor(
+            feats[: self.roi_extractor.num_inputs], rois
+        )
         num_bbox_per_img = [len(bbox) for bbox in bboxes]
         return bbox_feats, num_bbox_per_img
 
-    def loss(self, key_feats: List[Tensor], ref_feats: List[Tensor],
-             rpn_results_list: InstanceList, data_samples: TrackSampleList,
-             **kwargs) -> dict:
+    def loss(
+        self,
+        key_feats: List[Tensor],
+        ref_feats: List[Tensor],
+        rpn_results_list: InstanceList,
+        data_samples: TrackSampleList,
+        **kwargs,
+    ) -> dict:
         """Calculate losses from a batch of inputs and data samples.
 
         Args:
@@ -115,13 +124,15 @@ class RoITrackHead(BaseModule, metaclass=ABCMeta):
             ref_batch_gt_instances.append(ref_data_sample.gt_instances)
             if 'ignored_instances' in key_data_sample:
                 batch_gt_instances_ignore.append(
-                    key_data_sample.ignored_instances)
+                    key_data_sample.ignored_instances
+                )
             else:
                 batch_gt_instances_ignore.append(None)
 
             gt_instance_ids.append(key_data_sample.gt_instances.instances_ids)
             ref_gt_instance_ids.append(
-                ref_data_sample.gt_instances.instances_ids)
+                ref_data_sample.gt_instances.instances_ids
+            )
 
         losses = dict()
         num_imgs = len(data_samples)
@@ -132,18 +143,22 @@ class RoITrackHead(BaseModule, metaclass=ABCMeta):
             rpn_results = rpn_results_list[i]
 
             assign_result = self.bbox_assigner.assign(
-                rpn_results, batch_gt_instances[i],
-                batch_gt_instances_ignore[i])
+                rpn_results,
+                batch_gt_instances[i],
+                batch_gt_instances_ignore[i],
+            )
             sampling_result = self.bbox_sampler.sample(
                 assign_result,
                 rpn_results,
                 batch_gt_instances[i],
-                feats=[lvl_feat[i][None] for lvl_feat in key_feats])
+                feats=[lvl_feat[i][None] for lvl_feat in key_feats],
+            )
             sampling_results.append(sampling_result)
 
         bboxes = [res.bboxes for res in sampling_results]
         bbox_feats, num_bbox_per_img = self.extract_roi_feats(
-            key_feats, bboxes)
+            key_feats, bboxes
+        )
 
         # batch_size is 1
         ref_gt_bboxes = [
@@ -151,19 +166,25 @@ class RoITrackHead(BaseModule, metaclass=ABCMeta):
             for ref_batch_gt_instance in ref_batch_gt_instances
         ]
         ref_bbox_feats, num_bbox_per_ref_img = self.extract_roi_feats(
-            ref_feats, ref_gt_bboxes)
+            ref_feats, ref_gt_bboxes
+        )
 
-        loss_track = self.embed_head.loss(bbox_feats, ref_bbox_feats,
-                                          num_bbox_per_img,
-                                          num_bbox_per_ref_img,
-                                          sampling_results, gt_instance_ids,
-                                          ref_gt_instance_ids)
+        loss_track = self.embed_head.loss(
+            bbox_feats,
+            ref_bbox_feats,
+            num_bbox_per_img,
+            num_bbox_per_ref_img,
+            sampling_results,
+            gt_instance_ids,
+            ref_gt_instance_ids,
+        )
         losses.update(loss_track)
 
         return losses
 
-    def predict(self, roi_feats: Tensor,
-                prev_roi_feats: Tensor) -> List[Tensor]:
+    def predict(
+        self, roi_feats: Tensor, prev_roi_feats: Tensor
+    ) -> List[Tensor]:
         """Perform forward propagation of the tracking head and predict
         tracking results on the features of the upstream network.
 

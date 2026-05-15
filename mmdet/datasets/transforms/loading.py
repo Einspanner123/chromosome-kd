@@ -5,9 +5,8 @@ import mmcv
 import numpy as np
 import pycocotools.mask as maskUtils
 import torch
-from mmcv.transforms import BaseTransform
+from mmcv.transforms import BaseTransform, LoadImageFromFile
 from mmcv.transforms import LoadAnnotations as MMCV_LoadAnnotations
-from mmcv.transforms import LoadImageFromFile
 from mmengine.fileio import get
 from mmengine.structures import BaseDataElement
 
@@ -110,7 +109,7 @@ class LoadMultiChannelImageFromFiles(BaseTransform):
             raise RuntimeError(
                 'The `file_client_args` is deprecated, '
                 'please use `backend_args` instead, please refer to'
-                'https://github.com/open-mmlab/mmdetection/blob/main/configs/_base_/datasets/coco_detection.py'  # noqa: E501
+                'https://github.com/open-mmlab/mmdetection/blob/main/configs/_base_/datasets/coco_detection.py'
             )
 
     def transform(self, results: dict) -> dict:
@@ -132,7 +131,9 @@ class LoadMultiChannelImageFromFiles(BaseTransform):
                 mmcv.imfrombytes(
                     img_bytes,
                     flag=self.color_type,
-                    backend=self.imdecode_backend))
+                    backend=self.imdecode_backend,
+                )
+            )
         img = np.stack(img, axis=-1)
         if self.to_float32:
             img = img.astype(np.float32)
@@ -143,11 +144,13 @@ class LoadMultiChannelImageFromFiles(BaseTransform):
         return results
 
     def __repr__(self):
-        repr_str = (f'{self.__class__.__name__}('
-                    f'to_float32={self.to_float32}, '
-                    f"color_type='{self.color_type}', "
-                    f"imdecode_backend='{self.imdecode_backend}', "
-                    f'backend_args={self.backend_args})')
+        repr_str = (
+            f'{self.__class__.__name__}('
+            f'to_float32={self.to_float32}, '
+            f"color_type='{self.color_type}', "
+            f"imdecode_backend='{self.imdecode_backend}', "
+            f'backend_args={self.backend_args})'
+        )
         return repr_str
 
 
@@ -253,15 +256,16 @@ class LoadAnnotations(MMCV_LoadAnnotations):
     """
 
     def __init__(
-            self,
-            with_mask: bool = False,
-            poly2mask: bool = True,
-            box_type: str = 'hbox',
-            # use for semseg
-            reduce_zero_label: bool = False,
-            ignore_index: int = 255,
-            **kwargs) -> None:
-        super(LoadAnnotations, self).__init__(**kwargs)
+        self,
+        with_mask: bool = False,
+        poly2mask: bool = True,
+        box_type: str = 'hbox',
+        # use for semseg
+        reduce_zero_label: bool = False,
+        ignore_index: int = 255,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
         self.with_mask = with_mask
         self.poly2mask = poly2mask
         self.box_type = box_type
@@ -283,7 +287,8 @@ class LoadAnnotations(MMCV_LoadAnnotations):
             gt_ignore_flags.append(instance['ignore_flag'])
         if self.box_type is None:
             results['gt_bboxes'] = np.array(
-                gt_bboxes, dtype=np.float32).reshape((-1, 4))
+                gt_bboxes, dtype=np.float32
+            ).reshape((-1, 4))
         else:
             _, box_type_cls = get_box_type(self.box_type)
             results['gt_bboxes'] = box_type_cls(gt_bboxes, dtype=torch.float32)
@@ -303,10 +308,12 @@ class LoadAnnotations(MMCV_LoadAnnotations):
             gt_bboxes_labels.append(instance['bbox_label'])
         # TODO: Inconsistent with mmcv, consider how to deal with it later.
         results['gt_bboxes_labels'] = np.array(
-            gt_bboxes_labels, dtype=np.int64)
+            gt_bboxes_labels, dtype=np.int64
+        )
 
-    def _poly2mask(self, mask_ann: Union[list, dict], img_h: int,
-                   img_w: int) -> np.ndarray:
+    def _poly2mask(
+        self, mask_ann: Union[list, dict], img_h: int, img_w: int
+    ) -> np.ndarray:
         """Private function to convert masks represented with polygon to
         bitmaps.
 
@@ -350,7 +357,8 @@ class LoadAnnotations(MMCV_LoadAnnotations):
             # ignore the whole instance.
             if isinstance(gt_mask, list):
                 gt_mask = [
-                    np.array(polygon) for polygon in gt_mask
+                    np.array(polygon)
+                    for polygon in gt_mask
                     if len(polygon) % 2 == 0 and len(polygon) >= 6
                 ]
                 if len(gt_mask) == 0:
@@ -362,10 +370,11 @@ class LoadAnnotations(MMCV_LoadAnnotations):
                 # other formats are invalid.
                 instance['ignore_flag'] = 1
                 gt_mask = [np.zeros(6)]
-            elif isinstance(gt_mask, dict) and \
-                    not (gt_mask.get('counts') is not None and
-                         gt_mask.get('size') is not None and
-                         isinstance(gt_mask['counts'], (list, str))):
+            elif isinstance(gt_mask, dict) and not (
+                gt_mask.get('counts') is not None
+                and gt_mask.get('size') is not None
+                and isinstance(gt_mask['counts'], (list, str))
+            ):
                 # if gt_mask is a dict, it should include `counts` and `size`,
                 # so that `BitmapMasks` can uncompressed RLE
                 instance['ignore_flag'] = 1
@@ -386,7 +395,8 @@ class LoadAnnotations(MMCV_LoadAnnotations):
         gt_masks = self._process_masks(results)
         if self.poly2mask:
             gt_masks = BitmapMasks(
-                [self._poly2mask(mask, h, w) for mask in gt_masks], h, w)
+                [self._poly2mask(mask, h, w) for mask in gt_masks], h, w
+            )
         else:
             # fake polygon masks will be ignored in `PackDetInputs`
             gt_masks = PolygonMasks([mask for mask in gt_masks], h, w)
@@ -401,24 +411,26 @@ class LoadAnnotations(MMCV_LoadAnnotations):
         Returns:
             dict: The dict contains loaded semantic segmentation annotations.
         """
-        if results.get('seg_map_path', None) is None:
+        if results.get('seg_map_path') is None:
             return
 
         img_bytes = get(
-            results['seg_map_path'], backend_args=self.backend_args)
+            results['seg_map_path'], backend_args=self.backend_args
+        )
         gt_semantic_seg = mmcv.imfrombytes(
-            img_bytes, flag='unchanged',
-            backend=self.imdecode_backend).squeeze()
+            img_bytes, flag='unchanged', backend=self.imdecode_backend
+        ).squeeze()
 
         if self.reduce_zero_label:
             # avoid using underflow conversion
             gt_semantic_seg[gt_semantic_seg == 0] = self.ignore_index
             gt_semantic_seg = gt_semantic_seg - 1
-            gt_semantic_seg[gt_semantic_seg == self.ignore_index -
-                            1] = self.ignore_index
+            gt_semantic_seg[gt_semantic_seg == self.ignore_index - 1] = (
+                self.ignore_index
+            )
 
         # modify if custom classes
-        if results.get('label_map', None) is not None:
+        if results.get('label_map') is not None:
             # Add deep copy to solve bug of repeatedly
             # replace `gt_semantic_seg`, which is reported in
             # https://github.com/open-mmlab/mmsegmentation/pull/1445/
@@ -558,24 +570,27 @@ class LoadPanopticAnnotations(LoadAnnotations):
             corresponding backend in mmdet >= 3.0.0rc7. Defaults to None.
     """
 
-    def __init__(self,
-                 with_bbox: bool = True,
-                 with_label: bool = True,
-                 with_mask: bool = True,
-                 with_seg: bool = True,
-                 box_type: str = 'hbox',
-                 imdecode_backend: str = 'cv2',
-                 backend_args: dict = None) -> None:
+    def __init__(
+        self,
+        with_bbox: bool = True,
+        with_label: bool = True,
+        with_mask: bool = True,
+        with_seg: bool = True,
+        box_type: str = 'hbox',
+        imdecode_backend: str = 'cv2',
+        backend_args: dict = None,
+    ) -> None:
         try:
             from panopticapi import utils
         except ImportError:
             raise ImportError(
                 'panopticapi is not installed, please install it by: '
                 'pip install git+https://github.com/cocodataset/'
-                'panopticapi.git.')
+                'panopticapi.git.'
+            )
         self.rgb2id = utils.rgb2id
 
-        super(LoadPanopticAnnotations, self).__init__(
+        super().__init__(
             with_bbox=with_bbox,
             with_label=with_label,
             with_mask=with_mask,
@@ -583,7 +598,8 @@ class LoadPanopticAnnotations(LoadAnnotations):
             with_keypoints=False,
             box_type=box_type,
             imdecode_backend=imdecode_backend,
-            backend_args=backend_args)
+            backend_args=backend_args,
+        )
 
     def _load_masks_and_semantic_segs(self, results: dict) -> None:
         """Private function to load mask and semantic segmentation annotations.
@@ -596,20 +612,22 @@ class LoadPanopticAnnotations(LoadAnnotations):
             results (dict): Result dict from :obj:``mmdet.CustomDataset``.
         """
         # seg_map_path is None, when inference on the dataset without gts.
-        if results.get('seg_map_path', None) is None:
+        if results.get('seg_map_path') is None:
             return
 
         img_bytes = get(
-            results['seg_map_path'], backend_args=self.backend_args)
+            results['seg_map_path'], backend_args=self.backend_args
+        )
         pan_png = mmcv.imfrombytes(
-            img_bytes, flag='color', channel_order='rgb').squeeze()
+            img_bytes, flag='color', channel_order='rgb'
+        ).squeeze()
         pan_png = self.rgb2id(pan_png)
 
         gt_masks = []
         gt_seg = np.zeros_like(pan_png) + 255  # 255 as ignore
 
         for segment_info in results['segments_info']:
-            mask = (pan_png == segment_info['id'])
+            mask = pan_png == segment_info['id']
             gt_seg = np.where(mask, segment_info['category'], gt_seg)
 
             # The legal thing masks
@@ -679,11 +697,13 @@ class LoadProposals(BaseTransform):
 
         proposals = results['proposals']
         # the type of proposals should be `dict` or `InstanceData`
-        assert isinstance(proposals, dict) \
-               or isinstance(proposals, BaseDataElement)
+        assert isinstance(proposals, dict) or isinstance(
+            proposals, BaseDataElement
+        )
         bboxes = proposals['bboxes'].astype(np.float32)
-        assert bboxes.shape[1] == 4, \
+        assert bboxes.shape[1] == 4, (
             f'Proposals should have shapes (n, 4), but found {bboxes.shape}'
+        )
 
         if 'scores' in proposals:
             scores = proposals['scores'].astype(np.float32)
@@ -693,8 +713,8 @@ class LoadProposals(BaseTransform):
 
         if self.num_max_proposals is not None:
             # proposals should sort by scores during dumping the proposals
-            bboxes = bboxes[:self.num_max_proposals]
-            scores = scores[:self.num_max_proposals]
+            bboxes = bboxes[: self.num_max_proposals]
+            scores = scores[: self.num_max_proposals]
 
         if len(bboxes) == 0:
             bboxes = np.zeros((0, 4), dtype=np.float32)
@@ -705,8 +725,10 @@ class LoadProposals(BaseTransform):
         return results
 
     def __repr__(self):
-        return self.__class__.__name__ + \
-               f'(num_max_proposals={self.num_max_proposals})'
+        return (
+            self.__class__.__name__
+            + f'(num_max_proposals={self.num_max_proposals})'
+        )
 
 
 @TRANSFORMS.register_module()
@@ -740,12 +762,14 @@ class FilterAnnotations(BaseTransform):
             becomes an empty bbox after filtering. Defaults to True.
     """
 
-    def __init__(self,
-                 min_gt_bbox_wh: Tuple[int, int] = (1, 1),
-                 min_gt_mask_area: int = 1,
-                 by_box: bool = True,
-                 by_mask: bool = False,
-                 keep_empty: bool = True) -> None:
+    def __init__(
+        self,
+        min_gt_bbox_wh: Tuple[int, int] = (1, 1),
+        min_gt_mask_area: int = 1,
+        by_box: bool = True,
+        by_mask: bool = False,
+        keep_empty: bool = True,
+    ) -> None:
         # TODO: add more filter options
         assert by_box or by_mask
         self.min_gt_bbox_wh = min_gt_bbox_wh
@@ -772,8 +796,11 @@ class FilterAnnotations(BaseTransform):
         tests = []
         if self.by_box:
             tests.append(
-                ((gt_bboxes.widths > self.min_gt_bbox_wh[0]) &
-                 (gt_bboxes.heights > self.min_gt_bbox_wh[1])).numpy())
+                (
+                    (gt_bboxes.widths > self.min_gt_bbox_wh[0])
+                    & (gt_bboxes.heights > self.min_gt_bbox_wh[1])
+                ).numpy()
+            )
         if self.by_mask:
             assert 'gt_masks' in results
             gt_masks = results['gt_masks']
@@ -795,9 +822,11 @@ class FilterAnnotations(BaseTransform):
         return results
 
     def __repr__(self):
-        return self.__class__.__name__ + \
-               f'(min_gt_bbox_wh={self.min_gt_bbox_wh}, ' \
-               f'keep_empty={self.keep_empty})'
+        return (
+            self.__class__.__name__
+            + f'(min_gt_bbox_wh={self.min_gt_bbox_wh}, '
+            f'keep_empty={self.keep_empty})'
+        )
 
 
 @TRANSFORMS.register_module()
@@ -825,12 +854,14 @@ class LoadEmptyAnnotations(BaseTransform):
             of the corresponding config. Defaults to 255.
     """
 
-    def __init__(self,
-                 with_bbox: bool = True,
-                 with_label: bool = True,
-                 with_mask: bool = False,
-                 with_seg: bool = False,
-                 seg_ignore_label: int = 255) -> None:
+    def __init__(
+        self,
+        with_bbox: bool = True,
+        with_label: bool = True,
+        with_mask: bool = False,
+        with_seg: bool = False,
+        seg_ignore_label: int = 255,
+    ) -> None:
         self.with_bbox = with_bbox
         self.with_label = with_label
         self.with_mask = with_mask
@@ -847,9 +878,9 @@ class LoadEmptyAnnotations(BaseTransform):
         """
         if self.with_bbox:
             results['gt_bboxes'] = np.zeros((0, 4), dtype=np.float32)
-            results['gt_ignore_flags'] = np.zeros((0, ), dtype=bool)
+            results['gt_ignore_flags'] = np.zeros((0,), dtype=bool)
         if self.with_label:
-            results['gt_bboxes_labels'] = np.zeros((0, ), dtype=np.int64)
+            results['gt_bboxes_labels'] = np.zeros((0,), dtype=np.int64)
         if self.with_mask:
             # TODO: support PolygonMasks
             h, w = results['img_shape']
@@ -858,7 +889,8 @@ class LoadEmptyAnnotations(BaseTransform):
         if self.with_seg:
             h, w = results['img_shape']
             results['gt_seg_map'] = self.seg_ignore_label * np.ones(
-                (h, w), dtype=np.uint8)
+                (h, w), dtype=np.uint8
+            )
         return results
 
     def __repr__(self) -> str:
@@ -899,9 +931,11 @@ class InferencerLoader(BaseTransform):
     def __init__(self, **kwargs) -> None:
         super().__init__()
         self.from_file = TRANSFORMS.build(
-            dict(type='LoadImageFromFile', **kwargs))
+            dict(type='LoadImageFromFile', **kwargs)
+        )
         self.from_ndarray = TRANSFORMS.build(
-            dict(type='mmdet.LoadImageFromNDArray', **kwargs))
+            dict(type='mmdet.LoadImageFromNDArray', **kwargs)
+        )
 
     def transform(self, results: Union[str, np.ndarray, dict]) -> dict:
         """Transform function to add image meta information.
@@ -1029,8 +1063,9 @@ class LoadTrackAnnotations(LoadAnnotations):
             # ``gt_ignore_flags`` the same
             gt_ignore_flags = [False] * len(gt_bboxes)
 
-        results['gt_bboxes'] = np.array(
-            gt_bboxes, dtype=np.float32).reshape(-1, 4)
+        results['gt_bboxes'] = np.array(gt_bboxes, dtype=np.float32).reshape(
+            -1, 4
+        )
         results['gt_ignore_flags'] = np.array(gt_ignore_flags, dtype=bool)
 
     def _load_instances_ids(self, results: dict) -> None:
@@ -1046,7 +1081,8 @@ class LoadTrackAnnotations(LoadAnnotations):
         for instance in results['instances']:
             gt_instances_ids.append(instance['instance_id'])
         results['gt_instances_ids'] = np.array(
-            gt_instances_ids, dtype=np.int32)
+            gt_instances_ids, dtype=np.int32
+        )
 
     def transform(self, results: dict) -> dict:
         """Function to load multiple types annotations.

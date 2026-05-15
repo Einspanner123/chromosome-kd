@@ -44,23 +44,24 @@ class RoIEmbedHead(BaseModule):
         init_cfg (dict): Configuration of initialization. Defaults to None.
     """
 
-    def __init__(self,
-                 num_convs: int = 0,
-                 num_fcs: int = 0,
-                 roi_feat_size: int = 7,
-                 in_channels: int = 256,
-                 conv_out_channels: int = 256,
-                 with_avg_pool: bool = False,
-                 fc_out_channels: int = 1024,
-                 conv_cfg: Optional[dict] = None,
-                 norm_cfg: Optional[dict] = None,
-                 loss_match: dict = dict(
-                     type='mmdet.CrossEntropyLoss',
-                     use_sigmoid=False,
-                     loss_weight=1.0),
-                 init_cfg: Optional[dict] = None,
-                 **kwargs):
-        super(RoIEmbedHead, self).__init__(init_cfg=init_cfg)
+    def __init__(
+        self,
+        num_convs: int = 0,
+        num_fcs: int = 0,
+        roi_feat_size: int = 7,
+        in_channels: int = 256,
+        conv_out_channels: int = 256,
+        with_avg_pool: bool = False,
+        fc_out_channels: int = 1024,
+        conv_cfg: Optional[dict] = None,
+        norm_cfg: Optional[dict] = None,
+        loss_match: dict = dict(
+            type='mmdet.CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0
+        ),
+        init_cfg: Optional[dict] = None,
+        **kwargs,
+    ):
+        super().__init__(init_cfg=init_cfg)
         self.num_convs = num_convs
         self.num_fcs = num_fcs
         self.roi_feat_size = _pair(roi_feat_size)
@@ -78,12 +79,13 @@ class RoIEmbedHead(BaseModule):
             self.avg_pool = nn.AvgPool2d(self.roi_feat_size)
         # add convs and fcs
         self.convs, self.fcs, self.last_layer_dim = self._add_conv_fc_branch(
-            self.num_convs, self.num_fcs, self.in_channels)
+            self.num_convs, self.num_fcs, self.in_channels
+        )
         self.relu = nn.ReLU(inplace=True)
 
     def _add_conv_fc_branch(
-            self, num_branch_convs: int, num_branch_fcs: int,
-            in_channels: int) -> Tuple[nn.ModuleList, nn.ModuleList, int]:
+        self, num_branch_convs: int, num_branch_fcs: int, in_channels: int
+    ) -> Tuple[nn.ModuleList, nn.ModuleList, int]:
         """Add shared or separable branch.
 
         convs -> avg pool (optional) -> fcs
@@ -94,7 +96,8 @@ class RoIEmbedHead(BaseModule):
         if num_branch_convs > 0:
             for i in range(num_branch_convs):
                 conv_in_channels = (
-                    last_layer_dim if i == 0 else self.conv_out_channels)
+                    last_layer_dim if i == 0 else self.conv_out_channels
+                )
                 branch_convs.append(
                     ConvModule(
                         conv_in_channels,
@@ -102,7 +105,9 @@ class RoIEmbedHead(BaseModule):
                         3,
                         padding=1,
                         conv_cfg=self.conv_cfg,
-                        norm_cfg=self.norm_cfg))
+                        norm_cfg=self.norm_cfg,
+                    )
+                )
             last_layer_dim = self.conv_out_channels
 
         # add branch specific fc layers
@@ -112,9 +117,11 @@ class RoIEmbedHead(BaseModule):
                 last_layer_dim *= self.roi_feat_area
             for i in range(num_branch_fcs):
                 fc_in_channels = (
-                    last_layer_dim if i == 0 else self.fc_out_channels)
+                    last_layer_dim if i == 0 else self.fc_out_channels
+                )
                 branch_fcs.append(
-                    nn.Linear(fc_in_channels, self.fc_out_channels))
+                    nn.Linear(fc_in_channels, self.fc_out_channels)
+                )
             last_layer_dim = self.fc_out_channels
 
         return branch_convs, branch_fcs, last_layer_dim
@@ -123,8 +130,9 @@ class RoIEmbedHead(BaseModule):
     def custom_activation(self):
         return getattr(self.loss_match, 'custom_activation', False)
 
-    def extract_feat(self, x: Tensor,
-                     num_x_per_img: List[int]) -> Tuple[Tensor]:
+    def extract_feat(
+        self, x: Tensor, num_x_per_img: List[int]
+    ) -> Tuple[Tensor]:
         """Extract feature from the input `x`, and split the output to a list.
 
         Args:
@@ -154,8 +162,11 @@ class RoIEmbedHead(BaseModule):
         return x_split
 
     def forward(
-            self, x: Tensor, ref_x: Tensor, num_x_per_img: List[int],
-            num_x_per_ref_img: List[int]
+        self,
+        x: Tensor,
+        ref_x: Tensor,
+        num_x_per_img: List[int],
+        num_x_per_ref_img: List[int],
     ) -> Tuple[Tuple[Tensor], Tuple[Tensor]]:
         """Computing the similarity scores between `x` and `ref_x`.
 
@@ -180,9 +191,12 @@ class RoIEmbedHead(BaseModule):
 
         return x_split, ref_x_split
 
-    def get_targets(self, sampling_results: List[SamplingResult],
-                    gt_instance_ids: List[Tensor],
-                    ref_gt_instance_ids: List[Tensor]) -> Tuple[List, List]:
+    def get_targets(
+        self,
+        sampling_results: List[SamplingResult],
+        gt_instance_ids: List[Tensor],
+        ref_gt_instance_ids: List[Tensor],
+    ) -> Tuple[List, List]:
         """Calculate the ground truth for all samples in a batch according to
         the sampling_results.
 
@@ -210,7 +224,8 @@ class RoIEmbedHead(BaseModule):
         track_id_weights = []
 
         for res, gt_instance_id, ref_gt_instance_id in zip(
-                sampling_results, gt_instance_ids, ref_gt_instance_ids):
+            sampling_results, gt_instance_ids, ref_gt_instance_ids
+        ):
             pos_instance_ids = gt_instance_id[res.pos_assigned_gt_inds]
             pos_match_id = gt_instance_id.new_zeros(len(pos_instance_ids))
             for i, id in enumerate(pos_instance_ids):
@@ -218,10 +233,11 @@ class RoIEmbedHead(BaseModule):
                     pos_match_id[i] = ref_gt_instance_id.tolist().index(id) + 1
 
             track_id_target = gt_instance_id.new_zeros(
-                len(res.bboxes), dtype=torch.int64)
-            track_id_target[:len(res.pos_bboxes)] = pos_match_id
+                len(res.bboxes), dtype=torch.int64
+            )
+            track_id_target[: len(res.pos_bboxes)] = pos_match_id
             track_id_weight = res.bboxes.new_zeros(len(res.bboxes))
-            track_id_weight[:len(res.pos_bboxes)] = 1.0
+            track_id_weight[: len(res.pos_bboxes)] = 1.0
 
             track_id_targets.append(track_id_target)
             track_id_weights.append(track_id_weight)
@@ -265,21 +281,29 @@ class RoIEmbedHead(BaseModule):
         Returns:
             dict[str, Tensor]: a dictionary of loss components.
         """
-        x_split, ref_x_split = self(bbox_feats, ref_bbox_feats,
-                                    num_bbox_per_img, num_bbox_per_ref_img)
+        x_split, ref_x_split = self(
+            bbox_feats, ref_bbox_feats, num_bbox_per_img, num_bbox_per_ref_img
+        )
 
-        losses = self.loss_by_feat(x_split, ref_x_split, sampling_results,
-                                   gt_instance_ids, ref_gt_instance_ids,
-                                   reduction_override)
+        losses = self.loss_by_feat(
+            x_split,
+            ref_x_split,
+            sampling_results,
+            gt_instance_ids,
+            ref_gt_instance_ids,
+            reduction_override,
+        )
         return losses
 
-    def loss_by_feat(self,
-                     x_split: Tuple[Tensor],
-                     ref_x_split: Tuple[Tensor],
-                     sampling_results: List[SamplingResult],
-                     gt_instance_ids: List[Tensor],
-                     ref_gt_instance_ids: List[Tensor],
-                     reduction_override: Optional[str] = None) -> dict:
+    def loss_by_feat(
+        self,
+        x_split: Tuple[Tensor],
+        ref_x_split: Tuple[Tensor],
+        sampling_results: List[SamplingResult],
+        gt_instance_ids: List[Tensor],
+        ref_gt_instance_ids: List[Tensor],
+        reduction_override: Optional[str] = None,
+    ) -> dict:
         """Calculate losses.
 
         Args:
@@ -299,7 +323,8 @@ class RoIEmbedHead(BaseModule):
             dict[str, Tensor]: a dictionary of loss components.
         """
         track_id_targets, track_id_weights = self.get_targets(
-            sampling_results, gt_instance_ids, ref_gt_instance_ids)
+            sampling_results, gt_instance_ids, ref_gt_instance_ids
+        )
         assert isinstance(track_id_targets, list)
         assert isinstance(track_id_weights, list)
         assert len(track_id_weights) == len(track_id_targets)
@@ -308,7 +333,8 @@ class RoIEmbedHead(BaseModule):
         similarity_logits = []
         for one_x, one_ref_x in zip(x_split, ref_x_split):
             similarity_logit = embed_similarity(
-                one_x, one_ref_x, method='dot_product')
+                one_x, one_ref_x, method='dot_product'
+            )
             dummy = similarity_logit.new_zeros(one_x.shape[0], 1)
             similarity_logit = torch.cat((dummy, similarity_logit), dim=1)
             similarity_logits.append(similarity_logit)
@@ -316,15 +342,19 @@ class RoIEmbedHead(BaseModule):
         assert len(similarity_logits) == len(track_id_targets)
 
         for similarity_logit, track_id_target, track_id_weight in zip(
-                similarity_logits, track_id_targets, track_id_weights):
-            avg_factor = max(torch.sum(track_id_target > 0).float().item(), 1.)
+            similarity_logits, track_id_targets, track_id_weights
+        ):
+            avg_factor = max(
+                torch.sum(track_id_target > 0).float().item(), 1.0
+            )
             if similarity_logit.numel() > 0:
                 loss_match = self.loss_match(
                     similarity_logit,
                     track_id_target,
                     track_id_weight,
                     avg_factor=avg_factor,
-                    reduction_override=reduction_override)
+                    reduction_override=reduction_override,
+                )
                 if isinstance(loss_match, dict):
                     for key, value in loss_match.items():
                         losses[key].append(value)
@@ -336,20 +366,22 @@ class RoIEmbedHead(BaseModule):
                 valid_track_id_target = track_id_target[valid_index]
                 if self.custom_activation:
                     match_accuracy = self.loss_match.get_accuracy(
-                        valid_similarity_logit, valid_track_id_target)
+                        valid_similarity_logit, valid_track_id_target
+                    )
                     for key, value in match_accuracy.items():
                         losses[key].append(value)
                 else:
                     losses['match_accuracy'].append(
-                        accuracy(valid_similarity_logit,
-                                 valid_track_id_target))
+                        accuracy(valid_similarity_logit, valid_track_id_target)
+                    )
 
         for key, value in losses.items():
             losses[key] = sum(losses[key]) / len(similarity_logits)
         return losses
 
-    def predict(self, roi_feats: Tensor,
-                prev_roi_feats: Tensor) -> List[Tensor]:
+    def predict(
+        self, roi_feats: Tensor, prev_roi_feats: Tensor
+    ) -> List[Tensor]:
         """Perform forward propagation of the tracking head and predict
         tracking results on the features of the upstream network.
 
@@ -361,16 +393,20 @@ class RoIEmbedHead(BaseModule):
             list[Tensor]: The predicted similarity_logits of each pair of key
             image and reference image.
         """
-        x_split, ref_x_split = self(roi_feats, prev_roi_feats,
-                                    [roi_feats.shape[0]],
-                                    [prev_roi_feats.shape[0]])
+        x_split, ref_x_split = self(
+            roi_feats,
+            prev_roi_feats,
+            [roi_feats.shape[0]],
+            [prev_roi_feats.shape[0]],
+        )
 
         similarity_logits = self.predict_by_feat(x_split, ref_x_split)
 
         return similarity_logits
 
-    def predict_by_feat(self, x_split: Tuple[Tensor],
-                        ref_x_split: Tuple[Tensor]) -> List[Tensor]:
+    def predict_by_feat(
+        self, x_split: Tuple[Tensor], ref_x_split: Tuple[Tensor]
+    ) -> List[Tensor]:
         """Get similarity_logits.
 
         Args:
@@ -384,7 +420,8 @@ class RoIEmbedHead(BaseModule):
         similarity_logits = []
         for one_x, one_ref_x in zip(x_split, ref_x_split):
             similarity_logit = embed_similarity(
-                one_x, one_ref_x, method='dot_product')
+                one_x, one_ref_x, method='dot_product'
+            )
             dummy = similarity_logit.new_zeros(one_x.shape[0], 1)
             similarity_logit = torch.cat((dummy, similarity_logit), dim=1)
             similarity_logits.append(similarity_logit)

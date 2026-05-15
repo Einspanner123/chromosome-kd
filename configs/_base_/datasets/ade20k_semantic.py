@@ -24,9 +24,11 @@ test_pipeline = [
         with_bbox=False,
         with_mask=False,
         with_seg=True,
-        reduce_zero_label=True),
+        reduce_zero_label=True,
+    ),
     dict(
-        type='PackDetInputs', meta_keys=('img_path', 'ori_shape', 'img_shape'))
+        type='PackDetInputs', meta_keys=('img_path', 'ori_shape', 'img_shape')
+    ),
 ]
 
 val_dataloader = dict(
@@ -39,9 +41,11 @@ val_dataloader = dict(
         type=dataset_type,
         data_root=data_root,
         data_prefix=dict(
-            img_path='images/validation',
-            seg_map_path='annotations/validation'),
-        pipeline=test_pipeline))
+            img_path='images/validation', seg_map_path='annotations/validation'
+        ),
+        pipeline=test_pipeline,
+    ),
+)
 test_dataloader = val_dataloader
 
 val_evaluator = dict(type='SemSegMetric', iou_metrics=['mIoU'])

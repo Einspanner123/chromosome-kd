@@ -26,16 +26,21 @@ class TBLRBBoxCoder(BaseBBoxCoder):
             border of the image. Defaults to True.
     """
 
-    def __init__(self,
-                 normalizer: Union[Sequence[float], float] = 4.0,
-                 clip_border: bool = True,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        normalizer: Union[Sequence[float], float] = 4.0,
+        clip_border: bool = True,
+        **kwargs,
+    ) -> None:
         super().__init__(**kwargs)
         self.normalizer = normalizer
         self.clip_border = clip_border
 
-    def encode(self, bboxes: Union[Tensor, BaseBoxes],
-               gt_bboxes: Union[Tensor, BaseBoxes]) -> Tensor:
+    def encode(
+        self,
+        bboxes: Union[Tensor, BaseBoxes],
+        gt_bboxes: Union[Tensor, BaseBoxes],
+    ) -> Tensor:
         """Get box regression transformation deltas that can be used to
         transform the ``bboxes`` into the ``gt_bboxes`` in the (top, left,
         bottom, right) order.
@@ -54,15 +59,17 @@ class TBLRBBoxCoder(BaseBBoxCoder):
         assert bboxes.size(0) == gt_bboxes.size(0)
         assert bboxes.size(-1) == gt_bboxes.size(-1) == 4
         encoded_bboxes = bboxes2tblr(
-            bboxes, gt_bboxes, normalizer=self.normalizer)
+            bboxes, gt_bboxes, normalizer=self.normalizer
+        )
         return encoded_bboxes
 
     def decode(
         self,
         bboxes: Union[Tensor, BaseBoxes],
         pred_bboxes: Tensor,
-        max_shape: Optional[Union[Sequence[int], Tensor,
-                                  Sequence[Sequence[int]]]] = None
+        max_shape: Optional[
+            Union[Sequence[int], Tensor, Sequence[Sequence[int]]]
+        ] = None,
     ) -> Union[Tensor, BaseBoxes]:
         """Apply transformation `pred_bboxes` to `boxes`.
 
@@ -86,17 +93,20 @@ class TBLRBBoxCoder(BaseBBoxCoder):
             pred_bboxes,
             normalizer=self.normalizer,
             max_shape=max_shape,
-            clip_border=self.clip_border)
+            clip_border=self.clip_border,
+        )
 
         if self.use_box_type:
             decoded_bboxes = HorizontalBoxes(decoded_bboxes)
         return decoded_bboxes
 
 
-def bboxes2tblr(priors: Tensor,
-                gts: Tensor,
-                normalizer: Union[Sequence[float], float] = 4.0,
-                normalize_by_wh: bool = True) -> Tensor:
+def bboxes2tblr(
+    priors: Tensor,
+    gts: Tensor,
+    normalizer: Union[Sequence[float], float] = 4.0,
+    normalize_by_wh: bool = True,
+) -> Tensor:
     """Encode ground truth boxes to tblr coordinate.
 
     It first convert the gt coordinate to tblr format,
@@ -142,13 +152,16 @@ def bboxes2tblr(priors: Tensor,
     return loc / normalizer
 
 
-def tblr2bboxes(priors: Tensor,
-                tblr: Tensor,
-                normalizer: Union[Sequence[float], float] = 4.0,
-                normalize_by_wh: bool = True,
-                max_shape: Optional[Union[Sequence[int], Tensor,
-                                          Sequence[Sequence[int]]]] = None,
-                clip_border: bool = True) -> Tensor:
+def tblr2bboxes(
+    priors: Tensor,
+    tblr: Tensor,
+    normalizer: Union[Sequence[float], float] = 4.0,
+    normalize_by_wh: bool = True,
+    max_shape: Optional[
+        Union[Sequence[int], Tensor, Sequence[Sequence[int]]]
+    ] = None,
+    clip_border: bool = True,
+) -> Tensor:
     """Decode tblr outputs to prediction boxes.
 
     The process includes 3 steps: 1) De-normalize tblr coordinates by
@@ -208,8 +221,10 @@ def tblr2bboxes(priors: Tensor,
         # clip bboxes with dynamic `min` and `max` for onnx
         if torch.onnx.is_in_onnx_export():
             from mmdet.core.export import dynamic_clip_for_onnx
+
             xmin, ymin, xmax, ymax = dynamic_clip_for_onnx(
-                xmin, ymin, xmax, ymax, max_shape)
+                xmin, ymin, xmax, ymax, max_shape
+            )
             bboxes = torch.cat([xmin, ymin, xmax, ymax], dim=-1)
             return bboxes
         if not isinstance(max_shape, torch.Tensor):
@@ -220,8 +235,9 @@ def tblr2bboxes(priors: Tensor,
             assert max_shape.size(0) == bboxes.size(0)
 
         min_xy = priors.new_tensor(0)
-        max_xy = torch.cat([max_shape, max_shape],
-                           dim=-1).flip(-1).unsqueeze(-2)
+        max_xy = (
+            torch.cat([max_shape, max_shape], dim=-1).flip(-1).unsqueeze(-2)
+        )
         bboxes = torch.where(bboxes < min_xy, min_xy, bboxes)
         bboxes = torch.where(bboxes > max_xy, max_xy, bboxes)
 

@@ -7,8 +7,13 @@ import warnings
 from typing import Optional, Sequence
 
 import torch
-from mmengine.dist import (barrier, broadcast, broadcast_object_list,
-                           get_dist_info, is_main_process)
+from mmengine.dist import (
+    barrier,
+    broadcast,
+    broadcast_object_list,
+    get_dist_info,
+    is_main_process,
+)
 from mmengine.evaluator import BaseMetric
 from mmengine.utils import mkdir_or_exist
 
@@ -62,7 +67,8 @@ class BaseVideoMetric(BaseMetric):
             warnings.warn(
                 f'{self.__class__.__name__} got empty `self.results`. Please '
                 'ensure that the processed results are properly added into '
-                '`self.results` in `process` method.')
+                '`self.results` in `process` method.'
+            )
 
         results = collect_tracking_results(self.results, self.collect_device)
 
@@ -71,8 +77,7 @@ class BaseVideoMetric(BaseMetric):
             # Add prefix to metric names
             if self.prefix:
                 _metrics = {
-                    '/'.join((self.prefix, k)): v
-                    for k, v in _metrics.items()
+                    '/'.join((self.prefix, k)): v for k, v in _metrics.items()
                 }
             metrics = [_metrics]
         else:
@@ -85,9 +90,9 @@ class BaseVideoMetric(BaseMetric):
         return metrics[0]
 
 
-def collect_tracking_results(results: list,
-                             device: str = 'cpu',
-                             tmpdir: Optional[str] = None) -> Optional[list]:
+def collect_tracking_results(
+    results: list, device: str = 'cpu', tmpdir: Optional[str] = None
+) -> Optional[list]:
     """Collected results in distributed environments. different from the
     function mmengine.dist.collect_results, tracking compute metrics don't use
     paramenter size, which means length of the entire validation dataset.
@@ -107,7 +112,8 @@ def collect_tracking_results(results: list,
     """
     if device not in ['gpu', 'cpu']:
         raise NotImplementedError(
-            f"device must be 'cpu' or 'gpu', but got {device}")
+            f"device must be 'cpu' or 'gpu', but got {device}"
+        )
 
     if device == 'gpu':
         assert tmpdir is None, 'tmpdir should be None when device is "gpu"'
@@ -116,9 +122,9 @@ def collect_tracking_results(results: list,
         return collect_tracking_results_cpu(results, tmpdir)
 
 
-def collect_tracking_results_cpu(result_part: list,
-                                 tmpdir: Optional[str] = None
-                                 ) -> Optional[list]:
+def collect_tracking_results_cpu(
+    result_part: list, tmpdir: Optional[str] = None
+) -> Optional[list]:
     """Collect results on cpu mode.
 
     Saves the results on different gpus to 'tmpdir' and collects them by the
@@ -141,13 +147,14 @@ def collect_tracking_results_cpu(result_part: list,
     if tmpdir is None:
         MAX_LEN = 512
         # 32 is whitespace
-        dir_tensor = torch.full((MAX_LEN, ), 32, dtype=torch.uint8)
+        dir_tensor = torch.full((MAX_LEN,), 32, dtype=torch.uint8)
         if rank == 0:
             mkdir_or_exist('.dist_test')
             tmpdir = tempfile.mkdtemp(dir='.dist_test')
             tmpdir = torch.tensor(
-                bytearray(tmpdir.encode()), dtype=torch.uint8)
-            dir_tensor[:len(tmpdir)] = tmpdir
+                bytearray(tmpdir.encode()), dtype=torch.uint8
+            )
+            dir_tensor[: len(tmpdir)] = tmpdir
         broadcast(dir_tensor, 0)
         tmpdir = dir_tensor.numpy().tobytes().decode().rstrip()
     else:

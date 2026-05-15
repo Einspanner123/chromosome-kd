@@ -47,9 +47,9 @@ def print_stats(s):
     if s['has_inf']:
         flag = ' *** Inf! ***'
     print(
-        f"  [{s['name']:30s}] shape={s['shape']} | "
-        f"min={s['min']:9.4f} max={s['max']:9.4f} mean={s['mean']:9.4f} std={s['std']:9.4f} | "
-        f"nan={s['has_nan']}({s['nan_count']}) inf={s['has_inf']}({s['inf_count']}){flag}"
+        f'  [{s["name"]:30s}] shape={s["shape"]} | '
+        f'min={s["min"]:9.4f} max={s["max"]:9.4f} mean={s["mean"]:9.4f} std={s["std"]:9.4f} | '
+        f'nan={s["has_nan"]}({s["nan_count"]}) inf={s["has_inf"]}({s["inf_count"]}){flag}'
     )
 
 
@@ -164,10 +164,12 @@ bboxes = torch.zeros(bs, num_proposals, 4, device=DEVICE)
 for i in range(bs):
     x1 = torch.rand(num_proposals, device=DEVICE) * 1200
     y1 = torch.rand(num_proposals, device=DEVICE) * 700
-    x2 = (x1 + torch.rand(num_proposals, device=DEVICE) * 133 +
-          10).clamp(max=1333)
-    y2 = (y1 + torch.rand(num_proposals, device=DEVICE) * 100 +
-          10).clamp(max=800)
+    x2 = (x1 + torch.rand(num_proposals, device=DEVICE) * 133 + 10).clamp(
+        max=1333
+    )
+    y2 = (y1 + torch.rand(num_proposals, device=DEVICE) * 100 + 10).clamp(
+        max=800
+    )
     bboxes[i, :, 0] = x1
     bboxes[i, :, 1] = y1
     bboxes[i, :, 2] = x2
@@ -188,8 +190,9 @@ s = stats(roi_features, 'roi_features (from fpn[0])')
 print_stats(s)
 
 # --- Step 3b: Proposals from RoI mean ---
-proposals = roi_features.flatten(2).mean(-1).view(bs, num_proposals,
-                                                  feat_channels)
+proposals = (
+    roi_features.flatten(2).mean(-1).view(bs, num_proposals, feat_channels)
+)
 s = stats(proposals, 'proposals_init')
 print_stats(s)
 
@@ -207,20 +210,23 @@ s_g2 = stats(gamma2, 'gamma2')
 print_stats(s_g2)
 
 # --- Step 3d: Block 1 — Self-Attention with AdaLN ---
-proposals_sa = proposals.view(bs, num_proposals,
-                              feat_channels).permute(1, 0, 2)
+proposals_sa = proposals.view(bs, num_proposals, feat_channels).permute(
+    1, 0, 2
+)
 proposals_flat = proposals_sa.reshape(num_proposals * bs, feat_channels)
 s = stats(proposals_flat, 'before SA modulation')
 print_stats(s)
 
-q_modulated = F.layer_norm(proposals_flat,
-                           [feat_channels]) * (1 + gamma1) + beta1
+q_modulated = (
+    F.layer_norm(proposals_flat, [feat_channels]) * (1 + gamma1) + beta1
+)
 q_modulated = q_modulated.view(num_proposals, bs, feat_channels)
 s = stats(q_modulated, 'q_modulated_SA')
 print_stats(s)
 
 attn_out, _ = single_head.self_attn(
-    q_modulated, q_modulated, value=q_modulated)
+    q_modulated, q_modulated, value=q_modulated
+)
 s = stats(attn_out, 'attn_out')
 print_stats(s)
 
@@ -231,10 +237,12 @@ s = stats(proposals_flat, 'after SA + alpha1 gate')
 print_stats(s)
 
 # --- Step 3e: Block 2 — DynamicConv ---
-proposals_dc = proposals_sa.permute(1, 0, 2).reshape(1, bs * num_proposals,
-                                                     feat_channels)
-roi_feat_for_dc = roi_features.view(bs * num_proposals, feat_channels,
-                                    -1).permute(2, 0, 1)
+proposals_dc = proposals_sa.permute(1, 0, 2).reshape(
+    1, bs * num_proposals, feat_channels
+)
+roi_feat_for_dc = roi_features.view(
+    bs * num_proposals, feat_channels, -1
+).permute(2, 0, 1)
 s = stats(roi_feat_for_dc, 'roi_feat → DynConv key/value')
 print_stats(s)
 s = stats(proposals_dc, 'proposals → DynConv query')
@@ -255,7 +263,8 @@ s = stats(obj_flat, 'before FFN modulation')
 print_stats(s)
 ffn_input = F.layer_norm(obj_flat, [feat_channels]) * (1 + gamma2) + beta2
 ffn_out = single_head.linear2(
-    single_head.dropout(single_head.act(single_head.linear1(ffn_input))))
+    single_head.dropout(single_head.act(single_head.linear1(ffn_input)))
+)
 s = stats(ffn_out, 'ffn_out')
 print_stats(s)
 obj_flat = obj_flat + alpha2 * ffn_out
@@ -410,20 +419,25 @@ curr_bboxes = head._raw_to_xyxy(noise, img_metas)
 t_input = t_raw * head.timesteps
 
 print(
-    f'noisy bboxes range: [{curr_bboxes.min():.1f}, {curr_bboxes.max():.1f}]')
+    f'noisy bboxes range: [{curr_bboxes.min():.1f}, {curr_bboxes.max():.1f}]'
+)
 
 # Full forward pass through all 6 heads
 print('\nRunning full 6-head forward...')
 cls_logits_seq, pred_bboxes_seq, obj_seq, vel_seq = head(
-    fpn_feats3, curr_bboxes, t_input)
+    fpn_feats3, curr_bboxes, t_input
+)
 
 print('Per-head outputs:')
 has_nan = False
 for i in range(6):
     cls_s = stats(cls_logits_seq[i], f'head_{i}_cls_logits')
     bbox_s = stats(pred_bboxes_seq[i], f'head_{i}_pred_bboxes')
-    vel_s = stats(vel_seq[i],
-                  f'head_{i}_velocity') if vel_seq[i] is not None else None
+    vel_s = (
+        stats(vel_seq[i], f'head_{i}_velocity')
+        if vel_seq[i] is not None
+        else None
+    )
     print_stats(cls_s)
     print_stats(bbox_s)
     if vel_s:

@@ -26,40 +26,44 @@ class RetinaHead(AnchorHead):
         >>> assert box_per_anchor == 4
     """
 
-    def __init__(self,
-                 num_classes,
-                 in_channels,
-                 stacked_convs=4,
-                 conv_cfg=None,
-                 norm_cfg=None,
-                 anchor_generator=dict(
-                     type='AnchorGenerator',
-                     octave_base_scale=4,
-                     scales_per_octave=3,
-                     ratios=[0.5, 1.0, 2.0],
-                     strides=[8, 16, 32, 64, 128]),
-                 init_cfg=dict(
-                     type='Normal',
-                     layer='Conv2d',
-                     std=0.01,
-                     override=dict(
-                         type='Normal',
-                         name='retina_cls',
-                         std=0.01,
-                         bias_prob=0.01)),
-                 **kwargs):
-        assert stacked_convs >= 0, \
-            '`stacked_convs` must be non-negative integers, ' \
+    def __init__(
+        self,
+        num_classes,
+        in_channels,
+        stacked_convs=4,
+        conv_cfg=None,
+        norm_cfg=None,
+        anchor_generator=dict(
+            type='AnchorGenerator',
+            octave_base_scale=4,
+            scales_per_octave=3,
+            ratios=[0.5, 1.0, 2.0],
+            strides=[8, 16, 32, 64, 128],
+        ),
+        init_cfg=dict(
+            type='Normal',
+            layer='Conv2d',
+            std=0.01,
+            override=dict(
+                type='Normal', name='retina_cls', std=0.01, bias_prob=0.01
+            ),
+        ),
+        **kwargs,
+    ):
+        assert stacked_convs >= 0, (
+            '`stacked_convs` must be non-negative integers, '
             f'but got {stacked_convs} instead.'
+        )
         self.stacked_convs = stacked_convs
         self.conv_cfg = conv_cfg
         self.norm_cfg = norm_cfg
-        super(RetinaHead, self).__init__(
+        super().__init__(
             num_classes,
             in_channels,
             anchor_generator=anchor_generator,
             init_cfg=init_cfg,
-            **kwargs)
+            **kwargs,
+        )
 
     def _init_layers(self):
         """Initialize layers of the head."""
@@ -76,7 +80,9 @@ class RetinaHead(AnchorHead):
                     stride=1,
                     padding=1,
                     conv_cfg=self.conv_cfg,
-                    norm_cfg=self.norm_cfg))
+                    norm_cfg=self.norm_cfg,
+                )
+            )
             self.reg_convs.append(
                 ConvModule(
                     in_channels,
@@ -85,16 +91,20 @@ class RetinaHead(AnchorHead):
                     stride=1,
                     padding=1,
                     conv_cfg=self.conv_cfg,
-                    norm_cfg=self.norm_cfg))
+                    norm_cfg=self.norm_cfg,
+                )
+            )
             in_channels = self.feat_channels
         self.retina_cls = nn.Conv2d(
             in_channels,
             self.num_base_priors * self.cls_out_channels,
             3,
-            padding=1)
+            padding=1,
+        )
         reg_dim = self.bbox_coder.encode_size
         self.retina_reg = nn.Conv2d(
-            in_channels, self.num_base_priors * reg_dim, 3, padding=1)
+            in_channels, self.num_base_priors * reg_dim, 3, padding=1
+        )
 
     def forward_single(self, x):
         """Forward feature of a single scale level.

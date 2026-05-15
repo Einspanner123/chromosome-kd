@@ -16,8 +16,9 @@ def convert(src: str, dst: str, prefix: str = 'd2_model') -> None:
         prefix (str): The prefix of MMDetection model, defaults to 'd2_model'.
     """
     # load arch_settings
-    assert src.endswith('pkl'), \
+    assert src.endswith('pkl'), (
         'the source Detectron2 checkpoint should endswith `pkl`.'
+    )
     d2_model = load(src, encoding='latin1').get('model')
     assert d2_model is not None
 
@@ -35,11 +36,13 @@ def convert(src: str, dst: str, prefix: str = 'd2_model') -> None:
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Convert Detectron2 checkpoint to MMDetection style')
+        description='Convert Detectron2 checkpoint to MMDetection style'
+    )
     parser.add_argument('src', help='Detectron2 model path')
     parser.add_argument('dst', help='MMDetectron model save path')
     parser.add_argument(
-        '--prefix', default='d2_model', type=str, help='prefix of the model')
+        '--prefix', default='d2_model', type=str, help='prefix of the model'
+    )
     args = parser.parse_args()
     convert(args.src, args.dst, args.prefix)
 

@@ -13,26 +13,26 @@ class SingleDiffusionDetHead(nn.Module):
     """单个DiffusionDet检测头，支持 AdaLN-Zero 和传统 scale-shift 条件化"""
 
     def __init__(
-            self,
-            num_classes=80,  # 类别数
-            feat_channels=256,  # 特征通道数
-            dim_feedforward=2048,  # 前馈网络维度
-            num_cls_convs=1,  # 分类卷积层数
-            num_reg_convs=3,  # 回归卷积层数
-            num_heads=8,  # 注意力头数
-            dropout=0.0,  # dropout率
-            pooler_resolution=7,  # 池化分辨率
-            scale_clamp=math.log(100000.0 / 16),  # 缩放截断值
-            bbox_weights=(2.0, 2.0, 1.0, 1.0),  # 边界框权重
-            use_focal_loss=True,  # 是否使用focal loss
-            use_fed_loss=False,  # 是否使用fed loss
-            dynamic_dim=64,
-            dynamic_num=2,
-            # === FlowDet 新增参数 ===
-            time_conditioning='scale_shift',  # "scale_shift" 或 "adaln_zero"
-            use_objectness=False,  # 是否使用 objectness 预测头
-            prediction_mode='x0',  # "x0" (delta regression) 或 "velocity" (直接速度预测)
-            velocity_detach=False,  # 是否切断 velocity_head 到共享层的梯度
+        self,
+        num_classes=80,  # 类别数
+        feat_channels=256,  # 特征通道数
+        dim_feedforward=2048,  # 前馈网络维度
+        num_cls_convs=1,  # 分类卷积层数
+        num_reg_convs=3,  # 回归卷积层数
+        num_heads=8,  # 注意力头数
+        dropout=0.0,  # dropout率
+        pooler_resolution=7,  # 池化分辨率
+        scale_clamp=math.log(100000.0 / 16),  # 缩放截断值
+        bbox_weights=(2.0, 2.0, 1.0, 1.0),  # 边界框权重
+        use_focal_loss=True,  # 是否使用focal loss
+        use_fed_loss=False,  # 是否使用fed loss
+        dynamic_dim=64,
+        dynamic_num=2,
+        # === FlowDet 新增参数 ===
+        time_conditioning='scale_shift',  # "scale_shift" 或 "adaln_zero"
+        use_objectness=False,  # 是否使用 objectness 预测头
+        prediction_mode='x0',  # "x0" (delta regression) 或 "velocity" (直接速度预测)
+        velocity_detach=False,  # 是否切断 velocity_head 到共享层的梯度
     ):
         super().__init__()
         self.feat_channels = feat_channels
@@ -44,7 +44,8 @@ class SingleDiffusionDetHead(nn.Module):
         # 动态模块
         # 自注意力机制
         self.self_attn = nn.MultiheadAttention(
-            feat_channels, num_heads, dropout=dropout)
+            feat_channels, num_heads, dropout=dropout
+        )
         # 实例交互模块（动态卷积）
         self.inst_interact = DynamicConv(
             feat_channels=feat_channels,
@@ -94,13 +95,16 @@ class SingleDiffusionDetHead(nn.Module):
                     nn.Linear(feat_channels, feat_channels, bias=False),
                     nn.LayerNorm(feat_channels),
                     nn.ReLU(inplace=True),
-                ))
+                )
+            )
         cls_layers.append(
             nn.Linear(
                 feat_channels,
                 num_classes
-                if use_focal_loss or use_fed_loss else num_classes + 1,
-            ))
+                if use_focal_loss or use_fed_loss
+                else num_classes + 1,
+            )
+        )
         self.cls_head = nn.Sequential(*cls_layers)
 
         # 回归模块
@@ -111,7 +115,8 @@ class SingleDiffusionDetHead(nn.Module):
                     nn.Linear(feat_channels, feat_channels, bias=False),
                     nn.LayerNorm(feat_channels),
                     nn.ReLU(inplace=True),
-                ))
+                )
+            )
         reg_layers.append(nn.Linear(feat_channels, 4))
         self.reg_head = nn.Sequential(*reg_layers)
 
@@ -168,8 +173,10 @@ class SingleDiffusionDetHead(nn.Module):
         # 处理提案特征
         if proposals is None:
             proposals = (
-                roi_features.flatten(2).mean(-1).view(bs, num_boxes,
-                                                      self.feat_channels))
+                roi_features.flatten(2)
+                .mean(-1)
+                .view(bs, num_boxes, self.feat_channels)
+            )
 
         # 调整ROI特征形状
         roi_features = roi_features.view(
@@ -179,37 +186,63 @@ class SingleDiffusionDetHead(nn.Module):
         ).permute(2, 0, 1)  # (49, bs*num_boxes, feat_channels)
 
         if self.time_conditioning == 'adaln_zero':
-            return self._forward_adaln_zero(features, bboxes, proposals,
-                                            roi_features, time_emb, bs,
-                                            num_boxes)
+            return self._forward_adaln_zero(
+                features,
+                bboxes,
+                proposals,
+                roi_features,
+                time_emb,
+                bs,
+                num_boxes,
+            )
         else:
-            return self._forward_scale_shift(features, bboxes, proposals,
-                                             roi_features, time_emb, bs,
-                                             num_boxes)
+            return self._forward_scale_shift(
+                features,
+                bboxes,
+                proposals,
+                roi_features,
+                time_emb,
+                bs,
+                num_boxes,
+            )
 
-    def _forward_adaln_zero(self, features, bboxes, proposals, roi_features,
-                            time_emb, bs, num_boxes):
+    def _forward_adaln_zero(
+        self,
+        features,
+        bboxes,
+        proposals,
+        roi_features,
+        time_emb,
+        bs,
+        num_boxes,
+    ):
         """AdaLN-Zero 条件化的前向传播"""
         # 计算 AdaLN 参数: 6 组
         adaln_params = self.adaln_mlp(time_emb)  # (bs, 6 * feat_channels)
         adaln_params = torch.repeat_interleave(adaln_params, num_boxes, dim=0)
         # (bs*num_boxes, 6*feat_channels)
         gamma1, beta1, alpha1, gamma2, beta2, alpha2 = adaln_params.chunk(
-            6, dim=-1)
+            6, dim=-1
+        )
 
         # === Block 1: Self-Attention + AdaLN-Zero ===
         proposals = proposals.view(bs, num_boxes, self.feat_channels).permute(
-            1, 0, 2)  # (num_boxes, bs, feat_channels)
+            1, 0, 2
+        )  # (num_boxes, bs, feat_channels)
 
         # Pre-norm + modulate
-        proposals_flat = proposals.reshape(num_boxes * bs,
-                                           self.feat_channels)  # for AdaLN
-        q_modulated = F.layer_norm(proposals_flat,
-                                   [self.feat_channels]) * (1 + gamma1) + beta1
+        proposals_flat = proposals.reshape(
+            num_boxes * bs, self.feat_channels
+        )  # for AdaLN
+        q_modulated = (
+            F.layer_norm(proposals_flat, [self.feat_channels]) * (1 + gamma1)
+            + beta1
+        )
         q_modulated = q_modulated.view(num_boxes, bs, self.feat_channels)
 
         attn_out, _ = self.self_attn(
-            q_modulated, q_modulated, value=q_modulated)
+            q_modulated, q_modulated, value=q_modulated
+        )
         # Gated residual
         attn_out_flat = attn_out.reshape(num_boxes * bs, self.feat_channels)
         proposals_flat = proposals_flat + alpha1 * attn_out_flat
@@ -217,25 +250,29 @@ class SingleDiffusionDetHead(nn.Module):
 
         # === Block 2: Instance Interaction (Dynamic Conv) ===
         proposals = (
-            proposals.view(num_boxes, bs,
-                           self.feat_channels).permute(1, 0, 2).reshape(
-                               1, bs * num_boxes, self.feat_channels))
+            proposals.view(num_boxes, bs, self.feat_channels)
+            .permute(1, 0, 2)
+            .reshape(1, bs * num_boxes, self.feat_channels)
+        )
 
         inst_out = self.inst_interact(proposals, roi_features)
         proposals = proposals + self.dropout2(inst_out)
         obj_features = self.norm2(
-            proposals)  # (1, bs*num_boxes, feat_channels)
+            proposals
+        )  # (1, bs*num_boxes, feat_channels)
 
         # === Block 3: FFN + AdaLN-Zero ===
         obj_flat = obj_features.squeeze(0)  # (bs*num_boxes, feat_channels)
         # Pre-norm + modulate for FFN
-        ffn_input = F.layer_norm(obj_flat,
-                                 [self.feat_channels]) * (1 + gamma2) + beta2
+        ffn_input = (
+            F.layer_norm(obj_flat, [self.feat_channels]) * (1 + gamma2) + beta2
+        )
         ffn_out = self.linear2(self.dropout(self.act(self.linear1(ffn_input))))
         # Gated residual
         obj_flat = obj_flat + alpha2 * ffn_out
         obj_features = obj_flat.unsqueeze(
-            0)  # (1, bs*num_boxes, feat_channels)
+            0
+        )  # (1, bs*num_boxes, feat_channels)
 
         # === 预测头 ===
         fc_feature = obj_flat  # (bs*num_boxes, feat_channels)
@@ -247,15 +284,18 @@ class SingleDiffusionDetHead(nn.Module):
         objectness = None
         if self.objectness_head is not None:
             objectness = self.objectness_head(fc_feature).view(
-                bs, num_boxes, 1)
+                bs, num_boxes, 1
+            )
 
         # Velocity
         pred_velocity = None
         if self.velocity_head is not None:
-            vel_input = fc_feature.detach(
-            ) if self.velocity_detach else fc_feature
+            vel_input = (
+                fc_feature.detach() if self.velocity_detach else fc_feature
+            )
             pred_velocity = self.velocity_head(vel_input).view(
-                bs, num_boxes, 4)
+                bs, num_boxes, 4
+            )
 
         return (
             class_logits.view(bs, num_boxes, -1),
@@ -265,30 +305,42 @@ class SingleDiffusionDetHead(nn.Module):
             pred_velocity,
         )
 
-    def _forward_scale_shift(self, features, bboxes, proposals, roi_features,
-                             time_emb, bs, num_boxes):
+    def _forward_scale_shift(
+        self,
+        features,
+        bboxes,
+        proposals,
+        roi_features,
+        time_emb,
+        bs,
+        num_boxes,
+    ):
         """传统 scale-shift 条件化的前向传播（向后兼容）"""
         # 自注意力
         proposals = proposals.view(bs, num_boxes, self.feat_channels).permute(
-            1, 0, 2)  # (num_boxes, bs, feat_channels)
+            1, 0, 2
+        )  # (num_boxes, bs, feat_channels)
 
         attn_shortcut, _ = self.self_attn(
-            proposals, proposals, value=proposals)
+            proposals, proposals, value=proposals
+        )
         proposals = proposals + self.dropout1(attn_shortcut)
         proposals = self.norm1(proposals)
 
         # 实例交互
         proposals = (
-            proposals.view(num_boxes, bs,
-                           self.feat_channels).permute(1, 0, 2).reshape(
-                               1, bs * num_boxes, self.feat_channels))
+            proposals.view(num_boxes, bs, self.feat_channels)
+            .permute(1, 0, 2)
+            .reshape(1, bs * num_boxes, self.feat_channels)
+        )
         attn_shortcut = self.inst_interact(proposals, roi_features)
         proposals = proposals + self.dropout2(attn_shortcut)
         obj_features = self.norm2(proposals)
 
         # FFN
         obj_shortcut = self.linear2(
-            self.dropout(self.act(self.linear1(obj_features))))
+            self.dropout(self.act(self.linear1(obj_features)))
+        )
         obj_features = obj_features + self.dropout3(obj_shortcut)
         obj_features = self.norm3(obj_features)
 
@@ -307,15 +359,18 @@ class SingleDiffusionDetHead(nn.Module):
         objectness = None
         if self.objectness_head is not None:
             objectness = self.objectness_head(fc_feature).view(
-                bs, num_boxes, 1)
+                bs, num_boxes, 1
+            )
 
         # Velocity
         pred_velocity = None
         if self.velocity_head is not None:
-            vel_input = fc_feature.detach(
-            ) if self.velocity_detach else fc_feature
+            vel_input = (
+                fc_feature.detach() if self.velocity_detach else fc_feature
+            )
             pred_velocity = self.velocity_head(vel_input).view(
-                bs, num_boxes, 4)
+                bs, num_boxes, 4
+            )
 
         return (
             class_logits.view(bs, num_boxes, -1),

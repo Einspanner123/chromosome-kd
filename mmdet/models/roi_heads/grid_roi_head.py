@@ -23,8 +23,9 @@ class GridRoIHead(StandardRoIHead):
         grid_head (:obj:`ConfigDict` or dict): Config of grid head
     """
 
-    def __init__(self, grid_roi_extractor: ConfigType, grid_head: ConfigType,
-                 **kwargs) -> None:
+    def __init__(
+        self, grid_roi_extractor: ConfigType, grid_head: ConfigType, **kwargs
+    ) -> None:
         assert grid_head is not None
         super().__init__(**kwargs)
         if grid_roi_extractor is not None:
@@ -35,10 +36,12 @@ class GridRoIHead(StandardRoIHead):
             self.grid_roi_extractor = self.bbox_roi_extractor
         self.grid_head = MODELS.build(grid_head)
 
-    def _random_jitter(self,
-                       sampling_results: List[SamplingResult],
-                       batch_img_metas: List[dict],
-                       amplitude: float = 0.15) -> List[SamplingResult]:
+    def _random_jitter(
+        self,
+        sampling_results: List[SamplingResult],
+        batch_img_metas: List[dict],
+        amplitude: float = 0.15,
+    ) -> List[SamplingResult]:
         """Ramdom jitter positive proposals for training.
 
         Args:
@@ -50,11 +53,13 @@ class GridRoIHead(StandardRoIHead):
         Returns:
             list[obj:SamplingResult]: SamplingResults after random jittering.
         """
-        for sampling_result, img_meta in zip(sampling_results,
-                                             batch_img_metas):
+        for sampling_result, img_meta in zip(
+            sampling_results, batch_img_metas
+        ):
             bboxes = sampling_result.pos_priors
             random_offsets = bboxes.new_empty(bboxes.shape[0], 4).uniform_(
-                -amplitude, amplitude)
+                -amplitude, amplitude
+            )
             # before jittering
             cxcy = (bboxes[:, 2:4] + bboxes[:, :2]) / 2
             wh = (bboxes[:, 2:4] - bboxes[:, :2]).abs()
@@ -62,8 +67,8 @@ class GridRoIHead(StandardRoIHead):
             new_cxcy = cxcy + wh * random_offsets[:, :2]
             new_wh = wh * (1 + random_offsets[:, 2:])
             # xywh to xyxy
-            new_x1y1 = (new_cxcy - new_wh / 2)
-            new_x2y2 = (new_cxcy + new_wh / 2)
+            new_x1y1 = new_cxcy - new_wh / 2
+            new_x2y2 = new_cxcy + new_wh / 2
             new_bboxes = torch.cat([new_x1y1, new_x2y2], dim=1)
             # clip bboxes
             max_shape = img_meta['img_shape']
@@ -75,10 +80,12 @@ class GridRoIHead(StandardRoIHead):
         return sampling_results
 
     # TODO: Forward is incorrect and need to refactor.
-    def forward(self,
-                x: Tuple[Tensor],
-                rpn_results_list: InstanceList,
-                batch_data_samples: SampleList = None) -> tuple:
+    def forward(
+        self,
+        x: Tuple[Tensor],
+        rpn_results_list: InstanceList,
+        batch_data_samples: SampleList = None,
+    ) -> tuple:
         """Network forward process. Usually includes backbone, neck and head
         forward without any post-processing.
 
@@ -101,29 +108,35 @@ class GridRoIHead(StandardRoIHead):
         # bbox head
         if self.with_bbox:
             bbox_results = self._bbox_forward(x, rois)
-            results = results + (bbox_results['cls_score'], )
+            results = results + (bbox_results['cls_score'],)
             if self.bbox_head.with_reg:
-                results = results + (bbox_results['bbox_pred'], )
+                results = results + (bbox_results['bbox_pred'],)
 
             # grid head
             grid_rois = rois[:100]
             grid_feats = self.grid_roi_extractor(
-                x[:len(self.grid_roi_extractor.featmap_strides)], grid_rois)
+                x[: len(self.grid_roi_extractor.featmap_strides)], grid_rois
+            )
             if self.with_shared_head:
                 grid_feats = self.shared_head(grid_feats)
             self.grid_head.test_mode = True
             grid_preds = self.grid_head(grid_feats)
-            results = results + (grid_preds, )
+            results = results + (grid_preds,)
 
         # mask head
         if self.with_mask:
             mask_rois = rois[:100]
             mask_results = self._mask_forward(x, mask_rois)
-            results = results + (mask_results['mask_preds'], )
+            results = results + (mask_results['mask_preds'],)
         return results
 
-    def loss(self, x: Tuple[Tensor], rpn_results_list: InstanceList,
-             batch_data_samples: SampleList, **kwargs) -> dict:
+    def loss(
+        self,
+        x: Tuple[Tensor],
+        rpn_results_list: InstanceList,
+        batch_data_samples: SampleList,
+        **kwargs,
+    ) -> dict:
         """Perform forward propagation and loss calculation of the detection
         roi on the features of the upstream network.
 
@@ -140,8 +153,9 @@ class GridRoIHead(StandardRoIHead):
         """
         assert len(rpn_results_list) == len(batch_data_samples)
         outputs = unpack_gt_instances(batch_data_samples)
-        (batch_gt_instances, batch_gt_instances_ignore,
-         batch_img_metas) = outputs
+        (batch_gt_instances, batch_gt_instances_ignore, batch_img_metas) = (
+            outputs
+        )
 
         # assign gts and sample proposals
         num_imgs = len(batch_data_samples)
@@ -152,13 +166,16 @@ class GridRoIHead(StandardRoIHead):
             rpn_results.priors = rpn_results.pop('bboxes')
 
             assign_result = self.bbox_assigner.assign(
-                rpn_results, batch_gt_instances[i],
-                batch_gt_instances_ignore[i])
+                rpn_results,
+                batch_gt_instances[i],
+                batch_gt_instances_ignore[i],
+            )
             sampling_result = self.bbox_sampler.sample(
                 assign_result,
                 rpn_results,
                 batch_gt_instances[i],
-                feats=[lvl_feat[i][None] for lvl_feat in x])
+                feats=[lvl_feat[i][None] for lvl_feat in x],
+            )
             sampling_results.append(sampling_result)
 
         losses = dict()
@@ -169,17 +186,22 @@ class GridRoIHead(StandardRoIHead):
 
         # mask head forward and loss
         if self.with_mask:
-            mask_results = self.mask_loss(x, sampling_results,
-                                          bbox_results['bbox_feats'],
-                                          batch_gt_instances)
+            mask_results = self.mask_loss(
+                x,
+                sampling_results,
+                bbox_results['bbox_feats'],
+                batch_gt_instances,
+            )
             losses.update(mask_results['loss_mask'])
 
         return losses
 
-    def bbox_loss(self,
-                  x: Tuple[Tensor],
-                  sampling_results: List[SamplingResult],
-                  batch_img_metas: Optional[List[dict]] = None) -> dict:
+    def bbox_loss(
+        self,
+        x: Tuple[Tensor],
+        sampling_results: List[SamplingResult],
+        batch_img_metas: Optional[List[dict]] = None,
+    ) -> dict:
         """Perform forward propagation and loss calculation of the bbox head on
         the features of the upstream network.
 
@@ -201,8 +223,9 @@ class GridRoIHead(StandardRoIHead):
         bbox_results = super().bbox_loss(x, sampling_results)
 
         # Grid head forward and loss
-        sampling_results = self._random_jitter(sampling_results,
-                                               batch_img_metas)
+        sampling_results = self._random_jitter(
+            sampling_results, batch_img_metas
+        )
         pos_rois = bbox2roi([res.pos_bboxes for res in sampling_results])
 
         # GN in head does not support zero shape input
@@ -210,29 +233,33 @@ class GridRoIHead(StandardRoIHead):
             return bbox_results
 
         grid_feats = self.grid_roi_extractor(
-            x[:self.grid_roi_extractor.num_inputs], pos_rois)
+            x[: self.grid_roi_extractor.num_inputs], pos_rois
+        )
         if self.with_shared_head:
             grid_feats = self.shared_head(grid_feats)
         # Accelerate training
         max_sample_num_grid = self.train_cfg.get('max_num_grid', 192)
-        sample_idx = torch.randperm(
-            grid_feats.shape[0])[:min(grid_feats.shape[0], max_sample_num_grid
-                                      )]
+        sample_idx = torch.randperm(grid_feats.shape[0])[
+            : min(grid_feats.shape[0], max_sample_num_grid)
+        ]
         grid_feats = grid_feats[sample_idx]
         grid_pred = self.grid_head(grid_feats)
 
-        loss_grid = self.grid_head.loss(grid_pred, sample_idx,
-                                        sampling_results, self.train_cfg)
+        loss_grid = self.grid_head.loss(
+            grid_pred, sample_idx, sampling_results, self.train_cfg
+        )
 
         bbox_results['loss_bbox'].update(loss_grid)
         return bbox_results
 
-    def predict_bbox(self,
-                     x: Tuple[Tensor],
-                     batch_img_metas: List[dict],
-                     rpn_results_list: InstanceList,
-                     rcnn_test_cfg: ConfigType,
-                     rescale: bool = False) -> InstanceList:
+    def predict_bbox(
+        self,
+        x: Tuple[Tensor],
+        batch_img_metas: List[dict],
+        rpn_results_list: InstanceList,
+        rcnn_test_cfg: ConfigType,
+        rescale: bool = False,
+    ) -> InstanceList:
         """Perform forward propagation of the bbox head and predict detection
         results on the features of the upstream network.
 
@@ -261,12 +288,14 @@ class GridRoIHead(StandardRoIHead):
             batch_img_metas=batch_img_metas,
             rpn_results_list=rpn_results_list,
             rcnn_test_cfg=rcnn_test_cfg,
-            rescale=False)
+            rescale=False,
+        )
 
         grid_rois = bbox2roi([res.bboxes for res in results_list])
         if grid_rois.shape[0] != 0:
             grid_feats = self.grid_roi_extractor(
-                x[:len(self.grid_roi_extractor.featmap_strides)], grid_rois)
+                x[: len(self.grid_roi_extractor.featmap_strides)], grid_rois
+            )
             if self.with_shared_head:
                 grid_feats = self.shared_head(grid_feats)
             self.grid_head.test_mode = True
@@ -275,6 +304,7 @@ class GridRoIHead(StandardRoIHead):
                 grid_preds=grid_preds,
                 results_list=results_list,
                 batch_img_metas=batch_img_metas,
-                rescale=rescale)
+                rescale=rescale,
+            )
 
         return results_list

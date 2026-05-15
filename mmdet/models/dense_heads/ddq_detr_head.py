@@ -33,17 +33,19 @@ class DDQDETRHead(DINOHead):
     """
 
     def __init__(self, *args, aux_num_pos=4, **kwargs):
-        super(DDQDETRHead, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.aux_loss_for_dense = DDQAuxLoss(
             train_cfg=dict(
                 assigner=dict(type='TopkHungarianAssigner', topk=aux_num_pos),
                 alpha=1,
-                beta=6))
+                beta=6,
+            )
+        )
 
     def _init_layers(self) -> None:
         """Initialize classification branch and regression branch of aux head
         for dense queries."""
-        super(DDQDETRHead, self)._init_layers()
+        super()._init_layers()
         # If decoder `num_layers` = 6 and `as_two_stage` = True, then:
         #   1) 6 main heads are required for
         #       each decoder output of distinct queries.
@@ -60,14 +62,18 @@ class DDQDETRHead(DINOHead):
         # So 8 + 6 = 14 heads and heads are requires in sum.
         # self.num_pred_layer is 7
         # aux head for dense queries in decoder
-        self.aux_cls_branches = nn.ModuleList([
-            copy.deepcopy(self.cls_branches[-1])
-            for _ in range(self.num_pred_layer - 1)
-        ])
-        self.aux_reg_branches = nn.ModuleList([
-            copy.deepcopy(self.reg_branches[-1])
-            for _ in range(self.num_pred_layer - 1)
-        ])
+        self.aux_cls_branches = nn.ModuleList(
+            [
+                copy.deepcopy(self.cls_branches[-1])
+                for _ in range(self.num_pred_layer - 1)
+            ]
+        )
+        self.aux_reg_branches = nn.ModuleList(
+            [
+                copy.deepcopy(self.reg_branches[-1])
+                for _ in range(self.num_pred_layer - 1)
+            ]
+        )
 
     def init_weights(self) -> None:
         """Initialize weights of the Deformable DETR head."""
@@ -87,8 +93,9 @@ class DDQDETRHead(DINOHead):
         for m in self.aux_reg_branches:
             nn.init.constant_(m[-1].bias.data[2:], 0.0)
 
-    def forward(self, hidden_states: Tensor,
-                references: List[Tensor]) -> Tuple[Tensor]:
+    def forward(
+        self, hidden_states: Tensor, references: List[Tensor]
+    ) -> Tuple[Tensor]:
         """Forward function.
 
         Args:
@@ -130,13 +137,17 @@ class DDQDETRHead(DINOHead):
             tmp_reg_preds = self.reg_branches[layer_id](hidden_state)
             if self.training:
                 dense_outputs_class = self.aux_cls_branches[layer_id](
-                    dense_hidden_state)
+                    dense_hidden_state
+                )
                 dense_tmp_reg_preds = self.aux_reg_branches[layer_id](
-                    dense_hidden_state)
-                outputs_class = torch.cat([outputs_class, dense_outputs_class],
-                                          dim=1)
-                tmp_reg_preds = torch.cat([tmp_reg_preds, dense_tmp_reg_preds],
-                                          dim=1)
+                    dense_hidden_state
+                )
+                outputs_class = torch.cat(
+                    [outputs_class, dense_outputs_class], dim=1
+                )
+                tmp_reg_preds = torch.cat(
+                    [tmp_reg_preds, dense_tmp_reg_preds], dim=1
+                )
 
             if reference.shape[-1] == 4:
                 tmp_reg_preds += reference
@@ -152,15 +163,17 @@ class DDQDETRHead(DINOHead):
 
         return all_layers_outputs_classes, all_layers_outputs_coords
 
-    def loss(self,
-             hidden_states: Tensor,
-             references: List[Tensor],
-             enc_outputs_class: Tensor,
-             enc_outputs_coord: Tensor,
-             batch_data_samples: SampleList,
-             dn_meta: Dict[str, int],
-             aux_enc_outputs_class=None,
-             aux_enc_outputs_coord=None) -> dict:
+    def loss(
+        self,
+        hidden_states: Tensor,
+        references: List[Tensor],
+        enc_outputs_class: Tensor,
+        enc_outputs_coord: Tensor,
+        batch_data_samples: SampleList,
+        dn_meta: Dict[str, int],
+        aux_enc_outputs_class=None,
+        aux_enc_outputs_coord=None,
+    ) -> dict:
         """Perform forward propagation and loss calculation of the detection
         head on the queries of the upstream network.
 
@@ -208,8 +221,13 @@ class DDQDETRHead(DINOHead):
             batch_gt_instances.append(data_sample.gt_instances)
 
         outs = self(hidden_states, references)
-        loss_inputs = outs + (enc_outputs_class, enc_outputs_coord,
-                              batch_gt_instances, batch_img_metas, dn_meta)
+        loss_inputs = outs + (
+            enc_outputs_class,
+            enc_outputs_coord,
+            batch_gt_instances,
+            batch_img_metas,
+            dn_meta,
+        )
         losses = self.loss_by_feat(*loss_inputs)
 
         aux_enc_outputs_coord = bbox_cxcywh_to_xyxy(aux_enc_outputs_coord)
@@ -222,9 +240,12 @@ class DDQDETRHead(DINOHead):
             aux_enc_outputs_coord_list.append(det_bboxes)
         aux_enc_outputs_coord = torch.stack(aux_enc_outputs_coord_list)
         aux_loss = self.aux_loss_for_dense.loss(
-            aux_enc_outputs_class.sigmoid(), aux_enc_outputs_coord,
+            aux_enc_outputs_class.sigmoid(),
+            aux_enc_outputs_coord,
             [item.bboxes for item in batch_gt_instances],
-            [item.labels for item in batch_gt_instances], batch_img_metas)
+            [item.labels for item in batch_gt_instances],
+            batch_img_metas,
+        )
         for k, v in aux_loss.items():
             losses[f'aux_enc_{k}'] = v
 
@@ -239,7 +260,7 @@ class DDQDETRHead(DINOHead):
         batch_gt_instances: InstanceList,
         batch_img_metas: List[dict],
         dn_meta: Dict[str, int],
-        batch_gt_instances_ignore: OptInstanceList = None
+        batch_gt_instances_ignore: OptInstanceList = None,
     ) -> Dict[str, Tensor]:
         """Loss function.
 
@@ -274,34 +295,48 @@ class DDQDETRHead(DINOHead):
         Returns:
             dict[str, Tensor]: A dictionary of loss components.
         """
-        (all_layers_matching_cls_scores, all_layers_matching_bbox_preds,
-         all_layers_denoising_cls_scores, all_layers_denoising_bbox_preds) = \
-            self.split_outputs(
-                all_layers_cls_scores, all_layers_bbox_preds, dn_meta)
+        (
+            all_layers_matching_cls_scores,
+            all_layers_matching_bbox_preds,
+            all_layers_denoising_cls_scores,
+            all_layers_denoising_bbox_preds,
+        ) = self.split_outputs(
+            all_layers_cls_scores, all_layers_bbox_preds, dn_meta
+        )
 
         num_dense_queries = dn_meta['num_dense_queries']
         num_layer = all_layers_matching_bbox_preds.size(0)
-        dense_all_layers_matching_cls_scores = all_layers_matching_cls_scores[:, :,  # noqa: E501
-                                                                              -num_dense_queries:]  # noqa: E501
-        dense_all_layers_matching_bbox_preds = all_layers_matching_bbox_preds[:, :,  # noqa: E501
-                                                                              -num_dense_queries:]  # noqa: E501
+        dense_all_layers_matching_cls_scores = all_layers_matching_cls_scores[
+            :, :, -num_dense_queries:
+        ]
+        dense_all_layers_matching_bbox_preds = all_layers_matching_bbox_preds[
+            :, :, -num_dense_queries:
+        ]
 
-        all_layers_matching_cls_scores = all_layers_matching_cls_scores[:, :, :  # noqa: E501
-                                                                        -num_dense_queries]  # noqa: E501
-        all_layers_matching_bbox_preds = all_layers_matching_bbox_preds[:, :, :  # noqa: E501
-                                                                        -num_dense_queries]  # noqa: E501
+        all_layers_matching_cls_scores = all_layers_matching_cls_scores[
+            :, :, :-num_dense_queries
+        ]
+        all_layers_matching_bbox_preds = all_layers_matching_bbox_preds[
+            :, :, :-num_dense_queries
+        ]
 
         loss_dict = self.loss_for_distinct_queries(
-            all_layers_matching_cls_scores, all_layers_matching_bbox_preds,
-            batch_gt_instances, batch_img_metas, batch_gt_instances_ignore)
+            all_layers_matching_cls_scores,
+            all_layers_matching_bbox_preds,
+            batch_gt_instances,
+            batch_img_metas,
+            batch_gt_instances_ignore,
+        )
 
         if enc_cls_scores is not None:
-
-            enc_loss_cls, enc_losses_bbox, enc_losses_iou = \
+            enc_loss_cls, enc_losses_bbox, enc_losses_iou = (
                 self.loss_by_feat_single(
-                    enc_cls_scores, enc_bbox_preds,
+                    enc_cls_scores,
+                    enc_bbox_preds,
                     batch_gt_instances=batch_gt_instances,
-                    batch_img_metas=batch_img_metas)
+                    batch_img_metas=batch_img_metas,
+                )
+            )
             loss_dict['enc_loss_cls'] = enc_loss_cls
             loss_dict['enc_loss_bbox'] = enc_losses_bbox
             loss_dict['enc_loss_iou'] = enc_losses_iou
@@ -312,13 +347,20 @@ class DDQDETRHead(DINOHead):
                 all_layers_denoising_bbox_preds,
                 batch_gt_instances=batch_gt_instances,
                 batch_img_metas=batch_img_metas,
-                dn_meta=dn_meta)
+                dn_meta=dn_meta,
+            )
             loss_dict['dn_loss_cls'] = dn_losses_cls[-1]
             loss_dict['dn_loss_bbox'] = dn_losses_bbox[-1]
             loss_dict['dn_loss_iou'] = dn_losses_iou[-1]
-            for num_dec_layer, (loss_cls_i, loss_bbox_i, loss_iou_i) in \
-                    enumerate(zip(dn_losses_cls[:-1], dn_losses_bbox[:-1],
-                                  dn_losses_iou[:-1])):
+            for num_dec_layer, (
+                loss_cls_i,
+                loss_bbox_i,
+                loss_iou_i,
+            ) in enumerate(
+                zip(
+                    dn_losses_cls[:-1], dn_losses_bbox[:-1], dn_losses_iou[:-1]
+                )
+            ):
                 loss_dict[f'd{num_dec_layer}.dn_loss_cls'] = loss_cls_i
                 loss_dict[f'd{num_dec_layer}.dn_loss_bbox'] = loss_bbox_i
                 loss_dict[f'd{num_dec_layer}.dn_loss_iou'] = loss_iou_i
@@ -337,9 +379,12 @@ class DDQDETRHead(DINOHead):
                 bbox_preds_list.append(det_bboxes)
             bbox_preds = torch.stack(bbox_preds_list)
             aux_loss = self.aux_loss_for_dense.loss(
-                cls_scores, bbox_preds,
+                cls_scores,
+                bbox_preds,
                 [item.bboxes for item in batch_gt_instances],
-                [item.labels for item in batch_gt_instances], batch_img_metas)
+                [item.labels for item in batch_gt_instances],
+                batch_img_metas,
+            )
             for k, v in aux_loss.items():
                 loss_dict[f'{l_id}_aux_{k}'] = v
 
@@ -351,7 +396,7 @@ class DDQDETRHead(DINOHead):
         all_layers_bbox_preds: Tensor,
         batch_gt_instances: InstanceList,
         batch_img_metas: List[dict],
-        batch_gt_instances_ignore: OptInstanceList = None
+        batch_gt_instances_ignore: OptInstanceList = None,
     ) -> Dict[str, Tensor]:
         """Calculate the loss of distinct queries, that is, excluding denoising
         and dense queries. Only select the distinct queries in decoder for
@@ -378,9 +423,10 @@ class DDQDETRHead(DINOHead):
         Returns:
             dict[str, Tensor]: A dictionary of loss components.
         """
-        assert batch_gt_instances_ignore is None, \
-            f'{self.__class__.__name__} only supports ' \
+        assert batch_gt_instances_ignore is None, (
+            f'{self.__class__.__name__} only supports '
             'for batch_gt_instances_ignore setting to None.'
+        )
 
         losses_cls, losses_bbox, losses_iou = multi_apply(
             self._loss_for_distinct_queries_single,
@@ -388,7 +434,8 @@ class DDQDETRHead(DINOHead):
             all_layers_bbox_preds,
             [i for i in range(len(all_layers_bbox_preds))],
             batch_gt_instances=batch_gt_instances,
-            batch_img_metas=batch_img_metas)
+            batch_img_metas=batch_img_metas,
+        )
 
         loss_dict = dict()
         # loss from the last decoder layer
@@ -397,16 +444,18 @@ class DDQDETRHead(DINOHead):
         loss_dict['loss_iou'] = losses_iou[-1]
         # loss from other decoder layers
         num_dec_layer = 0
-        for loss_cls_i, loss_bbox_i, loss_iou_i in \
-                zip(losses_cls[:-1], losses_bbox[:-1], losses_iou[:-1]):
+        for loss_cls_i, loss_bbox_i, loss_iou_i in zip(
+            losses_cls[:-1], losses_bbox[:-1], losses_iou[:-1]
+        ):
             loss_dict[f'd{num_dec_layer}.loss_cls'] = loss_cls_i
             loss_dict[f'd{num_dec_layer}.loss_bbox'] = loss_bbox_i
             loss_dict[f'd{num_dec_layer}.loss_iou'] = loss_iou_i
             num_dec_layer += 1
         return loss_dict
 
-    def _loss_for_distinct_queries_single(self, cls_scores, bbox_preds, l_id,
-                                          batch_gt_instances, batch_img_metas):
+    def _loss_for_distinct_queries_single(
+        self, cls_scores, bbox_preds, l_id, batch_gt_instances, batch_img_metas
+    ):
         """Calculate the loss for outputs from a single decoder layer of
         distinct queries, that is, excluding denoising and dense queries. Only
         select the distinct queries in decoder for loss.
@@ -429,16 +478,16 @@ class DDQDETRHead(DINOHead):
             `loss_iou`.
         """
         num_imgs = cls_scores.size(0)
-        if 0 < l_id:
+        if l_id > 0:
             batch_mask = [
                 self.cache_dict['distinct_query_mask'][l_id - 1][
-                    img_id * self.cache_dict['num_heads']][0]
+                    img_id * self.cache_dict['num_heads']
+                ][0]
                 for img_id in range(num_imgs)
             ]
         else:
             batch_mask = [
-                torch.ones(len(cls_scores[i]),
-                           device=cls_scores.device).bool()
+                torch.ones(len(cls_scores[i]), device=cls_scores.device).bool()
                 for i in range(num_imgs)
             ]
         # only select the distinct queries in decoder for loss
@@ -450,10 +499,20 @@ class DDQDETRHead(DINOHead):
         ]
         cls_scores = torch.cat(cls_scores_list)
 
-        cls_reg_targets = self.get_targets(cls_scores_list, bbox_preds_list,
-                                           batch_gt_instances, batch_img_metas)
-        (labels_list, label_weights_list, bbox_targets_list, bbox_weights_list,
-         num_total_pos, num_total_neg) = cls_reg_targets
+        cls_reg_targets = self.get_targets(
+            cls_scores_list,
+            bbox_preds_list,
+            batch_gt_instances,
+            batch_img_metas,
+        )
+        (
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            bbox_weights_list,
+            num_total_pos,
+            num_total_neg,
+        ) = cls_reg_targets
         labels = torch.cat(labels_list, 0)
         label_weights = torch.cat(label_weights_list, 0)
         bbox_targets = torch.cat(bbox_targets_list, 0)
@@ -462,15 +521,18 @@ class DDQDETRHead(DINOHead):
         # classification loss
         cls_scores = cls_scores.reshape(-1, self.cls_out_channels)
         # construct weighted avg_factor to match with the official DETR repo
-        cls_avg_factor = num_total_pos * 1.0 + \
-            num_total_neg * self.bg_cls_weight
+        cls_avg_factor = (
+            num_total_pos * 1.0 + num_total_neg * self.bg_cls_weight
+        )
         if self.sync_cls_avg_factor:
             cls_avg_factor = reduce_mean(
-                cls_scores.new_tensor([cls_avg_factor]))
+                cls_scores.new_tensor([cls_avg_factor])
+            )
         cls_avg_factor = max(cls_avg_factor, 1)
 
         loss_cls = self.loss_cls(
-            cls_scores, labels, label_weights, avg_factor=cls_avg_factor)
+            cls_scores, labels, label_weights, avg_factor=cls_avg_factor
+        )
 
         # Compute the average number of gt boxes across all gpus, for
         # normalization purposes
@@ -480,10 +542,15 @@ class DDQDETRHead(DINOHead):
         # construct factors used for rescale bboxes
         factors = []
         for img_meta, bbox_pred in zip(batch_img_metas, bbox_preds_list):
-            img_h, img_w, = img_meta['img_shape']
-            factor = bbox_pred.new_tensor([img_w, img_h, img_w,
-                                           img_h]).unsqueeze(0).repeat(
-                                               bbox_pred.size(0), 1)
+            (
+                img_h,
+                img_w,
+            ) = img_meta['img_shape']
+            factor = (
+                bbox_pred.new_tensor([img_w, img_h, img_w, img_h])
+                .unsqueeze(0)
+                .repeat(bbox_pred.size(0), 1)
+            )
             factors.append(factor)
         factors = torch.cat(factors, 0)
 
@@ -497,18 +564,22 @@ class DDQDETRHead(DINOHead):
 
         # regression IoU loss, defaultly GIoU loss
         loss_iou = self.loss_iou(
-            bboxes, bboxes_gt, bbox_weights, avg_factor=num_total_pos)
+            bboxes, bboxes_gt, bbox_weights, avg_factor=num_total_pos
+        )
 
         # regression L1 loss
         loss_bbox = self.loss_bbox(
-            bbox_preds, bbox_targets, bbox_weights, avg_factor=num_total_pos)
+            bbox_preds, bbox_targets, bbox_weights, avg_factor=num_total_pos
+        )
         return loss_cls, loss_bbox, loss_iou
 
-    def predict_by_feat(self,
-                        layer_cls_scores: Tensor,
-                        layer_bbox_preds: Tensor,
-                        batch_img_metas: List[dict],
-                        rescale: bool = True) -> InstanceList:
+    def predict_by_feat(
+        self,
+        layer_cls_scores: Tensor,
+        layer_bbox_preds: Tensor,
+        batch_img_metas: List[dict],
+        rescale: bool = True,
+    ) -> InstanceList:
         """Transform a batch of output features extracted from the head into
         bbox results.
 
@@ -535,7 +606,8 @@ class DDQDETRHead(DINOHead):
 
         batch_mask = [
             self.cache_dict['distinct_query_mask'][-1][
-                img_id * self.cache_dict['num_heads']][0]
+                img_id * self.cache_dict['num_heads']
+            ][0]
             for img_id in range(num_imgs)
         ]
 
@@ -544,7 +616,8 @@ class DDQDETRHead(DINOHead):
             cls_score = cls_scores[img_id][batch_mask[img_id]]
             bbox_pred = bbox_preds[img_id][batch_mask[img_id]]
             img_meta = batch_img_metas[img_id]
-            results = self._predict_by_feat_single(cls_score, bbox_pred,
-                                                   img_meta, rescale)
+            results = self._predict_by_feat_single(
+                cls_score, bbox_pred, img_meta, rescale
+            )
             result_list.append(results)
         return result_list

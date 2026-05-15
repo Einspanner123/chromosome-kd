@@ -29,7 +29,8 @@ def calculate_straightness(trajectory):
     start_point = all_bboxes[0]
     end_point = all_bboxes[-1]
     displacement = torch.norm(
-        end_point - start_point, dim=-1)  # [num_proposals]
+        end_point - start_point, dim=-1
+    )  # [num_proposals]
 
     # 计算实际路径长度
     path_length = torch.zeros(num_proposals)
@@ -53,17 +54,20 @@ def analyze_straightness(config_path, checkpoint_path, img_path, out_dir):
 
     data_for_preprocessor = dict(
         inputs=[data['inputs'].to('cuda:0')],
-        data_samples=[data['data_samples']])
+        data_samples=[data['data_samples']],
+    )
 
     with torch.no_grad():
         preprocessed_data = model.data_preprocessor(
-            data_for_preprocessor, training=False)
+            data_for_preprocessor, training=False
+        )
         batch_inputs = preprocessed_data['inputs']
         data_samples = preprocessed_data['data_samples']
 
         # 获取轨迹
         results = model.predict(
-            batch_inputs, data_samples, return_trajectory=True)
+            batch_inputs, data_samples, return_trajectory=True
+        )
         trajectory = results[0].metainfo['sampling_trajectory']
 
     # 计算直线度
@@ -79,7 +83,8 @@ def analyze_straightness(config_path, checkpoint_path, img_path, out_dir):
         bins=50,
         alpha=0.75,
         color='blue',
-        edgecolor='black')
+        edgecolor='black',
+    )
     plt.title(f'Straightness Distribution ({model.bbox_head.diffusion_type})')
     plt.xlabel('Straightness Score (1.0 is perfectly straight)')
     plt.ylabel('Frequency')
@@ -98,7 +103,8 @@ if __name__ == '__main__':
     parser.add_argument('checkpoint', help='Checkpoint file path')
     parser.add_argument('img', help='Image file path')
     parser.add_argument(
-        '--out-dir', default='straightness_analysis', help='Output directory')
+        '--out-dir', default='straightness_analysis', help='Output directory'
+    )
     args = parser.parse_args()
 
     analyze_straightness(args.config, args.checkpoint, args.img, args.out_dir)

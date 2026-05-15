@@ -23,14 +23,16 @@ class FcModule(BaseModule):
             Defaults to dict(type='Kaiming', layer='Linear').
     """
 
-    def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 norm_cfg: dict = None,
-                 act_cfg: dict = dict(type='ReLU'),
-                 inplace: bool = True,
-                 init_cfg=dict(type='Kaiming', layer='Linear')):
-        super(FcModule, self).__init__(init_cfg)
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        norm_cfg: dict = None,
+        act_cfg: dict = dict(type='ReLU'),
+        inplace: bool = True,
+        init_cfg=dict(type='Kaiming', layer='Linear'),
+    ):
+        super().__init__(init_cfg)
         assert norm_cfg is None or isinstance(norm_cfg, dict)
         assert act_cfg is None or isinstance(act_cfg, dict)
         self.norm_cfg = norm_cfg
@@ -51,7 +53,11 @@ class FcModule(BaseModule):
             act_cfg_ = act_cfg.copy()
             # nn.Tanh has no 'inplace' argument
             if act_cfg_['type'] not in [
-                    'Tanh', 'PReLU', 'Sigmoid', 'HSigmoid', 'Swish'
+                'Tanh',
+                'PReLU',
+                'Sigmoid',
+                'HSigmoid',
+                'Swish',
             ]:
                 act_cfg_.setdefault('inplace', inplace)
             self.activate = build_activation_layer(act_cfg_)

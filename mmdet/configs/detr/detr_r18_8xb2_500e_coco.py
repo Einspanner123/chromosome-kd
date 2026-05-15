@@ -10,5 +10,9 @@ model.update(
         backbone=dict(
             depth=18,
             init_cfg=dict(
-                type=PretrainedInit, checkpoint='torchvision://resnet18')),
-        neck=dict(in_channels=[512])))
+                type=PretrainedInit, checkpoint='torchvision://resnet18'
+            ),
+        ),
+        neck=dict(in_channels=[512]),
+    )
+)

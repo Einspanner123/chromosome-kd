@@ -15,15 +15,17 @@ class PointRend(TwoStageDetector):
 
     """
 
-    def __init__(self,
-                 backbone: ConfigDict,
-                 rpn_head: ConfigDict,
-                 roi_head: ConfigDict,
-                 train_cfg: ConfigDict,
-                 test_cfg: ConfigDict,
-                 neck: OptConfigType = None,
-                 data_preprocessor: OptConfigType = None,
-                 init_cfg: OptMultiConfig = None) -> None:
+    def __init__(
+        self,
+        backbone: ConfigDict,
+        rpn_head: ConfigDict,
+        roi_head: ConfigDict,
+        train_cfg: ConfigDict,
+        test_cfg: ConfigDict,
+        neck: OptConfigType = None,
+        data_preprocessor: OptConfigType = None,
+        init_cfg: OptMultiConfig = None,
+    ) -> None:
         super().__init__(
             backbone=backbone,
             neck=neck,
@@ -32,4 +34,5 @@ class PointRend(TwoStageDetector):
             train_cfg=train_cfg,
             test_cfg=test_cfg,
             init_cfg=init_cfg,
-            data_preprocessor=data_preprocessor)
+            data_preprocessor=data_preprocessor,
+        )

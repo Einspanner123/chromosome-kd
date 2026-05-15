@@ -6,11 +6,11 @@ metainfo = {
         (220, 20, 60),
         (119, 11, 32),
         (0, 0, 142),
-    ]
+    ],
 }
 
 train_dataloader = dict(dataset=dict(metainfo=metainfo))
 val_dataloader = dict(dataset=dict(metainfo=metainfo))
 test_dataloader = dict(dataset=dict(metainfo=metainfo))
 
-load_from = 'https://download.openmmlab.com/mmdetection/v2.0/faster_rcnn/faster_rcnn_r50_caffe_fpn_mstrain_3x_coco/faster_rcnn_r50_caffe_fpn_mstrain_3x_coco_bbox_mAP-0.398_20200504_163323-30042637.pth'  # noqa
+load_from = 'https://download.openmmlab.com/mmdetection/v2.0/faster_rcnn/faster_rcnn_r50_caffe_fpn_mstrain_3x_coco/faster_rcnn_r50_caffe_fpn_mstrain_3x_coco_bbox_mAP-0.398_20200504_163323-30042637.pth'

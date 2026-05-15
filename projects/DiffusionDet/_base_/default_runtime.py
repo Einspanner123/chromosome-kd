@@ -6,7 +6,8 @@ default_hooks = dict(
     param_scheduler=dict(type='ParamSchedulerHook'),
     checkpoint=dict(type='CheckpointHook', interval=1),
     sampler_seed=dict(type='DistSamplerSeedHook'),
-    visualization=dict(type='DetVisualizationHook'))
+    visualization=dict(type='DetVisualizationHook'),
+)
 
 env_cfg = dict(
     cudnn_benchmark=False,
@@ -16,7 +17,8 @@ env_cfg = dict(
 
 vis_backends = [dict(type='LocalVisBackend')]
 visualizer = dict(
-    type='DetLocalVisualizer', vis_backends=vis_backends, name='visualizer')
+    type='DetLocalVisualizer', vis_backends=vis_backends, name='visualizer'
+)
 log_processor = dict(type='LogProcessor', window_size=50, by_epoch=True)
 
 log_level = 'INFO'

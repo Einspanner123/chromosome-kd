@@ -13,15 +13,17 @@ from mmdet.utils import InstanceList, OptConfigType, OptMultiConfig
 class BaseRoIHead(BaseModule, metaclass=ABCMeta):
     """Base class for RoIHeads."""
 
-    def __init__(self,
-                 bbox_roi_extractor: OptMultiConfig = None,
-                 bbox_head: OptMultiConfig = None,
-                 mask_roi_extractor: OptMultiConfig = None,
-                 mask_head: OptMultiConfig = None,
-                 shared_head: OptConfigType = None,
-                 train_cfg: OptConfigType = None,
-                 test_cfg: OptConfigType = None,
-                 init_cfg: OptMultiConfig = None) -> None:
+    def __init__(
+        self,
+        bbox_roi_extractor: OptMultiConfig = None,
+        bbox_head: OptMultiConfig = None,
+        mask_roi_extractor: OptMultiConfig = None,
+        mask_head: OptMultiConfig = None,
+        shared_head: OptConfigType = None,
+        train_cfg: OptConfigType = None,
+        test_cfg: OptConfigType = None,
+        init_cfg: OptMultiConfig = None,
+    ) -> None:
         super().__init__(init_cfg=init_cfg)
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
@@ -67,16 +69,22 @@ class BaseRoIHead(BaseModule, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def loss(self, x: Tuple[Tensor], rpn_results_list: InstanceList,
-             batch_data_samples: SampleList):
+    def loss(
+        self,
+        x: Tuple[Tensor],
+        rpn_results_list: InstanceList,
+        batch_data_samples: SampleList,
+    ):
         """Perform forward propagation and loss calculation of the roi head on
         the features of the upstream network."""
 
-    def predict(self,
-                x: Tuple[Tensor],
-                rpn_results_list: InstanceList,
-                batch_data_samples: SampleList,
-                rescale: bool = False) -> InstanceList:
+    def predict(
+        self,
+        x: Tuple[Tensor],
+        rpn_results_list: InstanceList,
+        batch_data_samples: SampleList,
+        rescale: bool = False,
+    ) -> InstanceList:
         """Perform forward propagation of the roi head and predict detection
         results on the features of the upstream network.
 
@@ -120,10 +128,12 @@ class BaseRoIHead(BaseModule, metaclass=ABCMeta):
             batch_img_metas,
             rpn_results_list,
             rcnn_test_cfg=self.test_cfg,
-            rescale=bbox_rescale)
+            rescale=bbox_rescale,
+        )
 
         if self.with_mask:
             results_list = self.predict_mask(
-                x, batch_img_metas, results_list, rescale=rescale)
+                x, batch_img_metas, results_list, rescale=rescale
+            )
 
         return results_list

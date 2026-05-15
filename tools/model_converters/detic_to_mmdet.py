@@ -18,33 +18,20 @@ convert_dict_fpn = {
 }
 
 convert_dict_rpn = {
-    'proposal_generator.centernet_head.bbox_tower.0':
-    'rpn_head.reg_convs.0.conv',
-    'proposal_generator.centernet_head.bbox_tower.1':
-    'rpn_head.reg_convs.0.gn',
-    'proposal_generator.centernet_head.bbox_tower.3':
-    'rpn_head.reg_convs.1.conv',
-    'proposal_generator.centernet_head.bbox_tower.4':
-    'rpn_head.reg_convs.1.gn',
-    'proposal_generator.centernet_head.bbox_tower.6':
-    'rpn_head.reg_convs.2.conv',
-    'proposal_generator.centernet_head.bbox_tower.7':
-    'rpn_head.reg_convs.2.gn',
-    'proposal_generator.centernet_head.bbox_tower.9':
-    'rpn_head.reg_convs.3.conv',
-    'proposal_generator.centernet_head.bbox_tower.10':
-    'rpn_head.reg_convs.3.gn',
+    'proposal_generator.centernet_head.bbox_tower.0': 'rpn_head.reg_convs.0.conv',
+    'proposal_generator.centernet_head.bbox_tower.1': 'rpn_head.reg_convs.0.gn',
+    'proposal_generator.centernet_head.bbox_tower.3': 'rpn_head.reg_convs.1.conv',
+    'proposal_generator.centernet_head.bbox_tower.4': 'rpn_head.reg_convs.1.gn',
+    'proposal_generator.centernet_head.bbox_tower.6': 'rpn_head.reg_convs.2.conv',
+    'proposal_generator.centernet_head.bbox_tower.7': 'rpn_head.reg_convs.2.gn',
+    'proposal_generator.centernet_head.bbox_tower.9': 'rpn_head.reg_convs.3.conv',
+    'proposal_generator.centernet_head.bbox_tower.10': 'rpn_head.reg_convs.3.gn',
     'proposal_generator.centernet_head.bbox_pred': 'rpn_head.conv_reg',
-    'proposal_generator.centernet_head.scales.0.scale':
-    'rpn_head.scales.0.scale',
-    'proposal_generator.centernet_head.scales.1.scale':
-    'rpn_head.scales.1.scale',
-    'proposal_generator.centernet_head.scales.2.scale':
-    'rpn_head.scales.2.scale',
-    'proposal_generator.centernet_head.scales.3.scale':
-    'rpn_head.scales.3.scale',
-    'proposal_generator.centernet_head.scales.4.scale':
-    'rpn_head.scales.4.scale',
+    'proposal_generator.centernet_head.scales.0.scale': 'rpn_head.scales.0.scale',
+    'proposal_generator.centernet_head.scales.1.scale': 'rpn_head.scales.1.scale',
+    'proposal_generator.centernet_head.scales.2.scale': 'rpn_head.scales.2.scale',
+    'proposal_generator.centernet_head.scales.3.scale': 'rpn_head.scales.3.scale',
+    'proposal_generator.centernet_head.scales.4.scale': 'rpn_head.scales.4.scale',
     'proposal_generator.centernet_head.agn_hm': 'rpn_head.conv_cls',
 }
 
@@ -55,28 +42,19 @@ convert_dict_roi = {
     'roi_heads.box_head.1.fc2': 'roi_head.bbox_head.1.shared_fcs.1',
     'roi_heads.box_head.2.fc1': 'roi_head.bbox_head.2.shared_fcs.0',
     'roi_heads.box_head.2.fc2': 'roi_head.bbox_head.2.shared_fcs.1',
-    'roi_heads.box_predictor.0.freq_weight':
-    'roi_head.bbox_head.0.freq_weight',
-    'roi_heads.box_predictor.0.cls_score.zs_weight':
-    'roi_head.bbox_head.0.fc_cls.zs_weight',
-    'roi_heads.box_predictor.0.cls_score.linear':
-    'roi_head.bbox_head.0.fc_cls.linear',
+    'roi_heads.box_predictor.0.freq_weight': 'roi_head.bbox_head.0.freq_weight',
+    'roi_heads.box_predictor.0.cls_score.zs_weight': 'roi_head.bbox_head.0.fc_cls.zs_weight',
+    'roi_heads.box_predictor.0.cls_score.linear': 'roi_head.bbox_head.0.fc_cls.linear',
     'roi_heads.box_predictor.0.bbox_pred.0': 'roi_head.bbox_head.0.fc_reg.0',
     'roi_heads.box_predictor.0.bbox_pred.2': 'roi_head.bbox_head.0.fc_reg.2',
-    'roi_heads.box_predictor.1.freq_weight':
-    'roi_head.bbox_head.1.freq_weight',
-    'roi_heads.box_predictor.1.cls_score.zs_weight':
-    'roi_head.bbox_head.1.fc_cls.zs_weight',
-    'roi_heads.box_predictor.1.cls_score.linear':
-    'roi_head.bbox_head.1.fc_cls.linear',
+    'roi_heads.box_predictor.1.freq_weight': 'roi_head.bbox_head.1.freq_weight',
+    'roi_heads.box_predictor.1.cls_score.zs_weight': 'roi_head.bbox_head.1.fc_cls.zs_weight',
+    'roi_heads.box_predictor.1.cls_score.linear': 'roi_head.bbox_head.1.fc_cls.linear',
     'roi_heads.box_predictor.1.bbox_pred.0': 'roi_head.bbox_head.1.fc_reg.0',
     'roi_heads.box_predictor.1.bbox_pred.2': 'roi_head.bbox_head.1.fc_reg.2',
-    'roi_heads.box_predictor.2.freq_weight':
-    'roi_head.bbox_head.2.freq_weight',
-    'roi_heads.box_predictor.2.cls_score.zs_weight':
-    'roi_head.bbox_head.2.fc_cls.zs_weight',
-    'roi_heads.box_predictor.2.cls_score.linear':
-    'roi_head.bbox_head.2.fc_cls.linear',
+    'roi_heads.box_predictor.2.freq_weight': 'roi_head.bbox_head.2.freq_weight',
+    'roi_heads.box_predictor.2.cls_score.zs_weight': 'roi_head.bbox_head.2.fc_cls.zs_weight',
+    'roi_heads.box_predictor.2.cls_score.linear': 'roi_head.bbox_head.2.fc_cls.linear',
     'roi_heads.box_predictor.2.bbox_pred.0': 'roi_head.bbox_head.2.fc_reg.0',
     'roi_heads.box_predictor.2.bbox_pred.2': 'roi_head.bbox_head.2.fc_reg.2',
     'roi_heads.mask_head.mask_fcn1': 'roi_head.mask_head.convs.0.conv',
@@ -111,8 +89,9 @@ def convert(ckpt):
             new_k = k.replace('backbone.bottom_up', 'backbone')
             # for Transformer backbone
             if 'patch_embed.proj' in new_k:
-                new_k = new_k.replace('patch_embed.proj',
-                                      'patch_embed.projection')
+                new_k = new_k.replace(
+                    'patch_embed.proj', 'patch_embed.projection'
+                )
             elif 'pos_drop' in new_k:
                 new_k = new_k.replace('pos_drop', 'drop_after_pos')
 
@@ -157,16 +136,19 @@ def convert(ckpt):
 def main():
     parser = argparse.ArgumentParser(
         description='Convert keys in pretrained eva '
-        'models to mmpretrain style.')
+        'models to mmpretrain style.'
+    )
     parser.add_argument(
         '--src',
         default='Detic_LbaseI_CLIP_SwinB_896b32_4x_ft4x_max-size.pth',
-        help='src model path or url')
+        help='src model path or url',
+    )
     # The dst path must be a full path of the new checkpoint.
     parser.add_argument(
         '--dst',
         default='detic_centernet2_swin-b_fpn_4x_lvis-base_in21k-lvis.pth',
-        help='save path')
+        help='save path',
+    )
     args = parser.parse_args()
 
     checkpoint = CheckpointLoader.load_checkpoint(args.src, map_location='cpu')
@@ -186,7 +168,7 @@ def main():
     torch.save(weight, args.dst)
 
     sha = subprocess.check_output(['sha256sum', args.dst]).decode()
-    final_file = args.dst.replace('.pth', '') + '-{}.pth'.format(sha[:8])
+    final_file = args.dst.replace('.pth', '') + f'-{sha[:8]}.pth'
     subprocess.Popen(['mv', args.dst, final_file])
     print(f'Done!!, save to {final_file}')
 

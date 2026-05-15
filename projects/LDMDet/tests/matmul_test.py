@@ -112,11 +112,11 @@ for func, name in methods:
 # 排序结果
 results.sort(key=lambda x: x[1])
 print('\n=== 性能排名 ===')
-for i, (name, time) in enumerate(results, 1):
-    print(f'{i}. {name}: {time:.4f} ms')
+for i, (name, elapsed) in enumerate(results, 1):
+    print(f'{i}. {name}: {elapsed:.4f} ms')
 
 print('\n=== 性能分析 ===')
 fastest = results[0][1]
-for name, time in results:
-    relative = time / fastest
+for name, elapsed in results:
+    relative = elapsed / fastest
     print(f'{name} 比最快的方法慢 {relative:.2f} 倍')

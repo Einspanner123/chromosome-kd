@@ -81,8 +81,9 @@ def plot_per_class_bars(file_path):
     # 添加提升标记 (在柱状图上方标注差值和相对百分比)
     for i in range(len(classes)):
         diff = rf_vals[i] - baseline_vals[i]
-        rel_diff = (diff /
-                    baseline_vals[i]) * 100 if baseline_vals[i] > 0 else 0
+        rel_diff = (
+            (diff / baseline_vals[i]) * 100 if baseline_vals[i] > 0 else 0
+        )
 
         # 标注绝对提升和相对提升
         plt.text(
@@ -113,5 +114,7 @@ def plot_per_class_bars(file_path):
 
 
 if __name__ == '__main__':
-    file_path = '/home/linkst/workplace/chromo/chromosome-kd/compare_class.XLSX'
+    file_path = (
+        '/home/linkst/workplace/chromo/chromosome-kd/compare_class.XLSX'
+    )
     plot_per_class_bars(file_path)

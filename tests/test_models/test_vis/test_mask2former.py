@@ -13,14 +13,15 @@ from mmdet.testing import demo_track_inputs, get_detector_cfg
 
 
 class TestMask2Former(TestCase):
-
     @classmethod
     def setUpClass(cls):
         init_default_scope('mmdet')
 
-    @parameterized.expand([
-        'mask2former_vis/mask2former_r50_8xb2-8e_youtubevis2021.py',
-    ])
+    @parameterized.expand(
+        [
+            'mask2former_vis/mask2former_r50_8xb2-8e_youtubevis2021.py',
+        ]
+    )
     def test_mask2former_init(self, cfg_file):
         model = get_detector_cfg(cfg_file)
 
@@ -28,13 +29,18 @@ class TestMask2Former(TestCase):
         assert model.backbone
         assert model.track_head
 
-    @parameterized.expand([
-        ('mask2former_vis/mask2former_r50_8xb2-8e_youtubevis2021.py',
-         ('cpu', 'cuda')),
-    ])
+    @parameterized.expand(
+        [
+            (
+                'mask2former_vis/mask2former_r50_8xb2-8e_youtubevis2021.py',
+                ('cpu', 'cuda'),
+            ),
+        ]
+    )
     def test_mask2former_forward_loss_mode(self, cfg_file, devices):
         message_hub = MessageHub.get_instance(
-            f'test_mask2former_forward_loss_mode-{time.time()}')
+            f'test_mask2former_forward_loss_mode-{time.time()}'
+        )
         message_hub.update_info('iter', 0)
         message_hub.update_info('epoch', 0)
         assert all([device in ['cpu', 'cuda'] for device in devices])
@@ -55,19 +61,25 @@ class TestMask2Former(TestCase):
                 key_frames_inds=[0],
                 image_shapes=(3, 128, 128),
                 num_classes=2,
-                with_mask=True)
+                with_mask=True,
+            )
             out_data = model.data_preprocessor(packed_inputs, True)
             inputs, data_samples = out_data['inputs'], out_data['data_samples']
             losses = model.forward(inputs, data_samples, mode='loss')
             assert isinstance(losses, dict)
 
-    @parameterized.expand([
-        ('mask2former_vis/mask2former_r50_8xb2-8e_youtubevis2021.py',
-         ('cpu', 'cuda')),
-    ])
+    @parameterized.expand(
+        [
+            (
+                'mask2former_vis/mask2former_r50_8xb2-8e_youtubevis2021.py',
+                ('cpu', 'cuda'),
+            ),
+        ]
+    )
     def test_mask2former_forward_predict_mode(self, cfg_file, devices):
         message_hub = MessageHub.get_instance(
-            f'test_mask2former_forward_predict_mode-{time.time()}')
+            f'test_mask2former_forward_predict_mode-{time.time()}'
+        )
         message_hub.update_info('iter', 0)
         message_hub.update_info('epoch', 0)
 
@@ -87,7 +99,8 @@ class TestMask2Former(TestCase):
                 num_frames=1,
                 image_shapes=(3, 128, 128),
                 num_classes=2,
-                with_mask=True)
+                with_mask=True,
+            )
             out_data = model.data_preprocessor(packed_inputs, False)
             # Test forward test
             model.eval()

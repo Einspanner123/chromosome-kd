@@ -10,10 +10,17 @@ from .detr_layers import DetrTransformerDecoder, DetrTransformerDecoderLayer
 class Mask2FormerTransformerEncoder(DeformableDetrTransformerEncoder):
     """Encoder in PixelDecoder of Mask2Former."""
 
-    def forward(self, query: Tensor, query_pos: Tensor,
-                key_padding_mask: Tensor, spatial_shapes: Tensor,
-                level_start_index: Tensor, valid_ratios: Tensor,
-                reference_points: Tensor, **kwargs) -> Tensor:
+    def forward(
+        self,
+        query: Tensor,
+        query_pos: Tensor,
+        key_padding_mask: Tensor,
+        spatial_shapes: Tensor,
+        level_start_index: Tensor,
+        valid_ratios: Tensor,
+        reference_points: Tensor,
+        **kwargs,
+    ) -> Tensor:
         """Forward function of Transformer encoder.
 
         Args:
@@ -49,7 +56,8 @@ class Mask2FormerTransformerEncoder(DeformableDetrTransformerEncoder):
                 level_start_index=level_start_index,
                 valid_ratios=valid_ratios,
                 reference_points=reference_points,
-                **kwargs)
+                **kwargs,
+            )
         return query
 
 
@@ -58,28 +66,33 @@ class Mask2FormerTransformerDecoder(DetrTransformerDecoder):
 
     def _init_layers(self) -> None:
         """Initialize decoder layers."""
-        self.layers = ModuleList([
-            Mask2FormerTransformerDecoderLayer(**self.layer_cfg)
-            for _ in range(self.num_layers)
-        ])
+        self.layers = ModuleList(
+            [
+                Mask2FormerTransformerDecoderLayer(**self.layer_cfg)
+                for _ in range(self.num_layers)
+            ]
+        )
         self.embed_dims = self.layers[0].embed_dims
-        self.post_norm = build_norm_layer(self.post_norm_cfg,
-                                          self.embed_dims)[1]
+        self.post_norm = build_norm_layer(self.post_norm_cfg, self.embed_dims)[
+            1
+        ]
 
 
 class Mask2FormerTransformerDecoderLayer(DetrTransformerDecoderLayer):
     """Implements decoder layer in Mask2Former transformer."""
 
-    def forward(self,
-                query: Tensor,
-                key: Tensor = None,
-                value: Tensor = None,
-                query_pos: Tensor = None,
-                key_pos: Tensor = None,
-                self_attn_mask: Tensor = None,
-                cross_attn_mask: Tensor = None,
-                key_padding_mask: Tensor = None,
-                **kwargs) -> Tensor:
+    def forward(
+        self,
+        query: Tensor,
+        key: Tensor = None,
+        value: Tensor = None,
+        query_pos: Tensor = None,
+        key_pos: Tensor = None,
+        self_attn_mask: Tensor = None,
+        cross_attn_mask: Tensor = None,
+        key_padding_mask: Tensor = None,
+        **kwargs,
+    ) -> Tensor:
         """
         Args:
             query (Tensor): The input query, has shape (bs, num_queries, dim).
@@ -118,7 +131,8 @@ class Mask2FormerTransformerDecoderLayer(DetrTransformerDecoderLayer):
             key_pos=key_pos,
             attn_mask=cross_attn_mask,
             key_padding_mask=key_padding_mask,
-            **kwargs)
+            **kwargs,
+        )
         query = self.norms[0](query)
         query = self.self_attn(
             query=query,
@@ -127,7 +141,8 @@ class Mask2FormerTransformerDecoderLayer(DetrTransformerDecoderLayer):
             query_pos=query_pos,
             key_pos=query_pos,
             attn_mask=self_attn_mask,
-            **kwargs)
+            **kwargs,
+        )
         query = self.norms[1](query)
         query = self.ffn(query)
         query = self.norms[2](query)

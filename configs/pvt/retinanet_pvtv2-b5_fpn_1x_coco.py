@@ -4,13 +4,19 @@ model = dict(
         embed_dims=64,
         num_layers=[3, 6, 40, 3],
         mlp_ratios=(4, 4, 4, 4),
-        init_cfg=dict(checkpoint='https://github.com/whai362/PVT/'
-                      'releases/download/v2/pvt_v2_b5.pth')),
-    neck=dict(in_channels=[64, 128, 320, 512]))
+        init_cfg=dict(
+            checkpoint='https://github.com/whai362/PVT/'
+            'releases/download/v2/pvt_v2_b5.pth'
+        ),
+    ),
+    neck=dict(in_channels=[64, 128, 320, 512]),
+)
 # optimizer
 optim_wrapper = dict(
     optimizer=dict(
-        _delete_=True, type='AdamW', lr=0.0001 / 1.4, weight_decay=0.0001))
+        _delete_=True, type='AdamW', lr=0.0001 / 1.4, weight_decay=0.0001
+    )
+)
 
 # dataset settings
 train_dataloader = dict(batch_size=1, num_workers=1)

@@ -46,12 +46,14 @@ class HorizontalBoxes(BaseBoxes):
 
     box_dim: int = 4
 
-    def __init__(self,
-                 data: Union[Tensor, np.ndarray],
-                 dtype: torch.dtype = None,
-                 device: DeviceType = None,
-                 clone: bool = True,
-                 in_mode: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        data: Union[Tensor, np.ndarray],
+        dtype: torch.dtype = None,
+        device: DeviceType = None,
+        clone: bool = True,
+        in_mode: Optional[str] = None,
+    ) -> None:
         super().__init__(data=data, dtype=dtype, device=device, clone=clone)
         if isinstance(in_mode, str):
             if in_mode not in ('xyxy', 'cxcywh'):
@@ -101,7 +103,8 @@ class HorizontalBoxes(BaseBoxes):
         """Return a tensor representing the areas of boxes."""
         boxes = self.tensor
         return (boxes[..., 2] - boxes[..., 0]) * (
-            boxes[..., 3] - boxes[..., 1])
+            boxes[..., 3] - boxes[..., 1]
+        )
 
     @property
     def widths(self) -> Tensor:
@@ -115,9 +118,9 @@ class HorizontalBoxes(BaseBoxes):
         boxes = self.tensor
         return boxes[..., 3] - boxes[..., 1]
 
-    def flip_(self,
-              img_shape: Tuple[int, int],
-              direction: str = 'horizontal') -> None:
+    def flip_(
+        self, img_shape: Tuple[int, int], direction: str = 'horizontal'
+    ) -> None:
         """Flip boxes horizontally or vertically in-place.
 
         Args:
@@ -171,11 +174,13 @@ class HorizontalBoxes(BaseBoxes):
         """
         boxes = self.tensor
         rotation_matrix = boxes.new_tensor(
-            cv2.getRotationMatrix2D(center, -angle, 1))
+            cv2.getRotationMatrix2D(center, -angle, 1)
+        )
 
         corners = self.hbox2corner(boxes)
         corners = torch.cat(
-            [corners, corners.new_ones(*corners.shape[:-1], 1)], dim=-1)
+            [corners, corners.new_ones(*corners.shape[:-1], 1)], dim=-1
+        )
         corners_T = torch.transpose(corners, -1, -2)
         corners_T = torch.matmul(rotation_matrix, corners_T)
         corners = torch.transpose(corners_T, -1, -2)
@@ -193,7 +198,8 @@ class HorizontalBoxes(BaseBoxes):
             homography_matrix = boxes.new_tensor(homography_matrix)
         corners = self.hbox2corner(boxes)
         corners = torch.cat(
-            [corners, corners.new_ones(*corners.shape[:-1], 1)], dim=-1)
+            [corners, corners.new_ones(*corners.shape[:-1], 1)], dim=-1
+        )
         corners_T = torch.transpose(corners, -1, -2)
         corners_T = torch.matmul(homography_matrix, corners_T)
         corners = torch.transpose(corners_T, -1, -2)
@@ -274,10 +280,12 @@ class HorizontalBoxes(BaseBoxes):
         xy2 = ctrs + 0.5 * wh
         self.tensor = torch.cat([xy1, xy2], dim=-1)
 
-    def is_inside(self,
-                  img_shape: Tuple[int, int],
-                  all_inside: bool = False,
-                  allowed_border: int = 0) -> BoolTensor:
+    def is_inside(
+        self,
+        img_shape: Tuple[int, int],
+        all_inside: bool = False,
+        allowed_border: int = 0,
+    ) -> BoolTensor:
         """Find boxes inside the image.
 
         Args:
@@ -295,19 +303,23 @@ class HorizontalBoxes(BaseBoxes):
         img_h, img_w = img_shape
         boxes = self.tensor
         if all_inside:
-            return (boxes[:, 0] >= -allowed_border) & \
-                (boxes[:, 1] >= -allowed_border) & \
-                (boxes[:, 2] < img_w + allowed_border) & \
-                (boxes[:, 3] < img_h + allowed_border)
+            return (
+                (boxes[:, 0] >= -allowed_border)
+                & (boxes[:, 1] >= -allowed_border)
+                & (boxes[:, 2] < img_w + allowed_border)
+                & (boxes[:, 3] < img_h + allowed_border)
+            )
         else:
-            return (boxes[..., 0] < img_w + allowed_border) & \
-                (boxes[..., 1] < img_h + allowed_border) & \
-                (boxes[..., 2] > -allowed_border) & \
-                (boxes[..., 3] > -allowed_border)
+            return (
+                (boxes[..., 0] < img_w + allowed_border)
+                & (boxes[..., 1] < img_h + allowed_border)
+                & (boxes[..., 2] > -allowed_border)
+                & (boxes[..., 3] > -allowed_border)
+            )
 
-    def find_inside_points(self,
-                           points: Tensor,
-                           is_aligned: bool = False) -> BoolTensor:
+    def find_inside_points(
+        self, points: Tensor, is_aligned: bool = False
+    ) -> BoolTensor:
         """Find inside box points. Boxes dimension must be 2.
 
         Args:
@@ -332,8 +344,12 @@ class HorizontalBoxes(BaseBoxes):
             assert boxes.size(0) == points.size(0)
 
         x_min, y_min, x_max, y_max = boxes.unbind(dim=-1)
-        return (points[..., 0] >= x_min) & (points[..., 0] <= x_max) & \
-            (points[..., 1] >= y_min) & (points[..., 1] <= y_max)
+        return (
+            (points[..., 0] >= x_min)
+            & (points[..., 0] <= x_max)
+            & (points[..., 1] >= y_min)
+            & (points[..., 1] <= y_max)
+        )
 
     def create_masks(self, img_shape: Tuple[int, int]) -> BitmapMasks:
         """
@@ -350,17 +366,19 @@ class HorizontalBoxes(BaseBoxes):
         xmax, ymax = boxes[:, 2:3], boxes[:, 3:4]
         gt_masks = np.zeros((len(boxes), img_h, img_w), dtype=np.uint8)
         for i in range(len(boxes)):
-            gt_masks[i,
-                     int(ymin[i]):int(ymax[i]),
-                     int(xmin[i]):int(xmax[i])] = 1
+            gt_masks[
+                i, int(ymin[i]) : int(ymax[i]), int(xmin[i]) : int(xmax[i])
+            ] = 1
         return BitmapMasks(gt_masks, img_h, img_w)
 
     @staticmethod
-    def overlaps(boxes1: BaseBoxes,
-                 boxes2: BaseBoxes,
-                 mode: str = 'iou',
-                 is_aligned: bool = False,
-                 eps: float = 1e-6) -> Tensor:
+    def overlaps(
+        boxes1: BaseBoxes,
+        boxes2: BaseBoxes,
+        mode: str = 'iou',
+        is_aligned: bool = False,
+        eps: float = 1e-6,
+    ) -> Tensor:
         """Calculate overlap between two set of boxes with their types
         converted to ``HorizontalBoxes``.
 
@@ -386,7 +404,8 @@ class HorizontalBoxes(BaseBoxes):
             boxes2.tensor,
             mode=mode,
             is_aligned=is_aligned,
-            eps=eps)
+            eps=eps,
+        )
 
     @staticmethod
     def from_instance_masks(masks: MaskType) -> 'HorizontalBoxes':
@@ -411,13 +430,15 @@ class HorizontalBoxes(BaseBoxes):
                     # use +1 for x_max and y_max so that the right and bottom
                     # boundary of instance masks are fully included by the box
                     boxes[idx, :] = np.array(
-                        [x[0], y[0], x[-1] + 1, y[-1] + 1], dtype=np.float32)
+                        [x[0], y[0], x[-1] + 1, y[-1] + 1], dtype=np.float32
+                    )
         elif isinstance(masks, PolygonMasks):
             for idx, poly_per_obj in enumerate(masks.masks):
                 # simply use a number that is big enough for comparison with
                 # coordinates
-                xy_min = np.array([masks.width * 2, masks.height * 2],
-                                  dtype=np.float32)
+                xy_min = np.array(
+                    [masks.width * 2, masks.height * 2], dtype=np.float32
+                )
                 xy_max = np.zeros(2, dtype=np.float32)
                 for p in poly_per_obj:
                     xy = np.array(p).reshape(-1, 2).astype(np.float32)
@@ -428,5 +449,6 @@ class HorizontalBoxes(BaseBoxes):
         else:
             raise TypeError(
                 '`masks` must be `BitmapMasks`  or `PolygonMasks`, '
-                f'but got {type(masks)}.')
+                f'but got {type(masks)}.'
+            )
         return HorizontalBoxes(boxes)

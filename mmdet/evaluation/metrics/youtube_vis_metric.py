@@ -8,8 +8,12 @@ from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import mmengine
 import numpy as np
-from mmengine.dist import (all_gather_object, barrier, broadcast_object_list,
-                           is_main_process)
+from mmengine.dist import (
+    all_gather_object,
+    barrier,
+    broadcast_object_list,
+    is_main_process,
+)
 from mmengine.logging import MMLogger
 
 from mmdet.registry import METRICS
@@ -43,13 +47,15 @@ class YouTubeVISMetric(BaseVideoMetric):
 
     default_prefix: Optional[str] = 'youtube_vis'
 
-    def __init__(self,
-                 metric: Union[str, List[str]] = 'youtube_vis_ap',
-                 metric_items: Optional[Sequence[str]] = None,
-                 outfile_prefix: Optional[str] = None,
-                 collect_device: str = 'cpu',
-                 prefix: Optional[str] = None,
-                 format_only: bool = False) -> None:
+    def __init__(
+        self,
+        metric: Union[str, List[str]] = 'youtube_vis_ap',
+        metric_items: Optional[Sequence[str]] = None,
+        outfile_prefix: Optional[str] = None,
+        collect_device: str = 'cpu',
+        prefix: Optional[str] = None,
+        format_only: bool = False,
+    ) -> None:
         super().__init__(collect_device=collect_device, prefix=prefix)
         # vis evaluation metrics
         self.metrics = metric if isinstance(metric, list) else [metric]
@@ -58,7 +64,8 @@ class YouTubeVISMetric(BaseVideoMetric):
         for metric in self.metrics:
             if metric not in allowed_metrics:
                 raise KeyError(
-                    f"metric should be 'youtube_vis_ap', but got {metric}.")
+                    f"metric should be 'youtube_vis_ap', but got {metric}."
+                )
 
         self.metric_items = metric_items
         self.outfile_prefix = outfile_prefix
@@ -81,10 +88,10 @@ class YouTubeVISMetric(BaseVideoMetric):
             result['labels'] = pred['labels'].cpu().numpy()
             result['instances_id'] = pred['instances_id'].cpu().numpy()
             # encode mask to RLE
-            assert 'masks' in pred, \
-                'masks must exist in YouTube-VIS metric'
+            assert 'masks' in pred, 'masks must exist in YouTube-VIS metric'
             result['masks'] = encode_mask_results(
-                pred['masks'].detach().cpu().numpy())
+                pred['masks'].detach().cpu().numpy()
+            )
 
             # parse gt
             gt = dict()
@@ -154,23 +161,30 @@ class YouTubeVISMetric(BaseVideoMetric):
             'AR@100': 8,
             'AR_s@100': 9,
             'AR_m@100': 10,
-            'AR_l@100': 11
+            'AR_l@100': 11,
         }
         metric_items = self.metric_items
         if metric_items is not None:
             for metric_item in metric_items:
                 if metric_item not in coco_metric_names:
                     raise KeyError(
-                        f'metric item "{metric_item}" is not supported')
+                        f'metric item "{metric_item}" is not supported'
+                    )
 
         if metric_items is None:
             metric_items = [
-                'mAP', 'mAP_50', 'mAP_75', 'mAP_s', 'mAP_m', 'mAP_l'
+                'mAP',
+                'mAP_50',
+                'mAP_75',
+                'mAP_s',
+                'mAP_m',
+                'mAP_l',
             ]
         for metric_item in metric_items:
             key = f'{metric}_{metric_item}'
             val = float(
-                f'{ytvisEval.stats[coco_metric_names[metric_item]]:.3f}')
+                f'{ytvisEval.stats[coco_metric_names[metric_item]]:.3f}'
+            )
             eval_results[key] = val
 
         return eval_results
@@ -184,7 +198,8 @@ class YouTubeVISMetric(BaseVideoMetric):
         gt_results = dict(
             categories=self.categories,
             videos=self._vis_meta_info['videos'],
-            annotations=[])
+            annotations=[],
+        )
         for gt_result in gts:
             gt_results['annotations'].extend(gt_result)
         return gt_results
@@ -222,14 +237,19 @@ class YouTubeVISMetric(BaseVideoMetric):
         # collect data for each instances in a video.
         collect_data = dict()
         for frame_id, (masks, scores, labels, ids) in enumerate(
-                zip(preds['masks'], preds['scores'], preds['labels'],
-                    preds['instances_id'])):
-
+            zip(
+                preds['masks'],
+                preds['scores'],
+                preds['labels'],
+                preds['instances_id'],
+            )
+        ):
             assert len(masks) == len(labels)
             for j, id in enumerate(ids):
                 if id not in collect_data:
                     collect_data[id] = dict(
-                        category_ids=[], scores=[], segmentations=dict())
+                        category_ids=[], scores=[], segmentations=dict()
+                    )
                 collect_data[id]['category_ids'].append(labels[j])
                 collect_data[id]['scores'].append(scores[j])
                 if isinstance(masks[j]['counts'], bytes):
@@ -242,13 +262,16 @@ class YouTubeVISMetric(BaseVideoMetric):
             output['video_id'] = video_id
             output['score'] = np.array(id_data['scores']).mean().item()
             # majority voting for sequence category
-            output['category_id'] = np.bincount(
-                np.array(id_data['category_ids'])).argmax().item() + 1
+            output['category_id'] = (
+                np.bincount(np.array(id_data['category_ids'])).argmax().item()
+                + 1
+            )
             output['segmentations'] = []
             for frame_id in range(inds[-1] - inds[-2]):
                 if frame_id in id_data['segmentations']:
                     output['segmentations'].append(
-                        id_data['segmentations'][frame_id])
+                        id_data['segmentations'][frame_id]
+                    )
                 else:
                     output['segmentations'].append(None)
             json_results.append(output)
@@ -282,14 +305,16 @@ class YouTubeVISMetric(BaseVideoMetric):
                 width=gt_dict['width'],
                 height=gt_dict['height'],
                 frame_id=frame_id,
-                file_name='')
+                file_name='',
+            )
             image_infos.append(image_info)
             if frame_id == 0:
                 video_info = dict(
                     id=video_id,
                     width=gt_dict['width'],
                     height=gt_dict['height'],
-                    file_name='')
+                    file_name='',
+                )
                 video_infos.append(video_info)
 
             for ann in gt_dict['anns']:
@@ -312,12 +337,14 @@ class YouTubeVISMetric(BaseVideoMetric):
                     instance_id=instance_id,
                     iscrowd=ann.get('ignore_flag', 0),
                     category_id=int(label) + 1,
-                    area=coco_bbox[2] * coco_bbox[3])
+                    area=coco_bbox[2] * coco_bbox[3],
+                )
                 if ann.get('mask', None):
                     mask = ann['mask']
                     # area = mask_util.area(mask)
                     if isinstance(mask, dict) and isinstance(
-                            mask['counts'], bytes):
+                        mask['counts'], bytes
+                    ):
                         mask['counts'] = mask['counts'].decode()
                     annotation['segmentation'] = mask
 
@@ -348,7 +375,8 @@ class YouTubeVISMetric(BaseVideoMetric):
                 video_id=ann_infos[0]['video_id'],
                 areas=area,
                 id=instance_id,
-                iscrowd=ann_infos[0]['iscrowd'])
+                iscrowd=ann_infos[0]['iscrowd'],
+            )
             vis_anns.append(instance)
         return vis_anns
 
@@ -370,8 +398,10 @@ class YouTubeVISMetric(BaseVideoMetric):
         # zip the json file in order to submit to the test server.
         zip_file_name = f'{outfile_prefix}.submission_file.zip'
         zf = zipfile.ZipFile(zip_file_name, 'w', zipfile.ZIP_DEFLATED)
-        logger.info(f"zip the 'results.json' into '{zip_file_name}', "
-                    'please submmit the zip file to the test server')
+        logger.info(
+            f"zip the 'results.json' into '{zip_file_name}', "
+            'please submmit the zip file to the test server'
+        )
         zf.write(f'{outfile_prefix}.json', 'results.json')
         zf.close()
 
@@ -393,7 +423,8 @@ class YouTubeVISMetric(BaseVideoMetric):
             warnings.warn(
                 f'{self.__class__.__name__} got empty `self.results`. Please '
                 'ensure that the processed results are properly added into '
-                '`self.results` in `process` method.')
+                '`self.results` in `process` method.'
+            )
 
         results = collect_tracking_results(self.results, self.collect_device)
 
@@ -410,8 +441,7 @@ class YouTubeVISMetric(BaseVideoMetric):
             # Add prefix to metric names
             if self.prefix:
                 _metrics = {
-                    '/'.join((self.prefix, k)): v
-                    for k, v in _metrics.items()
+                    '/'.join((self.prefix, k)): v for k, v in _metrics.items()
                 }
             metrics = [_metrics]
         else:

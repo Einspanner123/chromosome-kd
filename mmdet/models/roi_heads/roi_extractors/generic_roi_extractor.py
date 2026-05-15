@@ -27,11 +27,13 @@ class GenericRoIExtractor(BaseRoIExtractor):
             as :class:`BaseRoIExtractor`.
     """
 
-    def __init__(self,
-                 aggregation: str = 'sum',
-                 pre_cfg: OptConfigType = None,
-                 post_cfg: OptConfigType = None,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        aggregation: str = 'sum',
+        pre_cfg: OptConfigType = None,
+        post_cfg: OptConfigType = None,
+        **kwargs,
+    ) -> None:
         super().__init__(**kwargs)
 
         assert aggregation in ['sum', 'concat']
@@ -45,10 +47,12 @@ class GenericRoIExtractor(BaseRoIExtractor):
         if self.with_pre:
             self.pre_module = build_plugin_layer(pre_cfg, '_pre_module')[1]
 
-    def forward(self,
-                feats: Tuple[Tensor],
-                rois: Tensor,
-                roi_scale_factor: Optional[float] = None) -> Tensor:
+    def forward(
+        self,
+        feats: Tuple[Tensor],
+        rois: Tensor,
+        roi_scale_factor: Optional[float] = None,
+    ) -> Tensor:
         """Extractor ROI feats.
 
         Args:
@@ -64,7 +68,8 @@ class GenericRoIExtractor(BaseRoIExtractor):
         out_size = self.roi_layers[0].output_size
         num_levels = len(feats)
         roi_feats = feats[0].new_zeros(
-            rois.size(0), self.out_channels, *out_size)
+            rois.size(0), self.out_channels, *out_size
+        )
 
         # some times rois is an empty tensor
         if roi_feats.shape[0] == 0:

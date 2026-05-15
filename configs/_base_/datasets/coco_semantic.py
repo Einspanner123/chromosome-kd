@@ -23,10 +23,11 @@ train_pipeline = [
         type='LoadAnnotations',
         with_bbox=False,
         with_label=False,
-        with_seg=True),
+        with_seg=True,
+    ),
     dict(type='Resize', scale=(1333, 800), keep_ratio=True),
     dict(type='RandomFlip', prob=0.5),
-    dict(type='PackDetInputs')
+    dict(type='PackDetInputs'),
 ]
 
 test_pipeline = [
@@ -36,10 +37,12 @@ test_pipeline = [
         type='LoadAnnotations',
         with_bbox=False,
         with_label=False,
-        with_seg=True),
+        with_seg=True,
+    ),
     dict(
         type='PackDetInputs',
-        meta_keys=('img_path', 'ori_shape', 'img_shape', 'scale_factor'))
+        meta_keys=('img_path', 'ori_shape', 'img_shape', 'scale_factor'),
+    ),
 ]
 
 # For stuffthingmaps_semseg, please refer to
@@ -55,8 +58,11 @@ train_dataloader = dict(
         data_root=data_root,
         data_prefix=dict(
             img_path='train2017/',
-            seg_map_path='stuffthingmaps_semseg/train2017/'),
-        pipeline=train_pipeline))
+            seg_map_path='stuffthingmaps_semseg/train2017/',
+        ),
+        pipeline=train_pipeline,
+    ),
+)
 
 val_dataloader = dict(
     batch_size=1,
@@ -68,9 +74,11 @@ val_dataloader = dict(
         type=dataset_type,
         data_root=data_root,
         data_prefix=dict(
-            img_path='val2017/',
-            seg_map_path='stuffthingmaps_semseg/val2017/'),
-        pipeline=test_pipeline))
+            img_path='val2017/', seg_map_path='stuffthingmaps_semseg/val2017/'
+        ),
+        pipeline=test_pipeline,
+    ),
+)
 
 test_dataloader = val_dataloader
 

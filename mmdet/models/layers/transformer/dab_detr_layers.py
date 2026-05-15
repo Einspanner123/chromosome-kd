@@ -8,10 +8,18 @@ from mmcv.cnn.bricks.transformer import FFN
 from mmengine.model import ModuleList
 from torch import Tensor
 
-from .detr_layers import (DetrTransformerDecoder, DetrTransformerDecoderLayer,
-                          DetrTransformerEncoder, DetrTransformerEncoderLayer)
-from .utils import (MLP, ConditionalAttention, coordinate_to_encoding,
-                    inverse_sigmoid)
+from .detr_layers import (
+    DetrTransformerDecoder,
+    DetrTransformerDecoderLayer,
+    DetrTransformerEncoder,
+    DetrTransformerEncoderLayer,
+)
+from .utils import (
+    MLP,
+    ConditionalAttention,
+    coordinate_to_encoding,
+    inverse_sigmoid,
+)
 
 
 class DABDetrTransformerDecoderLayer(DetrTransformerDecoderLayer):
@@ -31,17 +39,19 @@ class DABDetrTransformerDecoderLayer(DetrTransformerDecoderLayer):
         self.norms = ModuleList(norms_list)
         self.keep_query_pos = self.cross_attn.keep_query_pos
 
-    def forward(self,
-                query: Tensor,
-                key: Tensor,
-                query_pos: Tensor,
-                key_pos: Tensor,
-                ref_sine_embed: Tensor = None,
-                self_attn_masks: Tensor = None,
-                cross_attn_masks: Tensor = None,
-                key_padding_mask: Tensor = None,
-                is_first: bool = False,
-                **kwargs) -> Tensor:
+    def forward(
+        self,
+        query: Tensor,
+        key: Tensor,
+        query_pos: Tensor,
+        key_pos: Tensor,
+        ref_sine_embed: Tensor = None,
+        self_attn_masks: Tensor = None,
+        cross_attn_masks: Tensor = None,
+        key_padding_mask: Tensor = None,
+        is_first: bool = False,
+        **kwargs,
+    ) -> Tensor:
         """
         Args:
             query (Tensor): The input query with shape [bs, num_queries,
@@ -78,7 +88,8 @@ class DABDetrTransformerDecoderLayer(DetrTransformerDecoderLayer):
             query_pos=query_pos,
             key_pos=query_pos,
             attn_mask=self_attn_masks,
-            **kwargs)
+            **kwargs,
+        )
         query = self.norms[0](query)
         query = self.cross_attn(
             query=query,
@@ -89,7 +100,8 @@ class DABDetrTransformerDecoderLayer(DetrTransformerDecoderLayer):
             attn_mask=cross_attn_masks,
             key_padding_mask=key_padding_mask,
             is_first=is_first,
-            **kwargs)
+            **kwargs,
+        )
         query = self.norms[1](query)
         query = self.ffn(query)
         query = self.norms[2](query)
@@ -110,12 +122,14 @@ class DABDetrTransformerDecoder(DetrTransformerDecoder):
             during cross conditional attention. Defaults to True.
     """
 
-    def __init__(self,
-                 *args,
-                 query_dim: int = 4,
-                 query_scale_type: str = 'cond_elewise',
-                 with_modulated_hw_attn: bool = True,
-                 **kwargs):
+    def __init__(
+        self,
+        *args,
+        query_dim: int = 4,
+        query_scale_type: str = 'cond_elewise',
+        with_modulated_hw_attn: bool = True,
+        **kwargs,
+    ):
 
         self.query_dim = query_dim
         self.query_scale_type = query_scale_type
@@ -125,16 +139,21 @@ class DABDetrTransformerDecoder(DetrTransformerDecoder):
 
     def _init_layers(self):
         """Initialize decoder layers and other layers."""
-        assert self.query_dim in [2, 4], \
+        assert self.query_dim in [2, 4], (
             f'{"dab-detr only supports anchor prior or reference point prior"}'
+        )
         assert self.query_scale_type in [
-            'cond_elewise', 'cond_scalar', 'fix_elewise'
+            'cond_elewise',
+            'cond_scalar',
+            'fix_elewise',
         ]
 
-        self.layers = ModuleList([
-            DABDetrTransformerDecoderLayer(**self.layer_cfg)
-            for _ in range(self.num_layers)
-        ])
+        self.layers = ModuleList(
+            [
+                DABDetrTransformerDecoderLayer(**self.layer_cfg)
+                for _ in range(self.num_layers)
+            ]
+        )
 
         embed_dims = self.layers[0].embed_dims
         self.embed_dims = embed_dims
@@ -147,11 +166,13 @@ class DABDetrTransformerDecoder(DetrTransformerDecoder):
         elif self.query_scale_type == 'fix_elewise':
             self.query_scale = nn.Embedding(self.num_layers, embed_dims)
         else:
-            raise NotImplementedError('Unknown query_scale_type: {}'.format(
-                self.query_scale_type))
+            raise NotImplementedError(
+                f'Unknown query_scale_type: {self.query_scale_type}'
+            )
 
-        self.ref_point_head = MLP(self.query_dim // 2 * embed_dims, embed_dims,
-                                  embed_dims, 2)
+        self.ref_point_head = MLP(
+            self.query_dim // 2 * embed_dims, embed_dims, embed_dims, 2
+        )
 
         if self.with_modulated_hw_attn and self.query_dim == 4:
             self.ref_anchor_head = MLP(embed_dims, embed_dims, 2, 2)
@@ -161,14 +182,16 @@ class DABDetrTransformerDecoder(DetrTransformerDecoder):
             for layer_id in range(self.num_layers - 1):
                 self.layers[layer_id + 1].cross_attn.qpos_proj = None
 
-    def forward(self,
-                query: Tensor,
-                key: Tensor,
-                query_pos: Tensor,
-                key_pos: Tensor,
-                reg_branches: nn.Module,
-                key_padding_mask: Tensor = None,
-                **kwargs) -> List[Tensor]:
+    def forward(
+        self,
+        query: Tensor,
+        key: Tensor,
+        query_pos: Tensor,
+        key_pos: Tensor,
+        reg_branches: nn.Module,
+        key_padding_mask: Tensor = None,
+        **kwargs,
+    ) -> List[Tensor]:
         """Forward function of decoder.
 
         Args:
@@ -197,11 +220,13 @@ class DABDetrTransformerDecoder(DetrTransformerDecoder):
 
         intermediate = []
         for layer_id, layer in enumerate(self.layers):
-            obj_center = reference_points[..., :self.query_dim]
+            obj_center = reference_points[..., : self.query_dim]
             ref_sine_embed = coordinate_to_encoding(
-                coord_tensor=obj_center, num_feats=self.embed_dims // 2)
+                coord_tensor=obj_center, num_feats=self.embed_dims // 2
+            )
             query_pos = self.ref_point_head(
-                ref_sine_embed)  # [bs, nq, 2c] -> [bs, nq, c]
+                ref_sine_embed
+            )  # [bs, nq, 2c] -> [bs, nq, c]
             # For the first decoder layer, do not apply transformation
             if self.query_scale_type != 'fix_elewise':
                 if layer_id == 0:
@@ -211,16 +236,19 @@ class DABDetrTransformerDecoder(DetrTransformerDecoder):
             else:
                 pos_transformation = self.query_scale.weight[layer_id]
             # apply transformation
-            ref_sine_embed = ref_sine_embed[
-                ..., :self.embed_dims] * pos_transformation
+            ref_sine_embed = (
+                ref_sine_embed[..., : self.embed_dims] * pos_transformation
+            )
             # modulated height and weight attention
             if self.with_modulated_hw_attn:
                 assert obj_center.size(-1) == 4
                 ref_hw = self.ref_anchor_head(output).sigmoid()
-                ref_sine_embed[..., self.embed_dims // 2:] *= \
-                    (ref_hw[..., 0] / obj_center[..., 2]).unsqueeze(-1)
-                ref_sine_embed[..., : self.embed_dims // 2] *= \
-                    (ref_hw[..., 1] / obj_center[..., 3]).unsqueeze(-1)
+                ref_sine_embed[..., self.embed_dims // 2 :] *= (
+                    ref_hw[..., 0] / obj_center[..., 2]
+                ).unsqueeze(-1)
+                ref_sine_embed[..., : self.embed_dims // 2] *= (
+                    ref_hw[..., 1] / obj_center[..., 3]
+                ).unsqueeze(-1)
 
             output = layer(
                 output,
@@ -230,13 +258,16 @@ class DABDetrTransformerDecoder(DetrTransformerDecoder):
                 key_pos=key_pos,
                 key_padding_mask=key_padding_mask,
                 is_first=(layer_id == 0),
-                **kwargs)
+                **kwargs,
+            )
             # iter update
             tmp_reg_preds = reg_branches(output)
-            tmp_reg_preds[..., :self.query_dim] += inverse_sigmoid(
-                reference_points)
+            tmp_reg_preds[..., : self.query_dim] += inverse_sigmoid(
+                reference_points
+            )
             new_reference_points = tmp_reg_preds[
-                ..., :self.query_dim].sigmoid()
+                ..., : self.query_dim
+            ].sigmoid()
             if layer_id != self.num_layers - 1:
                 intermediate_reference_points.append(new_reference_points)
             reference_points = new_reference_points.detach()
@@ -254,7 +285,7 @@ class DABDetrTransformerDecoder(DetrTransformerDecoder):
         else:
             return [
                 output.unsqueeze(0),
-                torch.stack(intermediate_reference_points)
+                torch.stack(intermediate_reference_points),
             ]
 
 
@@ -263,16 +294,23 @@ class DABDetrTransformerEncoder(DetrTransformerEncoder):
 
     def _init_layers(self):
         """Initialize encoder layers."""
-        self.layers = ModuleList([
-            DetrTransformerEncoderLayer(**self.layer_cfg)
-            for _ in range(self.num_layers)
-        ])
+        self.layers = ModuleList(
+            [
+                DetrTransformerEncoderLayer(**self.layer_cfg)
+                for _ in range(self.num_layers)
+            ]
+        )
         embed_dims = self.layers[0].embed_dims
         self.embed_dims = embed_dims
         self.query_scale = MLP(embed_dims, embed_dims, embed_dims, 2)
 
-    def forward(self, query: Tensor, query_pos: Tensor,
-                key_padding_mask: Tensor, **kwargs):
+    def forward(
+        self,
+        query: Tensor,
+        query_pos: Tensor,
+        key_padding_mask: Tensor,
+        **kwargs,
+    ):
         """Forward function of encoder.
 
         Args:
@@ -293,6 +331,7 @@ class DABDetrTransformerEncoder(DetrTransformerEncoder):
                 query,
                 query_pos=query_pos * pos_scales,
                 key_padding_mask=key_padding_mask,
-                **kwargs)
+                **kwargs,
+            )
 
         return query

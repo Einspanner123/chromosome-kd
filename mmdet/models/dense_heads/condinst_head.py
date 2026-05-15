@@ -13,11 +13,22 @@ from torch import Tensor
 
 from mmdet.registry import MODELS
 from mmdet.structures.bbox import cat_boxes
-from mmdet.utils import (ConfigType, InstanceList, MultiConfig, OptConfigType,
-                         OptInstanceList, reduce_mean)
+from mmdet.utils import (
+    ConfigType,
+    InstanceList,
+    MultiConfig,
+    OptConfigType,
+    OptInstanceList,
+    reduce_mean,
+)
 from ..task_modules.prior_generators import MlvlPointGenerator
-from ..utils import (aligned_bilinear, filter_scores_and_topk, multi_apply,
-                     relative_coordinate_maps, select_single_mlvl)
+from ..utils import (
+    aligned_bilinear,
+    filter_scores_and_topk,
+    multi_apply,
+    relative_coordinate_maps,
+    select_single_mlvl,
+)
 from ..utils.misc import empty_instances
 from .base_mask_head import BaseMaskHead
 from .fcos_head import FCOSHead
@@ -47,10 +58,12 @@ class CondInstBboxHead(FCOSHead):
         """Initialize layers of the head."""
         super()._init_layers()
         self.controller = nn.Conv2d(
-            self.feat_channels, self.num_params, 3, padding=1)
+            self.feat_channels, self.num_params, 3, padding=1
+        )
 
-    def forward_single(self, x: Tensor, scale: Scale,
-                       stride: int) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+    def forward_single(
+        self, x: Tensor, scale: Scale, stride: int
+    ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         """Forward features of a single scale level.
 
         Args:
@@ -65,8 +78,9 @@ class CondInstBboxHead(FCOSHead):
             tuple: scores for each class, bbox predictions, centerness
             predictions and param predictions of input feature maps.
         """
-        cls_score, bbox_pred, cls_feat, reg_feat = \
-            super(FCOSHead, self).forward_single(x)
+        cls_score, bbox_pred, cls_feat, reg_feat = super(
+            FCOSHead, self
+        ).forward_single(x)
         if self.centerness_on_reg:
             centerness = self.conv_centerness(reg_feat)
         else:
@@ -94,7 +108,7 @@ class CondInstBboxHead(FCOSHead):
         param_preds: List[Tensor],
         batch_gt_instances: InstanceList,
         batch_img_metas: List[dict],
-        batch_gt_instances_ignore: OptInstanceList = None
+        batch_gt_instances_ignore: OptInstanceList = None,
     ) -> Dict[str, Tensor]:
         """Calculate the loss based on the features extracted by the detection
         head.
@@ -130,11 +144,13 @@ class CondInstBboxHead(FCOSHead):
             featmap_sizes,
             dtype=bbox_preds[0].dtype,
             device=bbox_preds[0].device,
-            with_stride=True)
+            with_stride=True,
+        )
         all_level_points = [i[:, :2] for i in all_level_points_strides]
         all_level_strides = [i[:, 2] for i in all_level_points_strides]
-        labels, bbox_targets, pos_inds_list, pos_gt_inds_list = \
+        labels, bbox_targets, pos_inds_list, pos_gt_inds_list = (
             self.get_targets(all_level_points, batch_gt_instances)
+        )
 
         num_imgs = cls_scores[0].size(0)
         # flatten cls_scores, bbox_preds and centerness
@@ -157,17 +173,23 @@ class CondInstBboxHead(FCOSHead):
         flatten_bbox_targets = torch.cat(bbox_targets)
         # repeat points to align with bbox_preds
         flatten_points = torch.cat(
-            [points.repeat(num_imgs, 1) for points in all_level_points])
+            [points.repeat(num_imgs, 1) for points in all_level_points]
+        )
 
         # FG cat_id: [0, num_classes -1], BG cat_id: num_classes
         bg_class_ind = self.num_classes
-        pos_inds = ((flatten_labels >= 0)
-                    & (flatten_labels < bg_class_ind)).nonzero().reshape(-1)
+        pos_inds = (
+            ((flatten_labels >= 0) & (flatten_labels < bg_class_ind))
+            .nonzero()
+            .reshape(-1)
+        )
         num_pos = torch.tensor(
-            len(pos_inds), dtype=torch.float, device=bbox_preds[0].device)
+            len(pos_inds), dtype=torch.float, device=bbox_preds[0].device
+        )
         num_pos = max(reduce_mean(num_pos), 1.0)
         loss_cls = self.loss_cls(
-            flatten_cls_scores, flatten_labels, avg_factor=num_pos)
+            flatten_cls_scores, flatten_labels, avg_factor=num_pos
+        )
 
         pos_bbox_preds = flatten_bbox_preds[pos_inds]
         pos_centerness = flatten_centerness[pos_inds]
@@ -175,21 +197,26 @@ class CondInstBboxHead(FCOSHead):
         pos_centerness_targets = self.centerness_target(pos_bbox_targets)
         # centerness weighted iou loss
         centerness_denorm = max(
-            reduce_mean(pos_centerness_targets.sum().detach()), 1e-6)
+            reduce_mean(pos_centerness_targets.sum().detach()), 1e-6
+        )
 
         if len(pos_inds) > 0:
             pos_points = flatten_points[pos_inds]
             pos_decoded_bbox_preds = self.bbox_coder.decode(
-                pos_points, pos_bbox_preds)
+                pos_points, pos_bbox_preds
+            )
             pos_decoded_target_preds = self.bbox_coder.decode(
-                pos_points, pos_bbox_targets)
+                pos_points, pos_bbox_targets
+            )
             loss_bbox = self.loss_bbox(
                 pos_decoded_bbox_preds,
                 pos_decoded_target_preds,
                 weight=pos_centerness_targets,
-                avg_factor=centerness_denorm)
+                avg_factor=centerness_denorm,
+            )
             loss_centerness = self.loss_centerness(
-                pos_centerness, pos_centerness_targets, avg_factor=num_pos)
+                pos_centerness, pos_centerness_targets, avg_factor=num_pos
+            )
         else:
             loss_bbox = pos_bbox_preds.sum()
             loss_centerness = pos_centerness.sum()
@@ -205,7 +232,8 @@ class CondInstBboxHead(FCOSHead):
         return dict(
             loss_cls=loss_cls,
             loss_bbox=loss_bbox,
-            loss_centerness=loss_centerness)
+            loss_centerness=loss_centerness,
+        )
 
     def get_targets(
         self, points: List[Tensor], batch_gt_instances: InstanceList
@@ -233,8 +261,10 @@ class CondInstBboxHead(FCOSHead):
         num_levels = len(points)
         # expand regress ranges to align with points
         expanded_regress_ranges = [
-            points[i].new_tensor(self.regress_ranges[i])[None].expand_as(
-                points[i]) for i in range(num_levels)
+            points[i]
+            .new_tensor(self.regress_ranges[i])[None]
+            .expand_as(points[i])
+            for i in range(num_levels)
         ]
         # concat all levels points and regress ranges
         concat_regress_ranges = torch.cat(expanded_regress_ranges, dim=0)
@@ -244,13 +274,15 @@ class CondInstBboxHead(FCOSHead):
         num_points = [center.size(0) for center in points]
 
         # get labels and bbox_targets of each image
-        labels_list, bbox_targets_list, pos_inds_list, pos_gt_inds_list = \
+        labels_list, bbox_targets_list, pos_inds_list, pos_gt_inds_list = (
             multi_apply(
                 self._get_targets_single,
                 batch_gt_instances,
                 points=concat_points,
                 regress_ranges=concat_regress_ranges,
-                num_points_per_lvl=num_points)
+                num_points_per_lvl=num_points,
+            )
+        )
 
         # split to per img, per level
         labels_list = [labels.split(num_points, 0) for labels in labels_list]
@@ -264,18 +296,27 @@ class CondInstBboxHead(FCOSHead):
         concat_lvl_bbox_targets = []
         for i in range(num_levels):
             concat_lvl_labels.append(
-                torch.cat([labels[i] for labels in labels_list]))
+                torch.cat([labels[i] for labels in labels_list])
+            )
             bbox_targets = torch.cat(
-                [bbox_targets[i] for bbox_targets in bbox_targets_list])
+                [bbox_targets[i] for bbox_targets in bbox_targets_list]
+            )
             if self.norm_on_bbox:
                 bbox_targets = bbox_targets / self.strides[i]
             concat_lvl_bbox_targets.append(bbox_targets)
-        return (concat_lvl_labels, concat_lvl_bbox_targets, pos_inds_list,
-                pos_gt_inds_list)
+        return (
+            concat_lvl_labels,
+            concat_lvl_bbox_targets,
+            pos_inds_list,
+            pos_gt_inds_list,
+        )
 
     def _get_targets_single(
-        self, gt_instances: InstanceData, points: Tensor,
-        regress_ranges: Tensor, num_points_per_lvl: List[int]
+        self,
+        gt_instances: InstanceData,
+        points: Tensor,
+        regress_ranges: Tensor,
+        num_points_per_lvl: List[int],
     ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         """Compute regression and classification targets for a single image."""
         num_points = points.size(0)
@@ -285,18 +326,22 @@ class CondInstBboxHead(FCOSHead):
         gt_masks = gt_instances.get('masks', None)
 
         if num_gts == 0:
-            return gt_labels.new_full((num_points,), self.num_classes), \
-                   gt_bboxes.new_zeros((num_points, 4)), \
-                   gt_bboxes.new_zeros((0,), dtype=torch.int64), \
-                   gt_bboxes.new_zeros((0,), dtype=torch.int64)
+            return (
+                gt_labels.new_full((num_points,), self.num_classes),
+                gt_bboxes.new_zeros((num_points, 4)),
+                gt_bboxes.new_zeros((0,), dtype=torch.int64),
+                gt_bboxes.new_zeros((0,), dtype=torch.int64),
+            )
 
         areas = (gt_bboxes[:, 2] - gt_bboxes[:, 0]) * (
-            gt_bboxes[:, 3] - gt_bboxes[:, 1])
+            gt_bboxes[:, 3] - gt_bboxes[:, 1]
+        )
         # TODO: figure out why these two are different
         # areas = areas[None].expand(num_points, num_gts)
         areas = areas[None].repeat(num_points, 1)
         regress_ranges = regress_ranges[:, None, :].expand(
-            num_points, num_gts, 2)
+            num_points, num_gts, 2
+        )
         gt_bboxes = gt_bboxes[None].expand(num_points, num_gts, 4)
         xs, ys = points[:, 0], points[:, 1]
         xs = xs[:, None].expand(num_points, num_gts)
@@ -319,11 +364,14 @@ class CondInstBboxHead(FCOSHead):
             else:
                 h, w = gt_masks.height, gt_masks.width
                 masks = gt_masks.to_tensor(
-                    dtype=torch.bool, device=gt_bboxes.device)
+                    dtype=torch.bool, device=gt_bboxes.device
+                )
                 yys = torch.arange(
-                    0, h, dtype=torch.float32, device=masks.device)
+                    0, h, dtype=torch.float32, device=masks.device
+                )
                 xxs = torch.arange(
-                    0, w, dtype=torch.float32, device=masks.device)
+                    0, w, dtype=torch.float32, device=masks.device
+                )
                 # m00/m10/m01 represent the moments of a contour
                 # centroid is computed by m00/m10 and m00/m01
                 m00 = masks.sum(dim=-1).sum(dim=-1).clamp(min=1e-6)
@@ -348,21 +396,26 @@ class CondInstBboxHead(FCOSHead):
             y_mins = center_ys - stride
             x_maxs = center_xs + stride
             y_maxs = center_ys + stride
-            center_gts[..., 0] = torch.where(x_mins > gt_bboxes[..., 0],
-                                             x_mins, gt_bboxes[..., 0])
-            center_gts[..., 1] = torch.where(y_mins > gt_bboxes[..., 1],
-                                             y_mins, gt_bboxes[..., 1])
-            center_gts[..., 2] = torch.where(x_maxs > gt_bboxes[..., 2],
-                                             gt_bboxes[..., 2], x_maxs)
-            center_gts[..., 3] = torch.where(y_maxs > gt_bboxes[..., 3],
-                                             gt_bboxes[..., 3], y_maxs)
+            center_gts[..., 0] = torch.where(
+                x_mins > gt_bboxes[..., 0], x_mins, gt_bboxes[..., 0]
+            )
+            center_gts[..., 1] = torch.where(
+                y_mins > gt_bboxes[..., 1], y_mins, gt_bboxes[..., 1]
+            )
+            center_gts[..., 2] = torch.where(
+                x_maxs > gt_bboxes[..., 2], gt_bboxes[..., 2], x_maxs
+            )
+            center_gts[..., 3] = torch.where(
+                y_maxs > gt_bboxes[..., 3], gt_bboxes[..., 3], y_maxs
+            )
 
             cb_dist_left = xs - center_gts[..., 0]
             cb_dist_right = center_gts[..., 2] - xs
             cb_dist_top = ys - center_gts[..., 1]
             cb_dist_bottom = center_gts[..., 3] - ys
             center_bbox = torch.stack(
-                (cb_dist_left, cb_dist_top, cb_dist_right, cb_dist_bottom), -1)
+                (cb_dist_left, cb_dist_top, cb_dist_right, cb_dist_bottom), -1
+            )
             inside_gt_bbox_mask = center_bbox.min(-1)[0] > 0
         else:
             # condition1: inside a gt bbox
@@ -371,8 +424,8 @@ class CondInstBboxHead(FCOSHead):
         # condition2: limit the regression range for each location
         max_regress_distance = bbox_targets.max(-1)[0]
         inside_regress_range = (
-            (max_regress_distance >= regress_ranges[..., 0])
-            & (max_regress_distance <= regress_ranges[..., 1]))
+            max_regress_distance >= regress_ranges[..., 0]
+        ) & (max_regress_distance <= regress_ranges[..., 1])
 
         # if there are still more than one objects for a location,
         # we choose the one with minimal area
@@ -386,8 +439,9 @@ class CondInstBboxHead(FCOSHead):
 
         # return pos_inds & pos_gt_inds
         bg_class_ind = self.num_classes
-        pos_inds = ((labels >= 0)
-                    & (labels < bg_class_ind)).nonzero().reshape(-1)
+        pos_inds = (
+            ((labels >= 0) & (labels < bg_class_ind)).nonzero().reshape(-1)
+        )
         pos_gt_inds = min_area_inds[labels < self.num_classes]
         return labels, bbox_targets, pos_inds, pos_gt_inds
 
@@ -410,22 +464,28 @@ class CondInstBboxHead(FCOSHead):
         param_pred_list = []
         point_list = []
         stride_list = []
-        for cls_score_per_lvl, centerness_per_lvl, param_pred_per_lvl,\
-            point_per_lvl, stride_per_lvl in \
-            zip(self._raw_positive_infos['cls_scores'],
-                self._raw_positive_infos['centernesses'],
-                self._raw_positive_infos['param_preds'],
-                self._raw_positive_infos['all_level_points'],
-                self._raw_positive_infos['all_level_strides']):
-            cls_score_per_lvl = \
-                cls_score_per_lvl.permute(
-                    0, 2, 3, 1).reshape(num_imgs, -1, self.num_classes)
-            centerness_per_lvl = \
-                centerness_per_lvl.permute(
-                    0, 2, 3, 1).reshape(num_imgs, -1, 1)
-            param_pred_per_lvl = \
-                param_pred_per_lvl.permute(
-                    0, 2, 3, 1).reshape(num_imgs, -1, self.num_params)
+        for (
+            cls_score_per_lvl,
+            centerness_per_lvl,
+            param_pred_per_lvl,
+            point_per_lvl,
+            stride_per_lvl,
+        ) in zip(
+            self._raw_positive_infos['cls_scores'],
+            self._raw_positive_infos['centernesses'],
+            self._raw_positive_infos['param_preds'],
+            self._raw_positive_infos['all_level_points'],
+            self._raw_positive_infos['all_level_strides'],
+        ):
+            cls_score_per_lvl = cls_score_per_lvl.permute(0, 2, 3, 1).reshape(
+                num_imgs, -1, self.num_classes
+            )
+            centerness_per_lvl = centerness_per_lvl.permute(
+                0, 2, 3, 1
+            ).reshape(num_imgs, -1, 1)
+            param_pred_per_lvl = param_pred_per_lvl.permute(
+                0, 2, 3, 1
+            ).reshape(num_imgs, -1, self.num_params)
             point_per_lvl = point_per_lvl.unsqueeze(0).repeat(num_imgs, 1, 1)
             stride_per_lvl = stride_per_lvl.unsqueeze(0).repeat(num_imgs, 1)
 
@@ -441,8 +501,9 @@ class CondInstBboxHead(FCOSHead):
         all_strides = torch.cat(stride_list, dim=1)
 
         positive_infos = []
-        for i, (pos_gt_inds,
-                pos_inds) in enumerate(zip(pos_gt_inds_list, pos_inds_list)):
+        for i, (pos_gt_inds, pos_inds) in enumerate(
+            zip(pos_gt_inds_list, pos_inds_list)
+        ):
             pos_info = InstanceData()
             pos_info.points = all_points[i][pos_inds]
             pos_info.strides = all_strides[i][pos_inds]
@@ -454,15 +515,17 @@ class CondInstBboxHead(FCOSHead):
             positive_infos.append(pos_info)
         return positive_infos
 
-    def predict_by_feat(self,
-                        cls_scores: List[Tensor],
-                        bbox_preds: List[Tensor],
-                        score_factors: Optional[List[Tensor]] = None,
-                        param_preds: Optional[List[Tensor]] = None,
-                        batch_img_metas: Optional[List[dict]] = None,
-                        cfg: Optional[ConfigDict] = None,
-                        rescale: bool = False,
-                        with_nms: bool = True) -> InstanceList:
+    def predict_by_feat(
+        self,
+        cls_scores: List[Tensor],
+        bbox_preds: List[Tensor],
+        score_factors: Optional[List[Tensor]] = None,
+        param_preds: Optional[List[Tensor]] = None,
+        batch_img_metas: Optional[List[dict]] = None,
+        cfg: Optional[ConfigDict] = None,
+        rescale: bool = False,
+        with_nms: bool = True,
+    ) -> InstanceList:
         """Transform a batch of output features extracted from the head into
         bbox results.
 
@@ -521,7 +584,8 @@ class CondInstBboxHead(FCOSHead):
             featmap_sizes,
             dtype=bbox_preds[0].dtype,
             device=bbox_preds[0].device,
-            with_stride=True)
+            with_stride=True,
+        )
         all_level_points = [i[:, :2] for i in all_level_points_strides]
         all_level_strides = [i[:, 2] for i in all_level_points_strides]
 
@@ -530,16 +594,20 @@ class CondInstBboxHead(FCOSHead):
         for img_id in range(len(batch_img_metas)):
             img_meta = batch_img_metas[img_id]
             cls_score_list = select_single_mlvl(
-                cls_scores, img_id, detach=True)
+                cls_scores, img_id, detach=True
+            )
             bbox_pred_list = select_single_mlvl(
-                bbox_preds, img_id, detach=True)
+                bbox_preds, img_id, detach=True
+            )
             if with_score_factors:
                 score_factor_list = select_single_mlvl(
-                    score_factors, img_id, detach=True)
+                    score_factors, img_id, detach=True
+                )
             else:
                 score_factor_list = [None for _ in range(num_levels)]
             param_pred_list = select_single_mlvl(
-                param_preds, img_id, detach=True)
+                param_preds, img_id, detach=True
+            )
 
             results = self._predict_by_feat_single(
                 cls_score_list=cls_score_list,
@@ -551,21 +619,24 @@ class CondInstBboxHead(FCOSHead):
                 img_meta=img_meta,
                 cfg=cfg,
                 rescale=rescale,
-                with_nms=with_nms)
+                with_nms=with_nms,
+            )
             result_list.append(results)
         return result_list
 
-    def _predict_by_feat_single(self,
-                                cls_score_list: List[Tensor],
-                                bbox_pred_list: List[Tensor],
-                                score_factor_list: List[Tensor],
-                                param_pred_list: List[Tensor],
-                                mlvl_points: List[Tensor],
-                                mlvl_strides: List[Tensor],
-                                img_meta: dict,
-                                cfg: ConfigDict,
-                                rescale: bool = False,
-                                with_nms: bool = True) -> InstanceData:
+    def _predict_by_feat_single(
+        self,
+        cls_score_list: List[Tensor],
+        bbox_pred_list: List[Tensor],
+        score_factor_list: List[Tensor],
+        param_pred_list: List[Tensor],
+        mlvl_points: List[Tensor],
+        mlvl_strides: List[Tensor],
+        img_meta: dict,
+        cfg: ConfigDict,
+        rescale: bool = False,
+        with_nms: bool = True,
+    ) -> InstanceData:
         """Transform a single image's features extracted from the head into
         bbox results.
 
@@ -630,21 +701,34 @@ class CondInstBboxHead(FCOSHead):
             mlvl_score_factors = []
         else:
             mlvl_score_factors = None
-        for level_idx, (cls_score, bbox_pred, score_factor,
-                        param_pred, points, strides) in \
-                enumerate(zip(cls_score_list, bbox_pred_list,
-                              score_factor_list, param_pred_list,
-                              mlvl_points, mlvl_strides)):
-
+        for level_idx, (
+            cls_score,
+            bbox_pred,
+            score_factor,
+            param_pred,
+            points,
+            strides,
+        ) in enumerate(
+            zip(
+                cls_score_list,
+                bbox_pred_list,
+                score_factor_list,
+                param_pred_list,
+                mlvl_points,
+                mlvl_strides,
+            )
+        ):
             assert cls_score.size()[-2:] == bbox_pred.size()[-2:]
 
             dim = self.bbox_coder.encode_size
             bbox_pred = bbox_pred.permute(1, 2, 0).reshape(-1, dim)
             if with_score_factors:
-                score_factor = score_factor.permute(1, 2,
-                                                    0).reshape(-1).sigmoid()
-            cls_score = cls_score.permute(1, 2,
-                                          0).reshape(-1, self.cls_out_channels)
+                score_factor = (
+                    score_factor.permute(1, 2, 0).reshape(-1).sigmoid()
+                )
+            cls_score = cls_score.permute(1, 2, 0).reshape(
+                -1, self.cls_out_channels
+            )
             if self.use_sigmoid_cls:
                 scores = cls_score.sigmoid()
             else:
@@ -653,8 +737,9 @@ class CondInstBboxHead(FCOSHead):
                 # BG cat_id: num_class
                 scores = cls_score.softmax(-1)[:, :-1]
 
-            param_pred = param_pred.permute(1, 2,
-                                            0).reshape(-1, self.num_params)
+            param_pred = param_pred.permute(1, 2, 0).reshape(
+                -1, self.num_params
+            )
 
             # After https://github.com/open-mmlab/mmdetection/pull/6268/,
             # this operation keeps fewer bboxes under the same `nms_pre`.
@@ -664,12 +749,16 @@ class CondInstBboxHead(FCOSHead):
             score_thr = cfg.get('score_thr', 0)
 
             results = filter_scores_and_topk(
-                scores, score_thr, nms_pre,
+                scores,
+                score_thr,
+                nms_pre,
                 dict(
                     bbox_pred=bbox_pred,
                     param_pred=param_pred,
                     points=points,
-                    strides=strides))
+                    strides=strides,
+                ),
+            )
             scores, labels, keep_idxs, filtered_results = results
 
             bbox_pred = filtered_results['bbox_pred']
@@ -709,7 +798,8 @@ class CondInstBboxHead(FCOSHead):
             cfg=cfg,
             rescale=rescale,
             with_nms=with_nms,
-            img_meta=img_meta)
+            img_meta=img_meta,
+        )
 
 
 class MaskFeatModule(BaseModule):
@@ -736,20 +826,22 @@ class MaskFeatModule(BaseModule):
         init_cfg (dict or list[dict], optional): Initialization config dict.
     """
 
-    def __init__(self,
-                 in_channels: int,
-                 feat_channels: int,
-                 start_level: int,
-                 end_level: int,
-                 out_channels: int,
-                 mask_stride: int = 4,
-                 num_stacked_convs: int = 4,
-                 conv_cfg: OptConfigType = None,
-                 norm_cfg: OptConfigType = None,
-                 init_cfg: MultiConfig = [
-                     dict(type='Normal', layer='Conv2d', std=0.01)
-                 ],
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        in_channels: int,
+        feat_channels: int,
+        start_level: int,
+        end_level: int,
+        out_channels: int,
+        mask_stride: int = 4,
+        num_stacked_convs: int = 4,
+        conv_cfg: OptConfigType = None,
+        norm_cfg: OptConfigType = None,
+        init_cfg: MultiConfig = [
+            dict(type='Normal', layer='Conv2d', std=0.01)
+        ],
+        **kwargs,
+    ) -> None:
         super().__init__(init_cfg=init_cfg)
         self.in_channels = in_channels
         self.feat_channels = feat_channels
@@ -778,7 +870,9 @@ class MaskFeatModule(BaseModule):
                     conv_cfg=self.conv_cfg,
                     norm_cfg=self.norm_cfg,
                     inplace=False,
-                    bias=False))
+                    bias=False,
+                ),
+            )
             self.convs_all_levels.append(convs_per_level)
 
         conv_branch = []
@@ -791,11 +885,14 @@ class MaskFeatModule(BaseModule):
                     padding=1,
                     conv_cfg=self.conv_cfg,
                     norm_cfg=self.norm_cfg,
-                    bias=False))
+                    bias=False,
+                )
+            )
         self.conv_branch = nn.Sequential(*conv_branch)
 
         self.conv_pred = nn.Conv2d(
-            self.feat_channels, self.out_channels, 1, stride=1)
+            self.feat_channels, self.out_channels, 1, stride=1
+        )
 
     def init_weights(self) -> None:
         """Initialize weights of the head."""
@@ -814,7 +911,7 @@ class MaskFeatModule(BaseModule):
         Returns:
             Tensor: The predicted mask feature map.
         """
-        inputs = x[self.start_level:self.end_level + 1]
+        inputs = x[self.start_level : self.end_level + 1]
         assert len(inputs) == (self.end_level - self.start_level + 1)
         feature_add_all_level = self.convs_all_levels[0](inputs[0])
         target_h, target_w = feature_add_all_level.size()[2:]
@@ -826,8 +923,7 @@ class MaskFeatModule(BaseModule):
             factor_w = target_w // w
             assert factor_h == factor_w
             feature_per_level = aligned_bilinear(x_p, factor_h)
-            feature_add_all_level = feature_add_all_level + \
-                feature_per_level
+            feature_add_all_level = feature_add_all_level + feature_per_level
 
         feature_add_all_level = self.conv_branch(feature_add_all_level)
         feature_pred = self.conv_pred(feature_add_all_level)
@@ -856,17 +952,19 @@ class CondInstMaskHead(BaseMaskHead):
             head.
     """
 
-    def __init__(self,
-                 mask_feature_head: ConfigType,
-                 num_layers: int = 3,
-                 feat_channels: int = 8,
-                 mask_out_stride: int = 4,
-                 size_of_interest: int = 8,
-                 max_masks_to_train: int = -1,
-                 topk_masks_per_img: int = -1,
-                 loss_mask: ConfigType = None,
-                 train_cfg: OptConfigType = None,
-                 test_cfg: OptConfigType = None) -> None:
+    def __init__(
+        self,
+        mask_feature_head: ConfigType,
+        num_layers: int = 3,
+        feat_channels: int = 8,
+        mask_out_stride: int = 4,
+        size_of_interest: int = 8,
+        max_masks_to_train: int = -1,
+        topk_masks_per_img: int = -1,
+        loss_mask: ConfigType = None,
+        train_cfg: OptConfigType = None,
+        test_cfg: OptConfigType = None,
+    ) -> None:
         super().__init__()
         self.mask_feature_head = MaskFeatModule(**mask_feature_head)
         self.mask_feat_stride = self.mask_feature_head.mask_stride
@@ -903,30 +1001,41 @@ class CondInstMaskHead(BaseMaskHead):
         self.num_params = sum(weight_nums) + sum(bias_nums)
 
     def parse_dynamic_params(
-            self, params: Tensor) -> Tuple[List[Tensor], List[Tensor]]:
+        self, params: Tensor
+    ) -> Tuple[List[Tensor], List[Tensor]]:
         """parse the dynamic params for dynamic conv."""
         num_insts = params.size(0)
         params_splits = list(
             torch.split_with_sizes(
-                params, self.weight_nums + self.bias_nums, dim=1))
-        weight_splits = params_splits[:self.num_layers]
-        bias_splits = params_splits[self.num_layers:]
+                params, self.weight_nums + self.bias_nums, dim=1
+            )
+        )
+        weight_splits = params_splits[: self.num_layers]
+        bias_splits = params_splits[self.num_layers :]
         for i in range(self.num_layers):
             if i < self.num_layers - 1:
                 weight_splits[i] = weight_splits[i].reshape(
-                    num_insts * self.in_channels, -1, 1, 1)
-                bias_splits[i] = bias_splits[i].reshape(num_insts *
-                                                        self.in_channels)
+                    num_insts * self.in_channels, -1, 1, 1
+                )
+                bias_splits[i] = bias_splits[i].reshape(
+                    num_insts * self.in_channels
+                )
             else:
                 # out_channels x in_channels x 1 x 1
                 weight_splits[i] = weight_splits[i].reshape(
-                    num_insts * 1, -1, 1, 1)
+                    num_insts * 1, -1, 1, 1
+                )
                 bias_splits[i] = bias_splits[i].reshape(num_insts)
 
         return weight_splits, bias_splits
 
-    def dynamic_conv_forward(self, features: Tensor, weights: List[Tensor],
-                             biases: List[Tensor], num_insts: int) -> Tensor:
+    def dynamic_conv_forward(
+        self,
+        features: Tensor,
+        weights: List[Tensor],
+        biases: List[Tensor],
+        num_insts: int,
+    ) -> Tensor:
         """dynamic forward, each layer follow a relu."""
         n_layers = len(weights)
         x = features
@@ -953,8 +1062,9 @@ class CondInstMaskHead(BaseMaskHead):
         mask_feats = self.mask_feature_head(x)
         return multi_apply(self.forward_single, mask_feats, positive_infos)
 
-    def forward_single(self, mask_feat: Tensor,
-                       positive_info: InstanceData) -> Tensor:
+    def forward_single(
+        self, mask_feat: Tensor, positive_info: InstanceData
+    ) -> Tensor:
         """Forward features of a each image."""
         pos_param_preds = positive_info.get('param_preds')
         pos_points = positive_info.get('points')
@@ -964,32 +1074,42 @@ class CondInstMaskHead(BaseMaskHead):
         mask_feat = mask_feat[None].repeat(num_inst, 1, 1, 1)
         _, _, H, W = mask_feat.size()
         if num_inst == 0:
-            return (pos_param_preds.new_zeros((0, 1, H, W)), )
+            return (pos_param_preds.new_zeros((0, 1, H, W)),)
 
         locations = self.prior_generator.single_level_grid_priors(
-            mask_feat.size()[2:], 0, device=mask_feat.device)
+            mask_feat.size()[2:], 0, device=mask_feat.device
+        )
 
-        rel_coords = relative_coordinate_maps(locations, pos_points,
-                                              pos_strides,
-                                              self.size_of_interest,
-                                              mask_feat.size()[2:])
+        rel_coords = relative_coordinate_maps(
+            locations,
+            pos_points,
+            pos_strides,
+            self.size_of_interest,
+            mask_feat.size()[2:],
+        )
         mask_head_inputs = torch.cat([rel_coords, mask_feat], dim=1)
         mask_head_inputs = mask_head_inputs.reshape(1, -1, H, W)
 
         weights, biases = self.parse_dynamic_params(pos_param_preds)
-        mask_preds = self.dynamic_conv_forward(mask_head_inputs, weights,
-                                               biases, num_inst)
+        mask_preds = self.dynamic_conv_forward(
+            mask_head_inputs, weights, biases, num_inst
+        )
         mask_preds = mask_preds.reshape(-1, H, W)
         mask_preds = aligned_bilinear(
             mask_preds.unsqueeze(0),
-            int(self.mask_feat_stride / self.mask_out_stride)).squeeze(0)
+            int(self.mask_feat_stride / self.mask_out_stride),
+        ).squeeze(0)
 
-        return (mask_preds, )
+        return (mask_preds,)
 
-    def loss_by_feat(self, mask_preds: List[Tensor],
-                     batch_gt_instances: InstanceList,
-                     batch_img_metas: List[dict], positive_infos: InstanceList,
-                     **kwargs) -> dict:
+    def loss_by_feat(
+        self,
+        mask_preds: List[Tensor],
+        batch_gt_instances: InstanceList,
+        batch_img_metas: List[dict],
+        positive_infos: InstanceList,
+        **kwargs,
+    ) -> dict:
         """Calculate the loss based on the features extracted by the mask head.
 
         Args:
@@ -1006,27 +1126,27 @@ class CondInstMaskHead(BaseMaskHead):
         Returns:
             dict[str, Tensor]: A dictionary of loss components.
         """
-        assert positive_infos is not None, \
+        assert positive_infos is not None, (
             'positive_infos should not be None in `CondInstMaskHead`'
+        )
         losses = dict()
 
-        loss_mask = 0.
+        loss_mask = 0.0
         num_imgs = len(mask_preds)
         total_pos = 0
 
         for idx in range(num_imgs):
-            (mask_pred, pos_mask_targets, num_pos) = \
-                self._get_targets_single(
-                mask_preds[idx], batch_gt_instances[idx],
-                positive_infos[idx])
+            (mask_pred, pos_mask_targets, num_pos) = self._get_targets_single(
+                mask_preds[idx], batch_gt_instances[idx], positive_infos[idx]
+            )
             # mask loss
             total_pos += num_pos
             if num_pos == 0 or pos_mask_targets is None:
                 loss = mask_pred.new_zeros(1).mean()
             else:
                 loss = self.loss_mask(
-                    mask_pred, pos_mask_targets,
-                    reduction_override='none').sum()
+                    mask_pred, pos_mask_targets, reduction_override='none'
+                ).sum()
             loss_mask += loss
 
         if total_pos == 0:
@@ -1035,9 +1155,12 @@ class CondInstMaskHead(BaseMaskHead):
         losses.update(loss_mask=loss_mask)
         return losses
 
-    def _get_targets_single(self, mask_preds: Tensor,
-                            gt_instances: InstanceData,
-                            positive_info: InstanceData):
+    def _get_targets_single(
+        self,
+        mask_preds: Tensor,
+        gt_instances: InstanceData,
+        positive_info: InstanceData,
+    ):
         """Compute targets for predictions of single image.
 
         Args:
@@ -1069,7 +1192,8 @@ class CondInstMaskHead(BaseMaskHead):
         gt_bboxes = gt_instances.bboxes
         device = gt_bboxes.device
         gt_masks = gt_instances.masks.to_tensor(
-            dtype=torch.bool, device=device).float()
+            dtype=torch.bool, device=device
+        ).float()
 
         # process with mask targets
         pos_assigned_gt_inds = positive_info.get('pos_assigned_gt_inds')
@@ -1082,31 +1206,40 @@ class CondInstMaskHead(BaseMaskHead):
         # Since we're producing (near) full image masks,
         # it'd take too much vram to backprop on every single mask.
         # Thus we select only a subset.
-        if (self.max_masks_to_train != -1) and \
-           (num_pos > self.max_masks_to_train):
+        if (self.max_masks_to_train != -1) and (
+            num_pos > self.max_masks_to_train
+        ):
             perm = torch.randperm(num_pos)
-            select = perm[:self.max_masks_to_train]
+            select = perm[: self.max_masks_to_train]
             mask_preds = mask_preds[select]
             pos_assigned_gt_inds = pos_assigned_gt_inds[select]
             num_pos = self.max_masks_to_train
         elif self.topk_masks_per_img != -1:
             unique_gt_inds = pos_assigned_gt_inds.unique()
             num_inst_per_gt = max(
-                int(self.topk_masks_per_img / len(unique_gt_inds)), 1)
+                int(self.topk_masks_per_img / len(unique_gt_inds)), 1
+            )
 
             keep_mask_preds = []
             keep_pos_assigned_gt_inds = []
             for gt_ind in unique_gt_inds:
-                per_inst_pos_inds = (pos_assigned_gt_inds == gt_ind)
+                per_inst_pos_inds = pos_assigned_gt_inds == gt_ind
                 mask_preds_per_inst = mask_preds[per_inst_pos_inds]
                 gt_inds_per_inst = pos_assigned_gt_inds[per_inst_pos_inds]
                 if sum(per_inst_pos_inds) > num_inst_per_gt:
-                    per_inst_scores = scores[per_inst_pos_inds].sigmoid().max(
-                        dim=1)[0]
-                    per_inst_centerness = centernesses[
-                        per_inst_pos_inds].sigmoid().reshape(-1, )
+                    per_inst_scores = (
+                        scores[per_inst_pos_inds].sigmoid().max(dim=1)[0]
+                    )
+                    per_inst_centerness = (
+                        centernesses[per_inst_pos_inds]
+                        .sigmoid()
+                        .reshape(
+                            -1,
+                        )
+                    )
                     select = (per_inst_scores * per_inst_centerness).topk(
-                        k=num_inst_per_gt, dim=0)[1]
+                        k=num_inst_per_gt, dim=0
+                    )[1]
                     mask_preds_per_inst = mask_preds_per_inst[select]
                     gt_inds_per_inst = gt_inds_per_inst[select]
                 keep_mask_preds.append(mask_preds_per_inst)
@@ -1117,19 +1250,22 @@ class CondInstMaskHead(BaseMaskHead):
 
         # Follow the origin implement
         start = int(self.mask_out_stride // 2)
-        gt_masks = gt_masks[:, start::self.mask_out_stride,
-                            start::self.mask_out_stride]
+        gt_masks = gt_masks[
+            :, start :: self.mask_out_stride, start :: self.mask_out_stride
+        ]
         gt_masks = gt_masks.gt(0.5).float()
         pos_mask_targets = gt_masks[pos_assigned_gt_inds]
 
         return (mask_preds, pos_mask_targets, num_pos)
 
-    def predict_by_feat(self,
-                        mask_preds: List[Tensor],
-                        results_list: InstanceList,
-                        batch_img_metas: List[dict],
-                        rescale: bool = True,
-                        **kwargs) -> InstanceList:
+    def predict_by_feat(
+        self,
+        mask_preds: List[Tensor],
+        results_list: InstanceList,
+        batch_img_metas: List[dict],
+        rescale: bool = True,
+        **kwargs,
+    ) -> InstanceList:
         """Transform a batch of output features extracted from the head into
         mask results.
 
@@ -1164,22 +1300,26 @@ class CondInstMaskHead(BaseMaskHead):
                     [img_meta],
                     bboxes.device,
                     task_type='mask',
-                    instance_results=[results])[0]
+                    instance_results=[results],
+                )[0]
             else:
                 im_mask = self._predict_by_feat_single(
                     mask_preds=mask_pred,
                     bboxes=bboxes,
                     img_meta=img_meta,
-                    rescale=rescale)
+                    rescale=rescale,
+                )
                 results.masks = im_mask
         return results_list
 
-    def _predict_by_feat_single(self,
-                                mask_preds: Tensor,
-                                bboxes: Tensor,
-                                img_meta: dict,
-                                rescale: bool,
-                                cfg: OptConfigType = None):
+    def _predict_by_feat_single(
+        self,
+        mask_preds: Tensor,
+        bboxes: Tensor,
+        img_meta: dict,
+        rescale: bool,
+        cfg: OptConfigType = None,
+    ):
         """Transform a single image's features extracted from the head into
         mask results.
 
@@ -1204,7 +1344,8 @@ class CondInstMaskHead(BaseMaskHead):
         """
         cfg = self.test_cfg if cfg is None else cfg
         scale_factor = bboxes.new_tensor(img_meta['scale_factor']).repeat(
-            (1, 2))
+            (1, 2)
+        )
         img_h, img_w = img_meta['img_shape'][:2]
         ori_h, ori_w = img_meta['ori_shape'][:2]
 
@@ -1213,13 +1354,19 @@ class CondInstMaskHead(BaseMaskHead):
         mask_preds = mask_preds[:, :, :img_h, :img_w]
         if rescale:  # in-placed rescale the bboxes
             scale_factor = bboxes.new_tensor(img_meta['scale_factor']).repeat(
-                (1, 2))
+                (1, 2)
+            )
             bboxes /= scale_factor
 
-            masks = F.interpolate(
-                mask_preds, (ori_h, ori_w),
-                mode='bilinear',
-                align_corners=False).squeeze(0) > cfg.mask_thr
+            masks = (
+                F.interpolate(
+                    mask_preds,
+                    (ori_h, ori_w),
+                    mode='bilinear',
+                    align_corners=False,
+                ).squeeze(0)
+                > cfg.mask_thr
+            )
         else:
             masks = mask_preds.squeeze(0) > cfg.mask_thr
 

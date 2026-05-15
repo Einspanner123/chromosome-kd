@@ -16,7 +16,6 @@ import json
 import os
 import re
 import sys
-from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -41,10 +40,8 @@ DIR_NAME_ALIASES = {
     'ldmdet_rf_shifted_schedule_step1': 'ldmdet_rf_shifted_schdule_step1',
     'ldmdet_rf_heun_shifted': 'ldmdet_rf_heun_shifted',
     'ldmdet_rf_heun_shifted_bs2': 'ldmdet_rf_heun_shifted_bs2',
-    'ldmdet_rf_heun_shifted_bs2_reproduce':
-    'ldmdet_rf_heun_shifted_bs2_reproduce',
-    'ldmdet_rf_heun_shifted_bs2_optimized':
-    'ldmdet_rf_heun_shifted_bs2_optimized',
+    'ldmdet_rf_heun_shifted_bs2_reproduce': 'ldmdet_rf_heun_shifted_bs2_reproduce',
+    'ldmdet_rf_heun_shifted_bs2_optimized': 'ldmdet_rf_heun_shifted_bs2_optimized',
     'ldmdet_rf_heun_shifted_dist': 'ldmdet_rf_heun_shifted_dist',
     'ldmdet_rf_heun_shifted_muon': 'ldmdet_rf_heun_shifted_muon',
     'ldmdet_rf_heun_logit_shifted': 'ldmdet_rf_heun_logit_shifted',
@@ -62,44 +59,27 @@ DIR_NAME_ALIASES = {
     'ldmdet_flowdet_adaln_ot': 'ldmdet_flowdet_adaln_ot',
     'ldmdet_flowdet_sinkhorn': 'ldmdet_flowdet_sinkhorn',
     'ldmdet_flowdet_adaln_ot_sinkhorn': 'ldmdet_flowdet_adaln_ot_sinkhorn',
-    'ldmdet_flowdet_adaln_ot_sinkhorn_eps5':
-    'ldmdet_flowdet_adaln_ot_sinkhorn_eps5',
-    'ldmdet_flowdet_adaln_ot_sinkhorn_eps10':
-    'ldmdet_flowdet_adaln_ot_sinkhorn_eps10',
-    'ldmdet_flowdet_adaln_ot_sinkhorn_eps50':
-    'ldmdet_flowdet_adaln_ot_sinkhorn_eps50',
-    'ldmdet_flowdet_adaln_ot_sinkhorn_eps100':
-    'ldmdet_flowdet_adaln_ot_sinkhorn_eps100',
-    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps05':
-    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps05',
-    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps1':
-    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps1',
-    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps2':
-    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps2',
-    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps3':
-    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps3',
-    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5':
-    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5',
-    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps10':
-    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps10',
-    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps50':
-    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps50',
-    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5_repro':
-    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5_repro',
-    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5_seed2':
-    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5_seed2',
-    'ldmdet_flowdet_adaln_group_hierarchical':
-    'ldmdet_flowdet_adaln_group_hierarchical',
-    'ldmdet_flowdet_adaln_group_hierarchical_stoch':
-    'ldmdet_flowdet_adaln_group_hierarchical_stoch',
-    'ldmdet_group_hierarchical_stoch_seed2':
-    'ldmdet_group_hierarchical_stoch_seed2',
+    'ldmdet_flowdet_adaln_ot_sinkhorn_eps5': 'ldmdet_flowdet_adaln_ot_sinkhorn_eps5',
+    'ldmdet_flowdet_adaln_ot_sinkhorn_eps10': 'ldmdet_flowdet_adaln_ot_sinkhorn_eps10',
+    'ldmdet_flowdet_adaln_ot_sinkhorn_eps50': 'ldmdet_flowdet_adaln_ot_sinkhorn_eps50',
+    'ldmdet_flowdet_adaln_ot_sinkhorn_eps100': 'ldmdet_flowdet_adaln_ot_sinkhorn_eps100',
+    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps05': 'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps05',
+    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps1': 'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps1',
+    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps2': 'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps2',
+    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps3': 'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps3',
+    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5': 'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5',
+    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps10': 'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps10',
+    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps50': 'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps50',
+    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5_repro': 'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5_repro',
+    'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5_seed2': 'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5_seed2',
+    'ldmdet_flowdet_adaln_group_hierarchical': 'ldmdet_flowdet_adaln_group_hierarchical',
+    'ldmdet_flowdet_adaln_group_hierarchical_stoch': 'ldmdet_flowdet_adaln_group_hierarchical_stoch',
+    'ldmdet_group_hierarchical_stoch_seed2': 'ldmdet_group_hierarchical_stoch_seed2',
     'ldmdet_flowdet_adaln_trd': 'ldmdet_flowdet_adaln_trd',
     'ldmdet_flowdet_adaln_trd_only': 'ldmdet_flowdet_adaln_trd_only',
     'ldmdet_flowdet_adaln_trd_full': 'ldmdet_flowdet_adaln_trd_full',
     'ldmdet_group_hierarchical_trd': 'ldmdet_group_hierarchical_trd',
-    'ldmdet_flowdet_adaln_stochastic_eps5_trd_cat':
-    'ldmdet_flowdet_adaln_stochastic_eps5_trd_cat',
+    'ldmdet_flowdet_adaln_stochastic_eps5_trd_cat': 'ldmdet_flowdet_adaln_stochastic_eps5_trd_cat',
     'ldmdet_sinkhorn_trd_cat_lsas': 'ldmdet_sinkhorn_trd_cat_lsas',
     'ldmdet_flowdet_full': 'ldmdet_flowdet_full',
     'ldmdet_flowdet_velocity': 'ldmdet_flowdet_velocity',
@@ -118,25 +98,17 @@ DIR_NAME_ALIASES = {
     'ldmdet_flowdet_adaln_reflow_v4': 'ldmdet_flowdet_adaln_reflow_v4',
     'ldmdet_flowdet_adaln_reflow_v5': 'ldmdet_flowdet_adaln_reflow_v5',
     'ldmdet_flowdet_adaln_reflow_v6': 'ldmdet_flowdet_adaln_reflow_v6',
-    'ldmdet_flowdet_adaln_reflow_det_only':
-    'ldmdet_flowdet_adaln_reflow_det_only',
-    'ldmdet_flowdet_adaln_reflow_det_only_30ep':
-    'ldmdet_flowdet_adaln_reflow_det_only_30ep',
-    'ldmdet_flowdet_adaln_reflow_det_only_lr1e6':
-    'ldmdet_flowdet_adaln_reflow_det_only_lr1e6',
+    'ldmdet_flowdet_adaln_reflow_det_only': 'ldmdet_flowdet_adaln_reflow_det_only',
+    'ldmdet_flowdet_adaln_reflow_det_only_30ep': 'ldmdet_flowdet_adaln_reflow_det_only_30ep',
+    'ldmdet_flowdet_adaln_reflow_det_only_lr1e6': 'ldmdet_flowdet_adaln_reflow_det_only_lr1e6',
     'ldmdet_flowdet_adaln_reflow_freeze': 'ldmdet_flowdet_adaln_reflow_freeze',
-    'ldmdet_flowdet_adaln_reflow_freeze_stage2':
-    'ldmdet_flowdet_adaln_reflow_freeze_stage2',
+    'ldmdet_flowdet_adaln_reflow_freeze_stage2': 'ldmdet_flowdet_adaln_reflow_freeze_stage2',
     'ldmdet_flowdet_adaln_reflow_itd': 'ldmdet_flowdet_adaln_reflow_itd',
-    'ldmdet_flowdet_adaln_reflow_lr1e6_vel':
-    'ldmdet_flowdet_adaln_reflow_lr1e6_vel',
-    'ldmdet_flowdet_adaln_reflow_consistency':
-    'ldmdet_flowdet_adaln_reflow_consistency',
+    'ldmdet_flowdet_adaln_reflow_lr1e6_vel': 'ldmdet_flowdet_adaln_reflow_lr1e6_vel',
+    'ldmdet_flowdet_adaln_reflow_consistency': 'ldmdet_flowdet_adaln_reflow_consistency',
     'ldmdet_flowdet_adaln_reflow_pcgrad': 'ldmdet_flowdet_adaln_reflow_pcgrad',
-    'ldmdet_flowdet_adaln_reflow_vel_detach':
-    'ldmdet_flowdet_adaln_reflow_vel_detach',
-    'ldmdet_flowdet_adaln_reflow_v5_long':
-    'ldmdet_flowdet_adaln_reflow_v5_long',
+    'ldmdet_flowdet_adaln_reflow_vel_detach': 'ldmdet_flowdet_adaln_reflow_vel_detach',
+    'ldmdet_flowdet_adaln_reflow_v5_long': 'ldmdet_flowdet_adaln_reflow_v5_long',
     'ldmdet_flowdet_adaln_reflow_v5_s03': 'ldmdet_flowdet_adaln_reflow_v5_s03',
     'ldmdet_flowdet_adaln_reflow_v5_s07': 'ldmdet_flowdet_adaln_reflow_v5_s07',
     'ldmdet_flowdet_adaln_reflow_v5_s10': 'ldmdet_flowdet_adaln_reflow_v5_s10',
@@ -151,8 +123,7 @@ DIR_NAME_ALIASES = {
 }
 
 SHORT_NAMES = {
-    'group_hierarchical_stoch':
-    'ldmdet_flowdet_adaln_group_hierarchical_stoch',
+    'group_hierarchical_stoch': 'ldmdet_flowdet_adaln_group_hierarchical_stoch',
     'trd_full': 'ldmdet_flowdet_adaln_trd_full',
     'adaln': 'ldmdet_flowdet_adaln',
     'sinkhorn_sample_eps5': 'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5',
@@ -214,7 +185,7 @@ def scan_work_dirs(root: str) -> Dict[str, dict]:
 
         for log_file in sorted(exp_dir.rglob('*.log')):
             try:
-                with open(log_file, 'r', errors='replace') as f:
+                with open(log_file, errors='replace') as f:
                     for line_no, line in enumerate(f, 1):
                         m = re.search(r'coco/bbox_mAP:\s*(\d+\.\d+)', line)
                         if m:
@@ -226,16 +197,13 @@ def scan_work_dirs(root: str) -> Dict[str, dict]:
         if all_maps:
             best = max(all_maps, key=lambda x: x[0])
             results[name] = {
-                'best_mAP':
-                best[0],
-                'source_file':
-                best[1],
-                'source_line':
-                best[2],
-                'all_mAP_count':
-                len(all_maps),
-                'all_mAP_values':
-                sorted([x[0] for x in all_maps], reverse=True)[:5],
+                'best_mAP': best[0],
+                'source_file': best[1],
+                'source_line': best[2],
+                'all_mAP_count': len(all_maps),
+                'all_mAP_values': sorted(
+                    [x[0] for x in all_maps], reverse=True
+                )[:5],
             }
         else:
             results[name] = {
@@ -268,7 +236,7 @@ def parse_timeline(path: str) -> Tuple[List[dict], set]:
     """
     claims = []
     mentioned_dirs = set()
-    with open(path, 'r') as f:
+    with open(path) as f:
         lines = f.readlines()
 
     for line_no, line in enumerate(lines, 1):
@@ -279,20 +247,23 @@ def parse_timeline(path: str) -> Tuple[List[dict], set]:
         if stripped.startswith('|') and stripped.count('|') >= 3:
             cells = [c.strip() for c in stripped.split('|')[1:-1]]
             if len(cells) >= 2 and not all(
-                    set(c.strip()) <= {'-', ':'} for c in cells):
+                set(c.strip()) <= {'-', ':'} for c in cells
+            ):
                 exp_cell = cells[0].strip().strip('`').strip('*')
                 map_cell = cells[1].strip().strip('*')
                 map_match = re.match(r'^(\d+\.\d{3,4})$', map_cell)
                 if map_match:
                     map_val = float(map_match.group(1))
                     if 0 <= map_val <= 1.0:
-                        claims.append({
-                            'line': line_no,
-                            'exp_name': exp_cell,
-                            'claimed_mAP': map_val,
-                            'context': stripped[:120],
-                            'type': 'table',
-                        })
+                        claims.append(
+                            {
+                                'line': line_no,
+                                'exp_name': exp_cell,
+                                'claimed_mAP': map_val,
+                                'context': stripped[:120],
+                                'type': 'table',
+                            }
+                        )
                 dir_name = resolve_dir_name(exp_cell)
                 if dir_name:
                     mentioned_dirs.add(dir_name)
@@ -306,13 +277,15 @@ def parse_timeline(path: str) -> Tuple[List[dict], set]:
         if list_match:
             exp_name = list_match.group(1).strip().rstrip('/')
             map_val = float(f'0.{list_match.group(2)}')
-            claims.append({
-                'line': line_no,
-                'exp_name': exp_name,
-                'claimed_mAP': map_val,
-                'context': stripped[:120],
-                'type': 'list',
-            })
+            claims.append(
+                {
+                    'line': line_no,
+                    'exp_name': exp_name,
+                    'claimed_mAP': map_val,
+                    'context': stripped[:120],
+                    'type': 'list',
+                }
+            )
             dir_name = resolve_dir_name(exp_name)
             if dir_name:
                 mentioned_dirs.add(dir_name)
@@ -327,13 +300,15 @@ def parse_timeline(path: str) -> Tuple[List[dict], set]:
         if base_match:
             exp_name = base_match.group(1).strip().rstrip('/')
             map_val = float(f'0.{base_match.group(2)}')
-            claims.append({
-                'line': line_no,
-                'exp_name': exp_name,
-                'claimed_mAP': map_val,
-                'context': stripped[:120],
-                'type': 'list',
-            })
+            claims.append(
+                {
+                    'line': line_no,
+                    'exp_name': exp_name,
+                    'claimed_mAP': map_val,
+                    'context': stripped[:120],
+                    'type': 'list',
+                }
+            )
             dir_name = resolve_dir_name(exp_name)
             if dir_name:
                 mentioned_dirs.add(dir_name)
@@ -349,13 +324,15 @@ def parse_timeline(path: str) -> Tuple[List[dict], set]:
             for sc_inline in re.finditer(r'(sc_\w+)=0\.(\d{3})', stripped):
                 sc_name = sc_inline.group(1)
                 sc_val = float(f'0.{sc_inline.group(2)}')
-                claims.append({
-                    'line': line_no,
-                    'exp_name': sc_name,
-                    'claimed_mAP': sc_val,
-                    'context': stripped[:120],
-                    'type': 'inline_sc',
-                })
+                claims.append(
+                    {
+                        'line': line_no,
+                        'exp_name': sc_name,
+                        'claimed_mAP': sc_val,
+                        'context': stripped[:120],
+                        'type': 'inline_sc',
+                    }
+                )
                 dir_name = resolve_dir_name(sc_name)
                 if dir_name:
                     mentioned_dirs.add(dir_name)
@@ -367,13 +344,15 @@ def parse_timeline(path: str) -> Tuple[List[dict], set]:
             stripped,
         )
         for m in inline_matches:
-            claims.append({
-                'line': line_no,
-                'exp_name': m.group(1),
-                'claimed_mAP': float(f'0.{m.group(2)}'),
-                'context': stripped[:120],
-                'type': 'inline',
-            })
+            claims.append(
+                {
+                    'line': line_no,
+                    'exp_name': m.group(1),
+                    'claimed_mAP': float(f'0.{m.group(2)}'),
+                    'context': stripped[:120],
+                    'type': 'inline',
+                }
+            )
             dir_name = resolve_dir_name(m.group(1))
             if dir_name:
                 mentioned_dirs.add(dir_name)
@@ -401,20 +380,23 @@ def parse_timeline(path: str) -> Tuple[List[dict], set]:
             prefix = wildcard_match.group(1)
             for alias_key, alias_val in DIR_NAME_ALIASES.items():
                 if alias_key.startswith(prefix) or alias_val.startswith(
-                        prefix):
+                    prefix
+                ):
                     mentioned_dirs.add(alias_val)
             for inline_m in re.finditer(r'(\w+)=0\.(\d{3})', stripped):
                 inline_name = inline_m.group(1)
                 inline_val = float(f'0.{inline_m.group(2)}')
                 dir_name = resolve_dir_name(inline_name)
                 if dir_name:
-                    claims.append({
-                        'line': line_no,
-                        'exp_name': inline_name,
-                        'claimed_mAP': inline_val,
-                        'context': stripped[:120],
-                        'type': 'inline_wildcard',
-                    })
+                    claims.append(
+                        {
+                            'line': line_no,
+                            'exp_name': inline_name,
+                            'claimed_mAP': inline_val,
+                            'context': stripped[:120],
+                            'type': 'inline_wildcard',
+                        }
+                    )
                     mentioned_dirs.add(dir_name)
 
     return claims, mentioned_dirs
@@ -433,13 +415,15 @@ def validate(
         claimed = claim['claimed_mAP']
 
         if exp_name in SKIP_VALIDATION:
-            results.append({
-                **claim,
-                'dir_name': None,
-                'actual_mAP': None,
-                'status': 'SKIP',
-                'message': f"'{exp_name}' 需要人工验证（多步推理/特殊条目）",
-            })
+            results.append(
+                {
+                    **claim,
+                    'dir_name': None,
+                    'actual_mAP': None,
+                    'status': 'SKIP',
+                    'message': f"'{exp_name}' 需要人工验证（多步推理/特殊条目）",
+                }
+            )
             continue
 
         dir_name = resolve_dir_name(exp_name)
@@ -450,66 +434,66 @@ def validate(
         seen.add(key)
 
         if dir_name is None:
-            results.append({
-                **claim,
-                'dir_name': None,
-                'actual_mAP': None,
-                'status': 'UNKNOWN_ALIAS',
-                'message': f"无法映射 '{exp_name}' 到 work_dirs 目录",
-            })
+            results.append(
+                {
+                    **claim,
+                    'dir_name': None,
+                    'actual_mAP': None,
+                    'status': 'UNKNOWN_ALIAS',
+                    'message': f"无法映射 '{exp_name}' 到 work_dirs 目录",
+                }
+            )
             continue
 
         if dir_name not in ground_truth:
-            results.append({
-                **claim,
-                'dir_name': dir_name,
-                'actual_mAP': None,
-                'status': 'DIR_NOT_FOUND',
-                'message': f"work_dirs 中不存在目录 '{dir_name}'",
-            })
+            results.append(
+                {
+                    **claim,
+                    'dir_name': dir_name,
+                    'actual_mAP': None,
+                    'status': 'DIR_NOT_FOUND',
+                    'message': f"work_dirs 中不存在目录 '{dir_name}'",
+                }
+            )
             continue
 
         gt = ground_truth[dir_name]
         actual = gt['best_mAP']
 
         if actual is None:
-            results.append({
-                **claim,
-                'dir_name': dir_name,
-                'actual_mAP': None,
-                'status': 'NO_LOG',
-                'message': f"'{dir_name}' 无有效日志",
-            })
+            results.append(
+                {
+                    **claim,
+                    'dir_name': dir_name,
+                    'actual_mAP': None,
+                    'status': 'NO_LOG',
+                    'message': f"'{dir_name}' 无有效日志",
+                }
+            )
             continue
 
         if abs(claimed - actual) < 0.0005:
-            results.append({
-                **claim,
-                'dir_name':
-                dir_name,
-                'actual_mAP':
-                actual,
-                'status':
-                'OK',
-                'message':
-                '',
-                'source':
-                f"{gt['source_file']}:{gt['source_line']}",
-            })
+            results.append(
+                {
+                    **claim,
+                    'dir_name': dir_name,
+                    'actual_mAP': actual,
+                    'status': 'OK',
+                    'message': '',
+                    'source': f'{gt["source_file"]}:{gt["source_line"]}',
+                }
+            )
         else:
-            results.append({
-                **claim,
-                'dir_name':
-                dir_name,
-                'actual_mAP':
-                actual,
-                'status':
-                'MISMATCH',
-                'message':
-                f'文档={claimed:.3f}, 实际={actual:.3f}, 差={claimed - actual:+.3f}',
-                'source':
-                f"{gt['source_file']}:{gt['source_line']}",
-            })
+            results.append(
+                {
+                    **claim,
+                    'dir_name': dir_name,
+                    'actual_mAP': actual,
+                    'status': 'MISMATCH',
+                    'message': f'文档={claimed:.3f}, 实际={actual:.3f}, 差={claimed - actual:+.3f}',
+                    'source': f'{gt["source_file"]}:{gt["source_line"]}',
+                }
+            )
 
     return results
 
@@ -560,7 +544,7 @@ def find_missing_entries(
         entry = {
             'dir_name': dir_name,
             'best_mAP': gt['best_mAP'],
-            'source': f"{gt['source_file']}:{gt['source_line']}",
+            'source': f'{gt["source_file"]}:{gt["source_line"]}',
         }
         if dir_name in all_mentioned:
             no_map_value.append(entry)
@@ -586,14 +570,13 @@ def find_unclaimed_maps(
         if dir_name not in claimed_dirs_with_map:
             continue
         if gt['best_mAP'] is not None and gt['best_mAP'] > 0.01:
-            unclaimed.append({
-                'dir_name':
-                dir_name,
-                'best_mAP':
-                gt['best_mAP'],
-                'source':
-                f"{gt['source_file']}:{gt['source_line']}",
-            })
+            unclaimed.append(
+                {
+                    'dir_name': dir_name,
+                    'best_mAP': gt['best_mAP'],
+                    'source': f'{gt["source_file"]}:{gt["source_line"]}',
+                }
+            )
 
     return unclaimed
 
@@ -612,14 +595,18 @@ def format_report(
     lines.append('=' * 72)
 
     ok_count = sum(1 for r in validation_results if r['status'] == 'OK')
-    mismatch_count = sum(1 for r in validation_results
-                         if r['status'] == 'MISMATCH')
-    unknown_count = sum(1 for r in validation_results
-                        if r['status'] == 'UNKNOWN_ALIAS')
-    no_log_count = sum(1 for r in validation_results
-                       if r['status'] == 'NO_LOG')
-    dir_missing = sum(1 for r in validation_results
-                      if r['status'] == 'DIR_NOT_FOUND')
+    mismatch_count = sum(
+        1 for r in validation_results if r['status'] == 'MISMATCH'
+    )
+    unknown_count = sum(
+        1 for r in validation_results if r['status'] == 'UNKNOWN_ALIAS'
+    )
+    no_log_count = sum(
+        1 for r in validation_results if r['status'] == 'NO_LOG'
+    )
+    dir_missing = sum(
+        1 for r in validation_results if r['status'] == 'DIR_NOT_FOUND'
+    )
     skip_count = sum(1 for r in validation_results if r['status'] == 'SKIP')
 
     lines.append(f'\n📊 汇总: {len(validation_results)} 条 mAP 声明')
@@ -633,84 +620,93 @@ def format_report(
     lines.append(f'  🟠 完全未提及: {len(truly_missing)}')
 
     if mismatch_count > 0:
-        lines.append(f"\n{'=' * 72}")
+        lines.append(f'\n{"=" * 72}')
         lines.append('❌ 数值不匹配')
         lines.append('-' * 72)
         for r in validation_results:
             if r['status'] == 'MISMATCH':
                 lines.append(
-                    f"  L{r['line']:3d} | {r['exp_name']:<45s} | "
-                    f"文档={r['claimed_mAP']:.3f} 实际={r['actual_mAP']:.3f} "
-                    f"差={r['claimed_mAP'] - r['actual_mAP']:+.3f}")
-                lines.append(f"       来源: {r['source']}")
+                    f'  L{r["line"]:3d} | {r["exp_name"]:<45s} | '
+                    f'文档={r["claimed_mAP"]:.3f} 实际={r["actual_mAP"]:.3f} '
+                    f'差={r["claimed_mAP"] - r["actual_mAP"]:+.3f}'
+                )
+                lines.append(f'       来源: {r["source"]}')
                 if show_fix:
                     lines.append(
-                        f"       修复: 将 {r['claimed_mAP']:.3f} → {r['actual_mAP']:.3f}"
+                        f'       修复: 将 {r["claimed_mAP"]:.3f} → {r["actual_mAP"]:.3f}'
                     )
 
     if unknown_count > 0:
-        lines.append(f"\n{'=' * 72}")
+        lines.append(f'\n{"=" * 72}')
         lines.append('❓ 无法映射的实验名')
         lines.append('-' * 72)
         for r in validation_results:
             if r['status'] == 'UNKNOWN_ALIAS':
                 lines.append(
-                    f"  L{r['line']:3d} | {r['exp_name']:<45s} | {r['message']}"
+                    f'  L{r["line"]:3d} | {r["exp_name"]:<45s} | {r["message"]}'
                 )
 
     if skip_count > 0:
-        lines.append(f"\n{'=' * 72}")
+        lines.append(f'\n{"=" * 72}')
         lines.append(f'⏭️  跳过（需人工验证，{skip_count} 条）')
         lines.append('-' * 72)
         for r in validation_results:
             if r['status'] == 'SKIP':
-                lines.append(f"  L{r['line']:3d} | {r['exp_name']:<45s} | "
-                             f"文档={r['claimed_mAP']:.3f} | {r['message']}")
+                lines.append(
+                    f'  L{r["line"]:3d} | {r["exp_name"]:<45s} | '
+                    f'文档={r["claimed_mAP"]:.3f} | {r["message"]}'
+                )
 
     if no_map_value:
-        lines.append(f"\n{'=' * 72}")
+        lines.append(f'\n{"=" * 72}')
         lines.append(f'🟡 文档已提及但缺 mAP 值（{len(no_map_value)} 个）')
         lines.append('-' * 72)
         for m in no_map_value:
-            lines.append(f"  {m['dir_name']:<55s} 实际 mAP={m['best_mAP']:.3f}")
+            lines.append(
+                f'  {m["dir_name"]:<55s} 实际 mAP={m["best_mAP"]:.3f}'
+            )
             if show_fix:
-                lines.append(f"       建议: 补充 mAP 值 ({m['best_mAP']:.3f})")
+                lines.append(f'       建议: 补充 mAP 值 ({m["best_mAP"]:.3f})')
 
     if truly_missing:
-        lines.append(f"\n{'=' * 72}")
+        lines.append(f'\n{"=" * 72}')
         lines.append(f'🟠 文档完全未提及的实验（{len(truly_missing)} 个）')
         lines.append('-' * 72)
         for m in truly_missing:
-            lines.append(f"  {m['dir_name']:<55s} mAP={m['best_mAP']:.3f}")
-            lines.append(f"  {'':55s} 来源: {m['source']}")
+            lines.append(f'  {m["dir_name"]:<55s} mAP={m["best_mAP"]:.3f}')
+            lines.append(f'  {"":55s} 来源: {m["source"]}')
 
-    lines.append(f"\n{'=' * 72}")
+    lines.append(f'\n{"=" * 72}')
     lines.append('📋 完整 ground truth（work_dirs 最佳 mAP）')
     lines.append('-' * 72)
     for dir_name in sorted(ground_truth.keys()):
         gt = ground_truth[dir_name]
         if gt['best_mAP'] is not None:
             lines.append(
-                f"  {dir_name:<55s} mAP={gt['best_mAP']:.3f}  "
-                f"({gt['source_file'].split('/')[-1]}:{gt['source_line']})")
+                f'  {dir_name:<55s} mAP={gt["best_mAP"]:.3f}  '
+                f'({gt["source_file"].split("/")[-1]}:{gt["source_line"]})'
+            )
         else:
             lines.append(f'  {dir_name:<55s} (无日志)')
 
-    lines.append(f"\n{'=' * 72}")
+    lines.append(f'\n{"=" * 72}')
     lines.append('✅ 验证通过的所有条目')
     lines.append('-' * 72)
     for r in validation_results:
         if r['status'] == 'OK':
             lines.append(
-                f"  L{r['line']:3d} | {r['exp_name']:<45s} | "
-                f"mAP={r['actual_mAP']:.3f} ← {r['source'].split('/')[-1]}")
+                f'  L{r["line"]:3d} | {r["exp_name"]:<45s} | '
+                f'mAP={r["actual_mAP"]:.3f} ← {r["source"].split("/")[-1]}'
+            )
 
     lines.append('')
     lines.append('=' * 72)
     if mismatch_count == 0:
         lines.append('🎉 所有已标注 mAP 数值均与 work_dirs 日志一致！')
     else:
-        lines.append(f'⚠️  发现 {mismatch_count} 处数值不匹配，请检查上方详情。')
+        lines.append(
+            f'⚠️  发现 {mismatch_count} 处数值不匹配，请检查上方详情。'
+        )
     lines.append('=' * 72)
 
     return '\n'.join(lines)
@@ -773,8 +769,9 @@ def scan_backup_paths(root: str) -> Dict[str, dict]:
 
         config_match = None
         config_dir = latest / 'configs'
-        has_code = any(p.suffix == '.py' for p in latest.rglob('*')
-                       if p.is_file())
+        has_code = any(
+            p.suffix == '.py' for p in latest.rglob('*') if p.is_file()
+        )
         if config_dir.exists() and has_code:
             all_configs = sorted(config_dir.rglob('*.py'))
             name_norm = name.replace('+', '_')
@@ -782,8 +779,12 @@ def scan_backup_paths(root: str) -> Dict[str, dict]:
             best_score = -1
             for cfg in all_configs:
                 rel = str(cfg.relative_to(config_dir))
-                rel_stem = rel.replace('/', '_').replace(
-                    '\\', '_').removesuffix('.py').replace('+', '_')
+                rel_stem = (
+                    rel.replace('/', '_')
+                    .replace('\\', '_')
+                    .removesuffix('.py')
+                    .replace('+', '_')
+                )
                 if rel_stem == name_norm:
                     config_match = f'configs/{rel}'
                     best_match = None
@@ -795,13 +796,15 @@ def scan_backup_paths(root: str) -> Dict[str, dict]:
                     break
                 for candidate in (cfg_stem, rel_stem):
                     if name_norm.startswith(candidate) or candidate.startswith(
-                            name_norm):
+                        name_norm
+                    ):
                         overlap = min(len(name_norm), len(candidate))
                         if overlap > best_score:
                             best_score = overlap
                             best_match = f'configs/{rel}'
                     if candidate.endswith(name_norm) or name_norm.endswith(
-                            candidate):
+                        candidate
+                    ):
                         overlap = min(len(name_norm), len(candidate))
                         if overlap > best_score:
                             best_score = overlap
@@ -817,15 +820,17 @@ def scan_backup_paths(root: str) -> Dict[str, dict]:
                 best_root_score = -1
                 for root_py in sorted(exp_dir.glob('*.py')):
                     py_stem = root_py.stem.replace('+', '_')
-                    for candidate in (py_stem, ):
+                    for candidate in (py_stem,):
                         if name_norm.startswith(
-                                candidate) or candidate.startswith(name_norm):
+                            candidate
+                        ) or candidate.startswith(name_norm):
                             overlap = min(len(name_norm), len(candidate))
                             if overlap > best_root_score:
                                 best_root_score = overlap
                                 best_root = root_py.name
                         if candidate.endswith(name_norm) or name_norm.endswith(
-                                candidate):
+                            candidate
+                        ):
                             overlap = min(len(name_norm), len(candidate))
                             if overlap > best_root_score:
                                 best_root_score = overlap
@@ -857,14 +862,15 @@ def scan_backup_paths(root: str) -> Dict[str, dict]:
     return results
 
 
-def add_backup_paths_to_doc(timeline_path: str,
-                            backup_info: Dict[str, dict]) -> str:
+def add_backup_paths_to_doc(
+    timeline_path: str, backup_info: Dict[str, dict]
+) -> str:
     """在 MASTER_TIMELINE.md 的代码块中为实验条目添加备份路径标注。
 
     格式: 在实验条目下方添加一行
         ↳ <timestamp>/LDMDet_backup/ → configs/xxx.py, mods/yyy.py
     """
-    with open(timeline_path, 'r') as f:
+    with open(timeline_path) as f:
         lines = f.readlines()
 
     in_code_block = False
@@ -907,8 +913,10 @@ def add_backup_paths_to_doc(timeline_path: str,
                 wc_indent = m_wc.group(1)
                 wc_entries = []
                 for alias_val in sorted(set(DIR_NAME_ALIASES.values())):
-                    if alias_val.startswith(
-                            prefix) and alias_val in backup_info:
+                    if (
+                        alias_val.startswith(prefix)
+                        and alias_val in backup_info
+                    ):
                         wc_entries.append(alias_val)
                 if wc_entries:
                     result.append(line)
@@ -925,9 +933,9 @@ def add_backup_paths_to_doc(timeline_path: str,
                                 parts.append(info['config'])
                             parts.extend(info['modified_mods'])
                             if parts:
-                                ann = f"{wc_indent}    ↳ {wc_name}/{info['run_ts']}/LDMDet_backup/ → {', '.join(parts)}"
+                                ann = f'{wc_indent}    ↳ {wc_name}/{info["run_ts"]}/LDMDet_backup/ → {", ".join(parts)}'
                             else:
-                                ann = f"{wc_indent}    ↳ {wc_name}/{info['run_ts']}/LDMDet_backup/"
+                                ann = f'{wc_indent}    ↳ {wc_name}/{info["run_ts"]}/LDMDet_backup/'
                             result.append(ann + '\n')
                     i += 1
                     continue
@@ -939,18 +947,20 @@ def add_backup_paths_to_doc(timeline_path: str,
             indent = m_list.group(1) if m_list else '    '
 
             if info.get('incomplete'):
-                annotation = f"{indent}    ↳ {info['run_ts']}/LDMDet_backup/ (仅文档，无代码备份)"
+                annotation = f'{indent}    ↳ {info["run_ts"]}/LDMDet_backup/ (仅文档，无代码备份)'
                 if info['config']:
-                    annotation += f"; config→{info['config']}"
+                    annotation += f'; config→{info["config"]}'
             else:
                 parts = []
                 if info['config']:
                     parts.append(info['config'])
                 parts.extend(info['modified_mods'])
                 if parts:
-                    annotation = f"{indent}    ↳ {info['run_ts']}/LDMDet_backup/ → {', '.join(parts)}"
+                    annotation = f'{indent}    ↳ {info["run_ts"]}/LDMDet_backup/ → {", ".join(parts)}'
                 else:
-                    annotation = f"{indent}    ↳ {info['run_ts']}/LDMDet_backup/"
+                    annotation = (
+                        f'{indent}    ↳ {info["run_ts"]}/LDMDet_backup/'
+                    )
 
             already_has_annotation = False
             if i + 1 < len(lines):
@@ -966,10 +976,12 @@ def add_backup_paths_to_doc(timeline_path: str,
     return ''.join(result)
 
 
-def parse_backup_annotations(timeline_path: str, ) -> List[dict]:
+def parse_backup_annotations(
+    timeline_path: str,
+) -> List[dict]:
     """解析文档中已有的 ↳ 标注行，提取结构化信息。"""
     annotations = []
-    with open(timeline_path, 'r') as f:
+    with open(timeline_path) as f:
         lines = f.readlines()
 
     in_code_block = False
@@ -1009,7 +1021,8 @@ def parse_backup_annotations(timeline_path: str, ) -> List[dict]:
 
         ann_match = re.match(
             r'^\s*↳\s+(.+?)/(\d{8}_\d{6})/LDMDet_backup/(?:\s*→\s*(.+))?$',
-            stripped)
+            stripped,
+        )
         if ann_match:
             ann_dir = ann_match.group(1).strip()
             ann_ts = ann_match.group(2)
@@ -1021,19 +1034,22 @@ def parse_backup_annotations(timeline_path: str, ) -> List[dict]:
                 ]
 
             resolved_dir = resolve_dir_name(ann_dir) or ann_dir
-            annotations.append({
-                'line': line_no,
-                'parent_exp_line': last_exp_line,
-                'parent_exp_name': last_exp_name,
-                'dir_name': resolved_dir,
-                'timestamp': ann_ts,
-                'files': ann_files,
-                'raw': stripped,
-            })
+            annotations.append(
+                {
+                    'line': line_no,
+                    'parent_exp_line': last_exp_line,
+                    'parent_exp_name': last_exp_name,
+                    'dir_name': resolved_dir,
+                    'timestamp': ann_ts,
+                    'files': ann_files,
+                    'raw': stripped,
+                }
+            )
             continue
 
-        ann_match2 = re.match(r'^\s*↳\s+(\d{8}_\d{6})/LDMDet_backup/\s*(.*)$',
-                              stripped)
+        ann_match2 = re.match(
+            r'^\s*↳\s+(\d{8}_\d{6})/LDMDet_backup/\s*(.*)$', stripped
+        )
         if ann_match2:
             ann_ts = ann_match2.group(1)
             ann_rest = ann_match2.group(2).strip()
@@ -1043,7 +1059,7 @@ def parse_backup_annotations(timeline_path: str, ) -> List[dict]:
 
             if ann_rest.startswith('(仅文档，无代码备份)'):
                 ann_incomplete = True
-                rest_after = ann_rest[len('(仅文档，无代码备份)'):].strip()
+                rest_after = ann_rest[len('(仅文档，无代码备份)') :].strip()
                 config_m = re.match(r';\s*config→(.+)', rest_after)
                 if config_m:
                     ann_config_hint = config_m.group(1).strip()
@@ -1053,17 +1069,19 @@ def parse_backup_annotations(timeline_path: str, ) -> List[dict]:
                     f.strip() for f in files_str.split(',') if f.strip()
                 ]
 
-            annotations.append({
-                'line': line_no,
-                'parent_exp_line': last_exp_line,
-                'parent_exp_name': last_exp_name,
-                'dir_name': last_dir_name,
-                'timestamp': ann_ts,
-                'files': ann_files,
-                'incomplete': ann_incomplete,
-                'config_hint': ann_config_hint,
-                'raw': stripped,
-            })
+            annotations.append(
+                {
+                    'line': line_no,
+                    'parent_exp_line': last_exp_line,
+                    'parent_exp_name': last_exp_name,
+                    'dir_name': last_dir_name,
+                    'timestamp': ann_ts,
+                    'files': ann_files,
+                    'incomplete': ann_incomplete,
+                    'config_hint': ann_config_hint,
+                    'raw': stripped,
+                }
+            )
 
     return annotations
 
@@ -1084,26 +1102,35 @@ def validate_backup_paths(
         doc_files = ann['files']
 
         if dir_name is None:
-            results.append({
-                **ann, 'status': 'UNRESOLVED_DIR',
-                'issues': ['无法解析目录名']
-            })
+            results.append(
+                {
+                    **ann,
+                    'status': 'UNRESOLVED_DIR',
+                    'issues': ['无法解析目录名'],
+                }
+            )
             continue
 
         exp_dir = root / dir_name
         if not exp_dir.exists():
-            results.append({
-                **ann, 'status': 'DIR_NOT_FOUND',
-                'issues': [f'目录不存在: {dir_name}']
-            })
+            results.append(
+                {
+                    **ann,
+                    'status': 'DIR_NOT_FOUND',
+                    'issues': [f'目录不存在: {dir_name}'],
+                }
+            )
             continue
 
         ts_dir = exp_dir / ts / 'LDMDet_backup'
         if not ts_dir.exists():
-            results.append({
-                **ann, 'status': 'TS_NOT_FOUND',
-                'issues': [f'时间戳目录不存在: {ts}']
-            })
+            results.append(
+                {
+                    **ann,
+                    'status': 'TS_NOT_FOUND',
+                    'issues': [f'时间戳目录不存在: {ts}'],
+                }
+            )
             continue
 
         ts_contents = set()
@@ -1155,21 +1182,28 @@ def validate_backup_paths(
                         config_stem = Path(doc_config).stem.replace('+', '_')
                         name_norm = dir_name.replace('+', '_')
                         expected_stem = Path(expected).stem.replace('+', '_')
-                        if expected_stem == name_norm and config_stem != name_norm:
-                            issues.append(f'配置文件不精确: 文档={doc_config}, '
-                                          f'更精确匹配={expected}')
-                        elif name_norm.startswith(
-                                expected_stem
-                        ) and not name_norm.startswith(config_stem):
-                            issues.append(f'配置文件不精确: 文档={doc_config}, '
-                                          f'更精确匹配={expected}')
-                        elif expected_stem.startswith(
-                                config_stem) and expected_stem != config_stem:
+                        if (
+                            expected_stem == name_norm
+                            and config_stem != name_norm
+                        ) or (
+                            name_norm.startswith(expected_stem)
+                            and not name_norm.startswith(config_stem)
+                        ):
+                            issues.append(
+                                f'配置文件不精确: 文档={doc_config}, '
+                                f'更精确匹配={expected}'
+                            )
+                        elif (
+                            expected_stem.startswith(config_stem)
+                            and expected_stem != config_stem
+                        ):
                             exp_overlap = len(expected_stem)
                             doc_overlap = len(config_stem)
                             if exp_overlap > doc_overlap:
-                                issues.append(f'配置文件不精确: 文档={doc_config}, '
-                                              f'更精确匹配={expected}')
+                                issues.append(
+                                    f'配置文件不精确: 文档={doc_config}, '
+                                    f'更精确匹配={expected}'
+                                )
 
         for mod_file in doc_mods:
             mod_path = ts_dir / mod_file
@@ -1178,15 +1212,18 @@ def validate_backup_paths(
 
         if doc_files and has_code:
             actual_configs = set()
-            for p in (ts_dir /
-                      'configs').rglob('*.py') if (ts_dir /
-                                                   'configs').exists() else []:
+            for p in (
+                (ts_dir / 'configs').rglob('*.py')
+                if (ts_dir / 'configs').exists()
+                else []
+            ):
                 rel = str(p.relative_to(ts_dir))
                 actual_configs.add(rel)
             if actual_configs and not doc_config:
                 name_norm = dir_name.replace('+', '_')
                 matching = [
-                    c for c in actual_configs
+                    c
+                    for c in actual_configs
                     if Path(c).stem.replace('+', '_') == name_norm
                 ]
                 if matching:
@@ -1217,26 +1254,29 @@ def format_backup_report(backup_results: List[dict]) -> str:
     lines.append(f'  ❓ 其他: {other_count}')
 
     if issue_count > 0:
-        lines.append(f"\n{'=' * 72}")
+        lines.append(f'\n{"=" * 72}')
         lines.append(f'⚠️  有问题的标注（{issue_count} 条）')
         lines.append('-' * 72)
         for r in backup_results:
             if r['status'] == 'ISSUE':
                 dir_name = r['dir_name'] or '?'
-                lines.append(f"  L{r['line']:3d} | {dir_name:<50s} | "
-                             f"ts={r['timestamp']}")
+                lines.append(
+                    f'  L{r["line"]:3d} | {dir_name:<50s} | '
+                    f'ts={r["timestamp"]}'
+                )
                 for issue in r['issues']:
                     lines.append(f'       ⚠ {issue}')
 
     if other_count > 0:
-        lines.append(f"\n{'=' * 72}")
+        lines.append(f'\n{"=" * 72}')
         lines.append(f'❓ 无法验证的标注（{other_count} 条）')
         lines.append('-' * 72)
         for r in backup_results:
             if r['status'] not in ('OK', 'ISSUE'):
                 dir_name = r['dir_name'] or '?'
-                lines.append(f"  L{r['line']:3d} | {dir_name:<50s} | "
-                             f"状态={r['status']}")
+                lines.append(
+                    f'  L{r["line"]:3d} | {dir_name:<50s} | 状态={r["status"]}'
+                )
                 for issue in r.get('issues', []):
                     lines.append(f'       ⚠ {issue}')
 
@@ -1253,7 +1293,8 @@ def format_backup_report(backup_results: List[dict]) -> str:
 
 def main():
     parser = argparse.ArgumentParser(
-        description='验证 MASTER_TIMELINE.md 中的 mAP 数据')
+        description='验证 MASTER_TIMELINE.md 中的 mAP 数据'
+    )
     parser.add_argument('--fix', action='store_true', help='显示修复建议')
     parser.add_argument('--json', action='store_true', help='JSON 格式输出')
     parser.add_argument(
@@ -1294,19 +1335,22 @@ def main():
     claims, mentioned_dirs = parse_timeline(args.timeline)
     print(
         f'  找到 {len(claims)} 条 mAP 声明，{len(mentioned_dirs)} 个已提及目录',
-        file=sys.stderr)
+        file=sys.stderr,
+    )
 
     print('交叉校验...', file=sys.stderr)
     validation_results = validate(ground_truth, claims)
-    truly_missing, no_map_value = find_missing_entries(ground_truth, claims,
-                                                       mentioned_dirs)
+    truly_missing, no_map_value = find_missing_entries(
+        ground_truth, claims, mentioned_dirs
+    )
 
     print('验证 backup 路径标注...', file=sys.stderr)
     backup_info = scan_backup_paths(args.work_dirs)
     annotations = parse_backup_annotations(args.timeline)
     print(f'  找到 {len(annotations)} 条 ↳ 标注', file=sys.stderr)
-    backup_results = validate_backup_paths(annotations, args.work_dirs,
-                                           backup_info)
+    backup_results = validate_backup_paths(
+        annotations, args.work_dirs, backup_info
+    )
 
     if args.json:
         output = {
@@ -1318,18 +1362,25 @@ def main():
         }
         print(json.dumps(output, indent=2, ensure_ascii=False))
     else:
-        report = format_report(validation_results, truly_missing, no_map_value,
-                               ground_truth, args.fix)
+        report = format_report(
+            validation_results,
+            truly_missing,
+            no_map_value,
+            ground_truth,
+            args.fix,
+        )
         print(report)
 
         backup_report = format_backup_report(backup_results)
         print()
         print(backup_report)
 
-    mismatch_count = sum(1 for r in validation_results
-                         if r['status'] == 'MISMATCH')
-    backup_issue_count = sum(1 for r in backup_results
-                             if r['status'] == 'ISSUE')
+    mismatch_count = sum(
+        1 for r in validation_results if r['status'] == 'MISMATCH'
+    )
+    backup_issue_count = sum(
+        1 for r in backup_results if r['status'] == 'ISSUE'
+    )
     sys.exit(1 if (mismatch_count > 0 or backup_issue_count > 0) else 0)
 
 

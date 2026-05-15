@@ -1,6 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 
-# Please refer to https://mmengine.readthedocs.io/en/latest/advanced_tutorials/config.html#a-pure-python-style-configuration-file-beta for more details. # noqa
+# Please refer to https://mmengine.readthedocs.io/en/latest/advanced_tutorials/config.html#a-pure-python-style-configuration-file-beta for more details.
 # mmcv >= 2.0.1
 # mmengine >= 0.8.0
 
@@ -19,12 +19,20 @@ from torch.optim import SGD
 
 from mmdet.datasets import AspectRatioBatchSampler, CocoDataset
 from mmdet.datasets.transforms.formatting import PackDetInputs
-from mmdet.datasets.transforms.loading import (FilterAnnotations,
-                                               LoadAnnotations,
-                                               LoadImageFromFile)
-from mmdet.datasets.transforms.transforms import (CachedMixUp, CachedMosaic,
-                                                  Pad, RandomCrop, RandomFlip,
-                                                  RandomResize, Resize)
+from mmdet.datasets.transforms.loading import (
+    FilterAnnotations,
+    LoadAnnotations,
+    LoadImageFromFile,
+)
+from mmdet.datasets.transforms.transforms import (
+    CachedMixUp,
+    CachedMosaic,
+    Pad,
+    RandomCrop,
+    RandomFlip,
+    RandomResize,
+    Resize,
+)
 from mmdet.evaluation import CocoMetric
 
 # dataset settings
@@ -50,10 +58,10 @@ train_pipeline = [
     dict(type=LoadImageFromFile, backend_args=backend_args),
     dict(type=LoadAnnotations, with_bbox=True, with_mask=True),
     dict(
-        type='RandomResize', scale=[(1333, 640), (1333, 800)],
-        keep_ratio=True),
+        type='RandomResize', scale=[(1333, 640), (1333, 800)], keep_ratio=True
+    ),
     dict(type=RandomFlip, prob=0.5),
-    dict(type=PackDetInputs)
+    dict(type=PackDetInputs),
 ]
 test_pipeline = [
     dict(type=LoadImageFromFile, backend_args=backend_args),
@@ -61,8 +69,14 @@ test_pipeline = [
     dict(type=LoadAnnotations, with_bbox=True, with_mask=True),
     dict(
         type=PackDetInputs,
-        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor'))
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+        ),
+    ),
 ]
 train_dataloader.update(
     dict(
@@ -81,7 +95,11 @@ train_dataloader.update(
                 data_prefix=dict(img='train2017/'),
                 filter_cfg=dict(filter_empty_gt=True, min_size=32),
                 pipeline=train_pipeline,
-                backend_args=backend_args))))
+                backend_args=backend_args,
+            ),
+        ),
+    )
+)
 val_dataloader.update(
     dict(
         batch_size=1,
@@ -96,7 +114,10 @@ val_dataloader.update(
             data_prefix=dict(img='val2017/'),
             test_mode=True,
             pipeline=test_pipeline,
-            backend_args=backend_args)))
+            backend_args=backend_args,
+        ),
+    )
+)
 test_dataloader = val_dataloader
 
 val_evaluator.update(
@@ -104,7 +125,9 @@ val_evaluator.update(
         type=CocoMetric,
         ann_file=data_root + 'annotations/instances_val2017.json',
         metric='bbox',
-        backend_args=backend_args))
+        backend_args=backend_args,
+    )
+)
 test_evaluator = val_evaluator
 
 # training schedule for 3x with `RepeatDataset`
@@ -121,14 +144,17 @@ param_scheduler = [
         end=12,
         by_epoch=False,
         milestones=[9, 11],
-        gamma=0.1)
+        gamma=0.1,
+    ),
 ]
 
 # optimizer
 optim_wrapper.update(
     dict(
         type=OptimWrapper,
-        optimizer=dict(type=SGD, lr=0.02, momentum=0.9, weight_decay=0.0001)))
+        optimizer=dict(type=SGD, lr=0.02, momentum=0.9, weight_decay=0.0001),
+    )
+)
 # Default setting for scaling LR automatically
 #   - `enable` means enable scaling LR automatically
 #       or not by default.

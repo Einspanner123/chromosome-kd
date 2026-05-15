@@ -11,20 +11,21 @@ from mmdet.utils import register_all_modules
 
 
 class TestCornerNet(TestCase):
-
     def setUp(self) -> None:
         register_all_modules()
         model_cfg = get_detector_cfg(
-            'cornernet/cornernet_hourglass104_8xb6-210e-mstest_coco.py')
+            'cornernet/cornernet_hourglass104_8xb6-210e-mstest_coco.py'
+        )
 
         backbone = dict(
             type='ResNet',
             depth=18,
             num_stages=4,
-            out_indices=(3, ),
+            out_indices=(3,),
             norm_cfg=dict(type='BN', requires_grad=True),
             norm_eval=True,
-            style='pytorch')
+            style='pytorch',
+        )
 
         neck = dict(
             type='FPN',
@@ -32,7 +33,8 @@ class TestCornerNet(TestCase):
             out_channels=256,
             start_level=0,
             add_extra_convs='on_input',
-            num_outs=1)
+            num_outs=1,
+        )
 
         model_cfg.backbone = ConfigDict(**backbone)
         model_cfg.neck = ConfigDict(**neck)
@@ -41,19 +43,23 @@ class TestCornerNet(TestCase):
 
     def test_init(self):
         model = get_detector_cfg(
-            'cornernet/cornernet_hourglass104_8xb6-210e-mstest_coco.py')
+            'cornernet/cornernet_hourglass104_8xb6-210e-mstest_coco.py'
+        )
         model.backbone.init_cfg = None
 
         from mmdet.registry import MODELS
+
         detector = MODELS.build(model)
         self.assertTrue(detector.bbox_head is not None)
         self.assertTrue(detector.backbone is not None)
         self.assertTrue(not hasattr(detector, 'neck'))
 
-    @unittest.skipIf(not torch.cuda.is_available(),
-                     'test requires GPU and torch+cuda')
+    @unittest.skipIf(
+        not torch.cuda.is_available(), 'test requires GPU and torch+cuda'
+    )
     def test_cornernet_forward_loss_mode(self):
         from mmdet.registry import MODELS
+
         detector = MODELS.build(self.model_cfg)
         detector.init_weights()
 
@@ -62,10 +68,12 @@ class TestCornerNet(TestCase):
         losses = detector.forward(**data, mode='loss')
         assert isinstance(losses, dict)
 
-    @unittest.skipIf(not torch.cuda.is_available(),
-                     'test requires GPU and torch+cuda')
+    @unittest.skipIf(
+        not torch.cuda.is_available(), 'test requires GPU and torch+cuda'
+    )
     def test_cornernet_forward_predict_mode(self):
         from mmdet.registry import MODELS
+
         detector = MODELS.build(self.model_cfg)
         detector.init_weights()
 
@@ -79,10 +87,12 @@ class TestCornerNet(TestCase):
             assert len(batch_results) == 2
             assert isinstance(batch_results[0], DetDataSample)
 
-    @unittest.skipIf(not torch.cuda.is_available(),
-                     'test requires GPU and torch+cuda')
+    @unittest.skipIf(
+        not torch.cuda.is_available(), 'test requires GPU and torch+cuda'
+    )
     def test_cornernet_forward_tensor_mode(self):
         from mmdet.registry import MODELS
+
         detector = MODELS.build(self.model_cfg)
         detector.init_weights()
 

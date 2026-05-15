@@ -29,37 +29,38 @@ class QuasiDenseEmbedHead(BaseModule):
             dict]): Initialization config dict.
     """
 
-    def __init__(self,
-                 num_convs: int = 0,
-                 num_fcs: int = 0,
-                 roi_feat_size: int = 7,
-                 in_channels: int = 256,
-                 conv_out_channels: int = 256,
-                 with_avg_pool: bool = False,
-                 fc_out_channels: int = 1024,
-                 conv_cfg: Optional[dict] = None,
-                 norm_cfg: Optional[dict] = None,
-                 embed_channels: int = 256,
-                 softmax_temp: int = -1,
-                 loss_track: Optional[dict] = None,
-                 loss_track_aux: dict = dict(
-                     type='MarginL2Loss',
-                     sample_ratio=3,
-                     margin=0.3,
-                     loss_weight=1.0,
-                     hard_mining=True),
-                 init_cfg: dict = dict(
-                     type='Xavier',
-                     layer='Linear',
-                     distribution='uniform',
-                     bias=0,
-                     override=dict(
-                         type='Normal',
-                         name='fc_embed',
-                         mean=0,
-                         std=0.01,
-                         bias=0))):
-        super(QuasiDenseEmbedHead, self).__init__(init_cfg=init_cfg)
+    def __init__(
+        self,
+        num_convs: int = 0,
+        num_fcs: int = 0,
+        roi_feat_size: int = 7,
+        in_channels: int = 256,
+        conv_out_channels: int = 256,
+        with_avg_pool: bool = False,
+        fc_out_channels: int = 1024,
+        conv_cfg: Optional[dict] = None,
+        norm_cfg: Optional[dict] = None,
+        embed_channels: int = 256,
+        softmax_temp: int = -1,
+        loss_track: Optional[dict] = None,
+        loss_track_aux: dict = dict(
+            type='MarginL2Loss',
+            sample_ratio=3,
+            margin=0.3,
+            loss_weight=1.0,
+            hard_mining=True,
+        ),
+        init_cfg: dict = dict(
+            type='Xavier',
+            layer='Linear',
+            distribution='uniform',
+            bias=0,
+            override=dict(
+                type='Normal', name='fc_embed', mean=0, std=0.01, bias=0
+            ),
+        ),
+    ):
+        super().__init__(init_cfg=init_cfg)
         self.num_convs = num_convs
         self.num_fcs = num_fcs
         self.roi_feat_size = _pair(roi_feat_size)
@@ -75,12 +76,14 @@ class QuasiDenseEmbedHead(BaseModule):
             self.avg_pool = nn.AvgPool2d(self.roi_feat_size)
         # add convs and fcs
         self.convs, self.fcs, self.last_layer_dim = self._add_conv_fc_branch(
-            self.num_convs, self.num_fcs, self.in_channels)
+            self.num_convs, self.num_fcs, self.in_channels
+        )
         self.relu = nn.ReLU(inplace=True)
 
         if loss_track is None:
             loss_track = dict(
-                type='MultiPosCrossEntropyLoss', loss_weight=0.25)
+                type='MultiPosCrossEntropyLoss', loss_weight=0.25
+            )
 
         self.fc_embed = nn.Linear(self.last_layer_dim, embed_channels)
         self.softmax_temp = softmax_temp
@@ -91,8 +94,8 @@ class QuasiDenseEmbedHead(BaseModule):
             self.loss_track_aux = None
 
     def _add_conv_fc_branch(
-            self, num_branch_convs: int, num_branch_fcs: int,
-            in_channels: int) -> Tuple[nn.ModuleList, nn.ModuleList, int]:
+        self, num_branch_convs: int, num_branch_fcs: int, in_channels: int
+    ) -> Tuple[nn.ModuleList, nn.ModuleList, int]:
         """Add shared or separable branch. convs -> avg pool (optional) -> fcs.
 
         Args:
@@ -110,7 +113,8 @@ class QuasiDenseEmbedHead(BaseModule):
         if num_branch_convs > 0:
             for i in range(num_branch_convs):
                 conv_in_channels = (
-                    last_layer_dim if i == 0 else self.conv_out_channels)
+                    last_layer_dim if i == 0 else self.conv_out_channels
+                )
                 branch_convs.append(
                     ConvModule(
                         conv_in_channels,
@@ -118,7 +122,9 @@ class QuasiDenseEmbedHead(BaseModule):
                         3,
                         padding=1,
                         conv_cfg=self.conv_cfg,
-                        norm_cfg=self.norm_cfg))
+                        norm_cfg=self.norm_cfg,
+                    )
+                )
             last_layer_dim = self.conv_out_channels
 
         # add branch specific fc layers
@@ -128,9 +134,11 @@ class QuasiDenseEmbedHead(BaseModule):
                 last_layer_dim *= self.roi_feat_area
             for i in range(num_branch_fcs):
                 fc_in_channels = (
-                    last_layer_dim if i == 0 else self.fc_out_channels)
+                    last_layer_dim if i == 0 else self.fc_out_channels
+                )
                 branch_fcs.append(
-                    nn.Linear(fc_in_channels, self.fc_out_channels))
+                    nn.Linear(fc_in_channels, self.fc_out_channels)
+                )
             last_layer_dim = self.fc_out_channels
 
         return branch_convs, branch_fcs, last_layer_dim
@@ -156,9 +164,11 @@ class QuasiDenseEmbedHead(BaseModule):
         return x
 
     def get_targets(
-            self, gt_match_indices: List[Tensor],
-            key_sampling_results: List[SamplingResult],
-            ref_sampling_results: List[SamplingResult]) -> Tuple[List, List]:
+        self,
+        gt_match_indices: List[Tensor],
+        key_sampling_results: List[SamplingResult],
+        ref_sampling_results: List[SamplingResult],
+    ) -> Tuple[List, List]:
         """Calculate the track targets and track weights for all samples in a
         batch according to the sampling_results.
 
@@ -185,25 +195,30 @@ class QuasiDenseEmbedHead(BaseModule):
 
         track_targets = []
         track_weights = []
-        for _gt_match_indices, key_res, ref_res in zip(gt_match_indices,
-                                                       key_sampling_results,
-                                                       ref_sampling_results):
+        for _gt_match_indices, key_res, ref_res in zip(
+            gt_match_indices, key_sampling_results, ref_sampling_results
+        ):
             targets = _gt_match_indices.new_zeros(
                 (key_res.pos_bboxes.size(0), ref_res.bboxes.size(0)),
-                dtype=torch.int)
+                dtype=torch.int,
+            )
             _match_indices = _gt_match_indices[key_res.pos_assigned_gt_inds]
-            pos2pos = (_match_indices.view(
-                -1, 1) == ref_res.pos_assigned_gt_inds.view(1, -1)).int()
-            targets[:, :pos2pos.size(1)] = pos2pos
+            pos2pos = (
+                _match_indices.view(-1, 1)
+                == ref_res.pos_assigned_gt_inds.view(1, -1)
+            ).int()
+            targets[:, : pos2pos.size(1)] = pos2pos
             weights = (targets.sum(dim=1) > 0).float()
             track_targets.append(targets)
             track_weights.append(weights)
         return track_targets, track_weights
 
     def match(
-        self, key_embeds: Tensor, ref_embeds: Tensor,
+        self,
+        key_embeds: Tensor,
+        ref_embeds: Tensor,
         key_sampling_results: List[SamplingResult],
-        ref_sampling_results: List[SamplingResult]
+        ref_sampling_results: List[SamplingResult],
     ) -> Tuple[List[Tensor], List[Tensor]]:
         """Calculate the dist matrixes for loss measurement.
 
@@ -240,20 +255,26 @@ class QuasiDenseEmbedHead(BaseModule):
                 key_embed,
                 ref_embed,
                 method='dot_product',
-                temperature=self.softmax_temp)
+                temperature=self.softmax_temp,
+            )
             dists.append(dist)
             if self.loss_track_aux is not None:
                 cos_dist = embed_similarity(
-                    key_embed, ref_embed, method='cosine')
+                    key_embed, ref_embed, method='cosine'
+                )
                 cos_dists.append(cos_dist)
             else:
                 cos_dists.append(None)
         return dists, cos_dists
 
-    def loss(self, key_roi_feats: Tensor, ref_roi_feats: Tensor,
-             key_sampling_results: List[SamplingResult],
-             ref_sampling_results: List[SamplingResult],
-             gt_match_indices_list: List[Tensor]) -> dict:
+    def loss(
+        self,
+        key_roi_feats: Tensor,
+        ref_roi_feats: Tensor,
+        key_sampling_results: List[SamplingResult],
+        ref_sampling_results: List[SamplingResult],
+        gt_match_indices_list: List[Tensor],
+    ) -> dict:
         """Calculate the track loss and the auxiliary track loss.
 
         Args:
@@ -279,15 +300,23 @@ class QuasiDenseEmbedHead(BaseModule):
         key_track_feats = self(key_roi_feats)
         ref_track_feats = self(ref_roi_feats)
 
-        losses = self.loss_by_feat(key_track_feats, ref_track_feats,
-                                   key_sampling_results, ref_sampling_results,
-                                   gt_match_indices_list)
+        losses = self.loss_by_feat(
+            key_track_feats,
+            ref_track_feats,
+            key_sampling_results,
+            ref_sampling_results,
+            gt_match_indices_list,
+        )
         return losses
 
-    def loss_by_feat(self, key_track_feats: Tensor, ref_track_feats: Tensor,
-                     key_sampling_results: List[SamplingResult],
-                     ref_sampling_results: List[SamplingResult],
-                     gt_match_indices_list: List[Tensor]) -> dict:
+    def loss_by_feat(
+        self,
+        key_track_feats: Tensor,
+        ref_track_feats: Tensor,
+        key_sampling_results: List[SamplingResult],
+        ref_sampling_results: List[SamplingResult],
+        gt_match_indices_list: List[Tensor],
+    ) -> dict:
         """Calculate the track loss and the auxiliary track loss.
 
         Args:
@@ -310,20 +339,25 @@ class QuasiDenseEmbedHead(BaseModule):
                 - loss_track (Tensor): Results of loss_track function.
                 - loss_track_aux (Tensor): Results of loss_track_aux function.
         """
-        dists, cos_dists = self.match(key_track_feats, ref_track_feats,
-                                      key_sampling_results,
-                                      ref_sampling_results)
-        targets, weights = self.get_targets(gt_match_indices_list,
-                                            key_sampling_results,
-                                            ref_sampling_results)
+        dists, cos_dists = self.match(
+            key_track_feats,
+            ref_track_feats,
+            key_sampling_results,
+            ref_sampling_results,
+        )
+        targets, weights = self.get_targets(
+            gt_match_indices_list, key_sampling_results, ref_sampling_results
+        )
         losses = dict()
 
-        loss_track = 0.
-        loss_track_aux = 0.
+        loss_track = 0.0
+        loss_track_aux = 0.0
         for _dists, _cos_dists, _targets, _weights in zip(
-                dists, cos_dists, targets, weights):
+            dists, cos_dists, targets, weights
+        ):
             loss_track += self.loss_track(
-                _dists, _targets, _weights, avg_factor=_weights.sum())
+                _dists, _targets, _weights, avg_factor=_weights.sum()
+            )
             if self.loss_track_aux is not None:
                 loss_track_aux += self.loss_track_aux(_cos_dists, _targets)
         losses['loss_track'] = loss_track / len(dists)

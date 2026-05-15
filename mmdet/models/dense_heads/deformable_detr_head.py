@@ -35,12 +35,14 @@ class DeformableDETRHead(DETRHead):
             from the outputs of encoder. Defaults to `False`.
     """
 
-    def __init__(self,
-                 *args,
-                 share_pred_layer: bool = False,
-                 num_pred_layer: int = 6,
-                 as_two_stage: bool = False,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        *args,
+        share_pred_layer: bool = False,
+        num_pred_layer: int = 6,
+        as_two_stage: bool = False,
+        **kwargs,
+    ) -> None:
         self.share_pred_layer = share_pred_layer
         self.num_pred_layer = num_pred_layer
         self.as_two_stage = as_two_stage
@@ -59,15 +61,18 @@ class DeformableDETRHead(DETRHead):
 
         if self.share_pred_layer:
             self.cls_branches = nn.ModuleList(
-                [fc_cls for _ in range(self.num_pred_layer)])
+                [fc_cls for _ in range(self.num_pred_layer)]
+            )
             self.reg_branches = nn.ModuleList(
-                [reg_branch for _ in range(self.num_pred_layer)])
+                [reg_branch for _ in range(self.num_pred_layer)]
+            )
         else:
             self.cls_branches = nn.ModuleList(
-                [copy.deepcopy(fc_cls) for _ in range(self.num_pred_layer)])
-            self.reg_branches = nn.ModuleList([
-                copy.deepcopy(reg_branch) for _ in range(self.num_pred_layer)
-            ])
+                [copy.deepcopy(fc_cls) for _ in range(self.num_pred_layer)]
+            )
+            self.reg_branches = nn.ModuleList(
+                [copy.deepcopy(reg_branch) for _ in range(self.num_pred_layer)]
+            )
 
     def init_weights(self) -> None:
         """Initialize weights of the Deformable DETR head."""
@@ -83,8 +88,9 @@ class DeformableDETRHead(DETRHead):
             for m in self.reg_branches:
                 nn.init.constant_(m[-1].bias.data[2:], 0.0)
 
-    def forward(self, hidden_states: Tensor,
-                references: List[Tensor]) -> Tuple[Tensor, Tensor]:
+    def forward(
+        self, hidden_states: Tensor, references: List[Tensor]
+    ) -> Tuple[Tensor, Tensor]:
         """Forward function.
 
         Args:
@@ -141,9 +147,14 @@ class DeformableDETRHead(DETRHead):
 
         return all_layers_outputs_classes, all_layers_outputs_coords
 
-    def loss(self, hidden_states: Tensor, references: List[Tensor],
-             enc_outputs_class: Tensor, enc_outputs_coord: Tensor,
-             batch_data_samples: SampleList) -> dict:
+    def loss(
+        self,
+        hidden_states: Tensor,
+        references: List[Tensor],
+        enc_outputs_class: Tensor,
+        enc_outputs_coord: Tensor,
+        batch_data_samples: SampleList,
+    ) -> dict:
         """Perform forward propagation and loss calculation of the detection
         head on the queries of the upstream network.
 
@@ -182,8 +193,12 @@ class DeformableDETRHead(DETRHead):
             batch_gt_instances.append(data_sample.gt_instances)
 
         outs = self(hidden_states, references)
-        loss_inputs = outs + (enc_outputs_class, enc_outputs_coord,
-                              batch_gt_instances, batch_img_metas)
+        loss_inputs = outs + (
+            enc_outputs_class,
+            enc_outputs_coord,
+            batch_gt_instances,
+            batch_img_metas,
+        )
         losses = self.loss_by_feat(*loss_inputs)
         return losses
 
@@ -195,7 +210,7 @@ class DeformableDETRHead(DETRHead):
         enc_bbox_preds: Tensor,
         batch_gt_instances: InstanceList,
         batch_img_metas: List[dict],
-        batch_gt_instances_ignore: OptInstanceList = None
+        batch_gt_instances_ignore: OptInstanceList = None,
     ) -> Dict[str, Tensor]:
         """Loss function.
 
@@ -229,32 +244,41 @@ class DeformableDETRHead(DETRHead):
         Returns:
             dict[str, Tensor]: A dictionary of loss components.
         """
-        loss_dict = super().loss_by_feat(all_layers_cls_scores,
-                                         all_layers_bbox_preds,
-                                         batch_gt_instances, batch_img_metas,
-                                         batch_gt_instances_ignore)
+        loss_dict = super().loss_by_feat(
+            all_layers_cls_scores,
+            all_layers_bbox_preds,
+            batch_gt_instances,
+            batch_img_metas,
+            batch_gt_instances_ignore,
+        )
 
         # loss of proposal generated from encode feature map.
         if enc_cls_scores is not None:
             proposal_gt_instances = copy.deepcopy(batch_gt_instances)
             for i in range(len(proposal_gt_instances)):
                 proposal_gt_instances[i].labels = torch.zeros_like(
-                    proposal_gt_instances[i].labels)
-            enc_loss_cls, enc_losses_bbox, enc_losses_iou = \
+                    proposal_gt_instances[i].labels
+                )
+            enc_loss_cls, enc_losses_bbox, enc_losses_iou = (
                 self.loss_by_feat_single(
-                    enc_cls_scores, enc_bbox_preds,
+                    enc_cls_scores,
+                    enc_bbox_preds,
                     batch_gt_instances=proposal_gt_instances,
-                    batch_img_metas=batch_img_metas)
+                    batch_img_metas=batch_img_metas,
+                )
+            )
             loss_dict['enc_loss_cls'] = enc_loss_cls
             loss_dict['enc_loss_bbox'] = enc_losses_bbox
             loss_dict['enc_loss_iou'] = enc_losses_iou
         return loss_dict
 
-    def predict(self,
-                hidden_states: Tensor,
-                references: List[Tensor],
-                batch_data_samples: SampleList,
-                rescale: bool = True) -> InstanceList:
+    def predict(
+        self,
+        hidden_states: Tensor,
+        references: List[Tensor],
+        batch_data_samples: SampleList,
+        rescale: bool = True,
+    ) -> InstanceList:
         """Perform forward propagation and loss calculation of the detection
         head on the queries of the upstream network.
 
@@ -288,14 +312,17 @@ class DeformableDETRHead(DETRHead):
         outs = self(hidden_states, references)
 
         predictions = self.predict_by_feat(
-            *outs, batch_img_metas=batch_img_metas, rescale=rescale)
+            *outs, batch_img_metas=batch_img_metas, rescale=rescale
+        )
         return predictions
 
-    def predict_by_feat(self,
-                        all_layers_cls_scores: Tensor,
-                        all_layers_bbox_preds: Tensor,
-                        batch_img_metas: List[Dict],
-                        rescale: bool = False) -> InstanceList:
+    def predict_by_feat(
+        self,
+        all_layers_cls_scores: Tensor,
+        all_layers_bbox_preds: Tensor,
+        batch_img_metas: List[Dict],
+        rescale: bool = False,
+    ) -> InstanceList:
         """Transform a batch of output features extracted from the head into
         bbox results.
 
@@ -323,7 +350,8 @@ class DeformableDETRHead(DETRHead):
             cls_score = cls_scores[img_id]
             bbox_pred = bbox_preds[img_id]
             img_meta = batch_img_metas[img_id]
-            results = self._predict_by_feat_single(cls_score, bbox_pred,
-                                                   img_meta, rescale)
+            results = self._predict_by_feat_single(
+                cls_score, bbox_pred, img_meta, rescale
+            )
             result_list.append(results)
         return result_list

@@ -31,14 +31,16 @@ class StrongSORT(DeepSORT):
             Defaults to None.
     """
 
-    def __init__(self,
-                 detector: Optional[dict] = None,
-                 reid: Optional[dict] = None,
-                 cmc: Optional[dict] = None,
-                 tracker: Optional[dict] = None,
-                 postprocess_model: Optional[dict] = None,
-                 data_preprocessor: OptConfigType = None,
-                 init_cfg: OptConfigType = None):
+    def __init__(
+        self,
+        detector: Optional[dict] = None,
+        reid: Optional[dict] = None,
+        cmc: Optional[dict] = None,
+        tracker: Optional[dict] = None,
+        postprocess_model: Optional[dict] = None,
+        data_preprocessor: OptConfigType = None,
+        init_cfg: OptConfigType = None,
+    ):
         super().__init__(detector, reid, tracker, data_preprocessor, init_cfg)
 
         if cmc is not None:
@@ -50,15 +52,17 @@ class StrongSORT(DeepSORT):
     @property
     def with_cmc(self):
         """bool: whether the framework has a camera model compensation
-                model.
+        model.
         """
         return hasattr(self, 'cmc') and self.cmc is not None
 
-    def predict(self,
-                inputs: Tensor,
-                data_samples: TrackSampleList,
-                rescale: bool = True,
-                **kwargs) -> TrackSampleList:
+    def predict(
+        self,
+        inputs: Tensor,
+        data_samples: TrackSampleList,
+        rescale: bool = True,
+        **kwargs,
+    ) -> TrackSampleList:
         """Predict results from a video and data samples with post- processing.
 
         Args:
@@ -79,13 +83,15 @@ class StrongSORT(DeepSORT):
             Each DetDataSample usually contains ``pred_track_instances``.
         """
         assert inputs.dim() == 5, 'The img must be 5D Tensor (N, T, C, H, W).'
-        assert inputs.size(0) == 1, \
-            'SORT/DeepSORT inference only support ' \
+        assert inputs.size(0) == 1, (
+            'SORT/DeepSORT inference only support '
             '1 batch size per gpu for now.'
+        )
 
-        assert len(data_samples) == 1, \
-            'SORT/DeepSORT inference only support ' \
+        assert len(data_samples) == 1, (
+            'SORT/DeepSORT inference only support '
             '1 batch size per gpu for now.'
+        )
 
         track_data_sample = data_samples[0]
         video_len = len(track_data_sample)
@@ -104,26 +110,37 @@ class StrongSORT(DeepSORT):
                 data_sample=det_results[0],
                 data_preprocessor=self.preprocess_cfg,
                 rescale=rescale,
-                **kwargs)
+                **kwargs,
+            )
             for i in range(len(pred_track_instances.instances_id)):
                 video_track_instances.append(
-                    np.array([
-                        frame_id + 1,
-                        pred_track_instances.instances_id[i].cpu(),
-                        pred_track_instances.bboxes[i][0].cpu(),
-                        pred_track_instances.bboxes[i][1].cpu(),
-                        (pred_track_instances.bboxes[i][2] -
-                         pred_track_instances.bboxes[i][0]).cpu(),
-                        (pred_track_instances.bboxes[i][3] -
-                         pred_track_instances.bboxes[i][1]).cpu(),
-                        pred_track_instances.scores[i].cpu()
-                    ]))
+                    np.array(
+                        [
+                            frame_id + 1,
+                            pred_track_instances.instances_id[i].cpu(),
+                            pred_track_instances.bboxes[i][0].cpu(),
+                            pred_track_instances.bboxes[i][1].cpu(),
+                            (
+                                pred_track_instances.bboxes[i][2]
+                                - pred_track_instances.bboxes[i][0]
+                            ).cpu(),
+                            (
+                                pred_track_instances.bboxes[i][3]
+                                - pred_track_instances.bboxes[i][1]
+                            ).cpu(),
+                            pred_track_instances.scores[i].cpu(),
+                        ]
+                    )
+                )
         video_track_instances = np.array(video_track_instances).reshape(-1, 7)
         video_track_instances = self.postprocess_model.forward(
-            video_track_instances)
+            video_track_instances
+        )
         for frame_id in range(video_len):
-            track_data_sample[frame_id].pred_track_instances = \
-                    InstanceData(bboxes=video_track_instances[
-                        video_track_instances[:, 0] == frame_id + 1, :])
+            track_data_sample[frame_id].pred_track_instances = InstanceData(
+                bboxes=video_track_instances[
+                    video_track_instances[:, 0] == frame_id + 1, :
+                ]
+            )
 
         return [track_data_sample]

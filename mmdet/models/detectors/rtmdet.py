@@ -28,15 +28,17 @@ class RTMDet(SingleStageDetector):
         use_syncbn (bool): Whether to use SyncBatchNorm. Defaults to True.
     """
 
-    def __init__(self,
-                 backbone: ConfigType,
-                 neck: ConfigType,
-                 bbox_head: ConfigType,
-                 train_cfg: OptConfigType = None,
-                 test_cfg: OptConfigType = None,
-                 data_preprocessor: OptConfigType = None,
-                 init_cfg: OptMultiConfig = None,
-                 use_syncbn: bool = True) -> None:
+    def __init__(
+        self,
+        backbone: ConfigType,
+        neck: ConfigType,
+        bbox_head: ConfigType,
+        train_cfg: OptConfigType = None,
+        test_cfg: OptConfigType = None,
+        data_preprocessor: OptConfigType = None,
+        init_cfg: OptMultiConfig = None,
+        use_syncbn: bool = True,
+    ) -> None:
         super().__init__(
             backbone=backbone,
             neck=neck,
@@ -44,7 +46,8 @@ class RTMDet(SingleStageDetector):
             train_cfg=train_cfg,
             test_cfg=test_cfg,
             data_preprocessor=data_preprocessor,
-            init_cfg=init_cfg)
+            init_cfg=init_cfg,
+        )
 
         # TODO: Waiting for mmengine support
         if use_syncbn and get_world_size() > 1:

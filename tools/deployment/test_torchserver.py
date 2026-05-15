@@ -20,16 +20,20 @@ def parse_args():
     parser.add_argument(
         '--inference-addr',
         default='127.0.0.1:8080',
-        help='Address and port of the inference server')
+        help='Address and port of the inference server',
+    )
     parser.add_argument(
-        '--device', default='cuda:0', help='Device used for inference')
+        '--device', default='cuda:0', help='Device used for inference'
+    )
     parser.add_argument(
-        '--score-thr', type=float, default=0.5, help='bbox score threshold')
+        '--score-thr', type=float, default=0.5, help='bbox score threshold'
+    )
     parser.add_argument(
         '--work-dir',
         type=str,
         default=None,
-        help='output directory to save drawn results.')
+        help='output directory to save drawn results.',
+    )
     args = parser.parse_args()
     return args
 
@@ -44,11 +48,14 @@ def align_ts_output(inputs, metainfo, device):
         scores.append(pred['score'])
     pred_instances = InstanceData(metainfo=metainfo)
     pred_instances.bboxes = torch.tensor(
-        bboxes, dtype=torch.float32, device=device)
+        bboxes, dtype=torch.float32, device=device
+    )
     pred_instances.labels = torch.tensor(
-        labels, dtype=torch.int64, device=device)
+        labels, dtype=torch.int64, device=device
+    )
     pred_instances.scores = torch.tensor(
-        scores, dtype=torch.float32, device=device)
+        scores, dtype=torch.float32, device=device
+    )
     ts_data_sample = DetDataSample(pred_instances=pred_instances)
     return ts_data_sample
 
@@ -83,7 +90,8 @@ def main(args):
         draw_gt=False,
         out_file=pt_out_file,
         show=True,
-        wait_time=0)
+        wait_time=0,
+    )
 
     url = 'http://' + args.inference_addr + '/predictions/' + args.model_name
     with open(args.img, 'rb') as image:
@@ -98,14 +106,18 @@ def main(args):
         draw_gt=False,
         out_file=ts_out_file,
         show=True,
-        wait_time=0)
+        wait_time=0,
+    )
 
-    assert torch.allclose(pytorch_results.pred_instances.bboxes,
-                          ts_results.pred_instances.bboxes)
-    assert torch.allclose(pytorch_results.pred_instances.labels,
-                          ts_results.pred_instances.labels)
-    assert torch.allclose(pytorch_results.pred_instances.scores,
-                          ts_results.pred_instances.scores)
+    assert torch.allclose(
+        pytorch_results.pred_instances.bboxes, ts_results.pred_instances.bboxes
+    )
+    assert torch.allclose(
+        pytorch_results.pred_instances.labels, ts_results.pred_instances.labels
+    )
+    assert torch.allclose(
+        pytorch_results.pred_instances.scores, ts_results.pred_instances.scores
+    )
 
 
 if __name__ == '__main__':

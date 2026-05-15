@@ -8,7 +8,8 @@ model = dict(
         rf_schedule='shifted',  # 启用 Shifted Schedule
         rf_shift=3.0,  # 增加数据端采样密度 (参考 SD3/Flux)
         snr_scale=2.0,
-    ))
+    )
+)
 
 # --- 针对 Rectified Flow 的优化器和学习率调整 ---
 optim_wrapper = dict(
@@ -16,7 +17,8 @@ optim_wrapper = dict(
         type='AdamW',
         lr=0.00005,  # RF 通常可以使用略大的学习率
         weight_decay=0.0001,
-    ))
+    )
+)
 
 # 训练周期配置
 max_epoch = 150

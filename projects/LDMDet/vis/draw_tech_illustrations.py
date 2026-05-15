@@ -20,24 +20,30 @@ def draw_rf():
     p_data = np.array([0.2, 0.2])
 
     # RF Path (Straight)
-    plt.plot([p_noise[0], p_data[0]], [p_noise[1], p_data[1]],
-             'r-',
-             linewidth=3,
-             label='Rectified Flow (Linear)')
+    plt.plot(
+        [p_noise[0], p_data[0]],
+        [p_noise[1], p_data[1]],
+        'r-',
+        linewidth=3,
+        label='Rectified Flow (Linear)',
+    )
     plt.arrow(0.65, 0.65, -0.1, -0.1, head_width=0.03, color='r')
 
     # Diffusion Path (Curved)
     t = np.linspace(0, 1, 100)
-    curved_x = p_data[0] + (p_noise[0] - p_data[0]) * t + 0.15 * np.sin(
-        np.pi * t)
-    curved_y = p_data[1] + (p_noise[1] - p_data[1]) * t - 0.1 * np.sin(
-        np.pi * t)
+    curved_x = (
+        p_data[0] + (p_noise[0] - p_data[0]) * t + 0.15 * np.sin(np.pi * t)
+    )
+    curved_y = (
+        p_data[1] + (p_noise[1] - p_data[1]) * t - 0.1 * np.sin(np.pi * t)
+    )
     plt.plot(
         curved_x,
         curved_y,
         'b--',
         alpha=0.6,
-        label='Traditional Diffusion (Curved)')
+        label='Traditional Diffusion (Curved)',
+    )
 
     plt.scatter(*p_noise, color='black', s=100, zorder=5)
     plt.text(
@@ -45,7 +51,8 @@ def draw_rf():
         p_noise[1],
         'Noise (t=1)',
         fontsize=12,
-        fontweight='bold')
+        fontweight='bold',
+    )
     plt.scatter(*p_data, color='green', s=100, zorder=5)
     plt.text(
         p_data[0] - 0.15,
@@ -53,7 +60,8 @@ def draw_rf():
         'Data (t=0)',
         fontsize=12,
         fontweight='bold',
-        color='green')
+        color='green',
+    )
 
     plt.title('Rectified Flow: The Shortest Path', fontsize=14)
     plt.xlabel('Latent Space X')
@@ -77,30 +85,38 @@ def draw_heun():
     y_curr = 0.8 - 0.6 * t_curr**2
     slope_curr = -1.2 * t_curr
     y_euler = y_curr + slope_curr * (t_next - t_curr)
-    plt.plot([t_curr, t_next], [y_curr, y_euler],
-             'b--',
-             marker='o',
-             label='Euler Step (High Error)')
+    plt.plot(
+        [t_curr, t_next],
+        [y_curr, y_euler],
+        'b--',
+        marker='o',
+        label='Euler Step (High Error)',
+    )
 
     # Heun step
     slope_next = -1.2 * t_next  # Simplified: assuming we know the next slope
     y_heun = y_curr + 0.5 * (slope_curr + slope_next) * (t_next - t_curr)
-    plt.plot([t_curr, t_next], [y_curr, y_heun],
-             'r-',
-             marker='s',
-             linewidth=2,
-             label='Heun Step (2nd Order Correction)')
+    plt.plot(
+        [t_curr, t_next],
+        [y_curr, y_heun],
+        'r-',
+        marker='s',
+        linewidth=2,
+        label='Heun Step (2nd Order Correction)',
+    )
 
     plt.annotate(
         'Predictor',
         xy=(t_next, y_euler),
         xytext=(t_next + 0.05, y_euler + 0.05),
-        arrowprops=dict(arrowstyle='->'))
+        arrowprops=dict(arrowstyle='->'),
+    )
     plt.annotate(
         'Corrector',
         xy=(t_next, y_heun),
         xytext=(t_next + 0.05, y_heun - 0.05),
-        arrowprops=dict(arrowstyle='->'))
+        arrowprops=dict(arrowstyle='->'),
+    )
 
     plt.title('Heun Solver: Predictor-Corrector', fontsize=14)
     plt.xlabel('Time t')
@@ -117,25 +133,27 @@ def draw_logit_coupling():
     # BBox Evolution
     ax1.set_title('BBox Space Evolution', fontsize=12)
     ax1.add_patch(
-        plt.Rectangle((0.2, 0.2),
-                      0.3,
-                      0.5,
-                      fill=False,
-                      edgecolor='blue',
-                      alpha=0.3,
-                      linestyle='--'))
+        plt.Rectangle(
+            (0.2, 0.2),
+            0.3,
+            0.5,
+            fill=False,
+            edgecolor='blue',
+            alpha=0.3,
+            linestyle='--',
+        )
+    )
     ax1.add_patch(
-        plt.Rectangle((0.4, 0.3),
-                      0.3,
-                      0.5,
-                      fill=False,
-                      edgecolor='red',
-                      linewidth=2))
+        plt.Rectangle(
+            (0.4, 0.3), 0.3, 0.5, fill=False, edgecolor='red', linewidth=2
+        )
+    )
     ax1.annotate(
         '',
         xy=(0.55, 0.55),
         xytext=(0.35, 0.45),
-        arrowprops=dict(arrowstyle='->', color='red'))
+        arrowprops=dict(arrowstyle='->', color='red'),
+    )
     ax1.set_xlim(0, 1)
     ax1.set_ylim(0, 1)
 
@@ -152,7 +170,8 @@ def draw_logit_coupling():
         0.3,
         label='Score at t_curr',
         color='blue',
-        alpha=0.3)
+        alpha=0.3,
+    )
     ax2.bar(x + 0.15, scores_next, 0.3, label='Score at t_next', color='red')
     ax2.set_xticks(x)
     ax2.set_xticklabels(classes)
@@ -162,7 +181,8 @@ def draw_logit_coupling():
     plt.suptitle(
         'Logit-Velocity Coupling: Spatial-Semantic Alignment',
         fontsize=14,
-        y=1.05)
+        y=1.05,
+    )
     save_fig('logit_velocity_coupling')
 
 
@@ -185,7 +205,8 @@ def draw_shifted_schedule():
             sample_t = np.linspace(0, 1, 6)
             sample_t_shifted = (s * sample_t) / (1 + (s - 1) * sample_t)
             plt.scatter(
-                sample_t, sample_t_shifted, color='red', s=30, zorder=5)
+                sample_t, sample_t_shifted, color='red', s=30, zorder=5
+            )
             for st_val in sample_t_shifted:
                 plt.axhline(y=st_val, color='red', alpha=0.1, xmin=0, xmax=1)
 
@@ -199,7 +220,8 @@ def draw_shifted_schedule():
         'More steps near Data (t=0)',
         xy=(0.2, 0.4),
         xytext=(0.4, 0.2),
-        arrowprops=dict(facecolor='black', shrink=0.05, width=1, headwidth=8))
+        arrowprops=dict(facecolor='black', shrink=0.05, width=1, headwidth=8),
+    )
 
     save_fig('shifted_schedule')
 

@@ -12,10 +12,10 @@ from mmdet.structures.mask import encode_mask_results
 
 
 class TestDumpResults(TestCase):
-
     def test_init(self):
-        with self.assertRaisesRegex(ValueError,
-                                    'The output file must be a pkl file.'):
+        with self.assertRaisesRegex(
+            ValueError, 'The output file must be a pkl file.'
+        ):
             DumpDetResults(out_file_path='./results.json')
 
     def test_process(self):
@@ -23,8 +23,9 @@ class TestDumpResults(TestCase):
         data_samples = [dict(data=(Tensor([1, 2, 3]), Tensor([4, 5, 6])))]
         metric.process(None, data_samples)
         self.assertEqual(len(metric.results), 1)
-        self.assertEqual(metric.results[0]['data'][0].device,
-                         torch.device('cpu'))
+        self.assertEqual(
+            metric.results[0]['data'][0].device, torch.device('cpu')
+        )
 
         metric = DumpDetResults(out_file_path='./results.pkl')
         masks = torch.zeros(10, 10, 4)
@@ -33,8 +34,10 @@ class TestDumpResults(TestCase):
         ]
         metric.process(None, data_samples)
         self.assertEqual(len(metric.results), 1)
-        self.assertEqual(metric.results[0]['pred_instances']['masks'],
-                         encode_mask_results(masks.numpy()))
+        self.assertEqual(
+            metric.results[0]['pred_instances']['masks'],
+            encode_mask_results(masks.numpy()),
+        )
         self.assertNotIn('gt_instances', metric.results[0])
 
     def test_compute_metrics(self):

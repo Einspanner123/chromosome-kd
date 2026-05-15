@@ -13,9 +13,10 @@ from mmdet.utils import register_all_modules
 register_all_modules()
 
 
-@pytest.mark.parametrize('config,devices',
-                         [('configs/retinanet/retinanet_r18_fpn_1x_coco.py',
-                           ('cpu', 'cuda'))])
+@pytest.mark.parametrize(
+    'config,devices',
+    [('configs/retinanet/retinanet_r18_fpn_1x_coco.py', ('cpu', 'cuda'))],
+)
 def test_init_detector(config, devices):
     assert all([device in ['cpu', 'cuda'] for device in devices])
 
@@ -30,14 +31,19 @@ def test_init_detector(config, devices):
             backbone=dict(
                 depth=18,
                 init_cfg=dict(
-                    type='Pretrained', checkpoint='torchvision://resnet18'))))
+                    type='Pretrained', checkpoint='torchvision://resnet18'
+                ),
+            )
+        )
+    )
 
     for device in devices:
         if device == 'cuda' and not torch.cuda.is_available():
             pytest.skip('test requires GPU and torch+cuda')
 
         model = init_detector(
-            config_file, device=device, cfg_options=cfg_options)
+            config_file, device=device, cfg_options=cfg_options
+        )
 
         # test init_detector with :obj:`Path`
         config_path_object = Path(config_file)
@@ -49,9 +55,10 @@ def test_init_detector(config, devices):
             model = init_detector(config_list)  # noqa: F841
 
 
-@pytest.mark.parametrize('config,devices',
-                         [('configs/retinanet/retinanet_r18_fpn_1x_coco.py',
-                           ('cpu', 'cuda'))])
+@pytest.mark.parametrize(
+    'config,devices',
+    [('configs/retinanet/retinanet_r18_fpn_1x_coco.py', ('cpu', 'cuda'))],
+)
 def test_inference_detector(config, devices):
     assert all([device in ['cpu', 'cuda'] for device in devices])
 

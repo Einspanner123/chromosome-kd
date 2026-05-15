@@ -4,7 +4,8 @@ _base_ = 'yolact_r50_1xb8-55e_coco.py'
 optim_wrapper = dict(
     type='OptimWrapper',
     optimizer=dict(lr=8e-3),
-    clip_grad=dict(max_norm=35, norm_type=2))
+    clip_grad=dict(max_norm=35, norm_type=2),
+)
 # learning rate
 max_epochs = 55
 param_scheduler = [
@@ -15,7 +16,8 @@ param_scheduler = [
         end=max_epochs,
         by_epoch=True,
         milestones=[20, 42, 49, 52],
-        gamma=0.1)
+        gamma=0.1,
+    ),
 ]
 # NOTE: `auto_scale_lr` is for automatically scaling LR,
 # USER SHOULD NOT CHANGE ITS VALUES.

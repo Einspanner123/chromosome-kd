@@ -32,7 +32,7 @@ def parse_xml(args):
             int(bnd_box.find('xmin').text),
             int(bnd_box.find('ymin').text),
             int(bnd_box.find('xmax').text),
-            int(bnd_box.find('ymax').text)
+            int(bnd_box.find('ymax').text),
         ]
         if difficult:
             bboxes_ignore.append(bbox)
@@ -42,13 +42,13 @@ def parse_xml(args):
             labels.append(label)
     if not bboxes:
         bboxes = np.zeros((0, 4))
-        labels = np.zeros((0, ))
+        labels = np.zeros((0,))
     else:
         bboxes = np.array(bboxes, ndmin=2) - 1
         labels = np.array(labels)
     if not bboxes_ignore:
         bboxes_ignore = np.zeros((0, 4))
-        labels_ignore = np.zeros((0, ))
+        labels_ignore = np.zeros((0,))
     else:
         bboxes_ignore = np.array(bboxes_ignore, ndmin=2) - 1
         labels_ignore = np.array(labels_ignore)
@@ -60,8 +60,8 @@ def parse_xml(args):
             'bboxes': bboxes.astype(np.float32),
             'labels': labels.astype(np.int64),
             'bboxes_ignore': bboxes_ignore.astype(np.float32),
-            'labels_ignore': labels_ignore.astype(np.int64)
-        }
+            'labels_ignore': labels_ignore.astype(np.int64),
+        },
     }
     return annotation
 
@@ -71,11 +71,13 @@ def cvt_annotations(devkit_path, years, split, out_file):
         years = [years]
     annotations = []
     for year in years:
-        filelist = osp.join(devkit_path,
-                            f'VOC{year}/ImageSets/Main/{split}.txt')
+        filelist = osp.join(
+            devkit_path, f'VOC{year}/ImageSets/Main/{split}.txt'
+        )
         if not osp.isfile(filelist):
-            print(f'filelist does not exist: {filelist}, '
-                  f'skip voc{year} {split}')
+            print(
+                f'filelist does not exist: {filelist}, skip voc{year} {split}'
+            )
             return
         img_names = list_from_file(filelist)
         xml_paths = [
@@ -85,8 +87,9 @@ def cvt_annotations(devkit_path, years, split, out_file):
         img_paths = [
             f'VOC{year}/JPEGImages/{img_name}.jpg' for img_name in img_names
         ]
-        part_annotations = track_progress(parse_xml,
-                                          list(zip(xml_paths, img_paths)))
+        part_annotations = track_progress(
+            parse_xml, list(zip(xml_paths, img_paths))
+        )
         annotations.extend(part_annotations)
     if out_file.endswith('json'):
         annotations = cvt_to_coco_json(annotations)
@@ -126,7 +129,8 @@ def cvt_to_coco_json(annotations):
         annotation_item['segmentation'].append(seg)
 
         xywh = np.array(
-            [bbox[0], bbox[1], bbox[2] - bbox[0], bbox[3] - bbox[1]])
+            [bbox[0], bbox[1], bbox[2] - bbox[0], bbox[3] - bbox[1]]
+        )
         annotation_item['area'] = int(xywh[2] * xywh[3])
         if difficult_flag == 1:
             annotation_item['ignore'] = 0
@@ -143,7 +147,7 @@ def cvt_to_coco_json(annotations):
 
     for category_id, name in enumerate(voc_classes()):
         category_item = dict()
-        category_item['supercategory'] = str('none')
+        category_item['supercategory'] = 'none'
         category_item['id'] = int(category_id)
         category_item['name'] = str(name)
         coco['categories'].append(category_item)
@@ -166,7 +170,8 @@ def cvt_to_coco_json(annotations):
             bbox = bboxes[bbox_id]
             label = labels[bbox_id]
             annotation_id = addAnnItem(
-                annotation_id, image_id, label, bbox, difficult_flag=0)
+                annotation_id, image_id, label, bbox, difficult_flag=0
+            )
 
         bboxes_ignore = ann['bboxes_ignore'][:, :4]
         labels_ignore = ann['labels_ignore']
@@ -174,7 +179,8 @@ def cvt_to_coco_json(annotations):
             bbox = bboxes_ignore[bbox_id]
             label = labels_ignore[bbox_id]
             annotation_id = addAnnItem(
-                annotation_id, image_id, label, bbox, difficult_flag=1)
+                annotation_id, image_id, label, bbox, difficult_flag=1
+            )
 
         image_id += 1
 
@@ -183,14 +189,16 @@ def cvt_to_coco_json(annotations):
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Convert PASCAL VOC annotations to mmdetection format')
+        description='Convert PASCAL VOC annotations to mmdetection format'
+    )
     parser.add_argument('devkit_path', help='pascal voc devkit path')
     parser.add_argument('-o', '--out-dir', help='output path')
     parser.add_argument(
         '--out-format',
         default='pkl',
         choices=('pkl', 'coco'),
-        help='output format, "coco" indicates coco annotation format')
+        help='output format, "coco" indicates coco annotation format',
+    )
     args = parser.parse_args()
     return args
 
@@ -209,8 +217,10 @@ def main():
     if '2007' in years and '2012' in years:
         years.append(['2007', '2012'])
     if not years:
-        raise IOError(f'The devkit path {devkit_path} contains neither '
-                      '"VOC2007" nor "VOC2012" subfolder')
+        raise OSError(
+            f'The devkit path {devkit_path} contains neither '
+            '"VOC2007" nor "VOC2012" subfolder'
+        )
     out_fmt = f'.{args.out_format}'
     if args.out_format == 'coco':
         out_fmt = '.json'
@@ -224,13 +234,21 @@ def main():
         for split in ['train', 'val', 'trainval']:
             dataset_name = prefix + '_' + split
             print(f'processing {dataset_name} ...')
-            cvt_annotations(devkit_path, year, split,
-                            osp.join(out_dir, dataset_name + out_fmt))
+            cvt_annotations(
+                devkit_path,
+                year,
+                split,
+                osp.join(out_dir, dataset_name + out_fmt),
+            )
         if not isinstance(year, list):
             dataset_name = prefix + '_test'
             print(f'processing {dataset_name} ...')
-            cvt_annotations(devkit_path, year, 'test',
-                            osp.join(out_dir, dataset_name + out_fmt))
+            cvt_annotations(
+                devkit_path,
+                year,
+                'test',
+                osp.join(out_dir, dataset_name + out_fmt),
+            )
     print('Done!')
 
 
