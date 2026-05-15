@@ -59,7 +59,9 @@ class DiffusionDetHead(nn.Module):
         ot_init_mode: str = 'replace',  # "replace" (替换 x_start) 或 "guided" (引导噪声初始化)
         ot_init_scale: float = 0.5,  # guided 模式下噪声到 GT 的缩放因子
         ot_sample: bool = False,  # Stochastic Coupling: 从传输矩阵采样替代 argmax
-        ot_sample_seed: Optional[int] = None,  # 固定 OT 采样 RNG；None 使用全局 RNG
+        ot_sample_seed: Optional[
+            int
+        ] = None,  # 固定 OT 采样 RNG；None 使用全局 RNG
         ot_group_hierarchical: bool = False,  # Group-Hierarchical Coupling: 按染色体组分组 OT
         ot_kcec: bool = False,  # Karyotype-Constrained Entropic Coupling
         kcec_morph_weight: float = 0.25,  # 形态 (w,h) 匹配代价权重
@@ -68,7 +70,9 @@ class DiffusionDetHead(nn.Module):
         # === TRD 参数 ===
         use_trd: bool = False,  # Transport-Refinement Decomposition
         trd_self_cond_prob: float = 0.5,  # 训练时自条件化概率
-        trd_delta_t: Optional[float] = None,  # TRD 自条件步长；None 时沿用 cat_delta_t
+        trd_delta_t: Optional[
+            float
+        ] = None,  # TRD 自条件步长；None 时沿用 cat_delta_t
         # === CAT 参数 ===
         use_cat: bool = False,  # Curvature-Aware Training
         cat_weight: float = 0.1,  # 曲率正则化权重
@@ -376,9 +380,9 @@ class DiffusionDetHead(nn.Module):
 
         transport = self._sinkhorn_transport(cost, col_mass=col_mass)
         if self.ot_sample:
-            row_probs = transport / transport.sum(dim=1, keepdim=True).clamp_min(
-                1e-10
-            )
+            row_probs = transport / transport.sum(
+                dim=1, keepdim=True
+            ).clamp_min(1e-10)
             return self._ot_multinomial(row_probs)
         return transport.argmax(dim=1)
 
@@ -627,9 +631,9 @@ class DiffusionDetHead(nn.Module):
         transport = self._sinkhorn_transport(cost)
 
         if self.ot_sample:
-            row_probs = transport / transport.sum(dim=1, keepdim=True).clamp_min(
-                1e-10
-            )
+            row_probs = transport / transport.sum(
+                dim=1, keepdim=True
+            ).clamp_min(1e-10)
             return self._ot_multinomial(row_probs)
         return transport.argmax(dim=1)
 
@@ -899,9 +903,7 @@ class DiffusionDetHead(nn.Module):
             t2_safe = t2_view.clamp_min(1e-3)
             v_t1 = (x_noise_batch - x0_t1) / t1_safe
             v_t2 = (x_noise_batch - x0_t2.detach()) / t2_safe
-            losses['loss_curvature'] = (
-                F.mse_loss(v_t1, v_t2) * self.cat_weight
-            )
+            losses['loss_curvature'] = F.mse_loss(v_t1, v_t2) * self.cat_weight
         else:
             losses['loss_curvature'] = (
                 F.mse_loss(x0_t1, x0_t2.detach()) * self.cat_weight
