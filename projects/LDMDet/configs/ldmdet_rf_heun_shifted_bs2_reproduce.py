@@ -1,4 +1,4 @@
-_base_ = ["./ldmdet_rf_heun_shifted_bs2.py"]
+_base_ = ['./ldmdet_rf_heun_shifted_bs2.py']
 
 # 继承自 ldmdet_rf_heun_shifted_bs2.py
 # 显式固定随机种子以复现 20260127_145108 的实验结果

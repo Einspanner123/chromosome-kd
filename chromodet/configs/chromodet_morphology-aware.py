@@ -1,3 +1,4 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 _base_ = ['./chromodet_baseline.py']
 
 # HyperParam
@@ -9,19 +10,17 @@ model = dict(
     bbox_head=dict(
         type='ChromoDetDynamicHead',
         use_morphology_aware=use_morphology_aware,
-        single_head=dict(
-            type='ChromoDetSingleHead'),
+        single_head=dict(type='ChromoDetSingleHead'),
         # criterion
         criterion=dict(
             type='ChromoDetCriterion',
-            use_morphology_aware=use_morphology_aware, # 形态感知
+            use_morphology_aware=use_morphology_aware,  # 形态感知
             assigner=dict(
                 type='ChromoDetMatcher',
                 use_morphology_aware=use_morphology_aware),
-            ),
-        )
-    )
+        ),
+    ))
 
 randomness = dict(
-    deterministic=False,     # 使用确定性CUDA计算
+    deterministic=False,  # 使用确定性CUDA计算
 )

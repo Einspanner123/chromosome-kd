@@ -12,22 +12,24 @@ class ErrorAnalyzer:
         gts: list of dict(bboxes, labels)
         """
         summary = {
-            "Cls": 0,  # 分类错误: IoU > thr 但类别错
-            "Loc": 0,  # 定位错误: 类别对但 0.1 < IoU < thr
-            "Both": 0,  # 分类且定位错误
-            "Dupe": 0,  # 重复检测
-            "Bkg": 0,  # 背景误报: IoU < 0.1
-            "Miss": 0,  # 漏检
+            'Cls': 0,  # 分类错误: IoU > thr 但类别错
+            'Loc': 0,  # 定位错误: 类别对但 0.1 < IoU < thr
+            'Both': 0,  # 分类且定位错误
+            'Dupe': 0,  # 重复检测
+            'Bkg': 0,  # 背景误报: IoU < 0.1
+            'Miss': 0,  # 漏检
         }
 
         # 详细逻辑实现...
         # 这里可以使用 mmdet.evaluation.functional 中的工具函数
         # 为了演示，我们先输出一个结构化的占位
-        print("Error Analysis Summary (Mock):")
+        print('Error Analysis Summary (Mock):')
         for k, v in summary.items():
-            print(f"- {k}: {v}")
+            print(f'- {k}: {v}')
         return summary
 
 
-if __name__ == "__main__":
-    print("Error Analyzer script initialized. Use this to analyze saved pkl results.")
+if __name__ == '__main__':
+    print(
+        'Error Analyzer script initialized. Use this to analyze saved pkl results.'
+    )

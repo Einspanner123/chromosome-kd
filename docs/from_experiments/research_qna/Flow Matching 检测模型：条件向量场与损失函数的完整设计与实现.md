@@ -30,25 +30,25 @@ Writing comprehensive implementation...
 
 # Flow Matching 检测模型：条件向量场与损失函数的完整设计与实现
 
----
+______________________________________________________________________
 
 ## 一、数学基础：检测任务中的条件向量场
 
 ### 1.1 核心公式推导
 
-**目标**：将随机噪声框 $b_0 \sim \mathcal{N}(0, I)$ 传输到 GT 框 $b_1 = b_{\text{gt}}$
+**目标**：将随机噪声框 $b_0 \\sim \\mathcal{N}(0, I)$ 传输到 GT 框 $b_1 = b\_{\\text{gt}}$
 
 **条件概率路径（线性插值）**：
 
-$b_t = (1-t)\, b_0 + t\, b_1, \quad t \in [0, 1]$
+$b_t = (1-t), b_0 + t, b_1, \\quad t \\in \[0, 1\]$
 
 **条件向量场（对 $t$ 求导）**：
 
-$u_t(b_t \mid b_1) = \frac{d b_t}{d t} = b_1 - b_0$
+$u_t(b_t \\mid b_1) = \\frac{d b_t}{d t} = b_1 - b_0$
 
 **训练目标**：
 
-$\mathcal{L}{\text{FM}} = \mathbb{E}{t \sim \mathcal{U}(0,1),\; b_0 \sim \mathcal{N}(0,I),\; b_1 \sim p_{\text{gt}}} \Big[\big\| v_\theta(b_t,\; \text{feat},\; t) - (b_1 - b_0) \big\|^2 \Big]$
+$\\mathcal{L}{\\text{FM}} = \\mathbb{E}{t \\sim \\mathcal{U}(0,1),; b_0 \\sim \\mathcal{N}(0,I),; b_1 \\sim p\_{\\text{gt}}} \\Big\[\\big| v\_\\theta(b_t,; \\text{feat},; t) - (b_1 - b_0) \\big|^2 \\Big\]$
 
 ### 1.2 检测任务的特殊性处理
 
@@ -64,7 +64,7 @@ GT框集合:   B_gt = {g¹, g², ..., gᴹ}       M个GT框 (M << N)
   3. 框坐标范围不同 (x,y vs w,h)? → 归一化策略
 ```
 
----
+______________________________________________________________________
 
 ## 二、完整代码实现
 

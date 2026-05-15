@@ -29,46 +29,39 @@ class SingleRoIExtractor(nn.Module):
         # 构建 RoI 层
         self.roi_layers = self.build_roi_layers(roi_layer, featmap_strides)
 
-    def build_roi_layers(
-        self, layer_cfg: Dict, featmap_strides: List[int]
-    ) -> nn.ModuleList:
+    def build_roi_layers(self, layer_cfg: Dict,
+                         featmap_strides: List[int]) -> nn.ModuleList:
         """构建 torchvision 的 RoIAlign 层"""
         cfg = layer_cfg.copy()
-        layer_type = cfg.pop("type", "RoIAlign")
+        layer_type = cfg.pop('type', 'RoIAlign')
 
         # 仅支持 RoIAlign，因为 torchvision 只有这个常用实现
-        assert layer_type == "RoIAlign", (
-            "Pure torch version only supports 'RoIAlign' currently."
-        )
+        assert layer_type == 'RoIAlign', (
+            "Pure torch version only supports 'RoIAlign' currently.")
 
-        output_size = cfg.pop("output_size")
-        sampling_ratio = cfg.pop("sampling_ratio", 0)
+        output_size = cfg.pop('output_size')
+        sampling_ratio = cfg.pop('sampling_ratio', 0)
         # mmdet/mmcv 默认 aligned=True，torchvision 默认 aligned=False
         # 这里为了保持一致性，默认设为 True，如果 config 里没写
-        aligned = cfg.pop("aligned", True)
+        aligned = cfg.pop('aligned', True)
 
-        roi_layers = nn.ModuleList(
-            [
-                RoIAlign(
-                    output_size=output_size,
-                    spatial_scale=1 / s,
-                    sampling_ratio=sampling_ratio,
-                    aligned=aligned,
-                )
-                for s in featmap_strides
-            ]
-        )
+        roi_layers = nn.ModuleList([
+            RoIAlign(
+                output_size=output_size,
+                spatial_scale=1 / s,
+                sampling_ratio=sampling_ratio,
+                aligned=aligned,
+            ) for s in featmap_strides
+        ])
         return roi_layers
 
     def map_roi_levels(self, rois: Tensor, num_levels: int) -> Tensor:
         """根据尺度将 ROI 映射到对应的特征层级 (FPN 策略)"""
         # rois shape (num_boxes, 5)
-        scale = torch.sqrt(
-            (rois[:, 3] - rois[:, 1]) * (rois[:, 4] - rois[:, 2])
-        )  # (num_boxes,)
+        scale = torch.sqrt((rois[:, 3] - rois[:, 1]) *
+                           (rois[:, 4] - rois[:, 2]))  # (num_boxes,)
         target_lvls = torch.floor(
-            torch.log2(torch.clamp(scale / self.finest_scale, min=1e-6))
-        )
+            torch.log2(torch.clamp(scale / self.finest_scale, min=1e-6)))
         target_lvls = target_lvls.clamp(min=0, max=num_levels - 1).long()
         return target_lvls  # (num_boxes,)
 
@@ -110,8 +103,8 @@ class SingleRoIExtractor(nn.Module):
 
         # 初始化输出特征
         roi_feats = feats[0].new_zeros(
-            rois.shape[0], self.out_channels, *output_size
-        )  # (num_boxes, out_dim, 7, 7)
+            rois.shape[0], self.out_channels,
+            *output_size)  # (num_boxes, out_dim, 7, 7)
 
         if num_levels == 1:
             if len(rois) == 0:
@@ -144,17 +137,18 @@ class SingleRoIExtractor(nn.Module):
                 # feats[i].sum() 会触发巨大的 kernel，而 feats[i][0:1].sum() 几乎无开销
                 fake_loss = feats[i][0:1].sum() * 0.0
                 if has_params:
-                    fake_loss += sum(x.view(-1)[0] for x in self.parameters()) * 0.0
+                    fake_loss += sum(x.view(-1)[0]
+                                     for x in self.parameters()) * 0.0
                 roi_feats += fake_loss
 
         return roi_feats
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     # 假设你有 4 层特征金字塔 (stride 4, 8, 16, 32)
     featmap_strides = [4, 8, 16, 32]
     out_channels = 256
-    roi_layer_cfg = dict(type="RoIAlign", output_size=(7, 7), sampling_ratio=0)
+    roi_layer_cfg = dict(type='RoIAlign', output_size=(7, 7), sampling_ratio=0)
 
     # 初始化
     roi_extractor = SingleRoIExtractor(
@@ -165,13 +159,11 @@ if __name__ == "__main__":
 
     # 模拟输入
     feats = [torch.randn(2, 256, 200 // s, 200 // s) for s in featmap_strides]
-    rois = torch.tensor(
-        [
-            [0, 10.0, 10.0, 50.0, 50.0],
-            [1, 30.0, 30.0, 100.0, 100.0],
-            [2, 20.0, 20.0, 90.0, 80.0],
-        ]
-    )  # batch 1
+    rois = torch.tensor([
+        [0, 10.0, 10.0, 50.0, 50.0],
+        [1, 30.0, 30.0, 100.0, 100.0],
+        [2, 20.0, 20.0, 90.0, 80.0],
+    ])  # batch 1
 
     # 前向传播
     roi_feats = roi_extractor(feats, rois)

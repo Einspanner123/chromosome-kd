@@ -1,0 +1,55 @@
+name: test
+
+on:
+  pull_request:
+    paths-ignore:
+      - ".dev_scripts/**"
+      - "demo/**"
+      - "docker/**"
+      - "docs/**"
+      - "**.md"
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - ".dev_scripts/**"
+      - "demo/**"
+      - "docker/**"
+      - "docs/**"
+      - "**.md"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-cpu:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install PyTorch CPU
+        run: pip install torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cpu
+      - name: Install MMCV
+        run: pip install mmcv>=2.1.0
+      - name: Install runtime dependencies
+        run: pip install -r requirements/runtime.txt
+      - name: Install test dependencies
+        run: pip install pytest pytest-cov
+      - name: Build and install
+        run: pip install -e .
+      - name: Run tests and generate coverage
+        run: pytest --cov=mmdet --cov-report=xml --cov-report=term-missing tests/ -x -v
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          flags: unittests
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

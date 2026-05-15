@@ -5,13 +5,12 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
-
 DEFAULT_SCALE_CLAMP = math.log(100000.0 / 16)
 
 
-def cosine_noise_schedule(T, s=0.008, device="cpu"):
+def cosine_noise_schedule(T, s=0.008, device='cpu'):
     t = torch.linspace(0, T, T + 1, dtype=torch.float64, device=device)
-    alphas_t = torch.cos((t / T + s) / (1 + s) * math.pi / 2) ** 2
+    alphas_t = torch.cos((t / T + s) / (1 + s) * math.pi / 2)**2
     alphas_t = alphas_t / alphas_t[0]
     betas_t = 1 - (alphas_t[1:] / alphas_t[:-1])
     return torch.clamp(betas_t, 0, 0.999)
@@ -26,8 +25,8 @@ def load_buffer(arr: Tensor, steps: Tensor, x_shape: List[int]):
     """
     step_arr = arr.gather(-1, steps)
     return step_arr.reshape(
-        -1, *[1] * (len(x_shape) - 1)
-    )  # shape: [bs, 1, 1, 1, ..., 1(输入的维度数-1)]
+        -1,
+        *[1] * (len(x_shape) - 1))  # shape: [bs, 1, 1, 1, ..., 1(输入的维度数-1)]
 
 
 class SinusoidalPositionEmbeddings(nn.Module):
@@ -78,9 +77,8 @@ class DynamicConv(nn.Module):
         self.dynamic_num = dynamic_num  # 动态层数
         self.num_params = self.feat_channels * self.dynamic_dim  # 参数数量
         # 动态层: 生成动态卷积参数
-        self.dynamic_layer = nn.Linear(
-            self.feat_channels, self.dynamic_num * self.num_params
-        )
+        self.dynamic_layer = nn.Linear(self.feat_channels,
+                                       self.dynamic_num * self.num_params)
 
         # LayerNorm层
         self.norm1 = nn.LayerNorm(self.dynamic_dim)
@@ -128,7 +126,8 @@ class DynamicConv(nn.Module):
 
         # 3. 展平并通过输出层
         # 使用 reshape 而非 flatten 以保持兼容性，squeeze(0) 的逆操作
-        features = features.reshape(features.size(0), -1)  # (N, 49*feat_channels)
+        features = features.reshape(features.size(0),
+                                    -1)  # (N, 49*feat_channels)
         features = self.out_layer(features)
         features = self.norm3(features)
         features = self.act(features)
@@ -136,7 +135,7 @@ class DynamicConv(nn.Module):
         return features.unsqueeze(0)  # (1, N, feat_channels)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     x = torch.randn((1, 3, 256, 256))
     x = x.permute(0, 2, 3, 1).reshape(1, -1, 3)
     attn = nn.MultiheadAttention(3, 3)

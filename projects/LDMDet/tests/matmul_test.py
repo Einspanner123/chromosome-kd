@@ -2,7 +2,7 @@ import time
 
 import torch
 
-print("=== 修正后的性能比较 ===")
+print('=== 修正后的性能比较 ===')
 
 # 设置测试数据
 batch_size = 1000
@@ -11,8 +11,8 @@ half_dim = 256
 timesteps = torch.randn(batch_size)
 freqs = torch.randn(half_dim)
 
-print(f"时间步形状: {timesteps.shape}")
-print(f"频率参数形状: {freqs.shape}")
+print(f'时间步形状: {timesteps.shape}')
+print(f'频率参数形状: {freqs.shape}')
 
 
 # 方法1: 元素级乘法（广播乘法）
@@ -45,13 +45,13 @@ result2 = matrix_multiplication()
 result3 = torch_matmul_method()
 result4 = torch_outer_method()
 
-print("\n=== 结果验证 ===")
-print(f"结果形状: {result1.shape}")
-print(f"元素级 vs @: {torch.allclose(result1, result2)}")
-print(f"元素级 vs matmul: {torch.allclose(result1, result3)}")
-print(f"元素级 vs outer: {torch.allclose(result1, result4)}")
+print('\n=== 结果验证 ===')
+print(f'结果形状: {result1.shape}')
+print(f'元素级 vs @: {torch.allclose(result1, result2)}')
+print(f'元素级 vs matmul: {torch.allclose(result1, result3)}')
+print(f'元素级 vs outer: {torch.allclose(result1, result4)}')
 
-print("\n=== 修正后的性能测试 ===")
+print('\n=== 修正后的性能测试 ===')
 
 
 # 修正后的性能测试函数
@@ -89,17 +89,19 @@ def benchmark_multiple_runs(func, name, runs=5):
     min_time = min(times)
     max_time = max(times)
 
-    print(f"{name}: {mean_time:.4f} ms (min: {min_time:.4f}, max: {max_time:.4f})")
+    print(
+        f'{name}: {mean_time:.4f} ms (min: {min_time:.4f}, max: {max_time:.4f})'
+    )
     return mean_time
 
 
 # 运行基准测试
-print("进行基准测试...")
+print('进行基准测试...')
 methods = [
-    (element_wise_multiplication, "元素级乘法 (* )"),
-    (matrix_multiplication, "矩阵乘法 (@)"),
-    (torch_matmul_method, "torch.matmul"),
-    (torch_outer_method, "torch.outer"),
+    (element_wise_multiplication, '元素级乘法 (* )'),
+    (matrix_multiplication, '矩阵乘法 (@)'),
+    (torch_matmul_method, 'torch.matmul'),
+    (torch_outer_method, 'torch.outer'),
 ]
 
 results = []
@@ -109,12 +111,12 @@ for func, name in methods:
 
 # 排序结果
 results.sort(key=lambda x: x[1])
-print("\n=== 性能排名 ===")
+print('\n=== 性能排名 ===')
 for i, (name, time) in enumerate(results, 1):
-    print(f"{i}. {name}: {time:.4f} ms")
+    print(f'{i}. {name}: {time:.4f} ms')
 
-print("\n=== 性能分析 ===")
+print('\n=== 性能分析 ===')
 fastest = results[0][1]
 for name, time in results:
     relative = time / fastest
-    print(f"{name} 比最快的方法慢 {relative:.2f} 倍")
+    print(f'{name} 比最快的方法慢 {relative:.2f} 倍')

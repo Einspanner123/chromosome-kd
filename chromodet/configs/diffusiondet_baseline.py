@@ -1,13 +1,12 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 _base_ = [
     '../base/datasets/chromo_coco_detection.py',
-    '../base/schedules/schedule_1x.py',
-    '../base/default_runtime.py'
+    '../base/schedules/schedule_1x.py', '../base/default_runtime.py'
 ]
 
 custom_imports = dict(
-    imports=['projects.DiffusionDet.diffusiondet',
-             'chromodet.hooks'], 
-             allow_failed_imports=False)
+    imports=['projects.DiffusionDet.diffusiondet', 'chromodet.hooks'],
+    allow_failed_imports=False)
 
 num_classes = 24
 batch_size = 4
@@ -151,8 +150,8 @@ test_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True),
     dict(
         type='PackDetInputs',
-        meta_keys=(
-            'img_id', 'img_path', 'ori_shape', 'img_shape', 'scale_factor'))
+        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
+                   'scale_factor'))
 ]
 train_dataloader = dict(
     batch_size=batch_size,
@@ -161,9 +160,8 @@ train_dataloader = dict(
     sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
         # indices=[i for i in range(0, 1540, 15)],
-        filter_cfg=dict(
-            filter_empty_gt=False, min_size=1e-5),
-            pipeline=train_pipeline))
+        filter_cfg=dict(filter_empty_gt=False, min_size=1e-5),
+        pipeline=train_pipeline))
 
 val_dataloader = dict(dataset=dict(pipeline=test_pipeline))
 test_dataloader = val_dataloader
@@ -182,9 +180,7 @@ custom_hooks = [
         min_delta=0.001,
         monitor='coco/bbox_mAP',
         rule='greater'),
-    dict(
-        type='BackupHook',
-        file='chromodet/model'),
+    dict(type='BackupHook', file='chromodet/model'),
     # dict(  # 新增：权重可视化
     #     type='WeightVizHook',
     #     interval=2,           # 每500 iter 记录一次

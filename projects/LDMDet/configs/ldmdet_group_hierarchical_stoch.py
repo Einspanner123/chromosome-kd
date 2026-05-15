@@ -3,12 +3,8 @@
 Matches the historical best run at:
   work_dirs/ldmdet_flowdet_adaln_group_hierarchical_stoch/20260429_100047
 """
-_base_ = ["./ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5.py"]
+_base_ = ['./ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5.py']
 
-model = dict(
-    bbox_head=dict(
-        ot_group_hierarchical=True,
-    )
-)
+model = dict(bbox_head=dict(ot_group_hierarchical=True, ))
 
-work_dir = "work_dirs/ldmdet_group_hierarchical_stoch"
+work_dir = 'work_dirs/ldmdet_group_hierarchical_stoch'

@@ -110,7 +110,8 @@ train_pipeline = [
                         (608, 1333), (640, 1333), (672, 1333), (704, 1333),
                         (736, 1333), (768, 1333), (800, 1333)],
                 keep_ratio=True,
-                backend=backend),],
+                backend=backend),
+        ],
                     [
                         dict(
                             type='RandomChoiceResize',
@@ -184,9 +185,11 @@ param_scheduler = [
 
 default_hooks = dict(
     checkpoint=dict(
-        type='CheckpointHook', interval=1,
-        save_best='coco/bbox_mAP', rule='greater', max_keep_ckpts=3)
-)
+        type='CheckpointHook',
+        interval=1,
+        save_best='coco/bbox_mAP',
+        rule='greater',
+        max_keep_ckpts=3))
 
 custom_hooks = [
     dict(
@@ -204,7 +207,7 @@ visualizer = dict(
     _scope_='mmdet',
     name='visualizer',
     type='DetLocalVisualizer',
-    vis_backends = [
+    vis_backends=[
         dict(_scope_='mmdet', type='LocalVisBackend'),
-        dict(type='TensorboardVisBackend'),]
-)
+        dict(type='TensorboardVisBackend'),
+    ])

@@ -38,7 +38,7 @@ class RectifiedFlow:
 
         if t is None:
             # 随机采样 t
-            t = torch.rand((x_start.shape[0],), device=x_start.device)
+            t = torch.rand((x_start.shape[0], ), device=x_start.device)
 
         # 扩展 t 的维度以便广播
         t_view = t.view(-1, *([1] * (x_start.dim() - 1)))
@@ -61,26 +61,24 @@ class RectifiedFlow:
         v_t = (x_t - x_0_pred) / torch.clamp(t_view, min=1e-5)
         return v_t
 
-    def step(
-        self, x_t: Tensor, x_0_pred: Tensor, t_curr: float, t_next: float
-    ) -> Tensor:
+    def step(self, x_t: Tensor, x_0_pred: Tensor, t_curr: float,
+             t_next: float) -> Tensor:
         """
         ODE 采样的一步 (Euler Step): x_{t_next} = x_t + (t_next - t_curr) * v_t
         """
         dt = t_next - t_curr
-        v_t = self.get_velocity(
-            x_t, x_0_pred, torch.tensor([t_curr], device=x_t.device)
-        )
+        v_t = self.get_velocity(x_t, x_0_pred,
+                                torch.tensor([t_curr], device=x_t.device))
         x_next = x_t + dt * v_t
         return x_next
 
     def heun_step(
-        self,
-        x_t: Tensor,
-        x_0_pred: Tensor,
-        t_curr: float,
-        t_next: float,
-        model_fn,  # 传入一个函数, 用于在 t_next 处预测 x_0
+            self,
+            x_t: Tensor,
+            x_0_pred: Tensor,
+            t_curr: float,
+            t_next: float,
+            model_fn,  # 传入一个函数, 用于在 t_next 处预测 x_0
     ) -> Tensor:
         """
         ODE 采样的一步 (Heun Step, 二阶):
@@ -90,16 +88,16 @@ class RectifiedFlow:
         device = x_t.device
 
         # --- 1. Euler Step (预估下一步位置) ---
-        v_t = self.get_velocity(x_t, x_0_pred, torch.tensor([t_curr], device=device))
+        v_t = self.get_velocity(x_t, x_0_pred,
+                                torch.tensor([t_curr], device=device))
         x_next_euler = x_t + dt * v_t
 
         # --- 2. 在 t_next 处进行第二次预测 ---
         x_0_pred_next, _ = model_fn(x_next_euler, t_next)
 
         # --- 3. 计算 BBox 修正 ---
-        v_next = self.get_velocity(
-            x_next_euler, x_0_pred_next, torch.tensor([t_next], device=device)
-        )
+        v_next = self.get_velocity(x_next_euler, x_0_pred_next,
+                                   torch.tensor([t_next], device=device))
         x_next = x_t + (dt / 2.0) * (v_t + v_next)
 
         return x_next

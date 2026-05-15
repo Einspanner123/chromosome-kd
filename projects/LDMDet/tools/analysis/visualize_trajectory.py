@@ -13,7 +13,7 @@ def visualize_trajectory(config_path, checkpoint_path, img_path, out_dir):
     register_all_modules()
 
     # 1. 初始化模型
-    model = init_detector(config_path, checkpoint_path, device="cuda:0")
+    model = init_detector(config_path, checkpoint_path, device='cuda:0')
     cfg = model.cfg
 
     # 2. 准备图像数据
@@ -33,18 +33,18 @@ def visualize_trajectory(config_path, checkpoint_path, img_path, out_dir):
         # data_preprocessor 期望一个 dict，包含 'inputs' 和 'data_samples'
         # inputs 应该是一个 list of tensor
         data_for_preprocessor = dict(
-            inputs=[data["inputs"].to("cuda:0")], data_samples=[data["data_samples"]]
-        )
+            inputs=[data['inputs'].to('cuda:0')],
+            data_samples=[data['data_samples']])
         preprocessed_data = model.data_preprocessor(
-            data_for_preprocessor, training=False
-        )
-        batch_inputs = preprocessed_data["inputs"]
-        data_samples = preprocessed_data["data_samples"]
+            data_for_preprocessor, training=False)
+        batch_inputs = preprocessed_data['inputs']
+        data_samples = preprocessed_data['data_samples']
 
         # 调用我们新增的 return_trajectory 功能
-        results = model.predict(batch_inputs, data_samples, return_trajectory=True)
+        results = model.predict(
+            batch_inputs, data_samples, return_trajectory=True)
         data_sample = results[0]
-        trajectory = data_sample.metainfo["sampling_trajectory"]
+        trajectory = data_sample.metainfo['sampling_trajectory']
 
     # 4. 可视化每一帧
     import numpy as np
@@ -54,7 +54,7 @@ def visualize_trajectory(config_path, checkpoint_path, img_path, out_dir):
 
     # 获取缩放因子以映射回原图
     # data_sample.metainfo['scale_factor'] 通常是 [w_scale, h_scale]
-    scale_factor = data_sample.metainfo.get("scale_factor", [1.0, 1.0])
+    scale_factor = data_sample.metainfo.get('scale_factor', [1.0, 1.0])
     if isinstance(scale_factor, (list, tuple, np.ndarray, torch.Tensor)):
         w_scale, h_scale = scale_factor[:2]
     else:
@@ -88,7 +88,7 @@ def visualize_trajectory(config_path, checkpoint_path, img_path, out_dir):
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
             cv2.putText(
                 frame,
-                f"{score:.2f}",
+                f'{score:.2f}',
                 (x1, y1 - 5),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.5,
@@ -96,17 +96,18 @@ def visualize_trajectory(config_path, checkpoint_path, img_path, out_dir):
                 1,
             )
 
-        out_path = os.path.join(out_dir, f"step_{i:03d}.png")
+        out_path = os.path.join(out_dir, f'step_{i:03d}.png')
         cv2.imwrite(out_path, frame)
-        print(f"Saved trajectory step {i} to {out_path}")
+        print(f'Saved trajectory step {i} to {out_path}')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("config", help="Config file path")
-    parser.add_argument("checkpoint", help="Checkpoint file path")
-    parser.add_argument("img", help="Image file path")
-    parser.add_argument("--out-dir", default="trajectory_vis", help="Output directory")
+    parser.add_argument('config', help='Config file path')
+    parser.add_argument('checkpoint', help='Checkpoint file path')
+    parser.add_argument('img', help='Image file path')
+    parser.add_argument(
+        '--out-dir', default='trajectory_vis', help='Output directory')
     args = parser.parse_args()
 
     visualize_trajectory(args.config, args.checkpoint, args.img, args.out_dir)

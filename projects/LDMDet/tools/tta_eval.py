@@ -5,7 +5,6 @@ Usage:
     python projects/LDMDet/tools/tta_eval.py <config> <checkpoint> [--device cuda:0]
 """
 from __future__ import annotations
-
 import argparse
 import json
 import sys
@@ -24,12 +23,12 @@ from projects.LDMDet.mods.structures import DetectionResult
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="TTA hflip eval")
-    p.add_argument("config", help="Config path")
-    p.add_argument("checkpoint", help="Checkpoint path")
-    p.add_argument("--device", default="cuda:0")
-    p.add_argument("--score-thr", type=float, default=0.05)
-    p.add_argument("--nms-thr", type=float, default=0.5)
+    p = argparse.ArgumentParser(description='TTA hflip eval')
+    p.add_argument('config', help='Config path')
+    p.add_argument('checkpoint', help='Checkpoint path')
+    p.add_argument('--device', default='cuda:0')
+    p.add_argument('--score-thr', type=float, default=0.05)
+    p.add_argument('--nms-thr', type=float, default=0.5)
     return p.parse_args()
 
 
@@ -51,10 +50,12 @@ def merge_results(
 
     merged = []
     for i, meta in enumerate(img_metas):
-        img_w = meta.img_shape[1] if hasattr(meta, "img_shape") else meta["img_shape"][1]
+        img_w = meta.img_shape[1] if hasattr(
+            meta, 'img_shape') else meta['img_shape'][1]
 
         # Original
-        bo, so, lo = results_orig[i].bboxes, results_orig[i].scores, results_orig[i].labels
+        bo, so, lo = results_orig[i].bboxes, results_orig[
+            i].scores, results_orig[i].labels
         # Flipped (flip bboxes back)
         bf = hflip_bboxes(results_flip[i].bboxes, img_w)
         sf, lf = results_flip[i].scores, results_flip[i].labels
@@ -71,18 +72,19 @@ def merge_results(
         # NMS
         keep_nms = batched_nms(all_b, all_s, all_l, nms_thr)
 
-        merged.append(DetectionResult(
-            bboxes=all_b[keep_nms],
-            scores=all_s[keep_nms],
-            labels=all_l[keep_nms],
-        ))
+        merged.append(
+            DetectionResult(
+                bboxes=all_b[keep_nms],
+                scores=all_s[keep_nms],
+                labels=all_l[keep_nms],
+            ))
     return merged
 
 
 def main():
     args = parse_args()
-    print(f"Config:   {args.config}")
-    print(f"Checkpoint: {args.checkpoint}")
+    print(f'Config:   {args.config}')
+    print(f'Checkpoint: {args.checkpoint}')
 
     cfg = Config.fromfile(args.config)
     device = args.device
@@ -91,7 +93,7 @@ def main():
     ds_cfg = cfg.val_dataloader.dataset
     dataset = DATASETS.build(ds_cfg)
     ann_file = cfg.val_evaluator.ann_file
-    print(f"Dataset:  {len(dataset)} images")
+    print(f'Dataset:  {len(dataset)} images')
 
     # Load model
     model = init_detector(cfg, args.checkpoint, device=device)
@@ -101,11 +103,11 @@ def main():
     results_flip = []
     img_metas_list = []
 
-    print("Running inference (original + hflip)...")
+    print('Running inference (original + hflip)...')
     for idx in range(len(dataset)):
         data = dataset[idx]
-        inputs = data["inputs"].to(device)
-        data_samples = data["data_samples"]
+        inputs = data['inputs'].to(device)
+        data_samples = data['data_samples']
 
         # Original
         with torch.no_grad():
@@ -126,7 +128,8 @@ def main():
         # For flipped inference, we need to flip the image and also flip GT bboxes.
         # But flipping GT inside data_samples is messy.
         # Alternative: just use the predict method directly.
-        img_meta = data_samples.img_shape if hasattr(data_samples, "img_shape") else data_samples["img_shape"]
+        img_meta = data_samples.img_shape if hasattr(
+            data_samples, 'img_shape') else data_samples['img_shape']
         img_metas_list.append(data_samples)
 
         # Use model.predict (encoder-only inference, bypasses test_step eval)
@@ -134,29 +137,30 @@ def main():
         # Let's just use the forward pass directly.
 
         if (idx + 1) % 100 == 0:
-            print(f"  {idx + 1}/{len(dataset)}")
+            print(f'  {idx + 1}/{len(dataset)}')
 
     # For now, just run original eval without flip (we'll add proper TTA later)
     # Build evaluator with original results
-    evaluator = METRICS.build(dict(
-        type="CocoMetric",
-        ann_file=ann_file,
-        metric="bbox",
-        classwise=True,
-    ))
+    evaluator = METRICS.build(
+        dict(
+            type='CocoMetric',
+            ann_file=ann_file,
+            metric='bbox',
+            classwise=True,
+        ))
     evaluator.dataset_meta = dataset.metainfo
     for r in results_orig:
         evaluator.process({}, [r])
     metrics = evaluator.evaluate(len(results_orig))
 
-    print("\n=== Standard (no TTA) ===")
+    print('\n=== Standard (no TTA) ===')
     for k in sorted(metrics.keys()):
-        if "mAP" in k:
-            print(f"  {k}: {metrics[k]:.4f}")
+        if 'mAP' in k:
+            print(f'  {k}: {metrics[k]:.4f}')
 
-    print("\nTTA hflip requires data_sample-level GT flipping.")
+    print('\nTTA hflip requires data_sample-level GT flipping.')
     print("Use 'tools/test.py' with TTA test pipeline instead.")
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

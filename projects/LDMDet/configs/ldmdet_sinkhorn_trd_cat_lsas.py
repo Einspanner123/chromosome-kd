@@ -18,16 +18,14 @@ while stochastic Sinkhorn improves training coupling diversity. These are
 orthogonal gain sources that should compound.
 """
 
-_base_ = ["./ldmdet_rf_heun_shifted_bs2.py"]
+_base_ = ['./ldmdet_rf_heun_shifted_bs2.py']
 
 model = dict(
     bbox_head=dict(
-        single_head=dict(
-            time_conditioning="adaln_zero",
-        ),
+        single_head=dict(time_conditioning='adaln_zero', ),
         # Stochastic Sinkhorn OT (NO group hierarchy — pure Sinkhorn)
         ot_coupling=True,
-        ot_matcher="sinkhorn",
+        ot_matcher='sinkhorn',
         ot_epsilon=5.0,
         ot_num_iters=20,
         ot_sample=True,
@@ -44,11 +42,10 @@ model = dict(
         lsas_num_bins=100,
         lsas_temp=1.0,
         # Velocity prediction
-        prediction_mode="velocity",
+        prediction_mode='velocity',
         velocity_loss_weight=1.0,
         # Solver
-        solver_type="heun",
-    )
-)
+        solver_type='heun',
+    ))
 
-work_dir = "work_dirs/ldmdet_sinkhorn_trd_cat_lsas"
+work_dir = 'work_dirs/ldmdet_sinkhorn_trd_cat_lsas'

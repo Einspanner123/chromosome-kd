@@ -6,6 +6,7 @@ from mmdet.utils import ConfigType, OptConfigType, OptMultiConfig
 
 @MODELS.register_module()
 class ChromoDet(SingleStageDetector):
+
     def __init__(self,
                  backbone: ConfigType,
                  neck: ConfigType,

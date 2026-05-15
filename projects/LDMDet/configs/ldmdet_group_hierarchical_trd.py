@@ -13,16 +13,14 @@ These two mechanisms are orthogonal — OT improves the training signal, TRD imp
 how the model uses that signal at inference time.
 """
 
-_base_ = ["./ldmdet_rf_heun_shifted_bs2.py"]
+_base_ = ['./ldmdet_rf_heun_shifted_bs2.py']
 
 model = dict(
     bbox_head=dict(
-        single_head=dict(
-            time_conditioning="adaln_zero",
-        ),
+        single_head=dict(time_conditioning='adaln_zero', ),
         # Group-Hierarchical Sinkhorn OT
         ot_coupling=True,
-        ot_matcher="sinkhorn",
+        ot_matcher='sinkhorn',
         ot_epsilon=5.0,
         ot_num_iters=20,
         ot_sample=True,
@@ -31,8 +29,7 @@ model = dict(
         use_trd=True,
         trd_self_cond_prob=0.5,
         # Solver
-        solver_type="heun",
-    )
-)
+        solver_type='heun',
+    ))
 
-work_dir = "work_dirs/ldmdet_group_hierarchical_trd"
+work_dir = 'work_dirs/ldmdet_group_hierarchical_trd'

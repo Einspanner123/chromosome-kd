@@ -17,13 +17,13 @@
 
 ## 关键修正 (5 Corrections from Earlier Draft)
 
-| # | Issue | Old (Wrong) | New (Correct) |
-|---|-------|-------------|---------------|
-| 1 | D_eff behavior | "Argmax freezes D_eff at ~2.8" | Argmax D_eff *declines* from ~44→14 as ε grows; stochastic D_eff stable at ~42. The argmax trend is more damning than "frozen" — it's actively *anti-smoothing*. |
-| 2 | Random optimality | "Random coupling is optimal" | Random is a surprisingly strong baseline in dense multi-class; OT wins in single-class. Coupling optimality is *task-dependent*. |
-| 3 | Density ratio | δ = N/M, smaller = denser | Use **target density = M/N** (targets per proposal). Chromosome: 46/500 = 0.092; COCO: ~7/500 = 0.014. |
-| 4 | Argmax framing | "Argmax is a strawman" | Argmax is a natural but incorrect decoder that reveals a general pitfall of entropic OT in discrete assignment. |
-| 5 | CAM formalization | "Theorem: ∂D_eff/∂ε = 0 a.e." | **Proposition**: π_argmax(ε) is piecewise constant in ε (changes only at ranking-change thresholds). D_eff trends are the *empirical consequence*, not the proof target. |
+| #   | Issue             | Old (Wrong)                    | New (Correct)                                                                                                                                                            |
+| --- | ----------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | D_eff behavior    | "Argmax freezes D_eff at ~2.8" | Argmax D_eff *declines* from ~44→14 as ε grows; stochastic D_eff stable at ~42. The argmax trend is more damning than "frozen" — it's actively *anti-smoothing*.         |
+| 2   | Random optimality | "Random coupling is optimal"   | Random is a surprisingly strong baseline in dense multi-class; OT wins in single-class. Coupling optimality is *task-dependent*.                                         |
+| 3   | Density ratio     | δ = N/M, smaller = denser      | Use **target density = M/N** (targets per proposal). Chromosome: 46/500 = 0.092; COCO: ~7/500 = 0.014.                                                                   |
+| 4   | Argmax framing    | "Argmax is a strawman"         | Argmax is a natural but incorrect decoder that reveals a general pitfall of entropic OT in discrete assignment.                                                          |
+| 5   | CAM formalization | "Theorem: ∂D_eff/∂ε = 0 a.e."  | **Proposition**: π_argmax(ε) is piecewise constant in ε (changes only at ranking-change thresholds). D_eff trends are the *empirical consequence*, not the proof target. |
 
 ## 改稿顺序 (Revision Roadmap)
 

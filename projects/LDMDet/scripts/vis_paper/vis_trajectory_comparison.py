@@ -4,7 +4,7 @@ import numpy as np
 
 def plot_trajectories():
     # 设置基础风格
-    plt.rcParams["axes.linewidth"] = 1.5
+    plt.rcParams['axes.linewidth'] = 1.5
 
     plt.figure(figsize=(8, 8))
 
@@ -16,9 +16,9 @@ def plot_trajectories():
     plt.plot(
         [start[0], end[0]],
         [start[1], end[1]],
-        color="#3498db",
+        color='#3498db',
         lw=5,
-        label="Rectified Flow (Straight ODE)",
+        label='Rectified Flow (Straight ODE)',
         zorder=2,
     )
 
@@ -30,10 +30,10 @@ def plot_trajectories():
     plt.plot(
         curve_x,
         curve_y,
-        color="#95a5a6",
+        color='#95a5a6',
         lw=3,
-        linestyle="--",
-        label="DDPM/DDIM (Curved ODE)",
+        linestyle='--',
+        label='DDPM/DDIM (Curved ODE)',
         zorder=1,
     )
 
@@ -44,48 +44,50 @@ def plot_trajectories():
         plt.scatter(
             pt_rf[0],
             pt_rf[1],
-            color="#3498db",
+            color='#3498db',
             s=150,
-            edgecolors="black",
+            edgecolors='black',
             linewidth=1.5,
             zorder=3,
         )
 
     # 添加标注
     plt.annotate(
-        "Data ($\mathbf{x}_0$)",
+        'Data ($\mathbf{x}_0$)',
         xy=start,
         xytext=(-40, -30),
-        textcoords="offset points",
+        textcoords='offset points',
         fontsize=14,
-        fontweight="bold",
-        arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=.2"),
+        fontweight='bold',
+        arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=.2'),
     )
 
     plt.annotate(
-        "Noise ($\mathbf{x}_1$)",
+        'Noise ($\mathbf{x}_1$)',
         xy=end,
         xytext=(10, 10),
-        textcoords="offset points",
+        textcoords='offset points',
         fontsize=14,
-        fontweight="bold",
-        arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=.2"),
+        fontweight='bold',
+        arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=.2'),
     )
 
     plt.title(
-        "Probability Flow Trajectory Comparison", fontsize=18, fontweight="bold", pad=20
-    )
-    plt.axis("equal")
-    plt.axis("off")
-    plt.legend(loc="upper left", fontsize=12, frameon=True, shadow=True)
+        'Probability Flow Trajectory Comparison',
+        fontsize=18,
+        fontweight='bold',
+        pad=20)
+    plt.axis('equal')
+    plt.axis('off')
+    plt.legend(loc='upper left', fontsize=12, frameon=True, shadow=True)
 
     plt.savefig(
-        "/home/linkst/workplace/chromo/chromosome-kd/projects/LDMDet/scripts/vis_paper/trajectory_comparison.png",
+        '/home/linkst/workplace/chromo/chromosome-kd/projects/LDMDet/scripts/vis_paper/trajectory_comparison.png',
         dpi=300,
-        bbox_inches="tight",
+        bbox_inches='tight',
     )
-    print("Exquisite trajectory plot saved successfully.")
+    print('Exquisite trajectory plot saved successfully.')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     plot_trajectories()

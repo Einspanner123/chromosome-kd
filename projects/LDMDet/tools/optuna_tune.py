@@ -9,21 +9,19 @@ from mmengine.utils import mkdir_or_exist
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Optuna hyperparameter tuning for LDMDet"
-    )
-    parser.add_argument("config", help="base config file path")
+        description='Optuna hyperparameter tuning for LDMDet')
+    parser.add_argument('config', help='base config file path')
     parser.add_argument(
-        "--work-dir",
-        help="directory to save tuning results",
-        default="work_dirs/optuna_study",
-    )
-    parser.add_argument("--n-trials", type=int, default=20, help="number of trials")
-    parser.add_argument(
-        "--gpus", type=int, default=1, help="number of gpus to use per trial"
+        '--work-dir',
+        help='directory to save tuning results',
+        default='work_dirs/optuna_study',
     )
     parser.add_argument(
-        "--study-name", default="ldmdet_rf_tuning", help="optuna study name"
-    )
+        '--n-trials', type=int, default=20, help='number of trials')
+    parser.add_argument(
+        '--gpus', type=int, default=1, help='number of gpus to use per trial')
+    parser.add_argument(
+        '--study-name', default='ldmdet_rf_tuning', help='optuna study name')
     return parser.parse_args()
 
 
@@ -34,16 +32,16 @@ class HparamManager:
     def suggest(trial):
         params = {}
         # Rectified Flow 相关
-        params["model.bbox_head.rf_shift"] = trial.suggest_float("rf_shift", 1.0, 5.0)
-        params["model.bbox_head.snr_scale"] = trial.suggest_float("snr_scale", 0.5, 3.0)
+        params['model.bbox_head.rf_shift'] = trial.suggest_float(
+            'rf_shift', 1.0, 5.0)
+        params['model.bbox_head.snr_scale'] = trial.suggest_float(
+            'snr_scale', 0.5, 3.0)
 
         # 优化器相关
-        params["optim_wrapper.optimizer.lr"] = trial.suggest_float(
-            "lr", 1e-5, 1e-4, log=True
-        )
-        params["optim_wrapper.optimizer.weight_decay"] = trial.suggest_float(
-            "weight_decay", 1e-5, 1e-3, log=True
-        )
+        params['optim_wrapper.optimizer.lr'] = trial.suggest_float(
+            'lr', 1e-5, 1e-4, log=True)
+        params['optim_wrapper.optimizer.weight_decay'] = trial.suggest_float(
+            'weight_decay', 1e-5, 1e-3, log=True)
 
         # 采样步数 (可选)
         # params['model.bbox_head.sampling_timesteps'] = trial.suggest_int('sampling_timesteps', 1, 8)
@@ -61,8 +59,7 @@ class MetricExtractor:
 
         # 匹配 MMEngine 的标准日志结构
         log_files = glob.glob(
-            os.path.join(trial_work_dir, "*", "vis_data", "scalars.json")
-        )
+            os.path.join(trial_work_dir, '*', 'vis_data', 'scalars.json'))
         if not log_files:
             return 0.0
 
@@ -71,19 +68,20 @@ class MetricExtractor:
         latest_log = max(log_files, key=os.path.getmtime)
 
         try:
-            with open(latest_log, "r") as f:
+            with open(latest_log, 'r') as f:
                 for line in f:
                     data = json.loads(line)
-                    if "coco/bbox_mAP" in data:
-                        best_map = max(best_map, data["coco/bbox_mAP"])
+                    if 'coco/bbox_mAP' in data:
+                        best_map = max(best_map, data['coco/bbox_mAP'])
         except Exception as e:
-            print(f"Error extracting metric: {e}")
+            print(f'Error extracting metric: {e}')
             return 0.0
 
         return best_map
 
 
 class LDMDetObjective:
+
     def __init__(self, base_config_path, work_dir, gpus):
         self.base_config_path = base_config_path
         self.work_dir = work_dir
@@ -101,15 +99,15 @@ class LDMDetObjective:
         for key, value in params.items():
             self._set_cfg_value(cfg, key, value)
 
-        trial_work_dir = os.path.join(self.work_dir, f"trial_{trial.number}")
+        trial_work_dir = os.path.join(self.work_dir, f'trial_{trial.number}')
         cfg.work_dir = trial_work_dir
         mkdir_or_exist(trial_work_dir)
 
-        temp_config_path = os.path.join(trial_work_dir, "config.py")
+        temp_config_path = os.path.join(trial_work_dir, 'config.py')
         cfg.dump(temp_config_path)
 
         # 3. 执行训练 (通过命令行隔离进程)
-        print(f"\n[Trial {trial.number}] Running training...")
+        print(f'\n[Trial {trial.number}] Running training...')
         train_cmd = self._build_cmd(temp_config_path)
 
         try:
@@ -122,7 +120,7 @@ class LDMDetObjective:
 
     def _set_cfg_value(self, cfg, key_path, value):
         """支持 'a.b.c' 格式的属性设置"""
-        parts = key_path.split(".")
+        parts = key_path.split('.')
         target = cfg
         for part in parts[:-1]:
             target = target[part]
@@ -130,8 +128,8 @@ class LDMDetObjective:
 
     def _build_cmd(self, config_path):
         if self.gpus > 1:
-            return f"bash tools/dist_train.sh {config_path} {self.gpus}"
-        return f"python tools/train.py {config_path}"
+            return f'bash tools/dist_train.sh {config_path} {self.gpus}'
+        return f'python tools/train.py {config_path}'
 
 
 def main():
@@ -147,7 +145,7 @@ def main():
     study = optuna.create_study(
         study_name=args.study_name,
         storage=storage_name,
-        direction="maximize",
+        direction='maximize',
         load_if_exists=True,
     )
 
@@ -155,13 +153,13 @@ def main():
 
     study.optimize(objective, n_trials=args.n_trials)
 
-    print("\n" + "=" * 30)
-    print("Tuning Finished!")
-    print(f"Best Trial: {study.best_trial.number}")
-    print(f"Best Value: {study.best_value}")
-    print(f"Best Params: {study.best_params}")
-    print("=" * 30)
+    print('\n' + '=' * 30)
+    print('Tuning Finished!')
+    print(f'Best Trial: {study.best_trial.number}')
+    print(f'Best Value: {study.best_value}')
+    print(f'Best Params: {study.best_params}')
+    print('=' * 30)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

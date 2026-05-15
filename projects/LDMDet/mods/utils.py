@@ -50,6 +50,6 @@ def bbox_cxcywh_to_xyxy(bbox: Tensor) -> Tensor:
     return torch.cat([cxy - wh / 2, cxy + wh / 2], dim=-1)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     a = torch.randn((3, 3))
     print(a.shape)

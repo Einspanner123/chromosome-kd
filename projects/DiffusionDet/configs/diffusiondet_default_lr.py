@@ -174,8 +174,7 @@ train_cfg = dict(
 
 # learning rate
 param_scheduler = [
-    dict(
-        type='LinearLR', start_factor=0.001, by_epoch=True, begin=0, end=5),
+    dict(type='LinearLR', start_factor=0.001, by_epoch=True, begin=0, end=5),
     dict(
         type='MultiStepLR',
         begin=0,
@@ -200,7 +199,8 @@ custom_hooks = [
         patience=10,
         min_delta=0.001,
         monitor='coco/bbox_mAP',
-        rule='greater'),]
+        rule='greater'),
+]
 
 log_processor = dict(by_epoch=True)
 
@@ -208,7 +208,7 @@ visualizer = dict(
     _scope_='mmdet',
     name='visualizer',
     type='DetLocalVisualizer',
-    vis_backends = [
+    vis_backends=[
         dict(_scope_='mmdet', type='LocalVisBackend'),
-        dict(type='TensorboardVisBackend'),]
-)
+        dict(type='TensorboardVisBackend'),
+    ])

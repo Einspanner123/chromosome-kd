@@ -8,13 +8,8 @@ import torch
 root_dir = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root_dir))
 
-from mods.loss import (
-    DiffusionDetCriterion,
-    DiffusionDetMatcher,
-    FocalLoss,
-    GIoULoss,
-    L1Loss,
-)
+from mods.loss import (DiffusionDetCriterion, DiffusionDetMatcher, FocalLoss,
+                       GIoULoss, L1Loss)
 from mods.roi_extractor import SingleRoIExtractor
 from mods.single_head import SingleDiffusionDetHead
 
@@ -22,6 +17,7 @@ from projects.LDMDet.mods.diffusiondet_head import DiffusionDetHead
 
 
 class TestDiffusionDetHead(unittest.TestCase):
+
     def setUp(self):
         """初始化测试环境"""
         self.num_classes = 80
@@ -42,8 +38,8 @@ class TestDiffusionDetHead(unittest.TestCase):
         # 2. 初始化 RoIExtractor
         self.roi_extractor = SingleRoIExtractor(
             roi_layer=dict(
-                type="RoIAlign", output_size=7, sampling_ratio=2, aligned=True
-            ),
+                type='RoIAlign', output_size=7, sampling_ratio=2,
+                aligned=True),
             out_channels=self.feat_channels,
             featmap_strides=[4, 8, 16, 32],
         )
@@ -79,7 +75,7 @@ class TestDiffusionDetHead(unittest.TestCase):
         bboxes = torch.randn(self.batch_size, self.num_proposals, 4)
         # 简单处理成 xyxy 格式且在图像范围内
         bboxes = bboxes.sigmoid() * 800
-        t = torch.randint(0, 1000, (self.batch_size,))
+        t = torch.randint(0, 1000, (self.batch_size, ))
 
         with torch.no_grad():
             all_cls_logits, all_pred_bboxes = self.model(features, bboxes, t)
@@ -88,7 +84,8 @@ class TestDiffusionDetHead(unittest.TestCase):
         # [num_heads, bs, num_proposals, num_classes]
         self.assertEqual(
             all_cls_logits.shape,
-            (self.num_heads, self.batch_size, self.num_proposals, self.num_classes),
+            (self.num_heads, self.batch_size, self.num_proposals,
+             self.num_classes),
         )
         # [num_heads, bs, num_proposals, 4]
         self.assertEqual(
@@ -110,15 +107,15 @@ class TestDiffusionDetHead(unittest.TestCase):
         # 验证结果结构
         self.assertEqual(len(results), self.batch_size)
         for res in results:
-            self.assertIn("bboxes", res)
-            self.assertIn("scores", res)
-            self.assertIn("labels", res)
+            self.assertIn('bboxes', res)
+            self.assertIn('scores', res)
+            self.assertIn('labels', res)
 
             # 验证张量形状
-            num_dets = res["bboxes"].shape[0]
-            self.assertEqual(res["bboxes"].shape, (num_dets, 4))
-            self.assertEqual(res["scores"].shape, (num_dets,))
-            self.assertEqual(res["labels"].shape, (num_dets,))
+            num_dets = res['bboxes'].shape[0]
+            self.assertEqual(res['bboxes'].shape, (num_dets, 4))
+            self.assertEqual(res['scores'].shape, (num_dets, ))
+            self.assertEqual(res['labels'].shape, (num_dets, ))
 
     def test_q_sample(self):
         """测试扩散采样函数"""
@@ -140,8 +137,7 @@ class TestDiffusionDetHead(unittest.TestCase):
         x_raw = torch.randn(self.batch_size, self.num_proposals, 4)
         # 模拟全负样本的 logits
         cls_logits = torch.full(
-            (self.batch_size, self.num_proposals, self.num_classes), -10.0
-        )
+            (self.batch_size, self.num_proposals, self.num_classes), -10.0)
         # 模拟全 0 的框
         pred_bboxes = torch.zeros(self.batch_size, self.num_proposals, 4)
 
@@ -163,8 +159,10 @@ class TestDiffusionDetHead(unittest.TestCase):
     def test_loss(self):
         """测试 loss 计算接口"""
         # 初始化 Criterion
-        matcher = DiffusionDetMatcher(cost_class=2.0, cost_bbox=5.0, cost_giou=2.0)
-        loss_cls = FocalLoss(use_sigmoid=True, alpha=0.25, gamma=2.0, loss_weight=2.0)
+        matcher = DiffusionDetMatcher(
+            cost_class=2.0, cost_bbox=5.0, cost_giou=2.0)
+        loss_cls = FocalLoss(
+            use_sigmoid=True, alpha=0.25, gamma=2.0, loss_weight=2.0)
         loss_bbox = L1Loss(loss_weight=5.0)
         loss_giou = GIoULoss(loss_weight=2.0)
 
@@ -179,11 +177,10 @@ class TestDiffusionDetHead(unittest.TestCase):
         self.model.criterion = criterion
 
         # 模拟输入
-        img_metas = [{"img_shape": (800, 800)}, {"img_shape": (800, 1000)}]
+        img_metas = [{'img_shape': (800, 800)}, {'img_shape': (800, 1000)}]
         gt_bboxes = [
-            torch.tensor(
-                [[100, 100, 200, 200], [300, 300, 400, 400]], dtype=torch.float32
-            ),
+            torch.tensor([[100, 100, 200, 200], [300, 300, 400, 400]],
+                         dtype=torch.float32),
             torch.tensor([[50, 50, 150, 150]], dtype=torch.float32),
         ]
         gt_labels = [
@@ -195,13 +192,13 @@ class TestDiffusionDetHead(unittest.TestCase):
         losses = self.model.loss(features, img_metas, gt_bboxes, gt_labels)
 
         # 检查损失
-        self.assertIn("loss_cls", losses)
-        self.assertIn("loss_bbox", losses)
-        self.assertIn("loss_giou", losses)
+        self.assertIn('loss_cls', losses)
+        self.assertIn('loss_bbox', losses)
+        self.assertIn('loss_giou', losses)
         for k, v in losses.items():
             self.assertEqual(v.shape, ())
             self.assertFalse(torch.isnan(v))
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()
