@@ -59,14 +59,21 @@ class DiffusionDetHead(nn.Module):
         ot_init_mode: str = 'replace',  # "replace" (替换 x_start) 或 "guided" (引导噪声初始化)
         ot_init_scale: float = 0.5,  # guided 模式下噪声到 GT 的缩放因子
         ot_sample: bool = False,  # Stochastic Coupling: 从传输矩阵采样替代 argmax
+        ot_sample_seed: Optional[int] = None,  # 固定 OT 采样 RNG；None 使用全局 RNG
         ot_group_hierarchical: bool = False,  # Group-Hierarchical Coupling: 按染色体组分组 OT
+        ot_kcec: bool = False,  # Karyotype-Constrained Entropic Coupling
+        kcec_morph_weight: float = 0.25,  # 形态 (w,h) 匹配代价权重
+        kcec_quota_strength: float = 1.0,  # 软倍性/类别配额边际权重强度
+        kcec_slack: float = 0.05,  # 边际质量平滑，保留异常核型弹性
         # === TRD 参数 ===
         use_trd: bool = False,  # Transport-Refinement Decomposition
         trd_self_cond_prob: float = 0.5,  # 训练时自条件化概率
+        trd_delta_t: Optional[float] = None,  # TRD 自条件步长；None 时沿用 cat_delta_t
         # === CAT 参数 ===
         use_cat: bool = False,  # Curvature-Aware Training
         cat_weight: float = 0.1,  # 曲率正则化权重
         cat_delta_t: float = 0.01,  # 曲率计算的时间步长
+        cat_loss_type: str = 'x0_consistency',  # "x0_consistency" 或 "velocity_curvature"
         # === LSAS 参数 ===
         use_lsas: bool = False,  # Loss-Sensitive Adaptive Scheduling
         lsas_num_bins: int = 100,  # 时间分布离散化精度
@@ -122,12 +129,19 @@ class DiffusionDetHead(nn.Module):
         self.ot_init_mode = ot_init_mode
         self.ot_init_scale = ot_init_scale
         self.ot_sample = ot_sample
+        self.ot_sample_seed = ot_sample_seed
         self.ot_group_hierarchical = ot_group_hierarchical
+        self.ot_kcec = ot_kcec
+        self.kcec_morph_weight = kcec_morph_weight
+        self.kcec_quota_strength = kcec_quota_strength
+        self.kcec_slack = kcec_slack
         self.use_trd = use_trd
         self.trd_self_cond_prob = trd_self_cond_prob
+        self.trd_delta_t = cat_delta_t if trd_delta_t is None else trd_delta_t
         self.use_cat = use_cat
         self.cat_weight = cat_weight
         self.cat_delta_t = cat_delta_t
+        self.cat_loss_type = cat_loss_type
         self.use_lsas = use_lsas
         self.lsas_num_bins = lsas_num_bins
         self.lsas_temp = lsas_temp
@@ -249,6 +263,124 @@ class DiffusionDetHead(nn.Module):
             7,
             7,  # X, Y
         ]
+        # Expected karyotype slots per class. Autosomes are diploid; sex
+        # chromosomes are smoothed at 1 here because XX/XY/aneuploidy should
+        # remain soft and data-driven through the observed GT labels.
+        self._chromo_quota_of_class = [
+            2,
+            2,
+            2,  # A1, A2, A3
+            2,
+            2,  # B4, B5
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,  # C10, C11, C12, C6, C7, C8, C9
+            2,
+            2,
+            2,  # D13, D14, D15
+            2,
+            2,
+            2,  # E16, E17, E18
+            2,
+            2,  # F19, F20
+            2,
+            2,  # G21, G22
+            1,
+            1,  # X, Y
+        ]
+
+    def _ot_multinomial(self, row_probs: Tensor) -> Tensor:
+        """Sample one column per row, optionally with a reproducible generator."""
+        if self.ot_sample_seed is None:
+            return torch.multinomial(row_probs, 1).squeeze(-1)
+        if not hasattr(self, '_ot_sample_generators'):
+            self._ot_sample_generators = {}
+        device = row_probs.device
+        key = str(device)
+        if key not in self._ot_sample_generators:
+            gen = torch.Generator(device=device)
+            gen.manual_seed(int(self.ot_sample_seed))
+            self._ot_sample_generators[key] = gen
+        return torch.multinomial(
+            row_probs, 1, generator=self._ot_sample_generators[key]
+        ).squeeze(-1)
+
+    def _sinkhorn_transport(
+        self,
+        cost: Tensor,
+        row_mass: Optional[Tensor] = None,
+        col_mass: Optional[Tensor] = None,
+    ) -> Tensor:
+        """Entropic OT transport matrix for a precomputed cost matrix."""
+        N, K = cost.shape
+        device = cost.device
+        if row_mass is None:
+            row_mass = torch.ones(N, device=device) / max(N, 1)
+        if col_mass is None:
+            proposals_per_gt = max(N // max(K, 1), 1)
+            col_mass = torch.full((K,), proposals_per_gt / N, device=device)
+            col_mass = col_mass / col_mass.sum()
+        else:
+            col_mass = col_mass / col_mass.sum().clamp_min(1e-10)
+
+        log_K_mat = -cost / max(self.ot_epsilon, 1e-6)
+        log_u = torch.zeros(N, device=device)
+        log_v = torch.zeros(K, device=device)
+        for _ in range(self.ot_num_iters):
+            log_u = torch.log(row_mass + 1e-10) - torch.logsumexp(
+                log_K_mat + log_v.unsqueeze(0), dim=1
+            )
+            log_v = torch.log(col_mass + 1e-10) - torch.logsumexp(
+                log_K_mat + log_u.unsqueeze(1), dim=0
+            )
+        return torch.exp(log_u.unsqueeze(1) + log_K_mat + log_v.unsqueeze(0))
+
+    def _run_kcec_ot(
+        self,
+        noise: Tensor,
+        gt_diffusion: Tensor,
+        gt_labels: Tensor,
+        device: torch.device,
+    ) -> Tensor:
+        """Karyotype-Constrained Entropic Coupling.
+
+        v1 is training-only and uses information available before prediction:
+        geometry, morphology (w,h), and soft class quota marginals. Homologous
+        GTs of the same class share mass, preserving exchangeability.
+        """
+        N, K = noise.shape[0], gt_diffusion.shape[0]
+        if K == 0:
+            return torch.zeros(N, dtype=torch.long, device=device)
+
+        box_cost = torch.cdist(noise, gt_diffusion, p=2)
+        morph_cost = torch.cdist(noise[:, 2:4], gt_diffusion[:, 2:4], p=2)
+        cost = box_cost + self.kcec_morph_weight * morph_cost
+
+        quotas = torch.tensor(
+            self._chromo_quota_of_class,
+            device=device,
+            dtype=gt_diffusion.dtype,
+        )
+        labels = gt_labels.clamp(min=0, max=quotas.numel() - 1)
+        observed = torch.bincount(labels, minlength=quotas.numel()).to(
+            gt_diffusion.dtype
+        )
+        class_mass = quotas[labels] / observed[labels].clamp_min(1.0)
+        class_mass = class_mass.pow(self.kcec_quota_strength)
+        class_mass = class_mass + float(self.kcec_slack)
+        col_mass = class_mass / class_mass.sum().clamp_min(1e-10)
+
+        transport = self._sinkhorn_transport(cost, col_mass=col_mass)
+        if self.ot_sample:
+            row_probs = transport / transport.sum(dim=1, keepdim=True).clamp_min(
+                1e-10
+            )
+            return self._ot_multinomial(row_probs)
+        return transport.argmax(dim=1)
 
     def _run_group_hierarchical_ot(
         self, noise, gt_diffusion, gt_labels, device
@@ -307,7 +439,7 @@ class DiffusionDetHead(nn.Module):
 
             if self.ot_sample:
                 row_probs = transport / transport.sum(dim=1, keepdim=True)
-                local_matched = torch.multinomial(row_probs, 1).squeeze(-1)
+                local_matched = self._ot_multinomial(row_probs)
             else:
                 local_matched = transport.argmax(dim=1)
 
@@ -466,7 +598,11 @@ class DiffusionDetHead(nn.Module):
     ) -> Tensor:
         """OT 耦合: 将噪声提案与 GT 框配对, 返回配对的 x_start."""
         if self.ot_matcher == 'sinkhorn':
-            if self.ot_group_hierarchical:
+            if self.ot_kcec:
+                matched_gt_idx = self._run_kcec_ot(
+                    noise, gt_diffusion, gt_labels, device
+                )
+            elif self.ot_group_hierarchical:
                 matched_gt_idx = self._run_group_hierarchical_ot(
                     noise, gt_diffusion, gt_labels, device
                 )
@@ -488,29 +624,13 @@ class DiffusionDetHead(nn.Module):
     ) -> Tensor:
         """Sinkhorn OT 匹配: 返回每个噪声提案对应的 GT 索引."""
         cost = torch.cdist(noise, gt_diffusion, p=2)
-        N, K = cost.shape
-        a = torch.ones(N, device=device) / N
-        proposals_per_gt = max(N // max(K, 1), 1)
-        gt_mass = torch.full((K,), proposals_per_gt / N, device=device)
-        b = gt_mass / gt_mass.sum()
-
-        log_K_mat = -cost / self.ot_epsilon
-        log_u = torch.zeros(N, device=device)
-        log_v = torch.zeros(K, device=device)
-        for _ in range(self.ot_num_iters):
-            log_u = torch.log(a + 1e-10) - torch.logsumexp(
-                log_K_mat + log_v.unsqueeze(0), dim=1
-            )
-            log_v = torch.log(b + 1e-10) - torch.logsumexp(
-                log_K_mat + log_u.unsqueeze(1), dim=0
-            )
-        transport = torch.exp(
-            log_u.unsqueeze(1) + log_K_mat + log_v.unsqueeze(0)
-        )
+        transport = self._sinkhorn_transport(cost)
 
         if self.ot_sample:
-            row_probs = transport / transport.sum(dim=1, keepdim=True)
-            return torch.multinomial(row_probs, 1).squeeze(-1)
+            row_probs = transport / transport.sum(dim=1, keepdim=True).clamp_min(
+                1e-10
+            )
+            return self._ot_multinomial(row_probs)
         return transport.argmax(dim=1)
 
     def loss(
@@ -665,11 +785,11 @@ class DiffusionDetHead(nn.Module):
         x_noisy_sc = x_noisy_batch.clone()
         t_view = t.view(-1, 1, 1)
         v_ot_est = (x_noisy_sc - x0_sc) / torch.clamp(t_view, min=1e-5)
-        x_noisy_sc[sc_mask] = (x_noisy_sc + self.cat_delta_t * v_ot_est)[
+        x_noisy_sc[sc_mask] = (x_noisy_sc + self.trd_delta_t * v_ot_est)[
             sc_mask
         ]
         t_sc = t.clone()
-        t_sc[sc_mask] = (t[sc_mask] + self.cat_delta_t).clamp(0, 1)
+        t_sc[sc_mask] = (t[sc_mask] + self.trd_delta_t).clamp(0, 1)
         curr_bboxes_sc = self._raw_to_xyxy(x_noisy_sc, img_metas)
         return self(features, curr_bboxes_sc, t_sc * self.timesteps)
 
@@ -721,7 +841,7 @@ class DiffusionDetHead(nn.Module):
             and self.diffusion_type == 'rectified_flow'
         ):
             return
-        v_target = torch.stack(x_starts) - torch.stack(x_noises)
+        v_target = torch.stack(x_noises) - torch.stack(x_starts)
         vel_weight = self.velocity_loss_weight
         if self.use_reflow and self.reflow_velocity_warmup_steps > 0:
             self._reflow_train_step += 1
@@ -774,9 +894,18 @@ class DiffusionDetHead(nn.Module):
             )
             x0_t2 = self._xyxy_to_raw(all_pred_t2[-1], img_metas)
         x0_t1 = self._xyxy_to_raw(all_pred_bboxes[-1], img_metas)
-        losses['loss_curvature'] = (
-            F.mse_loss(x0_t1, x0_t2.detach()) * self.cat_weight
-        )
+        if self.cat_loss_type == 'velocity_curvature':
+            t1_safe = t.view(-1, 1, 1).clamp_min(1e-3)
+            t2_safe = t2_view.clamp_min(1e-3)
+            v_t1 = (x_noise_batch - x0_t1) / t1_safe
+            v_t2 = (x_noise_batch - x0_t2.detach()) / t2_safe
+            losses['loss_curvature'] = (
+                F.mse_loss(v_t1, v_t2) * self.cat_weight
+            )
+        else:
+            losses['loss_curvature'] = (
+                F.mse_loss(x0_t1, x0_t2.detach()) * self.cat_weight
+            )
 
     @staticmethod
     def _add_lsas_loss(losses: dict, lsas_log_probs: Optional[Tensor]):
@@ -804,7 +933,7 @@ class DiffusionDetHead(nn.Module):
             return
         x_start_batch = torch.stack(x_starts)
         x_noise_batch = torch.stack(x_noises)
-        v_target = x_start_batch - x_noise_batch
+        v_target = x_noise_batch - x_start_batch
 
         if self.itd_sampling == 'uniform':
             t_points = torch.linspace(
@@ -1173,7 +1302,7 @@ class DiffusionDetHead(nn.Module):
                 t_curr_t = torch.full((bs,), t_curr, device=device)
                 t_view = t_curr_t.view(-1, 1, 1)
                 v_ot_est = (x_raw - x0_prev) / torch.clamp(t_view, min=1e-5)
-                x_raw_refined = x_raw + self.cat_delta_t * v_ot_est
+                x_raw_refined = x_raw + self.trd_delta_t * v_ot_est
                 cls_logits, pred_bboxes, x0_raw, logits_0_raw = (
                     self._forward_at_t(
                         features, x_raw_refined, t_curr, img_metas
@@ -1304,6 +1433,8 @@ class DiffusionDetHead(nn.Module):
         bs, device = x_raw.shape[0], x_raw.device
 
         x0 = self._xyxy_to_raw(pred_bboxes, img_metas)
+        if t_next < 0:
+            return self._raw_to_xyxy(x0, img_metas), x0
 
         t_batch = torch.full((bs,), t_curr, device=device, dtype=torch.long)
         pred_noise = self.predict_noise_from_start(x_raw, t_batch, x0)
