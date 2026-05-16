@@ -22,6 +22,7 @@ vis_backends = [
         type='SwanlabVisBackend',
         init_kwargs=dict(
             project='chromosome-kd',
+            api_key='Huzvq1fnDeqOwgQo2AMAI',
         ),
     ),
 ]
