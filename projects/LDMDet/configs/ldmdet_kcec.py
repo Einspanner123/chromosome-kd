@@ -20,16 +20,25 @@ data_root = '/data/linkst/datasets/Chromosome20240904_NoAug_NoResize_coco/'
 
 train_dataloader = dict(
     batch_size=8,
+    num_workers=8,
+    prefetch_factor=4,
+    persistent_workers=True,
     dataset=dict(
         data_root=data_root,
     ),
 )
 val_dataloader = dict(
+    num_workers=4,
+    prefetch_factor=4,
+    persistent_workers=True,
     dataset=dict(
         data_root=data_root,
     ),
 )
 test_dataloader = dict(
+    num_workers=4,
+    prefetch_factor=4,
+    persistent_workers=True,
     dataset=dict(
         data_root=data_root,
     ),
