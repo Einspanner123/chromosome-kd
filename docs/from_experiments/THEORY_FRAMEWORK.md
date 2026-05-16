@@ -437,11 +437,23 @@ $$\\mathcal{L}\_{CAT}^{code} = \\mathbb{E}\_t \\left\[\\left|x_0^{pred}(t) - x_0
 
 $$\\frac{\\partial x_0^{pred}}{\\partial t} = \\frac{\\partial x_t}{\\partial t} - v\_\\theta - t \\cdot \\frac{\\partial v\_\\theta}{\\partial t}$$
 
-在 RF 中 $\\frac{\\partial x_t}{\\partial t} = x_1 - x_0 = v^\*$（沿真实路径），但模型预测路径上 $\\frac{\\partial x_t}{\\partial t} = v\_\\theta$，因此：
+此处 $\\partial x_t/\\partial t$ 的含义取决于场景：
 
-$$\\frac{\\partial x_0^{pred}}{\\partial t} = v\_\\theta - v\_\\theta - t \\cdot \\frac{\\partial v\_\\theta}{\\partial t} = -t \\cdot \\frac{\\partial v\_\\theta}{\\partial t}$$
+- **训练时**：$x_t = (1-t)x_0 + tx_1$ 是由 OT 配对解析构造的，$\\partial x_t/\\partial t = x_1 - x_0 = v^\\*$ 是已知常数。因此：
 
-但这仅在模型完美拟合时成立。实际中 $x_0^{pred}$ 的时间导数包含额外项：
+$$\\frac{\\partial x_0^{pred}}{\\partial t}\\bigg|_{\\text{train}} = v^\\* - v\_\\theta - t \\cdot \\frac{\\partial v\_\\theta}{\\partial t}$$
+
+当模型完美拟合（$v\_\\theta = v^\\*$）时，前两项相消，$\\partial x_0^{pred}/\\partial t = -t \\cdot \\partial v\_\\theta/\\partial t$，即 $x_0$ 一致性等价于曲率正则化。
+
+- **推理时**：$x_t$ 由 ODE 积分生成，$\\partial x_t/\\partial t = v\_\\theta(x_t, t)$ 是模型自身的预测。因此：
+
+$$\\frac{\\partial x_0^{pred}}{\\partial t}\\bigg|_{\\text{infer}} = v\_\\theta - v\_\\theta - t \\cdot \\frac{\\partial v\_\\theta}{\\partial t} = -t \\cdot \\frac{\\partial v\_\\theta}{\\partial t}$$
+
+推理时 $x_0$ 一致性天然等价于曲率正则化，无需模型完美拟合。
+
+**关键区别**：训练时 CAT 的 $x_0$ 一致性目标隐含了 $v^\\* - v\_\\theta$ 项（速度残差），而推理时没有。这意味着训练时的 CAT loss 比推理时多惩罚了速度残差，等价于对 $|v\_\\theta - v^\\*|^2$ 的额外正则化。当 $v\_\\theta \\neq v^\\*$ 时（训练早期），CAT 的训练信号与速度场拟合目标部分重叠，可能加剧过约束。
+
+实际中 $x_0^{pred}$ 的时间导数包含额外项：
 
 $$\\frac{\\partial x_0^{pred}}{\\partial t} \\approx -v\_\\theta - t \\cdot \\frac{\\partial v\_\\theta}{\\partial t}$$
 
