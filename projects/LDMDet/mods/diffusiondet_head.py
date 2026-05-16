@@ -65,8 +65,11 @@ class DiffusionDetHead(nn.Module):
         ot_group_hierarchical: bool = False,  # Group-Hierarchical Coupling: 按染色体组分组 OT
         ot_kcec: bool = False,  # Karyotype-Constrained Entropic Coupling
         kcec_morph_weight: float = 0.25,  # 形态 (w,h) 匹配代价权重
+        kcec_group_weight: float = 0.1,  # 组别先验代价权重
+        kcec_cls_weight: float = 0.0,  # 类别匹配代价权重 (placeholder: cls_cost=0 until class logits available)
         kcec_quota_strength: float = 1.0,  # 软倍性/类别配额边际权重强度
         kcec_slack: float = 0.05,  # 边际质量平滑，保留异常核型弹性
+        kcec_log_interval: int = 100,  # KCEC 日志间隔 (每 N 次调用记录一次)
         # === TRD 参数 ===
         use_trd: bool = False,  # Transport-Refinement Decomposition
         trd_self_cond_prob: float = 0.5,  # 训练时自条件化概率
@@ -137,8 +140,12 @@ class DiffusionDetHead(nn.Module):
         self.ot_group_hierarchical = ot_group_hierarchical
         self.ot_kcec = ot_kcec
         self.kcec_morph_weight = kcec_morph_weight
+        self.kcec_group_weight = kcec_group_weight
+        self.kcec_cls_weight = kcec_cls_weight
         self.kcec_quota_strength = kcec_quota_strength
         self.kcec_slack = kcec_slack
+        self.kcec_log_interval = kcec_log_interval
+        self._kcec_call_count = 0
         self.use_trd = use_trd
         self.trd_self_cond_prob = trd_self_cond_prob
         self.trd_delta_t = cat_delta_t if trd_delta_t is None else trd_delta_t
@@ -349,42 +356,216 @@ class DiffusionDetHead(nn.Module):
         gt_diffusion: Tensor,
         gt_labels: Tensor,
         device: torch.device,
-    ) -> Tensor:
-        """Karyotype-Constrained Entropic Coupling.
+    ) -> Tuple[Tensor, Dict[str, Tensor]]:
+        """Karyotype-Constrained Entropic Coupling (slot-based).
 
-        v1 is training-only and uses information available before prediction:
-        geometry, morphology (w,h), and soft class quota marginals. Homologous
-        GTs of the same class share mass, preserving exchangeability.
+        Implements the full KCEC pipeline from §8.6 of the theory framework:
+
+        1. Build karyotype slots: for each class c, create q_c slots
+           representing the expected number of chromosomes of that class.
+           Same-class GTs are exchangeable — they share slot mass.
+
+        2. Compute slot-level cost matrix:
+           C_{i,s} = C^box + kcec_morph_weight * C^morph
+                     + kcec_group_weight * C^group
+                     + kcec_cls_weight * C^cls
+
+        3. Set quota marginals with slack for abnormal karyotypes:
+           b_{c,r} proportional to 1/q_c, smoothed by kcec_slack.
+
+        4. Run Sinkhorn on the slot-level cost matrix.
+
+        5. Map slot assignments back to GT indices, preserving
+           exchangeability within each class.
+
+        Returns:
+            matched_gt_idx: (N,) tensor of GT indices for each proposal.
+            log_stats: dict of monitoring statistics (cost, slot, transport).
         """
         N, K = noise.shape[0], gt_diffusion.shape[0]
         if K == 0:
-            return torch.zeros(N, dtype=torch.long, device=device)
-
-        box_cost = torch.cdist(noise, gt_diffusion, p=2)
-        morph_cost = torch.cdist(noise[:, 2:4], gt_diffusion[:, 2:4], p=2)
-        cost = box_cost + self.kcec_morph_weight * morph_cost
+            return torch.zeros(N, dtype=torch.long, device=device), {}
 
         quotas = torch.tensor(
             self._chromo_quota_of_class,
             device=device,
             dtype=gt_diffusion.dtype,
         )
-        labels = gt_labels.clamp(min=0, max=quotas.numel() - 1)
-        observed = torch.bincount(labels, minlength=quotas.numel()).to(
-            gt_diffusion.dtype
+        group_ids_all = torch.tensor(
+            self._chromo_group_of_class, device=device
         )
-        class_mass = quotas[labels] / observed[labels].clamp_min(1.0)
-        class_mass = class_mass.pow(self.kcec_quota_strength)
-        class_mass = class_mass + float(self.kcec_slack)
-        col_mass = class_mass / class_mass.sum().clamp_min(1e-10)
+        labels = gt_labels.clamp(min=0, max=quotas.numel() - 1)
+
+        unique_classes = torch.unique(labels)
+
+        class_to_slots = []
+        slot_class_id = []
+        slot_group_id = []
+        slot_representative = []
+        slot_gt_indices = []
+
+        for ci, cls_id in enumerate(unique_classes):
+            cls_id_item = cls_id.item()
+            gt_mask = labels == cls_id
+            gt_indices = torch.where(gt_mask)[0]
+            n_observed = gt_indices.shape[0]
+            q_c = int(quotas[cls_id_item].item())
+            n_slots = max(n_observed, q_c)
+
+            class_rep = gt_diffusion[gt_indices].mean(dim=0)
+            grp_id = group_ids_all[cls_id_item].item()
+
+            for r in range(n_slots):
+                class_to_slots.append(ci)
+                slot_class_id.append(cls_id_item)
+                slot_group_id.append(grp_id)
+                slot_representative.append(class_rep)
+                slot_gt_indices.append(gt_indices)
+
+        S = len(slot_representative)
+        if S == 0:
+            return torch.randint(0, max(K, 1), (N,), device=device), {}
+
+        slot_reps = torch.stack(slot_representative)
+        slot_class_t = torch.tensor(
+            slot_class_id, device=device, dtype=labels.dtype
+        )
+        slot_group_t = torch.tensor(
+            slot_group_id, device=device, dtype=torch.long
+        )
+
+        box_cost = torch.cdist(noise, slot_reps, p=2)
+
+        noise_wh = noise[:, 2:4]
+        slot_wh = slot_reps[:, 2:4]
+        morph_cost = torch.cdist(noise_wh, slot_wh, p=2)
+
+        group_cost = torch.zeros(N, S, device=device)
+        if self.kcec_group_weight > 0:
+            num_groups = int(group_ids_all.max().item()) + 1
+            group_morph_reps = []
+            for g in range(num_groups):
+                g_mask = slot_group_t == g
+                if g_mask.any():
+                    group_morph_reps.append(slot_reps[g_mask, 2:4].mean(0))
+                else:
+                    group_morph_reps.append(
+                        torch.zeros(2, device=device, dtype=gt_diffusion.dtype)
+                    )
+            group_morph_tensor = torch.stack(group_morph_reps)
+            morph_to_groups = torch.cdist(noise_wh, group_morph_tensor, p=2)
+            group_compat = F.softmax(
+                -morph_to_groups / max(self.ot_epsilon, 1e-6), dim=1
+            )
+            group_cost = 1.0 - group_compat[:, slot_group_t]
+
+        cls_cost = torch.zeros(N, S, device=device)
+
+        cost = (
+            box_cost
+            + self.kcec_morph_weight * morph_cost
+            + self.kcec_group_weight * group_cost
+            + self.kcec_cls_weight * cls_cost
+        )
+
+        slot_mass = torch.zeros(S, device=device, dtype=gt_diffusion.dtype)
+        slot_ci_t = torch.tensor(
+            class_to_slots, device=device, dtype=torch.long
+        )
+        for ci_val in range(len(unique_classes)):
+            slot_mask = slot_ci_t == ci_val
+            n_cls_slots = slot_mask.sum().float()
+            cls_id = slot_class_id[slot_mask.nonzero()[0, 0].item()]
+            q_c = quotas[cls_id]
+            slot_mass[slot_mask] = q_c / n_cls_slots
+
+        slot_mass = slot_mass.pow(self.kcec_quota_strength)
+        slot_mass = slot_mass + float(self.kcec_slack)
+        col_mass = slot_mass / slot_mass.sum().clamp_min(1e-10)
 
         transport = self._sinkhorn_transport(cost, col_mass=col_mass)
+
         if self.ot_sample:
             row_probs = transport / transport.sum(
                 dim=1, keepdim=True
             ).clamp_min(1e-10)
-            return self._ot_multinomial(row_probs)
-        return transport.argmax(dim=1)
+            slot_idx = self._ot_multinomial(row_probs)
+        else:
+            slot_idx = transport.argmax(dim=1)
+
+        matched_gt_idx = torch.zeros(N, dtype=torch.long, device=device)
+
+        for si in range(S):
+            mask = slot_idx == si
+            if not mask.any():
+                continue
+            proposal_indices = torch.where(mask)[0]
+            gt_indices = slot_gt_indices[si]
+            n_gt = gt_indices.shape[0]
+
+            if n_gt == 1:
+                matched_gt_idx[proposal_indices] = gt_indices[0]
+            else:
+                noise_for_slot = noise[proposal_indices]
+                gt_boxes = gt_diffusion[gt_indices]
+                dists = torch.cdist(noise_for_slot, gt_boxes, p=2)
+                gt_probs = F.softmax(-dists / max(self.ot_epsilon, 1e-6), dim=1)
+                local_gt_idx = torch.multinomial(gt_probs, 1).squeeze(-1)
+                matched_gt_idx[proposal_indices] = gt_indices[local_gt_idx]
+
+        self._kcec_call_count += 1
+        log_stats: Dict[str, Tensor] = {}
+        if self.kcec_log_interval > 0 and (
+            self._kcec_call_count % self.kcec_log_interval == 0
+        ):
+            with torch.no_grad():
+                row_entropy = -(
+                    transport
+                    * (transport + 1e-10).log()
+                ).sum(dim=1).mean()
+                col_entropy = -(
+                    transport
+                    * (transport + 1e-10).log()
+                ).sum(dim=0).mean()
+                slot_counts = torch.bincount(
+                    slot_idx, minlength=S
+                ).float()
+                gt_counts = torch.bincount(
+                    matched_gt_idx, minlength=K
+                ).float()
+                max_transport_per_row = transport.max(dim=1).values
+                max_transport_per_col = transport.max(dim=0).values
+                log_stats = {
+                    'kcec_cost_mean': cost.mean().detach(),
+                    'kcec_cost_std': cost.std().detach(),
+                    'kcec_box_cost_mean': box_cost.mean().detach(),
+                    'kcec_morph_cost_mean': morph_cost.mean().detach(),
+                    'kcec_group_cost_mean': group_cost.mean().detach(),
+                    'kcec_row_entropy': row_entropy.detach(),
+                    'kcec_col_entropy': col_entropy.detach(),
+                    'kcec_transport_max_row': max_transport_per_row.mean().detach(),
+                    'kcec_transport_max_col': max_transport_per_col.mean().detach(),
+                    'kcec_num_slots': torch.tensor(float(S), device=device),
+                    'kcec_num_classes': torch.tensor(
+                        float(len(unique_classes)), device=device
+                    ),
+                    'kcec_slots_per_gt': torch.tensor(
+                        float(S) / max(K, 1), device=device
+                    ),
+                    'kcec_slot_max_count': slot_counts.max().detach(),
+                    'kcec_slot_empty_frac': (
+                        (slot_counts == 0).float().mean().detach()
+                    ),
+                    'kcec_gt_max_count': gt_counts.max().detach(),
+                    'kcec_gt_zero_frac': (
+                        (gt_counts == 0).float().mean().detach()
+                    ),
+                    'kcec_col_mass_entropy': -(
+                        col_mass * (col_mass + 1e-10).log()
+                    ).sum().detach(),
+                }
+
+        return matched_gt_idx, log_stats
 
     def _run_group_hierarchical_ot(
         self, noise, gt_diffusion, gt_labels, device
@@ -514,17 +695,19 @@ class DiffusionDetHead(nn.Module):
         targets: List[InstanceData],
         gt_bboxes: List[Tensor],
         img_metas: List[ImageMeta],
-    ) -> Tuple[List[Tensor], List[Tensor], List[Tensor]]:
+    ) -> Tuple[List[Tensor], List[Tensor], List[Tensor], Dict[str, Tensor]]:
         """构建训练配对: 对每张图生成 (x_noisy, x_start, x_noise) 三元组.
 
         Returns:
             x_boxes: 每个样本的 x_t 噪声框列表
             x_starts: 每个样本的扩散空间 GT (x_0) 列表
             x_noises: 每个样本的噪声源 (x_1) 列表
+            kcec_log_stats: KCEC 监控统计 (合并 batch 内所有样本)
         """
         x_boxes = []
         x_starts = []
         x_noises = []
+        kcec_log_stats: Dict[str, Tensor] = {}
 
         if (
             self.use_reflow
@@ -543,14 +726,14 @@ class DiffusionDetHead(nn.Module):
                     x_starts.append(x_start)
                     x_noises.append(noise)
                     x_boxes.append(x_noisy)
-                return x_boxes, x_starts, x_noises
+                return x_boxes, x_starts, x_noises, kcec_log_stats
             # fall through to random noise if reflow pairs unavailable
             for i in range(bs):
                 noise = torch.randn(self.num_proposals, 4, device=device)
                 x_boxes.append(noise)
                 x_starts.append(torch.zeros_like(noise))
                 x_noises.append(noise)
-            return x_boxes, x_starts, x_noises
+            return x_boxes, x_starts, x_noises, kcec_log_stats
 
         for i in range(bs):
             num_gt = gt_bboxes[i].shape[0]
@@ -568,9 +751,13 @@ class DiffusionDetHead(nn.Module):
 
             # Coupling
             if self.ot_coupling and self.diffusion_type == 'rectified_flow':
-                x_start = self._couple_ot(
+                x_start, sample_log = self._couple_ot(
                     noise, gt_diffusion, targets[i].labels, device
                 )
+                for k, v in sample_log.items():
+                    if k not in kcec_log_stats:
+                        kcec_log_stats[k] = []
+                    kcec_log_stats[k].append(v.detach())
             else:
                 idx = torch.randint(
                     0, num_gt, (self.num_proposals,), device=device
@@ -591,7 +778,12 @@ class DiffusionDetHead(nn.Module):
                 x_noises.append(noise)
             x_boxes.append(x_noisy)
 
-        return x_boxes, x_starts, x_noises
+        merged_kcec_log: Dict[str, Tensor] = {}
+        for k, v_list in kcec_log_stats.items():
+            if v_list:
+                merged_kcec_log[k] = torch.stack(v_list).mean()
+
+        return x_boxes, x_starts, x_noises, merged_kcec_log
 
     def _couple_ot(
         self,
@@ -599,11 +791,15 @@ class DiffusionDetHead(nn.Module):
         gt_diffusion: Tensor,
         gt_labels: Tensor,
         device: torch.device,
-    ) -> Tensor:
-        """OT 耦合: 将噪声提案与 GT 框配对, 返回配对的 x_start."""
+    ) -> Tuple[Tensor, Dict[str, Tensor]]:
+        """OT 耦合: 将噪声提案与 GT 框配对, 返回配对的 x_start 及日志统计."""
+        if gt_diffusion.shape[0] == 0:
+            return noise, {}
+
+        kcec_log_stats: Dict[str, Tensor] = {}
         if self.ot_matcher == 'sinkhorn':
             if self.ot_kcec:
-                matched_gt_idx = self._run_kcec_ot(
+                matched_gt_idx, kcec_log_stats = self._run_kcec_ot(
                     noise, gt_diffusion, gt_labels, device
                 )
             elif self.ot_group_hierarchical:
@@ -621,7 +817,7 @@ class DiffusionDetHead(nn.Module):
         x_start = gt_diffusion[matched_gt_idx]
         if self.ot_init_mode == 'guided':
             x_start = noise + self.ot_init_scale * (x_start - noise)
-        return x_start
+        return x_start, kcec_log_stats
 
     def _sinkhorn_match(
         self, noise: Tensor, gt_diffusion: Tensor, device: torch.device
@@ -655,7 +851,7 @@ class DiffusionDetHead(nn.Module):
         t, lsas_log_probs = self._sample_t(bs, device)
 
         # 3. 构建训练配对
-        x_boxes, x_starts, x_noises = self._build_training_targets(
+        x_boxes, x_starts, x_noises, kcec_log = self._build_training_targets(
             bs, device, t, targets, gt_bboxes, img_metas
         )
         x_noisy_batch = torch.stack(x_boxes)
@@ -722,6 +918,10 @@ class DiffusionDetHead(nn.Module):
             bs,
             device,
         )
+
+        if kcec_log:
+            for k, v in kcec_log.items():
+                losses[k] = v.detach()
 
         return losses
 
