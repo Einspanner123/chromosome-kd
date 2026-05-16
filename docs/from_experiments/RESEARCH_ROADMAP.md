@@ -109,11 +109,11 @@ $$\sum_i \pi_{i,(c,r)} + u_{c,r}=b_{c,r},\quad \lambda_{slack}\sum_{c,r}|u_{c,r}
 
 ### 3.3 理论亮点与待解决的问题
 
-**亮点**：KCEC 的创新不只是"加先验"，而是把染色体检测建模为**商空间上的集合流匹配**：
+**亮点**：KCEC 的创新不只是"加先验"，而是把染色体检测的**耦合设计**建模为商空间结构指导的集合匹配：
 
 $$\mathcal{Y}_{karyo}=\left(\prod_c \{b_{c,1},\dots,b_{c,q_c}\}/S_{q_c}\right)\times \mathcal{A}$$
 
-其中 $S_{q_c}$ 表示同源染色体交换群，$\mathcal{A}$ 表示异常核型 slack 空间。模型学习的是等价类上的 flow，而不是任意编号的 GT 实例。这能同时解释三个现象：
+其中 $S_{q_c}$ 表示同源染色体交换群，$\mathcal{A}$ 表示异常核型 slack 空间。商空间结构指导耦合设计（等价 GT 共享相同代价和配额），使模型在训练时看到的是等价类级别的监督，而不是任意编号的 GT 实例。这能同时解释三个现象：
 
 1. hard OT 过早选择单个 GT 实例，破坏同源 exchangeability；
 2. random coupling 保留多样性但没有利用核型配额；
@@ -144,7 +144,7 @@ $$\mathcal{Y}_{karyo}=\left(\prod_c \{b_{c,1},\dots,b_{c,q_c}\}/S_{q_c}\right)\t
 
 ### 3.6 顶会级表述
 
-> We formulate chromosome detection as flow matching guided by karyotype quotient-space structure, where homologous chromosomes are exchangeable and chromosome counts impose soft ploidy constraints. This yields Karyotype-Constrained Entropic Coupling, a training-only matching mechanism that combines transport efficiency, target-index entropy, morphology priors, and ploidy consistency.
+> We formulate chromosome detection as flow matching guided by karyotype quotient-space structure, where homologous chromosomes are exchangeable and chromosome counts impose soft ploidy constraints. Note that the quotient-space structure guides coupling design only; the ODE paths remain in the original box space. This yields Karyotype-Constrained Entropic Coupling, a training-only matching mechanism that combines transport efficiency, target-index entropy, morphology priors, and ploidy consistency.
 
 若实验成立，KCEC 比 DAEC 更适合作为染色体论文的核心贡献：它不仅解释 OT 失败，还利用染色体任务的独特结构给出正向提升机制。
 
