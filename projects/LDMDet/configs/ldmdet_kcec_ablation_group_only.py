@@ -39,10 +39,46 @@ test_dataloader = dict(
     ),
 )
 val_evaluator = dict(
+    type='CocoMetric',
     ann_file=data_root + 'valid/_annotations.coco.json',
+    metric='bbox',
+    classwise=True,
+    metric_items=[
+        'mAP',
+        'mAP_50',
+        'mAP_75',
+        'mAP_s',
+        'mAP_m',
+        'mAP_l',
+        'AR@100',
+        'AR@300',
+        'AR@1000',
+        'AR_s@1000',
+        'AR_m@1000',
+        'AR_l@1000',
+    ],
+    format_only=False,
 )
 test_evaluator = dict(
+    type='CocoMetric',
     ann_file=data_root + 'test/_annotations.coco.json',
+    metric='bbox',
+    classwise=True,
+    metric_items=[
+        'mAP',
+        'mAP_50',
+        'mAP_75',
+        'mAP_s',
+        'mAP_m',
+        'mAP_l',
+        'AR@100',
+        'AR@300',
+        'AR@1000',
+        'AR_s@1000',
+        'AR_m@1000',
+        'AR_l@1000',
+    ],
+    format_only=False,
 )
 
 optim_wrapper = dict(
@@ -71,8 +107,8 @@ model = dict(
     bbox_head=dict(
         ot_kcec=True,
         ot_matcher='sinkhorn',
-        ot_epsilon=5.0,
-        ot_num_iters=20,
+        ot_epsilon=0.1,
+        ot_num_iters=50,
         ot_sample=True,
         kcec_morph_weight=0.0,
         kcec_group_weight=0.1,

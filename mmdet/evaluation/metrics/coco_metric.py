@@ -572,7 +572,8 @@ class CocoMetric(BaseMetric):
                         eval_results[f'{nm["name"]}_precision'] = round(ap, 3)
 
                         # indexes of IoU  @50 and @75
-                        for iou in [0, 5]:
+                        iou_names = ['mAP_50', 'mAP_75']
+                        for iou_idx, iou in enumerate([0, 5]):
                             precision = precisions[iou, :, idx, 0, -1]
                             precision = precision[precision > -1]
                             if precision.size:
@@ -580,9 +581,13 @@ class CocoMetric(BaseMetric):
                             else:
                                 ap = float('nan')
                             t.append(f'{round(ap, 3)}')
+                            eval_results[
+                                f'{nm["name"]}_{iou_names[iou_idx]}'
+                            ] = round(ap, 3)
 
                         # indexes of area of small, median and large
-                        for area in [1, 2, 3]:
+                        area_names = ['mAP_s', 'mAP_m', 'mAP_l']
+                        for area_idx, area in enumerate([1, 2, 3]):
                             precision = precisions[:, :, idx, area, -1]
                             precision = precision[precision > -1]
                             if precision.size:
@@ -590,6 +595,9 @@ class CocoMetric(BaseMetric):
                             else:
                                 ap = float('nan')
                             t.append(f'{round(ap, 3)}')
+                            eval_results[
+                                f'{nm["name"]}_{area_names[area_idx]}'
+                            ] = round(ap, 3)
                         results_per_category.append(tuple(t))
 
                     num_columns = len(results_per_category[0])

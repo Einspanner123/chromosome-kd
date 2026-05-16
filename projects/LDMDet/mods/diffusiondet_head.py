@@ -482,8 +482,11 @@ class DiffusionDetHead(nn.Module):
         slot_mass = slot_mass.pow(self.kcec_quota_strength)
         slot_mass = slot_mass + float(self.kcec_slack)
         col_mass = slot_mass / slot_mass.sum().clamp_min(1e-10)
+        row_mass = torch.ones(N, device=device) / max(N, 1)
 
-        transport = self._sinkhorn_transport(cost, col_mass=col_mass)
+        transport = self._sinkhorn_transport(
+            cost, row_mass=row_mass, col_mass=col_mass
+        )
 
         if self.ot_sample:
             row_probs = transport / transport.sum(
@@ -531,14 +534,35 @@ class DiffusionDetHead(nn.Module):
                 gt_counts = torch.bincount(matched_gt_idx, minlength=K).float()
                 max_transport_per_row = transport.max(dim=1).values
                 max_transport_per_col = transport.max(dim=0).values
+                row_probs = transport / transport.sum(
+                    dim=1, keepdim=True
+                ).clamp_min(1e-10)
+                top1_prob = row_probs.max(dim=1).values.mean()
+                transport_argmax = transport.argmax(dim=1)
+                cost_argmin = cost.argmin(dim=1)
+                argmax_agreement = (
+                    (transport_argmax == cost_argmin).float().mean()
+                )
+                row_marginal_err = (
+                    (transport.sum(dim=1) - row_mass).abs().mean()
+                )
+                col_marginal_err = (
+                    (transport.sum(dim=0) - col_mass).abs().mean()
+                )
                 log_stats = {
                     'kcec_cost_mean': cost.mean().detach(),
                     'kcec_cost_std': cost.std().detach(),
+                    'kcec_cost_min': cost.min().detach(),
+                    'kcec_cost_max': cost.max().detach(),
                     'kcec_box_cost_mean': box_cost.mean().detach(),
                     'kcec_morph_cost_mean': morph_cost.mean().detach(),
                     'kcec_group_cost_mean': group_cost.mean().detach(),
                     'kcec_row_entropy': row_entropy.detach(),
                     'kcec_col_entropy': col_entropy.detach(),
+                    'kcec_top1_prob': top1_prob.detach(),
+                    'kcec_argmax_agreement': argmax_agreement.detach(),
+                    'kcec_row_marginal_err': row_marginal_err.detach(),
+                    'kcec_col_marginal_err': col_marginal_err.detach(),
                     'kcec_transport_max_row': max_transport_per_row.mean().detach(),
                     'kcec_transport_max_col': max_transport_per_col.mean().detach(),
                     'kcec_num_slots': torch.tensor(float(S), device=device),
@@ -549,10 +573,12 @@ class DiffusionDetHead(nn.Module):
                         float(S) / max(K, 1), device=device
                     ),
                     'kcec_slot_max_count': slot_counts.max().detach(),
+                    'kcec_slot_count_std': slot_counts.std().detach(),
                     'kcec_slot_empty_frac': (
                         (slot_counts == 0).float().mean().detach()
                     ),
                     'kcec_gt_max_count': gt_counts.max().detach(),
+                    'kcec_gt_count_std': gt_counts.std().detach(),
                     'kcec_gt_zero_frac': (
                         (gt_counts == 0).float().mean().detach()
                     ),
