@@ -509,7 +509,9 @@ class DiffusionDetHead(nn.Module):
                 noise_for_slot = noise[proposal_indices]
                 gt_boxes = gt_diffusion[gt_indices]
                 dists = torch.cdist(noise_for_slot, gt_boxes, p=2)
-                gt_probs = F.softmax(-dists / max(self.ot_epsilon, 1e-6), dim=1)
+                gt_probs = F.softmax(
+                    -dists / max(self.ot_epsilon, 1e-6), dim=1
+                )
                 local_gt_idx = torch.multinomial(gt_probs, 1).squeeze(-1)
                 matched_gt_idx[proposal_indices] = gt_indices[local_gt_idx]
 
@@ -519,20 +521,14 @@ class DiffusionDetHead(nn.Module):
             self._kcec_call_count % self.kcec_log_interval == 0
         ):
             with torch.no_grad():
-                row_entropy = -(
-                    transport
-                    * (transport + 1e-10).log()
-                ).sum(dim=1).mean()
-                col_entropy = -(
-                    transport
-                    * (transport + 1e-10).log()
-                ).sum(dim=0).mean()
-                slot_counts = torch.bincount(
-                    slot_idx, minlength=S
-                ).float()
-                gt_counts = torch.bincount(
-                    matched_gt_idx, minlength=K
-                ).float()
+                row_entropy = (
+                    -(transport * (transport + 1e-10).log()).sum(dim=1).mean()
+                )
+                col_entropy = (
+                    -(transport * (transport + 1e-10).log()).sum(dim=0).mean()
+                )
+                slot_counts = torch.bincount(slot_idx, minlength=S).float()
+                gt_counts = torch.bincount(matched_gt_idx, minlength=K).float()
                 max_transport_per_row = transport.max(dim=1).values
                 max_transport_per_col = transport.max(dim=0).values
                 log_stats = {
@@ -562,7 +558,9 @@ class DiffusionDetHead(nn.Module):
                     ),
                     'kcec_col_mass_entropy': -(
                         col_mass * (col_mass + 1e-10).log()
-                    ).sum().detach(),
+                    )
+                    .sum()
+                    .detach(),
                 }
 
         return matched_gt_idx, log_stats

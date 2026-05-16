@@ -16,6 +16,7 @@ repos:
       - id: end-of-file-fixer
         files: ^(chromodet|projects)/
       - id: requirements-txt-fixer
+        exclude: requirements\.(conda|pip)\.txt
       - id: check-merge-conflict
       - id: fix-encoding-pragma
         args: ["--remove"]
