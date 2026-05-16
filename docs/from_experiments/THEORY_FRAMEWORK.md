@@ -18,8 +18,8 @@ ______________________________________________________________________
 | E2   | 采样误差完全由 $\\text{Curv}(\\delta v\_\\theta)$ 决定 | OT 减小曲率但总误差更大           | 加入泛化误差项（§2.3 修正）                     |
 | E3   | AdaLN-Zero 保证 $v\_\\theta\|\_{\\text{init}}=0$       | 代码验证：reg_head 非零初始化     | 修正为零初始化保证时间条件残差为零（§1.3 修正） |
 | E4   | 检测最优传输原理仅含三因素                             | 缺失多样性维度                    | 增加第四因素：训练信号多样性（§5 修正）         |
-| E5   | OT + TRD 组合应叠加增益                                | 组合实验全为负交互 (0.740-0.746)  | 新增机制冲突假说（§7）                          |
-| E6   | Reflow 应持续改善路径直度                              | Epoch 1 最佳后持续退化            | 新增梯度冲突理论（§6）                          |
+| E5   | OT + TRD 组合应叠加增益                                | 组合实验全为负交互 (0.740-0.746)  | 新增机制冲突假说（→ THEORY_WHY_FAILED 方向 E）              |
+| E6   | Reflow 应持续改善路径直度                              | Epoch 1 最佳后持续退化            | 新增梯度冲突理论（→ THEORY_WHY_FAILED 方向 D）              |
 | E7   | 速度场分解中 OT 分量可直接解析计算                     | 实际训练中 OT 分量依赖耦合策略    | 修正分解定理的适用条件（§2.2 修正）             |
 
 **二次修正**（代码审计发现的理论-代码偏差）：
@@ -28,7 +28,7 @@ ______________________________________________________________________
 | ---- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | E8   | AdaLN-Zero 初始时 `fc_feature = h`（原始 proposal 特征） | Block 2 (Instance Interaction) 无 α 门控，初始时 `fc_feature = h + inst_interact(h, f_roi)` | 弱化"时间无关基线"为"时间条件维度零初始化"（§1.3 二次修正）   |
 | E9   | CAT 惩罚曲率 $\|\\partial v\_\\theta/\\partial t\|^2$    | 代码惩罚 $\|x_0^{pred}(t) - x_0^{pred}(t+\\Delta t)\|^2$，同时惩罚速度大小和曲率            | 精确描述 CAT 的实际目标为 $x_0$ 一致性正则化（§4.2 二次修正） |
-| E10  | CAT-OT 冲突因"Voronoi 边界跳变与曲率平滑化矛盾"          | CAT 的 $x\_{t+\\Delta t}$ 使用相同 OT 配对构造，但 Voronoi 边界随 $t$ 移动导致配对不一致    | 精确描述三方矛盾机制（§7.3 二次修正）                         |
+| E10  | CAT-OT 冲突因"Voronoi 边界跳变与曲率平滑化矛盾"          | CAT 的 $x\_{t+\\Delta t}$ 使用相同 OT 配对构造，但 Voronoi 边界随 $t$ 移动导致配对不一致    | 精确描述三方矛盾机制（→ THEORY_WHY_FAILED 方向 E）                         |
 
 **三次修正**（论文严谨性修正）：
 
@@ -474,9 +474,9 @@ $$\\mathcal{L}_{CAT}^{code} \\approx \\Delta t^2 \\cdot \\underbrace{|v_\\theta|
 
 > **⚠️ 代码审计发现的问题**：CAT 的代码实现惩罚 $x_0$ 预测的时间一致性 $|x_0^{pred}(t) - x_0^{pred}(t+\\Delta t)|^2$，而非理论描述的曲率 $|\\partial v\_\\theta/\\partial t|^2$。前者比后者更激进，同时惩罚速度大小和曲率。如果未来需要实现纯曲率正则化，应改为惩罚速度的时间导数：$\\mathcal{L}_{curv}^{pure} = |v_\\theta(x\_{t+\\Delta t}, t+\\Delta t) - v\_\\theta(x_t, t)|^2 / \\Delta t^2$，其中 $v\_\\theta = (x_t - x_0^{pred})/t$ 从模型输出推导。但需注意：(1) $t \\approx 0$ 处 $v\_\\theta$ 的数值不稳定（除以接近零的 $t$），(2) 纯曲率正则化可能不足以约束速度大小，(3) 需要重新调参和实验验证。
 
-**实验修正**：`cat_only` (0.744) 略低于 `adaln` (0.751)，说明 $x_0$ 一致性正则化单独使用时过度约束了模型的时间条件表达能力。CAT 与 OT 组合时甚至导致训练崩溃（eval=0），可能原因见机制假说 7.2。
+**实验修正**：`cat_only` (0.744) 略低于 `adaln` (0.751)，说明 $x_0$ 一致性正则化单独使用时过度约束了模型的时间条件表达能力。CAT 与 OT 组合时甚至导致训练崩溃（eval=0），可能原因见 THEORY_WHY_FAILED 方向 E。
 
-> **代码审计 / 重跑标注（2026-05-15）**：当前 CAT 实现评估的是 `$x_0$ 一致性正则化`，不是纯曲率正则化。因此 `cat_only` 与 CAT+OT 的负结果只能对应当前代码实现，不能否定“纯曲率 CAT”。若论文要使用 Curvature-Aware Training 这个机制名，应实现 `v_theta(t)` 的时间差分正则并重跑 `cat_only`、`trd_full`、`stochastic_eps5_trd_cat`、`sinkhorn_trd_cat_lsas`。此外 CAT+OT 还应重跑“t+dt 重新 OT 配对”或“边界样本 mask”版本，以验证 §7.3 的冲突假说。
+> **代码审计 / 重跑标注（2026-05-15）**：当前 CAT 实现评估的是 `$x_0$ 一致性正则化`，不是纯曲率正则化。因此 `cat_only` 与 CAT+OT 的负结果只能对应当前代码实现，不能否定“纯曲率 CAT”。若论文要使用 Curvature-Aware Training 这个机制名，应实现 `v_theta(t)` 的时间差分正则并重跑 `cat_only`、`trd_full`、`stochastic_eps5_trd_cat`、`sinkhorn_trd_cat_lsas`。此外 CAT+OT 还应重跑“t+dt 重新 OT 配对”或“边界样本 mask”版本，以验证 THEORY_WHY_FAILED 方向 E 的冲突假说。
 
 ### 4.3 Loss-Sensitive Adaptive Scheduling (LSAS)
 
@@ -528,334 +528,15 @@ Shifted Schedule 集中优化高敏感度时间步
 
 ______________________________________________________________________
 
-## 6. Reflow 退化陷阱：梯度冲突理论（新增）
+## 6. 失败方向分析与研究路线图（已移出）
 
-### 6.1 实验现象
+Reflow 退化陷阱（梯度冲突）和两条 SOTA 路径的负交互（机制冲突）属于失败方向分析，已移入 [THEORY_WHY_FAILED.md](THEORY_WHY_FAILED.md) 方向 D 和方向 E。
 
-所有 Reflow 实验均呈现 **"Epoch 1 最佳 → 后续退化"** 的模式：
-
-| Reflow 版本            | Epoch 1 mAP | 最佳 mAP | velocity loss 天花板 |
-| ---------------------- | ----------- | -------- | -------------------- |
-| v2 (val配对)           | 0.739       | 0.739    | ~0.28                |
-| v4 (修复velocity_head) | 0.739       | 0.739    | 0.96→收敛            |
-| v5 (warmup+调参)       | 0.739       | 0.739    | ~0.23                |
-| v6 (第2轮Reflow)       | 0.739       | 0.739    | ~0.23                |
-
-### 6.2 梯度冲突机制
-
-**机制命题 6.1**（Reflow 梯度冲突）：设检测损失 $\\mathcal{L}_{det}$ 和速度损失 $\\mathcal{L}_{vel}$ 共享参数 $\\theta\_{\\text{shared}}$（backbone + 检测头主体）。定义梯度冲突度：
-
-$$\\rho = \\cos\\left(\\nabla\_{\\theta\_{\\text{shared}}} \\mathcal{L}_{det}, \\nabla_{\\theta\_{\\text{shared}}} \\mathcal{L}\_{vel}\\right)$$
-
-当 $\\rho \< 0$ 时，两个损失的梯度方向相反，优化一个会恶化另一个。
-
-**实验测量**：$\\rho = -0.104$，86.8% 的层存在梯度冲突。
-
-> **代码审计 / 重跑标注（2026-05-15）**：该梯度冲突测量使用的 velocity target 方向需要核对。由于当前 `_add_velocity_loss` 目标与 RF 定义相反，`rho=-0.104` 可作为“当前代码下的冲突证据”，但不能直接作为修正后 velocity loss 的理论证据。应在修正 `v_target = x_noises - x_starts` 后重新测量 `cos(g_det, g_vel)`、逐层冲突比例和 Reflow 曲线。
-
-**机制推导（非严格证明）**：
-
-检测损失 $\\mathcal{L}\_{det}$ 要求 $x_0^{pred}$ 接近 $x_0^{gt}$，即模型需要利用图像特征 $f$ 精确预测 GT 位置。
-
-速度损失 $\\mathcal{L}_{vel} = |v_\\theta - v^*|^2$ 要求速度场拟合 $v^* = x_1 - x_0$。在 Reflow 中，$v^\*$ 来自教师模型的 ODE 轨迹，包含教师模型的系统性偏差。
-
-关键矛盾：检测损失要求模型在**特定图像区域**精确预测，而速度损失要求模型在**整个噪声空间**均匀拟合速度场。两者的梯度方向在共享参数上产生冲突：
-
-$$\\nabla\_{\\theta\_{\\text{shared}}} \\mathcal{L}_{det} \\propto -\\frac{\\partial x_0^{pred}}{\\partial \\theta} \\cdot \\nabla_{x_0} \\mathcal{L}\_{det}$$
-
-$$\\nabla\_{\\theta\_{\\text{shared}}} \\mathcal{L}_{vel} \\propto -\\frac{\\partial v_\\theta}{\\partial \\theta} \\cdot (v\_\\theta - v^\*)$$
-
-由于 $x_0^{pred} = x_t - t \\cdot v\_\\theta$，有 $\\frac{\\partial x_0^{pred}}{\\partial \\theta} = -t \\cdot \\frac{\\partial v\_\\theta}{\\partial \\theta}$。因此：
-
-$$\\nabla\_{\\theta\_{\\text{shared}}} \\mathcal{L}_{det} \\propto t \\cdot \\frac{\\partial v_\\theta}{\\partial \\theta} \\cdot \\nabla\_{x_0} \\mathcal{L}\_{det}$$
-
-$$\\nabla\_{\\theta\_{\\text{shared}}} \\mathcal{L}_{vel} \\propto -\\frac{\\partial v_\\theta}{\\partial \\theta} \\cdot (v\_\\theta - v^\*)$$
-
-冲突条件为：
-
-$$\\rho \< 0 \\iff \\left(\\frac{\\partial v\_\\theta}{\\partial \\theta}\\right)^\\top \\left\[t \\cdot \\nabla\_{x_0} \\mathcal{L}_{det}\\right\] \\cdot \\left(\\frac{\\partial v_\\theta}{\\partial \\theta}\\right)^\\top \\left\[-(v\_\\theta - v^\*)\\right\] \< 0$$
-
-简化为：
-
-$$\\rho \< 0 \\iff \\nabla\_{x_0} \\mathcal{L}_{det} \\cdot (v_\\theta - v^\*) > 0$$
-
-即：**当检测残差方向与速度残差方向一致时，两个梯度冲突**。这在实践中经常发生，因为 $v\_\\theta - v^\*$ 的方向倾向于与 $\\nabla\_{x_0} \\mathcal{L}\_{det}$ 的方向相关（两者都反映模型对 $x_0$ 的预测偏差）。$\\square$
-
-### 6.3 退化陷阱的动力学解释
-
-设 $\\theta_n$ 为第 $n$ 步的参数，梯度下降更新为：
-
-$$\\theta\_{n+1} = \\theta_n - \\eta \\left(\\nabla \\mathcal{L}_{det} + w \\cdot \\nabla \\mathcal{L}_{vel}\\right)$$
-
-检测损失的变化为：
-
-$$\\Delta \\mathcal{L}_{det} = -\\eta \\left(|\\nabla \\mathcal{L}_{det}|^2 + w \\cdot \\nabla \\mathcal{L}_{det}^\\top \\nabla \\mathcal{L}_{vel}\\right)$$
-
-当 $\\nabla \\mathcal{L}_{det}^\\top \\nabla \\mathcal{L}_{vel} \< 0$（梯度冲突）且 $w$ 足够大时，$\\Delta \\mathcal{L}\_{det} > 0$，即检测损失**增加**。
-
-Epoch 1 最佳的原因：初始时 $\\theta$ 接近预训练模型，$\\mathcal{L}\_{det}$ 已在局部最优附近。速度损失的梯度将参数拉离此局部最优，且由于梯度冲突，检测性能持续退化。
-
-### 6.4 velocity loss 收敛天花板
-
-velocity loss 收敛到 ~0.23-0.30 后停滞，原因：
-
-1. **容量瓶颈**：velocity_head 为 3 层 MLP（256→256→256→4），参数量有限
-2. **配对噪声**：Reflow 配对 $(z_0, x_1^{pred})$ 中 $x_1^{pred}$ 本身有 ODE 离散化误差
-3. **梯度冲突**：共享层的梯度冲突阻止 velocity_head 获得足够的梯度信号
+面向目标检测的理论突破点（DAEC/KCEC）属于未来研究规划，已移入 [RESEARCH_ROADMAP.md](RESEARCH_ROADMAP.md)。
 
 ______________________________________________________________________
 
-## 7. 两条 SOTA 路径的负交互：机制冲突理论（新增）
-
-### 7.1 实验现象
-
-| 组合实验                               | mAP   | vs 最佳单路径 (0.752) |
-| -------------------------------------- | ----- | --------------------- |
-| group_hierarchical_stoch + TRD         | 0.746 | **-0.006**            |
-| sinkhorn_stochastic + TRD + CAT + LSAS | 0.743 | **-0.009**            |
-| sinkhorn_stochastic + TRD + CAT        | 0.740 | **-0.012**            |
-
-三个组合实验全部低于任一单路径最佳值。
-
-> **代码审计 / 重跑标注（2026-05-15）**：组合负交互结论在当前代码下成立，但不应被写成最终结构性定论。`sinkhorn_trd_cat_lsas` 和 `stochastic_eps5_trd_cat` 同时受 stochastic seed 方差、velocity target 符号、CAT 目标不一致、TRD 使用 `cat_delta_t` 等因素影响；`group_hierarchical_trd` 至少受 stochastic seed 方差和 TRD 自条件估计误差影响。建议修正后重跑：`group_hierarchical_trd`、`stochastic_eps5_trd_cat`、`sinkhorn_trd_cat_lsas`，并增加“analytic/current-pair TRD velocity”和“TRD/CAT delta_t 解耦”版本。
-
-### 7.2 机制冲突假说
-
-**机制假说 7.1**（耦合-训练动力学冲突）：Stochastic OT 耦合与 TRD 自条件化可能存在结构性冲突。
-
-**论证**：
-
-Stochastic OT 耦合的核心机制是：在每个训练迭代中，从传输矩阵中随机采样配对，使得同一 $x_t$ 在不同迭代中看到不同的目标速度 $v^\*$。这种**训练时不确定性**是多样性的来源。
-
-TRD 自条件化的核心机制是：在训练时，以概率 $p$ 用前一步的预测 $x_0^{prev}$ 估计 $v\_\\pi$，然后沿 ODE 路径前进一步。这要求 $x_0^{prev}$ 是当前 $x_t$ 的合理估计。
-
-**冲突点**：Stochastic OT 在不同迭代中为同一 $x_t$ 提供不同的 $v^\*$，而 TRD 依赖 $x_0^{prev}$ 提供一致的 $v\_\\pi$ 估计。当两者组合时：
-
-1. TRD 的自条件化步骤使用 $x_0^{prev}$ 估计 $v\_\\pi$，但 Stochastic OT 的随机性使得 $v\_\\pi$ 在不同迭代间不一致
-2. TRD 将 $x_t$ 沿估计的 $v\_\\pi$ 前进到 $x\_{t+\\Delta t}$，但 Stochastic OT 在新位置可能分配不同的 GT 目标
-3. 这导致 TRD 的自条件化步骤引入额外的训练噪声，而非提供有用的精化信号
-
-形式化地，设 $v\_\\pi^{(i)}$ 为第 $i$ 次迭代的传输速度（因 Stochastic 而随机），TRD 的自条件化估计为 $\\hat{v}_\\pi = (x_t - x_0^{prev})/t$。当 $v_\\pi^{(i)} \\neq \\hat{v}\_\\pi$ 时（Stochastic 耦合下概率很高），TRD 的前进步骤方向错误，引入噪声：
-
-$$x\_{t+\\Delta t}^{TRD} = x_t + \\Delta t \\cdot \\hat{v}_\\pi \\neq x_t + \\Delta t \\cdot v_\\pi^{(i)}$$
-
-此误差在 Stochastic 耦合下被放大（因 $v\_\\pi^{(i)}$ 的方差大），而在确定性耦合（nearest OT）下不存在（因 $v\_\\pi^{(i)} = \\hat{v}\_\\pi$ 恒成立）。
-
-### 7.3 CAT 与 OT 的曲率冲突（二次修正）
-
-**机制假说 7.2**（CAT-OT 冲突——精确版）：CAT 的 $x_0$ 一致性正则化与 OT 耦合可能在 Voronoi 边界处产生梯度冲突，并导致训练崩溃。
-
-**论证（代码层面精确分析）**：
-
-**Step 1：CAT 的 $x\_{t+\\Delta t}$ 构造方式**
-
-CAT 在计算 $x\_{t+\\Delta t}$ 时使用与 $x_t$ **相同的 OT 配对**：
-
-```python
-# diffusiondet_head.py _add_cat_loss
-x_start_batch = torch.stack(x_starts)   # OT 耦合后的 x_0
-x_noise_batch = torch.stack(x_noises)   # 原始噪声 x_1
-x_t2 = (1.0 - t2_view) * x_start_batch + t2_view * x_noise_batch
-```
-
-这里 `x_start_batch` 和 `x_noise_batch` 在两次前向传播间不变，隐含假设：$x_t$ 和 $x\_{t+\\Delta t}$ 沿**同一条 OT 配对的直线路径**，速度场应为常数。
-
-**Step 2：OT 耦合下 Voronoi 边界的时间依赖性**
-
-OT 耦合将噪声空间划分为 Voronoi 单元 $\\mathcal{V}\_k$。$x_t \\in \\mathcal{V}\_k$ 的条件为：
-
-$$\\left|\\frac{x_t - b_k}{1-t}\\right| \\leq \\left|\\frac{x_t - b_j}{1-t}\\right|, \\quad \\forall j \\neq k$$
-
-化简得 Voronoi 边界超平面方程：
-
-$$2(x_t - b_k)^\\top(b_k - b_j) + (1-t)|b_k - b_j|^2 = 0$$
-
-边界法向为 $(b_k - b_j)$，截距为 $(1-t)|b_k - b_j|^2 / 2$。**截距随 $t$ 线性变化**：当 $t$ 增加 $\\Delta t$ 时，边界向 $b_k$ 方向移动 $\\Delta t \\cdot |b_k - b_j|^2 / 2$。
-
-**Step 3：冲突的精确机制**
-
-CAT 的 $x\_{t+\\Delta t}$ 使用相同的 OT 配对构造，意味着 CAT 假设 $x_t$ 和 $x\_{t+\\Delta t}$ 属于同一个 Voronoi 单元（配对不变）。但由于 Voronoi 边界随 $t$ 移动，$x\_{t+\\Delta t}$ 可能跨越到相邻的 Voronoi 单元 $\\mathcal{V}\_j$。
-
-此时出现三方矛盾：
-
-| 约束来源 | 要求                                             | 代码位置                             |
-| -------- | ------------------------------------------------ | ------------------------------------ |
-| OT 耦合  | $v^\* = b_j - z$（新单元的速度）                 | `_couple_ot` 返回的 `x_start`        |
-| CAT 构造 | $x\_{t+\\Delta t}$ 沿旧配对的直线路径            | `x_t2 = (1-t2)*x_start + t2*x_noise` |
-| CAT loss | $x_0^{pred}(t) \\approx x_0^{pred}(t+\\Delta t)$ | `F.mse_loss(x0_t1, x0_t2.detach())`  |
-
-具体地：
-
-- CAT 构造的 $x\_{t+\\Delta t}$ 位于旧配对 $(z, b_k)$ 的直线路径上，期望模型预测 $x_0^{pred}(t+\\Delta t) \\approx b_k$
-- 但 OT 耦合在 $x\_{t+\\Delta t}$ 处可能分配 $b_j$（因为 $x\_{t+\\Delta t}$ 已跨越 Voronoi 边界），检测损失要求 $x_0^{pred}(t+\\Delta t) \\approx b_j$
-- CAT loss 惩罚 $x_0^{pred}(t) \\neq x_0^{pred}(t+\\Delta t)$，即惩罚 $b_k \\neq b_j$；在跨越 Voronoi 边界的样本上，这种差异来自配对切换
-
-**Step 4：崩溃的动力学解释**
-
-当 CAT + OT 组合训练时，梯度更新陷入三方拉锯：
-
-1. 检测损失 $\\mathcal{L}_{det}$ 推动模型在 $x_{t+\\Delta t}$ 处预测 $b_j$（OT 配对的目标）
-2. CAT 损失 $\\mathcal{L}_{CAT}$ 推动模型在 $x_{t+\\Delta t}$ 处预测 $b_k$（与 $x_t$ 处一致）
-3. 两者梯度方向可能相反，且 $b_k \\neq b_j$ 会使冲突难以通过单一预测同时满足
-
-在 Voronoi 边界附近，这种冲突的样本比例随训练进行而增加（模型学会在边界附近产生不确定预测，增加边界跨越的概率），形成正反馈循环，最终导致训练崩溃（eval=0）。
-
-**对比**：CAT 单独使用时（无 OT 耦合），随机耦合下不存在 Voronoi 结构，$v^\*$ 在不同 $t$ 处的变化是连续的（条件期望的平滑变化），CAT 的平滑化约束与训练信号兼容，因此不会崩溃（0.744）。
-
-> **⚠️ 代码审计发现的问题**：CAT 的 $x\_{t+\\Delta t}$ 构造使用与 $x_t$ 相同的 OT 配对，但 Voronoi 边界随 $t$ 变化导致 $x\_{t+\\Delta t}$ 可能属于不同 Voronoi 单元。这是 CAT + OT 崩溃的代码层面根源。如果未来需要让 CAT 与 OT 兼容，有两个方向：(1) 为 $x\_{t+\\Delta t}$ 重新运行 OT 耦合（`x_start_t2 = _couple_ot(x_t2, gt_diffusion, labels, device)`），使 CAT 的构造与 OT 的配对一致，但这引入额外计算开销；(2) 在 CAT loss 中排除 Voronoi 边界附近的样本（通过检测 $x_0^{pred}(t)$ 与最近 GT 的距离是否接近次近 GT 的距离来识别边界样本），但这需要额外的边界检测逻辑。
-
-### 7.4 对论文的影响
-
-两条 SOTA 路径的负交互不是超参数问题，而是**结构性冲突**：
-
-1. **Stochastic OT + TRD**：训练时不确定性与自条件化一致性要求矛盾
-2. **OT + CAT**：Voronoi 边界跳变与曲率平滑化要求矛盾
-
-这意味着两条路径虽然各自有效，但**不能简单叠加**。需要设计新的组合策略来绕过这些冲突（如分阶段训练、解耦参数等）。
-
-______________________________________________________________________
-
-## 8. 面向目标检测的理论突破点
-
-### 8.1 问题重述：检测不是无条件 OT，而是条件集合匹配
-
-当前负结果说明：直接把生成模型中的 OT 直觉搬到检测框扩散中并不充分。目标检测的核心不是把噪声分布运输到一个连续数据流形，而是在图像条件 $f$ 下，把 $N$ 个 noisy proposals 分配到 $K$ 个离散目标、背景和重复候选之间。也就是说，检测中的耦合应同时满足三类约束：
-
-1. **几何传输短**：proposal 到 GT 的框空间位移不能过大。
-2. **检测语义对齐**：分配目标应与分类、IoU、尺寸、染色体组别等检测代价一致。
-3. **监督多样性充足**：同一局部区域不能被硬分配过早压成单一目标，否则低维框空间中的泛化会变差。
-
-这提示一个更适合顶会论文的创新点：从“geometry-only OT”转向 **Detection-Aware Stochastic Coupling**。
-
-### 8.2 推荐主线：Detection-Aware Entropic Coupling (DAEC)
-
-**核心想法**：把耦合矩阵从纯几何代价最小化，改为检测感知的熵正则集合匹配。对每张图像，构造 proposal $i$ 与 GT $j$ 的代价：
-
-$$C_{ij}=\\alpha C^{box}_{ij}+\\beta C^{cls}_{ij}+\\gamma C^{scale}_{ij}+\\eta C^{group}_{ij}+\\rho C^{unc}_{ij}$$
-
-其中：
-
-- $C^{box}_{ij}$：框空间距离或 GIoU/DIoU 代价。
-- $C^{cls}_{ij}$：当前检测头对类别/实例的匹配代价。
-- $C^{scale}_{ij}$：尺寸匹配代价，避免小目标被大位移 proposal 主导。
-- $C^{group}_{ij}$：领域先验，如染色体 A-G 组、性染色体组别；通用检测中可替换为类别层级或语义相似度。
-- $C^{unc}_{ij}$：不确定性代价，鼓励高不确定区域保持更多候选监督。
-
-然后求熵正则耦合：
-
-$$\\pi^\* = \\arg\\min_{\pi\in\Pi(a,b)} \langle C,\pi\rangle - \tau H(\pi)$$
-
-训练时从 $\\pi^\*$ 中 stochastic sampling，而不是 argmax：
-
-$$Y_i \\sim \pi^\*(\cdot\mid i), \quad x_t=(1-t)b_{Y_i}+t z_i$$
-
-关键不是“更软的 OT”，而是 **检测代价进入耦合本身**。这把 diffusion coupling 与 DETR/Hungarian matching 的思想统一起来：耦合既是流匹配的路径选择，也是检测任务的监督分配。
-
-### 8.3 为什么它可能带来正向提升
-
-DAEC 对当前瓶颈有三点直接回应：
-
-1. **比 hard OT 更稳**：熵正则和 stochastic sampling 保留 $H(Y\mid X_t)$，避免低维框空间的多样性坍缩。
-2. **比 random/stochastic Sinkhorn 更准**：代价矩阵加入分类、尺度、组别和不确定性，使随机性集中在“合理目标集合”内，而不是无条件地扩大匹配噪声。
-3. **无推理成本**：耦合只发生在训练阶段，推理仍使用原检测头和 ODE/Heun 采样。
-
-预期正向收益不是来自单纯降低 $W_2$，而是来自降低 $B_{match}$ 同时维持足够高的 $D_{idx}$。用 §1.4 的严谨化变量表示，DAEC 的目标是寻找：
-
-$$\\min_\pi C_{trans}(\pi)+\\lambda B_{match}(\pi) \quad \text{s.t.}\quad H(Y\mid X_t)\ge h_{min}$$
-
-这比“硬 OT vs 随机耦合”的二选一更像检测任务真正需要的解。
-
-### 8.4 顶会级创新表述
-
-可以凝练成如下论文贡献：
-
-> We reveal that box diffusion for object detection is not governed by geometry-only optimal transport, but by a detection-aware coupling problem balancing transport efficiency, task-aligned matching, and target-index entropy. Based on this, we propose Detection-Aware Entropic Coupling, a training-only stochastic matching mechanism that unifies flow matching couplings with set-prediction assignment.
-
-这个创新点比现有实验中的 group-hierarchical stochastic 更通用：group prior 只是 $C^{group}$ 的一个特例；在 COCO 上可以替换为类别层级、objectness、IoU/quality prediction 或 teacher uncertainty。
-
-### 8.5 必要实验与判定标准
-
-要把 DAEC 做成顶会级正向结果，至少需要满足：
-
-1. **主结果**：在当前染色体数据集上超过 `adaln` / `sinkhorn_sample_eps5` / `group_hierarchical_stoch` 的多 seed 均值，目标提升建议至少 +0.3 到 +0.5 mAP，且标准差不覆盖全部增益。
-2. **通用性**：在 COCO 或至少一个非染色体检测数据集上验证，不要求达到 SOTA，但要说明 hard OT 失败与 DAEC 改善不是单数据集偶然。
-3. **机制验证**：同时报告 $C_{trans}$、$H(Y\mid X_t)$、$B_{match}$ 与 mAP，展示 DAEC 确实降低匹配偏差且保留索引熵。
-4. **消融**：去掉 $C^{cls}$、$C^{scale}$、$C^{group}$、$C^{unc}$、熵约束和 stochastic sampling，验证每一项的边际作用。
-5. **推理成本**：报告训练时增加的耦合计算，并确认推理 FLOPs/latency 不变。
-
-### 8.6 染色体专属突破点：Karyotype-Constrained Entropic Coupling (KCEC)
-
-DAEC 是通用检测突破点；若目标是围绕**染色体检测**形成更有辨识度的顶会级创新，推荐进一步做 **Karyotype-Constrained Entropic Coupling (KCEC)**。
-
-**核心观察**：染色体检测不是普通 COCO 式独立目标检测。每张核型图像天然满足近似固定的集合结构：
-
-- 常染色体类别通常满足二倍体配额：$q_c=2,\ c\in\{1,\dots,22\}$。
-- 性染色体满足有限模式：XX、XY 或异常核型的少量偏离。
-- 染色体类别存在 A-G 组、尺寸、着丝粒位置和臂比等连续形态先验。
-- 同源染色体是 exchangeable 的：两个 1 号染色体之间交换不应被视为不同结构。
-
-现有 group-hierarchical stochastic 只使用了粗粒度 A-G 组先验，但没有把**核型配额、同源交换对称性、异常核型弹性**写入耦合目标。因此它只能带来约 +0.001 的单次提升，且 seed2 降到 0.747，说明先验利用还不够稳。
-
-**方法定义**：把训练耦合从 proposal-to-GT matching 提升为 proposal-to-karyotype-slot matching。设 $s=(c,r)$ 表示染色体类别 $c$ 的第 $r$ 个槽位，$r\in\{1,\dots,q_c\}$。构造 proposal $i$ 到槽位 $s$ 的代价：
-
-$$C_{i,s}=\\alpha C^{box}_{i,s}+\\beta C^{cls}_{i,c}+\\gamma C^{morph}_{i,c}+\\eta C^{group}_{i,c}+\\rho C^{count}_{c}$$
-
-其中 $C^{morph}$ 来自长度、宽度、面积、臂比或可学习 morphology embedding；$C^{count}$ 是当前图像的核型配额/异常模式先验。求解带配额的熵正则耦合：
-
-$$\\pi^\*=\\arg\\min_{\pi\ge0}\langle C,\pi\rangle-\tau H(\pi)$$
-
-$$\\sum_s \pi_{i,s}=a_i,\quad \sum_i \pi_{i,(c,r)}=b_{c,r},\quad b_{c,r}\propto 1/q_c$$
-
-为了处理异常核型，不应把配额写死为硬约束，而应引入 slack slots：
-
-$$\\sum_i \pi_{i,(c,r)} + u_{c,r}=b_{c,r},\quad \lambda_{slack}\sum_{c,r}|u_{c,r}|$$
-
-这样正常样本利用强核型先验，异常样本仍可通过 slack 解释，不会被错误强制成 46 条标准核型。
-
-**理论亮点**：KCEC 的创新不只是“加先验”，而是把染色体检测建模为**商空间上的集合流匹配**：
-
-$$\\mathcal{Y}_{karyo}=\\left(\prod_c \{b_{c,1},\dots,b_{c,q_c}\}/S_{q_c}\right)\times \mathcal{A}$$
-
-其中 $S_{q_c}$ 表示同源染色体交换群，$\mathcal{A}$ 表示异常核型 slack 空间。模型学习的是等价类上的 flow，而不是任意编号的 GT 实例。这能同时解释三个现象：
-
-1. hard OT 过早选择单个 GT 实例，破坏同源 exchangeability；
-2. random coupling 保留多样性但没有利用核型配额；
-3. group-hierarchical stochastic 有效但不稳定，因为它只用了组级先验，没有用类别配额和同源对称性。
-
-**为什么可能正向提升**：
-
-- 对易混类别（如相邻编号、同组染色体），KCEC 用形态和配额减少错误匹配。
-- 对同源染色体，KCEC 在 quotient space 中保持交换不变性，减少无意义的 slot-level 噪声。
-- 对 dense/overlap 区域，熵正则保留多候选监督，避免 hard OT 坍缩。
-- 对异常核型，slack slots 提供可解释偏离，避免强先验伤害泛化。
-
-**建议实验路径**：
-
-1. 先实现训练-only KCEC：只改 coupling，不改推理结构。目标是超过 `group_hierarchical_stoch` 的多 seed 均值。
-2. 报告三类分层指标：整体 mAP、同组易混类别 mAP、异常/非标准样本 recall。
-3. 做先验消融：group-only、group+quota、group+quota+morph、group+quota+morph+slack。
-4. 做 exchangeability 验证：同源染色体 GT 顺序随机置换时，训练 loss 和最终 mAP 应保持稳定。
-5. 与 DAEC 的关系：KCEC 是 DAEC 的染色体特化版本；若 KCEC 在染色体上显著提升，DAEC 可作为通用化扩展。
-
-**顶会级表述**：
-
-> We formulate chromosome detection as flow matching on a karyotype quotient space, where homologous chromosomes are exchangeable and chromosome counts impose soft ploidy constraints. This yields Karyotype-Constrained Entropic Coupling, a training-only matching mechanism that combines transport efficiency, target-index entropy, morphology priors, and ploidy consistency.
-
-若实验成立，KCEC 比 DAEC 更适合作为染色体论文的核心贡献：它不仅解释 OT 失败，还利用染色体任务的独特结构给出正向提升机制。
-
-### 8.7 其他备选突破点
-
-若 DAEC/KCEC 增益不足，次优先级方向如下：
-
-- **Entropy-Scheduled Coupling**：训练早期保持高 $H(Y\mid X_t)$，后期逐步降低熵以提高传输效率。风险是容易退化为调参型贡献，创新强度弱于 DAEC。
-- **Boundary-Aware Coupling**：显式检测 Voronoi/assignment 边界，对边界样本使用软耦合，对内部样本使用硬耦合。理论清晰，但实现和可视化复杂。
-- **Coupling-Conditioned Head**：把耦合不确定性作为条件输入检测头，使模型知道当前监督来自确定匹配还是多候选匹配。可能有增益，但会增加推理或架构复杂度。
-
-综合判断：**DAEC 是通用检测主线，KCEC 是染色体论文更优先的主线**。KCEC 直接利用核型配额、同源交换对称性和形态先验，更有希望在当前染色体数据上形成稳定正向提升。
-
-______________________________________________________________________
-
-## 9. 修正后的实验验证状态
+## 7. 修正后的实验验证状态
 
 | 理论预测                                | 实验结果                             | 状态                  | 代码/重跑要求 |
 | --------------------------------------- | ------------------------------------ | --------------------- | ------------- |
@@ -872,18 +553,18 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
-## 10. 修正后的理论贡献总结
+## 8. 修正后的理论贡献总结
 
 1. **多样性-传输效率权衡命题**（§1.4）：OT 耦合的净效果维度依赖；在低维检测框空间中，索引熵损失可能抵消传输代价收益。
 2. **总误差来源分解**（§2.3）：将 ODE 离散化误差与泛化/匹配误差分开讨论，避免把采样误差完全归因于曲率。
 3. **检测扩散传输四因素框架**（§5）：耦合质量、训练信号多样性、修正曲率和时间分配共同影响训练效果。
-4. **Reflow 梯度冲突机制命题**（§6.2）：检测损失与速度损失在共享参数上存在经验可测的负梯度相似度。
-5. **耦合-训练动力学冲突假说**（§7.2）：Stochastic OT 与 TRD 自条件化可能因一致性要求不同而产生负交互。
-6. **CAT-OT 冲突假说**（§7.3）：$x_0$ 一致性正则化与 OT Voronoi 边界时间依赖性可能形成三方矛盾。
+4. **Reflow 梯度冲突机制命题**（→ [THEORY_WHY_FAILED.md](THEORY_WHY_FAILED.md) 方向 D）：检测损失与速度损失在共享参数上存在经验可测的负梯度相似度。
+5. **耦合-训练动力学冲突假说**（→ [THEORY_WHY_FAILED.md](THEORY_WHY_FAILED.md) 方向 E）：Stochastic OT 与 TRD 自条件化可能因一致性要求不同而产生负交互。
+6. **CAT-OT 冲突假说**（→ [THEORY_WHY_FAILED.md](THEORY_WHY_FAILED.md) 方向 E）：$x_0$ 一致性正则化与 OT Voronoi 边界时间依赖性可能形成三方矛盾。
 7. **AdaLN-Zero 修正**（§1.3）：零初始化保证时间条件维度零初始化，而非保证速度场为零。
 8. **CAT 实际目标与理论目标的差异**（§4.2）：代码惩罚 $x_0$ 一致性，同时约束速度大小和曲率，强于纯曲率正则。
-9. **Detection-Aware Entropic Coupling 研究主线**（§8.2）：将几何传输、检测匹配代价和索引熵约束统一为训练-only 的 stochastic coupling，是通用目标检测方向的顶会级候选贡献。
-10. **Karyotype-Constrained Entropic Coupling 染色体主线**（§8.6）：将同源交换对称性、软倍性配额、形态先验和异常核型 slack 写入耦合目标，是更贴合染色体任务的顶会级候选贡献。
+9. **Detection-Aware Entropic Coupling 研究主线**（→ [RESEARCH_ROADMAP.md](RESEARCH_ROADMAP.md) §2）：将几何传输、检测匹配代价和索引熵约束统一为训练-only 的 stochastic coupling，是通用目标检测方向的顶会级候选贡献。
+10. **Karyotype-Constrained Entropic Coupling 染色体主线**（→ [RESEARCH_ROADMAP.md](RESEARCH_ROADMAP.md) §3）：将同源交换对称性、软倍性配额、形态先验和异常核型 slack 写入耦合目标，是更贴合染色体任务的顶会级候选贡献。
 
 ______________________________________________________________________
 
@@ -915,7 +596,7 @@ v_target = torch.stack(x_starts) - torch.stack(x_noises)  # v* = x_0 - x_1 = -v
 
 - 当前不影响推理结果：velocity_head 的输出仅用于 loss 计算，ODE 采样使用 `x_0^{pred}` 推导速度
 - 如果未来用 velocity_head 输出做 ODE 积分，方向会反转
-- 与机制命题 6.1 的梯度冲突推导不一致（推导中假设 $v\_\\theta$ 与 RF 定义同向）
+- 与 THEORY_WHY_FAILED 方向 D 的梯度冲突推导不一致（推导中假设 $v\_\\theta$ 与 RF 定义同向）
 
 **修复方案**：
 
@@ -993,7 +674,7 @@ ______________________________________________________________________
 
 ### B.1 Reflow 分阶段训练
 
-**针对问题**：机制命题 6.1 的梯度冲突（$\\rho = -0.104$），Epoch 1 后持续退化。
+**针对问题**：THEORY_WHY_FAILED 方向 D 的梯度冲突（$\\rho = -0.104$），Epoch 1 后持续退化。
 
 **方案**：
 
@@ -1017,7 +698,7 @@ def on_epoch_start(self, epoch):
 
 ### B.2 TRD 使用解析传输速度
 
-**针对问题**：机制假说 7.1 的 Stochastic OT + TRD 冲突。
+**针对问题**：THEORY_WHY_FAILED 方向 E 的 Stochastic OT + TRD 冲突。
 
 **方案**：
 
@@ -1092,7 +773,7 @@ losses["loss_curvature"] = F.mse_loss(v_t1, v_t2) * self.cat_weight
 
 ### B.5 CAT 与 OT 兼容化
 
-**针对问题**：§7.3 发现 CAT 的 $x\_{t+\\Delta t}$ 使用相同 OT 配对构造，但 Voronoi 边界随 $t$ 移动导致三方矛盾。
+**针对问题**：THEORY_WHY_FAILED 方向 E 发现 CAT 的 $x\_{t+\\Delta t}$ 使用相同 OT 配对构造，但 Voronoi 边界随 $t$ 移动导致三方矛盾。
 
 **方案 1：为 $x\_{t+\\Delta t}$ 重新运行 OT 耦合**
 
