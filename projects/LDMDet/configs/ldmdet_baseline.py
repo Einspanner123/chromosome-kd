@@ -5,7 +5,11 @@ _base_ = [
 ]
 
 custom_imports = dict(
-    imports=['projects.LDMDet.model', 'projects.LDMDet.hooks'],
+    imports=[
+        'projects.LDMDet.model',
+        'projects.LDMDet.hooks',
+        'swanlab.integration.mmengine',
+    ],
     allow_failed_imports=False,
 )
 
