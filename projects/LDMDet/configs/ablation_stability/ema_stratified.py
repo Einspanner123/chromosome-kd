@@ -10,8 +10,8 @@ visualizer = dict(
             type='SwanlabVisBackend',
             init_kwargs=dict(
                 project='chromosome-kd-stability',
-                experiment_name='ema-stratified',
-                description='Stability: EMA + stratified t-sampling | seed=1769925607',
+                experiment_name='bs8-ema-stratified',
+                description='Stability: EMA + stratified t-sampling bs=8 | seed=1769925607',
             ),
         ),
     ],

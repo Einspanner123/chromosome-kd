@@ -10,8 +10,8 @@ visualizer = dict(
             type='SwanlabVisBackend',
             init_kwargs=dict(
                 project='chromosome-kd-stability',
-                experiment_name='warm-restart',
-                description='Stability: CosineAnnealing warm-restart(ep80) | seed=1769925607',
+                experiment_name='bs8-warm-restart',
+                description='Stability: CosineAnnealing warm-restart(ep80) bs=8 | seed=1769925607',
             ),
         ),
     ],

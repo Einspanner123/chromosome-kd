@@ -1,4 +1,4 @@
-_base_ = ['../ldmdet_rf_heun_shifted_bs2.py']
+_base_ = ['../ldmdet_rf_heun_shifted_bs8.py']
 
 custom_hooks = [
     dict(
@@ -11,7 +11,7 @@ custom_hooks = [
     dict(
         type='EarlyStoppingHook',
         priority=50,
-        patience=20,
+        patience=15,
         min_delta=0.001,
         monitor='coco/bbox_mAP',
         rule='greater',

@@ -1,4 +1,4 @@
-_base_ = ['../recipes/rf_heun_grad_accum.py']
+_base_ = ['../ldmdet_rf_heun_shifted_bs8.py']
 
 randomness = dict(seed=1769925607, deterministic=False, diff_rank_seed=True)
 
@@ -10,8 +10,8 @@ visualizer = dict(
             type='SwanlabVisBackend',
             init_kwargs=dict(
                 project='chromosome-kd-stability',
-                experiment_name='grad-accum',
-                description='Stability: gradient accumulation(accum=2, effective_bs=4) | seed=1769925607',
+                experiment_name='bs8-baseline',
+                description='Stability baseline: bs=8, lr=2e-4 | seed=1769925607',
             ),
         ),
     ],

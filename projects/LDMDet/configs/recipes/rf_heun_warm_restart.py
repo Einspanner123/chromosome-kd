@@ -1,4 +1,4 @@
-_base_ = ['../ldmdet_rf_heun_shifted_bs2.py']
+_base_ = ['../ldmdet_rf_heun_shifted_bs8.py']
 
 max_epoch = 150
 train_cfg = dict(max_epochs=max_epoch)
