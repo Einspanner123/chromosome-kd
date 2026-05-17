@@ -109,6 +109,9 @@ class DiffusionDetHead(nn.Module):
         consistency_loss_num_points: int = 4,  # Consistency Loss 采样点数
         # === Velocity Detach 参数 ===
         velocity_detach: bool = False,  # 切断 velocity_head 到共享层的梯度
+        # === 训练稳定化参数 ===
+        t_sampling: str = 'uniform',  # 时间采样策略: "uniform" 或 "stratified"
+        t_sampling_bins: int = 8,  # stratified 采样时的分箱数
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -175,6 +178,8 @@ class DiffusionDetHead(nn.Module):
         self.consistency_loss_weight = consistency_loss_weight
         self.consistency_loss_num_points = consistency_loss_num_points
         self.velocity_detach = velocity_detach
+        self.t_sampling = t_sampling
+        self.t_sampling_bins = t_sampling_bins
 
         # 测试配置
         self.use_nms = use_nms
@@ -980,7 +985,19 @@ class DiffusionDetHead(nn.Module):
             ).long(), None
         if self.use_lsas:
             return self._sample_time_lsas(bs, device)
-        t = torch.rand((bs,), device=device)
+        if self.t_sampling == 'stratified':
+            n_bins = self.t_sampling_bins
+            bin_size = bs // n_bins
+            remainder = bs % n_bins
+            parts = []
+            for i in range(n_bins):
+                n = bin_size + (1 if i < remainder else 0)
+                t_bin = (i + torch.rand(n, device=device)) / n_bins
+                parts.append(t_bin)
+            t = torch.cat(parts).clamp(1e-5, 1.0 - 1e-5)
+            t = t[torch.randperm(bs, device=device)]
+        else:
+            t = torch.rand((bs,), device=device)
         if self.rf_schedule == 'shifted':
             t = self.rf_shift * t / (1 + (self.rf_shift - 1) * t)
         return t, None
