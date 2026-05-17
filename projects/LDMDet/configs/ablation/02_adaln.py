@@ -1,4 +1,4 @@
-_base_ = ['../ldmdet_group_hierarchical_stoch.py']
+_base_ = ['../recipes/rf_heun_adaln.py']
 
 randomness = dict(seed=1769925607, deterministic=False, diff_rank_seed=True)
 
@@ -10,8 +10,8 @@ visualizer = dict(
             type='SwanlabVisBackend',
             init_kwargs=dict(
                 project='chromosome-kd-ablation',
-                experiment_name='sota_group_hier_stoch',
-                description='Ablation: RF+Heun+Shifted+AdaLN+StochOT(eps5)+GroupHier | seed=1769925607',
+                experiment_name='02-adaln',
+                description='Ablation: RF+Heun+Shifted+AdaLN | seed=1769925607',
             ),
         ),
     ],

@@ -1,4 +1,4 @@
-_base_ = ['../ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5.py']
+_base_ = ['../recipes/rf_heun_stochot.py']
 
 randomness = dict(seed=1769925607, deterministic=False, diff_rank_seed=True)
 
@@ -10,8 +10,8 @@ visualizer = dict(
             type='SwanlabVisBackend',
             init_kwargs=dict(
                 project='chromosome-kd-ablation',
-                experiment_name='03_adaln_stoch_ot',
-                description='Ablation: RF+Heun+Shifted+AdaLN+StochOT(eps5) | seed=1769925607',
+                experiment_name='03-stochot',
+                description='Ablation: RF+Heun+Shifted+StochOT(eps5) | seed=1769925607',
             ),
         ),
     ],

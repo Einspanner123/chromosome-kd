@@ -10,7 +10,7 @@ visualizer = dict(
             type='SwanlabVisBackend',
             init_kwargs=dict(
                 project='chromosome-kd-ablation',
-                experiment_name='01_rf_heun_shifted_bs2',
+                experiment_name='01-base',
                 description='Ablation: RF+Heun+Shifted | seed=1769925607',
             ),
         ),
