@@ -181,6 +181,9 @@ val_dataloader = dict(
 )
 test_dataloader = val_dataloader
 
+val_cfg = dict(type='ValLoop')
+test_cfg = dict(type='TestLoop')
+
 val_evaluator = dict(
     type='CocoMetric',
     ann_file=data_root + 'valid/_annotations.coco.json',
