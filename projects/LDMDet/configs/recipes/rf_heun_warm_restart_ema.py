@@ -1,4 +1,4 @@
-_base_ = ['../ldmdet_rf_heun_shifted_bs8.py']
+_base_ = ['../recipes/rf_heun_warm_restart_v2.py']
 
 custom_hooks = [
     dict(
@@ -18,10 +18,3 @@ custom_hooks = [
     ),
     dict(type='CopyProjectHook', priority='VERY_LOW'),
 ]
-
-model = dict(
-    bbox_head=dict(
-        t_sampling='stratified',
-        t_sampling_bins=8,
-    ),
-)

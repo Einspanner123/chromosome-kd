@@ -209,7 +209,7 @@ custom_hooks = [
     dict(
         type='EarlyStoppingHook',
         priority=50,
-        patience=20,
+        patience=30,
         min_delta=0.001,
         monitor='coco/bbox_mAP',
         rule='greater',
