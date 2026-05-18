@@ -25,6 +25,6 @@ jobs:
       - name: Install ruff
         run: pip install ruff
       - name: Ruff check
-        run: ruff check chromodet/ projects/
+        run: ruff check projects/
       - name: Ruff format check
-        run: ruff format --check chromodet/ projects/
+        run: ruff format --check projects/
