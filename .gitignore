@@ -126,3 +126,7 @@ src/mmtrack/
 
 # AI
 .trae/
+.claude/
+
+# Linter cache
+.ruff_cache/
