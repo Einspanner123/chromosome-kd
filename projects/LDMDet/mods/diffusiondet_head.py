@@ -112,6 +112,7 @@ class DiffusionDetHead(nn.Module):
         # === 训练稳定化参数 ===
         t_sampling: str = 'uniform',  # 时间采样策略: "uniform" 或 "stratified"
         t_sampling_bins: int = 8,  # stratified 采样时的分箱数
+        use_flash_attn: bool = False,  # 是否启用 Flash Attention (SDPA)
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -180,6 +181,7 @@ class DiffusionDetHead(nn.Module):
         self.velocity_detach = velocity_detach
         self.t_sampling = t_sampling
         self.t_sampling_bins = t_sampling_bins
+        self.use_flash_attn = use_flash_attn
 
         # 测试配置
         self.use_nms = use_nms
@@ -227,6 +229,8 @@ class DiffusionDetHead(nn.Module):
                     )
                     head.prediction_mode = 'velocity'
                 head.velocity_detach = velocity_detach
+        for head in self.head_series:
+            head.use_flash_attn = use_flash_attn
 
         # 时间步嵌入 MLP
         time_dim = feat_channels * 4

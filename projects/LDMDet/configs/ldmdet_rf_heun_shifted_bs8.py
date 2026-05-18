@@ -8,6 +8,7 @@ model = dict(
         rf_schedule='shifted',
         rf_shift=3.0,
         snr_scale=2.0,
+        use_flash_attn=True,
     )
 )
 

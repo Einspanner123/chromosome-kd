@@ -8,6 +8,8 @@ from torch import Tensor
 from .modules import DynamicConv
 from .utils import bbox2roi
 
+_HAS_SDPA = hasattr(torch.nn.functional, 'scaled_dot_product_attention')
+
 
 class SingleDiffusionDetHead(nn.Module):
     """单个DiffusionDet检测头，支持 AdaLN-Zero 和传统 scale-shift 条件化"""
@@ -33,6 +35,7 @@ class SingleDiffusionDetHead(nn.Module):
         use_objectness=False,  # 是否使用 objectness 预测头
         prediction_mode='x0',  # "x0" (delta regression) 或 "velocity" (直接速度预测)
         velocity_detach=False,  # 是否切断 velocity_head 到共享层的梯度
+        use_flash_attn=False,  # 是否启用 Flash Attention (SDPA)
     ):
         super().__init__()
         self.feat_channels = feat_channels
@@ -40,6 +43,7 @@ class SingleDiffusionDetHead(nn.Module):
         self.use_objectness = use_objectness
         self.prediction_mode = prediction_mode
         self.velocity_detach = velocity_detach
+        self.use_flash_attn = use_flash_attn
 
         # 动态模块
         # 自注意力机制
@@ -206,6 +210,16 @@ class SingleDiffusionDetHead(nn.Module):
                 num_boxes,
             )
 
+    def _attn(self, q, k, v):
+        if self.use_flash_attn and _HAS_SDPA:
+            orig_dp = self.self_attn.dropout
+            self.self_attn.dropout = 0.0
+            with torch.cuda.amp.autocast(enabled=True):
+                out = self.self_attn(q, k, value=v)
+            self.self_attn.dropout = orig_dp
+            return out
+        return self.self_attn(q, k, value=v)
+
     def _forward_adaln_zero(
         self,
         features,
@@ -240,9 +254,7 @@ class SingleDiffusionDetHead(nn.Module):
         )
         q_modulated = q_modulated.view(num_boxes, bs, self.feat_channels)
 
-        attn_out, _ = self.self_attn(
-            q_modulated, q_modulated, value=q_modulated
-        )
+        attn_out, _ = self._attn(q_modulated, q_modulated, q_modulated)
         # Gated residual
         attn_out_flat = attn_out.reshape(num_boxes * bs, self.feat_channels)
         proposals_flat = proposals_flat + alpha1 * attn_out_flat
@@ -321,9 +333,7 @@ class SingleDiffusionDetHead(nn.Module):
             1, 0, 2
         )  # (num_boxes, bs, feat_channels)
 
-        attn_shortcut, _ = self.self_attn(
-            proposals, proposals, value=proposals
-        )
+        attn_shortcut, _ = self._attn(proposals, proposals, proposals)
         proposals = proposals + self.dropout1(attn_shortcut)
         proposals = self.norm1(proposals)
 
