@@ -82,6 +82,12 @@ def main():
         default=1000,
         help='显存释放阈值 MiB (默认: 1000)',
     )
+    parser.add_argument(
+        '--work-dir',
+        type=str,
+        default=None,
+        help='工作目录 (例如: work_dirs/stability/ema)',
+    )
 
     args = parser.parse_args()
 
@@ -100,9 +106,10 @@ def main():
     # 模仿 train.sh 的环境变量设置
     env = os.environ.copy()
     env['CUDA_VISIBLE_DEVICES'] = args.gpu
-    env['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 
     train_cmd = [sys.executable, 'tools/train.py', args.config]
+    if args.work_dir:
+        train_cmd.extend(['--work-dir', args.work_dir])
 
     print(f'\033[1;32m正在启动训练任务: {" ".join(train_cmd)}\033[0m')
     print(f'\033[1;34m环境变量: CUDA_VISIBLE_DEVICES={args.gpu}\033[0m')
