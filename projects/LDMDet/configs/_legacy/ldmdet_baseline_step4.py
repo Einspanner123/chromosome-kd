@@ -1,7 +1,7 @@
 _base_ = [
-    '../../../chromodet/base/datasets/chromo_coco_detection.py',
-    '../../../chromodet/base/schedules/schedule_1x.py',
-    '../../../chromodet/base/default_runtime.py',
+    '../../../../configs/_base_/datasets/chromo_coco_detection.py',
+    '../../../../configs/_base_/schedules/schedule_1x.py',
+    '../../../../configs/_base_/default_runtime.py',
 ]
 
 custom_imports = dict(

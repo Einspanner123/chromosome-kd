@@ -37,7 +37,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["mmdet", "chromodet"]
+known-first-party = ["mmdet"]
 known-third-party = [
     "PIL", "cv2", "matplotlib", "mmcv", "mmengine",
     "numpy", "onnx", "onnxruntime", "pycocotools",
@@ -49,7 +49,6 @@ no-lines-before = ["standard-library", "local-folder"]
 [tool.ruff.lint.per-file-ignores]
 "mmdet/configs/*" = ["F401", "F403", "F405"]
 "configs/*" = ["F401", "F403", "F405"]
-"chromodet/configs/*" = ["F401", "F403", "F405"]
 "projects/*/configs/*" = ["F401", "F403", "F405"]
 
 [tool.ruff.format]
