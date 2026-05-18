@@ -13,7 +13,7 @@ model = dict(
 
 optim_wrapper = dict(
     optimizer=dict(
-        type='AdamW', lr=0.0002, weight_decay=0.0001, _delete_=True
+        type='AdamW', lr=0.0001, weight_decay=0.0001, _delete_=True
     ),
     clip_grad=dict(max_norm=1.0, norm_type=2),
 )
@@ -22,12 +22,12 @@ max_epoch = 150
 train_cfg = dict(max_epochs=max_epoch)
 
 param_scheduler = [
-    dict(type='LinearLR', start_factor=0.001, by_epoch=True, begin=0, end=5),
+    dict(type='LinearLR', start_factor=0.0005, by_epoch=True, begin=0, end=10),
     dict(
         type='CosineAnnealingLR',
         T_max=max_epoch,
         eta_min=0,
-        begin=5,
+        begin=10,
         end=max_epoch,
         by_epoch=True,
     ),

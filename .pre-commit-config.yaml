@@ -4,27 +4,27 @@ repos:
     hooks:
       - id: ruff
         args: ["--fix", "--exit-non-zero-on-fix"]
-        files: ^(chromodet|projects)/
+        files: ^projects/
       - id: ruff-format
-        files: ^(chromodet|projects)/
+        files: ^projects/
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
       - id: trailing-whitespace
-        files: ^(chromodet|projects)/
+        files: ^projects/
       - id: check-yaml
       - id: end-of-file-fixer
-        files: ^(chromodet|projects)/
+        files: ^projects/
       - id: requirements-txt-fixer
         exclude: requirements\.(conda|pip)\.txt
       - id: check-merge-conflict
       - id: fix-encoding-pragma
         args: ["--remove"]
-        files: ^(chromodet|projects)/
+        files: ^projects/
       - id: mixed-line-ending
         args: ["--fix=lf"]
   - repo: https://github.com/codespell-project/codespell
     rev: v2.3.0
     hooks:
       - id: codespell
-        files: ^(chromodet|projects)/
+        files: ^projects/
