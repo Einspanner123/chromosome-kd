@@ -324,16 +324,16 @@ max_epochs = 150
 train_cfg = dict(by_epoch=True, max_epochs=max_epochs, val_interval=1)
 
 optim_wrapper = dict(
-    optimizer=dict(type='SGD', lr=0.02, momentum=0.9, weight_decay=0.0001),
+    optimizer=dict(type='SGD', lr=0.01, momentum=0.9, weight_decay=0.0001),
 )
 
 param_scheduler = [
-    dict(type='LinearLR', start_factor=0.001, by_epoch=True, begin=0, end=5),
+    dict(type='LinearLR', start_factor=0.001, by_epoch=False, begin=0, end=500),
     dict(
         type='CosineAnnealingLR',
-        T_max=145,
+        T_max=150,
         eta_min=0,
-        begin=5,
+        begin=0,
         end=max_epochs,
         by_epoch=True,
     ),
@@ -348,7 +348,7 @@ visualizer = dict(
             init_kwargs=dict(
                 project='chromosome-kd-benchmark',
                 experiment_name='cascade-rcnn-r50',
-                description='Benchmark: Cascade RCNN R50 FPN | bs=8, 150ep',
+                description='Benchmark: Cascade RCNN R50 FPN | bs=8, 150ep, lr=0.01, warmup500iters',
             ),
         ),
     ],
