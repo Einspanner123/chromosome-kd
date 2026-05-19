@@ -53,7 +53,6 @@ model = dict(
         deepen_factor=0.33,
         widen_factor=0.5,
         out_indices=(2, 3, 4),
-        init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet50'),
     ),
     neck=dict(
         type='YOLOXPAFPN',
@@ -249,9 +248,7 @@ train_cfg = dict(by_epoch=True, max_epochs=max_epochs, val_interval=1)
 
 optim_wrapper = dict(
     type='OptimWrapper',
-    optimizer=dict(
-        type='AdamW', lr=0.0001, weight_decay=0.0001, _delete_=True
-    ),
+    optimizer=dict(type='AdamW', lr=0.0001, weight_decay=0.0001),
     clip_grad=dict(max_norm=1.0, norm_type=2),
 )
 

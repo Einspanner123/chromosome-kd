@@ -221,6 +221,9 @@ val_dataloader = dict(
 )
 test_dataloader = val_dataloader
 
+val_cfg = dict(type='ValLoop')
+test_cfg = dict(type='TestLoop')
+
 val_evaluator = dict(
     type='CocoMetric',
     ann_file=data_root + 'valid/_annotations.coco.json',
@@ -229,7 +232,7 @@ val_evaluator = dict(
 test_evaluator = val_evaluator
 
 max_epochs = 150
-train_cfg = dict(max_epochs=max_epochs, val_interval=1)
+train_cfg = dict(by_epoch=True, max_epochs=max_epochs, val_interval=1)
 
 optim_wrapper = dict(
     type='OptimWrapper',
