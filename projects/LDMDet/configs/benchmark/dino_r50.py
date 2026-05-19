@@ -1,4 +1,5 @@
 _base_ = [
+    '../../../../configs/_base_/datasets/chromo_coco_detection.py',
     '../../../../configs/_base_/default_runtime.py',
 ]
 
@@ -8,36 +9,6 @@ custom_imports = dict(
 )
 
 num_classes = 24
-data_root = 'data/Chromosome20240904_NoAug_NoResize_coco/'
-
-METAINFO = {
-    'classes': (
-        'A1',
-        'A2',
-        'A3',
-        'B4',
-        'B5',
-        'C10',
-        'C11',
-        'C12',
-        'C6',
-        'C7',
-        'C8',
-        'C9',
-        'D13',
-        'D14',
-        'D15',
-        'E16',
-        'E17',
-        'E18',
-        'F19',
-        'F20',
-        'G21',
-        'G22',
-        'X',
-        'Y',
-    ),
-}
 
 model = dict(
     type='DINO',
@@ -191,65 +162,17 @@ train_pipeline = [
     dict(type='PackDetInputs'),
 ]
 
-test_pipeline = [
-    dict(type='LoadImageFromFile'),
-    dict(type='Resize', scale=(1333, 800), keep_ratio=True),
-    dict(type='LoadAnnotations', with_bbox=True),
-    dict(
-        type='PackDetInputs',
-        meta_keys=(
-            'img_id',
-            'img_path',
-            'ori_shape',
-            'img_shape',
-            'scale_factor',
-        ),
-    ),
-]
-
 train_dataloader = dict(
     batch_size=2,
     num_workers=8,
-    persistent_workers=True,
-    sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
-        type='CocoDataset',
-        data_root=data_root,
-        metainfo=METAINFO,
-        ann_file='train/_annotations.coco.json',
-        data_prefix=dict(img='train/'),
         pipeline=train_pipeline,
         filter_cfg=dict(filter_empty_gt=False, min_size=32),
     ),
 )
 
-val_dataloader = dict(
-    batch_size=1,
-    num_workers=2,
-    persistent_workers=True,
-    drop_last=False,
-    sampler=dict(type='DefaultSampler', shuffle=False),
-    dataset=dict(
-        type='CocoDataset',
-        data_root=data_root,
-        metainfo=METAINFO,
-        ann_file='valid/_annotations.coco.json',
-        data_prefix=dict(img='valid/'),
-        test_mode=True,
-        pipeline=test_pipeline,
-    ),
-)
-test_dataloader = val_dataloader
-
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
-
-val_evaluator = dict(
-    type='CocoMetric',
-    ann_file=data_root + 'valid/_annotations.coco.json',
-    metric='bbox',
-)
-test_evaluator = val_evaluator
 
 max_epochs = 150
 train_cfg = dict(by_epoch=True, max_epochs=max_epochs, val_interval=1)

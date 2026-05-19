@@ -1,4 +1,5 @@
 _base_ = [
+    '../../../../configs/_base_/datasets/chromo_coco_detection.py',
     '../../../../configs/_base_/default_runtime.py',
 ]
 
@@ -9,7 +10,6 @@ custom_imports = dict(
 
 num_classes = 24
 data_root = 'data/Chromosome20240904_NoAug_NoResize_coco/'
-
 METAINFO = {
     'classes': (
         'A1',
@@ -195,9 +195,8 @@ test_pipeline = [
 train_dataloader = dict(
     batch_size=8,
     num_workers=8,
-    persistent_workers=True,
-    sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
+        _delete_=True,
         type='MultiImageMixDataset',
         dataset=dict(
             type='CocoDataset',
@@ -214,34 +213,10 @@ train_dataloader = dict(
         pipeline=train_pipeline,
     ),
 )
-
-val_dataloader = dict(
-    batch_size=1,
-    num_workers=2,
-    persistent_workers=True,
-    drop_last=False,
-    sampler=dict(type='DefaultSampler', shuffle=False),
-    dataset=dict(
-        type='CocoDataset',
-        data_root=data_root,
-        metainfo=METAINFO,
-        ann_file='valid/_annotations.coco.json',
-        data_prefix=dict(img='valid/'),
-        test_mode=True,
-        pipeline=test_pipeline,
-    ),
-)
-test_dataloader = val_dataloader
+val_dataloader = dict(dataset=dict(pipeline=test_pipeline))
 
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
-
-val_evaluator = dict(
-    type='CocoMetric',
-    ann_file=data_root + 'valid/_annotations.coco.json',
-    metric='bbox',
-)
-test_evaluator = val_evaluator
 
 max_epochs = 150
 train_cfg = dict(by_epoch=True, max_epochs=max_epochs, val_interval=1)
