@@ -94,20 +94,18 @@ model = dict(
     test_cfg=dict(score_thr=0.01, nms=dict(type='nms', iou_threshold=0.65)),
 )
 
-img_scale = (1333, 800)
-
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', with_bbox=True),
-    dict(type='Mosaic', img_scale=img_scale, pad_val=114.0),
+    dict(type='Mosaic', img_scale=(1333, 800), pad_val=114.0),
     dict(
         type='RandomAffine',
         scaling_ratio_range=(0.5, 1.5),
-        border=(-img_scale[0] // 2, -img_scale[1] // 2),
+        border=(-666, -400),
     ),
     dict(type='YOLOXHSVRandomAug'),
     dict(type='RandomFlip', prob=0.5),
-    dict(type='Resize', scale=img_scale, keep_ratio=True),
+    dict(type='Resize', scale=(1333, 800), keep_ratio=True),
     dict(
         type='Pad', pad_to_square=True, pad_val=dict(img=(114.0, 114.0, 114.0))
     ),
@@ -115,9 +113,70 @@ train_pipeline = [
     dict(type='PackDetInputs'),
 ]
 
+train_pipeline_stage2 = [
+    dict(type='LoadImageFromFile'),
+    dict(type='LoadAnnotations', with_bbox=True),
+    dict(type='RandomFlip', prob=0.5),
+    dict(
+        type='RandomChoice',
+        transforms=[
+            [
+                dict(
+                    type='RandomChoiceResize',
+                    scales=[
+                        (480, 1333),
+                        (512, 1333),
+                        (544, 1333),
+                        (576, 1333),
+                        (608, 1333),
+                        (640, 1333),
+                        (672, 1333),
+                        (704, 1333),
+                        (736, 1333),
+                        (768, 1333),
+                        (800, 1333),
+                    ],
+                    keep_ratio=True,
+                ),
+            ],
+            [
+                dict(
+                    type='RandomChoiceResize',
+                    scales=[(400, 1333), (500, 1333), (600, 1333)],
+                    keep_ratio=True,
+                ),
+                dict(
+                    type='RandomCrop',
+                    crop_type='absolute_range',
+                    crop_size=(384, 600),
+                    allow_negative_crop=True,
+                ),
+                dict(
+                    type='RandomChoiceResize',
+                    scales=[
+                        (480, 1333),
+                        (512, 1333),
+                        (544, 1333),
+                        (576, 1333),
+                        (608, 1333),
+                        (640, 1333),
+                        (672, 1333),
+                        (704, 1333),
+                        (736, 1333),
+                        (768, 1333),
+                        (800, 1333),
+                    ],
+                    keep_ratio=True,
+                ),
+            ],
+        ],
+    ),
+    dict(type='PackDetInputs'),
+]
+
 test_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='Resize', scale=img_scale, keep_ratio=True),
+    dict(type='Resize', scale=(1333, 800), keep_ratio=True),
     dict(
         type='Pad', pad_to_square=True, pad_val=dict(img=(114.0, 114.0, 114.0))
     ),
@@ -191,30 +250,20 @@ train_cfg = dict(by_epoch=True, max_epochs=max_epochs, val_interval=1)
 optim_wrapper = dict(
     type='OptimWrapper',
     optimizer=dict(
-        type='SGD', lr=0.01, momentum=0.9, weight_decay=5e-4, nesterov=True
+        type='AdamW', lr=0.0001, weight_decay=0.0001, _delete_=True
     ),
-    paramwise_cfg=dict(norm_decay_mult=0.0, bias_decay_mult=0.0),
+    clip_grad=dict(max_norm=1.0, norm_type=2),
 )
 
 param_scheduler = [
-    dict(
-        type='QuadraticWarmupLR',
-        by_epoch=True,
-        begin=0,
-        end=5,
-        convert_to_iter_based=True,
-    ),
+    dict(type='LinearLR', start_factor=0.0005, by_epoch=True, begin=0, end=10),
     dict(
         type='CosineAnnealingLR',
-        eta_min=0.0005,
-        begin=5,
-        T_max=135,
-        end=135,
+        T_max=140,
+        eta_min=1e-6,
+        begin=10,
+        end=max_epochs,
         by_epoch=True,
-        convert_to_iter_based=True,
-    ),
-    dict(
-        type='ConstantLR', by_epoch=True, factor=1, begin=135, end=max_epochs
     ),
 ]
 
@@ -238,7 +287,7 @@ visualizer = dict(
             init_kwargs=dict(
                 project='chromosome-kd-benchmark',
                 experiment_name='yolox-s',
-                description='Benchmark: YOLOX-S R50 | bs=8, 150ep',
+                description='Benchmark: YOLOX-S | bs=8, 150ep, AdamW',
             ),
         ),
     ],

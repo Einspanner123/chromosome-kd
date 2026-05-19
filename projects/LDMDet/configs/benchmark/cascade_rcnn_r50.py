@@ -254,8 +254,61 @@ model = dict(
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', with_bbox=True),
-    dict(type='Resize', scale=(1333, 800), keep_ratio=True),
     dict(type='RandomFlip', prob=0.5),
+    dict(
+        type='RandomChoice',
+        transforms=[
+            [
+                dict(
+                    type='RandomChoiceResize',
+                    scales=[
+                        (480, 1333),
+                        (512, 1333),
+                        (544, 1333),
+                        (576, 1333),
+                        (608, 1333),
+                        (640, 1333),
+                        (672, 1333),
+                        (704, 1333),
+                        (736, 1333),
+                        (768, 1333),
+                        (800, 1333),
+                    ],
+                    keep_ratio=True,
+                ),
+            ],
+            [
+                dict(
+                    type='RandomChoiceResize',
+                    scales=[(400, 1333), (500, 1333), (600, 1333)],
+                    keep_ratio=True,
+                ),
+                dict(
+                    type='RandomCrop',
+                    crop_type='absolute_range',
+                    crop_size=(384, 600),
+                    allow_negative_crop=True,
+                ),
+                dict(
+                    type='RandomChoiceResize',
+                    scales=[
+                        (480, 1333),
+                        (512, 1333),
+                        (544, 1333),
+                        (576, 1333),
+                        (608, 1333),
+                        (640, 1333),
+                        (672, 1333),
+                        (704, 1333),
+                        (736, 1333),
+                        (768, 1333),
+                        (800, 1333),
+                    ],
+                    keep_ratio=True,
+                ),
+            ],
+        ],
+    ),
     dict(type='PackDetInputs'),
 ]
 
@@ -324,16 +377,20 @@ max_epochs = 150
 train_cfg = dict(by_epoch=True, max_epochs=max_epochs, val_interval=1)
 
 optim_wrapper = dict(
-    optimizer=dict(type='SGD', lr=0.01, momentum=0.9, weight_decay=0.0001),
+    type='OptimWrapper',
+    optimizer=dict(
+        type='AdamW', lr=0.0001, weight_decay=0.0001, _delete_=True
+    ),
+    clip_grad=dict(max_norm=1.0, norm_type=2),
 )
 
 param_scheduler = [
-    dict(type='LinearLR', start_factor=0.001, by_epoch=False, begin=0, end=500),
+    dict(type='LinearLR', start_factor=0.0005, by_epoch=True, begin=0, end=10),
     dict(
         type='CosineAnnealingLR',
-        T_max=150,
-        eta_min=0,
-        begin=0,
+        T_max=140,
+        eta_min=1e-6,
+        begin=10,
         end=max_epochs,
         by_epoch=True,
     ),

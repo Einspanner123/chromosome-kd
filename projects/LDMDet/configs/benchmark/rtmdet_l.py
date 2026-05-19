@@ -40,93 +40,134 @@ METAINFO = {
 }
 
 model = dict(
-    type='TOOD',
+    type='RTMDet',
     data_preprocessor=dict(
         type='DetDataPreprocessor',
         mean=[123.675, 116.28, 103.53],
         std=[58.395, 57.12, 57.375],
         bgr_to_rgb=True,
-        pad_size_divisor=32,
+        batch_augments=None,
     ),
     backbone=dict(
-        type='ResNet',
-        depth=50,
-        num_stages=4,
-        out_indices=(0, 1, 2, 3),
-        frozen_stages=1,
-        norm_cfg=dict(type='BN', requires_grad=True),
-        norm_eval=True,
-        style='pytorch',
-        init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet50'),
+        type='CSPNeXt',
+        arch='P5',
+        expand_ratio=0.5,
+        deepen_factor=1,
+        widen_factor=1,
+        channel_attention=True,
+        norm_cfg=dict(type='BN'),
+        act_cfg=dict(type='SiLU', inplace=True),
+        init_cfg=dict(
+            type='Pretrained',
+            checkpoint='https://download.openmmlab.com/mmdetection/v3.0/rtmdet/cspnext_r50_320-2a9b6c31.pth',
+        ),
     ),
     neck=dict(
-        type='FPN',
-        in_channels=[256, 512, 1024, 2048],
+        type='CSPNeXtPAFPN',
+        in_channels=[256, 512, 1024],
         out_channels=256,
-        start_level=1,
-        add_extra_convs='on_output',
-        num_outs=5,
+        num_csp_blocks=3,
+        expand_ratio=0.5,
+        norm_cfg=dict(type='BN'),
+        act_cfg=dict(type='SiLU', inplace=True),
     ),
     bbox_head=dict(
-        type='TOODHead',
+        type='RTMDetSepBNHead',
         num_classes=num_classes,
         in_channels=256,
-        stacked_convs=6,
+        stacked_convs=2,
         feat_channels=256,
-        anchor_type='anchor_free',
         anchor_generator=dict(
-            type='AnchorGenerator',
-            ratios=[1.0],
-            octave_base_scale=8,
-            scales_per_octave=1,
-            strides=[8, 16, 32, 64, 128],
+            type='MlvlPointGenerator', offset=0, strides=[8, 16, 32]
         ),
-        bbox_coder=dict(
-            type='DeltaXYWHBBoxCoder',
-            target_means=[0.0, 0.0, 0.0, 0.0],
-            target_stds=[0.1, 0.1, 0.2, 0.2],
-        ),
-        initial_loss_cls=dict(
-            type='FocalLoss',
-            use_sigmoid=True,
-            activated=True,
-            gamma=2.0,
-            alpha=0.25,
-            loss_weight=1.0,
-        ),
+        bbox_coder=dict(type='DistancePointBBoxCoder'),
         loss_cls=dict(
             type='QualityFocalLoss',
             use_sigmoid=True,
-            activated=True,
             beta=2.0,
             loss_weight=1.0,
         ),
         loss_bbox=dict(type='GIoULoss', loss_weight=2.0),
+        with_objectness=False,
+        exp_on_reg=True,
+        share_conv=True,
+        pred_kernel_size=1,
+        norm_cfg=dict(type='BN'),
+        act_cfg=dict(type='SiLU', inplace=True),
     ),
     train_cfg=dict(
-        initial_epoch=4,
-        initial_assigner=dict(type='ATSSAssigner', topk=9),
-        assigner=dict(type='TaskAlignedAssigner', topk=13),
-        alpha=1,
-        beta=6,
+        assigner=dict(type='DynamicSoftLabelAssigner', topk=13),
         allowed_border=-1,
         pos_weight=-1,
         debug=False,
     ),
     test_cfg=dict(
-        nms_pre=1000,
+        nms_pre=30000,
         min_bbox_size=0,
-        score_thr=0.05,
-        nms=dict(type='nms', iou_threshold=0.6),
-        max_per_img=100,
+        score_thr=0.001,
+        nms=dict(type='nms', iou_threshold=0.65),
+        max_per_img=300,
     ),
 )
 
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', with_bbox=True),
-    dict(type='Resize', scale=(1333, 800), keep_ratio=True),
     dict(type='RandomFlip', prob=0.5),
+    dict(
+        type='RandomChoice',
+        transforms=[
+            [
+                dict(
+                    type='RandomChoiceResize',
+                    scales=[
+                        (480, 1333),
+                        (512, 1333),
+                        (544, 1333),
+                        (576, 1333),
+                        (608, 1333),
+                        (640, 1333),
+                        (672, 1333),
+                        (704, 1333),
+                        (736, 1333),
+                        (768, 1333),
+                        (800, 1333),
+                    ],
+                    keep_ratio=True,
+                ),
+            ],
+            [
+                dict(
+                    type='RandomChoiceResize',
+                    scales=[(400, 1333), (500, 1333), (600, 1333)],
+                    keep_ratio=True,
+                ),
+                dict(
+                    type='RandomCrop',
+                    crop_type='absolute_range',
+                    crop_size=(384, 600),
+                    allow_negative_crop=True,
+                ),
+                dict(
+                    type='RandomChoiceResize',
+                    scales=[
+                        (480, 1333),
+                        (512, 1333),
+                        (544, 1333),
+                        (576, 1333),
+                        (608, 1333),
+                        (640, 1333),
+                        (672, 1333),
+                        (704, 1333),
+                        (736, 1333),
+                        (768, 1333),
+                        (800, 1333),
+                    ],
+                    keep_ratio=True,
+                ),
+            ],
+        ],
+    ),
     dict(type='PackDetInputs'),
 ]
 
@@ -151,15 +192,14 @@ train_dataloader = dict(
     num_workers=8,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=True),
-    batch_sampler=dict(type='AspectRatioBatchSampler'),
     dataset=dict(
         type='CocoDataset',
         data_root=data_root,
         metainfo=METAINFO,
         ann_file='train/_annotations.coco.json',
         data_prefix=dict(img='train/'),
-        filter_cfg=dict(filter_empty_gt=True, min_size=32),
         pipeline=train_pipeline,
+        filter_cfg=dict(filter_empty_gt=False, min_size=32),
     ),
 )
 
@@ -181,9 +221,6 @@ val_dataloader = dict(
 )
 test_dataloader = val_dataloader
 
-val_cfg = dict(type='ValLoop')
-test_cfg = dict(type='TestLoop')
-
 val_evaluator = dict(
     type='CocoMetric',
     ann_file=data_root + 'valid/_annotations.coco.json',
@@ -192,19 +229,25 @@ val_evaluator = dict(
 test_evaluator = val_evaluator
 
 max_epochs = 150
-train_cfg = dict(by_epoch=True, max_epochs=max_epochs, val_interval=1)
+train_cfg = dict(max_epochs=max_epochs, val_interval=1)
 
 optim_wrapper = dict(
-    optimizer=dict(type='SGD', lr=0.01, momentum=0.9, weight_decay=0.0001),
+    type='OptimWrapper',
+    optimizer=dict(
+        type='AdamW',
+        lr=0.0001,
+        weight_decay=0.0001,
+    ),
+    clip_grad=dict(max_norm=1.0, norm_type=2),
 )
 
 param_scheduler = [
-    dict(type='LinearLR', start_factor=0.001, by_epoch=True, begin=0, end=5),
+    dict(type='LinearLR', start_factor=0.0005, by_epoch=True, begin=0, end=10),
     dict(
         type='CosineAnnealingLR',
-        T_max=145,
-        eta_min=0,
-        begin=5,
+        T_max=140,
+        eta_min=1e-6,
+        begin=10,
         end=max_epochs,
         by_epoch=True,
     ),
@@ -218,8 +261,8 @@ visualizer = dict(
             type='SwanlabVisBackend',
             init_kwargs=dict(
                 project='chromosome-kd-benchmark',
-                experiment_name='tood-r50',
-                description='Benchmark: TOOD R50 FPN | bs=8, 150ep',
+                experiment_name='rtmdet-l',
+                description='Benchmark: RTMDet-L CSPNeXt | bs=8, 150ep',
             ),
         ),
     ],
