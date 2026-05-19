@@ -168,7 +168,7 @@ test_pipeline = [
 ]
 
 train_dataloader = dict(
-    batch_size=8,
+    batch_size=2,
     num_workers=8,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=True),
@@ -212,13 +212,13 @@ val_evaluator = dict(
 test_evaluator = val_evaluator
 
 max_epochs = 150
-train_cfg = dict(max_epochs=max_epochs, val_interval=1)
+train_cfg = dict(by_epoch=True, max_epochs=max_epochs, val_interval=1)
 
 optim_wrapper = dict(
     type='OptimWrapper',
     optimizer=dict(
         type='AdamW',
-        lr=0.0001,
+        lr=0.000025,
         weight_decay=0.0001,
     ),
     clip_grad=dict(max_norm=0.1, norm_type=2),
@@ -246,7 +246,7 @@ visualizer = dict(
             init_kwargs=dict(
                 project='chromosome-kd-benchmark',
                 experiment_name='dino-r50-4scale',
-                description='Benchmark: DINO R50 4-scale | bs=8, 150ep',
+                description='Benchmark: DINO R50 4-scale | bs=2, 150ep',
             ),
         ),
     ],

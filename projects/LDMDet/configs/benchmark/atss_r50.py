@@ -182,7 +182,7 @@ val_evaluator = dict(
 test_evaluator = val_evaluator
 
 max_epochs = 150
-train_cfg = dict(max_epochs=max_epochs, val_interval=1)
+train_cfg = dict(by_epoch=True, max_epochs=max_epochs, val_interval=1)
 
 optim_wrapper = dict(
     optimizer=dict(type='SGD', lr=0.01, momentum=0.9, weight_decay=0.0001),

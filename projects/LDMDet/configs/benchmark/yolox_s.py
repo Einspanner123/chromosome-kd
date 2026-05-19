@@ -49,7 +49,7 @@ model = dict(
         pad_size_divisor=32,
     ),
     backbone=dict(
-        type='YOLOXCSPDarknet',
+        type='CSPDarknet',
         deepen_factor=0.33,
         widen_factor=0.5,
         out_indices=(2, 3, 4),
@@ -186,7 +186,7 @@ val_evaluator = dict(
 test_evaluator = val_evaluator
 
 max_epochs = 150
-train_cfg = dict(max_epochs=max_epochs, val_interval=1)
+train_cfg = dict(by_epoch=True, max_epochs=max_epochs, val_interval=1)
 
 optim_wrapper = dict(
     type='OptimWrapper',
