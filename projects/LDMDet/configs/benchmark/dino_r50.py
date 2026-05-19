@@ -41,37 +41,40 @@ METAINFO = {
 
 model = dict(
     type='DINO',
+    num_queries=900,
+    with_box_refine=True,
+    as_two_stage=True,
     data_preprocessor=dict(
         type='DetDataPreprocessor',
         mean=[123.675, 116.28, 103.53],
         std=[58.395, 57.12, 57.375],
         bgr_to_rgb=True,
-        pad_size_divisor=32,
+        pad_size_divisor=1,
     ),
     backbone=dict(
         type='ResNet',
         depth=50,
         num_stages=4,
-        out_indices=(0, 1, 2, 3),
+        out_indices=(1, 2, 3),
         frozen_stages=1,
-        norm_cfg=dict(type='BN', requires_grad=True),
+        norm_cfg=dict(type='BN', requires_grad=False),
         norm_eval=True,
         style='pytorch',
         init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet50'),
     ),
     neck=dict(
         type='ChannelMapper',
-        in_channels=[256, 512, 1024, 2048],
+        in_channels=[512, 1024, 2048],
         kernel_size=1,
         out_channels=256,
         act_cfg=None,
-        norm_cfg=None,
+        norm_cfg=dict(type='GN', num_groups=32),
         num_outs=4,
     ),
     encoder=dict(
         num_layers=6,
         layer_cfg=dict(
-            self_attn_cfg=dict(embed_dims=256, num_heads=8, dropout=0.0),
+            self_attn_cfg=dict(embed_dims=256, num_levels=4, dropout=0.0),
             ffn_cfg=dict(
                 embed_dims=256, feedforward_channels=2048, ffn_drop=0.0
             ),
