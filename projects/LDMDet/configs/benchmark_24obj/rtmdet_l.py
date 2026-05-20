@@ -1,5 +1,5 @@
 _base_ = [
-    '../../../../configs/_base_/datasets/chromo_coco_detection.py',
+    '../../../../configs/_base_/datasets/chromo_24obj_coco_detection.py',
     '../../../../configs/_base_/default_runtime.py',
 ]
 
@@ -11,94 +11,76 @@ custom_imports = dict(
 num_classes = 24
 
 model = dict(
-    type='DINO',
-    num_queries=900,
-    with_box_refine=True,
-    as_two_stage=True,
+    type='RTMDet',
     data_preprocessor=dict(
         type='DetDataPreprocessor',
         mean=[123.675, 116.28, 103.53],
         std=[58.395, 57.12, 57.375],
         bgr_to_rgb=True,
-        pad_size_divisor=1,
+        pad_size_divisor=32,
+        batch_augments=None,
     ),
     backbone=dict(
-        type='ResNet',
-        depth=50,
-        num_stages=4,
-        out_indices=(1, 2, 3),
-        frozen_stages=1,
-        norm_cfg=dict(type='BN', requires_grad=False),
-        norm_eval=True,
-        style='pytorch',
-        init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet50'),
+        type='CSPNeXt',
+        arch='P5',
+        expand_ratio=0.5,
+        deepen_factor=1,
+        widen_factor=1,
+        channel_attention=True,
+        norm_cfg=dict(type='BN'),
+        act_cfg=dict(type='SiLU', inplace=True),
+        init_cfg=dict(
+            type='Pretrained',
+            prefix='backbone.',
+            checkpoint='https://download.openmmlab.com/mmdetection/v3.0/rtmdet/cspnext_rsb_pretrain/cspnext-l_8xb256-rsb-a1-600e_in1k-6a760974.pth',
+        ),
     ),
     neck=dict(
-        type='ChannelMapper',
-        in_channels=[512, 1024, 2048],
-        kernel_size=1,
+        type='CSPNeXtPAFPN',
+        in_channels=[256, 512, 1024],
         out_channels=256,
-        act_cfg=None,
-        norm_cfg=dict(type='GN', num_groups=32),
-        num_outs=4,
-    ),
-    encoder=dict(
-        num_layers=6,
-        layer_cfg=dict(
-            self_attn_cfg=dict(embed_dims=256, num_levels=4, dropout=0.0),
-            ffn_cfg=dict(
-                embed_dims=256, feedforward_channels=2048, ffn_drop=0.0
-            ),
-        ),
-    ),
-    decoder=dict(
-        num_layers=6,
-        return_intermediate=True,
-        layer_cfg=dict(
-            self_attn_cfg=dict(embed_dims=256, num_heads=8, dropout=0.0),
-            cross_attn_cfg=dict(embed_dims=256, num_levels=4, dropout=0.0),
-            ffn_cfg=dict(
-                embed_dims=256, feedforward_channels=2048, ffn_drop=0.0
-            ),
-        ),
-        post_norm_cfg=None,
-    ),
-    positional_encoding=dict(
-        num_feats=128,
-        normalize=True,
-        offset=0.0,
-        temperature=20,
+        num_csp_blocks=3,
+        expand_ratio=0.5,
+        norm_cfg=dict(type='BN'),
+        act_cfg=dict(type='SiLU', inplace=True),
     ),
     bbox_head=dict(
-        type='DINOHead',
+        type='RTMDetSepBNHead',
         num_classes=num_classes,
-        sync_cls_avg_factor=True,
+        in_channels=256,
+        stacked_convs=2,
+        feat_channels=256,
+        anchor_generator=dict(
+            type='MlvlPointGenerator', offset=0, strides=[8, 16, 32]
+        ),
+        bbox_coder=dict(type='DistancePointBBoxCoder'),
         loss_cls=dict(
-            type='FocalLoss',
+            type='QualityFocalLoss',
             use_sigmoid=True,
-            gamma=2.0,
-            alpha=0.25,
+            beta=2.0,
             loss_weight=1.0,
         ),
-        loss_bbox=dict(type='L1Loss', loss_weight=5.0),
-        loss_iou=dict(type='GIoULoss', loss_weight=2.0),
-    ),
-    dn_cfg=dict(
-        label_noise_scale=0.5,
-        box_noise_scale=1.0,
-        group_cfg=dict(dynamic=True, num_groups=None, num_dn_queries=100),
+        loss_bbox=dict(type='GIoULoss', loss_weight=2.0),
+        with_objectness=False,
+        exp_on_reg=True,
+        share_conv=True,
+        pred_kernel_size=1,
+        norm_cfg=dict(type='BN'),
+        act_cfg=dict(type='SiLU', inplace=True),
     ),
     train_cfg=dict(
-        assigner=dict(
-            type='HungarianAssigner',
-            match_costs=[
-                dict(type='FocalLossCost', weight=2.0),
-                dict(type='BBoxL1Cost', weight=5.0, box_format='xywh'),
-                dict(type='IoUCost', iou_mode='giou', weight=2.0),
-            ],
-        ),
+        assigner=dict(type='DynamicSoftLabelAssigner', topk=13),
+        allowed_border=-1,
+        pos_weight=-1,
+        debug=False,
     ),
-    test_cfg=dict(max_per_img=300),
+    test_cfg=dict(
+        nms_pre=30000,
+        min_bbox_size=0,
+        score_thr=0.001,
+        nms=dict(type='nms', iou_threshold=0.65),
+        max_per_img=300,
+    ),
 )
 
 train_pipeline = [
@@ -181,11 +163,10 @@ optim_wrapper = dict(
     type='OptimWrapper',
     optimizer=dict(
         type='AdamW',
-        lr=0.000025,
+        lr=0.0001,
         weight_decay=0.0001,
     ),
     clip_grad=dict(max_norm=1.0, norm_type=2),
-    paramwise_cfg=dict(custom_keys={'backbone': dict(lr_mult=0.1)}),
 )
 
 param_scheduler = [
@@ -218,9 +199,9 @@ visualizer = dict(
         dict(
             type='SwanlabVisBackend',
             init_kwargs=dict(
-                project='chromosome-kd-benchmark',
-                experiment_name='dino-r50-4scale',
-                description='Benchmark: DINO R50 4-scale | bs=2, 150ep',
+                project='chromosome-kd-benchmark-24obj',
+                experiment_name='rtmdet-l',
+                description='Benchmark 24obj: RTMDet-L CSPNeXt | bs=2, 150ep',
             ),
         ),
     ],

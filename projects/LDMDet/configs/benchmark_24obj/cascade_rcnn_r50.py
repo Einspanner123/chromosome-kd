@@ -1,5 +1,5 @@
 _base_ = [
-    '../../../../configs/_base_/datasets/chromo_coco_detection.py',
+    '../../../../configs/_base_/datasets/chromo_24obj_coco_detection.py',
     '../../../../configs/_base_/default_runtime.py',
 ]
 
@@ -334,9 +334,9 @@ visualizer = dict(
         dict(
             type='SwanlabVisBackend',
             init_kwargs=dict(
-                project='chromosome-kd-benchmark',
+                project='chromosome-kd-benchmark-24obj',
                 experiment_name='cascade-rcnn-r50',
-                description='Benchmark: Cascade RCNN R50 FPN | bs=8, 150ep',
+                description='Benchmark 24obj: Cascade RCNN R50 FPN | bs=4, 150ep',
             ),
         ),
     ],

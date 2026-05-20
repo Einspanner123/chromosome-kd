@@ -1,5 +1,5 @@
 _base_ = [
-    '../../../../configs/_base_/datasets/chromo_coco_detection.py',
+    '../../../../configs/_base_/datasets/chromo_24obj_coco_detection.py',
     '../../../../configs/_base_/default_runtime.py',
 ]
 
@@ -218,9 +218,9 @@ visualizer = dict(
         dict(
             type='SwanlabVisBackend',
             init_kwargs=dict(
-                project='chromosome-kd-benchmark',
+                project='chromosome-kd-benchmark-24obj',
                 experiment_name='dino-r50-4scale',
-                description='Benchmark: DINO R50 4-scale | bs=2, 150ep',
+                description='Benchmark 24obj: DINO R50 4-scale | bs=2, 150ep',
             ),
         ),
     ],

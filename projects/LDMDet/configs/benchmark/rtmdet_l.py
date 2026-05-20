@@ -181,6 +181,17 @@ param_scheduler = [
     ),
 ]
 
+custom_hooks = [
+    dict(
+        type='EarlyStoppingHook',
+        priority=50,
+        patience=30,
+        min_delta=0.001,
+        monitor='coco/bbox_mAP',
+        rule='greater',
+    ),
+]
+
 visualizer = dict(
     vis_backends=[
         dict(type='LocalVisBackend'),

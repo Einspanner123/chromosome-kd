@@ -1,5 +1,5 @@
 _base_ = [
-    '../../../../configs/_base_/datasets/chromo_coco_detection.py',
+    '../../../../configs/_base_/datasets/chromo_24obj_coco_detection.py',
     '../../../../configs/_base_/default_runtime.py',
 ]
 
@@ -9,7 +9,7 @@ custom_imports = dict(
 )
 
 num_classes = 24
-data_root = 'data/Chromosome20240904_NoAug_NoResize_coco/'
+data_root = 'data/24_chromosomes_object/coco/'
 METAINFO = {
     'classes': (
         'A1',
@@ -17,13 +17,13 @@ METAINFO = {
         'A3',
         'B4',
         'B5',
-        'C10',
-        'C11',
-        'C12',
         'C6',
         'C7',
         'C8',
         'C9',
+        'C10',
+        'C11',
+        'C12',
         'D13',
         'D14',
         'D15',
@@ -265,9 +265,9 @@ visualizer = dict(
         dict(
             type='SwanlabVisBackend',
             init_kwargs=dict(
-                project='chromosome-kd-benchmark',
+                project='chromosome-kd-benchmark-24obj',
                 experiment_name='yolox-s',
-                description='Benchmark: YOLOX-S | bs=8, 150ep, AdamW',
+                description='Benchmark 24obj: YOLOX-S | bs=8, 150ep, AdamW',
             ),
         ),
     ],
