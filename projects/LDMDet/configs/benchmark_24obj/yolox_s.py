@@ -218,7 +218,7 @@ val_dataloader = dict(dataset=dict(pipeline=test_pipeline))
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
-max_epochs = 150
+max_epochs = 200
 train_cfg = dict(by_epoch=True, max_epochs=max_epochs, val_interval=1)
 
 optim_wrapper = dict(
