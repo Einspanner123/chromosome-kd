@@ -56,6 +56,21 @@ elif BACKBONE_TYPE == 'timm':
 # 针对 ConvNeXt 优化训练参数（可选建议）
 if BACKBONE_TYPE:
     # 极低 batch_size 以防止在共享 GPU 时 OOM
-    train_dataloader = dict(batch_size=1, num_workers=2)
+    train_dataloader = dict(batch_size=8, num_workers=2)
     # 通常 ConvNeXt 适合较小的学习率和更强的权重衰减
-    optim_wrapper = dict(optimizer=dict(lr=5e-5, weight_decay=0.05))
+    optim_wrapper = dict(optimizer=dict(lr=2e-4, weight_decay=0.05))
+
+# ==============================================================================
+# 性能优化 (Performance Optimizations)
+# ==============================================================================
+model = dict(
+    bbox_head=dict(
+        # 优化1: 开启 FlashAttention 加速 Transformer 计算
+        use_flash_attn=True,
+    )
+)
+
+# 优化2: 开启 Torch.compile 编译加速 (要求 PyTorch 2.0+)
+# 注意：在某些复杂的 MMEngine 数据预处理场景下可能会有兼容性问题，若报错请设为 False
+compile = False
+# ==============================================================================
