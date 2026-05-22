@@ -71,7 +71,29 @@ class LDMDet(BaseDetector):
         super().__init__(
             data_preprocessor=data_preprocessor, init_cfg=init_cfg
         )
-        self.backbone = MODELS.build(backbone)
+
+        # 构建 backbone
+        if isinstance(backbone, dict) and backbone.get('type') == 'timm':
+            import timm
+
+            backbone_cfg = backbone.copy()
+            model_name = backbone_cfg.pop('model_name')
+            backbone_cfg.pop('type', None)
+            self.backbone = timm.create_model(model_name, **backbone_cfg)
+        elif isinstance(backbone, dict) and backbone.get('type') in [
+            'ConvNeXtV2',
+            'projects.LDMDet.mods.convnextv2.ConvNeXtV2',
+        ]:
+            from .mods.convnextv2 import ConvNeXtV2
+
+            backbone_cfg = backbone.copy()
+            backbone_cfg.pop('type')
+            self.backbone = ConvNeXtV2(
+                **self._filter_kwargs(ConvNeXtV2, backbone_cfg)
+            )
+        else:
+            self.backbone = MODELS.build(backbone)
+
         if neck is not None:
             self.neck = MODELS.build(neck)
         else:
