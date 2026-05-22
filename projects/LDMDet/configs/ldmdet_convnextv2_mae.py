@@ -55,9 +55,9 @@ elif BACKBONE_TYPE == 'timm':
 
 # 针对 ConvNeXt 优化训练参数（可选建议）
 if BACKBONE_TYPE:
-    # 极低 batch_size 以防止在共享 GPU 时 OOM
-    train_dataloader = dict(batch_size=8, num_workers=2)
-    # 通常 ConvNeXt 适合较小的学习率和更强的权重衰减
+    # 针对 24GB 显存服务器优化 (Batch Size = 8)
+    train_dataloader = dict(batch_size=8, num_workers=4)
+    # 随 Batch Size 扩大等比例调整学习率 (1 -> 8: 5e-5 -> 4e-4, 这里取 2e-4 比较稳健)
     optim_wrapper = dict(optimizer=dict(lr=2e-4, weight_decay=0.05))
 
 # ==============================================================================
@@ -73,4 +73,25 @@ model = dict(
 # 优化2: 开启 Torch.compile 编译加速 (要求 PyTorch 2.0+)
 # 注意：在某些复杂的 MMEngine 数据预处理场景下可能会有兼容性问题，若报错请设为 False
 compile = False
+
+# ==============================================================================
+# SwanLab 实验配置 (SwanLab Experiment Configuration)
+# ==============================================================================
+# 在此处指定具体的实验名称
+experiment_name = f'ldmdet_{BACKBONE_TYPE}_tiny_mae_bs8_lr2e-4_shifted3_adaln'
+
+visualizer = dict(
+    vis_backends=[
+        dict(type='LocalVisBackend'),
+        dict(type='TensorboardVisBackend'),
+        dict(
+            type='SwanlabVisBackend',
+            init_kwargs=dict(
+                project='chromosome-kd',
+                experiment_name=experiment_name,
+                api_key='Huzvq1fnDeqOwgQo2AMAI',
+            ),
+        ),
+    ]
+)
 # ==============================================================================
