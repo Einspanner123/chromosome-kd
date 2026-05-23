@@ -1,6 +1,8 @@
 # projects/LDMDet/configs/ldmdet_convnextv2_mae.py
 
-_base_ = ['./recipes/rf_heun_adaln_stochot_eps5.py']
+# _base_ = ['./recipes/rf_heun_adaln_stochot_eps5.py']
+
+_base_ = ['./ldmdet_rf_heun_shifted_bs8.py']
 
 # ==============================================================================
 # 开关配置 (Switch Configuration)
