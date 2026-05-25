@@ -365,6 +365,12 @@ class DiffusionDetCriterion(nn.Module):
         loss_giou: nn.Module,
         deep_supervision: bool = True,
         loss_objectness_weight: float = 1.0,
+        scale_aware: bool = False,
+        scale_aware_mode: str = 'inverse',
+        scale_aware_min_weight: float = 0.5,
+        scale_aware_max_weight: float = 3.0,
+        scale_aware_alpha: float = 0.15,
+        scale_aware_giou: bool = False,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -374,6 +380,12 @@ class DiffusionDetCriterion(nn.Module):
         self.loss_giou = loss_giou
         self.deep_supervision = deep_supervision
         self.loss_objectness_weight = loss_objectness_weight
+        self.scale_aware = scale_aware
+        self.scale_aware_mode = scale_aware_mode
+        self.scale_aware_min_weight = scale_aware_min_weight
+        self.scale_aware_max_weight = scale_aware_max_weight
+        self.scale_aware_alpha = scale_aware_alpha
+        self.scale_aware_giou = scale_aware_giou
 
     def forward(
         self, outputs: ModelOutput, targets: List[InstanceData]
@@ -466,16 +478,46 @@ class DiffusionDetCriterion(nn.Module):
         tgt_boxes_pos = torch.cat(tgt_list)
         num_pos = src_boxes_pos.shape[0]
 
-        # L1 损失使用 cxcywh 格式 (遵循原版)
-        loss_bbox = self.loss_bbox(
-            bbox_xyxy_to_cxcywh(src_boxes_pos),
-            bbox_xyxy_to_cxcywh(tgt_boxes_pos),
-        )
+        tgt_cxcywh = bbox_xyxy_to_cxcywh(tgt_boxes_pos)
+        src_cxcywh = bbox_xyxy_to_cxcywh(src_boxes_pos)
 
-        # GIoU 损失
-        loss_giou = self.loss_giou(src_boxes_pos, tgt_boxes_pos)
+        if self.scale_aware:
+            tgt_areas = tgt_cxcywh[:, 2] * tgt_cxcywh[:, 3]
+            if self.scale_aware_mode == 'log_linear':
+                log_areas = torch.log(tgt_areas + 1e-8)
+                log_mean = log_areas.mean()
+                log_std = log_areas.std() + 1e-8
+                z = (log_areas - log_mean) / log_std
+                scale_w = 1.0 - self.scale_aware_alpha * z
+                scale_w = scale_w.clamp(
+                    1.0 - self.scale_aware_alpha * 3,
+                    1.0 + self.scale_aware_alpha * 3,
+                )
+            elif self.scale_aware_mode == 'sqrt_inverse':
+                raw_w = 1.0 / torch.sqrt(tgt_areas + 1e-6)
+                scale_w = raw_w / raw_w.mean()
+                scale_w = scale_w.clamp(
+                    self.scale_aware_min_weight, self.scale_aware_max_weight
+                )
+            else:
+                raw_w = 1.0 / (tgt_areas + 1e-6)
+                scale_w = raw_w / raw_w.mean()
+                scale_w = scale_w.clamp(
+                    self.scale_aware_min_weight, self.scale_aware_max_weight
+                )
+            per_elem_l1 = F.l1_loss(src_cxcywh, tgt_cxcywh, reduction='none')
+            weighted_sum = (per_elem_l1 * scale_w.unsqueeze(1)).sum()
+            loss_bbox = self.loss_bbox.loss_weight * weighted_sum / (4.0 * num_pos * num_pos)
+            loss_giou = self.loss_giou(
+                src_boxes_pos, tgt_boxes_pos
+            ).sum() / num_pos
+        else:
+            loss_bbox = self.loss_bbox(src_cxcywh, tgt_cxcywh)
+            loss_giou = self.loss_giou(src_boxes_pos, tgt_boxes_pos)
+            loss_bbox = loss_bbox.sum() / num_pos
+            loss_giou = loss_giou.sum() / num_pos
 
-        return loss_bbox / num_pos, loss_giou / num_pos
+        return loss_bbox, loss_giou
 
     def _loss_objectness(
         self,
