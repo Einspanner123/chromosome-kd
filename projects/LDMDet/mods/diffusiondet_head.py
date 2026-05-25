@@ -1,8 +1,5 @@
 import copy
-import glob as glob_mod
 import math
-import os
-import random
 from typing import Dict, List, Optional, Tuple
 
 import torch
@@ -49,15 +46,12 @@ class DiffusionDetHead(nn.Module):
         score_thr: float = 0.05,
         min_keep: int = 60,
         # === FlowDet 新增参数 ===
-        noise_sampler: nn.Module = None,  # 结构化噪声采样器
         prediction_mode: str = 'x0',  # "x0" 或 "velocity"
         velocity_loss_weight: float = 1.0,  # velocity loss 权重
         ot_coupling: bool = False,  # 训练时用 OT 最优耦合 (noise, GT) 配对
         ot_matcher: str = 'nearest',  # "nearest" (原始 argmin) 或 "sinkhorn" (均衡配对)
         ot_epsilon: float = 1.0,  # Sinkhorn OT 的正则化参数
         ot_num_iters: int = 20,  # Sinkhorn OT 的迭代次数
-        ot_init_mode: str = 'replace',  # "replace" (替换 x_start) 或 "guided" (引导噪声初始化)
-        ot_init_scale: float = 0.5,  # guided 模式下噪声到 GT 的缩放因子
         ot_sample: bool = False,  # Stochastic Coupling: 从传输矩阵采样替代 argmax
         ot_sample_seed: Optional[
             int
@@ -85,30 +79,6 @@ class DiffusionDetHead(nn.Module):
         use_lsas: bool = False,  # Loss-Sensitive Adaptive Scheduling
         lsas_num_bins: int = 100,  # 时间分布离散化精度
         lsas_temp: float = 1.0,  # 采样温度
-        # === Reflow 参数 ===
-        use_reflow: bool = False,  # Reflow 模式 (使用预生成配对训练)
-        reflow_pairs_dir: str = '',  # Reflow 配对数据目录
-        reflow_num_ode_steps: int = 10,  # 生成配对时的 ODE 步数
-        reflow_det_loss_scale: float = 1.0,  # Reflow 模式下检测 loss 缩放因子
-        reflow_velocity_warmup_steps: int = 0,  # velocity loss 预热步数 (0=不预热)
-        # === Consistency Distillation 参数 ===
-        use_consistency: bool = False,  # Consistency Distillation 模式
-        consistency_ema_rate: float = 0.999,  # EMA student 更新率
-        consistency_num_timesteps: int = 18,  # 离散化时间步数
-        consistency_weight: float = 1.0,  # consistency loss 权重
-        # === Intermediate Trajectory Distillation 参数 ===
-        use_itd: bool = False,  # Intermediate Trajectory Distillation
-        itd_num_points: int = 4,  # 中间轨迹采样点数
-        itd_weight: float = 1.0,  # ITD loss 权重
-        itd_sampling: str = 'uniform',  # "uniform" 或 "loss_aware"
-        # === Freeze Shared 参数 ===
-        freeze_shared: bool = False,  # 冻结共享层, 只训练 velocity_head
-        # === Consistency Loss 参数 ===
-        use_consistency_loss: bool = False,  # Consistency Loss (x0 一致性约束)
-        consistency_loss_weight: float = 1.0,  # Consistency Loss 权重
-        consistency_loss_num_points: int = 4,  # Consistency Loss 采样点数
-        # === Velocity Detach 参数 ===
-        velocity_detach: bool = False,  # 切断 velocity_head 到共享层的梯度
         # === 训练稳定化参数 ===
         t_sampling: str = 'uniform',  # 时间采样策略: "uniform" 或 "stratified"
         t_sampling_bins: int = 8,  # stratified 采样时的分箱数
@@ -137,8 +107,6 @@ class DiffusionDetHead(nn.Module):
         self.ot_matcher = ot_matcher
         self.ot_epsilon = ot_epsilon
         self.ot_num_iters = ot_num_iters
-        self.ot_init_mode = ot_init_mode
-        self.ot_init_scale = ot_init_scale
         self.ot_sample = ot_sample
         self.ot_sample_seed = ot_sample_seed
         self.ot_group_hierarchical = ot_group_hierarchical
@@ -160,25 +128,7 @@ class DiffusionDetHead(nn.Module):
         self.use_lsas = use_lsas
         self.lsas_num_bins = lsas_num_bins
         self.lsas_temp = lsas_temp
-        self.use_reflow = use_reflow
-        self.reflow_pairs_dir = reflow_pairs_dir
-        self.reflow_num_ode_steps = reflow_num_ode_steps
-        self.reflow_det_loss_scale = reflow_det_loss_scale
-        self.reflow_velocity_warmup_steps = reflow_velocity_warmup_steps
-        self._reflow_train_step = 0
-        self.use_consistency = use_consistency
-        self.consistency_ema_rate = consistency_ema_rate
-        self.consistency_num_timesteps = consistency_num_timesteps
-        self.consistency_weight = consistency_weight
-        self.use_itd = use_itd
-        self.itd_num_points = itd_num_points
-        self.itd_weight = itd_weight
-        self.itd_sampling = itd_sampling
-        self.freeze_shared = freeze_shared
-        self.use_consistency_loss = use_consistency_loss
-        self.consistency_loss_weight = consistency_loss_weight
-        self.consistency_loss_num_points = consistency_loss_num_points
-        self.velocity_detach = velocity_detach
+
         self.t_sampling = t_sampling
         self.t_sampling_bins = t_sampling_bins
         self.use_flash_attn = use_flash_attn
@@ -192,9 +142,6 @@ class DiffusionDetHead(nn.Module):
         # ROI 特征提取器和损失函数
         self.roi_extractor = roi_extractor
         self.criterion = criterion
-
-        # 结构化噪声采样器 (Phase 3A)
-        self.noise_sampler = noise_sampler
 
         # 构建扩散过程参数
         if self.diffusion_type == 'ddpm':
@@ -228,7 +175,6 @@ class DiffusionDetHead(nn.Module):
                         nn.Linear(feat_channels, 4),
                     )
                     head.prediction_mode = 'velocity'
-                head.velocity_detach = velocity_detach
         for head in self.head_series:
             head.use_flash_attn = use_flash_attn
 
@@ -248,10 +194,6 @@ class DiffusionDetHead(nn.Module):
 
         self.prior_prob = prior_prob
         self._init_weights()
-
-        if self.use_reflow:
-            self._reflow_pairs_cache = []
-            self._reflow_pairs_idx = 0
 
         # Chromosome group mapping: class_idx -> group_idx
         # Class order: A1,A2,A3, B4,B5, C10,C11,C12,C6,C7,C8,C9,
@@ -667,45 +609,6 @@ class DiffusionDetHead(nn.Module):
 
         return matched_gt_idx
 
-    def _get_reflow_pairs(self, bs: int, device: torch.device):
-        if not self.reflow_pairs_dir or not os.path.isdir(
-            self.reflow_pairs_dir
-        ):
-            return None
-
-        if len(self._reflow_pairs_cache) == 0:
-            pair_files = sorted(
-                glob_mod.glob(os.path.join(self.reflow_pairs_dir, '*.pt'))
-            )
-            if len(pair_files) == 0:
-                return None
-            for pf in pair_files:
-                d = torch.load(pf, map_location='cpu')
-                self._reflow_pairs_cache.append((d['z'], d['b_pred']))
-            random.shuffle(self._reflow_pairs_cache)
-            self._reflow_pairs_idx = 0
-
-        pairs_z = []
-        pairs_b = []
-        for _ in range(bs):
-            if self._reflow_pairs_idx >= len(self._reflow_pairs_cache):
-                random.shuffle(self._reflow_pairs_cache)
-                self._reflow_pairs_idx = 0
-            z, b = self._reflow_pairs_cache[self._reflow_pairs_idx]
-            pairs_z.append(z.to(device))
-            pairs_b.append(b.to(device))
-            self._reflow_pairs_idx += 1
-
-        z_batch = torch.cat(pairs_z, dim=0)[:bs]
-        b_batch = torch.cat(pairs_b, dim=0)[:bs]
-        return z_batch, b_batch
-
-    def _sample_noise(self, bs: int, device: torch.device) -> Tensor:
-        if self.noise_sampler is not None:
-            return self.noise_sampler.sample(bs, device)
-        else:
-            return torch.randn(bs, self.num_proposals, 4, device=device)
-
     def _sample_time_lsas(
         self, bs: int, device: torch.device
     ) -> Tuple[Tensor, Tensor]:
@@ -741,32 +644,6 @@ class DiffusionDetHead(nn.Module):
         x_starts = []
         x_noises = []
         kcec_log_stats: Dict[str, Tensor] = {}
-
-        if (
-            self.use_reflow
-            and self.diffusion_type == 'rectified_flow'
-            and self.training
-        ):
-            reflow_batch = self._get_reflow_pairs(bs, device)
-            if reflow_batch is not None:
-                z_reflow, b_reflow = reflow_batch
-                for i in range(bs):
-                    x_start = b_reflow[i]
-                    noise = z_reflow[i]
-                    x_noisy, _ = self.rf.q_sample(
-                        x_start, x_noise=noise, t=t[i : i + 1]
-                    )
-                    x_starts.append(x_start)
-                    x_noises.append(noise)
-                    x_boxes.append(x_noisy)
-                return x_boxes, x_starts, x_noises, kcec_log_stats
-            # fall through to random noise if reflow pairs unavailable
-            for i in range(bs):
-                noise = torch.randn(self.num_proposals, 4, device=device)
-                x_boxes.append(noise)
-                x_starts.append(torch.zeros_like(noise))
-                x_noises.append(noise)
-            return x_boxes, x_starts, x_noises, kcec_log_stats
 
         for i in range(bs):
             num_gt = gt_bboxes[i].shape[0]
@@ -848,8 +725,6 @@ class DiffusionDetHead(nn.Module):
             matched_gt_idx = cost.argmin(dim=1)
 
         x_start = gt_diffusion[matched_gt_idx]
-        if self.ot_init_mode == 'guided':
-            x_start = noise + self.ot_init_scale * (x_start - noise)
         return x_start, kcec_log_stats
 
     def _sinkhorn_match(
@@ -907,11 +782,6 @@ class DiffusionDetHead(nn.Module):
         )
         losses = self.criterion(outputs, targets)
 
-        if self.use_reflow and self.reflow_det_loss_scale != 1.0:
-            for k in ('loss_cls', 'loss_bbox', 'loss_giou'):
-                if k in losses:
-                    losses[k] = losses[k] * self.reflow_det_loss_scale
-
         # 6. 辅助损失
         self._add_velocity_loss(
             losses, all_velocity, x_starts, x_noises, device
@@ -928,29 +798,6 @@ class DiffusionDetHead(nn.Module):
             device,
         )
         self._add_lsas_loss(losses, lsas_log_probs)
-        self._add_itd_loss(
-            losses, features, x_starts, x_noises, img_metas, bs, device
-        )
-        self._add_consistency_loss(
-            losses,
-            features,
-            x_starts,
-            x_noises,
-            all_pred_bboxes,
-            img_metas,
-            bs,
-            device,
-        )
-        self._add_consistency_cd_loss(
-            losses,
-            features,
-            t,
-            x_starts,
-            all_pred_bboxes,
-            img_metas,
-            bs,
-            device,
-        )
 
         if kcec_log:
             for k, v in kcec_log.items():
@@ -1092,12 +939,6 @@ class DiffusionDetHead(nn.Module):
             return
         v_target = torch.stack(x_noises) - torch.stack(x_starts)
         vel_weight = self.velocity_loss_weight
-        if self.use_reflow and self.reflow_velocity_warmup_steps > 0:
-            self._reflow_train_step += 1
-            vel_weight *= min(
-                self._reflow_train_step / self.reflow_velocity_warmup_steps,
-                1.0,
-            )
 
         last_v = all_velocity[-1]
         if last_v is not None:
@@ -1162,141 +1003,6 @@ class DiffusionDetHead(nn.Module):
             total = sum(losses.values())
         losses['loss_lsas'] = total.detach() * (-lsas_log_probs).mean() * 0.01
 
-    def _add_itd_loss(
-        self,
-        losses: dict,
-        features,
-        x_starts,
-        x_noises,
-        img_metas,
-        bs,
-        device,
-    ):
-        if not (
-            self.use_itd
-            and self.diffusion_type == 'rectified_flow'
-            and self.training
-        ):
-            return
-        x_start_batch = torch.stack(x_starts)
-        x_noise_batch = torch.stack(x_noises)
-        v_target = x_noise_batch - x_start_batch
-
-        if self.itd_sampling == 'uniform':
-            t_points = torch.linspace(
-                0.1, 0.9, steps=self.itd_num_points, device=device
-            )
-        else:
-            t_points = 0.1 + 0.8 * torch.rand(
-                self.itd_num_points, device=device
-            )
-
-        total = torch.tensor(0.0, device=device)
-        n = 0
-        for t_k in t_points:
-            t_k_batch = t_k.expand(bs)
-            t_k_view = t_k_batch.view(-1, 1, 1)
-            x_tk = (1.0 - t_k_view) * x_start_batch + t_k_view * x_noise_batch
-            curr_bboxes_tk = self._raw_to_xyxy(x_tk, img_metas)
-            _, _, _, all_vel_tk = self(
-                features, curr_bboxes_tk, t_k_batch * self.timesteps
-            )
-            if all_vel_tk[-1] is not None:
-                total = total + F.mse_loss(all_vel_tk[-1], v_target)
-                n += 1
-        if n > 0:
-            losses['loss_itd'] = total / n * self.itd_weight
-
-    def _add_consistency_loss(
-        self,
-        losses: dict,
-        features,
-        x_starts,
-        x_noises,
-        all_pred_bboxes,
-        img_metas,
-        bs,
-        device,
-    ):
-        if not (
-            self.use_consistency_loss
-            and self.diffusion_type == 'rectified_flow'
-            and self.training
-        ):
-            return
-        x_start_batch = torch.stack(x_starts)
-        x_noise_batch = torch.stack(x_noises)
-        t_points = torch.linspace(
-            0.1, 0.9, steps=self.consistency_loss_num_points, device=device
-        )
-        x0_main = self._xyxy_to_raw(all_pred_bboxes[-1], img_metas)
-
-        total = torch.tensor(0.0, device=device)
-        n = 0
-        for t_k in t_points:
-            t_k_batch = t_k.expand(bs)
-            t_k_view = t_k_batch.view(-1, 1, 1)
-            x_tk = (1.0 - t_k_view) * x_start_batch + t_k_view * x_noise_batch
-            curr_bboxes_tk = self._raw_to_xyxy(x_tk, img_metas)
-            _, all_pred_tk, _, _ = self(
-                features, curr_bboxes_tk, t_k_batch * self.timesteps
-            )
-            total = total + F.mse_loss(
-                self._xyxy_to_raw(all_pred_tk[-1], img_metas), x0_main.detach()
-            )
-            n += 1
-        if n > 0:
-            losses['loss_consistency'] = (
-                total / n * self.consistency_loss_weight
-            )
-
-    def _add_consistency_cd_loss(
-        self,
-        losses: dict,
-        features,
-        t,
-        x_starts,
-        all_pred_bboxes,
-        img_metas,
-        bs,
-        device,
-    ):
-        if not (
-            self.use_consistency
-            and self.diffusion_type == 'rectified_flow'
-            and self.training
-        ):
-            return
-        K = self.consistency_num_timesteps
-        indices = torch.randint(1, K, (bs,), device=device)
-        t_n = indices.float() / K
-        t_n_minus_1 = (indices - 1).float() / K
-
-        x_noise_cd = torch.randn(bs, self.num_proposals, 4, device=device)
-        x_start_cd = torch.stack(x_starts)
-        t_n_view = t_n.view(-1, 1, 1)
-        x_tn = (1.0 - t_n_view) * x_start_cd + t_n_view * x_noise_cd
-
-        with torch.no_grad():
-            curr_bboxes_tn = self._raw_to_xyxy(x_tn, img_metas)
-            _, all_pred_tn, _, _ = self(
-                features, curr_bboxes_tn, t_n * self.timesteps
-            )
-            x0_tn = self._xyxy_to_raw(all_pred_tn[-1], img_metas)
-            x_tnm1 = self.rf.step(
-                x_tn, x0_tn, t_n[0].item(), t_n_minus_1[0].item()
-            )
-            curr_bboxes_tnm1 = self._raw_to_xyxy(x_tnm1, img_metas)
-            _, all_pred_tnm1, _, _ = self(
-                features, curr_bboxes_tnm1, t_n_minus_1 * self.timesteps
-            )
-            x0_tnm1 = self._xyxy_to_raw(all_pred_tnm1[-1], img_metas)
-
-        x0_student = self._xyxy_to_raw(all_pred_bboxes[-1], img_metas)
-        losses['loss_consistency_cd'] = (
-            F.mse_loss(x0_student, x0_tnm1.detach()) * self.consistency_weight
-        )
-
     def _init_weights(self):
         """初始化权重"""
         bias_value = -math.log((1 - self.prior_prob) / self.prior_prob)
@@ -1317,16 +1023,6 @@ class DiffusionDetHead(nn.Module):
             if hasattr(head, 'adaln_mlp'):
                 nn.init.zeros_(head.adaln_mlp[-1].weight)
                 nn.init.zeros_(head.adaln_mlp[-1].bias)
-
-        if self.freeze_shared:
-            self._freeze_shared_layers()
-
-    def _freeze_shared_layers(self):
-        for name, param in self.named_parameters():
-            if 'velocity_head' in name:
-                param.requires_grad = True
-            else:
-                param.requires_grad = False
 
     def _build_diffusion_buffers(self):
         """构建并注册扩散过程所需的常量 buffer"""
@@ -1532,8 +1228,8 @@ class DiffusionDetHead(nn.Module):
             for i in range(len(times) - 1):
                 time_pairs.append((times[i].item(), times[i + 1].item()))
 
-        # 初始噪声框 (支持结构化噪声)
-        x_raw = self._sample_noise(bs, device)
+        # 初始噪声框
+        x_raw = torch.randn(bs, self.num_proposals, 4, device=device)
         x0_prev = None
 
         ensemble_results = []

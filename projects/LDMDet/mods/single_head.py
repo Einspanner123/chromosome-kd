@@ -34,7 +34,6 @@ class SingleDiffusionDetHead(nn.Module):
         time_conditioning='scale_shift',  # "scale_shift" 或 "adaln_zero"
         use_objectness=False,  # 是否使用 objectness 预测头
         prediction_mode='x0',  # "x0" (delta regression) 或 "velocity" (直接速度预测)
-        velocity_detach=False,  # 是否切断 velocity_head 到共享层的梯度
         use_flash_attn=False,  # 是否启用 Flash Attention (SDPA)
     ):
         super().__init__()
@@ -42,7 +41,6 @@ class SingleDiffusionDetHead(nn.Module):
         self.time_conditioning = time_conditioning
         self.use_objectness = use_objectness
         self.prediction_mode = prediction_mode
-        self.velocity_detach = velocity_detach
         self.use_flash_attn = use_flash_attn
 
         # 动态模块
@@ -322,10 +320,7 @@ class SingleDiffusionDetHead(nn.Module):
         # Velocity
         pred_velocity = None
         if self.velocity_head is not None:
-            vel_input = (
-                fc_feature.detach() if self.velocity_detach else fc_feature
-            )
-            pred_velocity = self.velocity_head(vel_input).view(
+            pred_velocity = self.velocity_head(fc_feature).view(
                 bs, num_boxes, 4
             )
 
@@ -395,10 +390,7 @@ class SingleDiffusionDetHead(nn.Module):
         # Velocity
         pred_velocity = None
         if self.velocity_head is not None:
-            vel_input = (
-                fc_feature.detach() if self.velocity_detach else fc_feature
-            )
-            pred_velocity = self.velocity_head(vel_input).view(
+            pred_velocity = self.velocity_head(fc_feature).view(
                 bs, num_boxes, 4
             )
 
