@@ -4,10 +4,10 @@ from typing import Any, Dict, List, Tuple
 import torch
 import torch.nn as nn
 
-torch.set_float32_matmul_precision('high')
-if torch.backends.cudnn.is_available():
-    torch.backends.cudnn.benchmark = True
-    torch.backends.cudnn.allow_tf32 = True
+# torch.set_float32_matmul_precision('high')
+# if torch.backends.cudnn.is_available():
+#     torch.backends.cudnn.benchmark = True
+#     torch.backends.cudnn.allow_tf32 = True
 
 from mmdet.models.detectors.base import BaseDetector
 from mmdet.registry import MODELS
