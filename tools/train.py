@@ -7,10 +7,54 @@ import sys
 sys.path.insert(0, osp.dirname(osp.dirname(osp.abspath(__file__))))
 
 from mmengine.config import Config, DictAction
+from mmengine.logging import print_log
 from mmengine.registry import RUNNERS
 from mmengine.runner import Runner
 
 from mmdet.utils import setup_cache_size_limit_of_dynamo
+
+
+def _get_swanlab_run_id(work_dir):
+    """Read saved SwanLab run ID from work_dir for resume."""
+    id_file = osp.join(work_dir, '.swanlab_id')
+    if osp.exists(id_file):
+        with open(id_file, 'r') as f:
+            return f.read().strip()
+    return None
+
+
+def _inject_swanlab_resume(cfg, run_id):
+    """Inject resume params into SwanlabVisBackend init_kwargs so
+    swanlab.init() reuses the existing experiment."""
+    for backend in cfg.visualizer.get('vis_backends', []):
+        if backend.get('type') == 'SwanlabVisBackend':
+            init_kwargs = backend.setdefault('init_kwargs', {})
+            init_kwargs['id'] = run_id
+            init_kwargs['resume'] = 'allow'
+            return True
+    return False
+
+
+def _patch_swanlab_save_id(work_dir):
+    """Patch SwanlabVisBackend._init_env to save run ID after init,
+    so future --resume calls can continue logging to the same experiment."""
+    try:
+        from swanlab.integration.mmengine import SwanlabVisBackend
+    except ImportError:
+        return
+
+    _orig_init_env = SwanlabVisBackend._init_env
+
+    def _patched_init_env(self):
+        _orig_init_env(self)
+        run_id = self._swanlab.run.get_run().id
+        if run_id is not None:
+            id_file = osp.join(work_dir, '.swanlab_id')
+            os.makedirs(work_dir, exist_ok=True)
+            with open(id_file, 'w') as f:
+                f.write(run_id)
+
+    SwanlabVisBackend._init_env = _patched_init_env
 
 
 def parse_args():
@@ -116,6 +160,24 @@ def main():
     elif args.resume is not None:
         cfg.resume = True
         cfg.load_from = args.resume
+
+    # If resuming, try to continue logging to the same SwanLab experiment
+    if args.resume:
+        swanlab_id = _get_swanlab_run_id(cfg.work_dir)
+        if swanlab_id:
+            _inject_swanlab_resume(cfg, swanlab_id)
+            print_log(
+                f'Resuming SwanLab experiment {swanlab_id}', logger='current'
+            )
+        else:
+            print_log(
+                'No SwanLab run ID found in work_dir; '
+                'a new SwanLab experiment will be created.',
+                logger='current',
+            )
+
+    # Patch SwanLab so every run saves its ID for future resume
+    _patch_swanlab_save_id(cfg.work_dir)
 
     # build the runner from config
     if 'runner_type' not in cfg:
