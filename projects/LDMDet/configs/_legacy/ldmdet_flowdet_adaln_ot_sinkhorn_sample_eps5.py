@@ -1,7 +1,8 @@
-_base_ = ['./ldmdet_rf_heun_shifted_bs2.py']
+_base_ = ['../ldmdet_rf_heun_shifted_bs2.py']
 
 # Reconstructed from the historical best run stored under:
-# work_dirs/ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5/20260423_060304
+# work_dirs/reproduce_0751_stochot_eps5_v2/20260524_120330/
+# ckpt: work_dirs/reproduce_0751_stochot_eps5_v2/best_coco_bbox_mAP_epoch_59.pth
 #
 # Key ingredients:
 # - Rectified Flow + Heun + shifted schedule

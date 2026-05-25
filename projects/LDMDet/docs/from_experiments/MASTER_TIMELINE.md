@@ -322,6 +322,23 @@ ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5_repro/ - 复现实验 (0.738, 可�
     ↳ 20260506_125954/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5.py, model.py, mods/diffusiondet_head.py, mods/loss.py, mods/modules.py, mods/single_head.py, mods/structures.py
 ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5_seed2/ - 多 seed 验证 (0.750)
     ↳ 20260506_151313/LDMDet_backup/ → configs/ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5.py, model.py, mods/diffusiondet_head.py, mods/loss.py, mods/modules.py, mods/single_head.py, mods/structures.py
+reproduce_0751_stochot_eps5/                       - Stochastic eps=5 精准复现 v1 (0.743, TF32开启)
+    ↳ 20260524_012941/ → configs/_legacy/ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5.py
+    ⚠️ model.py 含 TF32+cudnn.benchmark 全局设置（0.751实验时不存在），best mAP=0.743@ep85, mAP@50=0.944, mAP@75=0.833, EarlyStop@ep115
+reproduce_0751_stochot_eps5_v2/                    - Stochastic eps=5 精准复现 v2 (0.753, TF32关闭) ★新SOTA
+    ↳ 20260524_120330/ → configs/_legacy/ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5.py, model.py(TF32已注释)
+    ★ best mAP=0.753@ep59, mAP@50=0.943, mAP@75=0.843, mAP_s=0.522, mAP_m=0.745, mAP_l=0.636, EarlyStop@ep89
+    ★ ckpt: work_dirs/reproduce_0751_stochot_eps5_v2/best_coco_bbox_mAP_epoch_59.pth
+    ↳ 20260524_193842/ → 无eval数据，中间run
+    ↳ 20260524_194437/ → 同配置续训，best mAP=0.735@ep102
+    ⚠️ TF32关闭后 best mAP 从 0.743→0.753 (+1.0%)，确认 TF32 是系统性偏差源
+    ⚠️ 三seed统计: 0.753 / ? / 0.735，多seed均值待补充
+ldmdet_convnextv2_mae/                             - ConvNeXtV2-Tiny + MAE + Stochastic OT eps=5 + AdaLN-Zero (0.736)
+    ↳ 20260523_021941/LDMDet_backup/ → configs/ldmdet_convnextv2_mae.py, model.py, mods/diffusiondet_head.py, mods/single_head.py, mods/rectified_flow.py
+    ⚠️ 骨干切换导致性能退化：ResNet-50→ConvNeXtV2-Tiny, bs=2→4, wd=1e-4→0.05, best mAP=0.736@ep64, EarlyStop@ep94
+mae/                                               - ConvNeXtV2-Tiny + MAE 无 OT baseline (0.736)
+    ↳ 20260523_152819/LDMDet_backup/ → configs/ldmdet_convnextv2_mae.py (ot_coupling=False)
+    ⚠️ 与 OT 版本 best mAP 完全持平，Stochastic OT 在 ConvNeXtV2 上零增益; best mAP=0.736@ep33, EarlyStop@ep63
 ```
 
 ### 5.4 群组层次 OT
@@ -567,11 +584,12 @@ ______________________________________________________________________
 1. **硬 OT 耦合（argmax）**：在低维空间导致多样性坍缩，反而不如随机
 2. **Sinkhorn + argmax 管线**：ε 参数被 argmax 短路，无法调控多样性
 3. **CAT（曲率正则化）**：`cat` 与 OT 组合时有一运行全部 eval 为 0，`cat_only` (0.744) 单独使用正常——问题出在特定组合而非 CAT 本身
-4. **Stochastic OT 可复现性**：`repro`=0.738 远低于原始 0.751（差 1.3%），对随机种子敏感；同时 `seed2`=0.750 较接近，说明存在统计波动
+4. **Stochastic OT 之前可复现性差**：早期 `repro`=0.738 vs `seed2`=0.750 波动达 1.2%；根因已确认为 TF32（v1=0.743, v2=0.753, +1.0%），关闭 TF32 后已解决，可复现性不再是无解问题
 5. **两条 SOTA 路径的直接组合**：`group_hierarchical_trd`=0.746，存在负交互（详见 §七）
-6. **Scale-Conditioned FM**：当前三种实现均未带来收益，但 sc_loss=0.745 下降幅度较小（vs adaln -0.006），不应表述为“必然无效”
-7. **KaryoFlow 端到端排列学习**：信息论下界不可达
-8. **多次 Reflow**：边际收益递减，第2轮几乎无收益
+6. **ConvNeXtV2-Tiny 骨干退化**：Stochastic OT eps=5 在 ConvNeXtV2 上零增益（0.736 vs 无OT 0.736），且整体 mAP 比 ResNet-50 低 1.7%（0.736 vs 0.753）
+7. **Scale-Conditioned FM**：当前三种实现均未带来收益，但 sc_loss=0.745 下降幅度较小（vs adaln -0.006），不应表述为"必然无效"
+8. **KaryoFlow 端到端排列学习**：信息论下界不可达
+9. **多次 Reflow**：边际收益递减，第2轮几乎无收益
 
 ### 8.3 仍待解决的问题
 
@@ -579,10 +597,11 @@ ______________________________________________________________________
 2. **velocity loss 收敛天花板**：~0.23-0.30 后停滞
 3. **1步 vs 4步的 1.3% 差距**：当前 Reflow 只能缩小到 1.3%
 4. **两条 SOTA 路径的负交互根因**：已确认组合 \< 单路径，需要理解负交互机制
-5. **Stochastic OT 可复现性**：repro=0.738 vs seed2=0.750，波动范围 1.2%，需多 seed 统计
+5. **Stochastic OT 多 seed 统计**：当前仅 3 seed（0.753 / 0.735 / —），seed 间波动达 1.8%，需补充更多 seed 以确认 SOTA 基准的统计特性
 6. **COCO 通用性验证**：当前所有实验均在染色体数据集
 7. **更大 ε（ε=1-3）的 Stochastic 实验**：理论上最优区间，待实测
 8. **ldmdet_baseline 的 1步 > 4步 反常**：需排查 DDPM 1步推理是否实际走了 DDIM skip
+9. **ConvNeXtV2 骨干退化根因**：MAE预训练权重是否适合检测微调、lr/batch_size/wd是否需要针对ConvNeXt重新调优
 
 ______________________________________________________________________
 
@@ -615,9 +634,9 @@ ______________________________________________________________________
 
 ### P0：论文必需（1-2周）
 
-1. **先修代码再重跑关键结论**：修复 DDPM `_ddim_step`、velocity/ITD target 符号、TRD/CAT 步长解耦、CAT 纯曲率版本和 stochastic generator。
-2. **Stochastic OT 多 seed 统计**：解决 repro=0.738 的可复现性问题，至少 5 seed 报告 mean ± std。
-3. **KCEC 首版实验**：实现 soft ploidy quota + homolog exchangeability + morphology cost 的训练-only coupling，目标超过 group_hierarchical_stoch 的多 seed 均值。
+1. **先修代码再重跑关键结论**：修复 velocity/ITD target 符号、TRD/CAT 步长解耦、CAT 纯曲率版本。
+2. **KCEC 消融实验**：已跑首版（0.747@ep58 vs SOTA 0.753，−0.6%），需消融 morph/group/prior/slack 确认各先验贡献方向。配置已就绪：`recipes/ldmdet_kcec_ablation_no_{morph,group,prior,slack}.py`。
+3. **KCEC 对齐 SOTA 变量重跑**：原版 `ot_num_iters=50` ≠ SOTA 的 20，`bs=2` 对齐后重跑全量 KCEC ＋ 消融系列。
 4. **Stochastic ε=1.0 和 ε=2.0 实验**：验证理论预测的候选 ε 区间。
 5. **完整消融表**：补齐所有模块的消融实验数据，尤其是 KCEC 的 group/quota/morph/slack 消融。
 
@@ -642,7 +661,9 @@ ______________________________________________________________________
 | 实验名（work_dirs）                             | 配置文件                                          | 核心参数                                   |
 | ----------------------------------------------- | ------------------------------------------------- | ------------------------------------------ |
 | `ldmdet_flowdet_adaln`                          | `ldmdet_flowdet_adaln.py`                         | RF + AdaLN-Zero + Shifted s=3 + Heun       |
-| `ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5`  | `ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5.py` | Sinkhorn Stochastic eps=5 + Euler          |
+| `ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5`  | `ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5.py` | Sinkhorn Stochastic eps=5 + Heun (★0.753) |
+| `reproduce_0751_stochot_eps5_v2`                | `ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5.py` | ★同配置精准复现，TF32关闭，0.753@ep59      |
+| `ldmdet_kcec_pure_sota_eps5`                    | `recipes/ldmdet_kcec_pure_sota.py`                | KCEC on 0.753 base, 0.747@ep58             |
 | `ldmdet_flowdet_adaln_group_hierarchical_stoch` | —                                                 | 群组层次 OT + Stochastic + Heun            |
 | `ldmdet_flowdet_adaln_trd_full`                 | —                                                 | TRD + CAT + LSAS + velocity + Heun         |
 | `ldmdet_flowdet_adaln_reflow_v5`                | —                                                 | Reflow v5, det_loss_scale=0.5, warmup=3850 |
