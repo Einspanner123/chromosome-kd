@@ -105,3 +105,91 @@ class RectifiedFlow:
         x_next = x_t + (dt / 2.0) * (v_t + v_next)
 
         return x_next
+
+
+class RFDPMSolverMultistep:
+    """Rectified Flow 专用 DPM-Solver++ 多步法调度器。
+
+    在 $t$ 空间用历史 $x_0^{pred}$ 做多项式插值，精确积分半线性 ODE。
+    $t=0$ 终点的奇点通过 $\\lim_{x\\to0} x\\ln x = 0$ 自然退化处理。
+
+    参数:
+        num_steps: 推理时间步数 (default 6)
+        solver_order: 多步法阶数 (2 or 3)
+    """
+
+    def __init__(self, num_steps: int = 6, solver_order: int = 2):
+        self.num_steps = num_steps
+        self.solver_order = solver_order
+        self.timesteps: list[float] = [
+            float(t) for t in torch.linspace(1.0, 0.0, num_steps + 1)
+        ]
+        self.reset()
+
+    def reset(self):
+        self.x0_history: list[torch.Tensor] = []
+        self.t_history: list[float] = []
+
+    def step(
+        self,
+        x: torch.Tensor,
+        x0_pred: torch.Tensor,
+        t_n: float,
+        step_idx: int,
+    ) -> torch.Tensor:
+        """单步积分: x(t_n) → x(t_{n+1})。
+
+        Args:
+            x: 当前隐变量 x_t, shape [N, 4]
+            x0_pred: model(x, t_n) 的 x0 预测
+            t_n: 当前时间步
+            step_idx: 当前步索引 (用于查找 t_{n+1})
+
+        Returns:
+            x_{n+1}, shape [N, 4]
+        """
+        import math
+
+        t_next = self.timesteps[step_idx + 1]
+
+        self.x0_history.append(x0_pred)
+        self.t_history.append(t_n)
+        if len(self.x0_history) > self.solver_order:
+            self.x0_history.pop(0)
+            self.t_history.pop(0)
+
+        linear = (t_next / t_n) * x + (1.0 - t_next / t_n) * x0_pred
+
+        if len(self.x0_history) < 2:
+            return linear
+
+        x0_n = self.x0_history[-1]
+        x0_p = self.x0_history[-2]
+        t_p = self.t_history[-2]
+        D1 = (x0_n - x0_p) / (t_n - t_p)
+
+        if t_next > 1e-7:
+            phi1 = t_next * math.log(t_n / t_next) - t_n + t_next
+        else:
+            phi1 = -t_n
+
+        correction = phi1 * D1
+
+        if self.solver_order >= 3 and len(self.x0_history) >= 3:
+            x0_pp = self.x0_history[-3]
+            t_pp = self.t_history[-3]
+            D1_p = (x0_p - x0_pp) / (t_p - t_pp)
+            D2 = (D1 - D1_p) / (t_n - t_pp)
+
+            if t_next > 1e-7:
+                phi2 = (
+                    t_next * (t_n * math.log(t_n / t_next) + t_next - t_n)
+                    - (t_n * t_n - t_next * t_next) / 2.0
+                    + t_n * (t_n - t_next)
+                )
+            else:
+                phi2 = (t_n * t_n) / 2.0
+
+            correction = correction + phi2 * D2
+
+        return linear + correction

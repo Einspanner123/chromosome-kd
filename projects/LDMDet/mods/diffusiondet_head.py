@@ -60,9 +60,11 @@ class DiffusionDetHead(nn.Module):
         ot_kcec: bool = False,  # Karyotype-Constrained Entropic Coupling
         kcec_morph_weight: float = 0.25,  # 形态 (w,h) 匹配代价权重
         kcec_group_weight: float = 0.1,  # 组别先验代价权重
-        kcec_cls_weight: float = 0.0,  # 类别匹配代价权重 (placeholder: cls_cost=0 until class logits available)
+        kcec_cls_weight: float = 0.0,  # 类别匹配代价权重
         kcec_quota_strength: float = 1.0,  # 软倍性/类别配额边际权重强度
         kcec_slack: float = 0.05,  # 边际质量平滑，保留异常核型弹性
+        kcec_conf_threshold: float = 0.5,  # V3: 质量激活的代价阈值 (Cost Gating)
+        kcec_scale_anneal: bool = False,  # V3: 是否启用尺度感知配额 (Scale-Aware Quota)
         kcec_log_interval: int = 100,  # KCEC 日志间隔 (每 N 次调用记录一次)
         # === TRD 参数 ===
         use_trd: bool = False,  # Transport-Refinement Decomposition
@@ -116,6 +118,8 @@ class DiffusionDetHead(nn.Module):
         self.kcec_cls_weight = kcec_cls_weight
         self.kcec_quota_strength = kcec_quota_strength
         self.kcec_slack = kcec_slack
+        self.kcec_conf_threshold = kcec_conf_threshold
+        self.kcec_scale_anneal = kcec_scale_anneal
         self.kcec_log_interval = kcec_log_interval
         self._kcec_call_count = 0
         self.use_trd = use_trd
@@ -308,30 +312,12 @@ class DiffusionDetHead(nn.Module):
         gt_labels: Tensor,
         device: torch.device,
     ) -> Tuple[Tensor, Dict[str, Tensor]]:
-        """Karyotype-Constrained Entropic Coupling (slot-based).
+        """Karyotype-Constrained Entropic Coupling V3 (Scale-Aware & Gated).
 
-        Implements the full KCEC pipeline from §8.6 of the theory framework:
-
-        1. Build karyotype slots: for each class c, create q_c slots
-           representing the expected number of chromosomes of that class.
-           Same-class GTs are exchangeable — they share slot mass.
-
-        2. Compute slot-level cost matrix:
-           C_{i,s} = C^box + kcec_morph_weight * C^morph
-                     + kcec_group_weight * C^group
-                     + kcec_cls_weight * C^cls
-
-        3. Set quota marginals with slack for abnormal karyotypes:
-           b_{c,r} proportional to 1/q_c, smoothed by kcec_slack.
-
-        4. Run Sinkhorn on the slot-level cost matrix.
-
-        5. Map slot assignments back to GT indices, preserving
-           exchangeability within each class.
-
-        Returns:
-            matched_gt_idx: (N,) tensor of GT indices for each proposal.
-            log_stats: dict of monitoring statistics (cost, slot, transport).
+        Evolved KCEC pipeline:
+        1. Direct GT Quota (V2 baseline).
+        2. Scale-Aware Quota (V3): Smaller GTs get softer quota strength to avoid noise injection.
+        3. Confidence Gating (V3): Extra mass is only activated if nearby proposals exist.
         """
         N, K = noise.shape[0], gt_diffusion.shape[0]
         if K == 0:
@@ -347,58 +333,57 @@ class DiffusionDetHead(nn.Module):
         )
         labels = gt_labels.clamp(min=0, max=quotas.numel() - 1)
 
+        # 0. 计算基础代价 (用于后续门控)
+        box_cost = torch.cdist(noise, gt_diffusion, p=2)
+
+        # 1. 计算每个 GT 的边际质量 (Mass)
+        # 相同类别的 GT 共享该类别的总配额
+        gt_mass = torch.zeros(K, device=device, dtype=gt_diffusion.dtype)
         unique_classes = torch.unique(labels)
-
-        class_to_slots = []
-        slot_class_id = []
-        slot_group_id = []
-        slot_representative = []
-        slot_gt_indices = []
-
-        for ci, cls_id in enumerate(unique_classes):
-            cls_id_item = cls_id.item()
+        for cls_id in unique_classes:
             gt_mask = labels == cls_id
-            gt_indices = torch.where(gt_mask)[0]
-            n_observed = gt_indices.shape[0]
-            q_c = int(quotas[cls_id_item].item())
-            n_slots = max(n_observed, q_c)
+            n_observed = gt_mask.sum().float()
+            q_c = quotas[cls_id.item()]
+            gt_mass[gt_mask] = q_c / n_observed
 
-            class_rep = gt_diffusion[gt_indices].mean(dim=0)
-            grp_id = group_ids_all[cls_id_item].item()
+        # V3: Confidence Gating (门控机制)
+        # 如果某个 GT 附近没有任何 Proposal (min_cost > threshold)，则不激活额外配额
+        if self.kcec_conf_threshold > 0:
+            min_cost_per_gt = box_cost.min(dim=0).values
+            # 只有 min_cost 小于阈值的 GT 才能获得 > 1.0 的质量注入
+            gate = (min_cost_per_gt < self.kcec_conf_threshold).float()
+            # 质量修正：质量 = 1.0 + (原始分配质量 - 1.0) * gate
+            gt_mass = 1.0 + (gt_mass - 1.0) * gate
 
-            for r in range(n_slots):
-                class_to_slots.append(ci)
-                slot_class_id.append(cls_id_item)
-                slot_group_id.append(grp_id)
-                slot_representative.append(class_rep)
-                slot_gt_indices.append(gt_indices)
+        # V3: Scale-Aware Quota (尺度感知)
+        # 核心逻辑：大物体 (+3.7% gain) 保持强约束，小物体 (-3.1% loss) 减弱约束
+        strength = self.kcec_quota_strength
+        if self.kcec_scale_anneal:
+            gt_areas = gt_diffusion[:, 2] * gt_diffusion[:, 3]  # w * h
+            mean_area = gt_areas.mean().clamp_min(1e-6)
+            # 相对面积因子：大物体 > 1, 小物体 < 1
+            scale_factor = (gt_areas / mean_area).sqrt()
+            strength = strength * scale_factor
 
-        S = len(slot_representative)
-        if S == 0:
-            return torch.randint(0, max(K, 1), (N,), device=device), {}
+        gt_mass = gt_mass.pow(strength)
+        gt_mass = gt_mass + float(self.kcec_slack)
+        col_mass = gt_mass / gt_mass.sum().clamp_min(1e-10)
+        row_mass = torch.ones(N, device=device) / max(N, 1)
 
-        slot_reps = torch.stack(slot_representative)
-        slot_class_t = torch.tensor(
-            slot_class_id, device=device, dtype=labels.dtype
-        )
-        slot_group_t = torch.tensor(
-            slot_group_id, device=device, dtype=torch.long
-        )
-
-        box_cost = torch.cdist(noise, slot_reps, p=2)
-
+        # 2. 计算代价矩阵 (Direct noise-to-GT)
         noise_wh = noise[:, 2:4]
-        slot_wh = slot_reps[:, 2:4]
-        morph_cost = torch.cdist(noise_wh, slot_wh, p=2)
+        gt_wh = gt_diffusion[:, 2:4]
+        morph_cost = torch.cdist(noise_wh, gt_wh, p=2)
 
-        group_cost = torch.zeros(N, S, device=device)
+        group_cost = torch.zeros(N, K, device=device)
         if self.kcec_group_weight > 0:
             num_groups = int(group_ids_all.max().item()) + 1
+            gt_group_ids = group_ids_all[labels]
             group_morph_reps = []
             for g in range(num_groups):
-                g_mask = slot_group_t == g
+                g_mask = gt_group_ids == g
                 if g_mask.any():
-                    group_morph_reps.append(slot_reps[g_mask, 2:4].mean(0))
+                    group_morph_reps.append(gt_diffusion[g_mask, 2:4].mean(0))
                 else:
                     group_morph_reps.append(
                         torch.zeros(2, device=device, dtype=gt_diffusion.dtype)
@@ -408,9 +393,9 @@ class DiffusionDetHead(nn.Module):
             group_compat = F.softmax(
                 -morph_to_groups / max(self.ot_epsilon, 1e-6), dim=1
             )
-            group_cost = 1.0 - group_compat[:, slot_group_t]
+            group_cost = 1.0 - group_compat[:, gt_group_ids]
 
-        cls_cost = torch.zeros(N, S, device=device)
+        cls_cost = torch.zeros(N, K, device=device)
 
         cost = (
             box_cost
@@ -419,56 +404,21 @@ class DiffusionDetHead(nn.Module):
             + self.kcec_cls_weight * cls_cost
         )
 
-        slot_mass = torch.zeros(S, device=device, dtype=gt_diffusion.dtype)
-        slot_ci_t = torch.tensor(
-            class_to_slots, device=device, dtype=torch.long
-        )
-        for ci_val in range(len(unique_classes)):
-            slot_mask = slot_ci_t == ci_val
-            n_cls_slots = slot_mask.sum().float()
-            cls_id = slot_class_id[slot_mask.nonzero()[0, 0].item()]
-            q_c = quotas[cls_id]
-            slot_mass[slot_mask] = q_c / n_cls_slots
-
-        slot_mass = slot_mass.pow(self.kcec_quota_strength)
-        slot_mass = slot_mass + float(self.kcec_slack)
-        col_mass = slot_mass / slot_mass.sum().clamp_min(1e-10)
-        row_mass = torch.ones(N, device=device) / max(N, 1)
-
+        # 3. Sinkhorn 迭代
         transport = self._sinkhorn_transport(
             cost, row_mass=row_mass, col_mass=col_mass
         )
 
+        # 4. 采样/匹配
         if self.ot_sample:
             row_probs = transport / transport.sum(
                 dim=1, keepdim=True
             ).clamp_min(1e-10)
-            slot_idx = self._ot_multinomial(row_probs)
+            matched_gt_idx = self._ot_multinomial(row_probs)
         else:
-            slot_idx = transport.argmax(dim=1)
+            matched_gt_idx = transport.argmax(dim=1)
 
-        matched_gt_idx = torch.zeros(N, dtype=torch.long, device=device)
-
-        for si in range(S):
-            mask = slot_idx == si
-            if not mask.any():
-                continue
-            proposal_indices = torch.where(mask)[0]
-            gt_indices = slot_gt_indices[si]
-            n_gt = gt_indices.shape[0]
-
-            if n_gt == 1:
-                matched_gt_idx[proposal_indices] = gt_indices[0]
-            else:
-                noise_for_slot = noise[proposal_indices]
-                gt_boxes = gt_diffusion[gt_indices]
-                dists = torch.cdist(noise_for_slot, gt_boxes, p=2)
-                gt_probs = F.softmax(
-                    -dists / max(self.ot_epsilon, 1e-6), dim=1
-                )
-                local_gt_idx = torch.multinomial(gt_probs, 1).squeeze(-1)
-                matched_gt_idx[proposal_indices] = gt_indices[local_gt_idx]
-
+        # 5. 日志监控
         self._kcec_call_count += 1
         log_stats: Dict[str, Tensor] = {}
         if self.kcec_log_interval > 0 and (
@@ -481,7 +431,6 @@ class DiffusionDetHead(nn.Module):
                 col_entropy = (
                     -(transport * (transport + 1e-10).log()).sum(dim=0).mean()
                 )
-                slot_counts = torch.bincount(slot_idx, minlength=S).float()
                 gt_counts = torch.bincount(matched_gt_idx, minlength=K).float()
                 max_transport_per_row = transport.max(dim=1).values
                 max_transport_per_col = transport.max(dim=0).values
@@ -516,17 +465,8 @@ class DiffusionDetHead(nn.Module):
                     'kcec_col_marginal_err': col_marginal_err.detach(),
                     'kcec_transport_max_row': max_transport_per_row.mean().detach(),
                     'kcec_transport_max_col': max_transport_per_col.mean().detach(),
-                    'kcec_num_slots': torch.tensor(float(S), device=device),
                     'kcec_num_classes': torch.tensor(
                         float(len(unique_classes)), device=device
-                    ),
-                    'kcec_slots_per_gt': torch.tensor(
-                        float(S) / max(K, 1), device=device
-                    ),
-                    'kcec_slot_max_count': slot_counts.max().detach(),
-                    'kcec_slot_count_std': slot_counts.std().detach(),
-                    'kcec_slot_empty_frac': (
-                        (slot_counts == 0).float().mean().detach()
                     ),
                     'kcec_gt_max_count': gt_counts.max().detach(),
                     'kcec_gt_count_std': gt_counts.std().detach(),
@@ -1235,8 +1175,16 @@ class DiffusionDetHead(nn.Module):
         ensemble_results = []
         trajectory = []
 
+        dpm_solver = None
+        if self.solver_type == 'dpm_solver_pp':
+            from .rectified_flow import RFDPMSolverMultistep
+
+            dpm_solver = RFDPMSolverMultistep(
+                num_steps=self.sampling_timesteps, solver_order=2
+            )
+
         # 2. 迭代采样
-        for t_curr, t_next in time_pairs:
+        for step_idx, (t_curr, t_next) in enumerate(time_pairs):
             if (
                 self.use_trd
                 and x0_prev is not None
@@ -1271,7 +1219,11 @@ class DiffusionDetHead(nn.Module):
                 if t_next < 0:
                     break
             else:
-                if self.solver_type == 'heun' and t_next > 0:
+                if dpm_solver is not None:
+                    x_raw = dpm_solver.step(
+                        x_raw, x0_raw, t_curr, step_idx
+                    )
+                elif self.solver_type == 'heun' and t_next > 0:
 
                     def model_fn(x_tmp, t_tmp):
                         _, _, x0_tmp, _ = self._forward_at_t(
