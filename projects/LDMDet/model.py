@@ -20,10 +20,14 @@ from .mods.loss import (
     DiffusionDetMatcher,
     FocalLoss,
     FocalLossCost,
+    GCDCost,
     GIoULoss,
     IoUCost,
     L1Loss,
+    MixedRelativeL1Cost,
+    RelativeL1Cost,
 )
+from .mods.bifpn import BiFPN
 from .mods.roi_extractor import SingleRoIExtractor
 from .mods.single_head import SingleDiffusionDetHead
 from .mods.structures import ImageMeta
@@ -50,6 +54,9 @@ MODELS.register_module(name='PurePyTorchGIoULoss', module=GIoULoss)
 MODELS.register_module(name='PurePyTorchFocalLossCost', module=FocalLossCost)
 MODELS.register_module(name='PurePyTorchBBoxL1Cost', module=BBoxL1Cost)
 MODELS.register_module(name='PurePyTorchIoUCost', module=IoUCost)
+MODELS.register_module(name='PurePyTorchRelativeL1Cost', module=RelativeL1Cost)
+MODELS.register_module(name='PurePyTorchGCDCost', module=GCDCost)
+MODELS.register_module(name='PurePyTorchMixedRelativeL1Cost', module=MixedRelativeL1Cost)
 
 
 @MODELS.register_module()
@@ -228,6 +235,9 @@ class LDMDet(BaseDetector):
                         'FocalLossCost': 'PurePyTorchFocalLossCost',
                         'BBoxL1Cost': 'PurePyTorchBBoxL1Cost',
                         'IoUCost': 'PurePyTorchIoUCost',
+                        'RelativeL1Cost': 'PurePyTorchRelativeL1Cost',
+                        'GCDCost': 'PurePyTorchGCDCost',
+                        'MixedRelativeL1Cost': 'PurePyTorchMixedRelativeL1Cost',
                     }
                     if 'type' in cost_cfg:
                         cost_cfg['type'] = type_map.get(
