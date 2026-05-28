@@ -169,6 +169,105 @@ class BBoxL1Cost:
         return torch.cdist(pred_bboxes, gt_bboxes, p=1) * self.weight
 
 
+class RelativeL1Cost:
+    def __init__(self, weight=5.0, eps=1e-2):
+        self.weight = weight
+        self.eps = eps
+
+    def __call__(
+        self,
+        pred_logits: Tensor,
+        pred_bboxes: Tensor,
+        gt_labels: Tensor,
+        gt_bboxes: Tensor,
+    ) -> Tensor:
+        """
+        pred_bboxes: [N, 4] (normalized xyxy)
+        gt_bboxes: [M, 4] (normalized xyxy)
+        Returns: [N, M] cost matrix with relative L1 distance
+        """
+        pred_cxcywh = bbox_xyxy_to_cxcywh(pred_bboxes)
+        gt_cxcywh = bbox_xyxy_to_cxcywh(gt_bboxes)
+        gt_w = gt_cxcywh[:, 2].clamp(min=self.eps)
+        gt_h = gt_cxcywh[:, 3].clamp(min=self.eps)
+        scale = torch.stack([gt_w, gt_h, gt_w, gt_h], dim=-1)
+        diff = pred_cxcywh.unsqueeze(1) - gt_cxcywh.unsqueeze(0)
+        cost = (diff.abs() / scale.unsqueeze(0)).sum(-1)
+        return cost * self.weight
+
+
+class GCDCost:
+    def __init__(self, weight=5.0, eps=1e-2):
+        self.weight = weight
+        self.eps = eps
+
+    def __call__(
+        self,
+        pred_logits: Tensor,
+        pred_bboxes: Tensor,
+        gt_labels: Tensor,
+        gt_bboxes: Tensor,
+    ) -> Tensor:
+        """
+        GCD (Gaussian Combined Distance) matching cost.
+        pred_bboxes: [N, 4] (normalized xyxy)
+        gt_bboxes: [M, 4] (normalized xyxy)
+        Returns: [N, M] cost matrix
+        """
+        pred_cxcywh = bbox_xyxy_to_cxcywh(pred_bboxes)
+        gt_cxcywh = bbox_xyxy_to_cxcywh(gt_bboxes)
+        pred_w = pred_cxcywh[:, 2].clamp(min=self.eps)
+        pred_h = pred_cxcywh[:, 3].clamp(min=self.eps)
+        gt_w = gt_cxcywh[:, 2].clamp(min=self.eps)
+        gt_h = gt_cxcywh[:, 3].clamp(min=self.eps)
+        delta_cx = pred_cxcywh[:, 0].unsqueeze(1) - gt_cxcywh[:, 0].unsqueeze(0)
+        delta_cy = pred_cxcywh[:, 1].unsqueeze(1) - gt_cxcywh[:, 1].unsqueeze(0)
+        delta_w = pred_cxcywh[:, 2].unsqueeze(1) - gt_cxcywh[:, 2].unsqueeze(0)
+        delta_h = pred_cxcywh[:, 3].unsqueeze(1) - gt_cxcywh[:, 3].unsqueeze(0)
+        pred_w2 = pred_w.unsqueeze(1) ** 2
+        pred_h2 = pred_h.unsqueeze(1) ** 2
+        gt_w2 = gt_w.unsqueeze(0) ** 2
+        gt_h2 = gt_h.unsqueeze(0) ** 2
+        cost_cx = 0.5 * delta_cx**2 * (1.0 / pred_w2 + 1.0 / gt_w2)
+        cost_cy = 0.5 * delta_cy**2 * (1.0 / pred_h2 + 1.0 / gt_h2)
+        cost_w = 0.5 * delta_w**2 * (1.0 / (4 * pred_w2) + 1.0 / (4 * gt_w2))
+        cost_h = 0.5 * delta_h**2 * (1.0 / (4 * pred_h2) + 1.0 / (4 * gt_h2))
+        cost = cost_cx + cost_cy + cost_w + cost_h
+        return cost * self.weight
+
+
+class MixedRelativeL1Cost:
+    def __init__(self, weight=5.0, eps=1e-2, mix_lambda=0.15):
+        self.weight = weight
+        self.eps = eps
+        self.mix_lambda = mix_lambda
+
+    def __call__(
+        self,
+        pred_logits: Tensor,
+        pred_bboxes: Tensor,
+        gt_labels: Tensor,
+        gt_bboxes: Tensor,
+    ) -> Tensor:
+        """
+        Mixed relative L1 cost: λ·|Δ|/s + (1-λ)·|Δ|
+        pred_bboxes: [N, 4] (normalized xyxy)
+        gt_bboxes: [M, 4] (normalized xyxy)
+        Returns: [N, M] cost matrix
+        """
+        pred_cxcywh = bbox_xyxy_to_cxcywh(pred_bboxes)
+        gt_cxcywh = bbox_xyxy_to_cxcywh(gt_bboxes)
+        gt_w = gt_cxcywh[:, 2].clamp(min=self.eps)
+        gt_h = gt_cxcywh[:, 3].clamp(min=self.eps)
+        scale = torch.stack([gt_w, gt_h, gt_w, gt_h], dim=-1)
+        diff = pred_cxcywh.unsqueeze(1) - gt_cxcywh.unsqueeze(0)
+        abs_diff = diff.abs()
+        cost_rel = (abs_diff / scale.unsqueeze(0)).sum(-1)
+        cost_abs = abs_diff.sum(-1)
+        cost = self.mix_lambda * cost_rel + (1 - self.mix_lambda) * cost_abs
+        return cost * self.weight
+
+
 class IoUCost:
     def __init__(self, iou_mode='giou', weight=2.0):
         self.iou_mode = iou_mode
@@ -371,6 +470,9 @@ class DiffusionDetCriterion(nn.Module):
         scale_aware_max_weight: float = 3.0,
         scale_aware_alpha: float = 0.15,
         scale_aware_giou: bool = False,
+        bbox_loss_mode: str = 'l1',
+        bbox_loss_eps: float = 1e-2,
+        mix_lambda: float = 0.15,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -386,6 +488,9 @@ class DiffusionDetCriterion(nn.Module):
         self.scale_aware_max_weight = scale_aware_max_weight
         self.scale_aware_alpha = scale_aware_alpha
         self.scale_aware_giou = scale_aware_giou
+        self.bbox_loss_mode = bbox_loss_mode
+        self.bbox_loss_eps = bbox_loss_eps
+        self.mix_lambda = mix_lambda
 
     def forward(
         self, outputs: ModelOutput, targets: List[InstanceData]
@@ -508,6 +613,47 @@ class DiffusionDetCriterion(nn.Module):
             per_elem_l1 = F.l1_loss(src_cxcywh, tgt_cxcywh, reduction='none')
             weighted_sum = (per_elem_l1 * scale_w.unsqueeze(1)).sum()
             loss_bbox = self.loss_bbox.loss_weight * weighted_sum / (4.0 * num_pos * num_pos)
+            loss_giou = self.loss_giou(
+                src_boxes_pos, tgt_boxes_pos
+            ).sum() / num_pos
+        elif self.bbox_loss_mode == 'relative_l1':
+            tgt_w = tgt_cxcywh[:, 2].clamp(min=self.bbox_loss_eps)
+            tgt_h = tgt_cxcywh[:, 3].clamp(min=self.bbox_loss_eps)
+            scale = torch.stack([tgt_w, tgt_h, tgt_w, tgt_h], dim=-1)
+            per_elem = F.l1_loss(src_cxcywh, tgt_cxcywh, reduction='none')
+            loss_bbox = self.loss_bbox.loss_weight * (per_elem / scale).sum() / num_pos
+            loss_giou = self.loss_giou(
+                src_boxes_pos, tgt_boxes_pos
+            ).sum() / num_pos
+        elif self.bbox_loss_mode == 'gcd':
+            tgt_w = tgt_cxcywh[:, 2].clamp(min=self.bbox_loss_eps)
+            tgt_h = tgt_cxcywh[:, 3].clamp(min=self.bbox_loss_eps)
+            src_w = src_cxcywh[:, 2].clamp(min=self.bbox_loss_eps)
+            src_h = src_cxcywh[:, 3].clamp(min=self.bbox_loss_eps)
+            delta = src_cxcywh - tgt_cxcywh
+            tgt_w2 = tgt_w ** 2
+            tgt_h2 = tgt_h ** 2
+            src_w2 = src_w ** 2
+            src_h2 = src_h ** 2
+            gcd_cx = 0.5 * delta[:, 0] ** 2 * (1.0 / src_w2 + 1.0 / tgt_w2)
+            gcd_cy = 0.5 * delta[:, 1] ** 2 * (1.0 / src_h2 + 1.0 / tgt_h2)
+            gcd_w = 0.5 * delta[:, 2] ** 2 * (1.0 / (4 * src_w2) + 1.0 / (4 * tgt_w2))
+            gcd_h = 0.5 * delta[:, 3] ** 2 * (1.0 / (4 * src_h2) + 1.0 / (4 * tgt_h2))
+            loss_bbox = self.loss_bbox.loss_weight * (gcd_cx + gcd_cy + gcd_w + gcd_h).sum() / num_pos
+            loss_giou = self.loss_giou(
+                src_boxes_pos, tgt_boxes_pos
+            ).sum() / num_pos
+        elif self.bbox_loss_mode == 'mixed_relative_l1':
+            tgt_w = tgt_cxcywh[:, 2].clamp(min=self.bbox_loss_eps)
+            tgt_h = tgt_cxcywh[:, 3].clamp(min=self.bbox_loss_eps)
+            scale = torch.stack([tgt_w, tgt_h, tgt_w, tgt_h], dim=-1)
+            per_elem = F.l1_loss(src_cxcywh, tgt_cxcywh, reduction='none')
+            loss_rel = (per_elem / scale).sum()
+            loss_abs = per_elem.sum()
+            loss_bbox = self.loss_bbox.loss_weight * (
+                self.mix_lambda * loss_rel
+                + (1 - self.mix_lambda) * loss_abs
+            ) / num_pos
             loss_giou = self.loss_giou(
                 src_boxes_pos, tgt_boxes_pos
             ).sum() / num_pos
