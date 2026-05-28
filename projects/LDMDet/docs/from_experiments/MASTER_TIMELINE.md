@@ -668,7 +668,14 @@ ______________________________________________________________________
 | `ldmdet_flowdet_adaln_trd_full`                 | —                                                 | TRD + CAT + LSAS + velocity + Heun         |
 | `ldmdet_flowdet_adaln_reflow_v5`                | —                                                 | Reflow v5, det_loss_scale=0.5, warmup=3850 |
 | `ldmdet_flowdet_adaln_reflow_itd`               | `ldmdet_flowdet_adaln_reflow_itd.py`              | ITD, num_points=4                          |
+| `ldmdet_kcec_ablation_no_prior`                 | `recipes/ldmdet_kcec_ablation_no_prior.py`         | KCEC no bio priors, 0.744                 |
+| `ldmdet_kcec_redundant_slots_m2`                | `recipes/ldmdet_kcec_redundant_slots.py`           | KCEC 92 slots, 0.744                      |
+| `ldmdet_kcec_v2_direct_quota`                   | `recipes/ldmdet_kcec_v2_direct_quota.py`           | KCEC V2 direct GT, 0.732                  |
+| `ldmdet_kcec_v3_scale_aware_gated`              | `recipes/ldmdet_kcec_v3_scale_aware.py`            | KCEC V3 scale-aware, ~0.71                |
+| `ldmdet_dpm_solver_pp_o2_s6`                    | `recipes/ldmdet_dpm_solver_pp.py`                  | DPM-2 6-step training, 0.740              |
+| `ldmdet_dpm_solver_pp_o2_s8`                    | `recipes/ldmdet_dpm_solver_pp_s8.py`               | DPM-2 8-step training, running            |
+| `_compare_solver`                               | `tools/compare_solver.py`                          | DPM vs Heun offline eval, 0.755 DPM-2 s8  |
 
 ______________________________________________________________________
 
-*本文档整合了 work_dirs 中所有实验分支的 markdown 文档、实验日志和理论分析。主要来源：THEORY_FRAMEWORK.md, OT_DIVERSITY_COLLAPSE_PROOF.md, experiment_summary.md, SOTA_ANALYSIS.md, THEORY_WHY_FAILED.md, IMPROVEMENT_PLAN.md, LDMDet_Architecture.md, WEEK1_REPRO_PROTOCOL.md, Research_Plan.md, PAPER_FRAMEWORK.md, 以及 research_qna 中的 11 篇中文研究方向文档。2026-05-13 经过两轮交叉校验，修正了 13 处数值/结论错误，补充了 15+ 个遗漏实验，所有 mAP 数值均经 work_dirs 日志逐一核查。*
+*本文档整合了 work_dirs 中所有实验分支的 markdown 文档、实验日志和理论分析。主要来源：THEORY_FRAMEWORK.md, OT_DIVERSITY_COLLAPSE_PROOF.md, experiment_summary.md, SOTA_ANALYSIS.md, THEORY_WHY_FAILED.md, IMPROVEMENT_PLAN.md, LDMDet_Architecture.md, WEEK1_REPRO_PROTOCOL.md, Research_Plan.md, PAPER_FRAMEWORK.md, 以及 research_qna 中的 11 篇中文研究方向文档。2026-05-13 经过两轮交叉校验，修正了 13 处数值/结论错误，补充了 15+ 个遗漏实验，所有 mAP 数值均经 work_dirs 日志逐一核查。2026-05-28 更新 Phase 8 (KCEC) 和 Phase 9 (DPM-Solver++) 实验记录。*

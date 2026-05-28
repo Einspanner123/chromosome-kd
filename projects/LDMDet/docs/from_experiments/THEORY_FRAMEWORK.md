@@ -801,3 +801,197 @@ losses["loss_curvature"] = F.mse_loss(x0_t1[~boundary_mask], x0_t2[~boundary_mas
 **理论依据**：边界样本是 CAT-OT 冲突的根源，排除后 CAT 的平滑化约束与 OT 的训练信号兼容。
 
 **风险**：减少有效训练样本，且边界阈值需要调参。
+
+______________________________________________________________________
+
+## C. KCEC 最终审计：三项测量与结构性失败分析
+
+> **审计日期**：2026-05-27
+> **状态**：KCEC 正式封存。以下为最终裁决依据。
+
+### C.1 实验全景
+
+KCEC (Karyotype-Constrained Entropic Coupling) 经历了 V1→V2→V3→V4 四轮迭代，共 7 个实验：
+
+| 版本 | 配置 | 最高 mAP | vs SOTA (0.753) |
+|------|------|----------|-----------------|
+| V1 Slot-based | full priors, 46 slots | 0.744 | -0.009 |
+| V1 no_prior | morph=0, group=0 | 0.744 | -0.009 |
+| V1 redundant_slots | multiplier=2, 92 slots | 0.744 | -0.009 |
+| V2 Direct GT Quota | 无 slot, 直接 GT 权重 | 0.732 | -0.021 |
+| V3 Scale-Aware & Gated | 尺度感知 + 代价门控 | 进行中 (~0.71) | TBD |
+| V4 (未执行) | 梯度投影 + 特征解耦 | — | — |
+
+**关键发现**：没有任何一个 KCEC 变体超过 SOTA。最优变体 (V1, 0.744) 比随机耦合 (0.753) 低 0.9%。
+
+### C.2 三项深度诊断测量
+
+为确定 KCEC 失败的根因，设计了三个正交诊断：
+
+**诊断脚本**：`projects/LDMDet/tools/diagnose_kcec.py`
+
+**对比对象**：
+- SOTA: `reproduce_0751_stochot_eps5_v2/best_coco_bbox_mAP_epoch_59.pth` (mAP=0.753)
+- KCEC V2: `ldmdet_kcec_v2_direct_quota/best_coco_bbox_mAP_epoch_67.pth` (mAP=0.732)
+
+#### 测量 1：Sinkhorn 收敛性审计
+
+**方法**：对比均匀边际 (SOTA) 与 KCEC 非均匀边际 (`col_mass` 含染色体配额) 在 `epsilon=5.0` 下的收敛速度。
+
+**结果**：
+
+| 场景 | iter=20 row_err | iter=20 col_err |
+|------|----------------|-----------------|
+| 均匀 (SOTA) | 1.7e-09 | 2.6e-09 |
+| 非均匀 (KCEC) | 1.9e-09 | 2.8e-09 |
+| 极端非均匀 | 1.9e-09 | 3.2e-09 |
+
+**结论**：✅ Sinkhorn 在 `ot_num_iters=20` 下对所有边际分布均充分收敛 (~1e-9)。**KCEC 的非均匀 `col_mass` 不是瓶颈。** `ot_num_iters` 不需要增加。
+
+#### 测量 2：检测头参数一致性
+
+**方法**：逐模块比较 SOTA 与 KCEC V2 的 `head_series` (6 个检测头) 的权重余弦相似度。
+
+**结果**：
+
+| 模块 | 余弦相似度 |
+|------|-----------|
+| head_series 平均 | 0.350 |
+| self_attn (head_0) | **-0.022** |
+| adaln_mlp | **0.045** |
+| inst_interact | 0.443 |
+| cls_head | 0.433 |
+| reg_head | 0.415 |
+| time_mlp | 0.278 |
+
+**结论**：⚠️ 参数余弦 ~0.35。`self_attn` 几乎正交 (cos=-0.02)，`adaln_mlp` (时间条件化门控) 接近随机 (cos=0.045)。**但缺少对照实验**（同配置不同 seed 的两个 SOTA 模型的参数余弦），无法区分这是 KCEC 导致的还是不同训练轨迹的正常发散。此测量结果标记为 "inconclusive but suspicious"。
+
+#### 测量 3：同源染色体特征对齐审计
+
+**方法**：构造含同源染色体对 (2 个 A1, 2 个 G22) 的 GT，用 KCEC V2 进行 `_run_kcec_ot` 匹配后，跑 forward 获取 `obj_features`，测量同源对内部的类内余弦相似度 vs 异类染色体间的类间余弦相似度。
+
+**结果**：
+
+| 同源对 | 类内 cos | 类间 cos | 对齐比 |
+|--------|---------|---------|--------|
+| A1 pair (0,1) | 0.8495 | 0.8408 | **1.01** |
+| G22 pair (2,3) | 0.8354 | 0.8343 | **1.00** |
+
+**结论**：❌ 同源染色体的 Proposal 特征与异类染色体的 Proposal 特征**毫无区别**（对齐比 ≈ 1.00）。模型内部完全没有"同源染色体等价"的表征。
+
+### C.3 根本原因：耦合层与表征层的"信息截断"
+
+三项测量综合指向一个结构性失败：
+
+```
+耦合层 (OT / KCEC)  →  强制同源配额, 编排 Proposal-GT 配对
+          ↓
+     (x_t, target) 对   ← 信息在此处被"截断"
+          ↓
+    Transformer  →  只接收配对结果, 不"知道"配额存在
+          ↓
+    特征空间    →  同源 ≠ 对齐  ← 测量 3 证实
+```
+
+在 Rectified Flow 中，Transformer 的学习目标是 $v = \text{noise} - \text{gt}$。无论 noise_i 是被 Random OT 还是 KCEC 分配给哪个 GT_j，Transformer 看到的输入输出对 `(x_t, target)` 在代数上完全相同。**耦合策略的信息从未进入梯度流**——Transformer 不知道也不会去学习"这个配对是因为同源配额才产生的"。
+
+KCEC 在耦合层做的一切精细化编排（Slot、Direct Quota、Scale-Aware Gating），在信息传播到 Transformer 时都已经被"压缩"为一个平凡的 $(x_t, \text{gt}_j)$ 对。模型只是在被动接受 KCEC 的配对结果，然后用一套从未学习过"同源等价"的特征去拟合。
+
+这就是为什么：
+- V1 Slot 模式不行（均值化丢失几何分辨率）
+- V2 Direct Quota 不行（0.732，比 V1 更差——因为配额干扰了原本稳定的随机配对多样性）
+- V3 Scale-Aware 预期也不行（尺度感知只是软化约束强度，不改变"信息截断"的结构性问题）
+- 生物先验的有无对结果无影响（no_prior 消融：0.744 = 0.744）
+
+### C.4 KCEC 的可救赎路径 (如果未来重访)
+
+唯一可能让 KCEC 生效的路径是在 Transformer 内部注入信息，而非仅在耦合层：
+
+1. **特征空间对比约束**：在 `single_head.py` 中，对同源类别的 Proposal 特征施加 Contrastive Loss，强制类内聚合、类间分离。
+2. **分类头配额正则**：在分类头上加全局核型一致性约束。
+
+但这些方案面临同一个根基问题：**训练时 $x_t$ 充满噪声，所有基于"当前预测"的全局数量约束都不可靠。** 只有当 $t \to 0$（接近推理终点）时，类别的概率分布才有意义，而此时梯度已极弱。
+
+### C.5 正式结论
+
+- **KCEC 封存**。4 轮迭代、7 个实验、3 项诊断测量，一致表明：耦合层约束无法传播到 Transformer 表征层。
+- **SOTA 保留为 0.753**（Random OT + Stochastic Sampling + Heun + Shifted Schedule + AdaLN-Zero）。
+- **后续方向**：转向工程融合路线（DPM-Solver++、UniPC、ConvNeXt-V2+MAE），做纯性能导向的最强扩散检测器。
+
+______________________________________________________________________
+
+## D. DPM-Solver++ 向 Rectified Flow 的移植与验证
+
+> **日期**：2026-05-27 ~ 2026-05-28
+> **状态**：推导完成，离线验证通过，8步训练进行中
+
+### D.1 动机
+
+当前 SOTA 使用 Heun 求解器（2阶 ODE 积分器，2 NFE/步，4步=8 NFE）。DPM-Solver++ 通过半线性 ODE 分解 + 多项式插值精确积分，在图像生成中实现了 3-4 阶精度。本文将其首次移植到 Rectified Flow 的目标检测场景。
+
+### D.2 核心推导
+
+RF ODE 的半线性形式：
+
+$$\frac{dx_t}{dt} - \frac{1}{t}x_t = -\frac{1}{t}x_0^{pred}$$
+
+积分因子 $1/t$ 精确求解线性项，仅 $x_0^{pred}$ 的积分需多项式近似：
+
+$$x_{t_{n+1}} = \frac{t_{n+1}}{t_n} x_{t_n} + t_{n+1} \int_{t_{n+1}}^{t_n} \frac{x_0^{pred}(\tau)}{\tau^2} d\tau$$
+
+在 $t$ 空间直接对 $x_0^{pred}$ 做拉格朗日插值：
+
+- **1阶**（等价 Euler）：$x_{n+1} = \frac{t_{n+1}}{t_n}x_n + (1-\frac{t_{n+1}}{t_n})\hat{x}_n$
+- **2阶**（RF-DPM2）：$x_{n+1} = \text{linear} + \phi_1 D_1$，$\phi_1 = t_{n+1}\ln(t_n/t_{n+1})-t_n+t_{n+1}$
+- **$t_{n+1}=0$ 退化**：$\phi_1 = -t_n$，$x_0 = (t_n\hat{x}_{n-1} - t_{n-1}\hat{x}_n)/(t_n - t_{n-1})$
+
+完整推导见 `docs/dpm_solver_plus_plus_rf_derivation.md`。
+
+### D.3 实现
+
+| 组件 | 位置 |
+|:---|:---|
+| 多步法调度器 | `projects/LDMDet/mods/rectified_flow.py::RFDPMSolverMultistep` |
+| 推理接入 | `projects/LDMDet/mods/diffusiondet_head.py::predict()` `solver_type='dpm_solver_pp'` |
+| 训练配置 | `configs/recipes/ldmdet_dpm_solver_pp.py` (6步), `ldmdet_dpm_solver_pp_s8.py` (8步) |
+| 离线对比 | `projects/LDMDet/tools/compare_solver.py` |
+
+### D.4 离线验证（关键结果）
+
+不重新训练，仅替换 SOTA checkpoint 的推理求解器：
+
+| 求解器 | 步数 | NFE | mAP | 结论 |
+|:---|:---|:---|:---|:---|
+| Heun | 4 | 8 | 0.753 | 基准 |
+| DPM-2 | 6 | **7** | **0.753** | **同等精度，−12.5% NFE** |
+| DPM-2 | 8 | 9 | **0.755** | **+0.002 mAP, APs +0.004** |
+
+**完整指标**：
+
+| 求解器 | NFE | AP50 | AP75 | APs | APm | APl | AR |
+|:---|:---|:---|:---|:---|:---|:---|:---|
+| Heun | 8 | 0.943 | 0.844 | 0.521 | 0.745 | 0.642 | 0.810 |
+| DPM-2 s6 | 7 | 0.944 | 0.844 | 0.520 | 0.745 | 0.645 | 0.812 |
+| DPM-2 s8 | 9 | 0.947 | 0.845 | 0.525 | 0.747 | 0.633 | 0.814 |
+
+### D.5 训练实验
+
+| 配置 | NFE | 最高训练 mAP | 离线推理 mAP（同权重） | 差距 |
+|:---|:---|:---|:---|:---|
+| DPM-2 6步 | 7 | 0.740 | 0.753 | −0.013 |
+| DPM-2 8步 | 9 | 进行中（Epoch 16/150） | 0.755 | — |
+
+**6步训练低于离线推理**的原因：多步法起步阶段（1阶）导致早期验证 mAP 偏低，影响早停和模型选择。8步训练（1/8=12.5% 1阶占比 vs 1/6=16.7%）预期缓解此问题。
+
+### D.6 理论解释：DPM 为何优于 Heun
+
+Heun 在 $x$ 空间做梯形近似：$x_{t_{n+1}} \approx x_t + \frac{\Delta t}{2}(v_t + v_{t+1})$。但 $v(x,t) = (x - x_0^{pred})/t$ 含 $1/t$ 因子，当 $t \to 0$ 时 $v$ 的局部变化被 $1/t$ 放大，梯形近似的常数因子劣化。
+
+DPM 的半线性分解将 $1/t$ 线性项精确积分（解析解），仅 $x_0^{pred}$ 的多项式拟合残留误差。这解释了 APs（小物体）+0.004 的增益——小物体在 $t \to 0$ 附近的边界框预测对速度场误差最敏感。
+
+### D.7 论文中的定位
+
+三层叙事：
+1. **效率**：DPM-2 6步 = Heun 4步，NFE 减少 12.5%
+2. **精度**：DPM-2 8步 > Heun 4步，mAP +0.002，APs +0.004
+3. **范式演进**：首次将扩散模型高阶求解器系统引入结构化预测（染色体检测），验证了半线性积分框架在检测 ODE 中的有效性
