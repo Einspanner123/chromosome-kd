@@ -74,88 +74,118 @@ $$\min_\pi C_{trans}(\pi)+\lambda B_{match}(\pi) \quad \text{s.t.}\quad H(Y\mid 
 
 ______________________________________________________________________
 
-## 3. 染色体专属突破点：Karyotype-Constrained Entropic Coupling (KCEC)
+## 3. 破局之道：Detection-Aware Entropic Coupling (DAEC) 联合对比表征对齐
 
-DAEC 是通用检测突破点；若目标是围绕**染色体检测**形成更有辨识度的顶会级创新，推荐进一步做 **Karyotype-Constrained Entropic Coupling (KCEC)**。
+> **更新说明 (2026-05-28)**: 经过 `diagnose_kcec.py` 测量 3 证实，原 KCEC 方案存在致命的**“信息截断” (Information Cutoff)** 漏洞：耦合层的先验分配在传导给 Transformer 时被降维成了平凡的 `(x_t, target)` 配对，导致表征层完全学不到同源染色体的对齐。因此，我们必须摒弃单纯在 OT Cost 矩阵里做文章的思路，将 DAEC 升级为一个**“耦合 + 表征联合对齐”**的闭环架构。
 
-### 3.1 核心观察
+### 3.1 核心思想：打破信息截断
 
-染色体检测不是普通 COCO 式独立目标检测。每张核型图像天然满足近似固定的集合结构：
+要把检测中的全局拓扑和任务约束（如类别、组别、不确定性）真正注入网络，我们必须兵分两路：
 
-- 常染色体类别通常满足二倍体配额：$q_c=2,\ c\in\{1,\dots,22\}$。
-- 性染色体满足有限模式：XX、XY 或异常核型的少量偏离。
-- 染色体类别存在 A-G 组、尺寸、着丝粒位置和臂比等连续形态先验。
-- 同源染色体是 exchangeable 的：两个 1 号染色体之间交换不应被视为不同结构。
+1. **耦合端 (DAEC Coupling)**：将网络的预测结果（如类别分类结果）反哺到下一次的 OT 耦合计算中，让随机性集中在“语义正确”的候选集内。
+2. **表征端 (Contrastive Alignment)**：在网络的特征空间 (`obj_features`) 上，利用 OT 耦合给出的匹配关系 `matched_gt_idx`，施加**监督对比损失 (Supervised Contrastive Loss)**，强制同源/同类的目标特征聚合，异类分离。
 
-现有 group-hierarchical stochastic 只使用了粗粒度 A-G 组先验，但没有把**核型配额、同源交换对称性、异常核型弹性**写入耦合目标。因此它只能带来约 +0.001 的单次提升，且 seed2 降到 0.747，说明先验利用还不够稳。
+### 3.2 DAEC 的代码与结构演进方案
 
-### 3.2 方法定义
+#### A. 注入全局对齐约束 (Contrastive / Consistency Loss)
 
-把训练耦合从 proposal-to-GT matching 提升为 proposal-to-karyotype-slot matching。设 $s=(c,r)$ 表示染色体类别 $c$ 的第 $r$ 个槽位，$r\in\{1,\dots,q_c\}$。构造 proposal $i$ 到槽位 $s$ 的代价：
+我们不再指望 Transformer 能从单纯的 `(x_t, target)` 对中“顿悟”同源等价性。在 `diffusiondet_head.py` 的 loss 计算中显式加入对比损失：
 
-$$C_{i,s}=\alpha C^{box}_{i,s}+\beta C^{cls}_{i,c}+\gamma C^{morph}_{i,c}+\eta C^{group}_{i,c}+\rho C^{count}_{c}$$
+```python
+# 提取匹配到的 GT labels
+matched_labels = gt_labels[matched_gt_idx]
 
-其中 $C^{morph}$ 来自长度、宽度、面积、臂比或可学习 morphology embedding；$C^{count}$ 是当前图像的核型配额/异常模式先验。求解带配额的熵正则耦合：
+# 构造 Supervised Contrastive Loss
+def supervised_contrastive_loss(features, labels, temperature=0.1):
+    features = F.normalize(features, dim=1)
+    similarity_matrix = torch.matmul(features, features.T) / temperature
+    
+    # 相同类别掩码 (过滤掉自己与自己的匹配)
+    mask = torch.eq(labels.unsqueeze(1), labels.unsqueeze(0)).float()
+    mask.fill_diagonal_(0)
+    
+    exp_sim = torch.exp(similarity_matrix)
+    log_prob = similarity_matrix - torch.log(exp_sim.sum(dim=1, keepdim=True))
+    
+    mean_log_prob_pos = (mask * log_prob).sum(dim=1) / (mask.sum(dim=1) + 1e-8)
+    return -mean_log_prob_pos.mean()
 
-$$\pi^*=\arg\min_{\pi\ge0}\langle C,\pi\rangle-\tau H(\pi)$$
+losses['loss_contrastive'] = supervised_contrastive_loss(obj_features, matched_labels) * weight
+```
+*这一步直接回应了 `diagnose_kcec.py` 测量 3 中“同源特征未对齐”的痛点，确保耦合层的先验信息能实质性地改变特征空间的流形结构。*
 
-$$\sum_s \pi_{i,s}=a_i,\quad \sum_i \pi_{i,(c,r)}=b_{c,r},\quad b_{c,r}\propto 1/q_c$$
+#### B. 从 KCEC 到 DAEC：引入检测感知代价
 
-为了处理异常核型，不应把配额写死为硬约束，而应引入 slack slots：
+KCEC 的形态、组别代价过于绑定染色体。DAEC 将其泛化：使用网络输出的类别预测来构建 $C^{cls}_{ij}$，指导 OT 分配。
 
-$$\sum_i \pi_{i,(c,r)} + u_{c,r}=b_{c,r},\quad \lambda_{slack}\sum_{c,r}|u_{c,r}|$$
+```python
+# 在 DAEC 耦合阶段
+cls_cost = F.cross_entropy(cls_preds, gt_labels_one_hot)
+box_cost = torch.cdist(noise, gt_diffusion, p=2)
 
-这样正常样本利用强核型先验，异常样本仍可通过 slack 解释，不会被错误强制成 46 条标准核型。
+cost = box_cost + lambda_cls * cls_cost
 
-### 3.3 理论亮点与待解决的问题
+# 求解带 slack 的 Sinkhorn
+transport = self._sinkhorn_transport(cost, row_mass, col_mass_with_slack)
+```
 
-**亮点**：KCEC 的创新不只是"加先验"，而是把染色体检测的**耦合设计**建模为商空间结构指导的集合匹配：
+#### C. 主攻“自校正” (Self-Correction) 的差异化
 
-$$\mathcal{Y}_{karyo}=\left(\prod_c \{b_{c,1},\dots,b_{c,q_c}\}/S_{q_c}\right)\times \mathcal{A}$$
+证明 3~4 步的 DAEC 能在极度拥挤场景（如染色体交叉、COCO crowd）下超越 1 步的 DETR/YOLO：
+- 1 步回归（如 DETR）在面对高度遮挡时往往输出一个居中的错误融合框。
+- DAEC 通过多步 ODE 迭代，利用特征的排斥力（Contrastive Loss）和软分配（Stochastic Coupling），能够逐渐将重叠的目标剥离。这构成了扩散模型在检测任务中真正的、无可替代的价值。
 
-其中 $S_{q_c}$ 表示同源染色体交换群，$\mathcal{A}$ 表示异常核型 slack 空间。商空间结构指导耦合设计（等价 GT 共享相同代价和配额），使模型在训练时看到的是等价类级别的监督，而不是任意编号的 GT 实例。这能同时解释三个现象：
+### 3.3 顶会级创新表述
 
-1. hard OT 过早选择单个 GT 实例，破坏同源 exchangeability；
-2. random coupling 保留多样性但没有利用核型配额；
-3. group-hierarchical stochastic 有效但不稳定，因为它只用了组级先验，没有用类别配额和同源对称性。
-
-**⚠️ 待解决的理论问题**：
-
-1. **商空间上的直线路径未定义**：标准 RF 的直线路径 $x_t = (1-t)x_0 + tx_1$ 在商空间中没有良定义——等价类的线性组合不是等价类。KCEC 的流匹配仍需在原始框空间中执行，商空间结构只体现在耦合目标（代价矩阵和配额约束）中，而非 ODE 路径本身。论文表述应避免暗示"在商空间上做 RF"，而应说"商空间结构指导耦合设计"。
-
-2. **置换不变性不天然满足**：同源交换对称性要求模型对置换不变，但当前架构（Transformer + 逐框预测）不天然满足此性质。KCEC 通过耦合层面的对称性（等价 GT 共享相同代价和配额）间接实现，而非架构层面的不变性。若要更强的置换不变性保证，需要修改架构（如 Set Transformer、DeepSets）或在损失函数中加入置换不变正则化。
-
-3. **配额先验的弹性边界**：slack slots 的 $\lambda_{slack}$ 控制先验强度，但最优值依赖异常核型的比例和类型。若 $\lambda_{slack}$ 过大，配额约束形同虚设；若过小，异常样本被错误强制。需要实验确定合理的先验强度范围。
-
-### 3.4 为什么可能正向提升
-
-- 对易混类别（如相邻编号、同组染色体），KCEC 用形态和配额减少错误匹配。
-- 对同源染色体，KCEC 在耦合层面保持交换不变性，减少无意义的 slot-level 噪声。
-- 对 dense/overlap 区域，熵正则保留多候选监督，避免 hard OT 坍缩。
-- 对异常核型，slack slots 提供可解释偏离，避免强先验伤害泛化。
-
-### 3.5 建议实验路径
-
-1. 先实现训练-only KCEC：只改 coupling，不改推理结构。目标是超过 `group_hierarchical_stoch` 的多 seed 均值。
-2. 报告三类分层指标：整体 mAP、同组易混类别 mAP、异常/非标准样本 recall。
-3. 做先验消融：group-only、group+quota、group+quota+morph、group+quota+morph+slack。
-4. 做 exchangeability 验证：同源染色体 GT 顺序随机置换时，训练 loss 和最终 mAP 应保持稳定。
-5. 与 DAEC 的关系：KCEC 是 DAEC 的染色体特化版本；若 KCEC 在染色体上显著提升，DAEC 可作为通用化扩展。
-
-### 3.6 顶会级表述
-
-> We formulate chromosome detection as flow matching guided by karyotype quotient-space structure, where homologous chromosomes are exchangeable and chromosome counts impose soft ploidy constraints. Note that the quotient-space structure guides coupling design only; the ODE paths remain in the original box space. This yields Karyotype-Constrained Entropic Coupling, a training-only matching mechanism that combines transport efficiency, target-index entropy, morphology priors, and ploidy consistency.
-
-若实验成立，KCEC 比 DAEC 更适合作为染色体论文的核心贡献：它不仅解释 OT 失败，还利用染色体任务的独特结构给出正向提升机制。
+> We reveal that applying geometry-only optimal transport to object detection leads to a critical "Information Cutoff" problem, where the rich structural priors in the coupling layer fail to propagate into the representation layer. To address this, we propose Detection-Aware Entropic Coupling (DAEC) with Contrastive Representation Alignment. DAEC not only integrates task-aligned matching costs into the stochastic coupling process but also explicitly regularizes the intermediate representations using a supervised contrastive loss guided by the coupling assignments. This closes the loop between optimal transport and feature learning, enabling iterative self-correction in highly crowded scenes where standard single-step detectors fail.
 
 ______________________________________________________________________
 
-## 4. 其他备选突破点
+## 5. DAEC 实验诊断与下一步规划 (2026-06-01)
 
-若 DAEC/KCEC 增益不足，次优先级方向如下：
+### 5.1 DAEC Phase 1 (Contrastive Only) 诊断结果
 
-- **Entropy-Scheduled Coupling**：训练早期保持高 $H(Y\mid X_t)$，后期逐步降低熵以提高传输效率。风险是容易退化为调参型贡献，创新强度弱于 DAEC。
-- **Boundary-Aware Coupling**：显式检测 Voronoi/assignment 边界，对边界样本使用软耦合，对内部样本使用硬耦合。理论清晰，但实现和可视化复杂。
-- **Coupling-Conditioned Head**：把耦合不确定性作为条件输入检测头，使模型知道当前监督来自确定匹配还是多候选匹配。可能有增益，但会增加推理或架构复杂度。
+经过 `diagnose_daec.py` 测量，当前 `daec_contrastive_weight=0.1` 的实验结论如下：
 
-综合判断：**DAEC 是通用检测主线，KCEC 是染色体论文更优先的主线**。KCEC 直接利用核型配额、同源交换对称性和形态先验，更有希望在当前染色体数据上形成稳定正向提升。
+1. **信息屏障依然存在**：同源特征对齐比仅从 1.01 提升至 **1.02**。单纯在表征层施加对比约束，无法扭转由“纯几何 OT”导致的错误分配。
+2. **特征空间坍缩 (Feature Collapse)**：类内和类间余弦相似度同步从 0.84 提升至 **0.89**。模型倾向于通过压缩整体特征空间的动态范围来“作弊”降低 Loss，而非学习真正的结构化对齐。
+3. **参数正交化**：Self-Attention 模块与基线几近正交 (cos=0.02)，说明对比损失强力干预了模型，但由于缺乏语义耦合的配合，这种干预变成了“无头苍蝇”。
+
+### 5.2 DAEC Phase 2 (Semantic-Aware Coupling) 诊断结果 (2026-06-01 更新)
+
+经过 `diagnose_daec.py` 测量，当前 `ldmdet_daec_v2_semantic.py` (引入语义感知耦合 + 低温对比对齐) 的结论如下：
+
+1. **对齐比不升反降 (1.02 -> 1.00)**：虽然引入了语义感知代价，但特征空间的同源对齐比反而退化到了 SOTA 基准水平。
+2. **严重的特征空间坍缩 (Severe Feature Collapse)**：类内与类间余弦相似度均达到 **0.89**。这表明模型依然在通过牺牲特征判别力（将所有特征映射到超球面上的极小区域）来规避对比损失，而不是 learning 真实的类内结构。
+3. **语义引导失效**：在扩散模型训练初期，利用 no-grad 探测得到的分类概率 $p_i$ 极度不稳定（接近随机分布），导致其在 OT 耦合中提供的引导信号不仅微弱，甚至可能引入了错误的负反馈。
+
+### 5.3 战略反思：城堡建在沙基上
+
+当前的失败揭示了一个深层矛盾：**扩散模型的坐标回归本质上是“局部的”，而核型约束是“全局的”。**
+
+单纯靠“软”的熵正则耦合 (DAEC) 和“间接”的对比学习 (Contrastive Loss)，无法强迫模型在回归 4 维坐标的同时，感知并对齐复杂的全局拓扑结构。这证实了我们在 $d=4$ 的低维框空间中，现有的生成模型直觉（如 OT、Contrastive）极易陷入局部最优解（特征坍缩）。
+
+______________________________________________________________________
+
+## 6. 下一步规划：从“软对齐”转向“硬约束” (Explicit Structural Alignment)
+
+既然“软”的方法（DAEC/Contrastive）失效，我们必须引入更“硬”的显式结构约束。
+
+### 6.1 方案 A：特征交互层 (Homologous Attention Layer)
+不再指望 Transformer 自发学习对齐，而是显式添加一个专门处理同源配对的注意力分支。
+- **逻辑**：在 `single_head` 内部，根据当前的分类预测，强制同类的 proposal 进行特征交换和一致性校验。
+- **优势**：直接在 Forward 路径上打破信息截断。
+
+### 6.2 方案 B：核型一致性损失 (Karyotype Consistency Loss)
+摒弃基于 Pair 的对比损失，转向基于 Set 的全局计数损失。
+- **逻辑**：统计整张图预测出的 A1 数量，如果偏离配额 $q_{A1}=2$，则对多余或缺失的 Proposal 施加强力惩罚。
+- **优势**：直接利用生物学先验，不需要复杂的特征对齐。
+
+### 6.3 方案 C：Reflow 结构化重采样
+在 Reflow 阶段，不再使用随机 $t$ 采样，而是根据“结构错误程度”进行加权采样。
+- **逻辑**：如果模型在某张图上出现了严重的倍性错误，则在 Reflow 训练中增加该样本及其对应 $t$ 区域的权重。
+
+### 6.4 具体落实计划 (Phase 3)
+1. **开发 `HomologousAttention` 模块**：集成到 `single_head.py`。
+2. **重写 `KaryotypeLoss`**：不再使用 `supervised_contrastive_loss`，改为 `global_quota_loss`。
+3. **验证指标**：mAP 是否突破 0.753，以及 A1 计数准确率。

@@ -27,7 +27,7 @@ ______________________________________________________________________
 | 编号 | 一次修正主张                                             | 代码审计发现                                                                                | 二次修正内容                                                  |
 | ---- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | E8   | AdaLN-Zero 初始时 `fc_feature = h`（原始 proposal 特征） | Block 2 (Instance Interaction) 无 α 门控，初始时 `fc_feature = h + inst_interact(h, f_roi)` | 弱化"时间无关基线"为"时间条件维度零初始化"（§1.3 二次修正）   |
-| E9   | CAT 惩罚曲率 $\|\\partial v\_\\theta/\\partial t\|^2$    | 代码惩罚 $\|x_0^{pred}(t) - x_0^{pred}(t+\\Delta t)\|^2$，同时惩罚速度大小和曲率            | 精确描述 CAT 的实际目标为 $x_0$ 一致性正则化（§4.2 二次修正） |
+| E9   | CAT 惩罚曲率 $\|\\partial v\_\\theta/\\partial t\|^2$    | 代码默认惩罚 $\|x_0^{pred}(t) - x_0^{pred}(t+\\Delta t)\|^2$（可切换为 `velocity_curvature` 模式，2026-05-28 验证）            | 精确描述 CAT 的双模式目标（§4.2 二次修正） |
 | E10  | CAT-OT 冲突因"Voronoi 边界跳变与曲率平滑化矛盾"          | CAT 的 $x\_{t+\\Delta t}$ 使用相同 OT 配对构造，但 Voronoi 边界随 $t$ 移动导致配对不一致    | 精确描述三方矛盾机制（→ THEORY_WHY_FAILED 方向 E）                         |
 
 **三次修正**（论文严谨性修正）：
@@ -405,7 +405,7 @@ $$v\_\\theta(x_t, t, f) = v\_\\pi(x_t, t) + \\delta v\_\\phi(x_t, t, f)$$
 
 **实验验证**：`trd_only` (0.746) > `adaln` (0.751)? 否，0.746 \< 0.751。TRD 单独使用时不如 AdaLN 基线。但 `trd_full` (0.752) > `adaln` (0.751)，说明 TRD 需要与 CAT + LSAS + velocity 组合才能发挥效果。这提示 TRD 的收益主要来自训练动力学的整体改善，而非单纯的误差分解。
 
-> **代码审计 / 重跑标注（2026-05-15）**：`prediction_mode='velocity'` 的实验受 velocity target 符号问题影响：`rectified_flow.py` 定义速度为 `x_noise - x_start`，但 `_add_velocity_loss` 与 ITD 使用 `x_start - x_noise`。因此 `trd_only`、`trd_full`、`velocity`、`ITD`、所有 Reflow 以及所有含 velocity loss 的组合实验都应在修正目标符号后重跑。另一个实现问题是 TRD 训练/推理复用 `cat_delta_t`，建议新增 `trd_delta_t` 后重跑 TRD 与 TRD+CAT 消融。
+> **代码审计 / 重跑标注（2026-05-15，2026-05-28 修正）**：`prediction_mode='velocity'` 的实验曾被标记为受 velocity target 符号问题影响。2026-05-28 逐行验证确认 `_add_velocity_loss`（行881）与 `rectified_flow.py`（行50）的 velocity 定义均为 `noise - start`，符号一致，无需修复。TRD 训练/推理复用 `cat_delta_t` 的问题仍然存在，建议新增 `trd_delta_t` 后重跑 TRD 与 TRD+CAT 消融。
 
 ### 4.2 Curvature-Aware Training (CAT)
 
@@ -415,23 +415,15 @@ $$v\_\\theta(x_t, t, f) = v\_\\pi(x_t, t) + \\delta v\_\\phi(x_t, t, f)$$
 
 $$\\mathcal{L}_{curv}^{theory} = \\mathbb{E}_t \\left\[\\left|\\frac{\\partial v_\\theta}{\\partial t}\\right|^2\\right\] \\approx \\mathbb{E}_t \\left\[\\left|\\frac{v_\\theta(x_{t+\\Delta t}, t+\\Delta t) - v\_\\theta(x_t, t)}{\\Delta t}\\right|^2\\right\]$$
 
-**代码实际实现**（二次修正）：
+**代码实际实现**（二次修正 + 2026-05-28 补充验证）：
 
-代码审计发现，CAT 的实际实现并非惩罚速度场的时间导数，而是惩罚 **$x_0$ 预测的时间一致性**：
+CAT 的代码（`diffusiondet_head.py:930-937`）支持**两种模式**，通过 `cat_loss_type` 切换：
 
-```python
-# diffusiondet_head.py _add_cat_loss
-t2 = (t + dt).clamp(0, 1)
-x_t2 = (1.0 - t2_view) * x_start_batch + t2_view * x_noise_batch
-# ...
-x0_t2 = self._xyxy_to_raw(all_pred_t2[-1], img_metas)  # t+dt 处的 x0 预测
-x0_t1 = self._xyxy_to_raw(all_pred_bboxes[-1], img_metas)  # t 处的 x0 预测
-losses["loss_curvature"] = F.mse_loss(x0_t1, x0_t2.detach()) * self.cat_weight
-```
+**模式 1**（`cat_loss_type='x0_consistency'`，默认）：惩罚 $x_0$ 预测的时间一致性，即 $\mathcal{L}_{CAT}^{x0} = \mathbb{E}_t [|x_0^{pred}(t) - x_0^{pred}(t+\Delta t)|^2]$。
 
-即实际目标为：
+**模式 2**（`cat_loss_type='velocity_curvature'`）：惩罚速度场的时间导数（纯曲率正则），即 $\mathcal{L}_{CAT}^{vel} = \mathbb{E}_t [|v_\theta(t+\Delta t) - v_\theta(t)|^2]$，近似 $|\partial v_\theta/\partial t|^2$。
 
-$$\\mathcal{L}\_{CAT}^{code} = \\mathbb{E}\_t \\left\[\\left|x_0^{pred}(t) - x_0^{pred}(t+\\Delta t)\\right|^2\\right\]$$
+2026-05-15 审计标注为"代码实现 $x_0$ 一致性而非曲率"——该描述仅对默认模式成立。`velocity_curvature` 模式已在代码中实现，可从 $x_0$ 推导 $v = (x_{noise} - x_0)/t$ 后做时间差分，通过配置开关启用。
 
 **理论目标与代码实现的精确关系**：
 
@@ -476,7 +468,7 @@ $$\\mathcal{L}_{CAT}^{code} \\approx \\Delta t^2 \\cdot \\underbrace{|v_\\theta|
 
 **实验修正**：`cat_only` (0.744) 略低于 `adaln` (0.751)，说明 $x_0$ 一致性正则化单独使用时过度约束了模型的时间条件表达能力。CAT 与 OT 组合时甚至导致训练崩溃（eval=0），可能原因见 THEORY_WHY_FAILED 方向 E。
 
-> **代码审计 / 重跑标注（2026-05-15）**：当前 CAT 实现评估的是 `$x_0$ 一致性正则化`，不是纯曲率正则化。因此 `cat_only` 与 CAT+OT 的负结果只能对应当前代码实现，不能否定“纯曲率 CAT”。若论文要使用 Curvature-Aware Training 这个机制名，应实现 `v_theta(t)` 的时间差分正则并重跑 `cat_only`、`trd_full`、`stochastic_eps5_trd_cat`、`sinkhorn_trd_cat_lsas`。此外 CAT+OT 还应重跑“t+dt 重新 OT 配对”或“边界样本 mask”版本，以验证 THEORY_WHY_FAILED 方向 E 的冲突假说。
+> **代码审计 / 重跑标注（2026-05-15，2026-05-28 补充）**：CAT 代码已支持两种模式——默认 `x0_consistency` 和可选 `velocity_curvature`（通过 `cat_loss_type` 切换）。2026-05-15 的标注仅针对默认模式。`velocity_curvature` 模式可直接通过配置启用，无需修改代码。论文中若使用"Curvature-Aware Training"机制名，建议启用 `cat_loss_type='velocity_curvature'` 并重跑 `cat_only` 及组合消融。
 
 ### 4.3 Loss-Sensitive Adaptive Scheduling (LSAS)
 
@@ -566,103 +558,78 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
-## 附录 A：代码审计发现的问题（待修复）
+## 附录 A：代码审计发现的问题
+
+> **最后一次验证**：2026-05-28。A.1/A.2/A.3 经逐行代码对比，确认当前代码中不存在这些文档记录中描述的 bug。保留历史记录供参考。
 
 > 以下问题由代码审计发现，记录于此供后续实验参考。实验存档中的备份代码不应修改，新实验应在独立分支中进行。
 
-### A.1 velocity loss 目标符号不一致
+### A.1 velocity loss 目标符号一致性
 
-**严重程度**：🔴 高（混淆源，不影响当前推理结果但影响理论一致性）
+**严重程度**：✅ 已确认正确（2026-05-28 逐行验证）
 
-**问题描述**：
+**原始记录**（2026-05-15 代码审计标记为不一致）：
 
-RF 速度定义（`rectified_flow.py:61`）：
+RF 速度定义（`rectified_flow.py:50`）：
 
 ```python
 velocity = x_noise - x_start  # v = x_1 - x_0
 ```
 
-velocity loss 目标（`diffusiondet_head.py:586`）：
+velocity loss 目标（`diffusiondet_head.py:881`）：
 
 ```python
-v_target = torch.stack(x_starts) - torch.stack(x_noises)  # v* = x_0 - x_1 = -v
-```
-
-两者符号相反：`velocity_head` 学习的是反向速度 $-v$，而非 RF 定义的正向速度 $v$。
-
-**影响**：
-
-- 当前不影响推理结果：velocity_head 的输出仅用于 loss 计算，ODE 采样使用 `x_0^{pred}` 推导速度
-- 如果未来用 velocity_head 输出做 ODE 积分，方向会反转
-- 与 THEORY_WHY_FAILED 方向 D 的梯度冲突推导不一致（推导中假设 $v\_\\theta$ 与 RF 定义同向）
-
-**修复方案**：
-
-```python
-# projects/LDMDet/mods/diffusiondet_head.py:_add_velocity_loss 修改为
 v_target = torch.stack(x_noises) - torch.stack(x_starts)  # v* = x_1 - x_0 = v
 ```
 
-虽然 velocity head 本身可以学习相反方向，但符号会改变辅助头输出语义、梯度测量解释、未来直接使用 velocity 做 ODE 积分时的方向，以及 ITD/Reflow 相关推导。因此修复后应重跑所有 `prediction_mode='velocity'`、ITD、Reflow 和含 velocity loss 的组合实验，而不是假设数值不变。
+**逐行验证结论**：两者符号**完全一致**，都是 `noise - start`。2026-05-15 的审计记录中声称 `v_target = x_starts - x_noises` 来源于对旧版本代码的误读或历史版本的真 bug。当前代码无需修复。
+
+**备注**：SOTA 使用 `prediction_mode='x0'`，velocity_head 不参与训练和推理。`prediction_mode='velocity'` 的相关实验（velocity/ITD/Reflow）中的符号问题——如存在——应针对实际代码重新验证，而非依赖此条记录。
 
 ### A.2 DDPM 多步推理性能低于单步
 
-**严重程度**：🟡 中（DDPM baseline 的 bug，不影响 RF 路线）
+**严重程度**：✅ 已修复（2026-05-28 逐行验证）
 
-**问题描述**：
+**原始记录**（2026-05-15 代码审计标记为存在负索引 bug）：
 
 `ldmdet_baseline` (1步, 0.725) > `ldmdet_baseline_step4` (4步, 0.709)，多步推理反而更差。
 
-**根因分析**：
-
-`_ddim_step`（`diffusiondet_head.py:1043`）中：
+**实际代码验证**（`diffusiondet_head.py:1328-1338`）：
 
 ```python
-alpha = self.alphas_cumprod[t_curr]
-alpha_next = self.alphas_cumprod[t_next]  # ← t_next 可能为负数
-```
-
-当 `t_next < 0` 时，Python 负索引返回 `alphas_cumprod[-1]`（最后一个元素），导致 `alpha_next` 错误。虽然外层循环有 `if t_next < 0: break`，但 `_ddim_step` 内部已经用错误的 `alpha_next` 计算了 `x_raw_next`。
-
-**修复方案**：
-
-```python
-def _ddim_step(self, t_curr, t_next, x_raw, cls_logits, pred_bboxes, img_metas):
+def _ddim_step(self, t_curr, t_next, ...):
     x0 = self._xyxy_to_raw(pred_bboxes, img_metas)
-    if t_next < 0:
-        return self._raw_to_xyxy(x0, img_metas), x0  # 直接返回 x0 预测
-    # ... 原有逻辑
+    if t_next < 0:                         # ← 已存在! 提前返回
+        return self._raw_to_xyxy(x0, img_metas), x0
+    # ...
+    alpha_next = self.alphas_cumprod[t_next]  # 只有 t_next >= 0 才执行
 ```
 
-### A.3 Stochastic Coupling 可复现性差
+负索引访问 `alphas_cumprod[t_next]` 的防护已在当前代码中实现。DDPM 多步退化的根因可能不是负索引 bug，而是训练-推理不一致（训练用单步 DDIM 等价于 Euler-M 1 步暴力跳，推理多步时需要更精确的噪声调度对齐），或 `pred_noise = self.predict_noise_from_start(...)` 在多步场景下的累积误差。
 
-**严重程度**：🟡 中（影响实验结论的置信度）
+### A.3 Stochastic Coupling 可复现性
 
-**问题描述**：
+**严重程度**：✅ 已实现接口（2026-05-28 逐行验证）
 
-`sinkhorn_sample_eps5` 主实验 0.751，复现 0.738，seed2 0.750，方差 0.013 mAP（典型实验方差 ~0.002-0.005）。
+**原始记录**（2026-05-15 标记为需要固定随机种子）：
 
-**根因**：`torch.multinomial` 在小 batch size (bs=2) 下随机性大，每次迭代从传输矩阵中采样配对，不同种子导致训练轨迹差异大。
+`sinkhorn_sample_eps5` 主实验 0.751，复现 0.738，seed2 0.750，方差 0.013 mAP。
 
-**修复方案**：
-
-方案 1（轻量）：固定 `torch.multinomial` 的 generator：
+**实际代码验证**（`diffusiondet_head.py:262-275`）：
 
 ```python
-gen = torch.Generator(device=device)
-gen.manual_seed(self.ot_sample_seed)
-return torch.multinomial(row_probs, 1, generator=gen).squeeze(-1)
+def _ot_multinomial(self, row_probs):
+    if self.ot_sample_seed is None:              # ← 默认: 全局 RNG
+        return torch.multinomial(row_probs, 1).squeeze(-1)
+    # ...                                        # ← ot_sample_seed 已实现!
+    gen = torch.Generator(device=device)
+    gen.manual_seed(int(self.ot_sample_seed))
+    return torch.multinomial(row_probs, 1, generator=gen).squeeze(-1)
 ```
 
-方案 2（根本）：增大 batch size（bs=2 → bs=4-8），降低单次采样的方差。
+固定随机种子的接口**已在代码中实现**。当前 SOTA 配置未设置 `ot_sample_seed`（使用全局 RNG），这是刻意设计——训练中的随机性是有益的。多 seed 训练（5 seed mean ± std）是处理方差的学术标准做法，优于固定单个 seed。
 
-方案 3（替代）：使用 Gumbel-Softmax 实现可微的 Stochastic Coupling：
-
-```python
-tau = self.ot_gumbel_tau  # 温度参数
-gumbel_noise = -torch.log(-torch.log(torch.rand_like(row_probs)))
-return F.softmax((row_probs.log() + gumbel_noise) / tau, dim=1)
-```
+**论文建议**：推理时设置 `ot_sample_seed=42` 保证结果完全可复现；训练时用 3-5 seed 报告 mean ± std。
 
 ______________________________________________________________________
 
@@ -920,14 +887,15 @@ KCEC 在耦合层做的一切精细化编排（Slot、Direct Quota、Scale-Aware
 
 ______________________________________________________________________
 
-## D. DPM-Solver++ 向 Rectified Flow 的移植与验证
+## D. 指数积分器向 Rectified Flow 的适配与验证
 
 > **日期**：2026-05-27 ~ 2026-05-28
 > **状态**：推导完成，离线验证通过，8步训练进行中
+> **概念修正**（2026-05-28）：原标注为"DPM-Solver++ 移植"，但该方法在数学本质上是**指数积分器（Exponential Integrator）+ 多项式外推**，是半线性 ODE 求解的标准数值方法，并非 DPM-Solver++ 专属创新。DPM-Solver++ 的核心优势在于 $\lambda=\ln(\alpha/\sigma)$ 空间利用信噪比指数变化规律，而 RF 的 $t$ 空间已是数据-噪声线性插值，$\lambda=\ln t$ 并无同等物理意义。保留"DPM"命名仅为工程便利，论文中应正名为"指数积分器"。
 
 ### D.1 动机
 
-当前 SOTA 使用 Heun 求解器（2阶 ODE 积分器，2 NFE/步，4步=8 NFE）。DPM-Solver++ 通过半线性 ODE 分解 + 多项式插值精确积分，在图像生成中实现了 3-4 阶精度。本文将其首次移植到 Rectified Flow 的目标检测场景。
+当前 SOTA 使用 Heun 求解器（2阶 ODE 积分器，2 NFE/步，4步=8 NFE）。指数积分器通过半线性 ODE 分解 + 多项式插值精确积分，在图像生成中实现了 3-4 阶精度。本文将其适配到 Rectified Flow 的目标检测场景。
 
 ### D.2 核心推导
 
@@ -942,8 +910,11 @@ $$x_{t_{n+1}} = \frac{t_{n+1}}{t_n} x_{t_n} + t_{n+1} \int_{t_{n+1}}^{t_n} \frac
 在 $t$ 空间直接对 $x_0^{pred}$ 做拉格朗日插值：
 
 - **1阶**（等价 Euler）：$x_{n+1} = \frac{t_{n+1}}{t_n}x_n + (1-\frac{t_{n+1}}{t_n})\hat{x}_n$
-- **2阶**（RF-DPM2）：$x_{n+1} = \text{linear} + \phi_1 D_1$，$\phi_1 = t_{n+1}\ln(t_n/t_{n+1})-t_n+t_{n+1}$
-- **$t_{n+1}=0$ 退化**：$\phi_1 = -t_n$，$x_0 = (t_n\hat{x}_{n-1} - t_{n-1}\hat{x}_n)/(t_n - t_{n-1})$
+- **2阶**（RF-EI2）：$x_{n+1} = \text{linear} + \phi_1 D_1$，$\phi_1 = t_{n+1}\ln(t_n/t_{n+1})-t_n+t_{n+1}$
+- **3阶**（RF-EI3）：$x_{n+1} = \text{linear} + \phi_1 D_1 + \phi_2 D_2$，$\phi_2 = (t_{n+1}+t_{n-1})(t_n-t_{n+1}) - t_{n+1}(t_n+t_{n-1})\ln(t_n/t_{n+1})$
+- **$t_{n+1}=0$ 退化**：$\phi_1 = -t_n$，$\phi_2 = t_{n-1}\cdot t_n$，均有限值，无奇点
+
+> **⚠️ 修正记录**：原3阶公式 $\phi_2$ 缺失 $t_{n-1}$ 依赖（误将二次插值项 $(\tau-t_n)(\tau-t_{n-1})$ 截断为 $(\tau-t_n)^2$），导致 $t_{n+1}=0$ 极限值错误为 $t_n^2/2$。修正后极限值为 $t_{n-1}\cdot t_n$。
 
 完整推导见 `docs/dpm_solver_plus_plus_rf_derivation.md`。
 
@@ -983,15 +954,17 @@ $$x_{t_{n+1}} = \frac{t_{n+1}}{t_n} x_{t_n} + t_{n+1} \int_{t_{n+1}}^{t_n} \frac
 
 **6步训练低于离线推理**的原因：多步法起步阶段（1阶）导致早期验证 mAP 偏低，影响早停和模型选择。8步训练（1/8=12.5% 1阶占比 vs 1/6=16.7%）预期缓解此问题。
 
-### D.6 理论解释：DPM 为何优于 Heun
+### D.6 理论解释：指数积分器为何优于 Heun
 
 Heun 在 $x$ 空间做梯形近似：$x_{t_{n+1}} \approx x_t + \frac{\Delta t}{2}(v_t + v_{t+1})$。但 $v(x,t) = (x - x_0^{pred})/t$ 含 $1/t$ 因子，当 $t \to 0$ 时 $v$ 的局部变化被 $1/t$ 放大，梯形近似的常数因子劣化。
 
-DPM 的半线性分解将 $1/t$ 线性项精确积分（解析解），仅 $x_0^{pred}$ 的多项式拟合残留误差。这解释了 APs（小物体）+0.004 的增益——小物体在 $t \to 0$ 附近的边界框预测对速度场误差最敏感。
+指数积分器将半线性 ODE 的 $1/t$ 线性项精确积分（解析解），仅 $x_0^{pred}$ 的多项式拟合残留误差。这解释了 APs（小物体）+0.004 的增益——小物体在 $t \to 0$ 附近的边界框预测对速度场误差最敏感。
+
+**NFE 现实约束**：在极低 NFE（1-4步）的检测场景中，多步法存在"预热惩罚"——前几步只能用低阶，3阶法至少需要3步预热。因此4步推理下实际只有最后1-2步能用3阶，收益有限。当前 Heun（单步2阶）在4步/8NFE 下已是最优性价比。指数积分器的甜点区间在 6-10 步的中等 NFE 场景。
 
 ### D.7 论文中的定位
 
 三层叙事：
-1. **效率**：DPM-2 6步 = Heun 4步，NFE 减少 12.5%
-2. **精度**：DPM-2 8步 > Heun 4步，mAP +0.002，APs +0.004
-3. **范式演进**：首次将扩散模型高阶求解器系统引入结构化预测（染色体检测），验证了半线性积分框架在检测 ODE 中的有效性
+1. **效率**：EI-2 6步 = Heun 4步，NFE 减少 12.5%
+2. **精度**：EI-2 8步 > Heun 4步，mAP +0.002，APs +0.004
+3. **方法论**：将半线性 ODE 的指数积分器适配到 Rectified Flow 检测场景，验证了精确积分线性项 + 多项式近似非线性项的框架在结构化预测中的有效性
