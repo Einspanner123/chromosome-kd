@@ -146,11 +146,23 @@ $$x_{n+1} = \frac{t_{n+1}}{t_n} x_n + \left(1 - \frac{t_{n+1}}{t_n}\right) \hat{
 
 其中 $\phi_1$ 同上，$\phi_2$（$t_{n+1} > 0$）：
 
-$$\phi_2 = t_{n+1}\left[t_n \ln\left(\frac{t_n}{t_{n+1}}\right) + t_{n+1} - t_n\right] - \frac{t_n^2 - t_{n+1}^2}{2} + t_n(t_n - t_{n+1})$$
+$$\phi_2 = (t_{n+1} + t_{n-1})(t_n - t_{n+1}) - t_{n+1}(t_n + t_{n-1})\ln\left(\frac{t_n}{t_{n+1}}\right) \tag{3.3a}$$
 
-当 $t_{n+1} = 0$ 时：
+**推导**：二次插值项 $(\tau - t_n)(\tau - t_{n-1})$ 展开为 $\tau^2 - (t_n+t_{n-1})\tau + t_nt_{n-1}$，代入 (2.2) 精确积分：
 
-$$\phi_2 \big|_{t_{n+1}=0} = \frac{t_n^2}{2}$$
+$$\phi_2 = t_{n+1}\int_{t_{n+1}}^{t_n}\frac{\tau^2 - (t_n+t_{n-1})\tau + t_nt_{n-1}}{\tau^2}d\tau$$
+
+$$= t_{n+1}\left[(t_n-t_{n+1}) - (t_n+t_{n-1})\ln\frac{t_n}{t_{n+1}} + t_{n-1}\frac{t_n-t_{n+1}}{t_{n+1}}\right]$$
+
+$$= (t_{n+1}+t_{n-1})(t_n-t_{n+1}) - t_{n+1}(t_n+t_{n-1})\ln\frac{t_n}{t_{n+1}}$$
+
+> **⚠️ 常见错误**：若忽略 $(\tau-t_n)(\tau-t_{n-1})$ 中对 $t_{n-1}$ 的依赖，将二次项误写为 $(\tau-t_n)^2$，则得到的 $\phi_2$ 缺失 $t_{n-1}$ 项，公式不具备一般性。
+
+当 $t_{n+1} = 0$ 时，利用 $\lim_{x\to0}x\ln x = 0$：
+
+$$\phi_2 \big|_{t_{n+1}=0} = t_{n-1} \cdot t_n \tag{3.3b}$$
+
+有限值，无数值爆炸。
 
 **NFE = 1/步**（启动步除外）。全局 3 阶。
 

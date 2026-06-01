@@ -183,12 +183,11 @@ class RFDPMSolverMultistep:
 
             if t_next > 1e-7:
                 phi2 = (
-                    t_next * (t_n * math.log(t_n / t_next) + t_next - t_n)
-                    - (t_n * t_n - t_next * t_next) / 2.0
-                    + t_n * (t_n - t_next)
+                    (t_next + t_p) * (t_n - t_next)
+                    - t_next * (t_n + t_p) * math.log(t_n / t_next)
                 )
             else:
-                phi2 = (t_n * t_n) / 2.0
+                phi2 = t_p * t_n
 
             correction = correction + phi2 * D2
 
