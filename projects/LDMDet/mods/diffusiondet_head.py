@@ -66,6 +66,8 @@ class DiffusionDetHead(nn.Module):
         kcec_conf_threshold: float = 0.5,  # V3: 质量激活的代价阈值 (Cost Gating)
         kcec_scale_anneal: bool = False,  # V3: 是否启用尺度感知配额 (Scale-Aware Quota)
         kcec_log_interval: int = 100,  # KCEC 日志间隔 (每 N 次调用记录一次)
+        daec_contrastive_weight: float = 0.1,  # DAEC 对比损失权重
+        daec_temperature: float = 0.05,  # DAEC 对比对齐温度 (Phase 2 调低至 0.05)
         # === TRD 参数 ===
         use_trd: bool = False,  # Transport-Refinement Decomposition
         trd_self_cond_prob: float = 0.5,  # 训练时自条件化概率
@@ -121,6 +123,8 @@ class DiffusionDetHead(nn.Module):
         self.kcec_conf_threshold = kcec_conf_threshold
         self.kcec_scale_anneal = kcec_scale_anneal
         self.kcec_log_interval = kcec_log_interval
+        self.daec_contrastive_weight = daec_contrastive_weight
+        self.daec_temperature = daec_temperature
         self._kcec_call_count = 0
         self.use_trd = use_trd
         self.trd_self_cond_prob = trd_self_cond_prob
@@ -311,6 +315,7 @@ class DiffusionDetHead(nn.Module):
         gt_diffusion: Tensor,
         gt_labels: Tensor,
         device: torch.device,
+        cls_logits: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Dict[str, Tensor]]:
         """Karyotype-Constrained Entropic Coupling V3 (Scale-Aware & Gated).
 
@@ -318,6 +323,7 @@ class DiffusionDetHead(nn.Module):
         1. Direct GT Quota (V2 baseline).
         2. Scale-Aware Quota (V3): Smaller GTs get softer quota strength to avoid noise injection.
         3. Confidence Gating (V3): Extra mass is only activated if nearby proposals exist.
+        4. Semantic-Aware (Phase 2): Inject classification cost to guide coupling.
         """
         N, K = noise.shape[0], gt_diffusion.shape[0]
         if K == 0:
@@ -395,7 +401,16 @@ class DiffusionDetHead(nn.Module):
             )
             group_cost = 1.0 - group_compat[:, gt_group_ids]
 
+        # DAEC Phase 2: Semantic-Aware Coupling
         cls_cost = torch.zeros(N, K, device=device)
+        if self.kcec_cls_weight > 0 and cls_logits is not None:
+            # cls_logits: [num_proposals, num_classes]
+            # labels: [num_gt] (values in [0, num_classes-1])
+            # 我们需要计算 [num_proposals, num_gt] 的分类代价
+            # 使用负对数似然或交叉熵
+            prob = torch.sigmoid(cls_logits)  # [N, C]
+            # 对每个 GT，提取对应的概率
+            cls_cost = 1.0 - prob[:, labels]  # [N, K]
 
         cost = (
             box_cost
@@ -571,7 +586,14 @@ class DiffusionDetHead(nn.Module):
         targets: List[InstanceData],
         gt_bboxes: List[Tensor],
         img_metas: List[ImageMeta],
-    ) -> Tuple[List[Tensor], List[Tensor], List[Tensor], Dict[str, Tensor]]:
+        cls_logits_for_coupling: Optional[Tensor] = None,
+    ) -> Tuple[
+        List[Tensor],
+        List[Tensor],
+        List[Tensor],
+        Dict[str, Tensor],
+        List[Tensor],
+    ]:
         """构建训练配对: 对每张图生成 (x_noisy, x_start, x_noise) 三元组.
 
         Returns:
@@ -579,10 +601,12 @@ class DiffusionDetHead(nn.Module):
             x_starts: 每个样本的扩散空间 GT (x_0) 列表
             x_noises: 每个样本的噪声源 (x_1) 列表
             kcec_log_stats: KCEC 监控统计 (合并 batch 内所有样本)
+            matched_gt_indices: 每个样本对应的 GT 索引列表
         """
         x_boxes = []
         x_starts = []
         x_noises = []
+        matched_gt_indices = []
         kcec_log_stats: Dict[str, Tensor] = {}
 
         for i in range(bs):
@@ -592,6 +616,11 @@ class DiffusionDetHead(nn.Module):
                 x_boxes.append(noise)
                 x_starts.append(torch.zeros_like(noise))
                 x_noises.append(noise)
+                matched_gt_indices.append(
+                    torch.zeros(
+                        self.num_proposals, dtype=torch.long, device=device
+                    )
+                )
                 continue
 
             # GT in diffusion space
@@ -601,9 +630,19 @@ class DiffusionDetHead(nn.Module):
 
             # Coupling
             if self.ot_coupling and self.diffusion_type == 'rectified_flow':
-                x_start, sample_log = self._couple_ot(
-                    noise, gt_diffusion, targets[i].labels, device
+                cls_logits_i = (
+                    cls_logits_for_coupling[i]
+                    if cls_logits_for_coupling is not None
+                    else None
                 )
+                x_start, sample_log, matched_idx = self._couple_ot(
+                    noise,
+                    gt_diffusion,
+                    targets[i].labels,
+                    device,
+                    cls_logits=cls_logits_i,
+                )
+                matched_gt_indices.append(matched_idx)
                 for k, v in sample_log.items():
                     if k not in kcec_log_stats:
                         kcec_log_stats[k] = []
@@ -614,6 +653,7 @@ class DiffusionDetHead(nn.Module):
                 )
                 sample_bboxes = bbox_xyxy_to_cxcywh(targets[i].bboxes[idx])
                 x_start = (sample_bboxes * 2 - 1) * self.snr_scale
+                matched_gt_indices.append(idx)
 
             # Forward diffusion
             if self.diffusion_type == 'ddpm':
@@ -633,7 +673,7 @@ class DiffusionDetHead(nn.Module):
             if v_list:
                 merged_kcec_log[k] = torch.stack(v_list).mean()
 
-        return x_boxes, x_starts, x_noises, merged_kcec_log
+        return x_boxes, x_starts, x_noises, merged_kcec_log, matched_gt_indices
 
     def _couple_ot(
         self,
@@ -641,16 +681,25 @@ class DiffusionDetHead(nn.Module):
         gt_diffusion: Tensor,
         gt_labels: Tensor,
         device: torch.device,
-    ) -> Tuple[Tensor, Dict[str, Tensor]]:
-        """OT 耦合: 将噪声提案与 GT 框配对, 返回配对的 x_start 及日志统计."""
+        cls_logits: Optional[Tensor] = None,
+    ) -> Tuple[Tensor, Dict[str, Tensor], Tensor]:
+        """OT 耦合: 将噪声提案与 GT 框配对, 返回配对的 x_start, 日志统计, 以及匹配的 GT 索引."""
         if gt_diffusion.shape[0] == 0:
-            return noise, {}
+            return (
+                noise,
+                {},
+                torch.zeros(noise.shape[0], dtype=torch.long, device=device),
+            )
 
         kcec_log_stats: Dict[str, Tensor] = {}
         if self.ot_matcher == 'sinkhorn':
             if self.ot_kcec:
                 matched_gt_idx, kcec_log_stats = self._run_kcec_ot(
-                    noise, gt_diffusion, gt_labels, device
+                    noise,
+                    gt_diffusion,
+                    gt_labels,
+                    device,
+                    cls_logits=cls_logits,
                 )
             elif self.ot_group_hierarchical:
                 matched_gt_idx = self._run_group_hierarchical_ot(
@@ -665,7 +714,7 @@ class DiffusionDetHead(nn.Module):
             matched_gt_idx = cost.argmin(dim=1)
 
         x_start = gt_diffusion[matched_gt_idx]
-        return x_start, kcec_log_stats
+        return x_start, kcec_log_stats, matched_gt_idx
 
     def _sinkhorn_match(
         self, noise: Tensor, gt_diffusion: Tensor, device: torch.device
@@ -698,19 +747,54 @@ class DiffusionDetHead(nn.Module):
         # 2. 时间步采样
         t, lsas_log_probs = self._sample_t(bs, device)
 
+        # DAEC Phase 2: 如果启用了类别匹配权重，需要先跑一次 no_grad forward 获取语义信息用于耦合
+        cls_logits_for_coupling = None
+        if (
+            self.training
+            and self.ot_coupling
+            and self.ot_kcec
+            and self.kcec_cls_weight > 0
+        ):
+            with torch.no_grad():
+                # 使用当前 t 下的随机噪声框作为探测器
+                noise_probe = torch.randn(
+                    bs, self.num_proposals, 4, device=device
+                )
+                # 假设 x0 均值为 0，直接用噪声探测语义分布
+                curr_bboxes_probe = self._raw_to_xyxy(noise_probe, img_metas)
+                t_input_probe = (
+                    t if self.diffusion_type == 'ddpm' else t * self.timesteps
+                )
+                all_cls_logits_probe, _, _, _, _ = self(
+                    features, curr_bboxes_probe, t_input_probe
+                )
+                cls_logits_for_coupling = all_cls_logits_probe[-1]
+
         # 3. 构建训练配对
-        x_boxes, x_starts, x_noises, kcec_log = self._build_training_targets(
-            bs, device, t, targets, gt_bboxes, img_metas
+        x_boxes, x_starts, x_noises, kcec_log, matched_gt_indices = (
+            self._build_training_targets(
+                bs,
+                device,
+                t,
+                targets,
+                gt_bboxes,
+                img_metas,
+                cls_logits_for_coupling=cls_logits_for_coupling,
+            )
         )
         x_noisy_batch = torch.stack(x_boxes)
         curr_bboxes = self._raw_to_xyxy(x_noisy_batch, img_metas)
 
         # 4. 前向传播 (含 TRD 自条件化)
         t_input = t if self.diffusion_type == 'ddpm' else t * self.timesteps
-        all_cls_logits, all_pred_bboxes, all_objectness, all_velocity = (
-            self._forward_trd(
-                features, curr_bboxes, t, t_input, x_noisy_batch, img_metas, bs
-            )
+        (
+            all_cls_logits,
+            all_pred_bboxes,
+            all_objectness,
+            all_velocity,
+            all_curr_proposals,
+        ) = self._forward_trd(
+            features, curr_bboxes, t, t_input, x_noisy_batch, img_metas, bs
         )
 
         # 5. 归一化并计算检测损失
@@ -721,6 +805,68 @@ class DiffusionDetHead(nn.Module):
             all_cls_logits, norm_pred_bboxes, all_objectness
         )
         losses = self.criterion(outputs, targets)
+
+        # DAEC: 监督对比损失 (Supervised Contrastive Loss)
+        # 对深层特征 all_curr_proposals[-1] 进行对比约束
+        last_proposals = all_curr_proposals[
+            -1
+        ]  # [1, bs*num_proposals, feat_dim]
+        if last_proposals is not None:
+            # 调整 shape 从 [1, bs*num_proposals, feat_dim] -> [bs, num_proposals, feat_dim]
+            last_proposals = last_proposals.squeeze(0).view(
+                bs, self.num_proposals, -1
+            )
+            loss_contrastive = torch.tensor(0.0, device=device)
+            valid_bs = 0
+            for i in range(bs):
+                gt_idx = matched_gt_indices[i]
+                if len(targets[i].labels) == 0:
+                    continue
+                matched_labels = targets[i].labels[gt_idx]  # [num_proposals]
+
+                features_i = F.normalize(last_proposals[i], dim=1)
+
+                # Check dimensions to ensure they match
+                if features_i.shape[0] != matched_labels.shape[0]:
+                    continue
+
+                temperature = self.daec_temperature
+                sim_matrix = (
+                    torch.matmul(features_i, features_i.T) / temperature
+                )
+
+                # 相同类别掩码 (过滤掉自己与自己的匹配)
+                mask = torch.eq(
+                    matched_labels.unsqueeze(1), matched_labels.unsqueeze(0)
+                ).float()
+                mask.fill_diagonal_(0)
+
+                # 如果没有正样本对，跳过
+                if mask.sum() == 0:
+                    continue
+
+                exp_sim = torch.exp(sim_matrix)
+                # mask exp_sim to remove self similarity from denominator? No, InfoNCE includes self in denominator usually but removes it from numerator.
+                # Actually, standard InfoNCE masks out the self similarity from the denominator as well to avoid trivial solutions, but for simplicity, we just compute the sum.
+                # The issue was that mask shape and log_prob shape didn't match if features_i.shape[0] != matched_labels.shape[0], which we now check.
+
+                log_prob = sim_matrix - torch.log(
+                    exp_sim.sum(dim=1, keepdim=True)
+                )
+
+                mean_log_prob_pos = (mask * log_prob).sum(dim=1) / (
+                    mask.sum(dim=1) + 1e-8
+                )
+                loss_contrastive = loss_contrastive - mean_log_prob_pos.mean()
+                valid_bs += 1
+
+            if valid_bs > 0:
+                # 权重可以配置化，暂时硬编码为 0.1 或加到配置中
+                # 假设我们有一个 self.daec_contrastive_weight，如果没有则默认为 0.1
+                weight = getattr(self, 'daec_contrastive_weight', 0.1)
+                losses['loss_contrastive'] = (
+                    loss_contrastive / valid_bs
+                ) * weight
 
         # 6. 辅助损失
         self._add_velocity_loss(
@@ -816,7 +962,7 @@ class DiffusionDetHead(nn.Module):
             return self(features, curr_bboxes, t_input)
 
         with torch.no_grad():
-            _, all_pred_sc, _, _ = self(features, curr_bboxes, t_input)
+            _, all_pred_sc, _, _, _ = self(features, curr_bboxes, t_input)
             x0_sc = self._xyxy_to_raw(all_pred_sc[-1], img_metas)
         x_noisy_sc = x_noisy_batch.clone()
         t_view = t.view(-1, 1, 1)
@@ -1058,6 +1204,7 @@ class DiffusionDetHead(nn.Module):
         inter_pred_bboxes = []
         inter_objectness = []
         inter_velocity = []
+        inter_curr_proposals = []
 
         curr_bboxes = bboxes
         curr_proposals = proposals
@@ -1089,6 +1236,7 @@ class DiffusionDetHead(nn.Module):
             inter_pred_bboxes.append(pred_bboxes)
             inter_objectness.append(objectness)
             inter_velocity.append(velocity)
+            inter_curr_proposals.append(curr_proposals)
 
             curr_bboxes = pred_bboxes.detach()
 
@@ -1098,6 +1246,7 @@ class DiffusionDetHead(nn.Module):
                 torch.stack(inter_pred_bboxes),
                 inter_objectness,
                 inter_velocity,
+                inter_curr_proposals,
             )
         else:
             return (
@@ -1105,6 +1254,7 @@ class DiffusionDetHead(nn.Module):
                 torch.stack(inter_pred_bboxes[-1:]),
                 inter_objectness[-1:],
                 inter_velocity[-1:],
+                inter_curr_proposals[-1:],
             )
 
     def _forward_at_t(
@@ -1120,7 +1270,7 @@ class DiffusionDetHead(nn.Module):
 
         t_input = torch.full((bs,), t * self.timesteps, device=device)
 
-        cls_logits_seq, pred_bboxes_seq, _, _ = self(
+        cls_logits_seq, pred_bboxes_seq, _, _, _ = self(
             features, curr_bboxes, t_input
         )
 
@@ -1220,9 +1370,7 @@ class DiffusionDetHead(nn.Module):
                     break
             else:
                 if dpm_solver is not None:
-                    x_raw = dpm_solver.step(
-                        x_raw, x0_raw, t_curr, step_idx
-                    )
+                    x_raw = dpm_solver.step(x_raw, x0_raw, t_curr, step_idx)
                 elif self.solver_type == 'heun' and t_next > 0:
 
                     def model_fn(x_tmp, t_tmp):

@@ -56,3 +56,68 @@ class CopyProjectHook(Hook):
             runner.logger.info('Project code backup completed.')
         except Exception as e:
             runner.logger.error(f'Failed to backup project code: {e!s}')
+
+
+@HOOKS.register_module()
+class WeightSummaryHook(Hook):
+    """可视化模型内部权重和梯度的变化。
+
+    在 SwanLab 中以折线图形式显示权重的 L2 范数，并生成梯度热点图。
+    """
+
+    def __init__(self, interval=50, log_norm=True, log_heatmap=True):
+        self.interval = interval
+        self.log_norm = log_norm
+        self.log_heatmap = log_heatmap
+
+    def after_train_iter(
+        self, runner, batch_idx: int, data_batch=None, outputs=None
+    ):
+        if not self.every_n_train_iters(runner, self.interval):
+            return
+
+        import matplotlib.pyplot as plt
+        import numpy as np
+        import swanlab
+
+        model = runner.model
+        if hasattr(model, 'module'):
+            model = model.module
+
+        message_hub = runner.message_hub
+
+        layer_names = []
+        grad_energies = []
+
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                # 记录权重范数
+                if self.log_norm:
+                    norm = param.data.norm(2).item()
+                    message_hub.update_scalar(f'weights_norm/{name}', norm)
+
+                # 如果有梯度，记录梯度范数
+                if param.grad is not None:
+                    grad_norm = param.grad.data.norm(2).item()
+                    message_hub.update_scalar(f'grads_norm/{name}', grad_norm)
+                    layer_names.append(name)
+                    grad_energies.append(grad_norm)
+
+        # 生成梯度热点图 (Heatmap)
+        if self.log_heatmap and len(grad_energies) > 0:
+            try:
+                plt.figure(figsize=(10, 8))
+                # 将梯度归一化或取 log 以便观察
+                data = np.array(grad_energies).reshape(-1, 1)
+                plt.imshow(data, aspect='auto', cmap='hot')
+                plt.colorbar(label='Gradient Norm')
+                plt.title(f'Gradient Heatmap at Iter {runner.iter}')
+                plt.ylabel('Layer Index')
+
+                # 记录到 SwanLab
+                swanlab.log(
+                    {'gradient_activity': swanlab.Image(plt)}, step=runner.iter
+                )
+                plt.close()
+            except Exception:
+                pass
