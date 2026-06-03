@@ -89,35 +89,74 @@ class WeightSummaryHook(Hook):
         layer_names = []
         grad_energies = []
 
+        layer_norms = {}
         for name, param in model.named_parameters():
             if param.requires_grad:
                 # 记录权重范数
                 if self.log_norm:
                     norm = param.data.norm(2).item()
-                    message_hub.update_scalar(f'weights_norm/{name}', norm)
+                    layer_norms[f'weights_norm/{name}'] = norm
 
                 # 如果有梯度，记录梯度范数
                 if param.grad is not None:
                     grad_norm = param.grad.data.norm(2).item()
-                    message_hub.update_scalar(f'grads_norm/{name}', grad_norm)
+                    layer_norms[f'grads_norm/{name}'] = grad_norm
                     layer_names.append(name)
                     grad_energies.append(grad_norm)
 
-        # 生成梯度热点图 (Heatmap)
+        # 直接通过 swanlab.log 记录，绕过 message_hub 以确保图表生成
+        if layer_norms:
+            swanlab.log(layer_norms, step=runner.iter)
+
+        # 生成梯度分布图 (Bar Chart)
         if self.log_heatmap and len(grad_energies) > 0:
             try:
-                plt.figure(figsize=(10, 8))
-                # 将梯度归一化或取 log 以便观察
-                data = np.array(grad_energies).reshape(-1, 1)
-                plt.imshow(data, aspect='auto', cmap='hot')
-                plt.colorbar(label='Gradient Norm')
-                plt.title(f'Gradient Heatmap at Iter {runner.iter}')
-                plt.ylabel('Layer Index')
+                # 仅在主进程记录图片，避免 DDP 重复绘图
+                if runner.rank == 0:
+                    import matplotlib.pyplot as plt
 
-                # 记录到 SwanLab
-                swanlab.log(
-                    {'gradient_activity': swanlab.Image(plt)}, step=runner.iter
-                )
-                plt.close()
-            except Exception:
-                pass
+                    # 1. 绘制梯度范数柱状图 (比 1D 热点图直观得多)
+                    fig, ax = plt.subplots(figsize=(12, 6))
+                    indices = np.arange(len(grad_energies))
+                    ax.bar(indices, grad_energies, color='skyblue')
+                    ax.set_yscale('log')  # 梯度量级差异大，用对数坐标
+                    ax.set_title(
+                        f'Gradient Norms across Layers (Iter {runner.iter})'
+                    )
+                    ax.set_xlabel('Layer Index')
+                    ax.set_ylabel('Norm (Log Scale)')
+
+                    # 2. 记录到 SwanLab (Media 选项卡)
+                    swanlab.log(
+                        {'gradient_activity': swanlab.Image(fig)},
+                        step=runner.iter,
+                    )
+                    plt.close(fig)
+
+                    # 3. 记录梯度直方图 (SwanLab 原生支持)
+                    # 选取所有梯度的展平值进行分布分析
+                    all_grads = []
+                    for name, param in model.named_parameters():
+                        if param.grad is not None:
+                            all_grads.append(
+                                param.grad.detach().cpu().numpy().flatten()
+                            )
+
+                    if all_grads:
+                        concat_grads = np.concatenate(all_grads)
+                        # 限制样本量，避免上传过大
+                        if len(concat_grads) > 10000:
+                            concat_grads = np.random.choice(
+                                concat_grads, 10000, replace=False
+                            )
+
+                        swanlab.log(
+                            {
+                                'gradient_distribution': swanlab.Histogram(
+                                    concat_grads
+                                )
+                            },
+                            step=runner.iter,
+                        )
+            except Exception as e:
+                runner.logger.warning(f'WeightSummaryHook Error: {e!s}')

@@ -28,7 +28,8 @@ class ModelOutput:
 class ImageMeta:
     """图像元信息 (纯 PyTorch 结构)"""
 
-    img_shape: Tuple[int, int]  # (h, w)
+    img_shape: Tuple[int, int]  # (h, w) after resizing
+    pad_shape: Optional[Tuple[int, int]] = None  # (h, w) after padding
     ori_shape: Optional[Tuple[int, int]] = None
     scale_factor: Optional[Union[List[float], Tensor]] = None
 

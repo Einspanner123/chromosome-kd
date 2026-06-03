@@ -8,26 +8,24 @@ import torch.nn as nn
 # if torch.backends.cudnn.is_available():
 #     torch.backends.cudnn.benchmark = True
 #     torch.backends.cudnn.allow_tf32 = True
-
 from mmdet.models.detectors.base import BaseDetector
 from mmdet.registry import MODELS
 from mmdet.structures import DetDataSample
 from mmdet.utils import ConfigType, OptConfigType, OptMultiConfig
 from .mods.diffusiondet_head import DiffusionDetHead
+from .mods.dit_head import DiTDiffusionDetHead
+from .mods.dit_single_head import DiTSingleHead
 from .mods.loss import (
     BBoxL1Cost,
     DiffusionDetCriterion,
     DiffusionDetMatcher,
     FocalLoss,
     FocalLossCost,
-    GCDCost,
     GIoULoss,
     IoUCost,
     L1Loss,
-    MixedRelativeL1Cost,
     RelativeL1Cost,
 )
-from .mods.bifpn import BiFPN
 from .mods.roi_extractor import SingleRoIExtractor
 from .mods.single_head import SingleDiffusionDetHead
 from .mods.structures import ImageMeta
@@ -55,8 +53,9 @@ MODELS.register_module(name='PurePyTorchFocalLossCost', module=FocalLossCost)
 MODELS.register_module(name='PurePyTorchBBoxL1Cost', module=BBoxL1Cost)
 MODELS.register_module(name='PurePyTorchIoUCost', module=IoUCost)
 MODELS.register_module(name='PurePyTorchRelativeL1Cost', module=RelativeL1Cost)
-MODELS.register_module(name='PurePyTorchGCDCost', module=GCDCost)
-MODELS.register_module(name='PurePyTorchMixedRelativeL1Cost', module=MixedRelativeL1Cost)
+
+MODELS.register_module(name='DiTDiffusionDetHead', module=DiTDiffusionDetHead)
+MODELS.register_module(name='DiTSingleHead', module=DiTSingleHead)
 
 
 @MODELS.register_module()
@@ -135,12 +134,19 @@ class LDMDet(BaseDetector):
         """构建检测头及其子组件"""
         cfg_copy = cfg.copy()
 
+        head_type = cfg_copy.get('type', 'PurePyTorchDiffusionDetHead')
+
+        is_dit_head = head_type in ('DiTDiffusionDetHead', DiTDiffusionDetHead)
+
         # 1. 构建 single_head
         single_head_cfg = cfg_copy.pop('single_head')
         if isinstance(single_head_cfg, dict):
-            # 如果配置中没有 type，默认使用我们注册的纯 PyTorch 版本
             if 'type' not in single_head_cfg:
-                single_head_cfg['type'] = 'PurePyTorchSingleDiffusionDetHead'
+                single_head_cfg['type'] = (
+                    'DiTSingleHead'
+                    if is_dit_head
+                    else 'PurePyTorchSingleDiffusionDetHead'
+                )
 
             obj_cls = MODELS.get(single_head_cfg['type'])
             single_head = MODELS.build(
@@ -149,18 +155,20 @@ class LDMDet(BaseDetector):
         else:
             single_head = single_head_cfg
 
-        # 2. 构建 roi_extractor
-        roi_extractor_cfg = cfg_copy.pop('roi_extractor')
-        if isinstance(roi_extractor_cfg, dict):
-            if 'type' not in roi_extractor_cfg:
-                roi_extractor_cfg['type'] = 'PurePyTorchSingleRoIExtractor'
+        # 2. 构建 roi_extractor (仅非 DiT 版本需要)
+        roi_extractor = None
+        roi_extractor_cfg = cfg_copy.pop('roi_extractor', None)
+        if roi_extractor_cfg is not None and not is_dit_head:
+            if isinstance(roi_extractor_cfg, dict):
+                if 'type' not in roi_extractor_cfg:
+                    roi_extractor_cfg['type'] = 'PurePyTorchSingleRoIExtractor'
 
-            obj_cls = MODELS.get(roi_extractor_cfg['type'])
-            roi_extractor = MODELS.build(
-                self._filter_kwargs(obj_cls, roi_extractor_cfg)
-            )
-        else:
-            roi_extractor = roi_extractor_cfg
+                obj_cls = MODELS.get(roi_extractor_cfg['type'])
+                roi_extractor = MODELS.build(
+                    self._filter_kwargs(obj_cls, roi_extractor_cfg)
+                )
+            else:
+                roi_extractor = roi_extractor_cfg
 
         # 3. 构建 criterion (仅在训练时需要，或者统一构建)
         criterion_cfg = cfg_copy.pop('criterion', None)
@@ -191,22 +199,22 @@ class LDMDet(BaseDetector):
             else:
                 consistency_loss = consistency_loss_cfg
 
-        # 5. 构建 DiffusionDetHead
+        # 5. 构建 Head
         if 'type' not in cfg_copy:
-            cfg_copy['type'] = 'PurePyTorchDiffusionDetHead'
+            cfg_copy['type'] = head_type
 
         torch_compile = cfg_copy.pop('torch_compile', False)
 
-        # 将实例化的子组件传入
-        cfg_copy.update(
-            dict(
-                single_head=single_head,
-                roi_extractor=roi_extractor,
-                criterion=criterion,
-                counting_branch=counting_branch,
-                consistency_loss=consistency_loss,
-            )
+        build_kwargs = dict(
+            single_head=single_head,
+            criterion=criterion,
         )
+        if not is_dit_head:
+            build_kwargs['roi_extractor'] = roi_extractor
+            build_kwargs['counting_branch'] = counting_branch
+            build_kwargs['consistency_loss'] = consistency_loss
+
+        cfg_copy.update(build_kwargs)
 
         obj_cls = MODELS.get(cfg_copy['type'])
         head = MODELS.build(self._filter_kwargs(obj_cls, cfg_copy))
@@ -236,8 +244,6 @@ class LDMDet(BaseDetector):
                         'BBoxL1Cost': 'PurePyTorchBBoxL1Cost',
                         'IoUCost': 'PurePyTorchIoUCost',
                         'RelativeL1Cost': 'PurePyTorchRelativeL1Cost',
-                        'GCDCost': 'PurePyTorchGCDCost',
-                        'MixedRelativeL1Cost': 'PurePyTorchMixedRelativeL1Cost',
                     }
                     if 'type' in cost_cfg:
                         cost_cfg['type'] = type_map.get(
@@ -309,6 +315,7 @@ class LDMDet(BaseDetector):
             # 转换为纯 PyTorch 结构的数据类
             meta = ImageMeta(
                 img_shape=data_sample.metainfo['img_shape'],
+                pad_shape=data_sample.metainfo.get('pad_shape'),
                 ori_shape=data_sample.metainfo.get('ori_shape'),
                 scale_factor=data_sample.metainfo.get('scale_factor'),
             )
@@ -336,6 +343,7 @@ class LDMDet(BaseDetector):
         for data_sample in batch_data_samples:
             meta = ImageMeta(
                 img_shape=data_sample.metainfo['img_shape'],
+                pad_shape=data_sample.metainfo.get('pad_shape'),
                 ori_shape=data_sample.metainfo.get('ori_shape'),
                 scale_factor=data_sample.metainfo.get('scale_factor'),
             )
@@ -391,6 +399,7 @@ class LDMDet(BaseDetector):
         for data_sample in batch_data_samples:
             meta = ImageMeta(
                 img_shape=data_sample.metainfo['img_shape'],
+                pad_shape=data_sample.metainfo.get('pad_shape'),
                 ori_shape=data_sample.metainfo.get('ori_shape'),
                 scale_factor=data_sample.metainfo.get('scale_factor'),
             )
