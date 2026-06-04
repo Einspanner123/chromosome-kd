@@ -104,7 +104,7 @@ def test_box_tokenizer():
     bboxes[:, :, 3] = bboxes[:, :, 1] + torch.rand(bs, N) * 0.3
     bboxes = bboxes.clamp(0, 1)
 
-    tok = BoxTokenizer(feat_channels=C, num_fpn_levels=num_levels, init_mode='bilinear')
+    tok = BoxTokenizer(feat_channels=C, num_fpn_levels=num_levels, init_mode='zero')
     tokens, levels = tok(bboxes, fpn_feats)
     check('tokens shape', tokens.shape == (bs, N, C))
     check('levels shape', levels.shape == (bs, N))
@@ -579,7 +579,7 @@ def test_coordinate_roundtrip():
         rf_schedule='shifted', rf_shift=3.0,
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=4, num_ref_points=8,
-        box_init_mode='bilinear',
+        box_init_mode='zero',
         criterion=DiffusionDetCriterion(
             num_classes=num_classes,
             matcher=DiffusionDetMatcher(
@@ -629,7 +629,7 @@ def test_dit_head_forward():
         rf_schedule='shifted', rf_shift=3.0,
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=num_levels, num_ref_points=8,
-        box_init_mode='bilinear', deep_supervision=True,
+        box_init_mode='zero', deep_supervision=True,
         criterion=DiffusionDetCriterion(
             num_classes=num_classes,
             matcher=DiffusionDetMatcher(
@@ -675,7 +675,7 @@ def test_dit_head_loss():
         rf_schedule='shifted', rf_shift=3.0,
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=num_levels, num_ref_points=8,
-        box_init_mode='bilinear', deep_supervision=True,
+        box_init_mode='zero', deep_supervision=True,
         criterion=DiffusionDetCriterion(
             num_classes=num_classes,
             matcher=DiffusionDetMatcher(
@@ -735,7 +735,7 @@ def test_dit_head_predict():
         rf_schedule='shifted', rf_shift=3.0,
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=num_levels, num_ref_points=8,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         use_ensemble=True, box_renewal=False,
         use_nms=True, nms_thr=0.5, score_thr=0.05,
         criterion=DiffusionDetCriterion(
@@ -782,7 +782,7 @@ def test_dit_head_predict_heun():
         rf_schedule='shifted', rf_shift=3.0,
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=num_levels, num_ref_points=8,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         use_ensemble=True, box_renewal=False,
         use_nms=True, nms_thr=0.5, score_thr=0.05,
         criterion=DiffusionDetCriterion(
@@ -824,7 +824,7 @@ def test_dit_head_predict_dpm():
         rf_schedule='shifted', rf_shift=3.0,
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=num_levels, num_ref_points=8,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         use_ensemble=True, box_renewal=False,
         use_nms=True, nms_thr=0.5, score_thr=0.05,
         criterion=DiffusionDetCriterion(
@@ -984,7 +984,7 @@ def test_backward():
         rf_schedule='shifted', rf_shift=3.0,
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=num_levels, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         criterion=DiffusionDetCriterion(
             num_classes=num_classes,
             matcher=DiffusionDetMatcher(
@@ -1047,7 +1047,7 @@ def test_predict_rescale():
         rf_schedule='shifted', rf_shift=3.0,
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=num_levels, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         use_ensemble=True, box_renewal=False,
         use_nms=True, nms_thr=0.5, score_thr=0.05,
         criterion=DiffusionDetCriterion(
@@ -1099,7 +1099,7 @@ def test_ddpm_mode():
         diffusion_type='ddpm', solver_type='euler',
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=num_levels, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         use_ensemble=True, box_renewal=False,
         use_nms=True, nms_thr=0.5, score_thr=0.05,
         criterion=DiffusionDetCriterion(
@@ -1260,7 +1260,7 @@ def test_ot_sinkhorn():
         ot_coupling=True, ot_matcher='sinkhorn', ot_epsilon=1.0, ot_num_iters=10,
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=4, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         criterion=DiffusionDetCriterion(
             num_classes=num_classes,
             matcher=DiffusionDetMatcher(
@@ -1303,7 +1303,7 @@ def test_ot_nearest():
         ot_coupling=True, ot_matcher='nearest',
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=4, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         criterion=DiffusionDetCriterion(
             num_classes=num_classes,
             matcher=DiffusionDetMatcher(
@@ -1343,7 +1343,7 @@ def test_ot_empty_gt():
         ot_coupling=True, ot_matcher='sinkhorn',
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=4, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         criterion=DiffusionDetCriterion(
             num_classes=num_classes,
             matcher=DiffusionDetMatcher(
@@ -1379,7 +1379,7 @@ def test_time_sampling():
         t_sampling='uniform',
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=4, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         criterion=DiffusionDetCriterion(
             num_classes=num_classes,
             matcher=DiffusionDetMatcher(
@@ -1406,7 +1406,7 @@ def test_time_sampling():
         t_sampling='stratified', t_sampling_bins=8,
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=4, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         criterion=DiffusionDetCriterion(
             num_classes=num_classes,
             matcher=DiffusionDetMatcher(
@@ -1431,7 +1431,7 @@ def test_time_sampling():
         diffusion_type='ddpm', solver_type='euler',
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=4, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         criterion=DiffusionDetCriterion(
             num_classes=num_classes,
             matcher=DiffusionDetMatcher(
@@ -1464,7 +1464,7 @@ def test_lsas_sampling():
         use_lsas=True, lsas_num_bins=50, lsas_temp=1.0,
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=4, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         criterion=DiffusionDetCriterion(
             num_classes=num_classes,
             matcher=DiffusionDetMatcher(
@@ -1636,7 +1636,7 @@ def test_box_renewal():
         diffusion_type='rectified_flow', solver_type='euler',
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=num_levels, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         use_ensemble=True, box_renewal=True,
         use_nms=True, nms_thr=0.5, score_thr=0.05,
         criterion=DiffusionDetCriterion(
@@ -1678,7 +1678,7 @@ def test_velocity_loss_training():
         regression_mode='direct', prediction_mode='velocity',
         velocity_loss_weight=5.0,
         adaln_params=9, num_fpn_levels=num_levels, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         criterion=DiffusionDetCriterion(
             num_classes=num_classes,
             matcher=DiffusionDetMatcher(
@@ -1728,7 +1728,7 @@ def test_ddpm_q_sample():
         diffusion_type='ddpm', solver_type='euler',
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=4, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         criterion=DiffusionDetCriterion(
             num_classes=num_classes,
             matcher=DiffusionDetMatcher(
@@ -1770,7 +1770,7 @@ def test_coordinate_edge_cases():
         diffusion_type='rectified_flow', solver_type='euler',
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=4, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         criterion=DiffusionDetCriterion(
             num_classes=num_classes,
             matcher=DiffusionDetMatcher(
@@ -1949,7 +1949,7 @@ def test_cls_bias_init():
         diffusion_type='rectified_flow', solver_type='euler',
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=4, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         criterion=DiffusionDetCriterion(
             num_classes=num_classes,
             matcher=DiffusionDetMatcher(
@@ -1987,7 +1987,7 @@ def test_ot_training():
         ot_coupling=True, ot_matcher='sinkhorn', ot_epsilon=1.0, ot_num_iters=5,
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=num_levels, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         criterion=DiffusionDetCriterion(
             num_classes=num_classes,
             matcher=DiffusionDetMatcher(
@@ -2036,7 +2036,7 @@ def test_predict_trajectory():
         diffusion_type='rectified_flow', solver_type='euler',
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=num_levels, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         use_ensemble=True, box_renewal=False,
         use_nms=True, nms_thr=0.5, score_thr=0.05,
         criterion=DiffusionDetCriterion(
@@ -2084,48 +2084,27 @@ def test_power_schedule():
 # ============================================================
 def test_box_tokenizer_assign_level():
     print('\n=== test_box_tokenizer_assign_level ===')
-    tok = BoxTokenizer(feat_channels=256, num_fpn_levels=4, init_mode='bilinear')
+    tok = BoxTokenizer(feat_channels=256, num_fpn_levels=4, init_mode='zero')
 
     bboxes = torch.rand(2, 20, 4)
     bboxes[:, :, 2] = bboxes[:, :, 0] + torch.rand(2, 20) * 0.3
     bboxes[:, :, 3] = bboxes[:, :, 1] + torch.rand(2, 20) * 0.3
     bboxes = bboxes.clamp(0, 1)
 
-    levels = tok._assign_fpn_level(bboxes, None)
+    levels = tok._assign_fpn_level(bboxes)
     check('levels shape', levels.shape == (2, 20))
     check('levels range', (levels >= 0).all().item() and (levels < 4).all().item())
     check('levels long', levels.dtype == torch.long)
 
     tiny_bboxes = torch.tensor([[[0.49, 0.49, 0.51, 0.51]]])
-    levels_tiny = tok._assign_fpn_level(tiny_bboxes, None)
+    levels_tiny = tok._assign_fpn_level(tiny_bboxes)
     check('tiny bbox level', levels_tiny.item() >= 0)
 
     large_bboxes = torch.tensor([[[0.0, 0.0, 1.0, 1.0]]])
-    levels_large = tok._assign_fpn_level(large_bboxes, None)
+    levels_large = tok._assign_fpn_level(large_bboxes)
     check('large bbox level', levels_large.item() >= 0)
     check('tiny <= large level', levels_tiny.item() <= levels_large.item(),
           f'tiny={levels_tiny.item()}, large={levels_large.item()}')
-
-
-# ============================================================
-# 62. BoxTokenizer._bilinear_sample
-# ============================================================
-def test_box_tokenizer_bilinear_sample():
-    print('\n=== test_box_tokenizer_bilinear_sample ===')
-    bs, N, C, num_levels = 2, 10, 256, 4
-    fpn_feats = [torch.rand(bs, C, 20 + l * 5, 20 + l * 5) for l in range(num_levels)]
-
-    bboxes = torch.rand(bs, N, 4)
-    bboxes[:, :, 2] = bboxes[:, :, 0] + torch.rand(bs, N) * 0.3
-    bboxes[:, :, 3] = bboxes[:, :, 1] + torch.rand(bs, N) * 0.3
-    bboxes = bboxes.clamp(0, 1)
-
-    tok = BoxTokenizer(feat_channels=C, num_fpn_levels=num_levels, init_mode='bilinear')
-    levels = tok._assign_fpn_level(bboxes, None)
-    sampled = tok._bilinear_sample(fpn_feats, bboxes, levels)
-
-    check('sampled shape', sampled.shape == (bs, N, C))
-    check('sampled finite', sampled.isfinite().all().item())
 
 
 # ============================================================
@@ -2213,7 +2192,7 @@ def test_dit_head_q_sample_ddpm():
         diffusion_type='ddpm', solver_type='euler',
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=4, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         criterion=DiffusionDetCriterion(
             num_classes=num_classes,
             matcher=DiffusionDetMatcher(
@@ -2251,7 +2230,7 @@ def test_dit_head_predict_noise():
         diffusion_type='ddpm', solver_type='euler',
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=4, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         criterion=DiffusionDetCriterion(
             num_classes=num_classes,
             matcher=DiffusionDetMatcher(
@@ -2377,7 +2356,7 @@ def test_empty_batch_forward():
         diffusion_type='rectified_flow', solver_type='euler',
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=num_levels, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         criterion=DiffusionDetCriterion(
             num_classes=num_classes,
             matcher=DiffusionDetMatcher(
@@ -2606,7 +2585,7 @@ def test_matcher_single_gt():
 def test_box_tokenizer_pos_embed():
     print('\n=== test_box_tokenizer_pos_embed ===')
     C = 256
-    tok = BoxTokenizer(feat_channels=C, num_fpn_levels=4, init_mode='bilinear')
+    tok = BoxTokenizer(feat_channels=C, num_fpn_levels=4, init_mode='zero')
 
     bboxes = torch.rand(2, 10, 4)
     bboxes[:, :, 2] = bboxes[:, :, 0] + 0.1
@@ -2617,7 +2596,7 @@ def test_box_tokenizer_pos_embed():
     check('pos_embed shape', pos.shape == (2, 10, C))
     check('pos_embed finite', pos.isfinite().all().item())
 
-    lvl_idx = tok._assign_fpn_level(bboxes, None)
+    lvl_idx = tok._assign_fpn_level(bboxes)
     lvl_emb = tok.level_embed(lvl_idx)
     check('level_embed shape', lvl_emb.shape == (2, 10, C))
     check('level_embed finite', lvl_emb.isfinite().all().item())
@@ -2773,7 +2752,7 @@ def test_sinkhorn_transport_marginals():
         ot_coupling=True, ot_matcher='sinkhorn', ot_epsilon=1.0, ot_num_iters=50,
         regression_mode='direct', prediction_mode='x0',
         adaln_params=9, num_fpn_levels=4, num_ref_points=4,
-        box_init_mode='bilinear', deep_supervision=False,
+        box_init_mode='zero', deep_supervision=False,
         criterion=DiffusionDetCriterion(
             num_classes=num_classes,
             matcher=DiffusionDetMatcher(
@@ -2890,7 +2869,6 @@ if __name__ == '__main__':
 
     # ---- 新增测试: 模块内部方法与边界条件 ----
     test_box_tokenizer_assign_level()
-    test_box_tokenizer_bilinear_sample()
     test_rectified_flow_get_velocity()
     test_rectified_flow_heun_step()
     test_dpm_solver_order3()

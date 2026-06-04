@@ -74,7 +74,7 @@ def test_dit_wrapper():
             adaln_params=9,
             num_fpn_levels=4,
             num_ref_points=8,
-            box_init_mode='bilinear',
+            box_init_mode='zero',
             single_head=dict(
                 type='DiTSingleHead',
                 num_classes=num_classes,
