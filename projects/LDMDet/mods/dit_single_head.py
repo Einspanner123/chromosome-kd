@@ -1,9 +1,7 @@
 import math
-from typing import Optional
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch import Tensor
 
 from .dit_block import DiTBlock
@@ -94,7 +92,9 @@ class DiTSingleHead(nn.Module):
         cls_layers.append(
             nn.Linear(
                 feat_channels,
-                num_classes if use_focal_loss or use_fed_loss else num_classes + 1,
+                num_classes
+                if use_focal_loss or use_fed_loss
+                else num_classes + 1,
             )
         )
         self.cls_head = nn.Sequential(*cls_layers)
@@ -159,8 +159,12 @@ class DiTSingleHead(nn.Module):
             pred_velocity: (bs, N, 4) or None
         """
         updated_tokens = self.dit_block(
-            box_tokens, fpn_flattened, spatial_shapes,
-            level_start_index, time_emb, bbox_coords,
+            box_tokens,
+            fpn_flattened,
+            spatial_shapes,
+            level_start_index,
+            time_emb,
+            bbox_coords,
         )
 
         fc_feature = updated_tokens

@@ -242,37 +242,6 @@ class MultiScaleDeformableAttention(nn.Module):
         output = self.output_proj(output)
         output = self.dropout(output)
 
-        # #region debug-point A:ref-coords
-        try:
-            from .dit_head import _dbg_post  # lazy: avoid circular import
-
-            if not hasattr(self, '_dit_dbg_step_a'):
-                self._dit_dbg_step_a = 0
-            self._dit_dbg_step_a += 1
-            if self._dit_dbg_step_a % 50 == 1:
-                _rp = reference_points.detach()
-                _sl = sampling_locations.detach()
-                _dbg_post(
-                    'A',
-                    'deformable_attn.py:MultiScaleDeformableAttention.forward',
-                    f'[DEBUG] ref/sampling coords iter={self._dit_dbg_step_a}',
-                    {
-                        'ref_min': float(_rp.min()),
-                        'ref_max': float(_rp.max()),
-                        'ref_mean': float(_rp.mean()),
-                        'sl_min': float(_sl.min()),
-                        'sl_max': float(_sl.max()),
-                        'sl_mean': float(_sl.mean()),
-                        'sl_out_of_range': float(
-                            ((_sl < 0) | (_sl > 1)).float().mean()
-                        ),
-                        'sl_has_nan': bool(torch.isnan(_sl).any()),
-                    },
-                )
-        except Exception:
-            pass
-        # #endregion
-
         return output
 
 

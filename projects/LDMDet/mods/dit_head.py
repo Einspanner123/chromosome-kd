@@ -1,8 +1,4 @@
-import copy
-import json
 import math
-import os
-import urllib.request
 from typing import List, Optional, Tuple
 
 import torch
@@ -11,6 +7,7 @@ import torch.nn.functional as F
 from torch import Tensor
 from torchvision.ops import batched_nms
 
+from mmdet.registry import MODELS
 from .box_tokenizer import (
     BoxTokenizer,
 )
@@ -24,56 +21,6 @@ from .modules import (
 from .rectified_flow import RectifiedFlow
 from .structures import DetectionResult, InstanceData, ModelOutput
 from .utils import bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh
-
-
-# #region debug-point helper:env-load
-def _dbg_post(
-    hypothesis_id: str,
-    location: str,
-    msg: str,
-    data: dict,
-    run_id: str = 'pre-fix',
-) -> None:
-    """Read .env for DEBUG_SERVER_URL/DEBUG_SESSION_ID, POST one event, swallow all errors.
-
-    Reused by all 5 instrumentation points (A/B/C/D/E) in this module +
-    deformable_attn.py / box_tokenizer.py / loss.py.
-
-    run_id can be overridden via env DEBUG_RUN_ID (so we can switch pre-fix → post-fix).
-    """
-    try:
-        _u = 'http://127.0.0.1:7777/event'
-        _s = 'chromosome-kd-dit-zero-map'
-        _ep = '.dbg/chromosome-kd-dit-zero-map.env'
-        if os.path.exists(_ep):
-            with open(_ep, encoding='utf-8') as _f:
-                for _line in _f:
-                    if _line.startswith('DEBUG_SERVER_URL='):
-                        _u = _line[len('DEBUG_SERVER_URL=') :].strip()
-                    elif _line.startswith('DEBUG_SESSION_ID='):
-                        _s = _line[len('DEBUG_SESSION_ID=') :].strip()
-        _run_id = os.environ.get('DEBUG_RUN_ID', run_id)
-        _payload = {
-            'sessionId': _s,
-            'runId': _run_id,
-            'hypothesisId': hypothesis_id,
-            'location': location,
-            'msg': msg,
-            'data': data,
-        }
-        urllib.request.urlopen(
-            urllib.request.Request(
-                _u,
-                data=json.dumps(_payload, ensure_ascii=False).encode('utf-8'),
-                headers={'Content-Type': 'application/json'},
-            ),
-            timeout=0.3,
-        ).read()
-    except Exception:
-        pass
-
-
-# #endregion
 
 
 class DiTDiffusionDetHead(nn.Module):
@@ -130,7 +77,7 @@ class DiTDiffusionDetHead(nn.Module):
         t_sampling_bins: int = 8,
         num_fpn_levels: int = 4,
         num_ref_points: int = 8,
-        box_init_mode: str = 'bilinear',
+        box_init_mode: str = 'zero',
         adaln_params: int = 9,
         regression_mode: str = 'direct',
         use_adaln_zero: bool = True,
@@ -190,43 +137,30 @@ class DiTDiffusionDetHead(nn.Module):
         )
 
         if single_head is not None:
+            # 显式实现权重共享：所有层指向同一个 Module 实例
+            if isinstance(single_head, dict):
+                shared_module = MODELS.build(single_head)
+            else:
+                # 如果已经是实例化好的对象，直接使用
+                shared_module = single_head
             self.head_series = nn.ModuleList(
-                [copy.deepcopy(single_head) for _ in range(num_heads)]
+                [shared_module for _ in range(num_heads)]
             )
         else:
-            self.head_series = nn.ModuleList(
-                [
-                    DiTSingleHead(
-                        num_classes=num_classes,
-                        feat_channels=feat_channels,
-                        num_heads=8,
-                        num_fpn_levels=num_fpn_levels,
-                        num_ref_points=num_ref_points,
-                        prediction_mode=prediction_mode,
-                        adaln_params=adaln_params,
-                        regression_mode=regression_mode,
-                        use_adaln_zero=use_adaln_zero,
-                    )
-                    for _ in range(num_heads)
-                ]
+            shared_module = DiTSingleHead(
+                num_classes=num_classes,
+                feat_channels=feat_channels,
+                num_heads=8,
+                num_fpn_levels=num_fpn_levels,
+                num_ref_points=num_ref_points,
+                prediction_mode=prediction_mode,
+                adaln_params=adaln_params,
+                regression_mode=regression_mode,
+                use_adaln_zero=use_adaln_zero,
             )
-
-        if prediction_mode == 'velocity':
-            for head in self.head_series:
-                if (
-                    not hasattr(head, 'velocity_head')
-                    or head.velocity_head is None
-                ):
-                    head.velocity_head = nn.Sequential(
-                        nn.Linear(feat_channels, feat_channels, bias=False),
-                        nn.LayerNorm(feat_channels),
-                        nn.ReLU(inplace=True),
-                        nn.Linear(feat_channels, feat_channels, bias=False),
-                        nn.LayerNorm(feat_channels),
-                        nn.ReLU(inplace=True),
-                        nn.Linear(feat_channels, 4),
-                    )
-                    head.prediction_mode = 'velocity'
+            self.head_series = nn.ModuleList(
+                [shared_module for _ in range(num_heads)]
+            )
 
         time_dim = feat_channels * 4
         self.time_mlp = nn.Sequential(
@@ -326,11 +260,16 @@ class DiTDiffusionDetHead(nn.Module):
         return x0
 
     def _raw_to_xyxy(self, raw_bboxes, img_metas):
+        # 入口防护: 清洗上游可能传入的 NaN/Inf
+        raw_bboxes = torch.nan_to_num(raw_bboxes, nan=0.0, posinf=0.0, neginf=0.0)
         bboxes = (
             raw_bboxes.clamp(-self.snr_scale, self.snr_scale) / self.snr_scale
             + 1
         ) / 2
         bboxes = bbox_cxcywh_to_xyxy(bboxes)
+        # 二次清洗: cxcywh→xyxy 转换可能产生 NaN (w/h 为 0 时除零)
+        bboxes = torch.nan_to_num(bboxes, nan=0.5, posinf=1.0, neginf=0.0)
+        bboxes = bboxes.clamp(0, 1)
         bboxes[..., 0] = torch.min(bboxes[..., 0], bboxes[..., 2] - 1e-4)
         bboxes[..., 1] = torch.min(bboxes[..., 1], bboxes[..., 3] - 1e-4)
         for i, meta in enumerate(img_metas):
@@ -535,53 +474,8 @@ class DiTDiffusionDetHead(nn.Module):
                 else updated_tokens
             )
 
-            curr_tokens = updated_tokens.detach()
+            curr_tokens = updated_tokens
             curr_normed = pred_bboxes.detach().clamp(0, 1)
-
-        # #region debug-point E:head-diversity
-        try:
-            if not hasattr(self, '_dit_dbg_step_e'):
-                self._dit_dbg_step_e = 0
-            self._dit_dbg_step_e += 1
-            if self._dit_dbg_step_e % 50 == 1:
-                _pstack = torch.stack(inter_pred_bboxes).detach()
-                # pairwise IoU among the 6 heads (mean across heads-pair)
-                _H = _pstack.shape[0]
-                _ious = []
-                for _i in range(_H):
-                    for _j in range(_i + 1, _H):
-                        # simple IoU on [bs, N, 4] xyxy
-                        _a, _b = _pstack[_i, 0], _pstack[_j, 0]
-                        _x0 = torch.max(_a[:, 0], _b[:, 0])
-                        _y0 = torch.max(_a[:, 1], _b[:, 1])
-                        _x1 = torch.min(_a[:, 2], _b[:, 2])
-                        _y1 = torch.min(_a[:, 3], _b[:, 3])
-                        _iw = (_x1 - _x0).clamp(min=0)
-                        _ih = (_y1 - _y0).clamp(min=0)
-                        _inter = _iw * _ih
-                        _area_a = (_a[:, 2] - _a[:, 0]).clamp(min=0) * (
-                            _a[:, 3] - _a[:, 1]
-                        ).clamp(min=0)
-                        _area_b = (_b[:, 2] - _b[:, 0]).clamp(min=0) * (
-                            _b[:, 3] - _b[:, 1]
-                        ).clamp(min=0)
-                        _union = _area_a + _area_b - _inter + 1e-8
-                        _ious.append(float((_inter / _union).mean()))
-                _dbg_post(
-                    'E',
-                    'dit_head.py:DiTDiffusionDetHead.forward',
-                    f'[DEBUG] 6-head pred-bbox diversity iter={self._dit_dbg_step_e}',
-                    {
-                        'n_heads': _H,
-                        'pairwise_iou_mean': sum(_ious) / max(len(_ious), 1),
-                        'pairwise_iou_min': min(_ious) if _ious else 0.0,
-                        'pred_bbox_range_min': float(_pstack.min()),
-                        'pred_bbox_range_max': float(_pstack.max()),
-                    },
-                )
-        except Exception:
-            pass
-        # #endregion
 
         if self.deep_supervision:
             return (
@@ -673,53 +567,8 @@ class DiTDiffusionDetHead(nn.Module):
         device = features[0].device
         bs = len(img_metas)
 
-        # #region debug-point D:t-snapshot
-        try:
-            if not hasattr(self, '_dit_dbg_step_d'):
-                self._dit_dbg_step_d = 0
-            self._dit_dbg_step_d += 1
-            if self._dit_dbg_step_d % 20 == 1:
-                _num_gt_per_img = [int(g.shape[0]) for g in gt_bboxes]
-                _dbg_post(
-                    'D',
-                    'dit_head.py:DiTDiffusionDetHead.loss',
-                    f'[DEBUG] loss-entry snapshot iter={self._dit_dbg_step_d}',
-                    {
-                        'bs': bs,
-                        'gt_counts': _num_gt_per_img,
-                        'gt_total': sum(_num_gt_per_img),
-                    },
-                )
-        except Exception:
-            pass
-        # #endregion
-
         targets = self._normalize_targets(gt_bboxes, gt_labels, img_metas, bs)
         t, lsas_log_probs = self._sample_t(bs, device)
-
-        # #region debug-point D:t-buckets (extended)
-        try:
-            if self._dit_dbg_step_d % 20 == 1:
-                _tb = t.detach()
-                _dbg_post(
-                    'D',
-                    'dit_head.py:DiTDiffusionDetHead.loss',
-                    f'[DEBUG] t-snapshot iter={self._dit_dbg_step_d}',
-                    {
-                        't_min': float(_tb.min()),
-                        't_max': float(_tb.max()),
-                        't_mean': float(_tb.mean()),
-                        't_hist': [
-                            int((_tb < 0.1).sum().item()),
-                            int(((_tb >= 0.1) & (_tb < 0.5)).sum().item()),
-                            int(((_tb >= 0.5) & (_tb < 0.9)).sum().item()),
-                            int((_tb >= 0.9).sum().item()),
-                        ],
-                    },
-                )
-        except Exception:
-            pass
-        # #endregion
 
         x_boxes, x_starts, x_noises, matched_gt_indices = (
             self._build_training_targets(
@@ -827,7 +676,7 @@ class DiTDiffusionDetHead(nn.Module):
         last_pred_bboxes = pred_bboxes_seq[-1]
         last_pred_bboxes_img = self._normed_to_img(last_pred_bboxes, img_metas)
         x0_raw = self._xyxy_to_raw(last_pred_bboxes_img, img_metas)
-        return last_cls_logits, last_pred_bboxes_img, x0_raw, last_cls_logits
+        return last_cls_logits, last_pred_bboxes_img, x0_raw
 
     @torch.no_grad()
     def predict(
@@ -872,7 +721,7 @@ class DiTDiffusionDetHead(nn.Module):
             )
 
         for step_idx, (t_curr, t_next) in enumerate(time_pairs):
-            cls_logits, pred_bboxes, x0_raw, logits_0_raw = self._forward_at_t(
+            cls_logits, pred_bboxes, x0_raw = self._forward_at_t(
                 features, x_raw, t_curr, img_metas
             )
 
@@ -913,7 +762,7 @@ class DiTDiffusionDetHead(nn.Module):
                 elif self.solver_type == 'heun' and t_next > 0:
 
                     def model_fn(x_tmp, t_tmp):
-                        _, _, x0_tmp, _ = self._forward_at_t(
+                        _, _, x0_tmp = self._forward_at_t(
                             features, x_tmp, t_tmp, img_metas
                         )
                         return x0_tmp, None
