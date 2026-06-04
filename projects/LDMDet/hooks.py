@@ -62,30 +62,83 @@ class CopyProjectHook(Hook):
 class PredictionVisHook(Hook):
     """验证阶段可视化预测框，保存带标注的图片。
 
-    在 after_val_epoch 时，取前 num_images 张验证集图像，
-    用模型预测并画出 GT（蓝色）和预测框（绿色），保存到 work_dir/vis/ 目录。
+    在 after_val_iter 中捕获预测结果，在 after_val_epoch 中统一绘制保存。
+    不重新运行推理，直接使用验证循环中的预测结果。
     """
 
     def __init__(self, num_images: int = 4, score_thr: float = 0.01):
         self.num_images = num_images
         self.score_thr = score_thr
+        self._captured = []  # (img_path, gt_bboxes, gt_labels, pred_bboxes, pred_scores, scale_factor)
+
+    def before_val_epoch(self, runner):
+        self._captured = []
+
+    def after_val_iter(self, runner, batch_idx, data_batch=None, outputs=None):
+        if len(self._captured) >= self.num_images:
+            return
+        if outputs is None or data_batch is None:
+            return
+
+        data_samples = data_batch.get('data_samples', [])
+        if not data_samples:
+            return
+
+        # outputs 是 val_step 的返回值，包含预测结果
+        if isinstance(outputs, list):
+            for i, out in enumerate(outputs):
+                if len(self._captured) >= self.num_images:
+                    break
+                if i >= len(data_samples):
+                    break
+                self._capture_single(data_samples[i], out)
+        elif hasattr(outputs, 'pred_instances'):
+            if data_samples:
+                self._capture_single(data_samples[0], outputs)
+
+    def _capture_single(self, ds, result):
+        """从单个 data_sample 和 result 中提取信息。"""
+        gt = ds.gt_instances if hasattr(ds, 'gt_instances') else None
+        gt_bboxes = gt.bboxes.cpu().numpy() if gt is not None and len(gt.bboxes) > 0 else None
+        gt_labels = gt.labels.cpu().numpy() if gt is not None and len(gt.labels) > 0 else None
+
+        pred = result.pred_instances if hasattr(result, 'pred_instances') else None
+        if pred is None or len(pred.bboxes) == 0:
+            return
+
+        pred_bboxes = pred.bboxes.cpu().numpy()
+        pred_scores = pred.scores.cpu().numpy()
+
+        # 过滤低分
+        mask = pred_scores >= self.score_thr
+        if not mask.any():
+            return
+
+        scale_factor = ds.scale_factor if hasattr(ds, 'scale_factor') else None
+
+        self._captured.append({
+            'img_path': ds.img_path if hasattr(ds, 'img_path') else None,
+            'gt_bboxes': gt_bboxes,
+            'gt_labels': gt_labels,
+            'pred_bboxes': pred_bboxes[mask],
+            'pred_scores': pred_scores[mask],
+            'scale_factor': scale_factor,
+        })
 
     def after_val_epoch(self, runner, metrics=None):
         import cv2
         import numpy as np
-        import torch
         from pathlib import Path
+
+        if not self._captured:
+            runner.logger.warning('[VisHook] 没有捕获到有效的预测结果')
+            return
 
         vis_dir = Path(runner.work_dir) / 'vis_predictions'
         vis_dir.mkdir(parents=True, exist_ok=True)
 
         epoch = runner.epoch
-        model = runner.model
-        model.eval()
 
-        dataloader = runner.val_dataloader
-
-        # 生成随机颜色 (只对 24 类)
         rng = np.random.RandomState(42)
         colors = {
             i: tuple(int(c) for c in rng.randint(50, 255, 3))
@@ -93,101 +146,60 @@ class PredictionVisHook(Hook):
         }
 
         saved = 0
-        for batch_idx, data in enumerate(dataloader):
+        for item in self._captured:
             if saved >= self.num_images:
                 break
+            img_path = item['img_path']
+            if img_path is None:
+                continue
 
-            # 每个 batch 可能多张图，遍历
-            inputs = data['inputs']
-            data_samples = data['data_samples']
+            img = cv2.imread(img_path)
+            if img is None:
+                continue
 
-            if isinstance(inputs, list):
-                inputs = torch.stack(inputs)
+            scale_factor = item['scale_factor']
+            if isinstance(scale_factor, np.ndarray) and len(scale_factor) >= 2:
+                sx, sy = float(scale_factor[0]), float(scale_factor[1])
+            elif isinstance(scale_factor, (list, tuple)) and len(scale_factor) >= 2:
+                sx, sy = float(scale_factor[0]), float(scale_factor[1])
+            else:
+                sx = sy = 1.0
 
-            # 推理: 数据已在 dataloader 中移到正确设备上
-            with torch.no_grad():
-                results = model.predict(inputs, data_samples)
-
-            # 对每张图可视化
-            for i, result in enumerate(results):
-                if saved >= self.num_images:
-                    break
-
-                ds = data_samples[i]
-                img_path = ds.img_path
-                pred = result.pred_instances
-
-                if pred is None or len(pred.bboxes) == 0:
-                    continue
-
-                # 读取原图
-                img = cv2.imread(img_path)
-                if img is None:
-                    continue
-
-                h, w = img.shape[:2]
-
-                # 获取 image 在被 resize 前的 scale factor
-                scale_factor = ds.scale_factor
-                if isinstance(scale_factor, torch.Tensor):
-                    scale_factor = scale_factor.cpu().numpy()
-                elif isinstance(scale_factor, np.ndarray):
-                    pass
-                else:
-                    scale_factor = np.array(scale_factor)
-
-                # 画 GT (蓝色)
-                gt = ds.gt_instances
-                if gt is not None and len(gt.bboxes) > 0:
-                    gt_bboxes = gt.bboxes.cpu().numpy()
-                    gt_labels = gt.labels.cpu().numpy()
-                    for j, (bbox, label) in enumerate(zip(gt_bboxes, gt_labels)):
-                        x1, y1, x2, y2 = bbox
-                        # 坐标在 resize 后的空间，映射回原图
-                        x1 = int(x1 / scale_factor[0])
-                        y1 = int(y1 / scale_factor[1])
-                        x2 = int(x2 / scale_factor[0])
-                        y2 = int(y2 / scale_factor[1])
-                        cv2.rectangle(
-                            img, (x1, y1), (x2, y2),
-                            colors.get(int(label), (255, 0, 0)), 2,
-                        )
-                        cv2.putText(
-                            img, f'GT:{int(label)}', (x1, y1 - 5),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.4,
-                            colors.get(int(label), (255, 0, 0)), 1,
-                        )
-
-                # 画预测框 (绿色实线)
-                pred_bboxes = pred.bboxes.cpu().numpy()
-                pred_scores = pred.scores.cpu().numpy()
-                for j, (bbox, score) in enumerate(zip(pred_bboxes, pred_scores)):
-                    if score < self.score_thr:
-                        continue
+            # 画 GT (彩色)
+            if item['gt_bboxes'] is not None:
+                for j, (bbox, label) in enumerate(zip(item['gt_bboxes'], item['gt_labels'])):
                     x1, y1, x2, y2 = bbox
-                    x1 = int(x1 / scale_factor[0])
-                    y1 = int(y1 / scale_factor[1])
-                    x2 = int(x2 / scale_factor[0])
-                    y2 = int(y2 / scale_factor[1])
-                    cv2.rectangle(
-                        img, (x1, y1), (x2, y2), (0, 255, 0), 2,
-                    )
-                    cv2.putText(
-                        img, f'{score:.2f}', (x1, y2 + 12),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 255, 0), 1,
-                    )
+                    x1 = int(x1 / sx)
+                    y1 = int(y1 / sy)
+                    x2 = int(x2 / sx)
+                    y2 = int(y2 / sy)
+                    color = colors.get(int(label), (255, 0, 0))
+                    cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
+                    cv2.putText(img, f'GT:{int(label)}', (x1, y1 - 5),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
 
-                # 保存
-                save_name = f'epoch_{epoch:03d}_img{saved}_{Path(img_path).stem}.jpg'
-                save_path = vis_dir / save_name
-                cv2.imwrite(str(save_path), img)
-                runner.logger.info(
-                    f'[VisHook] 保存可视化图片: {save_path} '
-                    f'(GT={len(gt.bboxes) if gt else 0}, Pred={len(pred_bboxes)})'
-                )
-                saved += 1
+            # 画预测框 (绿色)
+            for j, (bbox, score) in enumerate(zip(item['pred_bboxes'], item['pred_scores'])):
+                x1, y1, x2, y2 = bbox
+                x1 = int(x1 / sx)
+                y1 = int(y1 / sy)
+                x2 = int(x2 / sx)
+                y2 = int(y2 / sy)
+                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(img, f'{score:.2f}', (x1, y2 + 12),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 255, 0), 1)
 
-        model.train()
+            save_name = f'epoch_{epoch:03d}_img{saved}_{Path(img_path).stem}.jpg'
+            save_path = vis_dir / save_name
+            cv2.imwrite(str(save_path), img)
+            runner.logger.info(
+                f'[VisHook] 保存: {save_name} '
+                f'(GT={len(item["gt_bboxes"]) if item["gt_bboxes"] is not None else 0}, '
+                f'Pred={len(item["pred_bboxes"])})'
+            )
+            saved += 1
+
+        self._captured = []
 
 
 @HOOKS.register_module()
