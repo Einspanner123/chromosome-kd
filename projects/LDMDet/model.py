@@ -59,7 +59,7 @@ MODELS.register_module(name='DiTSingleHead', module=DiTSingleHead)
 
 
 @MODELS.register_module()
-class LDMDet(BaseDetector):
+class PurePyTorchDiffusionDet(BaseDetector):
     """
     使用纯 PyTorch 实现的 DiffusionDet 包装类，兼容 MMDetection 3.x 框架。
     """
@@ -79,7 +79,9 @@ class LDMDet(BaseDetector):
         )
 
         # 构建 backbone
-        if isinstance(backbone, dict) and backbone.get('type') == 'timm':
+        if (
+            isinstance(backbone, dict) and backbone.get('type') == 'timm_model'
+        ) or (isinstance(backbone, dict) and backbone.get('type') == 'timm'):
             import timm
 
             backbone_cfg = backbone.copy()
@@ -101,7 +103,18 @@ class LDMDet(BaseDetector):
             self.backbone = MODELS.build(backbone)
 
         if neck is not None:
-            self.neck = MODELS.build(neck)
+            # 自动处理模块路径
+            if (
+                isinstance(neck, dict)
+                and neck.get('type') == 'PurePyTorchSimpleFeatureFusion'
+            ):
+                from .mods.modules import PurePyTorchSimpleFeatureFusion
+
+                neck_cfg = neck.copy()
+                neck_cfg.pop('type')
+                self.neck = PurePyTorchSimpleFeatureFusion(**neck_cfg)
+            else:
+                self.neck = MODELS.build(neck)
         else:
             self.neck = None
 

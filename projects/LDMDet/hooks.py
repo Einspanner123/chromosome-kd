@@ -59,6 +59,138 @@ class CopyProjectHook(Hook):
 
 
 @HOOKS.register_module()
+class PredictionVisHook(Hook):
+    """验证阶段可视化预测框，保存带标注的图片。
+
+    在 after_val_epoch 时，取前 num_images 张验证集图像，
+    用模型预测并画出 GT（蓝色）和预测框（绿色），保存到 work_dir/vis/ 目录。
+    """
+
+    def __init__(self, num_images: int = 4, score_thr: float = 0.01):
+        self.num_images = num_images
+        self.score_thr = score_thr
+
+    def after_val_epoch(self, runner, metrics=None):
+        import cv2
+        import numpy as np
+        import torch
+        from pathlib import Path
+
+        vis_dir = Path(runner.work_dir) / 'vis_predictions'
+        vis_dir.mkdir(parents=True, exist_ok=True)
+
+        epoch = runner.epoch
+        model = runner.model
+        model.eval()
+
+        dataloader = runner.val_dataloader
+
+        # 生成随机颜色 (只对 24 类)
+        rng = np.random.RandomState(42)
+        colors = {
+            i: tuple(int(c) for c in rng.randint(50, 255, 3))
+            for i in range(24)
+        }
+
+        saved = 0
+        for batch_idx, data in enumerate(dataloader):
+            if saved >= self.num_images:
+                break
+
+            # 每个 batch 可能多张图，遍历
+            inputs = data['inputs']
+            data_samples = data['data_samples']
+
+            if isinstance(inputs, list):
+                inputs = torch.stack(inputs)
+
+            # 推理: 数据已在 dataloader 中移到正确设备上
+            with torch.no_grad():
+                results = model.predict(inputs, data_samples)
+
+            # 对每张图可视化
+            for i, result in enumerate(results):
+                if saved >= self.num_images:
+                    break
+
+                ds = data_samples[i]
+                img_path = ds.img_path
+                pred = result.pred_instances
+
+                if pred is None or len(pred.bboxes) == 0:
+                    continue
+
+                # 读取原图
+                img = cv2.imread(img_path)
+                if img is None:
+                    continue
+
+                h, w = img.shape[:2]
+
+                # 获取 image 在被 resize 前的 scale factor
+                scale_factor = ds.scale_factor
+                if isinstance(scale_factor, torch.Tensor):
+                    scale_factor = scale_factor.cpu().numpy()
+                elif isinstance(scale_factor, np.ndarray):
+                    pass
+                else:
+                    scale_factor = np.array(scale_factor)
+
+                # 画 GT (蓝色)
+                gt = ds.gt_instances
+                if gt is not None and len(gt.bboxes) > 0:
+                    gt_bboxes = gt.bboxes.cpu().numpy()
+                    gt_labels = gt.labels.cpu().numpy()
+                    for j, (bbox, label) in enumerate(zip(gt_bboxes, gt_labels)):
+                        x1, y1, x2, y2 = bbox
+                        # 坐标在 resize 后的空间，映射回原图
+                        x1 = int(x1 / scale_factor[0])
+                        y1 = int(y1 / scale_factor[1])
+                        x2 = int(x2 / scale_factor[0])
+                        y2 = int(y2 / scale_factor[1])
+                        cv2.rectangle(
+                            img, (x1, y1), (x2, y2),
+                            colors.get(int(label), (255, 0, 0)), 2,
+                        )
+                        cv2.putText(
+                            img, f'GT:{int(label)}', (x1, y1 - 5),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.4,
+                            colors.get(int(label), (255, 0, 0)), 1,
+                        )
+
+                # 画预测框 (绿色实线)
+                pred_bboxes = pred.bboxes.cpu().numpy()
+                pred_scores = pred.scores.cpu().numpy()
+                for j, (bbox, score) in enumerate(zip(pred_bboxes, pred_scores)):
+                    if score < self.score_thr:
+                        continue
+                    x1, y1, x2, y2 = bbox
+                    x1 = int(x1 / scale_factor[0])
+                    y1 = int(y1 / scale_factor[1])
+                    x2 = int(x2 / scale_factor[0])
+                    y2 = int(y2 / scale_factor[1])
+                    cv2.rectangle(
+                        img, (x1, y1), (x2, y2), (0, 255, 0), 2,
+                    )
+                    cv2.putText(
+                        img, f'{score:.2f}', (x1, y2 + 12),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 255, 0), 1,
+                    )
+
+                # 保存
+                save_name = f'epoch_{epoch:03d}_img{saved}_{Path(img_path).stem}.jpg'
+                save_path = vis_dir / save_name
+                cv2.imwrite(str(save_path), img)
+                runner.logger.info(
+                    f'[VisHook] 保存可视化图片: {save_path} '
+                    f'(GT={len(gt.bboxes) if gt else 0}, Pred={len(pred_bboxes)})'
+                )
+                saved += 1
+
+        model.train()
+
+
+@HOOKS.register_module()
 class WeightSummaryHook(Hook):
     """可视化模型内部权重和梯度的变化。
 
