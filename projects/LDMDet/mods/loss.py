@@ -131,7 +131,13 @@ class FocalLossCost:
         gt_labels: [M]
         Returns: [N, M] cost matrix
         """
+        num_classes = pred_logits.shape[-1]
         out_prob = pred_logits.sigmoid()
+
+        # 防护: 越界标签会触发 CUDA device-side assert，
+        # clamp 到 [0, num_classes-1] 是无奈之举，实际训练中不应出现
+        gt_labels = gt_labels.clamp(0, num_classes - 1)
+
         # 计算所有类别的负样本 cost
         neg_cost_class = (
             -(1 - self.alpha)
@@ -166,6 +172,13 @@ class BBoxL1Cost:
         pred_bboxes: [N, 4] (normalized xyxy)
         gt_bboxes: [M, 4] (normalized xyxy)
         """
+        # 清洗 NaN/Inf 并 clamp，防止 CUDA device-side assert
+        pred_bboxes = torch.nan_to_num(
+            pred_bboxes.detach(), nan=0.5, posinf=1.0, neginf=0.0
+        ).clamp(0, 1)
+        gt_bboxes = torch.nan_to_num(
+            gt_bboxes, nan=0.5, posinf=1.0, neginf=0.0
+        ).clamp(0, 1)
         return torch.cdist(pred_bboxes, gt_bboxes, p=1) * self.weight
 
 
@@ -186,13 +199,38 @@ class RelativeL1Cost:
         gt_bboxes: [M, 4] (normalized xyxy)
         Returns: [N, M] cost matrix with relative L1 distance
         """
+        # GPU 原生 NaN/Inf 清洗: 不触发 CPU 同步, 从根源防止 CUDA device-side assert
+        pred_bboxes = torch.nan_to_num(
+            pred_bboxes, nan=0.5, posinf=1.0, neginf=0.0
+        )
+        pred_bboxes = pred_bboxes.detach().clamp(0, 1)
+        gt_bboxes = torch.nan_to_num(
+            gt_bboxes, nan=0.5, posinf=1.0, neginf=0.0
+        )
+        # gt_bboxes 也需要 clamp 到 [0,1]，与 pred_bboxes 对等，
+        # 否则大值经 cxcywh 转换后直接触发 CUDA device-side assert
+        gt_bboxes = gt_bboxes.clamp(0, 1)
+
         pred_cxcywh = bbox_xyxy_to_cxcywh(pred_bboxes)
         gt_cxcywh = bbox_xyxy_to_cxcywh(gt_bboxes)
+
+        # 二次清洗: bbox_xyxy_to_cxcywh 可能引入 NaN
+        pred_cxcywh = torch.nan_to_num(pred_cxcywh, nan=0.5, posinf=1.0, neginf=0.0)
+        gt_cxcywh = torch.nan_to_num(gt_cxcywh, nan=0.5, posinf=1.0, neginf=0.0)
+
+        # clamp cxcywh 到合法范围: cx,cy∈[0,1], w,h∈[0,1]
+        pred_cxcywh = pred_cxcywh.clamp(0, 1)
+        gt_cxcywh = gt_cxcywh.clamp(0, 1)
+
         gt_w = gt_cxcywh[:, 2].clamp(min=self.eps)
         gt_h = gt_cxcywh[:, 3].clamp(min=self.eps)
         scale = torch.stack([gt_w, gt_h, gt_w, gt_h], dim=-1)
         diff = pred_cxcywh.unsqueeze(1) - gt_cxcywh.unsqueeze(0)
         cost = (diff.abs() / scale.unsqueeze(0)).sum(-1)
+
+        # GPU 原生清洗: 替换可能出现的 NaN/Inf (零开销, 无 CPU 同步)
+        cost = torch.nan_to_num(cost, nan=1e6, posinf=1e6, neginf=1e6)
+
         return cost * self.weight
 
 
@@ -212,6 +250,13 @@ class IoUCost:
         pred_bboxes: [N, 4] (xyxy)
         gt_bboxes: [M, 4] (xyxy)
         """
+        # 清洗 NaN/Inf 并 clamp，防止 CUDA device-side assert
+        pred_bboxes = torch.nan_to_num(
+            pred_bboxes.detach(), nan=0.5, posinf=1.0, neginf=0.0
+        ).clamp(0, 1)
+        gt_bboxes = torch.nan_to_num(
+            gt_bboxes, nan=0.5, posinf=1.0, neginf=0.0
+        ).clamp(0, 1)
         if self.iou_mode == 'giou':
             iou = ops.generalized_box_iou(pred_bboxes, gt_bboxes)
         else:
@@ -264,35 +309,6 @@ class DiffusionDetMatcher(nn.Module):
             )
             batch_indices.append(indices)
 
-        # #region debug-point C:matcher
-        try:
-            from .dit_head import _dbg_post  # lazy: avoid circular import
-            if not hasattr(self, '_dit_dbg_step_c'):
-                self._dit_dbg_step_c = 0
-            self._dit_dbg_step_c += 1
-            if self._dit_dbg_step_c % 20 == 1:
-                _num_pred = int(pred_bboxes.shape[1])
-                _gt_counts = [int(t.bboxes.shape[0]) for t in targets]
-                _num_matched = []
-                for (idx0, idx1) in batch_indices:
-                    _num_matched.append(int(idx0.numel()))
-                _dbg_post(
-                    'C',
-                    'loss.py:DiffusionDetMatcher.forward',
-                    f'[DEBUG] matcher summary iter={self._dit_dbg_step_c}',
-                    {
-                        'bs': batch_size,
-                        'num_pred_per_img': _num_pred,
-                        'gt_per_img': _gt_counts,
-                        'matched_per_img': _num_matched,
-                        'center_radius': float(self.center_radius),
-                        'candidate_topk': int(self.candidate_topk),
-                    },
-                )
-        except Exception:
-            pass
-        # #endregion
-
         return batch_indices
 
     def _single_assign(
@@ -322,6 +338,12 @@ class DiffusionDetMatcher(nn.Module):
         # 将不在范围内的预测框 Cost 调大
         cost_list.append((~is_in_boxes_and_center) * 100.0)
         cost_matrix = torch.stack(cost_list).sum(0)
+
+        # GPU 原生清洗: 替换 NaN/Inf (零开销, 无 CPU 同步)
+        cost_matrix = torch.nan_to_num(
+            cost_matrix, nan=1e6, posinf=1e6, neginf=1e6
+        )
+
         cost_matrix[~is_in_boxes_anchor] += 10000.0
 
         # 3. 动态 K 匹配
@@ -361,15 +383,23 @@ class DiffusionDetMatcher(nn.Module):
         self, cost: Tensor, pairwise_ious: Tensor, num_gt: int
     ) -> Tuple[Tensor, Tensor]:
         matching_matrix = torch.zeros_like(cost)
+
+        # GPU 原生清洗: 处理 pairwise_ious 中的 NaN/Inf (无 CPU 同步)
+        pairwise_ious = torch.nan_to_num(
+            pairwise_ious, nan=0.0, posinf=1.0, neginf=0.0
+        )
+
         # 为每个 GT 选择动态 K
         candidate_topk = min(self.candidate_topk, pairwise_ious.size(0))
         topk_ious, _ = torch.topk(pairwise_ious, candidate_topk, dim=0)
-        dynamic_ks = torch.clamp(topk_ious.sum(0).int(), min=1)
+        # 确保 dynamic_ks 是合法的正整数
+        dynamic_ks = torch.clamp(
+            topk_ious.sum(0).int(), min=1, max=candidate_topk
+        )
 
         for gt_idx in range(num_gt):
-            _, pos_idx = torch.topk(
-                cost[:, gt_idx], k=dynamic_ks[gt_idx], largest=False
-            )
+            k = dynamic_ks[gt_idx].item()
+            _, pos_idx = torch.topk(cost[:, gt_idx], k=k, largest=False)
             matching_matrix[pos_idx, gt_idx] = 1.0
 
         # 处理一个预测框匹配多个 GT 的情况：选择 Cost 最小的那个
@@ -568,19 +598,25 @@ class DiffusionDetCriterion(nn.Module):
                 )
             per_elem_l1 = F.l1_loss(src_cxcywh, tgt_cxcywh, reduction='none')
             weighted_sum = (per_elem_l1 * scale_w.unsqueeze(1)).sum()
-            loss_bbox = self.loss_bbox.loss_weight * weighted_sum / (4.0 * num_pos * num_pos)
-            loss_giou = self.loss_giou(
-                src_boxes_pos, tgt_boxes_pos
-            ).sum() / num_pos
+            loss_bbox = (
+                self.loss_bbox.loss_weight
+                * weighted_sum
+                / (4.0 * num_pos * num_pos)
+            )
+            loss_giou = (
+                self.loss_giou(src_boxes_pos, tgt_boxes_pos).sum() / num_pos
+            )
         elif self.bbox_loss_mode == 'relative_l1':
             tgt_w = tgt_cxcywh[:, 2].clamp(min=self.bbox_loss_eps)
             tgt_h = tgt_cxcywh[:, 3].clamp(min=self.bbox_loss_eps)
             scale = torch.stack([tgt_w, tgt_h, tgt_w, tgt_h], dim=-1)
             per_elem = F.l1_loss(src_cxcywh, tgt_cxcywh, reduction='none')
-            loss_bbox = self.loss_bbox.loss_weight * (per_elem / scale).sum() / num_pos
-            loss_giou = self.loss_giou(
-                src_boxes_pos, tgt_boxes_pos
-            ).sum() / num_pos
+            loss_bbox = (
+                self.loss_bbox.loss_weight * (per_elem / scale).sum() / num_pos
+            )
+            loss_giou = (
+                self.loss_giou(src_boxes_pos, tgt_boxes_pos).sum() / num_pos
+            )
         else:
             loss_bbox = self.loss_bbox(src_cxcywh, tgt_cxcywh)
             loss_giou = self.loss_giou(src_boxes_pos, tgt_boxes_pos)
