@@ -59,3 +59,7 @@ visualizer = dict(
         ),
     ],
 )
+
+# Map test dataloader/evaluator to val
+test_dataloader = val_dataloader
+test_evaluator = val_evaluator

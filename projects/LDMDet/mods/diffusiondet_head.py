@@ -1263,7 +1263,7 @@ class DiffusionDetHead(nn.Module):
         x_raw: Tensor,
         t: float,
         img_metas: List[ImageMeta],
-    ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+    ) -> Tuple[Tensor, Tensor, Tensor]:
         """在指定时间步 t 进行前向预测"""
         bs, device = x_raw.shape[0], x_raw.device
         curr_bboxes = self._raw_to_xyxy(x_raw, img_metas)
@@ -1280,7 +1280,7 @@ class DiffusionDetHead(nn.Module):
         x0_raw = self._xyxy_to_raw(last_pred_bboxes, img_metas)
         logits_0_raw = last_cls_logits
 
-        return last_cls_logits, last_pred_bboxes, x0_raw, logits_0_raw
+        return last_cls_logits, last_pred_bboxes, x0_raw
 
     @torch.no_grad()
     def predict(
@@ -1326,11 +1326,15 @@ class DiffusionDetHead(nn.Module):
         trajectory = []
 
         dpm_solver = None
-        if self.solver_type == 'dpm_solver_pp':
+        if (
+            self.solver_type == 'dpm_solver_pp'
+            or self.solver_type == 'dpm_solver_pp_3'
+        ):
             from .rectified_flow import RFDPMSolverMultistep
 
+            solver_order = 3 if self.solver_type == 'dpm_solver_pp_3' else 2
             dpm_solver = RFDPMSolverMultistep(
-                num_steps=self.sampling_timesteps, solver_order=2
+                num_steps=self.sampling_timesteps, solver_order=solver_order
             )
 
         # 2. 迭代采样
@@ -1350,8 +1354,8 @@ class DiffusionDetHead(nn.Module):
                     )
                 )
             else:
-                cls_logits, pred_bboxes, x0_raw, logits_0_raw = (
-                    self._forward_at_t(features, x_raw, t_curr, img_metas)
+                cls_logits, pred_bboxes, x0_raw = self._forward_at_t(
+                    features, x_raw, t_curr, img_metas
                 )
 
             x0_prev = x0_raw.detach()

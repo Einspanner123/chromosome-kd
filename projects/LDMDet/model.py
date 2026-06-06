@@ -59,6 +59,7 @@ MODELS.register_module(name='DiTSingleHead', module=DiTSingleHead)
 
 
 @MODELS.register_module()
+@MODELS.register_module(name='LDMDet')
 class PurePyTorchDiffusionDet(BaseDetector):
     """
     使用纯 PyTorch 实现的 DiffusionDet 包装类，兼容 MMDetection 3.x 框架。

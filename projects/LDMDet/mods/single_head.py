@@ -209,34 +209,7 @@ class SingleDiffusionDetHead(nn.Module):
             )
 
     def _attn(self, q, k, v):
-        if self.use_flash_attn and _HAS_SDPA:
-            orig_dp = self.self_attn.dropout
-            self.self_attn.dropout = 0.0
-            with torch.cuda.amp.autocast(enabled=True):
-                if not getattr(self, '_flash_attn_logged', False):
-                    with torch.profiler.profile(
-                        activities=[torch.profiler.ProfilerActivity.CUDA],
-                    ) as prof:
-                        _ = self.self_attn(q, k, value=v)
-                    kernels = ' '.join(
-                        evt.key for evt in prof.key_averages()
-                    ).lower()
-                    if 'flash' in kernels:
-                        backend = 'flash_attention'
-                    elif 'cutlass' in kernels or 'softmax_warp' in kernels:
-                        backend = 'efficient_attention'
-                    else:
-                        backend = 'math_fallback'
-                    print(
-                        f'[SDPA] use_flash_attn=True, dispatched backend: {backend}'
-                    )
-                    self._flash_attn_logged = True
-                    self.self_attn.dropout = orig_dp
-                    return _
-                out = self.self_attn(q, k, value=v)
-            self.self_attn.dropout = orig_dp
-            return out
-        return self.self_attn(q, k, value=v)
+        return self.self_attn(q, k, v)
 
     def _forward_adaln_zero(
         self,

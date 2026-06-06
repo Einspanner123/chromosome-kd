@@ -178,18 +178,17 @@ class PredictionVisHook(Hook):
                     cv2.putText(img, f'GT:{int(label)}', (x1, y1 - 5),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
 
-            # 画预测框 (绿色)
+            # 画预测框 (绿色) — pred bbox 已经是原始图像坐标，无需除以 scale_factor
             for j, (bbox, score) in enumerate(zip(item['pred_bboxes'], item['pred_scores'])):
                 x1, y1, x2, y2 = bbox
-                x1 = int(x1 / sx)
-                y1 = int(y1 / sy)
-                x2 = int(x2 / sx)
-                y2 = int(y2 / sy)
+                x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
                 cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 cv2.putText(img, f'{score:.2f}', (x1, y2 + 12),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 255, 0), 1)
 
-            save_name = f'epoch_{epoch:03d}_img{saved}_{Path(img_path).stem}.jpg'
+            # 用源图片名作为标识，便于跨 epoch 追踪
+            stem = Path(img_path).stem
+            save_name = f'epoch_{epoch:03d}_img{saved}_{stem}.jpg'
             save_path = vis_dir / save_name
             cv2.imwrite(str(save_path), img)
             runner.logger.info(
@@ -199,7 +198,142 @@ class PredictionVisHook(Hook):
             )
             saved += 1
 
+        # 生成 GIF 动画: 噪声框→GT 框收敛过程
+        self._generate_gifs(vis_dir, epoch)
+
         self._captured = []
+
+    def _generate_gifs(self, vis_dir, current_epoch):
+        """增量生成 GIF 动画: 只追加当前 epoch 的新帧，不重建已有帧。
+
+        使用 JSON 元数据文件追踪每张图已处理的 epoch，避免重复追加。
+        """
+        import json
+        from pathlib import Path
+
+        all_files = sorted(vis_dir.glob('epoch_*.jpg'))
+
+        groups = {}
+        for f in all_files:
+            name = f.name
+            parts = name.split('_', 2)
+            if len(parts) < 3:
+                continue
+            e = int(parts[1])
+            rest = parts[2]
+            img_idx_end = rest.find('_')
+            if img_idx_end == -1:
+                continue
+            stem = rest[img_idx_end + 1:].replace('.jpg', '')
+            if stem not in groups:
+                groups[stem] = []
+            groups[stem].append((e, name))
+
+        for stem in groups:
+            groups[stem].sort(key=lambda x: x[0])
+
+        gif_dir = vis_dir / 'gifs'
+        gif_dir.mkdir(parents=True, exist_ok=True)
+
+        for stem, items in sorted(groups.items()):
+            meta_path = gif_dir / f'{stem}.json'
+            gif_path = gif_dir / f'{stem}.gif'
+
+            # 读取已处理的 epoch
+            processed = set()
+            if meta_path.exists():
+                with open(meta_path) as f:
+                    processed = set(json.load(f).get('processed_epochs', []))
+
+            # 筛选新 epoch
+            new_items = [(e, fname) for e, fname in items if e not in processed]
+            if not new_items:
+                continue
+
+            if not gif_path.exists():
+                # 首次生成: 需要 >=2 帧才创建 GIF
+                if len(new_items) < 2:
+                    continue
+                self._generate_gif(vis_dir, new_items, gif_path)
+            else:
+                # 增量追加: 只追加新帧
+                self._append_gif(vis_dir, new_items, gif_path)
+
+            # 更新元数据
+            processed.update(e for e, _ in new_items)
+            with open(meta_path, 'w') as f:
+                json.dump({'processed_epochs': sorted(processed)}, f)
+
+    def _generate_gif(self, vis_dir, items, gif_path):
+        """首次生成 GIF 动画。"""
+        from PIL import Image
+
+        frames = self._load_frames(vis_dir, items)
+        if len(frames) < 2:
+            return
+
+        durations = [500] * (len(frames) - 1) + [2000]
+        frames[0].save(
+            gif_path,
+            save_all=True,
+            append_images=frames[1:],
+            duration=durations,
+            loop=0,
+            optimize=True,
+        )
+
+    def _append_gif(self, vis_dir, new_items, gif_path):
+        """增量追加新帧到已有 GIF。
+
+        1. 读取已有 GIF 的所有帧
+        2. 原末帧 duration 从 2000ms 改为 500ms
+        3. 追加新帧，新末帧 duration 为 2000ms
+        4. 重新保存
+        """
+        from PIL import Image
+
+        # 读取已有帧
+        old_img = Image.open(gif_path)
+        old_frames = []
+        try:
+            while True:
+                old_frames.append(old_img.copy())
+                old_img.seek(old_img.tell() + 1)
+        except EOFError:
+            pass
+
+        # 读取新帧
+        new_frames = self._load_frames(vis_dir, new_items)
+        if not new_frames:
+            return
+
+        all_frames = old_frames + new_frames
+        durations = [500] * (len(all_frames) - 1) + [2000]
+
+        all_frames[0].save(
+            gif_path,
+            save_all=True,
+            append_images=all_frames[1:],
+            duration=durations,
+            loop=0,
+            optimize=True,
+        )
+
+    def _load_frames(self, vis_dir, items):
+        """从磁盘加载图片帧，统一缩放到 350px 高。"""
+        from PIL import Image
+
+        frames = []
+        for e, fname in items:
+            img_path = vis_dir / fname
+            if not img_path.exists():
+                continue
+            img = Image.open(img_path)
+            h = 350
+            w = int(img.width * h / img.height)
+            img = img.resize((w, h), Image.LANCZOS)
+            frames.append(img)
+        return frames
 
 
 @HOOKS.register_module()
