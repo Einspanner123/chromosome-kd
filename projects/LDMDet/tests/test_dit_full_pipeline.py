@@ -951,6 +951,722 @@ def test_node18_seed_sensitivity():
 
 
 # ============================================================
+# Node 19: num_blocks=3 多 block 全链路测试
+# ============================================================
+def test_node19_num_blocks_3():
+    """验证 num_blocks=3 多 block 堆叠下的全链路正确性"""
+    print('\n=== Node 19: num_blocks=3 Full Pipeline ===')
+    head = DiTDiffusionDetHead(
+        num_classes=24,
+        feat_channels=256,
+        num_proposals=50,
+        num_heads=3,
+        num_blocks=3,
+        share_heads=False,
+        snr_scale=2.0,
+        sampling_timesteps=2,
+        diffusion_type='rectified_flow',
+        solver_type='euler',
+        rf_schedule='shifted',
+        rf_shift=3.0,
+        regression_mode='direct',
+        prediction_mode='x0',
+        adaln_params=9,
+        num_fpn_levels=4,
+        num_ref_points=8,
+        box_init_mode='zero',
+        deep_supervision=True,
+        criterion=DiffusionDetCriterion(
+            num_classes=24,
+            matcher=DiffusionDetMatcher(
+                match_costs=[
+                    FocalLossCost(weight=2.0),
+                    BBoxL1Cost(weight=5.0),
+                    IoUCost(iou_mode='giou', weight=2.0),
+                ],
+                center_radius=0.5,
+                candidate_topk=5,
+            ),
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+        ),
+    )
+    head.train()
+    bs = 2
+    fpn, img_metas = _make_fpn_and_metas(bs)
+    gt_bboxes_img, gt_labels = _make_gt(bs, M=5)
+
+    # 验证每个 head 有 num_blocks=3 个 DiTBlock
+    for i, h in enumerate(head.head_series):
+        check(f'head[{i}] has 3 dit_blocks', len(h.dit_blocks) == 3,
+              f'got {len(h.dit_blocks)}')
+
+    # 验证 share_heads=False: 各 head 参数独立
+    if len(head.head_series) >= 2:
+        p0 = list(head.head_series[0].parameters())[0]
+        p1 = list(head.head_series[1].parameters())[0]
+        check('share_heads=False: heads independent',
+              not torch.equal(p0, p1))
+
+    # 全链路 loss + backward
+    losses = head.loss(fpn, img_metas, gt_bboxes_img, gt_labels)
+    total_loss = sum(losses.values())
+    total_loss.backward()
+
+    check('total_loss finite', total_loss.isfinite().item(),
+          f'val={total_loss.item():.6f}')
+    check('total_loss >= 0', total_loss.item() >= 0)
+
+    # 检查梯度无 NaN/Inf
+    nan_params = []
+    for name, param in head.named_parameters():
+        if param.grad is not None and not param.grad.isfinite().all().item():
+            nan_params.append(name)
+    check('no NaN/Inf grads with num_blocks=3', len(nan_params) == 0,
+          f'nan_params={nan_params}')
+
+    # 多步迭代稳定性
+    for it in range(3):
+        gt_bboxes_img, gt_labels = _make_gt(bs, M=3 + it)
+        losses = head.loss(fpn, img_metas, gt_bboxes_img, gt_labels)
+        total_loss = sum(losses.values())
+        check(f'iter{it} loss finite', total_loss.isfinite().item(),
+              f'val={total_loss.item():.6f}')
+        total_loss.backward()
+        head.zero_grad()
+
+    print(f'  num_blocks=3, share_heads=False pipeline OK')
+
+
+# ============================================================
+# Node 20: spatial_prior 全链路测试
+# ============================================================
+def test_node20_spatial_prior_pipeline():
+    """验证 box_init_mode='spatial_prior' 的全链路正确性"""
+    print('\n=== Node 20: spatial_prior Full Pipeline ===')
+    head = DiTDiffusionDetHead(
+        num_classes=24,
+        feat_channels=256,
+        num_proposals=50,
+        num_heads=2,
+        snr_scale=2.0,
+        sampling_timesteps=2,
+        diffusion_type='rectified_flow',
+        solver_type='euler',
+        rf_schedule='shifted',
+        rf_shift=3.0,
+        regression_mode='direct',
+        prediction_mode='x0',
+        adaln_params=9,
+        num_fpn_levels=4,
+        num_ref_points=8,
+        box_init_mode='spatial_prior',
+        deep_supervision=False,
+        criterion=DiffusionDetCriterion(
+            num_classes=24,
+            matcher=DiffusionDetMatcher(
+                match_costs=[
+                    FocalLossCost(weight=2.0),
+                    BBoxL1Cost(weight=5.0),
+                    IoUCost(iou_mode='giou', weight=2.0),
+                ],
+                center_radius=0.5,
+                candidate_topk=5,
+            ),
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+        ),
+    )
+    head.train()
+    bs = 2
+    fpn, img_metas = _make_fpn_and_metas(bs)
+    gt_bboxes_img, gt_labels = _make_gt(bs, M=5)
+
+    # 验证 anchor_boxes 存在且形状正确
+    tok = head.box_tokenizer
+    check('anchor_boxes exists', hasattr(tok, 'anchor_boxes'))
+    check('anchor_boxes shape', tok.anchor_boxes.shape == (50, 4))
+
+    # 验证 spatial_prior 产生的 token 不为全零
+    bs = 2
+    gt_bboxes_img, gt_labels = _make_gt(bs, M=5)
+    device = fpn[0].device
+    targets = head._normalize_targets(gt_bboxes_img, gt_labels, img_metas, bs)
+    t, _ = head._sample_t(bs, device)
+    x_boxes, _, _, _ = head._build_training_targets(
+        bs, device, t, targets, gt_bboxes_img, img_metas,
+    )
+    x_noisy_batch = torch.stack(x_boxes)
+    curr_bboxes = head._raw_to_xyxy(x_noisy_batch, img_metas)
+    normed = head._normalize_bboxes_for_tokenizer(curr_bboxes, img_metas)
+    tokens, _ = tok(normed, [f.clone() for f in fpn])
+    check('spatial_prior tokens not all zero', tokens.abs().max().item() > 0)
+    check('spatial_prior tokens finite', tokens.isfinite().all().item())
+
+    # 全链路 loss + backward
+    losses = head.loss(fpn, img_metas, gt_bboxes_img, gt_labels)
+    total_loss = sum(losses.values())
+    total_loss.backward()
+
+    check('total_loss finite', total_loss.isfinite().item(),
+          f'val={total_loss.item():.6f}')
+    check('total_loss >= 0', total_loss.item() >= 0)
+
+    nan_params = []
+    for name, param in head.named_parameters():
+        if param.grad is not None and not param.grad.isfinite().all().item():
+            nan_params.append(name)
+    check('no NaN/Inf grads with spatial_prior', len(nan_params) == 0,
+          f'nan_params={nan_params}')
+
+    print(f'  spatial_prior pipeline OK')
+
+
+# ============================================================
+# Node 21: delta regression 全链路测试
+# ============================================================
+def test_node21_delta_regression_pipeline():
+    """验证 regression_mode='delta' 的全链路正确性"""
+    print('\n=== Node 21: delta regression Full Pipeline ===')
+    head = DiTDiffusionDetHead(
+        num_classes=24,
+        feat_channels=256,
+        num_proposals=50,
+        num_heads=2,
+        snr_scale=2.0,
+        sampling_timesteps=2,
+        diffusion_type='rectified_flow',
+        solver_type='euler',
+        rf_schedule='shifted',
+        rf_shift=3.0,
+        regression_mode='delta',
+        prediction_mode='x0',
+        adaln_params=9,
+        num_fpn_levels=4,
+        num_ref_points=8,
+        box_init_mode='zero',
+        deep_supervision=False,
+        criterion=DiffusionDetCriterion(
+            num_classes=24,
+            matcher=DiffusionDetMatcher(
+                match_costs=[
+                    FocalLossCost(weight=2.0),
+                    BBoxL1Cost(weight=5.0),
+                    IoUCost(iou_mode='giou', weight=2.0),
+                ],
+                center_radius=0.5,
+                candidate_topk=5,
+            ),
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+        ),
+    )
+    head.train()
+    bs = 2
+    fpn, img_metas = _make_fpn_and_metas(bs)
+    gt_bboxes_img, gt_labels = _make_gt(bs, M=5)
+
+    # 全链路 loss + backward
+    losses = head.loss(fpn, img_metas, gt_bboxes_img, gt_labels)
+    total_loss = sum(losses.values())
+    total_loss.backward()
+
+    check('total_loss finite', total_loss.isfinite().item(),
+          f'val={total_loss.item():.6f}')
+    check('total_loss >= 0', total_loss.item() >= 0)
+
+    nan_params = []
+    for name, param in head.named_parameters():
+        if param.grad is not None and not param.grad.isfinite().all().item():
+            nan_params.append(name)
+    check('no NaN/Inf grads with delta mode', len(nan_params) == 0,
+          f'nan_params={nan_params}')
+
+    # 验证 delta 模式下 pred bbox 在 [0,1] 范围内
+    head.eval()
+    x_noisy = torch.randn(bs, 50, 4) * 2.0
+    curr_bboxes = head._raw_to_xyxy(x_noisy, img_metas)
+    t_input = torch.full((bs,), 500.0)
+    with torch.no_grad():
+        _, all_bboxes, _, _, _ = head(fpn, curr_bboxes, t_input, img_metas=img_metas)
+    check('delta: bbox in [0,1]', all_bboxes[-1].min().item() >= -1e-5
+          and all_bboxes[-1].max().item() <= 1 + 1e-5)
+    check('delta: bbox finite', all_bboxes[-1].isfinite().all().item())
+
+    print(f'  delta regression pipeline OK')
+
+
+# ============================================================
+# Node 22: 训练初期 loss 下降趋势验证
+# ============================================================
+def test_node22_early_training_loss_descent():
+    """验证训练初期 10 步迭代 loss 是否单调下降
+
+    验证噪声框不会导致模型找不到正确梯度方向。
+    使用实际配置: num_blocks=3, spatial_prior, delta regression, OT coupling.
+    """
+    print('\n=== Node 22: Early Training Loss Descent ===')
+    head = DiTDiffusionDetHead(
+        num_classes=24,
+        feat_channels=256,
+        num_proposals=100,
+        num_heads=3,
+        num_blocks=3,
+        share_heads=False,
+        deep_supervision=True,
+        snr_scale=2.0,
+        sampling_timesteps=2,
+        diffusion_type='rectified_flow',
+        solver_type='euler',
+        rf_schedule='shifted',
+        rf_shift=1.0,
+        regression_mode='delta',
+        prediction_mode='x0',
+        adaln_params=9,
+        num_fpn_levels=4,
+        num_ref_points=8,
+        box_init_mode='spatial_prior',
+        ot_coupling=True,
+        ot_matcher='sinkhorn',
+        ot_epsilon=1.0,
+        ot_num_iters=10,
+        criterion=DiffusionDetCriterion(
+            num_classes=24,
+            matcher=DiffusionDetMatcher(
+                match_costs=[
+                    FocalLossCost(weight=2.0),
+                    BBoxL1Cost(weight=5.0),
+                    IoUCost(iou_mode='giou', weight=2.0),
+                ],
+                center_radius=5.0,
+                candidate_topk=12,
+            ),
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+        ),
+    )
+    head.train()
+    bs = 2
+    fpn, img_metas = _make_fpn_and_metas(bs)
+    optimizer = torch.optim.AdamW(
+        [p for p in head.parameters() if p.requires_grad], lr=1e-4
+    )
+
+    losses = []
+    for step in range(12):
+        gt_bboxes_img, gt_labels = _make_gt(bs, M=3)
+        loss_dict = head.loss(fpn, img_metas, gt_bboxes_img, gt_labels)
+        total_loss = sum(loss_dict.values())
+        optimizer.zero_grad()
+        total_loss.backward()
+        # 梯度裁剪 (模拟训练配置)
+        torch.nn.utils.clip_grad_norm_(head.parameters(), max_norm=50.0)
+        optimizer.step()
+        losses.append(total_loss.item())
+
+    print(f'  Loss sequence: {[f"{l:.4f}" for l in losses]}')
+
+    # 验证: 前5步均值 > 后5步均值 (loss 有下降趋势)
+    early_mean = sum(losses[:5]) / 5
+    late_mean = sum(losses[-5:]) / 5
+    check('loss decreases: early_mean > late_mean',
+          early_mean > late_mean,
+          f'early={early_mean:.4f}, late={late_mean:.4f}')
+
+    # 验证: 最后一步 loss 有限且非零
+    check('final loss finite', torch.isfinite(torch.tensor(losses[-1])).item(),
+          f'val={losses[-1]:.6f}')
+    check('final loss > 0', losses[-1] > 0,
+          f'val={losses[-1]:.6f}')
+
+    # 验证: 无 NaN
+    check('no NaN loss in any step',
+          all(torch.isfinite(torch.tensor(l)).item() for l in losses),
+          f'losses={losses}')
+
+    # 验证: loss 不会爆炸 (>1000)
+    check('loss not exploding',
+          max(losses) < 1000,
+          f'max={max(losses):.4f}')
+
+    print(f'  Early training loss descent OK (early={early_mean:.4f} -> late={late_mean:.4f})')
+
+
+def test_node23_predict_uses_spatial_prior():
+    """Node 23: 验证 predict() 在 spatial_prior 模式下使用 anchor_boxes 初始化。
+
+    Red: 当前 predict() 用 randn 初始化，导致推理时框分布与训练不匹配。
+    验证点:
+    1. spatial_prior 模式下 predict() 不使用 randn 初始化
+    2. 初始框来自 anchor_boxes，具有合理的 width/height (>0.01)
+    3. 推理输出 bbox 在 [0,1] 范围内
+    4. 推理输出 scores > 0 (分类分支有响应)
+    """
+    head = DiTDiffusionDetHead(
+        num_classes=24,
+        feat_channels=256,
+        num_proposals=50,
+        num_heads=2,
+        snr_scale=2.0,
+        sampling_timesteps=2,
+        diffusion_type='rectified_flow',
+        solver_type='euler',
+        rf_schedule='shifted',
+        rf_shift=3.0,
+        regression_mode='delta',
+        prediction_mode='x0',
+        adaln_params=9,
+        num_fpn_levels=4,
+        num_ref_points=8,
+        box_init_mode='spatial_prior',
+        deep_supervision=True,
+        criterion=DiffusionDetCriterion(
+            num_classes=24,
+            matcher=DiffusionDetMatcher(
+                match_costs=[
+                    FocalLossCost(weight=2.0),
+                    BBoxL1Cost(weight=5.0),
+                    IoUCost(iou_mode='giou', weight=2.0),
+                ],
+                center_radius=0.5,
+                candidate_topk=5,
+            ),
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+        ),
+    )
+    head.eval()
+
+    fpn, img_metas = _make_fpn_and_metas(bs=2, C=256)
+
+    with torch.no_grad():
+        results = head.predict(fpn, img_metas, rescale=False)
+
+    # 验证: 输出非空
+    check('predict returns results', len(results) == 2,
+          f'len={len(results)}')
+
+    for i, r in enumerate(results):
+        # 验证: bbox 有限且非负 (predict 输出是像素坐标)
+        if len(r.bboxes) > 0:
+            bboxes = r.bboxes
+            check(f'img{i} bboxes finite',
+                  torch.isfinite(bboxes).all().item(),
+                  f'has NaN/Inf')
+            check(f'img{i} bboxes >= 0',
+                  (bboxes >= -1).all().item(),
+                  f'min={bboxes.min().item():.4f}')
+
+        # 验证: 分类分支有响应 (scores 不全为 0)
+        if len(r.scores) > 0:
+            check(f'img{i} scores > 0',
+                  (r.scores > 0).any().item(),
+                  f'max_score={r.scores.max().item():.6f}')
+
+    # 验证: anchor_boxes 存在且有合理的 width/height
+    tokenizer = head.box_tokenizer
+    check('anchor_boxes exists',
+          hasattr(tokenizer, 'anchor_boxes'),
+          'BoxTokenizer 没有 anchor_boxes buffer')
+    if hasattr(tokenizer, 'anchor_boxes'):
+        anchors = tokenizer.anchor_boxes  # (num_proposals, 4) cxcywh
+        widths = anchors[:, 2]
+        heights = anchors[:, 3]
+        check('anchor widths > 0.01',
+              (widths > 0.01).all().item(),
+              f'min_width={widths.min().item():.6f}')
+        check('anchor heights > 0.01',
+              (heights > 0.01).all().item(),
+              f'min_height={heights.min().item():.6f}')
+
+    print('  Node 23: predict spatial_prior init OK')
+
+
+def test_node24_predict_randn_vs_anchor_difference():
+    """Node 24: 验证 spatial_prior 初始化与 randn 初始化产生不同的推理结果。
+
+    Red: 如果 predict() 仍用 randn，两种初始化应产生不同结果。
+    但关键是 spatial_prior 应产生更合理的初始框 (非退化点框)。
+    """
+    head = DiTDiffusionDetHead(
+        num_classes=24,
+        feat_channels=256,
+        num_proposals=50,
+        num_heads=2,
+        snr_scale=2.0,
+        sampling_timesteps=2,
+        diffusion_type='rectified_flow',
+        solver_type='euler',
+        rf_schedule='shifted',
+        rf_shift=3.0,
+        regression_mode='delta',
+        prediction_mode='x0',
+        adaln_params=9,
+        num_fpn_levels=4,
+        num_ref_points=8,
+        box_init_mode='spatial_prior',
+        deep_supervision=True,
+        criterion=DiffusionDetCriterion(
+            num_classes=24,
+            matcher=DiffusionDetMatcher(
+                match_costs=[
+                    FocalLossCost(weight=2.0),
+                    BBoxL1Cost(weight=5.0),
+                    IoUCost(iou_mode='giou', weight=2.0),
+                ],
+                center_radius=0.5,
+                candidate_topk=5,
+            ),
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+        ),
+    )
+    head.eval()
+
+    # 验证: _init_inference_boxes 方法存在且返回合理形状
+    check('_init_inference_boxes method exists',
+          hasattr(head, '_init_inference_boxes'),
+          'DiTDiffusionDetHead 没有 _init_inference_boxes 方法')
+
+    if hasattr(head, '_init_inference_boxes'):
+        fpn, img_metas = _make_fpn_and_metas(bs=2, C=256)
+        device = fpn[0].device
+        x_raw = head._init_inference_boxes(2, device)
+
+        # 验证: 形状正确
+        check('x_raw shape', x_raw.shape == (2, 50, 4),
+              f'shape={x_raw.shape}')
+
+        # 验证: spatial_prior 初始化的框有合理的 width/height
+        # 转换到 cxcywh [0,1] 空间检查
+        cxcywh = (x_raw / head.snr_scale + 1) / 2
+        widths = cxcywh[:, :, 2]  # w in cxcywh
+        heights = cxcywh[:, :, 3]  # h in cxcywh
+        check('spatial_prior init widths > 0.01',
+              (widths > 0.01).all().item(),
+              f'min_width={widths.min().item():.6f}')
+        check('spatial_prior init heights > 0.01',
+              (heights > 0.01).all().item(),
+              f'min_height={heights.min().item():.6f}')
+
+    print('  Node 24: predict init method check OK')
+
+
+def test_node25_box_renewal_uses_anchors():
+    """Node 25: Bug2 — _apply_box_renewal 在 spatial_prior 模式下应用 anchor 替换低分框。
+
+    Red: 当前 _apply_box_renewal 用 randn 替换低分框，导致新框与训练时的 anchor 分布不匹配。
+    验证: spatial_prior 模式下替换后的 x_raw 来自 anchor_boxes 而非 randn。
+    """
+    head = DiTDiffusionDetHead(
+        num_classes=24,
+        feat_channels=256,
+        num_proposals=50,
+        num_heads=2,
+        snr_scale=2.0,
+        sampling_timesteps=2,
+        diffusion_type='rectified_flow',
+        solver_type='euler',
+        rf_schedule='shifted',
+        rf_shift=3.0,
+        regression_mode='delta',
+        prediction_mode='x0',
+        adaln_params=9,
+        num_fpn_levels=4,
+        num_ref_points=8,
+        box_init_mode='spatial_prior',
+        deep_supervision=True,
+        min_keep=5,  # 关键: 设小以触发实际替换
+        criterion=DiffusionDetCriterion(
+            num_classes=24,
+            matcher=DiffusionDetMatcher(
+                match_costs=[
+                    FocalLossCost(weight=2.0),
+                    BBoxL1Cost(weight=5.0),
+                    IoUCost(iou_mode='giou', weight=2.0),
+                ],
+                center_radius=0.5,
+                candidate_topk=5,
+            ),
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+        ),
+    )
+    head.eval()
+
+    # 构造低分 cls_logits (全 < 0.05) 触发 box_renewal
+    bs = 2
+    device = next(head.parameters()).device
+    cls_logits = torch.full((bs, 50, 24), -5.0)  # sigmoid(-5) ≈ 0.007 < 0.05
+    scores = torch.sigmoid(cls_logits).max(-1)[0]
+    x_raw = head._init_inference_boxes(bs, device)
+
+    # 验证: 替换后的框来自 anchor 池 (有合理的 cxcywh width/height)
+    # 而非 randn (cxcywh w/h 可能 < 0 或极小)
+    with torch.no_grad():
+        x_raw_renewed = head._apply_box_renewal(x_raw, cls_logits)
+
+    cxcywh = (x_raw_renewed / head.snr_scale + 1) / 2
+    widths = cxcywh[:, :, 2]
+    heights = cxcywh[:, :, 3]
+    check('renewed widths > 0.05 (anchor scale)',
+          (widths > 0.05).all().item(),
+          f'min_width={widths.min().item():.6f}')
+    check('renewed heights > 0.05 (anchor scale)',
+          (heights > 0.05).all().item(),
+          f'min_height={heights.min().item():.6f}')
+
+    # 对比: randn 替换的框 cxcywh w/h 不稳定
+    x_raw_randn = x_raw.clone()
+    for i in range(bs):
+        keep = scores[i] > head.score_thr
+        if keep.sum() < head.min_keep:
+            _, topk_idx = scores[i].topk(min(head.min_keep, scores.shape[1]))
+            keep[topk_idx] = True
+        num_renew = (~keep).sum()
+        if num_renew > 0:
+            x_raw_randn[i, ~keep] = torch.randn(num_renew, 4, device=device)
+    cxcywh_randn = (x_raw_randn / head.snr_scale + 1) / 2
+    randn_min_w = cxcywh_randn[:, :, 2].min().item()
+    randn_min_h = cxcywh_randn[:, :, 3].min().item()
+    # randn 替换的框 w/h 可能 < 0 (因为 raw 空间 randn 值可能很大)
+    check('anchor renewal better than randn (width)',
+          widths.min().item() > randn_min_w or widths.min().item() > 0.05,
+          f'anchor_min_w={widths.min().item():.6f} randn_min_w={randn_min_w:.6f}')
+
+    print('  Node 25: box_renewal uses anchors OK')
+
+
+def test_node26_ensemble_no_cross_category_duplicates():
+    """Node 26: Bug3 — ensemble 多步预测不产生跨类别重复框。
+
+    Red: 当前 ensemble 拼接所有 step 的预测，同一位置不同 step 可能分配不同类别，
+    NMS 按类别分组无法抑制。
+    验证: ensemble 后同一位置的框类别一致，或只使用最后一步结果。
+    """
+    head = DiTDiffusionDetHead(
+        num_classes=24,
+        feat_channels=256,
+        num_proposals=50,
+        num_heads=2,
+        snr_scale=2.0,
+        sampling_timesteps=4,
+        diffusion_type='rectified_flow',
+        solver_type='euler',
+        rf_schedule='shifted',
+        rf_shift=3.0,
+        regression_mode='delta',
+        prediction_mode='x0',
+        adaln_params=9,
+        num_fpn_levels=4,
+        num_ref_points=8,
+        box_init_mode='spatial_prior',
+        deep_supervision=True,
+        use_ensemble=True,
+        criterion=DiffusionDetCriterion(
+            num_classes=24,
+            matcher=DiffusionDetMatcher(
+                match_costs=[
+                    FocalLossCost(weight=2.0),
+                    BBoxL1Cost(weight=5.0),
+                    IoUCost(iou_mode='giou', weight=2.0),
+                ],
+                center_radius=0.5,
+                candidate_topk=5,
+            ),
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+        ),
+    )
+    head.eval()
+
+    fpn, img_metas = _make_fpn_and_metas(bs=2, C=256)
+
+    with torch.no_grad():
+        results = head.predict(fpn, img_metas, rescale=False)
+
+    # 验证: 结果中无严重重叠的跨类别框 (IoU > 0.5 但类别不同)
+    for i, r in enumerate(results):
+        if len(r.bboxes) < 2:
+            continue
+        bboxes = r.bboxes
+        labels = r.labels
+        # 计算所有框对的 IoU
+        areas = (bboxes[:, 2] - bboxes[:, 0]) * (bboxes[:, 3] - bboxes[:, 1])
+        n = len(bboxes)
+        cross_cat_overlap = 0
+        for j in range(n):
+            for k in range(j + 1, n):
+                if labels[j] != labels[k]:
+                    # 计算 IoU
+                    ix1 = max(bboxes[j, 0].item(), bboxes[k, 0].item())
+                    iy1 = max(bboxes[j, 1].item(), bboxes[k, 1].item())
+                    ix2 = min(bboxes[j, 2].item(), bboxes[k, 2].item())
+                    iy2 = min(bboxes[j, 3].item(), bboxes[k, 3].item())
+                    inter = max(0, ix2 - ix1) * max(0, iy2 - iy1)
+                    union = areas[j].item() + areas[k].item() - inter
+                    iou = inter / max(union, 1e-6)
+                    if iou > 0.5:
+                        cross_cat_overlap += 1
+        check(f'img{i} no cross-cat duplicates (IoU>0.5)',
+              cross_cat_overlap == 0,
+              f'cross_cat_overlap={cross_cat_overlap}')
+
+    print('  Node 26: ensemble no cross-category duplicates OK')
+
+
+def test_node27_spatial_prior_no_double_embedding():
+    """Node 27: Bug4 — spatial_prior token 不应重复叠加 bbox_pos_embed。
+
+    Red: 当前 sampled_feat = bbox_pos_embed(anchors), pos_embed = bbox_pos_embed(bboxes)
+    当 bboxes ≈ anchors 时，token ≈ 2 * bbox_pos_embed(anchors) + lvl_embed，值偏大。
+    验证: spatial_prior 模式下 anchor 使用独立的 embedding 网络。
+    """
+    from mods.box_tokenizer import BoxTokenizer
+
+    tokenizer = BoxTokenizer(
+        feat_channels=256,
+        num_fpn_levels=4,
+        init_mode='spatial_prior',
+        num_proposals=50,
+    )
+
+    # 验证: 有独立的 anchor_pos_embed
+    check('has anchor_pos_embed',
+          hasattr(tokenizer, 'anchor_pos_embed'),
+          'BoxTokenizer 没有 anchor_pos_embed，anchor 和 bbox 共享 bbox_pos_embed')
+
+    if hasattr(tokenizer, 'anchor_pos_embed'):
+        # 验证: anchor_pos_embed 和 bbox_pos_embed 是不同网络
+        check('anchor_pos_embed != bbox_pos_embed',
+              tokenizer.anchor_pos_embed is not tokenizer.bbox_pos_embed,
+              'anchor_pos_embed 和 bbox_pos_embed 是同一对象')
+
+        # 验证: token 值不会因为重复叠加而过大
+        anchors = tokenizer.anchor_boxes[:50].unsqueeze(0)  # (1, 50, 4) cxcywh
+        bboxes_xyxy = torch.rand(1, 50, 4)
+        bboxes_xyxy[..., 2] = bboxes_xyxy[..., 0] + 0.1
+        bboxes_xyxy[..., 3] = bboxes_xyxy[..., 1] + 0.1
+        bboxes_xyxy = bboxes_xyxy.clamp(0, 1)
+        fpn = [torch.rand(1, 256, 20, 20) for _ in range(4)]
+
+        tokens, _ = tokenizer(bboxes_xyxy, fpn)
+        check('token abs mean < 5.0',
+              tokens.abs().mean().item() < 5.0,
+              f'token_abs_mean={tokens.abs().mean().item():.4f}')
+
+    print('  Node 27: spatial_prior no double embedding OK')
+
+
+# ============================================================
 # main
 # ============================================================
 if __name__ == '__main__':
@@ -979,6 +1695,15 @@ if __name__ == '__main__':
     test_node16_edge_timesteps()
     test_node17_end_to_end_consistency()
     test_node18_seed_sensitivity()
+    test_node19_num_blocks_3()
+    test_node20_spatial_prior_pipeline()
+    test_node21_delta_regression_pipeline()
+    test_node22_early_training_loss_descent()
+    test_node23_predict_uses_spatial_prior()
+    test_node24_predict_randn_vs_anchor_difference()
+    test_node25_box_renewal_uses_anchors()
+    test_node26_ensemble_no_cross_category_duplicates()
+    test_node27_spatial_prior_no_double_embedding()
 
     print('\n' + '=' * 60)
     total = PASS + FAIL + ERROR

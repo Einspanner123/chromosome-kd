@@ -14,7 +14,7 @@ custom_imports = dict(
 )
 
 # 模型设置
-num_classes = 1
+num_classes = 24  # A1-A3, B4-B5, C6-C12, D13-D15, E16-E18, F19-F20, G21-G22, X, Y
 feat_channels = 384  # DINOv3-Small 原生维度
 max_epoch = 150
 batch_size = 4
@@ -48,25 +48,29 @@ model = dict(
         type='DiTDiffusionDetHead',
         num_classes=num_classes,
         feat_channels=feat_channels,
-        num_proposals=300,
-        num_heads=6,  # 减少 deep supervision 头数，避免 aux loss 稀释主头学习信号
+        num_proposals=100,
+        num_heads=3,
+        num_blocks=3,  # 每个 head 内 DiTBlock 堆叠数，增加模型深度
+        share_heads=False,  # 不使用权重共享，每个 head 独立学习
         deep_supervision=True,
         prior_prob=0.01,
         snr_scale=2.0,
-        sampling_timesteps=4,
+        sampling_timesteps=6,
         diffusion_type='rectified_flow',
         solver_type='heun',
         rf_schedule='shifted',
-        rf_shift=3.0,
+        rf_shift=1.0,
         box_renewal=True,
         use_ensemble=True,
         prediction_mode='x0',
         adaln_params=9,
-        regression_mode='delta',  # delta模式: 预测框从噪声位置逐步收敛，避免direct模式下bias≈0导致所有预测框坍塌到中心
+        regression_mode='direct',  # direct模式: sigmoid直接预测(cx,cy,w,h)，不依赖当前框位置，避免delta模式下spatial_prior锚点无法有效偏移
         use_adaln_zero=True,  # DiT 训练核心: 恒等初始化保证稳定收敛
         num_fpn_levels=4,
         num_ref_points=8,
-        box_init_mode='query',  # 可学习 query embedding，比 zero 初始化更强
+        box_init_mode='spatial_prior',  # DAB-DETR: 均匀分布锚点位置编码，注入空间先验
+        ot_coupling=True,  # OT 耦合: 将噪声最优分配到 GT，确保每个 proposal 都有有意义的回归目标
+        ot_matcher='sinkhorn',  # Sinkhorn 匹配: 更均匀地分配噪声到各 GT
         single_head=dict(
             type='DiTSingleHead',
             num_classes=num_classes,
@@ -79,7 +83,7 @@ model = dict(
             num_ref_points=8,
             prediction_mode='x0',
             adaln_params=9,
-            regression_mode='delta',
+            regression_mode='direct',
             use_adaln_zero=True,
         ),
         criterion=dict(
@@ -95,9 +99,9 @@ model = dict(
                         type='PurePyTorchIoUCost', iou_mode='giou', weight=2.0
                     ),
                 ],
-                # 进一步放宽 center_radius，确保预热期能有更多正样本
-                center_radius=4.0,
-                candidate_topk=5,
+                # 适中的 center_radius，不过于宽松
+                center_radius=5.0,
+                candidate_topk=12,
             ),
             loss_cls=dict(type='PurePyTorchFocalLoss', loss_weight=2.0),
             loss_bbox=dict(type='PurePyTorchL1Loss', loss_weight=5.0),
@@ -187,8 +191,8 @@ test_pipeline = [
         backend_args=_base_.backend_args,
         imdecode_backend=backend,
     ),
-    dict(type='Resize', scale=(1333, 800), keep_ratio=True, backend=backend),
     dict(type='LoadAnnotations', with_bbox=True),
+    dict(type='Resize', scale=(1333, 800), keep_ratio=True, backend=backend),
     dict(
         type='PackDetInputs',
         meta_keys=(
@@ -232,10 +236,10 @@ custom_hooks = [
 optim_wrapper = dict(
     type='OptimWrapper',
     optimizer=dict(
-        type='AdamW', lr=1.5e-5, weight_decay=0.0001, _delete_=True
+        type='AdamW', lr=1e-4, weight_decay=0.0001, _delete_=True
     ),
-    # DINOv3 这种 Transformer 结构对梯度极其敏感，稍微放宽 clip
-    clip_grad=dict(max_norm=10.0, norm_type=2),
+    # deep supervision 7 个 head 梯度叠加，grad_norm 约 250-320，需要适当放宽
+    clip_grad=dict(max_norm=50.0, norm_type=2),
 )
 
 max_epoch = 150
@@ -245,7 +249,7 @@ find_unused_parameters = True
 
 param_scheduler = [
     # 已经开启 AdaLN-Zero，无需极低学习率长预热
-    dict(type='LinearLR', start_factor=0.001, by_epoch=True, begin=0, end=5),
+    dict(type='LinearLR', start_factor=0.01, by_epoch=True, begin=0, end=2),
     dict(
         type='CosineAnnealingLR',
         T_max=max_epoch,

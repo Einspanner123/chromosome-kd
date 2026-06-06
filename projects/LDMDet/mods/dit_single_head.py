@@ -39,6 +39,7 @@ class DiTSingleHead(nn.Module):
         adaln_params: int = 9,
         regression_mode: str = 'direct',
         use_adaln_zero: bool = True,
+        num_blocks: int = 1,
     ):
         """
         Args:
@@ -60,6 +61,7 @@ class DiTSingleHead(nn.Module):
             adaln_params: AdaLN-Zero 参数组数, 9 或 6
             regression_mode: "delta" (传统 delta regression) 或 "direct" (sigmoid 直接预测)
             use_adaln_zero: 是否开启 AdaLN-Zero 零初始化
+            num_blocks: DiTBlock 堆叠数量
         """
         super().__init__()
         self.feat_channels = feat_channels
@@ -69,16 +71,19 @@ class DiTSingleHead(nn.Module):
         self.scale_clamp = scale_clamp
         self.bbox_weights = bbox_weights
 
-        self.dit_block = DiTBlock(
-            feat_channels=feat_channels,
-            num_heads=num_heads,
-            num_fpn_levels=num_fpn_levels,
-            num_ref_points=num_ref_points,
-            dim_feedforward=dim_feedforward,
-            dropout=dropout,
-            adaln_params=adaln_params,
-            use_adaln_zero=use_adaln_zero,
-        )
+        self.dit_blocks = nn.ModuleList([
+            DiTBlock(
+                feat_channels=feat_channels,
+                num_heads=num_heads,
+                num_fpn_levels=num_fpn_levels,
+                num_ref_points=num_ref_points,
+                dim_feedforward=dim_feedforward,
+                dropout=dropout,
+                adaln_params=adaln_params,
+                use_adaln_zero=use_adaln_zero,
+            )
+            for _ in range(num_blocks)
+        ])
 
         cls_layers = []
         for _ in range(num_cls_convs):
@@ -158,14 +163,16 @@ class DiTSingleHead(nn.Module):
             objectness: (bs, N, 1) or None
             pred_velocity: (bs, N, 4) or None
         """
-        updated_tokens = self.dit_block(
-            box_tokens,
-            fpn_flattened,
-            spatial_shapes,
-            level_start_index,
-            time_emb,
-            bbox_coords,
-        )
+        updated_tokens = box_tokens
+        for dit_block in self.dit_blocks:
+            updated_tokens = dit_block(
+                updated_tokens,
+                fpn_flattened,
+                spatial_shapes,
+                level_start_index,
+                time_emb,
+                bbox_coords,
+            )
 
         fc_feature = updated_tokens
 

@@ -1,3 +1,4 @@
+import math
 from typing import List, Optional, Tuple
 
 import torch
@@ -10,6 +11,11 @@ class BoxTokenizer(nn.Module):
 
     策略: 坐标位置编码 + 层级编码
     备选: 可学习 Query + 坐标编码 (通过 init_mode 参数切换)
+
+    init_mode:
+        - "zero": 零初始化 token embedding
+        - "learnable" / "query": 可学习 Query embedding
+        - "spatial_prior": 均匀分布锚点位置编码 (DAB-DETR 思路)
     """
 
     def __init__(
@@ -17,17 +23,20 @@ class BoxTokenizer(nn.Module):
         feat_channels: int = 256,
         num_fpn_levels: int = 4,
         init_mode: str = 'zero',
+        num_proposals: int = 100,
     ):
         """
         Args:
             feat_channels: 特征通道数
             num_fpn_levels: FPN 层级数
-            init_mode: "zero" (零初始化) 或 "learnable" (可学习 Query)
+            init_mode: "zero" / "learnable" / "query" / "spatial_prior"
+            num_proposals: 提案数量 (spatial_prior 模式需要用此参数生成锚点)
         """
         super().__init__()
         self.feat_channels = feat_channels
         self.num_fpn_levels = num_fpn_levels
         self.init_mode = init_mode
+        self.num_proposals = num_proposals
 
         self.bbox_pos_embed = nn.Sequential(
             nn.Linear(4, feat_channels),
@@ -36,8 +45,33 @@ class BoxTokenizer(nn.Module):
         )
         self.level_embed = nn.Embedding(num_fpn_levels, feat_channels)
 
-        if init_mode == 'learnable':
-            self.query_embed = nn.Parameter(torch.randn(1, 100, feat_channels))
+        if init_mode in ('learnable', 'query'):
+            self.query_embed = nn.Parameter(
+                torch.randn(1, num_proposals, feat_channels)
+            )
+
+        if init_mode == 'spatial_prior':
+            # DAB-DETR 思路: 生成均匀分布在全图的锚点框 (cx, cy, w, h)
+            grid_size = int(math.ceil(math.sqrt(num_proposals)))
+            cx = torch.linspace(0.05, 0.95, grid_size)
+            cy = torch.linspace(0.05, 0.95, grid_size)
+            cx_grid, cy_grid = torch.meshgrid(cx, cy, indexing='ij')
+            anchors = torch.stack(
+                [
+                    cx_grid.flatten()[:num_proposals],
+                    cy_grid.flatten()[:num_proposals],
+                    torch.full((num_proposals,), 0.1),
+                    torch.full((num_proposals,), 0.1),
+                ],
+                dim=-1,
+            )  # (num_proposals, 4) 归一化坐标
+            self.register_buffer('anchor_boxes', anchors)
+            # 独立的 anchor 位置编码，避免与 bbox_pos_embed 重复叠加
+            self.anchor_pos_embed = nn.Sequential(
+                nn.Linear(4, feat_channels),
+                nn.ReLU(),
+                nn.Linear(feat_channels, feat_channels),
+            )
 
     def _assign_fpn_level(
         self, bboxes: Tensor
@@ -82,10 +116,11 @@ class BoxTokenizer(nn.Module):
         """
         level_indices = self._assign_fpn_level(bboxes)
 
-        if self.init_mode == 'learnable':
-            bs = bboxes.shape[0]
+        bs = bboxes.shape[0]
+        num_proposals = bboxes.shape[1]
+
+        if self.init_mode in ('learnable', 'query'):
             sampled_feat = self.query_embed.expand(bs, -1, -1)
-            num_proposals = bboxes.shape[1]
             if sampled_feat.shape[1] != num_proposals:
                 if sampled_feat.shape[1] > num_proposals:
                     sampled_feat = sampled_feat[:, :num_proposals]
@@ -94,10 +129,16 @@ class BoxTokenizer(nn.Module):
                     sampled_feat = sampled_feat.repeat(1, repeat, 1)[
                         :, :num_proposals
                     ]
+        elif self.init_mode == 'spatial_prior':
+            # DAB-DETR: 用锚点框的位置编码作为 token 先验
+            anchors = self.anchor_boxes[:num_proposals].unsqueeze(0).expand(
+                bs, -1, -1
+            )
+            sampled_feat = self.anchor_pos_embed(anchors)
         else:
             sampled_feat = torch.zeros(
-                bboxes.shape[0],
-                bboxes.shape[1],
+                bs,
+                num_proposals,
                 self.feat_channels,
                 device=bboxes.device,
             )

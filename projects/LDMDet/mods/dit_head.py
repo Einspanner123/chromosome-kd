@@ -81,6 +81,8 @@ class DiTDiffusionDetHead(nn.Module):
         adaln_params: int = 9,
         regression_mode: str = 'direct',
         use_adaln_zero: bool = True,
+        num_blocks: int = 1,
+        share_heads: bool = True,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -134,32 +136,51 @@ class DiTDiffusionDetHead(nn.Module):
             feat_channels=feat_channels,
             num_fpn_levels=num_fpn_levels,
             init_mode=box_init_mode,
+            num_proposals=num_proposals,
         )
 
         if single_head is not None:
-            # 显式实现权重共享：所有层指向同一个 Module 实例
             if isinstance(single_head, dict):
-                shared_module = MODELS.build(single_head)
+                # 注入 num_blocks 参数到 single_head 配置中
+                if 'num_blocks' not in single_head:
+                    single_head['num_blocks'] = num_blocks
+                if share_heads:
+                    shared_module = MODELS.build(single_head)
+                    self.head_series = nn.ModuleList(
+                        [shared_module for _ in range(num_heads)]
+                    )
+                else:
+                    self.head_series = nn.ModuleList(
+                        [MODELS.build(single_head) for _ in range(num_heads)]
+                    )
             else:
-                # 如果已经是实例化好的对象，直接使用
-                shared_module = single_head
-            self.head_series = nn.ModuleList(
-                [shared_module for _ in range(num_heads)]
-            )
+                if share_heads:
+                    self.head_series = nn.ModuleList(
+                        [single_head for _ in range(num_heads)]
+                    )
+                else:
+                    import copy
+
+                    self.head_series = nn.ModuleList(
+                        [copy.deepcopy(single_head) for _ in range(num_heads)]
+                    )
         else:
-            shared_module = DiTSingleHead(
-                num_classes=num_classes,
-                feat_channels=feat_channels,
-                num_heads=8,
-                num_fpn_levels=num_fpn_levels,
-                num_ref_points=num_ref_points,
-                prediction_mode=prediction_mode,
-                adaln_params=adaln_params,
-                regression_mode=regression_mode,
-                use_adaln_zero=use_adaln_zero,
-            )
             self.head_series = nn.ModuleList(
-                [shared_module for _ in range(num_heads)]
+                [
+                    DiTSingleHead(
+                        num_classes=num_classes,
+                        feat_channels=feat_channels,
+                        num_heads=8,
+                        num_fpn_levels=num_fpn_levels,
+                        num_ref_points=num_ref_points,
+                        prediction_mode=prediction_mode,
+                        adaln_params=adaln_params,
+                        regression_mode=regression_mode,
+                        use_adaln_zero=use_adaln_zero,
+                        num_blocks=num_blocks,
+                    )
+                    for _ in range(num_heads)
+                ]
             )
 
         time_dim = feat_channels * 4
@@ -193,17 +214,17 @@ class DiTDiffusionDetHead(nn.Module):
                         nn.init.constant_(m.bias, 0)
 
         for head in self.head_series:
-            if hasattr(head, 'dit_block') and hasattr(
-                head.dit_block, 'adaln_mlp'
-            ):
-                if getattr(head.dit_block, 'use_adaln_zero', True):
-                    nn.init.zeros_(head.dit_block.adaln_mlp[-1].weight)
-                    nn.init.zeros_(head.dit_block.adaln_mlp[-1].bias)
-                else:
+            for dit_block in head.dit_blocks:
+                if hasattr(dit_block, 'adaln_mlp') and getattr(
+                    dit_block, 'use_adaln_zero', True
+                ):
+                    nn.init.zeros_(dit_block.adaln_mlp[-1].weight)
+                    nn.init.zeros_(dit_block.adaln_mlp[-1].bias)
+                elif hasattr(dit_block, 'adaln_mlp'):
                     nn.init.xavier_uniform_(
-                        head.dit_block.adaln_mlp[-1].weight, gain=0.01
+                        dit_block.adaln_mlp[-1].weight, gain=0.01
                     )
-                    nn.init.constant_(head.dit_block.adaln_mlp[-1].bias, 0.1)
+                    nn.init.constant_(dit_block.adaln_mlp[-1].bias, 0.1)
 
     def _build_diffusion_buffers(self):
         betas = cosine_noise_schedule(self.timesteps)
@@ -259,9 +280,30 @@ class DiTDiffusionDetHead(nn.Module):
         x0 = (x0 * 2 - 1) * self.snr_scale
         return x0
 
+    def _init_inference_boxes(self, bs, device):
+        """生成推理时的初始框。
+
+        spatial_prior 模式: 使用 anchor_boxes (均匀网格锚点) 作为初始框，
+        避免 randn 经 clamp 后 width/height 退化为 0 导致 delta regression 失效。
+        其他模式: 使用 randn 采样。
+        """
+        if self.box_init_mode == 'spatial_prior' and hasattr(
+            self.box_tokenizer, 'anchor_boxes'
+        ):
+            anchors = self.box_tokenizer.anchor_boxes.to(device)
+            # anchors: (num_proposals, 4) cxcywh [0,1]
+            # 转换到 raw 空间: (cxcywh * 2 - 1) * snr_scale
+            x_raw = (anchors * 2 - 1) * self.snr_scale
+            x_raw = x_raw.unsqueeze(0).expand(bs, -1, -1).clone()
+            return x_raw
+        else:
+            return torch.randn(bs, self.num_proposals, 4, device=device)
+
     def _raw_to_xyxy(self, raw_bboxes, img_metas):
         # 入口防护: 清洗上游可能传入的 NaN/Inf
-        raw_bboxes = torch.nan_to_num(raw_bboxes, nan=0.0, posinf=0.0, neginf=0.0)
+        raw_bboxes = torch.nan_to_num(
+            raw_bboxes, nan=0.0, posinf=0.0, neginf=0.0
+        )
         bboxes = (
             raw_bboxes.clamp(-self.snr_scale, self.snr_scale) / self.snr_scale
             + 1
@@ -707,17 +749,21 @@ class DiTDiffusionDetHead(nn.Module):
             for i in range(len(times) - 1):
                 time_pairs.append((times[i].item(), times[i + 1].item()))
 
-        x_raw = torch.randn(bs, self.num_proposals, 4, device=device)
+        x_raw = self._init_inference_boxes(bs, device)
         x0_prev = None
         ensemble_results = []
         trajectory = []
 
         dpm_solver = None
-        if self.solver_type == 'dpm_solver_pp':
+        if (
+            self.solver_type == 'dpm_solver_pp'
+            or self.solver_type == 'dpm_solver_pp_3'
+        ):
             from .rectified_flow import RFDPMSolverMultistep
 
+            solver_order = 3 if self.solver_type == 'dpm_solver_pp_3' else 2
             dpm_solver = RFDPMSolverMultistep(
-                num_steps=self.sampling_timesteps, solver_order=2
+                num_steps=self.sampling_timesteps, solver_order=solver_order
             )
 
         for step_idx, (t_curr, t_next) in enumerate(time_pairs):
@@ -798,25 +844,58 @@ class DiTDiffusionDetHead(nn.Module):
                 keep[topk_idx] = True
             num_renew = (~keep).sum()
             if num_renew > 0:
-                x_raw_new[i, ~keep] = torch.randn(num_renew, 4, device=device)
+                if self.box_init_mode == 'spatial_prior' and hasattr(
+                    self.box_tokenizer, 'anchor_boxes'
+                ):
+                    # spatial_prior 模式: 用 anchor 替换低分框，保持与训练一致的分布
+                    anchors = self.box_tokenizer.anchor_boxes.to(device)
+                    anchor_raw = (anchors * 2 - 1) * self.snr_scale
+                    # 随机选取 anchor 作为替换
+                    replace_idx = torch.randint(
+                        0, anchor_raw.shape[0], (num_renew,), device=device
+                    )
+                    x_raw_new[i, ~keep] = anchor_raw[replace_idx]
+                else:
+                    x_raw_new[i, ~keep] = torch.randn(
+                        num_renew, 4, device=device
+                    )
         return x_raw_new
 
     def _post_process(self, ensemble_results, img_metas, rescale):
         results_list = []
         bs = len(img_metas)
         for i in range(bs):
-            all_scores = []
-            all_bboxes = []
-            all_labels = []
-            for cls_logits, pred_bboxes in ensemble_results:
+            if self.use_ensemble and len(ensemble_results) > 1:
+                # ensemble: 拼接所有 step 的结果，但按框位置去重
+                # 同一位置不同 step 可能分配不同类别，NMS 无法抑制跨类别重复
+                # 解决: 对每个 step 的结果独立做 NMS，再拼接做最终 NMS
+                step_results = []
+                for cls_logits, pred_bboxes in ensemble_results:
+                    scores = torch.sigmoid(cls_logits[i])
+                    conf, labels = scores.max(-1)
+                    # 每个 step 先做一次 NMS 去除该 step 内的重复
+                    if self.use_nms:
+                        keep = batched_nms(
+                            pred_bboxes[i], conf, labels, self.nms_thr
+                        )
+                        step_results.append((
+                            conf[keep], pred_bboxes[i][keep], labels[keep]
+                        ))
+                    else:
+                        step_results.append((conf, pred_bboxes[i], labels))
+                all_scores = torch.cat([r[0] for r in step_results])
+                all_bboxes = torch.cat([r[1] for r in step_results])
+                all_labels = torch.cat([r[2] for r in step_results])
+            else:
+                # 单步: 直接使用最后一步结果
+                cls_logits, pred_bboxes = ensemble_results[-1]
                 scores = torch.sigmoid(cls_logits[i])
-                conf, labels = scores.max(-1)
-                all_scores.append(conf)
-                all_bboxes.append(pred_bboxes[i])
-                all_labels.append(labels)
-            final_scores = torch.cat(all_scores)
-            final_bboxes = torch.cat(all_bboxes)
-            final_labels = torch.cat(all_labels)
+                all_scores, all_labels = scores.max(-1)
+                all_bboxes = pred_bboxes[i]
+
+            final_scores = all_scores
+            final_bboxes = all_bboxes
+            final_labels = all_labels
             if self.use_nms:
                 keep = batched_nms(
                     final_bboxes, final_scores, final_labels, self.nms_thr
