@@ -7,7 +7,7 @@ from torch import Tensor
 from torchvision import ops
 
 from .structures import InstanceData, ModelOutput
-from .utils import bbox_xyxy_to_cxcywh
+from .utils import bbox_xyxy_to_cxcywh, sanitize_bboxes
 
 
 def sigmoid_focal_loss(
@@ -157,31 +157,6 @@ class FocalLossCost:
         return cost_class * self.weight
 
 
-class BBoxL1Cost:
-    def __init__(self, weight=5.0):
-        self.weight = weight
-
-    def __call__(
-        self,
-        pred_logits: Tensor,
-        pred_bboxes: Tensor,
-        gt_labels: Tensor,
-        gt_bboxes: Tensor,
-    ) -> Tensor:
-        """
-        pred_bboxes: [N, 4] (normalized xyxy)
-        gt_bboxes: [M, 4] (normalized xyxy)
-        """
-        # 清洗 NaN/Inf 并 clamp，防止 CUDA device-side assert
-        pred_bboxes = torch.nan_to_num(
-            pred_bboxes.detach(), nan=0.5, posinf=1.0, neginf=0.0
-        ).clamp(0, 1)
-        gt_bboxes = torch.nan_to_num(
-            gt_bboxes, nan=0.5, posinf=1.0, neginf=0.0
-        ).clamp(0, 1)
-        return torch.cdist(pred_bboxes, gt_bboxes, p=1) * self.weight
-
-
 class RelativeL1Cost:
     def __init__(self, weight=5.0, eps=1e-2):
         self.weight = weight
@@ -200,27 +175,15 @@ class RelativeL1Cost:
         Returns: [N, M] cost matrix with relative L1 distance
         """
         # GPU 原生 NaN/Inf 清洗: 不触发 CPU 同步, 从根源防止 CUDA device-side assert
-        pred_bboxes = torch.nan_to_num(
-            pred_bboxes, nan=0.5, posinf=1.0, neginf=0.0
-        )
-        pred_bboxes = pred_bboxes.detach().clamp(0, 1)
-        gt_bboxes = torch.nan_to_num(
-            gt_bboxes, nan=0.5, posinf=1.0, neginf=0.0
-        )
-        # gt_bboxes 也需要 clamp 到 [0,1]，与 pred_bboxes 对等，
-        # 否则大值经 cxcywh 转换后直接触发 CUDA device-side assert
-        gt_bboxes = gt_bboxes.clamp(0, 1)
+        pred_bboxes = sanitize_bboxes(pred_bboxes.detach())
+        gt_bboxes = sanitize_bboxes(gt_bboxes)
 
         pred_cxcywh = bbox_xyxy_to_cxcywh(pred_bboxes)
         gt_cxcywh = bbox_xyxy_to_cxcywh(gt_bboxes)
 
         # 二次清洗: bbox_xyxy_to_cxcywh 可能引入 NaN
-        pred_cxcywh = torch.nan_to_num(pred_cxcywh, nan=0.5, posinf=1.0, neginf=0.0)
-        gt_cxcywh = torch.nan_to_num(gt_cxcywh, nan=0.5, posinf=1.0, neginf=0.0)
-
-        # clamp cxcywh 到合法范围: cx,cy∈[0,1], w,h∈[0,1]
-        pred_cxcywh = pred_cxcywh.clamp(0, 1)
-        gt_cxcywh = gt_cxcywh.clamp(0, 1)
+        pred_cxcywh = sanitize_bboxes(pred_cxcywh)
+        gt_cxcywh = sanitize_bboxes(gt_cxcywh)
 
         gt_w = gt_cxcywh[:, 2].clamp(min=self.eps)
         gt_h = gt_cxcywh[:, 3].clamp(min=self.eps)
@@ -251,12 +214,8 @@ class IoUCost:
         gt_bboxes: [M, 4] (xyxy)
         """
         # 清洗 NaN/Inf 并 clamp，防止 CUDA device-side assert
-        pred_bboxes = torch.nan_to_num(
-            pred_bboxes.detach(), nan=0.5, posinf=1.0, neginf=0.0
-        ).clamp(0, 1)
-        gt_bboxes = torch.nan_to_num(
-            gt_bboxes, nan=0.5, posinf=1.0, neginf=0.0
-        ).clamp(0, 1)
+        pred_bboxes = sanitize_bboxes(pred_bboxes.detach())
+        gt_bboxes = sanitize_bboxes(gt_bboxes)
         if self.iou_mode == 'giou':
             iou = ops.generalized_box_iou(pred_bboxes, gt_bboxes)
         else:
@@ -427,12 +386,6 @@ class DiffusionDetCriterion(nn.Module):
         loss_giou: nn.Module,
         deep_supervision: bool = True,
         loss_objectness_weight: float = 1.0,
-        scale_aware: bool = False,
-        scale_aware_mode: str = 'inverse',
-        scale_aware_min_weight: float = 0.5,
-        scale_aware_max_weight: float = 3.0,
-        scale_aware_alpha: float = 0.15,
-        scale_aware_giou: bool = False,
         bbox_loss_mode: str = 'l1',
         bbox_loss_eps: float = 1e-2,
     ):
@@ -444,12 +397,6 @@ class DiffusionDetCriterion(nn.Module):
         self.loss_giou = loss_giou
         self.deep_supervision = deep_supervision
         self.loss_objectness_weight = loss_objectness_weight
-        self.scale_aware = scale_aware
-        self.scale_aware_mode = scale_aware_mode
-        self.scale_aware_min_weight = scale_aware_min_weight
-        self.scale_aware_max_weight = scale_aware_max_weight
-        self.scale_aware_alpha = scale_aware_alpha
-        self.scale_aware_giou = scale_aware_giou
         self.bbox_loss_mode = bbox_loss_mode
         self.bbox_loss_eps = bbox_loss_eps
 
@@ -547,41 +494,7 @@ class DiffusionDetCriterion(nn.Module):
         tgt_cxcywh = bbox_xyxy_to_cxcywh(tgt_boxes_pos)
         src_cxcywh = bbox_xyxy_to_cxcywh(src_boxes_pos)
 
-        if self.scale_aware:
-            tgt_areas = tgt_cxcywh[:, 2] * tgt_cxcywh[:, 3]
-            if self.scale_aware_mode == 'log_linear':
-                log_areas = torch.log(tgt_areas + 1e-8)
-                log_mean = log_areas.mean()
-                log_std = log_areas.std() + 1e-8
-                z = (log_areas - log_mean) / log_std
-                scale_w = 1.0 - self.scale_aware_alpha * z
-                scale_w = scale_w.clamp(
-                    1.0 - self.scale_aware_alpha * 3,
-                    1.0 + self.scale_aware_alpha * 3,
-                )
-            elif self.scale_aware_mode == 'sqrt_inverse':
-                raw_w = 1.0 / torch.sqrt(tgt_areas + 1e-6)
-                scale_w = raw_w / raw_w.mean()
-                scale_w = scale_w.clamp(
-                    self.scale_aware_min_weight, self.scale_aware_max_weight
-                )
-            else:
-                raw_w = 1.0 / (tgt_areas + 1e-6)
-                scale_w = raw_w / raw_w.mean()
-                scale_w = scale_w.clamp(
-                    self.scale_aware_min_weight, self.scale_aware_max_weight
-                )
-            per_elem_l1 = F.l1_loss(src_cxcywh, tgt_cxcywh, reduction='none')
-            weighted_sum = (per_elem_l1 * scale_w.unsqueeze(1)).sum()
-            loss_bbox = (
-                self.loss_bbox.loss_weight
-                * weighted_sum
-                / (4.0 * num_pos * num_pos)
-            )
-            loss_giou = (
-                self.loss_giou(src_boxes_pos, tgt_boxes_pos).sum() / num_pos
-            )
-        elif self.bbox_loss_mode == 'relative_l1':
+        if self.bbox_loss_mode == 'relative_l1':
             tgt_w = tgt_cxcywh[:, 2].clamp(min=self.bbox_loss_eps)
             tgt_h = tgt_cxcywh[:, 3].clamp(min=self.bbox_loss_eps)
             scale = torch.stack([tgt_w, tgt_h, tgt_w, tgt_h], dim=-1)

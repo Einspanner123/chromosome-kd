@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
+from .utils import sanitize_features
+
 
 class BoxTokenizer(nn.Module):
     """将 bbox 坐标转换为 Box Tokens
@@ -149,7 +151,7 @@ class BoxTokenizer(nn.Module):
         box_tokens = sampled_feat + pos_embed + lvl_embed
 
         # 出口防护: 确保 token 不含 NaN/Inf，防止传播到 DiTBlock
-        box_tokens = torch.nan_to_num(box_tokens, nan=0.0, posinf=0.0, neginf=0.0)
+        box_tokens = sanitize_features(box_tokens)
 
         return box_tokens, level_indices
 

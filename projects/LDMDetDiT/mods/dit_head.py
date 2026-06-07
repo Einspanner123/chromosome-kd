@@ -14,12 +14,10 @@ from .deformable_attn import flatten_fpn_features
 from .dit_single_head import DiTSingleHead
 from .modules import (
     SinusoidalPositionEmbeddings,
-    cosine_noise_schedule,
-    load_buffer,
 )
 from .rectified_flow import RectifiedFlow
 from .structures import DetectionResult, InstanceData, ModelOutput
-from .utils import bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh
+from .utils import bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh, sanitize_bboxes
 
 
 class DiTDiffusionDetHead(nn.Module):
@@ -50,8 +48,6 @@ class DiTDiffusionDetHead(nn.Module):
         box_renewal: bool = True,
         use_ensemble: bool = True,
         deep_supervision: bool = True,
-        ddim_sampling_eta: float = 1.0,
-        diffusion_type: str = 'rectified_flow',
         rf_schedule: str = 'linear',
         rf_power: float = 1.0,
         rf_shift: float = 1.0,
@@ -69,9 +65,6 @@ class DiTDiffusionDetHead(nn.Module):
         ot_num_iters: int = 20,
         ot_sample: bool = False,
         ot_sample_seed: Optional[int] = None,
-        use_lsas: bool = False,
-        lsas_num_bins: int = 100,
-        lsas_temp: float = 1.0,
         t_sampling: str = 'uniform',
         t_sampling_bins: int = 8,
         num_fpn_levels: int = 4,
@@ -94,8 +87,6 @@ class DiTDiffusionDetHead(nn.Module):
         self.box_renewal = box_renewal
         self.use_ensemble = use_ensemble
         self.deep_supervision = deep_supervision
-        self.ddim_sampling_eta = ddim_sampling_eta
-        self.diffusion_type = diffusion_type
         self.rf_schedule = rf_schedule
         self.rf_power = rf_power
         self.rf_shift = rf_shift
@@ -109,9 +100,6 @@ class DiTDiffusionDetHead(nn.Module):
         self.ot_num_iters = ot_num_iters
         self.ot_sample = ot_sample
         self.ot_sample_seed = ot_sample_seed
-        self.use_lsas = use_lsas
-        self.lsas_num_bins = lsas_num_bins
-        self.lsas_temp = lsas_temp
         self.t_sampling = t_sampling
         self.t_sampling_bins = t_sampling_bins
         self.num_fpn_levels = num_fpn_levels
@@ -127,10 +115,7 @@ class DiTDiffusionDetHead(nn.Module):
 
         self.criterion = criterion
 
-        if self.diffusion_type == 'ddpm':
-            self._build_diffusion_buffers()
-        elif self.diffusion_type == 'rectified_flow':
-            self.rf = RectifiedFlow(snr_scale=snr_scale)
+        self.rf = RectifiedFlow(snr_scale=snr_scale)
 
         self.box_tokenizer = BoxTokenizer(
             feat_channels=feat_channels,
@@ -191,10 +176,6 @@ class DiTDiffusionDetHead(nn.Module):
             nn.Linear(time_dim, time_dim),
         )
 
-        if self.use_lsas and self.diffusion_type == 'rectified_flow':
-            self.lsas_logits = nn.Parameter(torch.zeros(lsas_num_bins))
-            self.lsas_bin_edges = torch.linspace(0, 1, lsas_num_bins + 1)
-
         self.prior_prob = prior_prob
 
         self._init_weights()
@@ -226,36 +207,6 @@ class DiTDiffusionDetHead(nn.Module):
                     )
                     nn.init.constant_(dit_block.adaln_mlp[-1].bias, 0.1)
 
-    def _build_diffusion_buffers(self):
-        betas = cosine_noise_schedule(self.timesteps)
-        alphas = 1.0 - betas
-        alphas_cumprod = torch.cumprod(alphas, dim=0)
-        alphas_cumprod_prev = F.pad(alphas_cumprod[:-1], (1, 0), value=1.0)
-        alphas_cumprod = alphas_cumprod.float()
-        alphas_cumprod_prev = alphas_cumprod_prev.float()
-        self.register_buffer('alphas_cumprod', alphas_cumprod)
-        self.register_buffer('alphas_cumprod_prev', alphas_cumprod_prev)
-        self.register_buffer('sqrt_alphas_cumprod', torch.sqrt(alphas_cumprod))
-        self.register_buffer(
-            'sqrt_one_minus_alphas_cumprod', torch.sqrt(1.0 - alphas_cumprod)
-        )
-        self.register_buffer(
-            'sqrt_recip_alphas_cumprod', torch.sqrt(1.0 / alphas_cumprod)
-        )
-        self.register_buffer(
-            'sqrt_recipm1_alphas_cumprod', torch.sqrt(1.0 / alphas_cumprod - 1)
-        )
-        posterior_variance = (
-            betas.float()
-            * (1.0 - alphas_cumprod_prev)
-            / (1.0 - alphas_cumprod)
-        )
-        self.register_buffer('posterior_variance', posterior_variance)
-        self.register_buffer(
-            'posterior_log_variance_clipped',
-            torch.log(posterior_variance.clamp(min=1e-20)),
-        )
-
     # ---- 坐标转换 (与 DiffusionDetHead 一致) ----
 
     @staticmethod
@@ -281,23 +232,8 @@ class DiTDiffusionDetHead(nn.Module):
         return x0
 
     def _init_inference_boxes(self, bs, device):
-        """生成推理时的初始框。
-
-        RF 模式: 从纯噪声 (标准正态分布) 开始, 与训练时的 x_noise 分布一致。
-        DDPM 模式: spatial_prior 使用 anchor_boxes 提供位置先验。
-        """
-        if self.diffusion_type == 'ddpm' and self.box_init_mode == 'spatial_prior' and hasattr(
-            self.box_tokenizer, 'anchor_boxes'
-        ):
-            anchors = self.box_tokenizer.anchor_boxes.to(device)
-            # anchors: (num_proposals, 4) cxcywh [0,1]
-            # 转换到 raw 空间: (cxcywh * 2 - 1) * snr_scale
-            x_raw = (anchors * 2 - 1) * self.snr_scale
-            x_raw = x_raw.unsqueeze(0).expand(bs, -1, -1).clone()
-            return x_raw
-        else:
-            # RF 模式: 纯噪声, 与训练时 q_sample 的 x_noise 一致
-            return torch.randn(bs, self.num_proposals, 4, device=device)
+        """生成推理时的初始框 (纯噪声，与训练时 x_noise 分布一致)"""
+        return torch.randn(bs, self.num_proposals, 4, device=device)
 
     def _raw_to_xyxy(self, raw_bboxes, img_metas):
         # 入口防护: 清洗上游可能传入的 NaN/Inf
@@ -310,8 +246,7 @@ class DiTDiffusionDetHead(nn.Module):
         ) / 2
         bboxes = bbox_cxcywh_to_xyxy(bboxes)
         # 二次清洗: cxcywh→xyxy 转换可能产生 NaN (w/h 为 0 时除零)
-        bboxes = torch.nan_to_num(bboxes, nan=0.5, posinf=1.0, neginf=0.0)
-        bboxes = bboxes.clamp(0, 1)
+        bboxes = sanitize_bboxes(bboxes)
         bboxes[..., 0] = torch.min(bboxes[..., 0], bboxes[..., 2] - 1e-4)
         bboxes[..., 1] = torch.min(bboxes[..., 1], bboxes[..., 3] - 1e-4)
         for i, meta in enumerate(img_metas):
@@ -345,8 +280,7 @@ class DiTDiffusionDetHead(nn.Module):
         ) / 2
         xyxy = bbox_cxcywh_to_xyxy(cxcywh)
         # 二次清洗: cxcywh→xyxy 转换可能产生 NaN (w/h 为 0 时除零)
-        xyxy = torch.nan_to_num(xyxy, nan=0.5, posinf=1.0, neginf=0.0)
-        return xyxy.clamp(0, 1)
+        return sanitize_bboxes(xyxy)
 
     def _normed_xyxy_to_raw_cxcywh(self, normed_xyxy):
         """将归一化 xyxy [0,1] 转换为 raw 空间 cxcywh
@@ -424,12 +358,6 @@ class DiTDiffusionDetHead(nn.Module):
     # ---- 时间采样 ----
 
     def _sample_t(self, bs, device):
-        if self.diffusion_type == 'ddpm':
-            return torch.randint(
-                0, self.timesteps, (bs,), device=device
-            ).long(), None
-        if self.use_lsas:
-            return self._sample_time_lsas(bs, device)
         if self.t_sampling == 'stratified':
             n_bins = self.t_sampling_bins
             bin_size = bs // n_bins
@@ -446,17 +374,6 @@ class DiTDiffusionDetHead(nn.Module):
         if self.rf_schedule == 'shifted':
             t = self.rf_shift * t / (1 + (self.rf_shift - 1) * t)
         return t, None
-
-    def _sample_time_lsas(self, bs, device):
-        probs = F.softmax(self.lsas_logits / self.lsas_temp, dim=0)
-        bin_idx = torch.multinomial(probs, bs, replacement=True)
-        bin_width = 1.0 / self.lsas_num_bins
-        t = (bin_idx.float() + torch.rand(bs, device=device)) * bin_width
-        t = t.clamp(1e-5, 1.0 - 1e-5)
-        if self.rf_schedule == 'shifted':
-            t = self.rf_shift * t / (1 + (self.rf_shift - 1) * t)
-        log_probs = torch.log(probs[bin_idx] + 1e-10)
-        return t, log_probs
 
     # ---- 前向传播 ----
 
@@ -643,7 +560,7 @@ class DiTDiffusionDetHead(nn.Module):
             gt_diffusion = (norm_gt_cxcywh * 2 - 1) * self.snr_scale
             noise = torch.randn(self.num_proposals, 4, device=device)
 
-            if self.ot_coupling and self.diffusion_type == 'rectified_flow':
+            if self.ot_coupling:
                 x_start, matched_idx = self._couple_ot(
                     noise, gt_diffusion, targets[i].labels, device
                 )
@@ -656,16 +573,11 @@ class DiTDiffusionDetHead(nn.Module):
                 x_start = (sample_bboxes * 2 - 1) * self.snr_scale
                 matched_gt_indices.append(idx)
 
-            if self.diffusion_type == 'ddpm':
-                x_noisy = self.q_sample(x_start, t[i : i + 1])
-                x_starts.append(x_start)
-                x_noises.append(torch.zeros_like(x_start))
-            else:
-                x_noisy, _ = self.rf.q_sample(
-                    x_start, x_noise=noise, t=t[i : i + 1]
-                )
-                x_starts.append(x_start)
-                x_noises.append(noise)
+            x_noisy, _ = self.rf.q_sample(
+                x_start, x_noise=noise, t=t[i : i + 1]
+            )
+            x_starts.append(x_start)
+            x_noises.append(noise)
             x_boxes.append(x_noisy)
 
         return x_boxes, x_starts, x_noises, matched_gt_indices
@@ -675,7 +587,7 @@ class DiTDiffusionDetHead(nn.Module):
         bs = len(img_metas)
 
         targets = self._normalize_targets(gt_bboxes, gt_labels, img_metas, bs)
-        t, lsas_log_probs = self._sample_t(bs, device)
+        t, _ = self._sample_t(bs, device)
 
         x_boxes, x_starts, x_noises, matched_gt_indices = (
             self._build_training_targets(
@@ -690,7 +602,7 @@ class DiTDiffusionDetHead(nn.Module):
         x_noisy_batch = torch.stack(x_boxes)
         curr_bboxes = self._raw_to_xyxy(x_noisy_batch, img_metas)
 
-        t_input = t if self.diffusion_type == 'ddpm' else t * self.timesteps
+        t_input = t * self.timesteps
 
         (
             all_cls_logits,
@@ -705,13 +617,12 @@ class DiTDiffusionDetHead(nn.Module):
 
         norm_pred_bboxes = all_pred_bboxes
 
-        # v-prediction + RF 模式: 用模型预测的 x0 归一化坐标作为 criterion 的 pred_boxes
+        # v-prediction + RF: 用模型预测的 x0 归一化坐标作为 criterion 的 pred_boxes
         # 注意: 不能用 GT x_start 作为 pred_boxes, 否则所有 proposal 的 pred_boxes
         # 都等于 GT 坐标, Hungarian matching 无法区分正负样本, 导致 loss_cls 失效
         # criterion_pred_boxes 由 v_pred 经线性变换得来，GIoU 梯度可平滑回传
-        if self.regression_mode == 'direct' and self.diffusion_type == 'rectified_flow':
+        if self.regression_mode == 'direct':
             # 使用 forward 中计算的 x0 归一化坐标
-            # all_x0_raw 是 raw 空间的 x0 预测, 转换为归一化坐标
             if all_x0_raw[-1] is not None:
                 criterion_pred_boxes = self._raw_cxcywh_to_normed_xyxy(all_x0_raw[-1])
             else:
@@ -731,7 +642,7 @@ class DiTDiffusionDetHead(nn.Module):
                 ModelOutput(
                     pred_logits=all_cls_logits[i],
                     pred_boxes=self._raw_cxcywh_to_normed_xyxy(all_x0_raw[i])
-                    if (self.regression_mode == 'direct' and self.diffusion_type == 'rectified_flow' and all_x0_raw[i] is not None)
+                    if (self.regression_mode == 'direct' and all_x0_raw[i] is not None)
                     else norm_pred_bboxes[i],
                     pred_objectness=all_objectness[i]
                     if all_objectness[0] is not None
@@ -747,14 +658,9 @@ class DiTDiffusionDetHead(nn.Module):
         # criterion_pred_boxes 由 v_pred 经线性变换得来，梯度可平滑回传
         # 如需降低权重，在 config 中调整 loss_bbox/loss_giou 的 loss_weight
 
-        self._add_velocity_loss(
-            losses, all_velocity, x_starts, x_noises, device
-        )
         self._add_raw_diffusion_loss(
             losses, all_pred_bboxes_raw, x_starts, x_noises, device
         )
-        self._add_lsas_loss(losses, lsas_log_probs)
-
         # 诊断指标: 监控 raw 空间预测分布、归一化质量、匹配统计
         self._add_diagnostic_metrics(
             losses, all_pred_bboxes, all_pred_bboxes_raw,
@@ -762,30 +668,6 @@ class DiTDiffusionDetHead(nn.Module):
         )
 
         return losses
-
-    def _add_velocity_loss(
-        self, losses, all_velocity, x_starts, x_noises, device
-    ):
-        if not (
-            self.prediction_mode == 'velocity'
-            and all_velocity[0] is not None
-            and self.diffusion_type == 'rectified_flow'
-        ):
-            return
-        v_target = torch.stack(x_noises) - torch.stack(x_starts)
-        vel_weight = self.velocity_loss_weight
-        last_v = all_velocity[-1]
-        if last_v is not None:
-            losses['loss_velocity'] = F.mse_loss(last_v, v_target) * vel_weight
-        if self.deep_supervision and self.num_heads > 1:
-            aux = torch.tensor(0.0, device=device)
-            n = 0
-            for hi in range(self.num_heads - 1):
-                if all_velocity[hi] is not None:
-                    aux = aux + F.mse_loss(all_velocity[hi], v_target)
-                    n += 1
-            if n > 0:
-                losses['loss_velocity_aux'] = aux / n * vel_weight * 0.5
 
     def _add_raw_diffusion_loss(
         self, losses, all_pred_bboxes_raw, x_starts, x_noises, device
@@ -798,8 +680,6 @@ class DiTDiffusionDetHead(nn.Module):
         归一化空间的 L1/GIoU loss 作为辅助检测损失 (由 criterion 计算)。
         """
         if self.regression_mode != 'direct':
-            return
-        if self.diffusion_type != 'rectified_flow':
             return
 
         x_starts_batch = torch.stack(x_starts)
@@ -896,14 +776,6 @@ class DiTDiffusionDetHead(nn.Module):
             img_bboxes[i] *= scale
         return img_bboxes
 
-    @staticmethod
-    def _add_lsas_loss(losses, lsas_log_probs):
-        if lsas_log_probs is None:
-            return
-        with torch.no_grad():
-            total = sum(losses.values())
-        losses['loss_lsas'] = total.detach() * (-lsas_log_probs).mean() * 0.01
-
     # ---- 推理 ----
 
     def _forward_at_t(self, features, x_raw, t, img_metas):
@@ -937,27 +809,17 @@ class DiTDiffusionDetHead(nn.Module):
         device = features[0].device
         bs = len(img_metas)
 
-        if self.diffusion_type == 'ddpm':
-            times = torch.linspace(
-                -1,
-                self.timesteps - 1,
-                steps=self.sampling_timesteps + 1,
-                device=device,
-            )
-            times = list(reversed(times.int().tolist()))
-            time_pairs = list(zip(times[:-1], times[1:]))
-        else:
-            times = torch.linspace(
-                1.0, 0.0, steps=self.sampling_timesteps + 1, device=device
-            )
-            if self.rf_schedule == 'power':
-                times = times.pow(self.rf_power)
-            elif self.rf_schedule == 'shifted':
-                s = self.rf_shift
-                times = s * times / (1 + (s - 1) * times)
-            time_pairs = []
-            for i in range(len(times) - 1):
-                time_pairs.append((times[i].item(), times[i + 1].item()))
+        times = torch.linspace(
+            1.0, 0.0, steps=self.sampling_timesteps + 1, device=device
+        )
+        if self.rf_schedule == 'power':
+            times = times.pow(self.rf_power)
+        elif self.rf_schedule == 'shifted':
+            s = self.rf_shift
+            times = s * times / (1 + (s - 1) * times)
+        time_pairs = []
+        for i in range(len(times) - 1):
+            time_pairs.append((times[i].item(), times[i + 1].item()))
 
         x_raw = self._init_inference_boxes(bs, device)
         x0_prev = None
@@ -986,68 +848,41 @@ class DiTDiffusionDetHead(nn.Module):
             if return_trajectory:
                 trajectory.append((cls_logits.detach(), pred_bboxes.detach()))
 
-            if self.diffusion_type == 'ddpm':
-                if t_next < 0:
-                    break
-                x0 = self._xyxy_to_raw(pred_bboxes, img_metas)
-                t_batch = torch.full(
-                    (bs,), t_curr, device=device, dtype=torch.long
-                )
-                pred_noise = self.predict_noise_from_start(x_raw, t_batch, x0)
-                alpha = self.alphas_cumprod[t_curr]
-                alpha_next = self.alphas_cumprod[t_next]
-                sigma = (
-                    self.ddim_sampling_eta
-                    * (
-                        (1 - alpha / alpha_next)
-                        * (1 - alpha_next)
-                        / (1 - alpha)
-                    ).sqrt()
-                )
-                c = (1 - alpha_next - sigma**2).sqrt()
-                noise = torch.randn_like(x_raw)
-                x_raw = x0 * alpha_next.sqrt() + c * pred_noise + sigma * noise
-                if self.box_renewal:
-                    x_raw = self._apply_box_renewal(x_raw, cls_logits)
+            # RF 模式: 使用 x0-based step (而非 v-based step)
+            # 因为 cascaded 设计中, v_pred 是最后一个 head 的 velocity,
+            # 相对于其输入 (前一个 head 的 x0), 不是相对于 x_raw
+            # x0-based step: v = (x_t - x0) / t, x_next = x_t + dt * v
+            if dpm_solver is not None:
+                x_raw = dpm_solver.step(x_raw, x0_raw, t_curr, step_idx)
+            elif self.solver_type == 'heun' and t_next > 0:
 
-                if self.use_ensemble:
-                    ensemble_results.append((cls_logits, pred_bboxes))
-            else:
-                # RF 模式: 使用 x0-based step (而非 v-based step)
-                # 因为 cascaded 设计中, v_pred 是最后一个 head 的 velocity,
-                # 相对于其输入 (前一个 head 的 x0), 不是相对于 x_raw
-                # x0-based step: v = (x_t - x0) / t, x_next = x_t + dt * v
-                if dpm_solver is not None:
-                    x_raw = dpm_solver.step(x_raw, x0_raw, t_curr, step_idx)
-                elif self.solver_type == 'heun' and t_next > 0:
-
-                    def model_fn(x_tmp, t_tmp):
-                        _, _, x0_tmp, _ = self._forward_at_t(
-                            features, x_tmp, t_tmp, img_metas
-                        )
-                        return x0_tmp, None
-
-                    x_raw = self.rf.heun_step(
-                        x_raw, x0_raw, t_curr, t_next, model_fn
+                def model_fn(x_tmp, t_tmp):
+                    _, _, x0_tmp, _ = self._forward_at_t(
+                        features, x_tmp, t_tmp, img_metas
                     )
-                else:
-                    x_raw = self.rf.step(x_raw, x0_raw, t_curr, t_next)
+                    return x0_tmp, None
 
-                if self.box_renewal:
-                    x_raw = self._apply_box_renewal(x_raw, cls_logits)
+                x_raw = self.rf.heun_step(
+                    x_raw, x0_raw, t_curr, t_next, model_fn
+                )
+            else:
+                x_raw = self.rf.step(x_raw, x0_raw, t_curr, t_next)
 
-                # RF 模式: 使用采样轨迹的 x_raw 转换为检测框
-                if self.regression_mode == 'direct':
-                    x_raw_normed = self._raw_cxcywh_to_normed_xyxy(x_raw)
-                    x_raw_img = self._normed_to_img(x_raw_normed, img_metas)
-                else:
-                    x_raw_img = self._raw_to_xyxy(x_raw, img_metas)
+            if self.box_renewal:
+                x_raw = self._apply_box_renewal(x_raw, cls_logits)
 
-                if self.use_ensemble:
-                    ensemble_results.append((cls_logits, x_raw_img))
+            # 使用采样轨迹的 x_raw 转换为检测框
+            if self.regression_mode == 'direct':
+                x_raw_normed = self._raw_cxcywh_to_normed_xyxy(x_raw)
+                x_raw_img = self._normed_to_img(x_raw_normed, img_metas)
+            else:
+                x_raw_img = self._raw_to_xyxy(x_raw, img_metas)
 
-                if t_next <= 0:
-                    break
+            if self.use_ensemble:
+                ensemble_results.append((cls_logits, x_raw_img))
+
+            if t_next <= 0:
+                break
 
         # 如果没有 ensemble 结果 (不应该发生), 使用最后一步的 x_raw
         if not ensemble_results:
@@ -1164,28 +999,3 @@ class DiTDiffusionDetHead(nn.Module):
                 )
             )
         return results_list
-
-    def q_sample(self, x_start, t, noise=None):
-        if noise is None:
-            noise = torch.randn_like(x_start)
-        sqrt_alphas_cumprod_t = load_buffer(
-            self.sqrt_alphas_cumprod, t, x_start.shape
-        )
-        sqrt_one_minus_alphas_cumprod_t = load_buffer(
-            self.sqrt_one_minus_alphas_cumprod, t, x_start.shape
-        )
-        return (
-            sqrt_alphas_cumprod_t * x_start
-            + sqrt_one_minus_alphas_cumprod_t * noise
-        )
-
-    def predict_noise_from_start(self, x_t, t, x0):
-        sqrt_recip_alphas_cumprod_t = load_buffer(
-            self.sqrt_recip_alphas_cumprod, t, x_t.shape
-        )
-        sqrt_recipm1_alphas_cumprod_t = load_buffer(
-            self.sqrt_recipm1_alphas_cumprod, t, x_t.shape
-        )
-        return (
-            sqrt_recip_alphas_cumprod_t * x_t - x0
-        ) / sqrt_recipm1_alphas_cumprod_t

@@ -50,6 +50,16 @@ def bbox_cxcywh_to_xyxy(bbox: Tensor) -> Tensor:
     return torch.cat([cxy - wh / 2, cxy + wh / 2], dim=-1)
 
 
+def sanitize_bboxes(bboxes: Tensor) -> Tensor:
+    """清洗 bbox 坐标中的 NaN/Inf 并 clamp 到 [0,1]"""
+    return torch.nan_to_num(bboxes, nan=0.5, posinf=1.0, neginf=0.0).clamp(0, 1)
+
+
+def sanitize_features(features: Tensor) -> Tensor:
+    """清洗特征/Token 中的 NaN/Inf，替换为 0"""
+    return torch.nan_to_num(features, nan=0.0, posinf=0.0, neginf=0.0)
+
+
 if __name__ == '__main__':
     a = torch.randn((3, 3))
     print(a.shape)

@@ -8,6 +8,7 @@ from .box_tokenizer import (
 )
 from .deformable_attn import MultiScaleDeformableAttention
 from .modules import RoPE1D, apply_rope
+from .utils import sanitize_features
 
 
 class DiTBlock(nn.Module):
@@ -171,7 +172,7 @@ class DiTBlock(nn.Module):
         attn_out = self.attn_drop(attn_out)
 
         box_tokens = box_tokens + a1.unsqueeze(1) * attn_out
-        box_tokens = torch.nan_to_num(box_tokens, nan=0.0, posinf=0.0, neginf=0.0)
+        box_tokens = sanitize_features(box_tokens)
 
         # 2. Deformable Cross-Attention
         x = self.norm2(box_tokens)
@@ -188,13 +189,13 @@ class DiTBlock(nn.Module):
             level_start_index=level_start_index,
         )
         box_tokens = box_tokens + a2.unsqueeze(1) * cross_out
-        box_tokens = torch.nan_to_num(box_tokens, nan=0.0, posinf=0.0, neginf=0.0)
+        box_tokens = sanitize_features(box_tokens)
 
         # 3. FFN + AdaLN-Zero
         x = self.norm3(box_tokens)
         x = self._modulate(x, g3, b3)
         ffn_out = self.ffn(x)
         box_tokens = box_tokens + a3.unsqueeze(1) * ffn_out
-        box_tokens = torch.nan_to_num(box_tokens, nan=0.0, posinf=0.0, neginf=0.0)
+        box_tokens = sanitize_features(box_tokens)
 
         return box_tokens

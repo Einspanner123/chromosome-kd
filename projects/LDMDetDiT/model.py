@@ -15,7 +15,6 @@ from mmdet.utils import ConfigType, OptConfigType, OptMultiConfig
 from .mods.dit_head import DiTDiffusionDetHead
 from .mods.dit_single_head import DiTSingleHead
 from .mods.loss import (
-    BBoxL1Cost,
     DiffusionDetCriterion,
     DiffusionDetMatcher,
     FocalLoss,
@@ -41,7 +40,6 @@ MODELS.register_module(name='PurePyTorchFocalLoss', module=FocalLoss, force=True
 MODELS.register_module(name='PurePyTorchL1Loss', module=L1Loss, force=True)
 MODELS.register_module(name='PurePyTorchGIoULoss', module=GIoULoss, force=True)
 MODELS.register_module(name='PurePyTorchFocalLossCost', module=FocalLossCost, force=True)
-MODELS.register_module(name='PurePyTorchBBoxL1Cost', module=BBoxL1Cost, force=True)
 MODELS.register_module(name='PurePyTorchIoUCost', module=IoUCost, force=True)
 MODELS.register_module(name='PurePyTorchRelativeL1Cost', module=RelativeL1Cost, force=True)
 
@@ -344,10 +342,7 @@ class PurePyTorchDiffusionDet(BaseDetector):
         # 这里返回 Head 的原始输出 (logits 和 bboxes)
         x = self.extract_feat(batch_inputs)
         # 模拟一个全 0 的时间步进行测试
-        if self.bbox_head.diffusion_type == 'ddpm':
-            t = x[0].new_zeros((x[0].shape[0],), dtype=torch.long)
-        else:
-            t = x[0].new_zeros((x[0].shape[0],), dtype=torch.float32)
+        t = x[0].new_zeros((x[0].shape[0],), dtype=torch.float32)
 
         # 初始噪声框
         img_metas = []

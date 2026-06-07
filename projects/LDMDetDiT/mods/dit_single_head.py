@@ -126,18 +126,6 @@ class DiTSingleHead(nn.Module):
                 nn.Linear(feat_channels, 1),
             )
 
-        self.velocity_head = None
-        if prediction_mode == 'velocity':
-            self.velocity_head = nn.Sequential(
-                nn.Linear(feat_channels, feat_channels, bias=False),
-                nn.LayerNorm(feat_channels),
-                nn.ReLU(inplace=True),
-                nn.Linear(feat_channels, feat_channels, bias=False),
-                nn.LayerNorm(feat_channels),
-                nn.ReLU(inplace=True),
-                nn.Linear(feat_channels, 4),
-            )
-
     def forward(
         self,
         box_tokens: Tensor,
@@ -184,16 +172,12 @@ class DiTSingleHead(nn.Module):
         if self.objectness_head is not None:
             objectness = self.objectness_head(fc_feature)
 
-        pred_velocity = None
-        if self.velocity_head is not None:
-            pred_velocity = self.velocity_head(fc_feature)
-
         return (
             class_logits,
             pred_bboxes,
             updated_tokens,
             objectness,
-            pred_velocity,
+            None,  # pred_velocity (unused, kept for interface compatibility)
         )
 
     def _predict_bboxes(self, fc_feature: Tensor, bboxes: Tensor) -> Tensor:
