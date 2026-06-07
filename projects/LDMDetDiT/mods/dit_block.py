@@ -141,16 +141,15 @@ class DiTBlock(nn.Module):
 
         # 应用 RoPE 到 Self-Attention
         # bbox_coords: (bs, N, 4) -> RoPE: (bs, N, 4, C/H) cat(sin, cos)
+        # 对 4 个坐标维度的 RoPE 取平均，等价于对坐标均值做 RoPE
         rope_emb = self.rope(bbox_coords)  # (bs, N, 4, C/H)
         dim_half = rope_emb.shape[-1] // 2
-        rope_sin = rope_emb[..., :dim_half]  # (bs, N, 4, dim_half)
-        rope_cos = rope_emb[..., dim_half:]  # (bs, N, 4, dim_half)
-
-        # 按坐标维度平均, 然后重复以匹配 head_dim
-        cos = rope_cos.mean(dim=2)  # (bs, N, dim_half)
-        sin = rope_sin.mean(dim=2)  # (bs, N, dim_half)
-        cos = torch.cat([cos, cos], dim=-1).unsqueeze(1)  # (bs, 1, N, C/H)
-        sin = torch.cat([sin, sin], dim=-1).unsqueeze(1)  # (bs, 1, N, C/H)
+        # sin/cos 各 (bs, N, 4, dim_half) → mean(dim=2) → (bs, N, dim_half)
+        # cat 复制 → (bs, N, C/H) → unsqueeze → (bs, 1, N, C/H)
+        cos = rope_emb[..., dim_half:].mean(dim=2)
+        sin = rope_emb[..., :dim_half].mean(dim=2)
+        cos = torch.cat([cos, cos], dim=-1).unsqueeze(1)
+        sin = torch.cat([sin, sin], dim=-1).unsqueeze(1)
 
         # 手动实现带 RoPE 的 Self-Attention
         B, N, C = x.shape

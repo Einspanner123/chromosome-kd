@@ -245,7 +245,7 @@ class DiffusionDetMatcher(nn.Module):
         else:
             self.costs = [
                 FocalLossCost(weight=cost_class),
-                BBoxL1Cost(weight=cost_bbox),
+                RelativeL1Cost(weight=cost_bbox),
                 IoUCost(iou_mode='giou', weight=cost_giou),
             ]
 

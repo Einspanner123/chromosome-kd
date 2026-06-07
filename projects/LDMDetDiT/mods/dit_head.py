@@ -130,26 +130,26 @@ class DiTDiffusionDetHead(nn.Module):
                 if 'num_blocks' not in single_head:
                     single_head['num_blocks'] = num_blocks
                 if share_heads:
-                    shared_module = DiTSingleHead(**single_head)
-                    self.head_series = nn.ModuleList(
-                        [shared_module for _ in range(num_heads)]
-                    )
+                    self._shared_head = DiTSingleHead(**single_head)
+                    self.head_series = None
                 else:
+                    self._shared_head = None
                     self.head_series = nn.ModuleList(
                         [DiTSingleHead(**single_head) for _ in range(num_heads)]
                     )
             else:
                 if share_heads:
-                    self.head_series = nn.ModuleList(
-                        [single_head for _ in range(num_heads)]
-                    )
+                    self._shared_head = single_head
+                    self.head_series = None
                 else:
                     import copy
 
+                    self._shared_head = None
                     self.head_series = nn.ModuleList(
                         [copy.deepcopy(single_head) for _ in range(num_heads)]
                     )
         else:
+            self._shared_head = None
             self.head_series = nn.ModuleList(
                 [
                     DiTSingleHead(
@@ -194,7 +194,7 @@ class DiTDiffusionDetHead(nn.Module):
                     else:
                         nn.init.constant_(m.bias, 0)
 
-        for head in self.head_series:
+        for head in self._iter_heads():
             for dit_block in head.dit_blocks:
                 if hasattr(dit_block, 'adaln_mlp') and getattr(
                     dit_block, 'use_adaln_zero', True
@@ -206,6 +206,16 @@ class DiTDiffusionDetHead(nn.Module):
                         dit_block.adaln_mlp[-1].weight, gain=0.01
                     )
                     nn.init.constant_(dit_block.adaln_mlp[-1].bias, 0.1)
+
+    # ---- Head 迭代 ----
+
+    def _iter_heads(self):
+        """迭代所有 head 模块 (共享头重复 num_heads 次，独立头逐个返回)"""
+        if self._shared_head is not None:
+            for _ in range(self.num_heads):
+                yield self._shared_head
+        else:
+            yield from self.head_series
 
     # ---- 坐标转换 (与 DiffusionDetHead 一致) ----
 
@@ -221,12 +231,17 @@ class DiTDiffusionDetHead(nn.Module):
             return meta.get('scale_factor')
         return meta.scale_factor
 
-    def _xyxy_to_raw(self, bboxes, img_metas):
-        x0 = bboxes.clone()
-        for i, meta in enumerate(img_metas):
+    def _get_img_scale_tensors(self, img_metas):
+        """从 img_metas 批量构建 [bs, 4] scale tensor [w, h, w, h]"""
+        scales = []
+        for meta in img_metas:
             h, w = self._get_img_shape(meta)[:2]
-            scale = x0.new_tensor([w, h, w, h])
-            x0[i] /= scale
+            scales.append([w, h, w, h])
+        return img_metas[0].new_tensor(scales) if isinstance(img_metas[0], torch.Tensor) else torch.tensor(scales, dtype=torch.float32)
+
+    def _xyxy_to_raw(self, bboxes, img_metas):
+        scale = self._get_img_scale_tensors(img_metas).to(bboxes.device)
+        x0 = bboxes / scale
         x0 = bbox_xyxy_to_cxcywh(x0)
         x0 = (x0 * 2 - 1) * self.snr_scale
         return x0
@@ -236,37 +251,20 @@ class DiTDiffusionDetHead(nn.Module):
         return torch.randn(bs, self.num_proposals, 4, device=device)
 
     def _raw_to_xyxy(self, raw_bboxes, img_metas):
-        # 入口防护: 清洗上游可能传入的 NaN/Inf
-        raw_bboxes = torch.nan_to_num(
-            raw_bboxes, nan=0.0, posinf=0.0, neginf=0.0
-        )
-        bboxes = (
-            raw_bboxes.clamp(-self.snr_scale, self.snr_scale) / self.snr_scale
-            + 1
-        ) / 2
-        bboxes = bbox_cxcywh_to_xyxy(bboxes)
-        # 二次清洗: cxcywh→xyxy 转换可能产生 NaN (w/h 为 0 时除零)
-        bboxes = sanitize_bboxes(bboxes)
-        bboxes[..., 0] = torch.min(bboxes[..., 0], bboxes[..., 2] - 1e-4)
-        bboxes[..., 1] = torch.min(bboxes[..., 1], bboxes[..., 3] - 1e-4)
-        for i, meta in enumerate(img_metas):
-            h, w = self._get_img_shape(meta)[:2]
-            scale = bboxes.new_tensor([w, h, w, h])
-            bboxes[i] *= scale
-        return bboxes
+        """raw 空间 cxcywh → 图像空间 xyxy (复用 _raw_cxcywh_to_normed_xyxy)"""
+        normed = self._raw_cxcywh_to_normed_xyxy(raw_bboxes)
+        normed[..., 0] = torch.min(normed[..., 0], normed[..., 2] - 1e-4)
+        normed[..., 1] = torch.min(normed[..., 1], normed[..., 3] - 1e-4)
+        scale = self._get_img_scale_tensors(img_metas).to(normed.device)
+        return normed * scale.unsqueeze(1)
 
     def _normalize_bboxes_for_tokenizer(self, bboxes, img_metas):
         """将 xyxy 图像坐标转为 [0,1] 归一化坐标供 BoxTokenizer 使用
 
         归一化后 clamp 到 [0,1] 防止异常坐标传播到 reference_points。
         """
-        normed = bboxes.clone()
-        for i, meta in enumerate(img_metas):
-            h, w = self._get_img_shape(meta)[:2]
-            scale = normed.new_tensor([w, h, w, h])
-            normed[i] /= scale
-        normed = normed.clamp(0, 1)
-        return normed
+        scale = self._get_img_scale_tensors(img_metas).to(bboxes.device)
+        return (bboxes / scale.unsqueeze(1)).clamp(0, 1)
 
     def _raw_cxcywh_to_normed_xyxy(self, raw_bboxes):
         """将 raw 空间 cxcywh 预测转换为归一化 xyxy [0,1]
@@ -342,19 +340,6 @@ class DiTDiffusionDetHead(nn.Module):
             return self._ot_multinomial(row_probs)
         return transport.argmax(dim=1)
 
-    def _couple_ot(self, noise, gt_diffusion, gt_labels, device):
-        if gt_diffusion.shape[0] == 0:
-            return noise, torch.zeros(
-                noise.shape[0], dtype=torch.long, device=device
-            )
-        if self.ot_matcher == 'sinkhorn':
-            matched_gt_idx = self._sinkhorn_match(noise, gt_diffusion, device)
-        else:
-            cost = torch.cdist(noise, gt_diffusion, p=2)
-            matched_gt_idx = cost.argmin(dim=1)
-        x_start = gt_diffusion[matched_gt_idx]
-        return x_start, matched_gt_idx
-
     # ---- 时间采样 ----
 
     def _sample_t(self, bs, device):
@@ -385,17 +370,21 @@ class DiTDiffusionDetHead(nn.Module):
         proposals: Optional[Tensor] = None,
         img_metas: Optional[List] = None,
         x_noisy_raw: Optional[Tensor] = None,
+        normed_bboxes: Optional[Tensor] = None,
     ) -> Tuple:
         """DiT 前向传播，迭代去噪
 
         Args:
             features: FPN 特征元组
             bboxes: 当前边界框 [bs, num_proposals, 4] (xyxy, 图像坐标)
+                    当 normed_bboxes 提供时可传 None
             t: 当前时间步 [bs]
             proposals: 未使用 (保留接口兼容)
             img_metas: 图像元信息列表，用于坐标归一化
             x_noisy_raw: 训练时传入的真实 x_t raw 空间坐标 (无 clamp 污染)，
                          用于 v-prediction 模式下精确反推 x0
+            normed_bboxes: 预计算的归一化坐标 [bs, num_proposals, 4] (xyxy, [0,1])
+                           提供时跳过内部归一化，避免冗余坐标转换
 
         Returns:
             all_cls_logits, all_pred_bboxes, all_pred_bboxes_raw, all_objectness, all_velocity, all_curr_proposals
@@ -412,7 +401,10 @@ class DiTDiffusionDetHead(nn.Module):
             flatten_fpn_features(fpn_list)
         )
 
-        if img_metas is not None:
+        if normed_bboxes is not None:
+            # 调用方已提供归一化坐标，直接使用 (推理路径优化)
+            pass
+        elif img_metas is not None:
             normed_bboxes = self._normalize_bboxes_for_tokenizer(
                 bboxes, img_metas
             )
@@ -446,7 +438,7 @@ class DiTDiffusionDetHead(nn.Module):
         # curr_normed 则更新为 x0 预测 (cascade)，让后续 head 看到更准的位置
         curr_x_raw = x_noisy_raw
 
-        for head in self.head_series:
+        for head in self._iter_heads():
             cls_logits, pred_bboxes, updated_tokens, objectness, velocity = (
                 head(
                     curr_tokens,
@@ -561,17 +553,21 @@ class DiTDiffusionDetHead(nn.Module):
             noise = torch.randn(self.num_proposals, 4, device=device)
 
             if self.ot_coupling:
-                x_start, matched_idx = self._couple_ot(
-                    noise, gt_diffusion, targets[i].labels, device
-                )
-                matched_gt_indices.append(matched_idx)
+                if self.ot_matcher == 'sinkhorn':
+                    matched_idx = self._sinkhorn_match(
+                        noise, gt_diffusion, device
+                    )
+                else:
+                    matched_idx = torch.cdist(
+                        noise, gt_diffusion, p=2
+                    ).argmin(dim=1)
             else:
-                idx = torch.randint(
+                matched_idx = torch.randint(
                     0, num_gt, (self.num_proposals,), device=device
                 )
-                sample_bboxes = bbox_xyxy_to_cxcywh(targets[i].bboxes[idx])
-                x_start = (sample_bboxes * 2 - 1) * self.snr_scale
-                matched_gt_indices.append(idx)
+
+            x_start = gt_diffusion[matched_idx]
+            matched_gt_indices.append(matched_idx)
 
             x_noisy, _ = self.rf.q_sample(
                 x_start, x_noise=noise, t=t[i : i + 1]
@@ -757,37 +753,33 @@ class DiTDiffusionDetHead(nn.Module):
 
             # 4. 匹配统计
             if matched_gt_indices is not None:
-                # 每张图匹配到的 GT 数量
-                for i, indices in enumerate(matched_gt_indices):
-                    unique_gt = indices.unique()
-                    losses[f'diag_matched_gt_count_{i}'] = torch.tensor(
-                        len(unique_gt), dtype=torch.float, device=device
-                    )
+                gt_counts = torch.tensor(
+                    [indices.unique().numel() for indices in matched_gt_indices],
+                    dtype=torch.float, device=device,
+                )
+                losses['diag_matched_gt_mean'] = gt_counts.mean().detach()
 
             # 5. noisy 输入分布 (确认噪声注入正确)
             losses['diag_noisy_mean'] = x_noisy_batch.mean().detach()
             losses['diag_noisy_std'] = x_noisy_batch.std().detach()
 
     def _normed_to_img(self, normed_bboxes, img_metas):
-        img_bboxes = normed_bboxes.clone()
-        for i, meta in enumerate(img_metas):
-            h, w = self._get_img_shape(meta)[:2]
-            scale = img_bboxes.new_tensor([w, h, w, h])
-            img_bboxes[i] *= scale
-        return img_bboxes
+        scale = self._get_img_scale_tensors(img_metas).to(normed_bboxes.device)
+        return normed_bboxes * scale.unsqueeze(1)
 
     # ---- 推理 ----
 
     def _forward_at_t(self, features, x_raw, t, img_metas):
         bs, device = x_raw.shape[0], x_raw.device
-        curr_bboxes = self._raw_to_xyxy(x_raw, img_metas)
+        # 直接从 raw 转 normed，跳过图像坐标中转
+        normed_bboxes = self._raw_cxcywh_to_normed_xyxy(x_raw)
         t_input = torch.full((bs,), t * self.timesteps, device=device)
         # 推理时传入 x_raw 作为 x_noisy_raw, 使 forward 内部:
         # - 第一个 head: 用 x_raw (无 clamp) 计算 x0
         # - 后续 head: 用前一个 head 的 x0_raw (cascaded, 无 clamp)
         cls_logits_seq, pred_bboxes_seq, pred_bboxes_raw_seq, x0_raw_seq, _, _, _ = self(
-            features, curr_bboxes, t_input, img_metas=img_metas,
-            x_noisy_raw=x_raw,
+            features, None, t_input, img_metas=img_metas,
+            x_noisy_raw=x_raw, normed_bboxes=normed_bboxes,
         )
         last_cls_logits = cls_logits_seq[-1]
         last_pred_bboxes = pred_bboxes_seq[-1]
