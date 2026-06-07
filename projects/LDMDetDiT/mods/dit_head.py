@@ -7,7 +7,6 @@ import torch.nn.functional as F
 from torch import Tensor
 from torchvision.ops import batched_nms
 
-from mmdet.registry import MODELS
 from .box_tokenizer import (
     BoxTokenizer,
 )
@@ -102,6 +101,7 @@ class DiTDiffusionDetHead(nn.Module):
         self.rf_shift = rf_shift
         self.solver_type = solver_type
         self.prediction_mode = prediction_mode
+        self.regression_mode = regression_mode
         self.velocity_loss_weight = velocity_loss_weight
         self.ot_coupling = ot_coupling
         self.ot_matcher = ot_matcher
@@ -145,13 +145,13 @@ class DiTDiffusionDetHead(nn.Module):
                 if 'num_blocks' not in single_head:
                     single_head['num_blocks'] = num_blocks
                 if share_heads:
-                    shared_module = MODELS.build(single_head)
+                    shared_module = DiTSingleHead(**single_head)
                     self.head_series = nn.ModuleList(
                         [shared_module for _ in range(num_heads)]
                     )
                 else:
                     self.head_series = nn.ModuleList(
-                        [MODELS.build(single_head) for _ in range(num_heads)]
+                        [DiTSingleHead(**single_head) for _ in range(num_heads)]
                     )
             else:
                 if share_heads:
@@ -283,11 +283,10 @@ class DiTDiffusionDetHead(nn.Module):
     def _init_inference_boxes(self, bs, device):
         """生成推理时的初始框。
 
-        spatial_prior 模式: 使用 anchor_boxes (均匀网格锚点) 作为初始框，
-        避免 randn 经 clamp 后 width/height 退化为 0 导致 delta regression 失效。
-        其他模式: 使用 randn 采样。
+        RF 模式: 从纯噪声 (标准正态分布) 开始, 与训练时的 x_noise 分布一致。
+        DDPM 模式: spatial_prior 使用 anchor_boxes 提供位置先验。
         """
-        if self.box_init_mode == 'spatial_prior' and hasattr(
+        if self.diffusion_type == 'ddpm' and self.box_init_mode == 'spatial_prior' and hasattr(
             self.box_tokenizer, 'anchor_boxes'
         ):
             anchors = self.box_tokenizer.anchor_boxes.to(device)
@@ -297,6 +296,7 @@ class DiTDiffusionDetHead(nn.Module):
             x_raw = x_raw.unsqueeze(0).expand(bs, -1, -1).clone()
             return x_raw
         else:
+            # RF 模式: 纯噪声, 与训练时 q_sample 的 x_noise 一致
             return torch.randn(bs, self.num_proposals, 4, device=device)
 
     def _raw_to_xyxy(self, raw_bboxes, img_metas):
@@ -332,6 +332,31 @@ class DiTDiffusionDetHead(nn.Module):
             normed[i] /= scale
         normed = normed.clamp(0, 1)
         return normed
+
+    def _raw_cxcywh_to_normed_xyxy(self, raw_bboxes):
+        """将 raw 空间 cxcywh 预测转换为归一化 xyxy [0,1]
+
+        raw = (cxcywh_normed * 2 - 1) * snr_scale
+        逆变换: cxcywh_normed = (raw / snr_scale + 1) / 2
+        """
+        cxcywh = (
+            raw_bboxes.clamp(-self.snr_scale, self.snr_scale) / self.snr_scale
+            + 1
+        ) / 2
+        xyxy = bbox_cxcywh_to_xyxy(cxcywh)
+        # 二次清洗: cxcywh→xyxy 转换可能产生 NaN (w/h 为 0 时除零)
+        xyxy = torch.nan_to_num(xyxy, nan=0.5, posinf=1.0, neginf=0.0)
+        return xyxy.clamp(0, 1)
+
+    def _normed_xyxy_to_raw_cxcywh(self, normed_xyxy):
+        """将归一化 xyxy [0,1] 转换为 raw 空间 cxcywh
+
+        _raw_cxcywh_to_normed_xyxy 的逆变换。
+        raw = (cxcywh_normed * 2 - 1) * snr_scale
+        """
+        cxcywh = bbox_xyxy_to_cxcywh(normed_xyxy)
+        raw = (cxcywh * 2 - 1) * self.snr_scale
+        return raw
 
     # ---- OT 耦合 (与 DiffusionDetHead 一致) ----
 
@@ -442,6 +467,7 @@ class DiTDiffusionDetHead(nn.Module):
         t: Tensor,
         proposals: Optional[Tensor] = None,
         img_metas: Optional[List] = None,
+        x_noisy_raw: Optional[Tensor] = None,
     ) -> Tuple:
         """DiT 前向传播，迭代去噪
 
@@ -451,9 +477,11 @@ class DiTDiffusionDetHead(nn.Module):
             t: 当前时间步 [bs]
             proposals: 未使用 (保留接口兼容)
             img_metas: 图像元信息列表，用于坐标归一化
+            x_noisy_raw: 训练时传入的真实 x_t raw 空间坐标 (无 clamp 污染)，
+                         用于 v-prediction 模式下精确反推 x0
 
         Returns:
-            all_cls_logits, all_pred_bboxes, all_objectness, all_velocity, all_curr_proposals
+            all_cls_logits, all_pred_bboxes, all_pred_bboxes_raw, all_objectness, all_velocity, all_curr_proposals
         """
         bs, num_boxes = bboxes.shape[:2]
         device = bboxes.device
@@ -487,12 +515,19 @@ class DiTDiffusionDetHead(nn.Module):
 
         inter_cls_logits = []
         inter_pred_bboxes = []
+        inter_pred_bboxes_raw = []
+        inter_x0_raw = []  # x0 预测 (raw 空间, 无 clamp 畸变)
         inter_objectness = []
         inter_velocity = []
         inter_curr_proposals = []
 
         curr_tokens = box_tokens
         curr_normed = normed_bboxes
+        # 跟踪 raw 空间坐标，避免从 clamped normed 反推时的信息丢失
+        # curr_x_raw 始终保持为 x_noisy_raw (原始 x_t)，因为 v-prediction 的
+        # 数学定义 v = (x_t - x_0) / t 要求起点始终是 x_t
+        # curr_normed 则更新为 x0 预测 (cascade)，让后续 head 看到更准的位置
+        curr_x_raw = x_noisy_raw
 
         for head in self.head_series:
             cls_logits, pred_bboxes, updated_tokens, objectness, velocity = (
@@ -506,8 +541,30 @@ class DiTDiffusionDetHead(nn.Module):
                 )
             )
 
+            if self.regression_mode == 'direct':
+                # v-prediction: pred_bboxes 是 velocity v
+                v_pred = pred_bboxes
+                inter_pred_bboxes_raw.append(v_pred)
+
+                # 从 v 反推 x0
+                # x0 = x_t - v * t
+                t_continuous = (t / self.timesteps).view(-1, 1, 1)
+                if curr_x_raw is not None:
+                    # 有 raw 空间坐标 (训练或推理), 直接用
+                    x0_raw = curr_x_raw - v_pred * t_continuous
+                else:
+                    # 无 raw 空间坐标, 从 curr_normed 反推 (有 clamp 误差)
+                    x_t_raw = self._normed_xyxy_to_raw_cxcywh(curr_normed)
+                    x0_raw = x_t_raw - v_pred * t_continuous
+                pred_bboxes_normed = self._raw_cxcywh_to_normed_xyxy(x0_raw)
+                inter_x0_raw.append(x0_raw)
+            else:
+                pred_bboxes_normed = pred_bboxes  # delta 模式已是归一化 xyxy
+                inter_pred_bboxes_raw.append(None)
+                inter_x0_raw.append(None)
+
             inter_cls_logits.append(cls_logits)
-            inter_pred_bboxes.append(pred_bboxes)
+            inter_pred_bboxes.append(pred_bboxes_normed)
             inter_objectness.append(objectness)
             inter_velocity.append(velocity)
             inter_curr_proposals.append(
@@ -517,12 +574,18 @@ class DiTDiffusionDetHead(nn.Module):
             )
 
             curr_tokens = updated_tokens
-            curr_normed = pred_bboxes.detach().clamp(0, 1)
+            # Cascade 设计: 后续 head 的 Reference Points 跟着 x0 预测更新
+            # Deformable Attention 的 Reference Points 仅决定"看哪里提取特征"
+            # 不影响 v-prediction 的数学正确性: 网络可以学习
+            # [在 x0_hat 提取的清晰特征] + [时间步 t] → [全局速度 v_t]
+            curr_normed = pred_bboxes_normed.detach().clamp(0, 1)
 
         if self.deep_supervision:
             return (
                 torch.stack(inter_cls_logits),
                 torch.stack(inter_pred_bboxes),
+                inter_pred_bboxes_raw,
+                inter_x0_raw,
                 inter_objectness,
                 inter_velocity,
                 inter_curr_proposals,
@@ -531,6 +594,8 @@ class DiTDiffusionDetHead(nn.Module):
             return (
                 torch.stack(inter_cls_logits[-1:]),
                 torch.stack(inter_pred_bboxes[-1:]),
+                inter_pred_bboxes_raw[-1:],
+                inter_x0_raw[-1:],
                 inter_objectness[-1:],
                 inter_velocity[-1:],
                 inter_curr_proposals[-1:],
@@ -630,16 +695,33 @@ class DiTDiffusionDetHead(nn.Module):
         (
             all_cls_logits,
             all_pred_bboxes,
+            all_pred_bboxes_raw,
+            all_x0_raw,
             all_objectness,
             all_velocity,
             all_curr_proposals,
-        ) = self(features, curr_bboxes, t_input, img_metas=img_metas)
+        ) = self(features, curr_bboxes, t_input, img_metas=img_metas,
+                 x_noisy_raw=x_noisy_batch)
 
         norm_pred_bboxes = all_pred_bboxes
 
+        # v-prediction + RF 模式: 用模型预测的 x0 归一化坐标作为 criterion 的 pred_boxes
+        # 注意: 不能用 GT x_start 作为 pred_boxes, 否则所有 proposal 的 pred_boxes
+        # 都等于 GT 坐标, Hungarian matching 无法区分正负样本, 导致 loss_cls 失效
+        # criterion_pred_boxes 由 v_pred 经线性变换得来，GIoU 梯度可平滑回传
+        if self.regression_mode == 'direct' and self.diffusion_type == 'rectified_flow':
+            # 使用 forward 中计算的 x0 归一化坐标
+            # all_x0_raw 是 raw 空间的 x0 预测, 转换为归一化坐标
+            if all_x0_raw[-1] is not None:
+                criterion_pred_boxes = self._raw_cxcywh_to_normed_xyxy(all_x0_raw[-1])
+            else:
+                criterion_pred_boxes = norm_pred_bboxes[-1]
+        else:
+            criterion_pred_boxes = norm_pred_bboxes[-1]
+
         outputs = ModelOutput(
             pred_logits=all_cls_logits[-1],
-            pred_boxes=norm_pred_bboxes[-1],
+            pred_boxes=criterion_pred_boxes,
             pred_objectness=all_objectness[-1]
             if all_objectness[0] is not None
             else None,
@@ -648,7 +730,9 @@ class DiTDiffusionDetHead(nn.Module):
             outputs.aux_outputs = [
                 ModelOutput(
                     pred_logits=all_cls_logits[i],
-                    pred_boxes=norm_pred_bboxes[i],
+                    pred_boxes=self._raw_cxcywh_to_normed_xyxy(all_x0_raw[i])
+                    if (self.regression_mode == 'direct' and self.diffusion_type == 'rectified_flow' and all_x0_raw[i] is not None)
+                    else norm_pred_bboxes[i],
                     pred_objectness=all_objectness[i]
                     if all_objectness[0] is not None
                     else None,
@@ -658,10 +742,24 @@ class DiTDiffusionDetHead(nn.Module):
 
         losses = self.criterion(outputs, targets)
 
+        # v-prediction + RF: 保留 criterion 的 bbox/giou loss
+        # GIoU 是尺度敏感的，对 MSE (尺度不敏感) 提供关键补充
+        # criterion_pred_boxes 由 v_pred 经线性变换得来，梯度可平滑回传
+        # 如需降低权重，在 config 中调整 loss_bbox/loss_giou 的 loss_weight
+
         self._add_velocity_loss(
             losses, all_velocity, x_starts, x_noises, device
         )
+        self._add_raw_diffusion_loss(
+            losses, all_pred_bboxes_raw, x_starts, x_noises, device
+        )
         self._add_lsas_loss(losses, lsas_log_probs)
+
+        # 诊断指标: 监控 raw 空间预测分布、归一化质量、匹配统计
+        self._add_diagnostic_metrics(
+            losses, all_pred_bboxes, all_pred_bboxes_raw,
+            x_starts, x_noisy_batch, t, matched_gt_indices, device
+        )
 
         return losses
 
@@ -689,6 +787,107 @@ class DiTDiffusionDetHead(nn.Module):
             if n > 0:
                 losses['loss_velocity_aux'] = aux / n * vel_weight * 0.5
 
+    def _add_raw_diffusion_loss(
+        self, losses, all_pred_bboxes_raw, x_starts, x_noises, device
+    ):
+        """添加 velocity MSE 损失 (direct/v-prediction 模式专用)
+
+        核心思想: direct 模式下 reg_head 输出 velocity v,
+        主损失为 MSE(v_pred, v_target), v_target = x_noise - x_start。
+        这确保 RF 向量场一致性, 且模型只需预测修正量 (比 x0-prediction 更容易)。
+        归一化空间的 L1/GIoU loss 作为辅助检测损失 (由 criterion 计算)。
+        """
+        if self.regression_mode != 'direct':
+            return
+        if self.diffusion_type != 'rectified_flow':
+            return
+
+        x_starts_batch = torch.stack(x_starts)
+        x_noises_batch = torch.stack(x_noises)
+        v_target = x_noises_batch - x_starts_batch  # RF 理论速度
+        vel_weight = 1.0  # 主损失权重 (降低以平衡 cls_head 梯度)
+
+        # 最后一个 head 的 velocity 预测
+        last_v_pred = all_pred_bboxes_raw[-1]
+        if last_v_pred is not None:
+            losses['loss_vel'] = F.mse_loss(last_v_pred, v_target) * vel_weight
+
+        # Deep supervision: 中间 head 的 velocity 预测
+        if self.deep_supervision and self.num_heads > 1:
+            aux = torch.tensor(0.0, device=device)
+            n = 0
+            for hi in range(self.num_heads - 1):
+                v_pred = all_pred_bboxes_raw[hi]
+                if v_pred is not None:
+                    aux = aux + F.mse_loss(v_pred, v_target)
+                    n += 1
+            if n > 0:
+                losses['loss_vel_aux'] = aux / n * vel_weight * 0.5
+
+    def _add_diagnostic_metrics(
+        self, losses, all_pred_bboxes, all_pred_bboxes_raw,
+        x_starts, x_noisy_batch, t, matched_gt_indices, device
+    ):
+        """添加诊断指标到 losses dict，由 MMEngine 自动记录到 SwanLab。
+
+        关键监控维度:
+        1. velocity 预测分布 — 确认 v-prediction 是否在合理范围
+        2. 归一化空间预测质量 — 确认 x0 反推是否有效
+        3. 时间步采样分布 — 确认 t 采样是否合理
+        4. 匹配统计 — 确认 OT 匹配是否有效
+        """
+        with torch.no_grad():
+            # 1. velocity 预测分布 (最后一个 head)
+            if self.regression_mode == 'direct' and all_pred_bboxes_raw[-1] is not None:
+                v_pred = all_pred_bboxes_raw[-1]
+                v_target = x_noisy_batch - torch.stack(x_starts)
+                losses['diag_v_pred_mean'] = v_pred.mean().detach()
+                losses['diag_v_pred_std'] = v_pred.std().detach()
+                losses['diag_v_target_mean'] = v_target.mean().detach()
+                losses['diag_v_target_std'] = v_target.std().detach()
+                # velocity 各维度 MAE
+                v_mae = (v_pred - v_target).abs().mean(dim=(0, 1))  # [4]
+                for i, name in enumerate(['cx', 'cy', 'w', 'h']):
+                    losses[f'diag_v_mae_{name}'] = v_mae[i].detach()
+                # 从 v 反推的 x0 误差
+                t_view = t.view(-1, 1, 1)
+                x0_from_v = x_noisy_batch - v_pred * t_view
+                x0_target = torch.stack(x_starts)
+                x0_mae = (x0_from_v - x0_target).abs().mean(dim=(0, 1))
+                for i, name in enumerate(['cx', 'cy', 'w', 'h']):
+                    losses[f'diag_x0_mae_{name}'] = x0_mae[i].detach()
+
+            # 2. 归一化空间预测质量
+            normed_pred = all_pred_bboxes[-1]  # [bs, N, 4] xyxy [0,1]
+            losses['diag_normed_pred_mean'] = normed_pred.mean().detach()
+            losses['diag_normed_pred_std'] = normed_pred.std().detach()
+            losses['diag_normed_pred_min'] = normed_pred.min().detach()
+            losses['diag_normed_pred_max'] = normed_pred.max().detach()
+            # xyxy 有效性: x2>x1, y2>y1 的比例
+            valid_w = (normed_pred[..., 2] > normed_pred[..., 0]).float().mean()
+            valid_h = (normed_pred[..., 3] > normed_pred[..., 1]).float().mean()
+            losses['diag_valid_w_ratio'] = valid_w.detach()
+            losses['diag_valid_h_ratio'] = valid_h.detach()
+
+            # 3. 时间步采样分布
+            losses['diag_t_mean'] = t.mean().detach()
+            losses['diag_t_std'] = t.std().detach()
+            losses['diag_t_min'] = t.min().detach()
+            losses['diag_t_max'] = t.max().detach()
+
+            # 4. 匹配统计
+            if matched_gt_indices is not None:
+                # 每张图匹配到的 GT 数量
+                for i, indices in enumerate(matched_gt_indices):
+                    unique_gt = indices.unique()
+                    losses[f'diag_matched_gt_count_{i}'] = torch.tensor(
+                        len(unique_gt), dtype=torch.float, device=device
+                    )
+
+            # 5. noisy 输入分布 (确认噪声注入正确)
+            losses['diag_noisy_mean'] = x_noisy_batch.mean().detach()
+            losses['diag_noisy_std'] = x_noisy_batch.std().detach()
+
     def _normed_to_img(self, normed_bboxes, img_metas):
         img_bboxes = normed_bboxes.clone()
         for i, meta in enumerate(img_metas):
@@ -711,14 +910,25 @@ class DiTDiffusionDetHead(nn.Module):
         bs, device = x_raw.shape[0], x_raw.device
         curr_bboxes = self._raw_to_xyxy(x_raw, img_metas)
         t_input = torch.full((bs,), t * self.timesteps, device=device)
-        cls_logits_seq, pred_bboxes_seq, _, _, _ = self(
-            features, curr_bboxes, t_input, img_metas=img_metas
+        # 推理时传入 x_raw 作为 x_noisy_raw, 使 forward 内部:
+        # - 第一个 head: 用 x_raw (无 clamp) 计算 x0
+        # - 后续 head: 用前一个 head 的 x0_raw (cascaded, 无 clamp)
+        cls_logits_seq, pred_bboxes_seq, pred_bboxes_raw_seq, x0_raw_seq, _, _, _ = self(
+            features, curr_bboxes, t_input, img_metas=img_metas,
+            x_noisy_raw=x_raw,
         )
         last_cls_logits = cls_logits_seq[-1]
         last_pred_bboxes = pred_bboxes_seq[-1]
         last_pred_bboxes_img = self._normed_to_img(last_pred_bboxes, img_metas)
-        x0_raw = self._xyxy_to_raw(last_pred_bboxes_img, img_metas)
-        return last_cls_logits, last_pred_bboxes_img, x0_raw
+
+        if self.regression_mode == 'direct' and x0_raw_seq[-1] is not None:
+            # v-prediction: 直接使用 forward 内部计算的 x0_raw (无 clamp 畸变)
+            x0_raw = x0_raw_seq[-1]
+            v_pred = pred_bboxes_raw_seq[-1]
+            return last_cls_logits, last_pred_bboxes_img, x0_raw, v_pred
+        else:
+            x0_raw = self._xyxy_to_raw(last_pred_bboxes_img, img_metas)
+            return last_cls_logits, last_pred_bboxes_img, x0_raw, None
 
     @torch.no_grad()
     def predict(
@@ -767,7 +977,7 @@ class DiTDiffusionDetHead(nn.Module):
             )
 
         for step_idx, (t_curr, t_next) in enumerate(time_pairs):
-            cls_logits, pred_bboxes, x0_raw = self._forward_at_t(
+            cls_logits, pred_bboxes, x0_raw, v_pred = self._forward_at_t(
                 features, x_raw, t_curr, img_metas
             )
 
@@ -775,9 +985,6 @@ class DiTDiffusionDetHead(nn.Module):
 
             if return_trajectory:
                 trajectory.append((cls_logits.detach(), pred_bboxes.detach()))
-
-            if self.use_ensemble:
-                ensemble_results.append((cls_logits, pred_bboxes))
 
             if self.diffusion_type == 'ddpm':
                 if t_next < 0:
@@ -802,13 +1009,20 @@ class DiTDiffusionDetHead(nn.Module):
                 x_raw = x0 * alpha_next.sqrt() + c * pred_noise + sigma * noise
                 if self.box_renewal:
                     x_raw = self._apply_box_renewal(x_raw, cls_logits)
+
+                if self.use_ensemble:
+                    ensemble_results.append((cls_logits, pred_bboxes))
             else:
+                # RF 模式: 使用 x0-based step (而非 v-based step)
+                # 因为 cascaded 设计中, v_pred 是最后一个 head 的 velocity,
+                # 相对于其输入 (前一个 head 的 x0), 不是相对于 x_raw
+                # x0-based step: v = (x_t - x0) / t, x_next = x_t + dt * v
                 if dpm_solver is not None:
                     x_raw = dpm_solver.step(x_raw, x0_raw, t_curr, step_idx)
                 elif self.solver_type == 'heun' and t_next > 0:
 
                     def model_fn(x_tmp, t_tmp):
-                        _, _, x0_tmp = self._forward_at_t(
+                        _, _, x0_tmp, _ = self._forward_at_t(
                             features, x_tmp, t_tmp, img_metas
                         )
                         return x0_tmp, None
@@ -822,8 +1036,27 @@ class DiTDiffusionDetHead(nn.Module):
                 if self.box_renewal:
                     x_raw = self._apply_box_renewal(x_raw, cls_logits)
 
+                # RF 模式: 使用采样轨迹的 x_raw 转换为检测框
+                if self.regression_mode == 'direct':
+                    x_raw_normed = self._raw_cxcywh_to_normed_xyxy(x_raw)
+                    x_raw_img = self._normed_to_img(x_raw_normed, img_metas)
+                else:
+                    x_raw_img = self._raw_to_xyxy(x_raw, img_metas)
+
+                if self.use_ensemble:
+                    ensemble_results.append((cls_logits, x_raw_img))
+
                 if t_next <= 0:
                     break
+
+        # 如果没有 ensemble 结果 (不应该发生), 使用最后一步的 x_raw
+        if not ensemble_results:
+            if self.regression_mode == 'direct':
+                x_raw_normed = self._raw_cxcywh_to_normed_xyxy(x_raw)
+                final_bboxes = self._normed_to_img(x_raw_normed, img_metas)
+            else:
+                final_bboxes = self._raw_to_xyxy(x_raw, img_metas)
+            ensemble_results.append((cls_logits, final_bboxes))
 
         results = self._post_process(ensemble_results, img_metas, rescale)
 

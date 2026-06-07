@@ -15,8 +15,9 @@ class DiTSingleHead(nn.Module):
 
     regression_mode:
       - 'delta': 传统 delta regression (apply_deltas)，适合图像坐标空间
-      - 'direct': sigmoid 预测 (cx, cy, w, h)，转换为 xyxy 归一化坐标 [0,1]，
-        w/h 经 sigmoid 保证正值，天然满足 x2>x1, y2>y1
+      - 'direct': reg_head 直接输出 velocity v (v-prediction 模式)
+        v = x_noise - x_start, 推理时 x_next = x_t + v * dt
+        无 sigmoid/激活函数, 确保 RF 向量场一致性
     """
 
     def __init__(
@@ -59,7 +60,7 @@ class DiTSingleHead(nn.Module):
             use_objectness: 是否使用 objectness 预测头
             prediction_mode: "x0" 或 "velocity"
             adaln_params: AdaLN-Zero 参数组数, 9 或 6
-            regression_mode: "delta" (传统 delta regression) 或 "direct" (sigmoid 直接预测)
+            regression_mode: "delta" (传统 delta regression) 或 "direct" (raw 空间直接预测)
             use_adaln_zero: 是否开启 AdaLN-Zero 零初始化
             num_blocks: DiTBlock 堆叠数量
         """
@@ -197,16 +198,12 @@ class DiTSingleHead(nn.Module):
 
     def _predict_bboxes(self, fc_feature: Tensor, bboxes: Tensor) -> Tensor:
         if self.regression_mode == 'direct':
-            raw = self.reg_head(fc_feature)
-            cx = torch.sigmoid(raw[..., 0])
-            cy = torch.sigmoid(raw[..., 1])
-            w = torch.sigmoid(raw[..., 2])
-            h = torch.sigmoid(raw[..., 3])
-            x1 = cx - w * 0.5
-            y1 = cy - h * 0.5
-            x2 = cx + w * 0.5
-            y2 = cy + h * 0.5
-            return torch.stack([x1, y1, x2, y2], dim=-1).clamp(0, 1)
+            # v-prediction 模式: reg_head 直接输出 velocity v
+            # v = x_noise - x_start (RF 理论速度)
+            # 推理时: x_next = x_t + v * dt
+            # 训练时: loss = MSE(v_pred, v_target)
+            # 无 sigmoid/激活函数, 确保 RF 向量场一致性
+            return self.reg_head(fc_feature)
         bboxes_deltas = self.reg_head(fc_feature)
         bs, n, _ = bboxes.shape
         pred_bboxes = self.apply_deltas(

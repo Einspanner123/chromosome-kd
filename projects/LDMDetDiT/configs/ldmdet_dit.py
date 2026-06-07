@@ -103,9 +103,9 @@ model = dict(
                 center_radius=5.0,
                 candidate_topk=12,
             ),
-            loss_cls=dict(type='PurePyTorchFocalLoss', loss_weight=2.0),
-            loss_bbox=dict(type='PurePyTorchL1Loss', loss_weight=5.0),
-            loss_giou=dict(type='PurePyTorchGIoULoss', loss_weight=2.0),
+            loss_cls=dict(type='PurePyTorchFocalLoss', loss_weight=5.0),
+            loss_bbox=dict(type='PurePyTorchL1Loss', loss_weight=0.5),
+            loss_giou=dict(type='PurePyTorchGIoULoss', loss_weight=0.2),
         ),
     ),
     test_cfg=dict(
@@ -249,7 +249,7 @@ find_unused_parameters = True
 
 param_scheduler = [
     # 已经开启 AdaLN-Zero，无需极低学习率长预热
-    dict(type='LinearLR', start_factor=0.01, by_epoch=True, begin=0, end=2),
+    dict(type='LinearLR', start_factor=1.0, by_epoch=True, begin=0, end=2),
     dict(
         type='CosineAnnealingLR',
         T_max=max_epoch,
@@ -278,6 +278,6 @@ visualizer = dict(
     name='visualizer',
 )
 
-work_dir = 'work_dirs/ldmdet_dinov3_small_384_rope_shifted3'
+work_dir = 'work_dirs/dit_dinov3_small_384_rope_shifted3'
 
 log_level = 'INFO'

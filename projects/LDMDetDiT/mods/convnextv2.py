@@ -1,10 +1,8 @@
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from mmengine.model import BaseModule
-from mmengine.model.weight_init import trunc_normal_
-
-from mmdet.registry import MODELS
 
 
 def drop_path(x, drop_prob: float = 0.0, training: bool = False):
@@ -109,8 +107,7 @@ class Block(nn.Module):
         return x
 
 
-@MODELS.register_module()
-class ConvNeXtV2(BaseModule):
+class ConvNeXtV2(nn.Module):
     """ConvNeXt V2"""
 
     def __init__(
@@ -122,9 +119,8 @@ class ConvNeXtV2(BaseModule):
         drop_path_rate=0.0,
         head_init_scale=1.0,
         out_indices=[0, 1, 2, 3],
-        init_cfg=None,
     ):
-        super().__init__(init_cfg=init_cfg)
+        super().__init__()
         self.depths = depths
         self.out_indices = out_indices
 
@@ -162,7 +158,9 @@ class ConvNeXtV2(BaseModule):
 
     def _init_weights(self, m):
         if isinstance(m, (nn.Conv2d, nn.Linear)):
-            trunc_normal_(m.weight, std=0.02)
+            # truncated normal: sample from normal, then clamp to [-2*std, 2*std]
+            nn.init.normal_(m.weight, std=0.02)
+            m.weight.data.clamp_(-0.04, 0.04)
             nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
