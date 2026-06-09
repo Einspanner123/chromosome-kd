@@ -35,7 +35,6 @@ class DiTSingleHead(nn.Module):
         use_fed_loss: bool = False,
         scale_clamp: float = math.log(8.0),
         bbox_weights: tuple = (1.0, 1.0, 1.0, 1.0),
-        use_objectness: bool = False,
         prediction_mode: str = 'x0',
         adaln_params: int = 9,
         regression_mode: str = 'direct',
@@ -57,7 +56,6 @@ class DiTSingleHead(nn.Module):
             use_fed_loss: 是否使用 fed loss
             scale_clamp: bbox 缩放截断值 (仅 delta 模式)
             bbox_weights: bbox 回归权重 (仅 delta 模式)
-            use_objectness: 是否使用 objectness 预测头
             prediction_mode: "x0" 或 "velocity"
             adaln_params: AdaLN-Zero 参数组数, 9 或 6
             regression_mode: "delta" (传统 delta regression) 或 "direct" (raw 空间直接预测)
@@ -66,7 +64,6 @@ class DiTSingleHead(nn.Module):
         """
         super().__init__()
         self.feat_channels = feat_channels
-        self.use_objectness = use_objectness
         self.prediction_mode = prediction_mode
         self.regression_mode = regression_mode
         self.scale_clamp = scale_clamp
@@ -117,14 +114,32 @@ class DiTSingleHead(nn.Module):
         reg_layers.append(nn.Linear(feat_channels, 4))
         self.reg_head = nn.Sequential(*reg_layers)
 
-        self.objectness_head = None
-        if use_objectness:
-            self.objectness_head = nn.Sequential(
-                nn.Linear(feat_channels, feat_channels, bias=False),
-                nn.LayerNorm(feat_channels),
-                nn.ReLU(inplace=True),
-                nn.Linear(feat_channels, 1),
-            )
+        # 初始化回归头最后一层的 bias：w 和 h 偏向小框
+        # sigmoid(-3) ≈ 0.047, sigmoid(0) = 0.5
+        # 对于染色体检测 (目标占图 1-5%)，初始小框避免 100 个 proposal 全部
+        # 预测相同的 [0.25, 0.25, 0.75, 0.75] 导致 GIoU 梯度同质化
+        self._init_reg_bias()
+
+    def _init_reg_bias(self):
+        """初始化 reg_head 最后层 bias，使初始预测多样化
+
+        默认 Xavier init 下 sigmoid(0)=0.5，导致 cx=cy=0.5, w=h=0.5，
+        所有 proposal 预测同一个 [0.25, 0.25, 0.75, 0.75] 框。
+        这会引发 GIoU 梯度同质化 (所有 proposal 接收相同梯度方向)
+        并因 NMS 把 100 个框压成 1 个，导致 mAP=0。
+
+        修复: w/h bias 设为 -3 → sigmoid(-3)≈0.047，初始框足够小以避免
+        完全重叠。不缩小权重 (保留 Xavier init 方差)，使不同 proposal 的
+        fc_feature 差异通过 reg_head 产生不同的预测位置。
+        """
+        last_layer = list(self.reg_head.children())[-1]
+        with torch.no_grad():
+            # cx, cy → 0 (中心点在 0.5，由 fc_feature 方差提供多样性)
+            last_layer.bias[0] = 0.0
+            last_layer.bias[1] = 0.0
+            # w, h → -3 (小框, 约 5% 图像面积)
+            last_layer.bias[2] = -3.0
+            last_layer.bias[3] = -3.0
 
     def forward(
         self,
@@ -149,7 +164,7 @@ class DiTSingleHead(nn.Module):
             class_logits: (bs, N, num_classes)
             pred_bboxes: (bs, N, 4) 归一化 xyxy [0,1]
             updated_tokens: (bs, N, C)
-            objectness: (bs, N, 1) or None
+            None: placeholder (原 objectness, 已移除)
             pred_velocity: (bs, N, 4) or None
         """
         updated_tokens = box_tokens
@@ -168,26 +183,29 @@ class DiTSingleHead(nn.Module):
         class_logits = self.cls_head(fc_feature)
         pred_bboxes = self._predict_bboxes(fc_feature, bbox_coords)
 
-        objectness = None
-        if self.objectness_head is not None:
-            objectness = self.objectness_head(fc_feature)
-
         return (
             class_logits,
             pred_bboxes,
             updated_tokens,
-            objectness,
+            None,  # placeholder (原 objectness, 已移除)
             None,  # pred_velocity (unused, kept for interface compatibility)
         )
 
     def _predict_bboxes(self, fc_feature: Tensor, bboxes: Tensor) -> Tensor:
         if self.regression_mode == 'direct':
-            # v-prediction 模式: reg_head 直接输出 velocity v
-            # v = x_noise - x_start (RF 理论速度)
-            # 推理时: x_next = x_t + v * dt
-            # 训练时: loss = MSE(v_pred, v_target)
-            # 无 sigmoid/激活函数, 确保 RF 向量场一致性
-            return self.reg_head(fc_feature)
+            # x0-prediction 模式: reg_head 输出归一化坐标 (与 LDMDet 一致)
+            # 使用 sigmoid 保证输出在 [0,1]，GIoU 梯度不受时间步 t 缩放
+            # velocity 由 DitHead 从 x0 反推: v = (x_t - x0) / t
+            raw = self.reg_head(fc_feature)
+            cx = torch.sigmoid(raw[..., 0])
+            cy = torch.sigmoid(raw[..., 1])
+            w = torch.sigmoid(raw[..., 2])
+            h = torch.sigmoid(raw[..., 3])
+            x1 = cx - w * 0.5
+            y1 = cy - h * 0.5
+            x2 = cx + w * 0.5
+            y2 = cy + h * 0.5
+            return torch.stack([x1, y1, x2, y2], dim=-1).clamp(0, 1)
         bboxes_deltas = self.reg_head(fc_feature)
         bs, n, _ = bboxes.shape
         pred_bboxes = self.apply_deltas(

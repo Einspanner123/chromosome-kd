@@ -14,6 +14,7 @@ from mmdet.structures import DetDataSample
 from mmdet.utils import ConfigType, OptConfigType, OptMultiConfig
 from .mods.dit_head import DiTDiffusionDetHead
 from .mods.dit_single_head import DiTSingleHead
+from .mods.modules import SpatialTuningAdapter
 from .mods.loss import (
     DiffusionDetCriterion,
     DiffusionDetMatcher,
@@ -103,6 +104,15 @@ class PurePyTorchDiffusionDet(BaseDetector):
                 neck_cfg = neck.copy()
                 neck_cfg.pop('type')
                 self.neck = PurePyTorchSimpleFeatureFusion(**neck_cfg)
+            elif (
+                isinstance(neck, dict)
+                and neck.get('type') == 'SpatialTuningAdapter'
+            ):
+                from .mods.modules import SpatialTuningAdapter
+
+                neck_cfg = neck.copy()
+                neck_cfg.pop('type')
+                self.neck = SpatialTuningAdapter(**neck_cfg)
             else:
                 self.neck = MODELS.build(neck)
         else:
@@ -219,10 +229,6 @@ class PurePyTorchDiffusionDet(BaseDetector):
         obj_cls = MODELS.get(loss_cls_cfg['type'])
         loss_cls = MODELS.build(self._filter_kwargs(obj_cls, loss_cls_cfg))
 
-        loss_bbox_cfg = cfg_copy.pop('loss_bbox')
-        obj_cls = MODELS.get(loss_bbox_cfg['type'])
-        loss_bbox = MODELS.build(self._filter_kwargs(obj_cls, loss_bbox_cfg))
-
         loss_giou_cfg = cfg_copy.pop('loss_giou')
         obj_cls = MODELS.get(loss_giou_cfg['type'])
         loss_giou = MODELS.build(self._filter_kwargs(obj_cls, loss_giou_cfg))
@@ -235,7 +241,6 @@ class PurePyTorchDiffusionDet(BaseDetector):
             dict(
                 matcher=matcher,
                 loss_cls=loss_cls,
-                loss_bbox=loss_bbox,
                 loss_giou=loss_giou,
             )
         )
@@ -247,7 +252,10 @@ class PurePyTorchDiffusionDet(BaseDetector):
         """提取特征"""
         x = self.backbone(batch_inputs)
         if self.neck:
-            x = self.neck(x)
+            if isinstance(self.neck, SpatialTuningAdapter):
+                x = self.neck(x, batch_inputs)
+            else:
+                x = self.neck(x)
         return x
 
     def loss(

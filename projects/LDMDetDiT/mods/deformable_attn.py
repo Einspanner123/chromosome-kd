@@ -114,6 +114,7 @@ class MultiScaleDeformableAttention(nn.Module):
         num_levels: int = 4,
         num_points: int = 8,
         dropout: float = 0.0,
+        offset_scale: float = 0.5,
     ):
         super().__init__()
         self.embed_dim = embed_dim
@@ -121,6 +122,7 @@ class MultiScaleDeformableAttention(nn.Module):
         self.num_levels = num_levels
         self.num_points = num_points
         self.head_dim = embed_dim // num_heads
+        self.offset_scale = offset_scale
 
         assert embed_dim % num_heads == 0, (
             f'embed_dim {embed_dim} must be divisible by num_heads {num_heads}'
@@ -168,6 +170,7 @@ class MultiScaleDeformableAttention(nn.Module):
         value: Tensor,
         spatial_shapes: Tensor,
         level_start_index: Tensor,
+        bbox_coords: Tensor = None,
     ) -> Tensor:
         """前向传播
 
@@ -177,6 +180,7 @@ class MultiScaleDeformableAttention(nn.Module):
             value: (bs, num_value, embed_dim) - 展平的多尺度特征
             spatial_shapes: (num_levels, 2) - 各层分辨率 [H, W]
             level_start_index: (num_levels,) - 各层起始索引
+            bbox_coords: (bs, num_query, 4) - 归一化 xyxy 坐标 [0,1]，用于尺度感知采样
 
         Returns:
             output: (bs, num_query, embed_dim)
@@ -208,11 +212,17 @@ class MultiScaleDeformableAttention(nn.Module):
         # 计算采样位置 = 参考点 + 偏移
         # reference_points: (bs, num_query, num_levels, 2) → 扩展到 (bs, num_query, 1, num_levels, 1, 2)
         ref_points_expanded = reference_points.unsqueeze(2).unsqueeze(4)
-        # Fix (chromosome-kd-dit-zero-map / Hypothesis A):
-        # offsets 自由成长到 ±4 量级导致 57% 采样点出 FPN 范围被 padding zero。
-        # 用 tanh 夹到 [-0.1, 0.1] 限制相对参考点的最大采样半径 = 1/10 图像宽度。
-        # 这对于 Deformable Attention 来说仍然很大，但比 0.5 更合理。
-        offsets = offsets.tanh() * 0.1
+        # 尺度感知采样: 偏移量与 bbox 宽高成正比
+        # 大框采样范围大，小框采样范围小，避免小目标采样点大量落到目标外部
+        if bbox_coords is not None:
+            # bbox_coords: (bs, num_query, 4) xyxy [0,1] → box_wh: (bs, num_query, 2)
+            box_wh = (bbox_coords[..., 2:] - bbox_coords[..., :2]).clamp(min=1e-4)
+            # box_wh: (bs, num_query, 1, 1, 1, 2) 用于广播到 offsets shape
+            box_wh = box_wh.unsqueeze(2).unsqueeze(3).unsqueeze(4)
+            offsets = offsets.tanh() * box_wh * self.offset_scale
+        else:
+            # 回退: 固定半径采样
+            offsets = offsets.tanh() * 0.1
         sampling_locations = ref_points_expanded + offsets
         # (bs, num_query, num_heads, num_levels, num_points, 2)
 

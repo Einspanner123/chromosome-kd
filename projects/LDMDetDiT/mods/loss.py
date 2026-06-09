@@ -44,11 +44,11 @@ class FocalLoss(nn.Module):
 
     def __init__(
         self,
-        use_sigmoid=True,
-        alpha=0.25,
-        gamma=2.0,
-        reduction='sum',
-        loss_weight=2.0,
+        use_sigmoid: bool = True,
+        alpha: float = 0.25,
+        gamma: float = 2.0,
+        reduction: str = 'sum',
+        loss_weight: float = 2.0,
     ):
         super().__init__()
         assert use_sigmoid, 'Currently only supports sigmoid focal loss'
@@ -83,7 +83,7 @@ class FocalLoss(nn.Module):
 class GIoULoss(nn.Module):
     """GIoU Loss 封装类"""
 
-    def __init__(self, reduction='sum', loss_weight=2.0):
+    def __init__(self, reduction: str = 'sum', loss_weight: float = 2.0):
         super().__init__()
         self.reduction = reduction
         self.loss_weight = loss_weight
@@ -99,7 +99,7 @@ class GIoULoss(nn.Module):
 class L1Loss(nn.Module):
     """L1 Loss 封装类"""
 
-    def __init__(self, reduction='sum', loss_weight=5.0):
+    def __init__(self, reduction: str = 'sum', loss_weight: float = 5.0):
         super().__init__()
         self.reduction = reduction
         self.loss_weight = loss_weight
@@ -113,7 +113,13 @@ class L1Loss(nn.Module):
 
 
 class FocalLossCost:
-    def __init__(self, alpha=0.25, gamma=2.0, weight=2.0, eps=1e-8):
+    def __init__(
+        self,
+        alpha: float = 0.25,
+        gamma: float = 2.0,
+        weight: float = 2.0,
+        eps: float = 1e-8,
+    ):
         self.alpha = alpha
         self.gamma = gamma
         self.weight = weight
@@ -158,7 +164,7 @@ class FocalLossCost:
 
 
 class RelativeL1Cost:
-    def __init__(self, weight=5.0, eps=1e-2):
+    def __init__(self, weight: float = 5.0, eps: float = 1e-2):
         self.weight = weight
         self.eps = eps
 
@@ -198,7 +204,7 @@ class RelativeL1Cost:
 
 
 class IoUCost:
-    def __init__(self, iou_mode='giou', weight=2.0):
+    def __init__(self, iou_mode: str = 'giou', weight: float = 2.0):
         self.iou_mode = iou_mode
         self.weight = weight
 
@@ -233,7 +239,7 @@ class DiffusionDetMatcher(nn.Module):
         cost_giou: float = 2.0,
         center_radius: float = 2.5,
         candidate_topk: int = 5,
-        match_costs: List[dict] = None,
+        match_costs: Optional[List[dict]] = None,
     ):
         super().__init__()
         self.center_radius = center_radius
@@ -375,70 +381,119 @@ class DiffusionDetMatcher(nn.Module):
 
 
 class DiffusionDetCriterion(nn.Module):
-    """DiffusionDet 损失计算核心类 (纯 PyTorch)"""
+    """DiffusionDet 损失计算核心类 (纯 PyTorch)
+
+    使用 OT (Sinkhorn) 匹配结果作为正例分配，替代 SimOTA 二次匹配。
+    OT 保证每个 proposal 都有对应的 GT，100% GT 覆盖率，
+    扩散过程天然提供课程学习 (t 大→粗略, t 小→精确)。
+
+    OT 匹配下所有 proposal 都是正例:
+    - loss_cls: 分类监督 (Focal Loss，OT 下退化为 CE)
+    - loss_giou: GIoU 回归监督 (尺度敏感，补充 displacement MSE)
+    - loss_objectness: 已移除 (OT 下全为 1，无信息量)
+    - loss_bbox: 已移除 (与 loss_vel/displacement MSE 功能重叠)
+    """
 
     def __init__(
         self,
         num_classes: int,
-        matcher: nn.Module,
-        loss_cls: nn.Module,
-        loss_bbox: nn.Module,
-        loss_giou: nn.Module,
+        matcher: Optional[nn.Module] = None,
+        loss_cls: Optional[nn.Module] = None,
+        loss_giou: Optional[nn.Module] = None,
         deep_supervision: bool = True,
-        loss_objectness_weight: float = 1.0,
-        bbox_loss_mode: str = 'l1',
         bbox_loss_eps: float = 1e-2,
+        assigner: Optional[dict] = None,
+        ot_pos_ratio: float = 0.25,
     ):
         super().__init__()
         self.num_classes = num_classes
-        self.matcher = matcher
+        self.matcher = matcher  # 保留但不使用
         self.loss_cls = loss_cls
-        self.loss_bbox = loss_bbox
         self.loss_giou = loss_giou
         self.deep_supervision = deep_supervision
-        self.loss_objectness_weight = loss_objectness_weight
-        self.bbox_loss_mode = bbox_loss_mode
         self.bbox_loss_eps = bbox_loss_eps
+        self.ot_pos_ratio = ot_pos_ratio
 
     def forward(
-        self, outputs: ModelOutput, targets: List[InstanceData]
+        self,
+        outputs: ModelOutput,
+        targets: List[InstanceData],
+        ot_matched_gt_indices: Optional[List[Tensor]] = None,
+        ot_match_probs: Optional[List[Tensor]] = None,
     ) -> Dict[str, Tensor]:
         """
         outputs: ModelOutput containing pred_logits, pred_boxes and optional aux_outputs
         targets: list of InstanceData containing labels, bboxes and img_shape
+        ot_matched_gt_indices: OT 匹配结果, list of (num_proposals,) 每个元素是该 proposal 匹配的 GT 索引
+        ot_match_probs: OT 传输概率, list of (num_proposals,) 每个元素是该 proposal 的最大传输概率
         """
         # 1. 计算主输出损失
-        losses = self._get_loss(outputs, targets)
+        losses = self._get_loss(outputs, targets, ot_matched_gt_indices, ot_match_probs)
 
         # 2. 计算辅助输出损失 (Deep Supervision)
         if self.deep_supervision and outputs.aux_outputs is not None:
             for i, aux_out in enumerate(outputs.aux_outputs):
-                aux_losses = self._get_loss(aux_out, targets)
+                aux_losses = self._get_loss(
+                    aux_out, targets, ot_matched_gt_indices, ot_match_probs
+                )
                 for name, val in aux_losses.items():
                     losses[f'aux_{i}_{name}'] = val
 
         return losses
 
+    def _ot_indices_to_match(
+        self,
+        ot_matched_gt_indices: List[Tensor],
+        num_proposals: int,
+        ot_match_probs: Optional[List[Tensor]] = None,
+    ) -> List[Tuple[Tensor, Tensor]]:
+        """将 OT 匹配结果转换为 criterion 需要的 (src_idx, gt_idx) 格式
+
+        根据 ot_pos_ratio 过滤低质量匹配:
+        - 按传输概率排序，只保留 top ot_pos_ratio 的 proposal 作为正例
+        - 其余 proposal 标记为背景，不参与回归 loss
+        """
+        batch_indices = []
+        for i, matched_gt in enumerate(ot_matched_gt_indices):
+            if ot_match_probs is not None and ot_match_probs[i] is not None:
+                probs = ot_match_probs[i]
+                # 按概率排序，保留 top-k 作为正例
+                k = max(1, int(num_proposals * self.ot_pos_ratio))
+                _, topk_idx = probs.topk(k)
+                src_idx = topk_idx
+                gt_idx = matched_gt[topk_idx]
+            else:
+                src_idx = torch.arange(num_proposals, device=matched_gt.device)
+                gt_idx = matched_gt
+            batch_indices.append((src_idx, gt_idx))
+        return batch_indices
+
     def _get_loss(
-        self, outputs: ModelOutput, targets: List[InstanceData]
+        self,
+        outputs: ModelOutput,
+        targets: List[InstanceData],
+        ot_matched_gt_indices: Optional[List[Tensor]] = None,
+        ot_match_probs: Optional[List[Tensor]] = None,
     ) -> Dict[str, Tensor]:
-        indices = self.matcher(outputs, targets)
+        if ot_matched_gt_indices is not None:
+            indices = self._ot_indices_to_match(
+                ot_matched_gt_indices, outputs.pred_logits.shape[1],
+                ot_match_probs=ot_match_probs,
+            )
+        else:
+            # 降级到 SimOTA (不应发生，保留兼容)
+            indices = self.matcher(outputs, targets)
 
         # 计算分类损失
         loss_cls = self._loss_classification(outputs, targets, indices)
 
-        # 计算回归损失
-        loss_bbox, loss_giou = self._loss_boxes(outputs, targets, indices)
+        # 计算 GIoU 回归损失
+        loss_giou = self._loss_giou(outputs, targets, indices)
 
         losses = {
             'loss_cls': loss_cls,
-            'loss_bbox': loss_bbox,
             'loss_giou': loss_giou,
         }
-
-        if outputs.pred_objectness is not None:
-            loss_obj = self._loss_objectness(outputs, targets, indices)
-            losses['loss_objectness'] = loss_obj
 
         return losses
 
@@ -452,6 +507,7 @@ class DiffusionDetCriterion(nn.Module):
         bs, num_queries = src_logits.shape[:2]
 
         # 构造目标分类标签
+        # OT 匹配: 所有 proposal 都是正例，没有背景类
         target_classes = src_logits.new_full(
             (bs, num_queries), self.num_classes, dtype=torch.long
         )
@@ -465,15 +521,16 @@ class DiffusionDetCriterion(nn.Module):
         loss_cls = self.loss_cls(
             src_logits.flatten(0, 1), target_classes.flatten(0, 1)
         )
-        # 按照正样本数量归一化 (参考原版实现)
+        # 按照正样本数量归一化
         return loss_cls / max(num_pos, 1)
 
-    def _loss_boxes(
+    def _loss_giou(
         self,
         outputs: ModelOutput,
         targets: List[InstanceData],
         indices: List[Tuple[Tensor, Tensor]],
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> Tensor:
+        """GIoU 回归损失 (尺度敏感，补充 displacement MSE)"""
         src_boxes = outputs.pred_boxes  # [B, N, 4] (normalized xyxy)
 
         # 提取对应的正样本预测框和目标框
@@ -485,50 +542,11 @@ class DiffusionDetCriterion(nn.Module):
                 tgt_list.append(targets[i].bboxes[gt_idx])
 
         if len(src_list) == 0:
-            return src_boxes.sum() * 0, src_boxes.sum() * 0
+            return src_boxes.sum() * 0
 
         src_boxes_pos = torch.cat(src_list)
         tgt_boxes_pos = torch.cat(tgt_list)
         num_pos = src_boxes_pos.shape[0]
 
-        tgt_cxcywh = bbox_xyxy_to_cxcywh(tgt_boxes_pos)
-        src_cxcywh = bbox_xyxy_to_cxcywh(src_boxes_pos)
-
-        if self.bbox_loss_mode == 'relative_l1':
-            tgt_w = tgt_cxcywh[:, 2].clamp(min=self.bbox_loss_eps)
-            tgt_h = tgt_cxcywh[:, 3].clamp(min=self.bbox_loss_eps)
-            scale = torch.stack([tgt_w, tgt_h, tgt_w, tgt_h], dim=-1)
-            per_elem = F.l1_loss(src_cxcywh, tgt_cxcywh, reduction='none')
-            loss_bbox = (
-                self.loss_bbox.loss_weight * (per_elem / scale).sum() / num_pos
-            )
-            loss_giou = (
-                self.loss_giou(src_boxes_pos, tgt_boxes_pos).sum() / num_pos
-            )
-        else:
-            loss_bbox = self.loss_bbox(src_cxcywh, tgt_cxcywh)
-            loss_giou = self.loss_giou(src_boxes_pos, tgt_boxes_pos)
-            loss_bbox = loss_bbox.sum() / num_pos
-            loss_giou = loss_giou.sum() / num_pos
-
-        return loss_bbox, loss_giou
-
-    def _loss_objectness(
-        self,
-        outputs: ModelOutput,
-        targets: List[InstanceData],
-        indices: List[Tuple[Tensor, Tensor]],
-    ) -> Tensor:
-        pred_obj = outputs.pred_objectness  # [B, N, 1]
-        bs, num_queries = pred_obj.shape[:2]
-        device = pred_obj.device
-
-        target_obj = torch.zeros(bs, num_queries, device=device)
-        for i, (src_idx, gt_idx) in enumerate(indices):
-            if len(src_idx) > 0:
-                target_obj[i, src_idx] = 1.0
-
-        loss_obj = F.binary_cross_entropy_with_logits(
-            pred_obj.squeeze(-1), target_obj, reduction='mean'
-        )
-        return loss_obj * self.loss_objectness_weight
+        loss_giou = self.loss_giou(src_boxes_pos, tgt_boxes_pos)
+        return loss_giou.sum() / num_pos

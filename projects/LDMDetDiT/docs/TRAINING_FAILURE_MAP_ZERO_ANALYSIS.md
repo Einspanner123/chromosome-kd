@@ -582,3 +582,201 @@ valid_w/h ratio
 ```
 
 因此，当前首要任务不是继续加复杂结构，而是修复评估/推理链路，使输出真正代表模型预测。只有在 renewal、ensemble、score filtering 修复后，mAP 仍为 0，才应进一步集中处理 velocity target、cross-attention 采样和 matcher。
+
+---
+
+## 十三、v5 实验记录 (2026-06-08): x0-prediction 改造
+
+### 13.1 实验背景
+
+基于本文档的分析方案，对 LDMDetDiT 进行了以下改造：
+
+1. **tanh 替代 clamp** (§三, P0): 修复 `_raw_cxcywh_to_normed_xyxy` 中 clamp 导致 51% 梯度截断
+2. **Focal Loss 参数对齐 LDMDet** (§五): alpha=0.25, gamma=2.0, loss_weight=2.0
+3. **x0-prediction 替代 v-prediction** (§五, P1): reg_head 输出 sigmoid 归一化坐标，GIoU 梯度不受 t 缩放
+
+### 13.2 改造详情
+
+#### 改造 1: tanh 替代 clamp
+
+**文件**: `mods/dit_head.py` `_raw_cxcywh_to_normed_xyxy`
+
+```python
+# 旧: cxcywh = (raw_bboxes / self.snr_scale + 1) / 2  → clamp 导致梯度截断
+# 新: cxcywh = (torch.tanh(raw_bboxes / self.snr_scale) + 1) / 2
+```
+
+**效果**: fc_feature 零梯度比例从 51% 降到 0.17% (与 LDMDet sigmoid 一致)
+
+#### 改造 2: Focal Loss 参数
+
+**文件**: `configs/ldmdet_dit.py`
+
+```python
+# 旧: loss_cls=dict(type='PurePyTorchFocalLoss', loss_weight=1.0)
+# 新: loss_cls=dict(type='PurePyTorchFocalLoss', loss_weight=2.0)
+# 同时 PurePyTorchFocalLossCost weight=2.0
+```
+
+#### 改造 3: x0-prediction
+
+**文件**: `mods/dit_single_head.py` `_predict_bboxes`
+
+```python
+# 旧 (v-prediction): return self.reg_head(fc_feature)  # 直接输出 velocity
+# 新 (x0-prediction):
+raw = self.reg_head(fc_feature)
+cx = torch.sigmoid(raw[..., 0])
+cy = torch.sigmoid(raw[..., 1])
+w = torch.sigmoid(raw[..., 2])
+h = torch.sigmoid(raw[..., 3])
+x1 = cx - w * 0.5
+y1 = cy - h * 0.5
+x2 = cx + w * 0.5
+y2 = cy + h * 0.5
+return torch.stack([x1, y1, x2, y2], dim=-1).clamp(0, 1)
+```
+
+**文件**: `mods/dit_head.py` forward
+
+```python
+# x0-prediction: pred_bboxes 是 sigmoid 输出的归一化 xyxy
+# 直接作为 criterion 的 pred_boxes, GIoU 梯度不受 t 缩放
+pred_bboxes_normed = pred_bboxes
+# 从 x0 反推 x0_raw (用于 velocity/displacement loss)
+x0_raw = self._normed_xyxy_to_raw_cxcywh(pred_bboxes_normed)
+```
+
+**文件**: `mods/dit_head.py` `_add_raw_diffusion_loss`
+
+```python
+# 旧 (v-prediction): loss = MSE(v_pred, v_target), v = (x_t - x0) / t
+# 新 (displacement loss): loss = MSE(x_noisy - x0_pred, x_noisy - x_start)
+# 等价于 MSE(v_pred * t, v_target * t)，避免 t→0 时 v→∞ 导致 loss 爆炸
+```
+
+### 13.3 训练指标
+
+**v4 (旧, v-prediction + velocity MSE loss)**:
+
+| 指标 | Epoch 1 初期 | 问题 |
+|------|-------------|------|
+| grad_norm | 118,529,625 | 爆炸 |
+| loss_vel | 9,865,400 | 爆炸 (v = (x_t-x0)/t, t→0 时 v→∞) |
+| loss_cls | 1.96 → 1.07 | 停滞不降 |
+
+**v5 (新, x0-prediction + displacement loss)**:
+
+| 指标 | Epoch 1 初期 | Epoch 8 | Epoch 15 | 趋势 |
+|------|-------------|---------|----------|------|
+| grad_norm | 350 | 600-1500 | 100-200 | 稳定 |
+| loss_cls | 1.98 | 1.05 | 1.02 | 下降 48% |
+| loss_bbox | 29.09 | 7.90 | 7.67 | 下降 74% |
+| loss_giou | 3.02 | 1.87 | 1.86 | 下降 38% |
+| loss_vel | 2.45 | 1.43 | 1.45 | 下降 41% |
+| diag_x0_mae_cx | 1.81 | 0.95 | 0.85 | 下降 53% |
+| valid_w/h_ratio | 1.0 | 1.0 | 1.0 | 始终有效 |
+
+**关键改善**:
+- grad_norm 从 1.2亿降到 100-1500，训练完全稳定
+- loss_vel 从千万级降到 1.4-2.4 (displacement loss 避免 t→0 爆炸)
+- loss_cls 正常下降 (1.98 → 1.02)，分类头正在有效学习
+
+### 13.4 验证结果: mAP 始终为 0
+
+**Epoch 1-17 验证**: mAP = 0.0000, AP50 = 0.0000
+
+**Pred 数量**: 每张图约 557 个预测 (GT 约 43-48)
+
+### 13.5 mAP=0 的根因分析
+
+#### 根因: tanh/线性逆变换不一致导致推理 ODE 积分崩溃
+
+**问题链**:
+
+```
+_raw_cxcywh_to_normed_xyxy 使用 tanh(raw/snr_scale) 非线性压缩
+  → cxcywh = (tanh(raw/snr_scale) + 1) / 2
+  → 但 _normed_xyxy_to_raw_cxcywh 使用线性反推:
+  → raw = (cxcywh * 2 - 1) * snr_scale
+  → 这不是 tanh 的逆变换! 正确逆变换应为:
+  → raw = arctanh(cxcywh * 2 - 1) * snr_scale
+  → 推理时 x0_raw = _normed_xyxy_to_raw_cxcywh(pred_bboxes)
+  → x0_raw 不准确
+  → rf.step(x_raw, x0_raw, t_curr, t_next) 使用不准确的 x0
+  → v = (x_t - x0_wrong) / t → velocity 错误
+  → x_next = x_t + dt * v_wrong → ODE 轨迹偏离
+  → 多步采样后 x_raw 完全偏离正确轨迹
+  → pred_bboxes 位置错误 → mAP = 0
+```
+
+**数值验证**:
+
+| raw 真值 | tanh → normed | 线性反推 raw | 误差 |
+|----------|--------------|-------------|------|
+| 0.0 | 0.5 | 0.0 | 0% |
+| 1.0 | 0.6225 | 0.49 | 51% |
+| 2.0 | 0.7311 | 0.9244 | 54% |
+| 3.0 | 0.8051 | 1.2203 | 59% |
+| 4.0 | 0.8522 | 1.4087 | 65% |
+
+当 snr_scale=2.0 时，raw 值在 [-4, 4] 范围内，线性反推误差高达 50-65%。
+
+**为什么训练不受影响**: 训练时 forward 内部直接使用 `pred_bboxes` (sigmoid 输出的归一化坐标) 作为 criterion 的 pred_boxes，GIoU loss 直接监督 sigmoid 输出，不经过 `_normed_xyxy_to_raw_cxcywh` 反推。displacement loss 中的 `x0_raw` 虽然经过线性反推，但训练时 `x_noisy` 和 `x_start` 都在 raw 空间，反推误差只影响 displacement loss 的精度，不影响 GIoU 梯度。
+
+**为什么推理受影响**: 推理时 `rf.step` 需要 raw 空间的 x0 来计算 velocity 和更新 x_raw。不准确的 x0_raw 导致 ODE 积分偏离，多步采样后误差累积。
+
+### 13.6 修复方案
+
+#### 方案 A: 修正逆变换为 arctanh (推荐)
+
+```python
+def _normed_xyxy_to_raw_cxcywh(self, normed_xyxy):
+    cxcywh = bbox_xyxy_to_cxcywh(normed_xyxy)
+    # tanh 的逆变换是 arctanh
+    val = (cxcywh * 2 - 1).clamp(-0.999, 0.999)  # arctanh 定义域
+    raw = torch.atanh(val) * self.snr_scale
+    return raw
+```
+
+#### 方案 B: 推理时直接用 sigmoid 输出，不走 raw 空间
+
+修改 `_forward_at_t`，直接从 normed 空间的 x0 计算 x_next：
+
+```python
+# 不走 raw 空间，直接在 normed 空间做 ODE 积分
+# x_t_normed = (1-t) * x_start_normed + t * x_noise_normed
+# v_normed = (x_t_normed - x0_normed) / t
+# x_next_normed = x_t_normed + dt * v_normed
+```
+
+但这需要重构整个推理流程，改动较大。
+
+#### 方案 C: 训练时也用线性反推，保持一致性
+
+如果训练和推理都使用不准确的线性反推，至少两者一致。但这样 tanh 的梯度优势就被抵消了。
+
+### 13.7 其他已修复的问题
+
+1. **ensemble 顺序** (§三): 已修复，ensemble append 在 renewal 之前
+2. **score threshold** (§四): 已在 `_post_process` 中添加 `score_thr` 过滤
+3. **loss_vel 爆炸**: 已从 velocity MSE 改为 displacement MSE
+
+### 13.8 遗留问题
+
+| 问题 | 严重程度 | 状态 | 说明 |
+|------|---------|------|------|
+| tanh/线性逆变换不一致 | **P0** | 待修复 | mAP=0 的直接原因 |
+| loss_cls 下降缓慢 | P1 | 观察中 | 1.98→1.02，17 epoch 后仍较高 |
+| diag_x0_mae_cx/cy ≈ 1.0 | P1 | 观察中 | x0 预测在 cx/cy 维度误差较大 |
+| grad_norm 波动大 (100-1500) | P2 | 观察中 | 可能需要梯度裁剪 |
+| Deformable Attention 采样不随框尺度 | P3 | 未修复 | §七 |
+| RF renewal 分布不一致 | P3 | 未修复 | §六 |
+
+### 13.9 无法解决的问题
+
+1. **tanh 的梯度优势 vs 逆变换一致性**: tanh 解决了 clamp 的梯度截断问题，但引入了逆变换不一致。如果改回 clamp，训练梯度会再次截断。需要找到一个既有良好梯度流又有精确逆变换的方案。
+
+2. **x0-prediction 的位移精度**: sigmoid 输出在边界附近 (接近 0 或 1) 的梯度很小，可能影响小目标的定位精度。这是 sigmoid 的固有限制。
+
+3. **displacement loss vs velocity loss**: displacement loss (MSE(x_t-x0, x_t-x_start)) 避免了 t→0 时的数值爆炸，但等价于对 velocity 加权 t^2，在 t 较小时监督信号较弱。这可能导致模型在小 t (接近去噪终点) 时的预测不够精确。

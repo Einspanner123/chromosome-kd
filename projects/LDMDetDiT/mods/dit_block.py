@@ -186,6 +186,7 @@ class DiTBlock(nn.Module):
             value=fpn_flattened,
             spatial_shapes=spatial_shapes,
             level_start_index=level_start_index,
+            bbox_coords=bbox_coords,
         )
         box_tokens = box_tokens + a2.unsqueeze(1) * cross_out
         box_tokens = sanitize_features(box_tokens)
