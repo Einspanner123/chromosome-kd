@@ -424,5 +424,7 @@ class PurePyTorchDiffusionDet(BaseDetector):
         )
         curr_bboxes = self.bbox_head._raw_to_xyxy(noise_bboxes, img_metas)
 
-        all_cls_logits, all_pred_bboxes = self.bbox_head(x, curr_bboxes, t)
+        all_cls_logits, all_pred_bboxes, _, _ = self.bbox_head(
+            x, curr_bboxes, t
+        )
         return all_cls_logits, all_pred_bboxes
