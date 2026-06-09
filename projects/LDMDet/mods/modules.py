@@ -12,7 +12,6 @@ from .embeddings import (
     rotate_half,
 )
 from .feature_fusion import PurePyTorchSimpleFeatureFusion
-from .noise_schedule import cosine_noise_schedule, load_buffer
 
 __all__ = [
     'DynamicConv',
@@ -20,7 +19,5 @@ __all__ = [
     'RoPE1D',
     'SinusoidalPositionEmbeddings',
     'apply_rope',
-    'cosine_noise_schedule',
-    'load_buffer',
     'rotate_half',
 ]

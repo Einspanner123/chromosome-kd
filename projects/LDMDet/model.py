@@ -13,8 +13,6 @@ from mmdet.registry import MODELS
 from mmdet.structures import DetDataSample
 from mmdet.utils import ConfigType, OptConfigType, OptMultiConfig
 from .mods.diffusiondet_head import DiffusionDetHead
-from .mods.dit_head import DiTDiffusionDetHead
-from .mods.dit_single_head import DiTSingleHead
 from .mods.loss import (
     BBoxL1Cost,
     DiffusionDetCriterion,
@@ -54,9 +52,6 @@ MODELS.register_module(name='PurePyTorchBBoxL1Cost', module=BBoxL1Cost)
 MODELS.register_module(name='PurePyTorchIoUCost', module=IoUCost)
 MODELS.register_module(name='PurePyTorchRelativeL1Cost', module=RelativeL1Cost)
 
-MODELS.register_module(name='DiTDiffusionDetHead', module=DiTDiffusionDetHead)
-MODELS.register_module(name='DiTSingleHead', module=DiTSingleHead)
-
 
 @MODELS.register_module()
 @MODELS.register_module(name='LDMDet')
@@ -89,17 +84,6 @@ class PurePyTorchDiffusionDet(BaseDetector):
             model_name = backbone_cfg.pop('model_name')
             backbone_cfg.pop('type', None)
             self.backbone = timm.create_model(model_name, **backbone_cfg)
-        elif isinstance(backbone, dict) and backbone.get('type') in [
-            'ConvNeXtV2',
-            'projects.LDMDet.mods.convnextv2.ConvNeXtV2',
-        ]:
-            from .mods.convnextv2 import ConvNeXtV2
-
-            backbone_cfg = backbone.copy()
-            backbone_cfg.pop('type')
-            self.backbone = ConvNeXtV2(
-                **self._filter_kwargs(ConvNeXtV2, backbone_cfg)
-            )
         else:
             self.backbone = MODELS.build(backbone)
 
@@ -150,17 +134,11 @@ class PurePyTorchDiffusionDet(BaseDetector):
 
         head_type = cfg_copy.get('type', 'PurePyTorchDiffusionDetHead')
 
-        is_dit_head = head_type in ('DiTDiffusionDetHead', DiTDiffusionDetHead)
-
         # 1. 构建 single_head
         single_head_cfg = cfg_copy.pop('single_head')
         if isinstance(single_head_cfg, dict):
             if 'type' not in single_head_cfg:
-                single_head_cfg['type'] = (
-                    'DiTSingleHead'
-                    if is_dit_head
-                    else 'PurePyTorchSingleDiffusionDetHead'
-                )
+                single_head_cfg['type'] = 'PurePyTorchSingleDiffusionDetHead'
 
             obj_cls = MODELS.get(single_head_cfg['type'])
             single_head = MODELS.build(
@@ -169,10 +147,10 @@ class PurePyTorchDiffusionDet(BaseDetector):
         else:
             single_head = single_head_cfg
 
-        # 2. 构建 roi_extractor (仅非 DiT 版本需要)
+        # 2. 构建 roi_extractor
         roi_extractor = None
         roi_extractor_cfg = cfg_copy.pop('roi_extractor', None)
-        if roi_extractor_cfg is not None and not is_dit_head:
+        if roi_extractor_cfg is not None:
             if isinstance(roi_extractor_cfg, dict):
                 if 'type' not in roi_extractor_cfg:
                     roi_extractor_cfg['type'] = 'PurePyTorchSingleRoIExtractor'
@@ -222,11 +200,10 @@ class PurePyTorchDiffusionDet(BaseDetector):
         build_kwargs = dict(
             single_head=single_head,
             criterion=criterion,
+            roi_extractor=roi_extractor,
+            counting_branch=counting_branch,
+            consistency_loss=consistency_loss,
         )
-        if not is_dit_head:
-            build_kwargs['roi_extractor'] = roi_extractor
-            build_kwargs['counting_branch'] = counting_branch
-            build_kwargs['consistency_loss'] = consistency_loss
 
         cfg_copy.update(build_kwargs)
 
@@ -424,7 +401,5 @@ class PurePyTorchDiffusionDet(BaseDetector):
         )
         curr_bboxes = self.bbox_head._raw_to_xyxy(noise_bboxes, img_metas)
 
-        all_cls_logits, all_pred_bboxes, _, _ = self.bbox_head(
-            x, curr_bboxes, t
-        )
+        all_cls_logits, all_pred_bboxes, _ = self.bbox_head(x, curr_bboxes, t)
         return all_cls_logits, all_pred_bboxes

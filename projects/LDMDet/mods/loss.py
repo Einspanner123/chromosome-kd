@@ -7,7 +7,6 @@
 from .costs import BBoxL1Cost, FocalLossCost, IoUCost, RelativeL1Cost
 from .criterion import DiffusionDetCriterion
 from .losses import (
-    FlowMatchingVelocityLoss,
     FocalLoss,
     GIoULoss,
     L1Loss,
@@ -19,7 +18,6 @@ __all__ = [
     'BBoxL1Cost',
     'DiffusionDetCriterion',
     'DiffusionDetMatcher',
-    'FlowMatchingVelocityLoss',
     'FocalLoss',
     'FocalLossCost',
     'GIoULoss',
