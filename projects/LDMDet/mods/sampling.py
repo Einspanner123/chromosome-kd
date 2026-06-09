@@ -39,8 +39,6 @@ class DiffusionSampler:
         nms_thr: float,
         score_thr: float,
         min_keep: int,
-        use_trd: bool = False,
-        trd_delta_t: float = 0.01,
     ):
         self.diffusion_type = diffusion_type
         self.timesteps = timesteps
@@ -57,14 +55,13 @@ class DiffusionSampler:
         self.nms_thr = nms_thr
         self.score_thr = score_thr
         self.min_keep = min_keep
-        self.use_trd = use_trd
-        self.trd_delta_t = trd_delta_t
 
     def build_time_pairs(
         self, device: torch.device
     ) -> List[Tuple[float, float]]:
         """构建采样时间序列"""
         if self.diffusion_type == 'ddpm':
+            # DEPRECATED: DDPM — RF 已完全替代 DDPM，保留仅用于对比实验
             times = torch.linspace(
                 -1,
                 self.timesteps - 1,
@@ -157,7 +154,7 @@ class DiffusionSampler:
         img_metas: List[ImageMeta],
         alphas_cumprod: Tensor,
     ) -> Tuple[Tensor, Tensor]:
-        """执行一步 DDIM 采样"""
+        """执行一步 DDIM 采样 (DEPRECATED: DDPM)"""
         bs, device = x_raw.shape[0], x_raw.device
 
         x0 = self.xyxy_to_raw(pred_bboxes, img_metas)

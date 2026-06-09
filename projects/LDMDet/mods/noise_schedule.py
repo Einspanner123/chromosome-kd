@@ -1,4 +1,8 @@
-"""噪声调度工具函数"""
+"""噪声调度工具函数
+
+DEPRECATED: cosine_noise_schedule 和 load_buffer 仅用于 DDPM 体系。
+RF 已完全替代 DDPM，保留仅用于对比实验。
+"""
 
 import math
 from typing import List

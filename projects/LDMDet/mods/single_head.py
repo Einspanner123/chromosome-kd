@@ -13,7 +13,7 @@ class SingleDiffusionDetHead(nn.Module):
 
     两种条件化模式共享:
     - Self-Attention + Instance Interaction + FFN 三段式结构
-    - 分类/回归/objectness/velocity 预测头
+    - 分类/回归预测头
     差异仅在于时间嵌入如何注入各子块。
     """
 
@@ -34,15 +34,11 @@ class SingleDiffusionDetHead(nn.Module):
         dynamic_dim=64,
         dynamic_num=2,
         time_conditioning='scale_shift',
-        use_objectness=False,
-        prediction_mode='x0',
         use_flash_attn=False,
     ):
         super().__init__()
         self.feat_channels = feat_channels
         self.time_conditioning = time_conditioning
-        self.use_objectness = use_objectness
-        self.prediction_mode = prediction_mode
         self.use_flash_attn = use_flash_attn
 
         # Self-Attention
@@ -96,18 +92,6 @@ class SingleDiffusionDetHead(nn.Module):
         )
         # 回归头
         self.reg_head = self._build_reg_head(feat_channels, num_reg_convs)
-        # Objectness 头
-        self.objectness_head = (
-            self._build_objectness_head(feat_channels)
-            if use_objectness
-            else None
-        )
-        # Velocity 头
-        self.velocity_head = (
-            self._build_velocity_head(feat_channels)
-            if prediction_mode == 'velocity'
-            else None
-        )
 
         self.scale_clamp = scale_clamp
         self.bbox_weights = bbox_weights
@@ -150,27 +134,6 @@ class SingleDiffusionDetHead(nn.Module):
             )
         layers.append(nn.Linear(feat_channels, 4))
         return nn.Sequential(*layers)
-
-    @staticmethod
-    def _build_objectness_head(feat_channels):
-        return nn.Sequential(
-            nn.Linear(feat_channels, feat_channels, bias=False),
-            nn.LayerNorm(feat_channels),
-            nn.ReLU(inplace=True),
-            nn.Linear(feat_channels, 1),
-        )
-
-    @staticmethod
-    def _build_velocity_head(feat_channels):
-        return nn.Sequential(
-            nn.Linear(feat_channels, feat_channels, bias=False),
-            nn.LayerNorm(feat_channels),
-            nn.ReLU(inplace=True),
-            nn.Linear(feat_channels, feat_channels, bias=False),
-            nn.LayerNorm(feat_channels),
-            nn.ReLU(inplace=True),
-            nn.Linear(feat_channels, 4),
-        )
 
     # ------------------------------------------------------------------
     # 前向传播
@@ -229,28 +192,14 @@ class SingleDiffusionDetHead(nn.Module):
         )
 
     def _predict(self, fc_feature, bboxes, bs, num_boxes):
-        """统一预测头: 分类 + 回归 + objectness + velocity"""
+        """统一预测头: 分类 + 回归"""
         class_logits = self.cls_head(fc_feature)
         pred_bboxes = self._predict_bboxes(fc_feature, bboxes)
-
-        objectness = None
-        if self.objectness_head is not None:
-            objectness = self.objectness_head(fc_feature).view(
-                bs, num_boxes, 1
-            )
-
-        pred_velocity = None
-        if self.velocity_head is not None:
-            pred_velocity = self.velocity_head(fc_feature).view(
-                bs, num_boxes, 4
-            )
 
         return (
             class_logits.view(bs, num_boxes, -1),
             pred_bboxes.view(bs, num_boxes, -1),
             fc_feature.view(1, bs * num_boxes, self.feat_channels),
-            objectness,
-            pred_velocity,
         )
 
     # ------------------------------------------------------------------
@@ -348,11 +297,7 @@ class SingleDiffusionDetHead(nn.Module):
     # ------------------------------------------------------------------
 
     def _predict_bboxes(self, fc_feature, bboxes):
-        """预测边界框 — 始终使用 delta regression
-
-        注意: velocity 模式不改变 bbox 预测方式。velocity_head 仅作为辅助
-        loss 分支，预测扩散空间的速度 v = x_0 - noise，不直接参与 bbox 更新。
-        """
+        """预测边界框 — 始终使用 delta regression"""
         bboxes_deltas = self.reg_head(fc_feature)
         pred_bboxes = self.apply_deltas(bboxes_deltas, bboxes.view(-1, 4))
         return pred_bboxes

@@ -22,7 +22,6 @@ class DiffusionDetCriterion(nn.Module):
         loss_bbox: nn.Module,
         loss_giou: nn.Module,
         deep_supervision: bool = True,
-        loss_objectness_weight: float = 1.0,
         scale_aware: bool = False,
         scale_aware_mode: str = 'inverse',
         scale_aware_min_weight: float = 0.5,
@@ -39,7 +38,6 @@ class DiffusionDetCriterion(nn.Module):
         self.loss_bbox = loss_bbox
         self.loss_giou = loss_giou
         self.deep_supervision = deep_supervision
-        self.loss_objectness_weight = loss_objectness_weight
         self.scale_aware = scale_aware
         self.scale_aware_mode = scale_aware_mode
         self.scale_aware_min_weight = scale_aware_min_weight
@@ -77,10 +75,6 @@ class DiffusionDetCriterion(nn.Module):
             'loss_bbox': loss_bbox,
             'loss_giou': loss_giou,
         }
-
-        if outputs.pred_objectness is not None:
-            loss_obj = self._loss_objectness(outputs, targets, indices)
-            losses['loss_objectness'] = loss_obj
 
         return losses
 
@@ -184,23 +178,3 @@ class DiffusionDetCriterion(nn.Module):
             loss_giou = loss_giou.sum() / num_pos
 
         return loss_bbox, loss_giou
-
-    def _loss_objectness(
-        self,
-        outputs: ModelOutput,
-        targets: List[InstanceData],
-        indices: List[Tuple[Tensor, Tensor]],
-    ) -> Tensor:
-        pred_obj = outputs.pred_objectness
-        bs, num_queries = pred_obj.shape[:2]
-        device = pred_obj.device
-
-        target_obj = torch.zeros(bs, num_queries, device=device)
-        for i, (src_idx, gt_idx) in enumerate(indices):
-            if len(src_idx) > 0:
-                target_obj[i, src_idx] = 1.0
-
-        loss_obj = F.binary_cross_entropy_with_logits(
-            pred_obj.squeeze(-1), target_obj, reduction='mean'
-        )
-        return loss_obj * self.loss_objectness_weight

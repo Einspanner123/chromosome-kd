@@ -103,28 +103,3 @@ class L1Loss(nn.Module):
     def forward(self, pred: Tensor, target: Tensor) -> Tensor:
         loss = F.l1_loss(pred, target, reduction=self.reduction)
         return loss * self.loss_weight
-
-
-class FlowMatchingVelocityLoss(nn.Module):
-    """Flow Matching 速度场 MSE Loss
-
-    L_flow = ||v_pred - (b_gt - z)||^2
-    仅对前景 (matched) 提议框计算。
-    """
-
-    def __init__(self, loss_weight: float = 5.0):
-        super().__init__()
-        self.loss_weight = loss_weight
-
-    def forward(
-        self,
-        v_pred: Tensor,
-        v_target: Tensor,
-        fg_mask: Tensor = None,
-    ) -> Tensor:
-        if fg_mask is not None:
-            v_pred = v_pred[fg_mask]
-            v_target = v_target[fg_mask]
-        if v_pred.numel() == 0:
-            return v_pred.sum() * 0
-        return F.mse_loss(v_pred, v_target) * self.loss_weight
