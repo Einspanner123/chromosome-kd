@@ -66,7 +66,8 @@ model = dict(
         prediction_mode='x0',
         adaln_params=9,
         regression_mode='direct',  # direct模式: reg_head输出RF velocity v (v=x_noise-x_start)，推理时x0=x_t-v*t，非sigmoid bbox
-        use_adaln_zero=True,  # DiT 训练核心: 恒等初始化保证稳定收敛
+        use_adaln_zero=False,  # AdaLN-Zero 导致 3×3=9个DiTBlock退化为恒等函数，分类头无法学习
+        train_noise_source='grid',  # 训练噪声也用网格初始化，与推理分布一致，消除训练-推理不匹配
         num_fpn_levels=3,
         num_ref_points=8,
         box_init_mode='spatial_prior',  # DAB-DETR: 均匀分布锚点位置编码，注入空间先验
@@ -85,7 +86,7 @@ model = dict(
             prediction_mode='x0',
             adaln_params=9,
             regression_mode='direct',
-            use_adaln_zero=True,
+            use_adaln_zero=False,
         ),
         criterion=dict(
             type='PurePyTorchDiffusionDetCriterion',

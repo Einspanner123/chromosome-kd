@@ -45,6 +45,10 @@ class BoxTokenizer(nn.Module):
             nn.ReLU(),
             nn.Linear(feat_channels, feat_channels),
         )
+        # LayerNorm 确保 pos_embed 与其他组件 magnitude 匹配
+        # 诊断发现: 不加时 pos_embed magnitude~1.5, 其他组件~20
+        # 导致所有 token 相似 (cos_sim=0.99), Self-Attention 前就已无法区分不同框
+        self.pos_norm = nn.LayerNorm(feat_channels)
         self.level_embed = nn.Embedding(num_fpn_levels, feat_channels)
 
         if init_mode in ('learnable', 'query'):
@@ -74,6 +78,20 @@ class BoxTokenizer(nn.Module):
                 nn.ReLU(),
                 nn.Linear(feat_channels, feat_channels),
             )
+
+        # ---- 初始化平衡 ----
+        # level_embed (nn.Embedding) 默认 N(0,1) init，std≈1.0
+        # bbox_pos_embed (2-layer MLP, Xavier init) 输出 std≈0.02-0.05
+        # anchor_pos_embed 同理 std≈0.02-0.05
+        # 不加处理时 level_embed 贡献 ~50x 于其他分量，导致 box_tokens ≈ level_embed
+        # 所有同 FPN level 的 proposal 得到相同 token → 100 个框全同 → NMS 塌缩为 1 框
+        # → GIoU 梯度同质化 → displacement loss 被淹没 → mAP=0
+        nn.init.normal_(self.level_embed.weight, std=0.01)
+        # 同时把 anchor_pos_embed 最后一层 bias 初始化为 0，确保
+        # spatial prior 不会在大特征空间中压制 bbox 变化信号
+        nn.init.zeros_(self.anchor_pos_embed[-1].bias)
+        nn.init.zeros_(self.bbox_pos_embed[-1].bias)
+
 
     def _assign_fpn_level(
         self, bboxes: Tensor
@@ -146,6 +164,7 @@ class BoxTokenizer(nn.Module):
             )
 
         pos_embed = self.bbox_pos_embed(bboxes)
+        pos_embed = self.pos_norm(pos_embed)  # 归一化使 magnitude ~sqrt(C)，与其他组件匹配
         lvl_embed = self.level_embed(level_indices)
 
         box_tokens = sampled_feat + pos_embed + lvl_embed

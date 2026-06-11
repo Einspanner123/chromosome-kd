@@ -75,6 +75,7 @@ class DiTDiffusionDetHead(nn.Module):
         use_adaln_zero: bool = True,
         num_blocks: int = 1,
         share_heads: bool = True,
+        train_noise_source: str = 'gaussian',
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -85,6 +86,7 @@ class DiTDiffusionDetHead(nn.Module):
         self.timesteps = timesteps
         self.sampling_timesteps = sampling_timesteps
         self.box_renewal = box_renewal
+        self.train_noise_source = train_noise_source
         self.use_ensemble = use_ensemble
         self.deep_supervision = deep_supervision
         self.rf_schedule = rf_schedule
@@ -247,7 +249,39 @@ class DiTDiffusionDetHead(nn.Module):
         return x0
 
     def _init_inference_boxes(self, bs, device):
-        """生成推理时的初始框 (纯噪声，与训练时 x_noise 分布一致)"""
+        """生成推理时的初始框
+
+        核心问题: 纯 randn (raw空间) 经 tanh 变换后所有框聚集在图像中心，
+        导致 Deformable Attention 参考点相同 → 所有提案获得相同图像条件 →
+        ODE 积分从同质态出发永远无法分化 → mAP=0。
+
+        训练时 proposal 分布在各 GT 的不同位置 (x_noisy = (1-t)*GT + t*noise)，
+        推理时必须匹配此分布: 提案要均匀覆盖全图，使每个提案有独立参考点。
+        """
+        if self.box_init_mode == 'spatial_prior':
+            # 空间均匀初始化: 归一化空间 cxcywh 网格 + 扰动 → atanh → raw
+            N = self.num_proposals
+            # 使用网格确保全图覆盖，扰动提供多样性
+            grid_len = int(math.ceil(math.sqrt(N)))
+            cy = torch.linspace(0.05, 0.95, grid_len, device=device)
+            cx = torch.linspace(0.05, 0.95, grid_len, device=device)
+            gy, gx = torch.meshgrid(cy, cx, indexing='ij')  # [grid, grid]
+            # 取前 N 个网格点的中心坐标
+            centers = torch.stack([
+                gx.flatten()[:N], gy.flatten()[:N]
+            ], dim=-1)  # [N, 2]
+            # 对每个网格点添加随机扰动 (0.03 标准差，相对 grid spacing ~0.1)
+            # 构建 100 个中心点分布于全图，每个有微小随机偏移
+            centers = (centers
+                       + torch.randn(N, 2, device=device) * 0.02).clamp(0.01, 0.99)
+            # 小框初始化: w,h ∈ [0.01, 0.15]，覆盖染色体大小范围 (1-15%)
+            w = torch.rand(N, 1, device=device) * 0.14 + 0.01
+            h = torch.rand(N, 1, device=device) * 0.14 + 0.01
+            # 归一化 cxcywh → raw cxcywh via atanh
+            cxcywh_normed = torch.cat([centers, w, h], dim=-1)  # [N, 4], 在 [0,1]
+            shifted = (2.0 * cxcywh_normed - 1.0).clamp(-0.999, 0.999)
+            x_raw = torch.atanh(shifted) * self.snr_scale  # [N, 4], raw 空间
+            return x_raw.unsqueeze(0).expand(bs, -1, -1)
         return torch.randn(bs, self.num_proposals, 4, device=device)
 
     def _raw_to_xyxy(self, raw_bboxes, img_metas):
@@ -553,7 +587,7 @@ class DiTDiffusionDetHead(nn.Module):
         for i in range(bs):
             num_gt = gt_bboxes[i].shape[0]
             if num_gt == 0:
-                noise = torch.randn(self.num_proposals, 4, device=device)
+                noise = self._make_train_noise(device)
                 x_boxes.append(noise)
                 x_starts.append(torch.zeros_like(noise))
                 x_noises.append(noise)
@@ -569,7 +603,7 @@ class DiTDiffusionDetHead(nn.Module):
 
             norm_gt_cxcywh = bbox_xyxy_to_cxcywh(targets[i].bboxes)
             gt_diffusion = (norm_gt_cxcywh * 2 - 1) * self.snr_scale
-            noise = torch.randn(self.num_proposals, 4, device=device)
+            noise = self._make_train_noise(device)
 
             if self.ot_coupling:
                 if self.ot_matcher == 'sinkhorn':
@@ -579,7 +613,6 @@ class DiTDiffusionDetHead(nn.Module):
                 else:
                     dist = torch.cdist(noise, gt_diffusion, p=2)
                     matched_idx = dist.argmin(dim=1)
-                    # nearest 匹配: 用距离反推概率
                     min_dist = dist.min(dim=1).values
                     max_prob = 1.0 / (min_dist + 1e-6)
                     max_prob = max_prob / max_prob.max()
@@ -601,6 +634,20 @@ class DiTDiffusionDetHead(nn.Module):
             x_boxes.append(x_noisy)
 
         return x_boxes, x_starts, x_noises, matched_gt_indices, ot_match_probs
+
+    def _make_train_noise(self, device):
+        """生成训练用的噪声提案，使其分布与推理一致。
+
+        关键问题: 训练用 randn 生成噪声，推理用 grid 生成提案，
+        两者分布不同导致训练-推理不匹配 → mAP=0。
+
+        'gaussian': 原始行为，纯 randn
+        'grid': 与 _init_inference_boxes 完全一致的网格初始化
+        """
+        if self.train_noise_source == 'grid':
+            return self._init_inference_boxes(1, device).squeeze(0)
+        else:
+            return torch.randn(self.num_proposals, 4, device=device)
 
     def loss(self, features, img_metas, gt_bboxes, gt_labels):
         device = features[0].device
@@ -667,11 +714,13 @@ class DiTDiffusionDetHead(nn.Module):
             losses, all_pred_bboxes_raw, x_starts, x_noises, device,
             all_x0_raw=all_x0_raw, x_noisy_batch=x_noisy_batch, t=t
         )
-        # 诊断指标: 监控 raw 空间预测分布、归一化质量、匹配统计
+        # 诊断指标: 监控所有关键组件状态
         self._add_diagnostic_metrics(
             losses, all_pred_bboxes, all_pred_bboxes_raw,
             x_starts, x_noisy_batch, t, matched_gt_indices, device,
-            all_x0_raw=all_x0_raw
+            all_x0_raw=all_x0_raw,
+            all_cls_logits=all_cls_logits,
+            all_curr_proposals=all_curr_proposals,
         )
 
         return losses
@@ -690,9 +739,11 @@ class DiTDiffusionDetHead(nn.Module):
             return
 
         x_starts_batch = torch.stack(x_starts)
-        x_noises_batch = torch.stack(x_noises)
-        # displacement target: x_noise - x_start = v_target * t
-        disp_target = x_noises_batch - x_starts_batch
+        # displacement target: x_noisy - x_start = t * (noise - x_start) = t * v
+        # 正确 target 是时间缩放后的速度，而非完整速度 v = noise - x_start
+        # 否则完美预测 x0_raw=x_start 时 loss = (1-t)²||v||² ≠ 0，
+        # 梯度会错误地推 x0_raw 趋向 (1-t)*noise + t*x_start
+        disp_target = x_noisy_batch - x_starts_batch
         vel_weight = 1.0
 
         # x0-prediction: displacement = x_noisy - x0_pred
@@ -718,18 +769,96 @@ class DiTDiffusionDetHead(nn.Module):
     def _add_diagnostic_metrics(
         self, losses, all_pred_bboxes, all_pred_bboxes_raw,
         x_starts, x_noisy_batch, t, matched_gt_indices, device,
-        all_x0_raw=None
+        all_x0_raw=None, all_cls_logits=None, all_curr_proposals=None,
+        norm_pred_bboxes=None, curr_proposals_list=None,
     ):
-        """添加诊断指标到 losses dict，由 MMEngine 自动记录到 SwanLab。
+        """添加诊断指标，覆盖训练流程每个环节的状态。
 
         关键监控维度:
-        1. velocity 预测分布 — 确认 v-prediction 是否在合理范围
-        2. 归一化空间预测质量 — 确认 x0 反推是否有效
-        3. 时间步采样分布 — 确认 t 采样是否合理
-        4. 匹配统计 — 确认 OT 匹配是否有效
+        1. Box Token 多样性 — box_tokens 各 proposal 是否有差异
+        2. 分类头输出分布 — sigmoid 后分数分布、正负例差异
+        3. 回归头输出质量 — 框有效性、空间覆盖、多样性
+        4. displacement 预测 — v-prediction 误差分解
+        5. OT 匹配质量 — 每个 GT 分配了多少 proposal
+        6. 损失分解 — 各 loss 项的数值与比例
         """
+        from mmengine.logging import print_log
         with torch.no_grad():
-            # 1. displacement/velocity 预测分布 (从 x0_raw 反推)
+            # ============ 0. 损失分解 (最关键: 确认各 loss 是否在下降) ============
+            loss_items = []
+            for k in sorted(losses.keys()):
+                v = losses[k]
+                if isinstance(v, torch.Tensor):
+                    loss_items.append(f'{k}={v.item():.4f}')
+            print_log(
+                f'[LOSS] step_diag: {", ".join(loss_items)}',
+                logger='current',
+            )
+
+            # ============ 1. 分类头输出诊断 ============
+            if all_cls_logits is not None:
+                cls_last = all_cls_logits[-1]  # [bs, N, num_classes]
+                scores = torch.sigmoid(cls_last)  # [bs, N, num_classes]
+                max_scores, pred_labels = scores.max(-1)  # [bs, N]
+                # 分数分布
+                top10_scores = max_scores.topk(min(10, max_scores.shape[1]), dim=1)[0]
+                print_log(
+                    f'[CLS] max_score: mean={max_scores.mean():.4f} '
+                    f'std={max_scores.std():.4f} '
+                    f'min={max_scores.min():.4f} max={max_scores.max():.4f} '
+                    f'top10_mean={top10_scores.mean():.4f}',
+                    logger='current',
+                )
+                # 标签分布: 模型倾向于预测哪些类？
+                label_unique = pred_labels.unique()
+                print_log(
+                    f'[CLS] pred_label_count={len(label_unique)}/{cls_last.shape[-1]} '
+                    f'unique={sorted(label_unique.tolist())[:12]}...',
+                    logger='current',
+                )
+                # 正负例分数分离度
+                losses['diag_cls_max_mean'] = max_scores.mean().detach()
+                losses['diag_cls_max_std'] = max_scores.std().detach()
+
+            # ============ 2. 回归头输出诊断 ============
+            normed_pred = all_pred_bboxes[-1]  # [bs, N, 4] xyxy [0,1]
+            losses['diag_normed_pred_mean'] = normed_pred.mean().detach()
+            losses['diag_normed_pred_std'] = normed_pred.std().detach()
+            losses['diag_normed_pred_min'] = normed_pred.min().detach()
+            losses['diag_normed_pred_max'] = normed_pred.max().detach()
+            # 框有效性
+            valid_w = (normed_pred[..., 2] > normed_pred[..., 0] + 1e-4).float()
+            valid_h = (normed_pred[..., 3] > normed_pred[..., 1] + 1e-4).float()
+            valid_both = (valid_w * valid_h).mean()
+            losses['diag_valid_w_ratio'] = valid_w.mean().detach()
+            losses['diag_valid_h_ratio'] = valid_h.mean().detach()
+            losses['diag_valid_both'] = valid_both.detach()
+            # 框空间覆盖: 是否所有框都预测在相同位置？
+            cx = (normed_pred[..., 0] + normed_pred[..., 2]) / 2
+            cy = (normed_pred[..., 1] + normed_pred[..., 3]) / 2
+            losses['diag_cx_range'] = (cx.max() - cx.min()).detach()
+            losses['diag_cy_range'] = (cy.max() - cy.min()).detach()
+            # 框对多样性: 随机取 50 对的 pairwise IoU 均值
+            bs_i, N_i = normed_pred.shape[:2]
+            if N_i >= 2:
+                idx_a = torch.randperm(N_i, device=device)[:min(50, N_i)]
+                idx_b = torch.randperm(N_i, device=device)[:min(50, N_i)]
+                from torchvision.ops import box_iou as _box_iou
+                iou_pairs = _box_iou(
+                    normed_pred[0, idx_a], normed_pred[0, idx_b]
+                ).diag()
+                losses['diag_pairwise_iou'] = iou_pairs.mean().detach()
+            else:
+                losses['diag_pairwise_iou'] = normed_pred.new_zeros(1).detach()
+            print_log(
+                f'[REG] cx_range={losses["diag_cx_range"]:.3f} '
+                f'cy_range={losses["diag_cy_range"]:.3f} '
+                f'valid_both={valid_both:.3f} '
+                f'pairwise_iou={losses.get("diag_pairwise_iou", 0):.3f}',
+                logger='current',
+            )
+
+            # ============ 3. displacement/velocity 预测分布 ============
             if self.regression_mode == 'direct' and all_x0_raw is not None:
                 x0_raw_last = all_x0_raw[-1]
                 if x0_raw_last is not None:
@@ -739,45 +868,60 @@ class DiTDiffusionDetHead(nn.Module):
                     losses['diag_v_pred_std'] = disp_pred.std().detach()
                     losses['diag_v_target_mean'] = disp_target.mean().detach()
                     losses['diag_v_target_std'] = disp_target.std().detach()
-                    # displacement 各维度 MAE
-                    disp_mae = (disp_pred - disp_target).abs().mean(dim=(0, 1))  # [4]
+                    disp_mae = (disp_pred - disp_target).abs().mean(dim=(0, 1))
                     for i, name in enumerate(['cx', 'cy', 'w', 'h']):
                         losses[f'diag_v_mae_{name}'] = disp_mae[i].detach()
-                    # x0 误差
                     x0_target = torch.stack(x_starts)
                     x0_mae = (x0_raw_last - x0_target).abs().mean(dim=(0, 1))
                     for i, name in enumerate(['cx', 'cy', 'w', 'h']):
                         losses[f'diag_x0_mae_{name}'] = x0_mae[i].detach()
+                    print_log(
+                        f'[VEL] mae: cx={disp_mae[0]:.3f} cy={disp_mae[1]:.3f} '
+                        f'w={disp_mae[2]:.3f} h={disp_mae[3]:.3f}',
+                        logger='current',
+                    )
 
-            # 2. 归一化空间预测质量
-            normed_pred = all_pred_bboxes[-1]  # [bs, N, 4] xyxy [0,1]
-            losses['diag_normed_pred_mean'] = normed_pred.mean().detach()
-            losses['diag_normed_pred_std'] = normed_pred.std().detach()
-            losses['diag_normed_pred_min'] = normed_pred.min().detach()
-            losses['diag_normed_pred_max'] = normed_pred.max().detach()
-            # xyxy 有效性: x2>x1, y2>y1 的比例
-            valid_w = (normed_pred[..., 2] > normed_pred[..., 0]).float().mean()
-            valid_h = (normed_pred[..., 3] > normed_pred[..., 1]).float().mean()
-            losses['diag_valid_w_ratio'] = valid_w.detach()
-            losses['diag_valid_h_ratio'] = valid_h.detach()
-
-            # 3. 时间步采样分布
+            # ============ 4. 时间步分布 ============
             losses['diag_t_mean'] = t.mean().detach()
             losses['diag_t_std'] = t.std().detach()
             losses['diag_t_min'] = t.min().detach()
             losses['diag_t_max'] = t.max().detach()
 
-            # 4. 匹配统计
+            # ============ 5. OT 匹配统计 ============
             if matched_gt_indices is not None:
                 gt_counts = torch.tensor(
                     [indices.unique().numel() for indices in matched_gt_indices],
                     dtype=torch.float, device=device,
                 )
                 losses['diag_matched_gt_mean'] = gt_counts.mean().detach()
+                print_log(
+                    f'[OT] matched_gt: mean={gt_counts.mean():.1f} '
+                    f'range=[{gt_counts.min():.0f}, {gt_counts.max():.0f}]',
+                    logger='current',
+                )
 
-            # 5. noisy 输入分布 (确认噪声注入正确)
+            # ============ 6. noisy 输入分布 ============
             losses['diag_noisy_mean'] = x_noisy_batch.mean().detach()
             losses['diag_noisy_std'] = x_noisy_batch.std().detach()
+
+            # ============ 7. 特征多样性 — 各 proposal 的 fc_feature 余弦相似度 ============
+            if all_curr_proposals is not None and len(all_curr_proposals) > 0:
+                tokens = all_curr_proposals[-1]  # can be [1, bs, N, C] or [bs, N, C]
+                if tokens.dim() == 4:
+                    tokens = tokens.squeeze(0)  # [bs, N, C]
+                elif tokens.dim() == 3 and tokens.shape[1] == 1:
+                    tokens = tokens.squeeze(1)
+                if tokens.dim() == 3 and tokens.shape[1] >= 2:
+                    t0 = tokens[0]  # [N, C]
+                    t_norm = F.normalize(t0, dim=-1)
+                    cos_sim = (t_norm @ t_norm.T).abs()  # [N, N]
+                    mask = ~torch.eye(N_i, dtype=torch.bool, device=device)
+                    losses['diag_token_cos_sim'] = cos_sim[mask].mean().detach()
+                    print_log(
+                        f'[FEAT] token_cos_sim={losses["diag_token_cos_sim"]:.4f} '
+                        f'(1.0=all same, 0.0=orthogonal)',
+                        logger='current',
+                    )
 
     def _normed_to_img(self, normed_bboxes, img_metas):
         scale = self._get_img_scale_tensors(img_metas).to(normed_bboxes.device)
