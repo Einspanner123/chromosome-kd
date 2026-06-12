@@ -1,12 +1,14 @@
 """快速验证: train_noise_source='grid' 能否正常启动训练"""
-import torch
 import sys
+
+import torch
+
 sys.path.insert(0, 'projects/LDMDetDiT')
 
 
 def test_noise_gen():
-    from mods.rectified_flow import RectifiedFlow
     from mods.dit_head import DiTDiffusionDetHead
+    from mods.rectified_flow import RectifiedFlow
 
     N, bs = 100, 2
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -26,7 +28,7 @@ def test_noise_gen():
     n0 = head._make_train_noise(device)
     n1 = head._make_train_noise(device)
     assert not torch.allclose(n0, n1)
-    print(f"2. noise varies between calls ✓")
+    print("2. noise varies between calls ✓")
 
     # 3. grid noise vs randn: grid 确定性高 (std 更小)
     n_grid = head._make_train_noise(device)
@@ -56,14 +58,14 @@ def test_noise_gen():
         expected = (1-t[i]) * xs + t[i] * xn
         diff = (xb - expected).abs().max().item()
         assert diff < 1e-5, f"batch {i}: diff={diff:.6f}"
-    print(f"4. _build_training_targets: x_noisy = (1-t)*x_start + t*noise ✓")
+    print("4. _build_training_targets: x_noisy = (1-t)*x_start + t*noise ✓")
 
     # 5. 验证 t=1 时 x_noisy ≈ noise (归一化后是网格分布，不是中心聚集)
     t1 = torch.tensor([1.0, 1.0], device=device)
     xb1, xs1, xn1, _, _ = head._build_training_targets(
         bs, device, t1, targets, gt_bboxes, img_metas)
     for i in range(bs):
-        assert torch.allclose(xb1[i], xn1[i], atol=1e-4), f"t=1: x_noisy ≠ noise"
+        assert torch.allclose(xb1[i], xn1[i], atol=1e-4), "t=1: x_noisy ≠ noise"
     # grid 噪声不应聚集在 0 附近 (中心聚集的典型 randn 问题)
     print(f"5. t=1: x_noisy = noise (grid), center_bias={xn1[0][:, :2].norm(dim=-1).mean():.3f} "
           f"(grid should be ~2-3, not ~0) ✓")

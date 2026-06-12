@@ -1,16 +1,17 @@
 """深度诊断 2: 追踪 DiTBlock 内部各组件的输出规模"""
 
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import torch
-import torch.nn as nn
-
-from mods.dit_block import DiTBlock
 from mods.box_tokenizer import (
-    bbox_to_reference_points, reference_points_with_levels,
+    bbox_to_reference_points,
+    reference_points_with_levels,
 )
 from mods.deformable_attn import flatten_fpn_features
+from mods.dit_block import DiTBlock
 
 
 def create_mock_data(bs=2, N=100, feat_channels=384):
@@ -178,8 +179,8 @@ def main():
           f"std={last_weight.std():.6f}, norm={last_weight.norm():.6f}")
     print(f"  Last layer bias:   mean={last_bias.mean():.6f}, "
           f"std={last_bias.std():.6f}")
-    print(f"  Weight gain (xavier_uniform_ with gain=0.02): "
-          f"std should be ~0.02/sqrt(fan_in+fan_out)")
+    print("  Weight gain (xavier_uniform_ with gain=0.02): "
+          "std should be ~0.02/sqrt(fan_in+fan_out)")
     expected_std = 0.02 / ((last_weight.shape[0] + last_weight.shape[1]) ** 0.5)
     print(f"  Expected std: {expected_std:.6f}, Actual std: {last_weight.std():.6f}")
 
@@ -193,15 +194,15 @@ def main():
     print("\n=== ROOT CAUSE ANALYSIS ===")
     print()
     print(f"1. AdaLN a1/a2/a3 scaling factors: {a1_effect:.6f} / {a2_effect:.6f} / {a3_effect:.6f}")
-    print(f"   -> The gain=0.02 initialization makes a1,a2,a3 near-zero")
-    print(f"   -> box_tokens = box_tokens + a1*attn_out ≈ box_tokens (pass-through)")
+    print("   -> The gain=0.02 initialization makes a1,a2,a3 near-zero")
+    print("   -> box_tokens = box_tokens + a1*attn_out ≈ box_tokens (pass-through)")
     print()
     print(f"2. Cross-attn sensitivity to bbox: {bbox_sensitivity:.6f}")
     if bbox_sensitivity < 0.01:
         print("   -> Cross-attention does not differentiate between bbox positions!")
     print()
     print(f"3. Overall block change: {diff:.6f} ({percent_change:.2f}%)")
-    print(f"   -> DiTBlock acts as near-identity, tokens barely change")
+    print("   -> DiTBlock acts as near-identity, tokens barely change")
 
 
 if __name__ == '__main__':

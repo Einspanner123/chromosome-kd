@@ -126,9 +126,10 @@ class PredictionVisHook(Hook):
         })
 
     def after_val_epoch(self, runner, metrics=None):
+        from pathlib import Path
+
         import cv2
         import numpy as np
-        from pathlib import Path
 
         if not self._captured:
             runner.logger.warning('[VisHook] 没有捕获到有效的预测结果')
@@ -158,9 +159,7 @@ class PredictionVisHook(Hook):
                 continue
 
             scale_factor = item['scale_factor']
-            if isinstance(scale_factor, np.ndarray) and len(scale_factor) >= 2:
-                sx, sy = float(scale_factor[0]), float(scale_factor[1])
-            elif isinstance(scale_factor, (list, tuple)) and len(scale_factor) >= 2:
+            if (isinstance(scale_factor, np.ndarray) and len(scale_factor) >= 2) or (isinstance(scale_factor, (list, tuple)) and len(scale_factor) >= 2):
                 sx, sy = float(scale_factor[0]), float(scale_factor[1])
             else:
                 sx = sy = 1.0
@@ -209,7 +208,6 @@ class PredictionVisHook(Hook):
         使用 JSON 元数据文件追踪每张图已处理的 epoch，避免重复追加。
         """
         import json
-        from pathlib import Path
 
         all_files = sorted(vis_dir.glob('epoch_*.jpg'))
 
@@ -266,7 +264,6 @@ class PredictionVisHook(Hook):
 
     def _generate_gif(self, vis_dir, items, gif_path):
         """首次生成 GIF 动画。"""
-        from PIL import Image
 
         frames = self._load_frames(vis_dir, items)
         if len(frames) < 2:

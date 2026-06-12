@@ -8,19 +8,17 @@ Usage:
 """
 
 from __future__ import annotations
-
 import argparse
 import json
 import os
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import numpy as np
 
+matplotlib.use('Agg')
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+import numpy as np
 
 PALETTE = {
     'standard': '#4C72B0',
@@ -65,7 +63,7 @@ def parse_args():
 
 
 def load_results(path: str) -> Dict[str, Any]:
-    with open(path, 'r') as f:
+    with open(path) as f:
         return json.load(f)
 
 

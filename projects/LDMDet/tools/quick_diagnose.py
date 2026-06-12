@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 """快速诊断模型预测输出"""
 import sys
+
 sys.path.insert(0, 'projects/LDMDet')
 
+import mmengine
 import torch
 from mmengine.config import Config
-import mmengine
 
 cfg = Config.fromfile('projects/LDMDet/configs/ldmdet_dit.py')
 cfg.work_dir = 'work_dirs/ldmdet_dinov3_small_384_rope_shifted3'

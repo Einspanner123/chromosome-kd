@@ -8,8 +8,8 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-from mmdet.apis import init_detector, inference_detector
-from mmengine.config import Config
+
+from mmdet.apis import inference_detector, init_detector
 
 
 def main():

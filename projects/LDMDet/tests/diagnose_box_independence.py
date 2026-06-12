@@ -1,12 +1,15 @@
 """诊断: 验证 Self-Attention 是否导致预测框趋同 (homogenization)"""
 import sys
+
 sys.path.insert(0, '/home/linkst/workplace/chromo/chromosome-kd')
 
-import torch
 import numpy as np
+import torch
+
 torch.manual_seed(42)
 
-import glob, os
+import glob
+import os
 
 from mmdet.apis import init_detector
 
@@ -32,17 +35,17 @@ with torch.no_grad():
         torch.manual_seed(seed)
         img = torch.randn(1, 3, 800, 800, device=device)
         feats = model.extract_feat(img)
-        
+
         img_metas = [dict(img_shape=(800, 800), ori_shape=(800, 800), scale_factor=(1.0, 1.0))]
         results = head.predict(feats, img_metas, rescale=False)
         res = results[0]
-        
+
         if hasattr(res, 'bboxes') and len(res.bboxes) > 0:
             bboxes = res.bboxes.cpu().numpy()
             scores = res.scores.cpu().numpy()
             labels = res.labels.cpu().numpy()
             n = len(bboxes)
-            
+
             x1, y1, x2, y2 = bboxes[:,0], bboxes[:,1], bboxes[:,2], bboxes[:,3]
             areas = (x2-x1)*(y2-y1)
             xx1 = np.maximum(x1[:,None], x1[None,:]); yy1 = np.maximum(y1[:,None], y1[None,:])
@@ -51,11 +54,11 @@ with torch.no_grad():
             iou = inter / (areas[:,None] + areas[None,:] - inter + 1e-8)
             mask = ~np.eye(n, dtype=bool)
             pw_iou = iou[mask]
-            
+
             centers = np.stack([(x1+x2)/2, (y1+y2)/2], axis=1)
             center_dist = np.linalg.norm(centers[:,None] - centers[None,:], axis=2)
             pw_dist = center_dist[mask]
-            
+
             print(f"\n  Seed {seed}: {n} preds")
             print(f"    IoU: mean={pw_iou.mean():.4f}, med={np.median(pw_iou):.4f}, "
                   f"max={pw_iou.max():.4f}, min={pw_iou.min():.4f}")
@@ -73,21 +76,21 @@ with torch.no_grad():
     torch.manual_seed(42)
     img = torch.randn(1, 3, 800, 800, device=device)
     feats = model.extract_feat(img)
-    
+
     bs, N = 1, head.num_proposals
-    
+
     # 推理时的初始噪声框 (与推理流程一致)
     noisy_boxes = head._init_inference_boxes(bs, device)  # raw格式: x_start
     img_metas = [dict(img_shape=(800, 800), ori_shape=(800, 800), scale_factor=(1.0, 1.0))]
     noisy_boxes_xyxy = head._raw_to_xyxy(noisy_boxes, img_metas)
     print(f"\n  初始噪声框: x=[{noisy_boxes_xyxy[:,:,0].min():.3f},{noisy_boxes_xyxy[:,:,0].max():.3f}], "
           f"y=[{noisy_boxes_xyxy[:,:,1].min():.3f},{noisy_boxes_xyxy[:,:,1].max():.3f}]")
-    
+
     from projects.LDMDet.mods.deformable_attn import flatten_fpn_features
     fpn_f, ss, lsi = flatten_fpn_features(feats)
-    
+
     box_tokens, _ = head.box_tokenizer(noisy_boxes_xyxy, feats)
-    
+
     def tok_div(tokens, name):
         tn = tokens.float() / (tokens.float().norm(dim=-1, keepdim=True) + 1e-8)
         sim = torch.matmul(tn, tn.transpose(1, 2))  # (bs, N, N)
@@ -98,21 +101,21 @@ with torch.no_grad():
         print(f"  {name}: cos_sim mean={pw.mean():.4f}, std={pw.std():.4f}, "
               f"[{pw.min():.4f}, {pw.max():.4f}]")
         return pw
-    
+
     print("\n  Token 多样性变化:")
     tok_div(box_tokens, "初始")
-    
+
     time_emb = head.time_mlp(torch.zeros(bs, device=device))
     for i, block in enumerate(single.dit_blocks):
         box_tokens = block(box_tokens, fpn_f, ss, lsi, time_emb, noisy_boxes_xyxy)
         tok_div(box_tokens, f"Block {i+1}")
-    
+
     # 最终预测
     cls_logits = single.cls_head(box_tokens)
     bbox_preds = single.reg_head(box_tokens)
     scores = torch.sigmoid(cls_logits)
-    
-    print(f"\n  最终预测:")
+
+    print("\n  最终预测:")
     print(f"    分类分数: mean={scores.mean():.4f}, std={scores.std():.4f}, max={scores.max():.4f}")
     print(f"    bbox_preds: x=[{bbox_preds[:,:,0].min():.4f},{bbox_preds[:,:,0].max():.4f}], "
           f"y=[{bbox_preds[:,:,1].min():.4f},{bbox_preds[:,:,1].max():.4f}], "

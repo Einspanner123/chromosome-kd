@@ -1,13 +1,15 @@
 """诊断: BoxTokenizer 编码区分度分析 — 定位 cos_sim=0.80 的根因"""
 import sys
+
 sys.path.insert(0, '/home/linkst/workplace/chromo/chromosome-kd')
 
 import torch
 import torch.nn as nn
-import numpy as np
+
 torch.manual_seed(42)
 
-import glob, os
+import glob
+import os
 
 from mmdet.apis import init_detector
 
@@ -64,7 +66,7 @@ print("="*60)
 with torch.no_grad():
     level_indices = tokenizer._assign_fpn_level(bboxes_norm)
     print(f"FPN 层级分布: {torch.bincount(level_indices[0].cpu())}")
-    
+
     # pos_embed
     pos_embed = tokenizer.bbox_pos_embed(bboxes_norm)  # (1, 100, C)
     # lvl_embed
@@ -72,10 +74,10 @@ with torch.no_grad():
     # content (单点采样)
     content = tokenizer._sample_content_features(bboxes_norm, feats)  # (1, 100, C)
     content_proj = tokenizer.content_proj(content)      # (1, 100, C)
-    
+
     # 初始项 (init_mode='zero' → 全零)
     sampled_feat = torch.zeros(bs, N, feat_channels, device=device)
-    
+
     # 完整 token
     full_tokens = sampled_feat + pos_embed + lvl_embed + content_proj
 
@@ -91,7 +93,7 @@ def analyze_component(tensor, name):
     cos_sim = torch.matmul(t_norm, t_norm.T)
     mask = ~torch.eye(N, dtype=torch.bool)
     pw_cos = cos_sim[mask]
-    
+
     print(f"\n  [{name}]")
     print(f"    magnitude: mean={token_norms.mean():.2f}, std={token_norms.std():.2f}")
     print(f"    cross-proposal channel var: {channel_var:.6f}")
@@ -131,9 +133,9 @@ with torch.no_grad():
     test_embed = tokenizer.bbox_pos_embed(test_coords)  # (1, 7, C)
     t_norm = test_embed / (test_embed.norm(dim=-1, keepdim=True) + 1e-8)
     cos_mat = torch.matmul(t_norm[0], t_norm[0].T)
-    
+
     labels = ['左上', '右上', '左下', '右下', '中心', '随机A', '随机B']
-    print(f"\n  极端坐标间的余弦相似度矩阵:")
+    print("\n  极端坐标间的余弦相似度矩阵:")
     print(f"  {'':>8}", end='')
     for l in labels:
         print(f"{l:>8}", end='')
@@ -143,24 +145,24 @@ with torch.no_grad():
         for j in range(7):
             print(f"{cos_mat[i,j].item():8.4f}", end='')
         print()
-    
+
     pw_mask = ~torch.eye(7, dtype=torch.bool)
     pw_cos = cos_mat[pw_mask]
     print(f"\n  pairwise cos_sim: mean={pw_cos.mean():.4f}, "
           f"[{pw_cos.min():.4f}, {pw_cos.max():.4f}]")
 
 # 测试: 坐标距离 vs 嵌入相似度
-print(f"\n  坐标欧氏距离 vs 嵌入余弦相似度 (100个框):")
+print("\n  坐标欧氏距离 vs 嵌入余弦相似度 (100个框):")
 with torch.no_grad():
     coord_dist = torch.cdist(bboxes_norm[0], bboxes_norm[0], p=2)  # (100, 100)
     pe = tokenizer.bbox_pos_embed(bboxes_norm)
     pe_norm = pe / (pe.norm(dim=-1, keepdim=True) + 1e-8)
     embed_sim = torch.matmul(pe_norm[0], pe_norm[0].T)  # (100, 100)
-    
+
     mask = ~torch.eye(N, dtype=torch.bool)
     cd = coord_dist[mask].cpu().numpy()
     es = embed_sim[mask].cpu().numpy()
-    
+
     # 按坐标距离分组
     bins = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.7, 1.0]
     for i in range(len(bins)-1):
@@ -187,7 +189,7 @@ for i, layer in enumerate(mlp):
 
 # 检查第一层权重: 4个输入通道 (x1,y1,x2,y2) 的权重分布
 w0 = mlp[0].weight.data  # (384, 4)
-print(f"\n  第一层对各坐标的敏感度 (weight L2 norm):")
+print("\n  第一层对各坐标的敏感度 (weight L2 norm):")
 print(f"    x1: {w0[:,0].norm().item():.4f}")
 print(f"    y1: {w0[:,1].norm().item():.4f}")
 print(f"    x2: {w0[:,2].norm().item():.4f}")
@@ -208,34 +210,34 @@ def sinusoidal_position_encoding(coords, num_freqs=64, temperature=10000):
     """
     bs, N, D = coords.shape
     device = coords.device
-    
+
     # 频率: (num_freqs,)
     freqs = 1.0 / (temperature ** (torch.arange(0, num_freqs, device=device).float() / num_freqs))
-    
+
     # coords: (bs, N, 4, 1) * freqs: (1, 1, 1, num_freqs) → (bs, N, 4, num_freqs)
     angles = coords.unsqueeze(-1) * freqs.view(1, 1, 1, -1) * (2 * torch.pi)
-    
+
     sin_part = torch.sin(angles)  # (bs, N, 4, num_freqs)
     cos_part = torch.cos(angles)  # (bs, N, 4, num_freqs)
-    
+
     encoding = torch.cat([sin_part, cos_part], dim=-1)  # (bs, N, 4, 2*num_freqs)
     encoding = encoding.reshape(bs, N, D * 2 * num_freqs)  # (bs, N, 512)
-    
+
     return encoding
 
 with torch.no_grad():
     sin_enc = sinusoidal_position_encoding(bboxes_norm, num_freqs=48)
     # 投影到 384 维
     sin_enc = sin_enc[:, :, :feat_channels]  # 取前384维
-    
+
     analyze_component(sin_enc, "正弦编码 (前384维)")
-    
+
     # 坐标距离 vs 正弦编码相似度
-    print(f"\n  坐标距离 vs 正弦编码余弦相似度:")
+    print("\n  坐标距离 vs 正弦编码余弦相似度:")
     se_norm = sin_enc / (sin_enc.norm(dim=-1, keepdim=True) + 1e-8)
     se_sim = torch.matmul(se_norm[0], se_norm[0].T)
     se_sim_flat = se_sim[mask].cpu().numpy()
-    
+
     for i in range(len(bins)-1):
         in_bin = (cd >= bins[i]) & (cd < bins[i+1])
         if in_bin.sum() > 0:

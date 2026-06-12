@@ -8,14 +8,12 @@
   5. Regression predictions 的范围和多样性
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import torch
-import torch.nn as nn
-
 from mods.dit_head import DiTDiffusionDetHead
 from mods.structures import ImageMeta
 
@@ -78,7 +76,7 @@ def main():
     bboxes_a = torch.tensor([[
         [0.1, 0.1, 0.2, 0.2],
     ] * N]).float().expand(bs, -1, -1)
-    # 输入 B: 大框  
+    # 输入 B: 大框
     bboxes_b = torch.tensor([[
         [0.3, 0.3, 0.7, 0.7],
     ] * N]).float().expand(bs, -1, -1)
@@ -104,7 +102,6 @@ def main():
     print("\n--- Test 2: Deformable Cross-Attention Output ---")
 
     from mods.deformable_attn import flatten_fpn_features
-    from mods.box_tokenizer import bbox_to_reference_points, reference_points_with_levels
 
     fpn_flattened, spatial_shapes, level_start_index = flatten_fpn_features(fpn)
 

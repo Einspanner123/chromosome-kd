@@ -12,7 +12,6 @@ Usage:
 """
 
 from __future__ import annotations
-
 import argparse
 import glob as glob_mod
 import json
@@ -21,7 +20,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 import torch
 import torch.nn as nn
@@ -29,11 +28,11 @@ import torch.nn as nn
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
-from mmengine.config import Config
 from mmengine.analysis import get_model_complexity_info
+from mmengine.config import Config
+
 from mmdet.apis import init_detector
 from mmdet.registry import DATASETS
-from mmdet.structures import DetDataSample
 
 
 def parse_args():
@@ -77,7 +76,7 @@ def resolve_checkpoint(ckpt_pattern: str) -> str:
 
 def load_results(output_path: str) -> Dict[str, Any]:
     if os.path.isfile(output_path):
-        with open(output_path, 'r') as f:
+        with open(output_path) as f:
             return json.load(f)
     return {'meta': {}, 'results': []}
 
@@ -346,7 +345,7 @@ def run_single_model(
         e2e_result = benchmark_e2e(model, samples, device, warmup_iters, bench_iters)
         print(f'    E2E: {e2e_result["fps"]:.1f} FPS | {e2e_result["latency_mean_ms"]:.1f} ± {e2e_result["latency_std_ms"]:.1f} ms')
 
-        print(f'    Running Forward-only benchmark...')
+        print('    Running Forward-only benchmark...')
         fwd_result = benchmark_forward(model, samples, device, warmup_iters, bench_iters, is_ldmdet=is_ldmdet)
         print(f'    Forward: {fwd_result["fps"]:.1f} FPS | {fwd_result["latency_mean_ms"]:.1f} ± {fwd_result["latency_std_ms"]:.1f} ms')
 
@@ -368,7 +367,7 @@ def run_single_model(
 
         results_data['results'].append(result_entry)
         save_results(results_data, output_path)
-        print(f'    Result saved.')
+        print('    Result saved.')
 
     if is_ldmdet and original_sampling_timesteps is not None:
         model.bbox_head.sampling_timesteps = original_sampling_timesteps
@@ -408,7 +407,7 @@ def print_summary(results_data: Dict[str, Any]):
 def main():
     args = parse_args()
 
-    with open(args.config, 'r') as f:
+    with open(args.config) as f:
         bench_cfg = json.load(f)
 
     device = args.device or bench_cfg.get('device', 'cuda:0')

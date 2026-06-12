@@ -1,8 +1,10 @@
 """Diagnose: check what the model actually predicts during inference"""
 import sys
+
 sys.path.insert(0, '/home/linkst/workplace/chromo/chromosome-kd')
 
 import torch
+
 torch.manual_seed(42)
 
 from mmengine.config import Config
@@ -11,7 +13,7 @@ from mmengine.registry import MODELS
 # Import and register model
 print("Importing model module...")
 from projects.LDMDet.model import PurePyTorchDiffusionDet
-from projects.LDMDet.mods import box_tokenizer  # register box_tokenizer components
+
 MODELS.register_module(name='LDMDet', module=PurePyTorchDiffusionDet, force=True)
 MODELS.register_module(module=PurePyTorchDiffusionDet, force=True)
 print("Model registered OK")
@@ -28,6 +30,7 @@ print(f"Model built, device={device}")
 # Try loading checkpoint
 ckpt_path = 'work_dirs/ldmdet_dit_gain05_delta/epoch_2.pth'
 import os
+
 if os.path.exists(ckpt_path):
     print(f"Loading checkpoint: {ckpt_path}")
     ckpt = torch.load(ckpt_path, map_location='cpu')
@@ -57,10 +60,10 @@ with torch.no_grad():
     feats = model.extract_feat(img_tensor)
     for i, f in enumerate(feats):
         print(f"  feat {i}: shape={f.shape}, mean={f.mean():.4f}")
-    
+
     from projects.LDMDet.mods.dit_head import ImageMeta
     metas = [ImageMeta(img_shape=(800, 800), ori_shape=(800, 800), scale_factor=(1.0, 1.0))]
-    
+
     results = model.bbox_head.predict(feats, metas, rescale=False)
     res = results[0]
     if hasattr(res, 'bboxes'):

@@ -4,11 +4,9 @@
 覆盖: 导入注册 → 单模块输出 → OT 匹配 → FeatureFusion → 端到端 loss
 """
 import os
-import math
 
 import pytest
 import torch
-
 
 # ============================================================
 # Part 1: 导入与注册验证
@@ -180,21 +178,27 @@ class TestSinusoidalPositionEmbeddings:
     """时间步位置编码输出验证"""
 
     def test_output_shape(self):
-        from projects.LDMDetDiT.mods.modules import SinusoidalPositionEmbeddings
+        from projects.LDMDetDiT.mods.modules import (
+            SinusoidalPositionEmbeddings,
+        )
         spe = SinusoidalPositionEmbeddings(dim=256)
         t = torch.rand(4)
         out = spe(t)
         assert out.shape == (4, 256)
 
     def test_output_range(self):
-        from projects.LDMDetDiT.mods.modules import SinusoidalPositionEmbeddings
+        from projects.LDMDetDiT.mods.modules import (
+            SinusoidalPositionEmbeddings,
+        )
         spe = SinusoidalPositionEmbeddings(dim=256)
         t = torch.rand(4) * 1000
         out = spe(t)
         assert out.min() >= -1.0 and out.max() <= 1.0
 
     def test_no_nan(self):
-        from projects.LDMDetDiT.mods.modules import SinusoidalPositionEmbeddings
+        from projects.LDMDetDiT.mods.modules import (
+            SinusoidalPositionEmbeddings,
+        )
         spe = SinusoidalPositionEmbeddings(dim=256)
         t = torch.rand(4) * 1000
         out = spe(t)
@@ -240,19 +244,25 @@ class TestBboxToReferencePoints:
     """bbox_to_reference_points 输出验证"""
 
     def test_output_shape(self):
-        from projects.LDMDetDiT.mods.box_tokenizer import bbox_to_reference_points
+        from projects.LDMDetDiT.mods.box_tokenizer import (
+            bbox_to_reference_points,
+        )
         bboxes = torch.rand(2, 100, 4)
         ref = bbox_to_reference_points(bboxes)
         assert ref.shape == (2, 100, 2)
 
     def test_output_range(self):
-        from projects.LDMDetDiT.mods.box_tokenizer import bbox_to_reference_points
+        from projects.LDMDetDiT.mods.box_tokenizer import (
+            bbox_to_reference_points,
+        )
         bboxes = torch.rand(2, 100, 4)
         ref = bbox_to_reference_points(bboxes)
         assert ref.min() >= 0.0 and ref.max() <= 1.0
 
     def test_center_correctness(self):
-        from projects.LDMDetDiT.mods.box_tokenizer import bbox_to_reference_points
+        from projects.LDMDetDiT.mods.box_tokenizer import (
+            bbox_to_reference_points,
+        )
         bboxes = torch.tensor([[[0.1, 0.2, 0.5, 0.6]]])
         ref = bbox_to_reference_points(bboxes)
         expected = torch.tensor([[[0.3, 0.4]]])
@@ -263,13 +273,17 @@ class TestReferencePointsWithLevels:
     """reference_points_with_levels 输出验证"""
 
     def test_output_shape(self):
-        from projects.LDMDetDiT.mods.box_tokenizer import reference_points_with_levels
+        from projects.LDMDetDiT.mods.box_tokenizer import (
+            reference_points_with_levels,
+        )
         ref = torch.rand(2, 100, 2)
         out = reference_points_with_levels(ref, num_levels=4)
         assert out.shape == (2, 100, 4, 2)
 
     def test_values_match_input(self):
-        from projects.LDMDetDiT.mods.box_tokenizer import reference_points_with_levels
+        from projects.LDMDetDiT.mods.box_tokenizer import (
+            reference_points_with_levels,
+        )
         ref = torch.tensor([[[0.3, 0.4]]])
         out = reference_points_with_levels(ref, num_levels=4)
         for l in range(4):
@@ -281,14 +295,18 @@ class TestMultiScaleDeformableAttention:
 
     @pytest.fixture
     def attn_module(self):
-        from projects.LDMDetDiT.mods.deformable_attn import MultiScaleDeformableAttention
+        from projects.LDMDetDiT.mods.deformable_attn import (
+            MultiScaleDeformableAttention,
+        )
         return MultiScaleDeformableAttention(
             embed_dim=256, num_heads=8, num_levels=4, num_points=8, dropout=0.0
         )
 
     @pytest.fixture
     def fpn_data(self):
-        from projects.LDMDetDiT.mods.deformable_attn import flatten_fpn_features
+        from projects.LDMDetDiT.mods.deformable_attn import (
+            flatten_fpn_features,
+        )
         fpn = [
             torch.rand(2, 256, 16, 16),
             torch.rand(2, 256, 8, 8),
@@ -317,7 +335,9 @@ class TestFlattenFPNFeatures:
     """FPN 特征展平工具函数验证"""
 
     def test_output_shapes(self):
-        from projects.LDMDetDiT.mods.deformable_attn import flatten_fpn_features
+        from projects.LDMDetDiT.mods.deformable_attn import (
+            flatten_fpn_features,
+        )
         fpn = [
             torch.rand(2, 256, 16, 16),
             torch.rand(2, 256, 8, 8),
@@ -331,14 +351,18 @@ class TestFlattenFPNFeatures:
         assert level_start_index.shape == (4,)
 
     def test_spatial_shapes_correct(self):
-        from projects.LDMDetDiT.mods.deformable_attn import flatten_fpn_features
+        from projects.LDMDetDiT.mods.deformable_attn import (
+            flatten_fpn_features,
+        )
         fpn = [torch.rand(2, 256, 16, 16), torch.rand(2, 256, 8, 8)]
         _, spatial_shapes, _ = flatten_fpn_features(fpn)
         expected = torch.tensor([[16, 16], [8, 8]])
         assert torch.equal(spatial_shapes, expected)
 
     def test_level_start_index_correct(self):
-        from projects.LDMDetDiT.mods.deformable_attn import flatten_fpn_features
+        from projects.LDMDetDiT.mods.deformable_attn import (
+            flatten_fpn_features,
+        )
         fpn = [torch.rand(2, 256, 16, 16), torch.rand(2, 256, 8, 8), torch.rand(2, 256, 4, 4)]
         _, _, level_start_index = flatten_fpn_features(fpn)
         expected = torch.tensor([0, 256, 256+64])
@@ -359,7 +383,9 @@ class TestDiTBlock:
 
     @pytest.fixture
     def fpn_data(self):
-        from projects.LDMDetDiT.mods.deformable_attn import flatten_fpn_features
+        from projects.LDMDetDiT.mods.deformable_attn import (
+            flatten_fpn_features,
+        )
         fpn = [torch.rand(2, 256, 16, 16), torch.rand(2, 256, 8, 8),
                torch.rand(2, 256, 4, 4), torch.rand(2, 256, 2, 2)]
         return flatten_fpn_features(fpn)
@@ -383,8 +409,10 @@ class TestDiTBlock:
 
     def test_adaln_zero_initial_residual(self):
         """AdaLN-Zero 零初始化: 输出 ≈ 输入 (残差项为 0)"""
+        from projects.LDMDetDiT.mods.deformable_attn import (
+            flatten_fpn_features,
+        )
         from projects.LDMDetDiT.mods.dit_block import DiTBlock
-        from projects.LDMDetDiT.mods.deformable_attn import flatten_fpn_features
         block = DiTBlock(
             feat_channels=256, num_heads=8, num_fpn_levels=4,
             num_ref_points=8, dim_feedforward=2048, adaln_params=9,
@@ -416,7 +444,9 @@ class TestDiTSingleHead:
 
     @pytest.fixture
     def fpn_data(self):
-        from projects.LDMDetDiT.mods.deformable_attn import flatten_fpn_features
+        from projects.LDMDetDiT.mods.deformable_attn import (
+            flatten_fpn_features,
+        )
         fpn = [torch.rand(2, 256, 16, 16), torch.rand(2, 256, 8, 8),
                torch.rand(2, 256, 4, 4), torch.rand(2, 256, 2, 2)]
         return flatten_fpn_features(fpn)
@@ -475,8 +505,10 @@ class TestDiTSingleHead:
 
     def test_velocity_head_output(self):
         """prediction_mode='velocity' 时 DiTSingleHead 仍返回 None (velocity 由 Head 从 x0 反推)"""
+        from projects.LDMDetDiT.mods.deformable_attn import (
+            flatten_fpn_features,
+        )
         from projects.LDMDetDiT.mods.dit_single_head import DiTSingleHead
-        from projects.LDMDetDiT.mods.deformable_attn import flatten_fpn_features
         head = DiTSingleHead(
             num_classes=24, feat_channels=256, num_heads=8,
             num_fpn_levels=4, num_ref_points=8, dim_feedforward=2048,
@@ -582,7 +614,9 @@ class TestFeatureFusion:
 
     @pytest.fixture
     def fusion(self):
-        from projects.LDMDetDiT.mods.modules import PurePyTorchSimpleFeatureFusion
+        from projects.LDMDetDiT.mods.modules import (
+            PurePyTorchSimpleFeatureFusion,
+        )
         return PurePyTorchSimpleFeatureFusion(
             in_channels=[384, 384, 384, 384], out_channels=256, num_outs=4
         )
@@ -630,7 +664,9 @@ class TestFeatureFusion:
 
     def test_layernorm_normalizes_explosive_input(self):
         """LayerNorm 应将数值爆炸的深层特征归一化到合理范围"""
-        from projects.LDMDetDiT.mods.modules import PurePyTorchSimpleFeatureFusion
+        from projects.LDMDetDiT.mods.modules import (
+            PurePyTorchSimpleFeatureFusion,
+        )
         fusion = PurePyTorchSimpleFeatureFusion(
             in_channels=[384, 384, 384, 384], out_channels=256, num_outs=4
         )
@@ -645,7 +681,9 @@ class TestFeatureFusion:
 
     def test_gradient_flows_through_layernorm(self):
         """LayerNorm 应允许梯度正常回传"""
-        from projects.LDMDetDiT.mods.modules import PurePyTorchSimpleFeatureFusion
+        from projects.LDMDetDiT.mods.modules import (
+            PurePyTorchSimpleFeatureFusion,
+        )
         fusion = PurePyTorchSimpleFeatureFusion(
             in_channels=[384, 384, 384, 384], out_channels=256, num_outs=4
         )
@@ -804,7 +842,9 @@ class TestOTMatching:
     @pytest.fixture
     def criterion(self):
         from projects.LDMDetDiT.mods.loss import (
-            DiffusionDetCriterion, FocalLoss, GIoULoss,
+            DiffusionDetCriterion,
+            FocalLoss,
+            GIoULoss,
         )
         return DiffusionDetCriterion(
             num_classes=24,
@@ -839,7 +879,9 @@ class TestOTMatching:
         """OT 匹配应保证每个 GT 至少被 1 个 proposal 匹配"""
         from projects.LDMDetDiT.mods.dit_head import DiTDiffusionDetHead
         from projects.LDMDetDiT.mods.loss import (
-            DiffusionDetCriterion, FocalLoss, GIoULoss,
+            DiffusionDetCriterion,
+            FocalLoss,
+            GIoULoss,
         )
         criterion = DiffusionDetCriterion(
             num_classes=24, matcher=None,
@@ -872,7 +914,10 @@ class TestOTMatching:
 
     def test_criterion_uses_ot_not_simota(self, criterion):
         """criterion.forward 接收 ot_matched_gt_indices 时应跳过 SimOTA"""
-        from projects.LDMDetDiT.mods.structures import ModelOutput, InstanceData
+        from projects.LDMDetDiT.mods.structures import (
+            InstanceData,
+            ModelOutput,
+        )
         num_proposals = 50
         ot_indices = [
             torch.randint(0, 3, (num_proposals,)),
@@ -908,7 +953,10 @@ class TestOTMatching:
 
     def test_criterion_classification_all_positive(self, criterion):
         """OT 匹配下不传 ot_match_probs 时, 所有 proposal 都应有分类目标"""
-        from projects.LDMDetDiT.mods.structures import ModelOutput, InstanceData
+        from projects.LDMDetDiT.mods.structures import (
+            InstanceData,
+            ModelOutput,
+        )
         num_proposals = 50
         num_classes = 24
         gt_labels_batch = [
@@ -937,7 +985,9 @@ class TestOTMatching:
     def test_criterion_ot_pos_ratio_filters_background(self):
         """ot_pos_ratio 应过滤低质量匹配为背景"""
         from projects.LDMDetDiT.mods.loss import (
-            DiffusionDetCriterion, FocalLoss, GIoULoss,
+            DiffusionDetCriterion,
+            FocalLoss,
+            GIoULoss,
         )
         num_proposals = 100
         num_classes = 24
@@ -972,8 +1022,16 @@ class TestOTMatching:
 
     def test_criterion_without_ot_falls_back_to_simota(self, criterion):
         """不传 ot_matched_gt_indices 时应降级到 SimOTA (兼容性)"""
-        from projects.LDMDetDiT.mods.structures import ModelOutput, InstanceData
-        from projects.LDMDetDiT.mods.loss import DiffusionDetCriterion, DiffusionDetMatcher, FocalLoss, GIoULoss
+        from projects.LDMDetDiT.mods.loss import (
+            DiffusionDetCriterion,
+            DiffusionDetMatcher,
+            FocalLoss,
+            GIoULoss,
+        )
+        from projects.LDMDetDiT.mods.structures import (
+            InstanceData,
+            ModelOutput,
+        )
         # 需要有 matcher 才能降级
         criterion_with_matcher = DiffusionDetCriterion(
             num_classes=24,
@@ -1004,7 +1062,9 @@ class TestDiTDiffusionDetHead:
     def head_and_data(self):
         from projects.LDMDetDiT.mods.dit_head import DiTDiffusionDetHead
         from projects.LDMDetDiT.mods.loss import (
-            DiffusionDetCriterion, FocalLoss, GIoULoss,
+            DiffusionDetCriterion,
+            FocalLoss,
+            GIoULoss,
         )
         criterion = DiffusionDetCriterion(
             num_classes=24,
@@ -1117,7 +1177,9 @@ class TestDiTDiffusionDetHead:
             torch.randint(0, 24, (3,)),
         ]
         # 手动调用 criterion 验证正例数
-        from projects.LDMDetDiT.mods.structures import ModelOutput, InstanceData
+        from projects.LDMDetDiT.mods.structures import (
+            InstanceData,
+        )
         device = next(head.parameters()).device
         # 构建 targets
         targets = []
@@ -1142,7 +1204,9 @@ class TestDiTDiffusionDetHead:
         """密集 GT 场景 (46 个 GT): Sinkhorn 匹配覆盖率应远高于 SimOTA 的 26%"""
         from projects.LDMDetDiT.mods.dit_head import DiTDiffusionDetHead
         from projects.LDMDetDiT.mods.loss import (
-            DiffusionDetCriterion, FocalLoss, GIoULoss,
+            DiffusionDetCriterion,
+            FocalLoss,
+            GIoULoss,
         )
         criterion = DiffusionDetCriterion(
             num_classes=24, matcher=None,

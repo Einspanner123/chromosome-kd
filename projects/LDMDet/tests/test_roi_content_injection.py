@@ -9,18 +9,18 @@
   [ ] 分类 logits 不为全负 (验证 prior_prob=0.5 生效)
 """
 
-import torch
-import torch.nn as nn
+import os
 
 # 添加项目路径
 import sys
-import os
+
+import torch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from mods.roi_extractor import SingleRoIExtractor
 from mods.box_tokenizer import BoxTokenizer
 from mods.dit_head import DiTDiffusionDetHead
+from mods.roi_extractor import SingleRoIExtractor
 from mods.structures import ImageMeta
 
 
@@ -247,10 +247,10 @@ def test_dit_head_loss():
         DiffusionDetMatcher,
         FocalLoss,
         FocalLossCost,
-        L1Loss,
         GIoULoss,
-        RelativeL1Cost,
         IoUCost,
+        L1Loss,
+        RelativeL1Cost,
     )
 
     criterion = DiffusionDetCriterion(
@@ -322,7 +322,7 @@ def test_dit_head_loss():
                 f"NaN grad in {name}"
             )
     assert has_grad, "No parameters received gradients!"
-    print(f"  PASS: backward successful, all grads clean")
+    print("  PASS: backward successful, all grads clean")
 
 
 # ============================================================

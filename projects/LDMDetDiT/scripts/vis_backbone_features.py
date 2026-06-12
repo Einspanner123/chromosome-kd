@@ -16,7 +16,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn.functional as F
-from matplotlib.colors import Normalize
 from PIL import Image
 from sklearn.decomposition import PCA
 from timm import create_model

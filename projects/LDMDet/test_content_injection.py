@@ -1,8 +1,10 @@
 """测试内容注入是否能正常启动训练 (不需要 GPU, 检查架构放得通)"""
 import sys
+
 sys.path.insert(0, '/home/linkst/workplace/chromo/chromosome-kd')
 
 import torch
+
 torch.manual_seed(42)
 
 from mmengine import Config

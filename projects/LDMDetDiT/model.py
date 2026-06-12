@@ -14,7 +14,6 @@ from mmdet.structures import DetDataSample
 from mmdet.utils import ConfigType, OptConfigType, OptMultiConfig
 from .mods.dit_head import DiTDiffusionDetHead
 from .mods.dit_single_head import DiTSingleHead
-from .mods.modules import SpatialTuningAdapter
 from .mods.loss import (
     DiffusionDetCriterion,
     DiffusionDetMatcher,
@@ -25,6 +24,7 @@ from .mods.loss import (
     L1Loss,
     RelativeL1Cost,
 )
+from .mods.modules import SpatialTuningAdapter
 from .mods.structures import ImageMeta
 
 # 注册所有组件到 MODELS 注册表，以便可以通过配置文件构建

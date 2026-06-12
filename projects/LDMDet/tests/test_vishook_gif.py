@@ -12,7 +12,6 @@ LDMDet PredictionVisHook 增量 GIF 生成测试
 
 import sys
 import tempfile
-import os
 from pathlib import Path
 
 sys.path.insert(0, 'projects/LDMDet')
@@ -87,7 +86,7 @@ def test_incremental_gif_append():
         _make_epoch_img(vis_dir, 3, 0, 'img_A', (0, 255, 0))
         hook._generate_gifs(vis_dir, 3)
         assert gif_path.exists(), \
-            f'Epoch 3: 应生成 GIF, 但文件不存在'
+            'Epoch 3: 应生成 GIF, 但文件不存在'
         n_frames = _count_gif_frames(gif_path)
         assert n_frames == 2, \
             f'Epoch 3: GIF 应有 2 帧, 实际 {n_frames}'
@@ -268,7 +267,7 @@ def test_incremental_gif_metadata_tracking():
         with open(meta_path) as f:
             meta = json.load(f)
         assert 'processed_epochs' in meta, \
-            f'元数据应包含 processed_epochs 字段'
+            '元数据应包含 processed_epochs 字段'
         assert set(meta['processed_epochs']) == {1, 3}, \
             f'已处理 epoch 应为 [1, 3], 实际 {meta["processed_epochs"]}'
 
