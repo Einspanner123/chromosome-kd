@@ -114,10 +114,7 @@ data
 *.pkl
 *.pkl.json
 *.log.json
-docs/modelzoo_statistics.md
-mmdet/.mim
 work_dirs
-src/mmtrack/
 
 # Pytorch
 *.pth
@@ -130,3 +127,8 @@ src/mmtrack/
 
 # Linter cache
 .ruff_cache/
+
+# Debug / runtime artifacts
+.dbg/
+swanlog/
+monitor_logs/
