@@ -5,6 +5,9 @@ from mmengine.hooks import Hook
 
 from mmdet.registry import HOOKS
 
+# 注册异步 checkpoint hook，使所有配置自动可用
+from . import async_checkpoint_hook  # noqa: F401
+
 
 @HOOKS.register_module()
 class CopyProjectHook(Hook):
@@ -99,10 +102,22 @@ class PredictionVisHook(Hook):
     def _capture_single(self, ds, result):
         """从单个 data_sample 和 result 中提取信息。"""
         gt = ds.gt_instances if hasattr(ds, 'gt_instances') else None
-        gt_bboxes = gt.bboxes.cpu().numpy() if gt is not None and len(gt.bboxes) > 0 else None
-        gt_labels = gt.labels.cpu().numpy() if gt is not None and len(gt.labels) > 0 else None
+        gt_bboxes = (
+            gt.bboxes.cpu().numpy()
+            if gt is not None and len(gt.bboxes) > 0
+            else None
+        )
+        gt_labels = (
+            gt.labels.cpu().numpy()
+            if gt is not None and len(gt.labels) > 0
+            else None
+        )
 
-        pred = result.pred_instances if hasattr(result, 'pred_instances') else None
+        pred = (
+            result.pred_instances
+            if hasattr(result, 'pred_instances')
+            else None
+        )
         if pred is None or len(pred.bboxes) == 0:
             return
 
@@ -116,14 +131,16 @@ class PredictionVisHook(Hook):
 
         scale_factor = ds.scale_factor if hasattr(ds, 'scale_factor') else None
 
-        self._captured.append({
-            'img_path': ds.img_path if hasattr(ds, 'img_path') else None,
-            'gt_bboxes': gt_bboxes,
-            'gt_labels': gt_labels,
-            'pred_bboxes': pred_bboxes[mask],
-            'pred_scores': pred_scores[mask],
-            'scale_factor': scale_factor,
-        })
+        self._captured.append(
+            {
+                'img_path': ds.img_path if hasattr(ds, 'img_path') else None,
+                'gt_bboxes': gt_bboxes,
+                'gt_labels': gt_labels,
+                'pred_bboxes': pred_bboxes[mask],
+                'pred_scores': pred_scores[mask],
+                'scale_factor': scale_factor,
+            }
+        )
 
     def after_val_epoch(self, runner, metrics=None):
         from pathlib import Path
@@ -159,14 +176,21 @@ class PredictionVisHook(Hook):
                 continue
 
             scale_factor = item['scale_factor']
-            if (isinstance(scale_factor, np.ndarray) and len(scale_factor) >= 2) or (isinstance(scale_factor, (list, tuple)) and len(scale_factor) >= 2):
+            if (
+                isinstance(scale_factor, np.ndarray) and len(scale_factor) >= 2
+            ) or (
+                isinstance(scale_factor, (list, tuple))
+                and len(scale_factor) >= 2
+            ):
                 sx, sy = float(scale_factor[0]), float(scale_factor[1])
             else:
                 sx = sy = 1.0
 
             # 画 GT (彩色)
             if item['gt_bboxes'] is not None:
-                for j, (bbox, label) in enumerate(zip(item['gt_bboxes'], item['gt_labels'])):
+                for j, (bbox, label) in enumerate(
+                    zip(item['gt_bboxes'], item['gt_labels'])
+                ):
                     x1, y1, x2, y2 = bbox
                     x1 = int(x1 / sx)
                     y1 = int(y1 / sy)
@@ -174,16 +198,32 @@ class PredictionVisHook(Hook):
                     y2 = int(y2 / sy)
                     color = colors.get(int(label), (255, 0, 0))
                     cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
-                    cv2.putText(img, f'GT:{int(label)}', (x1, y1 - 5),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
+                    cv2.putText(
+                        img,
+                        f'GT:{int(label)}',
+                        (x1, y1 - 5),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.4,
+                        color,
+                        1,
+                    )
 
             # 画预测框 (绿色) — pred bbox 已经是原始图像坐标，无需除以 scale_factor
-            for j, (bbox, score) in enumerate(zip(item['pred_bboxes'], item['pred_scores'])):
+            for j, (bbox, score) in enumerate(
+                zip(item['pred_bboxes'], item['pred_scores'])
+            ):
                 x1, y1, x2, y2 = bbox
                 x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
                 cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                cv2.putText(img, f'{score:.2f}', (x1, y2 + 12),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 255, 0), 1)
+                cv2.putText(
+                    img,
+                    f'{score:.2f}',
+                    (x1, y2 + 12),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.35,
+                    (0, 255, 0),
+                    1,
+                )
 
             # 用源图片名作为标识，便于跨 epoch 追踪
             stem = Path(img_path).stem
@@ -222,7 +262,7 @@ class PredictionVisHook(Hook):
             img_idx_end = rest.find('_')
             if img_idx_end == -1:
                 continue
-            stem = rest[img_idx_end + 1:].replace('.jpg', '')
+            stem = rest[img_idx_end + 1 :].replace('.jpg', '')
             if stem not in groups:
                 groups[stem] = []
             groups[stem].append((e, name))
@@ -244,7 +284,9 @@ class PredictionVisHook(Hook):
                     processed = set(json.load(f).get('processed_epochs', []))
 
             # 筛选新 epoch
-            new_items = [(e, fname) for e, fname in items if e not in processed]
+            new_items = [
+                (e, fname) for e, fname in items if e not in processed
+            ]
             if not new_items:
                 continue
 

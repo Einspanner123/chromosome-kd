@@ -3,11 +3,12 @@ _base_ = [
     '../../../configs/_base_/schedules/schedule_1x.py',
     '../../../configs/_base_/default_runtime.py',
 ]
-
 custom_imports = dict(
     imports=[
         'projects.LDMDet.model',
         'projects.LDMDet.hooks',
+        'projects.LDMDet.custom_transforms',
+        'projects.LDMDet.async_checkpoint_hook',
         'swanlab.integration.mmengine',
     ],
     allow_failed_imports=False,
@@ -216,5 +217,16 @@ custom_hooks = [
     ),
     dict(type='CopyProjectHook', priority='VERY_LOW'),
 ]
+
+# 使用异步 checkpoint 保存，不阻塞训练循环
+default_hooks = dict(
+    checkpoint=dict(
+        type='AsyncCheckpointHook',
+        interval=1,
+        max_keep_ckpts=1,
+        save_best='coco/bbox_mAP',
+        rule='greater',
+    ),
+)
 
 log_level = 'INFO'
