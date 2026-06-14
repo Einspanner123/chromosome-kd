@@ -236,13 +236,20 @@ class DiffusionDetHead(nn.Module):
         all_pred_bboxes = torch.stack(all_pred_bboxes)
 
         if self.criterion is not None:
-            losses = self.criterion(
-                all_cls_logits,
-                all_pred_bboxes,
-                gt_bboxes,
-                gt_labels,
-                img_metas,
+            # 包装为 ModelOutput + List[InstanceData]
+            outputs = ModelOutput(
+                pred_logits=all_cls_logits[-1],
+                pred_boxes=all_pred_bboxes[-1],
+                aux_outputs=[
+                    ModelOutput(pred_logits=all_cls_logits[i], pred_boxes=all_pred_bboxes[i])
+                    for i in range(len(all_cls_logits) - 1)
+                ] if self.deep_supervision and len(all_cls_logits) > 1 else None,
             )
+            targets = [
+                InstanceData(bboxes=gt_bboxes[i], labels=gt_labels[i], img_shape=img_metas[i].img_shape)
+                for i in range(bs)
+            ]
+            losses = self.criterion(outputs, targets)
             loss_dict.update(losses)
 
         return loss_dict

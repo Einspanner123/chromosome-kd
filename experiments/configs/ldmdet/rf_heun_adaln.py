@@ -95,7 +95,7 @@ model = dict(
 
 # ── 训练 ──────────────────────────────────────────
 max_epochs = 150
-train_cfg = dict(max_epochs=max_epochs)
+train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=max_epochs)
 val_cfg = dict()
 test_cfg = dict()
 
