@@ -26,3 +26,11 @@ default_hooks = dict(
         rule='greater',
     ),
 )
+
+# SwanLab 独立项目名: ldmdet-ablation
+vis_backends = [
+    dict(type='LocalVisBackend'),
+    dict(type='TensorboardVisBackend'),
+    dict(type='SwanlabVisBackend', init_kwargs=dict(project='ldmdet-ablation', api_key='Huzvq1fnDeqOwgQo2AMAI')),
+]
+visualizer = dict(vis_backends=vis_backends)
