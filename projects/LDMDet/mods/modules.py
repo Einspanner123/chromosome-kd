@@ -11,11 +11,9 @@ from .embeddings import (
     apply_rope,
     rotate_half,
 )
-from .feature_fusion import PurePyTorchSimpleFeatureFusion
 
 __all__ = [
     'DynamicConv',
-    'PurePyTorchSimpleFeatureFusion',
     'RoPE1D',
     'SinusoidalPositionEmbeddings',
     'apply_rope',

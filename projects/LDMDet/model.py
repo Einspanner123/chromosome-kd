@@ -22,7 +22,6 @@ from .mods.loss import (
     GIoULoss,
     IoUCost,
     L1Loss,
-    RelativeL1Cost,
 )
 from .mods.roi_extractor import SingleRoIExtractor
 from .mods.single_head import SingleDiffusionDetHead
@@ -50,7 +49,6 @@ MODELS.register_module(name='PurePyTorchGIoULoss', module=GIoULoss)
 MODELS.register_module(name='PurePyTorchFocalLossCost', module=FocalLossCost)
 MODELS.register_module(name='PurePyTorchBBoxL1Cost', module=BBoxL1Cost)
 MODELS.register_module(name='PurePyTorchIoUCost', module=IoUCost)
-MODELS.register_module(name='PurePyTorchRelativeL1Cost', module=RelativeL1Cost)
 
 
 @MODELS.register_module()
@@ -88,18 +86,7 @@ class PurePyTorchDiffusionDet(BaseDetector):
             self.backbone = MODELS.build(backbone)
 
         if neck is not None:
-            # 自动处理模块路径
-            if (
-                isinstance(neck, dict)
-                and neck.get('type') == 'PurePyTorchSimpleFeatureFusion'
-            ):
-                from .mods.modules import PurePyTorchSimpleFeatureFusion
-
-                neck_cfg = neck.copy()
-                neck_cfg.pop('type')
-                self.neck = PurePyTorchSimpleFeatureFusion(**neck_cfg)
-            else:
-                self.neck = MODELS.build(neck)
+            self.neck = MODELS.build(neck)
         else:
             self.neck = None
 
@@ -234,7 +221,6 @@ class PurePyTorchDiffusionDet(BaseDetector):
                         'FocalLossCost': 'PurePyTorchFocalLossCost',
                         'BBoxL1Cost': 'PurePyTorchBBoxL1Cost',
                         'IoUCost': 'PurePyTorchIoUCost',
-                        'RelativeL1Cost': 'PurePyTorchRelativeL1Cost',
                     }
                     if 'type' in cost_cfg:
                         cost_cfg['type'] = type_map.get(
