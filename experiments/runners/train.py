@@ -15,6 +15,18 @@ if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
 
+def _set_swanlab_name(cfg, exp_name: str):
+    """向 SwanlabVisBackend 注入 experiment_name"""
+    for backend in cfg.get('vis_backends', []):
+        if backend.get('type') == 'SwanlabVisBackend':
+            backend.setdefault('init_kwargs', {})['experiment_name'] = exp_name
+    # 也处理 visualizer 内的 vis_backends
+    vis = cfg.get('visualizer', {})
+    for backend in vis.get('vis_backends', []):
+        if backend.get('type') == 'SwanlabVisBackend':
+            backend.setdefault('init_kwargs', {})['experiment_name'] = exp_name
+
+
 def main():
     parser = argparse.ArgumentParser(description='LDMDet Training')
     parser.add_argument('config', help='Config file path')
@@ -47,6 +59,12 @@ def main():
 
     if args.resume:
         cfg.resume = True
+
+    # 设置 SwanLab 实验名 = config名 + seed
+    config_name = os.path.splitext(os.path.basename(args.config))[0]
+    seed_suffix = f'_seed{args.seed}' if args.seed else ''
+    exp_name = f'{config_name}{seed_suffix}'
+    _set_swanlab_name(cfg, exp_name)
 
     # 注入 async checkpoint hook
     try:
