@@ -1,6 +1,7 @@
 """DiffusionDetHead — 核心迭代去噪检测头
 
-协调 SingleHead 序列、ROI 提取、损失计算和扩散采样。
+直接移植自 LDMDet/mods/diffusiondet_head.py (已验证工作),
+仅更新 import 路径到 ldmdet 纯 PyTorch 库。
 """
 
 import copy
@@ -9,11 +10,9 @@ from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch import Tensor
 
 from ldmdet.coupling import build_coupling
-from ldmdet.coupling.base import CouplingStrategy
 from ldmdet.data.structures import DetectionResult, ImageMeta, InstanceData, ModelOutput
 from ldmdet.diffusion.embeddings import SinusoidalPositionEmbeddings
 from ldmdet.diffusion.noise_schedule import cosine_noise_schedule, load_buffer
@@ -23,11 +22,7 @@ from ldmdet.utils.box_ops import bbox_xyxy_to_cxcywh
 
 
 class DiffusionDetHead(nn.Module):
-    """扩散检测头。
-
-    支持 DDPM 和 Rectified Flow 两种范式，
-    Euler / Heun / DPM-Solver++ 等多种采样策略。
-    """
+    """扩散检测头。支持 DDPM 和 Rectified Flow，Euler/Heun/DPM-Solver++。"""
 
     def __init__(
         self,
@@ -60,7 +55,7 @@ class DiffusionDetHead(nn.Module):
         use_checkpoint: bool = False,
         counting_branch: Optional[nn.Module] = None,
         consistency_loss: Optional[nn.Module] = None,
-        coupling: Optional[CouplingStrategy] = None,
+        coupling: Optional[nn.Module] = None,
         pre_noise_layer: int = 2,
         loss_aux: Optional[Dict] = None,
         torch_compile: bool = False,
@@ -80,6 +75,9 @@ class DiffusionDetHead(nn.Module):
         self.rf_schedule = rf_schedule
         self.rf_shift = rf_shift
         self.rf_power = rf_power
+        self.box_renewal = box_renewal
+        self.use_ensemble = use_ensemble
+        self.solver_type = solver_type
 
         self.loss_aux = loss_aux
         self.counting_branch = counting_branch
@@ -94,37 +92,35 @@ class DiffusionDetHead(nn.Module):
             nn.Linear(feat_channels * 4, feat_channels * 4),
         )
 
+        # DDPM 缓存
+        if diffusion_type == 'ddpm':
+            self.register_buffer(
+                'alphas_cumprod',
+                cosine_noise_schedule(timesteps).float(),
+            )
+        else:
+            self.alphas_cumprod = None
+
         # 级联 Head
-        self.head_series = nn.ModuleList([
-            copy.deepcopy(single_head) for _ in range(num_heads)
-        ])
+        self.head_series = nn.ModuleList([copy.deepcopy(single_head) for _ in range(num_heads)])
         self.roi_extractor = roi_extractor
         self.criterion = criterion
         self.pre_noise_layer = pre_noise_layer
 
         # 耦合策略
-        self.coupling = coupling if coupling is not None else build_coupling('random')
+        self.ot_coupling = coupling is not None and not isinstance(coupling, bool)
+        self.ot_module = coupling if coupling is not None else build_coupling('random')
 
         # 采样器
         self._sampler = DiffusionSampler(
-            diffusion_type=diffusion_type,
-            timesteps=timesteps,
-            sampling_timesteps=sampling_timesteps,
-            solver_type=solver_type,
-            ddim_sampling_eta=ddim_sampling_eta,
-            rf_schedule=rf_schedule,
-            rf_power=rf_power,
-            rf_shift=rf_shift,
-            snr_scale=snr_scale,
-            box_renewal=box_renewal,
-            use_ensemble=use_ensemble,
-            use_nms=use_nms,
-            nms_thr=nms_thr,
-            score_thr=score_thr,
-            min_keep=min_keep,
+            diffusion_type=diffusion_type, timesteps=timesteps,
+            sampling_timesteps=sampling_timesteps, solver_type=solver_type,
+            ddim_sampling_eta=ddim_sampling_eta, rf_schedule=rf_schedule,
+            rf_power=rf_power, rf_shift=rf_shift, snr_scale=snr_scale,
+            box_renewal=box_renewal, use_ensemble=use_ensemble,
+            use_nms=use_nms, nms_thr=nms_thr, score_thr=score_thr, min_keep=min_keep,
         )
 
-        # 初始化
         self._init_weights(prior_prob)
 
         if torch_compile and hasattr(torch, 'compile'):
@@ -136,211 +132,205 @@ class DiffusionDetHead(nn.Module):
                 bias_value = -(math.log((1 - prior_prob) / prior_prob))
                 nn.init.constant_(head.cls_head[-1].bias, bias_value)
 
-    # ------------------------------------------------------------------
+    # ================================================================
     # 前向传播
-    # ------------------------------------------------------------------
+    # ================================================================
 
     def forward(self, features, bboxes, t):
-        bs = features[0].shape[0]
         time_emb = self.time_mlp(t)
+        inter_cls_logits = []
+        inter_pred_bboxes = []
+        inter_curr_proposals = []
+        curr_bboxes = bboxes
+        curr_proposals = None
 
-        all_cls_logits = []
-        all_pred_bboxes = []
-        proposals = None
-
-        for head_idx, single_head in enumerate(self.head_series):
-            if self.use_checkpoint and self.training:
-                cls_logits, pred_bboxes, proposals = torch.utils.checkpoint.checkpoint(
-                    single_head, features, bboxes, proposals, self.roi_extractor, time_emb,
-                    use_reentrant=False,
-                )
+        for head in self.head_series:
+            result = head(features, curr_bboxes, curr_proposals, self.roi_extractor, time_emb)
+            if len(result) == 4:
+                cls_logits, pred_bboxes, curr_proposals, _ = result
             else:
-                cls_logits, pred_bboxes, proposals = single_head(
-                    features, bboxes, proposals, self.roi_extractor, time_emb
-                )
+                cls_logits, pred_bboxes, curr_proposals = result
+            inter_cls_logits.append(cls_logits)
+            inter_pred_bboxes.append(pred_bboxes)
+            inter_curr_proposals.append(curr_proposals)
+            curr_bboxes = pred_bboxes.detach()
 
-            all_cls_logits.append(cls_logits)
-            all_pred_bboxes.append(pred_bboxes)
+        if self.deep_supervision:
+            return torch.stack(inter_cls_logits), torch.stack(inter_pred_bboxes), inter_curr_proposals
+        return torch.stack(inter_cls_logits[-1:]), torch.stack(inter_pred_bboxes[-1:]), inter_curr_proposals[-1:]
 
-        return torch.stack(all_cls_logits), torch.stack(all_pred_bboxes), proposals
+    # ================================================================
+    # 训练损失
+    # ================================================================
 
-    # ------------------------------------------------------------------
-    # 训练
-    # ------------------------------------------------------------------
-
-    def loss(
-        self,
-        features: Tuple[Tensor],
-        img_metas: List[ImageMeta],
-        gt_bboxes: List[Tensor],
-        gt_labels: List[Tensor],
-    ) -> Dict[str, Tensor]:
-        """训练 loss
-
-        Args:
-            features: FPN 特征图
-            img_metas: 图像元信息列表
-            gt_bboxes: GT 框列表 (xyxy 格式)
-            gt_labels: GT 标签列表
-
-        Returns:
-            loss dict
-        """
-        bs = len(img_metas)
-
-        # 生成噪声提案
-        noise = torch.randn(bs * self.num_proposals, 4, device=features[0].device)
-        t = torch.rand((bs,), device=features[0].device)
-
-        # 对每张图运行耦合 → 构建 x_t
-        loss_dict = {}
-        all_cls_logits = []
-        all_pred_bboxes = []
-
-        for i in range(bs):
-            start = i * self.num_proposals
-            end = start + self.num_proposals
-            noise_i = noise[start:end]
-
-            if len(gt_bboxes[i]) == 0:
-                x_start = noise_i
-            else:
-                gt_xyxy = gt_bboxes[i]
-                gt_norm = self._gt_to_diffusion(gt_xyxy, img_metas[i])
-                x_start, _ = self.coupling.couple(
-                    noise_i, gt_norm, gt_labels[i], noise.device
-                )
-
-            # Rectified Flow: x_t = (1-t)x_0 + t*x_1
-            t_view = t[i].view(-1, 1)
-            x_t = (1.0 - t_view) * x_start + t_view * noise_i
-
-            # 将扩散空间转到图像空间供 head 使用
-            bboxes_i = self._raw_to_xyxy(x_t.unsqueeze(0), [img_metas[i]])[0]
-            noise[start:end] = x_t
-
-        noise = noise.view(bs, self.num_proposals, 4)
-        bboxes = self._raw_to_xyxy(noise, img_metas)
-
-        # Head 前向
-        time_emb = self.time_mlp(t)
-        proposals = None
-        for head_idx, single_head in enumerate(self.head_series):
-            cls_logits, pred_bboxes, proposals = single_head(
-                features, bboxes, proposals, self.roi_extractor, time_emb
-            )
-            all_cls_logits.append(cls_logits)
-            all_pred_bboxes.append(pred_bboxes)
-
-        all_cls_logits = torch.stack(all_cls_logits)
-        all_pred_bboxes = torch.stack(all_pred_bboxes)
-
-        if self.criterion is not None:
-            # 包装为 ModelOutput + List[InstanceData]
-            outputs = ModelOutput(
-                pred_logits=all_cls_logits[-1],
-                pred_boxes=all_pred_bboxes[-1],
-                aux_outputs=[
-                    ModelOutput(pred_logits=all_cls_logits[i], pred_boxes=all_pred_bboxes[i])
-                    for i in range(len(all_cls_logits) - 1)
-                ] if self.deep_supervision and len(all_cls_logits) > 1 else None,
-            )
-            targets = [
-                InstanceData(bboxes=gt_bboxes[i], labels=gt_labels[i], img_shape=img_metas[i].img_shape)
-                for i in range(bs)
-            ]
-            losses = self.criterion(outputs, targets)
-            loss_dict.update(losses)
-
-        return loss_dict
-
-    # ------------------------------------------------------------------
-    # 推理
-    # ------------------------------------------------------------------
-
-    def predict(
-        self,
-        features: Tuple[Tensor],
-        img_metas: List[ImageMeta],
-        rescale: bool = True,
-        return_trajectory: bool = False,
-    ) -> List[DetectionResult]:
-        """推理: 迭代去噪 → 预测框"""
-        bs = len(img_metas)
+    def loss(self, features, img_metas, gt_bboxes, gt_labels):
         device = features[0].device
+        bs = len(img_metas)
 
-        noise_raw = torch.randn(bs, self.num_proposals, 4, device=device)
-        curr_bboxes = self._raw_to_xyxy(noise_raw, img_metas)
-        curr_raw = noise_raw
+        targets = self._normalize_targets(gt_bboxes, gt_labels, img_metas, bs)
+        t = self._sample_t(bs, device)
+        x_boxes, x_starts, x_noises, matched_gt_indices = self._build_training_targets(
+            bs, device, t, targets, gt_bboxes, img_metas
+        )
+        x_noisy_batch = torch.stack(x_boxes)
+        curr_bboxes = self._sampler.raw_to_xyxy(x_noisy_batch, img_metas)
 
+        t_input = t if self.diffusion_type == 'ddpm' else t * self.timesteps
+        all_cls_logits, all_pred_bboxes, all_curr_proposals = self(features, curr_bboxes, t_input)
+
+        norm_pred_bboxes = self._normalize_pred_bboxes(all_pred_bboxes, img_metas)
+        outputs = self._build_outputs(all_cls_logits, norm_pred_bboxes)
+        losses = self.criterion(outputs, targets)
+
+        return losses
+
+    # ================================================================
+    # 推理
+    # ================================================================
+
+    @torch.no_grad()
+    def predict(self, features, img_metas, rescale=True, return_trajectory=False):
+        device = features[0].device
+        bs = len(img_metas)
         time_pairs = self._sampler.build_time_pairs(device)
-        dpm_solver = self._sampler.create_dpm_solver()
-        ensemble_results = []
+        x_raw = torch.randn(bs, self.num_proposals, 4, device=device)
 
+        ensemble_results = []
+        trajectory = []
+        dpm_solver = self._sampler.create_dpm_solver()
         if dpm_solver is not None:
             dpm_solver.reset()
 
         for step_idx, (t_curr, t_next) in enumerate(time_pairs):
-            t_batch = torch.full((bs,), t_curr, device=device, dtype=torch.float32)
-            cls_logits, pred_bboxes, _ = self(features, curr_bboxes, t_batch)
+            cls_logits, pred_bboxes, x0_raw = self._forward_at_t(features, x_raw, t_curr, img_metas)
+            if return_trajectory:
+                trajectory.append((cls_logits.detach(), pred_bboxes.detach()))
+            if self.use_ensemble:
+                ensemble_results.append((cls_logits, pred_bboxes))
 
-            cls_logits_last = cls_logits[-1]
-            pred_bboxes_last = pred_bboxes[-1]
-
-            if dpm_solver is not None and t_curr > 0.0:
-                x0 = self._sampler.xyxy_to_raw(pred_bboxes_last, img_metas)
-                curr_raw = dpm_solver.step(curr_raw, x0, t_curr, step_idx)
-                curr_bboxes = self._sampler.raw_to_xyxy(curr_raw, img_metas)
-            elif self.diffusion_type == 'rectified_flow':
-                if self._sampler.solver_type == 'heun':
-                    def model_fn(x, t_val):
-                        t_b = torch.full((bs,), t_val, device=device)
-                        return self(features, x, t_b)[-2][-1], None
-                    curr_bboxes = self.rf.heun_step(
-                        curr_bboxes, pred_bboxes_last, t_curr, t_next, model_fn
-                    )
-                else:
-                    curr_bboxes = self.rf.step(
-                        curr_bboxes, pred_bboxes_last, t_curr, t_next
-                    )
-                curr_raw = self._sampler.xyxy_to_raw(curr_bboxes, img_metas)
+            if self.diffusion_type == 'ddpm':
+                curr_bboxes_xyxy, x_raw = self._sampler.ddim_step(
+                    t_curr, t_next, x_raw, cls_logits, pred_bboxes, img_metas, self.alphas_cumprod
+                )
+                if t_next < 0:
+                    break
             else:
-                # DDPM (deprecated)
-                raise NotImplementedError("DDPM sampling is deprecated. Use RF.")
+                if dpm_solver is not None:
+                    x_raw = dpm_solver.step(x_raw, x0_raw, t_curr, step_idx)
+                elif self.solver_type == 'heun' and t_next > 0:
+                    def model_fn(x_tmp, t_tmp):
+                        _, _, x0_tmp = self._forward_at_t(features, x_tmp, t_tmp, img_metas)
+                        return x0_tmp, None
+                    x_raw = self.rf.heun_step(x_raw, x0_raw, t_curr, t_next, model_fn)
+                else:
+                    x_raw = self.rf.step(x_raw, x0_raw, t_curr, t_next)
 
-            if self._sampler.box_renewal:
-                curr_raw = self._sampler.apply_box_renewal(curr_raw, cls_logits_last)
+                if self.box_renewal:
+                    x_raw = self._sampler.apply_box_renewal(x_raw, cls_logits)
+                if t_next <= 0:
+                    break
 
-        # 最后一步预测
-        t_batch = torch.zeros(bs, device=device)
-        cls_logits, pred_bboxes, _ = self(features, curr_bboxes, t_batch)
-        ensemble_results.append((cls_logits[-1], pred_bboxes[-1]))
+        results = self._sampler.post_process(ensemble_results, img_metas, rescale)
+        if return_trajectory:
+            return results, trajectory
+        return results
 
-        return self._sampler.post_process(ensemble_results, img_metas, rescale)
+    # ================================================================
+    # 训练辅助
+    # ================================================================
 
-    # ------------------------------------------------------------------
-    # 坐标转换
-    # ------------------------------------------------------------------
+    def _normalize_targets(self, gt_bboxes, gt_labels, img_metas, bs):
+        targets = []
+        for i in range(bs):
+            h, w = _get_img_shape(img_metas[i])[:2]
+            scale = gt_bboxes[i].new_tensor([w, h, w, h])
+            targets.append(InstanceData(
+                labels=gt_labels[i], bboxes=gt_bboxes[i] / scale, img_shape=(h, w)
+            ))
+        return targets
 
-    def _gt_to_diffusion(self, gt_xyxy: Tensor, img_meta: ImageMeta) -> Tensor:
-        """GT xyxy → 扩散空间"""
-        h, w = _get_img_shape(img_meta)[:2]
-        scale = gt_xyxy.new_tensor([w, h, w, h])
-        gt_norm = gt_xyxy / scale
-        gt_cxcywh = bbox_xyxy_to_cxcywh(gt_norm)
-        return (gt_cxcywh * 2 - 1) * self.snr_scale
+    def _sample_t(self, bs, device):
+        if self.diffusion_type == 'ddpm':
+            return torch.randint(0, self.timesteps, (bs,), device=device).long()
+        t = torch.rand((bs,), device=device)
+        if self.rf_schedule == 'shifted':
+            t = self.rf_shift * t / (1 + (self.rf_shift - 1) * t)
+        return t
 
-    def _raw_to_xyxy(self, raw, img_metas):
-        return self._sampler.raw_to_xyxy(raw, img_metas)
+    def _build_training_targets(self, bs, device, t, targets, gt_bboxes, img_metas):
+        x_boxes, x_starts, x_noises, matched_gt_indices = [], [], [], []
+        for i in range(bs):
+            num_gt = gt_bboxes[i].shape[0]
+            if num_gt == 0:
+                noise = torch.randn(self.num_proposals, 4, device=device)
+                x_boxes.append(noise)
+                x_starts.append(torch.zeros_like(noise))
+                x_noises.append(noise)
+                matched_gt_indices.append(torch.zeros(self.num_proposals, dtype=torch.long, device=device))
+                continue
+            norm_gt_cxcywh = bbox_xyxy_to_cxcywh(targets[i].bboxes)
+            gt_diffusion = (norm_gt_cxcywh * 2 - 1) * self.snr_scale
+            noise = torch.randn(self.num_proposals, 4, device=device)
+            x_start, matched_idx = self._couple_single_image(i, noise, gt_diffusion, targets[i].labels, device)
+            matched_gt_indices.append(matched_idx)
+            x_noisy, x_noise = self._forward_diffusion(x_start, noise, t[i:i+1])
+            x_starts.append(x_start)
+            x_noises.append(x_noise)
+            x_boxes.append(x_noisy)
+        return x_boxes, x_starts, x_noises, matched_gt_indices
 
-    # ------------------------------------------------------------------
+    def _couple_single_image(self, img_idx, noise, gt_diffusion, gt_labels, device):
+        if self.ot_coupling and self.diffusion_type == 'rectified_flow':
+            return self.ot_module.couple(noise, gt_diffusion, gt_labels, device)
+        num_gt = gt_diffusion.shape[0]
+        idx = torch.randint(0, num_gt, (self.num_proposals,), device=device)
+        return gt_diffusion[idx], idx
+
+    def _forward_diffusion(self, x_start, noise, t):
+        if self.diffusion_type == 'ddpm':
+            return self.q_sample(x_start, t), torch.zeros_like(x_start)
+        x_noisy, _ = self.rf.q_sample(x_start, x_noise=noise, t=t)
+        return x_noisy, noise
+
+    def _forward_at_t(self, features, x_raw, t, img_metas):
+        bs, device = x_raw.shape[0], x_raw.device
+        curr_bboxes = self._sampler.raw_to_xyxy(x_raw, img_metas)
+        t_input = torch.full((bs,), t * self.timesteps, device=device)
+        cls_logits_seq, pred_bboxes_seq, _ = self(features, curr_bboxes, t_input)
+        cls_logits_last = cls_logits_seq[-1]
+        pred_bboxes_last = pred_bboxes_seq[-1]
+        x0 = self._sampler.xyxy_to_raw(pred_bboxes_last, img_metas)
+        return cls_logits_last, pred_bboxes_last, x0
+
+    def _normalize_pred_bboxes(self, all_pred_bboxes, img_metas):
+        norm_pred_bboxes = []
+        for head_idx in range(all_pred_bboxes.shape[0]):
+            norm_per_head = []
+            for i in range(len(img_metas)):
+                h, w = _get_img_shape(img_metas[i])[:2]
+                scale = all_pred_bboxes.new_tensor([w, h, w, h])
+                norm_per_head.append(all_pred_bboxes[head_idx, i] / scale)
+            norm_pred_bboxes.append(torch.stack(norm_per_head))
+        return torch.stack(norm_pred_bboxes)
+
+    def _build_outputs(self, all_cls_logits, norm_pred_bboxes):
+        main_logits = all_cls_logits[-1]
+        main_bboxes = norm_pred_bboxes[-1]
+        aux_outputs = None
+        if self.deep_supervision and all_cls_logits.shape[0] > 1:
+            aux_outputs = [
+                ModelOutput(pred_logits=all_cls_logits[i], pred_boxes=norm_pred_bboxes[i])
+                for i in range(all_cls_logits.shape[0] - 1)
+            ]
+        return ModelOutput(pred_logits=main_logits, pred_boxes=main_bboxes, aux_outputs=aux_outputs)
+
+    # ================================================================
     # DDPM (deprecated)
-    # ------------------------------------------------------------------
+    # ================================================================
 
     def q_sample(self, x_start, t, noise=None):
         if noise is None:
             noise = torch.randn_like(x_start)
-        alphas_cumprod = cosine_noise_schedule(self.timesteps).to(x_start.device)
-        sqrt_alpha = load_buffer(alphas_cumprod.sqrt(), t, x_start.shape)
-        sqrt_one_minus = load_buffer((1 - alphas_cumprod).sqrt(), t, x_start.shape)
+        sqrt_alpha = load_buffer(self.alphas_cumprod.sqrt(), t, x_start.shape)
+        sqrt_one_minus = load_buffer((1 - self.alphas_cumprod).sqrt(), t, x_start.shape)
         return sqrt_alpha * x_start + sqrt_one_minus * noise
