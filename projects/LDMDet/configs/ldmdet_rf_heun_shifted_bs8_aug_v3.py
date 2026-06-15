@@ -1,21 +1,9 @@
 _base_ = ['./ldmdet_rf_heun_shifted_bs8.py']
 
-# 注册自定义 transform（CLAHE, SmallObjectCopyPaste 等）
-# 注意：必须包含 baseline 中的所有 custom_imports，否则模型类不会注册
-custom_imports = dict(
-    imports=[
-        'projects.LDMDet.model',
-        'projects.LDMDet.hooks',
-        'projects.LDMDet.custom_transforms',
-        'swanlab.integration.mmengine',
-    ],
-    allow_failed_imports=False,
-)
-
 # ============================================================================
 # 渐进式数据增强 v3 — 仅含生物学合理的增强
 # ============================================================================
-# 相比 v2 的回退与改进:
+# 相比 v2 (bs8_aug) 的回退与改进:
 #   - 去掉 Rotate(±90°) — 染色体在核型图中固定竖直，旋转产生无效视角
 #   - 去掉 VerticalFlip — 染色体 p/q 臂有固定朝向，翻转后不真实
 #   - 去掉 SmallObjectCopyPaste — 核型图已经高密度，复制产生不真实重叠
@@ -25,7 +13,6 @@ custom_imports = dict(
 #   - 保留 MinIoURandomCrop — 相比 RandomCrop 保护小目标不被裁剪丢失
 #   - 保留 RandomAffine(0.9~1.1) — 温和缩放，不旋转不剪切
 #   - 降低 multi-scale 下限到 480 — 保持尺度多样性
-#   - 去掉 MultiImageMixDataset 包装 — 简化 pipeline，去掉 CopyPaste
 # ============================================================================
 
 backend = 'pillow'
