@@ -29,8 +29,8 @@ from ldmdet.criterion import (
 from ldmdet.data.structures import ImageMeta
 
 
-@MODELS.register_module()
-@MODELS.register_module(name='LDMDet')
+@MODELS.register_module(name='LDMDetV2', force=True)
+@MODELS.register_module(name='LDMDet', force=True)
 class LDMDetDetector(BaseDetector):
     """LDMDet 检测器 — mmdet BaseDetector 兼容包装。
 
@@ -61,6 +61,13 @@ class LDMDetDetector(BaseDetector):
 
         # 1. 构建耦合策略
         coupling_cfg = cfg.pop('coupling', None)
+        # 兼容旧配置的 ot_coupling + ot_* 参数
+        if coupling_cfg is None and cfg.pop('ot_coupling', False):
+            coupling_cfg = {
+                'type': cfg.pop('ot_coupling_type', 'sinkhorn_stochastic'),
+                'epsilon': cfg.pop('ot_epsilon', 5.0),
+                'num_iters': cfg.pop('ot_num_iters', 20),
+            }
         if coupling_cfg is not None:
             name = coupling_cfg.pop('type')
             coupling = build_coupling(name, **coupling_cfg)
@@ -83,7 +90,10 @@ class LDMDetDetector(BaseDetector):
         if criterion_cfg is not None:
             criterion = self._build_criterion(criterion_cfg)
 
-        # 5. 构建 head
+        # 5. 构建 head — 只传 DiffusionDetHead 接受的参数
+        import inspect
+        valid_params = set(inspect.signature(DiffusionDetHead.__init__).parameters.keys())
+        cfg = {k: v for k, v in cfg.items() if k in valid_params}
         head = DiffusionDetHead(
             **cfg,
             single_head=single_head,
@@ -96,7 +106,9 @@ class LDMDetDetector(BaseDetector):
     def _build_criterion(self, cfg: Dict) -> DiffusionDetCriterion:
         """从配置构建 criterion"""
         cfg = cfg.copy()
+        cfg.pop('type', None)
         assigner_cfg = cfg.pop('assigner', cfg.pop('matcher', {}))
+        assigner_cfg.pop('type', None)  # strip type key
 
         # 构建 match costs
         match_costs = []

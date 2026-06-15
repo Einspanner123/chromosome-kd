@@ -37,7 +37,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["mmdet"]
+known-first-party = ["mmdet", "ldmdet", "experiments"]
 known-third-party = [
     "PIL", "cv2", "matplotlib", "mmcv", "mmengine",
     "numpy", "onnx", "onnxruntime", "pycocotools",

@@ -11,7 +11,7 @@ from mmdet.registry import HOOKS
 # CopyProjectHook — 训练前备份 ldmdet 代码
 # ──────────────────────────────────────────────
 
-@HOOKS.register_module()
+@HOOKS.register_module(force=True)
 class CopyProjectHook(Hook):
     def __init__(self, src_path='ldmdet', dst_name='ldmdet_backup'):
         self.src_path = src_path
@@ -40,7 +40,7 @@ class CopyProjectHook(Hook):
 # PredictionVisHook — 固定图片集 + 全覆盖类 + SwanLab 上传
 # ──────────────────────────────────────────────
 
-@HOOKS.register_module()
+@HOOKS.register_module(force=True)
 class PredictionVisHook(Hook):
     """验证可视化 Hook。
 
@@ -273,7 +273,7 @@ class PredictionVisHook(Hook):
 # WeightSummaryHook — 权重/梯度监控 (SwanLab)
 # ──────────────────────────────────────────────
 
-@HOOKS.register_module()
+@HOOKS.register_module(force=True)
 class WeightSummaryHook(Hook):
     def __init__(self, interval=50, log_norm=True, log_heatmap=True):
         self.interval = interval
