@@ -106,6 +106,7 @@ venv.bak/
 
 data/
 data
+!/ldmdet/data/
 .vscode
 .idea
 .DS_Store
