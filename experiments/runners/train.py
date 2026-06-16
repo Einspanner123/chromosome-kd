@@ -17,12 +17,12 @@ if _PROJECT_ROOT not in sys.path:
 
 def _set_swanlab_name(cfg, exp_name: str):
     """向 SwanlabVisBackend 注入 experiment_name"""
+    raw = cfg._cfg_dict
     for key in ('vis_backends', 'visualizer.vis_backends'):
         parts = key.split('.')
-        d = cfg
+        d = raw
         for p in parts:
             d = d.get(p, {}) if isinstance(d, dict) else {}
-        # 处理 _delete_=True 包裹的 value
         if isinstance(d, dict) and 'value' in d:
             d = d['value']
         if not isinstance(d, list):
