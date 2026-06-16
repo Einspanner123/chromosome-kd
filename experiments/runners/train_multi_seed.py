@@ -37,26 +37,19 @@ def run_single(config: str, seed: int, gpu: int, work_dir: str) -> dict:
     result = subprocess.run(cmd, capture_output=False)
     ok = result.returncode == 0
 
-    # 读取 best mAP
+    # 读取 best mAP (从 mmengine log 文件)
     best_map = None
     try:
-        from mmengine.logging import HistoryBuffer
-        from mmengine.runner import load_checkpoint
-        # 从 work_dir 的日志中提取 best mAP
-        log_path = Path(work_dir) / 'vis_data' / 'scalars.json'
-        if log_path.exists():
-            with open(log_path) as f:
-                lines = f.readlines()
-                maps = []
-                for line in lines:
-                    try:
-                        data = json.loads(line)
-                        if 'coco/bbox_mAP' in data:
-                            maps.append(data['coco/bbox_mAP'])
-                    except json.JSONDecodeError:
-                        continue
-                if maps:
-                    best_map = max(maps)
+        log_files = sorted(Path(work_dir).glob('*.log'))
+        if not log_files:
+            log_files = sorted(Path(work_dir).rglob('*.log'))
+        if log_files:
+            import re
+            with open(log_files[-1]) as f:
+                for line in f:
+                    m = re.search(r'best checkpoint with ([\d.]+) coco/bbox_mAP', line)
+                    if m:
+                        best_map = float(m.group(1))
     except Exception:
         pass
 

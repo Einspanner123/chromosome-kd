@@ -10,13 +10,14 @@
 - Stochastic OT (eps=5): mAP 0.751
 - Group-Hierarchical Stochastic OT: mAP 0.752
 
+实验性特性 (需消融验证):
+- TRD (Transport-Refinement Decomposition): 速度分解为传输+残差
+- CAT (Curvature-Aware Training): 曲率正则化 (x0_consistency / velocity_curvature)
+- Velocity Loss: 辅助速度场拟合监督
+
 已移除的无效特性 (详见 MASTER_TIMELINE.md):
 - KCEC/DAEC: 信息论不可行 / 无增益
 - 硬 OT (argmax): 消除训练多样性
-- TRD: 增益极小且 velocity target 符号有误
-- CAT: 增益极小且实现非纯曲率
-- LSAS: 增益极小
-- Velocity 预测模式: Reflow 退化，梯度冲突
 - Objectness 分支: 低于基线
 - Stratified 时间采样: 无实验支持
 """
@@ -88,6 +89,19 @@ class DiffusionDetHead(nn.Module):
         ot_group_hierarchical: bool = False,
         # 训练稳定化参数
         use_flash_attn: bool = False,
+        # TRD 参数
+        use_trd: bool = False,
+        trd_delta_t: float = 0.05,
+        trd_use_analytic_v: bool = True,
+        trd_weight: float = 1.0,
+        # CAT 参数
+        use_cat: bool = False,
+        cat_delta_t: float = 0.02,
+        cat_loss_type: str = 'x0_consistency',
+        cat_weight: float = 1.0,
+        # Velocity loss 参数
+        use_velocity_loss: bool = False,
+        velocity_loss_weight: float = 1.0,
     ):
         super().__init__()
 
@@ -109,6 +123,18 @@ class DiffusionDetHead(nn.Module):
         self.rf_shift = rf_shift
         self.solver_type = solver_type
         self.use_flash_attn = use_flash_attn
+
+        # TRD/CAT/Velocity loss 参数
+        self.use_trd = use_trd
+        self.trd_delta_t = trd_delta_t
+        self.trd_use_analytic_v = trd_use_analytic_v
+        self.trd_weight = trd_weight
+        self.use_cat = use_cat
+        self.cat_delta_t = cat_delta_t
+        self.cat_loss_type = cat_loss_type
+        self.cat_weight = cat_weight
+        self.use_velocity_loss = use_velocity_loss
+        self.velocity_loss_weight = velocity_loss_weight
 
         # 测试配置
         self.use_nms = use_nms
@@ -288,6 +314,34 @@ class DiffusionDetHead(nn.Module):
         )
         outputs = self._build_outputs(all_cls_logits, norm_pred_bboxes)
         losses = self.criterion(outputs, targets)
+
+        # 6. 辅助 loss (TRD / CAT / Velocity)
+        x_starts_batch = torch.stack(x_starts)
+        x_noises_batch = torch.stack(x_noises)
+
+        if self.use_velocity_loss and self.diffusion_type == 'rectified_flow':
+            losses.update(
+                self._add_velocity_loss(
+                    all_pred_bboxes, x_starts_batch, x_noises_batch,
+                    t, img_metas,
+                )
+            )
+
+        if self.use_cat:
+            losses.update(
+                self._add_cat_loss(
+                    features, all_pred_bboxes, x_starts_batch, x_noises_batch,
+                    t, img_metas,
+                )
+            )
+
+        if self.use_trd:
+            losses.update(
+                self._add_trd_loss(
+                    features, all_pred_bboxes, x_starts_batch, x_noises_batch,
+                    t, img_metas,
+                )
+            )
 
         return losses
 
@@ -616,6 +670,147 @@ class DiffusionDetHead(nn.Module):
     # ================================================================
     # 初始化
     # ================================================================
+
+    # ================================================================
+    # TRD / CAT / Velocity Loss
+    # ================================================================
+
+    def _add_velocity_loss(
+        self,
+        all_pred_bboxes: Tensor,
+        x_starts: Tensor,
+        x_noises: Tensor,
+        t: Tensor,
+        img_metas: List[ImageMeta],
+    ) -> Dict[str, Tensor]:
+        """Velocity loss: 匹配 RF 目标速度 v* = x_noise - x_start
+
+        仅在 prediction_mode='x0' 时作为辅助 loss 使用。
+        当模型预测 x0 时，velocity loss 提供额外的速度场拟合监督。
+        """
+        # 从预测 bboxes 推导 x0_pred (raw diffusion space)
+        last_pred_bboxes = all_pred_bboxes[-1]  # [bs, num_proposals, 4]
+        x0_pred = self._sampler.xyxy_to_raw(last_pred_bboxes, img_metas)
+
+        # 目标速度: v* = x_1 - x_0
+        v_target = x_noises - x_starts
+
+        # 从 x0_pred 推导预测速度: v_pred = (x_t - x0_pred) / t
+        t_view = t.view(-1, 1, 1)
+        x_noisy = (1.0 - t_view) * x_starts + t_view * x_noises
+        v_pred = (x_noisy - x0_pred) / torch.clamp(t_view, min=1e-5)
+
+        loss = F.mse_loss(v_pred, v_target) * self.velocity_loss_weight
+        return {'loss_velocity': loss}
+
+    def _add_cat_loss(
+        self,
+        features: Tuple[Tensor],
+        all_pred_bboxes: Tensor,
+        x_starts: Tensor,
+        x_noises: Tensor,
+        t: Tensor,
+        img_metas: List[ImageMeta],
+    ) -> Dict[str, Tensor]:
+        """Curvature-Aware Training (CAT): 惩罚速度场的时间变化率
+
+        支持两种模式:
+        - 'x0_consistency': 惩罚 |x0_pred(t) - x0_pred(t+dt)|^2
+        - 'velocity_curvature': 惩罚 |v(t+dt) - v(t)|^2 (纯曲率正则)
+        """
+        t_view = t.view(-1, 1, 1)
+        t2 = (t + self.cat_delta_t).clamp(max=1.0)
+        t2_view = t2.view(-1, 1, 1)
+
+        # 构造 x_{t+dt} = (1 - t2) * x_start + t2 * x_noise
+        x_t2 = (1.0 - t2_view) * x_starts + t2_view * x_noises
+
+        # 在 t+dt 处前向传播
+        curr_bboxes_t2 = self._sampler.raw_to_xyxy(x_t2, img_metas)
+        t2_input = t2 * self.timesteps
+        _, all_pred_bboxes_t2, _ = self(features, curr_bboxes_t2, t2_input)
+
+        # 取最后一层 head 的预测
+        x0_pred_t1 = self._sampler.xyxy_to_raw(all_pred_bboxes[-1], img_metas)
+        x0_pred_t2 = self._sampler.xyxy_to_raw(all_pred_bboxes_t2[-1], img_metas)
+
+        if self.cat_loss_type == 'x0_consistency':
+            # 模式 1: x0 一致性
+            loss = F.mse_loss(x0_pred_t1, x0_pred_t2.detach()) * self.cat_weight
+        elif self.cat_loss_type == 'velocity_curvature':
+            # 模式 2: 纯曲率正则化 |v(t+dt) - v(t)|^2
+            x_noisy_t1 = (1.0 - t_view) * x_starts + t_view * x_noises
+            t_safe = torch.clamp(t_view, min=0.01)
+            t2_safe = torch.clamp(t2_view, min=0.01)
+            v_t1 = (x_noisy_t1 - x0_pred_t1) / t_safe
+            v_t2 = (x_t2 - x0_pred_t2.detach()) / t2_safe
+            loss = F.mse_loss(v_t1, v_t2) * self.cat_weight
+        else:
+            raise ValueError(
+                f"Unknown cat_loss_type: {self.cat_loss_type}. "
+                f"Expected 'x0_consistency' or 'velocity_curvature'."
+            )
+
+        return {'loss_curvature': loss}
+
+    def _add_trd_loss(
+        self,
+        features: Tuple[Tensor],
+        all_pred_bboxes: Tensor,
+        x_starts: Tensor,
+        x_noises: Tensor,
+        t: Tensor,
+        img_metas: List[ImageMeta],
+    ) -> Dict[str, Tensor]:
+        """Transport-Refinement Decomposition (TRD) loss
+
+        将速度分解为传输分量 v_pi 和特征修正分量 delta_v:
+        v_theta = v_pi + delta_v
+
+        训练时:
+        1. 从 x_t 前进到 x_{t+dt} (自条件化)
+        2. 在 x_{t+dt} 处预测 x0
+        3. 计算残差速度 delta_v = v_pred - v_pi
+        4. 惩罚 delta_v 与 (v* - v_pi) 的差异
+
+        推理时使用自条件化: 将 v_pi 注入模型输入
+        """
+        t_view = t.view(-1, 1, 1)
+        t2 = (t + self.trd_delta_t).clamp(max=1.0)
+        t2_view = t2.view(-1, 1, 1)
+
+        # 1. 计算传输速度 v_pi
+        if self.trd_use_analytic_v:
+            # 使用解析传输速度: v* = x_1 - x_0 (当前 OT 配对)
+            v_pi = x_noises - x_starts
+        else:
+            # 使用模型预测估计 v_pi
+            x0_pred = self._sampler.xyxy_to_raw(all_pred_bboxes[-1], img_metas)
+            x_noisy = (1.0 - t_view) * x_starts + t_view * x_noises
+            v_pi = (x_noisy - x0_pred) / torch.clamp(t_view, min=1e-5)
+
+        # 2. 自条件化: 从 x_t 前进到 x_{t+dt}
+        x_noisy = (1.0 - t_view) * x_starts + t_view * x_noises
+        x_t2_sc = x_noisy + self.trd_delta_t * v_pi  # Euler step
+
+        # 3. 在 x_{t+dt} 处前向传播
+        curr_bboxes_t2 = self._sampler.raw_to_xyxy(x_t2_sc, img_metas)
+        t2_input = t2 * self.timesteps
+        _, all_pred_bboxes_t2, _ = self(features, curr_bboxes_t2, t2_input)
+
+        # 4. 计算残差速度
+        x0_pred_t2 = self._sampler.xyxy_to_raw(all_pred_bboxes_t2[-1], img_metas)
+        v_pred_t2 = (x_t2_sc - x0_pred_t2) / torch.clamp(t2_view, min=1e-5)
+
+        # 目标速度 v* = x_1 - x_0
+        v_target = x_noises - x_starts
+
+        # 残差: delta_v = v_pred - v_pi, 目标: v* - v_pi
+        delta_v_pred = v_pred_t2 - v_pi
+        delta_v_target = v_target - v_pi
+
+        loss = F.mse_loss(delta_v_pred, delta_v_target.detach()) * self.trd_weight
+        return {'loss_trd': loss}
 
     def _init_weights(self):
         """初始化权重"""

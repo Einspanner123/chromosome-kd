@@ -47,14 +47,14 @@
 
 | 声明 | 实验证据 | 可信度 |
 |------|---------|--------|
-| RF > DDPM | ldmdet_rf 0.733 vs baseline 0.725 | ⚠️ DDPM 的 `_ddim_step` 有负索引 bug，DDPM baseline 数值不可靠 |
+| RF > DDPM | ldmdet_rf 0.733 vs baseline 0.725 | ⚠️ DDPM 的 `_ddim_step` 负索引问题在当前代码已修复（`sampling.py:161`），但历史 DDPM baseline 数值是否受旧代码影响需确认 |
 | Shifted Schedule > Uniform | +1.4% | ✅ 无已知 bug |
 | AdaLN-Zero > Scale-Shift | +0.3%（vs 同期非 adaln baseline +1.1%） | ✅ 无已知 bug |
 | Hard OT < Random | 0.735 vs 0.751 | ✅ 趋势稳健（不受单 seed 波动影响） |
 | Stochastic > Argmax | 0.751 vs 0.748 | ⚠️ 差值 0.003，单 seed 波动已达 0.018 |
 | Sinkhorn ε 扫描 in [0.5,5] | 平坦曲线 → CAM 命题 | ⚠️ argmax 下的 ε 扫描各点均为单 seed |
 | Reflow Epoch1 最优后退化 | 所有 Reflow 实验一致呈现 | ✅ 趋势稳健 |
-| TRD/CAT 组合效应 | 各组合均低于单路径最佳 | ⚠️ velocity target 符号错误影响所有相关数值 |
+| TRD/CAT 组合效应 | 各组合均低于单路径最佳 | ⚠️ ~~velocity target 符号错误影响所有相关数值~~ → 2026-05-28 验证确认符号一致（`v_target = x_noises - x_starts` 与 RF 定义匹配），但 TRD 复用 `cat_delta_t`、CAT 为 x0 一致性非纯曲率等问题仍存 |
 | DPM-Solver++ > Heun (离线) | 0.755 离线验证 | ✅ 需确认推理一致性 |
 
 ### 2.2 缺少实验支撑的声明
@@ -63,14 +63,16 @@
 |------|------|---------|
 | 通用检测改进（非仅染色体） | **COCO/LVIS 验证未做** | 🔴 致命（对 CVPR/ICCV 而言） |
 | 推理速度优势 | **SOTA 模型 FPS 未测** | 🔴 重大（扩散检测的核心卖点是速度-精度权衡） |
-| SOTA mAP=0.753 | **单 seed，另一 seed=0.735** | 🔴 重大（差值 1.8% 超过大多数声称改进） |
+| SOTA mAP=0.753 | **4-seed 实测: seed42=0.740, seed123=0.727(旧)/0.749(新), seed456=0.746, seed1000=0.749; mean≈0.746±0.008** | 🟡 已有多 seed 数据，seed123 两次运行差异 +2.2%（代码变更？），原始声称 0.753 需确认配置一致性 |
 | Stochastic OT 可复现 | TF32 被确认为系统性偏差源 | 🟡 根因已找到，但 5-seed 统计待做 |
-| 与标准检测器对比 | 未在染色体数据集跑 Faster R-CNN/DINO/YOLO | 🟡 缺少外部基线 |
+| 与标准检测器对比 | DINO R50 已跑（24obj mAP=0.869），但与 LDMDet 主力实验（Chromo2024 mAP=0.746）不在同一数据集，不可直接对比；同数据集的 Cascade R-CNN/RTMDet/YOLOX 未跑 | 🟡 缺少同数据集外部基线，DINO vs LDMDet 跨数据集对比无意义 |
 | Per-class AP | 未报告 | 🟡 对染色体应用重要（小染色体 vs 大染色体） |
 | Test set 评估 | test set 存在但从未使用 | 🟡 所有结果均为 validation set |
-| velocity loss / TRD / CAT / Reflow | 代码 bug 修复后需重跑 | 🔴 所有含 velocity loss 的数值不可信 |
+| velocity loss / TRD / CAT / Reflow | ~~代码 bug 修复后需重跑~~ → velocity 符号已确认一致，但 TRD/CAT 实现偏差（TRD 复用 cat_delta_t、CAT 为 x0 一致性非纯曲率）仍需重跑 | 🟡 velocity 数值可信；TRD/CAT 组合实验数值需重跑确认 |
 
 ### 2.3 数据集与训练规模
+
+> **⚠️ 2026-06-16 校准**：当前 work_dirs 中存在两个数据集的实验结果混用。sota_seed 系列（seed42/123/456/1000）和 ablation 系列使用 Chromosome20240904（小数据集），而 `ldmdet_rf_heun_adaln_stochot_eps5`（mAP=0.853，日志实测）使用 24_chromosomes_object（大数据集）。文档中所有 mAP 数值必须标注对应数据集。
 
 #### 数据集 1: Chromosome20240904_NoAug_NoResize_coco（主力实验数据集）
 
@@ -119,11 +121,11 @@ XML 文件中的原始路径为 `D:\Taichung_chromosomes\chromosome_original\`�
 | 模型 | 配置文件 | 状态 |
 |------|---------|------|
 | Cascade R-CNN R50 | `benchmark_24obj/cascade_rcnn_r50.py` | ❌ 未跑 |
-| DINO R50 | `benchmark_24obj/dino_r50.py` | ❌ 未跑 |
+| DINO R50 | `benchmark_24obj/dino_r50.py` | ✅ 已跑（mAP=0.869, ldmdet-experiment/sota/baselines/dino_r50/） |
 | RTMDet-L | `benchmark_24obj/rtmdet_l.py` | ❌ 未跑 |
 | YOLOX-S | `benchmark_24obj/yolox_s.py` | ❌ 未跑 |
 | DiffusionDet (DDPM) | `benchmark_diffusiondet_24obj.py` | ❌ 未跑 |
-| LDMDet SOTA | `benchmark_24obj/ldmdet_rf_heun_adaln_stochot_eps5.py` | ❌ 未跑 |
+| LDMDet SOTA | `benchmark_24obj/ldmdet_rf_heun_adaln_stochot_eps5.py` | ✅ 已跑（mAP=0.853, work_dirs/ldmdet_rf_heun_adaln_stochot_eps5/） |
 
 #### 单卡训练 batch_size
 
@@ -341,7 +343,7 @@ XML 文件中的原始路径为 `D:\Taichung_chromosomes\chromosome_original\`�
 
 | 编号 | 内容 | 硬件需求 | 预估时间 |
 |------|------|---------|---------|
-| **E1** | 修复 velocity target 符号 bug：`v_target = x_noises - x_starts`，修复所有调用处 | — | 1天 |
+| **E1** | ~~修复 velocity target 符号 bug~~ → 已验证 `v_target = x_noises - x_starts` 与 RF 定义一致，无需修复。改为：解耦 TRD delta_t 与 CAT delta_t、补 CAT 纯曲率模式消融 | — | 1天 |
 | **E2** | 重跑 velocity/TRD/CAT/Reflow 受影响实验：trd_only, trd_full, velocity, cat_only, Reflow v2-v6, ITD, stochastic+TRD/CAT 组合 | A6000 | 2-3周 (连续跑) |
 | **E3** | Stochastic OT 5-seed 统计：reproduce eps=5 的 5 seed mean±std；同样做 eps=1,2 | A6000 + A5000 | 1周 (5 seed 并行) |
 | **E4** | Test set 最终评估：用 best checkpoint 在 held-out test set (220张) 上跑一次 | A6000 | 0.5天 |
@@ -475,3 +477,14 @@ Week 9:        论文撰写
 ---
 
 *评估日期: 2026-05-28 | 基于 MASTER_TIMELINE.md, THEORY_FRAMEWORK.md, THEORY_WHY_FAILED.md, 60+ 实验日志, 以及外部文献检索*
+
+**2026-06-16 校准更新**：
+
+1. **velocity_loss 符号**：原声称"velocity target 符号与 RF 定义相反"为误判。2026-05-28 逐行验证确认 `_add_velocity_loss` 的 `v_target = x_noises - x_starts` 与 RF 定义一致。E1 已从"修复符号 bug"改为"解耦 TRD/CAT delta_t + 补 CAT 纯曲率消融"。
+2. **DDIM 负索引**：当前代码 `sampling.py:161` 已有 `if t_next < 0: return` 保护。历史 DDPM baseline 数值是否受旧代码影响需确认。
+3. **SOTA mAP**：4-seed 实测（Chromosome20240904）: seed42=0.740, seed123=0.727(旧)/0.749(新), seed456=0.746, seed1000=0.749; mean≈0.746±0.008。seed123 有两次运行，配置相同但代码可能不同导致 +2.2% 差异。原始 SOTA=0.753 需确认配置一致性。
+4. **数据集混用**：`ldmdet_rf_heun_adaln_stochot_eps5`（mAP=0.853，日志实测）使用 24_chromosomes_object 数据集（3500训练图），与主力实验数据集 Chromosome20240904（1540训练图）不同，不可直接对比。
+5. **数据集声称验证**：Chromosome20240904（训练1540/验证440/测试220/24类）和 24_chromosomes_object（训练3500/验证500/测试1000/24类）均与文档描述一致 ✅。
+6. **代码实现验证**：Shifted Schedule ✅、AdaLN-Zero 零初始化 ✅、Block 2 无 alpha 门控 ✅、OT multinomial + seed ✅、velocity 符号一致 ✅。
+7. **DINO R50 baseline**：已跑（mAP=0.869），但使用 24obj 数据集，与 LDMDet 主力实验（Chromo2024）不同数据集，不可直接对比。文档原标注"未跑"不准确，已修正。
+8. **ldmdet-experiment 数据验证**：所有 8 个实验的 metrics.json 与 index.json 声称一致 ✅。phase0-9 使用 Chromo2024，baselines/dino_r50 使用 24obj。

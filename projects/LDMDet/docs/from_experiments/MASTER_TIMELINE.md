@@ -88,7 +88,7 @@ ______________________________________________________________________
 
 **关键**：`ldmdet_baseline` 使用 1 步推理即达到 0.725，4 步推理反降至 0.709——这在 DDPM 体系下反常（通常多步 > 单步）。可能的解释是 DDPM 1 步推理实际走了 DDIM skip 路径，需进一步排查代码实现。`diffusiondet_baseline` 在 work_dirs 中训练完全未收敛，~0.45 可能来自其他分支的早期实验。
 
-> **代码审计 / 重跑标注（2026-05-15）**：`projects/LDMDet/mods/diffusiondet_head.py::_ddim_step` 在 `t_next < 0` 时存在负索引风险。DDPM baseline、DDPM 4-step 和 RF-vs-DDPM 数值对比应修复后重跑。
+> **代码审计 / 重跑标注（2026-05-15，2026-06-16 校准）**：~~`projects/LDMDet/mods/diffusiondet_head.py::_ddim_step` 在 `t_next < 0` 时存在负索引风险~~ → 当前代码 `sampling.py:161` 已有 `if t_next < 0: return` 保护，负索引问题已修复。DDPM baseline、DDPM 4-step 和 RF-vs-DDPM 数值对比的可靠性取决于旧代码是否已包含此修复——如旧代码缺少此保护，则历史 DDPM 数值不可信，需重跑。
 
 ### 阶段 1：RF 基础改进（路径直化）
 
@@ -146,7 +146,7 @@ ______________________________________________________________________
   - **路径 B（trd_full）**：优化训练动力学（TRD + CAT + LSAS + velocity）
 - **两条路径的组合已被实验探索，但结果为负交互**：`group_hierarchical_trd`=0.746, `stochastic_eps5_trd_cat`=0.740, `sinkhorn_trd_cat_lsas`=0.743，全部低于单路径最佳 0.752（详见 §七）
 
-> **代码审计 / 重跑标注（2026-05-15）**：TRD/velocity/CAT 相关数值均需谨慎。当前 `velocity_loss` 与 ITD 的目标符号和 RF 定义相反；CAT 实现是 `$x_0$ 一致性` 而非纯曲率；TRD 复用 `cat_delta_t`。修复后应重跑 `trd_only`、`trd_full`、`velocity`、`cat_only`、`stochastic_eps5_trd_cat`、`sinkhorn_trd_cat_lsas`、`group_hierarchical_trd`。
+> **代码审计 / 重跑标注（2026-05-15，2026-06-16 校准）**：TRD/velocity/CAT 相关数值仍需谨慎。~~当前 `velocity_loss` 与 ITD 的目标符号和 RF 定义相反~~ → 2026-05-28 逐行验证确认 `_add_velocity_loss`（行881）与 `rectified_flow.py`（行50）的 velocity 定义均为 `noise - start`，符号一致，无需修复。CAT 实现是 `$x_0$ 一致性` 而非纯曲率；TRD 复用 `cat_delta_t`。修复后应重跑 `trd_only`、`trd_full`、`cat_only`、`stochastic_eps5_trd_cat`、`sinkhorn_trd_cat_lsas`、`group_hierarchical_trd`。
 
 ### 阶段 4：Reflow 单步推理探索
 
@@ -690,3 +690,11 @@ ______________________________________________________________________
 ______________________________________________________________________
 
 *本文档整合了 work_dirs 中所有实验分支的 markdown 文档、实验日志和理论分析。主要来源：THEORY_FRAMEWORK.md, OT_DIVERSITY_COLLAPSE_PROOF.md, experiment_summary.md, SOTA_ANALYSIS.md, THEORY_WHY_FAILED.md, IMPROVEMENT_PLAN.md, LDMDet_Architecture.md, WEEK1_REPRO_PROTOCOL.md, Research_Plan.md, PAPER_FRAMEWORK.md, 以及 research_qna 中的 11 篇中文研究方向文档。2026-05-13 经过两轮交叉校验，修正了 13 处数值/结论错误，补充了 15+ 个遗漏实验，所有 mAP 数值均经 work_dirs 日志逐一核查。2026-05-28 更新 Phase 8 (KCEC) 和 Phase 9 (DPM-Solver++) 实验记录。*
+
+**2026-06-16 第三轮校准摘要**：
+
+1. **velocity_loss 符号**：§3 代码审计标注已更新。2026-05-28 逐行验证确认 `_add_velocity_loss` 的 `v_target = x_noises - x_starts` 与 `rectified_flow.py` 的 RF 定义一致，原"符号相反"标注为误判，已删除。
+2. **DDIM 负索引**：§0 代码审计标注已更新。当前代码 `sampling.py:161` 已有 `if t_next < 0: return` 保护，负索引问题已修复。历史 DDPM baseline 数值是否受旧代码影响需确认。
+3. **数据集混用警告**：work_dirs 中存在两个数据集的实验结果。sota_seed 系列（seed42/123/456/1000）使用 Chromosome20240904（1540 训练图），ablation 系列同上；`ldmdet_rf_heun_adaln_stochot_eps5`（mAP=0.853，日志实测）使用 24_chromosomes_object（3500 训练图）。本文档中的 mAP 数值未区分数据集，引用时需注意。
+4. **Multi-seed SOTA（Chromosome20240904）**：seed42=0.740, seed123=0.727(旧)/0.749(新), seed456=0.746, seed1000=0.749; mean≈0.746±0.008。seed123 有两次运行（6/4 vs 6/9），配置相同但代码可能不同导致 +2.2% 差异。原始声称 SOTA=0.753 需确认配置一致性。
+5. **work_dirs/ablation 独立实验**：使用 bs=8 + seed=1769925607 配置，结果（adaln: 0.596, adaln_stochot_eps5: 0.711 等）与主文档中的同名称实验数值不同，因配置差异（bs/seed/schedule），不可直接对比。

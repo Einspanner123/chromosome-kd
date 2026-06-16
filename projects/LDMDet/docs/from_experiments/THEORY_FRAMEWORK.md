@@ -536,9 +536,9 @@ ______________________________________________________________________
 | OT 耦合减小传输代价                     | 确实减小 $\|v^\*\|^2$                | ✅ 机制正确           | 建议补 $C_{trans}$ 统计 |
 | OT 耦合应提升性能                       | hard OT (0.735) \< random (0.751)    | ❌ 原理论错误，已修正 | hard OT 结论可保留；random/stoch 对照需多 seed |
 | Stochastic Coupling 恢复多样性          | eps=5 达到 0.751                     | ⚠️ 趋势支持           | 必须多 seed；可加固定 generator |
-| TRD 减小离散化误差                      | trd_full (0.752) > adaln (0.751)     | ⚠️ 当前代码下成立     | 修 velocity target、TRD/CAT 步长后重跑 |
-| Reflow 应持续改善路径直度               | Epoch 1 后持续退化                   | ❌ 原理论错误，已修正 | 修 velocity target 后重测梯度冲突与 Reflow |
-| OT + TRD 组合应叠加                     | 组合全为负交互                       | ⚠️ 当前代码下负交互   | 修 stochastic/velocity/CAT/TRD 后重跑组合 |
+| TRD 减小离散化误差                      | trd_full (0.752) > adaln (0.751)     | ⚠️ 当前代码下成立     | ~~修 velocity target~~ → 已确认符号一致；解耦 TRD/CAT delta_t 后重跑 |
+| Reflow 应持续改善路径直度               | Epoch 1 后持续退化                   | ❌ 原理论错误，已修正 | ~~修 velocity target~~ → 已确认符号一致；重测梯度冲突与 Reflow |
+| OT + TRD 组合应叠加                     | 组合全为负交互                       | ⚠️ 当前代码下负交互   | 解耦 TRD/CAT delta_t、补 CAT 纯曲率消融后重跑组合 |
 | Scale-Conditioned FM 改善小物体         | sc_combined (0.736) \< adaln (0.751) | ⚠️ 负结果趋势         | 无已知代码修正项，但不应写“必然无效” |
 
 ______________________________________________________________________
