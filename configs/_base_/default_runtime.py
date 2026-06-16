@@ -15,17 +15,7 @@ env_cfg = dict(
     dist_cfg=dict(backend='nccl'),
 )
 
-vis_backends = [
-    dict(type='LocalVisBackend'),
-    dict(type='TensorboardVisBackend'),
-    dict(
-        type='SwanlabVisBackend',
-        init_kwargs=dict(
-            project='chromosome-kd',
-            api_key='Huzvq1fnDeqOwgQo2AMAI',
-        ),
-    ),
-]
+vis_backends = [dict(type='LocalVisBackend')]
 visualizer = dict(
     type='DetLocalVisualizer', vis_backends=vis_backends, name='visualizer'
 )
