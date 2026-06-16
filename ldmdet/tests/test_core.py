@@ -289,3 +289,250 @@ class TestDiffusionDetHead:
         t = torch.full((2,), 500.0)
         all_cls, all_bbox, proposals = head(features, bboxes, t)
         assert all_cls.shape[0] == 1  # 无 deep supervision 只返回最后一层
+
+
+class TestDiffusionDetHeadDDPM:
+    """测试 DiffusionDetHead 的 DDPM 路径"""
+
+    @pytest.fixture
+    def ddpm_head(self):
+        single_head = SingleDiffusionDetHead(
+            num_classes=24, feat_channels=64, dim_feedforward=128,
+            num_cls_convs=1, num_reg_convs=1, num_heads=4,
+            pooler_resolution=7, dynamic_dim=32, dynamic_num=2,
+            time_conditioning='scale_shift',
+        )
+        roi_extractor = SingleRoIExtractor(
+            roi_layer={'type': 'RoIAlign', 'output_size': 7, 'sampling_ratio': 2, 'aligned': True},
+            out_channels=64, featmap_strides=[4, 8, 16, 32],
+        )
+        matcher = DiffusionDetMatcher(
+            cost_class=2.0, cost_bbox=5.0, cost_giou=2.0, candidate_topk=5,
+        )
+        criterion = DiffusionDetCriterion(
+            num_classes=24, matcher=matcher,
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+            deep_supervision=True,
+        )
+        return DiffusionDetHead(
+            num_classes=24, feat_channels=64, num_proposals=50, num_heads=3,
+            snr_scale=2.0, timesteps=1000, sampling_timesteps=4,
+            solver_type='euler', diffusion_type='ddpm',
+            single_head=single_head, roi_extractor=roi_extractor,
+            criterion=criterion, deep_supervision=True,
+            use_nms=True, nms_thr=0.5, score_thr=0.05,
+        )
+
+    def _make_features(self, bs=2, channels=64):
+        return tuple([
+            torch.randn(bs, channels, 64 // s, 64 // s)
+            for s in [4, 8, 16, 32]
+        ])
+
+    def _make_img_metas(self, bs=2):
+        return [ImageMeta(img_shape=(256, 256)) for _ in range(bs)]
+
+    def test_ddpm_loss(self, ddpm_head):
+        features = self._make_features()
+        img_metas = self._make_img_metas()
+        gt_bboxes = [torch.rand(5, 4) * 200 for _ in range(2)]
+        for bb in gt_bboxes:
+            bb[:, 2:] += bb[:, :2]
+        gt_labels = [torch.randint(0, 24, (5,)) for _ in range(2)]
+        losses = ddpm_head.loss(features, img_metas, gt_bboxes, gt_labels)
+        assert 'loss_cls' in losses
+        for v in losses.values():
+            assert torch.isfinite(v)
+
+    def test_ddpm_predict(self, ddpm_head):
+        features = self._make_features()
+        img_metas = self._make_img_metas()
+        results = ddpm_head.predict(features, img_metas, rescale=False)
+        assert len(results) == 2
+
+    def test_ddpm_q_sample(self, ddpm_head):
+        """测试 DDPM 前向加噪 q_sample"""
+        x_start = torch.randn(2, 50, 4)
+        t = torch.tensor([100, 500])
+        x_noisy = ddpm_head.q_sample(x_start, t)
+        assert x_noisy.shape == x_start.shape
+        assert torch.isfinite(x_noisy).all()
+
+
+class TestDiffusionDetHeadSolvers:
+    """测试 DiffusionDetHead 的 Heun 和 DPM-Solver++ 推理路径"""
+
+    def _make_head(self, solver_type, sampling_timesteps=4):
+        single_head = SingleDiffusionDetHead(
+            num_classes=24, feat_channels=64, dim_feedforward=128,
+            num_cls_convs=1, num_reg_convs=1, num_heads=4,
+            pooler_resolution=7, dynamic_dim=32, dynamic_num=2,
+        )
+        roi_extractor = SingleRoIExtractor(
+            roi_layer={'type': 'RoIAlign', 'output_size': 7, 'sampling_ratio': 2, 'aligned': True},
+            out_channels=64, featmap_strides=[4, 8, 16, 32],
+        )
+        return DiffusionDetHead(
+            num_classes=24, feat_channels=64, num_proposals=50, num_heads=3,
+            snr_scale=2.0, timesteps=1000, sampling_timesteps=sampling_timesteps,
+            solver_type=solver_type, diffusion_type='rectified_flow',
+            rf_schedule='linear', single_head=single_head,
+            roi_extractor=roi_extractor, deep_supervision=True,
+            use_nms=True, nms_thr=0.5, score_thr=0.05,
+        )
+
+    def _make_inputs(self, bs=2, channels=64):
+        features = tuple([
+            torch.randn(bs, channels, 64 // s, 64 // s)
+            for s in [4, 8, 16, 32]
+        ])
+        img_metas = [ImageMeta(img_shape=(256, 256)) for _ in range(bs)]
+        return features, img_metas
+
+    def test_heun_solver(self):
+        head = self._make_head('heun', sampling_timesteps=4)
+        features, img_metas = self._make_inputs()
+        results = head.predict(features, img_metas, rescale=False)
+        assert len(results) == 2
+
+    def test_dpm_solver_pp(self):
+        head = self._make_head('dpm_solver_pp', sampling_timesteps=4)
+        features, img_metas = self._make_inputs()
+        results = head.predict(features, img_metas, rescale=False)
+        assert len(results) == 2
+
+    def test_dpm_solver_pp_3(self):
+        head = self._make_head('dpm_solver_pp_3', sampling_timesteps=4)
+        features, img_metas = self._make_inputs()
+        results = head.predict(features, img_metas, rescale=False)
+        assert len(results) == 2
+
+
+class TestDiffusionDetHeadPredictTrajectory:
+    """测试 DiffusionDetHead.predict(return_trajectory=True)"""
+
+    def test_return_trajectory(self):
+        single_head = SingleDiffusionDetHead(
+            num_classes=24, feat_channels=64, dim_feedforward=128,
+            num_cls_convs=1, num_reg_convs=1, num_heads=4,
+            pooler_resolution=7, dynamic_dim=32, dynamic_num=2,
+        )
+        roi_extractor = SingleRoIExtractor(
+            roi_layer={'type': 'RoIAlign', 'output_size': 7, 'sampling_ratio': 2, 'aligned': True},
+            out_channels=64, featmap_strides=[4, 8, 16, 32],
+        )
+        head = DiffusionDetHead(
+            num_classes=24, feat_channels=64, num_proposals=50, num_heads=3,
+            snr_scale=2.0, timesteps=1000, sampling_timesteps=4,
+            solver_type='euler', diffusion_type='rectified_flow',
+            rf_schedule='linear', single_head=single_head,
+            roi_extractor=roi_extractor, deep_supervision=True,
+            use_nms=True, nms_thr=0.5, score_thr=0.05,
+        )
+        features = tuple([
+            torch.randn(1, 64, 64 // s, 64 // s)
+            for s in [4, 8, 16, 32]
+        ])
+        img_metas = [ImageMeta(img_shape=(256, 256))]
+        results, trajectory = head.predict(features, img_metas, rescale=False, return_trajectory=True)
+        assert len(results) == 1
+        assert len(trajectory) > 0
+        for cls_logits, pred_bboxes in trajectory:
+            assert cls_logits.shape[0] == 1
+            assert pred_bboxes.shape[0] == 1
+
+
+class TestDiffusionDetHeadOTCoupling:
+    """测试 DiffusionDetHead 的 OT coupling 路径"""
+
+    def test_ot_coupling_loss(self):
+        from ldmdet.coupling import build_coupling
+        single_head = SingleDiffusionDetHead(
+            num_classes=24, feat_channels=64, dim_feedforward=128,
+            num_cls_convs=1, num_reg_convs=1, num_heads=4,
+            pooler_resolution=7, dynamic_dim=32, dynamic_num=2,
+        )
+        roi_extractor = SingleRoIExtractor(
+            roi_layer={'type': 'RoIAlign', 'output_size': 7, 'sampling_ratio': 2, 'aligned': True},
+            out_channels=64, featmap_strides=[4, 8, 16, 32],
+        )
+        matcher = DiffusionDetMatcher(
+            cost_class=2.0, cost_bbox=5.0, cost_giou=2.0, candidate_topk=5,
+        )
+        criterion = DiffusionDetCriterion(
+            num_classes=24, matcher=matcher,
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+            deep_supervision=True,
+        )
+        coupling = build_coupling('sinkhorn_stochastic', epsilon=5.0, num_iters=10)
+        head = DiffusionDetHead(
+            num_classes=24, feat_channels=64, num_proposals=50, num_heads=3,
+            snr_scale=2.0, timesteps=1000, sampling_timesteps=1,
+            solver_type='euler', diffusion_type='rectified_flow',
+            rf_schedule='linear', single_head=single_head,
+            roi_extractor=roi_extractor, criterion=criterion,
+            coupling=coupling, deep_supervision=True,
+            use_nms=True, nms_thr=0.5, score_thr=0.05,
+        )
+        features = tuple([
+            torch.randn(2, 64, 64 // s, 64 // s)
+            for s in [4, 8, 16, 32]
+        ])
+        img_metas = [ImageMeta(img_shape=(256, 256)) for _ in range(2)]
+        gt_bboxes = [torch.rand(5, 4) * 200 for _ in range(2)]
+        for bb in gt_bboxes:
+            bb[:, 2:] += bb[:, :2]
+        gt_labels = [torch.randint(0, 24, (5,)) for _ in range(2)]
+        losses = head.loss(features, img_metas, gt_bboxes, gt_labels)
+        for v in losses.values():
+            assert torch.isfinite(v)
+
+
+class TestSingleRoIExtractorEdgeCases:
+    """测试 SingleRoIExtractor 边界情况"""
+
+    @pytest.fixture
+    def roi_extractor(self):
+        return SingleRoIExtractor(
+            roi_layer={'type': 'RoIAlign', 'output_size': 7, 'sampling_ratio': 2, 'aligned': True},
+            out_channels=64,
+            featmap_strides=[4, 8, 16, 32],
+            finest_scale=56,
+        )
+
+    def _make_feats(self, bs=1, h=64, w=64, channels=64):
+        return tuple([
+            torch.randn(bs, channels, h // s, w // s)
+            for s in [4, 8, 16, 32]
+        ])
+
+    def test_single_level_feats(self):
+        """单级特征图"""
+        roi_extractor = SingleRoIExtractor(
+            roi_layer={'type': 'RoIAlign', 'output_size': 7, 'sampling_ratio': 2, 'aligned': True},
+            out_channels=64,
+            featmap_strides=[4],
+        )
+        feats = (torch.randn(1, 64, 16, 16),)
+        rois = torch.tensor([[0, 10.0, 20.0, 50.0, 80.0]])
+        out = roi_extractor(feats, rois)
+        assert out.shape == (1, 64, 7, 7)
+
+    def test_roi_scale_factor(self, roi_extractor):
+        """roi_scale_factor 参数"""
+        feats = self._make_feats()
+        rois = torch.tensor([[0, 10.0, 20.0, 50.0, 80.0]])
+        out_normal = roi_extractor(feats, rois)
+        out_scaled = roi_extractor(feats, rois, roi_scale_factor=2.0)
+        assert out_normal.shape == out_scaled.shape
+
+    def test_empty_rois(self, roi_extractor):
+        """空 ROI 列表"""
+        feats = self._make_feats()
+        rois = torch.zeros(0, 5)
+        out = roi_extractor(feats, rois)
+        assert out.shape == (0, 64, 7, 7)

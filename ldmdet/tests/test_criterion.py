@@ -408,3 +408,164 @@ class TestDiffusionDetCriterion:
         losses = criterion(outputs, targets)
         for key, val in losses.items():
             assert torch.isfinite(val), f"{key} not finite with scale_aware"
+
+
+class TestDiffusionDetCriterionScaleAwareModes:
+    """测试 scale_aware 的三种模式"""
+
+    def _make_criterion(self, mode):
+        matcher = DiffusionDetMatcher(
+            cost_class=2.0, cost_bbox=5.0, cost_giou=2.0, candidate_topk=5,
+        )
+        return DiffusionDetCriterion(
+            num_classes=24,
+            matcher=matcher,
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+            deep_supervision=False,
+            scale_aware=True,
+            scale_aware_mode=mode,
+        )
+
+    def _make_data(self):
+        outputs = ModelOutput(
+            pred_logits=torch.randn(2, 100, 24),
+            pred_boxes=torch.rand(2, 100, 4),
+        )
+        outputs.pred_boxes[:, :, 2:] += outputs.pred_boxes[:, :, :2]
+        targets = []
+        for _ in range(2):
+            gt_bboxes = torch.rand(30, 4)
+            gt_bboxes[:, 2:] += gt_bboxes[:, :2]
+            gt_labels = torch.randint(0, 24, (30,))
+            targets.append(InstanceData(bboxes=gt_bboxes, labels=gt_labels, img_shape=(512, 512)))
+        return outputs, targets
+
+    def test_log_linear_mode(self):
+        criterion = self._make_criterion('log_linear')
+        outputs, targets = self._make_data()
+        losses = criterion(outputs, targets)
+        for key, val in losses.items():
+            assert torch.isfinite(val), f"{key} not finite with log_linear"
+
+    def test_sqrt_inverse_mode(self):
+        criterion = self._make_criterion('sqrt_inverse')
+        outputs, targets = self._make_data()
+        losses = criterion(outputs, targets)
+        for key, val in losses.items():
+            assert torch.isfinite(val), f"{key} not finite with sqrt_inverse"
+
+    def test_inverse_mode(self):
+        criterion = self._make_criterion('inverse')
+        outputs, targets = self._make_data()
+        losses = criterion(outputs, targets)
+        for key, val in losses.items():
+            assert torch.isfinite(val), f"{key} not finite with inverse"
+
+    def test_scale_aware_giou(self):
+        """scale_aware + scale_aware_giou 组合"""
+        matcher = DiffusionDetMatcher(
+            cost_class=2.0, cost_bbox=5.0, cost_giou=2.0, candidate_topk=5,
+        )
+        criterion = DiffusionDetCriterion(
+            num_classes=24,
+            matcher=matcher,
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+            deep_supervision=False,
+            scale_aware=True,
+            scale_aware_mode='inverse',
+            scale_aware_giou=True,
+        )
+        outputs, targets = self._make_data()
+        losses = criterion(outputs, targets)
+        for key, val in losses.items():
+            assert torch.isfinite(val), f"{key} not finite with scale_aware_giou"
+
+
+class TestDiffusionDetCriterionRelativeL1:
+    """测试 bbox_loss_mode='relative_l1'"""
+
+    def test_relative_l1_finite(self):
+        matcher = DiffusionDetMatcher(
+            cost_class=2.0, cost_bbox=5.0, cost_giou=2.0, candidate_topk=5,
+        )
+        criterion = DiffusionDetCriterion(
+            num_classes=24,
+            matcher=matcher,
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+            deep_supervision=False,
+            bbox_loss_mode='relative_l1',
+        )
+        outputs = ModelOutput(
+            pred_logits=torch.randn(2, 100, 24),
+            pred_boxes=torch.rand(2, 100, 4),
+        )
+        outputs.pred_boxes[:, :, 2:] += outputs.pred_boxes[:, :, :2]
+        targets = []
+        for _ in range(2):
+            gt_bboxes = torch.rand(30, 4)
+            gt_bboxes[:, 2:] += gt_bboxes[:, :2]
+            gt_labels = torch.randint(0, 24, (30,))
+            targets.append(InstanceData(bboxes=gt_bboxes, labels=gt_labels, img_shape=(512, 512)))
+        losses = criterion(outputs, targets)
+        for key, val in losses.items():
+            assert torch.isfinite(val), f"{key} not finite with relative_l1"
+
+    def test_relative_l1_gradient(self):
+        matcher = DiffusionDetMatcher(
+            cost_class=2.0, cost_bbox=5.0, cost_giou=2.0, candidate_topk=5,
+        )
+        criterion = DiffusionDetCriterion(
+            num_classes=24,
+            matcher=matcher,
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+            deep_supervision=False,
+            bbox_loss_mode='relative_l1',
+        )
+        outputs = ModelOutput(
+            pred_logits=torch.randn(2, 100, 24, requires_grad=True),
+            pred_boxes=torch.rand(2, 100, 4, requires_grad=True),
+        )
+        outputs.pred_boxes.data[:, :, 2:] += outputs.pred_boxes.data[:, :, :2]
+        targets = []
+        for _ in range(2):
+            gt_bboxes = torch.rand(30, 4)
+            gt_bboxes[:, 2:] += gt_bboxes[:, :2]
+            gt_labels = torch.randint(0, 24, (30,))
+            targets.append(InstanceData(bboxes=gt_bboxes, labels=gt_labels, img_shape=(512, 512)))
+        losses = criterion(outputs, targets)
+        sum(losses.values()).backward()
+        assert outputs.pred_logits.grad is not None
+        assert outputs.pred_boxes.grad is not None
+
+
+class TestIoUCostPlain:
+    """测试 IoUCost 的 iou_mode='iou' (非 giou)"""
+
+    def test_output_shape(self):
+        cost_fn = IoUCost(iou_mode='iou', weight=2.0)
+        pred_logits = torch.randn(100, 24)
+        pred_bboxes = torch.rand(100, 2) * 0.5
+        pred_bboxes = torch.cat([pred_bboxes, pred_bboxes + torch.rand(100, 2) * 0.3], dim=-1)
+        gt_labels = torch.randint(0, 24, (30,))
+        gt_bboxes = torch.rand(30, 2) * 0.5
+        gt_bboxes = torch.cat([gt_bboxes, gt_bboxes + torch.rand(30, 2) * 0.3], dim=-1)
+        cost = cost_fn(pred_logits, pred_bboxes, gt_labels, gt_bboxes)
+        assert cost.shape == (100, 30)
+
+    def test_identical_boxes_low_cost(self):
+        cost_fn = IoUCost(iou_mode='iou', weight=2.0)
+        tl = torch.rand(30, 2) * 0.3
+        boxes = torch.cat([tl, tl + 0.2], dim=-1)
+        pred_logits = torch.randn(30, 24)
+        gt_labels = torch.randint(0, 24, (30,))
+        cost = cost_fn(pred_logits, boxes, gt_labels, boxes)
+        # IoU=1 → cost=0
+        assert torch.allclose(cost.diag(), torch.zeros(30), atol=1e-3)

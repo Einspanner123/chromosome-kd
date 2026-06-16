@@ -12,15 +12,17 @@ import os
 import subprocess
 import sys
 
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List
+
 # 确保项目根目录在 Python path 中
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
-from datetime import datetime
-from pathlib import Path
 
 
-def run_single(config: str, seed: int, gpu: int, work_dir: str) -> dict:
+def run_single(config: str, seed: int, gpu: int, work_dir: str) -> Dict:
     """运行单次训练，返回 best mAP"""
     cmd = [
         sys.executable, '-m', 'experiments.runners.train',
@@ -62,7 +64,7 @@ def run_single(config: str, seed: int, gpu: int, work_dir: str) -> dict:
     }
 
 
-def aggregate(results: list[dict]) -> dict:
+def aggregate(results: List[Dict]) -> Dict:
     """聚合多 seed 结果"""
     maps = [r['best_mAP'] for r in results if r['best_mAP'] is not None]
     if not maps:

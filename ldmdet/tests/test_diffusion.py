@@ -250,3 +250,172 @@ class TestDiffusionSampler:
         )
         pairs = sampler.build_time_pairs(torch.device('cpu'))
         assert len(pairs) > 0
+
+
+class TestDiffusionSamplerPostProcess:
+    """测试 DiffusionSampler.post_process — NMS、集成、缩放"""
+
+    @pytest.fixture
+    def sampler(self):
+        return DiffusionSampler(
+            diffusion_type='rectified_flow', timesteps=1000,
+            sampling_timesteps=4, solver_type='euler',
+            ddim_sampling_eta=1.0, rf_schedule='linear',
+            rf_power=1.0, rf_shift=1.0, snr_scale=2.0,
+            box_renewal=False, use_ensemble=True,
+            use_nms=True, nms_thr=0.5, score_thr=0.05, min_keep=10,
+        )
+
+    def _make_ensemble(self, bs=2, num_proposals=50, num_classes=24):
+        """构造多步集成结果"""
+        results = []
+        for _ in range(3):
+            cls_logits = torch.randn(bs, num_proposals, num_classes)
+            pred_bboxes = torch.rand(bs, num_proposals, 4) * 400 + 50
+            pred_bboxes[:, :, 2:] += pred_bboxes[:, :, :2]
+            results.append((cls_logits, pred_bboxes))
+        return results
+
+    def test_output_length(self, sampler):
+        ensemble = self._make_ensemble()
+        img_metas = [ImageMeta(img_shape=(512, 512)) for _ in range(2)]
+        results = sampler.post_process(ensemble, img_metas, rescale=False)
+        assert len(results) == 2
+
+    def test_result_fields(self, sampler):
+        ensemble = self._make_ensemble()
+        img_metas = [ImageMeta(img_shape=(512, 512)) for _ in range(2)]
+        results = sampler.post_process(ensemble, img_metas, rescale=False)
+        for r in results:
+            assert r.bboxes.shape[1] == 4
+            assert r.scores.shape[0] == r.bboxes.shape[0]
+            assert r.labels.shape[0] == r.bboxes.shape[0]
+
+    def test_nms_reduces_boxes(self):
+        """NMS 应减少重叠框数量"""
+        sampler = DiffusionSampler(
+            diffusion_type='rectified_flow', timesteps=1000,
+            sampling_timesteps=1, solver_type='euler',
+            ddim_sampling_eta=1.0, rf_schedule='linear',
+            rf_power=1.0, rf_shift=1.0, snr_scale=2.0,
+            box_renewal=False, use_ensemble=True,
+            use_nms=True, nms_thr=0.1, score_thr=0.01, min_keep=1,
+        )
+        # 大量重叠框
+        base_box = torch.tensor([[100.0, 100.0, 200.0, 200.0]])
+        bboxes = base_box.repeat(1, 50, 1) + torch.randn(1, 50, 4) * 2
+        cls_logits = torch.ones(1, 50, 24) * 5.0  # 高置信度
+        ensemble = [(cls_logits, bboxes)]
+        img_metas = [ImageMeta(img_shape=(512, 512))]
+        results = sampler.post_process(ensemble, img_metas, rescale=False)
+        # NMS 后框数应远少于 50
+        assert results[0].bboxes.shape[0] < 50
+
+    def test_no_nms(self):
+        """关闭 NMS 时保留所有框"""
+        sampler = DiffusionSampler(
+            diffusion_type='rectified_flow', timesteps=1000,
+            sampling_timesteps=1, solver_type='euler',
+            ddim_sampling_eta=1.0, rf_schedule='linear',
+            rf_power=1.0, rf_shift=1.0, snr_scale=2.0,
+            box_renewal=False, use_ensemble=True,
+            use_nms=False, nms_thr=0.5, score_thr=0.0, min_keep=1,
+        )
+        ensemble = self._make_ensemble(bs=1, num_proposals=20)
+        img_metas = [ImageMeta(img_shape=(512, 512))]
+        results = sampler.post_process(ensemble, img_metas, rescale=False)
+        # 3 步集成 × 20 proposals = 60 (无 NMS)
+        assert results[0].bboxes.shape[0] == 60
+
+    def test_rescale(self):
+        """rescale=True 应按 scale_factor 缩放框到原始图像尺度"""
+        sampler = DiffusionSampler(
+            diffusion_type='rectified_flow', timesteps=1000,
+            sampling_timesteps=1, solver_type='euler',
+            ddim_sampling_eta=1.0, rf_schedule='linear',
+            rf_power=1.0, rf_shift=1.0, snr_scale=2.0,
+            box_renewal=False, use_ensemble=True,
+            use_nms=False, nms_thr=0.5, score_thr=0.0, min_keep=1,
+        )
+        cls_logits = torch.ones(1, 10, 24) * 3.0
+        pred_bboxes = torch.rand(1, 10, 4) * 400 + 50
+        pred_bboxes[:, :, 2:] += pred_bboxes[:, :, :2]
+        ensemble = [(cls_logits, pred_bboxes)]
+        # scale_factor=0.5 表示特征图是原图的 0.5 倍
+        # rescale=True 时会把框坐标除以 scale_factor (即 ×2) 还原到原图尺度
+        img_metas = [ImageMeta(img_shape=(512, 512), scale_factor=[0.5, 0.5])]
+        results_no_rescale = sampler.post_process(ensemble, img_metas, rescale=False)
+        results_rescale = sampler.post_process(ensemble, img_metas, rescale=True)
+        # rescale 后框坐标应更大 (还原到原图尺度)
+        assert results_rescale[0].bboxes.max() >= results_no_rescale[0].bboxes.max() - 1e-3
+
+    def test_single_step_ensemble(self):
+        """单步集成 (1 组结果)"""
+        sampler = DiffusionSampler(
+            diffusion_type='rectified_flow', timesteps=1000,
+            sampling_timesteps=1, solver_type='euler',
+            ddim_sampling_eta=1.0, rf_schedule='linear',
+            rf_power=1.0, rf_shift=1.0, snr_scale=2.0,
+            box_renewal=False, use_ensemble=True,
+            use_nms=True, nms_thr=0.5, score_thr=0.05, min_keep=10,
+        )
+        cls_logits = torch.randn(1, 50, 24)
+        pred_bboxes = torch.rand(1, 50, 4) * 400 + 50
+        pred_bboxes[:, :, 2:] += pred_bboxes[:, :, :2]
+        ensemble = [(cls_logits, pred_bboxes)]
+        img_metas = [ImageMeta(img_shape=(512, 512))]
+        results = sampler.post_process(ensemble, img_metas, rescale=False)
+        assert len(results) == 1
+
+
+class TestPredictNoiseFromStart:
+    """测试 sampling.predict_noise_from_start"""
+
+    def test_output_shape(self):
+        from ldmdet.diffusion.sampling import predict_noise_from_start
+        x_t = torch.randn(2, 50, 4)
+        t = torch.tensor([100, 500])
+        x0 = torch.randn_like(x_t)
+        alphas_cumprod = torch.rand(1000)
+        noise = predict_noise_from_start(x_t, t, x0, alphas_cumprod)
+        assert noise.shape == x_t.shape
+
+    def test_finite(self):
+        from ldmdet.diffusion.sampling import predict_noise_from_start
+        x_t = torch.randn(2, 50, 4)
+        t = torch.tensor([0, 999])
+        x0 = torch.randn_like(x_t)
+        alphas_cumprod = cosine_noise_schedule(1000).float()
+        # 从 betas 计算 alphas_cumprod
+        alphas = 1.0 - alphas_cumprod
+        alphas_cumprod_actual = torch.cumprod(alphas, dim=0)
+        noise = predict_noise_from_start(x_t, t, x0, alphas_cumprod_actual)
+        assert torch.isfinite(noise).all()
+
+
+class TestRFDPMSolverMultistepOrder3:
+    """测试 DPM-Solver++ 三阶求解器"""
+
+    def test_solver_order3_step(self):
+        solver = RFDPMSolverMultistep(num_steps=4, solver_order=3)
+        x = torch.randn(2, 100, 4)
+        # 模拟 3 步历史
+        x0_1 = torch.randn_like(x)
+        x0_2 = torch.randn_like(x)
+        x0_3 = torch.randn_like(x)
+        solver.step(x, x0_1, t_n=1.0, step_idx=0)
+        solver.step(x, x0_2, t_n=0.75, step_idx=1)
+        x_next = solver.step(x, x0_3, t_n=0.5, step_idx=2)
+        assert x_next.shape == x.shape
+        assert torch.isfinite(x_next).all()
+
+    def test_solver_order3_full_trajectory(self):
+        """完整 4 步求解轨迹"""
+        solver = RFDPMSolverMultistep(num_steps=4, solver_order=3)
+        x = torch.randn(2, 50, 4)
+        for step_idx in range(4):
+            x0_pred = torch.randn_like(x)
+            t_n = solver.timesteps[step_idx]
+            x = solver.step(x, x0_pred, t_n=t_n, step_idx=step_idx)
+        assert x.shape == (2, 50, 4)
+        assert torch.isfinite(x).all()
