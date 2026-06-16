@@ -17,14 +17,19 @@ if _PROJECT_ROOT not in sys.path:
 
 def _set_swanlab_name(cfg, exp_name: str):
     """向 SwanlabVisBackend 注入 experiment_name"""
-    for backend in cfg.get('vis_backends', []):
-        if backend.get('type') == 'SwanlabVisBackend':
-            backend.setdefault('init_kwargs', {})['experiment_name'] = exp_name
-    # 也处理 visualizer 内的 vis_backends
-    vis = cfg.get('visualizer', {})
-    for backend in vis.get('vis_backends', []):
-        if backend.get('type') == 'SwanlabVisBackend':
-            backend.setdefault('init_kwargs', {})['experiment_name'] = exp_name
+    for key in ('vis_backends', 'visualizer.vis_backends'):
+        parts = key.split('.')
+        d = cfg
+        for p in parts:
+            d = d.get(p, {}) if isinstance(d, dict) else {}
+        # 处理 _delete_=True 包裹的 value
+        if isinstance(d, dict) and 'value' in d:
+            d = d['value']
+        if not isinstance(d, list):
+            continue
+        for backend in d:
+            if isinstance(backend, dict) and backend.get('type') == 'SwanlabVisBackend':
+                backend.setdefault('init_kwargs', {})['experiment_name'] = exp_name
 
 
 def main():
