@@ -10,7 +10,7 @@ _base_ = [
 ]
 
 num_classes = 24
-batch_size = 2
+batch_size = 4
 num_workers = 4
 
 # ── 模型 ──────────────────────────────────────────
