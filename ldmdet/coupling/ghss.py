@@ -9,7 +9,7 @@ from typing import Optional
 import torch
 from torch import Tensor
 
-from ldmdet.coupling._sinkhorn_ops import ot_multinomial, sinkhorn_transport
+from ldmdet.coupling._sinkhorn_ops import ot_multinomial, sinkhorn_transport, sinkhorn_transport_batch
 from ldmdet.coupling.base import CouplingStrategy, register_coupling
 from ldmdet.utils.constants import CHROMO_GROUP_OF_CLASS
 
@@ -62,47 +62,66 @@ class GHSSCoupling(CouplingStrategy):
         matched_gt_idx = torch.zeros(N, dtype=torch.long, device=device)
         offset = 0
 
-        unique_groups = torch.unique(gt_groups)
-        for grp in unique_groups:
+        unique_groups, group_counts = torch.unique(gt_groups, return_counts=True)
+        num_groups = unique_groups.shape[0]
+
+        # 预计算每组的噪声分配和索引
+        group_info = []
+        for gi, grp in enumerate(unique_groups):
             grp_mask = gt_groups == grp
             grp_gt_idx = torch.where(grp_mask)[0]
             K_g = grp_gt_idx.shape[0]
 
             N_g = max(N * K_g // num_gt, 1)
-            if grp == unique_groups[-1]:
+            if gi == num_groups - 1:
                 N_g = N - offset
             N_g = min(N_g, N - offset)
             if N_g <= 0:
                 continue
 
-            grp_noise = noise[offset : offset + N_g]
+            group_info.append((grp, grp_gt_idx, K_g, N_g, offset))
+            offset += N_g
+
+        if not group_info:
+            x_start = gt_diffusion[matched_gt_idx]
+            return x_start, matched_gt_idx
+
+        # 批量构建代价矩阵和边缘分布
+        costs = []
+        row_masses = []
+        col_masses = []
+        for grp, grp_gt_idx, K_g, N_g, off in group_info:
+            grp_noise = noise[off : off + N_g]
             grp_gt = gt_diffusion[grp_gt_idx]
-
             cost = torch.cdist(grp_noise, grp_gt, p=2)
+            costs.append(cost)
+
             a = torch.ones(N_g, device=device) / N_g
+            row_masses.append(a)
+
             proposals_per_gt = max(N_g // K_g, 1)
-            gt_mass = torch.full(
-                (K_g,), proposals_per_gt / N_g, device=device
-            )
+            gt_mass = torch.full((K_g,), proposals_per_gt / N_g, device=device)
             b = gt_mass / gt_mass.sum()
+            col_masses.append(b)
 
-            transport = sinkhorn_transport(
-                cost,
-                epsilon=self.epsilon,
-                num_iters=self.num_iters,
-                row_mass=a,
-                col_mass=b,
-            )
+        # 批量 Sinkhorn
+        transports = sinkhorn_transport_batch(
+            costs,
+            epsilon=self.epsilon,
+            num_iters=self.num_iters,
+            row_masses=row_masses,
+            col_masses=col_masses,
+        )
 
-            row_probs = transport / transport.sum(
+        # 采样并写入结果
+        for i, (grp, grp_gt_idx, K_g, N_g, off) in enumerate(group_info):
+            row_probs = transports[i] / transports[i].sum(
                 dim=1, keepdim=True
             ).clamp_min(1e-10)
             local_matched = ot_multinomial(
                 row_probs, seed=self.sample_seed
             )
-
-            matched_gt_idx[offset : offset + N_g] = grp_gt_idx[local_matched]
-            offset += N_g
+            matched_gt_idx[off : off + N_g] = grp_gt_idx[local_matched]
 
         x_start = gt_diffusion[matched_gt_idx]
         return x_start, matched_gt_idx

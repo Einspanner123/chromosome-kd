@@ -32,6 +32,6 @@ default_hooks = dict(
 vis_backends = [
     dict(type='LocalVisBackend'),
     dict(type='TensorboardVisBackend'),
-    dict(type='SwanlabVisBackend', init_kwargs=dict(project='ldmdet-ablation', api_key='Huzvq1fnDeqOwgQo2AMAI')),
+    dict(type='SwanlabVisBackend', init_kwargs=dict(project='ldmdet-ablation', api_key='Huzvq1fnDeqOwgQo2AMAI', resume='allow')),
 ]
 visualizer = dict(vis_backends=vis_backends)

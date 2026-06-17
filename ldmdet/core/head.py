@@ -303,15 +303,17 @@ class DiffusionDetHead(nn.Module):
         return cls_logits_last, pred_bboxes_last, x0
 
     def _normalize_pred_bboxes(self, all_pred_bboxes, img_metas):
-        norm_pred_bboxes = []
-        for head_idx in range(all_pred_bboxes.shape[0]):
-            norm_per_head = []
-            for i in range(len(img_metas)):
-                h, w = _get_img_shape(img_metas[i])[:2]
-                scale = all_pred_bboxes.new_tensor([w, h, w, h])
-                norm_per_head.append(all_pred_bboxes[head_idx, i] / scale)
-            norm_pred_bboxes.append(torch.stack(norm_per_head))
-        return torch.stack(norm_pred_bboxes)
+        # 向量化: 一次性构建 scale 张量并广播除法
+        # all_pred_bboxes: [num_heads, bs, num_proposals, 4]
+        num_heads = all_pred_bboxes.shape[0]
+        bs = len(img_metas)
+        # 构建 [bs, 4] 的 scale 张量
+        scales = all_pred_bboxes.new_zeros(bs, 4)
+        for i in range(bs):
+            h, w = _get_img_shape(img_metas[i])[:2]
+            scales[i] = all_pred_bboxes.new_tensor([w, h, w, h])
+        # [num_heads, bs, 1, 4] / [1, bs, 1, 4] → [num_heads, bs, num_proposals, 4]
+        return all_pred_bboxes / scales.unsqueeze(0).unsqueeze(2)
 
     def _build_outputs(self, all_cls_logits, norm_pred_bboxes):
         main_logits = all_cls_logits[-1]

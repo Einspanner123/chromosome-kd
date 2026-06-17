@@ -87,32 +87,28 @@ class SingleRoIExtractor(nn.Module):
         if isinstance(output_size, int):
             output_size = (output_size, output_size)
 
-        roi_feats = feats[0].new_zeros(
-            rois.shape[0], self.out_channels, *output_size
-        )
-
         if num_levels == 1:
             if len(rois) == 0:
-                return roi_feats
+                return feats[0].new_zeros(
+                    rois.shape[0], self.out_channels, *output_size
+                )
             return self.roi_layers[0](feats[0], rois)
 
         target_lvls = self.map_roi_levels(rois, num_levels)
         if roi_scale_factor is not None:
             rois = self.roi_rescale(rois, roi_scale_factor)
 
-        has_params = len(list(self.parameters())) > 0
+        # 按层级分组 ROI，减少循环内条件判断
+        roi_feats = feats[0].new_zeros(
+            rois.shape[0], self.out_channels, *output_size
+        )
+
         for i in range(num_levels):
             mask = target_lvls == i
+            num_rois_at_level = mask.sum().item()
+            if num_rois_at_level == 0:
+                continue
             idxs = mask.nonzero(as_tuple=False).squeeze(1)
-            if idxs.numel() > 0:
-                roi_feats_t = self.roi_layers[i](feats[i], rois[idxs])
-                roi_feats[idxs] = roi_feats_t
-            else:
-                fake_loss = feats[i][0:1].sum() * 0.0
-                if has_params:
-                    fake_loss += (
-                        sum(x.view(-1)[0] for x in self.parameters()) * 0.0
-                    )
-                roi_feats += fake_loss
+            roi_feats[idxs] = self.roi_layers[i](feats[i], rois[idxs])
 
         return roi_feats

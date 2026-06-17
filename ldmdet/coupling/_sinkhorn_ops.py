@@ -47,15 +47,121 @@ def sinkhorn_transport(
     log_u = torch.zeros(N, device=device)
     log_v = torch.zeros(K, device=device)
 
+    # 预计算 log marginals
+    log_row_mass = torch.log(row_mass + 1e-10)
+    log_col_mass = torch.log(col_mass + 1e-10)
+
     for _ in range(num_iters):
-        log_u = torch.log(row_mass + 1e-10) - torch.logsumexp(
+        log_u = log_row_mass - torch.logsumexp(
             log_K_mat + log_v.unsqueeze(0), dim=1
         )
-        log_v = torch.log(col_mass + 1e-10) - torch.logsumexp(
+        log_v = log_col_mass - torch.logsumexp(
             log_K_mat + log_u.unsqueeze(1), dim=0
         )
 
     return torch.exp(log_u.unsqueeze(1) + log_K_mat + log_v.unsqueeze(0))
+
+
+def sinkhorn_transport_batch(
+    costs: list[Tensor],
+    epsilon: float,
+    num_iters: int = 20,
+    row_masses: Optional[list[Tensor]] = None,
+    col_masses: Optional[list[Tensor]] = None,
+) -> list[Tensor]:
+    """批量 Sinkhorn: 对多个不同大小的代价矩阵并行迭代。
+
+    使用 padding + mask 将不同大小的矩阵合并为批量操作，
+    减少逐组 Python 循环的 kernel launch 开销。
+
+    Args:
+        costs: 多个 [N_g, K_g] 代价矩阵列表
+        epsilon: 熵正则化强度
+        num_iters: Sinkhorn 迭代次数
+        row_masses: 可选的行边缘分布列表
+        col_masses: 可选的列边缘分布列表
+
+    Returns:
+        传输矩阵列表, 每个与对应 cost 同形状
+    """
+    G = len(costs)
+    if G == 0:
+        return []
+    if G == 1:
+        return [sinkhorn_transport(costs[0], epsilon, num_iters,
+                                   row_masses[0] if row_masses else None,
+                                   col_masses[0] if col_masses else None)]
+
+    device = costs[0].device
+    max_N = max(c.shape[0] for c in costs)
+    max_K = max(c.shape[1] for c in costs)
+    eps = max(epsilon, 1e-6)
+
+    # Pad cost matrices to [G, max_N, max_K] with +inf (→ exp(-inf) = 0 in transport)
+    padded_cost = torch.full((G, max_N, max_K), float('inf'), device=device)
+    N_sizes = []
+    K_sizes = []
+    for g in range(G):
+        Ng, Kg = costs[g].shape
+        padded_cost[g, :Ng, :Kg] = costs[g]
+        N_sizes.append(Ng)
+        K_sizes.append(Kg)
+
+    log_K_mat = -padded_cost / eps  # [G, max_N, max_K], padded entries → -inf
+
+    # Prepare log marginals
+    log_row_mass = torch.full((G, max_N), float('-inf'), device=device)  # log(0) = -inf
+    log_col_mass = torch.full((G, max_K), float('-inf'), device=device)
+    for g in range(G):
+        Ng, Kg = N_sizes[g], K_sizes[g]
+        if row_masses is not None:
+            rm = row_masses[g]
+            log_row_mass[g, :Ng] = torch.log(rm.clamp_min(1e-10))
+        else:
+            log_row_mass[g, :Ng] = torch.log(torch.ones(Ng, device=device) / max(Ng, 1))
+        if col_masses is not None:
+            cm = col_masses[g]
+            cm = cm / cm.sum().clamp_min(1e-10)
+            log_col_mass[g, :Kg] = torch.log(cm.clamp_min(1e-10))
+        else:
+            proposals_per_gt = max(Ng // max(Kg, 1), 1)
+            cm = torch.full((Kg,), proposals_per_gt / Ng, device=device)
+            cm = cm / cm.sum()
+            log_col_mass[g, :Kg] = torch.log(cm.clamp_min(1e-10))
+
+    log_u = torch.full((G, max_N), float('-inf'), device=device)
+    log_v = torch.full((G, max_K), float('-inf'), device=device)
+    # Initialize valid regions to 0 (log(1))
+    for g in range(G):
+        log_u[g, :N_sizes[g]] = 0.0
+        log_v[g, :K_sizes[g]] = 0.0
+
+    for _ in range(num_iters):
+        # log_u[g,n] = log_row_mass[g,n] - logsumexp_j(log_K[g,n,j] + log_v[g,j])
+        log_u = log_row_mass - torch.logsumexp(
+            log_K_mat + log_v.unsqueeze(1), dim=2
+        )
+        # Reset padded rows to -inf
+        for g in range(G):
+            log_u[g, N_sizes[g]:] = float('-inf')
+
+        # log_v[g,k] = log_col_mass[g,k] - logsumexp_i(log_K[g,i,k] + log_u[g,i])
+        log_v = log_col_mass - torch.logsumexp(
+            log_K_mat + log_u.unsqueeze(2), dim=1
+        )
+        # Reset padded cols to -inf
+        for g in range(G):
+            log_v[g, K_sizes[g]:] = float('-inf')
+
+    # Compute transport and unpad
+    transport_full = torch.exp(log_u.unsqueeze(2) + log_K_mat + log_v.unsqueeze(1))
+    # Clamp to avoid NaN from -inf + inf
+    transport_full = transport_full.clamp_min(0.0)
+    results = []
+    for g in range(G):
+        Ng, Kg = N_sizes[g], K_sizes[g]
+        results.append(transport_full[g, :Ng, :Kg])
+    return results
 
 
 def ot_multinomial(

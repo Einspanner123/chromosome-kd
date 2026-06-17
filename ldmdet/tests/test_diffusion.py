@@ -145,6 +145,31 @@ class TestRectifiedFlow:
         v = rf.get_velocity(x_t, x0_pred, t)
         assert v.shape == x_t.shape
 
+    def test_get_velocity_t0_clamp(self, rf):
+        """t=0 时 clamp(min=1e-5) 防止除零，结果应有限"""
+        x_t = torch.randn(2, 10, 4)
+        x0_pred = torch.randn_like(x_t)
+        t = torch.zeros(2)
+        v = rf.get_velocity(x_t, x0_pred, t)
+        assert torch.isfinite(v).all()
+
+    def test_get_velocity_t_small(self, rf):
+        """t 极小时 velocity 仍有限"""
+        x_t = torch.randn(2, 10, 4)
+        x0_pred = torch.randn_like(x_t)
+        t = torch.tensor([1e-6])
+        v = rf.get_velocity(x_t, x0_pred, t)
+        assert torch.isfinite(v).all()
+
+    def test_get_velocity_formula(self, rf):
+        """v = (x_t - x0_pred) / t 验证"""
+        x_t = torch.tensor([[[1.0, 2.0, 3.0, 4.0]]])
+        x0_pred = torch.tensor([[[0.5, 1.0, 1.5, 2.0]]])
+        t = torch.tensor([0.5])
+        v = rf.get_velocity(x_t, x0_pred, t)
+        expected = (x_t - x0_pred) / 0.5
+        assert torch.allclose(v, expected, atol=1e-5)
+
 
 class TestRFDPMSolverMultistep:
     def test_init(self):
@@ -250,6 +275,39 @@ class TestDiffusionSampler:
         )
         pairs = sampler.build_time_pairs(torch.device('cpu'))
         assert len(pairs) > 0
+
+    def test_rf_schedule_power(self):
+        """rf_schedule='power' 时间对"""
+        sampler = DiffusionSampler(
+            diffusion_type='rectified_flow', timesteps=1000,
+            sampling_timesteps=4, solver_type='euler',
+            ddim_sampling_eta=1.0, rf_schedule='power',
+            rf_power=2.0, rf_shift=1.0, snr_scale=2.0,
+            box_renewal=False, use_ensemble=False,
+            use_nms=True, nms_thr=0.5, score_thr=0.05, min_keep=10,
+        )
+        pairs = sampler.build_time_pairs(torch.device('cpu'))
+        assert len(pairs) == 4
+        # t_curr > t_next
+        for t_curr, t_next in pairs:
+            assert t_curr > t_next
+        # 首个 t_curr 应为 1.0^2 = 1.0
+        assert abs(pairs[0][0] - 1.0) < 1e-5
+
+    def test_rf_schedule_linear(self):
+        """rf_schedule='linear' 时间对均匀分布"""
+        sampler = DiffusionSampler(
+            diffusion_type='rectified_flow', timesteps=1000,
+            sampling_timesteps=4, solver_type='euler',
+            ddim_sampling_eta=1.0, rf_schedule='linear',
+            rf_power=1.0, rf_shift=1.0, snr_scale=2.0,
+            box_renewal=False, use_ensemble=False,
+            use_nms=True, nms_thr=0.5, score_thr=0.05, min_keep=10,
+        )
+        pairs = sampler.build_time_pairs(torch.device('cpu'))
+        # 线性: 1.0, 0.75, 0.5, 0.25, 0.0
+        assert abs(pairs[0][0] - 1.0) < 1e-5
+        assert abs(pairs[-1][1] - 0.0) < 1e-5
 
 
 class TestDiffusionSamplerPostProcess:

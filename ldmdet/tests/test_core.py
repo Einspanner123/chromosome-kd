@@ -536,3 +536,155 @@ class TestSingleRoIExtractorEdgeCases:
         rois = torch.zeros(0, 5)
         out = roi_extractor(feats, rois)
         assert out.shape == (0, 64, 7, 7)
+
+
+class TestDiffusionDetHeadAdvancedParams:
+    """DiffusionDetHead 高级参数 smoke test — 验证参数传递不报错"""
+
+    def _make_base_components(self):
+        single_head = SingleDiffusionDetHead(
+            num_classes=24, feat_channels=64, dim_feedforward=128,
+            num_cls_convs=1, num_reg_convs=1, num_heads=4,
+            pooler_resolution=7, dynamic_dim=32, dynamic_num=2,
+        )
+        roi_extractor = SingleRoIExtractor(
+            roi_layer={'type': 'RoIAlign', 'output_size': 7, 'sampling_ratio': 2, 'aligned': True},
+            out_channels=64, featmap_strides=[4, 8, 16, 32],
+        )
+        matcher = DiffusionDetMatcher(
+            cost_class=2.0, cost_bbox=5.0, cost_giou=2.0, candidate_topk=5,
+        )
+        criterion = DiffusionDetCriterion(
+            num_classes=24, matcher=matcher,
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+            deep_supervision=True,
+        )
+        return single_head, roi_extractor, criterion
+
+    def _make_features(self, bs=2, channels=64):
+        return tuple([
+            torch.randn(bs, channels, 64 // s, 64 // s)
+            for s in [4, 8, 16, 32]
+        ])
+
+    def _make_img_metas(self, bs=2):
+        return [ImageMeta(img_shape=(256, 256)) for _ in range(bs)]
+
+    def test_filter_unknown_false(self):
+        """filter_unknown=False 不报错"""
+        single_head, roi_extractor, criterion = self._make_base_components()
+        head = DiffusionDetHead(
+            num_classes=24, feat_channels=64, num_proposals=50, num_heads=3,
+            snr_scale=2.0, timesteps=1000, sampling_timesteps=1,
+            solver_type='euler', diffusion_type='rectified_flow',
+            rf_schedule='linear', single_head=single_head,
+            roi_extractor=roi_extractor, criterion=criterion,
+            filter_unknown=False,
+        )
+        features = self._make_features()
+        img_metas = self._make_img_metas()
+        gt_bboxes = [torch.rand(5, 4) * 200 for _ in range(2)]
+        for bb in gt_bboxes:
+            bb[:, 2:] += bb[:, :2]
+        gt_labels = [torch.randint(0, 24, (5,)) for _ in range(2)]
+        losses = head.loss(features, img_metas, gt_bboxes, gt_labels)
+        for v in losses.values():
+            assert torch.isfinite(v)
+
+    def test_gt_reweight_false(self):
+        """gt_reweight=False 不报错"""
+        single_head, roi_extractor, criterion = self._make_base_components()
+        head = DiffusionDetHead(
+            num_classes=24, feat_channels=64, num_proposals=50, num_heads=3,
+            snr_scale=2.0, timesteps=1000, sampling_timesteps=1,
+            solver_type='euler', diffusion_type='rectified_flow',
+            rf_schedule='linear', single_head=single_head,
+            roi_extractor=roi_extractor, criterion=criterion,
+            gt_reweight=False,
+        )
+        features = self._make_features()
+        img_metas = self._make_img_metas()
+        gt_bboxes = [torch.rand(5, 4) * 200 for _ in range(2)]
+        for bb in gt_bboxes:
+            bb[:, 2:] += bb[:, :2]
+        gt_labels = [torch.randint(0, 24, (5,)) for _ in range(2)]
+        losses = head.loss(features, img_metas, gt_bboxes, gt_labels)
+        for v in losses.values():
+            assert torch.isfinite(v)
+
+    def test_pre_noise_layer(self):
+        """pre_noise_layer 参数传递不报错"""
+        single_head, roi_extractor, criterion = self._make_base_components()
+        head = DiffusionDetHead(
+            num_classes=24, feat_channels=64, num_proposals=50, num_heads=3,
+            snr_scale=2.0, timesteps=1000, sampling_timesteps=1,
+            solver_type='euler', diffusion_type='rectified_flow',
+            rf_schedule='linear', single_head=single_head,
+            roi_extractor=roi_extractor, criterion=criterion,
+            pre_noise_layer=3,
+        )
+        assert head.pre_noise_layer == 3
+
+    def test_rf_schedule_power(self):
+        """rf_schedule='power' 推理路径不报错"""
+        single_head, roi_extractor, _ = self._make_base_components()
+        head = DiffusionDetHead(
+            num_classes=24, feat_channels=64, num_proposals=50, num_heads=3,
+            snr_scale=2.0, timesteps=1000, sampling_timesteps=4,
+            solver_type='euler', diffusion_type='rectified_flow',
+            rf_schedule='power', rf_power=2.0,
+            single_head=single_head, roi_extractor=roi_extractor,
+            use_nms=True, nms_thr=0.5, score_thr=0.05,
+        )
+        features = self._make_features()
+        img_metas = self._make_img_metas()
+        results = head.predict(features, img_metas, rescale=False)
+        assert len(results) == 2
+
+    def test_loss_aux_dict(self):
+        """loss_aux 参数传递不报错"""
+        single_head, roi_extractor, criterion = self._make_base_components()
+        head = DiffusionDetHead(
+            num_classes=24, feat_channels=64, num_proposals=50, num_heads=3,
+            snr_scale=2.0, timesteps=1000, sampling_timesteps=1,
+            solver_type='euler', diffusion_type='rectified_flow',
+            rf_schedule='linear', single_head=single_head,
+            roi_extractor=roi_extractor, criterion=criterion,
+            loss_aux={'counting': 1.0},
+        )
+        assert head.loss_aux == {'counting': 1.0}
+
+    def test_box_renewal_false(self):
+        """box_renewal=False 推理路径不报错"""
+        single_head, roi_extractor, _ = self._make_base_components()
+        head = DiffusionDetHead(
+            num_classes=24, feat_channels=64, num_proposals=50, num_heads=3,
+            snr_scale=2.0, timesteps=1000, sampling_timesteps=4,
+            solver_type='euler', diffusion_type='rectified_flow',
+            rf_schedule='linear', single_head=single_head,
+            roi_extractor=roi_extractor,
+            box_renewal=False,
+            use_nms=True, nms_thr=0.5, score_thr=0.05,
+        )
+        features = self._make_features()
+        img_metas = self._make_img_metas()
+        results = head.predict(features, img_metas, rescale=False)
+        assert len(results) == 2
+
+    def test_use_ensemble_false(self):
+        """use_ensemble=False 参数传递正确 (当前 predict 需 use_ensemble=True)"""
+        single_head, roi_extractor, _ = self._make_base_components()
+        head = DiffusionDetHead(
+            num_classes=24, feat_channels=64, num_proposals=50, num_heads=3,
+            snr_scale=2.0, timesteps=1000, sampling_timesteps=4,
+            solver_type='euler', diffusion_type='rectified_flow',
+            rf_schedule='linear', single_head=single_head,
+            roi_extractor=roi_extractor,
+            use_ensemble=False,
+            use_nms=True, nms_thr=0.5, score_thr=0.05,
+        )
+        # 验证参数传递
+        assert head.use_ensemble is False
+        assert head._sampler.use_ensemble is False

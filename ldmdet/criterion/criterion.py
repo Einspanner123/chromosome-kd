@@ -48,16 +48,22 @@ class DiffusionDetCriterion(nn.Module):
         self.bbox_loss_eps = bbox_loss_eps
 
     def forward(self, outputs: ModelOutput, targets: List[InstanceData]) -> Dict[str, Tensor]:
-        losses = self._get_loss(outputs, targets)
+        # 主输出: 使用 matcher.forward 并建立 GT 缓存
+        indices, gt_cache = self.matcher.forward_with_gt_cache(outputs, targets)
+        losses = self._get_loss(outputs, targets, indices)
         if self.deep_supervision and outputs.aux_outputs is not None:
             for i, aux_out in enumerate(outputs.aux_outputs):
-                aux_losses = self._get_loss(aux_out, targets)
+                # aux_outputs 复用 GT 缓存，避免重复计算 gt_ctrs/gt_wh/center 区域
+                aux_indices, gt_cache = self.matcher.forward_with_gt_cache(aux_out, targets, gt_cache)
+                aux_losses = self._get_loss(aux_out, targets, aux_indices)
                 for name, val in aux_losses.items():
                     losses[f'aux_{i}_{name}'] = val
         return losses
 
-    def _get_loss(self, outputs: ModelOutput, targets: List[InstanceData]) -> Dict[str, Tensor]:
-        indices = self.matcher(outputs, targets)
+    def _get_loss(self, outputs: ModelOutput, targets: List[InstanceData],
+                  indices: List[Tuple[Tensor, Tensor]] = None) -> Dict[str, Tensor]:
+        if indices is None:
+            indices = self.matcher(outputs, targets)
         loss_cls = self._loss_classification(outputs, targets, indices)
         loss_bbox, loss_giou = self._loss_boxes(outputs, targets, indices)
         return {'loss_cls': loss_cls, 'loss_bbox': loss_bbox, 'loss_giou': loss_giou}
@@ -76,17 +82,18 @@ class DiffusionDetCriterion(nn.Module):
 
     def _loss_boxes(self, outputs, targets, indices) -> Tuple[Tensor, Tensor]:
         src_boxes = outputs.pred_boxes
-        src_list = []
-        tgt_list = []
+        # 批量收集所有正样本，避免逐图 append
+        src_idx_list = []
+        tgt_idx_list = []
         for i, (src_idx, gt_idx) in enumerate(indices):
             if len(src_idx) > 0:
-                src_list.append(src_boxes[i, src_idx])
-                tgt_list.append(targets[i].bboxes[gt_idx])
-        if len(src_list) == 0:
+                src_idx_list.append(src_boxes[i, src_idx])
+                tgt_idx_list.append(targets[i].bboxes[gt_idx])
+        if len(src_idx_list) == 0:
             return src_boxes.sum() * 0, src_boxes.sum() * 0
 
-        src_boxes_pos = torch.cat(src_list)
-        tgt_boxes_pos = torch.cat(tgt_list)
+        src_boxes_pos = torch.cat(src_idx_list)
+        tgt_boxes_pos = torch.cat(tgt_idx_list)
         num_pos = src_boxes_pos.shape[0]
 
         tgt_cxcywh = bbox_xyxy_to_cxcywh(tgt_boxes_pos)

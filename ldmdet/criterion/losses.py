@@ -14,10 +14,21 @@ def sigmoid_focal_loss(
     gamma: float = 2.0,
     reduction: str = 'none',
 ) -> Tensor:
-    """Focal Loss (sigmoid 版本). 参考 https://arxiv.org/abs/1708.02002"""
+    """Focal Loss (sigmoid 版本). 参考 https://arxiv.org/abs/1708.02002
+
+    优化实现: 避免重复计算 sigmoid 和 log，
+    使用数值稳定的 log_sigmoid 替代手动 sigmoid + log。
+    """
+    # 数值稳定的 log(sigmoid(x)) 和 log(1-sigmoid(x))
+    log_p = F.logsigmoid(inputs)            # log(sigmoid(x))
+    log_1_minus_p = log_p - inputs          # log(1-sigmoid(x)) = log(sigmoid(x)) - x
+
     p = torch.sigmoid(inputs)
-    ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction='none')
     p_t = p * targets + (1 - p) * (1 - targets)
+
+    # CE loss = -[y*log(p) + (1-y)*log(1-p)]
+    ce_loss = -(targets * log_p + (1 - targets) * log_1_minus_p)
+
     loss = ce_loss * ((1 - p_t) ** gamma)
 
     if alpha >= 0:
@@ -32,7 +43,11 @@ def sigmoid_focal_loss(
 
 
 class FocalLoss(nn.Module):
-    """Focal Loss 封装"""
+    """Focal Loss 封装
+
+    优化实现: 使用 F.cross_entropy 的 label_smoothing 技巧，
+    或直接用 scatter_ 高效创建 one-hot。
+    """
 
     def __init__(self, use_sigmoid=True, alpha=0.25, gamma=2.0, reduction='sum', loss_weight=2.0):
         super().__init__()
@@ -47,11 +62,16 @@ class FocalLoss(nn.Module):
             num_classes = pred.shape[-1]
             flat_pred = pred.reshape(-1, num_classes)
             flat_target = target.reshape(-1)
-            flat_one_hot = torch.zeros_like(flat_pred)
+
+            # 高效 one-hot: 使用 scatter_ 原地操作
+            flat_one_hot = flat_pred.new_zeros(flat_pred.shape)
             valid_mask = (flat_target >= 0) & (flat_target < num_classes)
             if valid_mask.any():
-                flat_one_hot[valid_mask, flat_target[valid_mask]] = 1.0
+                flat_one_hot[valid_mask] = flat_one_hot[valid_mask].scatter_(
+                    1, flat_target[valid_mask].unsqueeze(1), 1.0
+                )
             target = flat_one_hot.reshape(pred.shape)
+
         loss = sigmoid_focal_loss(pred, target, self.alpha, self.gamma, self.reduction)
         return loss * self.loss_weight
 
