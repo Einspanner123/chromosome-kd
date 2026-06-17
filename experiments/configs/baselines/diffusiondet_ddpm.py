@@ -1,5 +1,5 @@
 """DiffusionDet DDPM Baseline — 原版 DiffusionDet 复现"""
-_base_ = ['rf_heun_adaln.py']
+_base_ = ['../ldmdet/rf_heun_adaln.py']
 
 model = dict(bbox_head=dict(
     diffusion_type='ddpm',

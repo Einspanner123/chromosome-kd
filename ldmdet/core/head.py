@@ -59,6 +59,7 @@ class DiffusionDetHead(nn.Module):
         pre_noise_layer: int = 2,
         loss_aux: Optional[Dict] = None,
         torch_compile: bool = False,
+        amp_dtype: Optional[torch.dtype] = None,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -176,7 +177,12 @@ class DiffusionDetHead(nn.Module):
         curr_bboxes = self._sampler.raw_to_xyxy(x_noisy_batch, img_metas)
 
         t_input = t if self.diffusion_type == 'ddpm' else t * self.timesteps
-        all_cls_logits, all_pred_bboxes, all_curr_proposals = self(features, curr_bboxes, t_input)
+        # 模型前向：若启用 AMP，在 autocast 下执行（线性层/attention 用半精度加速）
+        if self.amp_dtype is not None:
+            with torch.cuda.amp.autocast(dtype=self.amp_dtype):
+                all_cls_logits, all_pred_bboxes, all_curr_proposals = self(features, curr_bboxes, t_input)
+        else:
+            all_cls_logits, all_pred_bboxes, all_curr_proposals = self(features, curr_bboxes, t_input)
 
         norm_pred_bboxes = self._normalize_pred_bboxes(all_pred_bboxes, img_metas)
         outputs = self._build_outputs(all_cls_logits, norm_pred_bboxes)
