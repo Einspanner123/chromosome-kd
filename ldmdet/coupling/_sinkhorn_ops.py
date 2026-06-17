@@ -8,6 +8,9 @@ from typing import Optional
 import torch
 from torch import Tensor
 
+# 模块级 Generator 缓存，按 device 索引，用于 ot_multinomial 的可复现采样
+_OT_GENERATORS: dict[str, torch.Generator] = {}
+
 
 def sinkhorn_transport(
     cost: Tensor,
@@ -131,8 +134,12 @@ def sinkhorn_transport_batch(
 
     log_u = torch.full((G, max_N), float('-inf'), device=device)
     log_v = torch.full((G, max_K), float('-inf'), device=device)
-    # Initialize valid regions to 0 (log(1))
+    # 预计算 boolean mask，用于迭代中高效重置 padded 区域
+    row_mask = torch.zeros(G, max_N, dtype=torch.bool, device=device)
+    col_mask = torch.zeros(G, max_K, dtype=torch.bool, device=device)
     for g in range(G):
+        row_mask[g, :N_sizes[g]] = True
+        col_mask[g, :K_sizes[g]] = True
         log_u[g, :N_sizes[g]] = 0.0
         log_v[g, :K_sizes[g]] = 0.0
 
@@ -142,16 +149,14 @@ def sinkhorn_transport_batch(
             log_K_mat + log_v.unsqueeze(1), dim=2
         )
         # Reset padded rows to -inf
-        for g in range(G):
-            log_u[g, N_sizes[g]:] = float('-inf')
+        log_u.masked_fill_(~row_mask, float('-inf'))
 
         # log_v[g,k] = log_col_mass[g,k] - logsumexp_i(log_K[g,i,k] + log_u[g,i])
         log_v = log_col_mass - torch.logsumexp(
             log_K_mat + log_u.unsqueeze(2), dim=1
         )
         # Reset padded cols to -inf
-        for g in range(G):
-            log_v[g, K_sizes[g]:] = float('-inf')
+        log_v.masked_fill_(~col_mask, float('-inf'))
 
     # Compute transport and unpad
     transport_full = torch.exp(log_u.unsqueeze(2) + log_K_mat + log_v.unsqueeze(1))
@@ -176,15 +181,13 @@ def ot_multinomial(
     Returns:
         [N] 采样得到的列索引
     """
-    if seed is not None and not hasattr(ot_multinomial, '_generators'):
-        ot_multinomial._generators = {}
     if seed is not None:
         device = str(row_probs.device)
-        if device not in ot_multinomial._generators:
+        if device not in _OT_GENERATORS:
             gen = torch.Generator(device=row_probs.device)
             gen.manual_seed(seed)
-            ot_multinomial._generators[device] = gen
+            _OT_GENERATORS[device] = gen
         return torch.multinomial(
-            row_probs, 1, generator=ot_multinomial._generators[device]
+            row_probs, 1, generator=_OT_GENERATORS[device]
         ).squeeze(-1)
     return torch.multinomial(row_probs, 1).squeeze(-1)

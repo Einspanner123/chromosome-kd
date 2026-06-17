@@ -4,6 +4,7 @@
 """
 
 import math
+from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -11,6 +12,13 @@ import torch.nn.functional as F
 
 from ldmdet.core.dynamic_conv import DynamicConv
 from ldmdet.utils.box_ops import bbox2roi
+
+# Flash Attention 可选导入
+try:
+    from flash_attn import flash_attn_func
+    _FLASH_ATTN_AVAILABLE = True
+except ImportError:
+    _FLASH_ATTN_AVAILABLE = False
 
 
 class SingleDiffusionDetHead(nn.Module):
@@ -87,6 +95,58 @@ class SingleDiffusionDetHead(nn.Module):
 
         self.scale_clamp = scale_clamp
         self.bbox_weights = bbox_weights
+        self.num_heads = num_heads
+        self.head_dim = feat_channels // num_heads
+
+    def _flash_self_attn(self, x_seq_bs_dim):
+        """使用 Flash Attention 的 self-attention。
+
+        输入/输出格式与 nn.MultiheadAttention 一致: [seq_len, bs, dim]。
+        复用 self.self_attn 的投影权重，仅替换核心 attention 计算。
+        """
+        seq_len, bs, dim = x_seq_bs_dim.shape
+        attn = self.self_attn
+        # QKV 投影: [seq*bs, dim]
+        x_flat = x_seq_bs_dim.reshape(seq_len * bs, dim)
+        qkv = F.linear(x_flat, attn.in_proj_weight, attn.in_proj_bias)
+        qkv = qkv.reshape(seq_len, bs, 3, dim)
+        q, k, v = qkv.unbind(2)  # 各 [seq, bs, dim]
+
+        # 转为 [bs, seq, num_heads, head_dim] 供 flash_attn 使用
+        q = q.reshape(seq_len, bs, self.num_heads, self.head_dim).permute(1, 0, 2, 3)
+        k = k.reshape(seq_len, bs, self.num_heads, self.head_dim).permute(1, 0, 2, 3)
+        v = v.reshape(seq_len, bs, self.num_heads, self.head_dim).permute(1, 0, 2, 3)
+
+        # Flash Attention 核心 (需要 FP16/BF16)
+        # 自动检测输入 dtype，若为 FP32 则临时转换
+        input_dtype = q.dtype
+        if input_dtype == torch.float32:
+            q = q.to(torch.float16)
+            k = k.to(torch.float16)
+            v = v.to(torch.float16)
+
+        out = flash_attn_func(q, k, v, dropout_p=0.0, causal=False)  # [bs, seq, num_heads, head_dim]
+
+        if input_dtype == torch.float32:
+            out = out.to(torch.float32)
+
+        # 转回 [seq, bs, dim]
+        out = out.permute(1, 0, 2, 3).reshape(seq_len, bs, dim)
+
+        # 输出投影
+        out_flat = out.reshape(seq_len * bs, dim)
+        out_flat = F.linear(out_flat, attn.out_proj.weight, attn.out_proj.bias)
+        return out_flat.reshape(seq_len, bs, dim)
+
+    def _self_attn(self, q, k=None, v=None):
+        """统一的 self-attention 接口，根据 use_flash_attn 选择实现。"""
+        if k is None:
+            k = q
+        if v is None:
+            v = q
+        if self.use_flash_attn and _FLASH_ATTN_AVAILABLE and q is k is v:
+            return self._flash_self_attn(q), None
+        return self.self_attn(q, k, v)
 
     @staticmethod
     def _build_cls_head(feat_channels, num_convs, num_classes, use_focal_loss, use_fed_loss):
@@ -151,7 +211,7 @@ class SingleDiffusionDetHead(nn.Module):
         proposals_flat = proposals.reshape(num_boxes * bs, self.feat_channels)
         q_modulated = F.layer_norm(proposals_flat, [self.feat_channels]) * (1 + gamma1) + beta1
         q_modulated = q_modulated.view(num_boxes, bs, self.feat_channels)
-        attn_out, _ = self.self_attn(q_modulated, q_modulated, q_modulated)
+        attn_out, _ = self._self_attn(q_modulated)
         attn_out_flat = attn_out.reshape(num_boxes * bs, self.feat_channels)
         proposals_flat = proposals_flat + alpha1 * attn_out_flat
 
@@ -169,7 +229,7 @@ class SingleDiffusionDetHead(nn.Module):
 
     def _forward_scale_shift(self, proposals, roi_features, time_emb, bs, num_boxes):
         proposals = proposals.view(bs, num_boxes, self.feat_channels).permute(1, 0, 2)
-        attn_shortcut, _ = self.self_attn(proposals, proposals, proposals)
+        attn_shortcut, _ = self._self_attn(proposals)
         proposals = proposals + self.dropout1(attn_shortcut)
         proposals = self.norm1(proposals)
 

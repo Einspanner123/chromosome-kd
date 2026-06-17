@@ -47,7 +47,13 @@ def _patch_swanlab_save_id(work_dir):
 
     def _patched_init_env(self):
         _orig_init_env(self)
-        run_id = self._swanlab.run.get_run().id
+        run_id = None
+        try:
+            run_id = self._swanlab.run.get_run().id
+        except AttributeError:
+            # SwanLab 0.7.19+ sets self._swanlab after init; if not yet set,
+            # skip saving ID (resume will create a new experiment)
+            pass
         if run_id is not None:
             id_file = osp.join(work_dir, '.swanlab_id')
             os.makedirs(work_dir, exist_ok=True)
