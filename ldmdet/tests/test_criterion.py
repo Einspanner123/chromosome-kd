@@ -490,19 +490,12 @@ class TestDiffusionDetCriterionScaleAwareModes:
             cost_class=2.0, cost_bbox=5.0, cost_giou=2.0, candidate_topk=5,
         )
 
-        # 构造多 GT 场景: 大框 + 小框混合
-        big_boxes = torch.tensor([
-            [0.1, 0.1, 0.65, 0.65],   # area=0.3025
-            [0.2, 0.2, 0.7, 0.7],     # area=0.25
+        # 构造混合 GT 场景: 大框 + 小框在同一个 batch 中
+        mixed_boxes = torch.tensor([
+            [0.1, 0.1, 0.65, 0.65],   # area=0.3025 (大框)
+            [0.1, 0.1, 0.2, 0.2],     # area=0.01 (小框)
         ])
-        small_boxes = torch.tensor([
-            [0.1, 0.1, 0.2, 0.2],     # area=0.01
-            [0.3, 0.3, 0.4, 0.4],     # area=0.01
-        ])
-
-        # 同样的预测偏差
-        pred_big = big_boxes + 0.05
-        pred_small = small_boxes + 0.05
+        pred_mixed = mixed_boxes + 0.05
 
         # scale_aware=True (inverse 模式)
         criterion_sa = DiffusionDetCriterion(
@@ -539,26 +532,73 @@ class TestDiffusionDetCriterionScaleAwareModes:
                 img_shape=(512, 512),
             )]
 
-        # 分别计算 loss_bbox
-        losses_big_sa = criterion_sa(_make_output(pred_big), _make_targets(big_boxes))
-        losses_small_sa = criterion_sa(_make_output(pred_small), _make_targets(small_boxes))
-        losses_big_no = criterion_no(_make_output(pred_big), _make_targets(big_boxes))
-        losses_small_no = criterion_no(_make_output(pred_small), _make_targets(small_boxes))
+        # 在同一个 batch 中混合大框和小框
+        losses_sa = criterion_sa(_make_output(pred_mixed), _make_targets(mixed_boxes))
+        losses_no = criterion_no(_make_output(pred_mixed), _make_targets(mixed_boxes))
 
-        l1_big_sa = losses_big_sa['loss_bbox'].item()
-        l1_small_sa = losses_small_sa['loss_bbox'].item()
-        l1_big_no = losses_big_no['loss_bbox'].item()
-        l1_small_no = losses_small_no['loss_bbox'].item()
+        l1_sa = losses_sa['loss_bbox'].item()
+        l1_no = losses_no['loss_bbox'].item()
 
         # inverse 模式: scale_w = 1/area / mean(1/area)
-        # 小框 area 小 → 1/area 大 → scale_w 大
-        # 验证: scale_aware 下小框与大框的 loss 比值应不同于无 scale_aware
-        # (scale_aware 改变了权重分配)
-        ratio_no = l1_small_no / max(l1_big_no, 1e-10)
-        ratio_sa = l1_small_sa / max(l1_big_sa, 1e-10)
-        # 两个比值应不同，说明 scale_aware 确实改变了权重
-        assert abs(ratio_no - ratio_sa) > 0.01, (
-            f"scale_aware 未改变权重分配: ratio_no={ratio_no:.4f}, ratio_sa={ratio_sa:.4f}"
+        # 小框 area 小 → 1/area 大 → scale_w 大 → 小框的 L1 被放大
+        # 由于预测偏差相同 (0.05)，scale_aware 应使 loss_bbox 不同于无 scale_aware
+        assert abs(l1_sa - l1_no) > 0.01, (
+            f"scale_aware 未改变权重分配: l1_sa={l1_sa:.4f}, l1_no={l1_no:.4f}"
+        )
+
+    def test_scale_aware_uniform_boxes_same_as_no_scale_aware(self):
+        """当 batch 内所有框尺寸相同时，scale_aware 应退化为无 scale_aware"""
+        matcher = DiffusionDetMatcher(
+            cost_class=2.0, cost_bbox=5.0, cost_giou=2.0, candidate_topk=5,
+        )
+
+        # 同尺寸框
+        uniform_boxes = torch.tensor([
+            [0.1, 0.1, 0.3, 0.3],   # area=0.04
+            [0.4, 0.4, 0.6, 0.6],   # area=0.04
+        ])
+        pred_boxes = uniform_boxes + 0.05
+
+        criterion_sa = DiffusionDetCriterion(
+            num_classes=24,
+            matcher=matcher,
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+            deep_supervision=False,
+            scale_aware=True,
+            scale_aware_mode='inverse',
+        )
+        criterion_no = DiffusionDetCriterion(
+            num_classes=24,
+            matcher=matcher,
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+            deep_supervision=False,
+            scale_aware=False,
+        )
+
+        def _make_output(pred_boxes):
+            return ModelOutput(
+                pred_logits=torch.randn(1, 2, 24),
+                pred_boxes=pred_boxes.unsqueeze(0),
+            )
+
+        def _make_targets(gt_boxes):
+            return [InstanceData(
+                bboxes=gt_boxes,
+                labels=torch.tensor([0, 1]),
+                img_shape=(512, 512),
+            )]
+
+        losses_sa = criterion_sa(_make_output(pred_boxes), _make_targets(uniform_boxes))
+        losses_no = criterion_no(_make_output(pred_boxes), _make_targets(uniform_boxes))
+
+        # 同尺寸框 → scale_w 归一化后全为 1 → 结果应与无 scale_aware 相同
+        assert abs(losses_sa['loss_bbox'].item() - losses_no['loss_bbox'].item()) < 1e-4, (
+            f"同尺寸框下 scale_aware 应退化为无 scale_aware: "
+            f"sa={losses_sa['loss_bbox'].item():.4f}, no={losses_no['loss_bbox'].item():.4f}"
         )
 
 

@@ -118,7 +118,7 @@ class DiffusionDetCriterion(nn.Module):
                 scale_w = scale_w.clamp(self.scale_aware_min_weight, self.scale_aware_max_weight)
             per_elem_l1 = F.l1_loss(src_cxcywh, tgt_cxcywh, reduction='none')
             weighted_sum = (per_elem_l1 * scale_w.unsqueeze(1)).sum()
-            loss_bbox = self.loss_bbox.loss_weight * weighted_sum / (4.0 * num_pos * num_pos)
+            loss_bbox = self.loss_bbox.loss_weight * weighted_sum / num_pos
             loss_giou = self.loss_giou(src_boxes_pos, tgt_boxes_pos).sum() / num_pos
         elif self.bbox_loss_mode == 'relative_l1':
             tgt_w = tgt_cxcywh[:, 2].clamp(min=self.bbox_loss_eps)

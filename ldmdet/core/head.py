@@ -170,7 +170,7 @@ class DiffusionDetHead(nn.Module):
         targets = self._normalize_targets(gt_bboxes, gt_labels, img_metas, bs)
         t = self._sample_t(bs, device)
         x_boxes, x_starts, x_noises, matched_gt_indices = self._build_training_targets(
-            bs, device, t, targets, gt_bboxes, img_metas
+            bs, device, t, targets, gt_bboxes
         )
         x_noisy_batch = torch.stack(x_boxes)
         curr_bboxes = self._sampler.raw_to_xyxy(x_noisy_batch, img_metas)
@@ -257,7 +257,7 @@ class DiffusionDetHead(nn.Module):
             t = self.rf_shift * t / (1 + (self.rf_shift - 1) * t)
         return t
 
-    def _build_training_targets(self, bs, device, t, targets, gt_bboxes, img_metas):
+    def _build_training_targets(self, bs, device, t, targets, gt_bboxes):
         x_boxes, x_starts, x_noises, matched_gt_indices = [], [], [], []
         for i in range(bs):
             num_gt = gt_bboxes[i].shape[0]
@@ -271,7 +271,7 @@ class DiffusionDetHead(nn.Module):
             norm_gt_cxcywh = bbox_xyxy_to_cxcywh(targets[i].bboxes)
             gt_diffusion = (norm_gt_cxcywh * 2 - 1) * self.snr_scale
             noise = torch.randn(self.num_proposals, 4, device=device)
-            x_start, matched_idx = self._couple_single_image(i, noise, gt_diffusion, targets[i].labels, device)
+            x_start, matched_idx = self._couple_single_image(noise, gt_diffusion, targets[i].labels, device)
             matched_gt_indices.append(matched_idx)
             x_noisy, x_noise = self._forward_diffusion(x_start, noise, t[i:i+1])
             x_starts.append(x_start)
@@ -279,7 +279,7 @@ class DiffusionDetHead(nn.Module):
             x_boxes.append(x_noisy)
         return x_boxes, x_starts, x_noises, matched_gt_indices
 
-    def _couple_single_image(self, img_idx, noise, gt_diffusion, gt_labels, device):
+    def _couple_single_image(self, noise, gt_diffusion, gt_labels, device):
         if self.ot_coupling and self.diffusion_type == 'rectified_flow':
             return self.ot_module.couple(noise, gt_diffusion, gt_labels, device)
         num_gt = gt_diffusion.shape[0]
@@ -303,7 +303,7 @@ class DiffusionDetHead(nn.Module):
         return cls_logits_last, pred_bboxes_last, x0
 
     def _normalize_pred_bboxes(self, all_pred_bboxes, img_metas):
-        # 向量化: 一次性构建 scale 张量并广播除法
+        # 构建 scale 张量并广播除法，消除逐 head 逐 image 的双重循环
         # all_pred_bboxes: [num_heads, bs, num_proposals, 4]
         num_heads = all_pred_bboxes.shape[0]
         bs = len(img_metas)

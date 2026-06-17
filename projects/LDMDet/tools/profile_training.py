@@ -227,7 +227,7 @@ def profile_training_step(head, features, img_metas, gt_bboxes, gt_labels, stats
 
     with timer(stats, "  3. _build_training_targets (coupling+diffusion)"):
         x_boxes, x_starts, x_noises, matched_gt_indices = head._build_training_targets(
-            bs, device, t, targets, gt_bboxes, img_metas
+            bs, device, t, targets, gt_bboxes
         )
 
     # 细分 coupling
@@ -420,12 +420,6 @@ def main():
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # 固定随机种子以确保可重复性
-    torch.manual_seed(42)
-    np.random.seed(42)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(42)
 
     print("=" * 60)
     print("LDMDet Training Profiler (pure ldmdet lib, full pipeline)")
