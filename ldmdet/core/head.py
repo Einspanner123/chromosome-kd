@@ -124,6 +124,10 @@ class DiffusionDetHead(nn.Module):
 
         self._init_weights(prior_prob)
 
+        # AMP: 仅模型前向使用半精度，criterion 始终 FP32
+        # 推荐值: torch.bfloat16 (同动态范围，无需 GradScaler)
+        self.amp_dtype = amp_dtype
+
         if torch_compile and hasattr(torch, 'compile'):
             self.forward = torch.compile(self.forward, dynamic=True)
 
@@ -181,6 +185,9 @@ class DiffusionDetHead(nn.Module):
         if self.amp_dtype is not None:
             with torch.cuda.amp.autocast(dtype=self.amp_dtype):
                 all_cls_logits, all_pred_bboxes, all_curr_proposals = self(features, curr_bboxes, t_input)
+            # autocast 输出可能为半精度，criterion 需 FP32（如 cdist 不支持 BF16）
+            all_cls_logits = all_cls_logits.float()
+            all_pred_bboxes = all_pred_bboxes.float()
         else:
             all_cls_logits, all_pred_bboxes, all_curr_proposals = self(features, curr_bboxes, t_input)
 

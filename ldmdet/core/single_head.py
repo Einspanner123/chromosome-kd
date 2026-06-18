@@ -41,12 +41,16 @@ class SingleDiffusionDetHead(nn.Module):
         dynamic_dim=64,
         dynamic_num=2,
         time_conditioning='scale_shift',
-        use_flash_attn=False,
+        use_sdpa=True,
+        attn_half=False,
     ):
         super().__init__()
         self.feat_channels = feat_channels
         self.time_conditioning = time_conditioning
-        self.use_flash_attn = use_flash_attn
+        # use_sdpa: True = 使用 SDPA, False = 使用 nn.MultiheadAttention
+        # attn_half: True = attention 核心用 FP16 加速, False = 保持原始精度
+        self.use_sdpa = use_sdpa and _SDPA_AVAILABLE
+        self.attn_half = attn_half
 
         self.self_attn = nn.MultiheadAttention(
             feat_channels, num_heads, dropout=dropout
@@ -94,19 +98,19 @@ class SingleDiffusionDetHead(nn.Module):
         self.num_heads = num_heads
         self.head_dim = feat_channels // num_heads
 
-    def _flash_self_attn(self, x_seq_bs_dim):
-        """使用 SDPA (scaled_dot_product_attention) 的高效 self-attention。
+    def _sdpa_self_attn(self, x_seq_bs_dim):
+        """使用 SDPA 的高效 self-attention。
 
         输入/输出格式与 nn.MultiheadAttention 一致: [seq_len, bs, dim]。
         复用 self.self_attn 的投影权重，仅替换核心 attention 计算。
 
-        策略: QKV 投影在 FP32 下完成（保持精度），attention 核心计算
-        使用 BF16（与 FP32 相同动态范围，避免溢出/下溢），输出转回 FP32。
-        SDPA 在 BF16 输入下自动选择 Flash Attention 后端。
+        精度由 self.attn_half 控制:
+          - False (默认): 全精度，输出与 nn.MHA 几乎一致
+          - True: attention 核心转 FP16 加速，有微小精度差异
         """
         seq_len, bs, dim = x_seq_bs_dim.shape
         attn = self.self_attn
-        # QKV 投影: [seq*bs, dim] — 保持 FP32
+        # QKV 投影: [seq*bs, dim]
         x_flat = x_seq_bs_dim.reshape(seq_len * bs, dim)
         qkv = F.linear(x_flat, attn.in_proj_weight, attn.in_proj_bias)
         qkv = qkv.reshape(seq_len, bs, 3, dim)
@@ -117,35 +121,34 @@ class SingleDiffusionDetHead(nn.Module):
         k = k.reshape(seq_len, bs, self.num_heads, self.head_dim).permute(1, 2, 0, 3)
         v = v.reshape(seq_len, bs, self.num_heads, self.head_dim).permute(1, 2, 0, 3)
 
-        # Attention 核心计算使用 FP16 → 自动启用高效后端
-        # SDPA 自动选择最优后端 (Mem-Efficient > Flash > Math)
-        # FP16 尾数 10 bit（vs BF16 的 7 bit），attention 精度更高
-        # softmax 已归一化，不存在溢出风险
+        # 可选: attention 核心转 FP16 以启用高效后端
         input_dtype = q.dtype
-        q = q.to(torch.float16)
-        k = k.to(torch.float16)
-        v = v.to(torch.float16)
+        if self.attn_half and input_dtype == torch.float32:
+            q = q.to(torch.float16)
+            k = k.to(torch.float16)
+            v = v.to(torch.float16)
 
         out = F.scaled_dot_product_attention(q, k, v, dropout_p=0.0)
 
-        out = out.to(input_dtype)
+        if out.dtype != input_dtype:
+            out = out.to(input_dtype)
 
         # 转回 [seq, bs, dim]
         out = out.permute(2, 0, 1, 3).reshape(seq_len, bs, dim)
 
-        # 输出投影 — FP32
+        # 输出投影
         out_flat = out.reshape(seq_len * bs, dim)
         out_flat = F.linear(out_flat, attn.out_proj.weight, attn.out_proj.bias)
         return out_flat.reshape(seq_len, bs, dim)
 
     def _self_attn(self, q, k=None, v=None):
-        """统一的 self-attention 接口，根据 use_flash_attn 选择实现。"""
+        """统一的 self-attention 接口。"""
         if k is None:
             k = q
         if v is None:
             v = q
-        if self.use_flash_attn and _SDPA_AVAILABLE and q is k is v:
-            return self._flash_self_attn(q), None
+        if self.use_sdpa and q is k is v:
+            return self._sdpa_self_attn(q), None
         return self.self_attn(q, k, v)
 
     @staticmethod

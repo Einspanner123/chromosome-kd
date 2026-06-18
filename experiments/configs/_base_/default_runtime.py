@@ -17,15 +17,9 @@ custom_imports = dict(
     allow_failed_imports=False,
 )
 
-# 异步 checkpoint
+# checkpoint — 仅保留最近 2 个 + 最佳 1 个  
 default_hooks = dict(
-    checkpoint=dict(
-        type='AsyncCheckpointHook',
-        interval=1,
-        max_keep_ckpts=1,
-        save_best='coco/bbox_mAP',
-        rule='greater',
-    ),
+    checkpoint=dict(max_keep_ckpts=2, save_last=True),
 )
 
 # SwanLab — 独立项目

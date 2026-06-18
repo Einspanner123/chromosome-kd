@@ -124,7 +124,8 @@ def build_model(args):
         dropout=0.0,
         pooler_resolution=pooler_resolution,
         time_conditioning=args.time_conditioning,
-        use_flash_attn=args.use_flash_attn,
+        use_sdpa=args.use_sdpa,
+        attn_half=args.attn_half,
     )
 
     roi_extractor = SingleRoIExtractor(
@@ -407,7 +408,10 @@ def main():
     parser.add_argument("--ot-num-iters", type=int, default=20)
     parser.add_argument("--time-conditioning", type=str, default='scale_shift',
                         choices=['scale_shift', 'adaln_zero'])
-    parser.add_argument("--use-flash-attn", action="store_true")
+    parser.add_argument("--no-sdpa", action="store_true",
+                        help="disable SDPA, use nn.MultiheadAttention instead")
+    parser.add_argument("--attn-half", action="store_true",
+                        help="use FP16 for attention computation (faster, minor precision diff)")
     parser.add_argument("--scale-aware", action="store_true")
     parser.add_argument("--num-warmup", type=int, default=3)
     parser.add_argument("--num-profile", type=int, default=5)
@@ -417,6 +421,8 @@ def main():
                         help="enable PyTorch TensorBoard Profiler")
     parser.add_argument("--gpu", type=int, default=0)
     args = parser.parse_args()
+    args.use_sdpa = not args.no_sdpa
+    args.attn_half = args.attn_half
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -432,7 +438,7 @@ def main():
     print(f"Coupling: {args.coupling} (eps={args.ot_epsilon}, iters={args.ot_num_iters})")
     print(f"Diffusion: {args.diffusion_type}, schedule={args.rf_schedule}, shift={args.rf_shift}")
     print(f"Time conditioning: {args.time_conditioning}")
-    print(f"Flash attention: {args.use_flash_attn}")
+    print(f"Attention: use_sdpa={args.use_sdpa}, attn_half={args.attn_half}")
     print(f"Warmup: {args.num_warmup}, Profile: {args.num_profile}, Val: {args.num_val}")
 
     # ---- 构建模型 ----
@@ -569,7 +575,7 @@ def main():
     print(f"  snr_scale:        {head.snr_scale}")
     if hasattr(head, 'ot_module'):
         print(f"  coupling_type:    {type(head.ot_module).__name__}")
-    print(f"  use_flash_attn:   {args.use_flash_attn}")
+    print(f"  attn: use_sdpa={args.use_sdpa}, attn_half={args.attn_half}")
     print(f"  time_conditioning: {args.time_conditioning}")
 
     # ---- PyTorch Profiler 内置分析 ----

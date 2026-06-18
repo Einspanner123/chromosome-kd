@@ -227,7 +227,7 @@ def profile_training_step(head, features, img_metas, gt_bboxes, gt_labels, stats
 
     with timer(stats, "  3. _build_training_targets (coupling+diffusion)"):
         x_boxes, x_starts, x_noises, matched_gt_indices = head._build_training_targets(
-            bs, device, t, targets, gt_bboxes
+            bs, device, t, targets, gt_bboxes, img_metas
         )
 
     # 细分 coupling
@@ -417,6 +417,8 @@ def main():
                         help="enable PyTorch TensorBoard Profiler")
     parser.add_argument("--gpu", type=int, default=0)
     args = parser.parse_args()
+    args.use_sdpa = not args.no_sdpa
+    args.attn_half = args.attn_half
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
