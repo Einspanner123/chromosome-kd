@@ -103,12 +103,21 @@ class SingleRoIExtractor(nn.Module):
             rois.shape[0], self.out_channels, *output_size
         )
 
+        # 对每个 FPN 层级提取 ROI 特征，使用 scatter 合并结果
+        # 避免逐层 nonzero + 索引赋值导致的 GPU→CPU 同步
+        all_roi_feats = []
+        all_roi_indices = []
         for i in range(num_levels):
             mask = target_lvls == i
-            num_rois_at_level = mask.sum().item()
-            if num_rois_at_level == 0:
-                continue
             idxs = mask.nonzero(as_tuple=False).squeeze(1)
-            roi_feats[idxs] = self.roi_layers[i](feats[i], rois[idxs])
+            if idxs.shape[0] > 0:
+                feat_i = self.roi_layers[i](feats[i], rois[idxs])
+                all_roi_feats.append(feat_i)
+                all_roi_indices.append(idxs)
+
+        if len(all_roi_feats) > 0:
+            all_roi_feats = torch.cat(all_roi_feats, dim=0)
+            all_roi_indices = torch.cat(all_roi_indices, dim=0)
+            roi_feats[all_roi_indices] = all_roi_feats
 
         return roi_feats

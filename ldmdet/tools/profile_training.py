@@ -19,7 +19,7 @@
     # 自定义参数
     python ldmdet/tools/profile_training.py \
         --num-proposals 500 --num-heads 6 --bs 8 \
-        --num-warmup 3 --num-profile 5 --num-val 3
+        --num-warmup 5 --num-profile 20 --num-val 3
 
     # 启用 TensorBoard Profiler (详细 kernel trace)
     python ldmdet/tools/profile_training.py --use-tb-profiler
@@ -228,7 +228,7 @@ def profile_training_step(head, features, img_metas, gt_bboxes, gt_labels, stats
 
     with timer(stats, "  3. _build_training_targets (coupling+diffusion)"):
         x_boxes, x_starts, x_noises, matched_gt_indices = head._build_training_targets(
-            bs, device, t, targets, gt_bboxes, img_metas
+            bs, device, t, targets, gt_bboxes
         )
 
     # 细分 coupling
@@ -279,9 +279,6 @@ def profile_training_step(head, features, img_metas, gt_bboxes, gt_labels, stats
 
     with timer(stats, "  9. criterion (matcher+loss)"):
         losses = head.criterion(outputs, targets)
-
-    with timer(stats, "  9a. matcher"):
-        _ = head.criterion.matcher(outputs, targets)
 
     return losses
 
@@ -413,8 +410,8 @@ def main():
     parser.add_argument("--attn-half", action="store_true",
                         help="use FP16 for attention computation (faster, minor precision diff)")
     parser.add_argument("--scale-aware", action="store_true")
-    parser.add_argument("--num-warmup", type=int, default=3)
-    parser.add_argument("--num-profile", type=int, default=5)
+    parser.add_argument("--num-warmup", type=int, default=5)
+    parser.add_argument("--num-profile", type=int, default=20)
     parser.add_argument("--num-val", type=int, default=3,
                         help="profiled validation iterations (0 to skip)")
     parser.add_argument("--use-tb-profiler", action="store_true",

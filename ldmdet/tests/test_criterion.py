@@ -250,34 +250,37 @@ class TestDiffusionDetMatcher:
         targets = self._make_targets()
         indices = matcher(output, targets)
         assert len(indices) == 2  # batch size
-        for pred_idx, gt_idx in indices:
-            assert pred_idx.shape == gt_idx.shape
-            assert (pred_idx >= 0).all()
-            assert (gt_idx >= 0).all()
+        for fg_mask, matched_gt_inds in indices:
+            assert fg_mask.dtype == torch.bool
+            assert matched_gt_inds.dtype == torch.long
+            assert fg_mask.shape[0] == matched_gt_inds.shape[0]
+            # 正样本的 GT 索引应非负
+            if fg_mask.any():
+                assert (matched_gt_inds[fg_mask] >= 0).all()
 
     def test_deterministic(self, matcher):
         output = self._make_output()
         targets = self._make_targets()
         idx1 = matcher(output, targets)
         idx2 = matcher(output, targets)
-        for (p1, g1), (p2, g2) in zip(idx1, idx2):
-            assert torch.equal(p1, p2)
+        for (m1, g1), (m2, g2) in zip(idx1, idx2):
+            assert torch.equal(m1, m2)
             assert torch.equal(g1, g2)
 
     def test_few_gt(self, matcher):
         output = self._make_output(num_queries=500)
         targets = self._make_targets(num_gts=5)
         indices = matcher(output, targets)
-        for pred_idx, gt_idx in indices:
-            assert gt_idx.shape[0] > 0
+        for fg_mask, matched_gt_inds in indices:
+            assert fg_mask.sum() > 0
 
     def test_empty_gt(self, matcher):
         output = self._make_output(bs=1)
         targets = [InstanceData(bboxes=torch.zeros(0, 4), labels=torch.zeros(0, dtype=torch.long), img_shape=(512, 512))]
         indices = matcher(output, targets)
         assert len(indices) == 1
-        pred_idx, gt_idx = indices[0]
-        assert pred_idx.shape[0] == 0
+        fg_mask, matched_gt_inds = indices[0]
+        assert fg_mask.sum() == 0  # 无正样本
 
 
 # ============================================================

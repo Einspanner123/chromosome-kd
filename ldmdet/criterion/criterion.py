@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
+from torchvision import ops
 
 from ldmdet.data.structures import InstanceData, ModelOutput
 from ldmdet.utils.box_ops import bbox_xyxy_to_cxcywh
@@ -69,66 +70,126 @@ class DiffusionDetCriterion(nn.Module):
         return {'loss_cls': loss_cls, 'loss_bbox': loss_bbox, 'loss_giou': loss_giou}
 
     def _loss_classification(self, outputs, targets, indices) -> Tensor:
-        src_logits = outputs.pred_logits
+        src_logits = outputs.pred_logits  # [bs, num_queries, num_classes+1]
         bs, num_queries = src_logits.shape[:2]
-        target_classes = src_logits.new_full((bs, num_queries), self.num_classes, dtype=torch.long)
-        num_pos = 0
-        for i, (src_idx, gt_idx) in enumerate(indices):
-            if len(src_idx) > 0:
-                target_classes[i, src_idx] = targets[i].labels[gt_idx]
-                num_pos += len(src_idx)
+
+        # 构建 padded GT labels: [bs, max_gt]
+        max_gt = max(t.labels.shape[0] for t in targets)
+        if max_gt == 0:
+            # 全部为背景
+            target_classes = src_logits.new_full((bs, num_queries), self.num_classes, dtype=torch.long)
+            num_pos = src_logits.new_tensor(1, dtype=torch.long)
+            loss_cls = self.loss_cls(src_logits.flatten(0, 1), target_classes.flatten(0, 1))
+            return loss_cls / num_pos
+
+        gt_labels_padded = src_logits.new_full((bs, max_gt), self.num_classes, dtype=torch.long)
+        for i, t in enumerate(targets):
+            n = t.labels.shape[0]
+            if n > 0:
+                gt_labels_padded[i, :n] = t.labels
+
+        # 批量化: 将 indices 堆叠为 [bs, N] 张量
+        fg_masks = torch.stack([idx[0] for idx in indices])  # [bs, N] bool
+        matched_gt_inds = torch.stack([idx[1] for idx in indices])  # [bs, N] long
+        matched_gt_inds_clamped = matched_gt_inds.clamp(min=0)
+
+        # Gather GT labels: [bs, N]
+        matched_gt_labels = torch.gather(gt_labels_padded, 1, matched_gt_inds_clamped)
+        # 背景位置设为 num_classes
+        matched_gt_labels[~fg_masks] = self.num_classes
+
+        target_classes = matched_gt_labels
+        # num_pos 保留为张量，避免 .item() 同步
+        num_pos = fg_masks.sum().clamp(min=1)
+
         loss_cls = self.loss_cls(src_logits.flatten(0, 1), target_classes.flatten(0, 1))
-        return loss_cls / max(num_pos, 1)
+        return loss_cls / num_pos
 
     def _loss_boxes(self, outputs, targets, indices) -> Tuple[Tensor, Tensor]:
-        src_boxes = outputs.pred_boxes
-        # 批量收集所有正样本，避免逐图 append
-        src_idx_list = []
-        tgt_idx_list = []
-        for i, (src_idx, gt_idx) in enumerate(indices):
-            if len(src_idx) > 0:
-                src_idx_list.append(src_boxes[i, src_idx])
-                tgt_idx_list.append(targets[i].bboxes[gt_idx])
-        if len(src_idx_list) == 0:
+        src_boxes = outputs.pred_boxes  # [bs, num_queries, 4]
+        bs = src_boxes.shape[0]
+
+        # 构建 padded GT bboxes: [bs, max_gt, 4]
+        max_gt = max(t.bboxes.shape[0] for t in targets)
+        if max_gt == 0:
+            # 无正样本，返回零损失
             return src_boxes.sum() * 0, src_boxes.sum() * 0
 
-        src_boxes_pos = torch.cat(src_idx_list)
-        tgt_boxes_pos = torch.cat(tgt_idx_list)
-        num_pos = src_boxes_pos.shape[0]
+        # 批量化: 将 indices 堆叠为 [bs, N] 张量
+        fg_masks = torch.stack([idx[0] for idx in indices])  # [bs, N] bool
+        matched_gt_inds = torch.stack([idx[1] for idx in indices])  # [bs, N] long
 
-        tgt_cxcywh = bbox_xyxy_to_cxcywh(tgt_boxes_pos)
-        src_cxcywh = bbox_xyxy_to_cxcywh(src_boxes_pos)
+        # 构建 padded GT bboxes: [bs, max_gt, 4]
+        max_gt = max(t.bboxes.shape[0] for t in targets)
+        gt_bboxes_padded = src_boxes.new_zeros(bs, max_gt, 4)
+        for i, t in enumerate(targets):
+            n = t.bboxes.shape[0]
+            if n > 0:
+                gt_bboxes_padded[i, :n] = t.bboxes
+
+        # Gather matched GT bboxes: [bs, N, 4]
+        matched_gt_inds_clamped = matched_gt_inds.clamp(min=0)
+        tgt_boxes = torch.gather(
+            gt_bboxes_padded, 1,
+            matched_gt_inds_clamped.unsqueeze(-1).expand(-1, -1, 4)
+        )
+
+        # num_pos 保留为张量，避免 .item() 同步
+        num_pos = fg_masks.sum().clamp(min=1)
+
+        tgt_cxcywh = bbox_xyxy_to_cxcywh(tgt_boxes)  # [bs, N, 4]
+        src_cxcywh = bbox_xyxy_to_cxcywh(src_boxes)  # [bs, N, 4]
 
         if self.scale_aware:
-            tgt_areas = tgt_cxcywh[:, 2] * tgt_cxcywh[:, 3]
+            tgt_areas = tgt_cxcywh[:, :, 2] * tgt_cxcywh[:, :, 3]  # [bs, N]
             if self.scale_aware_mode == 'log_linear':
                 log_areas = torch.log(tgt_areas + 1e-8)
-                log_mean = log_areas.mean()
-                log_std = log_areas.std() + 1e-8
+                log_mean = log_areas[fg_masks].mean()
+                log_std = log_areas[fg_masks].std() + 1e-8
                 z = (log_areas - log_mean) / log_std
                 scale_w = 1.0 - self.scale_aware_alpha * z
                 scale_w = scale_w.clamp(1.0 - self.scale_aware_alpha * 3, 1.0 + self.scale_aware_alpha * 3)
             elif self.scale_aware_mode == 'sqrt_inverse':
                 raw_w = 1.0 / torch.sqrt(tgt_areas + 1e-6)
-                scale_w = raw_w / raw_w.mean()
+                scale_w = raw_w / raw_w[fg_masks].mean()
                 scale_w = scale_w.clamp(self.scale_aware_min_weight, self.scale_aware_max_weight)
             else:
                 raw_w = 1.0 / (tgt_areas + 1e-6)
-                scale_w = raw_w / raw_w.mean()
+                scale_w = raw_w / raw_w[fg_masks].mean()
                 scale_w = scale_w.clamp(self.scale_aware_min_weight, self.scale_aware_max_weight)
-            per_elem_l1 = F.l1_loss(src_cxcywh, tgt_cxcywh, reduction='none')
-            weighted_sum = (per_elem_l1 * scale_w.unsqueeze(1)).sum()
+            per_elem_l1 = F.l1_loss(src_cxcywh, tgt_cxcywh, reduction='none')  # [bs, N, 4]
+            weighted_l1 = per_elem_l1 * scale_w.unsqueeze(-1)  # [bs, N, 4]
+            # 仅对正样本求和
+            weighted_sum = (weighted_l1 * fg_masks.unsqueeze(-1).float()).sum()
             loss_bbox = self.loss_bbox.loss_weight * weighted_sum / num_pos
-            loss_giou = self.loss_giou(src_boxes_pos, tgt_boxes_pos).sum() / num_pos
+            # GIoU: 逐元素计算后 mask
+            per_giou = ops.generalized_box_iou_loss(
+                src_boxes.reshape(-1, 4), tgt_boxes.reshape(-1, 4), reduction='none'
+            ).reshape(bs, -1)
+            per_giou = torch.nan_to_num(per_giou, nan=0.0)
+            loss_giou = self.loss_giou.loss_weight * (per_giou * fg_masks.float()).sum() / num_pos
         elif self.bbox_loss_mode == 'relative_l1':
-            tgt_w = tgt_cxcywh[:, 2].clamp(min=self.bbox_loss_eps)
-            tgt_h = tgt_cxcywh[:, 3].clamp(min=self.bbox_loss_eps)
+            tgt_w = tgt_cxcywh[:, :, 2].clamp(min=self.bbox_loss_eps)
+            tgt_h = tgt_cxcywh[:, :, 3].clamp(min=self.bbox_loss_eps)
             scale = torch.stack([tgt_w, tgt_h, tgt_w, tgt_h], dim=-1)
             per_elem = F.l1_loss(src_cxcywh, tgt_cxcywh, reduction='none')
-            loss_bbox = self.loss_bbox.loss_weight * (per_elem / scale).sum() / num_pos
-            loss_giou = self.loss_giou(src_boxes_pos, tgt_boxes_pos).sum() / num_pos
+            masked_rel = (per_elem / scale) * fg_masks.unsqueeze(-1).float()
+            loss_bbox = self.loss_bbox.loss_weight * masked_rel.sum() / num_pos
+            per_giou = ops.generalized_box_iou_loss(
+                src_boxes.reshape(-1, 4), tgt_boxes.reshape(-1, 4), reduction='none'
+            ).reshape(bs, -1)
+            per_giou = torch.nan_to_num(per_giou, nan=0.0)
+            loss_giou = self.loss_giou.loss_weight * (per_giou * fg_masks.float()).sum() / num_pos
         else:
-            loss_bbox = self.loss_bbox(src_cxcywh, tgt_cxcywh).sum() / num_pos
-            loss_giou = self.loss_giou(src_boxes_pos, tgt_boxes_pos).sum() / num_pos
+            # L1 loss: 逐元素计算后 mask
+            per_elem_l1 = F.l1_loss(src_cxcywh, tgt_cxcywh, reduction='none')  # [bs, N, 4]
+            masked_l1 = per_elem_l1 * fg_masks.unsqueeze(-1).float()
+            loss_bbox = self.loss_bbox.loss_weight * masked_l1.sum() / num_pos
+            # GIoU loss: 逐元素计算后 mask
+            per_giou = ops.generalized_box_iou_loss(
+                src_boxes.reshape(-1, 4), tgt_boxes.reshape(-1, 4), reduction='none'
+            ).reshape(bs, -1)
+            per_giou = torch.nan_to_num(per_giou, nan=0.0)
+            loss_giou = self.loss_giou.loss_weight * (per_giou * fg_masks.float()).sum() / num_pos
 
         return loss_bbox, loss_giou
