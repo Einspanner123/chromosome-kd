@@ -3,6 +3,8 @@
 import torch
 import pytest
 from ldmdet.coupling import build_coupling
+from ldmdet.coupling._sinkhorn_ops import _OT_GENERATORS
+from ldmdet.utils.constants import CHROMO_GROUP_OF_CLASS
 
 
 # 所有耦合策略名
@@ -184,3 +186,61 @@ class TestGHSSCoupling:
         x_start, matched_idx = coupling.couple(noise, gt, gt_labels, torch.device('cpu'))
         assert x_start.shape == (100, 4)
         assert (matched_idx >= 0).all() and (matched_idx < 20).all()
+
+    def test_group_isolation_no_cross_group_matching(self):
+        """GHSS 核心特性: 噪声 slot 匹配的 GT 必须属于分配给它的组, 禁止跨组匹配"""
+        coupling = build_coupling('ghss', epsilon=5.0, num_iters=10)
+        noise = torch.randn(100, 4)
+        gt = torch.randn(20, 4)
+        # 4 组, 每组 5 个 GT, GT 索引范围: group0=[0,5), group1=[5,10), group3=[10,15), group7=[15,20)
+        gt_labels = torch.cat([
+            torch.zeros(5, dtype=torch.long),       # group 0 (class 0-2)
+            torch.ones(5, dtype=torch.long) * 3,    # group 1 (class 3-4)
+            torch.ones(5, dtype=torch.long) * 12,   # group 3 (class 12-14)
+            torch.ones(5, dtype=torch.long) * 22,   # group 7 (class 22-23)
+        ])
+        _, matched_idx = coupling.couple(noise, gt, gt_labels, torch.device('cpu'))
+
+        # 每个 matched GT 的组
+        gt_groups = torch.tensor(CHROMO_GROUP_OF_CLASS)[gt_labels]
+        matched_groups = gt_groups[matched_idx]
+
+        # 所有 4 个组都应被分配到噪声 slot
+        assert len(torch.unique(matched_groups)) == 4
+
+        # 每组分配的噪声 slot 数应与组内 GT 数成正比 (每组 5/20 = 25%)
+        for g in [0, 1, 3, 7]:
+            count = (matched_groups == g).sum().item()
+            assert count == 25, f"group {g} 应分配 25 个 slot, 实际 {count}"
+
+        # 核心断言: 不存在跨组匹配
+        # group 0 的噪声 slot 只能匹配 GT 索引 [0, 5)
+        # group 1 的噪声 slot 只能匹配 GT 索引 [5, 10)
+        # 以此类推
+        group_gt_ranges = {0: (0, 5), 1: (5, 10), 3: (10, 15), 7: (15, 20)}
+        for g, (lo, hi) in group_gt_ranges.items():
+            slots_for_g = matched_idx[matched_groups == g]
+            # 所有匹配的 GT 索引必须落在该组的范围内
+            assert ((slots_for_g >= lo) & (slots_for_g < hi)).all(), (
+                f"group {g} 存在跨组匹配: GT 索引应在 [{lo}, {hi}), 实际 {slots_for_g.tolist()}"
+            )
+
+    def test_group_isolation_all_groups_present(self):
+        """即使某些组只有 1 个 GT, GHSS 仍应为其分配噪声 slot"""
+        coupling = build_coupling('ghss', epsilon=5.0, num_iters=10)
+        noise = torch.randn(80, 4)
+        gt = torch.randn(10, 4)
+        # 不均匀分组: group 0 有 7 个, group 1 有 1 个, group 3 有 1 个, group 7 有 1 个
+        gt_labels = torch.cat([
+            torch.zeros(7, dtype=torch.long),       # group 0
+            torch.ones(1, dtype=torch.long) * 3,    # group 1
+            torch.ones(1, dtype=torch.long) * 12,   # group 3
+            torch.ones(1, dtype=torch.long) * 22,   # group 7
+        ])
+        _, matched_idx = coupling.couple(noise, gt, gt_labels, torch.device('cpu'))
+
+        gt_groups = torch.tensor(CHROMO_GROUP_OF_CLASS)[gt_labels]
+        matched_groups = gt_groups[matched_idx]
+        # 每个组都应至少有 1 个噪声 slot
+        for g in [0, 1, 3, 7]:
+            assert (matched_groups == g).sum() > 0, f"group {g} 未被分配任何噪声 slot"
