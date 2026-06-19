@@ -266,6 +266,34 @@ class TestDiffusionDetHead:
         results = head.predict(features, img_metas, rescale=False)
         assert len(results) == 2  # batch size
 
+    def test_loss_with_empty_gt_in_one_image(self, head):
+        """某张图 GT 为空时 loss 应正常计算且有限"""
+        features = self._make_features()
+        img_metas = self._make_img_metas()
+        # 图 0 有 GT, 图 1 无 GT
+        gt_bboxes = [torch.rand(5, 4) * 200, torch.zeros(0, 4)]
+        gt_bboxes[0][:, 2:] += gt_bboxes[0][:, :2]
+        gt_labels = [torch.randint(0, 24, (5,)), torch.zeros(0, dtype=torch.long)]
+        losses = head.loss(features, img_metas, gt_bboxes, gt_labels)
+        assert 'loss_cls' in losses
+        assert 'loss_bbox' in losses
+        assert 'loss_giou' in losses
+        for v in losses.values():
+            assert torch.isfinite(v), f"loss {v} is not finite"
+
+    def test_loss_with_all_empty_gt(self, head):
+        """所有图 GT 均为空时 loss 应正常计算且有限"""
+        features = self._make_features()
+        img_metas = self._make_img_metas()
+        gt_bboxes = [torch.zeros(0, 4), torch.zeros(0, 4)]
+        gt_labels = [torch.zeros(0, dtype=torch.long), torch.zeros(0, dtype=torch.long)]
+        losses = head.loss(features, img_metas, gt_bboxes, gt_labels)
+        assert 'loss_cls' in losses
+        assert 'loss_bbox' in losses
+        assert 'loss_giou' in losses
+        for v in losses.values():
+            assert torch.isfinite(v), f"loss {v} is not finite"
+
     def test_no_deep_supervision(self):
         single_head = SingleDiffusionDetHead(
             num_classes=24, feat_channels=64, dim_feedforward=128,

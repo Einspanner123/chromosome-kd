@@ -146,16 +146,21 @@ class TestSinkhornStochasticCoupling:
         assert not torch.equal(idx1, idx2)
 
     def test_with_seed(self):
-        """使用 seed 应可复现"""
-        coupling = build_coupling('sinkhorn_stochastic', epsilon=5.0, num_iters=10, sample_seed=42)
+        """使用 seed + 清空全局 generator 缓存后应可复现"""
         noise = torch.randn(50, 4)
         gt = torch.randn(10, 4)
         gt_labels = torch.randint(0, 24, (10,))
+
+        # 清空缓存后用相同 seed 采样, 结果应可复现
+        _OT_GENERATORS.clear()
+        coupling = build_coupling('sinkhorn_stochastic', epsilon=5.0, num_iters=10, sample_seed=42)
         _, idx1 = coupling.couple(noise, gt, gt_labels, torch.device('cpu'))
-        _, idx2 = coupling.couple(noise, gt, gt_labels, torch.device('cpu'))
-        # 同一个 generator 连续采样，结果不同
-        # 但创建新实例用同 seed 也不保证相同 (因为 generator 状态不同)
-        # 这里只验证输出合法
+
+        _OT_GENERATORS.clear()
+        coupling2 = build_coupling('sinkhorn_stochastic', epsilon=5.0, num_iters=10, sample_seed=42)
+        _, idx2 = coupling2.couple(noise, gt, gt_labels, torch.device('cpu'))
+
+        assert torch.equal(idx1, idx2), "相同 seed 清空缓存后应产生相同结果"
         assert (idx1 >= 0).all() and (idx1 < 10).all()
 
 

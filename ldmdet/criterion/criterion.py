@@ -167,6 +167,9 @@ class DiffusionDetCriterion(nn.Module):
                 src_boxes.reshape(-1, 4), tgt_boxes.reshape(-1, 4), reduction='none'
             ).reshape(bs, -1)
             per_giou = torch.nan_to_num(per_giou, nan=0.0)
+            if self.scale_aware_giou:
+                # GIoU 也按 scale_w 加权
+                per_giou = per_giou * scale_w
             loss_giou = self.loss_giou.loss_weight * (per_giou * fg_masks.float()).sum() / num_pos
         elif self.bbox_loss_mode == 'relative_l1':
             tgt_w = tgt_cxcywh[:, :, 2].clamp(min=self.bbox_loss_eps)

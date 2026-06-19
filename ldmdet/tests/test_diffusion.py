@@ -91,20 +91,20 @@ class TestRectifiedFlow:
         assert velocity.shape == x_start.shape
 
     def test_q_sample_t0(self, rf):
-        """t=0 时 x_t ≈ x_start"""
+        """t=0 时 x_t == x_start (精确等式)"""
         x_start = torch.randn(2, 10, 4)
         x_noise = torch.randn_like(x_start)
         t = torch.zeros(2)
         x_t, _ = rf.q_sample(x_start, x_noise, t)
-        assert torch.allclose(x_t, x_start, atol=1e-4)
+        assert torch.equal(x_t, x_start)
 
     def test_q_sample_t1(self, rf):
-        """t=1 时 x_t ≈ x_noise"""
+        """t=1 时 x_t == x_noise (精确等式)"""
         x_start = torch.randn(2, 10, 4)
         x_noise = torch.randn_like(x_start)
         t = torch.ones(2)
         x_t, _ = rf.q_sample(x_start, x_noise, t)
-        assert torch.allclose(x_t, x_noise, atol=1e-4)
+        assert torch.equal(x_t, x_noise)
 
     def test_velocity(self, rf):
         """velocity = x_noise - x_start"""
@@ -449,6 +449,107 @@ class TestPredictNoiseFromStart:
         alphas_cumprod_actual = torch.cumprod(alphas, dim=0)
         noise = predict_noise_from_start(x_t, t, x0, alphas_cumprod_actual)
         assert torch.isfinite(noise).all()
+
+
+class TestDDIMStep:
+    """测试 DDIM 采样步骤 (DDPM 基线)"""
+
+    @pytest.fixture
+    def ddpm_sampler(self):
+        return DiffusionSampler(
+            diffusion_type='ddpm', timesteps=1000,
+            sampling_timesteps=4, solver_type='euler',
+            ddim_sampling_eta=0.0,  # eta=0 → 确定性 DDIM
+            rf_schedule='linear', rf_power=1.0, rf_shift=1.0,
+            snr_scale=2.0, box_renewal=False, use_ensemble=False,
+            use_nms=True, nms_thr=0.5, score_thr=0.05, min_keep=10,
+        )
+
+    def _make_alphas_cumprod(self, T=1000):
+        """构造 alphas_cumprod (cosine schedule)"""
+        betas = cosine_noise_schedule(T).float()
+        alphas = 1.0 - betas
+        return torch.cumprod(alphas, dim=0)
+
+    def test_output_shape(self, ddpm_sampler):
+        """ddim_step 输出形状正确"""
+        bs, N = 2, 50
+        alphas_cumprod = self._make_alphas_cumprod()
+        x_raw = torch.randn(bs, N, 4)
+        cls_logits = torch.randn(bs, N, 24)
+        pred_bboxes = torch.rand(bs, N, 4) * 400 + 50
+        pred_bboxes[:, :, 2:] += pred_bboxes[:, :, :2]
+        img_metas = [ImageMeta(img_shape=(512, 512)) for _ in range(bs)]
+
+        xyxy_next, x0 = ddpm_sampler.ddim_step(
+            t_curr=999, t_next=749, x_raw=x_raw,
+            cls_logits=cls_logits, pred_bboxes=pred_bboxes,
+            img_metas=img_metas, alphas_cumprod=alphas_cumprod,
+        )
+        assert xyxy_next.shape == (bs, N, 4)
+        assert x0.shape == (bs, N, 4)
+
+    def test_deterministic_eta_zero(self, ddpm_sampler):
+        """eta=0 时 DDIM 确定性: 相同输入 → 相同输出"""
+        bs, N = 2, 50
+        alphas_cumprod = self._make_alphas_cumprod()
+        x_raw = torch.randn(bs, N, 4)
+        cls_logits = torch.randn(bs, N, 24)
+        pred_bboxes = torch.rand(bs, N, 4) * 400 + 50
+        pred_bboxes[:, :, 2:] += pred_bboxes[:, :, :2]
+        img_metas = [ImageMeta(img_shape=(512, 512)) for _ in range(bs)]
+
+        torch.manual_seed(0)
+        xyxy1, x0_1 = ddpm_sampler.ddim_step(
+            t_curr=999, t_next=749, x_raw=x_raw,
+            cls_logits=cls_logits, pred_bboxes=pred_bboxes,
+            img_metas=img_metas, alphas_cumprod=alphas_cumprod,
+        )
+        torch.manual_seed(0)
+        xyxy2, x0_2 = ddpm_sampler.ddim_step(
+            t_curr=999, t_next=749, x_raw=x_raw,
+            cls_logits=cls_logits, pred_bboxes=pred_bboxes,
+            img_metas=img_metas, alphas_cumprod=alphas_cumprod,
+        )
+        assert torch.allclose(xyxy1, xyxy2, atol=1e-6)
+        assert torch.allclose(x0_1, x0_2, atol=1e-6)
+
+    def test_t_next_negative_returns_x0(self, ddpm_sampler):
+        """t_next < 0 (最后一步) 应直接返回 x0"""
+        bs, N = 2, 50
+        alphas_cumprod = self._make_alphas_cumprod()
+        x_raw = torch.randn(bs, N, 4)
+        cls_logits = torch.randn(bs, N, 24)
+        pred_bboxes = torch.rand(bs, N, 4) * 400 + 50
+        pred_bboxes[:, :, 2:] += pred_bboxes[:, :, :2]
+        img_metas = [ImageMeta(img_shape=(512, 512)) for _ in range(bs)]
+
+        xyxy_next, x0 = ddpm_sampler.ddim_step(
+            t_curr=0, t_next=-1, x_raw=x_raw,
+            cls_logits=cls_logits, pred_bboxes=pred_bboxes,
+            img_metas=img_metas, alphas_cumprod=alphas_cumprod,
+        )
+        # t_next < 0 时返回 raw_to_xyxy(x0), x0
+        expected_xyxy = ddpm_sampler.raw_to_xyxy(x0, img_metas)
+        assert torch.allclose(xyxy_next, expected_xyxy, atol=1e-6)
+
+    def test_finite_output(self, ddpm_sampler):
+        """输出有限"""
+        bs, N = 2, 50
+        alphas_cumprod = self._make_alphas_cumprod()
+        x_raw = torch.randn(bs, N, 4)
+        cls_logits = torch.randn(bs, N, 24)
+        pred_bboxes = torch.rand(bs, N, 4) * 400 + 50
+        pred_bboxes[:, :, 2:] += pred_bboxes[:, :, :2]
+        img_metas = [ImageMeta(img_shape=(512, 512)) for _ in range(bs)]
+
+        xyxy_next, x0 = ddpm_sampler.ddim_step(
+            t_curr=999, t_next=499, x_raw=x_raw,
+            cls_logits=cls_logits, pred_bboxes=pred_bboxes,
+            img_metas=img_metas, alphas_cumprod=alphas_cumprod,
+        )
+        assert torch.isfinite(xyxy_next).all()
+        assert torch.isfinite(x0).all()
 
 
 class TestRFDPMSolverMultistepOrder3:

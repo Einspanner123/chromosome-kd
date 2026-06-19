@@ -604,6 +604,113 @@ class TestDiffusionDetCriterionScaleAwareModes:
             f"sa={losses_sa['loss_bbox'].item():.4f}, no={losses_no['loss_bbox'].item():.4f}"
         )
 
+    def test_scale_aware_clamping_min_max_weight(self):
+        """scale_aware 的 inverse 模式应将 scale_w 限制在 [min_weight, max_weight]"""
+        matcher = DiffusionDetMatcher(
+            cost_class=2.0, cost_bbox=5.0, cost_giou=2.0, candidate_topk=5,
+        )
+        # 极端尺寸差异: 一个超大框 + 一个超小框
+        extreme_boxes = torch.tensor([
+            [0.0, 0.0, 0.99, 0.99],   # area ≈ 0.98 (超大框)
+            [0.5, 0.5, 0.51, 0.51],   # area ≈ 0.0001 (超小框)
+        ])
+        pred_boxes = extreme_boxes + 0.01
+
+        criterion = DiffusionDetCriterion(
+            num_classes=24,
+            matcher=matcher,
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+            deep_supervision=False,
+            scale_aware=True,
+            scale_aware_mode='inverse',
+            scale_aware_min_weight=0.5,
+            scale_aware_max_weight=3.0,
+        )
+
+        def _make_output(pred_boxes):
+            return ModelOutput(
+                pred_logits=torch.randn(1, 2, 24),
+                pred_boxes=pred_boxes.unsqueeze(0),
+            )
+
+        def _make_targets(gt_boxes):
+            return [InstanceData(
+                bboxes=gt_boxes,
+                labels=torch.tensor([0, 1]),
+                img_shape=(512, 512),
+            )]
+
+        # 只验证 loss 有限 — clamping 确保不会因极端尺寸导致数值爆炸
+        losses = criterion(_make_output(pred_boxes), _make_targets(extreme_boxes))
+        for key, val in losses.items():
+            assert torch.isfinite(val), f"{key} not finite with extreme scale difference"
+
+    def test_scale_aware_giou_weights_giou_by_scale(self):
+        """scale_aware_giou=True 时, GIoU loss 应被 scale_w 加权, 与 scale_aware_giou=False 不同"""
+        matcher = DiffusionDetMatcher(
+            cost_class=2.0, cost_bbox=5.0, cost_giou=2.0, candidate_topk=5,
+        )
+
+        # 混合大框和小框
+        mixed_boxes = torch.tensor([
+            [0.1, 0.1, 0.65, 0.65],   # area=0.3025 (大框)
+            [0.1, 0.1, 0.2, 0.2],     # area=0.01 (小框)
+        ])
+        pred_mixed = mixed_boxes + 0.05
+
+        # scale_aware_giou=True
+        criterion_giou_sa = DiffusionDetCriterion(
+            num_classes=24,
+            matcher=matcher,
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+            deep_supervision=False,
+            scale_aware=True,
+            scale_aware_mode='inverse',
+            scale_aware_giou=True,
+        )
+        # scale_aware_giou=False (GIoU 不加权)
+        criterion_giou_no = DiffusionDetCriterion(
+            num_classes=24,
+            matcher=matcher,
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+            deep_supervision=False,
+            scale_aware=True,
+            scale_aware_mode='inverse',
+            scale_aware_giou=False,
+        )
+
+        def _make_output(pred_boxes):
+            return ModelOutput(
+                pred_logits=torch.randn(1, 2, 24),
+                pred_boxes=pred_boxes.unsqueeze(0),
+            )
+
+        def _make_targets(gt_boxes):
+            return [InstanceData(
+                bboxes=gt_boxes,
+                labels=torch.tensor([0, 1]),
+                img_shape=(512, 512),
+            )]
+
+        torch.manual_seed(42)
+        losses_giou_sa = criterion_giou_sa(_make_output(pred_mixed), _make_targets(mixed_boxes))
+        torch.manual_seed(42)
+        losses_giou_no = criterion_giou_no(_make_output(pred_mixed), _make_targets(mixed_boxes))
+
+        giou_sa = losses_giou_sa['loss_giou'].item()
+        giou_no = losses_giou_no['loss_giou'].item()
+
+        # 如果 scale_aware_giou 生效, GIoU 应被 scale_w 加权, 与不加权不同
+        assert abs(giou_sa - giou_no) > 0.001, (
+            f"scale_aware_giou 未改变 GIoU loss: giou_sa={giou_sa:.4f}, giou_no={giou_no:.4f}"
+        )
+
 
 class TestDiffusionDetCriterionRelativeL1:
     """测试 bbox_loss_mode='relative_l1'"""

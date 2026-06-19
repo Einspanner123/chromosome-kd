@@ -221,6 +221,10 @@ class DiffusionDetHead(nn.Module):
             if self.use_ensemble:
                 ensemble_results.append((cls_logits, pred_bboxes))
 
+            # Always keep last result for non-ensemble (DDPM single-step)
+            if not ensemble_results:
+                ensemble_results.append((cls_logits, pred_bboxes))
+
             if self.diffusion_type == 'ddpm':
                 curr_bboxes_xyxy, x_raw = self._sampler.ddim_step(
                     t_curr, t_next, x_raw, cls_logits, pred_bboxes, img_metas, self.alphas_cumprod
