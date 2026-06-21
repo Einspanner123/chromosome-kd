@@ -1,5 +1,5 @@
-"""Chromosome 24obj — Random baseline"""
-_base_ = ['../ldmdet/rf_heun_adaln.py']
+"""Chromosome 24obj — Sinkhorn Stochastic OT (ε=5)"""
+_base_ = ['../ldmdet/sinkhorn_stochastic.py']
 
 data_root = 'data/24_chromosomes_object/coco/'
 train_dataloader = dict(dataset=dict(data_root=data_root, ann_file='train/_annotations.coco.json', data_prefix=dict(img='train/')))

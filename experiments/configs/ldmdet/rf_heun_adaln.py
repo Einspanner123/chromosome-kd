@@ -123,7 +123,7 @@ custom_hooks = [
 
 default_hooks = dict(
     checkpoint=dict(
-        type='AsyncCheckpointHook', interval=1, max_keep_ckpts=1,
+        type='CheckpointHook', interval=1, max_keep_ckpts=2,
         save_best='coco/bbox_mAP', rule='greater',
     ),
 )

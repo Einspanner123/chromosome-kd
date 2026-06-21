@@ -1,8 +1,8 @@
-"""ChromoGen Chromosome v2 数据集配置 — 继承 GHSS 基础，替换数据集路径"""
+"""Chromosome 24obj — GHSS 耦合，24obj 数据集"""
 _base_ = ['../ldmdet/ghss.py']
 
 # 覆盖数据集根路径
-data_root = 'data/selfmake_chromosome202250604_NoResizeNoAug/'
+data_root = 'data/24_chromosomes_object/coco/'
 
 train_dataloader = dict(
     dataset=dict(
