@@ -206,7 +206,9 @@ class DiffusionDetHead(nn.Module):
 
         norm_pred_bboxes = self._normalize_pred_bboxes(all_pred_bboxes, img_metas)
         outputs = self._build_outputs(all_cls_logits, norm_pred_bboxes)
-        losses = self.criterion(outputs, targets)
+        # 方向三: 传 t 给 criterion (若 criterion 不支持 t 则被忽略, 向后兼容)
+        # t 是 [bs] 的扩散时间, 用于 SNR 感知匹配和损失加权
+        losses = self.criterion(outputs, targets, t=t)
 
         # 方向二 路径 C: 计数分支训练 (开关控制, 默认不启用)
         if self.counting_branch is not None:

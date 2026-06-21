@@ -121,7 +121,9 @@ class LDMDetDetector(BaseDetector):
         cfg = cfg.copy()
         cfg.pop('type', None)
         assigner_cfg = cfg.pop('assigner', cfg.pop('matcher', {}))
-        assigner_cfg.pop('type', None)  # strip type key
+        # 方向三: 支持 SNRAwareMatcher (通过 type 字段区分)
+        matcher_type = assigner_cfg.pop('type', 'DiffusionDetMatcher')
+        matcher_type = matcher_type.replace('PurePyTorch', '')
 
         # 构建 match costs
         match_costs = []
@@ -135,7 +137,12 @@ class LDMDetDetector(BaseDetector):
             }
             match_costs.append(cost_map[cost_type](**cost_cfg))
 
-        matcher = DiffusionDetMatcher(match_costs=match_costs, **assigner_cfg)
+        # 方向三: 根据 type 选择 matcher 类
+        if matcher_type == 'SNRAwareMatcher':
+            from ldmdet.criterion.snr_aware_matcher import SNRAwareMatcher
+            matcher = SNRAwareMatcher(match_costs=match_costs, **assigner_cfg)
+        else:
+            matcher = DiffusionDetMatcher(match_costs=match_costs, **assigner_cfg)
 
         loss_cls_cfg = cfg.pop('loss_cls')
         loss_cls_type = loss_cls_cfg.pop('type').replace('PurePyTorch', '')

@@ -448,9 +448,9 @@ def _make_minimal_head(**kwargs) -> DiffusionDetHead:
             num_rois = rois.shape[0]
             return torch.zeros(num_rois, 64, 7, 7)
 
-    # mock criterion: 返回空 loss 字典
+    # mock criterion: 返回空 loss 字典 (接受 t 参数, 兼容方向三)
     class MockCriterion(nn.Module):
-        def forward(self, outputs, targets):
+        def forward(self, outputs, targets, t=None):
             return {'loss_cls': torch.tensor(0.0, requires_grad=True)}
 
     # mock coupling (None 表示用默认 random)
