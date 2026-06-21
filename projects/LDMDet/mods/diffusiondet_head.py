@@ -177,7 +177,7 @@ class DiffusionDetHead(nn.Module):
 
         # ---- 扩散过程参数 ----
         if self.diffusion_type == 'ddpm':
-            # DEPRECATED: DDPM — RF 已完全替代 DDPM，保留仅用于对比实验
+            # DDPM 基线 — 用于与 RF 对比实验
             self._build_diffusion_buffers()
         elif self.diffusion_type == 'rectified_flow':
             self.rf = RectifiedFlow(snr_scale=snr_scale)
@@ -322,24 +322,35 @@ class DiffusionDetHead(nn.Module):
         if self.use_velocity_loss and self.diffusion_type == 'rectified_flow':
             losses.update(
                 self._add_velocity_loss(
-                    all_pred_bboxes, x_starts_batch, x_noises_batch,
-                    t, img_metas,
+                    all_pred_bboxes,
+                    x_starts_batch,
+                    x_noises_batch,
+                    t,
+                    img_metas,
                 )
             )
 
         if self.use_cat:
             losses.update(
                 self._add_cat_loss(
-                    features, all_pred_bboxes, x_starts_batch, x_noises_batch,
-                    t, img_metas,
+                    features,
+                    all_pred_bboxes,
+                    x_starts_batch,
+                    x_noises_batch,
+                    t,
+                    img_metas,
                 )
             )
 
         if self.use_trd:
             losses.update(
                 self._add_trd_loss(
-                    features, all_pred_bboxes, x_starts_batch, x_noises_batch,
-                    t, img_metas,
+                    features,
+                    all_pred_bboxes,
+                    x_starts_batch,
+                    x_noises_batch,
+                    t,
+                    img_metas,
                 )
             )
 
@@ -385,7 +396,7 @@ class DiffusionDetHead(nn.Module):
                 ensemble_results.append((cls_logits, pred_bboxes))
 
             if self.diffusion_type == 'ddpm':
-                # DEPRECATED: DDPM — RF 已完全替代 DDPM
+                # DDPM 基线
                 curr_bboxes_xyxy, x_raw = self._sampler.ddim_step(
                     t_curr,
                     t_next,
@@ -461,7 +472,7 @@ class DiffusionDetHead(nn.Module):
     def _sample_t(self, bs: int, device: torch.device) -> Tensor:
         """采样训练时间步"""
         if self.diffusion_type == 'ddpm':
-            # DEPRECATED: DDPM
+            # DDPM 基线
             return torch.randint(
                 0, self.timesteps, (bs,), device=device
             ).long()
@@ -549,7 +560,7 @@ class DiffusionDetHead(nn.Module):
     ) -> Tuple[Tensor, Tensor]:
         """前向扩散: 返回 (x_noisy, x_noise_used)"""
         if self.diffusion_type == 'ddpm':
-            # DEPRECATED: DDPM
+            # DDPM 基线
             x_noisy = self.q_sample(x_start, t)
             return x_noisy, torch.zeros_like(x_start)
         else:
@@ -609,10 +620,10 @@ class DiffusionDetHead(nn.Module):
         return outputs
 
     # ================================================================
-    # DDPM 扩散过程 (DEPRECATED)
+    # DDPM 扩散过程 (基线对比)
     # ================================================================
 
-    # DEPRECATED: DDPM — RF 已完全替代 DDPM，保留仅用于对比实验
+    # DDPM 基线 — 用于与 RF 对比实验
 
     def _build_diffusion_buffers(self):
         """构建并注册扩散过程所需的常量 buffer"""
@@ -732,11 +743,15 @@ class DiffusionDetHead(nn.Module):
 
         # 取最后一层 head 的预测
         x0_pred_t1 = self._sampler.xyxy_to_raw(all_pred_bboxes[-1], img_metas)
-        x0_pred_t2 = self._sampler.xyxy_to_raw(all_pred_bboxes_t2[-1], img_metas)
+        x0_pred_t2 = self._sampler.xyxy_to_raw(
+            all_pred_bboxes_t2[-1], img_metas
+        )
 
         if self.cat_loss_type == 'x0_consistency':
             # 模式 1: x0 一致性
-            loss = F.mse_loss(x0_pred_t1, x0_pred_t2.detach()) * self.cat_weight
+            loss = (
+                F.mse_loss(x0_pred_t1, x0_pred_t2.detach()) * self.cat_weight
+            )
         elif self.cat_loss_type == 'velocity_curvature':
             # 模式 2: 纯曲率正则化 |v(t+dt) - v(t)|^2
             x_noisy_t1 = (1.0 - t_view) * x_starts + t_view * x_noises
@@ -747,7 +762,7 @@ class DiffusionDetHead(nn.Module):
             loss = F.mse_loss(v_t1, v_t2) * self.cat_weight
         else:
             raise ValueError(
-                f"Unknown cat_loss_type: {self.cat_loss_type}. "
+                f'Unknown cat_loss_type: {self.cat_loss_type}. '
                 f"Expected 'x0_consistency' or 'velocity_curvature'."
             )
 
@@ -799,7 +814,9 @@ class DiffusionDetHead(nn.Module):
         _, all_pred_bboxes_t2, _ = self(features, curr_bboxes_t2, t2_input)
 
         # 4. 计算残差速度
-        x0_pred_t2 = self._sampler.xyxy_to_raw(all_pred_bboxes_t2[-1], img_metas)
+        x0_pred_t2 = self._sampler.xyxy_to_raw(
+            all_pred_bboxes_t2[-1], img_metas
+        )
         v_pred_t2 = (x_t2_sc - x0_pred_t2) / torch.clamp(t2_view, min=1e-5)
 
         # 目标速度 v* = x_1 - x_0
@@ -809,7 +826,9 @@ class DiffusionDetHead(nn.Module):
         delta_v_pred = v_pred_t2 - v_pi
         delta_v_target = v_target - v_pi
 
-        loss = F.mse_loss(delta_v_pred, delta_v_target.detach()) * self.trd_weight
+        loss = (
+            F.mse_loss(delta_v_pred, delta_v_target.detach()) * self.trd_weight
+        )
         return {'loss_trd': loss}
 
     def _init_weights(self):

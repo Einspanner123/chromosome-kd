@@ -61,7 +61,7 @@ class DiffusionSampler:
     ) -> List[Tuple[float, float]]:
         """构建采样时间序列"""
         if self.diffusion_type == 'ddpm':
-            # DEPRECATED: DDPM — RF 已完全替代 DDPM，保留仅用于对比实验
+            # DDPM 基线 — 用于与 RF 对比实验
             times = torch.linspace(
                 -1,
                 self.timesteps - 1,
@@ -154,7 +154,7 @@ class DiffusionSampler:
         img_metas: List[ImageMeta],
         alphas_cumprod: Tensor,
     ) -> Tuple[Tensor, Tensor]:
-        """执行一步 DDIM 采样 (DEPRECATED: DDPM)"""
+        """执行一步 DDIM 采样 (DDPM 基线)"""
         bs, device = x_raw.shape[0], x_raw.device
 
         x0 = self.xyxy_to_raw(pred_bboxes, img_metas)

@@ -15,7 +15,7 @@ from torch import Tensor
 from ldmdet.coupling import build_coupling
 from ldmdet.data.structures import DetectionResult, ImageMeta, InstanceData, ModelOutput
 from ldmdet.diffusion.embeddings import SinusoidalPositionEmbeddings
-from ldmdet.diffusion.noise_schedule import cosine_noise_schedule, load_buffer
+from ldmdet.diffusion.noise_schedule import cosine_noise_schedule
 from ldmdet.diffusion.rectified_flow import RectifiedFlow
 from ldmdet.diffusion.sampling import DiffusionSampler, _get_img_shape
 from ldmdet.utils.box_ops import bbox_xyxy_to_cxcywh
@@ -95,10 +95,10 @@ class DiffusionDetHead(nn.Module):
 
         # DDPM 缓存
         if diffusion_type == 'ddpm':
-            self.register_buffer(
-                'alphas_cumprod',
-                cosine_noise_schedule(timesteps).float(),
-            )
+            betas = cosine_noise_schedule(timesteps).float()
+            alphas = 1.0 - betas
+            alphas_cumprod = torch.cumprod(alphas, dim=0)
+            self.register_buffer('alphas_cumprod', alphas_cumprod)
         else:
             self.alphas_cumprod = None
 
@@ -344,12 +344,15 @@ class DiffusionDetHead(nn.Module):
         return ModelOutput(pred_logits=main_logits, pred_boxes=main_bboxes, aux_outputs=aux_outputs)
 
     # ================================================================
-    # DDPM (deprecated)
+    # DDPM 基线 (用于与 RF 对比实验)
     # ================================================================
 
     def q_sample(self, x_start, t, noise=None):
         if noise is None:
             noise = torch.randn_like(x_start)
-        sqrt_alpha = load_buffer(self.alphas_cumprod.sqrt(), t, x_start.shape)
-        sqrt_one_minus = load_buffer((1 - self.alphas_cumprod).sqrt(), t, x_start.shape)
+        # 先按 t 索引取 bs 个值, 再 sqrt (bs << timesteps, 避免对全长向量开方)
+        alpha_t = self.alphas_cumprod.gather(-1, t.long())
+        reshape = (-1,) + (1,) * (x_start.dim() - 1)
+        sqrt_alpha = alpha_t.sqrt().reshape(reshape)
+        sqrt_one_minus = (1.0 - alpha_t).sqrt().reshape(reshape)
         return sqrt_alpha * x_start + sqrt_one_minus * noise

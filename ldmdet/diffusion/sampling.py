@@ -157,7 +157,7 @@ class DiffusionSampler:
         img_metas: List[ImageMeta],
         alphas_cumprod: Tensor,
     ) -> Tuple[Tensor, Tensor]:
-        """一步 DDIM 采样 (DEPRECATED: DDPM)"""
+        """一步 DDIM 采样 (DDPM 基线)"""
         bs, device = x_raw.shape[0], x_raw.device
 
         x0 = self.xyxy_to_raw(pred_bboxes, img_metas)
