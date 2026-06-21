@@ -16,7 +16,7 @@ import pytest
 
 from ldmdet.core.counting_branch import CountingBranch
 from ldmdet.core.head import DiffusionDetHead
-from ldmdet.data.structures import DetectionResult
+from ldmdet.data.structures import DetectionResult, ImageMeta
 from ldmdet.inference.count_constrained_nms import (
     count_constrained_nms,
     find_threshold_for_count,
@@ -352,6 +352,41 @@ class TestHeadIntegration:
 
         new_results = head._apply_count_constraint(features, results)
         assert new_results[0].bboxes.shape[0] == 0
+
+    def test_loss_with_counting_branch(self):
+        """集成测试: loss() 在 counting_branch 启用时应添加 loss_count
+
+        覆盖真实训练场景: gt_bboxes 为 list[Tensor], 每张图 GT 数不同.
+        回归 bug: 之前用 torch.stack 导致 TypeError (int 不能 stack).
+        """
+        branch = CountingBranch(feat_channels=64, num_levels=4)
+        head = _make_minimal_head(counting_branch=branch)
+
+        # 构造 mock 输入: 2 张图, 分别 46 和 47 个 GT
+        device = torch.device('cpu')
+        bs = 2
+        features = [torch.randn(bs, 64, 32, 32) for _ in range(4)]
+        img_metas = [
+            ImageMeta(img_shape=(32, 32), pad_shape=(32, 32),
+                      ori_shape=(32, 32), scale_factor=[1.0, 1.0, 1.0, 1.0])
+            for _ in range(bs)
+        ]
+        gt_bboxes = [
+            torch.rand(46, 4, device=device) * 30,  # 46 个 GT
+            torch.rand(47, 4, device=device) * 30,  # 47 个 GT
+        ]
+        gt_labels = [
+            torch.randint(0, 24, (46,), device=device),
+            torch.randint(0, 24, (47,), device=device),
+        ]
+
+        losses = head.loss(features, img_metas, gt_bboxes, gt_labels)
+        # 应包含 loss_count
+        assert 'loss_count' in losses
+        assert losses['loss_count'].dim() == 0  # scalar
+        assert losses['loss_count'].item() > 0
+        # 应可反向传播
+        losses['loss_count'].backward()
 
 
 # ================================================================

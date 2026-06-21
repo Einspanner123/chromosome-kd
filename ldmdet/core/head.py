@@ -210,9 +210,10 @@ class DiffusionDetHead(nn.Module):
 
         # 方向二 路径 C: 计数分支训练 (开关控制, 默认不启用)
         if self.counting_branch is not None:
-            gt_count = torch.stack([
-                gt_bboxes[i].shape[0] for i in range(bs)
-            ]).to(device).long()
+            gt_count = torch.tensor(
+                [gt_bboxes[i].shape[0] for i in range(bs)],
+                device=device, dtype=torch.long,
+            )
             count_logits, _ = self.counting_branch(features)
             count_loss = self.counting_branch.compute_loss(count_logits, gt_count)
             losses['loss_count'] = count_loss * self.count_loss_weight
