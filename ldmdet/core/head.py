@@ -60,6 +60,12 @@ class DiffusionDetHead(nn.Module):
         loss_aux: Optional[Dict] = None,
         torch_compile: bool = False,
         amp_dtype: Optional[torch.dtype] = None,
+        # 方向二: 计数先验约束 (默认全关, 不影响 baseline)
+        use_count_constraint: bool = False,
+        default_target_count: int = 46,
+        count_constraint_iou_threshold: float = 0.5,
+        count_constraint_min_keep: int = 10,
+        count_loss_weight: float = 1.0,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -83,6 +89,13 @@ class DiffusionDetHead(nn.Module):
         self.loss_aux = loss_aux
         self.counting_branch = counting_branch
         self.consistency_loss = consistency_loss
+
+        # 方向二: 计数先验约束参数
+        self.use_count_constraint = use_count_constraint
+        self.default_target_count = default_target_count
+        self.count_constraint_iou_threshold = count_constraint_iou_threshold
+        self.count_constraint_min_keep = count_constraint_min_keep
+        self.count_loss_weight = count_loss_weight
 
         # 扩散组件
         self.rf = RectifiedFlow(snr_scale=snr_scale)
@@ -195,6 +208,15 @@ class DiffusionDetHead(nn.Module):
         outputs = self._build_outputs(all_cls_logits, norm_pred_bboxes)
         losses = self.criterion(outputs, targets)
 
+        # 方向二 路径 C: 计数分支训练 (开关控制, 默认不启用)
+        if self.counting_branch is not None:
+            gt_count = torch.stack([
+                gt_bboxes[i].shape[0] for i in range(bs)
+            ]).to(device).long()
+            count_logits, _ = self.counting_branch(features)
+            count_loss = self.counting_branch.compute_loss(count_logits, gt_count)
+            losses['loss_count'] = count_loss * self.count_loss_weight
+
         return losses
 
     # ================================================================
@@ -248,9 +270,59 @@ class DiffusionDetHead(nn.Module):
                     break
 
         results = self._sampler.post_process(ensemble_results, img_metas, rescale)
+
+        # 方向二: 计数先验约束后处理 (开关控制, 默认不启用)
+        # 路径 B (拉格朗日约束) + 路径 C (计数分支预测 count)
+        if self.use_count_constraint:
+            results = self._apply_count_constraint(features, results)
+
         if return_trajectory:
             return results, trajectory
         return results
+
+    def _apply_count_constraint(self, features, results):
+        """方向二: 对 post_process 结果应用计数约束 NMS.
+
+        路径 C: 若 counting_branch 存在, 用其预测 count; 否则用 default_target_count.
+        路径 B: 对每张图的结果重新做 count_constrained_nms.
+
+        Args:
+            features: FPN 特征 (用于 counting_branch 预测)
+            results: List[DetectionResult] 原始 post_process 结果
+
+        Returns:
+            List[DetectionResult] 计数约束后的结果
+        """
+        from ldmdet.inference.count_constrained_nms import count_constrained_nms
+
+        # 路径 C: 预测每张图的目标计数
+        if self.counting_branch is not None:
+            _, pred_count = self.counting_branch(features)
+            target_counts = pred_count.tolist()
+        else:
+            target_counts = [self.default_target_count] * len(results)
+
+        # 路径 B: 计数约束 NMS
+        new_results = []
+        for i, res in enumerate(results):
+            if res.bboxes.numel() == 0:
+                new_results.append(res)
+                continue
+
+            keep = count_constrained_nms(
+                boxes=res.bboxes,
+                scores=res.scores,
+                labels=res.labels,
+                target_count=target_counts[i],
+                iou_threshold=self.count_constraint_iou_threshold,
+                min_keep=self.count_constraint_min_keep,
+            )
+            new_results.append(DetectionResult(
+                bboxes=res.bboxes[keep],
+                scores=res.scores[keep],
+                labels=res.labels[keep],
+            ))
+        return new_results
 
     # ================================================================
     # 训练辅助

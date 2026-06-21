@@ -90,7 +90,10 @@ class LDMDetDetector(BaseDetector):
         if criterion_cfg is not None:
             criterion = self._build_criterion(criterion_cfg)
 
-        # 5. 构建 head — 只传 DiffusionDetHead 接受的参数
+        # 5. 构建计数分支 (方向二 路径 C, 可选)
+        counting_branch = self._build_counting_branch(cfg.pop('counting_branch', None))
+
+        # 6. 构建 head — 只传 DiffusionDetHead 接受的参数
         import inspect
         valid_params = set(inspect.signature(DiffusionDetHead.__init__).parameters.keys())
         cfg = {k: v for k, v in cfg.items() if k in valid_params}
@@ -100,8 +103,18 @@ class LDMDetDetector(BaseDetector):
             roi_extractor=roi_extractor,
             criterion=criterion,
             coupling=coupling,
+            counting_branch=counting_branch,
         )
         return head
+
+    def _build_counting_branch(self, cfg):
+        """构建计数分支 (方向二 路径 C). cfg=None 时返回 None (不启用)."""
+        if cfg is None:
+            return None
+        from ldmdet.core.counting_branch import CountingBranch
+        cfg = cfg.copy()
+        cfg.pop('type', None)  # 兼容 'CountingBranch' 类型字段
+        return CountingBranch(**cfg)
 
     def _build_criterion(self, cfg: Dict) -> DiffusionDetCriterion:
         """从配置构建 criterion"""
