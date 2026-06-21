@@ -10,6 +10,7 @@ import logging
 import threading
 from typing import Optional
 
+from mmengine.dist import is_main_process
 from mmengine.hooks import CheckpointHook
 from mmengine.logging import print_log
 
@@ -38,8 +39,29 @@ class AsyncCheckpointHook(CheckpointHook):
     # ------------------------------------------------------------------
 
     def _save_checkpoint_with_step(self, runner, step, meta=None):
-        """Dispatch save into background thread."""
+        """Dispatch save into background thread, cleanup old ckpt inline."""
         self._wait_prev_save(runner)
+
+        # ── Cleanup old checkpoint (from mmengine CheckpointHook) ──
+        if self.max_keep_ckpts > 0 and hasattr(self, 'keep_ckpt_ids'):
+            # Do not save the same step twice (e.g. best ckpt uses same step)
+            if len(self.keep_ckpt_ids) > 0 and self.keep_ckpt_ids[-1] == step:
+                pass
+            else:
+                if len(self.keep_ckpt_ids) == self.max_keep_ckpts:
+                    _step = self.keep_ckpt_ids.popleft()
+                    if is_main_process():
+                        ckpt_path = self.file_backend.join_path(
+                            self.out_dir, self.filename_tmpl.format(_step)
+                        )
+                        if self.file_backend.isfile(ckpt_path):
+                            self.file_backend.remove(ckpt_path)
+                        elif self.file_backend.isdir(ckpt_path):
+                            self.file_backend.rmtree(ckpt_path)
+                self.keep_ckpt_ids.append(step)
+                runner.message_hub.update_info(
+                    'keep_ckpt_ids', list(self.keep_ckpt_ids)
+                )
 
         ckpt_filename = self.filename_tmpl.format(step)
 
@@ -54,16 +76,6 @@ class AsyncCheckpointHook(CheckpointHook):
             by_epoch=self.by_epoch,
             backend_args=self.backend_args,
         )
-
-        # Update tracking state synchronously (lightweight)
-        if self.max_keep_ckpts > 0:
-            if hasattr(self, 'keep_ckpt_ids'):
-                if len(self.keep_ckpt_ids) == self.max_keep_ckpts:
-                    self.keep_ckpt_ids.popleft()
-                self.keep_ckpt_ids.append(step)
-                runner.message_hub.update_info(
-                    'keep_ckpt_ids', list(self.keep_ckpt_ids)
-                )
 
         last_ckpt = self.file_backend.join_path(self.out_dir, ckpt_filename)
         self.last_ckpt = last_ckpt
