@@ -79,5 +79,6 @@ def _import_all_strategies():
         from ldmdet.coupling.sinkhorn_argmax import SinkhornArgmaxCoupling  # noqa: F401
         from ldmdet.coupling.sinkhorn_stochastic import SinkhornStochasticCoupling  # noqa: F401
         from ldmdet.coupling.ghss import GHSSCoupling  # noqa: F401
+        from ldmdet.coupling.unbalanced_ghss import UnbalancedGHSSCoupling  # noqa: F401
     except ImportError:
         pass

@@ -191,3 +191,71 @@ def ot_multinomial(
             row_probs, 1, generator=_OT_GENERATORS[device]
         ).squeeze(-1)
     return torch.multinomial(row_probs, 1).squeeze(-1)
+
+
+def unbalanced_sinkhorn_transport(
+    cost: Tensor,
+    epsilon: float,
+    num_iters: int = 20,
+    row_mass: Optional[Tensor] = None,
+    col_mass: Optional[Tensor] = None,
+    lambda_row: float = 1.0,
+    lambda_col: float = 1.0,
+) -> Tensor:
+    """非平衡 Sinkhorn 传输 (Chizat et al., 2018).
+
+    P = argmin <P,C> - ε H(P) + λ_row KL(P1||a) + λ_col KL(P^T1||b)
+
+    与标准 Sinkhorn 的区别: 边缘约束通过 KL 散度软化为可调松弛,
+    允许传输矩阵的行/列和偏离目标边缘, 适应 GT 分布不均匀的场景.
+
+    Args:
+        cost: [N, K] 代价矩阵
+        epsilon: 熵正则化强度
+        num_iters: Sinkhorn 迭代次数
+        row_mass: [N] 行边缘目标 (默认均匀)
+        col_mass: [K] 列边缘目标 (默认均匀)
+        lambda_row: 行边缘松弛系数
+            - λ → ∞: 退化为标准 Sinkhorn (严格行约束)
+            - λ → 0: 完全放松行约束 (u → 1)
+        lambda_col: 列边缘松弛系数 (同上)
+
+    Returns:
+        [N, K] 传输矩阵 (行和不必等于 row_mass)
+
+    Reference:
+        Chizat et al., "Scaling Algorithms for Unbalanced Transport Problems",
+        Mathematics of Computation, 2018.
+    """
+    N, K = cost.shape
+    device = cost.device
+
+    if row_mass is None:
+        row_mass = torch.ones(N, device=device) / max(N, 1)
+    if col_mass is None:
+        col_mass = torch.ones(K, device=device) / max(K, 1)
+
+    eps = max(epsilon, 1e-6)
+    # 软约束指数: λ/(ε+λ)
+    #   λ → ∞ → 指数 → 1 (标准 Sinkhorn)
+    #   λ → 0 → 指数 → 0 (u 或 v → 1, 约束失效)
+    alpha = lambda_row / (eps + lambda_row)
+    beta = lambda_col / (eps + lambda_col)
+
+    log_K = -cost / eps  # [N, K]
+    log_u = torch.zeros(N, device=device)
+    log_v = torch.zeros(K, device=device)
+    log_a = torch.log(row_mass.clamp_min(1e-10))
+    log_b = torch.log(col_mass.clamp_min(1e-10))
+
+    for _ in range(num_iters):
+        # log_u = α * (log_a - logsumexp_j(log_K + log_v))
+        log_u = alpha * (
+            log_a - torch.logsumexp(log_K + log_v.unsqueeze(0), dim=1)
+        )
+        # log_v = β * (log_b - logsumexp_i(log_K + log_u))
+        log_v = beta * (
+            log_b - torch.logsumexp(log_K + log_u.unsqueeze(1), dim=0)
+        )
+
+    return torch.exp(log_u.unsqueeze(1) + log_K + log_v.unsqueeze(0))
