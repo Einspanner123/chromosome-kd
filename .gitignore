@@ -133,3 +133,5 @@ work_dirs
 .dbg/
 swanlog/
 monitor_logs/
+.build_tmp/
+.hf_cache/
