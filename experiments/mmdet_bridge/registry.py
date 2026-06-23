@@ -8,6 +8,9 @@ from ldmdet.criterion import (
     FocalLoss, FocalLossCost, GIoULoss, IoUCost, L1Loss,
 )
 
+# 触发 TrainingDiagnosticsHook 注册到 HOOKS
+from ldmdet.diagnostics import hooks as _diag_hooks  # noqa: F401
+
 MODELS.register_module(name='PurePyTorchDiffusionDetHead', module=DiffusionDetHead, force=True)
 MODELS.register_module(name='PurePyTorchSingleDiffusionDetHead', module=SingleDiffusionDetHead, force=True)
 MODELS.register_module(name='PurePyTorchSingleRoIExtractor', module=SingleRoIExtractor, force=True)
