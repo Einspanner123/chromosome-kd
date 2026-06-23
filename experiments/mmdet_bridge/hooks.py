@@ -359,7 +359,7 @@ class CouplingDiagInjector(Hook):
         # 注册到 TrainingDiagnosticsHook
         for hook in runner.hooks:
             if hook.__class__.__name__ == 'TrainingDiagnosticsHook':
-                hook.diagnostics_callback = self._callback.collect
+                hook.diagnostics_callback = lambda runner, outputs, step: self._callback.collect(step)
                 break
 
         runner.logger.info('CouplingDiagnosticsCallback injected.')
@@ -383,7 +383,7 @@ class CountDiagInjector(Hook):
 
         for hook in runner.hooks:
             if hook.__class__.__name__ == 'TrainingDiagnosticsHook':
-                hook.diagnostics_callback = self._callback.collect
+                hook.diagnostics_callback = lambda runner, outputs, step: self._callback.collect(step)
                 break
 
         runner.logger.info('CountDiagnosticsCallback injected.')
@@ -407,7 +407,7 @@ class SNRDiagInjector(Hook):
 
         for hook in runner.hooks:
             if hook.__class__.__name__ == 'TrainingDiagnosticsHook':
-                hook.diagnostics_callback = self._callback.collect
+                hook.diagnostics_callback = lambda runner, outputs, step: self._callback.collect(step)
                 break
 
         runner.logger.info('SNRDiagnosticsCallback injected.')
@@ -435,7 +435,7 @@ class TrajectoryDiagInjector(Hook):
 
         for hook in runner.hooks:
             if hook.__class__.__name__ == 'TrainingDiagnosticsHook':
-                hook.diagnostics_callback = self._callback.collect
+                hook.diagnostics_callback = lambda runner, outputs, step: self._callback.collect(step)
                 break
 
         runner.logger.info('TrajectoryDiagnosticsCallback injected.')
@@ -467,7 +467,7 @@ class HierarchicalDiagInjector(Hook):
 
         for hook in runner.hooks:
             if hook.__class__.__name__ == 'TrainingDiagnosticsHook':
-                hook.diagnostics_callback = self._callback.collect
+                hook.diagnostics_callback = lambda runner, outputs, step: self._callback.collect(step)
                 break
 
         runner.logger.info('HierarchicalDiagnosticsCallback injected.')
