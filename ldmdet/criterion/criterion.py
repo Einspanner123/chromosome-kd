@@ -61,6 +61,9 @@ class DiffusionDetCriterion(nn.Module):
         self.snr_beta = snr_beta
         self.snr_w_min = snr_w_min
 
+        # 方向三诊断: SNR 诊断回调 (可选, 默认 None, 不影响 baseline)
+        self.snr_diag_callback = None
+
     def forward(
         self,
         outputs: ModelOutput,
@@ -117,6 +120,10 @@ class DiffusionDetCriterion(nn.Module):
             loss_cls = loss_cls * weight
             loss_bbox = loss_bbox * weight
             loss_giou = loss_giou * weight
+
+            # 方向三诊断: 更新 SNR 权重统计 (若回调已注入)
+            if self.snr_diag_callback is not None:
+                self.snr_diag_callback.update(snr_w, t)
 
         return {'loss_cls': loss_cls, 'loss_bbox': loss_bbox, 'loss_giou': loss_giou}
 

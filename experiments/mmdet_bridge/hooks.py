@@ -330,3 +330,144 @@ class WeightSummaryHook(Hook):
                     plt.close(fig2)
             except Exception:
                 pass
+
+
+# ──────────────────────────────────────────────
+# 诊断注入器 — 将方向特定诊断回调注入到模型
+# ──────────────────────────────────────────────
+
+@HOOKS.register_module(force=True)
+class CouplingDiagInjector(Hook):
+    """方向一诊断注入器: 将 CouplingDiagnosticsCallback 注入到 head.
+
+    在 before_run 时创建 callback, 注入到 head.coupling_diag_callback,
+    并将其 collect 方法注册到 TrainingDiagnosticsHook.diagnostics_callback.
+    """
+
+    def __init__(self, interval=100):
+        self.interval = interval
+        self._callback = None
+
+    def before_run(self, runner):
+        from ldmdet.diagnostics.coupling_diag import CouplingDiagnosticsCallback
+        model = runner.model.module if hasattr(runner.model, 'module') else runner.model
+        head = model.bbox_head
+
+        self._callback = CouplingDiagnosticsCallback(interval=self.interval)
+        head.coupling_diag_callback = self._callback
+
+        # 注册到 TrainingDiagnosticsHook
+        for hook in runner.hooks:
+            if hook.__class__.__name__ == 'TrainingDiagnosticsHook':
+                hook.diagnostics_callback = self._callback.collect
+                break
+
+        runner.logger.info('CouplingDiagnosticsCallback injected.')
+
+
+@HOOKS.register_module(force=True)
+class CountDiagInjector(Hook):
+    """方向二诊断注入器: 将 CountDiagnosticsCallback 注入到 head."""
+
+    def __init__(self, interval=100):
+        self.interval = interval
+        self._callback = None
+
+    def before_run(self, runner):
+        from ldmdet.diagnostics.count_diag import CountDiagnosticsCallback
+        model = runner.model.module if hasattr(runner.model, 'module') else runner.model
+        head = model.bbox_head
+
+        self._callback = CountDiagnosticsCallback(interval=self.interval)
+        head.count_diag_callback = self._callback
+
+        for hook in runner.hooks:
+            if hook.__class__.__name__ == 'TrainingDiagnosticsHook':
+                hook.diagnostics_callback = self._callback.collect
+                break
+
+        runner.logger.info('CountDiagnosticsCallback injected.')
+
+
+@HOOKS.register_module(force=True)
+class SNRDiagInjector(Hook):
+    """方向三诊断注入器: 将 SNRDiagnosticsCallback 注入到 criterion."""
+
+    def __init__(self, interval=100):
+        self.interval = interval
+        self._callback = None
+
+    def before_run(self, runner):
+        from ldmdet.diagnostics.snr_diag import SNRDiagnosticsCallback
+        model = runner.model.module if hasattr(runner.model, 'module') else runner.model
+        criterion = model.bbox_head.criterion
+
+        self._callback = SNRDiagnosticsCallback(interval=self.interval)
+        criterion.snr_diag_callback = self._callback
+
+        for hook in runner.hooks:
+            if hook.__class__.__name__ == 'TrainingDiagnosticsHook':
+                hook.diagnostics_callback = self._callback.collect
+                break
+
+        runner.logger.info('SNRDiagnosticsCallback injected.')
+
+
+@HOOKS.register_module(force=True)
+class TrajectoryDiagInjector(Hook):
+    """方向四诊断注入器: 将 TrajectoryDiagnosticsCallback 注入到 head.
+
+    注入到 head.trajectory_diag_callback, 由 head 在 loss() 中
+    调用 update_scale/update_ot/update_curvature 更新数据.
+    """
+
+    def __init__(self, interval=100):
+        self.interval = interval
+        self._callback = None
+
+    def before_run(self, runner):
+        from ldmdet.diagnostics.trajectory_diag import TrajectoryDiagnosticsCallback
+        model = runner.model.module if hasattr(runner.model, 'module') else runner.model
+        head = model.bbox_head
+
+        self._callback = TrajectoryDiagnosticsCallback(interval=self.interval)
+        head.trajectory_diag_callback = self._callback
+
+        for hook in runner.hooks:
+            if hook.__class__.__name__ == 'TrainingDiagnosticsHook':
+                hook.diagnostics_callback = self._callback.collect
+                break
+
+        runner.logger.info('TrajectoryDiagnosticsCallback injected.')
+
+
+@HOOKS.register_module(force=True)
+class HierarchicalDiagInjector(Hook):
+    """方向五诊断注入器: 将 HierarchicalDiagnosticsCallback 注入到 head.
+
+    注入到 head.hierarchical_diag_callback, 由 head 在 loss() 中
+    调用 update/update_group_embeddings 更新数据.
+    """
+
+    def __init__(self, interval=100, class_indices_per_group=None):
+        self.interval = interval
+        self.class_indices_per_group = class_indices_per_group
+        self._callback = None
+
+    def before_run(self, runner):
+        from ldmdet.diagnostics.hierarchical_diag import HierarchicalDiagnosticsCallback
+        model = runner.model.module if hasattr(runner.model, 'module') else runner.model
+        head = model.bbox_head
+
+        self._callback = HierarchicalDiagnosticsCallback(
+            interval=self.interval,
+            class_indices_per_group=self.class_indices_per_group,
+        )
+        head.hierarchical_diag_callback = self._callback
+
+        for hook in runner.hooks:
+            if hook.__class__.__name__ == 'TrainingDiagnosticsHook':
+                hook.diagnostics_callback = self._callback.collect
+                break
+
+        runner.logger.info('HierarchicalDiagnosticsCallback injected.')

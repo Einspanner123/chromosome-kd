@@ -93,6 +93,16 @@ class LDMDetDetector(BaseDetector):
         # 5. 构建计数分支 (方向二 路径 C, 可选)
         counting_branch = self._build_counting_branch(cfg.pop('counting_branch', None))
 
+        # 方向四: 构建尺度条件化 RF (可选)
+        scale_conditioned_rf = self._build_scale_conditioned_rf(
+            cfg.pop('scale_conditioned_rf', None)
+        )
+
+        # 方向五: 构建分层分类头 (可选)
+        hierarchical_head = self._build_hierarchical_head(
+            cfg.pop('hierarchical_head', None)
+        )
+
         # 6. 构建 head — 只传 DiffusionDetHead 接受的参数
         import inspect
         valid_params = set(inspect.signature(DiffusionDetHead.__init__).parameters.keys())
@@ -104,6 +114,8 @@ class LDMDetDetector(BaseDetector):
             criterion=criterion,
             coupling=coupling,
             counting_branch=counting_branch,
+            scale_conditioned_rf=scale_conditioned_rf,
+            hierarchical_head=hierarchical_head,
         )
         return head
 
@@ -115,6 +127,24 @@ class LDMDetDetector(BaseDetector):
         cfg = cfg.copy()
         cfg.pop('type', None)  # 兼容 'CountingBranch' 类型字段
         return CountingBranch(**cfg)
+
+    def _build_scale_conditioned_rf(self, cfg):
+        """构建尺度条件化 RF (方向四). cfg=None 时返回 None (不启用)."""
+        if cfg is None:
+            return None
+        from ldmdet.diffusion.scale_conditioned_rf import ScaleConditionedRF
+        cfg = cfg.copy()
+        cfg.pop('type', None)
+        return ScaleConditionedRF(**cfg)
+
+    def _build_hierarchical_head(self, cfg):
+        """构建分层分类头 (方向五). cfg=None 时返回 None (不启用)."""
+        if cfg is None:
+            return None
+        from ldmdet.core.hierarchical_head import HierarchicalClsHead
+        cfg = cfg.copy()
+        cfg.pop('type', None)
+        return HierarchicalClsHead(**cfg)
 
     def _build_criterion(self, cfg: Dict) -> DiffusionDetCriterion:
         """从配置构建 criterion"""

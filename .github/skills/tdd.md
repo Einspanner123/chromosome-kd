@@ -341,3 +341,31 @@ Otherwise → not TDD
 ```
 
 No exceptions without the user's explicit permission.
+
+---
+
+## Development Workflow: TDD + Pre-Commit Verification
+
+Every code change follows this pipeline:
+
+```
+1. PLAN       → 明确要做什么（可选用 plan skill）
+2. RED        → 先写一个会失败的测试
+   └──────────→ 验证测试因功能缺失而失败（不是 typo）
+3. GREEN      → 写最简代码让测试通过
+   └──────────→ 验证测试通过
+4. REFACTOR   → 清理代码，保持测试绿色
+5. VERIFY     → git add 后执行 pre-commit 验证：
+   ├── 静态安全扫描（secrets、注入、eval 等）
+   ├── 基线测试对比（stash → 跑基线 → pop → 只算新失败）
+   ├── 自审查清单
+   └── 独立子代理审查（fresh context，fail-closed）
+6. COMMIT     → git commit -m "[verified] <description>"
+```
+
+**TDD 与验证的关系：**
+- TDD 确保测试先于代码 → 验证阶段检查测试存在且通过
+- TDD 的 RED→GREEN 每步都是小变更 → 验证管线每次只审查一小块 diff
+- 验证失败 → auto-fix（最多2轮）→ 重新验证 → 仍失败则撤销
+
+**跳过规则：** 纯文档变更、纯配置调整、或明确说"skip verification"时可以跳过 Step 5-6。其余情况必须走完整流程。

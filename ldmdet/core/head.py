@@ -66,6 +66,12 @@ class DiffusionDetHead(nn.Module):
         count_constraint_iou_threshold: float = 0.5,
         count_constraint_min_keep: int = 10,
         count_loss_weight: float = 1.0,
+        # 方向四: 非线性轨迹 (默认 None, 不影响 baseline)
+        # scale_conditioned_rf: ScaleConditionedRF 实例, 若提供则替换标准 RF
+        scale_conditioned_rf: Optional[object] = None,
+        # 方向五: 分层分类 (默认 None, 不影响 baseline)
+        # hierarchical_head: HierarchicalClsHead 实例, 若提供则替换 cls_head
+        hierarchical_head: Optional[nn.Module] = None,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -96,6 +102,25 @@ class DiffusionDetHead(nn.Module):
         self.count_constraint_iou_threshold = count_constraint_iou_threshold
         self.count_constraint_min_keep = count_constraint_min_keep
         self.count_loss_weight = count_loss_weight
+
+        # 方向一诊断: 耦合诊断回调 (可选, 默认 None, 不影响 baseline)
+        # 由 TrainingDiagnosticsHook 通过 diagnostics_callback 注入, 或手动设置
+        self.coupling_diag_callback = None
+
+        # 方向二诊断: 计数诊断回调 (可选, 默认 None, 不影响 baseline)
+        self.count_diag_callback = None
+
+        # 方向四诊断: 轨迹诊断回调 (可选, 默认 None, 不影响 baseline)
+        self.trajectory_diag_callback = None
+
+        # 方向五诊断: 分层分类诊断回调 (可选, 默认 None, 不影响 baseline)
+        self.hierarchical_diag_callback = None
+
+        # 方向四: 尺度条件化 RF (可选, 默认 None, 不影响 baseline)
+        self.scale_conditioned_rf = scale_conditioned_rf
+
+        # 方向五: 分层分类头 (可选, 默认 None, 不影响 baseline)
+        self.hierarchical_head = hierarchical_head
 
         # 扩散组件
         self.rf = RectifiedFlow(snr_scale=snr_scale)
@@ -219,6 +244,109 @@ class DiffusionDetHead(nn.Module):
             count_logits, _ = self.counting_branch(features)
             count_loss = self.counting_branch.compute_loss(count_logits, gt_count)
             losses['loss_count'] = count_loss * self.count_loss_weight
+
+            # 方向二诊断: 更新计数预测统计 (若回调已注入)
+            if self.count_diag_callback is not None:
+                pred_count = count_logits.argmax(dim=-1)
+                self.count_diag_callback.update(pred_count, gt_count)
+
+        # 方向一诊断: 更新耦合统计 (若回调已注入)
+        if self.coupling_diag_callback is not None:
+            all_matched = torch.cat(matched_gt_indices)  # [bs * num_proposals]
+            total_gt = sum(t.labels.shape[0] for t in targets)
+            self.coupling_diag_callback.update(all_matched, total_gt)
+
+        # 方向四诊断: 更新轨迹统计 (若回调已注入)
+        if self.trajectory_diag_callback is not None:
+            # 尺度条件化统计: 从 GT 框计算 scales, 从 t 计算 t_eff
+            if self.scale_conditioned_rf is not None:
+                # 收集所有 GT 框的尺度
+                all_gt_boxes = []
+                for tgt in targets:
+                    if tgt.bboxes.shape[0] > 0:
+                        # bboxes 是 cxcywh 归一化坐标
+                        wh = tgt.bboxes[:, 2:]
+                        scales = (wh.prod(dim=-1) ** 0.5).clamp_min(1e-6)
+                        all_gt_boxes.append(scales)
+                if all_gt_boxes:
+                    all_scales = torch.cat(all_gt_boxes)
+                    # 取 t 的均值作为标量 (RF 采样同 batch 同 t)
+                    t_scalar = t.mean().unsqueeze(0).expand_as(all_scales)
+                    t_eff = self.scale_conditioned_rf.compute_t_eff(
+                        t_scalar, all_scales
+                    )
+                    kappa = self.scale_conditioned_rf.compute_kappa(all_scales)
+                    self.trajectory_diag_callback.update_scale(
+                        all_scales, t_scalar, t_eff, kappa,
+                    )
+
+            # OT 耦合统计: 若 ot_module 是 OTFlowCoupling, 重新计算 transport/cost
+            ot_mod = getattr(self.ot_module, 'ot_module', None)
+            if ot_mod is not None and hasattr(ot_mod, 'compute_coupling_cost'):
+                # 从 x_starts 和 x_noises 重新计算 (取第一个样本)
+                if x_starts[0].shape[0] > 1:
+                    cost = self.ot_module.compute_coupling_cost(
+                        x_starts[0], x_noises[0]
+                    )
+                    from ldmdet.coupling._sinkhorn_ops import sinkhorn_transport
+                    transport = sinkhorn_transport(
+                        cost,
+                        epsilon=self.ot_module.epsilon,
+                        num_iters=self.ot_module.num_iters,
+                    )
+                    self.trajectory_diag_callback.update_ot(transport, cost)
+
+        # 方向五: 分层分类辅助损失 + 诊断 (开关控制, 默认不启用)
+        if self.hierarchical_head is not None:
+            # 用最后一个 head 的 fc_feature 做分层分类
+            # all_curr_proposals: list of [1, bs*num_boxes, feat_channels]
+            fc_feature = all_curr_proposals[-1]  # [1, bs*num_boxes, C]
+            fc_feature = fc_feature.squeeze(0)  # [bs*num_boxes, C]
+
+            # 构建 targets: 每个 proposal 对应的 GT label
+            # matched_gt_indices: list of [num_proposals], 指向 GT 索引
+            # 背景proposal (matched_idx 指向不存在的 GT) 设为 -1
+            hier_targets = []
+            for i, matched_idx in enumerate(matched_gt_indices):
+                gt_labels_i = targets[i].labels  # [num_gt_i]
+                # 每个 proposal 的 label = gt_labels[matched_idx], 越界则 -1
+                valid = matched_idx < gt_labels_i.shape[0]
+                labels = torch.full_like(matched_idx, -1, dtype=torch.long)
+                labels[valid] = gt_labels_i[matched_idx[valid]]
+                hier_targets.append(labels)
+            hier_targets = torch.cat(hier_targets)  # [bs*num_proposals]
+
+            # 分层分类前向
+            hier_out = self.hierarchical_head(fc_feature)
+            # 计算辅助损失 (仅对有效 proposal, label >= 0)
+            valid_mask = hier_targets >= 0
+            if valid_mask.any():
+                group_targets = self.hierarchical_head.group_of_class.to(device)[
+                    hier_targets.clamp(min=0)
+                ]
+                hier_loss = self.hierarchical_head.compute_loss(
+                    hier_out['group_logits'][valid_mask].unsqueeze(0),
+                    [cl[valid_mask].unsqueeze(0) for cl in hier_out['class_logits_per_group']],
+                    hier_out['flat_logits'][valid_mask].unsqueeze(0),
+                    hier_targets[valid_mask].unsqueeze(0),
+                    group_targets[valid_mask].unsqueeze(0),
+                    valid_mask=valid_mask[valid_mask].unsqueeze(0),
+                )
+                losses['loss_hier'] = hier_loss['loss_total']
+
+            # 方向五诊断: 更新分层分类统计 (若回调已注入)
+            if self.hierarchical_diag_callback is not None and valid_mask.any():
+                group_targets_all = self.hierarchical_head.group_of_class.to(device)[
+                    hier_targets.clamp(min=0)
+                ]
+                self.hierarchical_diag_callback.update(
+                    hier_out['group_logits'],
+                    hier_out['class_logits_per_group'],
+                    hier_out['flat_logits'],
+                    hier_targets,
+                    group_targets_all,
+                    valid_mask=valid_mask,
+                )
 
         return losses
 

@@ -88,9 +88,10 @@
 **数据集**: 24 Chromosomes Object | **增强**: 各模型自带
 
 | 方法 | Backbone | mAP | AP50 | AP75 | APs | APm | APl | 备注 |
-|---|---|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|---|---|---|
 | **RTMDet-L** | CSPNeXt-L | **0.869** | — | — | — | — | — | 单 seed |
 | **DINO R50 (4scale)** | ResNet-50 | **0.868** | — | — | — | — | — | CRASHED 但有 eval |
+| **LDMDet (GHSS, seed 42)** | ResNet-50 | **0.857** | 0.988 | 0.965 | 0.518 | 0.846 | 0.909 | ✅ 最新 |
 | **Cascade R-CNN R50** | ResNet-50 | **0.854** | — | — | — | — | — | 单 seed |
 | **LDMDet (RF+AdaLN+stochot)** | ResNet-50 | **0.853** | — | — | — | — | — | 单 seed |
 | **YOLOX-S** | CSPDarkNet-S | **0.803** | — | — | — | — | — | 单 seed |
