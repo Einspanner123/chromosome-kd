@@ -53,22 +53,50 @@ class OTFlowCoupling(CouplingStrategy):
         gt_labels: Tensor,
         device: torch.device,
     ) -> tuple[Tensor, Tensor]:
+        """将噪声提案与 GT 框通过 OT 配对.
+
+        传输矩阵 T shape [M, N] (M=num_gt, N=num_proposals).
+        列归一化后, 每个 proposal 按概率选择一个 GT,
+        返回 [N, 4] 的 x_start 和 [N] 的 matched_idx.
+
+        Args:
+            noise: [N, 4] 噪声提案
+            gt_diffusion: [M, 4] GT 框 (扩散空间)
+            gt_labels: [M] GT 类别
+            device: 设备
+
+        Returns:
+            x_start: [N, 4] 每个 proposal 对应的 GT 框
+            matched_idx: [N] 每个 proposal 对应的 GT 索引
+        """
         N = noise.shape[0]
-        if gt_diffusion.shape[0] == 0:
+        M = gt_diffusion.shape[0]
+        if M == 0:
             return noise, torch.zeros(N, dtype=torch.long, device=device)
 
-        # 复用 OTFlowMatching.compute_ot_coupling
-        # 注意: OTFlowMatching.compute_ot_coupling 接收 (x_start, x_noise)
-        # 这里 noise 是 x_noise, gt_diffusion 是 x_start
-        x_start_c, x_noise_c = self._ot.compute_ot_coupling(gt_diffusion, noise)
-        # 计算匹配索引 (用于诊断)
+        # 代价矩阵: [M, N]
         cost = torch.cdist(gt_diffusion, noise, p=2)
+        # 传输矩阵: [M, N]
         transport = sinkhorn_transport(
             cost, epsilon=self.epsilon, num_iters=self.num_iters
         )
-        idx = transport.argmax(dim=1) if self._ot.coupling_mode == 'argmax' else \
-            torch.multinomial(transport.clamp_min(1e-10), 1).squeeze(-1)
-        return x_start_c, idx
+
+        # 列归一化: 每个 proposal (列) 从 M 个 GT 中选一个
+        col_sums = transport.sum(dim=0, keepdim=True).clamp_min(1e-10)  # [1, N]
+        transport_col = transport / col_sums  # [M, N], 每列和为 1
+
+        if self._ot.coupling_mode == 'argmax':
+            # 每个 proposal 选概率最大的 GT
+            matched_idx = transport_col.argmax(dim=0)  # [N]
+        else:  # multinomial
+            # 每个 proposal 按概率采样一个 GT
+            matched_idx = torch.multinomial(
+                transport_col.t().clamp_min(1e-10), 1
+            ).squeeze(-1)  # [N]
+
+        # 扩展 GT 到 proposal 数量
+        x_start = gt_diffusion[matched_idx]  # [N, 4]
+        return x_start, matched_idx
 
     def compute_coupling_cost(self, x_start: Tensor, x_noise: Tensor) -> Tensor:
         """计算代价矩阵 (供诊断使用)."""

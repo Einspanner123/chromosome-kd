@@ -321,16 +321,14 @@ class DiffusionDetHead(nn.Module):
             # 计算辅助损失 (仅对有效 proposal, label >= 0)
             valid_mask = hier_targets >= 0
             if valid_mask.any():
-                group_targets = self.hierarchical_head.group_of_class.to(device)[
-                    hier_targets.clamp(min=0)
-                ]
-                hier_loss = self.hierarchical_head.compute_loss(
+                # HierarchicalClsHead.loss 签名:
+                #   loss(group_logits, class_logits_per_group, targets, valid_mask)
+                # group_logits: [bs, N, num_groups], class_logits_per_group: list of [bs, N, K_g]
+                # targets: [bs, N] 全局类别标签
+                hier_loss = self.hierarchical_head.loss(
                     hier_out['group_logits'][valid_mask].unsqueeze(0),
                     [cl[valid_mask].unsqueeze(0) for cl in hier_out['class_logits_per_group']],
-                    hier_out['flat_logits'][valid_mask].unsqueeze(0),
                     hier_targets[valid_mask].unsqueeze(0),
-                    group_targets[valid_mask].unsqueeze(0),
-                    valid_mask=valid_mask[valid_mask].unsqueeze(0),
                 )
                 losses['loss_hier'] = hier_loss['loss_total']
 
