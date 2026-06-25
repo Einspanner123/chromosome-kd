@@ -72,6 +72,8 @@ class DiffusionDetHead(nn.Module):
         # 方向五: 分层分类 (默认 None, 不影响 baseline)
         # hierarchical_head: HierarchicalClsHead 实例, 若提供则替换 cls_head
         hierarchical_head: Optional[nn.Module] = None,
+        # 方向五: 分层分类辅助损失权重 (默认 1.0, 建议降至 0.3 减少对主分类头干扰)
+        loss_hier_weight: float = 1.0,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -121,6 +123,7 @@ class DiffusionDetHead(nn.Module):
 
         # 方向五: 分层分类头 (可选, 默认 None, 不影响 baseline)
         self.hierarchical_head = hierarchical_head
+        self.loss_hier_weight = loss_hier_weight
 
         # 扩散组件
         self.rf = RectifiedFlow(snr_scale=snr_scale)
@@ -330,7 +333,7 @@ class DiffusionDetHead(nn.Module):
                     [cl[valid_mask].unsqueeze(0) for cl in hier_out['class_logits_per_group']],
                     hier_targets[valid_mask].unsqueeze(0),
                 )
-                losses['loss_hier'] = hier_loss['loss_total']
+                losses['loss_hier'] = hier_loss['loss_total'] * self.loss_hier_weight
 
             # 方向五诊断: 更新分层分类统计 (若回调已注入)
             if self.hierarchical_diag_callback is not None and valid_mask.any():
