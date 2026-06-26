@@ -1,6 +1,6 @@
 # LDMDet 实验结果汇总（论文数据版本）
 
-> 生成日期: 2026-06-20
+> 生成日期: 2026-06-25 | 最新: ✅ GHSS+Random 24obj 3-seed 完成, Sinkhorn 42 运行中
 > 数据来源: work_dirs/ (本地 checkpoint) + SwanLab (云端指标) + ldmdet-experiment/ (归档)
 > 数据集: 见各表备注
 
@@ -91,7 +91,8 @@
 |---|---|---|---|---|---|---|---|---|---|
 | **RTMDet-L** | CSPNeXt-L | **0.869** | — | — | — | — | — | 单 seed |
 | **DINO R50 (4scale)** | ResNet-50 | **0.868** | — | — | — | — | — | CRASHED 但有 eval |
-| **LDMDet (GHSS, seed 42)** | ResNet-50 | **0.857** | 0.988 | 0.965 | 0.518 | 0.846 | 0.909 | ✅ 最新 |
+| **LDMDet (Random, 3-seed)** | ResNet-50 | **0.860±0.001** | 0.989 | 0.969 | 0.537 | 0.851 | 0.905 | ✅ 本文 |
+| **LDMDet (GHSS, 3-seed)** | ResNet-50 | **0.858±0.001** | 0.988 | 0.967 | 0.524 | 0.850 | 0.880 | ✅ 本文 |
 | **Cascade R-CNN R50** | ResNet-50 | **0.854** | — | — | — | — | — | 单 seed |
 | **LDMDet (RF+AdaLN+stochot)** | ResNet-50 | **0.853** | — | — | — | — | — | 单 seed |
 | **YOLOX-S** | CSPDarkNet-S | **0.803** | — | — | — | — | — | 单 seed |
@@ -161,24 +162,40 @@
 
 ---
 
-## 8. Chromo v2 结果（新数据集）
+## 8. Chromo 24obj 结果
 
-**数据集**: Selfmake Chromosome v2 (2022) | **模型**: GHSS (RF+Heun+AdaLN)
+**数据集**: 24 Chromosomes Object
 
-| seed | best mAP | epoch | 状态 |
-|---|---|---|---|
-| 42 | 0.750 | 68 | ❌ CRASHED 但有 eval，可恢复 |
-| 123 | 0.550 | 7 | ⚠️ 仅 8 epoch，需续跑 |
-| 789 | **TBD** | — | ❌ 未运行 |
+### 8.1 GHSS 3-seed
 
-### 8.1 待补实验
+| seed | best mAP | best epoch | AP50 | AP75 | 状态 |
+|---|---|---|---|---|---|
+| 42 | **0.857** | 83 | 0.988 | 0.965 | ✅ EarlyStop @ 113 |
+| 123 | **0.859** | 102 | 0.988 | 0.969 | ✅ EarlyStop @ 132 |
+| 789 | **0.859** | 75 | 0.989 | 0.968 | ✅ EarlyStop @ 105 |
+| **mean** | **0.858±0.001** | — | — | — | ✅ **完成** |
 
-| # | 实验 | 命令 |
-|---|------|------|
-| 1 | chromo_v2 seed 123 续跑 | `python experiments/runners/train.py experiments/configs/multiset/chromo_v2.py --seed 123 --gpu-id <G> --resume --work-dir work_dirs/multi_dataset/chromo_v2_random/seed_123` |
-| 2 | chromo_v2 seed 789 | `python experiments/runners/train.py experiments/configs/multiset/chromo_v2.py --seed 789 --gpu-id <G> --work-dir work_dirs/multi_dataset/chromo_v2_random/seed_789` |
+### 8.2 Random 3-seed
 
-> chromo_v2 的数据集已在 `experiments/configs/multiset/chromo_v2.py` 中切换为 `data/24_chromosomes_object/coco/`。
+| seed | best mAP | best epoch | AP50 | AP75 | 状态 |
+|---|---|---|---|---|---|
+| 42 | **0.859** | 59 | 0.988 | 0.967 | ✅ EarlyStop @ 89 |
+| 123 | **0.860** | 115 | 0.989 | 0.969 | ✅ EarlyStop @ 145 |
+| 789 | **0.860** | 82 | 0.989 | 0.970 | ✅ EarlyStop @ 112 |
+| **mean** | **0.860±0.001** | — | — | — | ✅ **完成** |
+
+### 8.3 Sinkhorn
+
+| seed | 状态 |
+|---|---|
+| 42 | 🔵 运行中（~06-26 10:00 完成） |
+| 123/789 | ⬜ 视结果决定 |
+
+### 8.4 Hard OT
+
+| seed | 状态 |
+|---|---|
+| 42/123/789 | ⬜ 已取消，Sinkhorn 42 结果后决定 |
 
 ---
 
