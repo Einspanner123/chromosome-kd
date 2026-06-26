@@ -16,6 +16,6 @@ model = dict(
         # 尺度条件化保持不变 (lambda_mod=0.5)
         # scale_conditioned_rf 继承自 nonlinear_trajectory.py
         # 关闭 OT Flow: 改用随机耦合
-        coupling=dict(type='random'),
+        coupling=dict(_delete_=True, type='random'),
     ),
 )

@@ -486,3 +486,87 @@ class TestEdgeCases:
             batch_data_samples.append(ds)
         losses = model.loss(batch_inputs, batch_data_samples)
         assert isinstance(losses, dict)
+
+
+# ================================================================
+# 消融/调参配置测试
+# ================================================================
+
+# 所有消融配置: 方向四 (E4.1/E4.2/E4.3-tune) + 方向五 (E5.1-tune)
+ABLATION_CONFIGS = [
+    ('e41_scale_only', 'nonlinear_trajectory_e41.py'),
+    ('e42_ot_only', 'nonlinear_trajectory_e42.py'),
+    ('e43_eps2', 'nonlinear_trajectory_e43_eps2.py'),
+    ('e43_eps3', 'nonlinear_trajectory_e43_eps3.py'),
+    ('e43_multinomial', 'nonlinear_trajectory_e43_multinomial.py'),
+    ('e51_w03', 'hierarchical_classification_w03.py'),
+]
+
+
+class TestAblationConfigParsing:
+    """消融配置: 配置解析"""
+
+    @pytest.mark.parametrize('name,filename', ABLATION_CONFIGS)
+    def test_config_parse(self, name, filename):
+        cfg = Config.fromfile(_config_path(filename))
+        assert hasattr(cfg, 'model')
+
+    @pytest.mark.parametrize('name,filename', ABLATION_CONFIGS)
+    def test_config_inherits_base(self, name, filename):
+        """消融配置应继承主配置的关键字段"""
+        cfg = Config.fromfile(_config_path(filename))
+        assert cfg.model.type == 'LDMDet'
+        # 方向四配置有 coupling, 方向五配置有 hierarchical_head
+        bbox_head = cfg.model.bbox_head
+        assert hasattr(bbox_head, 'single_head')
+
+
+class TestAblationModelBuilding:
+    """消融配置: 模型构建"""
+
+    @pytest.mark.parametrize('name,filename', ABLATION_CONFIGS)
+    def test_build_model(self, name, filename):
+        model, _ = _build_model(filename)
+        assert model is not None
+
+    @pytest.mark.parametrize('name,filename', ABLATION_CONFIGS)
+    def test_model_params_require_grad(self, name, filename):
+        model, _ = _build_model(filename)
+        trainable = [p for p in model.parameters() if p.requires_grad]
+        assert len(trainable) > 0
+
+
+class TestAblationLossForward:
+    """消融配置: 损失前向 + 梯度回传"""
+
+    @pytest.mark.parametrize('name,filename', ABLATION_CONFIGS)
+    def test_loss_forward(self, name, filename):
+        model, _ = _build_model(filename)
+        model.train()
+        batch_inputs, batch_data_samples = _make_dummy_batch()
+        losses = model.loss(batch_inputs, batch_data_samples)
+        assert isinstance(losses, dict)
+        assert len(losses) > 0
+
+    @pytest.mark.parametrize('name,filename', ABLATION_CONFIGS)
+    def test_backward_no_error(self, name, filename):
+        model, _ = _build_model(filename)
+        model.train()
+        batch_inputs, batch_data_samples = _make_dummy_batch()
+        losses = model.loss(batch_inputs, batch_data_samples)
+        total_loss = sum(v.sum() if isinstance(v, torch.Tensor) else v
+                         for v in losses.values())
+        total_loss.backward()  # 不报错即可
+
+
+class TestAblationPredictForward:
+    """消融配置: 推理前向"""
+
+    @pytest.mark.parametrize('name,filename', ABLATION_CONFIGS)
+    def test_predict_no_error(self, name, filename):
+        model, _ = _build_model(filename)
+        model.eval()
+        batch_inputs, batch_data_samples = _make_dummy_batch(with_gt=False)
+        with torch.no_grad():
+            results = model.predict(batch_inputs, batch_data_samples)
+        assert len(results) == DUMMY_BS
