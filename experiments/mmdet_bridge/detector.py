@@ -79,10 +79,14 @@ class LDMDetDetector(BaseDetector):
         sh_type = sh_cfg.pop('type', 'PurePyTorchSingleDiffusionDetHead')
         single_head = SingleDiffusionDetHead(**sh_cfg)
 
-        # 3. 构建 roi_extractor
+        # 3. 构建 roi_extractor (支持 SingleRoIExtractor / DeformableRoIExtractor)
         re_cfg = cfg.pop('roi_extractor', {})
-        re_cfg.pop('type', None)
-        roi_extractor = SingleRoIExtractor(**re_cfg)
+        re_type = re_cfg.pop('type', 'PurePyTorchSingleRoIExtractor')
+        if re_type == 'PurePyTorchDeformableRoIExtractor':
+            from ldmdet.core.deformable_roi_extractor import DeformableRoIExtractor
+            roi_extractor = DeformableRoIExtractor(**re_cfg)
+        else:
+            roi_extractor = SingleRoIExtractor(**re_cfg)
 
         # 4. 构建 criterion
         criterion_cfg = cfg.pop('criterion', None)
