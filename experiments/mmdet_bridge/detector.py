@@ -86,11 +86,23 @@ class LDMDetDetector(BaseDetector):
             sa_cfg.pop('type', None)
             shape_attention = ShapeAttention(**sa_cfg)
 
+        # 方向 D1: 可选的框细化网络
+        box_refine = None
+        if 'box_refine' in sh_cfg:
+            from ldmdet.core.box_refine import BoxRefineNet
+            br_cfg = sh_cfg.pop('box_refine')
+            br_cfg.pop('type', None)
+            box_refine = BoxRefineNet(**br_cfg)
+
         if sh_type == 'PurePyTorchDecoupledSingleHead':
             from ldmdet.core.decoupled_head import DecoupledSingleHead
-            single_head = DecoupledSingleHead(shape_attention=shape_attention, **sh_cfg)
+            single_head = DecoupledSingleHead(
+                shape_attention=shape_attention, box_refine=box_refine, **sh_cfg
+            )
         else:
-            single_head = SingleDiffusionDetHead(shape_attention=shape_attention, **sh_cfg)
+            single_head = SingleDiffusionDetHead(
+                shape_attention=shape_attention, box_refine=box_refine, **sh_cfg
+            )
 
         # 3. 构建 roi_extractor (支持 SingleRoIExtractor / DeformableRoIExtractor)
         re_cfg = cfg.pop('roi_extractor', {})

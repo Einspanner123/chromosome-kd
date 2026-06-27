@@ -44,6 +44,7 @@ class DecoupledSingleHead(SingleDiffusionDetHead):
         use_sdpa=True,
         attn_half=False,
         shape_attention=None,
+        box_refine=None,
     ):
         super().__init__(
             num_classes=num_classes,
@@ -64,6 +65,7 @@ class DecoupledSingleHead(SingleDiffusionDetHead):
             use_sdpa=use_sdpa,
             attn_half=attn_half,
             shape_attention=shape_attention,
+            box_refine=box_refine,
         )
 
         # B1: cls 分支独立的 self_attn
