@@ -43,6 +43,7 @@ class SingleDiffusionDetHead(nn.Module):
         time_conditioning='scale_shift',
         use_sdpa=True,
         attn_half=False,
+        shape_attention=None,
     ):
         super().__init__()
         self.feat_channels = feat_channels
@@ -51,6 +52,9 @@ class SingleDiffusionDetHead(nn.Module):
         # attn_half: True = attention 核心用 FP16 加速, False = 保持原始精度
         self.use_sdpa = use_sdpa and _SDPA_AVAILABLE
         self.attn_half = attn_half
+
+        # 方向 C1: 可选的局部形状注意力 (在 RoI 特征上应用)
+        self.shape_attention = shape_attention
 
         self.self_attn = nn.MultiheadAttention(
             feat_channels, num_heads, dropout=dropout
@@ -180,6 +184,10 @@ class SingleDiffusionDetHead(nn.Module):
         bs, num_boxes = bboxes.shape[:2]
         rois = bbox2roi([bboxes[i] for i in range(bs)])
         roi_features = pooler(features, rois)
+
+        # 方向 C1: 在 RoI 特征上应用局部形状注意力 (可选)
+        if self.shape_attention is not None:
+            roi_features = self.shape_attention(roi_features)
 
         if proposals is None:
             proposals = roi_features.flatten(2).mean(-1).view(bs, num_boxes, self.feat_channels)

@@ -77,11 +77,20 @@ class LDMDetDetector(BaseDetector):
         # 2. 构建 single_head (支持 SingleDiffusionDetHead / DecoupledSingleHead)
         sh_cfg = cfg.pop('single_head')
         sh_type = sh_cfg.pop('type', 'PurePyTorchSingleDiffusionDetHead')
+
+        # 方向 C1: 可选的局部形状注意力
+        shape_attention = None
+        if 'shape_attention' in sh_cfg:
+            from ldmdet.core.shape_attention import ShapeAttention
+            sa_cfg = sh_cfg.pop('shape_attention')
+            sa_cfg.pop('type', None)
+            shape_attention = ShapeAttention(**sa_cfg)
+
         if sh_type == 'PurePyTorchDecoupledSingleHead':
             from ldmdet.core.decoupled_head import DecoupledSingleHead
-            single_head = DecoupledSingleHead(**sh_cfg)
+            single_head = DecoupledSingleHead(shape_attention=shape_attention, **sh_cfg)
         else:
-            single_head = SingleDiffusionDetHead(**sh_cfg)
+            single_head = SingleDiffusionDetHead(shape_attention=shape_attention, **sh_cfg)
 
         # 3. 构建 roi_extractor (支持 SingleRoIExtractor / DeformableRoIExtractor)
         re_cfg = cfg.pop('roi_extractor', {})

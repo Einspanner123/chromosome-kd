@@ -43,6 +43,7 @@ class DecoupledSingleHead(SingleDiffusionDetHead):
         time_conditioning='scale_shift',
         use_sdpa=True,
         attn_half=False,
+        shape_attention=None,
     ):
         super().__init__(
             num_classes=num_classes,
@@ -62,6 +63,7 @@ class DecoupledSingleHead(SingleDiffusionDetHead):
             time_conditioning=time_conditioning,
             use_sdpa=use_sdpa,
             attn_half=attn_half,
+            shape_attention=shape_attention,
         )
 
         # B1: cls 分支独立的 self_attn
