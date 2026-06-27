@@ -74,10 +74,14 @@ class LDMDetDetector(BaseDetector):
         else:
             coupling = build_coupling('random')
 
-        # 2. 构建 single_head
+        # 2. 构建 single_head (支持 SingleDiffusionDetHead / DecoupledSingleHead)
         sh_cfg = cfg.pop('single_head')
         sh_type = sh_cfg.pop('type', 'PurePyTorchSingleDiffusionDetHead')
-        single_head = SingleDiffusionDetHead(**sh_cfg)
+        if sh_type == 'PurePyTorchDecoupledSingleHead':
+            from ldmdet.core.decoupled_head import DecoupledSingleHead
+            single_head = DecoupledSingleHead(**sh_cfg)
+        else:
+            single_head = SingleDiffusionDetHead(**sh_cfg)
 
         # 3. 构建 roi_extractor (支持 SingleRoIExtractor / DeformableRoIExtractor)
         re_cfg = cfg.pop('roi_extractor', {})
