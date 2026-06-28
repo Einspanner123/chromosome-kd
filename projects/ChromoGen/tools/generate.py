@@ -45,6 +45,12 @@ def parse_args():
     parser.add_argument(
         '--save_bboxes', action='store_true', help='是否保存bbox结果'
     )
+    parser.add_argument(
+        '--vae_path',
+        type=str,
+        default=None,
+        help='本地 VAE 路径 (覆盖 config 中的 vae_model)',
+    )
     return parser.parse_args()
 
 
@@ -60,9 +66,12 @@ def main():
     ckpt = torch.load(args.checkpoint, map_location=device)
     cfg = ckpt.get('config', {})
 
+    # VAE 路径: 命令行参数 > config > 默认
+    vae_model = args.vae_path or cfg.get('vae_model', 'stabilityai/sd-vae-ft-mse')
+
     # 构建模型
     model = ChromoGenPipeline(
-        vae_model=cfg.get('vae_model', 'stabilityai/sd-vae-ft-mse'),
+        vae_model=vae_model,
         sample_size=cfg.get('sample_size', 96),
         unet_block_out_channels=cfg.get(
             'unet_block_out_channels', (320, 640, 1280, 1280)
