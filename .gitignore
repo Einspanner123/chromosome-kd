@@ -141,3 +141,6 @@ ldmdet-experiments/
 
 # Credentials
 .git-askpass.sh
+
+# Broken symlinks from package installation
+mmdet/.mim/demo
