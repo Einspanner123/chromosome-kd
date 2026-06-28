@@ -74,6 +74,8 @@ class DiffusionDetHead(nn.Module):
         hierarchical_head: Optional[nn.Module] = None,
         # 方向五: 分层分类辅助损失权重 (默认 1.0, 建议降至 0.3 减少对主分类头干扰)
         loss_hier_weight: float = 1.0,
+        # 方向 F1: 结构化噪声先验 (默认 None, 不影响 baseline)
+        structured_prior: Optional[nn.Module] = None,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -124,6 +126,9 @@ class DiffusionDetHead(nn.Module):
         # 方向五: 分层分类头 (可选, 默认 None, 不影响 baseline)
         self.hierarchical_head = hierarchical_head
         self.loss_hier_weight = loss_hier_weight
+
+        # 方向 F1: 结构化噪声先验 (可选, 默认 None, 不影响 baseline)
+        self.structured_prior = structured_prior
 
         # 扩散组件
         self.rf = RectifiedFlow(snr_scale=snr_scale)
@@ -360,7 +365,11 @@ class DiffusionDetHead(nn.Module):
         device = features[0].device
         bs = len(img_metas)
         time_pairs = self._sampler.build_time_pairs(device)
-        x_raw = torch.randn(bs, self.num_proposals, 4, device=device)
+        # 方向 F1: 若 structured_prior 存在, 从结构化先验采样 (推理时)
+        if self.structured_prior is not None:
+            x_raw = torch.stack([self._sample_noise(self.num_proposals, device) for _ in range(bs)])
+        else:
+            x_raw = torch.randn(bs, self.num_proposals, 4, device=device)
 
         ensemble_results = []
         trajectory = []
@@ -478,12 +487,33 @@ class DiffusionDetHead(nn.Module):
             t = self.rf_shift * t / (1 + (self.rf_shift - 1) * t)
         return t
 
+    def _sample_noise(self, n: int, device: torch.device) -> torch.Tensor:
+        """采样扩散噪声 (方向 F1).
+
+        若 structured_prior 存在, 从结构化先验采样 (映射到 snr_scale 尺度);
+        否则用标准高斯 randn (baseline).
+
+        Args:
+            n: 采样数
+            device: 设备
+
+        Returns:
+            (n, 4) 噪声 (cxcywh 归一化 * snr_scale 尺度)
+        """
+        if self.structured_prior is not None:
+            # 先采样归一化 cxcywh, 再映射到扩散尺度
+            samples = self.structured_prior.sample(n)
+            samples = samples.to(device)
+            # 映射到 (norm * 2 - 1) * snr_scale 尺度
+            return (samples * 2 - 1) * self.snr_scale
+        return torch.randn(n, 4, device=device)
+
     def _build_training_targets(self, bs, device, t, targets, gt_bboxes):
         x_boxes, x_starts, x_noises, matched_gt_indices = [], [], [], []
         for i in range(bs):
             num_gt = gt_bboxes[i].shape[0]
             if num_gt == 0:
-                noise = torch.randn(self.num_proposals, 4, device=device)
+                noise = self._sample_noise(self.num_proposals, device)
                 x_boxes.append(noise)
                 x_starts.append(torch.zeros_like(noise))
                 x_noises.append(noise)
@@ -491,7 +521,7 @@ class DiffusionDetHead(nn.Module):
                 continue
             norm_gt_cxcywh = bbox_xyxy_to_cxcywh(targets[i].bboxes)
             gt_diffusion = (norm_gt_cxcywh * 2 - 1) * self.snr_scale
-            noise = torch.randn(self.num_proposals, 4, device=device)
+            noise = self._sample_noise(self.num_proposals, device)
             x_start, matched_idx = self._couple_single_image(noise, gt_diffusion, targets[i].labels, device)
             matched_gt_indices.append(matched_idx)
             x_noisy, x_noise = self._forward_diffusion(x_start, noise, t[i:i+1])

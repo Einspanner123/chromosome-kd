@@ -132,6 +132,18 @@ class LDMDetDetector(BaseDetector):
             cfg.pop('hierarchical_head', None)
         )
 
+        # 方向 F1: 构建结构化噪声先验 (可选)
+        structured_prior = None
+        sp_cfg = cfg.pop('structured_prior', None)
+        if sp_cfg is not None:
+            from ldmdet.diffusion.structured_prior import StructuredPrior
+            # 若提供预计算的统计文件, 从文件加载; 否则用配置中的 means/stds/weights
+            if 'stats_file' in sp_cfg:
+                stats = torch.load(sp_cfg.pop('stats_file'))
+                sp_cfg = stats
+            sp_cfg.pop('type', None)
+            structured_prior = StructuredPrior(**sp_cfg)
+
         # 6. 构建 head — 只传 DiffusionDetHead 接受的参数
         import inspect
         valid_params = set(inspect.signature(DiffusionDetHead.__init__).parameters.keys())
@@ -145,6 +157,7 @@ class LDMDetDetector(BaseDetector):
             counting_branch=counting_branch,
             scale_conditioned_rf=scale_conditioned_rf,
             hierarchical_head=hierarchical_head,
+            structured_prior=structured_prior,
         )
         return head
 
