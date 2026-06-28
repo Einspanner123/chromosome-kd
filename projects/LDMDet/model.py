@@ -27,6 +27,12 @@ from .mods.roi_extractor import SingleRoIExtractor
 from .mods.single_head import SingleDiffusionDetHead
 from .mods.structures import ImageMeta
 
+# 方向六: 注册 FeatureBridgeModule 和 ChromoGenFeatureExtractor 到 MODELS 注册表
+from ldmdet.feature_bridge import (  # noqa: E402
+    ChromoGenFeatureExtractor,
+    FeatureBridgeModule,
+)
+
 # 注册所有组件到 MODELS 注册表，以便可以通过配置文件构建
 MODELS.register_module(
     name='PurePyTorchDiffusionDetHead', module=DiffusionDetHead
@@ -49,6 +55,11 @@ MODELS.register_module(name='PurePyTorchGIoULoss', module=GIoULoss)
 MODELS.register_module(name='PurePyTorchFocalLossCost', module=FocalLossCost)
 MODELS.register_module(name='PurePyTorchBBoxL1Cost', module=BBoxL1Cost)
 MODELS.register_module(name='PurePyTorchIoUCost', module=IoUCost)
+# 方向六: 特征桥接组件
+MODELS.register_module(name='FeatureBridgeModule', module=FeatureBridgeModule)
+MODELS.register_module(
+    name='ChromoGenFeatureExtractor', module=ChromoGenFeatureExtractor
+)
 
 
 @MODELS.register_module()
@@ -67,6 +78,11 @@ class PurePyTorchDiffusionDet(BaseDetector):
         test_cfg: OptConfigType = None,
         data_preprocessor: OptConfigType = None,
         init_cfg: OptMultiConfig = None,
+        # 方向六: 生成模型感知迁移 (默认 None, 不影响 baseline)
+        feature_bridge: OptConfigType = None,
+        chromogen_extractor: OptConfigType = None,
+        chromogen_vae: OptConfigType = None,
+        chromogen_condition_encoder: OptConfigType = None,
     ) -> None:
         super().__init__(
             data_preprocessor=data_preprocessor, init_cfg=init_cfg
@@ -92,6 +108,26 @@ class PurePyTorchDiffusionDet(BaseDetector):
 
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
+
+        # 方向六: 构建 FeatureBridgeModule (可选, 默认 None)
+        self.feature_bridge = None
+        if feature_bridge is not None:
+            self.feature_bridge = MODELS.build(feature_bridge)
+
+        # 方向六: 构建 ChromoGenFeatureExtractor (可选, 默认 None)
+        self.chromogen_extractor = None
+        if chromogen_extractor is not None:
+            self.chromogen_extractor = MODELS.build(chromogen_extractor)
+
+        # 方向六: 构建 ChromoGen VAE encoder (可选, 默认 None)
+        self.chromogen_vae = None
+        if chromogen_vae is not None:
+            self.chromogen_vae = MODELS.build(chromogen_vae)
+
+        # 方向六: 构建 ChromoGen 条件编码器 (可选, 默认 None)
+        self.chromogen_condition_encoder = None
+        if chromogen_condition_encoder is not None:
+            self.chromogen_condition_encoder = MODELS.build(chromogen_condition_encoder)
 
         # 构建 bbox_head
         # 注意：这里的 bbox_head 配置需要适配纯 PyTorch 版本的 DiffusionDetHead
@@ -268,11 +304,60 @@ class PurePyTorchDiffusionDet(BaseDetector):
         return MODELS.build(self._filter_kwargs(obj_cls, cfg_copy))
 
     def extract_feat(self, batch_inputs: torch.Tensor) -> Tuple[torch.Tensor]:
-        """提取特征"""
+        """提取特征
+
+        方向六: 若启用 feature_bridge, 在 FPN 输出后融合 ChromoGen 特征。
+        """
         x = self.backbone(batch_inputs)
         if self.neck:
             x = self.neck(x)
+
+        # 方向六: ChromoGen 特征融合
+        if self.feature_bridge is not None and self.chromogen_extractor is not None:
+            x = self._fuse_with_chromogen(x, batch_inputs)
+
         return x
+
+    def _fuse_with_chromogen(
+        self, ldmdet_feats: Tuple[torch.Tensor], batch_inputs: torch.Tensor
+    ) -> Tuple[torch.Tensor]:
+        """将 ChromoGen UNet 特征融合到 LDMDet FPN 特征
+
+        Args:
+            ldmdet_feats: LDMDet FPN 4 层特征
+            batch_inputs: 原始输入图像 (B, 3, H, W), 用于 VAE 编码
+
+        Returns:
+            fused: 融合后的 4 层特征
+        """
+        # 1. VAE 编码: image → latent
+        # ChromoGenVAE.forward 内部处理归一化和缩放, 直接调用返回 latent
+        if self.chromogen_vae is not None:
+            latent = self.chromogen_vae(batch_inputs)
+        else:
+            # 若无 VAE, 跳过融合 (返回原始特征)
+            return ldmdet_feats
+
+        # 2. 条件编码 (可选)
+        encoder_hidden_states = None
+        if self.chromogen_condition_encoder is not None:
+            encoder_hidden_states = self.chromogen_condition_encoder(batch_inputs)
+
+        # 3. UNet 特征提取 (timestep 用固定值 500, 仅用于特征提取)
+        # ChromoGen 冻结, 用 no_grad 节省显存 (梯度只流向 FBM alpha)
+        bs = batch_inputs.shape[0]
+        timestep = torch.full((bs,), 500, device=batch_inputs.device, dtype=torch.long)
+        if encoder_hidden_states is None:
+            encoder_hidden_states = torch.zeros(
+                bs, 1, 768, device=batch_inputs.device, dtype=batch_inputs.dtype
+            )
+
+        with torch.no_grad():
+            cg_feats = self.chromogen_extractor(latent, timestep, encoder_hidden_states)
+
+        # 4. FBM 融合
+        fused = self.feature_bridge(ldmdet_feats, cg_feats)
+        return fused
 
     def loss(
         self,
