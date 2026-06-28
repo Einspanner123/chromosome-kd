@@ -135,3 +135,9 @@ swanlog/
 monitor_logs/
 .build_tmp/
 .hf_cache/
+
+# Nested git repos / external experiment trackers
+ldmdet-experiments/
+
+# Credentials
+.git-askpass.sh
