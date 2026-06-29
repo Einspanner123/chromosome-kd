@@ -90,6 +90,17 @@ BATCH_PLAN = {
         'ckpt': 'work_dirs/bottleneck/ablation/no_box_renewal/best_coco_bbox_mAP_epoch_13.pth',
         'analyzers': ['trajectory'],
     },
+    # 24obj 数据集对照 (架构/损失与新数据集一致, 仅数据集不同)
+    'ghss_24obj': {
+        'config': 'experiments/configs/multiset/chromo_24obj.py',
+        'ckpt': 'work_dirs/24obj_ablation/ghss/seed_42/best_coco_bbox_mAP_epoch_83.pth',
+        'analyzers': ['trajectory', 'roi_feature', 'head_output'],
+    },
+    'random_24obj': {
+        'config': 'experiments/configs/multiset/chromo_24obj_random.py',
+        'ckpt': 'work_dirs/24obj_ablation/random/seed_42/best_coco_bbox_mAP_epoch_59.pth',
+        'analyzers': ['trajectory', 'roi_feature', 'head_output'],
+    },
 }
 
 
@@ -427,12 +438,16 @@ def main():
     parser.add_argument('--device', default='cuda:0', help='设备')
     parser.add_argument('--output-dir', default='work_dirs/instrumentation', help='输出目录')
     parser.add_argument('--batch', action='store_true', help='批量运行方案矩阵')
+    parser.add_argument('--only', nargs='+', default=None,
+                        help='批量模式下只运行指定的 name (空格分隔)')
     args = parser.parse_args()
 
     if args.batch:
         # 批量运行方案矩阵
         all_reports = {}
         for name, plan in BATCH_PLAN.items():
+            if args.only is not None and name not in args.only:
+                continue
             if not osp.exists(plan['ckpt']):
                 print(f'[SKIP] {name}: ckpt 不存在 {plan["ckpt"]}')
                 continue
@@ -447,8 +462,12 @@ def main():
             )
             all_reports[name] = reports
 
-        # 保存汇总对比
+        # 保存汇总对比 (--only 模式下合并已有 comparison.json, 避免丢失历史结果)
+        comparison_path = Path(args.output_dir) / 'comparison.json'
         comparison = {}
+        if args.only is not None and comparison_path.exists():
+            with open(comparison_path) as f:
+                comparison = json.load(f)
         for name, reports in all_reports.items():
             comparison[name] = {}
             for analyzer, report in reports.items():
@@ -476,9 +495,9 @@ def main():
                             'overconfident': report['hard_samples']['overconfident'],
                         }
 
-        with open(Path(args.output_dir) / 'comparison.json', 'w') as f:
+        with open(comparison_path, 'w') as f:
             json.dump(comparison, f, indent=2, ensure_ascii=False, default=str)
-        print(f'\n对比汇总保存到 {args.output_dir}/comparison.json')
+        print(f'\n对比汇总保存到 {comparison_path}')
 
     else:
         # 单个运行

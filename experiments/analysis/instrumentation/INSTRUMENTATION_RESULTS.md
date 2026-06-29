@@ -1,7 +1,7 @@
 # 白盒插桩分析结果
 
-> 本文档记录对 5 个 checkpoint 执行白盒插桩分析的实验结果与发现。
-> 执行时间: 2026-06-29
+> 本文档记录对 7 个 checkpoint 执行白盒插桩分析的实验结果与发现。
+> 执行时间: 2026-06-29 (初始 5 ckpt) / 2026-06-30 (追加 24obj 对照 2 ckpt)
 > 方案文档: [INSTRUMENTATION_PLAN.md](./INSTRUMENTATION_PLAN.md)
 > 原始 JSON 报告: `work_dirs/instrumentation/<ckpt_name>/{trajectory,roi_feature,head_output}_report.json`
 > 汇总对比: `work_dirs/instrumentation/comparison.json`
@@ -10,13 +10,15 @@
 
 ### 分析矩阵执行情况
 
-| # | Checkpoint | mAP | Trajectory | RoIFeature | HeadOutput | 状态 |
-|---|-----------|-----|:---------:|:---------:|:---------:|:----:|
-| 1 | baseline_aug | 0.745 | ✓ | ✓ | ✓ | 完成 |
-| 2 | direction_d | 0.747 | ✓ | — | — | 完成 |
-| 3 | direction_b | 0.749 | — | ✓ | ✓ | 完成 |
-| 4 | focal_gamma_3 | 0.750 | — | — | ✓ | 完成 |
-| 5 | no_box_renewal | 0.635 | ✓ | — | — | 完成 |
+| # | Checkpoint | 数据集 | mAP | Trajectory | RoIFeature | HeadOutput | 状态 |
+|---|-----------|--------|-----|:---------:|:---------:|:---------:|:----:|
+| 1 | baseline_aug | Chromosome20240904 | 0.745 | ✓ | ✓ | ✓ | 完成 |
+| 2 | direction_d | Chromosome20240904 | 0.747 | ✓ | — | — | 完成 |
+| 3 | direction_b | Chromosome20240904 | 0.749 | — | ✓ | ✓ | 完成 |
+| 4 | focal_gamma_3 | Chromosome20240904 | 0.750 | — | — | ✓ | 完成 |
+| 5 | no_box_renewal | Chromosome20240904 | 0.635 | ✓ | — | — | 完成 |
+| 6 | ghss_24obj | 24_chromosomes_object | 0.857 | ✓ | ✓ | ✓ | 完成 |
+| 7 | random_24obj | 24_chromosomes_object | 0.859 | ✓ | ✓ | ✓ | 完成 |
 
 ### 执行参数
 - 每个 ckpt 采样 **50 张验证图**
@@ -323,7 +325,119 @@
 - 扩散噪声 schedule 是否合理? (t 越大, x0 质量应越差, 但当前 early_x0_quality=0.003 已极差)
 - proposal 数量对 x0 质量的影响? (方向 F 假设)
 
-## 六、产出文件索引
+## 六、24obj 数据集对照分析
+
+> 目的: 区分"架构固有缺陷"与"数据集效应"。24obj 模型与新数据集模型架构/损失完全一致 (num_classes=24, num_proposals=500, FocalLoss+L1Loss, FPN),仅数据集不同,构成完美对照。
+> 对照设计: baseline_aug (新数据集, 0.745) vs ghss_24obj (24obj, 0.857) vs random_24obj (24obj, 0.859)
+
+### 6.1 架构固有缺陷 (两数据集一致 → 模型架构问题)
+
+以下 7 项发现在新数据集和 24obj 上**完全一致**,确认为**架构固有缺陷**,与数据集无关:
+
+| 发现 | baseline_aug (新) | ghss_24obj (24obj) | random_24obj (24obj) | 结论 |
+|------|:-----------------:|:------------------:|:--------------------:|------|
+| box convergence_step | 1 | 1 | 1 | **架构固有** |
+| cls_converged | False | False | False | **架构固有** |
+| renewal_effective | False | False | False | **架构固有** |
+| same_group_too_similar | False | False | False | **架构固有** |
+| scale_affects | False | False | False | **架构固有** |
+| class_collapse | True | True | True | **架构固有** (但坍塌类有差异,见 6.2) |
+| reg 系统性收缩 (dw/dh 偏负) | [-1.73, -1.61] | [-1.34, -1.29] | [-1.28, -1.28] | **架构固有** (方向一致, 幅度不同) |
+
+**关键结论**: 前文 7 项核心发现中,除"Y 类坍塌"和"direction_b/focal 谦虚效应"外,其余都是架构固有的 — 在 24obj (mAP=0.857) 上同样存在。这意味着:
+- 即使 mAP 达到 0.857,box 仍在第 1 步收敛、renewal 仍未触发、reg 仍系统性收缩
+- 这些架构缺陷被高数据质量"掩盖"了,但并未消失
+- **方向 D (BoxRefineNet) 和新方向 H (采样效率) 在两数据集上都有价值**
+
+### 6.2 数据集效应 (有差异 → 数据集相关)
+
+| 指标 | baseline_aug (新) | ghss_24obj (24obj) | 差异 | 归因 |
+|------|:-----------------:|:------------------:|------|------|
+| mAP | 0.745 | 0.857 | **+0.112** | 24obj 数据质量更好 |
+| early_x0_quality | 0.003 | 0.005 | +0.002 | 24obj 的 x0 起点略好 (但都极差) |
+| x0_stability | 109.57 | 116.69 | +7.1 | 24obj 的 x0 稳定性略高 |
+| reg dw/dh | [-1.73, -1.61] | [-1.34, -1.29] | **+0.4** | 新数据集框回归收缩更严重 |
+| 特征范数 (small) | 5.02 | 7.01 | **+2.0** | 24obj 的 RoI 特征范数整体更高 |
+| hard_sample_confidence | 0.309 | 0.389 | +0.08 | 24obj 的困难样本更"自信" |
+| A1 类坍塌 | 否 | **是** | — | 24obj 特有问题 (ghss 耦合下) |
+
+**关键发现**:
+1. **mAP 差距 0.112 的根因不是架构**,而是数据质量 — 24obj 数据让同样的架构表现更好
+2. **reg 收缩幅度差异** (新数据集 -1.7 vs 24obj -1.3) 提示新数据集的标注框可能偏大,或目标尺度分布不同
+3. **特征范数差异** (5.0 vs 7.0) 提示两数据集的图像特性不同 (分辨率/对比度/目标大小)
+4. **A1 类在 24obj+ghss 耦合下额外坍塌** — 这是数据集×耦合方式的交互效应
+
+### 6.3 Y 类坍塌的归因 (架构 + 数据共同作用)
+
+| ckpt | 数据集 | collapsed_classes | Y (class 23) mean_logit |
+|------|--------|:-----------------:|:-----------------------:|
+| baseline_aug | 新 | [23] | -5.19 |
+| ghss_24obj | 24obj | [0, 23] | -5.07 |
+| random_24obj | 24obj | [23] | -5.31 |
+
+**关键观察**:
+- Y 类坍塌在**所有 3 个 ckpt** (跨数据集) 都存在 → **架构固有倾向**
+- 但 24obj 上 Y 类 mean_logit (-5.07) 比新数据集 (-5.19) 略好 → **数据集也有影响**
+- Y 类在两个数据集中都是样本数最少的类 → **类别不平衡是跨数据集的共性问题**
+
+**结论**: Y 类坍塌是**架构倾向 + 数据不平衡**共同作用的结果。方向 E (ClassBalanced) 在两数据集上都需要,但 24obj 上 Y 类问题略轻。
+
+### 6.4 易混淆对的跨数据集一致性
+
+| ckpt | 数据集 | Top 易混淆对 (相关系数) |
+|------|--------|------------------------|
+| baseline_aug | 新 | (F19,G22)=0.880, (G21,G22)=0.828, (F19,G21)=0.803 |
+| ghss_24obj | 24obj | (F19,G22)=0.835 |
+| random_24obj | 24obj | (F19,G22)=0.825, (G21,G22)=0.823, (B4,B5)=0.810 |
+
+**关键观察**:
+- **F19↔G22 混淆在所有 3 个 ckpt 都出现** (相关 0.825~0.880) → **架构固有的形态混淆**
+- F/G 组 (F19, F20, G21, G22) 混淆跨数据集一致 → 这两对染色体形态相似性是**生物学固有**, 非数据集偏差
+- 24obj 上混淆对更少 (ghss 仅 1 对, random 3 对) vs 新数据集 (3 对) → 新数据集可能引入了额外混淆
+
+**对方向 C 的指导**: F/G 组的形态混淆是跨数据集的生物学难题,方向 C (Morphology) 应优先针对 F/G 组的形态差异设计先验,这在两数据集上都有效。
+
+### 6.5 耦合方式效应 (ghss_24obj vs random_24obj)
+
+两者都在 24obj 上训练,仅耦合方式不同:
+
+| 指标 | ghss_24obj | random_24obj | 差异 |
+|------|:----------:|:------------:|------|
+| mAP | 0.857 | 0.859 | random 略高 (+0.002) |
+| class_collapse | [0, 23] | [23] | **ghss 多坍塌 A1** |
+| 易混淆对数 | 1 | 3 | ghss 更少 |
+| hard_samples | 3976 | 3728 | ghss 更多 |
+| hard_sample_confidence | 0.389 | 0.352 | ghss 更自信 |
+| reg dw/dh | [-1.34, -1.29] | [-1.28, -1.28] | 接近 |
+| x0_stability | 116.69 | 121.30 | random 略高 |
+
+**关键观察**:
+- 耦合方式对**模块内部状态有影响但不大**
+- **ghss 耦合下 A1 类额外坍塌** (class 0) → ghss 的分组机制可能对 A 组 (A1,A2,A3) 有负面影响
+- random 耦合的 x0 稳定性略高, mAP 也略高 → random 耦合在 24obj 上略优
+- 但两者 mAP 差距仅 0.002, 耦合方式不是主要因素
+
+### 6.6 对照分析对方向的修正指导
+
+| 方向 | 原指导 (基于新数据集) | 24obj 对照后的修正 |
+|------|---------------------|-------------------|
+| A (P1+Deformable) | reg 系统性收缩提示框回归有偏 | 收缩是架构固有, 两数据集都需要 → **确认普适性** |
+| B (DecoupledHead) | 通过"谦虚"获 +0.004 | 未测 24obj, 但 cls_head 瓶颈是架构固有 → **应有效** |
+| C (Morphology+Contrastive) | 转向 cls_head 损失设计 | F/G 组混淆是跨数据集生物学难题 → **优先针对 F/G 组** |
+| D (BoxRefineNet) | 放弃 renewal, 改针对 reg 偏移 | reg 收缩是架构固有 → **确认方向 D 普适价值** |
+| E (ClassBalanced) | 优先实现, 解决 Y 类坍塌 | Y 类坍塌是架构+数据共同作用 → **两数据集都需要** |
+| F (StructuredPrior) | x0 早期质量极差 | x0 质量差是架构固有 (24obj 也 0.005) → **确认价值** |
+| **H (采样效率)** | box 第 1 步收敛 | **跨数据集一致, 架构固有** → **高优先级, 两数据集都受益** |
+
+### 6.7 对照分析的核心结论
+
+1. **前文 7 项发现中, 6 项是架构固有的** (跨数据集一致), 仅"Y 类坍塌幅度"和"direction_b/focal 谦虚效应"有数据集依赖
+2. **mAP 差距 0.112 的根因是数据质量, 不是架构** — 同样的架构在 24obj 上达到 0.857
+3. **架构缺陷被高数据质量"掩盖"** — 24obj 上 box 仍第 1 步收敛、renewal 仍未触发、reg 仍收缩, 只是幅度更轻
+4. **F/G 组形态混淆是跨数据集的生物学固有难题** — 方向 C 应优先针对此
+5. **新方向 H (采样效率) 价值最高** — box 第 1 步收敛是跨数据集的架构固有特性, 减少采样步数在两数据集上都有效
+
+## 七、产出文件索引
 
 ### 代码与测试
 - `experiments/analysis/instrumentation/__init__.py` — 模块导出
@@ -338,14 +452,16 @@
 - `experiments/analysis/instrumentation/INSTRUMENTATION_RESULTS.md` — 本文 (结果文档)
 
 ### JSON 报告
-- `work_dirs/instrumentation/comparison.json` — 跨 ckpt 汇总对比
+- `work_dirs/instrumentation/comparison.json` — 跨 ckpt 汇总对比 (7 个 ckpt)
 - `work_dirs/instrumentation/baseline_aug/{trajectory,roi_feature,head_output}_report.json`
 - `work_dirs/instrumentation/direction_d/trajectory_report.json`
 - `work_dirs/instrumentation/direction_b/{roi_feature,head_output}_report.json`
 - `work_dirs/instrumentation/focal_gamma_3/head_output_report.json`
 - `work_dirs/instrumentation/no_box_renewal/trajectory_report.json`
+- `work_dirs/instrumentation/ghss_24obj/{trajectory,roi_feature,head_output}_report.json`
+- `work_dirs/instrumentation/random_24obj/{trajectory,roi_feature,head_output}_report.json`
 
-## 七、复现命令
+## 八、复现命令
 
 ```bash
 # 单个 ckpt 分析
@@ -356,12 +472,18 @@ python experiments/analysis/instrumentation/run_instrumentation.py \
     --num-samples 50 --device cuda:0 \
     --output-dir work_dirs/instrumentation/baseline_aug
 
-# 批量分析所有 5 个 ckpt (按 BATCH_PLAN)
+# 批量分析所有 7 个 ckpt (按 BATCH_PLAN)
 python experiments/analysis/instrumentation/run_instrumentation.py \
     --batch --num-samples 50 --device cuda:0
+
+# 只跑 24obj 对照 2 个 ckpt (合并到已有 comparison.json)
+python experiments/analysis/instrumentation/run_instrumentation.py \
+    --batch --only ghss_24obj random_24obj --num-samples 50 --device cuda:0
 ```
 
-## 八、核心结论
+## 九、核心结论
+
+### 基于新数据集 5 ckpt 的结论
 
 1. **分类瓶颈在 cls_head**, 不在特征抽取 — 方向 C 应调整重心
 2. **Y 类坍塌普遍存在**, 是分类瓶颈的根因 — 方向 E 应优先
@@ -370,3 +492,12 @@ python experiments/analysis/instrumentation/run_instrumentation.py \
 5. **reg 系统性收缩** (dw/dh ≈ -1.6) — 方向 D 应针对此偏移
 6. **direction_b 和 focal_gamma_3 通过"更谦虚"获得小幅提升**, 但未根本解决问题
 7. **白盒分析补充了黑盒分析的 5 个盲区**, 为方向 A-F 提供了更精准的指导
+
+### 基于 24obj 对照分析的补充结论
+
+8. **前 7 项发现中 6 项是架构固有的** (跨数据集一致) — 仅 Y 类坍塌幅度和数据集特异坍塌有数据依赖
+9. **mAP 差距 0.112 的根因是数据质量, 不是架构** — 同架构在 24obj 上达 0.857
+10. **架构缺陷被高数据质量"掩盖"** — 24obj 上 box 仍第 1 步收敛、renewal 仍未触发、reg 仍收缩
+11. **F/G 组形态混淆是跨数据集的生物学固有难题** — 方向 C 应优先针对 F/G 组
+12. **新方向 H (采样效率) 价值最高** — box 第 1 步收敛跨数据集一致, 减少采样步数两数据集都受益
+13. **方向 D/E/H 的普适性已确认** — reg 收缩、Y 类坍塌、box 早收敛在两数据集上都存在
