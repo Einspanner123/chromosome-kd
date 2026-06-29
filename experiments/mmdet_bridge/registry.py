@@ -15,6 +15,8 @@ from ldmdet.diagnostics import hooks as _diag_hooks  # noqa: F401
 
 # 触发自定义 neck 注册 (FPNWithP1 等)
 from experiments.mmdet_bridge.necks import FPNWithP1  # noqa: F401
+# 方向 G: LAMFPN 注册
+from ldmdet.necks import LAMFPN  # noqa: F401
 
 # 方向六: 注册 Muon 混合优化器和构造器
 from ldmdet.optim.hybrid_optimizer import MuonHybrid
