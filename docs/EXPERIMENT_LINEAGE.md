@@ -2,7 +2,7 @@
 
 > 本文档梳理所有实验的递进关系,明确真正的 baseline,识别废弃/错误实验。
 > 每条实验记录附 **可靠数据源地址** (本地服务器路径 / ldmdet-experiment 归档 / SwanLab run_id)
-> 更新时间: 2026-06-29 (最近一次刷新: 方向 B epoch 27, 方向 D 已完成 early stop @ epoch 85)
+> 更新时间: 2026-06-29 (最近一次刷新: 补全旧数据集/混合/多数据集实验记录 + 方向 B/D 进度)
 
 ## 〇、数据源说明
 
@@ -12,10 +12,10 @@
 |------|----------|------|
 | **本地服务器日志** | `work_dirs/<exp_dir>/<timestamp>/<timestamp>.log` + `vis_data/scalars.json` | 完整训练曲线 + 配置快照 |
 | **ldmdet-experiment 归档** | `ldmdet-experiment/sota/<category>/<exp_name>/` (含 README, config.py, metrics.json, code/, checkpoints/) | 已归档 SOTA 实验 (2026-06-13) |
-| **SwanLab 云端** | `https://swanlab.cn/@einspanner/<project>/runs/<run_id>` (project ∈ {chromosome-kd, ldmdet-ablation}) | 在线可视化 + 跨实验对比 |
+| **SwanLab 云端** | `https://swanlab.cn/@einspanner/<project>/runs/<run_id>` (project ∈ {chromosome-kd, chromosome-kd-benchmark-24obj, ldmdet-ablation}) | 在线可视化 + 跨实验对比 |
 
 > SwanLab 用户名: `einspanner` (登录态见 `/home/linkst/.swanlab/.netrc`, api_key 已配置)。
-> 已知 project: `chromosome-kd` (早期 21 个), `ldmdet-ablation` (主线 32 个),共 53 个独立实验。
+> 已知 project: `chromosome-kd` (早期 21 个), `chromosome-kd-benchmark-24obj` (旧数据集 1 个), `ldmdet-ablation` (主线 32+ 个, 含旧数据集/混合/多数据集)。
 > URL 拼接示例: `https://swanlab.cn/@einspanner/ldmdet-ablation/runs/<run_id>`
 
 ## 一、aug 策略统一基准 (关键修正)
@@ -35,11 +35,14 @@
 
 ## 二、数据集分组 (不可跨数据集对比!)
 
-| 数据集 | 路径 | 实验组 | mAP 量级 |
-|--------|------|--------|---------|
-| **新数据集 (主线)** | `data/Chromosome20240904_NoAug_NoResize_coco/` | multi_seed_aug/*, sota_*, bottleneck/*, direction_exps/*, ddpm | 0.72-0.75 |
-| 旧数据集 | `data/24_chromosomes_object/coco/` | 24obj_ablation/*, merged_ablation/*, ldmdet_rf_heun_adaln_stochot_eps5 | 0.81-0.86 |
-| 多数据集 | `data/selfmake_chromosome202250604_NoResizeNoAug/` | multi_dataset/chromo_v2_random | 0.55-0.75 |
+| 数据集 | 路径 | 实验组 | mAP 量级 | SwanLab project |
+|--------|------|--------|---------|------------------|
+| **新数据集 (主线)** | `data/Chromosome20240904_NoAug_NoResize_coco/` | multi_seed_aug/*, sota_*, bottleneck/*, direction_exps/*, ddpm | 0.72-0.75 | ldmdet-ablation, chromosome-kd |
+| **旧数据集** | `data/24_chromosomes_object/coco/` | 24obj_ablation/*, ldmdet_rf_heun_adaln_stochot_eps5 | 0.81-0.86 | ldmdet-ablation, chromosome-kd-benchmark-24obj |
+| **混合数据集** | merged (24obj + Chromosome20240904) | merged_ablation/* | 0.806 | ldmdet-ablation |
+| **多数据集** | `data/selfmake_chromosome202250604_NoResizeNoAug/` | multi_dataset/chromo_v2_random | 0.55-0.75 | ldmdet-ablation |
+
+> ⚠️ 跨数据集对比错误示例: ghss@旧数据集 (0.857) vs rf_heun_adaln@新数据集 (0.746) — 不可对比
 
 ## 三、实验递进树 (新数据集主线,默认 aug)
 
@@ -151,6 +154,97 @@ Direction 方向实验 A-F (基于 rf_heun_adaln, 默认 aug, 应与 0.746 对�
        ├─→ F (StructuredPrior+100 proposals) = 排队
        ├─→ A (P1+Deformable) = 排队
        └─→ E (ClassBalanced) = 排队
+
+═══════════════════════════════════════════════════════════════════════════
+═══ 旧数据集实验 (24_chromosomes_object/coco/) ═══
+═══════════════════════════════════════════════════════════════════════════
+⚠ 不可与新数据集主线对比! 数据集不同, mAP 量级不同 (0.85+ vs 0.72-0.75)
+
+旧数据集递进树:
+DiffusionDet DDPM (根 baseline, 旧数据集)
+│  数据集: data/24_chromosomes_object/coco/
+│  mAP 量级: 0.85+
+│
+├─→ ldmdet_rf_heun_adaln_stochot_eps5 (RF+Heun+AdaLN+Sinkhorn Stochastic OT, eps=5)
+│      mAP: 0.853
+│      本地: work_dirs/ldmdet_rf_heun_adaln_stochot_eps5/20260527_141432/
+│      SwanLab: https://swanlab.cn/@einspanner/chromosome-kd-benchmark-24obj/runs/odnz6a8pnda3gyg84cfqv
+│              project=chromosome-kd-benchmark-24obj  experiment_name=ldmdet-rf-adaln-stochot-eps5
+│              run_id=odnz6a8pnda3gyg84cfqv  mAP=0.8530  (best @ epoch 89, last @ epoch 119)
+│
+├─→ 24obj_ablation (3 种耦合策略 × 多种子, 2026-06)
+│      config: experiments/configs/multiset/chromo_24obj_*.py
+│      │
+│      ├─→ Random Coupling (3 seeds)
+│      │      平均: 0.860 ± 0.001
+│      │      ├─ seed_42:  mAP=0.859 (best @ 59)
+│      │      │   本地: work_dirs/24obj_ablation/random/seed_42/20260623_084555/
+│      │      │   SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/p5xqii8mcqmbhuo5lhlff
+│      │      │           experiment_name=chromo_24obj_random_seed42  run_id=p5xqii8mcqmbhuo5lhlff
+│      │      ├─ seed_789: mAP=0.860 (best @ 82)
+│      │      │   本地: work_dirs/24obj_ablation/random/seed_789/20260625_022750/
+│      │      │   SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/r8n441mu4gws43xyoneoj
+│      │      │           experiment_name=chromo_24obj_random_seed789  run_id=r8n441mu4gws43xyoneoj
+│      │      └─ seed_123: mAP=0.860 (best @ 115)
+│      │          本地: work_dirs/24obj_ablation/random/seed_123/20260624_021224/
+│      │          SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/q6jgxefgxbp8f2sf5qzpc
+│      │                   experiment_name=chromo_24obj_random_seed123  run_id=q6jgxefgxbp8f2sf5qzpc
+│      │
+│      ├─→ Sinkhorn Stochastic OT (1 seed)
+│      │      mAP: 0.856 (best @ 53)
+│      │      本地: work_dirs/24obj_ablation/sinkhorn/seed_42/20260626_095551/
+│      │      SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/o96m1eqz4l12qjeyys1cs
+│      │              experiment_name=chromo_24obj_sinkhorn_seed42  run_id=o96m1eqz4l12qjeyys1cs
+│      │
+│      └─→ GHSS Coupling (3 seeds)
+│             平均: 0.858 ± 0.001
+│             ├─ seed_42:  mAP=0.857 (best @ 83)
+│             │   本地: work_dirs/24obj_ablation/ghss/seed_42/20260621_020046/
+│             │   SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/k84cq9oftbp2nld88a85t
+│             │            experiment_name=chromo_24obj_seed42  run_id=k84cq9oftbp2nld88a85t
+│             ├─ seed_789: mAP=0.859 (best @ 75)
+│             │   本地: work_dirs/24obj_ablation/ghss/seed_789/20260622_144356/
+│             │   SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/holadvhaz9v2rh8l494hv
+│             │            experiment_name=chromo_24obj_seed789  run_id=holadvhaz9v2rh8l494hv
+│             └─ seed_123: mAP=0.859 (best @ 102)
+│                 本地: work_dirs/24obj_ablation/ghss/seed_123/20260621_190440/
+│                 SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/73cr3uyqw4f1q68xz1evg
+│                          experiment_name=chromo_24obj_seed123  run_id=73cr3uyqw4f1q68xz1evg
+
+═══════════════════════════════════════════════════════════════════════════
+═══ 混合/多数据集实验 ═══
+═══════════════════════════════════════════════════════════════════════════
+
+├─→ merged_ablation (24obj + Chromosome20240904 合并数据集)
+│      数据集: merged (24_chromosomes_object + Chromosome20240904_NoAug_NoResize)
+│      config: experiments/configs/multiset/chromo_merged.py
+│      │
+│      ├─→ Sinkhorn Stochastic OT (1 seed)
+│      │      mAP: 0.806 (best @ 77)
+│      │      本地: work_dirs/merged_ablation/sinkhorn/seed_42/20260627_012848/
+│      │      SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/mbgo9qcz95l1aik8sv7bu
+│      │              experiment_name=chromo_merged_seed42  run_id=mbgo9qcz95l1aik8sv7bu
+│      │
+│      └─→ GHSS Coupling (1 seed) — FAILED
+│             mAP: 0.000 (训练失败, 未产生有效指标)
+│             本地: work_dirs/merged_ablation/ghss/seed_42/20260627_012525/
+│             SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/503pfk8isr270atpubho1
+│                     experiment_name=chromo_merged_seed42 (同名冲突)  run_id=503pfk8isr270atpubho1
+│
+└─→ multi_dataset (selfmake_chromosome202250604_NoResizeNoAug)
+       数据集: data/selfmake_chromosome202250604_NoResizeNoAug/
+       │
+       ├─→ chromo_v2_random/seed_42
+       │      mAP: 0.745 (best @ 68)
+       │      本地: work_dirs/multi_dataset/chromo_v2_random/seed_42/20260620_143244/
+       │      SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/f79sanjjivdmuzbrkxj60
+       │              experiment_name=chromo_v2_random_seed42  run_id=f79sanjjivdmuzbrkxj60
+       │
+       └─→ chromo_v2_random/seed_123 — FAILED (early stop @ epoch 7)
+              mAP: 0.550
+              本地: work_dirs/multi_dataset/chromo_v2_random/seed_123/20260620_195824/
+              SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/rjxvey03j7ezy8lebhiwy
+                      experiment_name=chromo_v2_random_seed123  run_id=rjxvey03j7ezy8lebhiwy
 ```
 
 ## 四、关键结论 (修正)
@@ -184,19 +278,23 @@ Direction 方向实验 A-F (基于 rf_heun_adaln, 默认 aug, 应与 0.746 对�
 | SwanLab Project | 实验数 | 范围 | 数据源 URL Pattern |
 |-----------------|--------|------|---------------------|
 | `chromosome-kd` | 21 | 早期: sota_seed*, ablation/* (无 aug), scheme_*, stability/* | `https://swanlab.cn/@einspanner/chromosome-kd/runs/<run_id>` |
-| `ldmdet-ablation` | 32 | 主线: multi_seed_aug/*, bottleneck/*, direction_exps/*, 24obj/merged (旧) | `https://swanlab.cn/@einspanner/ldmdet-ablation/runs/<run_id>` |
+| `chromosome-kd-benchmark-24obj` | 1 | 旧数据集早期: ldmdet-rf-adaln-stochot-eps5 | `https://swanlab.cn/@einspanner/chromosome-kd-benchmark-24obj/runs/<run_id>` |
+| `ldmdet-ablation` | 32+ | 主线: multi_seed_aug/*, bottleneck/*, direction_exps/*, 24obj/merged/multi_dataset | `https://swanlab.cn/@einspanner/ldmdet-ablation/runs/<run_id>` |
 
 > 用户登录态见 `/home/linkst/.swanlab/.netrc` (api_key 已配置)
 > 每个 experiment 的 run_id 见上文递进树,替换 URL 中的 `<run_id>` 即可直接访问
 
 ## 六、废弃/错误实验清理方案
 
-### A. 旧数据集实验 (不可对比)
-| 目录 | 大小 | 数据集 | mAP | SwanLab run_id | 清理 |
-|------|------|--------|-----|---------------|------|
-| `work_dirs/24obj_ablation/` | 23G | 旧 24_chromosomes_object | 0.857-0.860 | chromo_24obj_* | 🗑️ 删 checkpoint |
-| `work_dirs/merged_ablation/` | 3.3G | 旧 24_chromosomes_object | 0.806 | chromo_merged_seed42 | 🗑️ 删 checkpoint |
-| `work_dirs/ldmdet_rf_heun_adaln_stochot_eps5/` | 1.9G | 旧 24_chromosomes_object | 0.853 | ldmdet-rf-adaln-stochot-eps5 | 🗑️ 删 checkpoint |
+### A. 旧数据集/混合/多数据集实验 (不可与新数据集主线对比, 已记录于上文递进树)
+| 目录 | 大小 | 数据集 | mAP | SwanLab | 清理 |
+|------|------|--------|-----|---------|------|
+| `work_dirs/24obj_ablation/` | 23G | 旧 24_chromosomes_object | 0.856-0.860 | ldmdet-ablation/chromo_24obj_* (7 runs) | 🗑️ 删 checkpoint (保留 metrics) |
+| `work_dirs/merged_ablation/` | 3.3G | 混合 (24obj+Chromosome20240904) | 0.806 (sinkhorn) / 0.000 (ghss failed) | ldmdet-ablation/chromo_merged_seed42 (2 runs) | 🗑️ 删 checkpoint |
+| `work_dirs/ldmdet_rf_heun_adaln_stochot_eps5/` | 1.9G | 旧 24_chromosomes_object | 0.853 | chromosome-kd-benchmark-24obj/ldmdet-rf-adaln-stochot-eps5 | 🗑️ 删 checkpoint |
+| `work_dirs/multi_dataset/` | - | selfmake_chromosome202250604 | 0.745 / 0.550 (failed) | ldmdet-ablation/chromo_v2_random_seed* (2 runs) | 🗑️ 删 checkpoint |
+
+> 完整数据源 (本地路径 + SwanLab URL + run_id) 见上文 "三、实验递进树" 中的旧数据集/混合/多数据集部分
 
 ### B. 无 aug 旧 baseline (非标准,被 multi_seed_aug 取代)
 | 目录 | 大小 | mAP | SwanLab run_id | 清理 |
