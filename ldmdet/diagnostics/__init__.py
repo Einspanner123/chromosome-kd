@@ -11,6 +11,7 @@
 - snr_diag.py: 方向三 SNR 诊断 (可独立清理)
 - trajectory_diag.py: 方向四非线性轨迹诊断 (可独立清理)
 - hierarchical_diag.py: 方向五分层分类诊断 (可独立清理)
+- feature_bridge_diag.py: 方向六 FBM 诊断 (可独立清理)
 """
 
 from ldmdet.diagnostics.trajectory_diag import (
@@ -27,6 +28,9 @@ from ldmdet.diagnostics.hierarchical_diag import (
     compute_information_stats,
     compute_group_conditioning_stats,
 )
+from ldmdet.diagnostics.feature_bridge_diag import (
+    FeatureBridgeDiagnosticsHook,
+)
 
 __all__ = [
     # 方向四: 非线性轨迹
@@ -41,5 +45,7 @@ __all__ = [
     'compute_intra_group_classification_stats',
     'compute_information_stats',
     'compute_group_conditioning_stats',
+    # 方向六: FBM 诊断
+    'FeatureBridgeDiagnosticsHook',
 ]
 

@@ -170,10 +170,27 @@ class ChromoGenFeatureExtractor(nn.Module):
         return hook
 
     def set_frozen(self):
-        """冻结 UNet 参数并设为 eval 模式"""
+        """冻结 UNet 参数并设为 eval 模式
+
+        注意: 若 ChromoGenUNet 已通过 freeze_last_n_blocks 部分解冻,
+        此处不再强制覆盖 requires_grad (尊重 UNet 自身的冻结策略)。
+        但仍设为 eval 模式以关闭 dropout/BN 更新。
+        """
+        # 检查 UNet 是否有自定义冻结策略 (ChromoGenUNet wrapper)
+        has_custom_freeze = (
+            hasattr(self.unet, 'freeze_last_n_blocks')
+            and getattr(self.unet, 'freeze_last_n_blocks', 0) != 0
+        )
+        if not has_custom_freeze:
+            # 默认行为: 全部冻结
+            for param in self.unet.parameters():
+                param.requires_grad = False
+        # 始终设为 eval 模式 (关闭 dropout, 但保留 requires_grad)
         self.unet.eval()
-        for param in self.unet.parameters():
-            param.requires_grad = False
+
+    def has_trainable_params(self) -> bool:
+        """检查 UNet 是否有可训练参数 (用于决定是否用 no_grad)"""
+        return any(p.requires_grad for p in self.unet.parameters())
 
     def forward(self, latent, timestep, encoder_hidden_states):
         """提取 ChromoGen UNet 编码器特征
@@ -189,7 +206,11 @@ class ChromoGenFeatureExtractor(nn.Module):
         """
         self._feature_buffer.clear()
 
-        with torch.no_grad():
+        # 如果 UNet 全部冻结, 用 no_grad 节省显存
+        # 如果有解冻参数 (E6.3), 保留梯度以反向传播
+        ctx = torch.no_grad() if not self.has_trainable_params() else _dummy_ctx()
+
+        with ctx:
             # 调用 UNet forward (输出被忽略, 特征通过 hook 收集)
             _ = self.unet(
                 latent,
@@ -220,8 +241,62 @@ class ChromoGenFeatureExtractor(nn.Module):
 
         return result
 
+    def get_unet_grad_diagnostics(self):
+        """返回 UNet 各 block 的梯度统计 (仅对解冻的 block 有效)
+
+        用于诊断哪些 UNet block 在被有效训练
+        """
+        diag = {}
+        if not hasattr(self.unet, 'down_blocks'):
+            return diag
+
+        with torch.no_grad():
+            # down_blocks 梯度
+            for i, block in enumerate(self.unet.down_blocks):
+                grad_norms = []
+                param_count = 0
+                trainable_count = 0
+                for param in block.parameters():
+                    param_count += 1
+                    if param.requires_grad:
+                        trainable_count += 1
+                        if param.grad is not None:
+                            grad_norms.append(param.grad.norm().item())
+                diag[f'unet_down{i}_trainable'] = trainable_count
+                diag[f'unet_down{i}_grad_norm'] = (
+                    sum(grad_norms) / len(grad_norms) if grad_norms else 0.0
+                )
+
+            # mid_block 梯度
+            if hasattr(self.unet, 'mid_block'):
+                grad_norms = []
+                param_count = 0
+                trainable_count = 0
+                for param in self.unet.mid_block.parameters():
+                    param_count += 1
+                    if param.requires_grad:
+                        trainable_count += 1
+                        if param.grad is not None:
+                            grad_norms.append(param.grad.norm().item())
+                diag['unet_mid_trainable'] = trainable_count
+                diag['unet_mid_grad_norm'] = (
+                    sum(grad_norms) / len(grad_norms) if grad_norms else 0.0
+                )
+
+        return diag
+
     def remove_hooks(self):
         """移除所有 forward hook"""
         for hook in self._hooks:
             hook.remove()
         self._hooks.clear()
+
+
+class _dummy_ctx:
+    """空 context manager (用于不使用 no_grad 的情况)"""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False

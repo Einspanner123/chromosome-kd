@@ -323,6 +323,11 @@ class PurePyTorchDiffusionDet(BaseDetector):
     ) -> Tuple[torch.Tensor]:
         """将 ChromoGen UNet 特征融合到 LDMDet FPN 特征
 
+        E6.3 更新:
+        - 若 ChromoGen UNet 有解冻参数 (freeze_last_n_blocks > 0),
+          不再使用 no_grad, 让梯度回传到 UNet
+        - 若全冻结 (E6.2 行为), 仍用 no_grad 节省显存
+
         Args:
             ldmdet_feats: LDMDet FPN 4 层特征
             batch_inputs: 原始输入图像 (B, 3, H, W), 用于 VAE 编码
@@ -344,7 +349,7 @@ class PurePyTorchDiffusionDet(BaseDetector):
             encoder_hidden_states = self.chromogen_condition_encoder(batch_inputs)
 
         # 3. UNet 特征提取 (timestep 用固定值 500, 仅用于特征提取)
-        # ChromoGen 冻结, 用 no_grad 节省显存 (梯度只流向 FBM alpha)
+        # ChromoGenFeatureExtractor 内部根据 has_trainable_params() 决定是否用 no_grad
         bs = batch_inputs.shape[0]
         timestep = torch.full((bs,), 500, device=batch_inputs.device, dtype=torch.long)
         if encoder_hidden_states is None:
@@ -352,12 +357,31 @@ class PurePyTorchDiffusionDet(BaseDetector):
                 bs, 1, 768, device=batch_inputs.device, dtype=batch_inputs.dtype
             )
 
-        with torch.no_grad():
-            cg_feats = self.chromogen_extractor(latent, timestep, encoder_hidden_states)
+        cg_feats = self.chromogen_extractor(latent, timestep, encoder_hidden_states)
 
-        # 4. FBM 融合
+        # 4. FBM 融合 (cg_feats 保留梯度, 可回传到解冻的 UNet)
         fused = self.feature_bridge(ldmdet_feats, cg_feats)
         return fused
+
+    def get_feature_bridge_diagnostics(self) -> dict:
+        """获取 FBM 和 ChromoGen UNet 的诊断信息
+
+        用于训练时记录到日志, 监控:
+        - 各层 gate 值 (CG 特征贡献度)
+        - LD/CG 特征范数 (谁在主导)
+        - proj 层参数统计
+        - gate 梯度 (是否在被优化)
+        - UNet 各 block 梯度 (解冻的 block 是否在学习)
+
+        Returns:
+            diag: 诊断字典, 可直接传给 logger
+        """
+        diag = {}
+        if self.feature_bridge is not None:
+            diag.update(self.feature_bridge.get_diagnostics())
+        if self.chromogen_extractor is not None:
+            diag.update(self.chromogen_extractor.get_unet_grad_diagnostics())
+        return diag
 
     def loss(
         self,

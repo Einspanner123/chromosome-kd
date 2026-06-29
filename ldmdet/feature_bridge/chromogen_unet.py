@@ -5,6 +5,9 @@
 
 ChromoGenFeatureExtractor 期望 unet 拥有 down_blocks/mid_block 属性
 (diffusers UNet2DConditionModel 的结构), 本 wrapper 透传这些属性。
+
+E6.3 增强: 支持 freeze_last_n_blocks 参数, 解冻最后 N 个 down_block + mid_block,
+让特征适应检测任务 (E6.2 全冻结导致 alpha 学到 0)。
 """
 
 import torch
@@ -26,6 +29,12 @@ class ChromoGenUNet(nn.Module):
         attention_head_dim: attention head 维度
         cross_attention_dim: cross attention 维度 (条件 embedding)
         layers_per_block: 每 block 层数
+        gradient_checkpointing: 是否启用梯度检查点 (节省显存)
+        freeze_last_n_blocks: 解冻最后 N 个 down_block + mid_block
+            - 0: 全部冻结 (E6.2 行为, 向后兼容)
+            - 1: 解冻 down_blocks[-1] + mid_block
+            - 2: 解冻 down_blocks[-2:] + mid_block
+            - -1: 全部解冻
     """
 
     def __init__(
@@ -38,6 +47,7 @@ class ChromoGenUNet(nn.Module):
         cross_attention_dim: int = 768,
         layers_per_block: int = 2,
         gradient_checkpointing: bool = False,
+        freeze_last_n_blocks: int = 0,
     ):
         super().__init__()
 
@@ -65,6 +75,37 @@ class ChromoGenUNet(nn.Module):
 
         if gradient_checkpointing:
             self.unet.enable_gradient_checkpointing()
+
+        self.freeze_last_n_blocks = freeze_last_n_blocks
+        self._apply_freeze_policy()
+
+    def _apply_freeze_policy(self):
+        """根据 freeze_last_n_blocks 冻结/解冻 UNet 参数"""
+        n = self.freeze_last_n_blocks
+        num_down = len(self.unet.down_blocks)
+
+        if n == 0:
+            # 全部冻结
+            for param in self.unet.parameters():
+                param.requires_grad = False
+        elif n == -1:
+            # 全部解冻
+            for param in self.unet.parameters():
+                param.requires_grad = True
+        else:
+            # 先全部冻结, 再解冻最后 n 个 down_block + mid_block
+            for param in self.unet.parameters():
+                param.requires_grad = False
+
+            # 解冻最后 n 个 down_block
+            start_idx = max(0, num_down - n)
+            for i in range(start_idx, num_down):
+                for param in self.unet.down_blocks[i].parameters():
+                    param.requires_grad = True
+
+            # 解冻 mid_block
+            for param in self.unet.mid_block.parameters():
+                param.requires_grad = True
 
     # 透传 diffusers UNet 的关键属性
     @property
