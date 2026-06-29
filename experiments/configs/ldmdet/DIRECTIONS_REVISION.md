@@ -9,10 +9,12 @@
 ### 原顺序 (基于黑盒分析)
 D (BoxRefineNet) → B (DecoupledHead) → C (Morphology) → F (StructuredPrior) → A (P1+Deformable) → E (ClassBalanced)
 
-### 调整后顺序 (基于白盒分析)
-**E → F → H (新增) → D' (新增)**
+### 调整后顺序 (基于白盒分析, trajectory bug 修复后)
+**E → F → D' (新增) → H (可选验证)**
 
 跳过: C (瓶颈在 cls_head 不在特征), A (scale_affects=False, 尺度非主要瓶颈)
+
+> 修正: 初版顺序为 "E → F → H → D'", 因 trajectory bug 误判 H 高价值。修复后 H 降为可选, D' 升级为 F 之后的首选。
 
 ### 各方向价值评估
 
@@ -22,9 +24,9 @@ D (BoxRefineNet) → B (DecoupledHead) → C (Morphology) → F (StructuredPrior
 | B (DecoupledHead) | 早停 at epoch 86, +0.004 | ⚠️ 未解决 Y 坍塌; 仅"更谦虚"获小幅提升 | 价值有限 | **已停** |
 | C (Morphology) | 跳过 | ⚠️ 瓶颈在 cls_head (same_group_too_similar=False); ShapeAttention 作用于特征层 | 价值存疑 | **跳过** |
 | A (P1+Deformable) | 跳过 | ⚠️ scale_affects=False (尺度对特征影响微弱) | 价值存疑 | **跳过** |
-| F (StructuredPrior) | 排队 | ✅ 直接针对 early_x0_quality=0.003 | 有价值 | **保留** |
+| F (StructuredPrior) | 排队 | ✅ 针对 early_x0_quality=0.280 (有改善空间); renewal 稳定 x0 步间一致性 | 有价值 | **保留** |
 | E (ClassBalanced) | **在跑** | ✅✅ 直接针对 Y 类坍塌根因 (class_collapse=[23]) | 最高价值 | **优先** |
-| **H (采样效率)** | 新增 | ✅ box 第 1 步收敛 (架构固有, 跨数据集) | 高价值 | **新增** |
+| **H (采样效率)** | 新增 (价值下调) | ⚠️ box 第 3 步收敛 (4步中), 减步空间仅 4→3 | 价值有限 | **可选验证** |
 | **D' (reg 校正)** | 新增 | ✅ reg 系统性收缩 dw/dh≈-1.6 (架构固有, 跨数据集) | 高价值 | **新增** |
 
 ### 调整理由
@@ -33,46 +35,46 @@ D (BoxRefineNet) → B (DecoupledHead) → C (Morphology) → F (StructuredPrior
 2. **跳 C**: 白盒证实分类瓶颈在 cls_head 决策边界 (same_group_too_similar=False), 不在特征抽取; ShapeAttention 作用于特征层, 但特征已足够区分
 3. **跳 A**: 白盒显示 scale_affects=False (小/中/大目标特征范数接近 5.0/4.9/4.8), 尺度非主要瓶颈
 4. **优先 E**: Y 类坍塌在 7 个 ckpt 普遍存在, 是分类瓶颈根因; 不解决此问题, 其他分类改进都有上限
-5. **新增 H**: box 第 1 步收敛是架构固有 (跨数据集一致), 减少采样步数可大幅加速推理
-6. **新增 D'**: reg 系统性收缩 dw/dh≈-1.6 是架构固有 (24obj 上 -1.3, 方向一致), 应针对此偏移设计 (区别于原 D 的 renewal 机制)
+5. **新增 H (价值已下调)**: box 第 3 步收敛 (4 步中), 减步空间仅 4→3 (1.33× 加速), 且在收敛边界 — 从"高优先级"降为"可选验证"
+6. **新增 D' (价值最高)**: reg 系统性收缩 dw/dh≈-1.6 是架构固有 (24obj 上 -1.3, 方向一致), 应针对此偏移设计 (区别于原 D 的 renewal 机制)
 
-## 二、方向 H: 扩散采样效率优化
+> 修正说明: 初版基于 trajectory 分析 bug 曾误判 "box 第 1 步收敛, H 方案 200× 加速"。修复后真实结果为 box 第 3 步收敛 (4 步采样), H 价值大幅下调。详见 [INSTRUMENTATION_RESULTS.md 附录 A](../../analysis/instrumentation/INSTRUMENTATION_RESULTS.md)。
 
-### 白盒依据
-- **发现 3**: box 在第 1 步收敛 (convergence_step=1), 后续步对 box 回归是浪费
-- **发现 8 (24obj 对照)**: 此特性跨数据集一致, 确认为架构固有
-- cls_logits 跑完全部步数仍未收敛 (cls_converged=False), 但 cls 不收敛不影响 box 质量
+## 二、方向 H: 扩散采样效率优化 (价值已下调)
 
-### 待确认问题
-- 白盒分析报告 n_steps=200, 但配置 `sampling_timesteps=4`
-- 需确认: 实际推理用 4 步还是 200 步? (影响 H1 的加速比评估)
-- 若实际用 4 步: H1 空间 4→2→1 (2-4× 加速)
-- 若实际用 200 步: H1 空间 200→50→10 (20-200× 加速)
+### 白盒依据 (修复后真实数据)
+- **发现 3 (修正)**: box 在第 3 步收敛 (convergence_step_mean=3.0, 4 步中倒数第 2 步)
+- cls 在第 2 步收敛 (cls_converged_ratio=0.9-1.0), 比 box 更早
+- 4 步采样对 box 是必要的: 减到 3 步刚好在收敛边界, 减到 2 步 box 未收敛
+- 跨数据集一致 (24obj 也是第 3 步收敛), 确认为架构固有
+
+### 已确认: 实际采样 4 步 (非 200)
+- 配置 `sampling_timesteps=4`, 采样器 Rectified Flow + Heun solver
+- 初版报告 n_steps=200 是 bug (跨图混合), 已修复
 
 ### 子方向设计
 
-#### H1: 减少采样步数 (最简, 优先实施)
-- **做法**: 修改配置 `sampling_timesteps` 从 4 → 2 → 1
+#### H1: 减少采样步数 (价值有限)
+- **做法**: 修改配置 `sampling_timesteps` 从 4 → 3 → 2
 - **实现**: 仅改配置, 无需改代码
 - **验证**: 对比 mAP, 找到 mAP 不降的最小步数
-- **预期**: box 第 1 步已收敛, 1-2 步应足够; mAP 基本保持
-- **风险**: cls 未收敛, 减少步数可能影响分类置信度 (但白盒显示 cls 全程未收敛, 步数对 cls 帮助有限)
+- **预期 (修正)**:
+  - 4→3: box 刚好在收敛边界, mAP 可能保持, 仅 1.33× 加速
+  - 4→2: box 未收敛, mAP 可能下降
+  - 4→1: box 远未收敛, mAP 肯定下降
+- **结论**: 加速空间有限, 降为可选验证
 
-#### H2: 非对称采样 (box 早停 + cls 继续精化)
+#### H2: 非对称采样 (不适用)
 - **做法**: 修改 `predict` 方法, box 在前 K 步更新, 后续步仅更新 cls_logits
-- **实现**: 修改 [head.py](../../ldmdet/core/head.py) 的 `predict` 方法, 加 box 冻结逻辑
-- **预期**: 推理速度提升 (box 部分早停), mAP 可能改善 (cls 继续精化)
-- **复杂度**: 中等 (需改 predict 循环)
+- **问题**: 修复后数据显示 cls (第 2 步) 比 box (第 3 步) 更早收敛 → "cls 继续精化"无意义
+- **结论**: 放弃 H2
 
-#### H3: 动态步数 (自适应停止)
-- **做法**: 根据box IoU 变化判据, 自适应决定何时停止 box 更新
-- **实现**: 在 predict 循环中加收敛判据 (e.g., 连续 2 步 IoU 变化 <0.01 则停止)
-- **预期**: 不同图像用不同步数, 整体加速
-- **复杂度**: 较高 (需设计判据和阈值)
+#### H3: 动态步数 (复杂度高, 收益不确定)
+- 略
 
 ### 实施计划
-1. **H1 优先** (仅改配置, 立即可做): 跑 `sampling_timesteps=2` 和 `=1`, 对比 mAP
-2. H1 验证后, 若 mAP 保持, 再考虑 H2/H3
+1. **H1 可选** (仅改配置): 若 E/F/D' 之间有空闲, 跑 `sampling_timesteps=3` 验证 mAP 是否保持
+2. H2/H3 放弃
 
 ### 配置文件
 ```python
@@ -80,7 +82,7 @@ D (BoxRefineNet) → B (DecoupledHead) → C (Morphology) → F (StructuredPrior
 _base_ = ['./rf_heun_adaln.py']
 model = dict(
     bbox_head=dict(
-        sampling_timesteps=1,  # H1: 从 4 减到 1
+        sampling_timesteps=3,  # H1: 从 4 减到 3 (收敛边界)
     ),
 )
 ```
@@ -156,8 +158,8 @@ model = dict(
 | B (DecoupledHead) | ⏹ 早停 | 0.749 | 74 | +0.004, "谦虚"效应, epoch 86 停 |
 | E (ClassBalanced) | 🔄 在跑 | — | — | PID 2692560, GPU 0 |
 | F (StructuredPrior) | ⏳ 排队 | — | — | 下一轮 |
-| H (采样效率) | ⏳ 规划中 | — | — | H1 仅改配置 |
-| D' (reg 校正) | ⏳ 规划中 | — | — | D'1 后处理校准 |
+| D' (reg 校正) | ⏳ 规划中 | — | — | D'1 后处理校准 (F 之后首选) |
+| H (采样效率) | ⏳ 可选 | — | — | H1 仅改配置 4→3 (价值有限) |
 
 ## 五、复现命令
 

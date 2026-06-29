@@ -175,11 +175,16 @@ def load_val_samples(cfg, num_samples: int = 50):
 
 
 def run_trajectory_analysis(model, samples, device, output_path):
-    """运行扩散采样轨迹分析."""
-    print('  [Trajectory] 采集轨迹...')
-    collector = TrajectoryCollector()
+    """运行扩散采样轨迹分析.
+
+    修复: 每张图单独分析 (单图 sampling_timesteps 步), 再聚合统计量。
+    之前错误地把所有图的所有步混入同一个 collector, 导致 n_steps=N_images*steps,
+    且跨图 IoU 计算无意义。
+    """
+    print('  [Trajectory] 采集轨迹 (每图单独分析)...')
     head = model.bbox_head
 
+    per_image_reports = []
     n_collected = 0
     for sample in samples:
         img = torch.from_numpy(sample['img']).to(device).float()
@@ -198,10 +203,12 @@ def run_trajectory_analysis(model, samples, device, output_path):
             # 采集轨迹
             try:
                 results, trajectory = head.predict(feats, img_metas, rescale=False, return_trajectory=True)
+                # 每图独立 collector + analyzer
+                img_collector = TrajectoryCollector()
                 for step_idx, (cls_logits, pred_bboxes) in enumerate(trajectory):
                     # 模拟 x0_raw (predict 不直接返回, 用 pred_bboxes 近似)
                     # 注意: 真实 x0_raw 需要修改 predict 内部, 这里用 pred_bboxes 作为近似
-                    collector.record(
+                    img_collector.record(
                         step_idx=step_idx,
                         t_curr=1.0 - step_idx * (1.0 / max(len(trajectory), 1)),
                         t_next=1.0 - (step_idx + 1) * (1.0 / max(len(trajectory), 1)),
@@ -211,20 +218,91 @@ def run_trajectory_analysis(model, samples, device, output_path):
                         x_raw_before_step=pred_bboxes,
                         x_raw_after_step=pred_bboxes,
                     )
+                img_report = TrajectoryAnalyzer(img_collector.trajectory).full_report()
+                per_image_reports.append(img_report)
                 n_collected += 1
             except Exception as e:
                 print(f'    [WARN] img_id={sample["img_id"]} 轨迹采集失败: {e}')
                 continue
 
     print(f'  [Trajectory] 采集 {n_collected}/{len(samples)} 张图')
-    analyzer = TrajectoryAnalyzer(collector.trajectory)
-    report = analyzer.full_report()
+
+    # 聚合每图报告 → 跨图统计量
+    report = _aggregate_trajectory_reports(per_image_reports)
     report['n_images'] = n_collected
+    report['n_steps'] = per_image_reports[0]['n_steps'] if per_image_reports else 0
+    report['per_image_count'] = len(per_image_reports)
 
     with open(output_path, 'w') as f:
         json.dump(report, f, indent=2, ensure_ascii=False, default=str)
     print(f'  [Trajectory] 报告保存到 {output_path}')
     return report
+
+
+def _aggregate_trajectory_reports(per_image_reports: list) -> dict:
+    """聚合每图 trajectory 报告为跨图统计量.
+
+    每图 n_steps (= sampling_timesteps) 单独计算后, 对同名字段取均值/比例。
+    """
+    if not per_image_reports:
+        return {}
+
+    import numpy as np
+
+    def _safe_mean(vals):
+        vals = [v for v in vals if v is not None]
+        return float(np.mean(vals)) if vals else None
+
+    def _safe_ratio(vals):
+        vals = [v for v in vals if v is not None]
+        return float(np.mean(vals)) if vals else None
+
+    # box_evolution
+    box_conv = [r['box_evolution']['convergence_step'] for r in per_image_reports]
+    box_iou_final = [r['box_evolution']['per_step_iou_to_final'][-1]
+                     for r in per_image_reports if r['box_evolution']['per_step_iou_to_final']]
+
+    # cls_convergence
+    cls_conv = [r['cls_convergence']['convergence_step'] for r in per_image_reports]
+    cls_converged = [r['cls_convergence']['is_converged'] for r in per_image_reports]
+
+    # x0_quality
+    early_x0 = [r['x0_quality']['early_x0_quality'] for r in per_image_reports]
+    x0_stab = [r['x0_quality']['x0_stability'] for r in per_image_reports]
+
+    # renewal
+    renew_eff = [r['renewal']['renewal_effective'] for r in per_image_reports]
+    renew_dir = [r['renewal']['renewal_direction'] for r in per_image_reports]
+
+    aggregated = {
+        'box_evolution': {
+            'convergence_step_mean': _safe_mean(box_conv),
+            'convergence_step_distribution': {
+                str(k): int(v) for k, v in __import__('collections').Counter(box_conv).items()
+            },
+            'final_iou_to_final_mean': _safe_mean(box_iou_final),
+            'n_steps_per_image': per_image_reports[0]['n_steps'],
+        },
+        'cls_convergence': {
+            'convergence_step_mean': _safe_mean(cls_conv),
+            'cls_converged_ratio': _safe_ratio(cls_converged),
+        },
+        'x0_quality': {
+            'early_x0_quality_mean': _safe_mean(early_x0),
+            'x0_stability_mean': _safe_mean(x0_stab),
+        },
+        'renewal': {
+            'renewal_effective_ratio': _safe_ratio(renew_eff),
+            'renewal_direction_mean': _safe_mean(renew_dir),
+        },
+    }
+
+    # 保留文本结论 (取第一图的作为示例, 标注为示例)
+    if per_image_reports:
+        aggregated['analysis'] = per_image_reports[0].get('analysis', '')
+        aggregated['note'] = 'analysis 字段为示例 (第1张图), 聚合统计量见各 *_mean/*_ratio 字段'
+
+    return aggregated
 
 
 def run_roi_feature_analysis(model, samples, device, output_path):
@@ -474,12 +552,24 @@ def main():
                 if report is not None:
                     # 提取关键指标
                     if analyzer == 'trajectory':
+                        # 修复后字段: 每图独立分析后聚合
+                        be = report['box_evolution']
+                        cc = report['cls_convergence']
+                        xq = report['x0_quality']
+                        rn = report['renewal']
                         comparison[name]['trajectory'] = {
-                            'n_steps': report.get('n_steps', 0),
-                            'convergence_step': report['box_evolution']['convergence_step'],
-                            'cls_converged': report['cls_convergence']['is_converged'],
-                            'early_x0_quality': report['x0_quality']['early_x0_quality'],
-                            'renewal_effective': report['renewal']['renewal_effective'],
+                            'n_steps_per_image': be.get('n_steps_per_image', be.get('n_steps', 0)),
+                            'box_convergence_step_mean': be.get('convergence_step_mean',
+                                                                be.get('convergence_step')),
+                            'box_convergence_dist': be.get('convergence_step_distribution', {}),
+                            'cls_convergence_step_mean': cc.get('convergence_step_mean'),
+                            'cls_converged_ratio': cc.get('cls_converged_ratio',
+                                                          (1.0 if cc.get('is_converged') else 0.0)),
+                            'early_x0_quality_mean': xq.get('early_x0_quality_mean',
+                                                            xq.get('early_x0_quality')),
+                            'x0_stability_mean': xq.get('x0_stability_mean'),
+                            'renewal_effective_ratio': rn.get('renewal_effective_ratio',
+                                                              (1.0 if rn.get('renewal_effective') else 0.0)),
                         }
                     elif analyzer == 'roi_feature':
                         comparison[name]['roi_feature'] = {

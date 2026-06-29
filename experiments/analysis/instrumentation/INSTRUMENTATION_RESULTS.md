@@ -72,53 +72,51 @@
 - 方向 E (ClassBalanced) 是解决此问题的关键, 应优先实现类别平衡采样 + 重加权
 - 在 E 实现前, 所有分类相关改进 (B, focal_gamma) 都无法根治 Y 类问题
 
-### 发现 3: 扩散采样的"步数浪费"矛盾
+### 发现 3: 扩散采样步数充分, box 在第 3 步收敛
 
-| ckpt | n_steps | box convergence_step | cls convergence_step | cls_converged |
-|------|:-------:|:--------------------:|:--------------------:|:-------------:|
-| baseline_aug | 200 | 1 | 199 | False |
-| direction_d | 200 | 1 | 199 | False |
-| no_box_renewal | 200 | 1 | 199 | False |
+> 修正说明: 初版文档因 trajectory 分析 bug (跨图混合) 曾错误报告 "n_steps=200, box第1步收敛"。修复后 (每图独立分析) 真实结果如下。详见附录 A。
 
-**关键矛盾**:
-- **box 在第 1 步就收敛** (IoU 变化 <0.01)
-- **cls_logits 跑完 200 步仍未收敛** (后期熵仍变化)
-- 但训练时固定跑 200 步, 后 199 步对 box 回归是**完全浪费**的
-
-**深层含义**:
-- 当前 DiffusionDet 框架下, box 由扩散过程显式生成, cls 由 head 隐式预测
-- box 早收敛 + cls 不收敛 → 说明 cls_head 的不确定性并非来自 box 质量, 而是自身容量/训练问题
-- 这进一步支持发现 1: 分类瓶颈在 cls_head 内部
-
-**新方向建议**:
-- 设计 **box 早停 + cls 继续精化** 的非对称采样策略
-- 或减少采样步数 (e.g., 50 步) 以节省推理时间, 因为 box 已在第 1 步收敛
-
-### 发现 4: box_renewal 形同虚设
-
-| ckpt | renewal_effective | renewal_direction | per_step_renewal_delta (均值) |
-|------|:-----------------:|:-----------------:|:----------------------------:|
-| baseline_aug | False | 0.0 | 0.0 (全部 200 步均为 0) |
-| direction_d | False | 0.0 | 0.0 |
-| no_box_renewal | False | 0.0 | 0.0 (此 ckpt 本就无 renewal) |
+| ckpt | n_steps/图 | box convergence_step | cls convergence_step | cls_converged |
+|------|:---------:|:--------------------:|:--------------------:|:-------------:|
+| baseline_aug | 4 | 3.0 | 2.05 | 0.95 |
+| direction_d | 4 | 3.0 | 2.0 | 1.0 |
+| no_box_renewal | 4 | 3.0 | 2.0 | 1.0 |
 
 **关键观察**:
-- baseline_aug 的 `per_step_renewal_delta` **全部 200 步均为 0.0** — box_renewal 完全未触发
-- direction_d (BoxRefineNet 方向) 也未让 renewal 生效 — mAP +0.002 不是来自 renewal
-- no_box_renewal (本就关闭 renewal) 的轨迹与 baseline 几乎一致 (convergence_step=1, early_x0_quality=0.003)
+- 采样器: Rectified Flow + Heun solver, `sampling_timesteps=4` (每图 4 步)
+- **box 在第 3 步收敛** (4 步中倒数第 2 步), 不是第 1 步
+- **cls 在第 2 步收敛** (90-100% 图收敛), 比 box 更早
+- 4 步采样对 box 是必要的: 减到 3 步刚好在收敛边界, 减到 2 步 box 未收敛
+
+**深层含义**:
+- box 晚于 cls 收敛 (3 vs 2) → 定位比分类需要更多采样步
+- 这与瓶颈报告 (定位瓶颈在 IoU≥0.9) 一致: 高 IoU 定位需要充分的扩散步数
+- cls 早期收敛但 mAP 仍受 cls 误差影响 → cls_head 的预测质量不是步数问题, 而是容量/训练问题 (见发现 1, 2)
+
+**对方向 H (采样效率) 的影响**:
+- 加速空间有限: 4→3 步仅 1.33× 加速, 且在收敛边界, mAP 可能下降
+- 4→2 或 4→1 会损害 box 收敛, 不可行
+- **H 方案价值大幅降低**, 从"高优先级"降为"可选验证"
+
+### 发现 4: box_renewal 推理未触发, 但训练时大幅稳定 x0
+
+| ckpt | renewal_effective_ratio | early_x0_quality | x0_stability |
+|------|:----------------------:|:----------------:|:------------:|
+| baseline_aug | 0.0 | 0.280 | **81.23** |
+| direction_d | 0.0 | 0.299 | 75.19 |
+| no_box_renewal | 0.0 | **0.517** | **7.10** |
+
+**关键观察**:
+- `renewal_effective_ratio=0.0` 在所有 ckpt 成立 — box_renewal 在**推理时确实未触发** (此结论可靠)
+- direction_d (BoxRefineNet) 也未让 renewal 生效 — mAP +0.002 不是来自 renewal
 
 **但 mAP 暴跌 0.110**: no_box_renewal mAP=0.635 vs baseline 0.745, 差距 -0.110
 
-**矛盾与解释**:
-- renewal_delta=0 但关闭 renewal 后 mAP 暴跌 → renewal 在**训练阶段**起作用 (梯度回传影响 cls_head/reg_head), 而非**推理阶段**显式修正 box
-- 这与 `x0_stability` 数据吻合:
-
-| ckpt | x0_stability |
-|------|:-----------:|
-| baseline_aug | 109.57 |
-| no_box_renewal | 55.74 |
-
-- baseline 的 x0 稳定性是 no_box_renewal 的 **2 倍** → renewal 在训练时隐式稳定了 x0 预测
+**反直觉发现与解释**:
+- no_box_renewal 的 `early_x0_quality=0.517` **反而高于** baseline 的 0.280 — 关闭 renewal 后单步 x0 质量更好
+- 但 `x0_stability=7.10` **远低于** baseline 的 81.23 — 降幅 **91%** (初版 bug 数据误报 49%)
+- 解释: renewal **不改善单步 x0 质量**, 但**大幅提升步间稳定性** (从 7 → 81, 11 倍)
+- renewal 在训练时作为正则, 让 x0 预测在步间保持一致; 关闭后 x0 单步质量虽好, 但步间剧烈波动, 最终定位质量下降
 
 **对方向的指导**:
 - 方向 D (BoxRefineNet) 的当前实现**未对症** — renewal 在推理时未触发, 改进 renewal_head 不会有效
@@ -192,12 +190,13 @@
 
 ### #1 baseline_aug (mAP=0.745) — 基线诊断
 
-**TrajectoryAnalyzer**:
-- box 在第 1 步收敛 (convergence_step=1), 后 199 步对 box 是浪费
-- cls_logits 跑完 200 步仍未收敛 (cls_converged=False, convergence_step=199)
-- 早期 x0 质量 IoU=0.003 (几乎为 0, 扩散起点不可靠)
-- renewal_delta 全部为 0.0 (renewal 未触发)
-- x0_stability=109.57 (后续对比基准)
+**TrajectoryAnalyzer** (修复后, 每图独立分析):
+- 采样器: Rectified Flow + Heun solver, 4 步/图
+- box 在第 3 步收敛 (convergence_step_mean=3.0, 全部 20 图一致)
+- cls 在第 2 步收敛 (convergence_step_mean=2.05, 95% 图收敛)
+- 早期 x0 质量 IoU=0.280 (起点质量尚可)
+- renewal_effective_ratio=0.0 (renewal 未触发)
+- x0_stability=81.23 (后续对比基准)
 
 **RoIFeatureAnalyzer**:
 - 同组内相似度 0.999, 跨组 0.9988 → 几乎无差异, **分类瓶颈在 cls_head**
@@ -211,15 +210,16 @@
 
 ### #2 direction_d (mAP=0.747, +0.002) — box_refine 验证
 
-**TrajectoryAnalyzer**:
-- convergence_step=1 (与 baseline 一致, 未提前收敛)
-- early_x0_quality=0.0038 (略好于 baseline 0.003, 但仍是 0.004 级别, 改善微弱)
-- renewal_effective=False (与 baseline 一致, box_renewal 仍未触发)
-- x0_stability=105.86 (略低于 baseline 109.57)
+**TrajectoryAnalyzer** (修复后):
+- convergence_step_mean=3.0 (与 baseline 一致, 未提前收敛)
+- early_x0_quality=0.299 (略好于 baseline 0.280, 改善微弱)
+- renewal_effective_ratio=0.0 (与 baseline 一致, box_renewal 仍未触发)
+- x0_stability=75.19 (略低于 baseline 81.23, 反而略差)
 
 **判断**: direction_d 在轨迹层面**几乎没有改善**:
-- box_refine_net 既未让 renewal 有效 (renewal_delta 仍为 0)
-- 也未让 x0 质量显著提升 (0.003 → 0.004 是噪声级别)
+- box_refine_net 既未让 renewal 有效 (renewal_effective_ratio 仍为 0)
+- 也未让 x0 质量显著提升 (0.280 → 0.299 是噪声级别)
+- x0_stability 甚至略降 (81 → 75)
 - mAP +0.002 的来源不是 renewal 机制, 可能来自训练时正则化效应
 
 **对症性**: ❌ 未对症 (box_renewal 未生效, 定位瓶颈未改善)
@@ -264,20 +264,21 @@
 
 ### #5 no_box_renewal (mAP=0.635, -0.110) — renewal 贡献量化
 
-**TrajectoryAnalyzer**:
-- convergence_step=1 (与 baseline 一致, box 仍第 1 步收敛)
-- early_x0_quality=0.0029 (与 baseline 0.003 几乎一致)
-- renewal_effective=False (本就关闭)
-- **x0_stability=55.74 (远低于 baseline 109.57, 降幅 49%)**
+**TrajectoryAnalyzer** (修复后):
+- convergence_step_mean=3.0 (与 baseline 一致, box 仍第 3 步收敛)
+- early_x0_quality=0.517 (**反而高于** baseline 0.280 — 关闭 renewal 后单步 x0 质量更好)
+- renewal_effective_ratio=0.0 (本就关闭)
+- **x0_stability=7.10 (远低于 baseline 81.23, 降幅 91%)**
 
 **关键量化**:
-- 关闭 renewal 后, 推理轨迹模式几乎不变 (convergence_step, early_x0_quality 一致)
-- 但 x0_stability 暴跌 49% → renewal 在**训练阶段**隐式稳定了 x0 预测
-- mAP 暴跌 -0.110 → x0 不稳定导致最终定位质量下降
+- 关闭 renewal 后, box 收敛步数不变 (都是第 3 步), 单步 x0 质量甚至更好
+- 但 x0_stability 暴跌 91% (81 → 7) → renewal 在**训练阶段**隐式稳定了步间 x0 一致性
+- mAP 暴跌 -0.110 → 步间 x0 剧烈波动导致最终定位质量下降
 
 **机制澄清**:
 - box_renewal 在**推理时**修正量=0 (形同虚设)
-- 但在**训练时**作为正则项, 让 cls_head/reg_head 学到更稳定的 x0 预测
+- 但在**训练时**作为正则项, 让 cls_head/reg_head 学到步间一致的 x0 预测
+- renewal **不改善单步 x0 质量**, 而是**提升步间稳定性** (11 倍提升)
 - 这是"训练时副作用 > 推理时显式作用"的典型案例
 
 **判断**: box_renewal 的价值在于训练正则, 而非推理修正。方向 D 若要改进, 应:
@@ -293,17 +294,17 @@
 | **C (Morphology+Contrastive)** | 分类瓶颈在 cls_head (非特征), 纯特征对比学习可能效果有限 | 转向 cls_head 损失设计; 若做 contrastive, 应作用于 cls_logit 而非 roi_feature |
 | **D (BoxRefineNet)** | renewal 推理时未触发 (delta=0); reg 系统性收缩 (-1.7, -1.6) | 放弃 renewal 机制, 改为针对 reg dw/dh 偏移的显式校正 |
 | **E (ClassBalanced)** | Y 类 (class 23) 坍塌在所有 ckpt 普遍存在 | 优先实现, 这是解决分类瓶颈的根本 |
-| F (StructuredPrior) | x0 早期质量极差 (0.003), 扩散起点不可靠 | 结构化先验可能改善 x0 起点, 值得验证 |
+| F (StructuredPrior) | x0 早期质量尚可 (0.280), 但有改善空间; renewal 稳定 x0 步间一致性 | 结构化先验可能改善 x0 起点, 值得验证 |
 
 ### 新方向建议
 
-**方向 H: 扩散采样效率优化**
-- 依据: box 第 1 步收敛, 后 199 步对 box 是浪费; cls 跑完 200 步仍不收敛
+**方向 H: 扩散采样效率优化** (价值已下调)
+- 依据 (修正后): box 第 3 步收敛 (4 步中), cls 第 2 步收敛; 步数对 box 是必要的
 - 思路:
-  - (H1) 减少采样步数 (e.g., 50 步), 验证 mAP 是否保持
-  - (H2) 非对称采样: box 早停 + cls 继续精化
-  - (H3) 动态步数: 根据 box 收敛判据自适应停止 box 更新
-- 预期收益: 推理速度 4×~10× 提升, mAP 基本保持
+  - (H1) 减少采样步数 4→3, 验证 mAP 是否保持 (仅 1.33× 加速, 且在收敛边界)
+  - (H2) 非对称采样: box 早停 + cls 继续精化 (但 cls 比 box 更早收敛, 意义不大)
+- 预期收益: 有限 (最多 1.33× 加速), mAP 可能下降
+- **结论: H 方案价值大幅降低, 降为可选验证**
 
 ## 五、白盒 vs 黑盒分析的互补性
 
@@ -316,13 +317,13 @@
 ### 白盒分析 (本文档) 新增回答
 - **分类瓶颈定位**: cls_head (非特征) — 黑盒无法回答
 - **Y 类坍塌机制**: mean_logit 显著低, 是 cls_head 学习问题 — 黑盒只能看到 Y 类 AP 低
-- **扩散步数浪费**: box 第 1 步收敛, 后 199 步无效 — 黑盒无法看到
-- **box_renewal 实际作用**: 推理时未触发, 训练时隐式正则 — 黑盒只能看到 mAP 差异
+- **扩散采样收敛模式**: box 第 3 步收敛, cls 第 2 步收敛 (4 步采样) — 黑盒无法看到
+- **box_renewal 实际作用**: 推理时未触发, 训练时提升 x0 步间稳定性 11 倍 — 黑盒只能看到 mAP 差异
 - **reg 系统性偏移**: dw/dh 偏负 -1.7/-1.6 — 黑盒只能看到 IoU 低, 不知是中心还是尺度问题
 
 ### 仍未回答的问题 (需进一步插桩)
 - cls_head 内部哪一层 (FC/attention) 导致同组混淆?
-- 扩散噪声 schedule 是否合理? (t 越大, x0 质量应越差, 但当前 early_x0_quality=0.003 已极差)
+- 扩散噪声 schedule 是否合理? (early_x0_quality=0.280, 起点质量尚可但有改善空间)
 - proposal 数量对 x0 质量的影响? (方向 F 假设)
 
 ## 六、24obj 数据集对照分析
@@ -332,30 +333,30 @@
 
 ### 6.1 架构固有缺陷 (两数据集一致 → 模型架构问题)
 
-以下 7 项发现在新数据集和 24obj 上**完全一致**,确认为**架构固有缺陷**,与数据集无关:
+以下 7 项发现在新数据集和 24obj 上**完全一致**,确认为**架构固有缺陷**,与数据集无关 (trajectory 数据为修复后真实值):
 
 | 发现 | baseline_aug (新) | ghss_24obj (24obj) | random_24obj (24obj) | 结论 |
 |------|:-----------------:|:------------------:|:--------------------:|------|
-| box convergence_step | 1 | 1 | 1 | **架构固有** |
-| cls_converged | False | False | False | **架构固有** |
-| renewal_effective | False | False | False | **架构固有** |
+| box convergence_step | 3.0 (4步中第3步) | 3.0 | 3.0 | **架构固有** |
+| cls_converged_ratio | 0.95 | 0.9 | 0.95 | **架构固有** (90-95% 收敛) |
+| renewal_effective_ratio | 0.0 | 0.0 | 0.0 | **架构固有** (推理时未触发) |
 | same_group_too_similar | False | False | False | **架构固有** |
 | scale_affects | False | False | False | **架构固有** |
 | class_collapse | True | True | True | **架构固有** (但坍塌类有差异,见 6.2) |
 | reg 系统性收缩 (dw/dh 偏负) | [-1.73, -1.61] | [-1.34, -1.29] | [-1.28, -1.28] | **架构固有** (方向一致, 幅度不同) |
 
 **关键结论**: 前文 7 项核心发现中,除"Y 类坍塌"和"direction_b/focal 谦虚效应"外,其余都是架构固有的 — 在 24obj (mAP=0.857) 上同样存在。这意味着:
-- 即使 mAP 达到 0.857,box 仍在第 1 步收敛、renewal 仍未触发、reg 仍系统性收缩
+- 即使 mAP 达到 0.857,box 仍在第 3 步收敛、renewal 仍未触发、reg 仍系统性收缩
 - 这些架构缺陷被高数据质量"掩盖"了,但并未消失
-- **方向 D (BoxRefineNet) 和新方向 H (采样效率) 在两数据集上都有价值**
+- **方向 D' (reg 校正) 在两数据集上都有价值**; H (采样效率) 价值有限 (4→3 边界)
 
 ### 6.2 数据集效应 (有差异 → 数据集相关)
 
 | 指标 | baseline_aug (新) | ghss_24obj (24obj) | 差异 | 归因 |
 |------|:-----------------:|:------------------:|------|------|
 | mAP | 0.745 | 0.857 | **+0.112** | 24obj 数据质量更好 |
-| early_x0_quality | 0.003 | 0.005 | +0.002 | 24obj 的 x0 起点略好 (但都极差) |
-| x0_stability | 109.57 | 116.69 | +7.1 | 24obj 的 x0 稳定性略高 |
+| early_x0_quality | 0.280 | 0.270 | -0.01 | 接近, 起点质量无显著差异 |
+| x0_stability | 81.23 | 82.81 | +1.6 | 接近, 步间稳定性无显著差异 |
 | reg dw/dh | [-1.73, -1.61] | [-1.34, -1.29] | **+0.4** | 新数据集框回归收缩更严重 |
 | 特征范数 (small) | 5.02 | 7.01 | **+2.0** | 24obj 的 RoI 特征范数整体更高 |
 | hard_sample_confidence | 0.309 | 0.389 | +0.08 | 24obj 的困难样本更"自信" |
@@ -426,16 +427,18 @@
 | C (Morphology+Contrastive) | 转向 cls_head 损失设计 | F/G 组混淆是跨数据集生物学难题 → **优先针对 F/G 组** |
 | D (BoxRefineNet) | 放弃 renewal, 改针对 reg 偏移 | reg 收缩是架构固有 → **确认方向 D 普适价值** |
 | E (ClassBalanced) | 优先实现, 解决 Y 类坍塌 | Y 类坍塌是架构+数据共同作用 → **两数据集都需要** |
-| F (StructuredPrior) | x0 早期质量极差 | x0 质量差是架构固有 (24obj 也 0.005) → **确认价值** |
-| **H (采样效率)** | box 第 1 步收敛 | **跨数据集一致, 架构固有** → **高优先级, 两数据集都受益** |
+| F (StructuredPrior) | x0 早期质量极差 | x0 质量尚可 (0.27-0.28), 跨数据集接近 → **价值下调, 但仍值得验证** |
+| **H (采样效率)** | box 第 1 步收敛 | box 第 3 步收敛 (4步), 加速空间有限 (4→3) → **价值大幅下调** |
+| **D' (reg 校正)** | reg 系统性收缩 | 收缩是架构固有, 两数据集都需要 → **确认普适价值** |
 
 ### 6.7 对照分析的核心结论
 
 1. **前文 7 项发现中, 6 项是架构固有的** (跨数据集一致), 仅"Y 类坍塌幅度"和"direction_b/focal 谦虚效应"有数据集依赖
 2. **mAP 差距 0.112 的根因是数据质量, 不是架构** — 同样的架构在 24obj 上达到 0.857
-3. **架构缺陷被高数据质量"掩盖"** — 24obj 上 box 仍第 1 步收敛、renewal 仍未触发、reg 仍收缩, 只是幅度更轻
+3. **架构缺陷被高数据质量"掩盖"** — 24obj 上 box 仍第 3 步收敛、renewal 仍未触发、reg 仍收缩, 只是幅度更轻
 4. **F/G 组形态混淆是跨数据集的生物学固有难题** — 方向 C 应优先针对此
-5. **新方向 H (采样效率) 价值最高** — box 第 1 步收敛是跨数据集的架构固有特性, 减少采样步数在两数据集上都有效
+5. **方向 D' (reg 校正) 价值最高** — reg 系统性收缩是跨数据集的架构固有特性, 两数据集都需要
+6. **方向 H (采样效率) 价值有限** — box 第 3 步收敛 (4步中), 减步空间仅 4→3, 且在收敛边界
 
 ## 七、产出文件索引
 
@@ -487,9 +490,9 @@ python experiments/analysis/instrumentation/run_instrumentation.py \
 
 1. **分类瓶颈在 cls_head**, 不在特征抽取 — 方向 C 应调整重心
 2. **Y 类坍塌普遍存在**, 是分类瓶颈的根因 — 方向 E 应优先
-3. **box 第 1 步收敛, 后 199 步浪费** — 新方向 H (采样效率) 机会
-4. **box_renewal 推理时未触发**, 训练时起正则作用 — 方向 D 需重新设计
-5. **reg 系统性收缩** (dw/dh ≈ -1.6) — 方向 D 应针对此偏移
+3. **box 第 3 步收敛 (4 步采样), cls 第 2 步收敛** — 步数对 box 是必要的, H 方案价值有限
+4. **box_renewal 推理时未触发**, 训练时提升 x0 步间稳定性 11 倍 — 方向 D 需重新设计
+5. **reg 系统性收缩** (dw/dh ≈ -1.6) — 方向 D' 应针对此偏移
 6. **direction_b 和 focal_gamma_3 通过"更谦虚"获得小幅提升**, 但未根本解决问题
 7. **白盒分析补充了黑盒分析的 5 个盲区**, 为方向 A-F 提供了更精准的指导
 
@@ -497,7 +500,35 @@ python experiments/analysis/instrumentation/run_instrumentation.py \
 
 8. **前 7 项发现中 6 项是架构固有的** (跨数据集一致) — 仅 Y 类坍塌幅度和数据集特异坍塌有数据依赖
 9. **mAP 差距 0.112 的根因是数据质量, 不是架构** — 同架构在 24obj 上达 0.857
-10. **架构缺陷被高数据质量"掩盖"** — 24obj 上 box 仍第 1 步收敛、renewal 仍未触发、reg 仍收缩
+10. **架构缺陷被高数据质量"掩盖"** — 24obj 上 box 仍第 3 步收敛、renewal 仍未触发、reg 仍收缩
 11. **F/G 组形态混淆是跨数据集的生物学固有难题** — 方向 C 应优先针对 F/G 组
-12. **新方向 H (采样效率) 价值最高** — box 第 1 步收敛跨数据集一致, 减少采样步数两数据集都受益
-13. **方向 D/E/H 的普适性已确认** — reg 收缩、Y 类坍塌、box 早收敛在两数据集上都存在
+12. **方向 D' (reg 校正) 价值最高** — reg 系统性收缩跨数据集一致, 两数据集都需要
+13. **方向 E/D' 的普适性已确认** — reg 收缩、Y 类坍塌在两数据集上都存在
+
+## 附录 A: Trajectory 分析 bug 修正说明
+
+### Bug 描述
+初版 `run_instrumentation.py` 的 `run_trajectory_analysis` 函数把所有验证图的采样步混入同一个 `TrajectoryCollector`:
+- 每图返回 trajectory (长度 = `sampling_timesteps` = 4)
+- 对每图的 4 步逐条 `collector.record()`, 50 图累积 200 条记录
+- `TrajectoryAnalyzer.n_steps = len(trajectory)` = 200, 误把"总记录数"当"采样步数"
+
+更严重的是 `analyze_box_evolution` 用 `self.trajectory[-1]` (第 50 张图第 4 步) 当 final, 遍历 200 条算 IoU — 前 196 条是其他图/其他步的框, IoU 计算无物理意义。
+
+### 修复方案
+改为每图独立 collector + analyzer, 再聚合统计量:
+- 每图单独 `TrajectoryAnalyzer.full_report()` (n_steps=4, 正确)
+- 跨图聚合: `convergence_step_mean`, `cls_converged_ratio`, `early_x0_quality_mean` 等
+
+### 受影响的结论 (已修订)
+| 原结论 (错误) | 修订后 (正确) |
+|--------------|--------------|
+| n_steps=200 | n_steps=4 |
+| box 第 1 步收敛 | box 第 3 步收敛 |
+| cls 跑完 200 步未收敛 | cls 第 2 步收敛, 90-95% 图收敛 |
+| early_x0_quality=0.003 (极差) | early_x0_quality=0.280 (尚可) |
+| x0_stability 降幅 49% | x0_stability 降幅 91% |
+| H 方案 200× 加速 | H 方案最多 1.33× 加速 |
+
+### 不受影响的结论
+基于 RoIFeature 和 HeadOutput 的发现 (1, 2, 5, 6, 7) 完全不受此 bug 影响, 仍然可靠。
