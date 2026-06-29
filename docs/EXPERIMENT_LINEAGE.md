@@ -2,7 +2,7 @@
 
 > 本文档梳理所有实验的递进关系,明确真正的 baseline,识别废弃/错误实验。
 > 每条实验记录附 **可靠数据源地址** (本地服务器路径 / ldmdet-experiment 归档 / SwanLab run_id)
-> 更新时间: 2026-06-29
+> 更新时间: 2026-06-29 (最近一次刷新: 方向 B epoch 27, 方向 D 已完成 early stop @ epoch 85)
 
 ## 〇、数据源说明
 
@@ -12,10 +12,11 @@
 |------|----------|------|
 | **本地服务器日志** | `work_dirs/<exp_dir>/<timestamp>/<timestamp>.log` + `vis_data/scalars.json` | 完整训练曲线 + 配置快照 |
 | **ldmdet-experiment 归档** | `ldmdet-experiment/sota/<category>/<exp_name>/` (含 README, config.py, metrics.json, code/, checkpoints/) | 已归档 SOTA 实验 (2026-06-13) |
-| **SwanLab 云端** | `https://swanlab.cn/@<user>/<project>/charts/run/<run_id>` (project ∈ {chromosome-kd, ldmdet-ablation}) | 在线可视化 + 跨实验对比 |
+| **SwanLab 云端** | `https://swanlab.cn/@einspanner/<project>/runs/<run_id>` (project ∈ {chromosome-kd, ldmdet-ablation}) | 在线可视化 + 跨实验对比 |
 
-> SwanLab 用户名为本机账号,登录态见 `/home/linkst/.swanlab/.netrc`。
+> SwanLab 用户名: `einspanner` (登录态见 `/home/linkst/.swanlab/.netrc`, api_key 已配置)。
 > 已知 project: `chromosome-kd` (早期 21 个), `ldmdet-ablation` (主线 32 个),共 53 个独立实验。
+> URL 拼接示例: `https://swanlab.cn/@einspanner/ldmdet-ablation/runs/<run_id>`
 
 ## 一、aug 策略统一基准 (关键修正)
 
@@ -138,12 +139,14 @@ DiffusionDet DDPM (根 baseline, 默认 aug)
 Direction 方向实验 A-F (基于 rf_heun_adaln, 默认 aug, 应与 0.746 对照)
        config: experiments/configs/ldmdet/direction_*.py
        │
-       ├─→ D (BoxRefineNet) = 0.747  [+0.001 vs 0.746, 持平]  ✓ 完成
+       ├─→ D (BoxRefineNet) = 0.747  [+0.001 vs 0.746, 持平]  ✓ 完成 (early stop @ epoch 85)
        │      本地: work_dirs/direction_exps/direction_d_box_refine/20260629_091843/
-       │      SwanLab: direction_d_box_refine_seed42 run_id=fnoz9x82aor1utsuo0jtl  mAP=0.7470
-       ├─→ B (DecoupledHead) = 运行中 (epoch 16, 当前 0.702)
+       │      SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/fnoz9x82aor1utsuo0jtl
+       │              run_id=fnoz9x82aor1utsuo0jtl  mAP=0.7470  (best @ epoch 55)
+       ├─→ B (DecoupledHead) = 运行中 (epoch 27, best 0.702 @ epoch 25)
        │      本地: work_dirs/direction_exps/direction_b_decoupled_head/20260629_152911/
-       │      SwanLab: direction_b_decoupled_head_seed42 run_id=2ckzmso4c94fojr8jobej  mAP=0.7020
+       │      SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/2ckzmso4c94fojr8jobej
+       │              run_id=2ckzmso4c94fojr8jobej  best mAP=0.7020
        ├─→ C (Morphology+Contrastive) = 排队
        ├─→ F (StructuredPrior+100 proposals) = 排队
        ├─→ A (P1+Deformable) = 排队
@@ -180,11 +183,11 @@ Direction 方向实验 A-F (基于 rf_heun_adaln, 默认 aug, 应与 0.746 对�
 
 | SwanLab Project | 实验数 | 范围 | 数据源 URL Pattern |
 |-----------------|--------|------|---------------------|
-| `chromosome-kd` | 21 | 早期: sota_seed*, ablation/* (无 aug), scheme_*, stability/* | `https://swanlab.cn/@<user>/chromosome-kd/charts/run/<run_id>` |
-| `ldmdet-ablation` | 32 | 主线: multi_seed_aug/*, bottleneck/*, direction_exps/*, 24obj/merged (旧) | `https://swanlab.cn/@<user>/ldmdet-ablation/charts/run/<run_id>` |
+| `chromosome-kd` | 21 | 早期: sota_seed*, ablation/* (无 aug), scheme_*, stability/* | `https://swanlab.cn/@einspanner/chromosome-kd/runs/<run_id>` |
+| `ldmdet-ablation` | 32 | 主线: multi_seed_aug/*, bottleneck/*, direction_exps/*, 24obj/merged (旧) | `https://swanlab.cn/@einspanner/ldmdet-ablation/runs/<run_id>` |
 
 > 用户登录态见 `/home/linkst/.swanlab/.netrc` (api_key 已配置)
-> 每个 experiment 的 run_id 见上文递进树
+> 每个 experiment 的 run_id 见上文递进树,替换 URL 中的 `<run_id>` 即可直接访问
 
 ## 六、废弃/错误实验清理方案
 
@@ -262,7 +265,7 @@ Direction 实验基于 `rf_heun_adaln.py` (默认 aug):
 
 | 方向 | mAP | Δ vs 0.746 | 价值 |
 |------|-----|-----------|------|
-| D (BoxRefineNet) | 0.747 | +0.001 | 🟠 持平 baseline,需更多 epoch 验证 |
-| B (运行中) | 0.702 (epoch 16) | - | 训练中 |
+| D (BoxRefineNet) | 0.747 | +0.001 | 🟠 持平 baseline,early stop @ epoch 85,best @ epoch 55 |
+| B (运行中) | 0.702 (best @ epoch 25,当前 epoch 27) | -0.044 | 🔴 显著低于 baseline,DecoupledHead 设计存疑 |
 
 > Direction 实验绝对值偏低是设计选择 (隔离变量),若要追求 SOTA,应将有效方向叠加到 SOTA config (含 OT) 上。
