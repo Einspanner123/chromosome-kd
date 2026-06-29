@@ -13,9 +13,33 @@ from mmdet.registry import HOOKS
 
 @HOOKS.register_module(force=True)
 class CopyProjectHook(Hook):
-    def __init__(self, src_path='ldmdet', dst_name='ldmdet_backup'):
-        self.src_path = src_path
-        self.dst_name = dst_name
+    """训练前备份项目代码 (ldmdet + experiments).
+
+    Args:
+        src_path: 源目录 (str) 或目录列表 (list[str]).
+                  默认 ['ldmdet', 'experiments'] — 覆盖核心代码与实验配置/桥接层.
+        dst_name: 备份子目录名 (单目录时使用) 或与 src_path 等长的列表.
+    """
+
+    def __init__(self, src_path=('ldmdet', 'experiments'),
+                 dst_name=('ldmdet_backup', 'experiments_backup')):
+        # 归一化为 (src, dst) 元组列表
+        if isinstance(src_path, str):
+            src_list = [src_path]
+            if isinstance(dst_name, str):
+                dst_list = [dst_name]
+            else:
+                dst_list = [src_path + '_backup']
+        else:
+            src_list = list(src_path)
+            if isinstance(dst_name, str):
+                dst_list = [dst_name] + [s + '_backup' for s in src_list[1:]]
+            else:
+                dst_list = list(dst_name)
+                # 长度不足时用 {src}_backup 补齐
+                while len(dst_list) < len(src_list):
+                    dst_list.append(src_list[len(dst_list)] + '_backup')
+        self.pairs = list(zip(src_list, dst_list))
 
     def before_run(self, runner):
         import datetime
@@ -23,17 +47,22 @@ class CopyProjectHook(Hook):
         timestamp = getattr(runner, 'timestamp', None)
         if timestamp is None:
             timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-        dst_path = os.path.join(runner.work_dir, timestamp, self.dst_name)
-        os.makedirs(os.path.dirname(dst_path), exist_ok=True)
-        abs_src = os.path.abspath(self.src_path)
-        runner.logger.info(f'Backing up ldmdet from {abs_src} to {dst_path}')
-        if os.path.exists(dst_path):
-            shutil.rmtree(dst_path)
-        try:
-            shutil.copytree(abs_src, dst_path, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
-            runner.logger.info('Backup complete.')
-        except Exception as e:
-            runner.logger.error(f'Backup failed: {e}')
+        for src, dst in self.pairs:
+            dst_path = os.path.join(runner.work_dir, timestamp, dst)
+            os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+            abs_src = os.path.abspath(src)
+            if not os.path.isdir(abs_src):
+                runner.logger.warning(f'Backup skip: {abs_src} not found')
+                continue
+            runner.logger.info(f'Backing up {src} from {abs_src} to {dst_path}')
+            if os.path.exists(dst_path):
+                shutil.rmtree(dst_path)
+            try:
+                shutil.copytree(abs_src, dst_path,
+                                ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+                runner.logger.info(f'Backup {src} complete.')
+            except Exception as e:
+                runner.logger.error(f'Backup {src} failed: {e}')
 
 
 # ──────────────────────────────────────────────
