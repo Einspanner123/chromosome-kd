@@ -90,17 +90,31 @@ class FeatureBridgeDiagnosticsHook(Hook):
             # 分类路由
             if key.startswith('gate_') and self.log_gate:
                 log_data[f'fbm/gate/{key}'] = float(value)
+            elif key.startswith('gamma_') and self.log_gate:
+                log_data[f'fbm/gate/{key}'] = float(value)
             elif key.startswith('ld_') and self.log_norms:
                 log_data[f'fbm/norms/{key}'] = float(value)
             elif key.startswith('cg_') and self.log_norms:
                 log_data[f'fbm/norms/{key}'] = float(value)
             elif key.startswith('fused_') and self.log_norms:
                 log_data[f'fbm/norms/{key}'] = float(value)
+            elif key.startswith('fused_minus_ld_') and self.log_norms:
+                log_data[f'fbm/contrib/{key}'] = float(value)
+            elif key.startswith('contrib_') and self.log_norms:
+                log_data[f'fbm/contrib/{key}'] = float(value)
+            elif key.startswith('attn_') and self.log_gate:
+                log_data[f'fbm/attn/{key}'] = float(value)
+            elif key.startswith('cos_sim_') and self.log_norms:
+                log_data[f'fbm/similarity/{key}'] = float(value)
             elif key.startswith('param_gate_') and self.log_gate:
+                log_data[f'fbm/param_gate/{key}'] = float(value)
+            elif key.startswith('param_gamma_') and self.log_gate:
                 log_data[f'fbm/param_gate/{key}'] = float(value)
             elif key.startswith('param_proj_') and self.log_proj:
                 log_data[f'fbm/param_proj/{key}'] = float(value)
             elif key.startswith('grad_gate_') and self.log_gate_grad:
+                log_data[f'fbm/grad_gate/{key}'] = float(value)
+            elif key.startswith('grad_gamma_') and self.log_gate_grad:
                 log_data[f'fbm/grad_gate/{key}'] = float(value)
             elif key.startswith('unet_') and self.log_unet_grad:
                 log_data[f'fbm/unet/{key}'] = float(value)

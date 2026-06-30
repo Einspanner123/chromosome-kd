@@ -24,6 +24,7 @@ E6.4 改进: Cross-Attention 融合
 
 import math
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -179,38 +180,106 @@ class CrossAttnFeatureBridgeModule(nn.Module):
         k = torch.cat([cg_d3_k, cg_mid_k], dim=1)  # B, 2*H3*W3, C
         v = torch.cat([cg_d3_v, cg_mid_v], dim=1)  # B, 2*H3*W3, C
 
-        # Cross-attention
-        attn_out, _ = self.attn_down3(q, k, v)  # B, H3*W3, C
+        # Cross-attention (保留 weights 用于 entropy 诊断)
+        attn_out, attn_weights = self.attn_down3(
+            q, k, v, need_weights=True
+        )  # attn_out: B, H3*W3, C; attn_weights: B, H3*W3, 2*H3*W3
         attn_out = attn_out.transpose(1, 2).reshape(B, C, H3, W3)
         attn_out = self.attn_norm(attn_out)
 
         # Gamma-controlled residual (zero-init gamma → 初始不改变 baseline)
-        fused[3] = ld_feats[3] + self.gamma_down3 * attn_out
+        gamma_val = self.gamma_down3
+        fused[3] = ld_feats[3] + gamma_val * attn_out
 
         # Level 3 也加一个简单 gate 作为补充 (标量 zero-init, 让 down3 有直接路径)
         cg_d3_simple = self.proj_down3_simple(cg_feats['down3'])
         cg_d3_simple = F.interpolate(
             cg_d3_simple, size=(H3, W3), mode='bilinear', align_corners=False
         )
-        fused[3] = fused[3] + self.gate_down3 * cg_d3_simple
+        gate3_val = self.gate_down3
+        fused[3] = fused[3] + gate3_val * cg_d3_simple
 
         # ============================================================
-        # 诊断统计
+        # 诊断统计 — 全面对照设计预期
         # ============================================================
         with torch.no_grad():
+            # --- 1. Gate/Gamma 值 (设计预期: 从 0 增长) ---
             stats['gate_L1'] = self.gate_down1.item()
             stats['gate_L2'] = self.gate_down2.item()
-            stats['gate_L3'] = self.gate_down3.item()
-            stats['gamma_L3'] = self.gamma_down3.item()
+            stats['gate_L3'] = gate3_val.item()
+            stats['gamma_L3'] = gamma_val.item()
+
+            # --- 2. 特征范数 (谁在主导) ---
             stats['ld_L1_norm'] = ld_feats[1].norm().item() / B
             stats['ld_L2_norm'] = ld_feats[2].norm().item() / B
             stats['ld_L3_norm'] = ld_feats[3].norm().item() / B
             stats['cg_L1_norm'] = cg_d1.norm().item() / B
             stats['cg_L2_norm'] = cg_d2.norm().item() / B
+            stats['cg_L3_simple_norm'] = cg_d3_simple.norm().item() / B
             stats['attn_out_norm'] = attn_out.norm().item() / B
             stats['fused_L1_norm'] = fused[1].norm().item() / B
             stats['fused_L2_norm'] = fused[2].norm().item() / B
             stats['fused_L3_norm'] = fused[3].norm().item() / B
+
+            # --- 3. 贡献比例 (CG 实际影响 vs LD 基准) ---
+            # cross-attn 贡献 = |gamma| * ||attn_out|| / ||ld_L3||
+            ld3_norm = ld_feats[3].norm().item() / B + 1e-8
+            stats['contrib_attn_ratio'] = (
+                abs(gamma_val.item()) * attn_out.norm().item() / B
+            ) / ld3_norm
+            # gate 贡献 = |gate| * ||cg_proj|| / ||ld||
+            stats['contrib_gate_L1_ratio'] = (
+                abs(self.gate_down1.item()) * cg_d1.norm().item() / B
+            ) / (ld_feats[1].norm().item() / B + 1e-8)
+            stats['contrib_gate_L2_ratio'] = (
+                abs(self.gate_down2.item()) * cg_d2.norm().item() / B
+            ) / (ld_feats[2].norm().item() / B + 1e-8)
+            stats['contrib_gate_L3_ratio'] = (
+                abs(gate3_val.item()) * cg_d3_simple.norm().item() / B
+            ) / ld3_norm
+
+            # --- 4. Attention entropy (选择性融合的核心验证) ---
+            # entropy 越低 → attention 越集中 (高选择性)
+            # entropy 越高 → attention 越均匀 (无选择性)
+            # uniform entropy = log(2*H3*W3) = log(1152) ≈ 7.05
+            if attn_weights is not None:
+                # attn_weights: B, L_q, L_kv
+                attn_eps = attn_weights.clamp(min=1e-8)
+                entropy = -(attn_eps * attn_eps.log()).sum(dim=-1)  # B, L_q
+                stats['attn_entropy_mean'] = entropy.mean().item()
+                stats['attn_entropy_std'] = entropy.std().item()
+                stats['attn_entropy_uniform'] = float(np.log(attn_weights.shape[-1]))
+                # 归一化 entropy: [0, 1], 1=完全均匀, 0=完全集中
+                stats['attn_entropy_normalized'] = (
+                    stats['attn_entropy_mean'] / stats['attn_entropy_uniform']
+                )
+                # attention max weight (峰值集中度)
+                stats['attn_max_weight_mean'] = attn_weights.max(dim=-1)[0].mean().item()
+
+            # --- 5. CG-LD 特征相似度 (信息增益验证) ---
+            # cosine similarity: 若高度相似 → CG 无新信息
+            # 若接近 0 → CG 提供正交信息 (理想)
+            # 若为负 → CG 特征与 LD 对立 (可能有害)
+            for level_name, ld_f, cg_f in [
+                ('L1', ld_feats[1], cg_d1),
+                ('L2', ld_feats[2], cg_d2),
+                ('L3', ld_feats[3], cg_d3_simple),
+            ]:
+                ld_flat = ld_f.flatten(2)  # B, C, HW
+                cg_flat = cg_f.flatten(2)  # B, C, HW
+                cos_sim = F.cosine_similarity(ld_flat, cg_flat, dim=1)  # B, HW
+                stats[f'cos_sim_{level_name}_mean'] = cos_sim.mean().item()
+                stats[f'cos_sim_{level_name}_std'] = cos_sim.std().item()
+
+            # --- 6. Fused-LD 差异 (CG 实际改变程度) ---
+            for level_name, ld_f, fused_f in [
+                ('L1', ld_feats[1], fused[1]),
+                ('L2', ld_feats[2], fused[2]),
+                ('L3', ld_feats[3], fused[3]),
+            ]:
+                diff = (fused_f - ld_f).norm().item() / B
+                ld_n = ld_f.norm().item() / B + 1e-8
+                stats[f'fused_minus_ld_{level_name}_ratio'] = diff / ld_n
 
         self._last_stats = stats
 
