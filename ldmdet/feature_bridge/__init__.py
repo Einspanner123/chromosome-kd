@@ -12,3 +12,6 @@ from ldmdet.feature_bridge.chromogen_vae import ChromoGenVAE  # noqa: F401
 from ldmdet.feature_bridge.feature_bridge_module import (  # noqa: F401
     FeatureBridgeModule,
 )
+from ldmdet.feature_bridge.cross_attn_bridge import (  # noqa: F401
+    CrossAttnFeatureBridgeModule,
+)
