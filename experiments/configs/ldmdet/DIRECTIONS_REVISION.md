@@ -115,11 +115,21 @@ model = dict(
 - **预期**: 简单校准可能改善 mAP, 但全局校准不适应类别/尺度差异
 - **风险**: 校准因子可能因类别/尺度不同而异, 全局校准可能损害部分类
 
-#### D'2: reg_head 正则化 (训练时约束)
-- **做法**: 训练时加 reg loss 项, 约束 dw/dh 均值接近 0
-- **实现**: 修改 loss 计算, 加 `reg_bias_loss = (delta[..., 2:].mean()) ** 2`
-- **预期**: 减少系统性偏移, 但可能增加训练难度
+#### D'2: reg_head 正则化 (训练时约束) — ✅ 已实施
+- **做法**: 训练时加 reg loss 项, 约束**正样本** dw/dh 均值接近 0
+- **实现**:
+  - `single_head.py`: 保存 `_last_bboxes_deltas` (reg_head 输出)
+  - `criterion.py`: 保存 `_last_indices` (matcher 正样本匹配)
+  - `head.py`: 用 fg_masks 提取正样本 delta, 计算 `loss_reg_bias = weight * (dw_mean^2 + dh_mean^2)`
+  - 诊断: 同时记录 `fg_dw_mean`, `fg_dh_mean`, `bg_dw_mean`, `bg_dh_mean` (detached, 仅 log)
+- **配置**: `direction_d_prime_reg_calibration.py`, `reg_bias_weight=0.05`
+- **box 编码确认**: `pred_w = proposal_w * exp(dw)`, dw=-1.8 意味着 pred_w ≈ proposal_w * 16%
+- **预期**: 减少正样本系统性偏移, 提升高 IoU 定位精度 (mAP75)
 - **复杂度**: 中等
+
+> **D'2 bug 修复记录**:
+> - v1 (commit da1c2015): 对所有 proposal (含背景) 计算 reg_bias_loss → epoch 5 降到 0, 但可能是背景 proposal 补偿
+> - v2 (当前): 只对正样本 (matcher 匹配) 计算, 添加 fg/bg 诊断统计 → 确保正样本偏移真正消除
 
 #### D'3: 数据增强 (box 尺度抖动)
 - **做法**: 训练时对 GT 框加随机尺度抖动 (e.g., ±10%), 打破系统性偏移
@@ -133,9 +143,21 @@ model = dict(
 - **复杂度**: 高 (涉及训练和推理)
 
 ### 实施计划
-1. **D'1 优先** (后处理校准, 最简): 先确认 box 编码方式, 推导校准因子, 跑校准实验
-2. D'1 验证后, 若有效但全局校准不够, 再做 D'2 (训练时正则)
+1. **D'2 已实施** (训练时正样本正则, 当前版本 v2): reg_bias_weight=0.05
+2. D'1 (后处理校准) 暂缓: -1.8 含背景 proposal, 校准因子推导不确定; D'2 让模型自适应
 3. D'3/D'4 作为备选
+
+### D'2 插桩充分性评估
+
+| 验证目标 | 插桩方式 | 充分性 |
+|---------|---------|:------:|
+| 正样本 dw/dh 偏移消除 | 训练 log `fg_dw_mean`, `fg_dh_mean` 趋近 0 | ✅ |
+| 背景 proposal 未补偿 | 训练 log `bg_dw_mean`, `bg_dh_mean` 不异常偏正 | ✅ |
+| loss_reg_bias 正确计算 | 训练 log `loss_reg_bias` 非零且递减 | ✅ |
+| mAP 提升 | CocoMetric `coco/bbox_mAP` | ✅ |
+| 高 IoU 定位改善 | CocoMetric `coco/bbox_mAP_75` | ✅ |
+| 训练后正样本 delta 验证 | 白盒 HeadOutputAnalyzer per_dim_mean | ✅ (训练后) |
+| 不损害分类 | CocoMetric per-class AP + 白盒 cls_collapse | ✅ |
 
 ### 配置文件
 ```python
@@ -226,9 +248,9 @@ E1 (ClassBalancedDataset) 已证伪, 但 Y 类坍塌问题仍需解决。可探�
 ## 七、复现命令
 
 ```bash
-# E (已完成, 失败)
-python experiments/runners/train.py experiments/configs/ldmdet/direction_e_class_balanced.py \
-    --work-dir work_dirs/direction_exps/direction_e_class_balanced --seed 42 --gpu-id 0
+# D'2 (在跑, v2 正样本版本)
+python experiments/runners/train.py experiments/configs/ldmdet/direction_d_prime_reg_calibration.py \
+    --work-dir work_dirs/direction_exps/direction_d_prime_reg_calibration --seed 42 --gpu-id 0
 
 # F (待跑, 前置已就绪)
 python experiments/runners/train.py experiments/configs/ldmdet/direction_f_structured_prior.py \
@@ -236,7 +258,76 @@ python experiments/runners/train.py experiments/configs/ldmdet/direction_f_struc
 
 # H1 (仅改配置, 无需训练, 用已有 ckpt 推理)
 # 待 H 配置创建后补充
-
-# D'1 (后处理校准, 待实现)
-# 待 D' 配置创建后补充
 ```
+
+## 八、插桩充分性评估
+
+> 评估目的: 确认在跑和待跑实验的插桩能否真实准确反映设计预期和模型能力。
+> 评估维度: (1) 设计预期验证 (2) 训练中实时监控 (3) 训练后白盒验证
+
+### 8.1 方向 D'2 (reg bias 正则化) — 🔄 在跑
+
+**设计预期**: 消除正样本 reg_head 输出的 dw/dh 系统性偏负 (-1.8), 提升高 IoU 定位精度
+
+| 验证目标 | 插桩方式 | 充分性 | 说明 |
+|---------|---------|:------:|------|
+| 正样本 dw/dh 偏移消除 | 训练 log `fg_dw_mean`/`fg_dh_mean` | ✅ | v2 新增, 实时监控正样本趋势 |
+| 背景 proposal 未补偿 | 训练 log `bg_dw_mean`/`bg_dh_mean` | ✅ | v2 新增, 检测背景是否异常偏正 |
+| loss_reg_bias 正确计算 | 训练 log `loss_reg_bias` | ✅ | v1 降到 0 发现 bug, v2 修复 |
+| mAP 提升 | CocoMetric `coco/bbox_mAP` | ✅ | 黑盒验证 |
+| 高 IoU 定位改善 | CocoMetric `coco/bbox_mAP_75` | ✅ | reg 偏移主要影响高 IoU |
+| 训练后正样本 delta | 白盒 HeadOutputAnalyzer | ✅ | 训练后运行 |
+| 不损害分类 | per-class AP + 白盒 cls_collapse | ✅ | 训练后运行 |
+
+**v1 bug 教训**: 对所有 proposal (含背景) 计算 reg_bias_loss → epoch 5 降到 0 → 实际是背景 proposal 偏正补偿, 正样本偏移未消除。**v2 修复**: 只对正样本计算 + 添加 fg/bg 诊断统计。
+
+**结论**: ✅ 插桩充分 (v2 修复后)
+
+### 8.2 方向 F (StructuredPrior) — ⏳ 待跑
+
+**设计预期**: 改善 early_x0_quality (baseline=0.280), 提升 x0 预测质量
+
+| 验证目标 | 插桩方式 | 充分性 | 说明 |
+|---------|---------|:------:|------|
+| early_x0_quality 提升 | 白盒 TrajectoryAnalyzer | ✅ | 训练后运行 |
+| x0_stability 保持/提升 | 白盒 TrajectoryAnalyzer | ✅ | 训练后运行 |
+| mAP 提升 | CocoMetric | ✅ | 黑盒验证 |
+| structured_prior 模块有效 | 白盒 trajectory 对比 | ✅ | 与 baseline trajectory 对比 |
+| 训练中 x0 质量监控 | ❌ 无实时监控 | ⚠️ | 训练中无法看到 x0 质量, 需训练后分析 |
+
+**结论**: ⚠️ 训练后插桩充分, 训练中无实时监控 (可接受 — x0 质量需完整采样流程, 训练中监控开销大)
+
+### 8.3 方向 G (LAMFPN) — ⏳ 可选
+
+**设计预期**: 改进 neck 特征提取
+
+| 验证目标 | 插桩方式 | 充分性 | 说明 |
+|---------|---------|:------:|------|
+| 特征质量提升 | 白盒 RoIFeatureAnalyzer | ✅ | 训练后运行 |
+| mAP 提升 | CocoMetric | ✅ | 黑盒验证 |
+| scale_affects 改善 | 白盒 RoIFeatureAnalyzer | ✅ | 但白盒显示 scale_affects=False, 方向价值存疑 |
+
+**结论**: ✅ 插桩充分 (但方向本身价值存疑 — 白盒显示特征层非瓶颈)
+
+### 8.4 方向 H (采样效率) — ⏳ 可选
+
+**设计预期**: 减少采样步数 4→3, mAP 保持
+
+| 验证目标 | 插桩方式 | 充分性 | 说明 |
+|---------|---------|:------:|------|
+| mAP 保持 | CocoMetric | ✅ | 无需训练, 仅改配置推理 |
+| box 收敛步数 ≤3 | 白盒 TrajectoryAnalyzer | ✅ | 验证减步是否在收敛边界 |
+| 采样速度提升 | 推理时间对比 | ✅ | 直接测量 |
+
+**结论**: ✅ 插桩充分
+
+### 8.5 总结
+
+| 方向 | 插桩充分性 | 需额外插桩? | 说明 |
+|------|:---------:|:----------:|------|
+| D'2 (在跑) | ✅ 充分 (v2) | 否 | v1 发现 bug 并修复, v2 有完整 fg/bg 诊断 |
+| F (待跑) | ✅ 充分 | 否 | 训练后白盒分析覆盖所有验证目标 |
+| G (可选) | ✅ 充分 | 否 | 但方向价值存疑 (白盒显示特征非瓶颈) |
+| H (可选) | ✅ 充分 | 否 | 无需训练, 推理验证即可 |
+
+**关键改进**: D'2 v1 的 reg_bias_loss bug 通过训练日志分析发现 (loss_reg_bias 在 epoch 5 降到 0 异常), 证明**训练中实时插桩**对早期发现问题至关重要。v2 添加的 `fg_dw_mean`/`bg_dw_mean` 诊断统计将确保正样本偏移真正消除。

@@ -249,16 +249,35 @@ class DiffusionDetHead(nn.Module):
         # t 是 [bs] 的扩散时间, 用于 SNR 感知匹配和损失加权
         losses = self.criterion(outputs, targets, t=t)
 
-        # 方向 D': reg bias 正则化 (约束 dw/dh 均值接近 0, 消除系统性尺度收缩)
+        # 方向 D': reg bias 正则化 (约束正样本 dw/dh 均值接近 0, 消除系统性尺度收缩)
+        # 关键: 只对正样本 (matcher 匹配的 proposal) 计算, 避免背景 proposal 补偿
         if self.reg_bias_weight > 0:
-            # 从最后一层 single_head 读取 reg_head 输出
             last_head = self.head_series[-1]
-            if hasattr(last_head, '_last_bboxes_deltas'):
+            if hasattr(last_head, '_last_bboxes_deltas') and hasattr(self.criterion, '_last_indices'):
                 bboxes_deltas = last_head._last_bboxes_deltas  # [bs*N, 4]
-                # 对 dw (索引 2), dh (索引 3) 的均值加 L2 正则
-                dw_mean = bboxes_deltas[:, 2].mean()
-                dh_mean = bboxes_deltas[:, 3].mean()
-                losses['loss_reg_bias'] = self.reg_bias_weight * (dw_mean ** 2 + dh_mean ** 2)
+                bs_n = bboxes_deltas.shape[0]
+                N = curr_bboxes.shape[1]
+                bs = bs_n // N
+                bboxes_deltas = bboxes_deltas.view(bs, N, 4)
+
+                # 从 criterion 获取正样本 indices, 构建 fg_masks
+                indices = self.criterion._last_indices
+                fg_masks = torch.zeros(bs, N, dtype=torch.bool, device=bboxes_deltas.device)
+                for i, (proposal_inds, _) in enumerate(indices):
+                    fg_masks[i, proposal_inds] = True
+
+                fg_deltas = bboxes_deltas[fg_masks]  # [num_pos, 4]
+                if fg_deltas.shape[0] > 0:
+                    dw_mean = fg_deltas[:, 2].mean()
+                    dh_mean = fg_deltas[:, 3].mean()
+                    losses['loss_reg_bias'] = self.reg_bias_weight * (dw_mean ** 2 + dh_mean ** 2)
+                    # 诊断: 正/负样本 dw/dh 均值 (detached, 不参与反向传播, 仅 log)
+                    bg_deltas = bboxes_deltas[~fg_masks]
+                    losses['fg_dw_mean'] = dw_mean.detach()
+                    losses['fg_dh_mean'] = dh_mean.detach()
+                    if bg_deltas.shape[0] > 0:
+                        losses['bg_dw_mean'] = bg_deltas[:, 2].mean().detach()
+                        losses['bg_dh_mean'] = bg_deltas[:, 3].mean().detach()
 
         # 方向二 路径 C: 计数分支训练 (开关控制, 默认不启用)
         if self.counting_branch is not None:

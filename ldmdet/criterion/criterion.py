@@ -92,6 +92,8 @@ class DiffusionDetCriterion(nn.Module):
                 aux_losses = self._get_loss(aux_out, targets, aux_indices, t)
                 for name, val in aux_losses.items():
                     losses[f'aux_{i}_{name}'] = val
+        # 方向 D': 保存主输出的 indices 供外部读取 (用于正样本 reg_bias_loss)
+        self._last_indices = indices
         return losses
 
     def _get_loss(
