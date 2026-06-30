@@ -254,6 +254,8 @@ class SingleDiffusionDetHead(nn.Module):
 
     def _predict_bboxes(self, fc_feature, bboxes):
         bboxes_deltas = self.reg_head(fc_feature)
+        # D': 保存 reg_head 输出供外部读取 (用于 reg bias 正则化)
+        self._last_bboxes_deltas = bboxes_deltas
         pred_bboxes = self.apply_deltas(bboxes_deltas, bboxes.view(-1, 4))
         return pred_bboxes
 

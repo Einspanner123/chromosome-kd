@@ -76,6 +76,9 @@ class DiffusionDetHead(nn.Module):
         loss_hier_weight: float = 1.0,
         # 方向 F1: 结构化噪声先验 (默认 None, 不影响 baseline)
         structured_prior: Optional[nn.Module] = None,
+        # 方向 D': reg bias 正则化权重 (默认 0, 不影响 baseline)
+        # 约束 reg_head 输出的 dw/dh 均值接近 0, 消除系统性尺度收缩偏移
+        reg_bias_weight: float = 0.0,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -126,6 +129,9 @@ class DiffusionDetHead(nn.Module):
         # 方向五: 分层分类头 (可选, 默认 None, 不影响 baseline)
         self.hierarchical_head = hierarchical_head
         self.loss_hier_weight = loss_hier_weight
+
+        # 方向 D': reg bias 正则化 (默认 0, 不影响 baseline)
+        self.reg_bias_weight = reg_bias_weight
 
         # 方向 F1: 结构化噪声先验 (可选, 默认 None, 不影响 baseline)
         self.structured_prior = structured_prior
@@ -242,6 +248,17 @@ class DiffusionDetHead(nn.Module):
         # 方向三: 传 t 给 criterion (若 criterion 不支持 t 则被忽略, 向后兼容)
         # t 是 [bs] 的扩散时间, 用于 SNR 感知匹配和损失加权
         losses = self.criterion(outputs, targets, t=t)
+
+        # 方向 D': reg bias 正则化 (约束 dw/dh 均值接近 0, 消除系统性尺度收缩)
+        if self.reg_bias_weight > 0:
+            # 从最后一层 single_head 读取 reg_head 输出
+            last_head = self.head_series[-1]
+            if hasattr(last_head, '_last_bboxes_deltas'):
+                bboxes_deltas = last_head._last_bboxes_deltas  # [bs*N, 4]
+                # 对 dw (索引 2), dh (索引 3) 的均值加 L2 正则
+                dw_mean = bboxes_deltas[:, 2].mean()
+                dh_mean = bboxes_deltas[:, 3].mean()
+                losses['loss_reg_bias'] = self.reg_bias_weight * (dw_mean ** 2 + dh_mean ** 2)
 
         # 方向二 路径 C: 计数分支训练 (开关控制, 默认不启用)
         if self.counting_branch is not None:
