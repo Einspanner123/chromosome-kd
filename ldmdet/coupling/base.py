@@ -56,9 +56,7 @@ def build_coupling(name: str, **kwargs) -> CouplingStrategy:
 
     Examples:
         >>> build_coupling('random')
-        >>> build_coupling('hard_ot')
-        >>> build_coupling('sinkhorn_stochastic', epsilon=5.0, num_iters=20)
-        >>> build_coupling('ghss', epsilon=5.0)
+        >>> build_coupling('ot_flow', epsilon=1.0, num_iters=10)
     """
     if name not in _COUPLING_REGISTRY:
         # 触发延迟导入
@@ -75,11 +73,6 @@ def _import_all_strategies():
     """延迟导入所有耦合策略，填充注册表"""
     try:
         from ldmdet.coupling.random import RandomCoupling  # noqa: F401
-        from ldmdet.coupling.hard_ot import HardOTCoupling  # noqa: F401
-        from ldmdet.coupling.sinkhorn_argmax import SinkhornArgmaxCoupling  # noqa: F401
-        from ldmdet.coupling.sinkhorn_stochastic import SinkhornStochasticCoupling  # noqa: F401
-        from ldmdet.coupling.ghss import GHSSCoupling  # noqa: F401
-        from ldmdet.coupling.unbalanced_ghss import UnbalancedGHSSCoupling  # noqa: F401
         from ldmdet.coupling.ot_flow_coupling import OTFlowCoupling  # noqa: F401
     except ImportError:
         pass

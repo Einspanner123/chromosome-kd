@@ -1,11 +1,11 @@
-"""集成测试: 5 个突破方向的端到端训练流程验证
+"""集成测试: 方向四 (非线性轨迹) 端到端训练流程验证
 
 测试层级 (从底到顶):
-1. 配置解析: Config.fromfile 能正确解析 5 个方向的配置文件
-2. 模型构建: 从配置构建完整 LDMDet 模型 (backbone + neck + bbox_head + 方向组件)
-3. 损失前向: 用 dummy 数据跑 loss forward, 验证方向组件的损失项正确出现
-4. 梯度回传: loss.backward() 不报错, 验证方向组件参数有梯度
-5. 推理前向: model.predict() 不报错, 验证方向组件的推理逻辑
+1. 配置解析: Config.fromfile 能正确解析方向四的配置文件
+2. 模型构建: 从配置构建完整 LDMDet 模型 (backbone + neck + bbox_head + 方向四组件)
+3. 损失前向: 用 dummy 数据跑 loss forward, 验证损失项正确出现
+4. 梯度回传: loss.backward() 不报错, 验证参数有梯度
+5. 推理前向: model.predict() 不报错, 验证推理逻辑
 6. 1-iter 训练循环: optimizer.step() 后参数更新, 验证完整训练流程
 
 每个测试用最小 dummy 数据 (bs=2, 256x256, 5 GT/图), CPU 运行, 不依赖 GPU/数据集.
@@ -24,7 +24,7 @@ if _PROJECT_ROOT not in sys.path:
 
 # 注册所有模块 (和 tools/train.py 一致)
 import mmdet.models  # noqa: F401, E402
-from mmengine.registry import init_default_scope  # noqa: E402
+from mmengine.registry import init_default_scope  # noqa: F402
 
 init_default_scope('mmdet')
 
@@ -32,10 +32,10 @@ import experiments.mmdet_bridge.registry  # noqa: F401, E402
 import experiments.mmdet_bridge.detector  # noqa: F401, E402
 import experiments.mmdet_bridge.hooks  # noqa: F401, E402
 
-from mmengine.config import Config  # noqa: E402
-from mmengine.registry import MODELS  # noqa: E402
-from mmengine.structures import InstanceData  # noqa: E402
-from mmdet.structures import DetDataSample  # noqa: E402
+from mmengine.config import Config  # noqa: F402
+from mmengine.registry import MODELS  # noqa: F402
+from mmengine.structures import InstanceData  # noqa: F402
+from mmdet.structures import DetDataSample  # noqa: F402
 
 
 # ================================================================
@@ -44,12 +44,14 @@ from mmdet.structures import DetDataSample  # noqa: E402
 
 CONFIG_DIR = os.path.join(_PROJECT_ROOT, 'experiments', 'configs', 'ldmdet')
 
+# 方向四: 非线性轨迹主配置 + 消融配置
 DIRECTION_CONFIGS = [
-    ('direction_1_unbalanced_ot', 'unbalanced_ghss.py'),
-    ('direction_2_count_prior', 'count_prior.py'),
-    ('direction_3_snr_matching', 'snr_matching.py'),
     ('direction_4_nonlinear_trajectory', 'nonlinear_trajectory.py'),
-    ('direction_5_hierarchical', 'hierarchical_classification.py'),
+    ('e41_scale_only', 'nonlinear_trajectory_e41.py'),
+    ('e42_ot_only', 'nonlinear_trajectory_e42.py'),
+    ('e43_eps2', 'nonlinear_trajectory_e43_eps2.py'),
+    ('e43_eps3', 'nonlinear_trajectory_e43_eps3.py'),
+    ('e43_multinomial', 'nonlinear_trajectory_e43_multinomial.py'),
 ]
 
 # dummy 数据参数
@@ -124,7 +126,7 @@ def _collect_grad_params(model):
 
 
 class TestConfigParsing:
-    """测试 5 个方向的配置文件能被正确解析"""
+    """测试方向四的配置文件能被正确解析"""
 
     @pytest.mark.parametrize('name,filename', DIRECTION_CONFIGS)
     def test_config_parse(self, name, filename):
@@ -219,59 +221,7 @@ class TestLossForward:
 
 
 # ================================================================
-# 4. 方向特定损失项测试
-# ================================================================
-
-
-class TestDirectionSpecificLosses:
-    """测试各方向的特定损失项正确出现"""
-
-    def test_direction_2_has_count_loss(self):
-        """方向二: 应包含 loss_count"""
-        model, _ = _build_model('count_prior.py')
-        model.train()
-        batch_inputs, batch_data_samples = _make_dummy_batch()
-        losses = model.loss(batch_inputs, batch_data_samples)
-        assert 'loss_count' in losses, '方向二应包含 loss_count'
-
-    def test_direction_5_has_hier_loss(self):
-        """方向五: 应包含 loss_hier"""
-        model, _ = _build_model('hierarchical_classification.py')
-        model.train()
-        batch_inputs, batch_data_samples = _make_dummy_batch()
-        losses = model.loss(batch_inputs, batch_data_samples)
-        assert 'loss_hier' in losses, '方向五应包含 loss_hier'
-
-    def test_direction_1_no_extra_loss(self):
-        """方向一: 不应包含方向二/五的损失项 (只有主损失)"""
-        model, _ = _build_model('unbalanced_ghss.py')
-        model.train()
-        batch_inputs, batch_data_samples = _make_dummy_batch()
-        losses = model.loss(batch_inputs, batch_data_samples)
-        assert 'loss_count' not in losses
-        assert 'loss_hier' not in losses
-
-    def test_direction_3_no_extra_loss(self):
-        """方向三: 不应包含方向二/五的损失项"""
-        model, _ = _build_model('snr_matching.py')
-        model.train()
-        batch_inputs, batch_data_samples = _make_dummy_batch()
-        losses = model.loss(batch_inputs, batch_data_samples)
-        assert 'loss_count' not in losses
-        assert 'loss_hier' not in losses
-
-    def test_direction_4_no_extra_loss(self):
-        """方向四: 不应包含方向二/五的损失项"""
-        model, _ = _build_model('nonlinear_trajectory.py')
-        model.train()
-        batch_inputs, batch_data_samples = _make_dummy_batch()
-        losses = model.loss(batch_inputs, batch_data_samples)
-        assert 'loss_count' not in losses
-        assert 'loss_hier' not in losses
-
-
-# ================================================================
-# 5. 梯度回传测试
+# 4. 梯度回传测试
 # ================================================================
 
 
@@ -302,40 +252,9 @@ class TestGradientBackward:
                        if p.grad is not None and p.grad.abs().sum() > 0)
         assert has_grad > 0
 
-    def test_direction_2_count_branch_has_grad(self):
-        """方向二: counting_branch 参数应有梯度"""
-        model, _ = _build_model('count_prior.py')
-        model.train()
-        batch_inputs, batch_data_samples = _make_dummy_batch()
-        losses = model.loss(batch_inputs, batch_data_samples)
-        total_loss = sum(v for v in losses.values() if isinstance(v, torch.Tensor))
-        total_loss.backward()
-        # 检查 counting_branch 参数有梯度
-        count_params = [p for n, p in model.named_parameters()
-                        if 'counting_branch' in n]
-        assert len(count_params) > 0, 'counting_branch 应有参数'
-        has_grad = sum(1 for p in count_params
-                       if p.grad is not None and p.grad.abs().sum() > 0)
-        assert has_grad > 0, 'counting_branch 参数应有梯度'
-
-    def test_direction_5_hier_head_has_grad(self):
-        """方向五: hierarchical_head 参数应有梯度"""
-        model, _ = _build_model('hierarchical_classification.py')
-        model.train()
-        batch_inputs, batch_data_samples = _make_dummy_batch()
-        losses = model.loss(batch_inputs, batch_data_samples)
-        total_loss = sum(v for v in losses.values() if isinstance(v, torch.Tensor))
-        total_loss.backward()
-        hier_params = [p for n, p in model.named_parameters()
-                       if 'hierarchical_head' in n]
-        assert len(hier_params) > 0, 'hierarchical_head 应有参数'
-        has_grad = sum(1 for p in hier_params
-                       if p.grad is not None and p.grad.abs().sum() > 0)
-        assert has_grad > 0, 'hierarchical_head 参数应有梯度'
-
 
 # ================================================================
-# 6. 推理前向测试
+# 5. 推理前向测试
 # ================================================================
 
 
@@ -372,7 +291,7 @@ class TestPredictForward:
 
 
 # ================================================================
-# 7. 1-iter 训练循环测试
+# 6. 1-iter 训练循环测试
 # ================================================================
 
 
@@ -435,7 +354,7 @@ class TestOneIterTraining:
 
 
 # ================================================================
-# 8. 边界情况测试
+# 7. 边界情况测试
 # ================================================================
 
 
@@ -486,87 +405,3 @@ class TestEdgeCases:
             batch_data_samples.append(ds)
         losses = model.loss(batch_inputs, batch_data_samples)
         assert isinstance(losses, dict)
-
-
-# ================================================================
-# 消融/调参配置测试
-# ================================================================
-
-# 所有消融配置: 方向四 (E4.1/E4.2/E4.3-tune) + 方向五 (E5.1-tune)
-ABLATION_CONFIGS = [
-    ('e41_scale_only', 'nonlinear_trajectory_e41.py'),
-    ('e42_ot_only', 'nonlinear_trajectory_e42.py'),
-    ('e43_eps2', 'nonlinear_trajectory_e43_eps2.py'),
-    ('e43_eps3', 'nonlinear_trajectory_e43_eps3.py'),
-    ('e43_multinomial', 'nonlinear_trajectory_e43_multinomial.py'),
-    ('e51_w03', 'hierarchical_classification_w03.py'),
-]
-
-
-class TestAblationConfigParsing:
-    """消融配置: 配置解析"""
-
-    @pytest.mark.parametrize('name,filename', ABLATION_CONFIGS)
-    def test_config_parse(self, name, filename):
-        cfg = Config.fromfile(_config_path(filename))
-        assert hasattr(cfg, 'model')
-
-    @pytest.mark.parametrize('name,filename', ABLATION_CONFIGS)
-    def test_config_inherits_base(self, name, filename):
-        """消融配置应继承主配置的关键字段"""
-        cfg = Config.fromfile(_config_path(filename))
-        assert cfg.model.type == 'LDMDet'
-        # 方向四配置有 coupling, 方向五配置有 hierarchical_head
-        bbox_head = cfg.model.bbox_head
-        assert hasattr(bbox_head, 'single_head')
-
-
-class TestAblationModelBuilding:
-    """消融配置: 模型构建"""
-
-    @pytest.mark.parametrize('name,filename', ABLATION_CONFIGS)
-    def test_build_model(self, name, filename):
-        model, _ = _build_model(filename)
-        assert model is not None
-
-    @pytest.mark.parametrize('name,filename', ABLATION_CONFIGS)
-    def test_model_params_require_grad(self, name, filename):
-        model, _ = _build_model(filename)
-        trainable = [p for p in model.parameters() if p.requires_grad]
-        assert len(trainable) > 0
-
-
-class TestAblationLossForward:
-    """消融配置: 损失前向 + 梯度回传"""
-
-    @pytest.mark.parametrize('name,filename', ABLATION_CONFIGS)
-    def test_loss_forward(self, name, filename):
-        model, _ = _build_model(filename)
-        model.train()
-        batch_inputs, batch_data_samples = _make_dummy_batch()
-        losses = model.loss(batch_inputs, batch_data_samples)
-        assert isinstance(losses, dict)
-        assert len(losses) > 0
-
-    @pytest.mark.parametrize('name,filename', ABLATION_CONFIGS)
-    def test_backward_no_error(self, name, filename):
-        model, _ = _build_model(filename)
-        model.train()
-        batch_inputs, batch_data_samples = _make_dummy_batch()
-        losses = model.loss(batch_inputs, batch_data_samples)
-        total_loss = sum(v.sum() if isinstance(v, torch.Tensor) else v
-                         for v in losses.values())
-        total_loss.backward()  # 不报错即可
-
-
-class TestAblationPredictForward:
-    """消融配置: 推理前向"""
-
-    @pytest.mark.parametrize('name,filename', ABLATION_CONFIGS)
-    def test_predict_no_error(self, name, filename):
-        model, _ = _build_model(filename)
-        model.eval()
-        batch_inputs, batch_data_samples = _make_dummy_batch(with_gt=False)
-        with torch.no_grad():
-            results = model.predict(batch_inputs, batch_data_samples)
-        assert len(results) == DUMMY_BS

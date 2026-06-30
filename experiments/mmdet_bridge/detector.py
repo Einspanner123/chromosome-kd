@@ -90,30 +90,10 @@ class LDMDetDetector(BaseDetector):
         if criterion_cfg is not None:
             criterion = self._build_criterion(criterion_cfg)
 
-        # 5. 构建计数分支 (方向二 路径 C, 可选)
-        counting_branch = self._build_counting_branch(cfg.pop('counting_branch', None))
-
         # 方向四: 构建尺度条件化 RF (可选)
         scale_conditioned_rf = self._build_scale_conditioned_rf(
             cfg.pop('scale_conditioned_rf', None)
         )
-
-        # 方向五: 构建分层分类头 (可选)
-        hierarchical_head = self._build_hierarchical_head(
-            cfg.pop('hierarchical_head', None)
-        )
-
-        # 方向 F1: 构建结构化噪声先验 (可选)
-        structured_prior = None
-        sp_cfg = cfg.pop('structured_prior', None)
-        if sp_cfg is not None:
-            from ldmdet.diffusion.structured_prior import StructuredPrior
-            # 若提供预计算的统计文件, 从文件加载; 否则用配置中的 means/stds/weights
-            if 'stats_file' in sp_cfg:
-                stats = torch.load(sp_cfg.pop('stats_file'))
-                sp_cfg = stats
-            sp_cfg.pop('type', None)
-            structured_prior = StructuredPrior(**sp_cfg)
 
         # 6. 构建 head — 只传 DiffusionDetHead 接受的参数
         import inspect
@@ -125,21 +105,9 @@ class LDMDetDetector(BaseDetector):
             roi_extractor=roi_extractor,
             criterion=criterion,
             coupling=coupling,
-            counting_branch=counting_branch,
             scale_conditioned_rf=scale_conditioned_rf,
-            hierarchical_head=hierarchical_head,
-            structured_prior=structured_prior,
         )
         return head
-
-    def _build_counting_branch(self, cfg):
-        """构建计数分支 (方向二 路径 C). cfg=None 时返回 None (不启用)."""
-        if cfg is None:
-            return None
-        from ldmdet.core.counting_branch import CountingBranch
-        cfg = cfg.copy()
-        cfg.pop('type', None)  # 兼容 'CountingBranch' 类型字段
-        return CountingBranch(**cfg)
 
     def _build_scale_conditioned_rf(self, cfg):
         """构建尺度条件化 RF (方向四). cfg=None 时返回 None (不启用)."""
@@ -150,23 +118,12 @@ class LDMDetDetector(BaseDetector):
         cfg.pop('type', None)
         return ScaleConditionedRF(**cfg)
 
-    def _build_hierarchical_head(self, cfg):
-        """构建分层分类头 (方向五). cfg=None 时返回 None (不启用)."""
-        if cfg is None:
-            return None
-        from ldmdet.core.hierarchical_head import HierarchicalClsHead
-        cfg = cfg.copy()
-        cfg.pop('type', None)
-        return HierarchicalClsHead(**cfg)
-
     def _build_criterion(self, cfg: Dict) -> DiffusionDetCriterion:
         """从配置构建 criterion"""
         cfg = cfg.copy()
         cfg.pop('type', None)
         assigner_cfg = cfg.pop('assigner', cfg.pop('matcher', {}))
-        # 方向三: 支持 SNRAwareMatcher (通过 type 字段区分)
-        matcher_type = assigner_cfg.pop('type', 'DiffusionDetMatcher')
-        matcher_type = matcher_type.replace('PurePyTorch', '')
+        assigner_cfg.pop('type', None)
 
         # 构建 match costs
         match_costs = []
@@ -180,12 +137,7 @@ class LDMDetDetector(BaseDetector):
             }
             match_costs.append(cost_map[cost_type](**cost_cfg))
 
-        # 方向三: 根据 type 选择 matcher 类
-        if matcher_type == 'SNRAwareMatcher':
-            from ldmdet.criterion.snr_aware_matcher import SNRAwareMatcher
-            matcher = SNRAwareMatcher(match_costs=match_costs, **assigner_cfg)
-        else:
-            matcher = DiffusionDetMatcher(match_costs=match_costs, **assigner_cfg)
+        matcher = DiffusionDetMatcher(match_costs=match_costs, **assigner_cfg)
 
         loss_cls_cfg = cfg.pop('loss_cls')
         loss_cls_type = loss_cls_cfg.pop('type').replace('PurePyTorch', '')

@@ -53,32 +53,14 @@ class DiffusionDetHead(nn.Module):
         filter_unknown: bool = True,
         gt_reweight: bool = True,
         use_checkpoint: bool = False,
-        counting_branch: Optional[nn.Module] = None,
-        consistency_loss: Optional[nn.Module] = None,
         coupling: Optional[nn.Module] = None,
         pre_noise_layer: int = 2,
         loss_aux: Optional[Dict] = None,
         torch_compile: bool = False,
         amp_dtype: Optional[torch.dtype] = None,
-        # 方向二: 计数先验约束 (默认全关, 不影响 baseline)
-        use_count_constraint: bool = False,
-        default_target_count: int = 46,
-        count_constraint_iou_threshold: float = 0.5,
-        count_constraint_min_keep: int = 10,
-        count_loss_weight: float = 1.0,
         # 方向四: 非线性轨迹 (默认 None, 不影响 baseline)
         # scale_conditioned_rf: ScaleConditionedRF 实例, 若提供则替换标准 RF
         scale_conditioned_rf: Optional[object] = None,
-        # 方向五: 分层分类 (默认 None, 不影响 baseline)
-        # hierarchical_head: HierarchicalClsHead 实例, 若提供则替换 cls_head
-        hierarchical_head: Optional[nn.Module] = None,
-        # 方向五: 分层分类辅助损失权重 (默认 1.0, 建议降至 0.3 减少对主分类头干扰)
-        loss_hier_weight: float = 1.0,
-        # 方向 F1: 结构化噪声先验 (默认 None, 不影响 baseline)
-        structured_prior: Optional[nn.Module] = None,
-        # 方向 D': reg bias 正则化权重 (默认 0, 不影响 baseline)
-        # 约束 reg_head 输出的 dw/dh 均值接近 0, 消除系统性尺度收缩偏移
-        reg_bias_weight: float = 0.0,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -100,41 +82,12 @@ class DiffusionDetHead(nn.Module):
         self.solver_type = solver_type
 
         self.loss_aux = loss_aux
-        self.counting_branch = counting_branch
-        self.consistency_loss = consistency_loss
-
-        # 方向二: 计数先验约束参数
-        self.use_count_constraint = use_count_constraint
-        self.default_target_count = default_target_count
-        self.count_constraint_iou_threshold = count_constraint_iou_threshold
-        self.count_constraint_min_keep = count_constraint_min_keep
-        self.count_loss_weight = count_loss_weight
-
-        # 方向一诊断: 耦合诊断回调 (可选, 默认 None, 不影响 baseline)
-        # 由 TrainingDiagnosticsHook 通过 diagnostics_callback 注入, 或手动设置
-        self.coupling_diag_callback = None
-
-        # 方向二诊断: 计数诊断回调 (可选, 默认 None, 不影响 baseline)
-        self.count_diag_callback = None
 
         # 方向四诊断: 轨迹诊断回调 (可选, 默认 None, 不影响 baseline)
         self.trajectory_diag_callback = None
 
-        # 方向五诊断: 分层分类诊断回调 (可选, 默认 None, 不影响 baseline)
-        self.hierarchical_diag_callback = None
-
         # 方向四: 尺度条件化 RF (可选, 默认 None, 不影响 baseline)
         self.scale_conditioned_rf = scale_conditioned_rf
-
-        # 方向五: 分层分类头 (可选, 默认 None, 不影响 baseline)
-        self.hierarchical_head = hierarchical_head
-        self.loss_hier_weight = loss_hier_weight
-
-        # 方向 D': reg bias 正则化 (默认 0, 不影响 baseline)
-        self.reg_bias_weight = reg_bias_weight
-
-        # 方向 F1: 结构化噪声先验 (可选, 默认 None, 不影响 baseline)
-        self.structured_prior = structured_prior
 
         # 扩散组件
         self.rf = RectifiedFlow(snr_scale=snr_scale)
@@ -249,57 +202,6 @@ class DiffusionDetHead(nn.Module):
         # t 是 [bs] 的扩散时间, 用于 SNR 感知匹配和损失加权
         losses = self.criterion(outputs, targets, t=t)
 
-        # 方向 D': reg bias 正则化 (约束正样本 dw/dh 均值接近 0, 消除系统性尺度收缩)
-        # 关键: 只对正样本 (matcher 匹配的 proposal) 计算, 避免背景 proposal 补偿
-        if self.reg_bias_weight > 0:
-            last_head = self.head_series[-1]
-            if hasattr(last_head, '_last_bboxes_deltas') and hasattr(self.criterion, '_last_indices'):
-                bboxes_deltas = last_head._last_bboxes_deltas  # [bs*N, 4]
-                bs_n = bboxes_deltas.shape[0]
-                N = curr_bboxes.shape[1]
-                bs = bs_n // N
-                bboxes_deltas = bboxes_deltas.view(bs, N, 4)
-
-                # 从 criterion 获取正样本 indices, 构建 fg_masks
-                indices = self.criterion._last_indices
-                fg_masks = torch.zeros(bs, N, dtype=torch.bool, device=bboxes_deltas.device)
-                for i, (proposal_inds, _) in enumerate(indices):
-                    fg_masks[i, proposal_inds] = True
-
-                fg_deltas = bboxes_deltas[fg_masks]  # [num_pos, 4]
-                if fg_deltas.shape[0] > 0:
-                    dw_mean = fg_deltas[:, 2].mean()
-                    dh_mean = fg_deltas[:, 3].mean()
-                    losses['loss_reg_bias'] = self.reg_bias_weight * (dw_mean ** 2 + dh_mean ** 2)
-                    # 诊断: 正/负样本 dw/dh 均值 (detached, 不参与反向传播, 仅 log)
-                    bg_deltas = bboxes_deltas[~fg_masks]
-                    losses['fg_dw_mean'] = dw_mean.detach()
-                    losses['fg_dh_mean'] = dh_mean.detach()
-                    if bg_deltas.shape[0] > 0:
-                        losses['bg_dw_mean'] = bg_deltas[:, 2].mean().detach()
-                        losses['bg_dh_mean'] = bg_deltas[:, 3].mean().detach()
-
-        # 方向二 路径 C: 计数分支训练 (开关控制, 默认不启用)
-        if self.counting_branch is not None:
-            gt_count = torch.tensor(
-                [gt_bboxes[i].shape[0] for i in range(bs)],
-                device=device, dtype=torch.long,
-            )
-            count_logits, _ = self.counting_branch(features)
-            count_loss = self.counting_branch.compute_loss(count_logits, gt_count)
-            losses['loss_count'] = count_loss * self.count_loss_weight
-
-            # 方向二诊断: 更新计数预测统计 (若回调已注入)
-            if self.count_diag_callback is not None:
-                pred_count = count_logits.argmax(dim=-1)
-                self.count_diag_callback.update(pred_count, gt_count)
-
-        # 方向一诊断: 更新耦合统计 (若回调已注入)
-        if self.coupling_diag_callback is not None:
-            all_matched = torch.cat(matched_gt_indices)  # [bs * num_proposals]
-            total_gt = sum(t.labels.shape[0] for t in targets)
-            self.coupling_diag_callback.update(all_matched, total_gt)
-
         # 方向四诊断: 更新轨迹统计 (若回调已注入)
         if self.trajectory_diag_callback is not None:
             # 尺度条件化统计: 从 GT 框计算 scales, 从 t 计算 t_eff
@@ -340,56 +242,6 @@ class DiffusionDetHead(nn.Module):
                     )
                     self.trajectory_diag_callback.update_ot(transport, cost)
 
-        # 方向五: 分层分类辅助损失 + 诊断 (开关控制, 默认不启用)
-        if self.hierarchical_head is not None:
-            # 用最后一个 head 的 fc_feature 做分层分类
-            # all_curr_proposals: list of [1, bs*num_boxes, feat_channels]
-            fc_feature = all_curr_proposals[-1]  # [1, bs*num_boxes, C]
-            fc_feature = fc_feature.squeeze(0)  # [bs*num_boxes, C]
-
-            # 构建 targets: 每个 proposal 对应的 GT label
-            # matched_gt_indices: list of [num_proposals], 指向 GT 索引
-            # 背景proposal (matched_idx 指向不存在的 GT) 设为 -1
-            hier_targets = []
-            for i, matched_idx in enumerate(matched_gt_indices):
-                gt_labels_i = targets[i].labels  # [num_gt_i]
-                # 每个 proposal 的 label = gt_labels[matched_idx], 越界则 -1
-                valid = matched_idx < gt_labels_i.shape[0]
-                labels = torch.full_like(matched_idx, -1, dtype=torch.long)
-                labels[valid] = gt_labels_i[matched_idx[valid]]
-                hier_targets.append(labels)
-            hier_targets = torch.cat(hier_targets)  # [bs*num_proposals]
-
-            # 分层分类前向
-            hier_out = self.hierarchical_head(fc_feature)
-            # 计算辅助损失 (仅对有效 proposal, label >= 0)
-            valid_mask = hier_targets >= 0
-            if valid_mask.any():
-                # HierarchicalClsHead.loss 签名:
-                #   loss(group_logits, class_logits_per_group, targets, valid_mask)
-                # group_logits: [bs, N, num_groups], class_logits_per_group: list of [bs, N, K_g]
-                # targets: [bs, N] 全局类别标签
-                hier_loss = self.hierarchical_head.loss(
-                    hier_out['group_logits'][valid_mask].unsqueeze(0),
-                    [cl[valid_mask].unsqueeze(0) for cl in hier_out['class_logits_per_group']],
-                    hier_targets[valid_mask].unsqueeze(0),
-                )
-                losses['loss_hier'] = hier_loss['loss_total'] * self.loss_hier_weight
-
-            # 方向五诊断: 更新分层分类统计 (若回调已注入)
-            if self.hierarchical_diag_callback is not None and valid_mask.any():
-                group_targets_all = self.hierarchical_head.group_of_class.to(device)[
-                    hier_targets.clamp(min=0)
-                ]
-                self.hierarchical_diag_callback.update(
-                    hier_out['group_logits'],
-                    hier_out['class_logits_per_group'],
-                    hier_out['flat_logits'],
-                    hier_targets,
-                    group_targets_all,
-                    valid_mask=valid_mask,
-                )
-
         return losses
 
     # ================================================================
@@ -401,11 +253,7 @@ class DiffusionDetHead(nn.Module):
         device = features[0].device
         bs = len(img_metas)
         time_pairs = self._sampler.build_time_pairs(device)
-        # 方向 F1: 若 structured_prior 存在, 从结构化先验采样 (推理时)
-        if self.structured_prior is not None:
-            x_raw = torch.stack([self._sample_noise(self.num_proposals, device) for _ in range(bs)])
-        else:
-            x_raw = torch.randn(bs, self.num_proposals, 4, device=device)
+        x_raw = torch.randn(bs, self.num_proposals, 4, device=device)
 
         ensemble_results = []
         trajectory = []
@@ -448,58 +296,9 @@ class DiffusionDetHead(nn.Module):
 
         results = self._sampler.post_process(ensemble_results, img_metas, rescale)
 
-        # 方向二: 计数先验约束后处理 (开关控制, 默认不启用)
-        # 路径 B (拉格朗日约束) + 路径 C (计数分支预测 count)
-        if self.use_count_constraint:
-            results = self._apply_count_constraint(features, results)
-
         if return_trajectory:
             return results, trajectory
         return results
-
-    def _apply_count_constraint(self, features, results):
-        """方向二: 对 post_process 结果应用计数约束 NMS.
-
-        路径 C: 若 counting_branch 存在, 用其预测 count; 否则用 default_target_count.
-        路径 B: 对每张图的结果重新做 count_constrained_nms.
-
-        Args:
-            features: FPN 特征 (用于 counting_branch 预测)
-            results: List[DetectionResult] 原始 post_process 结果
-
-        Returns:
-            List[DetectionResult] 计数约束后的结果
-        """
-        from ldmdet.inference.count_constrained_nms import count_constrained_nms
-
-        # 路径 C: 预测每张图的目标计数
-        if self.counting_branch is not None:
-            _, pred_count = self.counting_branch(features)
-            target_counts = pred_count.tolist()
-        else:
-            target_counts = [self.default_target_count] * len(results)
-
-        # 路径 B: 计数约束 NMS
-        new_results = []
-        for i, res in enumerate(results):
-            if res.bboxes.numel() == 0:
-                new_results.append(res)
-                continue
-
-            keep = count_constrained_nms(
-                boxes=res.bboxes,
-                scores=res.scores,
-                labels=res.labels,
-                target_count=target_counts[i],
-                iou_threshold=self.count_constraint_iou_threshold,
-                min_keep=self.count_constraint_min_keep,
-            )
-            new_results.append(DetectionResult(
-                bboxes=res.bboxes[keep],
-                scores=res.scores[keep],
-                labels=res.labels[keep],
-            ))
-        return new_results
 
     # ================================================================
     # 训练辅助
@@ -523,33 +322,12 @@ class DiffusionDetHead(nn.Module):
             t = self.rf_shift * t / (1 + (self.rf_shift - 1) * t)
         return t
 
-    def _sample_noise(self, n: int, device: torch.device) -> torch.Tensor:
-        """采样扩散噪声 (方向 F1).
-
-        若 structured_prior 存在, 从结构化先验采样 (映射到 snr_scale 尺度);
-        否则用标准高斯 randn (baseline).
-
-        Args:
-            n: 采样数
-            device: 设备
-
-        Returns:
-            (n, 4) 噪声 (cxcywh 归一化 * snr_scale 尺度)
-        """
-        if self.structured_prior is not None:
-            # 先采样归一化 cxcywh, 再映射到扩散尺度
-            samples = self.structured_prior.sample(n)
-            samples = samples.to(device)
-            # 映射到 (norm * 2 - 1) * snr_scale 尺度
-            return (samples * 2 - 1) * self.snr_scale
-        return torch.randn(n, 4, device=device)
-
     def _build_training_targets(self, bs, device, t, targets, gt_bboxes):
         x_boxes, x_starts, x_noises, matched_gt_indices = [], [], [], []
         for i in range(bs):
             num_gt = gt_bboxes[i].shape[0]
             if num_gt == 0:
-                noise = self._sample_noise(self.num_proposals, device)
+                noise = torch.randn(self.num_proposals, 4, device=device)
                 x_boxes.append(noise)
                 x_starts.append(torch.zeros_like(noise))
                 x_noises.append(noise)
@@ -557,7 +335,7 @@ class DiffusionDetHead(nn.Module):
                 continue
             norm_gt_cxcywh = bbox_xyxy_to_cxcywh(targets[i].bboxes)
             gt_diffusion = (norm_gt_cxcywh * 2 - 1) * self.snr_scale
-            noise = self._sample_noise(self.num_proposals, device)
+            noise = torch.randn(self.num_proposals, 4, device=device)
             x_start, matched_idx = self._couple_single_image(noise, gt_diffusion, targets[i].labels, device)
             matched_gt_indices.append(matched_idx)
             x_noisy, x_noise = self._forward_diffusion(x_start, noise, t[i:i+1])

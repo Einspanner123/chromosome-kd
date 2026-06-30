@@ -87,6 +87,7 @@ class DiffusionDetHead(nn.Module):
         ot_num_iters: int = 20,
         ot_sample_seed: Optional[int] = None,
         ot_group_hierarchical: bool = False,
+        ot_sample: bool = True,
         # 训练稳定化参数
         use_flash_attn: bool = False,
         # TRD 参数
@@ -144,6 +145,7 @@ class DiffusionDetHead(nn.Module):
 
         # OT 参数
         self.ot_coupling = ot_coupling
+        self.ot_epsilon = ot_epsilon
 
         # ---- 子模块 ----
         self.roi_extractor = roi_extractor
@@ -155,6 +157,7 @@ class DiffusionDetHead(nn.Module):
             ot_num_iters=ot_num_iters,
             ot_sample_seed=ot_sample_seed,
             ot_group_hierarchical=ot_group_hierarchical,
+            ot_sample=ot_sample,
         )
 
         self._sampler = DiffusionSampler(

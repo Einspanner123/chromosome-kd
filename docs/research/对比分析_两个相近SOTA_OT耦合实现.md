@@ -157,25 +157,148 @@ class OTFlowCoupling(CouplingStrategy):
 - **列归一化** 后做 **argmax** (或 multinomial)
 - 不支持分组 OT（无 `ot_group_hierarchical` 选项）
 
-#### 3.2.3 数学等价性分析
+#### 3.2.3 数学等价性分析（严格推导）
 
-尽管矩阵朝向不同，**两者求解的是同一个平衡 OT 问题**：
+##### 3.2.3.1 问题形式化
 
-$$
-P^* = \arg\min_{P \in \Pi(a, b)} \langle P, C \rangle - \varepsilon H(P)
-$$
+设 $N$ = proposals 数（=500），$K$ = GT 数（=10，记 $M \equiv K$）。两实现的代价矩阵互为转置：
 
-其中边缘约束为：
-- SOTA: $a_i = 1/N$ (proposals), $b_j = 1/K$ (GTs), $C \in \mathbb{R}^{N \times K}$
-- E4.3: $a_j = 1/M$ (GTs), $b_i = 1/N$ (proposals), $C \in \mathbb{R}^{M \times N}$
+- **Legacy** ([ot_coupling.py:126](../../projects/LDMDet/mods/ot_coupling.py#L126)): $C^{\text{leg}} = \text{cdist}(\text{noise}, \text{gt}) \in \mathbb{R}^{N \times K}$
+- **New** ([ot_flow_coupling.py:88](../../ldmdet/coupling/ot_flow_coupling.py#L88)): $C^{\text{new}} = \text{cdist}(\text{gt}, \text{noise}) \in \mathbb{R}^{K \times N}$
 
-由于 $N = N$, $K = M$, 且 $C^T_{SOTA} = C_{E4.3}$, **两者的传输矩阵互为转置**。归一化方向（行 vs 列）也只是视角差异：都是在 proposal 维度上得到一个对 GTs 的概率分布。
+显然 $C^{\text{new}} = (C^{\text{leg}})^T$。
 
-**结论**: 代码实现的差异**不在 OT 求解本身**，而在：
-1. **解码策略**: stochastic multinomial vs deterministic argmax
-2. **熵正则化强度**: ε=5 vs ε=1/2
-3. **Sinkhorn 迭代数**: 20 vs 10
-4. **额外组件**: 尺度条件化 RF（仅 E4.3）
+两实现求解的熵正则化 OT 问题：
+
+$$P^* = \arg\min_{P \in \Pi(a, b)} \langle P, C \rangle - \varepsilon H(P), \quad H(P) = -\sum_{ij} P_{ij} \log P_{ij}$$
+
+其中 $\Pi(a, b) = \{P : P\mathbf{1} = a,\; P^T\mathbf{1} = b\}$ 为运输多面体。
+
+##### 3.2.3.2 边缘约束的对称性
+
+从代码逐行核对两实现的边缘约束：
+
+**Legacy** ([ot_coupling.py:101-106](../../projects/LDMDet/mods/ot_coupling.py#L101-L106)):
+```python
+row_mass = ones(N) / N                     # a_i = 1/N       (proposals)
+proposals_per_gt = max(N // K, 1)           # = 50
+col_mass = full(K, 50/500)                  # b_j = 0.1       (GTs)
+col_mass = col_mass / col_mass.sum()        # 归一化后仍 0.1
+```
+
+**New** ([_sinkhorn_ops.py:39-44](../../ldmdet/coupling/_sinkhorn_ops.py#L39-L44), cost shape $[K, N]$):
+```python
+N_, K_ = cost.shape                          # N_=K=10, K_=N=500
+row_mass = ones(N_) / N_                     # a'_j = 1/K = 0.1    (GTs)
+proposals_per_gt = max(N_ // K_, 1)          # = max(10//500, 1) = 1
+col_mass = full(K_, 1/10)                    # b'_i = 0.1           (proposals)
+col_mass = col_mass / col_mass.sum()         # 归一化: 0.1/50 = 1/500 = 0.002
+```
+
+汇总：
+
+| | 行边缘 $a$ | 列边缘 $b$ | 代价 $C$ |
+|---|---|---|---|
+| Legacy | $a_i = 1/N$ (proposals) | $b_j = 1/K$ (GTs) | $C \in \mathbb{R}^{N \times K}$ |
+| New | $a'_j = 1/K$ (GTs) | $b'_i = 1/N$ (proposals) | $C' = C^T \in \mathbb{R}^{K \times N}$ |
+
+**关键观察**: $a' = b$, $b' = a$, $C' = C^T$ — 边缘约束与代价矩阵同时转置。
+
+##### 3.2.3.3 定理：两 OT 解互为转置
+
+**定理**. 设 $P^* = \arg\min_{P \in \Pi(a,b)} \langle P, C \rangle - \varepsilon H(P)$，$Q^* = \arg\min_{Q \in \Pi(a',b')} \langle Q, C^T \rangle - \varepsilon H(Q)$，其中 $a' = b$, $b' = a$。则 $Q^* = (P^*)^T$。
+
+**证明**. 对任意 $Q \in \Pi(a', b')$，令 $P = Q^T$。则：
+
+1. **目标函数不变**:
+   $$\langle Q, C^T \rangle = \sum_{ji} Q_{ji} C^T_{ji} = \sum_{ij} Q_{ji} C_{ij} = \sum_{ij} P_{ij} C_{ij} = \langle P, C \rangle$$
+   $$H(Q) = -\sum_{ji} Q_{ji} \log Q_{ji} = -\sum_{ij} P_{ij} \log P_{ij} = H(P)$$
+
+2. **约束集等价**:
+   $$Q \in \Pi(a', b') \iff Q\mathbf{1} = a',\; Q^T\mathbf{1} = b' \iff P^T\mathbf{1} = b,\; P\mathbf{1} = a \iff P \in \Pi(a, b)$$
+
+因此 $\min_{Q \in \Pi(a',b')} \langle Q, C^T \rangle - \varepsilon H(Q) = \min_{P \in \Pi(a,b)} \langle P, C \rangle - \varepsilon H(P)$。
+
+由 $\varepsilon > 0$ 时熵正则化 OT 解的唯一性（目标函数严格凸），$Q^* = (P^*)^T$。$\square$
+
+##### 3.2.3.4 归一化等价性
+
+Legacy 在 $P^*$ 上做**行归一化**（每 proposal 对 GTs 的分布）：
+
+$$\tilde{P}^{\text{leg}}_{ij} = \frac{P^*_{ij}}{\sum_{j'} P^*_{ij'}} = \frac{P^*_{ij}}{a_i}$$
+
+New 在 $Q^* = (P^*)^T$ 上做**列归一化**（每 proposal 对 GTs 的分布）：
+
+$$\tilde{Q}^{\text{new}}_{ji} = \frac{Q^*_{ji}}{\sum_{j'} Q^*_{j'i}} = \frac{(P^*)^T_{ji}}{\sum_{j'} (P^*)^T_{j'i}} = \frac{P^*_{ij}}{\sum_{j'} P^*_{ij'}} = \frac{P^*_{ij}}{a_i}$$
+
+**两者得到的 proposal→GT 概率分布完全相同**：$\tilde{Q}^{\text{new}}_{ji} = \tilde{P}^{\text{leg}}_{ij}$。
+
+##### 3.2.3.5 解码等价性
+
+**argmax 解码**（对 proposal $i$，选 GT）:
+- Legacy: $j^*_{\text{leg}}(i) = \arg\max_j \tilde{P}^{\text{leg}}_{ij} = \arg\max_j \frac{P^*_{ij}}{a_i} = \arg\max_j P^*_{ij}$（$a_i$ 是 $j$ 的常数）
+- New: $j^*_{\text{new}}(i) = \arg\max_j \tilde{Q}^{\text{new}}_{ji} = \arg\max_j \frac{P^*_{ij}}{a_i} = \arg\max_j P^*_{ij}$
+
+**完全相同**。
+
+**multinomial 采样**（对 proposal $i$，按概率采 GT）:
+- Legacy: $j \sim \text{Categorical}\left(\frac{P^*_{i,:}}{a_i}\right)$
+- New: $j \sim \text{Categorical}\left(\frac{P^*_{i,:}}{a_i}\right)$
+
+**完全相同**（Categorical 分布对归一化常数不变，$\frac{P^*_{i,:}}{a_i}$ 与 $\frac{P^*_{i,:}}{\sum_j P^*_{ij}}$ 定义相同的分布）。
+
+##### 3.2.3.6 数学结论：配置相同时两实现严格等价
+
+> **推论**. 在相同的 $(\varepsilon, \text{num\_iters}, \text{coupling\_mode}, \text{batch\_size})$ 下，Legacy OTCoupling（行归一化）与 New OTFlowCoupling（列归一化）产生**完全相同的 matched_idx**（argmax 情况）或**完全相同的采样分布**（multinomial 情况）。
+>
+> 因此，C4 矛盾（"sample > argmax" 在 SOTA 成立但在 E4.3 反转）**不可能由 OT 实现的矩阵朝向或归一化方向差异导致**——这些差异在数学上被转置对称性完全抵消。
+
+##### 3.2.3.7 等价性在实践中的破坏因素
+
+数学等价性成立的前提是"相同配置"。实际 SOTA 与 E4.3 的配置差异如下表，每个差异都是潜在的破坏因素：
+
+| 因素 | SOTA (Legacy) | E4.3 (New) | 数学后果 |
+|:----:|:---:|:---:|:---|
+| **ε** | 5.0 | 1.0 / 2.0 | 改变 $P^*$ 本身（$\varepsilon \to \infty$ 时 $P^* \to ab^T$；$\varepsilon \to 0$ 时 $P^* \to$ 硬 OT） |
+| **num_iters** | 20 | 10 | 有限迭代下 Sinkhorn 未完全收敛，$P^{(T)} \neq P^*$ |
+| **coupling_mode** | multinomial | argmax | 采样 vs 确定性解码，多样性 $H(V\|X_t)$ 从 $>0$ 变 $\approx 0$ |
+| **batch_size** | 2 | 4 | 改变梯度噪声结构，影响训练动力学（不影响 $P^*$ 本身） |
+| **尺度条件化 RF** | 无 | 有 ($\lambda=0.5$) | 改变 $x_t$ 的分布，间接改变 $\text{cdist}(\text{noise}, \text{gt})$ 的代价矩阵 |
+
+##### 3.2.3.8 一个隐蔽的数值差异：Sinkhorn 迭代顺序
+
+除上述配置差异外，代码实现中还存在一个**数学上对称但数值上可能不等价**的因素——**迭代更新顺序**。
+
+Sinkhorn 迭代（log-domain）:
+```
+log_u ← log_a - logsumexp(log_K + log_v, dim=1)   # 更新 u
+log_v ← log_b - logsumexp(log_K + log_u, dim=0)   # 更新 v
+```
+
+- **Legacy** ([ot_coupling.py:113-119](../../projects/LDMDet/mods/ot_coupling.py#L113-L119)): 先更新 $u$（proposal 维度，N=500），再更新 $v$（GT 维度，K=10）
+- **New** ([_sinkhorn_ops.py:57-63](../../ldmdet/coupling/_sinkhorn_ops.py#L57-L63)): 先更新 $u$（GT 维度，K=10），再更新 $v$（proposal 维度，N=500）
+
+由定理 3.2.3.3，New 的 $u$ 对应 Legacy 的 $v$，New 的 $v$ 对应 Legacy 的 $u$。因此：
+
+- Legacy 迭代顺序：$u_{\text{prop}} \to v_{\text{GT}}$
+- New 迭代顺序：$u_{\text{GT}} \to v_{\text{prop}}$，即 $v_{\text{GT}}^{\text{legacy}} \to u_{\text{prop}}^{\text{legacy}}$
+
+**两实现的迭代顺序相反**。
+
+**数学性质**: Sinkhorn 迭代在收敛时（$T \to \infty$）与更新顺序无关，收敛到唯一不动点 $P^*$。但在**有限迭代次数**下，不同顺序产生的 $P^{(T)}$ 可能不同——尤其当 $\varepsilon$ 较小（收敛慢）且 $T$ 较少时。
+
+**量化影响**: SOTA 用 $\varepsilon=5, T=20$（快速收敛，顺序差异可忽略）；E4.3 用 $\varepsilon=1, T=10$（慢收敛 + 少迭代，顺序差异可能显著）。这是 V1 实验组需统一 $(\varepsilon, T)$ 的数学依据。
+
+##### 3.2.3.9 对 V1 实验组的指导意义
+
+上述推导明确了 V1 实验组的设计原则：
+
+1. **V1-A vs V1-E**（legacy vs new, 同 sample+ε5+iter20）: 由定理 3.2.3.3，两应在数学上等价。若结果不同，只能归因于 §3.2.3.8 的迭代顺序数值差异或 batch_size 差异。
+2. **V1-E vs V1-F**（同 new+ε5+iter20, sample vs argmax）: 隔离解码策略，这是 C4 矛盾的核心变量。
+3. **V1-G vs V1-H**（同 legacy+ε1+iter10, sample vs argmax）: 在 E4.3 配置下隔离解码策略。
+4. **V1-E vs V1-G**（同 sample, new+ε5 vs legacy+ε1）: 隔离 ε 的影响。
+
+**关键预测**: 若 V1-E ≈ V1-A（在统一 batch_size 下），则证实定理 3.2.3.3——OT 实现方向不影响结果。若 V1-E ≠ V1-A，则需调查 §3.2.3.8 的迭代顺序数值差异。
 
 ### 3.3 Sinkhorn 迭代实现对比
 

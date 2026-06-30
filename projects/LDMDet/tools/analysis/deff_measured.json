@@ -1,0 +1,120 @@
+{
+  "description": "D_eff measured from real val data using OTCoupling Sinkhorn. N=500 proposals, snr_scale=2.0, 20 Sinkhorn iters, 100 images. Cost = L2 distance (not squared). \u4e09\u79cd D_eff: argmax(\u72ec\u70ed\u8ba1\u6570), colsum(\u4f20\u8f93\u77e9\u9635\u5217\u548c=\u671f\u671b), sampled(\u91c7\u6837\u8ba1\u6570\u5747\u503c).",
+  "paper_claims": {
+    "argmax_D_eff": 2.8,
+    "sample_D_eff_eps0.01": 2.81,
+    "sample_D_eff_eps100": 5.31
+  },
+  "results": [
+    {
+      "epsilon": 0.01,
+      "D_eff_argmax_mean": 42.21233993530274,
+      "D_eff_argmax_std": 2.265622221790704,
+      "D_eff_colsum_mean": 46.619999465942385,
+      "D_eff_colsum_std": 1.6660131750135632,
+      "D_eff_sampled_mean": 41.81538212242126,
+      "D_eff_sampled_std": 2.097468657814338,
+      "mean_num_gt": 46.62,
+      "n_images": 100
+    },
+    {
+      "epsilon": 0.1,
+      "D_eff_argmax_mean": 32.2294358253479,
+      "D_eff_argmax_std": 2.2327028503757487,
+      "D_eff_colsum_mean": 46.61999980926514,
+      "D_eff_colsum_std": 1.66601403182402,
+      "D_eff_sampled_mean": 43.013232918930065,
+      "D_eff_sampled_std": 1.3879923272965993,
+      "mean_num_gt": 46.62,
+      "n_images": 100
+    },
+    {
+      "epsilon": 0.5,
+      "D_eff_argmax_mean": 17.69945623397827,
+      "D_eff_argmax_std": 1.9775684446100288,
+      "D_eff_colsum_mean": 46.61999897003174,
+      "D_eff_colsum_std": 1.6660136572282234,
+      "D_eff_sampled_mean": 42.745990435791015,
+      "D_eff_sampled_std": 1.3868093603932101,
+      "mean_num_gt": 46.62,
+      "n_images": 100
+    },
+    {
+      "epsilon": 1.0,
+      "D_eff_argmax_mean": 13.96727801322937,
+      "D_eff_argmax_std": 2.0079555951817594,
+      "D_eff_colsum_mean": 46.61999858856201,
+      "D_eff_colsum_std": 1.6660132725591048,
+      "D_eff_sampled_mean": 42.71828872833254,
+      "D_eff_sampled_std": 1.3883806491109074,
+      "mean_num_gt": 46.62,
+      "n_images": 100
+    },
+    {
+      "epsilon": 2.0,
+      "D_eff_argmax_mean": 12.254280557632447,
+      "D_eff_argmax_std": 2.0013956356889078,
+      "D_eff_colsum_mean": 46.619998664855956,
+      "D_eff_colsum_std": 1.6660138394912705,
+      "D_eff_sampled_mean": 42.71094726066589,
+      "D_eff_sampled_std": 1.3852553041647742,
+      "mean_num_gt": 46.62,
+      "n_images": 100
+    },
+    {
+      "epsilon": 3.0,
+      "D_eff_argmax_mean": 11.74569785118103,
+      "D_eff_argmax_std": 2.0140414014901804,
+      "D_eff_colsum_mean": 46.61999904632568,
+      "D_eff_colsum_std": 1.6660148881799057,
+      "D_eff_sampled_mean": 42.7088820869446,
+      "D_eff_sampled_std": 1.3849634176502545,
+      "mean_num_gt": 46.62,
+      "n_images": 100
+    },
+    {
+      "epsilon": 5.0,
+      "D_eff_argmax_mean": 11.334156908988952,
+      "D_eff_argmax_std": 2.002664650366755,
+      "D_eff_colsum_mean": 46.619999923706054,
+      "D_eff_colsum_std": 1.6660141266199293,
+      "D_eff_sampled_mean": 42.70755064125062,
+      "D_eff_sampled_std": 1.3882328763489007,
+      "mean_num_gt": 46.62,
+      "n_images": 100
+    },
+    {
+      "epsilon": 10.0,
+      "D_eff_argmax_mean": 11.084697737693787,
+      "D_eff_argmax_std": 1.9698536910820779,
+      "D_eff_colsum_mean": 46.61999927520752,
+      "D_eff_colsum_std": 1.6660144595451079,
+      "D_eff_sampled_mean": 42.707414427947995,
+      "D_eff_sampled_std": 1.391364161921163,
+      "mean_num_gt": 46.62,
+      "n_images": 100
+    },
+    {
+      "epsilon": 50.0,
+      "D_eff_argmax_mean": 10.84032208442688,
+      "D_eff_argmax_std": 1.9734048275742484,
+      "D_eff_colsum_mean": 46.619999465942385,
+      "D_eff_colsum_std": 1.6660140680062892,
+      "D_eff_sampled_mean": 42.70751414337158,
+      "D_eff_sampled_std": 1.3928542158420536,
+      "mean_num_gt": 46.62,
+      "n_images": 100
+    },
+    {
+      "epsilon": 100.0,
+      "D_eff_argmax_mean": 10.819809346199035,
+      "D_eff_argmax_std": 1.9715588054423374,
+      "D_eff_colsum_mean": 46.61999828338623,
+      "D_eff_colsum_std": 1.6660134319235689,
+      "D_eff_sampled_mean": 42.708430801773076,
+      "D_eff_sampled_std": 1.3943246220100893,
+      "mean_num_gt": 46.62,
+      "n_images": 100
+    }
+  ]
+}

@@ -41,6 +41,16 @@ class OTFlowCoupling(CouplingStrategy):
         self.epsilon = epsilon
         self.num_iters = num_iters
 
+        # 诊断缓存: couple() 调用后可被 CouplingDiagnostics 读取
+        self.last_transport = None  # [M, N] 传输矩阵
+        self.last_cost = None  # [M, N] cost 矩阵
+        self.last_coupling_mode = 'none'
+
+    @property
+    def ot_epsilon(self) -> float:
+        """兼容诊断器读取 (legacy OTCoupling 用 ot_epsilon 属性)."""
+        return self.epsilon
+
     @property
     def ot_module(self) -> OTFlowMatching:
         """暴露内部 OTFlowMatching 供诊断使用."""
@@ -80,6 +90,11 @@ class OTFlowCoupling(CouplingStrategy):
         transport = sinkhorn_transport(
             cost, epsilon=self.epsilon, num_iters=self.num_iters
         )
+
+        # 缓存供 CouplingDiagnostics 使用
+        self.last_cost = cost.detach()
+        self.last_transport = transport.detach()
+        self.last_coupling_mode = self._ot.coupling_mode  # 'argmax' 或 'multinomial'
 
         # 列归一化: 每个 proposal (列) 从 M 个 GT 中选一个
         col_sums = transport.sum(dim=0, keepdim=True).clamp_min(1e-10)  # [1, N]

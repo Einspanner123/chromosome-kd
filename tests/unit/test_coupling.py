@@ -1,4 +1,4 @@
-"""测试 5 种耦合策略"""
+"""测试耦合策略 (random + ot_flow)"""
 
 import torch
 import pytest
@@ -32,7 +32,6 @@ class TestSinkhornOps:
                 # 如果不在, 说明次优 cost 非常接近
                 # 阈值 0.1: Sinkhorn 在 ε=1e-6 下受 marginal 约束影响,
                 # 某些行会被强制分配到次优列 (cost 差异可达 10%)
-                # (之前 1e-3 过严, 在某些 cost 矩阵下稳定失败)
                 assert torch.abs(cost[i, max_idx] - cost[i, min_cost_idx[i]]) < 0.1
 
     def test_large_epsilon_near_uniform(self):
@@ -67,85 +66,82 @@ class TestRandomCoupling:
         assert (idx == 0).all()
 
 
-class TestHardOTCoupling:
-    def test_couple_min_cost(self):
-        c = build_coupling('hard_ot')
-        # 构造明显的最优匹配
-        noise = torch.tensor([
-            [0.0, 0.0, 0.0, 0.0],
-            [10.0, 10.0, 10.0, 10.0],
-            [20.0, 20.0, 20.0, 20.0],
-        ])
-        gt = torch.tensor([
-            [20.0, 20.0, 20.0, 20.0],  # closest to [20,20,20,20]
-            [0.0, 0.0, 0.0, 0.0],      # closest to [0,0,0,0]
-            [10.0, 10.0, 10.0, 10.0],  # closest to [10,10,10,10]
-        ])
-        labels = torch.tensor([0, 1, 2])
-        x_start, idx = c.couple(noise, gt, labels, torch.device('cpu'))
-        assert idx[0].item() == 1  # [0,0,0,0] → gt 1
-        assert idx[1].item() == 2  # [10,10,10,10] → gt 2
-        assert idx[2].item() == 0  # [20,20,20,20] → gt 0
+class TestOTFlowCoupling:
+    """测试 OT Flow Matching 耦合策略 (方向四)"""
 
-    def test_deterministic(self):
-        """硬 OT 应该是确定性的"""
-        c = build_coupling('hard_ot')
-        noise = torch.randn(100, 4)
-        gt = torch.randn(5, 4)
-        labels = torch.tensor([0, 1, 2, 3, 4])
-        idx1 = c.couple(noise, gt, labels, torch.device('cpu'))[1]
-        idx2 = c.couple(noise, gt, labels, torch.device('cpu'))[1]
-        assert torch.equal(idx1, idx2)
+    def test_build(self):
+        c = build_coupling('ot_flow', epsilon=1.0, num_iters=10)
+        assert c is not None
+        assert c.epsilon == 1.0
+        assert c.num_iters == 10
 
+    def test_build_defaults(self):
+        c = build_coupling('ot_flow')
+        assert c.epsilon == 1.0
+        assert c.num_iters == 10
 
-class TestSinkhornStochastic:
-    def test_sweet_spot_epsilon(self):
-        """ε=5 应该产生合理的匹配"""
-        c = build_coupling('sinkhorn_stochastic', epsilon=5.0)
+    def test_couple_shape(self):
+        c = build_coupling('ot_flow', epsilon=1.0)
         noise = torch.randn(500, 4)
         gt = torch.randn(46, 4)
         labels = torch.randint(0, 24, (46,))
         x_start, idx = c.couple(noise, gt, labels, torch.device('cpu'))
         assert x_start.shape == (500, 4)
-        # 应该匹配到不同 GT (不是全同一个)
-        unique = torch.unique(idx)
-        assert len(unique) > 1
-
-    def test_low_epsilon_near_hard_ot(self):
-        c = build_coupling('sinkhorn_stochastic', epsilon=0.01)
-        noise = torch.tensor([[0.0, 0.0, 0.0, 0.0], [10.0, 10.0, 10.0, 10.0]])
-        gt = torch.tensor([[0.0, 0.0, 0.0, 0.0], [10.0, 10.0, 10.0, 10.0]])
-        labels = torch.tensor([0, 1])
-        x_start, idx = c.couple(noise, gt, labels, torch.device('cpu'))
-        # 大部分情况下应该匹配到最近的
-        assert idx[0].item() == 0
-        assert idx[1].item() == 1
-
-
-class TestGHSSCoupling:
-    def test_build(self):
-        c = build_coupling('ghss', epsilon=5.0)
-        assert c is not None
-
-    def test_couple_shape(self):
-        c = build_coupling('ghss', epsilon=5.0)
-        noise = torch.randn(500, 4)
-        # 多类 GT (不同组)
-        gt = torch.randn(46, 4)
-        labels = torch.tensor([0, 0, 0, 1, 1, 2] * 7 + [2, 2, 3, 4])[:46]
-        x_start, idx = c.couple(noise, gt, labels, torch.device('cpu'))
-        assert x_start.shape == (500, 4)
         assert idx.shape == (500,)
         assert idx.max() < 46
 
-    def test_respects_groups(self):
-        """组内匹配: 同组 proposal 不应匹配到其他组 GT"""
-        c = build_coupling('ghss', epsilon=5.0)
-        # 极端情况: 所有 GT 都是同一组 (A 组, label=0)
-        gt = torch.randn(10, 4)
-        labels = torch.zeros(10, dtype=torch.long)
+    def test_couple_matches_gt(self):
+        """couple 返回的 x_start 应来自 GT 框"""
+        c = build_coupling('ot_flow', epsilon=1.0, coupling_mode='argmax')
         noise = torch.randn(100, 4)
+        gt = torch.randn(10, 4)
+        labels = torch.arange(10)
         x_start, idx = c.couple(noise, gt, labels, torch.device('cpu'))
-        # 所有 idx 应该在 [0, 10)
-        assert idx.max() < 10
-        assert idx.min() >= 0
+        # 每个 x_start[i] 应等于 gt[idx[i]]
+        for i in range(100):
+            assert torch.allclose(x_start[i], gt[idx[i]], atol=1e-6)
+
+    def test_couple_multinomial_mode(self):
+        """multinomial 模式应正常工作"""
+        torch.manual_seed(42)
+        c = build_coupling('ot_flow', epsilon=5.0, coupling_mode='multinomial')
+        noise = torch.randn(500, 4)
+        gt = torch.randn(46, 4)
+        labels = torch.randint(0, 24, (46,))
+        x_start, idx = c.couple(noise, gt, labels, torch.device('cpu'))
+        assert x_start.shape == (500, 4)
+        # multinomial 应匹配到不同 GT
+        unique = torch.unique(idx)
+        assert len(unique) > 1
+
+    def test_empty_gt(self):
+        """空 GT: 应原样返回 noise, idx 全 0"""
+        c = build_coupling('ot_flow', epsilon=1.0)
+        noise = torch.randn(10, 4)
+        gt = torch.randn(0, 4)
+        x_start, idx = c.couple(noise, gt, torch.tensor([]), torch.device('cpu'))
+        assert torch.equal(x_start, noise)
+        assert (idx == 0).all()
+
+    def test_single_gt(self):
+        """单个 GT: 所有 proposal 应匹配到它"""
+        c = build_coupling('ot_flow', epsilon=1.0)
+        noise = torch.randn(50, 4)
+        gt = torch.randn(1, 4)
+        labels = torch.tensor([0])
+        x_start, idx = c.couple(noise, gt, labels, torch.device('cpu'))
+        assert (idx == 0).all()
+        for i in range(50):
+            assert torch.allclose(x_start[i], gt[0], atol=1e-6)
+
+    def test_ot_epsilon_property(self):
+        """ot_epsilon 属性应兼容诊断器"""
+        c = build_coupling('ot_flow', epsilon=3.0)
+        assert c.ot_epsilon == 3.0
+
+    def test_ot_module_exposed(self):
+        """ot_module 应暴露内部 OTFlowMatching"""
+        c = build_coupling('ot_flow', epsilon=2.0)
+        assert c.ot_module is not None
+        assert hasattr(c.ot_module, 'compute_ot_coupling')
+        assert hasattr(c.ot_module, 'compute_coupling_cost')

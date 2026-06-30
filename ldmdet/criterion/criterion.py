@@ -8,8 +8,6 @@ import torch.nn.functional as F
 from torch import Tensor
 from torchvision import ops
 
-from ldmdet.criterion.snr_aware_matcher import SNRAwareMatcher
-from ldmdet.criterion.snr_weight import get_snr_weight
 from ldmdet.data.structures import InstanceData, ModelOutput
 from ldmdet.utils.box_ops import bbox_xyxy_to_cxcywh
 
@@ -33,11 +31,6 @@ class DiffusionDetCriterion(nn.Module):
         scale_aware_giou: bool = False,
         bbox_loss_mode: str = 'l1',
         bbox_loss_eps: float = 1e-2,
-        # 方向三: SNR 感知损失加权 (默认全关, 不影响 baseline)
-        snr_weighted_loss: bool = False,
-        snr_mode: str = 'logistic',
-        snr_beta: float = 3.0,
-        snr_w_min: float = 0.1,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -55,15 +48,6 @@ class DiffusionDetCriterion(nn.Module):
         self.bbox_loss_mode = bbox_loss_mode
         self.bbox_loss_eps = bbox_loss_eps
 
-        # 方向三: SNR 感知损失加权参数
-        self.snr_weighted_loss = snr_weighted_loss
-        self.snr_mode = snr_mode
-        self.snr_beta = snr_beta
-        self.snr_w_min = snr_w_min
-
-        # 方向三诊断: SNR 诊断回调 (可选, 默认 None, 不影响 baseline)
-        self.snr_diag_callback = None
-
     def forward(
         self,
         outputs: ModelOutput,
@@ -71,28 +55,18 @@ class DiffusionDetCriterion(nn.Module):
         t: Optional[Tensor] = None,
     ) -> Dict[str, Tensor]:
         # 主输出: 使用 matcher.forward 并建立 GT 缓存
-        # 方向三: 若 matcher 是 SNRAwareMatcher 且 t 不为 None, 传 t 给 matcher
-        if isinstance(self.matcher, SNRAwareMatcher) and t is not None:
-            indices, gt_cache = self.matcher.forward_with_gt_cache(outputs, targets, t=t)
-        else:
-            indices, gt_cache = self.matcher.forward_with_gt_cache(outputs, targets)
+        indices, gt_cache = self.matcher.forward_with_gt_cache(outputs, targets)
         losses = self._get_loss(outputs, targets, indices, t)
 
         if self.deep_supervision and outputs.aux_outputs is not None:
             for i, aux_out in enumerate(outputs.aux_outputs):
                 # aux_outputs 复用 GT 缓存，避免重复计算 gt_ctrs/gt_wh/center 区域
-                if isinstance(self.matcher, SNRAwareMatcher) and t is not None:
-                    aux_indices, gt_cache = self.matcher.forward_with_gt_cache(
-                        aux_out, targets, gt_cache, t=t
-                    )
-                else:
-                    aux_indices, gt_cache = self.matcher.forward_with_gt_cache(
-                        aux_out, targets, gt_cache
-                    )
+                aux_indices, gt_cache = self.matcher.forward_with_gt_cache(
+                    aux_out, targets, gt_cache
+                )
                 aux_losses = self._get_loss(aux_out, targets, aux_indices, t)
                 for name, val in aux_losses.items():
                     losses[f'aux_{i}_{name}'] = val
-        # 方向 D': 保存主输出的 indices 供外部读取 (用于正样本 reg_bias_loss)
         self._last_indices = indices
         return losses
 
@@ -104,28 +78,9 @@ class DiffusionDetCriterion(nn.Module):
         t: Optional[Tensor] = None,
     ) -> Dict[str, Tensor]:
         if indices is None:
-            if isinstance(self.matcher, SNRAwareMatcher) and t is not None:
-                indices = self.matcher(outputs, targets, t=t)
-            else:
-                indices = self.matcher(outputs, targets)
+            indices = self.matcher(outputs, targets)
         loss_cls = self._loss_classification(outputs, targets, indices)
         loss_bbox, loss_giou = self._loss_boxes(outputs, targets, indices)
-
-        # 方向三: SNR 加权损失 (开关控制, 默认不启用)
-        # 与匹配代价加权保持一致, 避免匹配与损失不一致
-        if self.snr_weighted_loss and t is not None:
-            snr_w = get_snr_weight(
-                t, mode=self.snr_mode, beta=self.snr_beta, w_min=self.snr_w_min
-            )
-            # 同 batch 同 t (RF 采样), 取均值作为标量权重
-            weight = snr_w.mean()
-            loss_cls = loss_cls * weight
-            loss_bbox = loss_bbox * weight
-            loss_giou = loss_giou * weight
-
-            # 方向三诊断: 更新 SNR 权重统计 (若回调已注入)
-            if self.snr_diag_callback is not None:
-                self.snr_diag_callback.update(snr_w, t)
 
         return {'loss_cls': loss_cls, 'loss_bbox': loss_bbox, 'loss_giou': loss_giou}
 
