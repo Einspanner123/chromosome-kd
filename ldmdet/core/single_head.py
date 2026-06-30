@@ -43,8 +43,6 @@ class SingleDiffusionDetHead(nn.Module):
         time_conditioning='scale_shift',
         use_sdpa=True,
         attn_half=False,
-        shape_attention=None,
-        box_refine=None,
     ):
         super().__init__()
         self.feat_channels = feat_channels
@@ -53,12 +51,6 @@ class SingleDiffusionDetHead(nn.Module):
         # attn_half: True = attention 核心用 FP16 加速, False = 保持原始精度
         self.use_sdpa = use_sdpa and _SDPA_AVAILABLE
         self.attn_half = attn_half
-
-        # 方向 C1: 可选的局部形状注意力 (在 RoI 特征上应用)
-        self.shape_attention = shape_attention
-
-        # 方向 D1: 可选的框细化网络 (残差精化)
-        self.box_refine = box_refine
 
         self.self_attn = nn.MultiheadAttention(
             feat_channels, num_heads, dropout=dropout
@@ -189,10 +181,6 @@ class SingleDiffusionDetHead(nn.Module):
         rois = bbox2roi([bboxes[i] for i in range(bs)])
         roi_features = pooler(features, rois)
 
-        # 方向 C1: 在 RoI 特征上应用局部形状注意力 (可选)
-        if self.shape_attention is not None:
-            roi_features = self.shape_attention(roi_features)
-
         if proposals is None:
             proposals = roi_features.flatten(2).mean(-1).view(bs, num_boxes, self.feat_channels)
 
@@ -267,9 +255,6 @@ class SingleDiffusionDetHead(nn.Module):
     def _predict_bboxes(self, fc_feature, bboxes):
         bboxes_deltas = self.reg_head(fc_feature)
         pred_bboxes = self.apply_deltas(bboxes_deltas, bboxes.view(-1, 4))
-        # 方向 D1: 可选的框细化残差 (零初始化, 初始时不改变 baseline)
-        if self.box_refine is not None:
-            pred_bboxes = pred_bboxes + self.box_refine(fc_feature)
         return pred_bboxes
 
     def apply_deltas(self, deltas, boxes):

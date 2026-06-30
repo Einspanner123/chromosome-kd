@@ -4,7 +4,6 @@ from mmdet.registry import MODELS
 from mmengine.registry import OPTIMIZERS, OPTIM_WRAPPER_CONSTRUCTORS
 
 from ldmdet.core import DiffusionDetHead, DynamicConv, SingleDiffusionDetHead, SingleRoIExtractor
-from ldmdet.core.deformable_roi_extractor import DeformableRoIExtractor
 from ldmdet.criterion import (
     BBoxL1Cost, DiffusionDetCriterion, DiffusionDetMatcher,
     FocalLoss, FocalLossCost, GIoULoss, IoUCost, L1Loss,
@@ -13,8 +12,6 @@ from ldmdet.criterion import (
 # 触发 TrainingDiagnosticsHook 注册到 HOOKS
 from ldmdet.diagnostics import hooks as _diag_hooks  # noqa: F401
 
-# 触发自定义 neck 注册 (FPNWithP1 等)
-from experiments.mmdet_bridge.necks import FPNWithP1  # noqa: F401
 # 方向 G: LAMFPN 注册
 from ldmdet.necks import LAMFPN  # noqa: F401
 
@@ -30,7 +27,6 @@ OPTIM_WRAPPER_CONSTRUCTORS.register_module(
 MODELS.register_module(name='PurePyTorchDiffusionDetHead', module=DiffusionDetHead, force=True)
 MODELS.register_module(name='PurePyTorchSingleDiffusionDetHead', module=SingleDiffusionDetHead, force=True)
 MODELS.register_module(name='PurePyTorchSingleRoIExtractor', module=SingleRoIExtractor, force=True)
-MODELS.register_module(name='PurePyTorchDeformableRoIExtractor', module=DeformableRoIExtractor, force=True)
 MODELS.register_module(name='PurePyTorchDiffusionDetCriterion', module=DiffusionDetCriterion, force=True)
 MODELS.register_module(name='PurePyTorchDiffusionDetMatcher', module=DiffusionDetMatcher, force=True)
 MODELS.register_module(name='PurePyTorchFocalLoss', module=FocalLoss, force=True)
