@@ -1,20 +1,23 @@
 # 方向调整决策 (基于白盒插桩分析)
 
-> 决策时间: 2026-06-30
-> 依据: [INSTRUMENTATION_RESULTS.md](../../analysis/instrumentation/INSTRUMENTATION_RESULTS.md) 的 13 项核心发现
-> 背景: 白盒插桩分析揭示了 6 项架构固有缺陷 (跨数据集一致) 和若干数据集效应,需据此重新评估各方向价值
+> 决策时间: 2026-06-30 (E 失败后更新)
+> 依据: [INSTRUMENTATION_RESULTS.md](../../analysis/instrumentation/INSTRUMENTATION_RESULTS.md) 的 13 项核心发现 + E (ClassBalanced) 实验结果
+> 背景: 白盒插桩分析揭示了 6 项架构固有缺陷 (跨数据集一致); E (ClassBalanced) 实验失败 (+0.001), 需重新评估方向
 
 ## 一、接龙顺序调整
 
 ### 原顺序 (基于黑盒分析)
 D (BoxRefineNet) → B (DecoupledHead) → C (Morphology) → F (StructuredPrior) → A (P1+Deformable) → E (ClassBalanced)
 
-### 调整后顺序 (基于白盒分析, trajectory bug 修复后)
-**E → F → D' (新增) → H (可选验证)**
+### 调整后顺序 (E 失败后, 2026-06-30 更新)
+**D' (reg 校正) → F (StructuredPrior) → G (LAMFPN, 可选) → H (采样效率, 可选)**
 
-跳过: C (瓶颈在 cls_head 不在特征), A (scale_affects=False, 尺度非主要瓶颈)
+跳过: E (已证伪, +0.001), C (瓶颈在 cls_head 不在特征), A (scale_affects=False, 尺度非主要瓶颈), B (已早停)
 
-> 修正: 初版顺序为 "E → F → H → D'", 因 trajectory bug 误判 H 高价值。修复后 H 降为可选, D' 升级为 F 之后的首选。
+> 演进历史:
+> - v1 (trajectory bug 前): E → F → H → D'
+> - v2 (trajectory bug 后): E → F → D' → H (H 降为可选, 因 box 第 3 步收敛)
+> - v3 (E 失败后, 当前): D' → F → G → H (D' 升为 P0, E 暂缓)
 
 ### 各方向价值评估
 
@@ -25,7 +28,7 @@ D (BoxRefineNet) → B (DecoupledHead) → C (Morphology) → F (StructuredPrior
 | C (Morphology) | 跳过 | ⚠️ 瓶颈在 cls_head (same_group_too_similar=False); ShapeAttention 作用于特征层 | 价值存疑 | **跳过** |
 | A (P1+Deformable) | 跳过 | ⚠️ scale_affects=False (尺度对特征影响微弱) | 价值存疑 | **跳过** |
 | F (StructuredPrior) | 排队 | ✅ 针对 early_x0_quality=0.280 (有改善空间); renewal 稳定 x0 步间一致性 | 有价值 | **保留** |
-| E (ClassBalanced) | **在跑** | ✅✅ 直接针对 Y 类坍塌根因 (class_collapse=[23]) | 最高价值 | **优先** |
+| E (ClassBalanced) | ❌ 失败 (+0.001) | ✅ 直接针对 Y 类坍塌根因, 但 ClassBalancedDataset 未解决 | 已证伪 | **暂缓, 待 E2-E5** |
 | **H (采样效率)** | 新增 (价值下调) | ⚠️ box 第 3 步收敛 (4步中), 减步空间仅 4→3 | 价值有限 | **可选验证** |
 | **D' (reg 校正)** | 新增 | ✅ reg 系统性收缩 dw/dh≈-1.6 (架构固有, 跨数据集) | 高价值 | **新增** |
 
@@ -34,9 +37,9 @@ D (BoxRefineNet) → B (DecoupledHead) → C (Morphology) → F (StructuredPrior
 1. **停 B**: epoch 86, best at 74, 后 12 epoch 零提升 → 已收敛; 白盒显示 +0.004 来自"谦虚"副作用, 未解决 Y 坍塌和同组混淆
 2. **跳 C**: 白盒证实分类瓶颈在 cls_head 决策边界 (same_group_too_similar=False), 不在特征抽取; ShapeAttention 作用于特征层, 但特征已足够区分
 3. **跳 A**: 白盒显示 scale_affects=False (小/中/大目标特征范数接近 5.0/4.9/4.8), 尺度非主要瓶颈
-4. **优先 E**: Y 类坍塌在 7 个 ckpt 普遍存在, 是分类瓶颈根因; 不解决此问题, 其他分类改进都有上限
+4. **E 已证伪**: ClassBalancedDataset (oversample_thr=0.5) 仅 +0.001, 在噪声范围内; 训练曲线波动大 (0.60-0.75); 失败根因: 每图全类存在, 图像级过采样无法解决 instance 级不平衡, 且未触及 cls_head 决策边界 (详见第五章)
 5. **新增 H (价值已下调)**: box 第 3 步收敛 (4 步中), 减步空间仅 4→3 (1.33× 加速), 且在收敛边界 — 从"高优先级"降为"可选验证"
-6. **新增 D' (价值最高)**: reg 系统性收缩 dw/dh≈-1.6 是架构固有 (24obj 上 -1.3, 方向一致), 应针对此偏移设计 (区别于原 D 的 renewal 机制)
+6. **D' 升为 P0**: reg 系统性收缩 dw/dh≈-1.6 是架构固有 (24obj 上 -1.3, 方向一致), 应针对此偏移设计 (区别于原 D 的 renewal 机制); E 失败后, D' 成为最可能产生稳定收益的方向
 
 > 修正说明: 初版基于 trajectory 分析 bug 曾误判 "box 第 1 步收敛, H 方案 200× 加速"。修复后真实结果为 box 第 3 步收敛 (4 步采样), H 价值大幅下调。详见 [INSTRUMENTATION_RESULTS.md 附录 A](../../analysis/instrumentation/INSTRUMENTATION_RESULTS.md)。
 
@@ -151,24 +154,83 @@ model = dict(
 
 ## 四、接龙实验状态跟踪
 
-| 方向 | 状态 | mAP | best_epoch | 备注 |
-|------|------|-----|-----------|------|
-| baseline (rf_heun_adaln) | 基线 | 0.745 | 102 | multi_seed_aug |
-| D (BoxRefineNet) | ✅ 完成 | 0.747 | 55 | +0.002, renewal 未生效 |
-| B (DecoupledHead) | ⏹ 早停 | 0.749 | 74 | +0.004, "谦虚"效应, epoch 86 停 |
-| E (ClassBalanced) | 🔄 在跑 | — | — | PID 2692560, GPU 0 |
-| F (StructuredPrior) | ⏳ 排队 | — | — | 下一轮 |
-| D' (reg 校正) | ⏳ 规划中 | — | — | D'1 后处理校准 (F 之后首选) |
-| H (采样效率) | ⏳ 可选 | — | — | H1 仅改配置 4→3 (价值有限) |
+| 方向 | 状态 | mAP | best_epoch | Δ | 备注 |
+|------|------|-----|-----------|---|------|
+| baseline (rf_heun_adaln) | 基线 | 0.745 | 102 | — | multi_seed_aug, 早停于 132 |
+| D (BoxRefineNet) | ✅ 完成 | 0.747 | 55 | +0.002 | renewal 未生效 |
+| B (DecoupledHead) | ⏹ 早停 | 0.749 | 74 | +0.004 | "谦虚"效应, epoch 86 停 |
+| E (ClassBalanced) | ❌ 失败 | 0.746 | 55 | **+0.001** | ClassBalancedDataset 失败, epoch 85 早停 |
+| F (StructuredPrior) | ⏳ 待跑 | — | — | — | 前置 box_stats.pt 已就绪, 可直接跑 |
+| D' (reg 校正) | ⏳ 规划中 | — | — | — | **最高优先级** (E 失败后) |
+| H (采样效率) | ⏳ 可选 | — | — | — | H1 仅改配置 4→3 (价值有限) |
+| G (LAMFPN) | ⏳ 备选 | — | — | — | 白盒未直接评估 neck 价值 |
 
-## 五、复现命令
+## 五、E (ClassBalanced) 失败分析
+
+### 5.1 实验结果
+
+- **配置**: `ClassBalancedDataset(oversample_thr=0.5)` 包装 CocoDataset
+- **best mAP=0.746 at epoch 55** (baseline 0.745, **仅 +0.001, 在噪声范围内**)
+- 早停于 epoch 85 (patience=30, best at 55)
+- 训练曲线波动剧烈: mAP 在 0.60-0.75 之间震荡 (epoch 6=0.602, 22=0.721, 47=0.743, 55=0.746, 75=0.733, 85=0.732)
+
+### 5.2 失败根因分析
+
+1. **过采样破坏训练稳定性**:
+   - ClassBalancedDataset 通过重复采样少数类图像来平衡类别分布
+   - 但每张染色体图像都包含 46 条染色体 (各类都有), 过采样某类等于过采样整张图
+   - 实际效果是放大了少数类图像的权重, 而非真正增加少数类样本的多样性
+   - 导致训练梯度方向不稳定, mAP 震荡
+
+2. **未触及 cls_head 决策边界**:
+   - 白盒发现 1 明确: 分类瓶颈在 cls_head, 不在数据分布
+   - 单纯过采样不改变 cls_head 的学习难度, Y 类决策边界仍未有效建立
+   - mean_logit=-5.17 (Y 类坍塌) 是 cls_head 学习问题, 非数据量问题
+
+3. **每图全类存在的特殊性**:
+   - 染色体核型图像每张都包含 24 类 (除异常样本)
+   - 传统检测的类别不平衡解决方案 (基于图像级过采样) 在此场景失效
+   - 真正的不平衡在 instance 级 (Y 类框数少), 但 ClassBalancedDataset 只在图像级平衡
+
+### 5.3 E 方向的后续
+
+E1 (ClassBalancedDataset) 已证伪, 但 Y 类坍塌问题仍需解决。可探索的替代方案:
+- **E2 (logit adjustment)**: 在 cls loss 中根据类频率加 log 先验, 直接调整决策边界
+- **E3 (类别加权 loss)**: 对 Y 类的 cls loss 加权 (而非过采样数据)
+- **E4 (Y 类数据增强)**: 对含 Y 类的图像做 copy-paste / mixup (但需保持核型完整)
+- **E5 (decoupled representation)**: 先学特征再学分类器, 解耦 cls_head 的学习
+
+> 决策: 当前不再继续 E 子方向, 转 D' (reg 校正) 和 F (StructuredPrior), 理由:
+> - D' 针对 reg 系统性收缩 (架构固有, 跨数据集一致), 最可能产生稳定收益
+> - F 针对 early_x0_quality=0.280 (有改善空间), 前置已就绪
+> - E 的 Y 类坍塌问题需更深入方法 (E2-E5), 暂缓
+
+## 六、方向优先级重评 (E 失败后)
+
+### 6.1 优先级调整
+
+| 优先级 | 方向 | 理由 |
+|:------:|------|------|
+| **P0** | **D' (reg 校正)** | reg 系统性收缩是架构固有 (跨数据集一致), D'1 后处理校准最简, 最可能产生稳定收益 |
+| P1 | F (StructuredPrior) | 前置已就绪, 针对 early_x0_quality; 但白盒显示 24obj 上 x0 质量接近, 价值下调 |
+| P2 | G (LAMFPN) | 替换 neck, 白盒未直接评估; 但 scale_affects=False 提示特征层可能非瓶颈 |
+| P3 | H (采样效率) | box 第 3 步收敛 (4步中), 减步空间仅 4→3, 价值有限 |
+| 暂缓 | E2-E5 (Y 类替代方案) | 需更深入设计, 待 D'/F/G 结果后决定 |
+
+### 6.2 新接龙顺序
+
+**D' (P0) → F (P1) → G (P2, 可选) → H (P3, 可选)**
+
+跳过: E (已证伪), C (瓶颈在 cls_head 不在特征), A (scale_affects=False), B (已早停, +0.004 来自副作用)
+
+## 七、复现命令
 
 ```bash
-# E (在跑)
+# E (已完成, 失败)
 python experiments/runners/train.py experiments/configs/ldmdet/direction_e_class_balanced.py \
     --work-dir work_dirs/direction_exps/direction_e_class_balanced --seed 42 --gpu-id 0
 
-# F (排队)
+# F (待跑, 前置已就绪)
 python experiments/runners/train.py experiments/configs/ldmdet/direction_f_structured_prior.py \
     --work-dir work_dirs/direction_exps/direction_f_structured_prior --seed 42 --gpu-id 0
 
