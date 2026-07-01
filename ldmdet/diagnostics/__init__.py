@@ -7,6 +7,7 @@
 - stats.py: 公共统计工具 (所有方向共享)
 - hooks.py: TrainingDiagnosticsHook (基础监控)
 - trajectory_diag.py: 方向四非线性轨迹诊断
+- feature_bridge_diag.py: 方向六 FBM 诊断
 """
 
 from ldmdet.diagnostics.trajectory_diag import (
