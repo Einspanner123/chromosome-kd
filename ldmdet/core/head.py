@@ -18,6 +18,7 @@ from ldmdet.diffusion.embeddings import SinusoidalPositionEmbeddings
 from ldmdet.diffusion.noise_schedule import cosine_noise_schedule
 from ldmdet.diffusion.rectified_flow import RectifiedFlow
 from ldmdet.diffusion.sampling import DiffusionSampler, _get_img_shape
+from ldmdet.diffusion.scale_conditioned_rf import ScaleConditionedRF
 from ldmdet.utils.box_ops import bbox_xyxy_to_cxcywh
 
 
@@ -285,9 +286,21 @@ class DiffusionDetHead(nn.Module):
                     def model_fn(x_tmp, t_tmp):
                         _, _, x0_tmp = self._forward_at_t(features, x_tmp, t_tmp, img_metas)
                         return x0_tmp, None
-                    x_raw = self.rf.heun_step(x_raw, x0_raw, t_curr, t_next, model_fn)
+                    if self.scale_conditioned_rf is not None:
+                        scales = self._compute_inference_scales(x0_raw)
+                        x_raw = self.scale_conditioned_rf.heun_step(
+                            x_raw, x0_raw, t_curr, t_next, model_fn, scales,
+                        )
+                    else:
+                        x_raw = self.rf.heun_step(x_raw, x0_raw, t_curr, t_next, model_fn)
                 else:
-                    x_raw = self.rf.step(x_raw, x0_raw, t_curr, t_next)
+                    if self.scale_conditioned_rf is not None:
+                        scales = self._compute_inference_scales(x0_raw)
+                        x_raw = self.scale_conditioned_rf.step(
+                            x_raw, x0_raw, t_curr, t_next, scales,
+                        )
+                    else:
+                        x_raw = self.rf.step(x_raw, x0_raw, t_curr, t_next)
 
                 if self.box_renewal:
                     x_raw = self._sampler.apply_box_renewal(x_raw, cls_logits)
@@ -338,7 +351,15 @@ class DiffusionDetHead(nn.Module):
             noise = torch.randn(self.num_proposals, 4, device=device)
             x_start, matched_idx = self._couple_single_image(noise, gt_diffusion, targets[i].labels, device)
             matched_gt_indices.append(matched_idx)
-            x_noisy, x_noise = self._forward_diffusion(x_start, noise, t[i:i+1])
+            # 尺度条件化: 从 GT 框计算尺度, 通过 matched_idx 映射到每个 proposal
+            if self.scale_conditioned_rf is not None:
+                gt_scales = ScaleConditionedRF.compute_scales_from_cxcywh(norm_gt_cxcywh)
+                proposal_scales = gt_scales[matched_idx]
+                x_noisy, x_noise = self._forward_diffusion(
+                    x_start, noise, t[i:i+1], scales=proposal_scales,
+                )
+            else:
+                x_noisy, x_noise = self._forward_diffusion(x_start, noise, t[i:i+1])
             x_starts.append(x_start)
             x_noises.append(x_noise)
             x_boxes.append(x_noisy)
@@ -351,9 +372,16 @@ class DiffusionDetHead(nn.Module):
         idx = torch.randint(0, num_gt, (self.num_proposals,), device=device)
         return gt_diffusion[idx], idx
 
-    def _forward_diffusion(self, x_start, noise, t):
+    def _forward_diffusion(self, x_start, noise, t, scales=None):
         if self.diffusion_type == 'ddpm':
             return self.q_sample(x_start, t), torch.zeros_like(x_start)
+        if self.scale_conditioned_rf is not None and scales is not None:
+            # ScaleConditionedRF 需要 [bs, N, D], 当前路径单图处理为 [N, D]
+            x_noisy, _, _ = self.scale_conditioned_rf.q_sample(
+                x_start.unsqueeze(0), x_noise=noise.unsqueeze(0), t=t,
+                scales=scales.unsqueeze(0),
+            )
+            return x_noisy.squeeze(0), noise
         x_noisy, _ = self.rf.q_sample(x_start, x_noise=noise, t=t)
         return x_noisy, noise
 
@@ -366,6 +394,20 @@ class DiffusionDetHead(nn.Module):
         pred_bboxes_last = pred_bboxes_seq[-1]
         x0 = self._sampler.xyxy_to_raw(pred_bboxes_last, img_metas)
         return cls_logits_last, pred_bboxes_last, x0
+
+    def _compute_inference_scales(self, x0_raw: Tensor) -> Tensor:
+        """推理时从预测的 x0 (raw 空间) 计算尺度.
+
+        raw → normalized cxcywh → sqrt(w*h)
+
+        Args:
+            x0_raw: [bs, N, 4] 扩散空间预测
+
+        Returns:
+            scales: [bs, N] 每个框的尺度
+        """
+        norm_cxcywh = (x0_raw / self.snr_scale + 1) / 2
+        return ScaleConditionedRF.compute_scales_from_cxcywh(norm_cxcywh)
 
     def _normalize_pred_bboxes(self, all_pred_bboxes, img_metas):
         # 构建 scale 张量并广播除法，消除逐 head 逐 image 的双重循环

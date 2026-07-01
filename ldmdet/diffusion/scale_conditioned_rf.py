@@ -193,6 +193,61 @@ class ScaleConditionedRF:
         dt_eff = (t_eff_next - t_eff_curr).unsqueeze(-1)
         return x_t + dt_eff * v
 
+    def heun_step(
+        self,
+        x_t: Tensor,
+        x0_pred: Tensor,
+        t_curr,
+        t_next,
+        model_fn,
+        scales: Tensor,
+    ) -> Tensor:
+        """Heun step (二阶): x_next = x_t + (dt_eff/2)(v_t + v_next)
+
+        在 t_eff 空间做二阶 Heun 积分, 比 Euler 更准确.
+
+        Args:
+            x_t: [bs, N, D]
+            x0_pred: [bs, N, D]
+            t_curr: 当前时间 (float 或 [bs, N] tensor)
+            t_next: 下一时间 (float 或 [bs, N] tensor)
+            model_fn: callable(x_tmp, t_tmp) -> (x0_pred_next, None)
+            scales: [bs, N] 框尺度 (在本步内固定)
+
+        Returns:
+            x_next: [bs, N, D]
+        """
+        # 统一 t_curr/t_next 为 [bs, N] tensor (用于 compute_t_eff)
+        if isinstance(t_curr, (int, float)):
+            t_curr_t = torch.full_like(scales, float(t_curr))
+        else:
+            t_curr_t = t_curr
+        if isinstance(t_next, (int, float)):
+            t_next_t = torch.full_like(scales, float(t_next))
+            t_next_scalar = float(t_next)
+        else:
+            t_next_t = t_next
+            t_next_scalar = t_next.flatten()[0].item()
+
+        t_eff_curr = self.compute_t_eff(t_curr_t, scales)
+        t_eff_next = self.compute_t_eff(t_next_t, scales)
+        dt_eff = (t_eff_next - t_eff_curr).unsqueeze(-1)
+
+        # 速度 at t_curr
+        v_t = (x_t - x0_pred) / t_eff_curr.unsqueeze(-1).clamp(min=1e-5)
+
+        # Euler 预测
+        x_next_euler = x_t + dt_eff * v_t
+
+        # 模型评估 at t_next (传标量, 因为 model_fn 内部会自行广播)
+        x0_pred_next, _ = model_fn(x_next_euler, t_next_scalar)
+
+        # 速度 at t_next (用相同 scales)
+        v_next = (x_next_euler - x0_pred_next) / t_eff_next.unsqueeze(-1).clamp(min=1e-5)
+
+        # Heun 校正
+        return x_t + (dt_eff / 2.0) * (v_t + v_next)
+
     # ──────────────────────────────────────────
     # 辅助: 从框计算尺度
     # ──────────────────────────────────────────

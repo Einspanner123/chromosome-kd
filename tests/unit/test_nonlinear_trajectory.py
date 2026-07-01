@@ -7,6 +7,7 @@
 """
 
 import torch
+import torch.nn as nn
 import pytest
 
 from ldmdet.diffusion.scale_conditioned_rf import ScaleConditionedRF
@@ -435,3 +436,222 @@ class TestBaselineIsolation:
 
         assert torch.allclose(x_t_std, x_t_sc, atol=1e-6)
         assert torch.allclose(v_std, v_sc, atol=1e-6)
+
+
+# ================================================================
+# 4.3 ScaleConditionedRF heun_step (缺失方法补全)
+# ================================================================
+
+
+class TestScaleConditionedRFHeunStep:
+    """测试 ScaleConditionedRF.heun_step — 当前缺失, 需补全"""
+
+    def test_heun_step_exists(self):
+        """heun_step 方法应存在"""
+        rf = ScaleConditionedRF(lambda_mod=0.5)
+        assert hasattr(rf, 'heun_step'), "ScaleConditionedRF 缺少 heun_step 方法"
+
+    def test_heun_step_shape(self):
+        """heun_step: 输出形状正确"""
+        rf = ScaleConditionedRF(lambda_mod=0.5)
+        x_t = torch.randn(2, 10, 4)
+        x0_pred = torch.randn_like(x_t)
+        scales = torch.rand(2, 10) * 0.2
+
+        def model_fn(x, t):
+            return torch.randn_like(x), None
+
+        x_next = rf.heun_step(x_t, x0_pred, 0.8, 0.6, model_fn, scales)
+        assert x_next.shape == x_t.shape
+
+    def test_heun_step_lambda_zero_matches_standard_rf(self):
+        """λ=0: heun_step 应等价于标准 RectifiedFlow.heun_step"""
+        torch.manual_seed(42)
+        x_t = torch.randn(2, 10, 4)
+        x0_pred = torch.randn_like(x_t)
+        t_curr, t_next = 0.8, 0.6
+
+        std_rf = RectifiedFlow()
+        fixed_pred = torch.randn_like(x_t)
+
+        def model_fn_std(x, t):
+            return fixed_pred.clone(), None
+
+        x_next_std = std_rf.heun_step(x_t, x0_pred, t_curr, t_next, model_fn_std)
+
+        sc_rf = ScaleConditionedRF(lambda_mod=0.0)
+        scales = torch.full((2, 10), 0.15)  # s_max → κ=1
+
+        def model_fn_sc(x, t):
+            return fixed_pred.clone(), None
+
+        x_next_sc = sc_rf.heun_step(x_t, x0_pred, t_curr, t_next, model_fn_sc, scales)
+        assert torch.allclose(x_next_std, x_next_sc, atol=1e-5), (
+            f"λ=0 heun_step 应等价标准 RF: max diff = "
+            f"{(x_next_std - x_next_sc).abs().max():.2e}"
+        )
+
+    def test_heun_step_differs_from_euler(self):
+        """heun_step (二阶) 应与 step (一阶) 不同"""
+        rf = ScaleConditionedRF(lambda_mod=0.5, s_max=0.15)
+        scales = torch.full((1, 5), 0.1)
+        t_curr, t_next = 0.6, 0.4
+        x_t = torch.randn(1, 5, 4)
+
+        t_eff_curr = rf.compute_t_eff(torch.tensor([t_curr]), scales)
+        x0_pred = x_t * (1 + t_eff_curr.unsqueeze(-1))
+
+        def model_fn(x, t):
+            # heun_step 传入标量 t
+            t_eff = rf.compute_t_eff(torch.tensor([float(t)]), scales)
+            return x * (1 + t_eff.unsqueeze(-1)), None
+
+        x_euler = rf.step(x_t, x0_pred, t_curr, t_next, scales)
+        x_heun = rf.heun_step(x_t, x0_pred, t_curr, t_next, model_fn, scales)
+        assert not torch.allclose(x_euler, x_heun, atol=1e-6), (
+            "heun_step 应与 step 不同 (二阶修正)"
+        )
+
+
+# ================================================================
+# 4.4 模块导出测试
+# ================================================================
+
+
+class TestScaleConditionedRFExport:
+    """测试 ScaleConditionedRF 从 ldmdet.diffusion 导出"""
+
+    def test_exported_from_diffusion(self):
+        """ScaleConditionedRF 应从 ldmdet.diffusion 导出"""
+        from ldmdet.diffusion import ScaleConditionedRF as ExportedSCRF
+        assert ExportedSCRF is ScaleConditionedRF
+
+
+# ================================================================
+# 4.5 Head 集成测试 (验证 ScaleConditionedRF 真正接入训练/采样路径)
+# ================================================================
+
+
+class TestHeadScaleConditionedRFIntegration:
+    """验证 head.py 正确集成 ScaleConditionedRF"""
+
+    def _make_head(self, scale_conditioned_rf=None, snr_scale=2.0, solver_type='euler'):
+        """创建最小化 DiffusionDetHead (仅测试扩散路径)"""
+        from ldmdet.core.head import DiffusionDetHead
+        head = DiffusionDetHead(
+            num_classes=1,
+            feat_channels=256,
+            num_proposals=10,
+            num_heads=1,
+            single_head=nn.Identity(),
+            roi_extractor=None,
+            criterion=None,
+            diffusion_type='rectified_flow',
+            solver_type=solver_type,
+            snr_scale=snr_scale,
+            scale_conditioned_rf=scale_conditioned_rf,
+            coupling=None,
+        )
+        return head
+
+    def test_forward_diffusion_uses_scale_conditioned_rf(self):
+        """当 scale_conditioned_rf 提供时, _forward_diffusion 应使用它"""
+        torch.manual_seed(42)
+        sc_rf = ScaleConditionedRF(lambda_mod=0.5, s_max=0.15, snr_scale=2.0)
+        head = self._make_head(scale_conditioned_rf=sc_rf)
+
+        x_start = torch.randn(10, 4)
+        noise = torch.randn(10, 4)
+        t = torch.tensor([0.5])
+        scales = torch.rand(10) * 0.2
+
+        x_noisy, x_noise = head._forward_diffusion(x_start, noise, t, scales=scales)
+
+        # 期望值: ScaleConditionedRF.q_sample
+        x_expected, _, _ = sc_rf.q_sample(
+            x_start.unsqueeze(0), noise.unsqueeze(0), t, scales.unsqueeze(0)
+        )
+        x_expected = x_expected.squeeze(0)
+        assert torch.allclose(x_noisy, x_expected, atol=1e-6)
+
+    def test_forward_diffusion_backward_compat_no_scales(self):
+        """scale_conditioned_rf=None 时, _forward_diffusion 应使用标准 RF"""
+        torch.manual_seed(42)
+        head = self._make_head(scale_conditioned_rf=None)
+
+        x_start = torch.randn(10, 4)
+        noise = torch.randn(10, 4)
+        t = torch.tensor([0.5])
+
+        x_noisy, x_noise = head._forward_diffusion(x_start, noise, t)
+        x_expected, _ = head.rf.q_sample(x_start, x_noise=noise, t=t)
+        assert torch.allclose(x_noisy, x_expected, atol=1e-6)
+
+    def test_forward_diffusion_backward_compat_scales_ignored(self):
+        """scale_conditioned_rf=None 但传了 scales 时, 应忽略 scales"""
+        torch.manual_seed(42)
+        head = self._make_head(scale_conditioned_rf=None)
+
+        x_start = torch.randn(10, 4)
+        noise = torch.randn(10, 4)
+        t = torch.tensor([0.5])
+        scales = torch.rand(10) * 0.2
+
+        x_noisy, x_noise = head._forward_diffusion(x_start, noise, t, scales=scales)
+        x_expected, _ = head.rf.q_sample(x_start, x_noise=noise, t=t)
+        assert torch.allclose(x_noisy, x_expected, atol=1e-6)
+
+    def test_compute_inference_scales(self):
+        """推理时尺度计算: raw→normalized cxcywh→sqrt(w*h)"""
+        sc_rf = ScaleConditionedRF(lambda_mod=0.5, s_max=0.15, snr_scale=2.0)
+        head = self._make_head(scale_conditioned_rf=sc_rf, snr_scale=2.0)
+
+        # norm cxcywh: [0.5, 0.5, 0.2, 0.3] → raw: (norm*2-1)*snr_scale
+        norm_cxcywh = torch.tensor([[[0.5, 0.5, 0.2, 0.3]]])
+        x0_raw = (norm_cxcywh * 2 - 1) * 2.0
+
+        scales = head._compute_inference_scales(x0_raw)
+        expected = (0.2 * 0.3) ** 0.5
+        assert scales.shape == (1, 1)
+        assert torch.allclose(scales, torch.tensor([[expected]]), atol=1e-5)
+
+    def test_training_scales_from_gt(self):
+        """训练时尺度从 GT 框计算, 通过 matched_idx 映射到 proposal"""
+        torch.manual_seed(42)
+        sc_rf = ScaleConditionedRF(lambda_mod=0.5, s_max=0.15, snr_scale=2.0)
+        head = self._make_head(scale_conditioned_rf=sc_rf)
+
+        norm_gt_cxcywh = torch.tensor([
+            [0.5, 0.5, 0.2, 0.3],
+            [0.3, 0.3, 0.1, 0.1],
+            [0.7, 0.7, 0.15, 0.2],
+        ])
+        gt_scales = ScaleConditionedRF.compute_scales_from_cxcywh(norm_gt_cxcywh)
+        matched_idx = torch.tensor([0, 0, 1, 2, 1, 0, 2, 2, 1, 0])
+        proposal_scales = gt_scales[matched_idx]
+
+        assert proposal_scales.shape == (10,)
+        assert torch.allclose(proposal_scales[0], gt_scales[0])
+        assert torch.allclose(proposal_scales[2], gt_scales[1])
+        assert torch.allclose(proposal_scales[3], gt_scales[2])
+
+    def test_predict_euler_uses_scale_conditioned_rf(self):
+        """predict Euler 模式应调用 scale_conditioned_rf.step"""
+        from unittest.mock import MagicMock
+
+        sc_rf = ScaleConditionedRF(lambda_mod=0.5, s_max=0.15, snr_scale=2.0)
+        sc_rf.step = MagicMock(return_value=torch.randn(1, 10, 4))
+        head = self._make_head(scale_conditioned_rf=sc_rf, solver_type='euler')
+        assert head.scale_conditioned_rf is not None
+        assert head.solver_type == 'euler'
+
+    def test_predict_heun_uses_scale_conditioned_rf(self):
+        """predict Heun 模式应调用 scale_conditioned_rf.heun_step"""
+        from unittest.mock import MagicMock
+
+        sc_rf = ScaleConditionedRF(lambda_mod=0.5, s_max=0.15, snr_scale=2.0)
+        sc_rf.heun_step = MagicMock(return_value=torch.randn(1, 10, 4))
+        head = self._make_head(scale_conditioned_rf=sc_rf, solver_type='heun')
+        assert head.scale_conditioned_rf is not None
+        assert head.solver_type == 'heun'
+        assert hasattr(head.scale_conditioned_rf, 'heun_step')

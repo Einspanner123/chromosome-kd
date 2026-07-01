@@ -2,7 +2,7 @@
 
 > 本文档梳理所有实验的递进关系,明确真正的 baseline,识别废弃/错误实验。
 > 每条实验记录附 **可靠数据源地址** (本地服务器路径 / ldmdet-experiment 归档 / SwanLab run_id)
-> 更新时间: 2026-06-29 (最近一次刷新: 两个数据集平等记录, 移除 selfmake 数据集)
+> 更新时间: 2026-07-02 (最近一次刷新: 补充非线性轨迹/生成式迁移/Few-Shot 实验系列, 修正 eps2 旧实验归因)
 
 ## 〇、数据源说明
 
@@ -148,14 +148,107 @@ Direction 方向实验 A-F (基于 rf_heun_adaln, 默认 aug, 应与 0.746 对�
        │      本地: work_dirs/direction_exps/direction_d_box_refine/20260629_091843/
        │      SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/fnoz9x82aor1utsuo0jtl
        │              run_id=fnoz9x82aor1utsuo0jtl  mAP=0.7470  (best @ epoch 55)
-       ├─→ B (DecoupledHead) = 运行中 (epoch 27, best 0.702 @ epoch 25)
+       ├─→ B (DecoupledHead) = 0.702  [-0.044, 显著低于 baseline]  ⛔ 已停止
        │      本地: work_dirs/direction_exps/direction_b_decoupled_head/20260629_152911/
        │      SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/2ckzmso4c94fojr8jobej
-       │              run_id=2ckzmso4c94fojr8jobej  best mAP=0.7020
-       ├─→ C (Morphology+Contrastive) = 排队
-       ├─→ F (StructuredPrior+100 proposals) = 排队
-       ├─→ A (P1+Deformable) = 排队
-       └─→ E (ClassBalanced) = 排队
+       │              run_id=2ckzmso4c94fojr8jobej  best mAP=0.7020  (best @ epoch 25)
+       ├─→ C (Morphology+Contrastive) = ⛔ 已废弃 (未启动)
+       ├─→ F (StructuredPrior+100 proposals) = ⛔ 已废弃 (未启动)
+       ├─→ A (P1+Deformable) = ⛔ 已废弃 (未启动)
+       └─→ E (ClassBalanced) = ⛔ 已废弃 (未启动)
+
+       ⚠ Direction 系列已停止推进, 仅 D 持平 baseline, B 显著退化。
+       后续非线性轨迹实验 (见下) 接替该方向继续探索。
+
+非线性轨迹实验 (基于 rf_heun_adaln + ScaleConditionedRF + OTFlowCoupling, chromo 数据集)
+       config: experiments/configs/ldmdet/nonlinear_trajectory*.py
+       核心: ScaleConditionedRF (尺度调制噪声调度 κ(s)) + OTFlowCoupling (Sinkhorn OT 传输矩阵耦合)
+       baseline 对照: rf_heun_adaln = 0.746
+       │
+       ├─→ E4.1 (ScaleConditionedRF only, 无 OT) = 0.743  [-0.003, 持平]  ✓ 早停
+       │      config: experiments/configs/ldmdet/nonlinear_trajectory_e41.py
+       │      改动: coupling=random (去 OT), 保留 scale_conditioned_rf
+       │      本地: work_dirs/nonlinear_trajectory_e41/
+       │      SwanLab: run_id=qdnw5yyj  best mAP=0.7430  (best @ epoch 74)
+       │
+       ├─→ E4.2 (OT Flow only, 无 ScaleConditionedRF) = 0.751  [+0.005]  ✓ 早停
+       │      config: experiments/configs/ldmdet/nonlinear_trajectory_e42.py
+       │      改动: lambda_mod=0.0 (关闭尺度条件), 保留 OT Flow
+       │      本地: work_dirs/nonlinear_trajectory_e42/
+       │      SwanLab: run_id=wcp34v3t  best mAP=0.7510  (best @ epoch 81)
+       │
+       ├─→ E4.3 (ScaleConditionedRF + OTFlowCoupling argmax eps=1.0) = 0.752  [+0.006]  ✓ 早停
+       │      config: experiments/configs/ldmdet/nonlinear_trajectory.py
+       │      本地: work_dirs/nonlinear_trajectory/
+       │      SwanLab: run_id=usnvd63f  best mAP=0.7520  (best @ epoch 94)
+       │      ⚠ 注意: 此实验的 ScaleConditionedRF 当时未真正集成到 head.py,
+       │        0.752 主要来自 OTFlowCoupling + 种子方差
+       │      │
+       │      ├─→ E4.3-tune eps=2.0 (OLD, ScaleConditionedRF 未启用) = 0.752  [+0.006]  ✓ 早停
+       │      │      config: experiments/configs/ldmdet/nonlinear_trajectory_e43_eps2.py
+       │      │      改动: coupling.epsilon=1.0→2.0 (更平滑传输矩阵)
+       │      │      本地: work_dirs/nonlinear_trajectory_e43_eps2/
+       │      │      SwanLab: run_id=cdtmijl0  best mAP=0.7520  (best @ epoch 100)
+       │      │      ⚠⚠ 关键修正: 配置 dump 虽含 scale_conditioned_rf 字段,
+       │      │        但当时 head.py 未集成, ScaleConditionedRF 完全未生效!
+       │      │        0.752 实际来自 OTFlowCoupling(eps=2.0,argmax) + Heun + 种子方差
+       │      │
+       │      ├─→ E4.3-tune eps=2.0 (NEW, ScaleConditionedRF 真正启用) = 运行中
+       │      │      config: experiments/configs/ldmdet/nonlinear_trajectory_e43_eps2.py (同上)
+       │      │      本地: work_dirs/nonlinear_trajectory_e43_eps2_real/
+       │      │      SwanLab: run_id=hkn0fc7w  (运行中, Epoch 5/150)
+       │      │      ✓ TDD 红绿重构后, head.py 4 处真正集成 ScaleConditionedRF:
+       │      │        1. _forward_diffusion (前向加噪, scales 参数)
+       │      │        2. _build_training_targets (从 GT 计算 scales 经 matched_idx 映射)
+       │      │        3. predict Euler/Heun 路径 (推理时从 x0_pred 计算 scales)
+       │      │        4. _compute_inference_scales (raw→normalized cxcywh→sqrt(w*h))
+       │      │      48 单元测试全部通过 (test_nonlinear_trajectory.py)
+       │      │
+       │      ├─→ E4.3-tune eps=3.0 = 0.750  [+0.004]  ✓ 早停
+       │      │      config: experiments/configs/ldmdet/nonlinear_trajectory_e43_eps3.py
+       │      │      本地: work_dirs/nonlinear_trajectory_e43_eps3/
+       │      │      SwanLab: run_id=5m1lse6x  best mAP=0.7500  (best @ epoch 70)
+       │      │
+       │      └─→ E4.3 multinomial = 0.748  [+0.002]  ✓ 早停
+       │             config: experiments/configs/ldmdet/nonlinear_trajectory_e43_multinomial.py
+       │             改动: coupling_mode=argmax→multinomial
+       │             本地: work_dirs/nonlinear_trajectory_e43_multinomial/
+       │             SwanLab: run_id=l0991c8v  best mAP=0.7480  (best @ epoch 72)
+       │
+       ├─→ E6-EMA (E4.3 + EMA Hook + weight_decay=5e-4) = 0.739  [-0.007]  ✓ 早停
+       │      config: experiments/configs/ldmdet/nonlinear_trajectory_e6_ema.py
+       │      本地: work_dirs/nonlinear_trajectory_e6_ema/
+       │      SwanLab: run_id=q2168hth  best mAP=0.7390  (best @ epoch 92)
+       │
+       ├─→ E6-Muon (E4.3 + MuonHybrid 优化器) = 0.744  [-0.002, 持平]  ✓ 早停
+       │      config: experiments/configs/ldmdet/nonlinear_trajectory_e6_muon.py
+       │      改动: MuonHybridConstructor, batch_size=2, DynamicConv 大矩阵走 AdamW
+       │      本地: work_dirs/nonlinear_trajectory_e6_muon/
+       │      SwanLab: run_id=640t9s93  best mAP=0.7440  (best @ epoch 68)
+       │
+       └─→ E7-smax100 (E4.3 + T_max=100, 余弦退火对齐) = 0.745  [-0.001, 持平]  ✓ 自然结束
+              config: experiments/configs/ldmdet/nonlinear_trajectory_e7_tmax100.py
+              改动: max_epochs 150→100, T_max 150→100 (LR 完全退火基线)
+              本地: work_dirs/nonlinear_trajectory_e7_tmax100/
+              SwanLab: run_id=pte9vv1a  best mAP=0.7450  (best @ epoch 82)
+
+3-seed 复现实验 (E4.3 eps=2.0 配置, 验证可复现性, SwanLab 项目=nonlinear-3seed-repro)
+       config: experiments/configs/ldmdet/nonlinear_trajectory.py (seeds 1,2,3)
+       │
+       ├─→ seed 1 = 0.746  ✓ 早停
+       │      本地: work_dirs/nonlinear_trajectory_seed1/
+       │      SwanLab: project=nonlinear-3seed-repro  name=nonlinear_e43_seed1
+       │              run_id=k7nnzvuq  best mAP=0.7460  (best @ epoch 72)
+       ├─→ seed 2 = 0.749  ✓ 早停
+       │      本地: work_dirs/nonlinear_trajectory_seed2/
+       │      SwanLab: project=nonlinear-3seed-repro  name=nonlinear_e43_seed2
+       │              run_id=clpof6nn  best mAP=0.7490  (best @ epoch 110)
+       └─→ seed 3 = ⛔ 失败 (误启动, 仅 2 epoch 即被杀)
+              本地: work_dirs/nonlinear_trajectory_seed3/ (无效)
+              SwanLab: run_id=kaz1tog7  mAP=0.0000
+
+       初步均值 (seed1+seed2): 0.7475 ± 0.0015, 落在 ±0.018 容差内
+       ⚠ seed3 需重跑才能得到完整 3-seed 方差统计
 
 ═══════════════════════════════════════════════════════════════════════════
 ═══ 24_chromosomes_object 数据集 (简称 24obj) ═══
@@ -238,6 +331,83 @@ DiffusionDet DDPM (根 baseline, 24obj 数据集)
 │                     experiment_name=chromo_merged_seed42 (同名冲突)  run_id=503pfk8isr270atpubho1
 ```
 
+### 3.4 生成式迁移实验 (ChromoGen → LDMDet, chromo 数据集)
+
+```
+生成式迁移 Phase1: 用 ChromoGen 生成模型特征增强 LDMDet (Feature Bridge Module, FBM)
+基于 rf_heun_adaln + ChromoGen UNet 特征注入, baseline 对照 = 0.746
+config: experiments/configs/ldmdet/gen_transfer_phase1_e6_*.py
+│
+├─→ E6.2 frozen (FBM alpha 可学习 + UNet 全冻结) = 0.737  [-0.009]  ✓ 已停止
+│      本地: work_dirs/gen_transfer_phase1_e6_2_frozen/
+│      SwanLab: run_id=qyzudrgb  best mAP=0.7370  (best @ epoch 66)
+│
+├─→ E6.3 enhanced (per-channel gate + GroupNorm + UNet 部分解冻) = 0.703  [-0.043]  ✓ 已停止
+│      本地: work_dirs/gen_transfer_phase1_e6_3_enhanced/
+│      SwanLab: run_id=m2fyzmf9  best mAP=0.7030  (best @ epoch 19)
+│
+├─→ E6.3b frozen_enhanced (同 E6.3 但 UNet 全冻结, 隔离 FBM 架构效果) = 0.696  [-0.050]  ✓ 已停止
+│      本地: work_dirs/gen_transfer_phase1_e6_3b_frozen_enhanced/
+│      SwanLab: run_id=bbe2yrcg  best mAP=0.6960  (best @ epoch 16)
+│
+└─→ E6.4 crossattn (Cross-Attention FBM + UNet 部分解冻 + zero-init gamma) = 0.733  [-0.013]  ✓ 已停止
+       本地: work_dirs/gen_transfer_phase1_e6_4_crossattn/
+       SwanLab: run_id=x8j5l7mw  best mAP=0.7330  (best @ epoch 35, 停止 @ epoch 48)
+       ⚠ gamma 零初始化导致梯度信号微弱, cross-attention 路径未激活, 退化为 simple gate
+       后续改进建议: 非零 gamma 初始化 (如 0.1) 或移除 gamma
+
+结论: FBM 系列均未超越 baseline (0.746), 简单 frozen (E6.2) 优于复杂增强 (E6.3/E6.4)。
+```
+
+### 3.5 Few-Shot 跨数据集基准实验 (24obj 源 → chromo 目标)
+
+```
+Few-Shot Benchmark: 24obj 数据集源预训练 → chromo 数据集目标微调 (k=5, k=10)
+config: experiments/configs/few_shot/source_pretrain/*.py (源预训练)
+        experiments/configs/few_shot/target_finetune/*.py (目标微调, 14 个配置已就绪)
+baseline 源预训练数据集: 24_chromosomes_object (24obj)
+│
+├─→ source_pretrain (7 模型, 24obj 数据集)
+│      │
+│      ├─→ LDMDet SOTA = 已完成 (best @ epoch 26)
+│      │      本地: work_dirs/few_shot/source_pretrain_ldmdet_sota_24obj/
+│      │      config: experiments/configs/few_shot/source_pretrain/ldmdet_sota_24obj.py
+│      │
+│      ├─→ LDMDet FBM SimpleGate = 0.677  ⛔ 已停止 (epoch 5)
+│      │      本地: work_dirs/few_shot/source_pretrain_ldmdet_fbm_simplgate_24obj/20260701_203410/
+│      │      SwanLab: run_id=hyuiam5m  best mAP=0.6770  (best @ epoch 5)
+│      │      config: experiments/configs/few_shot/source_pretrain/ldmdet_fbm_simplgate_24obj.py
+│      │
+│      ├─→ LDMDet FBM CrossAttn = 0.810  🔄 运行中 (epoch 10/150)
+│      │      本地: work_dirs/few_shot/source_pretrain_ldmdet_fbm_crossattn_24obj/20260701_174434/
+│      │      SwanLab: run_id=9hj8pe4a  best mAP=0.8100  (best @ epoch 10)
+│      │      config: experiments/configs/few_shot/source_pretrain/ldmdet_fbm_crossattn_24obj.py
+│      │      进展: ep1=0.000 → ep6=0.752 → ep9=0.787 → ep10=0.810 (持续上升)
+│      │
+│      ├─→ Cascade R-CNN R50 = 已完成 (best @ epoch 72)
+│      │      本地: work_dirs/few_shot/source_pretrain_cascade_rcnn_r50_24obj/
+│      │      config: projects/LDMDet/configs/benchmark_24obj/cascade_rcnn_r50.py
+│      │
+│      ├─→ DINO R50 = 已完成 (best @ epoch 102)
+│      │      本地: work_dirs/few_shot/source_pretrain_dino_r50_24obj/
+│      │      config: projects/LDMDet/configs/benchmark_24obj/dino_r50.py
+│      │
+│      ├─→ RTMDet-L = 已完成 (best @ epoch 116)
+│      │      本地: work_dirs/few_shot/source_pretrain_rtmdet_l_24obj/
+│      │      config: projects/LDMDet/configs/benchmark_24obj/rtmdet_l.py
+│      │
+│      └─→ YOLOX-S = 已完成 (best @ epoch 200)
+│             本地: work_dirs/few_shot/source_pretrain_yolox_s_24obj/
+│             config: projects/LDMDet/configs/benchmark_24obj/yolox_s.py
+│
+└─→ target_finetune (k=5, k=10, chromo 数据集)
+       config: experiments/configs/few_shot/target_finetune/*_k{5,10}.py (14 个)
+       数据: k=5 (112 图, 120 标注), k=10 (222 图, 240 标注)
+       状态: ⛔ 尚未启动 (等待 FBM CrossAttn 源预训练完成)
+
+⚠ 5 个非 FBM 实验仅保留 best checkpoint, 无训练日志 (需加载 checkpoint 评估或查 SwanLab)
+```
+
 ## 四、关键结论 (修正)
 
 ### 1. 真正的 Baseline (DiffusionDet 默认 aug)
@@ -257,12 +427,19 @@ DiffusionDet DDPM (根 baseline, 24obj 数据集)
 | + SOTA (ot_coupling=True) | +0.003 (高方差) | 🟠 边际但高方差 |
 | Bottleneck: focal_gamma_3 | +0.004 | 🟢 分类损失调整 |
 | Direction D: BoxRefineNet | +0.001 | 🟠 持平 baseline |
+| 非线性轨迹 E4.2 (OT Flow only) | +0.005 | 🟠 OT Flow 耦合有效 |
+| 非线性轨迹 E4.3 (OT+SCRF, SCRF 未启用) | +0.006 | 🟠 主要来自 OT,非 ScaleConditionedRF |
+| 非线性轨迹 E4.3 eps=2.0 (SCRF 真正启用) | 运行中 | 🔄 首次真正测试 ScaleConditionedRF |
+| 生成式迁移 E6.2 (FBM frozen) | -0.009 | 🔴 FBM 未超越 baseline |
+| 生成式迁移 E6.4 (CrossAttn FBM) | -0.013 | 🔴 gamma 零初始化致失效 |
 
 ### 3. 之前错误对照 (已修正)
 | 错误 | 原因 |
 |------|------|
 | rf_heun_adaln multi_seed (0.712) | ❌ 简化 aug (无 multi-scale/crop),不是 DiffusionDet 默认 |
 | ghss (0.857) | ❌ 24obj 数据集实验,与 chromo 数据集不可对照 |
+| E4.3 eps2 OLD (0.752 归因 ScaleConditionedRF) | ❌ ScaleConditionedRF 未集成到 head.py, 0.752 来自 OTFlowCoupling+种子方差 |
+| E6.4 CrossAttn (0.733 归因 cross-attention) | ❌ gamma 零初始化致 attention 路径未激活, 实际退化为 simple gate |
 
 ## 五、SwanLab 项目映射
 
@@ -270,7 +447,8 @@ DiffusionDet DDPM (根 baseline, 24obj 数据集)
 |-----------------|--------|------|---------------------|
 | `chromosome-kd` | 21 | 早期: sota_seed*, ablation/* (无 aug), scheme_*, stability/* | `https://swanlab.cn/@einspanner/chromosome-kd/runs/<run_id>` |
 | `chromosome-kd-benchmark-24obj` | 1 | 24obj 数据集早期: ldmdet-rf-adaln-stochot-eps5 | `https://swanlab.cn/@einspanner/chromosome-kd-benchmark-24obj/runs/<run_id>` |
-| `ldmdet-ablation` | 32+ | 主线: chromo 数据集 (multi_seed_aug/*, bottleneck/*, direction_exps/*) + 24obj/merged | `https://swanlab.cn/@einspanner/ldmdet-ablation/runs/<run_id>` |
+| `ldmdet-ablation` | 32+ | 主线: chromo 数据集 (multi_seed_aug/*, bottleneck/*, direction_exps/*, nonlinear_trajectory*) + 24obj/merged + gen_transfer | `https://swanlab.cn/@einspanner/ldmdet-ablation/runs/<run_id>` |
+| `nonlinear-3seed-repro` | 2 | 3-seed 复现实验: nonlinear_e43_seed{1,2} (seed3 失败) | `https://swanlab.cn/@einspanner/nonlinear-3seed-repro/runs/<run_id>` |
 
 > 用户登录态见 `/home/linkst/.swanlab/.netrc` (api_key 已配置)
 > 每个 experiment 的 run_id 见上文递进树,替换 URL 中的 `<run_id>` 即可直接访问
@@ -341,7 +519,11 @@ DiffusionDet DDPM (根 baseline, 24obj 数据集)
 | `work_dirs/multi_seed_aug/sinkhorn_stochastic/` | OT 消融 | ⭐⭐ |
 | `work_dirs/sota_seed*/` | SOTA 多种子 | ⭐⭐⭐ |
 | `work_dirs/bottleneck/` | 瓶颈分析 (保留 best + report) | ⭐⭐⭐ |
-| `work_dirs/direction_exps/` | 方向实验 (进行中) | ⭐⭐⭐ |
+| `work_dirs/direction_exps/` | 方向实验 (D=0.747, B=0.702, 其余废弃) | ⭐⭐ |
+| `work_dirs/nonlinear_trajectory*/` | 非线性轨迹系列 (E4.x, E6, E7, 3-seed) | ⭐⭐⭐ |
+| `work_dirs/nonlinear_trajectory_e43_eps2_real/` | 首次真正启用 ScaleConditionedRF (运行中) | ⭐⭐⭐ |
+| `work_dirs/gen_transfer_phase1_e6_*/` | 生成式迁移 FBM 实验 (E6.2-E6.4) | ⭐⭐ |
+| `work_dirs/few_shot/` | Few-Shot 基准 (源预训练 + 待启动微调) | ⭐⭐⭐ |
 | `ldmdet-experiment/sota/` | 归档 SOTA (含完整代码备份) | ⭐⭐⭐ |
 
 ## 八、Direction 实验的正确对照 (修正)
@@ -354,6 +536,8 @@ Direction 实验基于 `rf_heun_adaln.py` (chromo 数据集, 默认 aug):
 | 方向 | mAP | Δ vs 0.746 | 价值 |
 |------|-----|-----------|------|
 | D (BoxRefineNet) | 0.747 | +0.001 | 🟠 持平 baseline,early stop @ epoch 85,best @ epoch 55 |
-| B (运行中) | 0.702 (best @ epoch 25,当前 epoch 27) | -0.044 | 🔴 显著低于 baseline,DecoupledHead 设计存疑 |
+| B (DecoupledHead) | 0.702 | -0.044 | 🔴 显著低于 baseline,已停止 |
+| C/F/A/E | — | — | ⛔ 未启动,已废弃 |
 
-> Direction 实验绝对值偏低是设计选择 (隔离变量),若要追求 SOTA,应将有效方向叠加到 SOTA config (含 OT) 上。
+> Direction 系列已停止推进,后续由非线性轨迹实验 (见 3.4 节) 接替。
+> 若要追求 SOTA,应将有效方向叠加到 SOTA config (含 OT) 上。
