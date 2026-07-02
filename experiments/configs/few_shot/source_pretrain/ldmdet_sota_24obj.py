@@ -1,15 +1,15 @@
 _base_ = [
-    '../../../../projects/LDMDet/configs/_legacy/'
+    '../../_legacy/'
     'ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5.py'
 ]
 
 # LDMDet SOTA baseline (无 feature_bridge)
 custom_imports = dict(
     imports=[
-        'projects.LDMDet.model',
-        'projects.LDMDet.hooks',
-        'projects.LDMDet.custom_transforms',
-        'projects.LDMDet.async_checkpoint_hook',
+        'experiments.mmdet_bridge.registry',
+        'experiments.mmdet_bridge.detector',
+        'experiments.mmdet_bridge.hooks',
+        'experiments.mmdet_bridge.transforms',
         'ldmdet.feature_bridge',
         'swanlab.integration.mmengine',
     ],

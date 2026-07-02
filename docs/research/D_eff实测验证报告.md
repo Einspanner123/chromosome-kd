@@ -24,9 +24,9 @@ Figure 1 概览图硬编码文本:
 ## 2. 实测方法
 
 ### 2.1 测量脚本
-- **脚本**: `projects/LDMDet/tools/analysis/measure_deff.py`
+- **脚本**: `projects/LDMDet/tools/analysis/measure_deff.py` (未创建，数据直接记录于本报告)
 - **数据源**: SOTA 配置的验证集 (440 张图, 取前 100 张)
-- **配置**: `projects/LDMDet/configs/_legacy/ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5.py`
+- **配置**: `../../ldmdet-experiment/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/code/projects/LDMDet/configs/_legacy/ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5.py`
 
 ### 2.2 关键参数 (完全复刻 OTCoupling)
 | 参数 | 值 | 来源 |
@@ -79,7 +79,7 @@ Figure 1 概览图硬编码文本:
 
 ## 4. 交叉验证: 旧脚本 compute_deff.py
 
-论文仓库中已有的 `projects/LDMDet/paper_ot_medical_draft/scripts/compute_deff.py` 使用了不同参数:
+论文仓库中已有的 `../paper/scripts/compute_deff.py` 使用了不同参数:
 
 | 参数 | compute_deff.py | measure_deff.py (本脚本) |
 |------|----------------|------------------------|
@@ -170,10 +170,10 @@ D_eff ≈ 2.80 意味着 ~60% 的 proposal 质量集中到 1 个 GT 上 (逆 Her
 
 | 文件 | 说明 |
 |------|------|
-| `projects/LDMDet/tools/analysis/measure_deff.py` | 测量脚本 (本报告数据来源) |
-| `projects/LDMDet/tools/analysis/deff_measured.json` | 实测结果 JSON (100 张验证图) |
-| `projects/LDMDet/paper_ot_medical_draft/deff_results.json` | 旧脚本结果 (合成数据, 交叉验证) |
-| `projects/LDMDet/paper_ot_medical_draft/scripts/generate_figures.py:286` | Figure 1 硬编码 2.80/5.31 的位置 |
+| `projects/LDMDet/tools/analysis/measure_deff.py` (未创建，数据直接记录于本报告) | 测量脚本 (本报告数据来源) |
+| `../paper/deff_measured.json` | 实测结果 JSON (100 张验证图) |
+| `../paper/deff_results.json` | 旧脚本结果 (合成数据, 交叉验证) |
+| `../paper/scripts/generate_figures.py:286` | Figure 1 硬编码 2.80/5.31 的位置 |
 
 ---
 
@@ -193,11 +193,11 @@ D_eff ≈ 2.80 意味着 ~60% 的 proposal 质量集中到 1 个 GT 上 (逆 Her
 
 ## 10. SOTA 代码备份交叉确认 (2026-06-30 补充)
 
-**目标**: 审查 `ldmdet-experiments/sota/` 备份的真实代码，确认 D_eff 不可复现问题是否源于代码差异。
+**目标**: 审查 `ldmdet-experiment/sota/` 备份的真实代码，确认 D_eff 不可复现问题是否源于代码差异。
 
 ### 10.1 审查范围
 
-审查了 SOTA 备份目录 `ldmdet-experiments/sota/phase0_pretrain/ldmdet_convnextv2_mae/code/` 中的:
+审查了 SOTA 备份目录 `ldmdet-experiment/sota/phase0_pretrain/ldmdet_convnextv2_mae/code/` 中的:
 - `projects/LDMDet/mods/ot_coupling.py` — OT 实现
 - `projects/LDMDet/mods/diffusiondet_head.py` — 检测头
 - `projects/LDMDet/paper_ot_medical_draft/scripts/compute_deff.py` — D_eff 计算脚本
@@ -208,7 +208,7 @@ D_eff ≈ 2.80 意味着 ~60% 的 proposal 质量集中到 1 个 GT 上 (逆 Her
 
 #### OT 实现一致性
 
-SOTA 备份的 `ot_coupling.py` 与当前项目 `projects/LDMDet/mods/ot_coupling.py` **核心逻辑完全一致**:
+SOTA 备份的 `ot_coupling.py` 与当前项目 `../../ldmdet/coupling/ot_flow_coupling.py` **核心逻辑完全一致**:
 - Cost: `torch.cdist(noise, gt_diffusion, p=2)` — L2 距离
 - 归一化: 行归一化 `transport / transport.sum(dim=1, keepdim=True)`
 - 采样: `torch.multinomial(row_probs, 1)` — 多项采样

@@ -37,6 +37,7 @@ class HeadOutputCollector:
         self.cls_logits: Optional[torch.Tensor] = None   # (N, n_classes)
         self.reg_deltas: Optional[torch.Tensor] = None   # (N, 4)
         self.labels: Optional[torch.Tensor] = None       # (N,)
+        self.fg_masks: Optional[torch.Tensor] = None     # (N,) bool, 正样本 mask (GT IoU > 阈值)
         self.cls_grad_norm: Optional[torch.Tensor] = None  # (N,) 每样本 cls 梯度范数
         self.reg_grad_norm: Optional[torch.Tensor] = None  # (N,) 每样本 reg 梯度范数
 
@@ -46,23 +47,35 @@ class HeadOutputCollector:
         cls_logits: torch.Tensor,
         reg_deltas: torch.Tensor,
         labels: torch.Tensor,
+        fg_masks: Optional[torch.Tensor] = None,
     ):
-        """记录一批头输出 (累积)."""
+        """记录一批头输出 (累积).
+
+        Args:
+            fg_masks: 可选, 正样本 mask (GT IoU > 阈值), 用于区分正负样本的 delta 统计.
+                      若提供, analyze_reg_distribution 会额外输出 fg/bg 分组统计.
+        """
         fc = fc_feature.detach().cpu().float()
         cls = cls_logits.detach().cpu().float()
         reg = reg_deltas.detach().cpu().float()
         lab = labels.detach().cpu().long()
+        fg = fg_masks.detach().cpu().bool() if fg_masks is not None else None
 
         if self.fc_features is None:
             self.fc_features = fc
             self.cls_logits = cls
             self.reg_deltas = reg
             self.labels = lab
+            self.fg_masks = fg
         else:
             self.fc_features = torch.cat([self.fc_features, fc], dim=0)
             self.cls_logits = torch.cat([self.cls_logits, cls], dim=0)
             self.reg_deltas = torch.cat([self.reg_deltas, reg], dim=0)
             self.labels = torch.cat([self.labels, lab], dim=0)
+            if fg is not None and self.fg_masks is not None:
+                self.fg_masks = torch.cat([self.fg_masks, fg], dim=0)
+            else:
+                self.fg_masks = None  # 一旦有 None, 后续不聚合 fg/bg
 
 
 class HeadOutputAnalyzer:
@@ -77,6 +90,7 @@ class HeadOutputAnalyzer:
         self.cls_logits = collector.cls_logits
         self.reg_deltas = collector.reg_deltas
         self.labels = collector.labels
+        self.fg_masks = collector.fg_masks
         self.n_classes = int(self.cls_logits.shape[1]) if self.cls_logits is not None else 0
 
     def analyze_cls_distribution(self) -> dict:
@@ -129,6 +143,7 @@ class HeadOutputAnalyzer:
             per_dim_mean: 每维 delta 均值 (4 维)
             per_dim_std: 每维 delta 标准差
             is_conservative: 回归是否保守 (|delta_mean| < 0.1)
+            fg_bg_split: (可选) 正/负样本分组统计, 仅当 collector 提供 fg_masks 时存在
         """
         delta = self.reg_deltas  # (N, 4)
         delta_mean = delta.mean().item()
@@ -138,13 +153,34 @@ class HeadOutputAnalyzer:
 
         is_conservative = abs(delta_mean) < 0.1
 
-        return {
+        result = {
             'delta_mean': delta_mean,
             'delta_std': delta_std,
             'per_dim_mean': per_dim_mean,
             'per_dim_std': per_dim_std,
             'is_conservative': is_conservative,
         }
+
+        # D'1 验证: 区分正负样本 (GT IoU 匹配) 的 delta 统计
+        # 教训来自 D'2 失败: 对所有 proposal 求均值会掩盖正样本行为 (被~90%背景主导)
+        if self.fg_masks is not None and self.fg_masks.shape[0] == delta.shape[0]:
+            fg_delta = delta[self.fg_masks]      # (n_fg, 4)
+            bg_delta = delta[~self.fg_masks]     # (n_bg, 4)
+            n_fg = int(fg_delta.shape[0])
+            n_bg = int(bg_delta.shape[0])
+            result['fg_bg_split'] = {
+                'n_fg': n_fg,
+                'n_bg': n_bg,
+                'fg_ratio': n_fg / (n_fg + n_bg) if (n_fg + n_bg) > 0 else 0.0,
+                'fg_per_dim_mean': fg_delta.mean(dim=0).tolist() if n_fg > 0 else None,
+                'bg_per_dim_mean': bg_delta.mean(dim=0).tolist() if n_bg > 0 else None,
+                'fg_dw_mean': fg_delta[:, 2].mean().item() if n_fg > 0 else None,
+                'fg_dh_mean': fg_delta[:, 3].mean().item() if n_fg > 0 else None,
+                'bg_dw_mean': bg_delta[:, 2].mean().item() if n_bg > 0 else None,
+                'bg_dh_mean': bg_delta[:, 3].mean().item() if n_bg > 0 else None,
+            }
+
+        return result
 
     def analyze_gradient_ratio(self) -> dict:
         """分析 cls vs reg 头的梯度比例.

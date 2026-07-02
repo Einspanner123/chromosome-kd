@@ -6,7 +6,7 @@ loads 24obj pretrained checkpoint, and lowers the learning rate.
 import glob
 
 _base_ = [
-    '../../../../projects/LDMDet/configs/benchmark_24obj/cascade_rcnn_r50.py'
+    '../../baselines/benchmark_24obj/cascade_rcnn_r50.py'
 ]
 
 # === Override to chromo few-shot dataset (chromo C-group order) ===

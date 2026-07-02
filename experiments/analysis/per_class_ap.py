@@ -5,7 +5,7 @@ Computes per-class AP for multiple LDMDet checkpoints and produces
 a comparison table showing the delta from the random-coupling baseline.
 
 Usage:
-    python projects/LDMDet/tools/analysis/per_class_ap.py
+    python experiments/analysis/per_class_ap.py
 
 The script is configured via the MODELS dict below. Edit it to add/remove models.
 """

@@ -158,10 +158,7 @@ def add_mim_extension():
 
     filenames = [
         'tools',
-        'configs',
         'demo',
-        'model-index.yml',
-        'dataset-index.yml',
     ]
     repo_path = osp.dirname(__file__)
     mim_path = osp.join(repo_path, 'mmdet', '.mim')

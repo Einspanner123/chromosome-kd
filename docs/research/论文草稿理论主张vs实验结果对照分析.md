@@ -1,8 +1,8 @@
 # 论文草稿理论主张 vs 实验结果对照分析
 
 > **对照对象**
-> - **论文草稿**: [draft_cn.md](../../projects/LDMDet/paper_ot_medical_draft/draft_cn.md) —《多样性优于传输效率：面向密集染色体扩散检测的 Sinkhorn 采样方法》
-> - **实验证据**: [对比分析_两个相近SOTA_OT耦合实现.md](对比分析_两个相近SOTA_OT耦合实现.md)、[SOTA_ANALYSIS.md](../../ldmdet-experiments/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/code/projects/LDMDet/SOTA_ANALYSIS.md)、方向四研究文档、Phase 4-9 实验日志
+> - **论文草稿**: [draft_cn.md](../paper/draft_cn.md) —《多样性优于传输效率：面向密集染色体扩散检测的 Sinkhorn 采样方法》
+> - **实验证据**: [对比分析_两个相近SOTA_OT耦合实现.md](对比分析_两个相近SOTA_OT耦合实现.md)、[PAPER_RESULTS.md](../PAPER_RESULTS.md)、方向四研究文档、Phase 4-9 实验日志
 >
 > **核心问题**: 论文草稿提出的理论主张，哪些被后续实验（特别是 E4.3 系列、SOTA 复现、DPM-Solver++ 离线评估）证实？哪些被推翻？哪些需要修正？
 
@@ -171,7 +171,7 @@
 | 实验 | mAP | 来源 | 上限类型 |
 |------|:---:|------|:--------:|
 | GHSS (论文) | 0.752 | 论文表6 | 训练+Heun 推理 |
-| SOTA reproduce_0751_stochot_eps5_v2 | **0.753** | [metrics.json](../../ldmdet-experiments/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/metrics.json) | 训练+Heun 推理 |
+| SOTA reproduce_0751_stochot_eps5_v2 | **0.753** | [metrics.json](../../ldmdet-experiment/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/metrics.json) | 训练+Heun 推理 |
 | DPM-Solver++ 8-step (离线, SOTA 权重) | **0.755** | Phase 9 实验 | 训练+DPM++ 推理 |
 
 **关键区分**:
@@ -404,13 +404,13 @@
 
 | 内容 | 文件 |
 |------|------|
-| 论文草稿 (中文) | [draft_cn.md](../../projects/LDMDet/paper_ot_medical_draft/draft_cn.md) |
-| 论文草稿 (英文) | [draft.md](../../projects/LDMDet/paper_ot_medical_draft/draft.md) |
+| 论文草稿 (中文) | [draft_cn.md](../paper/draft_cn.md) |
+| 论文草稿 (英文) | [draft.md](../paper/draft.md) |
 | SOTA 对比报告 | [对比分析_两个相近SOTA_OT耦合实现.md](对比分析_两个相近SOTA_OT耦合实现.md) |
-| SOTA 分析文档 | [SOTA_ANALYSIS.md](../../ldmdet-experiments/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/code/projects/LDMDet/SOTA_ANALYSIS.md) |
+| SOTA 分析文档 | [PAPER_RESULTS.md](../PAPER_RESULTS.md) |
 | 方向四研究文档 | [方向四_流匹配的非线性轨迹.md](breakthrough_directions/方向四_流匹配的非线性轨迹.md) |
-| SOTA metrics | [metrics.json](../../ldmdet-experiments/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/metrics.json) |
+| SOTA metrics | [metrics.json](../../ldmdet-experiment/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/metrics.json) |
 | E4.3 eps2 训练日志 | [train.log](../../work_dirs/nonlinear_trajectory_e43_eps2/train.log) |
 | Scale-Conditioned RF | [scale_conditioned_rf.py](../../ldmdet/diffusion/scale_conditioned_rf.py) |
 | OT Flow Coupling | [ot_flow_coupling.py](../../ldmdet/coupling/ot_flow_coupling.py) |
-| SOTA OT Coupling | [ot_coupling.py](../../ldmdet-experiments/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/code/projects/LDMDet/mods/ot_coupling.py) |
+| SOTA OT Coupling | [ot_coupling.py](../../ldmdet-experiment/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/code/projects/LDMDet/mods/ot_coupling.py) |

@@ -105,14 +105,6 @@ def main():
         cfg.test_dataloader = cfg.val_dataloader
         cfg.test_evaluator = cfg.val_evaluator
 
-    # 注入 async checkpoint hook
-    try:
-        from projects.LDMDet.async_checkpoint_hook import AsyncCheckpointHook
-        from mmdet.registry import HOOKS
-        HOOKS.register_module(module=AsyncCheckpointHook, name='AsyncCheckpointHook', force=True)
-    except (ImportError, ModuleNotFoundError):
-        pass
-
     runner = Runner.from_cfg(cfg)
     runner.load_checkpoint(args.checkpoint)
 

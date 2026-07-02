@@ -99,7 +99,7 @@ ldmdet_baseline.py
 
 #### 3.2.1 SOTA: `OTCoupling` (legacy 路径)
 
-文件: [ot_coupling.py](../../ldmdet-experiments/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/code/projects/LDMDet/mods/ot_coupling.py)
+文件: [ot_coupling.py](../../ldmdet-experiment/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/code/projects/LDMDet/mods/ot_coupling.py)
 
 ```python
 class OTCoupling(nn.Module):
@@ -163,7 +163,7 @@ class OTFlowCoupling(CouplingStrategy):
 
 设 $N$ = proposals 数（=500），$K$ = GT 数（=10，记 $M \equiv K$）。两实现的代价矩阵互为转置：
 
-- **Legacy** ([ot_coupling.py:126](../../projects/LDMDet/mods/ot_coupling.py#L126)): $C^{\text{leg}} = \text{cdist}(\text{noise}, \text{gt}) \in \mathbb{R}^{N \times K}$
+- **Legacy** ([ot_coupling.py:126](../../ldmdet/coupling/ot_flow_coupling.py#L126)): $C^{\text{leg}} = \text{cdist}(\text{noise}, \text{gt}) \in \mathbb{R}^{N \times K}$
 - **New** ([ot_flow_coupling.py:88](../../ldmdet/coupling/ot_flow_coupling.py#L88)): $C^{\text{new}} = \text{cdist}(\text{gt}, \text{noise}) \in \mathbb{R}^{K \times N}$
 
 显然 $C^{\text{new}} = (C^{\text{leg}})^T$。
@@ -178,7 +178,7 @@ $$P^* = \arg\min_{P \in \Pi(a, b)} \langle P, C \rangle - \varepsilon H(P), \qua
 
 从代码逐行核对两实现的边缘约束：
 
-**Legacy** ([ot_coupling.py:101-106](../../projects/LDMDet/mods/ot_coupling.py#L101-L106)):
+**Legacy** ([ot_coupling.py:101-106](../../ldmdet/coupling/ot_flow_coupling.py#L101-L106)):
 ```python
 row_mass = ones(N) / N                     # a_i = 1/N       (proposals)
 proposals_per_gt = max(N // K, 1)           # = 50
@@ -275,7 +275,7 @@ log_u ← log_a - logsumexp(log_K + log_v, dim=1)   # 更新 u
 log_v ← log_b - logsumexp(log_K + log_u, dim=0)   # 更新 v
 ```
 
-- **Legacy** ([ot_coupling.py:113-119](../../projects/LDMDet/mods/ot_coupling.py#L113-L119)): 先更新 $u$（proposal 维度，N=500），再更新 $v$（GT 维度，K=10）
+- **Legacy** ([ot_coupling.py:113-119](../../ldmdet/coupling/ot_flow_coupling.py#L113-L119)): 先更新 $u$（proposal 维度，N=500），再更新 $v$（GT 维度，K=10）
 - **New** ([_sinkhorn_ops.py:57-63](../../ldmdet/coupling/_sinkhorn_ops.py#L57-L63)): 先更新 $u$（GT 维度，K=10），再更新 $v$（proposal 维度，N=500）
 
 由定理 3.2.3.3，New 的 $u$ 对应 Legacy 的 $v$，New 的 $v$ 对应 Legacy 的 $u$。因此：
@@ -304,7 +304,7 @@ log_v ← log_b - logsumexp(log_K + log_u, dim=0)   # 更新 v
 
 两者的 Sinkhorn 核心循环在数学上等价（log-domain 数值稳定）：
 
-**SOTA 的 `sinkhorn_transport`** ([ot_coupling.py:79-107](../../ldmdet-experiments/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/code/projects/LDMDet/mods/ot_coupling.py#L79-L107)):
+**SOTA 的 `sinkhorn_transport`** ([ot_coupling.py:79-107](../../ldmdet-experiment/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/code/projects/LDMDet/mods/ot_coupling.py#L79-L107)):
 ```python
 log_K_mat = -cost / max(self.ot_epsilon, 1e-6)
 log_u = torch.zeros(N, device=device)
@@ -429,7 +429,7 @@ $$
 
 ### 4.3 CAM 定理与多样性分析
 
-根据 Phase 5 的 **CAM 定理**（[OT_DIVERSITY_COLLAPSE_PROOF.md §12](../../ldmdet-experiments/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/code/projects/LDMDet/docs/from_experiments/THEORY_FRAMEWORK.md)):
+根据 Phase 5 的 **CAM 定理**（[OT_DIVERSITY_COLLAPSE_PROOF.md §12](../theory/THEORY_FRAMEWORK.md)):
 
 > **Argmax 操作会消除 ε 对多样性的控制**。Argmax 多样性常数 ≈ 2.80, 跨所有 ε; 而 Stochastic 多样性随 ε 单调递增 (2.81 → 5.31)。
 
@@ -612,16 +612,16 @@ $$
 
 | 组件 | 文件 | 关键行 |
 |------|------|--------|
-| SOTA OT 耦合 | [ot_coupling.py](../../ldmdet-experiments/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/code/projects/LDMDet/mods/ot_coupling.py) | L21-L196 |
+| SOTA OT 耦合 | [ot_coupling.py](../../ldmdet-experiment/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/code/projects/LDMDet/mods/ot_coupling.py) | L21-L196 |
 | SOTA Sinkhorn | 同上 | L79-L107 |
 | SOTA multinomial 采样 | 同上 | L182-L196 |
 | E4.3 OT Flow 耦合 | [ot_flow_coupling.py](../../ldmdet/coupling/ot_flow_coupling.py) | L18-L99 |
 | E4.3 Sinkhorn (共享) | [_sinkhorn_ops.py](../../ldmdet/coupling/_sinkhorn_ops.py) | L15-L65 |
 | 尺度条件化 RF | [scale_conditioned_rf.py](../../ldmdet/diffusion/scale_conditioned_rf.py) | L29-L194 |
-| SOTA 配置 | [ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5.py](../../ldmdet-experiments/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/code/projects/LDMDet/configs/_legacy/ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5.py) | L11-L22 |
+| SOTA 配置 | [ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5.py](../../ldmdet-experiment/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/code/projects/LDMDet/configs/_legacy/ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5.py) | L11-L22 |
 | E4.3 eps1 配置 | [nonlinear_trajectory.py](../../experiments/configs/ldmdet/nonlinear_trajectory.py) | L23-L40 |
 | E4.3 eps2 配置 | [nonlinear_trajectory_e43_eps2.py](../../experiments/configs/ldmdet/nonlinear_trajectory_e43_eps2.py) | L13-L21 |
-| SOTA 训练曲线 | [metrics.json](../../ldmdet-experiments/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/metrics.json) | — |
+| SOTA 训练曲线 | [metrics.json](../../ldmdet-experiment/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/metrics.json) | — |
 | E4.3 eps2 训练日志 | [train.log](../../work_dirs/nonlinear_trajectory_e43_eps2/train.log) | — |
 | 方向四研究文档 | [方向四_流匹配的非线性轨迹.md](breakthrough_directions/方向四_流匹配的非线性轨迹.md) | — |
 

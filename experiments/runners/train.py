@@ -172,14 +172,6 @@ def main():
     # Patch SwanLab 以便每次运行都保存 run ID 供未来 resume
     _patch_swanlab_save_id(cfg.work_dir)
 
-    # 注入 async checkpoint hook
-    try:
-        from projects.LDMDet.async_checkpoint_hook import AsyncCheckpointHook
-        from mmdet.registry import HOOKS
-        HOOKS.register_module(module=AsyncCheckpointHook, name='AsyncCheckpointHook', force=True)
-    except (ImportError, ModuleNotFoundError):
-        pass
-
     runner = Runner.from_cfg(cfg)
     runner.train()
 

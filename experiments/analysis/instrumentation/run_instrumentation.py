@@ -383,20 +383,38 @@ def run_roi_feature_analysis(model, samples, device, output_path):
     return report
 
 
-def run_head_output_analysis(model, samples, device, output_path):
-    """运行 cls/reg 头输出分析."""
-    print('  [HeadOutput] 采集头输出...')
+def run_head_output_analysis(model, samples, device, output_path, head_index: int = 0):
+    """运行 cls/reg 头输出分析.
+
+    D'1 验证增强: 同时采集 proposal boxes, 用 GT IoU 匹配构建 fg_masks,
+    使 analyze_reg_distribution 能区分正/负样本的 delta 统计。
+    教训来自 D'2 失败: 对所有 proposal 求均值会掩盖正样本行为 (被~90%背景主导)。
+
+    Args:
+        head_index: 采集哪个 head 的输出 (0=第一个, -1=最后一个). 默认 0.
+                    D'1 验证建议同时运行 0 和 -1 对比: 第 0 个 head 输入是初始噪声
+                    proposal, 最后一个 head 输入是经迭代回归的 proposal.
+    """
+    print(f'  [HeadOutput] 采集头输出 (head_index={head_index})...')
     collector = HeadOutputCollector()
     head = model.bbox_head
-    sh = head.head_series[0]
+    sh = head.head_series[head_index]
 
     # 注册 hook
     cls_captured = {}
     reg_captured = {}
+    proposal_captured = {}  # D'1: 采集 proposal boxes
     def cls_hook(m, i, o): cls_captured['out'] = o
     def reg_hook(m, i, o): reg_captured['out'] = o
+    # D'1: forward pre hook 获取 single_head 输入的 bboxes (proposal boxes)
+    def sh_pre_hook(module, args):
+        # single_head.forward(features, bboxes, proposals, pooler, time_emb)
+        # bboxes 是第 2 个参数 (args[1])
+        if len(args) >= 2:
+            proposal_captured['bboxes'] = args[1]
     h1 = sh.cls_head.register_forward_hook(cls_hook)
     h2 = sh.reg_head.register_forward_hook(reg_hook)
+    h3 = sh.register_forward_pre_hook(sh_pre_hook)
 
     n_collected = 0
     for sample in samples:
@@ -430,16 +448,35 @@ def run_head_output_analysis(model, samples, device, output_path):
         else:
             labels = sample['gt_labels'][torch.arange(n) % n_gt]
 
+        # D'1: 用 GT IoU 匹配构建 fg_masks (IoU > 0.5 为正样本)
+        fg_masks = None
+        if 'bboxes' in proposal_captured and n_gt > 0:
+            prop_bboxes = proposal_captured['bboxes']  # [bs, N, 4]
+            if prop_bboxes.dim() == 3:
+                prop_bboxes_flat = prop_bboxes.reshape(-1, 4)  # [bs*N, 4]
+            else:
+                prop_bboxes_flat = prop_bboxes
+            # 只取与 cls_out 对应数量的 proposal (bs*N)
+            prop_bboxes_flat = prop_bboxes_flat[:n].cpu()
+            gt_boxes = sample['gt_boxes'].cpu()  # [n_gt, 4]
+            # 计算 IoU: [n, 4] vs [n_gt, 4] → [n, n_gt]
+            from torchvision.ops import box_iou
+            iou_matrix = box_iou(prop_bboxes_flat, gt_boxes)  # [n, n_gt]
+            max_iou, _ = iou_matrix.max(dim=1)  # [n]
+            fg_masks = (max_iou > 0.5)  # [n] bool
+
         collector.record(
             fc_feature=cls_out,  # 近似 (实际应 hook fc_feature)
             cls_logits=cls_out,
             reg_deltas=reg_out,
             labels=labels,
+            fg_masks=fg_masks,
         )
         n_collected += 1
 
     h1.remove()
     h2.remove()
+    h3.remove()
     print(f'  [HeadOutput] 采集 {n_collected}/{len(samples)} 张图, 共 {collector.cls_logits.shape[0] if collector.cls_logits is not None else 0} 个样本')
 
     if collector.cls_logits is None or collector.cls_logits.shape[0] == 0:
@@ -456,13 +493,14 @@ def run_head_output_analysis(model, samples, device, output_path):
     return report
 
 
-def run_single(name, config_path, ckpt_path, analyzers, num_samples, device, output_dir):
+def run_single(name, config_path, ckpt_path, analyzers, num_samples, device, output_dir, head_index: int = 0):
     """运行单个 ckpt 的分析."""
     print(f'\n{"="*60}')
     print(f'分析: {name}')
     print(f'  config: {config_path}')
     print(f'  ckpt: {ckpt_path}')
     print(f'  analyzers: {analyzers}')
+    print(f'  head_index: {head_index}')
     print(f'{"="*60}')
 
     # 输出目录
@@ -487,8 +525,9 @@ def run_single(name, config_path, ckpt_path, analyzers, num_samples, device, out
             reports['roi_feature'] = run_roi_feature_analysis(
                 model, samples, device, out_dir / 'roi_feature_report.json')
         elif analyzer_name == 'head_output':
+            out_name = 'head_output_report.json' if head_index == 0 else f'head_output_idx{head_index}_report.json'
             reports['head_output'] = run_head_output_analysis(
-                model, samples, device, out_dir / 'head_output_report.json')
+                model, samples, device, out_dir / out_name, head_index=head_index)
 
     # 保存汇总
     summary = {
@@ -514,6 +553,8 @@ def main():
                         help='要运行的分析器')
     parser.add_argument('--num-samples', type=int, default=50, help='验证集采样数')
     parser.add_argument('--device', default='cuda:0', help='设备')
+    parser.add_argument('--head-index', type=int, default=0,
+                        help='采集哪个 head 的输出 (0=第一个, -1=最后一个). D\'1 验证用')
     parser.add_argument('--output-dir', default='work_dirs/instrumentation', help='输出目录')
     parser.add_argument('--batch', action='store_true', help='批量运行方案矩阵')
     parser.add_argument('--only', nargs='+', default=None,
@@ -602,6 +643,7 @@ def main():
             num_samples=args.num_samples,
             device=args.device,
             output_dir=args.output_dir,
+            head_index=args.head_index,
         )
 
 

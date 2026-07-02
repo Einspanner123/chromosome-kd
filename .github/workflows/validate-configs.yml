@@ -3,14 +3,14 @@ name: validate-configs
 on:
   pull_request:
     paths:
-      - "configs/**"
-      - "chromodet/**"
+      - "experiments/configs/**"
+      - "ldmdet/**"
       - "mmdet/**"
   push:
     branches: [main, master, "experiment/*"]
     paths:
-      - "configs/**"
-      - "chromodet/**"
+      - "experiments/configs/**"
+      - "ldmdet/**"
       - "mmdet/**"
       - ".github/workflows/validate-configs.yml"
   workflow_dispatch:
@@ -39,15 +39,15 @@ jobs:
         run: pip install mmengine && pip install -e .
         env:
           FORCE_CUDA: "0"
-      - name: Validate chromodet configs
+      - name: Validate ldmdet configs
         run: |
           python -c "
           from mmengine.config import Config
           import glob, sys
 
-          configs = glob.glob('chromodet/configs/*.py') + glob.glob('configs/_base_/datasets/chromo*.py')
+          configs = glob.glob('experiments/configs/ldmdet/*.py') + glob.glob('experiments/configs/_base_/datasets/chromo*.py')
           if not configs:
-              print('WARNING: No chromodet configs found')
+              print('WARNING: No ldmdet configs found')
               sys.exit(0)
 
           passed = []
@@ -82,5 +82,5 @@ jobs:
           if import_errors:
               print(f'\n{len(import_errors)} config(s) skipped due to missing custom modules (expected if on a feature branch)')
           if file_errors:
-              print(f'\n{len(file_errors)} config(s) skipped due to missing base configs (check chromodet/base/ symlink)')
+              print(f'\n{len(file_errors)} config(s) skipped due to missing base configs (check experiments/configs/_base_/)')
           "
