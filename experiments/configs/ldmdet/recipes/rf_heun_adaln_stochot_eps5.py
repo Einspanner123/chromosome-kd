@@ -5,11 +5,12 @@ model = dict(
         single_head=dict(
             time_conditioning='adaln_zero',
         ),
-        ot_coupling=True,
-        ot_matcher='sinkhorn',
-        ot_epsilon=5.0,
-        ot_num_iters=20,
-        ot_sample=True,
+        coupling=dict(
+            type='ot_flow',
+            epsilon=5.0,
+            num_iters=20,
+            coupling_mode='multinomial',
+        ),
     ),
 )
 
