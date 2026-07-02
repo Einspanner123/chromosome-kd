@@ -58,6 +58,11 @@ DiffusionDet DDPM (根 baseline, 默认 aug)
 │    diffusiondet_ddpm_seed789 run_id=hny1od5fcvx8ngt9b063g  mAP=0.7270
 │    diffusiondet_ddpm_seed123 run_id=ghghjry3bylt0sfoj30j5  mAP=0.7330
 │
+│  步数对齐验证 (DDIM 多步推理, project=ldmdet-inference):
+│    DDIM 4-step:  0.729 ± 0.004  (seed42=0.727, seed123=0.734, seed789=0.726)
+│    DDIM 8-step:  0.729 ± 0.003  (seed42=0.728, seed123=0.733, seed789=0.726)
+│    → DDPM 加步数不提升, 1/4/8 步均为 0.729; +0.017 为纯算法贡献
+│
 ├─→ + RF + Heun + Shifted Schedule + AdaLN-Zero  (DDPM → Rectified Flow)
 │      config: experiments/configs/ldmdet/rf_heun_adaln.py
 │      result: 0.746 ± 0.001 (3 seeds)  [+0.017, 主贡献]
@@ -67,6 +72,26 @@ DiffusionDet DDPM (根 baseline, 默认 aug)
 │        rf_heun_adaln_seed789 run_id=ww6nlti3ufdkm4htjg5pw  mAP=0.7470
 │        rf_heun_adaln_seed123 run_id=dimdbu8fk0re4satbzpgs  mAP=0.7470
 │      关键改动: diffusion_type=rectified_flow, solver=heun, rf_schedule=shifted, time_conditioning=adaln_zero
+│      │
+│      ├─→ + DPM-Solver++ 推理加速 (推理时改采样器, 不重训)
+│      │      baseline ckpt: work_dirs/multi_seed_aug/rf_heun_adaln/seed_{42,789,123}/best_coco_bbox_mAP_epoch_*.pth
+│      │      config: experiments/configs/ldmdet/rf_heun_adaln.py + test.py --solver-type dpm_solver_pp[_3]
+│      │      ┌─ 步数对齐 (4 steps, 公平步数对比):
+│      │      │  o2 (≈5 NFE): 0.746 ± 0.001  [Δ=+0.000, 同等步数下 NFE 降 37%]
+│      │      │    seed42=0.7450  seed789=0.7470  seed123=0.7470
+│      │      │  o3 (≈6 NFE): 0.746 ± 0.001  [Δ=+0.000, 同等步数下 NFE 降 25%]
+│      │      │    seed42=0.7450  seed789=0.7470  seed123=0.7470
+│      │      └─ NFE 对齐 (6 steps, 公平计算量对比, ≈7-8 NFE):
+│      │         o2 (≈7 NFE): 0.747 ± 0.001  [Δ=+0.001, 边际, NFE 略低于 Heun 8]
+│      │           seed42=0.7460  seed789=0.7480  seed123=0.7480
+│      │         o3 (8 NFE): 0.747 ± 0.001  [Δ=+0.001, 边际, 同等 NFE]
+│      │           seed42=0.7460  seed789=0.7470  seed123=0.7480
+│      │      SwanLab (project=ldmdet-inference): 12 runs (dpm_solver_pp[_3]_s{4,6}_seed{42,789,123})
+│      │        s6 o2: 5yvbs46dy657tbh7nu01z / pnbojx58ha5diof8czp96 / la6gtelnq4iifjw3l40ax
+│      │        s6 o3: i70i148vlesr1ww79lu52 / nf7i2l4zizaj3fqds5zbh / 9oplynuqswxo4i383l09o
+│      │      ⚠ 注: 旧档 ldmdet_dpm_solver_pp_o2_s8=0.748 基于简化 aug 旧 baseline(0.728), 不可与新 baseline(0.746) 直接对比
+│      │      理论: docs/notes/dpm_solver_plus_plus_rf_derivation.md (t 空间多步法, 半线性精确积分)
+│      │      结论: 步数对齐时 DPM-Solver++ 持平 Heun 但 NFE 降 25-37%; NFE 对齐时边际 +0.001
 │      │
 │      ├─→ + Hard OT Coupling (边际)
 │      │      result: 0.747 ± 0.000 (2 seeds)  [+0.001]
@@ -422,6 +447,7 @@ baseline 源预训练数据集: 24_chromosomes_object (24obj)
 | 改进 | ΔmAP | 评价 |
 |------|------|------|
 | DDPM → RF+Heun+Shifted+AdaLN | **+0.017** | 🟢 主要贡献 |
+| + DPM-Solver++ 推理加速 (o2/o3, 6步 NFE对齐) | +0.001 | 🟠 边际收益 (步数对齐 4步时 Δ=+0.000 但 NFE 降 25-37%) |
 | + Hard OT Coupling | +0.001 | 🟠 边际收益 |
 | + Sinkhorn Stochastic OT | +0.002 | 🟠 边际收益 |
 | + SOTA (ot_coupling=True) | +0.003 (高方差) | 🟠 边际但高方差 |
@@ -432,6 +458,9 @@ baseline 源预训练数据集: 24_chromosomes_object (24obj)
 | 非线性轨迹 E4.3 eps=2.0 (SCRF 真正启用) | 运行中 | 🔄 首次真正测试 ScaleConditionedRF |
 | 生成式迁移 E6.2 (FBM frozen) | -0.009 | 🔴 FBM 未超越 baseline |
 | 生成式迁移 E6.4 (CrossAttn FBM) | -0.013 | 🔴 gamma 零初始化致失效 |
+
+> 📊 **算法示意图**: [experiment_lineage_schematics.png](figures/experiment_lineage_schematics.png) | [中文版](figures/experiment_lineage_schematics_zh.png)
+> 7 个面板 (DDPM → RF+Heun → DPM-Solver++ → Hard OT → Sinkhorn OT → Focal γ=3 → OT Flow) 对应上表每次改进的底层算法可视化; BoxRefineNet 因 ΔmAP≈0 已移除; 生成脚本: `docs/figures/generate_algorithm_schematics.py`
 
 ### 3. 之前错误对照 (已修正)
 | 错误 | 原因 |
