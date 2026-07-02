@@ -10,7 +10,6 @@ custom_imports = dict(
         'experiments.mmdet_bridge.detector',
         'experiments.mmdet_bridge.hooks',
         'experiments.mmdet_bridge.transforms',
-        'ldmdet.feature_bridge',
         'swanlab.integration.mmengine',
     ],
     allow_failed_imports=False,

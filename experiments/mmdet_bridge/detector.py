@@ -74,9 +74,9 @@ class LDMDetDetector(BaseDetector):
         else:
             coupling = build_coupling('random')
 
-        # 2. 构建 single_head (支持 SingleDiffusionDetHead / DecoupledSingleHead)
+        # 2. 构建 single_head (支持 ShapeAttention 局部形状注意力)
         sh_cfg = cfg.pop('single_head')
-        sh_type = sh_cfg.pop('type', 'PurePyTorchSingleDiffusionDetHead')
+        sh_cfg.pop('type', None)
 
         # 方向 C1: 可选的局部形状注意力
         shape_attention = None
@@ -86,23 +86,9 @@ class LDMDetDetector(BaseDetector):
             sa_cfg.pop('type', None)
             shape_attention = ShapeAttention(**sa_cfg)
 
-        # 方向 D1: 可选的框细化网络
-        box_refine = None
-        if 'box_refine' in sh_cfg:
-            from ldmdet.core.box_refine import BoxRefineNet
-            br_cfg = sh_cfg.pop('box_refine')
-            br_cfg.pop('type', None)
-            box_refine = BoxRefineNet(**br_cfg)
-
-        if sh_type == 'PurePyTorchDecoupledSingleHead':
-            from ldmdet.core.decoupled_head import DecoupledSingleHead
-            single_head = DecoupledSingleHead(
-                shape_attention=shape_attention, box_refine=box_refine, **sh_cfg
-            )
-        else:
-            single_head = SingleDiffusionDetHead(
-                shape_attention=shape_attention, box_refine=box_refine, **sh_cfg
-            )
+        single_head = SingleDiffusionDetHead(
+            shape_attention=shape_attention, **sh_cfg
+        )
 
         # 3. 构建 roi_extractor
         re_cfg = cfg.pop('roi_extractor', {})
@@ -115,12 +101,7 @@ class LDMDetDetector(BaseDetector):
         if criterion_cfg is not None:
             criterion = self._build_criterion(criterion_cfg)
 
-        # 方向四: 构建尺度条件化 RF (可选)
-        scale_conditioned_rf = self._build_scale_conditioned_rf(
-            cfg.pop('scale_conditioned_rf', None)
-        )
-
-        # 6. 构建 head — 只传 DiffusionDetHead 接受的参数
+        # 5. 构建 head — 只传 DiffusionDetHead 接受的参数
         import inspect
         valid_params = set(inspect.signature(DiffusionDetHead.__init__).parameters.keys())
         cfg = {k: v for k, v in cfg.items() if k in valid_params}
@@ -130,18 +111,8 @@ class LDMDetDetector(BaseDetector):
             roi_extractor=roi_extractor,
             criterion=criterion,
             coupling=coupling,
-            scale_conditioned_rf=scale_conditioned_rf,
         )
         return head
-
-    def _build_scale_conditioned_rf(self, cfg):
-        """构建尺度条件化 RF (方向四). cfg=None 时返回 None (不启用)."""
-        if cfg is None:
-            return None
-        from ldmdet.diffusion.scale_conditioned_rf import ScaleConditionedRF
-        cfg = cfg.copy()
-        cfg.pop('type', None)
-        return ScaleConditionedRF(**cfg)
 
     def _build_criterion(self, cfg: Dict) -> DiffusionDetCriterion:
         """从配置构建 criterion"""

@@ -59,5 +59,4 @@ custom_hooks = [
         activation_layers=[],
         diagnostics_callback=None,
     ),
-    dict(type='TrajectoryDiagInjector', priority='NORMAL', interval=100),
 ]

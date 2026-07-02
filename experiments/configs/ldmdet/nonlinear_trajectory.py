@@ -1,34 +1,20 @@
 """LDMDet + Nonlinear Trajectory (方向四: 非线性轨迹)
 
-继承自 rf_heun_adaln, 启用尺度条件化 RF + OT Flow 耦合.
-与 rf_heun_adaln.py (baseline) 差异: scale_conditioned_rf + coupling=ot_flow.
+继承自 rf_heun_adaln, 启用 OT Flow 耦合.
+与 rf_heun_adaln.py (baseline) 差异: coupling=ot_flow.
 
-实验目标: 验证非线性轨迹对多尺度染色体生成的改善
-- 假设: 尺度条件化调度让小目标 (A组) 在更早 t 去噪, 提升小目标 recall
+实验目标: 验证 OT Flow 耦合对训练收敛的改善
 - 假设: OT Flow 耦合减少路径交叉, 加速收敛
-- 对比: rf_heun_adaln.py (baseline, 线性轨迹 + 随机耦合)
 
-开关控制:
-- scale_conditioned_rf: None=标准 RF, dict=尺度条件化 RF
-- coupling: 'random'=随机耦合 (baseline), 'ot_flow'=OT Flow 耦合
-
-消融实验:
-- 仅尺度条件化: coupling 注释掉 (用 random), 保留 scale_conditioned_rf
-- 仅 OT Flow: scale_conditioned_rf 注释掉, coupling=ot_flow
-- 两者联合: 都启用 (推荐, 本配置默认)
+注意: ScaleConditionedRF 已证伪 (0.741 < 0.746 baseline), 已移除.
+      之前的 0.752 mAP 全部来自 OTFlowCoupling, 与 SCRF 无关.
+      详见 docs/EXPERIMENT_LINEAGE.md 第十一节.
 """
 
 _base_ = ['rf_heun_adaln.py']
 
 model = dict(
     bbox_head=dict(
-        # 方向四: 尺度条件化 RF (小目标用更陡的噪声调度)
-        scale_conditioned_rf=dict(
-            type='ScaleConditionedRF',
-            lambda_mod=0.5,      # 调制强度 (0=标准 RF, 越大尺度差异越显著)
-            s_max=0.15,          # 参考最大尺度 (归一化面积平方根)
-            snr_scale=2.0,       # 与 RectifiedFlow 一致
-        ),
         # 方向四: OT Flow 耦合 (mini-batch OT 计算最优配对)
         coupling=dict(
             type='ot_flow',
@@ -65,5 +51,4 @@ custom_hooks = [
         activation_layers=[],
         diagnostics_callback=None,
     ),
-    dict(type='TrajectoryDiagInjector', priority='NORMAL', interval=100),
 ]

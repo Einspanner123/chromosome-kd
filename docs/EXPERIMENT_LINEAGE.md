@@ -218,16 +218,20 @@ Direction 方向实验 A-F (基于 rf_heun_adaln, 默认 aug, 应与 0.746 对�
        │      │        但当时 head.py 未集成, ScaleConditionedRF 完全未生效!
        │      │        0.752 实际来自 OTFlowCoupling(eps=2.0,argmax) + Heun + 种子方差
        │      │
-       │      ├─→ E4.3-tune eps=2.0 (NEW, ScaleConditionedRF 真正启用) = 运行中
-       │      │      config: experiments/configs/ldmdet/nonlinear_trajectory_e43_eps2.py (同上)
-       │      │      本地: work_dirs/nonlinear_trajectory_e43_eps2_real/
-       │      │      SwanLab: run_id=hkn0fc7w  (运行中, Epoch 5/150)
-       │      │      ✓ TDD 红绿重构后, head.py 4 处真正集成 ScaleConditionedRF:
-       │      │        1. _forward_diffusion (前向加噪, scales 参数)
-       │      │        2. _build_training_targets (从 GT 计算 scales 经 matched_idx 映射)
-       │      │        3. predict Euler/Heun 路径 (推理时从 x0_pred 计算 scales)
-       │      │        4. _compute_inference_scales (raw→normalized cxcywh→sqrt(w*h))
-       │      │      48 单元测试全部通过 (test_nonlinear_trajectory.py)
+       │      ├─→ E4.3-tune eps=2.0 (NEW, ScaleConditionedRF 真正启用) = **0.741** [−0.005] ⛔ 证伪
+      │      │      config: experiments/configs/ldmdet/nonlinear_trajectory_e43_eps2.py (同上)
+      │      │      本地: work_dirs/nonlinear_trajectory_e43_eps2_real/
+      │      │      SwanLab: run_id=hkn0fc7w  (best @ epoch 69, 训练至 ep93 平台化)
+      │      │      进展: ep1=0.000 → ep10=0.564 → ep55=0.737 → ep69=**0.741** → ep93 平台
+      │      │      ✓ TDD 红绿重构后, head.py 4 处真正集成 ScaleConditionedRF:
+      │      │        1. _forward_diffusion (前向加噪, scales 参数)
+      │      │        2. _build_training_targets (从 GT 计算 scales 经 matched_idx 映射)
+      │      │        3. predict Euler/Heun 路径 (推理时从 x0_pred 计算 scales)
+      │      │        4. _compute_inference_scales (raw→normalized cxcywh→sqrt(w*h))
+      │      │      48 单元测试全部通过 (test_nonlinear_trajectory.py)
+      │      │      commit: e757b856 feat(scale-conditioned-rf): integrate ...
+      │      │      ⛔⛔ **关键结论: ScaleConditionedRF 真正启用后性能下降 (0.741 < 0.746 baseline)**
+      │      │        理论缺陷详见 [第十一节: ScaleConditionedRF 证伪记录](#十一scaleconditionedrf-证伪记录)
        │      │
        │      ├─→ E4.3-tune eps=3.0 = 0.750  [+0.004]  ✓ 早停
        │      │      config: experiments/configs/ldmdet/nonlinear_trajectory_e43_eps3.py
@@ -455,7 +459,7 @@ baseline 源预训练数据集: 24_chromosomes_object (24obj)
 | Direction D: BoxRefineNet | +0.001 | 🟠 持平 baseline |
 | 非线性轨迹 E4.2 (OT Flow only) | +0.005 | 🟠 OT Flow 耦合有效 |
 | 非线性轨迹 E4.3 (OT+SCRF, SCRF 未启用) | +0.006 | 🟠 主要来自 OT,非 ScaleConditionedRF |
-| 非线性轨迹 E4.3 eps=2.0 (SCRF 真正启用) | 运行中 | 🔄 首次真正测试 ScaleConditionedRF |
+| 非线性轨迹 E4.3 eps=2.0 (SCRF 真正启用) | **−0.005** | � **证伪! 0.741 < 0.746 baseline, SCRF 有害** |
 | 生成式迁移 E6.2 (FBM frozen) | -0.009 | 🔴 FBM 未超越 baseline |
 | 生成式迁移 E6.4 (CrossAttn FBM) | -0.013 | 🔴 gamma 零初始化致失效 |
 
@@ -570,3 +574,214 @@ Direction 实验基于 `rf_heun_adaln.py` (chromo 数据集, 默认 aug):
 
 > Direction 系列已停止推进,后续由非线性轨迹实验 (见 3.4 节) 接替。
 > 若要追求 SOTA,应将有效方向叠加到 SOTA config (含 OT) 上。
+
+## 九、每步改进详解 (结构化)
+
+> 本节以标准化格式梳理每个关键改进:动机 / 改动 / 实验 / 结论。
+> 配套图见 [第十节:图索引](#十图索引)。
+
+### 9.1 DDPM → Rectified Flow + Heun + Shifted + AdaLN-Zero
+
+| 字段 | 内容 |
+|------|------|
+| **动机** | DDPM 采样需 1000 步,推理慢;标准 RF 线性轨迹可一步直达但精度受限 |
+| **改动** | `diffusion_type=rectified_flow`, `solver_type=heun` (二阶), `rf_schedule=shifted` (rf_shift=3.0), `time_conditioning=adaln_zero` (零初始化保证训练稳定) |
+| **实验** | config: `experiments/configs/ldmdet/rf_heun_adaln.py`; 3 seeds; work_dir: `work_dirs/multi_seed_aug/rf_heun_adaln/` |
+| **结果** | 0.729 → **0.746** (+0.017), 3-seed 方差 ±0.001 |
+| **结论** | 🟢 **主要贡献**,后续所有实验均基于此 baseline |
+| **关键代码** | [head.py](file:///home/linkst/workplace/chromo/chromosome-kd/ldmdet/core/head.py) DiffusionDetHead, [rectified_flow.py](file:///home/linkst/workplace/chromo/chromosome-kd/ldmdet/diffusion/rectified_flow.py), [single_head.py](file:///home/linkst/workplace/chromo/chromosome-kd/ldmdet/core/single_head.py) AdaLN-Zero |
+| **图** | [fig1_overall_architecture.png](file:///home/linkst/workplace/chromo/chromosome-kd/docs/figs/fig1_overall_architecture.png) — 整体架构 |
+
+### 9.2 Sinkhorn OT 耦合 (替代随机配对)
+
+| 字段 | 内容 |
+|------|------|
+| **动机** | 随机耦合将 500 个噪声 proposal 与 M 个 GT 随机配对,引入不必要的传输成本;OT 配对可找到最小传输成本的匹配 |
+| **改动** | `coupling=OTFlowCoupling`, Sinkhorn 算法 (log-domain, 10 iters), cost=cdist L2, 列归一化后 argmax 解码 |
+| **实验** | E4.2 (OT only) vs baseline; work_dir: `work_dirs/nonlinear_trajectory_e42/` |
+| **结果** | 0.746 → **0.751** (+0.005); E4.3 (OT+SCRF未启用) = 0.752 |
+| **结论** | 🟠 **边际有效**,OT 耦合降低传输成本,但提升幅度有限 (架构天花板 ~0.75) |
+| **关键代码** | [ot_flow_coupling.py](file:///home/linkst/workplace/chromo/chromosome-kd/ldmdet/coupling/ot_flow_coupling.py), [_sinkhorn_ops.py](file:///home/linkst/workplace/chromo/chromosome-kd/ldmdet/coupling/_sinkhorn_ops.py) |
+| **图** | [fig3_ot_coupling.png](file:///home/linkst/workplace/chromo/chromosome-kd/docs/figs/fig3_ot_coupling.png) — OT 配对示意 |
+
+### 9.3 Scale-Conditioned RF (非线性轨迹)
+
+| 字段 | 内容 |
+|------|------|
+| **动机** | 标准 RF 对所有尺度目标用相同时间调度 κ=1;小目标 (w·h 小) 信噪比低,应在更早的 t 去噪 |
+| **改动** | `ScaleConditionedRF`: κ(s)=1+λ(s_max−s)/s_max, t_eff=t^(1/κ(s)); λ=0.5, s_max=0.15; 训练从 GT 算 s,推理从 x0_pred 算 s |
+| **实验** | E4.3-tune eps=2.0 (NEW, 真正启用); work_dir: `work_dirs/nonlinear_trajectory_e43_eps2_real/` |
+| **状态** | 🔄 运行中 (Epoch 11/150, ep10 mAP=0.564, 持续上升) |
+| **历史教训** | E4.3 OLD (0.752) 的 ScaleConditionedRF 未集成到 head.py,0.752 全部来自 OT+种子方差 |
+| **TDD** | 48 单元测试覆盖: heun_step 形状/退化等价/Euler 差异, head 4 处集成, 3 种向后兼容 |
+| **关键代码** | [scale_conditioned_rf.py](file:///home/linkst/workplace/chromo/chromosome-kd/ldmdet/diffusion/scale_conditioned_rf.py), [head.py L375-410](file:///home/linkst/workplace/chromo/chromosome-kd/ldmdet/core/head.py#L375-L410) |
+| **图** | [fig2_scale_conditioned_rf.png](file:///home/linkst/workplace/chromo/chromosome-kd/docs/figs/fig2_scale_conditioned_rf.png) — 模块图, [fig4_trajectory_comparison.png](file:///home/linkst/workplace/chromo/chromosome-kd/docs/figs/fig4_trajectory_comparison.png) — 轨迹对比 |
+
+### 9.4 Bottleneck: Focal Loss γ=3
+
+| 字段 | 内容 |
+|------|------|
+| **动机** | 瓶颈分析显示分类损失是主要瓶颈,默认 γ=2 对困难样本权重不足 |
+| **改动** | `focal_gamma=3.0` |
+| **实验** | work_dir: `work_dirs/bottleneck/ablation/focal_gamma_3/` |
+| **结果** | 0.746 → **0.750** (+0.004) |
+| **结论** | 🟢 分类损失调整有效,但未叠加到 SOTA |
+
+### 9.5 Direction D: BoxRefineNet
+
+| 字段 | 内容 |
+|------|------|
+| **动机** | 在 head 输出后增加框精修网络,二次校准边界框 |
+| **改动** | 新增 BoxRefineNet 模块 |
+| **实验** | work_dir: `work_dirs/direction_exps/direction_d_box_refine/` |
+| **结果** | 0.746 → **0.747** (+0.001, 持平) |
+| **结论** | 🟠 持平 baseline,精修网络未带来显著提升 |
+
+### 9.6 Direction B: DecoupledHead (失败)
+
+| 字段 | 内容 |
+|------|------|
+| **动机** | 解耦分类与回归路径,减少多任务干扰 |
+| **改动** | DecoupledHead 替代共享特征路径 |
+| **实验** | work_dir: `work_dirs/direction_exps/direction_b_decoupled_head/` |
+| **结果** | 0.746 → **0.702** (−0.044, 显著退化) |
+| **结论** | 🔴 解耦导致特征共享信息丢失,已停止 |
+
+### 9.7 生成式迁移 FBM (E6.2-E6.4, 均失败)
+
+| 字段 | 内容 |
+|------|------|
+| **动机** | 用 ChromoGen 生成模型的特征通过 Feature Bridge Module (FBM) 增强 LDMDet 检测器 |
+| **改动** | E6.2: frozen + 可学习 alpha; E6.3: per-channel gate + UNet 部分解冻; E6.4: cross-attention + zero-init gamma |
+| **实验** | work_dirs: `work_dirs/gen_transfer_phase1_e6_*/` |
+| **结果** | E6.2=0.737 (−0.009), E6.3=0.703 (−0.043), E6.4=0.733 (−0.013) |
+| **结论** | 🔴 FBM 系列均未超越 baseline; E6.4 的 gamma 零初始化致 attention 路径未激活,实际退化为 simple gate |
+
+## 十、图索引
+
+| 图 | 文件 | 说明 | 脚本 |
+|----|------|------|------|
+| 图1 | [fig1_overall_architecture](file:///home/linkst/workplace/chromo/chromosome-kd/docs/figs/fig1_overall_architecture.pdf) | 整体架构: backbone → FPN → 6 级联 head → 训练/推理双路径 | [fig1_overall_architecture.py](file:///home/linkst/workplace/chromo/chromosome-kd/scripts/figs/fig1_overall_architecture.py) |
+| 图2 | [fig2_scale_conditioned_rf](file:///home/linkst/workplace/chromo/chromosome-kd/docs/figs/fig2_scale_conditioned_rf.pdf) | ScaleConditionedRF 模块: κ(s) 调制 + t_eff 变换 + 训练/推理路径 | [fig2_scale_conditioned_rf.py](file:///home/linkst/workplace/chromo/chromosome-kd/scripts/figs/fig2_scale_conditioned_rf.py) |
+| 图3 | [fig3_ot_coupling](file:///home/linkst/workplace/chromo/chromosome-kd/docs/figs/fig3_ot_coupling.pdf) | OT Flow Coupling: 噪声-GT 空间分布 + Sinkhorn 传输矩阵 + 配对结果 | [fig3_ot_coupling.py](file:///home/linkst/workplace/chromo/chromosome-kd/scripts/figs/fig3_ot_coupling.py) |
+| 图4 | [fig4_trajectory_comparison](file:///home/linkst/workplace/chromo/chromosome-kd/docs/figs/fig4_trajectory_comparison.pdf) | 轨迹对比: t_eff vs t 曲线 + α(t,s) 权重 + 2D 轨迹位置 | [fig4_trajectory_comparison.py](file:///home/linkst/workplace/chromo/chromosome-kd/scripts/figs/fig4_trajectory_comparison.py) |
+
+> 画图公共样式: [_style.py](file:///home/linkst/workplace/chromo/chromosome-kd/scripts/figs/_style.py) (Liberation Serif / CVPR 风格 / 300dpi PDF+PNG)
+>
+> 重新生成所有图: `for f in scripts/figs/fig*.py; do python "$f"; done`
+
+## 十一、ScaleConditionedRF 证伪记录
+
+> 本节记录 ScaleConditionedRF 方向的完整证伪过程:从"声称 0.752"到"真正集成后 0.741 证伪",以及 0.753/0.752 的真实改进谱系。
+
+### 11.1 0.753 与 0.752 的真实改进谱系
+
+经对归档代码、备份 head.py、dumped config 的全面核查,所有 0.753/0.752 实验的改进来源如下:
+
+| 实验 | mAP | Coupling | ε | 架构 | bs | SCRF 配置 | SCRF 实际生效 | 真实改进来源 |
+|------|-----|----------|---|------|----|-----------|--------------|-------------|
+| reproduce_0751_stochot_eps5_v2 | **0.753** | sinkhorn_stochastic | 5.0 | PurePyTorch | 2 | 无 | — | Stochastic OT ε=5 |
+| scheme_C1_5_mixed_rel_l1_lam015 | **0.752** | sinkhorn_stochastic | 5.0 | PurePyTorch | 2 | 无 | — | + mixed_relative_l1 损失 |
+| nonlinear_trajectory E4.3 (usnvd63f) | **0.752** | ot_flow (argmax) | 1.0 | mmdet_bridge | 4 | 有 | ❌ **未集成** | ot_flow coupling |
+| nonlinear_trajectory_e43_eps2 OLD (cdtmijl0) | **0.752** | ot_flow (argmax) | 2.0 | mmdet_bridge | 4 | 有 | ❌ **未集成** | ot_flow coupling ε=2.0 |
+| **nonlinear_trajectory_e43_eps2 NEW** (hkn0fc7w) | **0.741** | ot_flow (argmax) | 2.0 | mmdet_bridge | 4 | 有 | ✅ **真正集成** | SCRF 导致 −0.005 |
+
+**谱系图**:
+```
+0.746 baseline (random coupling, RF+Heun+AdaLN-Zero)
+   │
+   ├──→ 0.753  Stochastic OT ε=5  (sinkhorn_stochastic, PurePyTorch, bs=2)
+   │    │      ← 历史最高, 改进来源: Stochastic OT (从传输矩阵采样而非 argmax)
+   │    │
+   │    └──→ 0.752  + mixed_relative_l1 λ=0.15  (phase7_loss, 损失优化未超越 0.753)
+   │
+   ├──→ 0.752  ot_flow ε=1.0 argmax  (E4.3, mmdet_bridge, bs=4)
+   │    │      ← 改进来源: ot_flow coupling, **非 ScaleConditionedRF** (config 有但未集成)
+   │    │
+   │    ├──→ 0.752  ot_flow ε=2.0 argmax  (E4.3 eps2 OLD, 同上, ε 调优)
+   │    │
+   │    └──→ 0.741  ot_flow ε=2.0 + SCRF 真正集成  (E4.3 eps2 NEW)
+   │             ← ⛔ 证伪! SCRF 导致性能下降 0.005
+   │
+   └──→ 0.746-0.749  3-seed 复现  (nonlinear_trajectory.py, SCRF 未集成)
+            ← 证实 0.752 的高方差, 均值 0.7475 ± 0.0015
+```
+
+**核心结论**: 0.753 和 0.752 的改进 **全部来自 OT coupling 策略** (stochastic sinkhorn 或 ot_flow),ScaleConditionedRF 从未生效。真正集成后反而有害。
+
+### 11.2 证伪实验详情
+
+| 字段 | 内容 |
+|------|------|
+| **实验** | nonlinear_trajectory_e43_eps2_real (commit e757b856) |
+| **config** | `experiments/configs/ldmdet/nonlinear_trajectory_e43_eps2.py` |
+| **work_dir** | `work_dirs/nonlinear_trajectory_e43_eps2_real/` |
+| **SCRF 集成** | ✅ head.py 4 处: `_forward_diffusion` / `_build_training_targets` / `predict` (Euler+Heun) / `_compute_inference_scales` |
+| **测试** | 48 单元测试全部通过 (TDD 红绿重构) |
+| **Best mAP** | **0.741** @ Epoch 69 |
+| **mAP 曲线** | ep1=0.000 → ep10=0.564 → ep55=0.737 → ep69=**0.741** → ep93 平台化 (0.69-0.74 振荡) |
+| **Δ vs baseline** | **−0.005** (0.741 < 0.746) |
+| **Δ vs OLD** | **−0.011** (0.741 < 0.752, OLD 的 SCRF 未生效) |
+| **结论** | ⛔ **ScaleConditionedRF 方向证伪,应终止** |
+
+### 11.3 理论缺陷分析
+
+ScaleConditionedRF 真正启用后性能下降,根本原因有四:
+
+#### 缺陷 1: 训练-推理尺度不一致 (最致命)
+
+```
+训练: s = sqrt(w_gt · h_gt)          ← GT 真实尺度, 精确
+推理: s = sqrt(w_pred · h_pred)      ← x0_pred 预测尺度, 早期 t≈1 时近乎随机
+```
+
+- 采样初期 t≈1, 模型输入几乎是纯噪声, x0_pred 完全不可靠
+- 从不可靠的 x0_pred 计算的 κ(s) 和 t_eff 也是错误的
+- **错误的 t_eff 导致采样轨迹偏离训练时学到的分布**, 误差逐步累积
+- 这是结构性缺陷: 推理时无法获得 GT 尺度, 任何 proxy 都不可靠
+
+#### 缺陷 2: 破坏 RF 的统一时间轴
+
+Rectified Flow 理论要求所有样本在同一 t 下共享同一速度场 v(x_t, t):
+
+```
+标准 RF:  所有 box 在 t=0.5 时, x_t = (1-0.5)x_0 + 0.5·noise   ← 统一
+SCRF:     大目标 t_eff=0.5, 小目标 t_eff=0.35                   ← 分裂!
+          模型在 t=0.5 时同时看到"半噪声"和"三分之一噪声"的混合输入
+```
+
+模型无法在单个 t_input 下正确处理不同 t_eff 的样本, 速度场定义被破坏。
+
+#### 缺陷 3: 小目标的数值不稳定
+
+```python
+v = (x_t - x0_pred) / t_eff   # t_eff 小时, 误差被放大
+```
+
+- 小目标 κ→1.5, t_eff→t^0.67, t_eff 在 t 小时趋近 0
+- 除以小 t_eff 放大 x0_pred 的预测误差
+- Heun 二阶进一步放大 (两次除法)
+
+#### 缺陷 4: 推理时尺度反馈循环
+
+```
+x0_pred (噪声) → 算 s → 算 κ → 算 t_eff → step → 新 x → 新 x0_pred (仍噪声) → ...
+```
+
+每步推理都依赖上一步的噪声预测来决定本步的积分路径, 误差在 4 步采样中滚雪球。
+
+### 11.4 历史归因修正记录
+
+| 时间 | 旧认知 | 新认知 | 证据 |
+|------|--------|--------|------|
+| 2026-06-24 | E4.3 (0.752) 归功于 ScaleConditionedRF + OT | 0.752 全部来自 OTFlowCoupling | 备份 head.py 确认 SCRF 未集成, 仅用于诊断回调 |
+| 2026-06-27 | E4.3 eps2 (0.752) 进一步验证 SCRF 有效 | 同上, SCRF 仍未集成 | 备份 head.py 确认 |
+| 2026-07-02 | — | SCRF 真正集成后 0.741 < 0.746, **证伪** | TDD 集成 + 真正训练实验 |
+
+### 11.5 最终结论
+
+1. **ScaleConditionedRF 方向证伪**: 真正集成后性能下降 0.005, 不应继续推进
+2. **0.753 是历史最高**: 来自 Stochastic OT ε=5 (sinkhorn_stochastic, 从传输矩阵采样)
+3. **0.752 的所有变体**: 均来自 OT coupling (stochastic sinkhorn 或 ot_flow argmax), 与 SCRF 无关
+4. **OT coupling 是唯一有效改进**: 但提升幅度有限 (+0.005~0.007), 架构天花板约 0.75
+5. **代码保留**: SCRF 代码和测试保留在仓库中 (commit e757b856), 作为证伪记录供后续研究参考

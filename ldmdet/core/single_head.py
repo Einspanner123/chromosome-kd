@@ -44,13 +44,11 @@ class SingleDiffusionDetHead(nn.Module):
         use_sdpa=True,
         attn_half=False,
         shape_attention=None,
-        box_refine=None,
     ):
         super().__init__()
         self.feat_channels = feat_channels
         self.time_conditioning = time_conditioning
         self.shape_attention = shape_attention
-        self.box_refine = box_refine
         # use_sdpa: True = 使用 SDPA, False = 使用 nn.MultiheadAttention
         # attn_half: True = attention 核心用 FP16 加速, False = 保持原始精度
         self.use_sdpa = use_sdpa and _SDPA_AVAILABLE
@@ -265,9 +263,6 @@ class SingleDiffusionDetHead(nn.Module):
         # D': 保存 reg_head 输出供外部读取 (用于 reg bias 正则化)
         self._last_bboxes_deltas = bboxes_deltas
         pred_bboxes = self.apply_deltas(bboxes_deltas, bboxes.view(-1, 4))
-        # 方向 D1: 可选的框细化残差 (零初始化, 初始时不改变 baseline)
-        if self.box_refine is not None:
-            pred_bboxes = pred_bboxes + self.box_refine(fc_feature)
         return pred_bboxes
 
     def apply_deltas(self, deltas, boxes):

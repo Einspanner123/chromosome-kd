@@ -361,33 +361,4 @@ class WeightSummaryHook(Hook):
                 pass
 
 
-# ──────────────────────────────────────────────
-# 诊断注入器 — 将方向特定诊断回调注入到模型
-# ──────────────────────────────────────────────
 
-@HOOKS.register_module(force=True)
-class TrajectoryDiagInjector(Hook):
-    """方向四诊断注入器: 将 TrajectoryDiagnosticsCallback 注入到 head.
-
-    注入到 head.trajectory_diag_callback, 由 head 在 loss() 中
-    调用 update_scale/update_ot/update_curvature 更新数据.
-    """
-
-    def __init__(self, interval=100):
-        self.interval = interval
-        self._callback = None
-
-    def before_run(self, runner):
-        from ldmdet.diagnostics.trajectory_diag import TrajectoryDiagnosticsCallback
-        model = runner.model.module if hasattr(runner.model, 'module') else runner.model
-        head = model.bbox_head
-
-        self._callback = TrajectoryDiagnosticsCallback(interval=self.interval)
-        head.trajectory_diag_callback = self._callback
-
-        for hook in runner.hooks:
-            if hook.__class__.__name__ == 'TrainingDiagnosticsHook':
-                hook.diagnostics_callback = lambda runner, outputs, step: self._callback.collect(step)
-                break
-
-        runner.logger.info('TrajectoryDiagnosticsCallback injected.')
