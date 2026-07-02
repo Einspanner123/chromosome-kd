@@ -6,6 +6,7 @@
 模块划分:
 - stats.py: 公共统计工具
 - hooks.py: TrainingDiagnosticsHook (基础监控)
+- feature_bridge_diag.py: 方向六 FBM 诊断
 """
 
 __all__ = []
