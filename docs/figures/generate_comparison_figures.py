@@ -2,14 +2,14 @@
 
 Reads:  experiments/analysis/baseline_vs_sota_results.json
 Outputs (docs/figures/):
-  comparison_per_class_ap[_zh].png           — chromo: 3-model AP bar (DDPM | RF+Heun | SOTA)
-  comparison_confusion_matrix[_zh].png       — chromo: 3-panel heatmap (DDPM | SOTA | Δ)
-  comparison_pr_table[_zh].png               — chromo: DDPM vs SOTA aggregate P/R
-  comparison_per_class_pr[_zh].png           — chromo: DDPM vs SOTA per-class P/R
-  24obj_per_class_ap[_zh].png                — 24obj: 2-model AP bar (DDPM | SOTA)
-  24obj_confusion_matrix[_zh].png            — 24obj: 3-panel heatmap (DDPM | SOTA | Δ)
-  24obj_pr_table[_zh].png                    — 24obj: DDPM vs SOTA aggregate P/R
-  24obj_per_class_pr[_zh].png                — 24obj: DDPM vs SOTA per-class P/R
+  comparison_per_class_ap[_zh].png           — chromo: 2-model AP bar (DiffusionDet | SOTA)
+  comparison_confusion_matrix[_zh].png       — chromo: 3-panel heatmap (DiffusionDet | SOTA | Δ)
+  comparison_pr_table[_zh].png               — chromo: DiffusionDet vs SOTA aggregate P/R
+  comparison_per_class_pr[_zh].png           — chromo: DiffusionDet vs SOTA per-class P/R
+  24obj_per_class_ap[_zh].png                — 24obj: 2-model AP bar (DiffusionDet | SOTA)
+  24obj_confusion_matrix[_zh].png            — 24obj: 3-panel heatmap (DiffusionDet | SOTA | Δ)
+  24obj_pr_table[_zh].png                    — 24obj: DiffusionDet vs SOTA aggregate P/R
+  24obj_per_class_pr[_zh].png                — 24obj: DiffusionDet vs SOTA per-class P/R
   per_dataset_summary_table[_zh].png         — cross-dataset aggregate metrics
 
 Usage:
@@ -526,7 +526,7 @@ def plot_per_dataset_summary_table(data: dict, lang: str, output_path: Path):
     rows = []
     for ds_name in ['chromo', '24obj']:
         models = get_models(data, ds_name)
-        for model_name in ['DDPM', 'RF+Heun', 'SOTA']:
+        for model_name in ['DiffusionDet', 'SOTA']:
             if model_name not in models:
                 continue
             mean = models[model_name].get('mean', {})
@@ -570,10 +570,8 @@ def plot_per_dataset_summary_table(data: dict, lang: str, output_path: Path):
         ds_name, model_name, label = r[0], r[1], r[2]
         vals = r[3:]
         table_data.append([label] + [f'{v:.4f}' for v in vals])
-        if model_name == 'DDPM':
+        if model_name == 'DiffusionDet':
             row_color = '#F3F4F6'
-        elif model_name == 'RF+Heun':
-            row_color = '#DBEAFE'
         else:
             row_color = '#FEF3C7'
         cell_colors.append([row_color] + ['white'] * len(vals))
@@ -626,25 +624,24 @@ def main():
         suffix = '_zh' if lang == 'zh' else ''
         print(f'\n--- {lang.upper()} version ---')
 
-        # chromo: 3-model AP (DDPM | RF+Heun | SOTA), rest DDPM vs SOTA (完整提升)
-        plot_per_class_ap(data, 'chromo', lang, 'DDPM', 'SOTA',
-                          OUTPUT_DIR / f'comparison_per_class_ap{suffix}.png',
-                          mid_key='RF+Heun')
-        plot_confusion_matrix(data, 'chromo', lang, 'DDPM', 'SOTA',
+        # chromo: DiffusionDet vs SOTA (2-model, 直接对比 baseline → SOTA)
+        plot_per_class_ap(data, 'chromo', lang, 'DiffusionDet', 'SOTA',
+                          OUTPUT_DIR / f'comparison_per_class_ap{suffix}.png')
+        plot_confusion_matrix(data, 'chromo', lang, 'DiffusionDet', 'SOTA',
                               OUTPUT_DIR / f'comparison_confusion_matrix{suffix}.png')
-        plot_pr_table(data, 'chromo', lang, 'DDPM', 'SOTA',
+        plot_pr_table(data, 'chromo', lang, 'DiffusionDet', 'SOTA',
                       OUTPUT_DIR / f'comparison_pr_table{suffix}.png')
-        plot_per_class_pr(data, 'chromo', lang, 'DDPM', 'SOTA',
+        plot_per_class_pr(data, 'chromo', lang, 'DiffusionDet', 'SOTA',
                           OUTPUT_DIR / f'comparison_per_class_pr{suffix}.png')
 
-        # 24obj: DDPM vs SOTA
-        plot_per_class_ap(data, '24obj', lang, 'DDPM', 'SOTA',
+        # 24obj: DiffusionDet vs SOTA
+        plot_per_class_ap(data, '24obj', lang, 'DiffusionDet', 'SOTA',
                           OUTPUT_DIR / f'24obj_per_class_ap{suffix}.png')
-        plot_confusion_matrix(data, '24obj', lang, 'DDPM', 'SOTA',
+        plot_confusion_matrix(data, '24obj', lang, 'DiffusionDet', 'SOTA',
                               OUTPUT_DIR / f'24obj_confusion_matrix{suffix}.png')
-        plot_pr_table(data, '24obj', lang, 'DDPM', 'SOTA',
+        plot_pr_table(data, '24obj', lang, 'DiffusionDet', 'SOTA',
                       OUTPUT_DIR / f'24obj_pr_table{suffix}.png')
-        plot_per_class_pr(data, '24obj', lang, 'DDPM', 'SOTA',
+        plot_per_class_pr(data, '24obj', lang, 'DiffusionDet', 'SOTA',
                           OUTPUT_DIR / f'24obj_per_class_pr{suffix}.png')
 
         # Cross-dataset summary

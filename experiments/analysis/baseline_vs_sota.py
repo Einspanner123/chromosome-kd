@@ -8,11 +8,10 @@
 
 支持数据集与模型:
 - chromo (Chromosome20240904):
-    - DDPM (3-seed, baseline 0.729)
-    - RF+Heun (3-seed, baseline 0.746)
+    - DiffusionDet (3-seed, baseline 0.729)
     - SOTA (1-seed, Sinkhorn Stochastic OT, 训练 best 0.753, 推理 mAP=0.748)
 - 24obj (24_chromosomes_object):
-    - DDPM (1-seed, baseline)
+    - DiffusionDet (1-seed, baseline)
     - SOTA (1-seed, Sinkhorn Stochastic OT eps=5, 训练 best 0.853)
 
 输出:
@@ -60,23 +59,13 @@ DATASETS = {
     'chromo': {
         'ann_file': 'data/Chromosome20240904_NoAug_NoResize_coco/valid/_annotations.coco.json',
         'models': {
-            # DDPM baseline: 3-seed (步数对齐 DDIM 4-step = 1-step = 0.729)
-            'DDPM': {
+            # DiffusionDet baseline: 3-seed (步数对齐 DDIM 4-step = 1-step = 0.729)
+            'DiffusionDet': {
                 'config': 'experiments/configs/baselines/diffusiondet_ddpm.py',
                 'checkpoints': {
                     42: 'work_dirs/multi_seed_aug/ddpm/seed_42/best_coco_bbox_mAP_epoch_79.pth',
                     123: 'work_dirs/multi_seed_aug/ddpm/seed_123/best_coco_bbox_mAP_epoch_66.pth',
                     789: 'work_dirs/multi_seed_aug/ddpm/seed_789/best_coco_bbox_mAP_epoch_87.pth',
-                },
-                'sampling_timesteps': 4,
-            },
-            # RF+Heun baseline (0.746): 3-seed, 步数对齐 Heun 4-step native
-            'RF+Heun': {
-                'config': 'experiments/configs/ldmdet/rf_heun_adaln.py',
-                'checkpoints': {
-                    42: 'work_dirs/multi_seed_aug/rf_heun_adaln/seed_42/best_coco_bbox_mAP_epoch_102.pth',
-                    123: 'work_dirs/multi_seed_aug/rf_heun_adaln/seed_123/best_coco_bbox_mAP_epoch_101.pth',
-                    789: 'work_dirs/multi_seed_aug/rf_heun_adaln/seed_789/best_coco_bbox_mAP_epoch_75.pth',
                 },
                 'sampling_timesteps': 4,
             },
@@ -94,8 +83,8 @@ DATASETS = {
     '24obj': {
         'ann_file': 'data/24_chromosomes_object/coco/valid/_annotations.coco.json',
         'models': {
-            # DDPM baseline: 单 checkpoint (benchmark_diffusiondet_24obj, best epoch 26)
-            'DDPM': {
+            # DiffusionDet baseline: 单 checkpoint (benchmark_diffusiondet_24obj, best epoch 26)
+            'DiffusionDet': {
                 'config': 'experiments/configs/baselines/benchmark_24obj/diffusiondet_ddpm.py',
                 'checkpoints': {
                     42: 'work_dirs/benchmark_diffusiondet_24obj/best_coco_bbox_mAP_epoch_26.pth',
@@ -583,9 +572,9 @@ def main():
                   f'AR_m={agg["AR_m"]:.4f}  AR_l={agg["AR_l"]:.4f}')
             print(f'    Det P={pr["precision"]:.4f}  R={pr["recall"]:.4f}  F1={pr["f1"]:.4f}')
 
-        # Delta: SOTA - DDPM (展示完整提升: DDPM → SOTA)
+        # Delta: SOTA - DiffusionDet (展示完整提升: DiffusionDet → SOTA)
         sota_name = 'SOTA'
-        baseline_name = 'DDPM'
+        baseline_name = 'DiffusionDet'
         if sota_name in ds_results and baseline_name in ds_results:
             b = ds_results[baseline_name]['mean']
             s = ds_results[sota_name]['mean']

@@ -187,67 +187,64 @@
 
 | 数据集 · 模型 | mAP | AP50 | AP75 | AP_s | AP_m | AP_l | AR@100 | Det P | Det R | F1 |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| chromo · DDPM (n=3) | 0.728 | 0.922 | 0.818 | 0.479 | 0.723 | 0.645 | 0.787 | 0.947 | 0.944 | 0.946 |
-| chromo · RF+Heun (n=3) | 0.746 | 0.941 | 0.834 | 0.513 | 0.740 | 0.651 | 0.807 | 0.901 | 0.964 | 0.931 |
+| chromo · DiffusionDet (n=3) | 0.728 | 0.922 | 0.818 | 0.479 | 0.723 | 0.645 | 0.787 | 0.947 | 0.944 | 0.946 |
 | chromo · SOTA (n=1) | 0.748 | 0.939 | 0.837 | 0.512 | 0.738 | 0.641 | 0.807 | 0.902 | 0.963 | 0.931 |
-| 24obj · DDPM (n=1) | 0.803 | 0.970 | 0.936 | 0.423 | 0.800 | 0.814 | 0.848 | 0.957 | 0.977 | 0.967 |
+| 24obj · DiffusionDet (n=1) | 0.803 | 0.970 | 0.936 | 0.423 | 0.800 | 0.814 | 0.848 | 0.957 | 0.977 | 0.967 |
 | 24obj · SOTA (n=1) | 0.852 | 0.985 | 0.966 | 0.405 | 0.848 | 0.906 | 0.896 | 0.983 | 0.991 | 0.987 |
 
-> 各数据集 mAP 最优以绿色加粗标注。chromo 最优为 SOTA (0.748)，相对 DDPM baseline (0.728) 提升 +0.020；24obj 最优为 SOTA (0.852)，相对 DDPM (0.803) 显著领先 +0.049。
+> 各数据集 mAP 最优以绿色加粗标注。chromo 最优为 SOTA (0.748)，相对 DiffusionDet baseline (0.728) 提升 +0.020；24obj 最优为 SOTA (0.852)，相对 DiffusionDet (0.803) 显著领先 +0.049。
 
 ---
 
-### chromo 数据集: DDPM vs SOTA (完整提升)
+### chromo 数据集: DiffusionDet vs SOTA
 
-chromo 数据集共 3 个模型：DDPM baseline（3 seeds, mAP=0.728）、RF+Heun（3 seeds, mAP=0.746, 中间步骤）、SOTA（1 seed, 即 RF+Heun+AdaLN+Sinkhorn Stochastic OT, 训练 best epoch 0.753, 实测推理 0.748）。每类 AP 图展示 3 模型并排，其余图聚焦 **DDPM vs SOTA** 的完整提升对比（SOTA 包含 RF+Heun 的全部改进 + OT 耦合）。
+chromo 数据集共 2 个模型对比：DiffusionDet baseline（3 seeds, mAP=0.728）、SOTA（1 seed, 即 RF+Heun+AdaLN+Sinkhorn Stochastic OT, 训练 best epoch 0.753, 实测推理 0.748）。直接对比 baseline → SOTA 的完整提升。
 
 #### 数据汇总
 
-| 指标 | DDPM (n=3) | RF+Heun (n=3) | SOTA (n=1) | Δ (SOTA vs DDPM) |
-|------|:---:|:---:|:---:|:---:|
-| **mAP** | 0.728 | 0.746 | 0.748 | **+0.020** |
-| AP50 | 0.922 | 0.941 | 0.939 | +0.016 |
-| AP75 | 0.818 | 0.834 | 0.837 | +0.019 |
-| AP_s | 0.479 | 0.513 | 0.512 | **+0.033** |
-| AP_m | 0.723 | 0.740 | 0.738 | +0.016 |
-| AP_l | 0.645 | 0.651 | 0.641 | -0.004 |
-| AR@100 | 0.787 | 0.807 | 0.807 | **+0.020** |
-| AR_s | 0.550 | 0.620 | 0.614 | **+0.064** |
-| AR_m | 0.776 | 0.794 | 0.791 | +0.015 |
-| AR_l | 0.667 | 0.689 | 0.680 | +0.014 |
-| Det Precision | 0.947 | 0.901 | 0.902 | -0.045 |
-| Det Recall | 0.944 | 0.964 | 0.963 | +0.019 |
-| Det F1 | 0.946 | 0.931 | 0.931 | -0.014 |
+| 指标 | DiffusionDet (n=3) | SOTA (n=1) | Δ |
+|------|:---:|:---:|:---:|
+| **mAP** | 0.728 | 0.748 | **+0.020** |
+| AP50 | 0.922 | 0.939 | +0.016 |
+| AP75 | 0.818 | 0.837 | +0.019 |
+| AP_s | 0.479 | 0.512 | **+0.033** |
+| AP_m | 0.723 | 0.738 | +0.016 |
+| AP_l | 0.645 | 0.641 | -0.004 |
+| AR@100 | 0.787 | 0.807 | **+0.020** |
+| AR_s | 0.550 | 0.614 | **+0.064** |
+| AR_m | 0.776 | 0.791 | +0.015 |
+| AR_l | 0.667 | 0.680 | +0.014 |
+| Det Precision | 0.947 | 0.902 | -0.045 |
+| Det Recall | 0.944 | 0.963 | +0.019 |
+| Det F1 | 0.946 | 0.931 | -0.014 |
 
 **关键结论**:
-- **SOTA 全面优于 DDPM baseline**：ΔmAP=+0.020（0.748 vs 0.728），AP/AR 几乎全面正增长，小目标收益最大 (ΔAP_s=+0.033, ΔAR_s=+0.064)
+- **SOTA 全面优于 DiffusionDet baseline**：ΔmAP=+0.020（0.748 vs 0.728），AP/AR 几乎全面正增长，小目标收益最大 (ΔAP_s=+0.033, ΔAR_s=+0.064)
 - **唯一退化维度**：AP_l 略降 (-0.004)，大目标本身定位难度低，改进空间有限；固定阈值下 Det Precision 下降 0.045（P/R 权衡，SOTA 生成更多候选框 ~2x）
-- **完整提升链**：DDPM → RF+Heun (+0.018) → SOTA (+0.002)，主要贡献来自 RF+Heun，OT 耦合在 chromo 上边际收益有限——与实验脉络图中 panel (e) 的结论一致
 - **训练 best 0.753 ≠ 推理 0.753**：训练 best epoch mAP 为 0.753，实测推理（固定 seed=42, 4-step）为 0.748，验证集波动约 0.005
 
-#### 1. 每类 AP 柱状图（3 模型）
+#### 1. 每类 AP 柱状图
 
 **文件**: `comparison_per_class_ap.png` / `comparison_per_class_ap_zh.png`
 
-**图意**: 24 个染色体类别的 AP (IoU=0.5:0.95) 三柱分组图（灰=DDPM | 蓝=RF+Heun | 橙=SOTA），3-seed 均值 ± 标准差（SOTA 仅 1 seed 无误差棒）。每类上方标注 **SOTA 相对 DDPM** 的 Δ 值（绿色正/红色负），虚线为各模型 mAP 均值。
+**图意**: 24 个染色体类别的 AP (IoU=0.5:0.95) 双柱分组图（灰=DiffusionDet | 橙=SOTA），3-seed 均值 ± 标准差（SOTA 仅 1 seed 无误差棒）。每类上方标注 Δ 值（绿色正/红色负），虚线为各模型 mAP 均值。
 
 **解读**:
-- DDPM → SOTA（灰→橙）: 绝大多数类别提升（绿色标注为主），Y、A2、C7 等难类别增益最大
-- RF+Heun（蓝）作为中间步骤介于两者之间，说明改进的渐进性
-- 标准差普遍 <0.01（DDPM/RF+Heun），说明 3-seed 结果稳定；SOTA 仅 1 seed，无法评估稳定性
+- DiffusionDet → SOTA（灰→橙）: 绝大多数类别提升（绿色标注为主），Y、A2、C7 等难类别增益最大
+- 标准差普遍 <0.01（DiffusionDet），说明 3-seed 结果稳定；SOTA 仅 1 seed，无法评估稳定性
 
-#### 2. 混淆矩阵热力图（DDPM vs SOTA）
+#### 2. 混淆矩阵热力图
 
 **文件**: `comparison_confusion_matrix.png` / `comparison_confusion_matrix_zh.png`
 
-**图意**: 三面板热力图——左: DDPM 混淆矩阵（行归一化），中: SOTA 混淆矩阵，右: Δ 矩阵 (SOTA − DDPM)。行 = GT 类别，列 = 预测类别，对角线 = 分类正确率 (recall)。配置: IoU=0.5, score=0.3。
+**图意**: 三面板热力图——左: DiffusionDet 混淆矩阵（行归一化），中: SOTA 混淆矩阵，右: Δ 矩阵 (SOTA − DiffusionDet)。行 = GT 类别，列 = 预测类别，对角线 = 分类正确率 (recall)。配置: IoU=0.5, score=0.3。
 
 **解读**:
-- **对角线整体更亮**：SOTA 的分类正确率（recall）在多数类别上高于 DDPM，Δ 对角线以绿色为主
-- **Δ 面板绿色显著**：相比 RF+Heun vs SOTA 的近乎空白，DDPM vs SOTA 的 Δ 面板有明显绿色块，印证 +0.020 mAP 的完整提升
+- **对角线整体更亮**：SOTA 的分类正确率（recall）在多数类别上高于 DiffusionDet，Δ 对角线以绿色为主
+- **Δ 面板绿色显著**：明显的绿色块印证 +0.020 mAP 的完整提升
 - 个别类别（如 Y）可能出现微小红斑，反映固定阈值下难类别的 P/R 权衡
 
-#### 3. 聚合 P/R 表格（DDPM vs SOTA）
+#### 3. 聚合 P/R 表格
 
 **文件**: `comparison_pr_table.png` / `comparison_pr_table_zh.png`
 
@@ -258,7 +255,7 @@ chromo 数据集共 3 个模型：DDPM baseline（3 seeds, mAP=0.728）、RF+Heu
 - **小目标收益最大**：ΔAP_s=+0.033, ΔAR_s=+0.064——RF+Heun 的连续 ODE 轨迹 + shifted schedule + OT 耦合对小目标检测帮助最大
 - **固定阈值 P/R 权衡**：Det Precision 下降 0.045 但 Recall 上升 0.019——SOTA 生成更多预测 (~2x)，在固定 score=0.3 下 FP 增多。但 mAP（阈值无关）仍提升 +0.020，说明模型**判别能力**真正提升
 
-#### 4. 每类检测 P/R 柱状图（DDPM vs SOTA）
+#### 4. 每类检测 P/R 柱状图
 
 **文件**: `comparison_per_class_pr.png` / `comparison_per_class_pr_zh.png`
 
@@ -266,18 +263,18 @@ chromo 数据集共 3 个模型：DDPM baseline（3 seeds, mAP=0.728）、RF+Heu
 
 **解读**:
 - **Recall 子图**: SOTA 在多数类别上 recall 更高，尤其 Y、D13-D15 等难类别
-- **Precision 子图**: DDPM 在多数类别上 precision 略高——因为 DDPM 预测数少 (~67K)，FP 绝对数少
+- **Precision 子图**: DiffusionDet 在多数类别上 precision 略高——因为 DiffusionDet 预测数少 (~67K)，FP 绝对数少
 - 这一 P/R 权衡是 SOTA 生成更多候选框的直接结果，在实际部署中可通过调高 score 阈值来平衡
 
 ---
 
-### 24obj 数据集: DDPM vs SOTA
+### 24obj 数据集: DiffusionDet vs SOTA
 
-24obj 数据集共 2 个模型对比：DDPM baseline（1 seed, mAP=0.803）、SOTA（1 seed, 即 RF+Heun+AdaLN+Sinkhorn Stochastic OT, mAP=0.852）。24obj 的 DDPM baseline 与 chromo 不同（独立训练的 benchmark 配置），SOTA 权重路径见 `baseline_vs_sota.py`。
+24obj 数据集共 2 个模型对比：DiffusionDet baseline（1 seed, mAP=0.803）、SOTA（1 seed, 即 RF+Heun+AdaLN+Sinkhorn Stochastic OT, mAP=0.852）。24obj 的 DiffusionDet baseline 与 chromo 不同（独立训练的 benchmark 配置），SOTA 权重路径见 `baseline_vs_sota.py`。
 
 #### 数据汇总
 
-| 指标 | DDPM (n=1) | SOTA (n=1) | Δ |
+| 指标 | DiffusionDet (n=1) | SOTA (n=1) | Δ |
 |------|:---:|:---:|:---:|
 | **mAP** | 0.803 | 0.852 | **+0.049** |
 | AP50 | 0.970 | 0.985 | +0.015 |
@@ -294,31 +291,31 @@ chromo 数据集共 3 个模型：DDPM baseline（3 seeds, mAP=0.728）、RF+Heu
 | Det F1 | 0.967 | 0.987 | +0.021 |
 
 **关键结论**:
-- **SOTA 显著全面优于 DDPM**：ΔmAP=+0.049，远大于 chromo 上的 OT 边际收益 (+0.002)
-- **大/中目标收益巨大**：ΔAP_l=+0.092, ΔAP_m=+0.048, ΔAR_l=+0.058——24obj 数据集目标尺度分布与 chromo 不同，RF+Heun+OT 对大中目标的定位精度提升显著
+- **SOTA 显著全面优于 DiffusionDet**：ΔmAP=+0.049，远大于 chromo 上的 +0.020
+- **大/中目标收益巨大**：ΔAP_l=+0.092, ΔAP_m=+0.048, ΔAR_l=+0.058——24obj 数据集目标尺度分布与 chromo 不同，SOTA 对大中目标的定位精度提升显著
 - **小目标反而退化**：ΔAP_s=-0.017, ΔAR_s=-0.053——这是 24obj 上唯一退化的维度，可能与 OT 耦合的尺度无关配对在小目标上的次优性有关
-- **检测 P/R/F1 全面提升**：与 chromo 上 RF+Heun 的 P 下降不同，24obj SOTA 的 P/R 同步上升 (ΔF1=+0.021)，说明模型在 24obj 上的候选框质量整体更优
-- **跨数据集对比**：同一 SOTA 方法（RF+Heun+AdaLN+Sinkhorn OT）在 chromo 上边际 (+0.002)，在 24obj 上显著 (+0.049)——OT 耦合的收益与数据集的目标分布强相关，24obj 的更大尺度跨度使 OT 配对收益更明显
+- **检测 P/R/F1 全面提升**：与 chromo 上 Det Precision 下降不同，24obj SOTA 的 P/R 同步上升 (ΔF1=+0.021)，说明模型在 24obj 上的候选框质量整体更优
+- **跨数据集对比**：同一 SOTA 方法在 chromo 上 +0.020，在 24obj 上 +0.049——OT 耦合的收益与数据集的目标分布强相关，24obj 的更大尺度跨度使 OT 配对收益更明显
 
 #### 1. 每类 AP 柱状图
 
 **文件**: `24obj_per_class_ap.png` / `24obj_per_class_ap_zh.png`
 
-**图意**: 24 个染色体类别的 AP (IoU=0.5:0.95) 双柱分组图（灰=DDPM | 橙=SOTA），1 seed。每类上方标注 Δ 值（绿色正/红色负），虚线为各模型 mAP 均值。
+**图意**: 24 个染色体类别的 AP (IoU=0.5:0.95) 双柱分组图（灰=DiffusionDet | 橙=SOTA），1 seed。每类上方标注 Δ 值（绿色正/红色负），虚线为各模型 mAP 均值。
 
 **解读**:
 - SOTA 在绝大多数类别上提升，Δ 普遍为正（绿色标注为主）
-- 提升幅度在不同染色体组间分布相对均匀，说明 RF+Heun+OT 的增益是算法层面的整体提升，而非个别类别驱动
+- 提升幅度在不同染色体组间分布相对均匀，说明 SOTA 的增益是算法层面的整体提升，而非个别类别驱动
 
 #### 2. 混淆矩阵热力图
 
 **文件**: `24obj_confusion_matrix.png` / `24obj_confusion_matrix_zh.png`
 
-**图意**: 三面板热力图——左: DDPM 混淆矩阵（行归一化），中: SOTA 混淆矩阵，右: Δ 矩阵 (SOTA − DDPM)。配置: IoU=0.5, score=0.3。
+**图意**: 三面板热力图——左: DiffusionDet 混淆矩阵（行归一化），中: SOTA 混淆矩阵，右: Δ 矩阵 (SOTA − DiffusionDet)。配置: IoU=0.5, score=0.3。
 
 **解读**:
 - **对角线整体更亮**：SOTA 的分类正确率（recall）在多数类别上提升，Δ 对角线以绿色为主
-- **Δ 面板绿色显著**：相比 chromo 的近乎空白，24obj 的 Δ 面板有明显的绿色块，印证 +0.049 mAP 的显著提升
+- **Δ 面板绿色显著**：明显的绿色块印证 +0.049 mAP 的显著提升
 - 个别类别可能出现微小红斑（小目标相关），与小目标 AP 退化一致
 
 #### 3. 聚合 P/R 表格
@@ -339,7 +336,7 @@ chromo 数据集共 3 个模型：DDPM baseline（3 seeds, mAP=0.728）、RF+Heu
 **图意**: 上下两子图分别为每类 Precision 和 Recall 分组柱状图（混淆矩阵, IoU=0.5, score=0.3）。
 
 **解读**:
-- SOTA 在多数类别的 P 和 R 上均高于 DDPM，与聚合表的全面领先一致
+- SOTA 在多数类别的 P 和 R 上均高于 DiffusionDet，与聚合表的全面领先一致
 - 个别小目标类别可能出现 R 略降，与 AR_s=-0.053 一致
 
 ---
@@ -361,23 +358,23 @@ chromo 数据集共 3 个模型：DDPM baseline（3 seeds, mAP=0.728）、RF+Heu
 
 ### Baseline vs SOTA 对比图
 
-#### chromo 数据集 (DDPM vs RF+Heun vs SOTA)
+#### chromo 数据集 (DiffusionDet vs SOTA)
 
 | 图表 | 英文 | 中文 | 说明 |
 |---|---|---|---|
-| 每类 AP (3 模型) | comparison_per_class_ap.png | _zh.png | 24 类三柱 AP (DDPM\|RF+Heun\|SOTA) |
-| 混淆矩阵 | comparison_confusion_matrix.png | _zh.png | 3 面板热力图 (DDPM\|SOTA\|Δ) |
-| 聚合 P/R | comparison_pr_table.png | _zh.png | DDPM vs SOTA COCO AP/AR + P/R/F1 |
-| 每类 P/R | comparison_per_class_pr.png | _zh.png | DDPM vs SOTA 每类 Precision/Recall |
+| 每类 AP | comparison_per_class_ap.png | _zh.png | 24 类双柱 AP (DiffusionDet\|SOTA) |
+| 混淆矩阵 | comparison_confusion_matrix.png | _zh.png | 3 面板热力图 (DiffusionDet\|SOTA\|Δ) |
+| 聚合 P/R | comparison_pr_table.png | _zh.png | DiffusionDet vs SOTA COCO AP/AR + P/R/F1 |
+| 每类 P/R | comparison_per_class_pr.png | _zh.png | DiffusionDet vs SOTA 每类 Precision/Recall |
 
-#### 24obj 数据集 (DDPM vs SOTA)
+#### 24obj 数据集 (DiffusionDet vs SOTA)
 
 | 图表 | 英文 | 中文 | 说明 |
 |---|---|---|---|
-| 每类 AP | 24obj_per_class_ap.png | _zh.png | 24 类双柱 AP (DDPM\|SOTA) |
-| 混淆矩阵 | 24obj_confusion_matrix.png | _zh.png | 3 面板热力图 (DDPM\|SOTA\|Δ) |
-| 聚合 P/R | 24obj_pr_table.png | _zh.png | DDPM vs SOTA COCO AP/AR + P/R/F1 |
-| 每类 P/R | 24obj_per_class_pr.png | _zh.png | DDPM vs SOTA 每类 Precision/Recall |
+| 每类 AP | 24obj_per_class_ap.png | _zh.png | 24 类双柱 AP (DiffusionDet\|SOTA) |
+| 混淆矩阵 | 24obj_confusion_matrix.png | _zh.png | 3 面板热力图 (DiffusionDet\|SOTA\|Δ) |
+| 聚合 P/R | 24obj_pr_table.png | _zh.png | DiffusionDet vs SOTA COCO AP/AR + P/R/F1 |
+| 每类 P/R | 24obj_per_class_pr.png | _zh.png | DiffusionDet vs SOTA 每类 Precision/Recall |
 
 #### 跨数据集汇总
 
