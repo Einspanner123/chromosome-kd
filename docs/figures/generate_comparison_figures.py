@@ -448,7 +448,7 @@ def plot_pr_table(data: dict, ds_name: str, lang: str,
     group_ends = [6, 10, n_rows]
     for ge in group_ends:
         y_pos = table[ge, 0].get_y() - table[ge, 0].get_height() / 2
-        ax.axhline(y=y_pos, color='#D1D5DB', linewidth=1.5, clip_on=False)
+        ax.axhline(y=y_pos, color='#D1D5DB', linewidth=1.0, zorder=0)
 
     fig.tight_layout()
     fig.savefig(output_path, bbox_inches='tight', facecolor='white')
