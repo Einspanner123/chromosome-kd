@@ -651,27 +651,34 @@ def plot_summary_table(dfs):
 
 
 def plot_category_per_image(dfs):
-    """Fig 12: Category presence per image (clustered heatmap)."""
+    """Fig 12: Category presence per image — binary presence heatmap (random 100 images)."""
     fig, axes = plt.subplots(1, 2, figsize=(18, 7))
 
     for ax, (ds_name, d) in zip(axes, dfs.items()):
-        # Pivot: img_id × category, value = count
+        # Pivot: img_id × category, value = count → binarize
         pivot = d['df_ann'].pivot_table(
             index='img_id', columns='category', aggfunc='size', fill_value=0
         )
-        # Show only first 100 images to keep readable
-        pivot_small = pivot.iloc[:100]
-        sns.heatmap(pivot_small, ax=ax, cmap='Blues' if ds_name == list(dfs.keys())[0] else 'Oranges',
-                    cbar_kws={'label': 'Count per Image'}, linewidths=0.3, linecolor='white',
-                    vmin=0, vmax=4, annot=False)
-        ax.set_title(f'{ds_name}\nCategory Presence (100 images)', fontsize=12, fontweight='bold')
+        # Randomly sample 100 images
+        n_imgs = len(pivot)
+        sample_size = min(100, n_imgs)
+        sampled = pivot.sample(n=sample_size, random_state=42)
+        pivot_binary = (sampled > 0).astype(int)
+
+        sns.heatmap(pivot_binary, ax=ax, cmap='Blues' if ds_name == list(dfs.keys())[0] else 'Oranges',
+                    cbar_kws={'label': 'Presence (1=yes, 0=no)'},
+                    linewidths=0.3, linecolor='white',
+                    vmin=0, vmax=1, annot=False,
+                    xticklabels=True, yticklabels=True)
+        ax.set_title(f'{ds_name}\nCategory Presence ({sample_size} random images)',
+                     fontsize=12, fontweight='bold')
         ax.set_xlabel('Category', fontsize=11)
         ax.set_ylabel('Image ID', fontsize=11)
 
     fig.tight_layout()
     fig.savefig(FIGS_DIR / '12_category_per_image_heatmap.png', dpi=DPI, bbox_inches='tight')
     plt.close(fig)
-    print('  Saved 12_category_per_image_heatmap.png')
+    print('  Saved 12_category_per_image_heatmap.png (random 100)')
 
 
 def plot_combined_center_scatter(dfs):

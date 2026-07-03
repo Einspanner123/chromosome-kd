@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
-"""Baseline (DDPM) vs SOTA (RF+Heun) 综合对比分析 — 多数据集版
+"""Baseline vs SOTA 综合对比分析 — 多数据集版
 
-收集并对比以下指标 (3 seeds, 步数对齐):
+收集并对比以下指标 (步数对齐 4-step):
 1. 每类 AP (COCO mAP per class, IoU=0.5:0.95)
 2. 混淆矩阵 (24×24+1, IoU=0.5, score=0.3)
 3. 聚合 P/R 指标 (mAP/AP50/AP75/AR + 混淆矩阵 P/R/F1)
 
-支持数据集:
-- chromo: Chromosome20240904 (DDPM baseline 3-seed + SOTA 0.753)
-- 24obj:  24_chromosomes_object (DDPM baseline single-seed; SOTA 待补)
+支持数据集与模型:
+- chromo (Chromosome20240904):
+    - DDPM (3-seed, baseline 0.729)
+    - RF+Heun (3-seed, baseline 0.746)
+    - SOTA (1-seed, Sinkhorn Stochastic OT, 训练 best 0.753, 推理 mAP=0.748)
+- 24obj (24_chromosomes_object):
+    - DDPM (1-seed, baseline)
+    - SOTA (1-seed, Sinkhorn Stochastic OT eps=5, 训练 best 0.853)
 
 输出:
     experiments/analysis/baseline_vs_sota_results.json
@@ -16,7 +21,7 @@
 
 Usage:
     python experiments/analysis/baseline_vs_sota.py
-    python experiments/analysis/baseline_vs_sota.py --skip-inference  # 仅用缓存
+    python experiments/analysis/baseline_vs_sota.py --force-inference  # 强制重推理
     python experiments/analysis/baseline_vs_sota.py --device cuda:1
     python experiments/analysis/baseline_vs_sota.py --datasets chromo  # 仅 chromo
     python experiments/analysis/baseline_vs_sota.py --datasets chromo 24obj
@@ -55,7 +60,7 @@ DATASETS = {
     'chromo': {
         'ann_file': 'data/Chromosome20240904_NoAug_NoResize_coco/valid/_annotations.coco.json',
         'models': {
-            # DDPM baseline: 保留原 3-seed 配置不变 (checkpoints 不存在时自动 skip)
+            # DDPM baseline: 3-seed (步数对齐 DDIM 4-step = 1-step = 0.729)
             'DDPM': {
                 'config': 'experiments/configs/baselines/diffusiondet_ddpm.py',
                 'checkpoints': {
@@ -63,16 +68,26 @@ DATASETS = {
                     123: 'work_dirs/multi_seed_aug/ddpm/seed_123/best_coco_bbox_mAP_epoch_66.pth',
                     789: 'work_dirs/multi_seed_aug/ddpm/seed_789/best_coco_bbox_mAP_epoch_87.pth',
                 },
-                'sampling_timesteps': 4,  # 步数对齐 (DDIM 4-step = 1-step = 0.729, 已验证)
+                'sampling_timesteps': 4,
+            },
+            # RF+Heun baseline (0.746): 3-seed, 步数对齐 Heun 4-step native
+            'RF+Heun': {
+                'config': 'experiments/configs/ldmdet/rf_heun_adaln.py',
+                'checkpoints': {
+                    42: 'work_dirs/multi_seed_aug/rf_heun_adaln/seed_42/best_coco_bbox_mAP_epoch_102.pth',
+                    123: 'work_dirs/multi_seed_aug/rf_heun_adaln/seed_123/best_coco_bbox_mAP_epoch_101.pth',
+                    789: 'work_dirs/multi_seed_aug/rf_heun_adaln/seed_789/best_coco_bbox_mAP_epoch_75.pth',
+                },
+                'sampling_timesteps': 4,
             },
             # SOTA 0.753: 单 checkpoint (reproduce_0751_stochot_eps5_v2, best epoch 59)
-            # 使用重构后的新 config (experiments/configs/ldmdet/recipes/), 架构与旧 config 一致
-            'SOTA_0753': {
+            # ⚠ checkpoint 不在当前服务器, 仅使用从另一服务器带来的缓存预测
+            'SOTA': {
                 'config': 'experiments/configs/ldmdet/recipes/rf_heun_adaln_stochot_eps5.py',
                 'checkpoints': {
                     42: 'work_dirs/reproduce_0751_stochot_eps5_v2/best_coco_bbox_mAP_epoch_59.pth',
                 },
-                'sampling_timesteps': 4,  # 原生 Heun 4-step
+                'sampling_timesteps': 4,
             },
         },
     },
@@ -80,16 +95,22 @@ DATASETS = {
         'ann_file': 'data/24_chromosomes_object/coco/valid/_annotations.coco.json',
         'models': {
             # DDPM baseline: 单 checkpoint (benchmark_diffusiondet_24obj, best epoch 26)
-            # 使用重构后的新 config (experiments/configs/baselines/benchmark_24obj/),
-            # 设置与旧 benchmark_diffusiondet_24obj 一致 (ddpm + euler + 1-step)
             'DDPM': {
                 'config': 'experiments/configs/baselines/benchmark_24obj/diffusiondet_ddpm.py',
                 'checkpoints': {
                     42: 'work_dirs/benchmark_diffusiondet_24obj/best_coco_bbox_mAP_epoch_26.pth',
                 },
-                'sampling_timesteps': 4,  # 步数对齐
+                'sampling_timesteps': 4,
             },
-            # SOTA: 暂无 24obj SOTA checkpoint, 后续补充
+            # SOTA: Sinkhorn Stochastic OT (eps=5), 单 checkpoint (best epoch 89, 训练 mAP=0.853)
+            # 使用训练时保存的完整 config (已解析, 无 _base_ 依赖)
+            'SOTA': {
+                'config': '/media/ross/8TB/linkst/chromo/chromosome-kd/work_dirs/ldmdet_rf_heun_adaln_stochot_eps5/ldmdet_rf_heun_adaln_stochot_eps5.py',
+                'checkpoints': {
+                    42: '/media/ross/8TB/linkst/chromo/chromosome-kd/work_dirs/ldmdet_rf_heun_adaln_stochot_eps5/best_coco_bbox_mAP_epoch_89.pth',
+                },
+                'sampling_timesteps': 4,
+            },
         },
     },
 }
@@ -118,14 +139,59 @@ def run_inference(config_path: str, checkpoint_path: str, sampling_timesteps: in
     """运行推理, 返回 COCO DT 格式的预测列表
 
     支持 sampling_timesteps 覆盖 (用于 DDPM 步数对齐)
+    自动修正旧 config 的 custom_imports (projects.LDMDet → experiments.mmdet_bridge)
     """
+    import tempfile
     from mmengine.config import Config
     from mmdet.apis import init_detector
     from mmdet.registry import DATASETS
 
-    cfg = Config.fromfile(config_path)
+    # 旧训练 config (如 24obj SOTA) 引用已删除的 projects.LDMDet, 需在加载前替换 custom_imports
+    # Config.fromfile() 会在加载时自动 import custom_imports, 无法在加载后覆盖
+    with open(config_path, 'r') as f:
+        config_text = f.read()
+
+    if 'projects.LDMDet' in config_text:
+        config_text = config_text.replace(
+            'projects.LDMDet.model',
+            'experiments.mmdet_bridge.registry',
+        ).replace(
+            'projects.LDMDet.hooks',
+            'experiments.mmdet_bridge.hooks',
+        )
+        # 添加缺失的 detector 和 transforms 导入
+        config_text = config_text.replace(
+            "'experiments.mmdet_bridge.registry',",
+            "'experiments.mmdet_bridge.registry',\n"
+            "        'experiments.mmdet_bridge.detector',\n"
+            "        'experiments.mmdet_bridge.transforms',",
+        )
+        print(f'  [FIX] 已替换 custom_imports: projects.LDMDet → experiments.mmdet_bridge')
+
+    # 写入临时文件并加载
+    with tempfile.NamedTemporaryFile(
+        mode='w', suffix='.py', dir=_PROJECT_ROOT, delete=False
+    ) as tmp:
+        tmp.write(config_text)
+        tmp_path = tmp.name
+
+    try:
+        cfg = Config.fromfile(tmp_path)
+    finally:
+        os.unlink(tmp_path)
+
     # 覆盖采样步数 (步数对齐)
     cfg.model.bbox_head.sampling_timesteps = sampling_timesteps
+
+    # 旧训练 config 使用 ot_coupling/ot_* 参数 (训练时 OT 配对), 推理时不需要
+    # sinkhorn_stochastic 耦合策略未在当前代码注册, 设为 False 使用默认 random 耦合
+    if hasattr(cfg.model.bbox_head, 'ot_coupling'):
+        cfg.model.bbox_head.ot_coupling = False
+        # 移除所有 ot_* 参数, 避免 DiffusionDetHead.__init__ 拒绝未知参数
+        for key in list(cfg.model.bbox_head.keys()):
+            if key.startswith('ot_'):
+                cfg.model.bbox_head.pop(key)
+        print(f'  [FIX] 已禁用 ot_coupling (推理不需要)')
 
     model = init_detector(cfg, checkpoint_path, device=device)
 
@@ -278,11 +344,15 @@ def compute_detection_pr(confusion_matrix: np.ndarray, num_classes: int) -> dict
 # ──────────────────────────────────────────────
 
 def evaluate_model(model_name: str, model_cfg: dict, coco_gt: COCO,
-                   device: str, skip_inference: bool, dataset_name: str = '') -> dict:
+                   device: str, force_inference: bool, dataset_name: str = '') -> dict:
     """评估单个模型的所有 seeds, 返回聚合结果
 
     单 checkpoint 模型 (checkpoints 仅含 1 个 seed) 也能正确处理。
     缓存文件名包含 dataset_name 以区分不同数据集。
+
+    缓存策略:
+        - 缓存存在且未强制推理 → 加载缓存 (默认, 避免重复推理)
+        - 缓存不存在或强制推理 → 运行推理 (checkpoint 不存在则 skip)
     """
     print(f'\n{"="*70}')
     print(f'评估模型: {model_name}' + (f'  [{dataset_name}]' if dataset_name else ''))
@@ -290,27 +360,33 @@ def evaluate_model(model_name: str, model_cfg: dict, coco_gt: COCO,
     print(f'  Sampling steps: {model_cfg["sampling_timesteps"]}')
     print(f'{"="*70}')
 
-    config_path = os.path.join(_PROJECT_ROOT, model_cfg['config'])
+    # config 可能是绝对路径 (如 24obj SOTA 的训练 config) 或相对项目根的路径
+    config_path = model_cfg['config']
+    if not os.path.isabs(config_path):
+        config_path = os.path.join(_PROJECT_ROOT, config_path)
+
     seeds_result = {}
     # 使用 model 自身的 checkpoints keys 作为 seeds (支持单/multi-seed)
     model_seeds = list(model_cfg['checkpoints'].keys())
     ds_prefix = f'{dataset_name}_' if dataset_name else ''
 
     for seed in model_seeds:
-        ckpt_path = os.path.join(_PROJECT_ROOT, model_cfg['checkpoints'][seed])
+        ckpt_path = model_cfg['checkpoints'][seed]
+        if not os.path.isabs(ckpt_path):
+            ckpt_path = os.path.join(_PROJECT_ROOT, ckpt_path)
         cache_path = CACHE_DIR / f'{ds_prefix}{model_name.replace("+", "_")}_seed{seed}_preds.json'
 
         print(f'\n--- {model_name} seed={seed} [{dataset_name}] ---')
         print(f'  Checkpoint: {ckpt_path}')
 
-        # 推理 (或加载缓存)
-        if skip_inference and cache_path.exists():
+        # 缓存优先 (除非强制推理)
+        if cache_path.exists() and not force_inference:
             print(f'  加载缓存: {cache_path}')
             with open(cache_path, 'r') as f:
                 predictions = json.load(f)
         else:
             if not os.path.exists(ckpt_path):
-                print(f'  [SKIP] Checkpoint 不存在')
+                print(f'  [SKIP] Checkpoint 不存在且无缓存')
                 continue
             set_seed(seed)
             predictions = run_inference(
@@ -422,8 +498,8 @@ def compute_mean_across_seeds(seeds_result: dict) -> dict:
 def main():
     parser = argparse.ArgumentParser(description='Baseline vs SOTA 综合对比分析 (多数据集)')
     parser.add_argument('--device', default='cuda:0', help='设备')
-    parser.add_argument('--skip-inference', action='store_true',
-                        help='跳过推理, 仅使用缓存')
+    parser.add_argument('--force-inference', action='store_true',
+                        help='强制重新推理 (默认缓存优先)')
     parser.add_argument('--datasets', nargs='+', default=None,
                         help='指定数据集 (默认全部), e.g. --datasets chromo 24obj')
     args = parser.parse_args()
@@ -435,6 +511,7 @@ def main():
     print('=' * 70)
     print(f'Device: {args.device}')
     print(f'Datasets: {selected_datasets}')
+    print(f'Cache policy: {"force-inference" if args.force_inference else "cache-first"}')
 
     # 评估所有数据集 × 所有模型
     all_results = {}
@@ -461,7 +538,7 @@ def main():
         for model_name, model_cfg in ds_cfg['models'].items():
             ds_results[model_name] = evaluate_model(
                 model_name, model_cfg, coco_gt, args.device,
-                args.skip_inference, dataset_name=ds_name
+                args.force_inference, dataset_name=ds_name
             )
 
         all_results[ds_name] = ds_results
@@ -506,17 +583,19 @@ def main():
                   f'AR_m={agg["AR_m"]:.4f}  AR_l={agg["AR_l"]:.4f}')
             print(f'    Det P={pr["precision"]:.4f}  R={pr["recall"]:.4f}  F1={pr["f1"]:.4f}')
 
-        # Delta (如果同一数据集有 DDPM 和 SOTA)
-        if 'DDPM' in ds_results and 'SOTA_0753' in ds_results:
-            d = ds_results['DDPM']['mean']
-            r = ds_results['SOTA_0753']['mean']
-            if d and r:
-                print(f'\n  Delta (SOTA_0753 - DDPM) on {ds_name}:')
+        # Delta: SOTA - DDPM (展示完整提升: DDPM → SOTA)
+        sota_name = 'SOTA'
+        baseline_name = 'DDPM'
+        if sota_name in ds_results and baseline_name in ds_results:
+            b = ds_results[baseline_name]['mean']
+            s = ds_results[sota_name]['mean']
+            if b and s:
+                print(f'\n  Delta ({sota_name} - {baseline_name}) on {ds_name}:')
                 for k in ['mAP', 'AP50', 'AP75', 'AP_s', 'AP_m', 'AP_l',
                           'AR@100', 'AR_s', 'AR_m', 'AR_l']:
-                    print(f'    Δ{k}: {r["aggregate"][k] - d["aggregate"][k]:+.4f}')
+                    print(f'    Δ{k}: {s["aggregate"][k] - b["aggregate"][k]:+.4f}')
                 for k in ['precision', 'recall', 'f1']:
-                    print(f'    ΔDet_{k}: {r["detection_pr"][k] - d["detection_pr"][k]:+.4f}')
+                    print(f'    ΔDet_{k}: {s["detection_pr"][k] - b["detection_pr"][k]:+.4f}')
 
 
 if __name__ == '__main__':
