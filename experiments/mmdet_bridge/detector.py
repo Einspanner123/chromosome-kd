@@ -25,6 +25,7 @@ from ldmdet.criterion import (
     GIoULoss,
     IoUCost,
     L1Loss,
+    SeesawLoss,
 )
 from ldmdet.data.structures import ImageMeta
 
@@ -137,7 +138,11 @@ class LDMDetDetector(BaseDetector):
 
         loss_cls_cfg = cfg.pop('loss_cls')
         loss_cls_type = loss_cls_cfg.pop('type').replace('PurePyTorch', '')
-        loss_cls = FocalLoss(**loss_cls_cfg) if 'Focal' in loss_cls_type else None
+        loss_cls_map = {
+            'FocalLoss': FocalLoss,
+            'SeesawLoss': SeesawLoss,
+        }
+        loss_cls = loss_cls_map[loss_cls_type](**loss_cls_cfg)
 
         loss_bbox_cfg = cfg.pop('loss_bbox')
         loss_bbox_cfg.pop('type', None)
