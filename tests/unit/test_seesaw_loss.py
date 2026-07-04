@@ -71,7 +71,7 @@ class TestSeesawPenalty:
         """
         loss_fn = SeesawLoss(num_classes=3, p=0.8, gamma=0, alpha=-1,
                              reduction='sum', loss_weight=1.0)
-        loss_fn.cum_samples = torch.tensor([1000.0, 10.0, 10.0])
+        loss_fn.cum_samples = torch.tensor([1000.0, 10.0, 10.0, 1000.0])
 
         # 头类0正样本, 尾类1和2的负logit较高(产生负损失)
         pred = torch.tensor([[5.0, 5.0, 5.0]])
@@ -97,7 +97,7 @@ class TestSeesawPenalty:
         """
         loss_fn = SeesawLoss(num_classes=3, p=0.8, gamma=0, alpha=-1,
                              reduction='sum', loss_weight=1.0)
-        loss_fn.cum_samples = torch.tensor([1000.0, 10.0, 10.0])
+        loss_fn.cum_samples = torch.tensor([1000.0, 10.0, 10.0, 1000.0])
 
         # 尾类1正样本, 头类0和尾类2的负logit较高
         pred = torch.tensor([[5.0, 5.0, 5.0]])
@@ -119,7 +119,7 @@ class TestSeesawPenalty:
         """验证 Bug 修复: 头类样本对尾类负类不应放大 (S <= 1)"""
         loss_fn = SeesawLoss(num_classes=3, p=0.8, gamma=0, alpha=-1,
                              reduction='sum', loss_weight=1.0)
-        loss_fn.cum_samples = torch.tensor([1000.0, 10.0, 10.0])
+        loss_fn.cum_samples = torch.tensor([1000.0, 10.0, 10.0, 1000.0])
 
         # 头类0正样本
         pred = torch.tensor([[5.0, 5.0, 5.0]])
@@ -139,7 +139,7 @@ class TestSeesawPenalty:
         """各类频率相等时, Seesaw 因子 = 1, 退化为标准 BCE"""
         loss_fn = SeesawLoss(num_classes=3, p=0.8, gamma=0, alpha=-1,
                              reduction='sum', loss_weight=1.0)
-        loss_fn.cum_samples = torch.tensor([100.0, 100.0, 100.0])
+        loss_fn.cum_samples = torch.tensor([100.0, 100.0, 100.0, 100.0])
 
         focal_pred = torch.randn(20, 3)
         target = torch.randint(0, 3, (20,))
@@ -158,24 +158,26 @@ class TestCumulativeSamples:
     """测试累计样本计数 buffer"""
 
     def test_buffer_updates(self):
-        """forward 后 cum_samples 应更新"""
+        """forward 后 cum_samples 应更新 (含背景位)"""
         loss_fn = SeesawLoss(num_classes=5, p=0.8)
         initial = loss_fn.cum_samples.clone()
         target = torch.tensor([0, 0, 1, 2, 2, 2, 3, 4, 4, 4])
         pred = torch.randn(10, 5)
         loss_fn(pred, target)
-        # 每类初始=1, 加上本批次: 类0=+2, 类1=+1, 类2=+3, 类3=+1, 类4=+3
-        expected = torch.tensor([3.0, 2.0, 4.0, 2.0, 4.0])
+        # 每类初始=1, 加上本批次: 类0=+2, 类1=+1, 类2=+3, 类3=+1, 类4=+3, 背景=+0
+        # cum_samples 大小=6 (5前景+1背景), 背景位保持初始值1
+        expected = torch.tensor([3.0, 2.0, 4.0, 2.0, 4.0, 1.0])
         assert torch.allclose(loss_fn.cum_samples, expected)
 
-    def test_background_not_counted(self):
-        """背景样本 (target == num_classes) 不应更新 cum_samples"""
+    def test_background_counted(self):
+        """背景样本 (target == num_classes) 应更新 cum_samples[num_classes]"""
         loss_fn = SeesawLoss(num_classes=3, p=0.8)
         target = torch.tensor([0, 1, 3, 3, 2])  # 3=background
-        pred = torch.randn(5, 3)
+        pred = torch.randn(5, 4)  # 3前景 + 1背景列
         loss_fn(pred, target)
-        # 类0=+1, 类1=+1, 类2=+1, 背景不计
-        expected = torch.tensor([2.0, 2.0, 2.0])
+        # 类0=+1, 类1=+1, 类2=+1, 背景=+2; 初始全1
+        # cum_samples 大小=4 (3前景+1背景)
+        expected = torch.tensor([2.0, 2.0, 2.0, 3.0])
         assert torch.allclose(loss_fn.cum_samples, expected)
 
     def test_buffer_persistent(self):
@@ -191,7 +193,7 @@ class TestMisclassificationPenalty:
         """误分类时, Seesaw 衰减被恢复 (S=1)"""
         loss_fn = SeesawLoss(num_classes=3, p=0.8, gamma=0, alpha=-1, reduction='sum')
         # 类0高频, 类1低频
-        loss_fn.cum_samples = torch.tensor([1000.0, 10.0, 10.0])
+        loss_fn.cum_samples = torch.tensor([1000.0, 10.0, 10.0, 1000.0])
 
         # 类1正样本, 但类0的logit远高于类1 (误分类为类0)
         pred_misclassified = torch.tensor([[10.0, -10.0, -10.0]])
@@ -202,7 +204,7 @@ class TestMisclassificationPenalty:
 
         loss_mis = loss_fn(pred_misclassified, target)
         # reset buffer (forward 会更新)
-        loss_fn.cum_samples = torch.tensor([1000.0, 10.0, 10.0])
+        loss_fn.cum_samples = torch.tensor([1000.0, 10.0, 10.0, 1000.0])
         loss_correct = loss_fn(pred_correct, target)
 
         # 误分类的损失应远大于正确分类
@@ -212,7 +214,7 @@ class TestMisclassificationPenalty:
         """正确分类时, 头类样本对尾类负类的梯度被 Seesaw 衰减"""
         loss_fn = SeesawLoss(num_classes=3, p=0.8, gamma=0, alpha=-1,
                              reduction='sum', loss_weight=1.0)
-        loss_fn.cum_samples = torch.tensor([1000.0, 10.0, 10.0])
+        loss_fn.cum_samples = torch.tensor([1000.0, 10.0, 10.0, 1000.0])
 
         # 头类0正样本(logit=10, 正确分类), 尾类1和2的负logit也高(logit=5)
         pred = torch.tensor([[10.0, 5.0, 5.0]])
@@ -320,3 +322,87 @@ class TestSeesawEdgeCases:
         loss_fn2 = SeesawLoss(num_classes=5, p=0.8, loss_weight=1.0)
         loss_idx = loss_fn2(pred, target_idx)
         assert torch.allclose(loss_onehot, loss_idx, atol=1e-5)
+
+
+class TestBackgroundClass:
+    """测试背景类场景 (criterion 传递 target 含背景类, 值=num_classes)
+
+    在实际使用中, criterion 传递给 loss_cls 的:
+    - pred 形状 [N, num_classes+1] (含背景列)
+    - target 值范围 [0, num_classes] (num_classes=背景)
+    SeesawLoss 必须正确处理背景类, 不越界.
+    """
+
+    def test_background_no_index_error(self):
+        """背景类 (target=num_classes) 不应导致 IndexError"""
+        loss_fn = SeesawLoss(num_classes=24, p=0.8, gamma=0, alpha=-1,
+                             reduction='sum', loss_weight=1.0)
+        # pred: [N, 25] (24前景 + 1背景)
+        pred = torch.randn(10, 25)
+        # target: 包含背景类 (值=24)
+        target = torch.tensor([0, 1, 2, 3, 24, 5, 6, 24, 8, 9])
+        # 不应抛出 IndexError
+        loss = loss_fn(pred, target)
+        assert loss.dim() == 0
+        assert not torch.isnan(loss)
+
+    def test_cum_samples_size_includes_background(self):
+        """cum_samples 大小应为 num_classes+1 (含背景位)"""
+        loss_fn = SeesawLoss(num_classes=24, p=0.8)
+        assert loss_fn.cum_samples.shape[0] == 25  # 24前景 + 1背景
+
+    def test_background_counted_in_cum_samples(self):
+        """背景类样本应被统计到 cum_samples[num_classes]"""
+        loss_fn = SeesawLoss(num_classes=5, p=0.8, gamma=0, alpha=-1,
+                             reduction='sum', loss_weight=1.0)
+        pred = torch.randn(10, 6)  # 5前景 + 1背景
+        target = torch.tensor([0, 1, 2, 3, 5, 5, 5, 5, 4, 2])  # 5=背景, 4个背景
+        initial_bg = loss_fn.cum_samples[5].item()
+        loss_fn(pred, target)
+        # 背景类 cum_samples 应增加 4
+        assert loss_fn.cum_samples[5].item() == initial_bg + 4
+
+    def test_background_as_positive_class(self):
+        """背景类作为正类时应正常计算损失 (不越界, 不 NaN)"""
+        loss_fn = SeesawLoss(num_classes=3, p=0.8, gamma=0, alpha=-1,
+                             reduction='sum', loss_weight=1.0)
+        # pred: [N, 4] (3前景 + 1背景)
+        pred = torch.tensor([[5.0, 5.0, 5.0, 5.0]])
+        target = torch.tensor([3])  # 背景类
+        loss = loss_fn(pred, target)
+        assert loss.dim() == 0
+        assert not torch.isnan(loss)
+
+    def test_mixed_foreground_background(self):
+        """混合前景和背景样本时应正常工作"""
+        loss_fn = SeesawLoss(num_classes=5, p=0.8, gamma=2.0, alpha=0.25,
+                             reduction='sum', loss_weight=2.0)
+        pred = torch.randn(20, 6)  # 5前景 + 1背景
+        target = torch.cat([
+            torch.randint(0, 5, (12,)),  # 12个前景样本
+            torch.full((8,), 5)          # 8个背景样本
+        ])
+        loss = loss_fn(pred, target)
+        assert loss.dim() == 0
+        assert not torch.isnan(loss)
+
+    def test_background_seesaw_factor(self):
+        """背景类作为正类时, 对尾类负类的 Seesaw 衰减应正常工作"""
+        loss_fn = SeesawLoss(num_classes=3, p=0.8, gamma=0, alpha=-1,
+                             reduction='sum', loss_weight=1.0)
+        # 设置 cum_samples: 背景类(3)是头类(N=1000), 类1是尾类(N=10)
+        loss_fn.cum_samples = torch.tensor([100.0, 10.0, 100.0, 1000.0])
+        # 背景类正样本, 尾类1的负logit高
+        pred = torch.tensor([[5.0, 5.0, 5.0, 5.0]])
+        target = torch.tensor([3])  # 背景类
+        loss = loss_fn(pred, target)
+        # 背景类(N_y=1000)是头类, 所以前景类(N_j<1000)都是相对尾类, 全部衰减
+        # S_{3,j} = (N_j/N_3)^p, clamp(max=1.0)
+        p_pos = torch.sigmoid(torch.tensor(5.0))
+        base_pos = -torch.log(p_pos)
+        base_neg = -torch.log(1 - p_pos)
+        s_3_0 = (100.0 / 1000.0) ** 0.8  # 衰减 (类0相对背景是尾类)
+        s_3_1 = (10.0 / 1000.0) ** 0.8   # 衰减 (类1相对背景是尾类)
+        s_3_2 = (100.0 / 1000.0) ** 0.8  # 衰减 (类2相对背景是尾类)
+        expected = base_pos + base_neg * s_3_0 + base_neg * s_3_1 + base_neg * s_3_2
+        assert abs(loss.item() - expected.item()) < 0.01

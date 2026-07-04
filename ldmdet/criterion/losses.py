@@ -129,13 +129,15 @@ class SeesawLoss(nn.Module):
     def __init__(self, num_classes: int, p: float = 0.8, alpha: float = 0.25,
                  gamma: float = 2.0, reduction: str = 'sum', loss_weight: float = 2.0):
         super().__init__()
+        # num_classes: 前景类别数 (不含背景)
+        # cum_samples 含背景位, 大小 = num_classes + 1
         self.num_classes = num_classes
         self.p = p
         self.alpha = alpha
         self.gamma = gamma
         self.reduction = reduction
         self.loss_weight = loss_weight
-        self.register_buffer('cum_samples', torch.ones(num_classes))
+        self.register_buffer('cum_samples', torch.ones(num_classes + 1))
 
     def forward(self, pred: Tensor, target: Tensor) -> Tensor:
         if target.dim() == pred.dim() - 1:
@@ -153,11 +155,12 @@ class SeesawLoss(nn.Module):
 
         loss = self._compute_loss(flat_pred, flat_target)
 
+        # 累计样本数 (含背景类, target=num_classes 表示背景)
         with torch.no_grad():
-            valid_mask = (flat_target >= 0) & (flat_target < self.num_classes)
+            valid_mask = (flat_target >= 0) & (flat_target <= self.num_classes)
             if valid_mask.any():
                 batch_counts = torch.bincount(
-                    flat_target[valid_mask], minlength=self.num_classes
+                    flat_target[valid_mask], minlength=self.num_classes + 1
                 ).to(self.cum_samples.dtype)
                 self.cum_samples += batch_counts
 
@@ -190,7 +193,8 @@ class SeesawLoss(nn.Module):
         if positive_mask.any():
             pos_classes = target[positive_mask]
             n_y = self.cum_samples[pos_classes]
-            n_j = self.cum_samples.unsqueeze(0)
+            # n_j 只取 pred 列数对应的 cum_samples, 适配含/不含背景列的情况
+            n_j = self.cum_samples[:C].unsqueeze(0)
             # mmdet 官方方向: ratio = N_j / N_y, clamp(max=1.0) 确保只衰减不放大
             # 语义: 头类样本(N_y大)对尾类负类(N_j小)时 S<1 衰减, 保护尾类
             ratio = n_j / n_y.unsqueeze(1)
