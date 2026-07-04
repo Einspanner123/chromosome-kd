@@ -6,7 +6,7 @@ Usage:
         --dataset val
 
 采样器/步数覆盖:
-    python experiments/runners/test.py experiments/configs/ldmdet/rf_heun_adaln.py \\
+    python experiments/runners/test.py experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py \\
         --checkpoint work_dirs/xxx/best.pth --dataset test \\
         --sampling-steps 3 --solver-type euler --seed 42
 

@@ -486,7 +486,7 @@ python experiments/runners/train.py experiments/configs/ldmdet/direction_d_prime
 
 # D'1 验证 (已完成, 证伪: 最后 head 正样本 dw_mean≈0)
 python experiments/analysis/instrumentation/run_instrumentation.py \
-    --config experiments/configs/ldmdet/rf_heun_adaln.py \
+    --config experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py \
     --ckpt work_dirs/multi_seed_aug/rf_heun_adaln/seed_42/best_coco_bbox_mAP_epoch_102.pth \
     --name baseline_d1_verify_last \
     --analyzers head_output \
@@ -508,7 +508,7 @@ python experiments/runners/train.py experiments/configs/ldmdet/direction_g_lamfp
 
 # H (已完成, ✅ 成功 — seed=42: DPM++ 3步无损失 2.0× 加速; Euler/DPM++ 4步 = 0.745 最高)
 # 用已有 ckpt 推理, 无需训练; --seed 42 固定随机种子 (初始噪声 + box_renewal 可复现)
-python experiments/runners/test.py experiments/configs/ldmdet/rf_heun_adaln.py \
+python experiments/runners/test.py experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py \
     --checkpoint work_dirs/multi_seed_aug/rf_heun_adaln/seed_42/best_coco_bbox_mAP_epoch_102.pth \
     --dataset test --sampling-steps 3 --solver-type dpm_solver_pp --seed 42 --gpu-id 0
 
@@ -516,7 +516,7 @@ python experiments/runners/test.py experiments/configs/ldmdet/rf_heun_adaln.py \
 # RF: Heun/Euler/DPM-Solver++ × 1/2/3/4 步 = 12 组
 for solver in heun euler dpm_solver_pp; do
   for steps in 1 2 3 4; do
-    python experiments/runners/test.py experiments/configs/ldmdet/rf_heun_adaln.py \
+    python experiments/runners/test.py experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py \
         --checkpoint work_dirs/multi_seed_aug/rf_heun_adaln/seed_42/best_coco_bbox_mAP_epoch_102.pth \
         --dataset test --sampling-steps $steps --solver-type $solver --seed 42 --gpu-id 0
   done

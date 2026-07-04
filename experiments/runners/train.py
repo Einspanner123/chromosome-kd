@@ -1,9 +1,9 @@
 """LDMDet 训练入口
 
 Usage:
-    python experiments/runners/train.py experiments/configs/ldmdet/rf_heun_adaln.py
+    python experiments/runners/train.py experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py
     python experiments/runners/train.py experiments/configs/ldmdet/sinkhorn_stochastic.py --work-dir work_dirs/my_exp --seed 42
-    python experiments/runners/train.py experiments/configs/ldmdet/nonlinear_trajectory_e43_eps3.py --work-dir work_dirs/nonlinear_trajectory_e43_eps3 --resume --gpu-id 1
+    python experiments/runners/train.py experiments/configs/ldmdet/directions/nonlinear_trajectory/nonlinear_trajectory_e43_eps3.py --work-dir work_dirs/nonlinear_trajectory_e43_eps3 --resume --gpu-id 1
 """
 
 import argparse

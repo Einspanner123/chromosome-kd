@@ -45,12 +45,13 @@ from mmdet.structures import DetDataSample  # noqa: F402
 CONFIG_DIR = os.path.join(_PROJECT_ROOT, 'experiments', 'configs', 'ldmdet')
 
 # 方向四: 非线性轨迹主配置 + 消融配置
+# 配置已移至 directions/nonlinear_trajectory/ 子目录
 DIRECTION_CONFIGS = [
-    ('direction_4_nonlinear_trajectory', 'nonlinear_trajectory.py'),
-    ('e42_ot_only', 'nonlinear_trajectory_e42.py'),
-    ('e43_eps2', 'nonlinear_trajectory_e43_eps2.py'),
-    ('e43_eps3', 'nonlinear_trajectory_e43_eps3.py'),
-    ('e43_multinomial', 'nonlinear_trajectory_e43_multinomial.py'),
+    ('direction_4_nonlinear_trajectory', 'directions/nonlinear_trajectory/nonlinear_trajectory.py'),
+    ('e42_ot_only', 'directions/nonlinear_trajectory/nonlinear_trajectory_e42.py'),
+    ('e43_eps2', 'directions/nonlinear_trajectory/nonlinear_trajectory_e43_eps2.py'),
+    ('e43_eps3', 'directions/nonlinear_trajectory/nonlinear_trajectory_e43_eps3.py'),
+    ('e43_multinomial', 'directions/nonlinear_trajectory/nonlinear_trajectory_e43_multinomial.py'),
 ]
 
 # dummy 数据参数

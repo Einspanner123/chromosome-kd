@@ -65,7 +65,7 @@
 | 方向 | Baseline 配置 | 对应 ckpt | 消融变量 | 假设 |
 |------|--------------|----------|---------|------|
 | 方向一（非平衡 OT） | [ghss.py](../../experiments/configs/ldmdet/ghss.py) | stochot_eps5_v2 ep59 | 耦合策略 (ghss → unbalanced_ghss) | 边缘松弛提升稀疏图 recall |
-| 方向二（计数先验） | [rf_heun_adaln.py](../../experiments/configs/ldmdet/rf_heun_adaln.py) | rf_heun_shifted ep100 | +count_conditioning +counting_branch | 计数先验降低计数误差 |
+| 方向二（计数先验） | [rf_heun_adaln.py](../../experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py) | rf_heun_shifted ep100 | +count_conditioning +counting_branch | 计数先验降低计数误差 |
 | 方向三（SNR 匹配） | [ghss.py](../../experiments/configs/ldmdet/ghss.py) | stochot_eps5_v2 ep59 | matcher (SimOTA → SNRAware) | SNR 加权减少高噪声错误匹配 |
 | 方向四（非线性轨迹） | [ghss.py](../../experiments/configs/ldmdet/ghss.py) | stochot_eps5_v2 ep59 | rf_type (linear → scale_conditioned) | 尺度条件化提升小目标 APs |
 | 方向五（分层分类） | [ghss.py](../../experiments/configs/ldmdet/ghss.py) | stochot_eps5_v2 ep59 | cls_head (flat → hierarchical) | 分层降低组内混淆 |

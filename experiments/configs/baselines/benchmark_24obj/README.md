@@ -15,7 +15,7 @@
 | 维度 | LDMDet (Heun 4步) | LDMDet (DPM-Solver++ 8步) | YOLOX-S | RTMDet-L | DINO-R50 | Cascade R-CNN-R50 |
 |------|-------------------|---------------------------|---------|----------|----------|-------------------|
 | 配置文件 | `ldmdet_rf_heun_adaln_stochot_eps5.py` | `ldmdet_rf_dpmsolver_adaln_stochot_eps5_s8.py` | `yolox_s.py` | `rtmdet_l.py` | `dino_r50.py` | `cascade_rcnn_r50.py` |
-| 基础配置 | `recipes/rf_heun_adaln_stochot_eps5.py` | 继承自左列 | 独立 | 独立 | 独立 | 独立 |
+| 基础配置 | `ldmdet_rf_heun_adaln_stochot_eps5.py` (主路径) | 继承自左列 | 独立 | 独立 | 独立 | 独立 |
 | 检测范式 | 扩散式 (RF) | 扩散式 (RF) | Anchor-free | Anchor-free | DETR-style | Two-stage |
 | 骨干网络 | ResNet-50 + FPN | ResNet-50 + FPN | CSPDarknet-S | CSPNeXt-L | ResNet-50 | ResNet-50 + FPN |
 | 求解器 | Heun (二阶) | DPM-Solver++ (二阶) | — | — | — | — |

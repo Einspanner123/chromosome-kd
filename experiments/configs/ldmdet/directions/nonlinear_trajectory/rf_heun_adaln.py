@@ -5,8 +5,8 @@
 """
 
 _base_ = [
-    '../_base_/default_runtime.py',
-    '../_base_/datasets/chromo_coco_detection.py',
+    '../../../_base_/default_runtime.py',
+    '../../../_base_/datasets/chromo_coco_detection.py',
 ]
 
 num_classes = 24

@@ -91,7 +91,7 @@ ldmdet_baseline.py
 ```
 
 **关键差异**:
-- SOTA 的 `batch_size=2`，E4.3 的 `batch_size=4`（[rf_heun_adaln.py:13](../../experiments/configs/ldmdet/rf_heun_adaln.py#L13)）
+- SOTA 的 `batch_size=2`，E4.3 的 `batch_size=4`（[rf_heun_adaln.py:13](../../experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py#L13)）
 - SOTA 通过 `ot_coupling=True` + `ot_matcher='sinkhorn'` + `ot_sample=True` 三个布尔/字符串参数启用 OT
 - E4.3 通过 `coupling=dict(type='ot_flow', ...)` 注册式策略启用 OT（更解耦的架构）
 
@@ -619,8 +619,8 @@ $$
 | E4.3 Sinkhorn (共享) | [_sinkhorn_ops.py](../../ldmdet/coupling/_sinkhorn_ops.py) | L15-L65 |
 | 尺度条件化 RF | [scale_conditioned_rf.py](../../ldmdet/diffusion/scale_conditioned_rf.py) | L29-L194 |
 | SOTA 配置 | [ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5.py](../../ldmdet-experiment/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/code/projects/LDMDet/configs/_legacy/ldmdet_flowdet_adaln_ot_sinkhorn_sample_eps5.py) | L11-L22 |
-| E4.3 eps1 配置 | [nonlinear_trajectory.py](../../experiments/configs/ldmdet/nonlinear_trajectory.py) | L23-L40 |
-| E4.3 eps2 配置 | [nonlinear_trajectory_e43_eps2.py](../../experiments/configs/ldmdet/nonlinear_trajectory_e43_eps2.py) | L13-L21 |
+| E4.3 eps1 配置 | [nonlinear_trajectory.py](../../experiments/configs/ldmdet/directions/nonlinear_trajectory/nonlinear_trajectory.py) | L23-L40 |
+| E4.3 eps2 配置 | [nonlinear_trajectory_e43_eps2.py](../../experiments/configs/ldmdet/directions/nonlinear_trajectory/nonlinear_trajectory_e43_eps2.py) | L13-L21 |
 | SOTA 训练曲线 | [metrics.json](../../ldmdet-experiment/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/metrics.json) | — |
 | E4.3 eps2 训练日志 | [train.log](../../work_dirs/nonlinear_trajectory_e43_eps2/train.log) | — |
 | 方向四研究文档 | [方向四_流匹配的非线性轨迹.md](breakthrough_directions/方向四_流匹配的非线性轨迹.md) | — |

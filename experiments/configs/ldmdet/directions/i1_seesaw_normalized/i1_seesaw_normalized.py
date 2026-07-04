@@ -13,7 +13,7 @@
 SwanLab: 项目 'ldmdet-breakthrough', 实验 'i1_seesaw_normalized'
 对照: SOTA 0.746 mAP (rf_heun_adaln_stochot_eps5)
 """
-_base_ = ['../ldmdet_rf_heun_shifted_bs2.py']
+_base_ = ['../../ldmdet_rf_heun_shifted_bs2.py']
 
 num_classes = 24
 

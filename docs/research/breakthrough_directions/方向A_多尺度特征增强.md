@@ -7,7 +7,7 @@
 > - 2a 实验证实损失调参无法解决 (大小目标 trade-off 比例 4:1 ~ 6:1)
 > - FPN 的 4 层输出 (stride 4/8/16/32) 对小染色体 (~32px) 分辨率不足
 >
-> **当前代码位置**：[experiments/configs/ldmdet/rf_heun_adaln.py](../../experiments/configs/ldmdet/rf_heun_adaln.py) 中 `neck=dict(type='FPN', num_outs=4)`
+> **当前代码位置**：[experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py](../../experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py) 中 `neck=dict(type='FPN', num_outs=4)`
 
 ---
 

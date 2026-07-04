@@ -15,7 +15,7 @@ F' 仅保留 F1 (structured_prior), 保持 num_proposals=500, 单独验证 GMM �
 预期收益: mAP +0.01~0.03 (若 structured_prior 有效)
 """
 
-_base_ = ['./rf_heun_adaln.py']
+_base_ = ['../nonlinear_trajectory/rf_heun_adaln.py']
 
 model = dict(
     bbox_head=dict(

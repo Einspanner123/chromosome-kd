@@ -61,4 +61,4 @@ for n in ['random','hard_ot','sinkhorn_stochastic','ghss']: build_coupling(n, ep
 print('ldmdet OK')
 "
 
-step "done. run: bash tools/train.sh experiments/configs/ldmdet/rf_heun_adaln.py --seed 42"
+step "done. run: bash tools/train.sh experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py --seed 42"

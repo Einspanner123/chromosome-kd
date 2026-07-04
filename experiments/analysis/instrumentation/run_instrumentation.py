@@ -5,7 +5,7 @@
 Usage:
     # 单个 ckpt
     python experiments/analysis/instrumentation/run_instrumentation.py \
-        --config experiments/configs/ldmdet/rf_heun_adaln.py \
+        --config experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py \
         --ckpt work_dirs/multi_seed_aug/rf_heun_adaln/seed_42/best_coco_bbox_mAP_epoch_102.pth \
         --name baseline_aug \
         --analyzers trajectory roi_feature head_output \
@@ -66,7 +66,7 @@ CHROMOSOME_GROUPS = {
 # 方案矩阵: name -> (config, ckpt, analyzers)
 BATCH_PLAN = {
     'baseline_aug': {
-        'config': 'experiments/configs/ldmdet/rf_heun_adaln.py',
+        'config': 'experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py',
         'ckpt': 'work_dirs/multi_seed_aug/rf_heun_adaln/seed_42/best_coco_bbox_mAP_epoch_102.pth',
         'analyzers': ['trajectory', 'roi_feature', 'head_output'],
     },

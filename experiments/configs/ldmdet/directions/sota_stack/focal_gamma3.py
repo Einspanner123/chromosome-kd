@@ -10,7 +10,7 @@
 SwanLab: 新项目 'ldmdet-sota-stack' (与主线 ablation 分离)
 对照: reproduce_0751_stochot_eps5_v2 (SOTA 0.753, bs2, gamma=2)
 """
-_base_ = ['../ldmdet_rf_heun_shifted_bs2.py']
+_base_ = ['../../ldmdet_rf_heun_shifted_bs2.py']
 
 model = dict(
     bbox_head=dict(

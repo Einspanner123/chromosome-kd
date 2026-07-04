@@ -3,7 +3,7 @@
 cd /media/ross/8TB/linkst/chromo/chromosome-kd
 
 echo "[1/5] Random baseline"
-python experiments/runners/train_multi_seed.py experiments/configs/ldmdet/rf_heun_adaln.py --seeds 42,123,789 --gpus 0 --base-dir work_dirs/multi_seed_aug/rf_heun_adaln
+python experiments/runners/train_multi_seed.py experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py --seeds 42,123,789 --gpus 0 --base-dir work_dirs/multi_seed_aug/rf_heun_adaln
 
 echo "[2/5] DDPM baseline"
 python experiments/runners/train_multi_seed.py experiments/configs/baselines/diffusiondet_ddpm.py --seeds 42,123,789 --gpus 0 --base-dir work_dirs/multi_seed_aug/ddpm

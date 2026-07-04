@@ -9,19 +9,19 @@
 Usage:
     # 仅运行阶段 1 (快速, 无需训练)
     python experiments/runners/run_bottleneck_experiments.py \
-        --config experiments/configs/ldmdet/rf_heun_adaln.py \
+        --config experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py \
         --checkpoint work_dirs/ldmdet_rf_heun_adaln/best_coco_bbox_mAP_epoch_102.pth \
         --phase 1
 
     # 运行全部三个阶段
     python experiments/runners/run_bottleneck_experiments.py \
-        --config experiments/configs/ldmdet/rf_heun_adaln.py \
+        --config experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py \
         --checkpoint work_dirs/ldmdet_rf_heun_adaln/best_coco_bbox_mAP_epoch_102.pth \
         --phase all
 
     # 仅运行特定消融实验
     python experiments/runners/run_bottleneck_experiments.py \
-        --config experiments/configs/ldmdet/rf_heun_adaln.py \
+        --config experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py \
         --checkpoint work_dirs/ldmdet_rf_heun_adaln/best_coco_bbox_mAP_epoch_102.pth \
         --phase 2 --experiments no_box_renewal,no_ensemble
 """

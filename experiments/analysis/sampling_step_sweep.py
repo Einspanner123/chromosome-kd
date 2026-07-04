@@ -6,7 +6,7 @@
 
 Usage:
     python experiments/analysis/sampling_step_sweep.py \
-        experiments/configs/ldmdet/rf_heun_adaln.py \
+        experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py \
         work_dirs/ldmdet_rf_heun_adaln/best_coco_bbox_mAP_epoch_102.pth \
         --ann data/Chromosome20240904_NoAug_NoResize_coco/valid/_annotations.coco.json
 """

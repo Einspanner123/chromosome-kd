@@ -64,7 +64,7 @@ DiffusionDet DDPM (根 baseline, 默认 aug)
 │    → DDPM 加步数不提升, 1/4/8 步均为 0.729; +0.017 为纯算法贡献
 │
 ├─→ + RF + Heun + Shifted Schedule + AdaLN-Zero  (DDPM → Rectified Flow)
-│      config: experiments/configs/ldmdet/rf_heun_adaln.py
+│      config: experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py
 │      result: 0.746 ± 0.001 (3 seeds)  [+0.017, 主贡献]
 │      本地: work_dirs/multi_seed_aug/rf_heun_adaln/seed_{42,789,123}/
 │      SwanLab (project=ldmdet-ablation):
@@ -75,7 +75,7 @@ DiffusionDet DDPM (根 baseline, 默认 aug)
 │      │
 │      ├─→ + DPM-Solver++ 推理加速 (推理时改采样器, 不重训)
 │      │      baseline ckpt: work_dirs/multi_seed_aug/rf_heun_adaln/seed_{42,789,123}/best_coco_bbox_mAP_epoch_*.pth
-│      │      config: experiments/configs/ldmdet/rf_heun_adaln.py + test.py --solver-type dpm_solver_pp[_3]
+│      │      config: experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py + test.py --solver-type dpm_solver_pp[_3]
 │      │      ┌─ 步数对齐 (4 steps, 公平步数对比):
 │      │      │  o2 (≈5 NFE): 0.746 ± 0.001  [Δ=+0.000, 同等步数下 NFE 降 37%]
 │      │      │    seed42=0.7450  seed789=0.7470  seed123=0.7470
@@ -186,31 +186,31 @@ Direction 方向实验 A-F (基于 rf_heun_adaln, 默认 aug, 应与 0.746 对�
        后续非线性轨迹实验 (见下) 接替该方向继续探索。
 
 非线性轨迹实验 (基于 rf_heun_adaln + ScaleConditionedRF + OTFlowCoupling, chromo 数据集)
-       config: experiments/configs/ldmdet/nonlinear_trajectory*.py
+       config: experiments/configs/ldmdet/directions/nonlinear_trajectory/nonlinear_trajectory*.py
        核心: ScaleConditionedRF (尺度调制噪声调度 κ(s)) + OTFlowCoupling (Sinkhorn OT 传输矩阵耦合)
        baseline 对照: rf_heun_adaln = 0.746
        │
        ├─→ E4.1 (ScaleConditionedRF only, 无 OT) = 0.743  [-0.003, 持平]  ✓ 早停
-       │      config: experiments/configs/ldmdet/nonlinear_trajectory_e41.py
+       │      config: experiments/configs/ldmdet/directions/nonlinear_trajectory/nonlinear_trajectory_e41.py
        │      改动: coupling=random (去 OT), 保留 scale_conditioned_rf
        │      本地: work_dirs/nonlinear_trajectory_e41/
        │      SwanLab: run_id=qdnw5yyj  best mAP=0.7430  (best @ epoch 74)
        │
        ├─→ E4.2 (OT Flow only, 无 ScaleConditionedRF) = 0.751  [+0.005]  ✓ 早停
-       │      config: experiments/configs/ldmdet/nonlinear_trajectory_e42.py
+       │      config: experiments/configs/ldmdet/directions/nonlinear_trajectory/nonlinear_trajectory_e42.py
        │      改动: lambda_mod=0.0 (关闭尺度条件), 保留 OT Flow
        │      本地: work_dirs/nonlinear_trajectory_e42/
        │      SwanLab: run_id=wcp34v3t  best mAP=0.7510  (best @ epoch 81)
        │
        ├─→ E4.3 (ScaleConditionedRF + OTFlowCoupling argmax eps=1.0) = 0.752  [+0.006]  ✓ 早停
-       │      config: experiments/configs/ldmdet/nonlinear_trajectory.py
+       │      config: experiments/configs/ldmdet/directions/nonlinear_trajectory/nonlinear_trajectory.py
        │      本地: work_dirs/nonlinear_trajectory/
        │      SwanLab: run_id=usnvd63f  best mAP=0.7520  (best @ epoch 94)
        │      ⚠ 注意: 此实验的 ScaleConditionedRF 当时未真正集成到 head.py,
        │        0.752 主要来自 OTFlowCoupling + 种子方差
        │      │
        │      ├─→ E4.3-tune eps=2.0 (OLD, ScaleConditionedRF 未启用) = 0.752  [+0.006]  ✓ 早停
-       │      │      config: experiments/configs/ldmdet/nonlinear_trajectory_e43_eps2.py
+       │      │      config: experiments/configs/ldmdet/directions/nonlinear_trajectory/nonlinear_trajectory_e43_eps2.py
        │      │      改动: coupling.epsilon=1.0→2.0 (更平滑传输矩阵)
        │      │      本地: work_dirs/nonlinear_trajectory_e43_eps2/
        │      │      SwanLab: run_id=cdtmijl0  best mAP=0.7520  (best @ epoch 100)
@@ -219,7 +219,7 @@ Direction 方向实验 A-F (基于 rf_heun_adaln, 默认 aug, 应与 0.746 对�
        │      │        0.752 实际来自 OTFlowCoupling(eps=2.0,argmax) + Heun + 种子方差
        │      │
        │      ├─→ E4.3-tune eps=2.0 (NEW, ScaleConditionedRF 真正启用) = **0.741** [−0.005] ⛔ 证伪
-      │      │      config: experiments/configs/ldmdet/nonlinear_trajectory_e43_eps2.py (同上)
+      │      │      config: experiments/configs/ldmdet/directions/nonlinear_trajectory/nonlinear_trajectory_e43_eps2.py (同上)
       │      │      本地: work_dirs/nonlinear_trajectory_e43_eps2_real/
       │      │      SwanLab: run_id=hkn0fc7w  (best @ epoch 69, 训练至 ep93 平台化)
       │      │      进展: ep1=0.000 → ep10=0.564 → ep55=0.737 → ep69=**0.741** → ep93 平台
@@ -234,35 +234,35 @@ Direction 方向实验 A-F (基于 rf_heun_adaln, 默认 aug, 应与 0.746 对�
       │      │        理论缺陷详见 [第十一节: ScaleConditionedRF 证伪记录](#十一scaleconditionedrf-证伪记录)
        │      │
        │      ├─→ E4.3-tune eps=3.0 = 0.750  [+0.004]  ✓ 早停
-       │      │      config: experiments/configs/ldmdet/nonlinear_trajectory_e43_eps3.py
+       │      │      config: experiments/configs/ldmdet/directions/nonlinear_trajectory/nonlinear_trajectory_e43_eps3.py
        │      │      本地: work_dirs/nonlinear_trajectory_e43_eps3/
        │      │      SwanLab: run_id=5m1lse6x  best mAP=0.7500  (best @ epoch 70)
        │      │
        │      └─→ E4.3 multinomial = 0.748  [+0.002]  ✓ 早停
-       │             config: experiments/configs/ldmdet/nonlinear_trajectory_e43_multinomial.py
+       │             config: experiments/configs/ldmdet/directions/nonlinear_trajectory/nonlinear_trajectory_e43_multinomial.py
        │             改动: coupling_mode=argmax→multinomial
        │             本地: work_dirs/nonlinear_trajectory_e43_multinomial/
        │             SwanLab: run_id=l0991c8v  best mAP=0.7480  (best @ epoch 72)
        │
        ├─→ E6-EMA (E4.3 + EMA Hook + weight_decay=5e-4) = 0.739  [-0.007]  ✓ 早停
-       │      config: experiments/configs/ldmdet/nonlinear_trajectory_e6_ema.py
+       │      config: experiments/configs/ldmdet/directions/nonlinear_trajectory/nonlinear_trajectory_e6_ema.py
        │      本地: work_dirs/nonlinear_trajectory_e6_ema/
        │      SwanLab: run_id=q2168hth  best mAP=0.7390  (best @ epoch 92)
        │
        ├─→ E6-Muon (E4.3 + MuonHybrid 优化器) = 0.744  [-0.002, 持平]  ✓ 早停
-       │      config: experiments/configs/ldmdet/nonlinear_trajectory_e6_muon.py
+       │      config: experiments/configs/ldmdet/directions/nonlinear_trajectory/nonlinear_trajectory_e6_muon.py
        │      改动: MuonHybridConstructor, batch_size=2, DynamicConv 大矩阵走 AdamW
        │      本地: work_dirs/nonlinear_trajectory_e6_muon/
        │      SwanLab: run_id=640t9s93  best mAP=0.7440  (best @ epoch 68)
        │
        └─→ E7-smax100 (E4.3 + T_max=100, 余弦退火对齐) = 0.745  [-0.001, 持平]  ✓ 自然结束
-              config: experiments/configs/ldmdet/nonlinear_trajectory_e7_tmax100.py
+              config: experiments/configs/ldmdet/directions/nonlinear_trajectory/nonlinear_trajectory_e7_tmax100.py
               改动: max_epochs 150→100, T_max 150→100 (LR 完全退火基线)
               本地: work_dirs/nonlinear_trajectory_e7_tmax100/
               SwanLab: run_id=pte9vv1a  best mAP=0.7450  (best @ epoch 82)
 
 3-seed 复现实验 (E4.3 eps=2.0 配置, 验证可复现性, SwanLab 项目=nonlinear-3seed-repro)
-       config: experiments/configs/ldmdet/nonlinear_trajectory.py (seeds 1,2,3)
+       config: experiments/configs/ldmdet/directions/nonlinear_trajectory/nonlinear_trajectory.py (seeds 1,2,3)
        │
        ├─→ seed 1 = 0.746  ✓ 早停
        │      本地: work_dirs/nonlinear_trajectory_seed1/
@@ -586,7 +586,7 @@ Direction 实验基于 `rf_heun_adaln.py` (chromo 数据集, 默认 aug):
 |------|------|
 | **动机** | DDPM 采样需 1000 步,推理慢;标准 RF 线性轨迹可一步直达但精度受限 |
 | **改动** | `diffusion_type=rectified_flow`, `solver_type=heun` (二阶), `rf_schedule=shifted` (rf_shift=3.0), `time_conditioning=adaln_zero` (零初始化保证训练稳定) |
-| **实验** | config: `experiments/configs/ldmdet/rf_heun_adaln.py`; 3 seeds; work_dir: `work_dirs/multi_seed_aug/rf_heun_adaln/` |
+| **实验** | config: `experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py`; 3 seeds; work_dir: `work_dirs/multi_seed_aug/rf_heun_adaln/` |
 | **结果** | 0.729 → **0.746** (+0.017), 3-seed 方差 ±0.001 |
 | **结论** | 🟢 **主要贡献**,后续所有实验均基于此 baseline |
 | **关键代码** | [head.py](file:///home/linkst/workplace/chromo/chromosome-kd/ldmdet/core/head.py) DiffusionDetHead, [rectified_flow.py](file:///home/linkst/workplace/chromo/chromosome-kd/ldmdet/diffusion/rectified_flow.py), [single_head.py](file:///home/linkst/workplace/chromo/chromosome-kd/ldmdet/core/single_head.py) AdaLN-Zero |
@@ -714,7 +714,7 @@ Direction 实验基于 `rf_heun_adaln.py` (chromo 数据集, 默认 aug):
 | 字段 | 内容 |
 |------|------|
 | **实验** | nonlinear_trajectory_e43_eps2_real (commit e757b856) |
-| **config** | `experiments/configs/ldmdet/nonlinear_trajectory_e43_eps2.py` |
+| **config** | `experiments/configs/ldmdet/directions/nonlinear_trajectory/nonlinear_trajectory_e43_eps2.py` |
 | **work_dir** | `work_dirs/nonlinear_trajectory_e43_eps2_real/` |
 | **SCRF 集成** | ✅ head.py 4 处: `_forward_diffusion` / `_build_training_targets` / `predict` (Euler+Heun) / `_compute_inference_scales` |
 | **测试** | 48 单元测试全部通过 (TDD 红绿重构) |

@@ -9,7 +9,7 @@
 > - 方向 A 的 P1+Deformable 主要解决"小目标分辨率", 而本方向聚焦"特征融合质量"
 >
 > **当前代码位置**：
-> - 现有 FPN: [experiments/configs/ldmdet/rf_heun_adaln.py](../../experiments/configs/ldmdet/rf_heun_adaln.py#L37-L42) 中 `neck=dict(type='FPN', num_outs=4)`
+> - 现有 FPN: [experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py](../../experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py#L37-L42) 中 `neck=dict(type='FPN', num_outs=4)`
 > - LAMFPN 参考实现: [lamfpn.py](../../lamfpn.py), [lamfpn_bifpn.txt](../../lamfpn_bifpn.txt)
 
 ---

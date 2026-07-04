@@ -1,4 +1,4 @@
-_base_ = ['../../ldmdet/recipes/rf_heun_adaln_stochot_eps5.py']
+_base_ = ['../../ldmdet/ldmdet_rf_heun_adaln_stochot_eps5.py']
 
 # === Override to benchmark_24obj dataset ===
 # The 24obj dataset uses standard C-group order (C6,C7,C8,C9,C10,C11,C12)

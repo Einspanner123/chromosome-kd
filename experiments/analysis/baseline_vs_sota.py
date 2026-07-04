@@ -72,7 +72,7 @@ DATASETS = {
             # SOTA 0.753: 单 checkpoint (reproduce_0751_stochot_eps5_v2, best epoch 59)
             # ⚠ checkpoint 不在当前服务器, 仅使用从另一服务器带来的缓存预测
             'SOTA': {
-                'config': 'experiments/configs/ldmdet/recipes/rf_heun_adaln_stochot_eps5.py',
+                'config': 'experiments/configs/ldmdet/ldmdet_rf_heun_adaln_stochot_eps5.py',
                 'checkpoints': {
                     42: 'work_dirs/reproduce_0751_stochot_eps5_v2/best_coco_bbox_mAP_epoch_59.pth',
                 },
