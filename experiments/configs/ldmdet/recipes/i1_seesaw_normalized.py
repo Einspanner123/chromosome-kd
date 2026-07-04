@@ -10,7 +10,7 @@
 
 设计依据: docs/research/breakthrough_directions/方向I_长尾少样本类别平衡.md
 
-SwanLab: 项目 'chromosome-kd-ablation', 实验 'i1_seesaw_normalized'
+SwanLab: 项目 'ldmdet-breakthrough', 实验 'i1_seesaw_normalized'
 对照: SOTA 0.746 mAP (rf_heun_adaln_stochot_eps5)
 """
 _base_ = ['../ldmdet_rf_heun_shifted_bs2.py']
@@ -65,14 +65,14 @@ custom_hooks = [
     dict(type='CopyProjectHook', priority='VERY_LOW'),
 ]
 
-# SwanLab: 方向I-1 消融实验
+# SwanLab: 方向I-1 突破实验
 vis_backends = [
     dict(type='LocalVisBackend'),
     dict(type='TensorboardVisBackend'),
     dict(
         type='SwanlabVisBackend',
         init_kwargs=dict(
-            project='chromosome-kd-ablation',
+            project='ldmdet-breakthrough',
             experiment_name='i1_seesaw_normalized',
             description='方向I-1: Seesaw Loss + Normalized Classifier | bs2, 150ep',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
