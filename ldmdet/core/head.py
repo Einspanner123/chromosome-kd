@@ -129,8 +129,10 @@ class DiffusionDetHead(nn.Module):
     def _init_weights(self, prior_prob):
         for head in self.head_series:
             if hasattr(head, 'cls_head'):
-                bias_value = -(math.log((1 - prior_prob) / prior_prob))
-                nn.init.constant_(head.cls_head[-1].bias, bias_value)
+                last_layer = head.cls_head[-1]
+                if hasattr(last_layer, 'bias') and last_layer.bias is not None:
+                    bias_value = -(math.log((1 - prior_prob) / prior_prob))
+                    nn.init.constant_(last_layer.bias, bias_value)
 
     # ================================================================
     # 前向传播

@@ -3,10 +3,13 @@
 from mmdet.registry import MODELS
 from mmengine.registry import OPTIMIZERS, OPTIM_WRAPPER_CONSTRUCTORS
 
-from ldmdet.core import DiffusionDetHead, DynamicConv, SingleDiffusionDetHead, SingleRoIExtractor
+from ldmdet.core import (
+    DiffusionDetHead, DynamicConv, NormalizedLinear, SingleDiffusionDetHead,
+    SingleRoIExtractor,
+)
 from ldmdet.criterion import (
     BBoxL1Cost, DiffusionDetCriterion, DiffusionDetMatcher,
-    FocalLoss, FocalLossCost, GIoULoss, IoUCost, L1Loss,
+    FocalLoss, FocalLossCost, GIoULoss, IoUCost, L1Loss, SeesawLoss,
 )
 
 # 触发 TrainingDiagnosticsHook 注册到 HOOKS
@@ -27,8 +30,10 @@ MODELS.register_module(name='PurePyTorchSingleRoIExtractor', module=SingleRoIExt
 MODELS.register_module(name='PurePyTorchDiffusionDetCriterion', module=DiffusionDetCriterion, force=True)
 MODELS.register_module(name='PurePyTorchDiffusionDetMatcher', module=DiffusionDetMatcher, force=True)
 MODELS.register_module(name='PurePyTorchFocalLoss', module=FocalLoss, force=True)
+MODELS.register_module(name='PurePyTorchSeesawLoss', module=SeesawLoss, force=True)
 MODELS.register_module(name='PurePyTorchL1Loss', module=L1Loss, force=True)
 MODELS.register_module(name='PurePyTorchGIoULoss', module=GIoULoss, force=True)
+MODELS.register_module(name='PurePyTorchNormalizedLinear', module=NormalizedLinear, force=True)
 MODELS.register_module(name='PurePyTorchFocalLossCost', module=FocalLossCost, force=True)
 MODELS.register_module(name='PurePyTorchBBoxL1Cost', module=BBoxL1Cost, force=True)
 MODELS.register_module(name='PurePyTorchIoUCost', module=IoUCost, force=True)

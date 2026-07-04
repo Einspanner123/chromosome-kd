@@ -17,6 +17,39 @@ from ldmdet.utils.box_ops import bbox2roi
 _SDPA_AVAILABLE = hasattr(F, 'scaled_dot_product_attention')
 
 
+class NormalizedLinear(nn.Module):
+    """Normalized Classifier: L2 归一化权重和特征 + 温度缩放.
+
+    logits = τ · (W̃ · x̃),  W̃ = W / ||W||_2,  x̃ = x / ||x||_2
+
+    参考: docs/research/breakthrough_directions/方向I_长尾少样本类别平衡.md (I-1)
+
+    Args:
+        in_features: 输入特征维度
+        out_features: 输出类别数
+        temperature: 温度缩放因子 τ, 默认 20.0
+        eps: 归一化数值稳定小量
+    """
+
+    def __init__(self, in_features: int, out_features: int,
+                 temperature: float = 20.0, eps: float = 1e-12):
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.temperature = temperature
+        self.eps = eps
+        self.weight = nn.Parameter(torch.empty(out_features, in_features))
+        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # 归一化权重: [out, in] -> 沿 in 归一化
+        w_norm = self.weight / self.weight.norm(dim=1, keepdim=True).clamp(min=self.eps)
+        # 归一化特征: [..., in] -> 沿 in 归一化
+        x_norm = x / x.norm(dim=-1, keepdim=True).clamp(min=self.eps)
+        # logits = τ · (x̃ @ W̃^T)
+        return self.temperature * (x_norm @ w_norm.t())
+
+
 class SingleDiffusionDetHead(nn.Module):
     """单步扩散检测头。
 
@@ -44,6 +77,8 @@ class SingleDiffusionDetHead(nn.Module):
         use_sdpa=True,
         attn_half=False,
         shape_attention=None,
+        use_normalized_classifier=False,
+        classifier_temperature=20.0,
     ):
         super().__init__()
         self.feat_channels = feat_channels
@@ -53,6 +88,7 @@ class SingleDiffusionDetHead(nn.Module):
         # attn_half: True = attention 核心用 FP16 加速, False = 保持原始精度
         self.use_sdpa = use_sdpa and _SDPA_AVAILABLE
         self.attn_half = attn_half
+        self.use_normalized_classifier = use_normalized_classifier
 
         self.self_attn = nn.MultiheadAttention(
             feat_channels, num_heads, dropout=dropout
@@ -91,7 +127,9 @@ class SingleDiffusionDetHead(nn.Module):
             )
 
         self.cls_head = self._build_cls_head(
-            feat_channels, num_cls_convs, num_classes, use_focal_loss, use_fed_loss
+            feat_channels, num_cls_convs, num_classes, use_focal_loss, use_fed_loss,
+            use_normalized_classifier=use_normalized_classifier,
+            temperature=classifier_temperature,
         )
         self.reg_head = self._build_reg_head(feat_channels, num_reg_convs)
 
@@ -154,7 +192,8 @@ class SingleDiffusionDetHead(nn.Module):
         return self.self_attn(q, k, v)
 
     @staticmethod
-    def _build_cls_head(feat_channels, num_convs, num_classes, use_focal_loss, use_fed_loss):
+    def _build_cls_head(feat_channels, num_convs, num_classes, use_focal_loss, use_fed_loss,
+                        use_normalized_classifier=False, temperature=20.0):
         layers = []
         for _ in range(num_convs):
             layers.append(nn.Sequential(
@@ -163,7 +202,10 @@ class SingleDiffusionDetHead(nn.Module):
                 nn.ReLU(inplace=True),
             ))
         out_dim = num_classes if (use_focal_loss or use_fed_loss) else num_classes + 1
-        layers.append(nn.Linear(feat_channels, out_dim))
+        if use_normalized_classifier:
+            layers.append(NormalizedLinear(feat_channels, out_dim, temperature=temperature))
+        else:
+            layers.append(nn.Linear(feat_channels, out_dim))
         return nn.Sequential(*layers)
 
     @staticmethod
