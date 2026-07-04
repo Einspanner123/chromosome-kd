@@ -58,57 +58,85 @@ class TestSeesawLossShape:
 
 
 class TestSeesawPenalty:
-    """测试 Seesaw 惩罚机制"""
+    """测试 Seesaw 惩罚机制 (mmdet 官方方向: ratio = N_j / N_y, clamp(max=1.0))
 
-    def test_high_freq_negative_less_penalty(self):
-        """高频负类应获得更小的惩罚 (S_ij < 1 when N_j >> N_i)"""
+    语义: 头类样本(N_y大)对尾类负类(N_j小)时 S<1 衰减, 保护尾类不被头类压制.
+    """
+
+    def test_head_sample_tail_negative_decays(self):
+        """头类样本对尾类负类应被衰减 (S < 1 when N_j << N_y)
+
+        场景: 样本是头类0(N_0=1000), 负类1是尾类(N_1=10)
+        期望: S_{0,1} = (N_1/N_0)^p = (10/1000)^0.8 ≈ 0.025 (衰减)
+        """
         loss_fn = SeesawLoss(num_classes=3, p=0.8, gamma=0, alpha=-1,
                              reduction='sum', loss_weight=1.0)
-        # 设置累计样本: 类0=1000(高频), 类1=10(低频), 类2=10(低频)
         loss_fn.cum_samples = torch.tensor([1000.0, 10.0, 10.0])
 
-        # 一个类1的正样本, 预测为类0和类2的负logit相同
-        pred = torch.tensor([[0.0, 10.0, 0.0]])  # 正样本是类1, 但所有logit=0/10
-        # 实际: 让正样本logit低, 负样本logit高, 产生负损失
-        pred = torch.tensor([[-5.0, -5.0, -5.0]])  # 全部低, 正样本类1也低
-        target = torch.tensor([1])  # 类1正样本
-
-        # 对比: 类0(高频, N=1000) vs 类2(低频, N=10) 的负损失
-        # S_{1,0} = (1000/10)^0.8 = 100^0.8 ≈ 40, 但这是 > 1, 意味着类0的惩罚更大?
-        # 不对! S_ij = (N_j/N_i)^p, 当 N_j > N_i 时 S > 1, 惩罚更大
-        # 但 Seesaw 的目的是: 尾类(低频)的正样本, 对头类(高频)的负梯度应该被衰减
-        # 所以应该是: 对于类i的正样本, 类j的负梯度乘以 S_ij = (N_j/N_i)^p
-        # 当 N_j >> N_i (头类j对尾类i): S_ij >> 1... 这不对
-        #
-        # 重新看论文: S_ij = (N_j / N_i)^p, 但衰减的是 logit, 不是放大!
-        # 论文公式: p_j = softmax(z_j), L = -log(p_y / (p_y + sum S_{y,j} * p_j))
-        # 当 S < 1 时, p_j 的贡献减小 → 尾类正样本对头类的负梯度减小
-        # 所以 S_{y,j} = (N_j / N_y)^p, 当 N_j >> N_y: S >> 1, 头类贡献更大? 不对
-        #
-        # 再看: S_{ij} = min(1, N_i/N_j)^p? 不, 论文是 S_{ij} = (N_j/N_i)^{-p} = (N_i/N_j)^p
-        # 即: 对于类i正样本, 类j的衰减因子 = (N_i / N_j)^p
-        # 当 N_j >> N_i (头类j, 尾类i): (N_i/N_j)^p << 1 → 头类负梯度被大幅衰减 ✓
-        # 当 N_j ≈ N_i: (N_i/N_j)^p ≈ 1 → 正常惩罚 ✓
+        # 头类0正样本, 尾类1和2的负logit较高(产生负损失)
+        pred = torch.tensor([[5.0, 5.0, 5.0]])
+        target = torch.tensor([0])  # 头类0正样本
         loss = loss_fn(pred, target)
 
-        # 验证: 高频类(类0)的负损失 < 低频类(类2)的负损失
         # 手动计算
-        # 正样本类1, logit全-5, sigmoid(-5)≈0.0067
-        # 负损失类0: (1-0) * p^0 * log(1-p) * S_{1,0}, S_{1,0} = (10/1000)^0.8
-        # 负损失类2: (1-0) * p^0 * log(1-p) * S_{1,2}, S_{1,2} = (10/10)^0.8 = 1
-        # S_{1,0} = (10/1000)^0.8 = 0.01^0.8 ≈ 0.025
-        # 所以类0的负损失 ≈ 0.025 * base, 类2的负损失 ≈ 1 * base
-        # 类0惩罚 < 类2惩罚 ✓
-        p_neg = torch.sigmoid(torch.tensor(-5.0))  # 负类 sigmoid
-        base_pos = -torch.log(torch.sigmoid(torch.tensor(-5.0)))  # 正类损失
-        base_neg = -torch.log(1 - p_neg)  # 负类损失
-        s_1_0 = (10.0 / 1000.0) ** 0.8
-        s_1_2 = (10.0 / 10.0) ** 0.8
+        p_pos = torch.sigmoid(torch.tensor(5.0))  # 正类 sigmoid
+        base_pos = -torch.log(p_pos)  # 正类损失
+        base_neg = -torch.log(1 - p_pos)  # 负类损失
+        # S_{0,1} = (N_1/N_0)^p = (10/1000)^0.8 ≈ 0.025 (尾类负类, 衰减)
+        # S_{0,2} = (N_2/N_0)^p = (10/1000)^0.8 ≈ 0.025 (尾类负类, 衰减)
+        s_0_1 = (10.0 / 1000.0) ** 0.8
+        s_0_2 = (10.0 / 1000.0) ** 0.8
+        expected_loss = base_pos + base_neg * s_0_1 + base_neg * s_0_2
+        assert abs(loss.item() - expected_loss.item()) < 0.01
+
+    def test_tail_sample_head_negative_no_decay(self):
+        """尾类样本对头类负类不应衰减 (S = 1 when N_j >> N_y)
+
+        场景: 样本是尾类1(N_1=10), 负类0是头类(N_0=1000)
+        期望: S_{1,0} = min(N_0/N_1, 1)^p = min(100, 1)^0.8 = 1.0 (不衰减)
+        """
+        loss_fn = SeesawLoss(num_classes=3, p=0.8, gamma=0, alpha=-1,
+                             reduction='sum', loss_weight=1.0)
+        loss_fn.cum_samples = torch.tensor([1000.0, 10.0, 10.0])
+
+        # 尾类1正样本, 头类0和尾类2的负logit较高
+        pred = torch.tensor([[5.0, 5.0, 5.0]])
+        target = torch.tensor([1])  # 尾类1正样本
+        loss = loss_fn(pred, target)
+
+        # 手动计算
+        p_pos = torch.sigmoid(torch.tensor(5.0))
+        base_pos = -torch.log(p_pos)
+        base_neg = -torch.log(1 - p_pos)
+        # S_{1,0} = min(1000/10, 1)^0.8 = 1.0 (头类负类, 不衰减)
+        # S_{1,2} = min(10/10, 1)^0.8 = 1.0 (等频, 不衰减)
+        s_1_0 = 1.0
+        s_1_2 = 1.0
         expected_loss = base_pos + base_neg * s_1_0 + base_neg * s_1_2
         assert abs(loss.item() - expected_loss.item()) < 0.01
 
+    def test_no_amplification_head_to_tail(self):
+        """验证 Bug 修复: 头类样本对尾类负类不应放大 (S <= 1)"""
+        loss_fn = SeesawLoss(num_classes=3, p=0.8, gamma=0, alpha=-1,
+                             reduction='sum', loss_weight=1.0)
+        loss_fn.cum_samples = torch.tensor([1000.0, 10.0, 10.0])
+
+        # 头类0正样本
+        pred = torch.tensor([[5.0, 5.0, 5.0]])
+        target = torch.tensor([0])
+        loss_head_sample = loss_fn(pred, target)
+
+        # 对比: 如果 S 被错误放大, 损失会远大于标准 BCE
+        # 标准 BCE (无 Seesaw): pos + neg + neg
+        p_pos = torch.sigmoid(torch.tensor(5.0))
+        standard_bce = -torch.log(p_pos) + 2 * (-torch.log(1 - p_pos))
+
+        # Seesaw 应衰减尾类负类, 所以损失应 < 标准 BCE
+        assert loss_head_sample.item() < standard_bce.item(), \
+            '头类样本对尾类负类应衰减, 损失应小于标准 BCE'
+
     def test_equal_frequency_no_scaling(self):
-        """各类频率相等时, Seesaw 因子 ≈ 1, 退化为标准 focal loss"""
+        """各类频率相等时, Seesaw 因子 = 1, 退化为标准 BCE"""
         loss_fn = SeesawLoss(num_classes=3, p=0.8, gamma=0, alpha=-1,
                              reduction='sum', loss_weight=1.0)
         loss_fn.cum_samples = torch.tensor([100.0, 100.0, 100.0])
@@ -180,29 +208,29 @@ class TestMisclassificationPenalty:
         # 误分类的损失应远大于正确分类
         assert loss_mis > loss_correct
 
-    def test_correct_classification_decays_head(self):
-        """正确分类时, 头类负梯度被 Seesaw 衰减"""
+    def test_correct_classification_decays_tail(self):
+        """正确分类时, 头类样本对尾类负类的梯度被 Seesaw 衰减"""
         loss_fn = SeesawLoss(num_classes=3, p=0.8, gamma=0, alpha=-1,
                              reduction='sum', loss_weight=1.0)
         loss_fn.cum_samples = torch.tensor([1000.0, 10.0, 10.0])
 
-        # 类1正样本, 类0也是高logit (但类1更高, 正确分类)
-        pred = torch.tensor([[5.0, 10.0, 5.0]])
-        target = torch.tensor([1])
+        # 头类0正样本(logit=10, 正确分类), 尾类1和2的负logit也高(logit=5)
+        pred = torch.tensor([[10.0, 5.0, 5.0]])
+        target = torch.tensor([0])  # 头类0正样本
         loss = loss_fn(pred, target)
 
-        # 手动验证: 类0的负损失被 S_{1,0} = (10/1000)^0.8 ≈ 0.025 衰减
-        p0 = torch.sigmoid(torch.tensor(5.0))
-        p1 = torch.sigmoid(torch.tensor(10.0))
-        p2 = torch.sigmoid(torch.tensor(5.0))
-        s_1_0 = (10.0 / 1000.0) ** 0.8
-        s_1_2 = (10.0 / 10.0) ** 0.8
-        # 正损失: -log(sigmoid(10))
-        pos_loss = -torch.log(p1)
-        # 负损失: 类0 衰减, 类2 不衰减
-        neg_loss_0 = -torch.log(1 - p0) * s_1_0
-        neg_loss_2 = -torch.log(1 - p2) * s_1_2
-        expected = pos_loss + neg_loss_0 + neg_loss_2
+        # 手动验证: 尾类1和2的负损失被 S_{0,j} = (N_j/N_0)^p ≈ 0.025 衰减
+        p0 = torch.sigmoid(torch.tensor(10.0))  # 正类
+        p1 = torch.sigmoid(torch.tensor(5.0))   # 负类1
+        p2 = torch.sigmoid(torch.tensor(5.0))   # 负类2
+        # S_{0,1} = (N_1/N_0)^p = (10/1000)^0.8 ≈ 0.025 (尾类负类, 衰减)
+        # S_{0,2} = (N_2/N_0)^p = (10/1000)^0.8 ≈ 0.025 (尾类负类, 衰减)
+        s_0_1 = (10.0 / 1000.0) ** 0.8
+        s_0_2 = (10.0 / 1000.0) ** 0.8
+        pos_loss = -torch.log(p0)
+        neg_loss_1 = -torch.log(1 - p1) * s_0_1
+        neg_loss_2 = -torch.log(1 - p2) * s_0_2
+        expected = pos_loss + neg_loss_1 + neg_loss_2
         assert abs(loss.item() - expected.item()) < 0.01
 
 

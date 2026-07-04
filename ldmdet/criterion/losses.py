@@ -185,10 +185,14 @@ class SeesawLoss(nn.Module):
             pos_classes = target[positive_mask]
             n_y = self.cum_samples[pos_classes]
             n_j = self.cum_samples.unsqueeze(0)
-            ratio = n_y.unsqueeze(1) / n_j
-            s = ratio.clamp(min=0) ** self.p
+            # mmdet 官方方向: ratio = N_j / N_y, clamp(max=1.0) 确保只衰减不放大
+            # 语义: 头类样本(N_y大)对尾类负类(N_j小)时 S<1 衰减, 保护尾类
+            ratio = n_j / n_y.unsqueeze(1)
+            s = ratio.clamp(max=1.0) ** self.p
             s[range(len(pos_classes)), pos_classes] = 1.0
 
+            # 误分类自校准: 当样本被误分类(最大负类 logit > 正类 logit)时,
+            # 对误分类类恢复 S=1 (完整惩罚), 以学习区分
             pos_logits = pred[positive_mask]
             pos_class_logits = pos_logits[range(len(pos_classes)), pos_classes]
             masked_logits = pos_logits.clone()
