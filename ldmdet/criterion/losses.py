@@ -105,11 +105,17 @@ class L1Loss(nn.Module):
 class SeesawLoss(nn.Module):
     """Seesaw Loss for Long-Tailed Instance Segmentation (CVPR 2021).
 
-    Sigmoid 版本适配: 对负类损失乘以 Seesaw 因子 S_{y,j} = (N_y / N_j)^p,
-    衰减头类对尾类的负梯度。当 N_j >> N_y (头类 j, 尾类 y) 时 S << 1。
+    Sigmoid 版本适配: 对负类损失乘以 Seesaw 因子 S_{y,j} = (N_j / N_y)^p,
+    衰减头类样本对尾类负类的负梯度。当 N_j << N_y (尾类负类 j, 头类样本 y) 时 S << 1。
 
     误分类自校准: 当样本被误分类 (最大负类 logit > 正类 logit) 时,
     对误分类类恢复 S=1 (完整惩罚), 以学习区分。
+
+    与 mmdet 官方实现的差异 (已知, 不影响 Y 类坍塌核心场景):
+    1. 补偿因子简化: 当前只恢复单个最大误分类类为 S=1;
+       mmdet 对所有 p_j > p_y 的类施加 (p_j/p_y)^q 放大 (理论精度更高).
+    2. cum_samples 初始化: 当前 torch.ones(num_classes) (初始1, 不含背景位);
+       mmdet torch.zeros(num_classes+1) (初始0, 含背景位). 初始1避免除零.
 
     Args:
         num_classes: 类别数 (不含背景)
