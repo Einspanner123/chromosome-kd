@@ -1,7 +1,7 @@
 """ε 扫描 — Sinkhorn Stochastic (论文 Table 4)
 
 Usage:
-    bash tools/train.sh experiments/configs/ablation/stoch_eps1.py
+    bash train.sh experiments/configs/ablation/stoch_eps1.py
 """
 
 _base_ = ['../ldmdet/sinkhorn_stochastic.py']

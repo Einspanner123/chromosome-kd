@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
-"""合并 Original + 24obj 两个 COCO 数据集为一个，避免 ID 冲突。"""
+"""合并 Original + 24obj 两个 COCO 数据集为一个，避免 ID 冲突。
+
+合并 data/Chromosome20240904_NoAug_NoResize_coco 与 data/24_chromosomes_object/coco,
+重映射 image_id / annotation_id, 对图片建立符号链接到 data/merged_24obj_original。
+
+Usage:
+    # 须在项目根目录执行
+    python experiments/data_tools/merge_datasets.py
+"""
 import json
 import os
-import shutil
 from pathlib import Path
 
-DATA_ROOT = Path('/media/ross/8TB/linkst/chromo/chromosome-kd/data')
+# 项目根目录: experiments/data_tools/ -> experiments/ -> 项目根
+DATA_ROOT = Path(__file__).resolve().parent.parent.parent / 'data'
 OUT_DIR = DATA_ROOT / 'merged_24obj_original'
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -16,7 +24,7 @@ datasets = {
         'root': DATA_ROOT / 'Chromosome20240904_NoAug_NoResize_coco',
     },
     '24obj': {
-        'root': DATA_ROOT / '24_chromosomes_object/coco',
+        'root': DATA_ROOT / '24_chromosomes_object' / 'coco',
     },
 }
 

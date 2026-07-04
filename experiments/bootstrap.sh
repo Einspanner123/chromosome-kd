@@ -1,11 +1,14 @@
 #!/bin/bash
 # LDMDet 一键环境部署
-# Usage: bash tools/bootstrap.sh
+# Usage: bash experiments/bootstrap.sh [env_name]
 set -euo pipefail
+
+# 切到项目根目录 (experiments/ -> 项目根)
+cd "$(dirname "$0")/.."
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; NC='\033[0m'
 step() { echo -e "${GREEN}>>> $1${NC}"; }
-err()  { echo -e "${RED}!!! $1${NC}"; exit 1; }
+err()  { echo -e "${RED}ERROR: $1${NC}"; exit 1; }
 
 # ── 1. 创建 conda 环境 ──────────────────────────
 ENV_NAME="${1:-ldmdet}"
@@ -61,4 +64,4 @@ for n in ['random','hard_ot','sinkhorn_stochastic','ghss']: build_coupling(n, ep
 print('ldmdet OK')
 "
 
-step "done. run: bash tools/train.sh experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py --seed 42"
+step "done. run: bash train.sh experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py --seed 42"
