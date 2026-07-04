@@ -37,6 +37,7 @@ class DiffusionDetHead(nn.Module):
         box_renewal: bool = True,
         use_ensemble: bool = True,
         deep_supervision: bool = True,
+        cascade_detach: bool = True,
         ddim_sampling_eta: float = 1.0,
         diffusion_type: str = 'ddpm',
         rf_schedule: str = 'linear',
@@ -66,6 +67,7 @@ class DiffusionDetHead(nn.Module):
         self.snr_scale = snr_scale
         self.diffusion_type = diffusion_type
         self.deep_supervision = deep_supervision
+        self.cascade_detach = cascade_detach
         self.filter_unknown = filter_unknown
         self.gt_reweight = gt_reweight
         self.timesteps = timesteps
@@ -155,7 +157,7 @@ class DiffusionDetHead(nn.Module):
             inter_cls_logits.append(cls_logits)
             inter_pred_bboxes.append(pred_bboxes)
             inter_curr_proposals.append(curr_proposals)
-            curr_bboxes = pred_bboxes.detach()
+            curr_bboxes = pred_bboxes.detach() if self.cascade_detach else pred_bboxes
 
         if self.deep_supervision:
             return torch.stack(inter_cls_logits), torch.stack(inter_pred_bboxes), inter_curr_proposals

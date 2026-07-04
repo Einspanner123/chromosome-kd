@@ -47,7 +47,6 @@ CONFIG_DIR = os.path.join(_PROJECT_ROOT, 'experiments', 'configs', 'ldmdet')
 # 方向四: 非线性轨迹主配置 + 消融配置
 DIRECTION_CONFIGS = [
     ('direction_4_nonlinear_trajectory', 'nonlinear_trajectory.py'),
-    ('e41_scale_only', 'nonlinear_trajectory_e41.py'),
     ('e42_ot_only', 'nonlinear_trajectory_e42.py'),
     ('e43_eps2', 'nonlinear_trajectory_e43_eps2.py'),
     ('e43_eps3', 'nonlinear_trajectory_e43_eps3.py'),
