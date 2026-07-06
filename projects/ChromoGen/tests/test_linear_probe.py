@@ -4,7 +4,6 @@
 在冻结特征上训练线性分类器, 预测 bbox 类别。
 """
 
-import pytest
 import torch
 import torch.nn as nn
 

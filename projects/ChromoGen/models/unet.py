@@ -4,11 +4,14 @@
 用于BBox扩散头的特征共享。
 """
 
-from typing import Dict, Tuple
+import logging
+from typing import Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
 from diffusers import UNet2DConditionModel
+
+logger = logging.getLogger(__name__)
 
 
 class ChromoUNet(nn.Module):
@@ -21,6 +24,7 @@ class ChromoUNet(nn.Module):
       - forward返回去噪预测 + bottleneck特征
       - 支持梯度检查点节省显存
       - 使用持久hook避免每次forward注册/删除的开销
+      - 支持加载SD-1.5等预训练UNet权重做fine-tune初始化
     """
 
     def __init__(
@@ -45,20 +49,32 @@ class ChromoUNet(nn.Module):
         attention_head_dim: int = 8,
         cross_attention_dim: int = 768,
         gradient_checkpointing: bool = False,
+        pretrained_model: Optional[str] = None,
     ):
         super().__init__()
 
-        self.unet = UNet2DConditionModel(
-            sample_size=sample_size,
-            in_channels=in_channels,
-            out_channels=out_channels,
-            down_block_types=down_block_types,
-            up_block_types=up_block_types,
-            block_out_channels=block_out_channels,
-            layers_per_block=layers_per_block,
-            attention_head_dim=attention_head_dim,
-            cross_attention_dim=cross_attention_dim,
-        )
+        if pretrained_model is not None:
+            # fine-tune 路线：从预训练模型加载UNet权重
+            # 架构与SD-1.5 UNet同构，可无损加载
+            logger.info(
+                f'Loading pretrained UNet from {pretrained_model}/unet'
+            )
+            self.unet = UNet2DConditionModel.from_pretrained(
+                pretrained_model, subfolder='unet'
+            )
+        else:
+            # from-scratch 路线：随机初始化
+            self.unet = UNet2DConditionModel(
+                sample_size=sample_size,
+                in_channels=in_channels,
+                out_channels=out_channels,
+                down_block_types=down_block_types,
+                up_block_types=up_block_types,
+                block_out_channels=block_out_channels,
+                layers_per_block=layers_per_block,
+                attention_head_dim=attention_head_dim,
+                cross_attention_dim=cross_attention_dim,
+            )
 
         if gradient_checkpointing:
             self.unet.enable_gradient_checkpointing()

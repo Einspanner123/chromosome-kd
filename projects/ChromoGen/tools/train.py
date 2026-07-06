@@ -24,6 +24,7 @@ from projects.ChromoGen.dataset.chromo_dataset import (
 )
 from projects.ChromoGen.evaluation import ChromoGenEvaluator
 from projects.ChromoGen.models.chromogen_pipeline import ChromoGenPipeline
+from projects.ChromoGen.models.ema import EMAModel
 
 # SwanLab集成
 try:
@@ -143,6 +144,7 @@ def build_model(cfg: dict) -> ChromoGenPipeline:
         unet_attention_head_dim=cfg.get('unet_attention_head_dim', 8),
         cross_attention_dim=cfg.get('cross_attention_dim', 768),
         gradient_checkpointing=cfg.get('gradient_checkpointing', True),
+        unet_pretrained_model=cfg.get('unet_pretrained_model'),
         condition_embed_dim=cfg.get('condition_embed_dim', 768),
         condition_max_count=cfg.get('condition_max_count', 50),
         condition_dropout=cfg.get('condition_dropout', 0.1),
@@ -163,39 +165,6 @@ def build_model(cfg: dict) -> ChromoGenPipeline:
     return model
 
 
-class EMAModel:
-    """指数移动平均"""
-
-    def __init__(self, model: torch.nn.Module, decay: float = 0.9999):
-        self.decay = decay
-        self.shadow = {}
-        for name, param in model.named_parameters():
-            if param.requires_grad:
-                self.shadow[name] = param.data.clone()
-
-    def update(self, model: torch.nn.Module):
-        for name, param in model.named_parameters():
-            if param.requires_grad and name in self.shadow:
-                self.shadow[name].mul_(self.decay).add_(
-                    param.data, alpha=1 - self.decay
-                )
-
-    def apply_shadow(self, model: torch.nn.Module):
-        """将EMA参数应用到模型"""
-        self.backup = {}
-        for name, param in model.named_parameters():
-            if param.requires_grad and name in self.shadow:
-                self.backup[name] = param.data.clone()
-                param.data.copy_(self.shadow[name])
-
-    def restore(self, model: torch.nn.Module):
-        """恢复原始参数"""
-        for name, param in model.named_parameters():
-            if param.requires_grad and name in self.backup:
-                param.data.copy_(self.backup[name])
-        self.backup = {}
-
-
 def train():
     args = parse_args()
     cfg = load_config(args.config)
@@ -206,6 +175,18 @@ def train():
     )
     print(f'Using device: {device}')
     print(f'Config: enable_bbox_head={cfg.get("enable_bbox_head", False)}')
+
+    # 分阶段训练配置
+    freeze_unet_epochs = cfg.get('freeze_unet_epochs', 0)
+    unet_lr = cfg.get('unet_learning_rate')
+    cond_lr = cfg.get('cond_encoder_learning_rate')
+    use_param_groups = unet_lr is not None and cond_lr is not None
+    if freeze_unet_epochs > 0:
+        print(
+            f'Staged training: freeze UNet for first {freeze_unet_epochs} epochs'
+        )
+    if use_param_groups:
+        print(f'Param groups: UNet lr={unet_lr}, CondEncoder lr={cond_lr}')
 
     # SwanLab初始化
     use_swanlab = HAS_SWANLAB and not args.no_swanlab
@@ -295,6 +276,11 @@ def train():
     model = build_model(cfg)
     model = model.to(device)
 
+    # 分阶段训练：Stage 1 - 冻结 UNet，仅训练 Condition Encoder
+    if freeze_unet_epochs > 0:
+        model.freeze_unet()
+        print(f'[Stage 1] UNet frozen for first {freeze_unet_epochs} epochs')
+
     # 可训练参数统计
     trainable_params = sum(
         p.numel() for p in model.parameters() if p.requires_grad
@@ -303,13 +289,55 @@ def train():
     print(f'Trainable params: {trainable_params:,} / Total: {total_params:,}')
 
     # 优化器
-    optimizer = torch.optim.AdamW(
-        model.get_trainable_params(),
-        lr=cfg.get('learning_rate', 1e-4),
-        weight_decay=cfg.get('weight_decay', 0.01),
-        betas=(cfg.get('adam_beta1', 0.9), cfg.get('adam_beta2', 0.999)),
-        eps=cfg.get('adam_epsilon', 1e-8),
-    )
+    # 支持分组学习率：UNet vs Condition Encoder 不同 LR
+    if use_param_groups:
+        param_groups = model.get_param_groups(unet_lr=unet_lr, cond_lr=cond_lr)
+        optimizer = torch.optim.AdamW(
+            param_groups,
+            weight_decay=cfg.get('weight_decay', 0.01),
+            betas=(
+                cfg.get('adam_beta1', 0.9),
+                cfg.get('adam_beta2', 0.999),
+            ),
+            eps=cfg.get('adam_epsilon', 1e-8),
+        )
+        unet_in_groups = any(
+            g['lr'] == unet_lr and len(g['params']) > 0 for g in param_groups
+        )
+        if unet_in_groups:
+            unet_m = (
+                sum(
+                    p.numel()
+                    for g in param_groups
+                    if g['lr'] == unet_lr
+                    for p in g['params']
+                )
+                / 1e6
+            )
+            unet_str = f'unet={unet_m:.1f}M'
+        else:
+            unet_str = 'unet=frozen'
+        cond_m = (
+            sum(
+                p.numel()
+                for g in param_groups
+                if g['lr'] == cond_lr
+                for p in g['params']
+            )
+            / 1e6
+        )
+        print(f'Optimizer: param groups ({unet_str}, cond={cond_m:.1f}M)')
+    else:
+        optimizer = torch.optim.AdamW(
+            model.get_trainable_params(),
+            lr=cfg.get('learning_rate', 1e-4),
+            weight_decay=cfg.get('weight_decay', 0.01),
+            betas=(
+                cfg.get('adam_beta1', 0.9),
+                cfg.get('adam_beta2', 0.999),
+            ),
+            eps=cfg.get('adam_epsilon', 1e-8),
+        )
 
     # 学习率调度器
     from torch.optim.lr_scheduler import (
@@ -332,8 +360,16 @@ def train():
         optimizer, [warmup_scheduler, cosine_scheduler], [warmup_steps]
     )
 
-    # EMA
-    ema = EMAModel(model, decay=cfg.get('ema_decay', 0.9999))
+    # EMA（支持 warmup：decay 从 decay_start 渐进到 decay）
+    ema_decay = cfg.get('ema_decay', 0.9999)
+    ema_decay_start = cfg.get('ema_decay_start')
+    ema_warmup_steps = cfg.get('ema_warmup_steps', 0)
+    ema = EMAModel(
+        model,
+        decay=ema_decay,
+        decay_start=ema_decay_start,
+        warmup_steps=ema_warmup_steps,
+    )
 
     # AMP
     scaler = GradScaler(enabled=cfg.get('fp16', True))
@@ -372,6 +408,58 @@ def train():
     train_start_time = time.time()
     model.train()
     for epoch in range(start_epoch, max_epochs):
+        # 分阶段训练：从 Stage 1 切换到 Stage 2 时解冻 UNet
+        if freeze_unet_epochs > 0 and epoch == freeze_unet_epochs:
+            print(
+                f'\n[Stage 2] Unfreezing UNet at epoch {epoch}, '
+                f'switching to joint fine-tune\n'
+            )
+            model.unfreeze_unet()
+            # 重新初始化 EMA 以纳入 UNet 参数
+            ema = EMAModel(
+                model,
+                decay=ema_decay,
+                decay_start=ema_decay_start,
+                warmup_steps=ema_warmup_steps,
+            )
+            # 重新构建 optimizer 加入 UNet 参数
+            if use_param_groups:
+                param_groups = model.get_param_groups(
+                    unet_lr=unet_lr, cond_lr=cond_lr
+                )
+                optimizer = torch.optim.AdamW(
+                    param_groups,
+                    weight_decay=cfg.get('weight_decay', 0.01),
+                    betas=(
+                        cfg.get('adam_beta1', 0.9),
+                        cfg.get('adam_beta2', 0.999),
+                    ),
+                    eps=cfg.get('adam_epsilon', 1e-8),
+                )
+                # 重新构建 LR scheduler（保留剩余步数）
+                remaining_steps = (max_epochs - freeze_unet_epochs) * len(
+                    train_loader
+                )
+                warmup_scheduler = LinearLR(
+                    optimizer,
+                    start_factor=0.001,
+                    total_iters=min(warmup_steps, remaining_steps // 5),
+                )
+                cosine_scheduler = CosineAnnealingLR(
+                    optimizer,
+                    T_max=remaining_steps
+                    - min(warmup_steps, remaining_steps // 5),
+                    eta_min=1e-7,
+                )
+                scheduler = SequentialLR(
+                    optimizer,
+                    [warmup_scheduler, cosine_scheduler],
+                    [min(warmup_steps, remaining_steps // 5)],
+                )
+                trainable_params = sum(
+                    p.numel() for p in model.parameters() if p.requires_grad
+                )
+                print(f'Trainable params after unfreeze: {trainable_params:,}')
         epoch_start_time = time.time()
         epoch_loss = 0.0
         epoch_loss_img = 0.0

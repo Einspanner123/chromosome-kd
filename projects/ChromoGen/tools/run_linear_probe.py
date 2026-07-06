@@ -38,7 +38,6 @@ from pycocotools.coco import COCO
 from projects.ChromoGen.evaluation.linear_probe import (
     FeatureExtractor,
     LinearProbe,
-    RoIFeatureCollector,
 )
 
 
@@ -52,11 +51,13 @@ class ChromoProbeDataset(Dataset):
         self.image_ids = list(self.coco.imgs.keys())
 
         # 图像预处理 (与 ChromoGen 训练一致)
-        self.transform = transforms.Compose([
-            transforms.Resize((image_size, image_size)),
-            transforms.ToTensor(),
-            transforms.Normalize([0.5], [0.5]),  # -1 到 1
-        ])
+        self.transform = transforms.Compose(
+            [
+                transforms.Resize((image_size, image_size)),
+                transforms.ToTensor(),
+                transforms.Normalize([0.5], [0.5]),  # -1 到 1
+            ]
+        )
 
     def __len__(self):
         return len(self.image_ids)
@@ -113,16 +114,17 @@ def collate_fn(batch):
     }
 
 
-def extract_features_for_all_images(
-    extractor, dataset, device, batch_size=1
-):
+def extract_features_for_all_images(extractor, dataset, device, batch_size=1):
     """提取所有图像的特征和 bbox 标签
 
     Returns:
         features_by_layer: dict {layer_name: list of (roi_feats, labels)}
     """
     loader = DataLoader(
-        dataset, batch_size=batch_size, shuffle=False, num_workers=2,
+        dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=2,
         collate_fn=collate_fn,
     )
 
@@ -208,8 +210,14 @@ def extract_features_for_all_images(
 
 
 def train_linear_probe(
-    train_feats, train_labels, val_feats, val_labels, num_classes=24,
-    epochs=50, lr=1e-3, device='cpu'
+    train_feats,
+    train_labels,
+    val_feats,
+    val_labels,
+    num_classes=24,
+    epochs=50,
+    lr=1e-3,
+    device='cpu',
 ):
     """训练线性探针分类器"""
     in_channels = train_feats.shape[1]
@@ -237,7 +245,7 @@ def train_linear_probe(
         n_batches = 0
 
         for i in range(0, n_samples, batch_size):
-            idx = perm[i:i + batch_size]
+            idx = perm[i : i + batch_size]
             batch_feats = train_feats[idx]
             batch_labels = train_labels[idx]
 
@@ -273,18 +281,29 @@ def train_linear_probe(
 def main():
     parser = argparse.ArgumentParser(description='Linear Probe Experiment')
     parser.add_argument('--gpu', type=int, default=0)
-    parser.add_argument('--checkpoint', type=str,
-                        default='work_dirs/chromogen_phase1/final_model.pt')
-    parser.add_argument('--vae_path', type=str,
-                        default='work_dirs/chromogen_phase1/vae')
-    parser.add_argument('--data_root', type=str,
-                        default='data/Chromosome20240904_NoAug_NoResize_coco/')
+    parser.add_argument(
+        '--checkpoint',
+        type=str,
+        default='work_dirs/chromogen_phase1/final_model.pt',
+    )
+    parser.add_argument(
+        '--vae_path', type=str, default='work_dirs/chromogen_phase1/vae'
+    )
+    parser.add_argument(
+        '--data_root',
+        type=str,
+        default='data/Chromosome20240904_NoAug_NoResize_coco/',
+    )
     parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--batch_size', type=int, default=2)
-    parser.add_argument('--max_images', type=int, default=200,
-                        help='最大提取图像数 (节省时间)')
-    parser.add_argument('--output', type=str,
-                        default='work_dirs/chromogen_phase1/probe_results.json')
+    parser.add_argument(
+        '--max_images', type=int, default=200, help='最大提取图像数 (节省时间)'
+    )
+    parser.add_argument(
+        '--output',
+        type=str,
+        default='work_dirs/chromogen_phase1/probe_results.json',
+    )
     args = parser.parse_args()
 
     device = f'cuda:{args.gpu}'
@@ -313,10 +332,12 @@ def main():
 
     # 限制图像数量
     if args.max_images > 0:
-        train_dataset.image_ids = train_dataset.image_ids[:args.max_images]
-        val_dataset.image_ids = val_dataset.image_ids[:args.max_images // 4]
+        train_dataset.image_ids = train_dataset.image_ids[: args.max_images]
+        val_dataset.image_ids = val_dataset.image_ids[: args.max_images // 4]
 
-    print(f'Train images: {len(train_dataset)}, Val images: {len(val_dataset)}')
+    print(
+        f'Train images: {len(train_dataset)}, Val images: {len(val_dataset)}'
+    )
 
     # 3. 提取特征
     print('\nExtracting train features...')
@@ -349,14 +370,20 @@ def main():
 
         # 统计类别分布
         class_counts = torch.bincount(train_labels[layer], minlength=24)
-        print(f'  Class distribution: min={class_counts.min().item()}, '
-              f'max={class_counts.max().item()}')
+        print(
+            f'  Class distribution: min={class_counts.min().item()}, '
+            f'max={class_counts.max().item()}'
+        )
 
         # 训练
         best_acc = train_linear_probe(
-            train_feats[layer], train_labels[layer],
-            val_feats[layer], val_labels[layer],
-            num_classes=24, epochs=args.epochs, lr=1e-3,
+            train_feats[layer],
+            train_labels[layer],
+            val_feats[layer],
+            val_labels[layer],
+            num_classes=24,
+            epochs=args.epochs,
+            lr=1e-3,
             device=device,
         )
 

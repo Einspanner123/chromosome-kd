@@ -4,7 +4,7 @@
 """
 
 from dataclasses import dataclass, field
-from typing import Tuple
+from typing import Optional, Tuple
 
 from .constants import NUM_CLASSES
 
@@ -25,6 +25,7 @@ class UNetConfig:
     attention_head_dim: int = 8
     cross_attention_dim: int = 768
     gradient_checkpointing: bool = False
+    pretrained_model: Optional[str] = None
 
     @property
     def bottleneck_channels(self) -> int:

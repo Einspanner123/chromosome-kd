@@ -20,7 +20,6 @@ import sys
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torchvision.ops import roi_align
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
@@ -52,9 +51,13 @@ class FeatureExtractor:
 
     def _load_model(self, checkpoint: str, vae_path: str = None):
         """加载 ChromoGen 模型"""
-        ckpt = torch.load(checkpoint, map_location=self.device, weights_only=False)
+        ckpt = torch.load(
+            checkpoint, map_location=self.device, weights_only=False
+        )
         cfg = ckpt.get('config', {})
-        vae_model = vae_path or cfg.get('vae_model', 'stabilityai/sd-vae-ft-mse')
+        vae_model = vae_path or cfg.get(
+            'vae_model', 'stabilityai/sd-vae-ft-mse'
+        )
 
         self.model = ChromoGenPipeline(
             vae_model=vae_model,
@@ -212,7 +215,9 @@ class LinearProbe(nn.Module):
     ):
         super().__init__()
         self.roi_size = roi_size
-        self.classifier = nn.Linear(in_channels * roi_size * roi_size, num_classes)
+        self.classifier = nn.Linear(
+            in_channels * roi_size * roi_size, num_classes
+        )
 
     def forward(self, roi_feats: torch.Tensor) -> torch.Tensor:
         """前向传播

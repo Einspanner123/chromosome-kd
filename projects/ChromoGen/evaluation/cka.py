@@ -46,7 +46,7 @@ def linear_CKA(X: torch.Tensor, Y: torch.Tensor) -> float:
     # ||Y^T X||_F^2 = trace(X X^T Y Y^T) ... 简化为 trace(X^T Y Y^T X)
     # 但更高效: ||X^T Y||_F^2
     cross = X.T @ Y  # (D1, D2)
-    cross_norm_sq = (cross ** 2).sum()
+    cross_norm_sq = (cross**2).sum()
 
     X_norm_sq = (X.T @ X).pow(2).sum()
     Y_norm_sq = (Y.T @ Y).pow(2).sum()
@@ -90,8 +90,8 @@ def kernel_CKA(
             if sigma == 0:
                 sigma = 1.0
 
-    K = torch.exp(-torch.cdist(X, X) ** 2 / (2 * sigma ** 2))
-    L = torch.exp(-torch.cdist(Y, Y) ** 2 / (2 * sigma ** 2))
+    K = torch.exp(-(torch.cdist(X, X) ** 2) / (2 * sigma**2))
+    L = torch.exp(-(torch.cdist(Y, Y) ** 2) / (2 * sigma**2))
 
     # 中心化核矩阵
     H = torch.eye(N, device=X.device) - 1.0 / N

@@ -3,13 +3,12 @@
 测量 ChromoGen 特征与 LDMDet FPN 特征的相似度。
 """
 
-import pytest
 import torch
 
 from projects.ChromoGen.evaluation.cka import (
     CKAAnalyzer,
-    linear_CKA,
     kernel_CKA,
+    linear_CKA,
 )
 
 

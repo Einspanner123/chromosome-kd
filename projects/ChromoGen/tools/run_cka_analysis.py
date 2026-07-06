@@ -30,7 +30,6 @@ import os
 import sys
 
 import torch
-import torch.nn as nn
 from torchvision import models, transforms
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
@@ -45,7 +44,9 @@ class ResNetFeatureExtractor:
     def __init__(self, device='cuda'):
         self.device = torch.device(device)
         # 加载 ImageNet 预训练 ResNet50
-        self.model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V2)
+        self.model = models.resnet50(
+            weights=models.ResNet50_Weights.IMAGENET1K_V2
+        )
         self.model = self.model.to(self.device)
         self.model.eval()
 
@@ -104,15 +105,25 @@ def flatten_and_pool(feat: torch.Tensor, output_size: int = 1) -> torch.Tensor:
 def main():
     parser = argparse.ArgumentParser(description='CKA Analysis')
     parser.add_argument('--gpu', type=int, default=0)
-    parser.add_argument('--checkpoint', type=str,
-                        default='work_dirs/chromogen_phase1/final_model.pt')
-    parser.add_argument('--vae_path', type=str,
-                        default='work_dirs/chromogen_phase1/vae')
-    parser.add_argument('--data_root', type=str,
-                        default='data/Chromosome20240904_NoAug_NoResize_coco/')
+    parser.add_argument(
+        '--checkpoint',
+        type=str,
+        default='work_dirs/chromogen_phase1/final_model.pt',
+    )
+    parser.add_argument(
+        '--vae_path', type=str, default='work_dirs/chromogen_phase1/vae'
+    )
+    parser.add_argument(
+        '--data_root',
+        type=str,
+        default='data/Chromosome20240904_NoAug_NoResize_coco/',
+    )
     parser.add_argument('--num_images', type=int, default=100)
-    parser.add_argument('--output', type=str,
-                        default='work_dirs/chromogen_phase1/cka_results.json')
+    parser.add_argument(
+        '--output',
+        type=str,
+        default='work_dirs/chromogen_phase1/cka_results.json',
+    )
     args = parser.parse_args()
 
     device = f'cuda:{args.gpu}'
@@ -129,39 +140,48 @@ def main():
     resnet_extractor = ResNetFeatureExtractor(device=device)
 
     # 2. 加载图像
-    from pycocotools.coco import COCO
     from PIL import Image
+    from pycocotools.coco import COCO
 
     coco = COCO(os.path.join(args.data_root, 'train/_annotations.coco.json'))
     img_dir = os.path.join(args.data_root, 'train')
-    image_ids = list(coco.imgs.keys())[:args.num_images]
+    image_ids = list(coco.imgs.keys())[: args.num_images]
     print(f'Using {len(image_ids)} images for CKA analysis')
 
     # ChromoGen 预处理 (-1 到 1)
-    chromogen_transform = transforms.Compose([
-        transforms.Resize((768, 768)),
-        transforms.ToTensor(),
-        transforms.Normalize([0.5], [0.5]),
-    ])
+    chromogen_transform = transforms.Compose(
+        [
+            transforms.Resize((768, 768)),
+            transforms.ToTensor(),
+            transforms.Normalize([0.5], [0.5]),
+        ]
+    )
 
     # ResNet 预处理 (ImageNet 归一化)
-    resnet_transform = transforms.Compose([
-        transforms.Resize((768, 768)),
-        transforms.ToTensor(),
-        transforms.Normalize(
-            mean=[0.485, 0.456, 0.406],
-            std=[0.229, 0.224, 0.225],
-        ),
-    ])
+    resnet_transform = transforms.Compose(
+        [
+            transforms.Resize((768, 768)),
+            transforms.ToTensor(),
+            transforms.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225],
+            ),
+        ]
+    )
 
     # 3. 提取特征
     chromogen_feats = {
-        'vae_latent': [], 'down1': [], 'down2': [],
-        'down3': [], 'mid': [],
+        'vae_latent': [],
+        'down1': [],
+        'down2': [],
+        'down3': [],
+        'mid': [],
     }
     resnet_feats = {
-        'res_layer1': [], 'res_layer2': [],
-        'res_layer3': [], 'res_layer4': [],
+        'res_layer1': [],
+        'res_layer2': [],
+        'res_layer3': [],
+        'res_layer4': [],
     }
 
     print('Extracting features...')
@@ -191,7 +211,7 @@ def main():
         for k in d:
             d[k] = torch.stack(d[k], dim=0)
 
-    print(f'\nFeature shapes:')
+    print('\nFeature shapes:')
     for k, v in chromogen_feats.items():
         print(f'  ChromoGen {k}: {v.shape}')
     for k, v in resnet_feats.items():
@@ -231,8 +251,10 @@ def main():
         chromogen_feats, resnet_feats, method='linear'
     )
     for cg_layer, info in matches.items():
-        print(f'  {cg_layer:<15} → {info["best_match"]:<15} '
-              f'(CKA={info["cka"]:.4f})')
+        print(
+            f'  {cg_layer:<15} → {info["best_match"]:<15} '
+            f'(CKA={info["cka"]:.4f})'
+        )
 
     # 6. 置换检验 (对最佳匹配)
     print(f'\n{"=" * 60}')
@@ -249,8 +271,10 @@ def main():
             'cka': cka,
             'p_value': p_value,
         }
-        print(f'  {cg_layer:<15} vs {rn_layer:<15}: '
-              f'CKA={cka:.4f}, p={p_value:.4f}')
+        print(
+            f'  {cg_layer:<15} vs {rn_layer:<15}: '
+            f'CKA={cka:.4f}, p={p_value:.4f}'
+        )
 
     # 7. 保存结果
     results = {

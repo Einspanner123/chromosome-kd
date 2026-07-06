@@ -67,7 +67,9 @@ def main():
     cfg = ckpt.get('config', {})
 
     # VAE 路径: 命令行参数 > config > 默认
-    vae_model = args.vae_path or cfg.get('vae_model', 'stabilityai/sd-vae-ft-mse')
+    vae_model = args.vae_path or cfg.get(
+        'vae_model', 'stabilityai/sd-vae-ft-mse'
+    )
 
     # 构建模型
     model = ChromoGenPipeline(

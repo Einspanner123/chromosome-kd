@@ -43,6 +43,7 @@ class ChromoGenPipeline(nn.Module):
         unet_attention_head_dim: int = 8,
         cross_attention_dim: int = 768,
         gradient_checkpointing: bool = False,
+        unet_pretrained_model: Optional[str] = None,
         # Condition Encoder
         condition_embed_dim: int = 768,
         condition_max_count: int = 50,
@@ -93,6 +94,8 @@ class ChromoGenPipeline(nn.Module):
         )
 
         # 3. UNet
+        # unet_pretrained_model不为None时，从预训练模型加载UNet权重做fine-tune
+        # 架构与SD-1.5 UNet同构，可无损加载
         self.unet = ChromoUNet(
             sample_size=sample_size,
             in_channels=4,
@@ -101,6 +104,7 @@ class ChromoGenPipeline(nn.Module):
             attention_head_dim=unet_attention_head_dim,
             cross_attention_dim=cross_attention_dim,
             gradient_checkpointing=gradient_checkpointing,
+            pretrained_model=unet_pretrained_model,
         )
 
         # 4. BBox Head (可选)
@@ -118,16 +122,26 @@ class ChromoGenPipeline(nn.Module):
             self.bbox_head = None
 
         # 5. Noise Scheduler (训练用)
+        # karras: 训练时用 DDPMScheduler with scaled_linear（Karras 风格的 beta schedule，
+        #         在低 SNR 区域有更高采样密度，对医学图像有改善）
+        #         注意：KDPM2DiscreteScheduler 是推理专用，没有 get_velocity/add_noise，
+        #               不能用于训练。用 DDPMScheduler with scaled_linear 是社区验证过的
+        #               Karras 训练近似方案（SD-2.0/SDXL 默认配置）。
+        # 其他: 用 DDPMScheduler with 指定 beta_schedule
+        if noise_schedule == 'karras':
+            noise_schedule_resolved = 'scaled_linear'
+        else:
+            noise_schedule_resolved = noise_schedule
+
         self.noise_scheduler = DDPMScheduler(
             num_train_timesteps=num_train_timesteps,
-            beta_schedule=noise_schedule,
+            beta_schedule=noise_schedule_resolved,
             prediction_type=prediction_type,
         )
-
         # 6. 采样Scheduler (推理用，后续可替换)
         self.inference_scheduler = DDIMScheduler(
             num_train_timesteps=num_train_timesteps,
-            beta_schedule=noise_schedule,
+            beta_schedule=noise_schedule_resolved,
             prediction_type=prediction_type,
         )
 
@@ -171,16 +185,17 @@ class ChromoGenPipeline(nn.Module):
         )
 
         # 4. 条件编码 (含classifier-free guidance dropout)
+        # 重要：始终运行 condition_encoder，再按概率置零（condition * 0.0）。
+        # 不能用 torch.zeros() 替换 condition，因为在 Stage 1（frozen UNet +
+        # VAE no_grad 编码）下，torch.zeros() 不要求梯度，整个计算图无梯度
+        # 入口，loss 会丢失 grad_fn，backward 报错：
+        #   "element 0 of tensors does not require grad and does not have a grad_fn"
+        # 用 condition * 0.0 保留 grad_fn（MulBackward），梯度可正常回传
+        # 到 CondEncoder（梯度值为 0，符合 CFG dropout 语义：dropped-out
+        # step 不更新 encoder）。
+        condition = self.condition_encoder(class_labels, counts)
         if self.training and torch.rand(1).item() < self.cfg_dropout:
-            # 随机dropout条件 → 无条件生成
-            condition = torch.zeros(
-                B,
-                NUM_CLASSES + 1,
-                self.condition_encoder.embed_dim,
-                device=latents.device,
-            )
-        else:
-            condition = self.condition_encoder(class_labels, counts)
+            condition = condition * 0.0
 
         # 5. UNet去噪
         unet_out = self.unet(
@@ -349,6 +364,7 @@ class ChromoGenPipeline(nn.Module):
             unet_attention_head_dim=config.unet.attention_head_dim,
             cross_attention_dim=config.unet.cross_attention_dim,
             gradient_checkpointing=config.unet.gradient_checkpointing,
+            unet_pretrained_model=config.unet.pretrained_model,
             condition_embed_dim=config.condition_encoder.embed_dim,
             condition_max_count=config.condition_encoder.max_count,
             condition_dropout=config.condition_encoder.dropout,
@@ -370,6 +386,57 @@ class ChromoGenPipeline(nn.Module):
     def get_trainable_params(self):
         """获取可训练参数（排除frozen VAE）"""
         return [p for p in self.parameters() if p.requires_grad]
+
+    def freeze_unet(self):
+        """冻结 UNet 参数（分阶段训练 Stage 1 用）
+
+        Condition Encoder 仍可训练，UNet 完全冻结。
+
+        重要：同时关闭 gradient_checkpointing，因为：
+        1. UNet 冻结后无需省显存（不存中间激活梯度）
+        2. gradient_checkpointing + frozen 参数会导致 autograd 优化掉
+           梯度回传路径，使 condition 的 grad_fn 丢失，backward 报错
+        """
+        for p in self.unet.parameters():
+            p.requires_grad = False
+        if hasattr(self.unet.unet, 'disable_gradient_checkpointing'):
+            self.unet.unet.disable_gradient_checkpointing()
+
+    def unfreeze_unet(self):
+        """解冻 UNet 参数（分阶段训练 Stage 2 用）"""
+        for p in self.unet.parameters():
+            p.requires_grad = True
+        if hasattr(self.unet.unet, 'enable_gradient_checkpointing'):
+            self.unet.unet.enable_gradient_checkpointing()
+
+    def get_param_groups(self, unet_lr: float, cond_lr: float):
+        """返回分组参数列表，支持 UNet 与 Condition Encoder 不同 LR
+
+        Args:
+            unet_lr: UNet 学习率
+            cond_lr: Condition Encoder 学习率
+
+        Returns:
+            list[dict]: [{"params": ..., "lr": unet_lr},
+                         {"params": ..., "lr": cond_lr}]
+        """
+        unet_params = [p for p in self.unet.parameters() if p.requires_grad]
+        cond_params = [
+            p for p in self.condition_encoder.parameters() if p.requires_grad
+        ]
+        groups = []
+        if unet_params:
+            groups.append({'params': unet_params, 'lr': unet_lr})
+        if cond_params:
+            groups.append({'params': cond_params, 'lr': cond_lr})
+        # 如果启用 BBox Head，归入 cond_lr 组（与 CondEncoder 同步）
+        if self.enable_bbox_head and self.bbox_head is not None:
+            bbox_params = [
+                p for p in self.bbox_head.parameters() if p.requires_grad
+            ]
+            if bbox_params:
+                groups.append({'params': bbox_params, 'lr': cond_lr})
+        return groups
 
     def prepare_bboxes_for_training(
         self,
