@@ -65,6 +65,9 @@ custom_hooks = [
     dict(type='CopyProjectHook', priority='VERY_LOW'),
 ]
 
+# Val 评估器: 启用 classwise 输出 24 个 per-class AP (项目硬约束)
+val_evaluator = dict(classwise=True)
+
 # SwanLab: 方向I-1 突破实验
 vis_backends = [
     dict(type='LocalVisBackend'),
