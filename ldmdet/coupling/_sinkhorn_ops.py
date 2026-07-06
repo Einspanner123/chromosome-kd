@@ -8,8 +8,154 @@ from typing import Optional
 import torch
 from torch import Tensor
 
+try:
+    import triton
+    import triton.language as tl
+
+    _HAS_TRITON = True
+except ImportError:
+    _HAS_TRITON = False
+
 # 模块级 Generator 缓存，按 device 索引，用于 ot_multinomial 的可复现采样
 _OT_GENERATORS: dict[str, torch.Generator] = {}
+
+
+# ============================================================
+# Triton kernels: fused logsumexp + mask for Sinkhorn iterations
+# ============================================================
+if _HAS_TRITON:
+
+    @triton.jit
+    def _row_lse_mask_kernel(
+        K_ptr,  # [G, N, K] log_K_mat
+        v_ptr,  # [G, K] log_v
+        rm_ptr,  # [G, N] log_row_mass
+        rmask_ptr,  # [G, N] row_mask (float 1.0/0.0)
+        out_ptr,  # [G, N] log_u
+        N,
+        K,
+        sK_g,
+        sK_n,
+        sK_k,
+        BLOCK_K: tl.constexpr,
+    ):
+        """融合: log_u[g,n] = mask ? (log_row_mass - logsumexp_j(K+v)) : -inf"""
+        g = tl.program_id(0)
+        n = tl.program_id(1)
+        gn = g * N + n
+
+        mask = tl.load(rmask_ptr + gn)
+        log_rm = tl.load(rm_ptr + gn)
+
+        offs = tl.arange(0, BLOCK_K)
+        k_mask = offs < K
+
+        kv = tl.load(
+            K_ptr + g * sK_g + n * sK_n + offs * sK_k,
+            mask=k_mask,
+            other=float('-inf'),
+        )
+        vv = tl.load(v_ptr + g * K + offs, mask=k_mask, other=float('-inf'))
+
+        x = kv + vv
+        m = tl.max(x, axis=0)
+        lse = m + tl.log(tl.sum(tl.exp(x - m), axis=0))
+
+        result = tl.where(mask > 0.5, log_rm - lse, float('-inf'))
+        tl.store(out_ptr + gn, result)
+
+    @triton.jit
+    def _col_lse_mask_kernel(
+        K_ptr,  # [G, N, K] log_K_mat
+        u_ptr,  # [G, N] log_u
+        cm_ptr,  # [G, K] log_col_mass
+        cmask_ptr,  # [G, K] col_mask (float 1.0/0.0)
+        out_ptr,  # [G, K] log_v
+        N,
+        K,
+        sK_g,
+        sK_n,
+        sK_k,
+        BLOCK_N: tl.constexpr,
+    ):
+        """融合: log_v[g,k] = mask ? (log_col_mass - logsumexp_i(K+u)) : -inf"""
+        g = tl.program_id(0)
+        k = tl.program_id(1)
+        gk = g * K + k
+
+        mask = tl.load(cmask_ptr + gk)
+        log_cm = tl.load(cm_ptr + gk)
+
+        offs = tl.arange(0, BLOCK_N)
+        n_mask = offs < N
+
+        kn = tl.load(
+            K_ptr + g * sK_g + offs * sK_n + k * sK_k,
+            mask=n_mask,
+            other=float('-inf'),
+        )
+        un = tl.load(u_ptr + g * N + offs, mask=n_mask, other=float('-inf'))
+
+        x = kn + un
+        m = tl.max(x, axis=0)
+        lse = m + tl.log(tl.sum(tl.exp(x - m), axis=0))
+
+        result = tl.where(mask > 0.5, log_cm - lse, float('-inf'))
+        tl.store(out_ptr + gk, result)
+
+    def _triton_fused_row_lse(
+        log_K_mat: Tensor,
+        log_v: Tensor,
+        log_row_mass: Tensor,
+        row_mask_float: Tensor,
+    ) -> Tensor:
+        """row 维度融合 logsumexp + mask"""
+        G, N, K = log_K_mat.shape
+        log_u = torch.empty(G, N, device=log_K_mat.device, dtype=log_K_mat.dtype)
+        sK_g, sK_n, sK_k = log_K_mat.stride()
+        BLOCK_K = max(16, min(4096, triton.next_power_of_2(K)))
+        grid = (G, N)
+        _row_lse_mask_kernel[grid](
+            log_K_mat,
+            log_v,
+            log_row_mass,
+            row_mask_float,
+            log_u,
+            N,
+            K,
+            sK_g,
+            sK_n,
+            sK_k,
+            BLOCK_K=BLOCK_K,
+        )
+        return log_u
+
+    def _triton_fused_col_lse(
+        log_K_mat: Tensor,
+        log_u: Tensor,
+        log_col_mass: Tensor,
+        col_mask_float: Tensor,
+    ) -> Tensor:
+        """col 维度融合 logsumexp + mask"""
+        G, N, K = log_K_mat.shape
+        log_v = torch.empty(G, K, device=log_K_mat.device, dtype=log_K_mat.dtype)
+        sK_g, sK_n, sK_k = log_K_mat.stride()
+        BLOCK_N = max(16, min(4096, triton.next_power_of_2(N)))
+        grid = (G, K)
+        _col_lse_mask_kernel[grid](
+            log_K_mat,
+            log_u,
+            log_col_mass,
+            col_mask_float,
+            log_v,
+            N,
+            K,
+            sK_g,
+            sK_n,
+            sK_k,
+            BLOCK_N=BLOCK_N,
+        )
+        return log_v
 
 
 def sinkhorn_transport(
@@ -143,20 +289,40 @@ def sinkhorn_transport_batch(
         log_u[g, :N_sizes[g]] = 0.0
         log_v[g, :K_sizes[g]] = 0.0
 
-    for _ in range(num_iters):
-        # log_u[g,n] = log_row_mass[g,n] - logsumexp_j(log_K[g,n,j] + log_v[g,j])
-        log_u = log_row_mass - torch.logsumexp(
-            log_K_mat + log_v.unsqueeze(1), dim=2
-        )
-        # Reset padded rows to -inf
-        log_u.masked_fill_(~row_mask, float('-inf'))
+    # Triton 优化路径: 融合 logsumexp + masked_fill 为单 kernel
+    use_triton = (
+        _HAS_TRITON
+        and log_K_mat.is_cuda
+        and max_N <= 4096
+        and max_K <= 4096
+    )
+    if use_triton:
+        # triton kernel 需要 float mask (1.0/0.0) 和 contiguous tensor
+        log_K_mat_c = log_K_mat.contiguous()
+        row_mask_f = row_mask.float()
+        col_mask_f = col_mask.float()
+        for _ in range(num_iters):
+            log_u = _triton_fused_row_lse(
+                log_K_mat_c, log_v, log_row_mass, row_mask_f
+            )
+            log_v = _triton_fused_col_lse(
+                log_K_mat_c, log_u, log_col_mass, col_mask_f
+            )
+    else:
+        for _ in range(num_iters):
+            # log_u[g,n] = log_row_mass[g,n] - logsumexp_j(log_K[g,n,j] + log_v[g,j])
+            log_u = log_row_mass - torch.logsumexp(
+                log_K_mat + log_v.unsqueeze(1), dim=2
+            )
+            # Reset padded rows to -inf
+            log_u.masked_fill_(~row_mask, float('-inf'))
 
-        # log_v[g,k] = log_col_mass[g,k] - logsumexp_i(log_K[g,i,k] + log_u[g,i])
-        log_v = log_col_mass - torch.logsumexp(
-            log_K_mat + log_u.unsqueeze(2), dim=1
-        )
-        # Reset padded cols to -inf
-        log_v.masked_fill_(~col_mask, float('-inf'))
+            # log_v[g,k] = log_col_mass[g,k] - logsumexp_i(log_K[g,i,k] + log_u[g,i])
+            log_v = log_col_mass - torch.logsumexp(
+                log_K_mat + log_u.unsqueeze(2), dim=1
+            )
+            # Reset padded cols to -inf
+            log_v.masked_fill_(~col_mask, float('-inf'))
 
     # Compute transport and unpad
     transport_full = torch.exp(log_u.unsqueeze(2) + log_K_mat + log_v.unsqueeze(1))

@@ -180,7 +180,9 @@ class CrossAttnFeatureBridgeModule(nn.Module):
         v = torch.cat([cg_d3_v, cg_mid_v], dim=1)  # B, 2*H3*W3, C
 
         # Cross-attention
-        attn_out, _ = self.attn_down3(q, k, v)  # B, H3*W3, C
+        # need_weights=False → PyTorch 2.x 自动走 F.scaled_dot_product_attention
+        # (FlashAttention-2 / memory-efficient attention), 避免 materialize [B, L_q, L_k] 矩阵
+        attn_out, _ = self.attn_down3(q, k, v, need_weights=False)  # B, H3*W3, C
         attn_out = attn_out.transpose(1, 2).reshape(B, C, H3, W3)
         attn_out = self.attn_norm(attn_out)
 

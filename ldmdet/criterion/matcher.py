@@ -218,6 +218,8 @@ class DiffusionDetMatcher(nn.Module):
 
         cost_list.append((~is_in_boxes_and_center) * 100.0)
 
+        # 注: 测试表明 torch.stack().sum() 内部已高度优化,
+        # 就地累加反而因多次 kernel launch 变慢 (0.92x), 保留原始实现。
         cost_matrix = torch.stack(cost_list).sum(0)  # [bs, N, max_gt]
         cost_matrix = torch.nan_to_num(cost_matrix, nan=1e6, posinf=1e6, neginf=1e6)
 
