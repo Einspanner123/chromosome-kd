@@ -1,0 +1,104 @@
+======================================================================
+  AutoKary2022 (kary) Dataset Summary
+======================================================================
+
+[train]
+  images: 848
+  annotations: 37641
+  anns/image: min=16, max=89, median=45, mean=44.4
+  category counts:
+     A1 (id= 1):  1673
+     A2 (id= 2):  1658
+     A3 (id= 3):  1629
+     B4 (id= 4):  1660
+     B5 (id= 5):  1651
+     C6 (id= 6):  1626
+     C7 (id= 7):  1624
+     C8 (id= 8):  1621
+     C9 (id= 9):  1607
+    C10 (id=10):  1615
+    C11 (id=11):  1601
+    C12 (id=12):  1662
+    D13 (id=13):  1612
+    D14 (id=14):  1619
+    D15 (id=15):  1636
+    E16 (id=16):  1209
+    E17 (id=17):   402
+    E18 (id=18):  1645
+    F19 (id=19):  1686
+    F20 (id=20):  1661
+    G21 (id=21):  1635
+    G22 (id=22):  1644
+      X (id=23):  1608
+      Y (id=24):  1657
+
+[valid]
+  images: 118
+  annotations: 5224
+  anns/image: min=28, max=92, median=45, mean=44.3
+  category counts:
+     A1 (id= 1):   237
+     A2 (id= 2):   229
+     A3 (id= 3):   226
+     B4 (id= 4):   228
+     B5 (id= 5):   231
+     C6 (id= 6):   224
+     C7 (id= 7):   225
+     C8 (id= 8):   236
+     C9 (id= 9):   229
+    C10 (id=10):   221
+    C11 (id=11):   216
+    C12 (id=12):   231
+    D13 (id=13):   217
+    D14 (id=14):   223
+    D15 (id=15):   219
+    E16 (id=16):   171
+    E17 (id=17):    56
+    E18 (id=18):   227
+    F19 (id=19):   227
+    F20 (id=20):   235
+    G21 (id=21):   232
+    G22 (id=22):   233
+      X (id=23):   219
+      Y (id=24):   232
+
+[test]
+  images: 118
+  annotations: 5198
+  anns/image: min=20, max=90, median=45, mean=44.1
+  category counts:
+     A1 (id= 1):   234
+     A2 (id= 2):   226
+     A3 (id= 3):   229
+     B4 (id= 4):   228
+     B5 (id= 5):   222
+     C6 (id= 6):   218
+     C7 (id= 7):   232
+     C8 (id= 8):   221
+     C9 (id= 9):   222
+    C10 (id=10):   226
+    C11 (id=11):   211
+    C12 (id=12):   232
+    D13 (id=13):   226
+    D14 (id=14):   222
+    D15 (id=15):   214
+    E16 (id=16):   156
+    E17 (id=17):    67
+    E18 (id=18):   230
+    F19 (id=19):   229
+    F20 (id=20):   233
+    G21 (id=21):   229
+    G22 (id=22):   235
+      X (id=23):   221
+      Y (id=24):   235
+
+TOTAL: 1084 images, 48063 annotations
+Avg anns/image: 44.3
+Image resolution: 2048x1408 (RGB)
+Classes: 24 (1-22 autosomes, 23=X, 24=Y)
+Annotation mode: amodal (one bbox per chromosome)
+
+Amodal quality check:
+  [train] per-img per-cat >2 bboxes: 420/19670 (2.14%)
+  [valid] per-img per-cat >2 bboxes: 78/2728 (2.86%)
+  [test] per-img per-cat >2 bboxes: 70/2749 (2.55%)
