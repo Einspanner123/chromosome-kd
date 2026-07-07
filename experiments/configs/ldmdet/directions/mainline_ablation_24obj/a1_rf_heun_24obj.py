@@ -12,7 +12,7 @@
 
 SwanLab: 项目 'ldmdet-mainline-ablation-24obj', 实验 'a1_rf_heun'
 """
-_base_ = ['../../ldmdet_rf_heun_shifted_bs8.py']
+_base_ = ['../../ldmdet_rf_heun_shifted_bs2.py']
 
 # === 覆盖为 24obj 数据集 ===
 data_root = 'data/24_chromosomes_object/coco/'

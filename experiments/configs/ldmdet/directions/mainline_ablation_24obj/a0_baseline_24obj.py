@@ -53,8 +53,8 @@ METAINFO = dict(
 
 # 覆盖 dataloader 路径 (保持 baseline 的多尺度 train_pipeline)
 train_dataloader = dict(
-    batch_size=8,
-    num_workers=8,
+    batch_size=4,
+    num_workers=4,
     dataset=dict(data_root=data_root),
 )
 val_dataloader = dict(
@@ -78,7 +78,7 @@ vis_backends = [
         init_kwargs=dict(
             project='ldmdet-mainline-ablation-24obj',
             experiment_name='a0_baseline',
-            description='24obj 主路线消融 A0: Baseline (无RF, Euler 1步) | bs=8, 150ep',
+            description='24obj 主路线消融 A0: Baseline (无RF, Euler 1步) | bs=4, 150ep',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

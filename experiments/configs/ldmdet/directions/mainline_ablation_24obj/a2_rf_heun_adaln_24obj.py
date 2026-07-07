@@ -9,7 +9,7 @@
 
 SwanLab: 项目 'ldmdet-mainline-ablation-24obj', 实验 'a2_rf_heun_adaln'
 """
-_base_ = ['../../ldmdet_rf_heun_shifted_bs8.py']
+_base_ = ['../../ldmdet_rf_heun_shifted_bs2.py']
 
 # === 添加 AdaLN-Zero 时间条件 ===
 model = dict(
