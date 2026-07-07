@@ -52,12 +52,13 @@ CONFIG_DIR = os.path.join(
     'mainline_ablation_24obj'
 )
 
-# 4 个消融配置
+# 5 个消融配置
 ABLATION_CONFIGS = [
     ('a0_baseline', 'a0_baseline_24obj.py'),
     ('a1_rf_heun', 'a1_rf_heun_24obj.py'),
     ('a2_rf_heun_adaln', 'a2_rf_heun_adaln_24obj.py'),
     ('a3_full_sota', 'a3_full_sota_24obj.py'),
+    ('a4_dpm_pp', 'a4_dpm_pp_24obj.py'),
 ]
 
 DUMMY_BS = 2
@@ -212,6 +213,21 @@ class TestComponentActivation:
         cfg = Config.fromfile(_config_path('a3_full_sota_24obj.py'))
         sh = cfg.model.bbox_head.single_head
         assert sh.get('time_conditioning') == 'adaln_zero'
+
+    def test_a4_has_dpm_solver_pp(self):
+        """A4: DPM-Solver++ 采样器已激活"""
+        cfg = Config.fromfile(_config_path('a4_dpm_pp_24obj.py'))
+        assert cfg.model.bbox_head.solver_type == 'dpm_solver_pp'
+        assert cfg.model.bbox_head.sampling_timesteps == 4
+
+    def test_a4_inherits_sota_components(self):
+        """A4: 继承 A3 的 RF+AdaLN+StochOT 组件"""
+        cfg = Config.fromfile(_config_path('a4_dpm_pp_24obj.py'))
+        bh = cfg.model.bbox_head
+        assert bh.diffusion_type == 'rectified_flow'
+        assert bh.single_head.get('time_conditioning') == 'adaln_zero'
+        assert bh.coupling.type == 'ot_flow'
+        assert bh.coupling.epsilon == 5.0
 
     def test_component_progression(self):
         """验证消融组件递进关系: A0 ⊂ A1 ⊂ A2 ⊂ A3"""
