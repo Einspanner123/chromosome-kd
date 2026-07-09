@@ -3,7 +3,7 @@
 > **方向类型**: 效率方向（推理加速，可独立投稿或与 SC-RF 叠加）
 > **可叠加方向**: SC-RF（SC-RF 训练的模型作为 PD-RF 的 teacher，提供更高质量的轨迹）
 > **目标会议**: MICCAI 2026 / IEEE TMI
-> **预期效果**: 4-step (55ms) → 1-step (14ms) 推理加速，mAP 保持 ≥0.95×teacher
+> **预期效果**: 4-step (55ms) → 1-step (14ms) 推理加速，mAP ≥ A1 baseline + 0.005（≥0.861）
 >
 > **命名说明**: "PD-RF" 中的 "PD" 原指 Progressive Distillation (Salimans et al., 2022)，
 > 但本方案实际采用**直接 4→1 蒸馏**（direct distillation），而非 Salimans 的渐进式
@@ -36,10 +36,10 @@ RF 的核心性质是路径直化（path straightening）：训练良好的 RF �
 |---|---|---|
 | 机制 | 用模型预测生成新轨迹，重新训练 | 用教师输出作为监督，蒸馏到学生 |
 | 训练阶段 | 两阶段（生成轨迹 + 重新训练） | 单阶段（联合 GT + 蒸馏损失） |
-| 梯度结构 | 速度损失（MSE on $v$）vs 检测损失（匹配+CE+L1+GIoU），目标函数形式不同 | 蒸馏损失（MSE on $x_0^{raw}$）vs 检测损失（匹配+CE+L1+GIoU），形式仍不同但同优化 $x_0$ |
+| 梯度结构 | 速度损失（MSE on $v$）vs 检测损失（SimOTA匹配+Focal+L1+GIoU），目标函数形式不同 | 蒸馏损失（MSE on $x_0^{raw}$）vs 检测损失（SimOTA匹配+Focal+L1+GIoU），形式仍不同但同优化 $x_0$ |
 | 已知结果 | Epoch 1 后退化（梯度冲突明确） | 预期较稳定（见 2.3 动机分析，但梯度对齐性不保证） |
 
-**关键区别**: Reflow 的速度损失优化 $v \to (x_1 - x_0^{reflow})$，而 $x_0^{reflow}$ 是模型自身的预测（非 GT），与检测损失目标不一致，且速度损失与检测损失的梯度结构显著不同，产生明确冲突。PD-RF 的蒸馏损失和检测损失都涉及 $x_0$ 预测质量，但**梯度结构并不对齐**（蒸馏损失是 raw 空间 MSE，检测损失含匈牙利匹配 + Focal + L1 + GIoU，见 2.3 节分析）。PD-RF 的稳定性来自蒸馏作为**正则化信号**（将教师的多步精炼知识压缩到学生单步前向），而非梯度对齐。
+**关键区别**: Reflow 的速度损失优化 $v \to (x_1 - x_0^{reflow})$，而 $x_0^{reflow}$ 是模型自身的预测（非 GT），与检测损失目标不一致，且速度损失与检测损失的梯度结构显著不同，产生明确冲突。PD-RF 的蒸馏损失和检测损失都涉及 $x_0$ 预测质量，但**梯度结构并不对齐**（蒸馏损失是 raw 空间 MSE，检测损失含 SimOTA 匹配 + Focal + L1 + GIoU，见 2.3 节分析）。PD-RF 的稳定性来自蒸馏作为**正则化信号**（将教师的多步精炼知识压缩到学生单步前向），而非梯度对齐。
 
 ---
 
@@ -62,7 +62,9 @@ RF 的核心性质是路径直化（path straightening）：训练良好的 RF �
 
 实际中 RF 训练残差 $\epsilon > 0$（因检测任务的复杂性），但 DPM-Solver++ 的 4步积分已能很好地处理这个残差。蒸馏的目标是让学生在 1步内逼近这个 4步结果。
 
-**重要限定**: 此性质仅说明"RF 轨迹近似直线使得单步逼近**理论可行**"，不保证 1步学生能完全恢复 4步教师的质量。实际差距取决于 $\epsilon$ 的大小和学生模型的表达能力。$\square$
+**重要限定**: 
+1. 此性质仅说明"RF 轨迹近似直线使得单步逼近**理论可行**"，不保证 1步学生能完全恢复 4步教师的质量。实际差距取决于 $\epsilon$ 的大小和学生模型的表达能力。
+2. **box_renewal 的影响**: 推理阶段 `apply_box_renewal` 会中途替换低置信度 proposal 为随机噪声，这打破了"沿同一轨迹积分"的假设——被 renew 的 proposal 实际上跳到了新轨迹上。但 box_renewal 主要影响低置信度 proposal（背景框），高质量 proposal 的轨迹仍近似直线。蒸馏时教师关闭 box_renewal（见 3.1 节），保证 proposal 对应；学生 1步推理无 box_renewal，直接从 $x_1$ 预测 $x_0$。$\square$
 
 ### 2.3 动机分析 2：蒸馏损失与检测损失的梯度结构差异
 
@@ -73,19 +75,20 @@ RF 的核心性质是路径直化（path straightening）：训练良好的 RF �
 
 **检测损失 $\mathcal{L}_{det}$ 的真实结构**:
 
-检测损失并非简单的回归损失，而是包含以下组件：
+检测损失包含分类与回归两部分：
 
 $$\mathcal{L}_{det} = \mathcal{L}_{cls}(\text{Focal}) + \lambda_1 \mathcal{L}_{L1}(\text{box}) + \lambda_2 \mathcal{L}_{GIoU}(\text{box})$$
 
-其中关键的**匈牙利匹配**步骤：
-1. 对每个样本，通过 `DiffusionDetMatcher` 将 $P$ 个 proposal 与 $G$ 个 GT 做二部图匹配（基于 FocalLossCost + BBoxL1Cost + IoUCost 的组合代价）
-2. 匹配结果是**离散分配** $\sigma: \{1..G\} \to \{1..P\}$（combinatorial, 非可微）
-3. 损失仅在匹配的 proposal-GT 对上计算
+其中关键的**SimOTA 动态 Top-K 匹配**步骤（`DiffusionDetMatcher`，非匈牙利二部图匹配）：
+1. 对每个样本，计算 $P$ 个 proposal 与 $G$ 个 GT 的代价矩阵（FocalLossCost + BBoxL1Cost + IoUCost）
+2. 基于 IoU 动态确定每个 GT 的 $k$ 个候选 proposal（`dynamic_k`），再做去歧义分配
+3. 匹配结果是**离散分配**（combinatorial, 非可微），每个 GT 分配约 $k$ 个 proposal
 
-因此 $\nabla_{\theta_S} \mathcal{L}_{det}$ 的结构为：
-- **稀疏激活**: 仅 $G$ 个匹配的 proposal 接收 box 梯度（$P - G$ 个未匹配 proposal 无 box 梯度）
+$\nabla_{\theta_S} \mathcal{L}_{det}$ 的结构因损失组件而异：
+- **分类损失 $\mathcal{L}_{cls}$（稠密）**: 所有 $P$ 个 proposal 均参与分类（匹配 proposal 分配 GT 类别，未匹配 proposal 分配背景类），梯度稠密作用于全部 proposal
+- **回归损失 $\mathcal{L}_{L1} + \mathcal{L}_{GIoU}$（稀疏）**: 仅匹配的 proposal（约 $G \cdot k$ 个）接收 box 梯度，未匹配 proposal 无 box 梯度（`fg_masks` 掩码）
 - **非线性梯度**: Focal Loss 梯度 $\propto (1-p)^\gamma$ 对置信度敏感；GIoU 梯度依赖框的相对位置
-- **离散匹配依赖**: 梯度通过匹配 $\sigma$ 传播，而 $\sigma$ 本身不可微（虽梯度可经 matched pairs 回传）
+- **离散匹配依赖**: 梯度通过匹配分配传播，而分配本身不可微（虽梯度可经 matched pairs 回传）
 
 **蒸馏损失 $\mathcal{L}_{distill}$ 的结构**:
 
@@ -94,32 +97,41 @@ $$\mathcal{L}_{distill} = \frac{1}{B \cdot P \cdot 4} \sum_{b,p} \|x_{0,b,p}^{S,
 其中 $\text{sg}$ 是 stop-gradient（教师输出 detach）。其梯度结构为：
 - **稠密激活**: 所有 $P$ 个 proposal 均接收梯度（无论是否匹配 GT）
 - **线性梯度**: $\nabla_{x_0^S} \mathcal{L}_{distill} \propto (x_0^S - x_0^T)$，均匀的回归梯度
-- **无匹配依赖**: 不涉及匈牙利匹配，梯度直接作用于所有 proposal
+- **无匹配依赖**: 不涉及 SimOTA 匹配，梯度直接作用于所有 proposal
+- **仅回归空间**: 蒸馏仅在 box raw 空间（4维），不涉及分类 logits（见 2.6 节讨论）
 
 **梯度对齐性分析**:
 
 两个损失的梯度**结构显著不同**，不能声称 $\nabla \mathcal{L}_{det} \cdot \nabla \mathcal{L}_{distill} > 0$：
-1. **激活范围不同**: 检测损失仅作用于匹配 proposal，蒸馏损失作用于全部 proposal
-2. **梯度形式不同**: 检测损失含 Focal（非线性、分类相关）+ L1 + GIoU；蒸馏损失是纯 MSE
-3. **梯度方向不保证对齐**: 当教师的预测 $x_0^T$ 与 GT 匹配方向不一致时（如教师对某 proposal 的预测偏离 GT），蒸馏损失会拉向 $x_0^T$ 而检测损失拉向 GT，梯度方向可能相反
+1. **box 梯度激活范围不同**: 检测 box 损失仅作用于匹配 proposal（稀疏），蒸馏损失作用于全部 proposal（稠密）
+2. **梯度形式不同**: 检测 box 损失含 L1 + GIoU（非线性、依赖框相对位置）；蒸馏损失是纯 MSE（线性梯度）
+3. **梯度方向不保证对齐**: 当教师的预测 $x_0^T$ 与 GT 方向不一致时，蒸馏损失拉向 $x_0^T$ 而检测损失拉向 GT，梯度方向可能相反
 
-**正确的理论定位：蒸馏作为正则化信号**
+**正确的理论定位：蒸馏作为 box 回归的正则化信号**
 
 PD-RF 的稳定性不依赖梯度对齐，而依赖以下机制：
 
-1. **教师作为软监督**: $x_0^T$ 是教师 4步精炼的高质量预测，$\|x_0^T - x_0^{GT}\| < \|x_0^{S,\text{init}} - x_0^{GT}\|$（教师优于未训练学生）。蒸馏损失提供了一个稠密的、全 proposal 的监督信号，补充了检测损失仅在匹配 proposal 上的稀疏监督。
+1. **教师作为 box 软监督**: $x_0^T$ 是教师 4步精炼的高质量 box 预测。蒸馏损失提供了稠密的、全 proposal 的 box 监督信号，**补充了检测 box 损失仅在匹配 proposal 上的稀疏监督**。注意：分类损失本身已是稠密的（所有 proposal 参与分类），故蒸馏主要补充的是 box 回归的稀疏性。
 
-2. **多步知识压缩**: 教师的 4步 DPM-Solver++ 包含了迭代精炼的隐式知识（box_renewal、ensemble、求解器修正）。蒸馏将这些知识压缩到学生的单步前向中，学生无需显式多步即可近似教师的多步行为。
+2. **多步知识压缩**: 教师的 4步 DPM-Solver++ 包含了迭代精炼的隐式知识（求解器修正）。蒸馏将这些知识压缩到学生的单步前向中，学生无需显式多步即可近似教师的多步行为。
 
-3. **正则化效应**: 蒸馏损失约束学生的预测空间，防止 1步前向过拟合到训练分布。这与 label smoothing、知识蒸馏在分类任务中的正则化作用一致。
+3. **正则化效应**: 蒸馏损失约束学生的 box 预测空间，防止 1步前向过拟合到训练分布。这与知识蒸馏在分类任务中的正则化作用一致。
 
 **与 Reflow 的对比（修正版）**:
 
 Reflow 的速度损失 $\mathcal{L}_{v} = \|v_\theta - (x_1 - x_0^{reflow})\|^2$ 与检测损失的冲突是**明确的**：$x_0^{reflow}$ 是模型自身预测（非 GT），优化目标与检测损失不一致，且速度空间与坐标空间不同。
 
-PD-RF 的蒸馏损失虽与检测损失梯度结构不同，但**优化目标一致**（都希望 $x_0^S$ 接近 $x_0^{GT}$，而 $x_0^T \approx x_0^{GT}$）。梯度冲突**可能发生但概率较低**：仅当教师预测方向与 GT 方向显著偏离时。实际中教师已收敛（mAP=0.862），偏离较小。
+PD-RF 的蒸馏损失虽与检测损失梯度结构不同，但**优化目标一致**（都希望 $x_0^S$ 接近 $x_0^{GT}$，而 $x_0^T \approx x_0^{GT}$）。梯度冲突**可能发生但概率较低**：仅当教师预测方向与 GT 方向显著偏离时。实际中教师已收敛（mAP=0.862），偏离较小。但需注意这是 batch 平均意义的论述，逐 proposal 可能有差异——故通过 `pd_gradient_alignment` 诊断指标实证监控。
 
 **残留风险**: 若 $\lambda$ 过大，蒸馏损失可能主导优化，使学生过度模仿教师的具体预测而非学习泛化特征。需通过 $\lambda$ 消融实验确定最优值（见 5.2 节）。$\square$
+
+### 2.6 蒸馏范围讨论：仅 box vs 含分类
+
+当前方案仅在 box raw 空间（4维）蒸馏，不涉及分类 logits。这是设计选择而非疏漏：
+
+- **box 蒸馏的充分性**: 1步与4步的主要差距在 box 回归精度（Euler 1步截断误差影响 box 位置），分类质量主要取决于特征提取（backbone+neck）而非采样步数
+- **分类已稠密监督**: 检测损失中分类损失（Focal）已是稠密的（所有 proposal 参与），无需蒸馏补充
+- **可选扩展**: 若实验发现学生分类质量不足，可增加分类 logits 的 KL 蒸馏项：$\mathcal{L}_{cls\_distill} = \text{KL}(\text{softmax}(z^S/T) \| \text{softmax}(z^T/T))$，其中 $T$ 是温度。此为消融实验的可选项，不作为基础方案。
 
 ### 2.4 组合损失
 
@@ -148,39 +160,77 @@ $$\mathcal{L}_{distill} = \frac{1}{B \cdot P \cdot 4} \sum_{b,p} \|x_{0,b,p}^{S,
 
 ### 3.1 训练流程
 
-> **梯度流修正说明**: 原伪代码中学生前向在 `torch.no_grad()` 下计算，导致蒸馏损失
-> `F.mse_loss(student_x0_pred, teacher_x0_pred)` 的梯度**无法回传到学生参数**，
-> 蒸馏训练完全失效。正确实现：学生前向**必须有梯度**（用于反传），教师输出
-> 使用 `detach()` 或在 `no_grad` 下计算（教师冻结，无需梯度）。
+> **实现缺口修正说明**（基于 subagent 审查）:
+> 1. **梯度流**: 原伪代码学生前向在 `torch.no_grad()` 下，蒸馏损失梯度无法回传 → 修复: 学生前向有梯度
+> 2. **噪声共享**: 原伪代码教师和学生各自生成随机噪声，proposal 对应关系断裂 → 修复: 显式共享 x_raw 和耦合
+> 3. **教师 x0 提取**: 原伪代码从 `predict` 的 post-NMS 结果提取，形状不兼容 → 修复: 复用 `_forward_at_t` 获取 raw x0
+> 4. **box_renewal**: 教师推理中 box_renewal 替换 proposal，破坏对应 → 修复: 蒸馏时教师关闭 box_renewal
 
 ```python
-def loss_with_distillation(self, features, img_metas, gt_bboxes, gt_labels, teacher_model):
-    # 1. 教师前向（4步 DPM-Solver++，无梯度 — 教师冻结）
+def loss_with_distillation(self, features, img_metas, gt_bboxes, gt_labels):
+    device = features[0].device
+    bs = len(img_metas)
+
+    # === 1. 共享噪声与耦合（核心：教师和学生必须使用同一 x_raw 和同一 GT 分配）===
+    # 生成共享初始噪声 x_raw (教师和学生共用)
+    x_raw_shared = torch.randn(bs, self.num_proposals, 4, device=device)
+    # 构建共享耦合（同一 x_raw 对应同一 GT 分配）
+    targets = self._normalize_targets(gt_bboxes, gt_labels, img_metas, bs)
+    # ... 使用 x_raw_shared 做耦合，得到共享的 matched_gt_indices ...
+
+    # === 2. 教师前向（4步 DPM-Solver++，无梯度 — 教师冻结）===
+    # 关键: 教师使用 _forward_at_t 多步循环获取 raw x0, 不用 predict (post-NMS)
+    # 关键: 教师推理关闭 box_renewal 和 ensemble, 保持 proposal 对应
     with torch.no_grad():
-        teacher_results = teacher_model.predict(features, img_metas)
-        teacher_x0_pred = extract_x0_raw(teacher_results, img_metas)  # raw 空间
+        teacher_x0_raw = self._teacher_multistep_x0(
+            self.teacher_model, features, img_metas, x_raw_shared
+        )  # [bs, num_proposals, 4] raw 空间
 
-    # 2. 学生前向（1步，标准训练流程 — 有梯度，计算检测损失）
-    student_losses = self.loss(features, img_metas, gt_bboxes, gt_labels)
+    # === 3. 学生前向（1步，标准训练流程 — 有梯度，计算检测损失）===
+    # 学生使用与教师相同的 x_raw_shared 和耦合
+    student_losses = self.loss_with_shared_noise(
+        features, img_metas, gt_bboxes, gt_labels, x_raw_shared, targets
+    )
 
-    # 3. 学生 1步前向获取 x0_pred（必须有梯度 — 蒸馏损失需反传到学生参数）
+    # === 4. 学生 1步 x0_pred（必须有梯度 — 蒸馏损失需反传到学生参数）===
     #    注意: 不在 no_grad 下！
-    student_x0_pred = self._single_step_x0_pred(features, img_metas)  # raw 空间
+    student_x0_raw = self._student_single_step_x0(
+        features, img_metas, x_raw_shared
+    )  # [bs, num_proposals, 4] raw 空间, 有梯度
 
-    # 4. 蒸馏损失: 学生(有梯度) vs 教师(detach)
-    #    teacher_x0_pred 已在 no_grad 下计算，天然无梯度；此处显式 detach 以防意外
-    distill_loss = F.mse_loss(student_x0_pred, teacher_x0_pred.detach())
+    # === 5. 蒸馏损失: 学生(有梯度) vs 教师(detach) ===
+    distill_loss = F.mse_loss(student_x0_raw, teacher_x0_raw.detach())
 
-    # 5. 组合损失
-    total_losses = student_losses
-    total_losses['distill_loss'] = distill_loss * self.distill_lambda
-    return total_losses
+    # === 6. 组合损失 ===
+    student_losses['distill_loss'] = distill_loss * self.distill_lambda
+    return student_losses
+
+def _teacher_multistep_x0(self, teacher, features, img_metas, x_raw):
+    """教师多步推理获取 raw x0 (不经过 NMS, 关闭 box_renewal)."""
+    time_pairs = teacher._sampler.build_time_pairs(features[0].device)
+    x = x_raw.clone()
+    # 蒸馏模式: 关闭 box_renewal 和 ensemble, 保持 proposal 对应
+    for step_idx, (t_curr, t_next) in enumerate(time_pairs):
+        _, _, x0 = teacher._forward_at_t(features, x, t_curr, img_metas)
+        # DPM-Solver++ step (教师专用)
+        dpm_solver = teacher._sampler.create_dpm_solver()
+        if dpm_solver is not None:
+            dpm_solver.reset()  # 每步重置? 需按教师配置
+        if dpm_solver is not None:
+            x = dpm_solver.step(x, x0, t_curr, step_idx)
+        else:
+            x = teacher.rf.step(x, x0, t_curr, t_next)
+        # 不调用 apply_box_renewal!
+    return x0  # 返回最后一步的 raw x0
 ```
 
 **关键实现要点**:
-- **学生前向不能在 `no_grad` 下**: 蒸馏损失 $\mathcal{L}_{distill} = \|x_0^S - \text{sg}(x_0^T)\|^2$ 需对 $\theta_S$ 求梯度，$x_0^S$ 必须保留计算图
-- **教师输出必须 detach**: 教师已冻结（`requires_grad=False`），但其输出若参与学生计算图会浪费显存；显式 `.detach()` 确保 stop-gradient
-- **避免重复前向**: 学生前向（步骤 2）已计算检测损失，步骤 3 的蒸馏前向是**额外的 1步前向**。可优化为在步骤 2 中同时输出 x0_pred（若架构允许），减少一次前向
+- **噪声共享（必须）**: `x_raw_shared` 是教师和学生的共享输入。若不共享，proposal $i$ 在教师输出和学生输出中对应不同的随机种子，`||x_0^S[i] - x_0^T[i]||²` 无意义
+- **教师 x0 提取（必须）**: 不能从 `predict` 的 post-NMS 结果提取（可变数量、已去重）。必须复用 `_forward_at_t` 的返回值（固定 `[bs, P, 4]` raw 张量）
+- **box_renewal 关闭（必须）**: 教师推理时关闭 `box_renewal`，否则低置信度 proposal 被替换为随机噪声，破坏与学生的 proposal 对应
+- **学生前向不能在 `no_grad` 下**: 蒸馏损失需对 $\theta_S$ 求梯度，$x_0^S$ 必须保留计算图
+- **教师输出 detach**: 显式 `.detach()` 确保 stop-gradient
+- **耦合共享**: 教师和学生的 GT 匹配索引必须一致（同一 `matched_gt_indices`），否则 box 对比无意义
 
 ### 3.2 推理流程
 
@@ -192,9 +242,9 @@ solver_type = 'euler'
 sampling_timesteps = 1
 ```
 
-### 3.3 教师模型加载
+### 3.3 教师模型加载与学生初始化
 
-教师模型从 A4 的最佳 checkpoint 加载，冻结参数：
+**教师模型**从 A4 的最佳 checkpoint 加载，冻结参数：
 
 ```python
 teacher_model = build_model(teacher_cfg)
@@ -204,12 +254,23 @@ for param in teacher_model.parameters():
     param.requires_grad = False
 ```
 
+**学生模型初始化策略**: 学生从 A4 checkpoint 初始化（而非从头训练），原因：
+1. 学生与教师架构相同（仅 solver_type 和 sampling_timesteps 不同），可直接加载权重
+2. 从已收敛的 A4 初始化加速蒸馏收敛，学生只需学习"1步逼近4步"的调整
+3. 避免从头训练的分类/回归基础能力重建，聚焦蒸馏目标
+
+```python
+# 学生初始化: 加载 A4 权重, 仅 solver/sampling 参数不同
+student_model = build_model(student_cfg)  # solver_type='euler', sampling_timesteps=1
+student_model.load_state_dict(load_checkpoint(teacher_ckpt))  # 从 A4 初始化
+```
+
 ### 3.4 监控指标（SwanLab 插桩）
 
 训练时记录：
 - `pd_distill_loss`: 蒸馏损失值
 - `pd_student_teacher_gap`: $\|x_0^S - x_0^T\|_2$（学生-教师预测差距，应逐渐减小）
-- `pd_gradient_alignment`: $\cos(\nabla \mathcal{L}_{det}, \nabla \mathcal{L}_{distill})$（梯度余弦相似度，**诊断指标**：用于实证检验 2.3 节的梯度结构差异分析。不预设 > 0，可能为负——若持续负值则说明梯度冲突，需降低 $\lambda$）
+- `pd_gradient_alignment`: $\cos(\nabla \mathcal{L}_{det}, \nabla \mathcal{L}_{distill})$（梯度余弦相似度，**诊断指标**：用于实证检验 2.3 节的梯度结构差异分析。不预设 > 0，可能为负——若持续负值则说明梯度冲突，需降低 $\lambda$。**计算成本**: 需对 $\mathcal{L}_{det}$ 和 $\mathcal{L}_{distill}$ 分别反向传播取梯度，显存与时间约翻倍，建议每 100 步采样一次而非每步计算）
 - `pd_det_loss_ratio`: $\mathcal{L}_{det} / (\mathcal{L}_{det} + \lambda \mathcal{L}_{distill})$
 - `pd_teacher_quality`: $\|x_0^T - x_0^{GT}\|_2$（教师预测与 GT 差距，监控教师是否在该 batch 上可靠）
 
@@ -234,26 +295,36 @@ self.distill_lambda = distill_lambda  # 默认 1.0
 self.teacher_model = None  # 外部注入
 ```
 
-**`DiffusionDetHead.loss_with_distillation`**:
+**`DiffusionDetHead.loss_with_distillation`**（含噪声共享与教师x0提取修复）:
 ```python
 def loss_with_distillation(self, features, img_metas, gt_bboxes, gt_labels):
-    # 标准检测损失（学生前向，有梯度）
-    losses = self.loss(features, img_metas, gt_bboxes, gt_labels)
-
     if self.teacher_model is None or self.distill_lambda == 0:
-        return losses
+        return self.loss(features, img_metas, gt_bboxes, gt_labels)
 
-    # 教师 4步推理获取 x0_pred（无梯度 — 教师冻结）
+    device = features[0].device
+    bs = len(img_metas)
+
+    # 1. 共享噪声与耦合（教师和学生使用同一 x_raw 和 GT 分配）
+    x_raw_shared = torch.randn(bs, self.num_proposals, 4, device=device)
+    targets = self._normalize_targets(gt_bboxes, gt_labels, img_metas, bs)
+    # 使用 x_raw_shared 构建共享耦合（matched_gt_indices 对教师/学生一致）
+
+    # 2. 教师多步推理获取 raw x0（无梯度, 关闭 box_renewal, 不经 NMS）
     with torch.no_grad():
-        teacher_pred = self.teacher_model.predict(features, img_metas)
-        teacher_x0 = self._extract_x0_raw(teacher_pred, img_metas)
+        teacher_x0 = self._teacher_multistep_x0(
+            self.teacher_model, features, img_metas, x_raw_shared
+        )  # [bs, P, 4]
 
-    # 学生 1步推理获取 x0_pred（必须有梯度 — 蒸馏损失需反传到学生参数）
-    #    注意: 不在 no_grad 下！原伪代码此处有致命 bug
-    student_x0 = self._single_step_predict_raw(features, img_metas)
+    # 3. 学生前向（有梯度, 使用共享 x_raw, 计算检测损失）
+    losses = self.loss_with_shared_noise(
+        features, img_metas, gt_bboxes, gt_labels, x_raw_shared, targets
+    )
 
-    # 蒸馏损失: 学生(有梯度) vs 教师(detach)
-    distill_loss = self._compute_distill_loss(student_x0, teacher_x0.detach())
+    # 4. 学生 1步 x0_pred（有梯度, 不在 no_grad 下！）
+    student_x0 = self._student_single_step_x0(features, img_metas, x_raw_shared)
+
+    # 5. 蒸馏损失: 学生(有梯度) vs 教师(detach)
+    distill_loss = F.mse_loss(student_x0, teacher_x0.detach())
     losses['distill_loss'] = distill_loss * self.distill_lambda
     return losses
 ```
@@ -266,12 +337,16 @@ def loss_with_distillation(self, features, img_metas, gt_bboxes, gt_labels):
 2. `test_distill_loss_computation`: 蒸馏损失正确计算
 3. `test_distill_loss_gradient_flow`: 蒸馏损失梯度流向学生（**核心测试**：验证无 no_grad bug，学生参数 `.grad` 非空）
 4. `test_teacher_output_detached`: 教师输出 detach，不参与学生计算图
-5. `test_lambda_zero_disables_distillation`: $\lambda=0$ 时无蒸馏
-6. `test_student_1step_inference`: 学生 1步推理正常
-7. `test_gradient_alignment_diagnostic`: 检测损失与蒸馏损失梯度余弦相似度（**诊断测试**：不预设符号，验证可计算且记录值；用于实证 2.3 节分析）
-8. `test_teacher_student_same_noise`: 教师和学生使用相同初始噪声
-9. `test_distill_loss_decreases`: 训练过程中蒸馏损失递减
-10. `test_student_quality_approaches_teacher`: 学生质量逐渐接近教师
+5. `test_shared_noise_proposal_correspondence`: **关键测试**：教师和学生使用同一 `x_raw_shared`，验证 proposal $i$ 的教师输出和学生输出对应同一初始噪声（非各自独立生成）
+6. `test_teacher_x0_raw_shape`: 教师返回的 x0 是 `[bs, P, 4]` raw 张量（非 post-NMS 的可变长度结果）
+7. `test_teacher_box_renewal_disabled`: 蒸馏时教师推理不调用 `apply_box_renewal`，proposal 数量保持 $P$
+8. `test_lambda_zero_disables_distillation`: $\lambda=0$ 时无蒸馏
+9. `test_student_1step_inference`: 学生 1步推理正常
+10. `test_gradient_alignment_diagnostic`: 检测损失与蒸馏损失梯度余弦相似度（**诊断测试**：不预设符号，验证可计算且记录值）
+
+**实验级验证**（非单元测试，需多 epoch 训练）:
+- 蒸馏损失训练中递减
+- 学生质量逐渐接近教师
 
 ### 4.4 配置设计
 
@@ -302,9 +377,9 @@ teacher_checkpoint = 'work_dirs/a4_dpm_pp_24obj/best.pth'
 |---|---|---|---|---|---|
 | A4 teacher (24obj) | DPM-Solver++ | 4 | ~55ms | 0.862 | 教师基线（24obj 数据集 SOTA） |
 | A1 baseline (24obj) | Euler | 1 | ~14ms | 0.856 | 无蒸馏 1步基线 |
-| **PD-RF** (24obj) | Euler + distillation | 1 | ~14ms | **0.858~0.861** | 蒸馏 1步（目标: ≥0.95×teacher=0.819） |
+| **PD-RF** (24obj) | Euler + distillation | 1 | ~14ms | **0.858~0.862** | 蒸馏 1步（目标: ≥ A1 baseline + 0.005，即 ≥0.861） |
 
-**注**: 所有实验使用 24obj 完整实例标注数据集（91.6% 图片框数=46，符合 count-prior 假设）。
+**注**: 所有实验使用 24obj 完整实例标注数据集。目标设定为 ≥ A1 baseline + 0.005（而非 ≥0.95×teacher），因后者已被 A1 baseline（0.856）满足，无区分度。
 
 ### 5.2 消融实验
 
@@ -325,9 +400,9 @@ teacher_checkpoint = 'work_dirs/a4_dpm_pp_24obj/best.pth'
 
 ## 6. 预期贡献
 
-1. **方法**: 将直接知识蒸馏应用于检测 RF，实现 4→1 步推理加速（3.9×），mAP 保持 ≥0.95×teacher
-2. **分析**: 从 RF 轨迹直化度（动机分析 1）和梯度结构差异（动机分析 2）双视角提供动机分析，并坦诚讨论蒸馏损失与检测损失梯度结构的不同（MSE vs 匈牙利匹配+Focal+L1+GIoU），将蒸馏定位为正则化信号而非梯度对齐优化
-3. **实践**: 教师冻结 + 学生有梯度前向 + stop-gradient 的正确实现，避免 no_grad 致命 bug；$\lambda$ 消融实验确定最优蒸馏强度
+1. **方法**: 将直接知识蒸馏应用于检测 RF，实现 4→1 步推理加速（3.9×），mAP ≥ A1 baseline + 0.005
+2. **分析**: 从 RF 轨迹直化度（动机分析 1）和梯度结构差异（动机分析 2）双视角提供动机分析，并坦诚讨论：(a) 蒸馏损失与检测损失梯度结构的不同（MSE vs SimOTA 匹配+Focal+L1+GIoU）；(b) 蒸馏定位为 box 正则化信号而非梯度对齐优化；(c) 噪声共享、教师x0提取、box_renewal 等实现关键点
+3. **实践**: 共享噪声 + 教师冻结 + 学生有梯度前向 + stop-gradient + box_renewal关闭 的正确实现；10个单元测试覆盖关键行为（含噪声共享、梯度流、教师x0形状等核心测试）；$\lambda$ 消融实验确定最优蒸馏强度
 
 ---
 
@@ -336,7 +411,11 @@ teacher_checkpoint = 'work_dirs/a4_dpm_pp_24obj/best.pth'
 | 风险 | 概率 | 影响 | 缓解 |
 |---|---|---|---|
 | 1步质量差距大 | 中 | 高 | 可退至 2步蒸馏，仍比 4步快 2× |
-| 蒸馏训练不稳定/梯度冲突 | 中 | 中 | 蒸馏作为正则化信号（见 2.3 动机分析 2），梯度结构差异已明确分析；通过 `pd_gradient_alignment` 监控梯度余弦相似度，若持续负值则降低 $\lambda$ |
+| 蒸馏训练不稳定/梯度冲突 | 中 | 中 | 蒸馏作为 box 正则化信号（见 2.3 动机分析 2），梯度结构差异已明确分析；通过 `pd_gradient_alignment` 监控梯度余弦相似度，若持续负值则降低 $\lambda$ |
 | 教师过拟合 | 低 | 低 | A4 使用 save_best 机制，取验证最优 checkpoint |
-| 训练显存增加 | 中 | 低 | 教师无梯度，可用 inference_mode；学生前向共享特征 |
+| 训练显存增加 | 中 | 中 | 教师无梯度，可用 inference_mode；学生前向共享特征；梯度对齐诊断指标需额外反向传播，建议每 N 步采样一次 |
 | no_grad 实现错误 | 低 | 高 | 单元测试 `test_distill_loss_gradient_flow` 验证学生参数 `.grad` 非空；`test_teacher_output_detached` 验证教师输出 detach |
+| 噪声未共享/proposal 对应断裂 | 中 | 高 | 单元测试 `test_shared_noise_proposal_correspondence` 验证共享 `x_raw`；伪代码显式生成 `x_raw_shared` 并传入教师和学生 |
+| 教师 x0 提取错误 (post-NMS) | 中 | 高 | 单元测试 `test_teacher_x0_raw_shape` 验证返回 `[bs, P, 4]`；使用 `_forward_at_t` 而非 `predict` |
+| box_renewal 破坏对应 | 中 | 中 | 单元测试 `test_teacher_box_renewal_disabled`；教师蒸馏推理显式关闭 box_renewal |
+| 仅蒸馏 box 不蒸馏分类 | 低 | 低 | 分类损失已稠密（见 2.6 节）；若实验不足可增加 KL 蒸馏作为消融 |
