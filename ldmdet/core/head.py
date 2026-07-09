@@ -58,6 +58,8 @@ class DiffusionDetHead(nn.Module):
         loss_aux: Optional[Dict] = None,
         torch_compile: bool = False,
         amp_dtype: Optional[torch.dtype] = None,
+        use_self_conditioning: bool = False,
+        self_conditioning_prob: float = 0.5,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -78,6 +80,11 @@ class DiffusionDetHead(nn.Module):
         self.box_renewal = box_renewal
         self.use_ensemble = use_ensemble
         self.solver_type = solver_type
+        # SC-RF: 自条件化参数
+        # use_self_conditioning: 是否启用自条件化 (模型条件化于自身上一步 x0 预测)
+        # self_conditioning_prob: 训练时启用自条件化的概率 (0.5 = 50% 使用, 50% 零输入)
+        self.use_self_conditioning = use_self_conditioning
+        self.self_conditioning_prob = self_conditioning_prob
 
         self.loss_aux = loss_aux
 
@@ -140,7 +147,7 @@ class DiffusionDetHead(nn.Module):
     # 前向传播
     # ================================================================
 
-    def forward(self, features, bboxes, t):
+    def forward(self, features, bboxes, t, x0_prev=None):
         time_emb = self.time_mlp(t)
         inter_cls_logits = []
         inter_pred_bboxes = []
@@ -149,7 +156,7 @@ class DiffusionDetHead(nn.Module):
         curr_proposals = None
 
         for head in self.head_series:
-            result = head(features, curr_bboxes, curr_proposals, self.roi_extractor, time_emb)
+            result = head(features, curr_bboxes, curr_proposals, self.roi_extractor, time_emb, x0_prev)
             if len(result) == 4:
                 cls_logits, pred_bboxes, curr_proposals, _ = result
             else:
@@ -180,21 +187,60 @@ class DiffusionDetHead(nn.Module):
         curr_bboxes = self._sampler.raw_to_xyxy(x_noisy_batch, img_metas)
 
         t_input = t if self.diffusion_type == 'ddpm' else t * self.timesteps
+
+        # SC-RF: 自条件化训练 (理论 2.4 残差学习 + 2.5 训练-推理失配缓解)
+        # 训练时以 self_conditioning_prob 概率启用自条件化:
+        #   - 启用: 无梯度前向获取 x0_pred_prev, 模型学习残差校正 Δ = x0 - x0_pred_prev
+        #   - 不启用: 使用零输入, 保证模型有 fallback 路径 (无 x0_prev 时也能工作)
+        x0_pred_prev = None
+        sc_active = False
+        if self.use_self_conditioning and self.training:
+            if torch.rand(1, device=device).item() < self.self_conditioning_prob:
+                # 无梯度前向获取 x0 预测 (残差学习的粗略估计)
+                sc_active = True
+                with torch.no_grad():
+                    if self.amp_dtype is not None:
+                        with torch.cuda.amp.autocast(dtype=self.amp_dtype):
+                            _, sc_pred_bboxes, _ = self(features, curr_bboxes, t_input)
+                        sc_pred_bboxes = sc_pred_bboxes.float()
+                    else:
+                        _, sc_pred_bboxes, _ = self(features, curr_bboxes, t_input)
+                    # 使用最后一个 head 的预测 (最终预测), 转换到 raw 空间
+                    x0_pred_prev = self._sampler.xyxy_to_raw(sc_pred_bboxes[-1], img_metas)
+            else:
+                # 零输入: fallback 路径, 模型在无 x0_prev 时也能工作
+                x0_pred_prev = torch.zeros_like(x_noisy_batch)
+
         # 模型前向：若启用 AMP，在 autocast 下执行（线性层/attention 用半精度加速）
         if self.amp_dtype is not None:
             with torch.cuda.amp.autocast(dtype=self.amp_dtype):
-                all_cls_logits, all_pred_bboxes, all_curr_proposals = self(features, curr_bboxes, t_input)
+                all_cls_logits, all_pred_bboxes, all_curr_proposals = self(features, curr_bboxes, t_input, x0_pred_prev)
             # autocast 输出可能为半精度，criterion 需 FP32（如 cdist 不支持 BF16）
             all_cls_logits = all_cls_logits.float()
             all_pred_bboxes = all_pred_bboxes.float()
         else:
-            all_cls_logits, all_pred_bboxes, all_curr_proposals = self(features, curr_bboxes, t_input)
+            all_cls_logits, all_pred_bboxes, all_curr_proposals = self(features, curr_bboxes, t_input, x0_pred_prev)
 
         norm_pred_bboxes = self._normalize_pred_bboxes(all_pred_bboxes, img_metas)
         outputs = self._build_outputs(all_cls_logits, norm_pred_bboxes)
         # 方向三: 传 t 给 criterion (若 criterion 不支持 t 则被忽略, 向后兼容)
         # t 是 [bs] 的扩散时间, 用于 SNR 感知匹配和损失加权
         losses = self.criterion(outputs, targets, t=t)
+
+        # SC-RF: 插桩监控关键数值 (上传 SwanLab, 非 loss_ 前缀不参与反传)
+        if self.use_self_conditioning and self.training:
+            with torch.no_grad():
+                # sc_active: 本步是否启用了自条件化 (1.0=启用, 0.0=零输入)
+                losses['sc_active'] = torch.tensor(float(sc_active), device=device)
+                # sc_x0_prev_norm: x0_prev 的 L2 范数 (启用时非零, 零输入时为 0)
+                losses['sc_x0_prev_norm'] = x0_pred_prev.norm(dim=-1).mean().detach()
+                # sc_correction_magnitude: x0_prev_proj 输出的 L2 范数 (校正强度)
+                # 初始零初始化时应为 ~0, 训练后逐渐增长
+                correction = sum(
+                    h.x0_prev_proj(x0_pred_prev).norm(dim=-1).mean()
+                    for h in self.head_series
+                ) / len(self.head_series)
+                losses['sc_correction_magnitude'] = correction.detach()
 
         return losses
 
@@ -209,6 +255,10 @@ class DiffusionDetHead(nn.Module):
         time_pairs = self._sampler.build_time_pairs(device)
         x_raw = torch.randn(bs, self.num_proposals, 4, device=device)
 
+        # SC-RF: 初始化 x0_pred_prev 为零 (第一步无先验预测, 理论 2.2 零初始化保证)
+        # 推理时每步将上一步的 x0 预测作为条件输入, 实现迭代精炼 (理论 2.3)
+        x0_pred_prev = torch.zeros_like(x_raw) if self.use_self_conditioning else None
+
         ensemble_results = []
         trajectory = []
         dpm_solver = self._sampler.create_dpm_solver()
@@ -216,7 +266,9 @@ class DiffusionDetHead(nn.Module):
             dpm_solver.reset()
 
         for step_idx, (t_curr, t_next) in enumerate(time_pairs):
-            cls_logits, pred_bboxes, x0_raw = self._forward_at_t(features, x_raw, t_curr, img_metas)
+            cls_logits, pred_bboxes, x0_raw = self._forward_at_t(
+                features, x_raw, t_curr, img_metas, x0_pred_prev
+            )
             if return_trajectory:
                 trajectory.append((cls_logits.detach(), pred_bboxes.detach()))
             if self.use_ensemble:
@@ -236,12 +288,19 @@ class DiffusionDetHead(nn.Module):
                 if dpm_solver is not None:
                     x_raw = dpm_solver.step(x_raw, x0_raw, t_curr, step_idx)
                 elif self.solver_type == 'heun' and t_next > 0:
+                    # SC-RF: Heun 中点评估使用当前步的 x0_pred_prev (跨时间步信息一致)
                     def model_fn(x_tmp, t_tmp):
-                        _, _, x0_tmp = self._forward_at_t(features, x_tmp, t_tmp, img_metas)
+                        _, _, x0_tmp = self._forward_at_t(
+                            features, x_tmp, t_tmp, img_metas, x0_pred_prev
+                        )
                         return x0_tmp, None
                     x_raw = self.rf.heun_step(x_raw, x0_raw, t_curr, t_next, model_fn)
                 else:
                     x_raw = self.rf.step(x_raw, x0_raw, t_curr, t_next)
+
+                # SC-RF: 更新 x0_pred_prev 为当前步的 x0 预测 (供下一步使用, 理论 2.3)
+                if self.use_self_conditioning:
+                    x0_pred_prev = x0_raw
 
                 if self.box_renewal:
                     x_raw = self._sampler.apply_box_renewal(x_raw, cls_logits)
@@ -311,7 +370,7 @@ class DiffusionDetHead(nn.Module):
         x_noisy, _ = self.rf.q_sample(x_start, x_noise=noise, t=t)
         return x_noisy, noise
 
-    def _forward_at_t(self, features, x_raw, t, img_metas):
+    def _forward_at_t(self, features, x_raw, t, img_metas, x0_prev=None):
         bs, device = x_raw.shape[0], x_raw.device
         curr_bboxes = self._sampler.raw_to_xyxy(x_raw, img_metas)
         t_input = torch.full((bs,), t * self.timesteps, device=device)
@@ -319,11 +378,11 @@ class DiffusionDetHead(nn.Module):
         # 输出转回 fp32 以保证后续 box_renewal / NMS / solver 的数值精度
         if self.amp_dtype is not None:
             with torch.cuda.amp.autocast(dtype=self.amp_dtype):
-                cls_logits_seq, pred_bboxes_seq, _ = self(features, curr_bboxes, t_input)
+                cls_logits_seq, pred_bboxes_seq, _ = self(features, curr_bboxes, t_input, x0_prev)
             cls_logits_seq = cls_logits_seq.float()
             pred_bboxes_seq = pred_bboxes_seq.float()
         else:
-            cls_logits_seq, pred_bboxes_seq, _ = self(features, curr_bboxes, t_input)
+            cls_logits_seq, pred_bboxes_seq, _ = self(features, curr_bboxes, t_input, x0_prev)
         cls_logits_last = cls_logits_seq[-1]
         pred_bboxes_last = pred_bboxes_seq[-1]
         x0 = self._sampler.xyxy_to_raw(pred_bboxes_last, img_metas)
