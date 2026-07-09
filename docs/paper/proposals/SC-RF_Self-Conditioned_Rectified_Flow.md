@@ -36,7 +36,9 @@
 
 ---
 
-## 2. 理论推导
+## 2. 理论分析
+
+> **定位声明**: 本节为动机分析（motivation analysis），非严格定理。自条件化是图像生成领域已验证的成熟技术（Chen et al., 2022），本方案将其迁移到检测 RF。以下分析提供理论动机，不声称为新颖理论贡献。
 
 ### 2.1 设定
 
@@ -45,49 +47,73 @@
 
 其中 $\hat{X}_0$ 是模型在**上一步**的预测（推理时）或无梯度前向的预测（训练时）。
 
-### 2.2 命题 1（条件熵不增）
+### 2.2 动机分析 1：条件化不增加熵
 
-**声明**: $H(X_0 | X_t, \hat{X}_0) \leq H(X_0 | X_t)$
+**性质**: $H(X_0 | X_t, \hat{X}_0) \leq H(X_0 | X_t)$
 
-**证明**: 由条件互信息的非负性：
+由条件互信息非负性 $I(X_0; \hat{X}_0 | X_t) \geq 0$ 直接得到。
 
-$$I(X_0; \hat{X}_0 | X_t) = H(X_0 | X_t) - H(X_0 | X_t, \hat{X}_0) \geq 0$$
+**重要限定**: 
+- **训练时** $\hat{X}_0 = f_\theta(X_t)$ 是 $X_t$ 的确定函数，$\sigma(\hat{X}_0) \subseteq \sigma(X_t)$，故 $I(X_0; \hat{X}_0 | X_t) = 0$，等式成立——条件化不提供额外信息。
+- **推理时** $\hat{X}_0^{(k)}$ 来自不同时间步 $X_{t_{k-1}}$，非 $X_{t_k}$ 的函数，此时 $I(X_0; \hat{X}_0^{(k)} | X_{t_k})$ 可严格大于零。
 
-故 $H(X_0 | X_t, \hat{X}_0) \leq H(X_0 | X_t)$。$\square$
+此性质仅说明"条件化不损害"（不会增加条件熵），不直接保证"有增益"。增益的来源是推理时的跨时间步信息（见 2.3）和训练时的残差学习机制（见 2.4）。
 
-**注**: 此处不需要 $\hat{X}_0$ 与 $X_t$ 独立。即使 $\hat{X}_0 = g(X_t)$（训练时的情形），条件互信息 $I(X_0; \hat{X}_0 | X_t) \geq 0$ 仍然成立——这是信息论基本定理，无条件独立要求。
-
-### 2.3 命题 2（推理时的额外信息增益）
+### 2.3 动机分析 2：推理时的跨时间步信息
 
 **推理时**，$\hat{X}_0^{(k)} = f_\theta(X_{t_{k-1}}, \hat{X}_0^{(k-1)})$ 来自**上一步**的中间状态 $X_{t_{k-1}}$，而非当前的 $X_{t_k}$。
 
-**声明**: 在多步推理中，$I(X_0; \hat{X}_0^{(k)} | X_{t_k}) > 0$（严格大于零）。
-
-**论证**:
-
-设 $X_{t_1} \to X_{t_2}$ 为一步求解器更新（$t_1 > t_2$），则：
-- $X_{t_2} = \text{solver\_step}(X_{t_1}, \hat{X}_0^{(1)})$
+设 $X_{t_1} \to X_{t_2}$ 为一步 Euler 求解器更新（$t_1 > t_2$）：
 - $\hat{X}_0^{(1)} = f_\theta(X_{t_1}, 0)$
+- $X_{t_2} = X_{t_1} + (t_2 - t_1) \cdot \frac{X_{t_1} - \hat{X}_0^{(1)}}{t_1}$（RF Euler step）
 
-关键点：$X_{t_2}$ 是 $X_{t_1}$ 和 $\hat{X}_0^{(1)}$ 的函数，但**不是充分统计量**。$\hat{X}_0^{(1)}$ 包含了模型对 $X_{t_1}$ 的完整解读，而 $X_{t_2}$ 仅是这一解读的部分投射（通过求解器的一步投影）。
+定义复合映射 $h(X_{t_1}) = X_{t_2} = S(X_{t_1}, f_\theta(X_{t_1}))$，其中 $S$ 是求解器。
 
-形式化：设 $S = \text{solver\_step}$ 为确定函数，$X_{t_2} = S(X_{t_1}, \hat{X}_0^{(1)})$。若 $S$ 不是单射（实际中 $S$ 将 $(X_{t_1}, \hat{X}_0^{(1)}) \in \mathbb{R}^8 \to X_{t_2} \in \mathbb{R}^4$，必然非单射），则存在信息损失。$\hat{X}_0^{(1)}$ 携带了被 $S$ 投影丢弃的信息，故：
+**经验论据**（非严格证明）：$h: \mathbb{R}^4 \to \mathbb{R}^4$ 的非单射性依赖于 $f_\theta$ 和 $S$ 的具体形式。在实际系统中，以下因素使 $h$ 大概率非单射：
+1. **box_renewal 随机性**：推理时 `apply_box_renewal` 对低置信度框重采样，引入额外随机性
+2. **数值精度**：FP32 精度下，不同 $X_{t_1}$ 可能映射到相同 $X_{t_2}$
+3. **模型非线性**：$f_\theta$ 含多层 attention + FFN，$h$ 的 Jacobian 行列式可零
 
-$$I(X_0; \hat{X}_0^{(1)} | X_{t_2}) \geq I(X_0; \hat{X}_0^{(1)} | X_{t_1}, \hat{X}_0^{(1)}) = 0$$
+当 $h$ 非单射时，$\hat{X}_0^{(1)}$ 携带了被 $h$ 丢弃的信息，$I(X_0; \hat{X}_0^{(1)} | X_{t_2}) > 0$ 可成立。
 
-在模型有预测能力且求解器有信息损失时，严格不等式成立。$\square$
+**严格证明的困难**：形式化需要分析 $h$ 的 Jacobian 性质，超出本方案范围。我们依赖以下经验事实支撑：图像生成领域自条件化在多步采样中一致改善质量（Chen et al., 2022; 多篇 RF 论文）。
 
 ### 2.4 训练时的残差学习视角
 
-训练时 $\hat{X}_0 = f_\theta(X_t)$（无梯度），虽然 $\hat{X}_0$ 是 $X_t$ 的确定函数，但模型学习的是**残差函数**：
+训练时 $\hat{X}_0 = f_\theta(X_t)$（无梯度），虽然 $\hat{X}_0$ 是 $X_t$ 的确定函数（信息论意义上零增益），但模型学习的是**残差函数**：
 
 $$f_\theta(X_t, \hat{X}_0) = \hat{X}_0 + \Delta_\theta(X_t, \hat{X}_0)$$
 
 其中 $\Delta_\theta$ 是校正项。这与 ResNet 的残差学习原理一致：学习 $x_0 - \hat{x}_0$ 比直接学习 $x_0$ 更容易，因为 $\hat{x}_0$ 已经是 $x_0$ 的粗略估计。
 
-**零初始化保证**: $\hat{X}_0$ 的投影层零初始化，使得训练初期 $\Delta_\theta = 0$，SC-RF 退化为标准 RF。随着训练进行，$\Delta_\theta$ 逐渐学习有效的校正。
+**关键**：残差学习是**优化景观**论证，与 2.2-2.3 的**信息论**论证是不同视角。即使训练时信息论增益为零，残差学习仍可改善优化：
+- 模型学习纠正自身预测误差 $\Delta = X_0 - f_\theta(X_t)$
+- 这是一个更平滑的优化目标（残差通常比原值更小、更集中）
+- 零初始化保证 $\Delta_\theta$ 从 0 开始增长，不破坏已训练特征
 
-### 2.5 与 DPM-Solver++ 的兼容性
+### 2.5 训练-推理分布失配及缓解
+
+**失配问题**：训练时 $\hat{X}_0^{train} = f_\theta(X_t)$（同一时间步，确定函数），推理时 $\hat{X}_0^{infer} = f_\theta(X_{t_{k-1}})$（不同时间步）。两者分布不同，模型可能未学会利用推理时的 $\hat{X}_0^{infer}$。
+
+**缓解机制**：
+1. **零初始化 + 50% 切换**：50% 训练样本使用 $\hat{X}_0 = 0$（无自条件化），模型必须学会在无 $\hat{X}_0$ 时也能工作。这保证即使推理时 $\hat{X}_0^{infer}$ 分布偏移，模型也有 fallback 路径。
+2. **残差学习的跨分布泛化**：模型学习的是校正函数 $\Delta_\theta(X_t, \hat{X}_0)$。校正能力（"给定粗略预测，输出精炼预测"）是相对通用的技能，可跨分布迁移。
+3. **渐进式启用**：训练初期 $\hat{X}_0^{train} = 0$（零初始化），模型先学会标准 RF；随着 $\hat{X}_0^{train}$ 逐渐非零，模型渐进学习利用自条件化。
+
+**残留风险**：若推理时 $\hat{X}_0^{infer}$ 与训练时 $\hat{X}_0^{train}$ 差异过大，自条件化可能无效果。此时退化为标准 RF（$\hat{X}_0 = 0$ 路径），不会损害性能。
+
+### 2.6 级联 Head 与自条件化的交互
+
+当前架构有 6 个级联 head（`head_series`），每个 head 接收上一个 head 的 `pred_bboxes`（detached）作为输入，在**单时间步内**做迭代精炼。SC-RF 的 $\hat{x}_0^{prev}$ 是**跨时间步**的精炼信号。
+
+**交互分析**：
+- 级联 head 精炼：同一 $x_t$ 下，逐步改善预测质量（intra-step）
+- SC-RF 精炼：跨 $x_t$ 间，利用历史预测提供额外信息（inter-step）
+- 两者作用层面不同，互补而非冗余
+
+**实现策略**：$\hat{x}_0^{prev}$ 注入到**每个**级联 head 的 proposal features 上。这允许每个 head 都利用历史信息，而非仅第一个 head。级联 head 的 detach 机制不影响 $\hat{x}_0^{prev}$（$\hat{x}_0^{prev}$ 来自无梯度前向，本身就是 detached 的）。
+
+### 2.7 与 DPM-Solver++ 的兼容性
 
 DPM-Solver++ 的半线性形式：
 
@@ -118,11 +144,12 @@ def loss(self, features, img_metas, gt_bboxes, gt_labels):
     
     # Self-conditioning: 50% 概率使用
     if self.training and self.use_self_conditioning:
-        if random.random() < 0.5:
+        if random.random() < self.self_conditioning_prob:
             with torch.no_grad():
                 # 无梯度前向获取 x0_pred
                 cls_logits, pred_bboxes, _ = self(features, curr_bboxes, t_input)
-                x0_pred_prev = self._extract_x0_pred(pred_bboxes, img_metas)
+                # pred_bboxes 是 xyxy 格式, 转换为 raw 空间
+                x0_pred_prev = self._sampler.xyxy_to_raw(pred_bboxes[-1], img_metas)
         else:
             x0_pred_prev = torch.zeros_like(x_noisy_batch)
     else:
@@ -137,7 +164,7 @@ def loss(self, features, img_metas, gt_bboxes, gt_labels):
 
 ```python
 def predict(self, features, img_metas, ...):
-    x_raw = torch.randn(bs, num_proposals, 4, device=device)
+    x_raw = torch.randn(bs, self.num_proposals, 4, device=device)
     x0_pred_prev = torch.zeros_like(x_raw)  # 第一步无历史
     
     for step_idx, (t_curr, t_next) in enumerate(time_pairs):
@@ -147,6 +174,22 @@ def predict(self, features, img_metas, ...):
         x0_pred_prev = x0_raw  # 传给下一步
         # ... solver step
 ```
+
+### 3.3.1 Heun 求解器兼容性
+
+Heun 二阶步在中间点调用 `model_fn(x_next_euler, t_next)` 进行第二次模型求值。SC-RF 需在 `model_fn` 闭包中传递 `x0_prev`：
+
+```python
+# head.py predict 方法中 Heun 分支
+elif self.solver_type == 'heun' and t_next > 0:
+    def model_fn(x_tmp, t_tmp):
+        # x0_prev 传递: 使用当前步的 x0_raw 作为 Heun 子步的 x0_prev
+        _, _, x0_tmp = self._forward_at_t(features, x_tmp, t_tmp, img_metas, x0_pred_prev)
+        return x0_tmp, None
+    x_raw = self.rf.heun_step(x_raw, x0_raw, t_curr, t_next, model_fn)
+```
+
+Heun 子步中的 `x0_prev` 使用当前步的 `x0_raw`（即上一步模型的完整预测），保持与 Euler/DPM++ 一致的语义。
 
 ### 3.4 监控指标（SwanLab 插桩）
 
@@ -269,8 +312,8 @@ model = dict(
 ## 6. 预期贡献
 
 1. **方法**: 首次将自条件化应用于检测 RF，实现迭代精炼式检测
-2. **理论**: 命题 1-2 给出条件熵不增和推理时额外信息增益的严格论证
-3. **实践**: 零初始化保证平滑过渡，不引入辅助损失，避免梯度冲突
+2. **分析**: 从信息论（条件熵不增）和优化（残差学习）双视角提供动机分析，并坦诚讨论训练-推理分布失配及其缓解机制
+3. **实践**: 零初始化保证平滑过渡，不引入辅助损失，避免梯度冲突；50% 切换提供 fallback 路径
 
 ---
 
@@ -278,7 +321,8 @@ model = dict(
 
 | 风险 | 概率 | 影响 | 缓解 |
 |---|---|---|---|
-| 增益不显著 | 低 | 高 | 图像生成领域自条件化一致性增益 +0.005~0.015，检测场景预期类似 |
+| 增益不显著 | 中 | 高 | 图像生成领域自条件化一致性增益 +0.005~0.015，但检测 4 维 bbox 信息量低于图像像素，需实验验证 |
 | 训练不稳定 | 低 | 中 | 零初始化 + 50% 概率切换，初始等价于标准 RF |
 | 训练速度下降 | 中 | 低 | 50% 样本需 2x 前向，平均 1.5x；AMP 可部分补偿 |
-| 多步推理无改善 | 低 | 中 | 命题 2 保证推理时有额外信息增益 |
+| 训练-推理失配 | 中 | 中 | 50% 零输入训练提供 fallback；残差学习跨分布泛化；最坏退化为标准 RF |
+| 4 维输入信号不足 | 中 | 中 | 可扩展为附加 cls_logits 或使用 MLP 投影；需消融验证 |
