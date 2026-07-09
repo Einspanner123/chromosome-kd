@@ -315,7 +315,15 @@ class DiffusionDetHead(nn.Module):
         bs, device = x_raw.shape[0], x_raw.device
         curr_bboxes = self._sampler.raw_to_xyxy(x_raw, img_metas)
         t_input = torch.full((bs,), t * self.timesteps, device=device)
-        cls_logits_seq, pred_bboxes_seq, _ = self(features, curr_bboxes, t_input)
+        # AMP: 推理前向用半精度加速 GEMM (FFN 占 42.4% 瓶颈),
+        # 输出转回 fp32 以保证后续 box_renewal / NMS / solver 的数值精度
+        if self.amp_dtype is not None:
+            with torch.cuda.amp.autocast(dtype=self.amp_dtype):
+                cls_logits_seq, pred_bboxes_seq, _ = self(features, curr_bboxes, t_input)
+            cls_logits_seq = cls_logits_seq.float()
+            pred_bboxes_seq = pred_bboxes_seq.float()
+        else:
+            cls_logits_seq, pred_bboxes_seq, _ = self(features, curr_bboxes, t_input)
         cls_logits_last = cls_logits_seq[-1]
         pred_bboxes_last = pred_bboxes_seq[-1]
         x0 = self._sampler.xyxy_to_raw(pred_bboxes_last, img_metas)

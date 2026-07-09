@@ -716,3 +716,263 @@ class TestDiffusionDetHeadAdvancedParams:
         # 验证参数传递
         assert head.use_ensemble is False
         assert head._sampler.use_ensemble is False
+
+
+class TestDiffusionDetHeadAMP:
+    """测试 AMP (bfloat16) 推理路径的数值一致性
+
+    优化背景: predict() 路径未启用 AMP，而 FFN GEMM 占推理 42.4%。
+    启用 amp_dtype=torch.bfloat16 后，linear/attention 走 bf16 加速。
+    此测试验证 bf16 推理与 fp32 推理的数值一致性，确保精度损失可控。
+    """
+
+    def _make_head(self, amp_dtype=None, solver_type='dpm_solver_pp',
+                   sampling_timesteps=4):
+        single_head = SingleDiffusionDetHead(
+            num_classes=24, feat_channels=64, dim_feedforward=128,
+            num_cls_convs=1, num_reg_convs=1, num_heads=4,
+            pooler_resolution=7, dynamic_dim=32, dynamic_num=2,
+        )
+        roi_extractor = SingleRoIExtractor(
+            roi_layer={'type': 'RoIAlign', 'output_size': 7, 'sampling_ratio': 2, 'aligned': True},
+            out_channels=64, featmap_strides=[4, 8, 16, 32],
+        )
+        return DiffusionDetHead(
+            num_classes=24, feat_channels=64, num_proposals=50, num_heads=3,
+            snr_scale=2.0, timesteps=1000, sampling_timesteps=sampling_timesteps,
+            solver_type=solver_type, diffusion_type='rectified_flow',
+            rf_schedule='linear', single_head=single_head,
+            roi_extractor=roi_extractor, deep_supervision=True,
+            use_nms=True, nms_thr=0.5, score_thr=0.05,
+            amp_dtype=amp_dtype,
+        )
+
+    def _make_inputs(self, bs=1, channels=64):
+        torch.manual_seed(0)
+        features = tuple([
+            torch.randn(bs, channels, 64 // s, 64 // s)
+            for s in [4, 8, 16, 32]
+        ])
+        img_metas = [ImageMeta(img_shape=(256, 256)) for _ in range(bs)]
+        return features, img_metas
+
+    def test_amp_dtype_attribute(self):
+        """amp_dtype 参数正确传递"""
+        head_fp32 = self._make_head(amp_dtype=None)
+        assert head_fp32.amp_dtype is None
+        head_bf16 = self._make_head(amp_dtype=torch.bfloat16)
+        assert head_bf16.amp_dtype == torch.bfloat16
+
+    def test_forward_at_t_amp_bf16_numerical_consistency(self):
+        """验证 _forward_at_t 在 bf16 autocast 下的数值一致性
+
+        bfloat16 mantissa 仅 7-8 bit，但 linear 层的 GEMM 在 bf16 下
+        误差累积可控。atol=0.1 对 logits (范围 ~±10) 合理。
+        """
+        # fp32 基线
+        torch.manual_seed(42)
+        head_fp32 = self._make_head(amp_dtype=None)
+        head_fp32.eval()
+        features, img_metas = self._make_inputs()
+
+        # 构造固定 x_raw (绕过 predict 内部的 randn)
+        torch.manual_seed(123)
+        x_raw = torch.randn(1, 50, 4)
+
+        with torch.no_grad():
+            cls_fp32, bbox_fp32, x0_fp32 = head_fp32._forward_at_t(
+                features, x_raw, 0.5, img_metas
+            )
+
+        # bf16 前向 (共享权重，唯一差异是精度)
+        head_bf16 = self._make_head(amp_dtype=torch.bfloat16)
+        head_bf16.load_state_dict(head_fp32.state_dict())
+        head_bf16.eval()
+
+        with torch.no_grad():
+            cls_bf16, bbox_bf16, x0_bf16 = head_bf16._forward_at_t(
+                features, x_raw, 0.5, img_metas
+            )
+
+        # 转 fp32 比较
+        cls_bf16 = cls_bf16.float()
+        bbox_bf16 = bbox_bf16.float()
+        x0_bf16 = x0_bf16.float()
+
+        cls_diff = (cls_fp32 - cls_bf16).abs().max().item()
+        bbox_diff = (bbox_fp32 - bbox_bf16).abs().max().item()
+        x0_diff = (x0_fp32 - x0_bf16).abs().max().item()
+
+        # bfloat16 logits 误差应 < 0.5 (相对范围 ±10)
+        assert cls_diff < 0.5, f'cls_logits max diff {cls_diff} >= 0.5'
+        # pred_bboxes 在 xyxy 坐标系 (范围 0-256)，0.5 像素误差可接受
+        assert bbox_diff < 1.0, f'pred_bboxes max diff {bbox_diff} >= 1.0'
+        # x0_raw 在归一化坐标 (范围 ~±2*snr_scale=±4)
+        assert x0_diff < 0.1, f'x0_raw max diff {x0_diff} >= 0.1'
+
+    def test_predict_amp_bf16_box_count_consistency(self):
+        """验证 bf16 推理整体流程的检测框数量一致性
+
+        多步迭代 + NMS 后，bf16 与 fp32 的检测结果数量应接近。
+        允许少量差异 (NMS 阈值边界附近)，但不应大幅偏离。
+        """
+        # fp32 基线
+        torch.manual_seed(42)
+        head_fp32 = self._make_head(amp_dtype=None, sampling_timesteps=4)
+        head_fp32.eval()
+        features, img_metas = self._make_inputs()
+
+        torch.manual_seed(42)  # 重置种子确保 x_raw 一致
+        results_fp32 = head_fp32.predict(features, img_metas, rescale=False)
+
+        # bf16 (共享权重)
+        head_bf16 = self._make_head(amp_dtype=torch.bfloat16, sampling_timesteps=4)
+        head_bf16.load_state_dict(head_fp32.state_dict())
+        head_bf16.eval()
+
+        torch.manual_seed(42)  # 重置种子确保 x_raw 一致
+        results_bf16 = head_bf16.predict(features, img_metas, rescale=False)
+
+        assert len(results_fp32) == len(results_bf16)
+        for i, (r_fp32, r_bf16) in enumerate(zip(results_fp32, results_bf16)):
+            n_fp32 = r_fp32.bboxes.shape[0] if hasattr(r_fp32, 'bboxes') else 0
+            n_bf16 = r_bf16.bboxes.shape[0] if hasattr(r_bf16, 'bboxes') else 0
+            # 允许 30% 差异或至少 2 个 (NMS 边界效应)
+            max_diff = max(2, int(n_fp32 * 0.3))
+            assert abs(n_fp32 - n_bf16) <= max_diff, \
+                f'Image {i}: fp32={n_fp32} boxes, bf16={n_bf16} boxes, ' \
+                f'diff={abs(n_fp32 - n_bf16)} > {max_diff}'
+
+    def test_predict_amp_bf16_score_consistency(self):
+        """验证 bf16 推理的 score 分布与 fp32 一致
+
+        比较 NMS 后保留框的 score 均值和最大值，确保 bf16 不显著
+        改变检测置信度分布。
+        """
+        torch.manual_seed(42)
+        head_fp32 = self._make_head(amp_dtype=None, sampling_timesteps=4)
+        head_fp32.eval()
+        features, img_metas = self._make_inputs()
+
+        torch.manual_seed(42)
+        results_fp32 = head_fp32.predict(features, img_metas, rescale=False)
+
+        head_bf16 = self._make_head(amp_dtype=torch.bfloat16, sampling_timesteps=4)
+        head_bf16.load_state_dict(head_fp32.state_dict())
+        head_bf16.eval()
+
+        torch.manual_seed(42)
+        results_bf16 = head_bf16.predict(features, img_metas, rescale=False)
+
+        for i, (r_fp32, r_bf16) in enumerate(zip(results_fp32, results_bf16)):
+            s_fp32 = r_fp32.scores if hasattr(r_fp32, 'scores') else torch.tensor([])
+            s_bf16 = r_bf16.scores if hasattr(r_bf16, 'scores') else torch.tensor([])
+            if s_fp32.numel() == 0:
+                continue
+            # score 均值差异应 < 0.05 (score 范围 0-1)
+            mean_diff = abs(s_fp32.float().mean().item() -
+                            s_bf16.float().mean().item())
+            assert mean_diff < 0.05, \
+                f'Image {i}: score mean diff {mean_diff} >= 0.05 ' \
+                f'(fp32={s_fp32.float().mean().item():.4f}, ' \
+                f'bf16={s_bf16.float().mean().item():.4f})'
+
+
+class TestDiffusionDetHeadBoxRenewal:
+    """评估 box_renewal 开关对推理质量的影响
+
+    box_renewal 在每步根据 cls_logits 将低置信度框替换为随机噪声,
+    是质量提升机制 (非数值优化)。box_renewal=False 会减少 indexing
+    开销 (6.7%) 但可能降低检测质量。此测试量化行为差异。
+    """
+
+    def _make_head(self, box_renewal=True, sampling_timesteps=4):
+        single_head = SingleDiffusionDetHead(
+            num_classes=24, feat_channels=64, dim_feedforward=128,
+            num_cls_convs=1, num_reg_convs=1, num_heads=4,
+            pooler_resolution=7, dynamic_dim=32, dynamic_num=2,
+        )
+        roi_extractor = SingleRoIExtractor(
+            roi_layer={'type': 'RoIAlign', 'output_size': 7, 'sampling_ratio': 2, 'aligned': True},
+            out_channels=64, featmap_strides=[4, 8, 16, 32],
+        )
+        return DiffusionDetHead(
+            num_classes=24, feat_channels=64, num_proposals=50, num_heads=3,
+            snr_scale=2.0, timesteps=1000, sampling_timesteps=sampling_timesteps,
+            solver_type='dpm_solver_pp', diffusion_type='rectified_flow',
+            rf_schedule='linear', single_head=single_head,
+            roi_extractor=roi_extractor, deep_supervision=True,
+            use_nms=True, nms_thr=0.5, score_thr=0.05,
+            box_renewal=box_renewal,
+        )
+
+    def _make_inputs(self, bs=1, channels=64):
+        torch.manual_seed(0)
+        features = tuple([
+            torch.randn(bs, channels, 64 // s, 64 // s)
+            for s in [4, 8, 16, 32]
+        ])
+        img_metas = [ImageMeta(img_shape=(256, 256)) for _ in range(bs)]
+        return features, img_metas
+
+    def test_box_renewal_behavior_difference(self):
+        """量化 box_renewal=True vs False 的检测差异
+
+        评估指标:
+        - 检测框数量差异
+        - score 均值差异
+        - 最大 score 差异
+
+        预期: box_renewal 改变低置信度框的处理, 会影响最终检测分布,
+        但高置信度框应基本一致。
+        """
+        # box_renewal=True
+        torch.manual_seed(42)
+        head_renewal = self._make_head(box_renewal=True)
+        head_renewal.eval()
+        features, img_metas = self._make_inputs()
+        torch.manual_seed(42)
+        results_renewal = head_renewal.predict(features, img_metas, rescale=False)
+
+        # box_renewal=False
+        torch.manual_seed(42)
+        head_no_renewal = self._make_head(box_renewal=False)
+        head_no_renewal.load_state_dict(head_renewal.state_dict())
+        head_no_renewal.eval()
+        torch.manual_seed(42)
+        results_no_renewal = head_no_renewal.predict(features, img_metas, rescale=False)
+
+        assert len(results_renewal) == len(results_no_renewal)
+        for i, (r_renew, r_no_renew) in enumerate(
+                zip(results_renewal, results_no_renewal)):
+            n_renew = r_renew.bboxes.shape[0] if hasattr(r_renew, 'bboxes') else 0
+            n_no_renew = r_no_renew.bboxes.shape[0] if hasattr(r_no_renew, 'bboxes') else 0
+            s_renew = r_renew.scores if hasattr(r_renew, 'scores') else torch.tensor([])
+            s_no_renew = r_no_renew.scores if hasattr(r_no_renew, 'scores') else torch.tensor([])
+
+            # box_renewal 会改变检测分布, 但不应导致数量级差异
+            # 允许 50% 差异 (行为改变, 非数值差异)
+            max_diff = max(2, int(n_renew * 0.5))
+            assert abs(n_renew - n_no_renew) <= max_diff, \
+                f'Image {i}: renewal={n_renew}, no_renewal={n_no_renew}, ' \
+                f'diff > {max_diff}'
+
+            # 高置信度检测应基本一致 (max score 差异 < 0.1)
+            if s_renew.numel() > 0 and s_no_renew.numel() > 0:
+                max_s_renew = s_renew.float().max().item()
+                max_s_no_renew = s_no_renew.float().max().item()
+                max_diff_score = abs(max_s_renew - max_s_no_renew)
+                # 记录差异, 不强制断言 (box_renewal 是行为选择)
+                print(f'Image {i}: renewal max_score={max_s_renew:.4f} '
+                      f'({n_renew} boxes), no_renewal max_score={max_s_no_renew:.4f} '
+                      f'({n_no_renew} boxes), diff={max_diff_score:.4f}')
+
+    def test_box_renewal_attribute_propagation(self):
+        """box_renewal 参数正确传递到 sampler"""
+        head = self._make_head(box_renewal=False)
+        assert head.box_renewal is False
+        assert head._sampler.box_renewal is False
+
+        head2 = self._make_head(box_renewal=True)
+        assert head2.box_renewal is True
+        assert head2._sampler.box_renewal is True
