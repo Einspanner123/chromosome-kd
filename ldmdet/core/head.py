@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from ldmdet.coupling import build_coupling
 from ldmdet.data.structures import DetectionResult, ImageMeta, InstanceData, ModelOutput
@@ -60,6 +61,8 @@ class DiffusionDetHead(nn.Module):
         amp_dtype: Optional[torch.dtype] = None,
         use_self_conditioning: bool = False,
         self_conditioning_prob: float = 0.5,
+        use_distillation: bool = False,
+        distill_lambda: float = 1.0,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -85,6 +88,15 @@ class DiffusionDetHead(nn.Module):
         # self_conditioning_prob: 训练时启用自条件化的概率 (0.5 = 50% 使用, 50% 零输入)
         self.use_self_conditioning = use_self_conditioning
         self.self_conditioning_prob = self_conditioning_prob
+
+        # PD-RF: 直接蒸馏参数 (理论: PD-RF_Progressive_Distillation.md)
+        # use_distillation: 是否启用知识蒸馏 (教师多步 → 学生1步)
+        # distill_lambda: 蒸馏损失权重 λ, 控制蒸馏强度
+        self.use_distillation = use_distillation
+        self.distill_lambda = distill_lambda
+        # teacher_model 通过 property 管理, 不注册为 nn.Module 子模块
+        # (避免出现在 state_dict 中, 使 load_state_dict 不受教师权重干扰)
+        object.__setattr__(self, '_teacher_model', None)
 
         self.loss_aux = loss_aux
 
@@ -135,6 +147,41 @@ class DiffusionDetHead(nn.Module):
         if torch_compile and hasattr(torch, 'compile'):
             self.forward = torch.compile(self.forward, dynamic=True)
 
+    # ================================================================
+    # PD-RF: 教师模型管理 (property 自动冻结, 不注册为子模块)
+    # ================================================================
+
+    @property
+    def teacher_model(self):
+        """教师模型 (外部注入). 不注册为 nn.Module 子模块, 避免污染 state_dict."""
+        return getattr(self, '_teacher_model', None)
+
+    def __setattr__(self, name, value):
+        """重写以拦截 teacher_model 赋值, 自动冻结教师参数.
+
+        nn.Module.__setattr__ 会将 nn.Module 值自动注册为子模块,
+        绕过 property setter. 此处显式拦截 teacher_model 赋值,
+        执行自动冻结并存储为普通属性 (非 _modules 注册).
+        """
+        if name == 'teacher_model':
+            if value is not None:
+                # 自动冻结教师参数 (教师作为固定监督源, 理论 2.1)
+                for param in value.parameters():
+                    param.requires_grad = False
+                value.eval()
+            # 使用 object.__setattr__ 绕过 nn.Module 的自动注册
+            object.__setattr__(self, '_teacher_model', value)
+        else:
+            super().__setattr__(name, value)
+
+    def _apply(self, fn):
+        """重写以同步教师模型到当前设备 (to/cuda/cpu 等均经 _apply)."""
+        super()._apply(fn)
+        teacher = getattr(self, '_teacher_model', None)
+        if teacher is not None:
+            teacher._apply(fn)
+        return self
+
     def _init_weights(self, prior_prob):
         for head in self.head_series:
             if hasattr(head, 'cls_head'):
@@ -174,14 +221,14 @@ class DiffusionDetHead(nn.Module):
     # 训练损失
     # ================================================================
 
-    def loss(self, features, img_metas, gt_bboxes, gt_labels):
+    def loss(self, features, img_metas, gt_bboxes, gt_labels, x_raw_shared=None):
         device = features[0].device
         bs = len(img_metas)
 
         targets = self._normalize_targets(gt_bboxes, gt_labels, img_metas, bs)
         t = self._sample_t(bs, device)
         x_boxes, x_starts, x_noises, matched_gt_indices = self._build_training_targets(
-            bs, device, t, targets, gt_bboxes
+            bs, device, t, targets, gt_bboxes, external_noise=x_raw_shared
         )
         x_noisy_batch = torch.stack(x_boxes)
         curr_bboxes = self._sampler.raw_to_xyxy(x_noisy_batch, img_metas)
@@ -243,6 +290,114 @@ class DiffusionDetHead(nn.Module):
                 losses['sc_correction_magnitude'] = correction.detach()
 
         return losses
+
+    # ================================================================
+    # PD-RF: 直接知识蒸馏 (理论: PD-RF_Progressive_Distillation.md)
+    # ================================================================
+
+    def loss_with_distillation(self, features, img_metas, gt_bboxes, gt_labels):
+        """含知识蒸馏的训练损失 (理论 3.1).
+
+        核心流程:
+        1. 生成共享噪声 x_raw_shared (教师和学生共用, 保证 proposal 对应)
+        2. 教师多步推理获取 raw x0 (无梯度, 关闭 box_renewal, 不经 NMS)
+        3. 学生前向计算检测损失 (有梯度, 使用共享噪声)
+        4. 学生 1步 x0_pred (有梯度, 不在 no_grad 下!)
+        5. 蒸馏损失: MSE(student_x0, teacher_x0.detach())
+        6. SwanLab 插桩监控关键数值
+        """
+        # 无教师或 lambda=0 时退化为标准训练
+        if self.teacher_model is None or self.distill_lambda == 0:
+            return self.loss(features, img_metas, gt_bboxes, gt_labels)
+
+        device = features[0].device
+        bs = len(img_metas)
+
+        # === 1. 共享噪声 (理论 3.1: 教师和学生必须使用同一 x_raw) ===
+        x_raw_shared = torch.randn(bs, self.num_proposals, 4, device=device)
+
+        # === 2. 教师多步推理 (无梯度, 关闭 box_renewal, 不经 NMS) ===
+        teacher_x0 = self._teacher_multistep_x0(features, img_metas, x_raw_shared)
+
+        # === 3. 学生检测损失 (有梯度, 使用共享噪声) ===
+        losses = self.loss(features, img_metas, gt_bboxes, gt_labels, x_raw_shared=x_raw_shared)
+
+        # === 4. 学生 1步 x0_pred (有梯度! 蒸馏损失需反传到学生参数) ===
+        student_x0 = self._student_single_step_x0(features, img_metas, x_raw_shared)
+
+        # === 5. 蒸馏损失: 学生(有梯度) vs 教师(detach) (理论 2.5) ===
+        distill_loss = F.mse_loss(student_x0, teacher_x0.detach())
+        losses['loss_distill'] = distill_loss * self.distill_lambda
+
+        # === 6. SwanLab 插桩 (非 loss_ 前缀, 不参与反传, 仅记录) ===
+        with torch.no_grad():
+            losses['pd_distill_loss'] = distill_loss.detach()
+            losses['pd_student_teacher_gap'] = (
+                (student_x0.detach() - teacher_x0.detach()).norm(dim=-1).mean()
+            )
+            det_loss_sum = sum(
+                v for k, v in losses.items()
+                if k.startswith('loss_') and k != 'loss_distill'
+            )
+            if isinstance(det_loss_sum, torch.Tensor):
+                det_loss_sum = det_loss_sum.detach()
+                total = det_loss_sum + losses['loss_distill'].detach()
+                losses['pd_det_loss_ratio'] = det_loss_sum / (total + 1e-8)
+
+        return losses
+
+    def _teacher_multistep_x0(self, features, img_metas, x_raw):
+        """教师多步推理获取 raw x0 (理论 3.1).
+
+        关键实现点:
+        - 使用 _forward_at_t 多步循环 (非 predict, 避免 post-NMS)
+        - 关闭 box_renewal (保持 proposal 对应)
+        - 无梯度 (教师冻结, torch.no_grad)
+        - 返回 [bs, P, 4] raw 张量
+        """
+        teacher = self.teacher_model
+        device = features[0].device
+        time_pairs = teacher._sampler.build_time_pairs(device)
+        x = x_raw.clone()
+
+        # 创建 DPM-Solver++ (若教师配置为 dpm_solver_pp)
+        dpm_solver = teacher._sampler.create_dpm_solver()
+        if dpm_solver is not None:
+            dpm_solver.reset()
+
+        x0 = None
+        with torch.no_grad():
+            for step_idx, (t_curr, t_next) in enumerate(time_pairs):
+                _, _, x0 = teacher._forward_at_t(
+                    features, x, t_curr, img_metas
+                )
+                if dpm_solver is not None:
+                    x = dpm_solver.step(x, x0, t_curr, step_idx)
+                elif teacher.solver_type == 'heun' and t_next > 0:
+                    # Heun 二阶: 需要中点评估
+                    def model_fn(x_tmp, t_tmp):
+                        _, _, x0_tmp = teacher._forward_at_t(
+                            features, x_tmp, t_tmp, img_metas
+                        )
+                        return x0_tmp, None
+                    x = teacher.rf.heun_step(x, x0, t_curr, t_next, model_fn)
+                else:
+                    x = teacher.rf.step(x, x0, t_curr, t_next)
+                # 不调用 apply_box_renewal! (保持 proposal 对应)
+        return x0
+
+    def _student_single_step_x0(self, features, img_metas, x_raw):
+        """学生 1步 x0_pred (理论 3.1: t=1.0 单步前向).
+
+        关键: 不在 no_grad 下! 蒸馏损失需对学生参数求梯度.
+        """
+        # t=1.0: 纯噪声输入, 模型预测 x0
+        # SC-RF 兼容: 若启用自条件化, x0_prev 初始化为零 (第一步无先验)
+        x0_prev = torch.zeros_like(x_raw) if self.use_self_conditioning else None
+        _, _, x0 = self._forward_at_t(
+            features, x_raw, 1.0, img_metas, x0_prev
+        )
+        return x0
 
     # ================================================================
     # 推理
@@ -335,12 +490,15 @@ class DiffusionDetHead(nn.Module):
             t = self.rf_shift * t / (1 + (self.rf_shift - 1) * t)
         return t
 
-    def _build_training_targets(self, bs, device, t, targets, gt_bboxes):
+    def _build_training_targets(self, bs, device, t, targets, gt_bboxes, external_noise=None):
         x_boxes, x_starts, x_noises, matched_gt_indices = [], [], [], []
         for i in range(bs):
             num_gt = gt_bboxes[i].shape[0]
             if num_gt == 0:
-                noise = torch.randn(self.num_proposals, 4, device=device)
+                if external_noise is not None:
+                    noise = external_noise[i]
+                else:
+                    noise = torch.randn(self.num_proposals, 4, device=device)
                 x_boxes.append(noise)
                 x_starts.append(torch.zeros_like(noise))
                 x_noises.append(noise)
@@ -348,7 +506,10 @@ class DiffusionDetHead(nn.Module):
                 continue
             norm_gt_cxcywh = bbox_xyxy_to_cxcywh(targets[i].bboxes)
             gt_diffusion = (norm_gt_cxcywh * 2 - 1) * self.snr_scale
-            noise = torch.randn(self.num_proposals, 4, device=device)
+            if external_noise is not None:
+                noise = external_noise[i]
+            else:
+                noise = torch.randn(self.num_proposals, 4, device=device)
             x_start, matched_idx = self._couple_single_image(noise, gt_diffusion, targets[i].labels, device)
             matched_gt_indices.append(matched_idx)
             x_noisy, x_noise = self._forward_diffusion(x_start, noise, t[i:i+1])
