@@ -9,6 +9,8 @@
 
 ______________________________________________________________________
 
+> ⚠️ **暂时废弃**：以下论文框架中的实验结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的结论已更新。24obj 数据集上 A0-A4 主路线消融及对比模型数据见文末 Section 4.8 "24obj 数据集补充实验"。
+
 ## Abstract / 摘要
 
 **EN**: Diffusion-based object detectors achieve competitive performance but suffer from slow inference due to curved denoising trajectories. Rectified Flow (RF) replaces the stochastic DDPM process with straight-line ODE paths, enabling efficient few-step inference. However, directly applying RF to detection reveals two previously unknown pathologies: (1) **OT Diversity Collapse** — Optimal Transport coupling, beneficial in high-dimensional image generation, causes severe training diversity loss in the low-dimensional detection space ($\\mathbb{R}^4$), degrading mAP by up to 1.6%; (2) **Reflow Degradation Trap** — joint training of detection and velocity objectives leads to gradient conflict (cos = −0.104, 86.8% layers), causing catastrophic mAP drop after epoch 1. We provide rigorous theoretical analysis: OT coupling reduces conditional velocity entropy by $\\log K$ via Voronoi partitioning, with relative severity $\\Delta H/H \\approx 0.6$ in detection vs. $\\approx 0$ in image generation. We propose **Stochastic Coupling** via Sinkhorn transport sampling that interpolates between random and OT coupling with theoretically guaranteed monotonic diversity, and a **two-stage training** strategy that decouples detection and velocity optimization. Experiments on chromosome detection show RF achieves mAP=0.734 at 4 steps (219ms), surpassing DDPM's 0.672 at 8 steps (243ms) — +6.2% mAP at lower latency — while Stochastic Coupling (ε=5) recovers the full mAP loss from OT coupling (0.751 vs. 0.735).
@@ -270,6 +272,8 @@ ______________________________________________________________________
 - Batch size / 批大小: 2 per GPU
 - Diffusion steps / 扩散步数: 1 (training), 1/2/4/8 (inference / 推理)
 
+> ⚠️ **暂时废弃**：以下结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的结论已更新。
+
 ### 4.2 Main Results: RF Inference Efficiency / 主要结果：RF 推理效率
 
 **Table 1**: Multi-step inference comparison / 多步推理对比.
@@ -312,6 +316,8 @@ ______________________________________________________________________
 - **Heun's 2nd-order accuracy is critical for RF**: switching to Euler solver halves per-step cost (~27ms) but degrades mAP by ~0.5% at 4 steps, as straight-line assumption requires precise ODE integration / **Heun 的二阶精度对 RF 至关重要**：切换为 Euler 求解器可将每步开销减半（~27ms），但 4 步时 mAP 下降约 0.5%，因为直线路径假设需要精确的 ODE 积分
 - RF shows diminishing returns beyond 4 steps (+0.1% from 4→8), confirming near-straight ODE paths / RF 在 4 步后收益递减，确认 ODE 路径接近直线
 
+> ⚠️ **暂时废弃**：以下结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的结论已更新。
+
 ### 4.3 OT Diversity Collapse: Empirical Validation / OT 多样性坍缩：实验验证
 
 **Table 2**: Coupling strategy comparison on chromosome detection / 染色体检测上的耦合策略对比.
@@ -346,6 +352,8 @@ ______________________________________________________________________
 
 **Theorem 1 validation / 定理 1 验证**: $\\Delta H = H\_{\\text{rand}}(V|Z) - H\_{\\text{OT}}(V|Z) = 3.8415 \\approx \\log K = 3.8427$ (relative error 0.03%).
 
+> ⚠️ **暂时废弃**：以下结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的结论已更新。
+
 ### 4.4 Stochastic Coupling: ε Scan / 随机耦合：ε 扫描
 
 **Table 4**: Stochastic Coupling ε scan — diversity and efficiency metrics / 随机耦合 ε 扫描——多样性和效率指标.
@@ -372,6 +380,8 @@ ______________________________________________________________________
 - Sweet spot at ε∈\[0.5,5.0\] where ρ>0.95 but η\<0.97 / 最优区间在 ε∈\[0.5,5.0\]
 - ε=50 anomaly: coupling bias causes training instability despite full diversity / ε=50 异常：耦合偏差导致训练不稳定
 
+> ⚠️ **暂时废弃**：以下结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的结论已更新。
+
 ### 4.5 Reflow Degradation Trap: Ablation / Reflow 退化陷阱：消融
 
 **Table 5**: Gradient conflict ablation / 梯度冲突消融.
@@ -385,6 +395,8 @@ ______________________________________________________________________
 | Det Only / 仅检测          | 5e-6 | ✗                        | N/A                          | 0.742    | ❌ (long-term / 长期) |
 | Det Only / 仅检测          | 1e-6 | ✗                        | N/A                          | 0.741    | ✅                    |
 | Low LR + Vel / 低LR+速度   | 1e-6 | ✓                        | cos≈−0.1 (still / 仍存在)    | 0.740    | ✅                    |
+
+> ⚠️ **暂时废弃**：以下结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的结论已更新。
 
 ### 4.6 Two-Stage Training / 两阶段训练
 
@@ -410,6 +422,41 @@ ______________________________________________________________________
 | RF (Ours / 我们) | Stochastic ε=2  | \[TODO\] | \[TODO\] | \[TODO\] | \[TODO\] | \[TODO\] | \[TODO\] |
 
 *Expected / 预期*: OT Diversity Collapse should be less severe on COCO (K≈7) than chromosome (K≈24), consistent with theory. / OT 多样性坍缩在 COCO 上应不如染色体严重，与理论一致。
+
+### 4.8 24obj 数据集补充实验（最新）
+
+> 以下数据基于 24obj 数据集（24_chromosomes_object，mAP 量级 0.77-0.87），SwanLab 验证。旧数据集 Chromosome20240904 的结论已暂时废弃。
+
+#### 4.8.1 对比模型（24obj，SwanLab 验证）
+
+| 方法 Method                    | mAP   | AP50  | AP75  |
+| ------------------------------ | ----- | ----- | ----- |
+| RTMDet-L                       | 0.869 | 0.992 | 0.976 |
+| DINO R50                       | 0.868 | 0.992 | 0.979 |
+| A4 DPM-Solver++ (LDMDet)       | 0.863 | 0.990 | 0.974 |
+| A3 SOTA Heun (LDMDet)          | 0.858 | 0.990 | 0.973 |
+| Cascade R-CNN R50              | 0.854 | 0.987 | 0.972 |
+| ldmdet_stochot_eps5 (LDMDet)   | 0.853 | 0.987 | 0.970 |
+| YOLOX-S                        | 0.803 | 0.987 | 0.946 |
+| DiffusionDet                   | 0.787 | 0.970 | 0.928 |
+
+#### 4.8.2 LDMDet 主路线消融 A0-A4（项目 ldmdet-mainline-ablation-24obj）
+
+| 实验 Experiment                 | mAP   | AP50  | AP75  | Δ       | 说明 Note                 |
+| ------------------------------ | ----- | ----- | ----- | ------- | ------------------------- |
+| A0 baseline (Euler 1步, 无RF)  | 0.774 | 0.968 | 0.916 | —       | 基线 / Baseline           |
+| A1 +RF+Heun                    | 0.856 | 0.990 | 0.971 | +0.082  | RF+Heun 大幅提升          |
+| A2 +AdaLN-Zero                 | 0.856 | 0.990 | 0.972 | +0.000  | AdaLN-Zero 稳定训练       |
+| A3 +StochOT eps5               | 0.858 | 0.990 | 0.973 | +0.002  | StochOT 采样              |
+| A4 DPM-Solver++替换Heun        | 0.863 | 0.990 | 0.974 | +0.005  | DPM-Solver++ 进一步提升   |
+
+#### 4.8.3 耦合策略消融（24obj，3 seeds）
+
+| 耦合策略 Coupling    | mAP (mean±std) |
+| -------------------- | -------------- |
+| Random               | 0.860±0.001    |
+| GHSS                 | 0.858±0.001    |
+| Sinkhorn Stochastic  | 0.856 (1 seed) |
 
 ______________________________________________________________________
 

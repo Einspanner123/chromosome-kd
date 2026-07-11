@@ -7,6 +7,8 @@
 - **生成脚本**: `generate_algorithm_schematics.py`（`python generate_algorithm_schematics.py` 一次性生成全部 16 张 PNG）
 
 > **基线**: DiffusionDet DDPM = 0.729 ± 0.003 → RF+Heun+AdaLN = 0.746 ± 0.001（chromo 数据集, DiffusionDet 默认 aug, 3 seeds）
+>
+> ⚠️ **暂时废弃**：该基线及下文 (a)-(g) 各面板的 ΔmAP 结论均基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的结论已更新（A0-A4 主路线消融，见 EXPERIMENT_RESULTS.md §8.5 / EXPERIMENT_LINEAGE.md §3.2）。算法示意图本身仍可用于方法说明，但对应的量化结论以 24obj 为准。
 
 ---
 
@@ -193,10 +195,14 @@
 | 24obj · SOTA (n=1) | 0.852 | 0.985 | 0.966 | 0.405 | 0.848 | 0.906 | 0.896 | 0.983 | 0.991 | 0.987 |
 
 > 各数据集 mAP 最优以绿色加粗标注。chromo 最优为 SOTA (0.748)，相对 DiffusionDet baseline (0.728) 提升 +0.020；24obj 最优为 SOTA (0.852)，相对 DiffusionDet (0.803) 显著领先 +0.049。
+>
+> ⚠️ **暂时废弃**：上表及下文 "chromo 数据集" 章节中基于旧数据集 Chromosome20240904（mAP≈0.72-0.75）的结论已暂时废弃；24obj 行及下文 "24obj 数据集" 章节保留为现行结论。
 
 ---
 
 ### chromo 数据集: DiffusionDet vs SOTA
+
+> ⚠️ **暂时废弃**：以下结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的对比见下文 "24obj 数据集: DiffusionDet vs SOTA" 章节。
 
 chromo 数据集共 2 个模型对比：DiffusionDet baseline（3 seeds, mAP=0.728）、SOTA（1 seed, 即 RF+Heun+AdaLN+Sinkhorn Stochastic OT, 训练 best epoch 0.753, 实测推理 0.748）。直接对比 baseline → SOTA 的完整提升。
 

@@ -2,7 +2,13 @@
 
 > 本文档梳理所有实验的递进关系,明确真正的 baseline,识别废弃/错误实验。
 > 每条实验记录附 **可靠数据源地址** (本地服务器路径 / ldmdet-experiment 归档 / SwanLab run_id)
-> 更新时间: 2026-07-02 (最近一次刷新: 补充非线性轨迹/生成式迁移/Few-Shot 实验系列, 修正 eps2 旧实验归因)
+> 更新时间: 2026-07-10 (最近一次刷新: SwanLab 24obj 全量汇总完成, 新发现 A0-A4 主路线消融, 旧 chromo 结论标注暂时废弃)
+>
+> 📌 **24obj 核心结论归纳** 见:
+> - [docs/EXPERIMENT_RESULTS.md §0](file:///media/ross/8TB/linkst/chromo/chromosome-kd/docs/EXPERIMENT_RESULTS.md) (实验结果汇总)
+> - [docs/PAPER_RESULTS.md §0](file:///media/ross/8TB/linkst/chromo/chromosome-kd/docs/PAPER_RESULTS.md) (论文结果数据)
+>
+> ⚠️ **数据集说明**: 旧数据集 Chromosome20240904 (chromo, mAP≈0.72-0.75) 的结论已**暂时废弃**; 现行结论基于 24obj 数据集 (mAP 量级 0.77-0.87)
 
 ## 〇、数据源说明
 
@@ -15,7 +21,15 @@
 | **SwanLab 云端** | `https://swanlab.cn/@einspanner/<project>/runs/<run_id>` (project ∈ {chromosome-kd, chromosome-kd-benchmark-24obj, ldmdet-ablation}) | 在线可视化 + 跨实验对比 |
 
 > SwanLab 用户名: `einspanner` (登录态见 `/home/linkst/.swanlab/.netrc`, api_key 已配置)。
-> 已知 project: `chromosome-kd` (早期 21 个), `chromosome-kd-benchmark-24obj` (24obj 数据集 1 个), `ldmdet-ablation` (主线 32+ 个, 含 chromo/24obj/merged 数据集实验)。
+> 已知 project (8 个, 24obj 相关 33+ 实验):
+>   - `chromosome-kd` (早期 21 个, chromo 数据集)
+>   - `chromosome-kd-benchmark-24obj` (8 个, 24obj 对比模型)
+>   - `ldmdet-ablation` (9 个, 24obj 耦合策略消融)
+>   - `ldmdet-mainline-ablation-24obj` (5 个, ⭐ 24obj A0-A4 主路线消融)
+>   - `ldmdet-breakthrough` (2 个, SC-RF 自条件化)
+>   - `ldmdet-frontier-directions` (6 个, 前沿方向探索)
+>   - `few-shot-benchmark` (3 个, few-shot 源预训练)
+>   - `nonlinear-3seed-repro` (2 个, 非线性轨迹复现)
 > URL 拼接示例: `https://swanlab.cn/@einspanner/ldmdet-ablation/runs/<run_id>`
 
 ## 一、aug 策略统一基准 (关键修正)
@@ -38,7 +52,7 @@
 | 数据集 | 路径 | 实验简称 | 实验组 | mAP 量级 | SwanLab project |
 |--------|------|----------|--------|---------|------------------|
 | **Chromosome20240904** | `data/Chromosome20240904_NoAug_NoResize_coco/` | chromo | multi_seed_aug/*, sota_*, bottleneck/*, direction_exps/*, ddpm | 0.72-0.75 | ldmdet-ablation, chromosome-kd |
-| **24_chromosomes_object** | `data/24_chromosomes_object/coco/` | 24obj | 24obj_ablation/*, ldmdet_rf_heun_adaln_stochot_eps5 | 0.81-0.86 | ldmdet-ablation, chromosome-kd-benchmark-24obj |
+| **24_chromosomes_object** | `data/24_chromosomes_object/coco/` | 24obj | 24obj_ablation/*, ldmdet_rf_heun_adaln_stochot_eps5, A0-A4 主路线消融 | 0.77-0.87 | ldmdet-ablation, chromosome-kd-benchmark-24obj, ldmdet-mainline-ablation-24obj, ldmdet-breakthrough, ldmdet-frontier-directions, few-shot-benchmark |
 
 > ⚠️ 跨数据集对比错误示例: ghss@24obj (0.857) vs rf_heun_adaln@chromo (0.746) — 不可对比
 >
@@ -47,6 +61,8 @@
 ## 三、实验递进树
 
 ### 3.1 Chromosome20240904 数据集 (简称 chromo)
+
+> ⚠️ **暂时废弃**：以下结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的结论已更新，见 3.2 节。
 
 ```
 DiffusionDet DDPM (根 baseline, 默认 aug)
@@ -336,6 +352,25 @@ DiffusionDet DDPM (根 baseline, 24obj 数据集)
 │                 本地: work_dirs/24obj_ablation/ghss/seed_123/20260621_190440/
 │                 SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/73cr3uyqw4f1q68xz1evg
 │                          experiment_name=chromo_24obj_seed123  run_id=73cr3uyqw4f1q68xz1evg
+│
+├─→ ldmdet-mainline-ablation-24obj (LDMDet 主路线消融 A0-A4, 新发现)
+│      项目: ldmdet-mainline-ablation-24obj
+│      数据集: 24_chromosomes_object
+│      说明: 24obj 主路线递进消融, 对应 chromo 旧主路线消融 (3.1 节, 已标注暂时废弃)
+│      │
+│      ├─→ A0 baseline (Euler 1步, 无RF)   mAP=0.774  AP50=0.968  AP75=0.916  [基线]
+│      ├─→ A1 +RF+Heun                     mAP=0.856  AP50=0.990  AP75=0.971  [+0.082, 主要贡献]
+│      ├─→ A2 +AdaLN-Zero                  mAP=0.856  AP50=0.990  AP75=0.972  [+0.000, 持平 A1]
+│      ├─→ A3 +StochOT eps5                mAP=0.858  AP50=0.990  AP75=0.973  [+0.002, 边际]
+│      └─→ A4 DPM-Solver++替换Heun         mAP=0.863  AP50=0.990  AP75=0.974  [+0.005, 推理加速且精度提升]
+│             ⚠ 与 chromo 结论不同: DPM-Solver++ 在 24obj 上不仅加速还 +0.005 精度
+│
+├─→ 其他 24obj 实验
+│      ├─→ SC-RF (自条件化RF)              mAP=0.857  [RUNNING]
+│      ├─→ h_velocity_loss                 mAP=0.856  [CRASHED]
+│      ├─→ n_cascade_e2e                   mAP=0.684  [FINISHED]
+│      └─→ FBM CrossAttn (few-shot)        mAP=0.857  [CRASHED]
+│
 
 ═══════════════════════════════════════════════════════════════════════════
 ═══ 跨数据集合并实验 (24obj + Chromosome20240904) ═══
@@ -361,6 +396,8 @@ DiffusionDet DDPM (根 baseline, 24obj 数据集)
 ```
 
 ### 3.4 生成式迁移实验 (ChromoGen → LDMDet, chromo 数据集)
+
+> ⚠️ **暂时废弃**：以下结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的结论已更新，见 3.2 节。
 
 ```
 生成式迁移 Phase1: 用 ChromoGen 生成模型特征增强 LDMDet (Feature Bridge Module, FBM)
@@ -389,6 +426,8 @@ config: experiments/configs/ldmdet/gen_transfer_phase1_e6_*.py
 ```
 
 ### 3.5 Few-Shot 跨数据集基准实验 (24obj 源 → chromo 目标)
+
+> ⚠️ 本节 Few-Shot 基准的目标微调数据集为旧数据集 Chromosome20240904（chromo）。源预训练（24obj）部分保留；目标微调结论待 24obj 主线更新后复核。
 
 ```
 Few-Shot Benchmark: 24obj 数据集源预训练 → chromo 数据集目标微调 (k=5, k=10)
@@ -439,6 +478,8 @@ baseline 源预训练数据集: 24_chromosomes_object (24obj)
 
 ## 四、关键结论 (修正)
 
+> ⚠️ **暂时废弃**：以下结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的结论已更新，见 3.2 节（含 A0-A4 主路线消融）。
+
 ### 1. 真正的 Baseline (DiffusionDet 默认 aug)
 
 | Baseline | mAP | 数据源 |
@@ -478,10 +519,18 @@ baseline 源预训练数据集: 24_chromosomes_object (24obj)
 
 | SwanLab Project | 实验数 | 范围 | 数据源 URL Pattern |
 |-----------------|--------|------|---------------------|
-| `chromosome-kd` | 21 | 早期: sota_seed*, ablation/* (无 aug), scheme_*, stability/* | `https://swanlab.cn/@einspanner/chromosome-kd/runs/<run_id>` |
-| `chromosome-kd-benchmark-24obj` | 1 | 24obj 数据集早期: ldmdet-rf-adaln-stochot-eps5 | `https://swanlab.cn/@einspanner/chromosome-kd-benchmark-24obj/runs/<run_id>` |
-| `ldmdet-ablation` | 32+ | 主线: chromo 数据集 (multi_seed_aug/*, bottleneck/*, direction_exps/*, nonlinear_trajectory*) + 24obj/merged + gen_transfer | `https://swanlab.cn/@einspanner/ldmdet-ablation/runs/<run_id>` |
-| `nonlinear-3seed-repro` | 2 | 3-seed 复现实验: nonlinear_e43_seed{1,2} (seed3 失败) | `https://swanlab.cn/@einspanner/nonlinear-3seed-repro/runs/<run_id>` |
+| `chromosome-kd` | 21 | 早期: sota_seed*, ablation/* (无 aug), scheme_*, stability/* (chromo 数据集) | `https://swanlab.cn/@einspanner/chromosome-kd/runs/<run_id>` |
+| `chromosome-kd-benchmark-24obj` | 8 | 24obj 对比模型: RTMDet-L / DINO R50 / Cascade / YOLOX-S / DiffusionDet / ldmdet_stochot_eps5 等 | `https://swanlab.cn/@einspanner/chromosome-kd-benchmark-24obj/runs/<run_id>` |
+| `ldmdet-ablation` | 9 (24obj) + 23 (chromo) | 主线: chromo 数据集 (multi_seed_aug/*, bottleneck/*, direction_exps/*, nonlinear_trajectory*) + 24obj 耦合策略消融 (Random/GHSS/Sinkhorn × 3 seeds) + merged + gen_transfer | `https://swanlab.cn/@einspanner/ldmdet-ablation/runs/<run_id>` |
+| `ldmdet-mainline-ablation-24obj` | 5 ⭐ | 24obj A0-A4 主路线消融: A0 baseline / A1 +RF+Heun / A2 +AdaLN / A3 +StochOT / A4 DPM-Solver++ | `https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/<run_id>` |
+| `ldmdet-breakthrough` | 2 | 24obj 突破方向: SC-RF (自条件化RF) | `https://swanlab.cn/@einspanner/ldmdet-breakthrough/runs/<run_id>` |
+| `ldmdet-frontier-directions` | 6 | 24obj 前沿方向: h_velocity_loss / n_cascade_e2e / h_cfm_velocity (失败) 等 | `https://swanlab.cn/@einspanner/ldmdet-frontier-directions/runs/<run_id>` |
+| `few-shot-benchmark` | 3 | 24obj few-shot 源预训练: FBM CrossAttn / FBM SimpleGate / LDMDet SOTA | `https://swanlab.cn/@einspanner/few-shot-benchmark/runs/<run_id>` |
+| `nonlinear-3seed-repro` | 2 | 3-seed 复现实验: nonlinear_e43_seed{1,2} (seed3 失败, chromo 数据集) | `https://swanlab.cn/@einspanner/nonlinear-3seed-repro/runs/<run_id>` |
+
+> **24obj 相关项目汇总** (6 个项目, 33+ 实验):
+> - `chromosome-kd-benchmark-24obj` (8) + `ldmdet-ablation` 24obj 部分 (9) + `ldmdet-mainline-ablation-24obj` (5) + `ldmdet-breakthrough` (2) + `ldmdet-frontier-directions` (6) + `few-shot-benchmark` (3) = 33 实验
+> - ⭐ `ldmdet-mainline-ablation-24obj` 为论文核心 A0-A4 主路线消融
 
 > 用户登录态见 `/home/linkst/.swanlab/.netrc` (api_key 已配置)
 > 每个 experiment 的 run_id 见上文递进树,替换 URL 中的 `<run_id>` 即可直接访问
@@ -577,6 +626,8 @@ Direction 实验基于 `rf_heun_adaln.py` (chromo 数据集, 默认 aug):
 
 ## 九、每步改进详解 (结构化)
 
+> ⚠️ **暂时废弃**：以下结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的结论已更新，见 3.2 节（含 A0-A4 主路线消融）。
+
 > 本节以标准化格式梳理每个关键改进:动机 / 改动 / 实验 / 结论。
 > 配套图见 [第十节:图索引](#十图索引)。
 
@@ -671,6 +722,8 @@ Direction 实验基于 `rf_heun_adaln.py` (chromo 数据集, 默认 aug):
 > 重新生成所有图: `for f in scripts/figs/fig*.py; do python "$f"; done`
 
 ## 十一、ScaleConditionedRF 证伪记录
+
+> ⚠️ **暂时废弃**：以下结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的结论已更新，见 3.2 节。
 
 > 本节记录 ScaleConditionedRF 方向的完整证伪过程:从"声称 0.752"到"真正集成后 0.741 证伪",以及 0.753/0.752 的真实改进谱系。
 

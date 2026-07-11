@@ -2,6 +2,12 @@
 
 This file stores the publication-oriented table skeletons separately from the main paper draft so results can be filled in quickly once experiments finish.
 
+> ⚠️ **数据集标注说明**：以下表格模板填充时应使用 **24obj 数据集**（24_chromosomes_object，mAP 量级 0.77-0.87）的实验结果。
+>
+> - **Table A (Main Dataset Comparison)** 应填入 24obj 数据集结果（主路线 A0-A4、耦合策略消融等）。
+> - 旧数据集 Chromosome20240904（mAP 量级 0.72-0.75）的实验结论已**暂时废弃**，不得作为主结果填入；如需引用旧数据集数值作历史对照，须在该行 Notes 列标注"旧数据集 chromo，已废弃"。
+> - **Table D (Epsilon Sweep)** 中 D_eff 等机制统计量的具体数值若来自旧数据集 checkpoint（mAP≈0.753），须在 Notes/Comment 列标注数据集来源。
+
 ## Table A. Main Dataset Comparison
 
 | Method              | Coupling         | Decoder       | epsilon | Seed Count | mAP   | AP50  | AP75  | Best Epoch | Notes |

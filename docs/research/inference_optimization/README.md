@@ -12,6 +12,10 @@
 
 ---
 
+> ⚠️ **暂时废弃**：以下瓶颈实测数据（335 ms/图、RoIAlign 52.2%、DynamicConv 37.5%、single_head_mean_ms=6.7662 等）基于旧数据集 Chromosome20240904 的 checkpoint（`work_dirs/reproduce_0751_stochot_eps5_v2/best_coco_bbox_mAP_epoch_59.pth`，mAP≈0.753），24obj 数据集上的推理优化结论待验证。
+>
+> 注：优化方向 A-F 的理论分析（计算复杂度、跨步/跨头正交性、加速比推导）为架构层面，与数据集无关，保留有效；§4 验证方法中引用的 checkpoint 亦为旧数据集产物，后续需在 24obj checkpoint 上重测。
+
 ## 1. 实测瓶颈分析 (2026-07-07 实测)
 
 ### 1.1 组件级延迟 (单次 single_head)

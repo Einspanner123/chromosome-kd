@@ -8,6 +8,8 @@ link-citations: true
 
 # Sinkhorn Sampling for Dense Chromosome Detection
 
+> ⚠️ **暂时废弃**：以下论文草稿中的实验结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的结论已更新。24obj 数据集上 A0-A4 主路线消融及对比模型数据见文末 Section 5.7 "24obj 数据集补充实验"。
+
 ## Abstract
 
 Optimal transport (OT) coupling is widely adopted in diffusion-based generation for shortening transport paths, and has been successfully transplanted to label assignment in conventional detectors. We show that this established intuition fails in dense chromosome detection: deterministic OT degrades detection accuracy by approximately 2%.
@@ -160,6 +162,8 @@ where $\\mathcal{L}\_{\\mathrm{det}}$ combines Focal Loss (weight 2.0), L1 regre
 
 ### 5.2 Coupling Strategy Comparison
 
+> ⚠️ **暂时废弃**：以下结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的结论已更新。
+
 **Table 1: Main results on Dataset A (verified by direct model inference at best epoch).**
 
 | Method            | Decoder       | ε   | mAP   | AP50  | AP75  |
@@ -171,6 +175,8 @@ where $\\mathcal{L}\_{\\mathrm{det}}$ combines Focal Loss (weight 2.0), L1 regre
 | Sinkhorn sampling | Sample        | 5   | 0.750 | 0.945 | 0.838 |
 
 The 0.016 mAP gap between Random and Hard OT is four times the cross-seed noise floor. What causes this drop on a densely packed chromosome image? Consider a cluster of three adjacent chromosomes—A1, A2, C6—their bounding boxes separated by a few pixels. Hard OT routes every noisy proposal in that cluster to whichever chromosome is marginally closest in L2 box distance. The detector only ever sees the nearest target; it never learns that the adjacent A2 is also a plausible refinement destination, despite A1 and A2 differing only in centromere position. Argmax Sinkhorn (ε=5) recovers only to 0.744—better than hard OT but still 0.007 below Random, indicating that the argmax decoder, while less extreme than pure OT, still suppresses the diversity needed to resolve visually similar instances. Sinkhorn sampling at ε=5 (0.750) restores performance to match the random baseline, recovering the diversity that deterministic OT destroyed.
+
+> ⚠️ **暂时废弃**：以下结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的结论已更新。
 
 **Table 2: Component ablation—from baseline to SOTA.**
 
@@ -193,6 +199,8 @@ The ablation traces a clear arc. Rows 1–3 are pure engineering—they establis
 
 Why does hard OT fail? Table 3 quantifies the collapse through conditional velocity entropy and variance decomposition. The definitions of $H(V \\mid Z)$, between-group variance, and within-group variance are given in Appendix A; here we present the empirical results and their biological interpretation.
 
+> ⚠️ **暂时废弃**：以下结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的结论已更新。
+
 **Table 3: Conditional velocity entropy and variance decomposition.**
 
 | Coupling    | Decoder       | ε   | H(V\|Z) | H(V\|X_t) | Total Var | Between-Group | Within-Group |
@@ -211,6 +219,8 @@ Under random coupling, each noisy proposal can pair with multiple nearby chromos
 ### 5.4 Mechanism: Argmax Destroys Sinkhorn's Diversity Control
 
 Does adding entropy regularization (Sinkhorn) fix the problem? Table 4 shows the epsilon sweep, which measures diversity recovery ρ(ε), transport efficiency η(ε) (defined in Appendix A), and mAP across 8 values of ε for Sinkhorn sampling and 3 values for argmax decoding.
+
+> ⚠️ **暂时废弃**：以下结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的结论已更新。
 
 **Table 4: Epsilon sweep.**
 
@@ -246,6 +256,8 @@ What happens in chromosome terms? We quantify this using the effective match cou
 
 Table 5 disaggregates the mAP results by chromosome group, revealing which chromosomes are most affected by coupling design.
 
+> ⚠️ **暂时废弃**：以下结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的结论已更新。
+
 **Table 5: Per-class AP by chromosome group (verified by direct model inference).**
 
 | Group            | Random | Hard OT | Δ (OT−Rand) | Argmax ε=5 | Sinkhorn ε=5 | Recovery |
@@ -276,6 +288,8 @@ Three patterns stand out when interpreted through chromosome biology:
 
 The per-class analysis reveals that not all diversity is equally productive. A proposal from group A matched to a group C target provides no useful training signal—the two chromosomes share no visual features—while wasting a matching opportunity that could have gone to distinguishing A1 from A2. GHSS (Section 4.2) operationalizes this insight.
 
+> ⚠️ **暂时废弃**：以下结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的结论已更新。
+
 **Table 6: GHSS vs. best prior configurations.**
 
 | Method                | mAP       | AP50      | AP75      |
@@ -285,6 +299,41 @@ The per-class analysis reveals that not all diversity is equally productive. A p
 | **GHSS ε=5**          | **0.752** | **0.946** | **0.841** |
 
 GHSS achieves 0.752 mAP, equaling the random baseline while incorporating domain structure. The numerical gain relative to random coupling (+0.001) falls within the cross-seed noise floor of ~0.003–0.004 mAP; GHSS is therefore best interpreted as a concept validation: it demonstrates that domain-informed coupling can match or slightly exceed the random baseline while eliminating unproductive cross-group matches. This validates the paper's central thesis that diversity is the optimization target, while adding the nuance that *where* diversity is deployed matters as much as *how much*. By restricting Sinkhorn sampling to within-group matches, GHSS removes unproductive cross-group noise while preserving the diversity needed to distinguish A1 from A2 from A3—chromosomes whose centromere positions differ by only a few pixels. This principle—deploy diversity where classes must be disambiguated, use structure where they are clearly separable—generalizes beyond chromosomes to any detection task with natural class clusters.
+
+### 5.7 24obj 数据集补充实验（最新）
+
+> 以下数据基于 24obj 数据集（24_chromosomes_object，mAP 量级 0.77-0.87），SwanLab 验证。旧数据集 Chromosome20240904 的结论已暂时废弃。
+
+#### 5.7.1 对比模型（24obj，SwanLab 验证）
+
+| Method                        | mAP   | AP50  | AP75  |
+| ----------------------------- | ----- | ----- | ----- |
+| RTMDet-L                      | 0.869 | 0.992 | 0.976 |
+| DINO R50                      | 0.868 | 0.992 | 0.979 |
+| A4 DPM-Solver++ (LDMDet)      | 0.863 | 0.990 | 0.974 |
+| A3 SOTA Heun (LDMDet)         | 0.858 | 0.990 | 0.973 |
+| Cascade R-CNN R50             | 0.854 | 0.987 | 0.972 |
+| ldmdet_stochot_eps5 (LDMDet)  | 0.853 | 0.987 | 0.970 |
+| YOLOX-S                       | 0.803 | 0.987 | 0.946 |
+| DiffusionDet                  | 0.787 | 0.970 | 0.928 |
+
+#### 5.7.2 LDMDet 主路线消融 A0-A4（项目 ldmdet-mainline-ablation-24obj）
+
+| Experiment                    | mAP   | AP50  | AP75  | Δ       | Note                      |
+| ----------------------------- | ----- | ----- | ----- | ------- | ------------------------- |
+| A0 baseline (Euler 1步, 无RF) | 0.774 | 0.968 | 0.916 | —       | 基线                      |
+| A1 +RF+Heun                   | 0.856 | 0.990 | 0.971 | +0.082  | RF+Heun 大幅提升          |
+| A2 +AdaLN-Zero                | 0.856 | 0.990 | 0.972 | +0.000  | AdaLN-Zero 稳定训练       |
+| A3 +StochOT eps5              | 0.858 | 0.990 | 0.973 | +0.002  | StochOT 采样              |
+| A4 DPM-Solver++替换Heun       | 0.863 | 0.990 | 0.974 | +0.005  | DPM-Solver++ 进一步提升   |
+
+#### 5.7.3 耦合策略消融（24obj，3 seeds）
+
+| 耦合策略           | mAP (mean±std) |
+| ------------------ | -------------- |
+| Random             | 0.860±0.001    |
+| GHSS               | 0.858±0.001    |
+| Sinkhorn Stochastic | 0.856 (1 seed) |
 
 ## 6. Conclusion
 
