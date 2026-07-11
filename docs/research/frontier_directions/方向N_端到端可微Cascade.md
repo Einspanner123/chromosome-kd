@@ -1,5 +1,24 @@
 # 方向 N：端到端可微 Cascade Head (Differentiable Cascade Head)
 
+> **状态：已证伪 (2026-07-08)**
+>
+> **实验结果**：24obj 数据集, cascade_detach=False + deep_supervision=False, best mAP=**0.684** (epoch 41)
+> vs 基线 a1=0.856 → **Delta = -0.172** (显著下降)
+>
+> **SwanLab**：https://swanlab.cn/@einspanner/ldmdet-frontier-directions/runs/tb983lhy
+>
+> **失败原因**：
+> 1. 去掉 detach 后 6 stage 链式梯度导致训练严重不稳定 — mAP 在 0.35~0.68 间剧烈震荡
+> 2. EarlyStoppingHook 在 epoch 71 触发 (best@41 + patience=30), 未能收敛到基线水平
+> 3. cascade 结构对梯度截断 (detach) 有强依赖, 去 detach 后各 head 的梯度冲突导致性能崩塌
+> 4. 与项目记忆中 "Direction B DecoupledHead 证伪 (mAP=0.702)" 一致 — cascade 架构改动风险极高
+>
+> **实验配置**：[n_cascade_e2e_24obj.py](../../experiments/configs/ldmdet/directions/frontier_directions/n_cascade_e2e_24obj.py) (已删除)
+>
+> **代码改动**：无 (复用现有 cascade_detach 参数, 仅配置改动)
+>
+> ---
+
 > **目标**: 去掉 head 间的 detach, 让梯度贯通所有 stage, 使前一个 head 的框回归直接优化后一个 head 的 RoI 采样质量, 攻克 RoI 特征质量不足导致的高 IoU 瓶颈 (mAP_90 = 0.48)。
 >
 > **与方向 J 的关系**: 方向 J 是概念性方向 (移除 t, 回归确定性精化); 方向 N 是**可立即实施的具体架构方案**, 保留扩散框架但解决 detach 瓶颈, 是通向方向 J 的第一步。

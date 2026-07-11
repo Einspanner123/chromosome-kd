@@ -1,5 +1,24 @@
 # 方向 H：Flow Matching 检测 (Conditional Flow Matching for Detection)
 
+> **状态：已证伪 (2026-07-12, 最终验证)**
+>
+> **实验结果**：24obj 数据集, use_cfm=True, predict_velocity=True, velocity_loss_weight=1.0,
+> best mAP=**0.823** (epoch 95) vs 基线 0.856 → **Delta = -0.033** (性能显著下降)
+>
+> **SwanLab**：https://swanlab.cn/@einspanner/ldmdet-frontier-directions/runs/sh5750nr
+>
+> **失败原因**：
+> 1. **级联架构与速度预测根本性不兼容**：Head 1-5 的输入 ≈ x_0 (去噪后的框), 丢失 x_noise 信息, 无法计算速度目标 v = x_noise - x_start
+> 2. **速度损失收敛到 Var(x_noise) = 4**：因 Head 1-5 输入已不含噪声, 速度 MSE 收敛到噪声方差, 注入梯度噪声而非有效监督
+> 3. **FlowDet 论文实际预测端点 x̂₁ 而非速度**：用标准检测损失 (L1/GIoU) 而非速度 MSE, 我们误读了论文的参数化方式
+> 4. **基线的 x_0 预测 (via delta 回归) 本质是相对速度预测**：通过 apply_deltas 将回归头输出转换为框坐标, 是级联架构的正确参数化, 无需显式速度预测
+>
+> **实验配置**：[h_cfm_velocity_24obj.py](../../experiments/configs/ldmdet/directions/frontier_directions/h_cfm_velocity_24obj.py) (已删除)
+>
+> **代码清理 (2026-07-12)**：CFM 相关代码已从 head.py 中完全删除, 包括 use_cfm、velocity_loss_weight、predict_velocity 等参数及 velocity→x0→xyxy 转换逻辑。single_head.py 的 predict_velocity 参数和 criterion.py 的 use_cfm_weighting 参数保留但默认 False (死代码, 不影响功能)。相关测试文件 (test_cfm_fix.py, test_direction_h_cfm.py) 已删除。
+>
+> ---
+>
 > **目标**：用 Conditional Flow Matching (CFM) 代替当前 Rectified Flow (RF) 的"扩散思维", 实现更直更短的传输路径, 支持单步采样。
 >
 > **理论依据**：
