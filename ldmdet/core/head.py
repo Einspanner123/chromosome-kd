@@ -300,10 +300,10 @@ class DiffusionDetHead(nn.Module):
 
         核心流程:
         1. 生成共享噪声 x_raw_shared (教师和学生共用, 保证 proposal 对应)
-        2. 教师多步推理获取 raw x0 (无梯度, 关闭 box_renewal, 不经 NMS)
+        2. 教师多步推理获取 raw x0 + cls_logits (无梯度, 关闭 box_renewal, 不经 NMS)
         3. 学生前向计算检测损失 (有梯度, 使用共享噪声)
-        4. 学生 1步 x0_pred (有梯度, 不在 no_grad 下!)
-        5. 蒸馏损失: MSE(student_x0, teacher_x0.detach())
+        4. 学生 1步 x0_pred + cls_logits (有梯度, 不在 no_grad 下!)
+        5. 蒸馏损失: MSE(student_x0, teacher_x0) + KL(student_cls || teacher_cls)
         6. SwanLab 插桩监控关键数值
         """
         # 无教师或 lambda=0 时退化为标准训练
@@ -317,21 +317,33 @@ class DiffusionDetHead(nn.Module):
         x_raw_shared = torch.randn(bs, self.num_proposals, 4, device=device)
 
         # === 2. 教师多步推理 (无梯度, 关闭 box_renewal, 不经 NMS) ===
-        teacher_x0 = self._teacher_multistep_x0(features, img_metas, x_raw_shared)
+        teacher_cls, teacher_x0 = self._teacher_multistep_x0(
+            features, img_metas, x_raw_shared, return_cls=True
+        )
 
         # === 3. 学生检测损失 (有梯度, 使用共享噪声) ===
         losses = self.loss(features, img_metas, gt_bboxes, gt_labels, x_raw_shared=x_raw_shared)
 
-        # === 4. 学生 1步 x0_pred (有梯度! 蒸馏损失需反传到学生参数) ===
-        student_x0 = self._student_single_step_x0(features, img_metas, x_raw_shared)
+        # === 4. 学生 1步 x0_pred + cls_logits (有梯度! 蒸馏损失需反传到学生参数) ===
+        student_cls, student_x0 = self._student_single_step_x0(
+            features, img_metas, x_raw_shared, return_cls=True
+        )
 
-        # === 5. 蒸馏损失: 学生(有梯度) vs 教师(detach) (理论 2.5) ===
-        distill_loss = F.mse_loss(student_x0, teacher_x0.detach())
-        losses['loss_distill'] = distill_loss * self.distill_lambda
+        # === 5. 蒸馏损失 (理论 2.5) ===
+        # 5a. Box 蒸馏: raw 空间 MSE
+        distill_loss_box = F.mse_loss(student_x0, teacher_x0.detach())
+        # 5b. 分类蒸馏: KL 散度 (补充分类头在 t=1.0 的训练)
+        student_cls_log = F.log_softmax(student_cls, dim=-1)
+        teacher_cls_soft = F.softmax(teacher_cls.detach(), dim=-1)
+        distill_loss_cls = F.kl_div(
+            student_cls_log, teacher_cls_soft, reduction='batchmean'
+        )
+        losses['loss_distill'] = (distill_loss_box + distill_loss_cls) * self.distill_lambda
 
         # === 6. SwanLab 插桩 (非 loss_ 前缀, 不参与反传, 仅记录) ===
         with torch.no_grad():
-            losses['pd_distill_loss'] = distill_loss.detach()
+            losses['pd_distill_loss_box'] = distill_loss_box.detach()
+            losses['pd_distill_loss_cls'] = distill_loss_cls.detach()
             losses['pd_student_teacher_gap'] = (
                 (student_x0.detach() - teacher_x0.detach()).norm(dim=-1).mean()
             )
@@ -346,7 +358,7 @@ class DiffusionDetHead(nn.Module):
 
         return losses
 
-    def _teacher_multistep_x0(self, features, img_metas, x_raw):
+    def _teacher_multistep_x0(self, features, img_metas, x_raw, return_cls=False):
         """教师多步推理获取 raw x0 (理论 3.1).
 
         关键实现点:
@@ -366,9 +378,10 @@ class DiffusionDetHead(nn.Module):
             dpm_solver.reset()
 
         x0 = None
+        cls_logits = None
         with torch.no_grad():
             for step_idx, (t_curr, t_next) in enumerate(time_pairs):
-                _, _, x0 = teacher._forward_at_t(
+                cls_logits, _, x0 = teacher._forward_at_t(
                     features, x, t_curr, img_metas
                 )
                 if dpm_solver is not None:
@@ -384,9 +397,11 @@ class DiffusionDetHead(nn.Module):
                 else:
                     x = teacher.rf.step(x, x0, t_curr, t_next)
                 # 不调用 apply_box_renewal! (保持 proposal 对应)
+        if return_cls:
+            return cls_logits, x0
         return x0
 
-    def _student_single_step_x0(self, features, img_metas, x_raw):
+    def _student_single_step_x0(self, features, img_metas, x_raw, return_cls=False):
         """学生 1步 x0_pred (理论 3.1: t=1.0 单步前向).
 
         关键: 不在 no_grad 下! 蒸馏损失需对学生参数求梯度.
@@ -394,9 +409,11 @@ class DiffusionDetHead(nn.Module):
         # t=1.0: 纯噪声输入, 模型预测 x0
         # SC-RF 兼容: 若启用自条件化, x0_prev 初始化为零 (第一步无先验)
         x0_prev = torch.zeros_like(x_raw) if self.use_self_conditioning else None
-        _, _, x0 = self._forward_at_t(
+        cls_logits, _, x0 = self._forward_at_t(
             features, x_raw, 1.0, img_metas, x0_prev
         )
+        if return_cls:
+            return cls_logits, x0
         return x0
 
     # ================================================================

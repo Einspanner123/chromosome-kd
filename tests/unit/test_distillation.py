@@ -2,7 +2,7 @@
 
 测试直接蒸馏机制的核心理论性质:
 1. 教师冻结: 教师参数不更新 (理论: 教师作为固定监督源)
-2. 蒸馏损失计算: MSE(student_x0, teacher_x0.detach()) 正确 (理论 2.5)
+2. 蒸馏损失计算: MSE(student_x0, teacher_x0.detach()) + KL(cls) 正确 (理论 2.5)
 3. 梯度流: 学生前向有梯度, 蒸馏损失梯度回传到学生参数 (核心: 无 no_grad bug)
 4. 教师 detach: 教师输出不参与学生计算图 (stop-gradient)
 5. 噪声共享: 教师和学生使用同一 x_raw, proposal 对应一致 (核心: 蒸馏语义有效)
@@ -11,6 +11,7 @@
 8. lambda=0 禁用: 无蒸馏时退化为标准训练
 9. 学生 1步推理: 1步 Euler 正常工作
 10. 梯度对齐诊断: 可计算梯度余弦相似度 (诊断指标, 不预设符号)
+11. 分类蒸馏: KL(cls) 损失补充分类头在 t=1.0 的训练 (修复: cascade_detach=False)
 
 对应 docs/paper/proposals/PD-RF_Progressive_Distillation.md
 理论依据: 2.2 RF轨迹直化度, 2.3 梯度结构差异, 2.5 蒸馏空间选择
@@ -97,6 +98,7 @@ def _make_head(
     distill_lambda=1.0,
     solver_type='euler',
     sampling_timesteps=1,
+    cascade_detach=True,
 ):
     """构建 DiffusionDetHead (学生或教师)"""
     return DiffusionDetHead(
@@ -112,6 +114,7 @@ def _make_head(
         sampling_timesteps=sampling_timesteps,
         use_distillation=use_distillation,
         distill_lambda=distill_lambda,
+        cascade_detach=cascade_detach,
     )
 
 
@@ -306,12 +309,14 @@ class TestDistillLossGradientFlow:
     def test_distill_loss_backward_updates_student_weights(self):
         """蒸馏损失反传应改变学生权重 (证明梯度有效)
 
-        注: head_series[0] (首个 head) 在小规模测试输入下梯度为零 (cascade_detach
-        导致首 head 输出被 detach, 且 SimOTA 匹配在随机框上可能分配稀疏).
-        head_series[-1] (末 head) 产生最终预测, 蒸馏损失直接作用于其 box 回归路径,
-        必有非零梯度. 选择 head_series[-1].reg_head[-1].weight 验证.
+        v2 修复: cascade_detach=False + 分类蒸馏 KL 损失
+        - reg_head[-1]: box 蒸馏 MSE 梯度 (原有)
+        - cls_head[-1]: 分类蒸馏 KL 梯度 (新增, 修复分类头训练不足)
+        两者都应有非零梯度.
         """
-        student = _make_head(use_distillation=True, distill_lambda=1.0)
+        student = _make_head(
+            use_distillation=True, distill_lambda=1.0, cascade_detach=False
+        )
         teacher = _make_head(solver_type='dpm_solver_pp', sampling_timesteps=4)
         for param in teacher.parameters():
             param.requires_grad = False
@@ -320,18 +325,23 @@ class TestDistillLossGradientFlow:
         features, img_metas, gt_bboxes, gt_labels = _make_dummy_input()
         student.train()
 
-        # 记录反传前的权重 (末 head 的 reg_head[-1], 蒸馏损失直接作用)
         last_head = student.head_series[-1]
-        w_before = last_head.reg_head[-1].weight.clone()
+        w_reg_before = last_head.reg_head[-1].weight.clone()
+        w_cls_before = last_head.cls_head[-1].weight.clone()
 
         losses = student.loss_with_distillation(features, img_metas, gt_bboxes, gt_labels)
         total_loss = sum(v for k, v in losses.items() if k.startswith('loss_'))
         total_loss.backward()
 
-        # 验证 reg_head[-1] 确实有非零梯度
+        # 验证 reg_head[-1] 有非零梯度 (box 蒸馏 MSE)
         reg_grad = last_head.reg_head[-1].weight.grad
         assert reg_grad is not None and reg_grad.abs().sum() > 0, \
-            'head_series[-1].reg_head[-1].weight 应有非零梯度 (蒸馏损失作用于 box 回归路径)'
+            'reg_head[-1].weight 应有非零梯度 (box 蒸馏 MSE)'
+
+        # 验证 cls_head[-1] 有非零梯度 (分类蒸馏 KL)
+        cls_grad = last_head.cls_head[-1].weight.grad
+        assert cls_grad is not None and cls_grad.abs().sum() > 0, \
+            'cls_head[-1].weight 应有非零梯度 (分类蒸馏 KL)'
 
         # 手动更新一步
         with torch.no_grad():
@@ -339,9 +349,12 @@ class TestDistillLossGradientFlow:
                 if param.grad is not None:
                     param -= 0.01 * param.grad
 
-        w_after = last_head.reg_head[-1].weight.clone()
-        assert not torch.allclose(w_before, w_after), \
-            '蒸馏损失反传后学生权重应改变'
+        w_reg_after = last_head.reg_head[-1].weight.clone()
+        w_cls_after = last_head.cls_head[-1].weight.clone()
+        assert not torch.allclose(w_reg_before, w_reg_after), \
+            '蒸馏损失反传后 reg_head 权重应改变'
+        assert not torch.allclose(w_cls_before, w_cls_after), \
+            '蒸馏损失反传后 cls_head 权重应改变'
 
 
 # ============================================================
@@ -590,8 +603,8 @@ class TestGradientAlignmentDiagnostic:
         """梯度对齐性应可计算 (返回标量)
 
         注: det_loss (含 SimOTA 匹配的 Focal+L1+GIoU) 对所有参数有梯度,
-        而 distill_loss (raw 空间 MSE) 仅对 box 回归路径参数有梯度.
-        故只比较两者都有非 None 梯度的参数 (box 回归路径).
+        而 distill_loss (box MSE + cls KL) 对末 head 的 reg/cls 路径有梯度
+        (cascade_detach=True 时). 故只比较两者都有非 None 梯度的参数.
         """
         student = _make_head(use_distillation=True, distill_lambda=1.0)
         teacher = _make_head(solver_type='dpm_solver_pp', sampling_timesteps=4)
@@ -640,3 +653,77 @@ class TestGradientAlignmentDiagnostic:
             # 诊断指标: 不预设符号, 仅验证可计算
             assert -1.0 <= cos_sim <= 1.0, \
                 f'梯度余弦相似度应在 [-1, 1], 实际: {cos_sim}'
+
+
+# ============================================================
+# 11. 分类蒸馏 (v2 修复: KL 散度补充分类头训练)
+# ============================================================
+
+class TestClassificationDistillation:
+    """测试分类蒸馏 KL 损失"""
+
+    def test_cls_distill_metrics_in_output(self):
+        """loss_with_distillation 应输出 pd_distill_loss_box 和 pd_distill_loss_cls"""
+        student = _make_head(use_distillation=True, distill_lambda=1.0)
+        teacher = _make_head(solver_type='dpm_solver_pp', sampling_timesteps=4)
+        for param in teacher.parameters():
+            param.requires_grad = False
+        student.teacher_model = teacher
+
+        features, img_metas, gt_bboxes, gt_labels = _make_dummy_input()
+        student.train()
+        losses = student.loss_with_distillation(features, img_metas, gt_bboxes, gt_labels)
+        assert 'pd_distill_loss_box' in losses, '应包含 pd_distill_loss_box'
+        assert 'pd_distill_loss_cls' in losses, '应包含 pd_distill_loss_cls'
+        assert isinstance(losses['pd_distill_loss_box'], torch.Tensor)
+        assert isinstance(losses['pd_distill_loss_cls'], torch.Tensor)
+
+    def test_cls_distill_gradient_on_cls_head(self):
+        """分类蒸馏 KL 损失应使 cls_head 有非零梯度"""
+        student = _make_head(
+            use_distillation=True, distill_lambda=1.0, cascade_detach=False
+        )
+        teacher = _make_head(solver_type='dpm_solver_pp', sampling_timesteps=4)
+        for param in teacher.parameters():
+            param.requires_grad = False
+        student.teacher_model = teacher
+
+        features, img_metas, gt_bboxes, gt_labels = _make_dummy_input()
+        student.train()
+        losses = student.loss_with_distillation(features, img_metas, gt_bboxes, gt_labels)
+        total_loss = sum(v for k, v in losses.items() if k.startswith('loss_'))
+        total_loss.backward()
+
+        cls_grad = student.head_series[-1].cls_head[-1].weight.grad
+        assert cls_grad is not None and cls_grad.abs().sum() > 0, \
+            'cls_head[-1].weight 应有非零梯度 (分类蒸馏 KL)'
+
+    def test_return_cls_backward_compatible(self):
+        """return_cls=False (默认) 应仅返回 x0, 保持向后兼容"""
+        student = _make_head(use_distillation=True)
+        features, img_metas, _, _ = _make_dummy_input()
+        device = features[0].device
+        x_raw = torch.randn(2, 10, 4, device=device)
+        student.train()
+
+        result = student._student_single_step_x0(features, img_metas, x_raw)
+        assert isinstance(result, torch.Tensor), \
+            'return_cls=False 时应返回 tensor (向后兼容)'
+        assert result.shape == (2, 10, 4)
+
+    def test_return_cls_true_returns_tuple(self):
+        """return_cls=True 应返回 (cls_logits, x0) 元组"""
+        student = _make_head(use_distillation=True)
+        features, img_metas, _, _ = _make_dummy_input()
+        device = features[0].device
+        x_raw = torch.randn(2, 10, 4, device=device)
+        student.train()
+
+        cls_logits, x0 = student._student_single_step_x0(
+            features, img_metas, x_raw, return_cls=True
+        )
+        assert isinstance(cls_logits, torch.Tensor), 'cls_logits 应为 tensor'
+        assert isinstance(x0, torch.Tensor), 'x0 应为 tensor'
+        assert cls_logits.shape == (2, 10, 24), \
+            f'cls_logits 形状应为 (2, 10, 24), 实际: {cls_logits.shape}'
+        assert x0.shape == (2, 10, 4)
