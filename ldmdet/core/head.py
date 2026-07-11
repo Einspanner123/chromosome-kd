@@ -333,11 +333,12 @@ class DiffusionDetHead(nn.Module):
         # 5a. Box 蒸馏: raw 空间 MSE
         distill_loss_box = F.mse_loss(student_x0, teacher_x0.detach())
         # 5b. 分类蒸馏: KL 散度 (补充分类头在 t=1.0 的训练)
+        # 按 proposal 维度求 KL (对 class 求和), 再对 bs*P 取均值
         student_cls_log = F.log_softmax(student_cls, dim=-1)
         teacher_cls_soft = F.softmax(teacher_cls.detach(), dim=-1)
         distill_loss_cls = F.kl_div(
-            student_cls_log, teacher_cls_soft, reduction='batchmean'
-        )
+            student_cls_log, teacher_cls_soft, reduction='none'
+        ).sum(dim=-1).mean()
         losses['loss_distill'] = (distill_loss_box + distill_loss_cls) * self.distill_lambda
 
         # === 6. SwanLab 插桩 (非 loss_ 前缀, 不参与反传, 仅记录) ===
