@@ -4,7 +4,6 @@
 """
 
 import math
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -31,8 +30,13 @@ class NormalizedLinear(nn.Module):
         eps: 归一化数值稳定小量
     """
 
-    def __init__(self, in_features: int, out_features: int,
-                 temperature: float = 20.0, eps: float = 1e-12):
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        temperature: float = 20.0,
+        eps: float = 1e-12,
+    ):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -43,7 +47,9 @@ class NormalizedLinear(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # 归一化权重: [out, in] -> 沿 in 归一化
-        w_norm = self.weight / self.weight.norm(dim=1, keepdim=True).clamp(min=self.eps)
+        w_norm = self.weight / self.weight.norm(dim=1, keepdim=True).clamp(
+            min=self.eps
+        )
         # 归一化特征: [..., in] -> 沿 in 归一化
         x_norm = x / x.norm(dim=-1, keepdim=True).clamp(min=self.eps)
         # logits = τ · (x̃ @ W̃^T)
@@ -130,7 +136,11 @@ class SingleDiffusionDetHead(nn.Module):
             )
 
         self.cls_head = self._build_cls_head(
-            feat_channels, num_cls_convs, num_classes, use_focal_loss, use_fed_loss,
+            feat_channels,
+            num_cls_convs,
+            num_classes,
+            use_focal_loss,
+            use_fed_loss,
             use_normalized_classifier=use_normalized_classifier,
             temperature=classifier_temperature,
         )
@@ -168,9 +178,15 @@ class SingleDiffusionDetHead(nn.Module):
         q, k, v = qkv.unbind(2)  # 各 [seq, bs, dim]
 
         # 转为 [bs, num_heads, seq, head_dim]
-        q = q.reshape(seq_len, bs, self.num_heads, self.head_dim).permute(1, 2, 0, 3)
-        k = k.reshape(seq_len, bs, self.num_heads, self.head_dim).permute(1, 2, 0, 3)
-        v = v.reshape(seq_len, bs, self.num_heads, self.head_dim).permute(1, 2, 0, 3)
+        q = q.reshape(seq_len, bs, self.num_heads, self.head_dim).permute(
+            1, 2, 0, 3
+        )
+        k = k.reshape(seq_len, bs, self.num_heads, self.head_dim).permute(
+            1, 2, 0, 3
+        )
+        v = v.reshape(seq_len, bs, self.num_heads, self.head_dim).permute(
+            1, 2, 0, 3
+        )
 
         # 可选: attention 核心转 FP16 以启用高效后端
         input_dtype = q.dtype
@@ -203,18 +219,35 @@ class SingleDiffusionDetHead(nn.Module):
         return self.self_attn(q, k, v)
 
     @staticmethod
-    def _build_cls_head(feat_channels, num_convs, num_classes, use_focal_loss, use_fed_loss,
-                        use_normalized_classifier=False, temperature=20.0):
+    def _build_cls_head(
+        feat_channels,
+        num_convs,
+        num_classes,
+        use_focal_loss,
+        use_fed_loss,
+        use_normalized_classifier=False,
+        temperature=20.0,
+    ):
         layers = []
         for _ in range(num_convs):
-            layers.append(nn.Sequential(
-                nn.Linear(feat_channels, feat_channels, bias=False),
-                nn.LayerNorm(feat_channels),
-                nn.ReLU(inplace=True),
-            ))
-        out_dim = num_classes if (use_focal_loss or use_fed_loss) else num_classes + 1
+            layers.append(
+                nn.Sequential(
+                    nn.Linear(feat_channels, feat_channels, bias=False),
+                    nn.LayerNorm(feat_channels),
+                    nn.ReLU(inplace=True),
+                )
+            )
+        out_dim = (
+            num_classes
+            if (use_focal_loss or use_fed_loss)
+            else num_classes + 1
+        )
         if use_normalized_classifier:
-            layers.append(NormalizedLinear(feat_channels, out_dim, temperature=temperature))
+            layers.append(
+                NormalizedLinear(
+                    feat_channels, out_dim, temperature=temperature
+                )
+            )
         else:
             layers.append(nn.Linear(feat_channels, out_dim))
         return nn.Sequential(*layers)
@@ -223,11 +256,13 @@ class SingleDiffusionDetHead(nn.Module):
     def _build_reg_head(feat_channels, num_convs):
         layers = []
         for _ in range(num_convs):
-            layers.append(nn.Sequential(
-                nn.Linear(feat_channels, feat_channels, bias=False),
-                nn.LayerNorm(feat_channels),
-                nn.ReLU(inplace=True),
-            ))
+            layers.append(
+                nn.Sequential(
+                    nn.Linear(feat_channels, feat_channels, bias=False),
+                    nn.LayerNorm(feat_channels),
+                    nn.ReLU(inplace=True),
+                )
+            )
         layers.append(nn.Linear(feat_channels, 4))
         return nn.Sequential(*layers)
 
@@ -241,7 +276,11 @@ class SingleDiffusionDetHead(nn.Module):
             roi_features = self.shape_attention(roi_features)
 
         if proposals is None:
-            proposals = roi_features.flatten(2).mean(-1).view(bs, num_boxes, self.feat_channels)
+            proposals = (
+                roi_features.flatten(2)
+                .mean(-1)
+                .view(bs, num_boxes, self.feat_channels)
+            )
 
         # SC-RF: 将上一步 x0 预测注入到 proposal features (残差学习)
         # x0_prev: [bs, num_boxes, 4] (raw 坐标空间), 零初始化时 x0_prev_emb=0 不影响
@@ -256,13 +295,21 @@ class SingleDiffusionDetHead(nn.Module):
             bs * num_boxes, self.feat_channels, -1
         ).permute(2, 0, 1)
 
-        fc_feature = self._conditioned_forward(proposals, roi_features, time_emb, bs, num_boxes)
+        fc_feature = self._conditioned_forward(
+            proposals, roi_features, time_emb, bs, num_boxes
+        )
         return self._predict(fc_feature, bboxes, bs, num_boxes)
 
-    def _conditioned_forward(self, proposals, roi_features, time_emb, bs, num_boxes):
+    def _conditioned_forward(
+        self, proposals, roi_features, time_emb, bs, num_boxes
+    ):
         if self.time_conditioning == 'adaln_zero':
-            return self._forward_adaln_zero(proposals, roi_features, time_emb, bs, num_boxes)
-        return self._forward_scale_shift(proposals, roi_features, time_emb, bs, num_boxes)
+            return self._forward_adaln_zero(
+                proposals, roi_features, time_emb, bs, num_boxes
+            )
+        return self._forward_scale_shift(
+            proposals, roi_features, time_emb, bs, num_boxes
+        )
 
     def _predict(self, fc_feature, bboxes, bs, num_boxes):
         class_logits = self.cls_head(fc_feature)
@@ -273,43 +320,64 @@ class SingleDiffusionDetHead(nn.Module):
             fc_feature.view(1, bs * num_boxes, self.feat_channels),
         )
 
-    def _forward_adaln_zero(self, proposals, roi_features, time_emb, bs, num_boxes):
-        proposals = proposals.view(bs, num_boxes, self.feat_channels).permute(1, 0, 2)
+    def _forward_adaln_zero(
+        self, proposals, roi_features, time_emb, bs, num_boxes
+    ):
+        proposals = proposals.view(bs, num_boxes, self.feat_channels).permute(
+            1, 0, 2
+        )
         adaln_params = self.adaln_mlp(time_emb)
         adaln_params = torch.repeat_interleave(adaln_params, num_boxes, dim=0)
-        gamma1, beta1, alpha1, gamma2, beta2, alpha2 = adaln_params.chunk(6, dim=-1)
+        gamma1, beta1, alpha1, gamma2, beta2, alpha2 = adaln_params.chunk(
+            6, dim=-1
+        )
 
         proposals_flat = proposals.reshape(num_boxes * bs, self.feat_channels)
-        q_modulated = F.layer_norm(proposals_flat, [self.feat_channels]) * (1 + gamma1) + beta1
+        q_modulated = (
+            F.layer_norm(proposals_flat, [self.feat_channels]) * (1 + gamma1)
+            + beta1
+        )
         q_modulated = q_modulated.view(num_boxes, bs, self.feat_channels)
         attn_out, _ = self._self_attn(q_modulated)
         attn_out_flat = attn_out.reshape(num_boxes * bs, self.feat_channels)
         proposals_flat = proposals_flat + alpha1 * attn_out_flat
 
         proposals = proposals_flat.view(num_boxes, bs, self.feat_channels)
-        proposals = proposals.permute(1, 0, 2).reshape(1, bs * num_boxes, self.feat_channels)
+        proposals = proposals.permute(1, 0, 2).reshape(
+            1, bs * num_boxes, self.feat_channels
+        )
         inst_out = self.inst_interact(proposals, roi_features)
         proposals = proposals + self.dropout2(inst_out)
         obj_features = self.norm2(proposals)
 
         obj_flat = obj_features.squeeze(0)
-        ffn_input = F.layer_norm(obj_flat, [self.feat_channels]) * (1 + gamma2) + beta2
+        ffn_input = (
+            F.layer_norm(obj_flat, [self.feat_channels]) * (1 + gamma2) + beta2
+        )
         ffn_out = self.linear2(self.dropout(self.act(self.linear1(ffn_input))))
         obj_flat = obj_flat + alpha2 * ffn_out
         return obj_flat
 
-    def _forward_scale_shift(self, proposals, roi_features, time_emb, bs, num_boxes):
-        proposals = proposals.view(bs, num_boxes, self.feat_channels).permute(1, 0, 2)
+    def _forward_scale_shift(
+        self, proposals, roi_features, time_emb, bs, num_boxes
+    ):
+        proposals = proposals.view(bs, num_boxes, self.feat_channels).permute(
+            1, 0, 2
+        )
         attn_shortcut, _ = self._self_attn(proposals)
         proposals = proposals + self.dropout1(attn_shortcut)
         proposals = self.norm1(proposals)
 
-        proposals = proposals.permute(1, 0, 2).reshape(1, bs * num_boxes, self.feat_channels)
+        proposals = proposals.permute(1, 0, 2).reshape(
+            1, bs * num_boxes, self.feat_channels
+        )
         attn_shortcut = self.inst_interact(proposals, roi_features)
         proposals = proposals + self.dropout2(attn_shortcut)
         obj_features = self.norm2(proposals)
 
-        obj_shortcut = self.linear2(self.dropout(self.act(self.linear1(obj_features))))
+        obj_shortcut = self.linear2(
+            self.dropout(self.act(self.linear1(obj_features)))
+        )
         obj_features = obj_features + self.dropout3(obj_shortcut)
         obj_features = self.norm3(obj_features)
 

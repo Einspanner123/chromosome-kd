@@ -45,14 +45,20 @@ class RectifiedFlow:
         return (x_t - x_0_pred) / torch.clamp(t_view, min=1e-5)
 
     def step(
-        self, x_t: Tensor, x_0_pred: Tensor, t_curr: float, t_next: float
+        self,
+        x_t: Tensor,
+        x_0_pred: Tensor,
+        t_curr: float,
+        t_next: float,
+        velocity: Optional[Tensor] = None,
     ) -> Tensor:
         """Euler step: x_next = x_t + dt * v_t"""
         dt = t_next - t_curr
-        v_t = self.get_velocity(
-            x_t, x_0_pred, torch.tensor([t_curr], device=x_t.device)
-        )
-        return x_t + dt * v_t
+        if velocity is None:
+            velocity = self.get_velocity(
+                x_t, x_0_pred, torch.tensor([t_curr], device=x_t.device)
+            )
+        return x_t + dt * velocity
 
     def heun_step(
         self,
@@ -61,15 +67,17 @@ class RectifiedFlow:
         t_curr: float,
         t_next: float,
         model_fn,
+        velocity: Optional[Tensor] = None,
     ) -> Tensor:
         """Heun step (二阶): x_next = x_t + (dt/2)(v_t + v_next)"""
         dt = t_next - t_curr
         device = x_t.device
 
-        v_t = self.get_velocity(
-            x_t, x_0_pred, torch.tensor([t_curr], device=device)
-        )
-        x_next_euler = x_t + dt * v_t
+        if velocity is None:
+            velocity = self.get_velocity(
+                x_t, x_0_pred, torch.tensor([t_curr], device=device)
+            )
+        x_next_euler = x_t + dt * velocity
 
         x_0_pred_next, _ = model_fn(x_next_euler, t_next)
         v_next = self.get_velocity(
@@ -77,7 +85,7 @@ class RectifiedFlow:
             x_0_pred_next,
             torch.tensor([t_next], device=device),
         )
-        return x_t + (dt / 2.0) * (v_t + v_next)
+        return x_t + (dt / 2.0) * (velocity + v_next)
 
 
 class RFDPMSolverMultistep:
