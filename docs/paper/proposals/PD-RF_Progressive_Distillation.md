@@ -1,9 +1,17 @@
 # PD-RF: Direct Knowledge Distillation for Efficient Rectified Flow Detection
 
-> **方向类型**: 效率方向（推理加速，可独立投稿或与 SC-RF 叠加）
-> **可叠加方向**: SC-RF（SC-RF 训练的模型作为 PD-RF 的 teacher，提供更高质量的轨迹）
+> **方向类型**: 效率方向（推理加速，可独立投稿）
 > **目标会议**: MICCAI 2026 / IEEE TMI
 > **预期效果**: 4-step (55ms) → 1-step (14ms) 推理加速，mAP ≥ A1 baseline + 0.005（≥0.861）
+>
+> **Teacher 选择**: A4（4步 DPM-Solver++，mAP=0.862）
+> - 原 [SC-RF 方案](./SC-RF_Self-Conditioned_Rectified_Flow.md)计划作为 PD-RF 的 teacher，但 SC-RF 已于 2026-07-11 证伪归档（best mAP=0.860 < A4 0.862，负增益），故 PD-RF 继续使用 A4 作为 teacher
+>
+> **实验状态**: ❌ 已归档（2026-07-11，灾难性崩塌证伪）
+> - v1-v4 共 4 次迭代均失败，best mAP=0.851（Epoch 1，即 A4 初始化点，训练零增益）
+> - v4 最终 mAP 从 0.851 灾难性崩塌至 0.252（Epoch 28），Early Stop at Epoch 31
+> - 根本原因：1步 Euler 无法逼近 4步 DPM-Solver++ 预测（gap~1.0 不收敛）+ 蒸馏梯度与检测梯度严重冲突（grad_norm 持续 150-200）
+> - 详细复盘见 [第 8 节 实验结果与复盘](#8-实验结果与复盘)
 >
 > **命名说明**: "PD-RF" 中的 "PD" 原指 Progressive Distillation (Salimans et al., 2022)，
 > 但本方案实际采用**直接 4→1 蒸馏**（direct distillation），而非 Salimans 的渐进式
@@ -387,7 +395,7 @@ teacher_checkpoint = 'work_dirs/a4_dpm_pp_24obj/best.pth'
 |---|---|
 | PD-RF $\lambda$=0.0/0.5/1.0/2.0/5.0 | 最优蒸馏权重 |
 | PD-RF 1步 vs 2步 | 步数-质量权衡 |
-| PD-RF from A4 vs from SC-RF | 教师质量对蒸馏的影响 |
+| ~~PD-RF from A4 vs from SC-RF~~ | ~~教师质量对蒸馏的影响~~（**已取消**: SC-RF 于 2026-07-11 证伪归档，best mAP=0.860 < A4 0.862，无作为 teacher 的价值） |
 
 ### 5.3 效率评估
 
@@ -419,3 +427,186 @@ teacher_checkpoint = 'work_dirs/a4_dpm_pp_24obj/best.pth'
 | 教师 x0 提取错误 (post-NMS) | 中 | 高 | 单元测试 `test_teacher_x0_raw_shape` 验证返回 `[bs, P, 4]`；使用 `_forward_at_t` 而非 `predict` |
 | box_renewal 破坏对应 | 中 | 中 | 单元测试 `test_teacher_box_renewal_disabled`；教师蒸馏推理显式关闭 box_renewal |
 | 仅蒸馏 box 不蒸馏分类 | 低 | 低 | 分类损失已稠密（见 2.6 节）；若实验不足可增加 KL 蒸馏作为消融 |
+
+---
+
+## 8. 实验结果与复盘
+
+> **归档日期**: 2026-07-11
+> **实验配置**: `experiments/configs/ldmdet/directions/pd_rf/pd_rf_24obj.py`（v4 最终版）
+> **训练日志**: `work_dirs/pd_rf_24obj/train.log`
+> **Best checkpoint**: `work_dirs/pd_rf_24obj/best_coco_bbox_mAP_epoch_1.pth`（mAP=0.851，即 A4 初始化点）
+
+### 8.1 迭代历程总览
+
+PD-RF 经历 v1-v4 共 4 次迭代，均告失败：
+
+| 版本 | 核心配置 | 结果 | 失败原因 |
+|------|---------|------|---------|
+| v1 | distill_lambda=1.0, cascade_detach=True, 学生从零初始化 | mAP=0 | cascade_detach 阻止蒸馏梯度到早期 head；学生从零学习初始蒸馏损失过大 |
+| v2 | + load_from A4, cascade_detach=False, + KL 分类蒸馏 | mAP 缓慢下降 | LR 调度器链式 bug（见下） |
+| v3 | warmup 1 epoch, start_factor=0.1 | mAP 灾难性下降（0.851→0.421） | LR 调度器链式 bug + distill_lambda=1.0 蒸馏主导 |
+| v4 | lr=1e-05, 纯 CosineAnnealingLR, distill_lambda=0.1 | mAP 灾难性崩塌（0.851→0.252） | 1步无法逼近4步 + 梯度冲突（根本性问题） |
+
+### 8.2 v4 最终训练状态
+
+| 项目 | 值 |
+|------|-----|
+| 训练时间 | 2026-07-11 13:05 → 22:12（约 9 小时） |
+| 完成 Epoch | 31 / 150（EarlyStoppingHook 触发） |
+| 早停原因 | "monitored metric did not improve in the last 30 records. best score: 0.851" |
+| Best mAP | **0.851**（Epoch 1，即 A4 初始化点） |
+| 最低 mAP | **0.252**（Epoch 28，崩塌 70.4%） |
+| Last mAP | 0.324（Epoch 31） |
+| 目标 mAP | ≥0.861（未达标，差距 -0.010） |
+
+### 8.3 v4 完整 mAP 趋势
+
+```
+阶段1（Ep1-8 缓降）:  0.851 → 0.805  （蒸馏开始侵蚀 A4 初始化质量）
+阶段2（Ep9-18 崩塌）: 0.805 → 0.294  （mAP 灾难性崩塌）
+阶段3（Ep19-31 震荡）: 0.252-0.467    （低位剧烈震荡，无法恢复）
+```
+
+| Epoch | mAP | Epoch | mAP | Epoch | mAP |
+|-------|--------|-------|--------|-------|--------|
+| 1 | **0.851** | 12 | 0.640 | 23 | 0.308 |
+| 2 | 0.847 | 13 | 0.584 | 24 | 0.258 |
+| 3 | 0.847 | 14 | 0.508 | 25 | 0.387 |
+| 4 | 0.842 | 15 | 0.534 | 26 | 0.431 |
+| 5 | 0.828 | 16 | 0.553 | 27 | 0.272 |
+| 6 | 0.813 | 17 | 0.438 | 28 | **0.252** |
+| 7 | 0.816 | 18 | 0.294 | 29 | 0.301 |
+| 8 | 0.805 | 19 | 0.289 | 30 | 0.258 |
+| 9 | 0.724 | 20 | 0.323 | 31 | 0.324 |
+| 10 | 0.663 | 21 | 0.295 | | |
+| 11 | 0.701 | 22 | 0.467 | | |
+
+**关键观察**: best 出现在 Epoch 1，意味着**整个 v4 训练过程对 mAP 没有任何正向贡献**，只有破坏没有改进。
+
+### 8.4 核心矛盾：蒸馏"成功"但检测崩塌
+
+| 指标 | Epoch 1 | Epoch 31 | 趋势 | 解读 |
+|------|---------|----------|------|------|
+| loss_distill | 0.140 | 0.128 | 平缓 | 蒸馏损失看似正常 |
+| pd_student_teacher_gap | 1.12 | 1.09 | ⚠️ 不收敛 | 1步无法逼近4步预测 |
+| **grad_norm** | **162** | **195** | 🔴 持续爆炸 | 梯度严重冲突（clip_grad=1.0 形同虚设） |
+| **mAP** | **0.851** | **0.324** | 🔴 灾难性崩塌 | 检测能力丧失 |
+| pd_det_loss_ratio | 0.47 | 0.53 | 稳定 | 检测损失占比符合预期 |
+
+**典型的"过度蒸馏导致特征崩塌"**：学生成功模仿教师的 raw x0 预测（loss_distill 平缓），但丧失了检测能力（mAP 崩塌）。蒸馏损失下降与 mAP 崩塌同时发生，说明蒸馏梯度正在破坏检测头。
+
+### 8.5 根本原因分析
+
+#### 原因1：1步 Euler 无法逼近 4步 DPM-Solver++ 预测（核心原因）
+
+`pd_student_teacher_gap` 全程维持在 ~1.0-1.4 不收敛，说明 1步 Euler 学生与 4步 DPM-Solver++ 教师之间存在**不可弥合的预测差距**。
+
+这 contradicts [2.2 节](#22-动机分析-1rf-轨迹直化度)的动机分析：原假设"RF 轨迹近似直线使得单步逼近理论可行"，但实际中 RF 训练残差 $\epsilon$ 在检测任务中较大（检测的 $x_0$ 是 4 维 bbox，非高维图像像素，轨迹直化质量远低于图像生成），4步 DPM-Solver++ 的迭代精炼无法被 1步 Euler 逼近。
+
+**理论修正**: [2.2 节](#22-动机分析-1rf-轨迹直化度)的"RF 轨迹近似直线"假设在检测任务中**不成立**。检测 bbox 的 4 维空间信息密度低，RF 轨迹直化质量远不如图像生成的高维像素空间。4步→1步的压缩比（4:1）对检测任务而言过大。
+
+#### 原因2：蒸馏梯度与检测梯度严重冲突
+
+`grad_norm` 全程 150-200（尽管配置了 `clip_grad max_norm=1.0`），表明蒸馏梯度与检测梯度方向严重冲突。
+
+[2.3 节](#23-动机分析-2蒸馏损失与检测损失的梯度结构差异)已坦诚分析梯度结构差异（MSE vs SimOTA+Focal+L1+GIoU），并将蒸馏定位为"正则化信号"。但实际结果表明：
+- 即使 distill_lambda=0.1（检测损失占比 0.55，符合预期），蒸馏梯度仍足以破坏检测能力
+- 蒸馏损失的稠密梯度（作用于全部 P 个 proposal）与检测损失的稀疏梯度（仅匹配 proposal）冲突严重
+- `clip_grad max_norm=1.0` 未能有效控制梯度爆炸（grad_norm 报告值 150-200 是裁剪前的原始值，但裁剪后仍导致权重更新方向冲突）
+
+**理论修正**: [2.3 节](#23-动机分析-2蒸馏损失与检测损失的梯度结构差异)"蒸馏作为正则化信号"的定位**过于乐观**。即使 lambda=0.1，蒸馏梯度仍非"正则化"而是"破坏性信号"。残留风险评估中"若 $\lambda$ 过大，蒸馏损失可能主导优化"的阈值远低于预期——$\lambda=0.1$ 已足以导致崩塌。
+
+#### 原因3：LR 调度器链式 bug（v3 失败原因，v4 已修复但不够）
+
+v3 中 `LinearLR(start_factor=0.1)` + `CosineAnnealingLR` 的链式调度存在 bug：LinearLR 将 lr 降至 5e-06，CosineAnnealingLR 错误地以此为基础 lr（而非 optimizer 的 5e-05），导致全程 lr 卡在 ~5e-06。
+
+v4 修复为纯 CosineAnnealingLR，但 lr=1e-05 对于已训练好的 A4 checkpoint 在蒸馏错误信号下仍足以破坏预训练权重。
+
+### 8.6 v1-v4 迭代教训
+
+#### v1 教训：cascade_detach 阻止梯度传播
+- `cascade_detach=True` 导致级联 head 间输出被 detach，蒸馏梯度仅作用于末 head，Head 1-5 无蒸馏梯度
+- 学生从零初始化导致初始蒸馏损失过大
+- **修复(v2)**: `cascade_detach=False` + `load_from` A4 checkpoint + KL 分类蒸馏
+
+#### v2 教训：LR 调度器配置不当
+- 继承 base 配置的 5 epoch warmup（start_factor=0.001），Epoch 1 lr=5e-08，模型未训练
+- mAP=0.860 纯粹来自 A4 checkpoint 权重
+- **修复(v3)**: 缩短 warmup 到 1 epoch，start_factor=0.1
+
+#### v3 教训：LR 调度器链式 bug + 蒸馏损失过强
+- LinearLR + CosineAnnealingLR 链式 bug 导致全程 lr=5e-06
+- distill_lambda=1.0 导致蒸馏主导训练（pd_det_loss_ratio=0.12），mAP 从 0.851 降至 0.421
+- **修复(v4)**: 纯 CosineAnnealingLR + distill_lambda=0.1 + lr=1e-05
+
+#### v4 教训：根本性问题无法通过超参调整解决
+- 即使 lr 降至 1e-05、distill_lambda 降至 0.1、移除有 bug 的 warmup，mAP 仍灾难性崩塌
+- 根本原因是 1步 Euler 无法逼近 4步 DPM-Solver++ 预测（gap~1.0 不收敛）
+- 超参调整无法解决"蒸馏目标不可达"这一根本性问题
+
+### 8.7 风险评估表的实际命中情况
+
+[第 7 节风险评估](#7-风险评估)中预判的风险项实际命中情况：
+
+| 风险项（原评估） | 概率 | 影响 | 实际命中 | 说明 |
+|---|---|---|---|---|
+| 1步质量差距大 | 中 | 高 | ✅ **命中（致命）** | gap~1.0 不收敛，1步无法逼近4步 |
+| 蒸馏训练不稳定/梯度冲突 | 中 | 中 | ✅ **命中（致命）** | grad_norm 150-200，梯度严重冲突 |
+| 教师过拟合 | 低 | 低 | ✅ 未命中 | A4 使用 save_best，教师质量可靠 |
+| 训练显存增加 | 中 | 中 | ✅ 未命中 | 教师无梯度，显存可控 |
+| no_grad 实现错误 | 低 | 高 | ✅ 未命中 | 单元测试 26/26 通过 |
+| 噪声未共享/proposal 对应断裂 | 中 | 高 | ✅ 未命中 | 单元测试验证共享 x_raw |
+| 教师 x0 提取错误 (post-NMS) | 中 | 高 | ✅ 未命中 | 单元测试验证 [bs,P,4] raw 张量 |
+| box_renewal 破坏对应 | 中 | 中 | ✅ 未命中 | 教师蒸馏推理关闭 box_renewal |
+| 仅蒸馏 box 不蒸馏分类 | 低 | 低 | ⚠️ 部分命中 | v2 增加了 KL 分类蒸馏，但未能阻止崩塌 |
+
+**关键反思**: 两个"中概率/高影响"风险（1步质量差距大 + 梯度冲突）均命中且致命，但原方案将其概率评估为"中"而非"高"，低估了风险。实际结果表明，在检测任务的 4 维 bbox 空间中，这两个风险的概率应为"高"。
+
+### 8.8 实验结论
+
+**定性判定: 方向证伪，直接 4→1 蒸馏在检测 RF 任务上不可行。**
+
+| 维度 | 结论 |
+|------|------|
+| 训练状态 | ✅ 已完成（Early Stop，31/150 epoch） |
+| 单元测试 | ✅ 26/26 通过（实现正确） |
+| 性能目标达成 | ❌ 未达标（best 0.851 < 目标 0.861） |
+| 训练正向贡献 | ❌ best 出现在 Epoch 1，训练零增益 |
+| v4 策略有效性 | ❌ 灾难性崩塌（0.851→0.252） |
+
+**核心教训**:
+1. **RF 轨迹直化假设在检测任务中不成立**: 图像生成的"RF 轨迹近似直线"性质依赖于高维像素空间，检测 4 维 bbox 的信息密度不足以支撑同等程度的轨迹直化，4步→1步压缩比过大
+2. **蒸馏梯度冲突远比预期严重**: 即使 distill_lambda=0.1（检测损失占比 0.55），蒸馏梯度仍足以破坏检测能力。"蒸馏作为正则化信号"的定位过于乐观——在检测任务中，蒸馏梯度是"破坏性信号"而非"正则化"
+3. **超参调整无法解决根本性问题**: v1→v4 的迭代集中在超参调整（cascade_detach、warmup、lr、distill_lambda），但根本问题是"1步 Euler 无法逼近 4步 DPM-Solver++ 预测"，这是表达能力限制而非超参问题
+4. **机制正确 ≠ 性能达标**: 单元测试 26/26 通过证明实现完全正确，但方向本身不可行
+
+### 8.9 未探索的替代方向（仅供参考，不再实施）
+
+因方向已证伪归档，以下替代方向仅作记录：
+
+1. **渐进式蒸馏**（Salimans et al., 2022 原版）: 4步→2步→1步 级联，每级压缩比 2:1，可能避免 4:1 压缩比过大问题。但需训练中间 2步模型，复杂度更高
+2. **Feature-level 蒸馏**: 蒸馏中间特征而非 prediction-level MSE，可能更稳定。但需设计特征对齐方案
+3. **2步蒸馏**: 4步→2步（压缩比 2:1），可能更可行。虽加速比降至 2×，但质量更有保障
+4. **Consistency Model**: Song et al., 2023 的一致性模型，将多步采样蒸馏为单步生成，理论框架更完整
+5. **先验证基线**: 禁用蒸馏（distill_lambda=0），验证 1步 Euler 从 A4 初始化能否保持 mAP=0.851——若不能，说明 1步 Euler 本身就无法保持 A4 质量，蒸馏方向根本不可行
+
+### 8.10 对其他方向的影响
+
+- **SC-RF**: 已于 2026-07-11 归档（负增益 -0.002）
+- **PD-RF**: 本次归档（灾难性崩塌）
+- **两个突破方向均已证伪**，需重新评估研究路线
+
+---
+
+## 9. 归档记录
+
+- **归档日期**: 2026-07-11
+- **归档原因**: 灾难性崩塌证伪（v4 best mAP=0.851 < 目标 0.861，且 best 出现在 Epoch 1 即 A4 初始化点，训练零增益；mAP 从 0.851 崩塌至 0.252）
+- **迭代次数**: 4 次（v1-v4）
+- **实验代码**: `experiments/configs/ldmdet/directions/pd_rf/pd_rf_24obj.py`（保持不动，不再修改）
+- **核心实现**: `ldmdet/core/head.py` 的 `loss_with_distillation` 等方法（单元测试 26/26 通过，实现正确）
+- **Best checkpoint**: `work_dirs/pd_rf_24obj/best_coco_bbox_mAP_epoch_1.pth`（mAP=0.851，即 A4 初始化点）
+- **训练日志**: `work_dirs/pd_rf_24obj/train.log`（保留）
+- **SwanLab**: 项目 'ldmdet-breakthrough', 实验 'pd_rf_24obj_v4'（已停止）
+- **后续方向**: 直接 4→1 蒸馏在检测 RF 上证伪，若需推理加速需探索其他路径（渐进式蒸馏、Consistency Model 等）
