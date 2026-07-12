@@ -5,11 +5,9 @@
 
 import copy
 import inspect
-import logging
-from typing import Any, Dict, List, Tuple
+from typing import Dict, List, Tuple
 
 import torch
-import torch.nn as nn
 from mmdet.models.detectors.base import BaseDetector
 from mmdet.registry import MODELS
 from mmdet.structures import DetDataSample
@@ -31,8 +29,6 @@ from ldmdet.criterion import (
 )
 from ldmdet.data.structures import ImageMeta
 
-logger = logging.getLogger(__name__)
-
 
 @MODELS.register_module(name='LDMDetV2', force=True)
 @MODELS.register_module(name='LDMDet', force=True)
@@ -40,9 +36,6 @@ class LDMDetDetector(BaseDetector):
     """LDMDet 检测器 — mmdet BaseDetector 兼容包装。
 
     backbone/neck 通过 mmdet 构建，bbox_head 通过 ldmdet 纯 PyTorch 构建。
-
-    PD-RF: 支持 knowledge distillation (教师多步 → 学生1步).
-    通过 teacher_cfg 指定教师 solver 配置和 checkpoint 路径.
     """
 
     def __init__(
@@ -50,7 +43,6 @@ class LDMDetDetector(BaseDetector):
         backbone: ConfigType,
         neck: ConfigType,
         bbox_head: ConfigType,
-        teacher_cfg: OptConfigType = None,
         train_cfg: OptConfigType = None,
         test_cfg: OptConfigType = None,
         data_preprocessor: OptConfigType = None,
@@ -62,17 +54,11 @@ class LDMDetDetector(BaseDetector):
         self.neck = MODELS.build(neck) if neck is not None else None
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
-        self._bbox_head_cfg = bbox_head  # 保存供教师构建使用
         self.bbox_head = self._build_head(bbox_head)
-
-        # PD-RF: 构建并注入教师模型 (理论: PD-RF_Progressive_Distillation.md)
-        if teacher_cfg is not None:
-            self._build_and_inject_teacher(teacher_cfg)
 
     def _build_head(self, cfg: ConfigType) -> DiffusionDetHead:
         """从配置构建 ldmdet DiffusionDetHead"""
         # deepcopy 避免修改嵌套 dict (coupling/single_head 等含 type 键)
-        # 影响 self._bbox_head_cfg 的后续使用 (如教师构建)
         cfg = copy.deepcopy(cfg)
 
         # 1. 构建耦合策略
@@ -118,7 +104,6 @@ class LDMDetDetector(BaseDetector):
             criterion = self._build_criterion(criterion_cfg)
 
         # 5. 构建 head — 只传 DiffusionDetHead 接受的参数
-        import inspect
         valid_params = set(inspect.signature(DiffusionDetHead.__init__).parameters.keys())
         cfg = {k: v for k, v in cfg.items() if k in valid_params}
         head = DiffusionDetHead(
@@ -171,76 +156,6 @@ class LDMDetDetector(BaseDetector):
             **cfg, matcher=matcher, loss_cls=loss_cls, loss_bbox=loss_bbox, loss_giou=loss_giou
         )
 
-    # ================================================================
-    # PD-RF: 教师模型构建与注入 (理论: PD-RF_Progressive_Distillation.md)
-    # ================================================================
-
-    def _build_and_inject_teacher(self, teacher_cfg: ConfigType):
-        """构建教师 DiffusionDetHead 并注入到学生 bbox_head.teacher_model.
-
-        教师使用与学生相同的架构 (backbone/neck 共享), 但 solver 不同
-        (e.g., DPM-Solver++ 4步 vs 学生 Euler 1步).
-        教师权重从预训练 checkpoint 加载, 注入时自动冻结 (通过 __setattr__).
-        """
-        cfg = teacher_cfg.copy()
-        checkpoint_path = cfg.pop('checkpoint', None)
-
-        # 基于学生 bbox_head 配置构建教师, 覆盖 solver 设置
-        # 使用 deepcopy 避免共享嵌套 dict (coupling/single_head 等被 _build_head 修改)
-        teacher_head_cfg = copy.deepcopy(self._bbox_head_cfg)
-        teacher_head_cfg['solver_type'] = cfg.get('solver_type', 'dpm_solver_pp')
-        teacher_head_cfg['sampling_timesteps'] = cfg.get('sampling_timesteps', 4)
-
-        # 教师不需要 distillation/self_conditioning (它是监督源, 不是学生)
-        teacher_head_cfg.pop('use_distillation', None)
-        teacher_head_cfg.pop('distill_lambda', None)
-        teacher_head_cfg.pop('use_self_conditioning', None)
-        teacher_head_cfg.pop('self_conditioning_prob', None)
-        if 'single_head' in teacher_head_cfg:
-            sh = dict(teacher_head_cfg['single_head'])
-            sh.pop('use_self_conditioning', None)
-            teacher_head_cfg['single_head'] = sh
-
-        teacher_head = self._build_head(teacher_head_cfg)
-
-        # 加载预训练权重 (A4 checkpoint 的 bbox_head.* 键)
-        if checkpoint_path is not None:
-            self._load_teacher_checkpoint(teacher_head, checkpoint_path)
-
-        # 注入教师 (自动冻结 + eval 模式, 通过 DiffusionDetHead.__setattr__)
-        self.bbox_head.teacher_model = teacher_head
-        logger.info(
-            f'PD-RF: 教师模型已注入 '
-            f'(solver={teacher_head_cfg["solver_type"]}, '
-            f'steps={teacher_head_cfg["sampling_timesteps"]}, '
-            f'checkpoint={checkpoint_path})'
-        )
-
-    def _load_teacher_checkpoint(self, teacher_head: DiffusionDetHead,
-                                  checkpoint_path: str):
-        """从 checkpoint 加载教师 head 权重 (仅 bbox_head.* 键, 去前缀)."""
-        ckpt = torch.load(checkpoint_path, map_location='cpu')
-        state_dict = ckpt.get('state_dict', ckpt)
-
-        # 过滤出 bbox_head.* 键并去掉前缀
-        teacher_sd = {}
-        for k, v in state_dict.items():
-            if k.startswith('bbox_head.'):
-                teacher_sd[k[len('bbox_head.'):]] = v
-
-        if not teacher_sd:
-            logger.warning(
-                f'PD-RF: checkpoint {checkpoint_path} 中未找到 bbox_head.* 键, '
-                f'教师使用随机初始化权重'
-            )
-            return
-
-        missing, unexpected = teacher_head.load_state_dict(teacher_sd, strict=False)
-        if missing:
-            logger.warning(f'PD-RF teacher missing keys: {missing[:5]}...')
-        if unexpected:
-            logger.warning(f'PD-RF teacher unexpected keys: {unexpected[:5]}...')
-
     def extract_feat(self, batch_inputs: torch.Tensor) -> Tuple[torch.Tensor, ...]:
         x = self.backbone(batch_inputs)
         if self.neck:
@@ -261,11 +176,6 @@ class LDMDetDetector(BaseDetector):
             ))
             gt_bboxes.append(ds.gt_instances.bboxes)
             gt_labels.append(ds.gt_instances.labels)
-        # PD-RF: 启用蒸馏时调用 loss_with_distillation (理论 3.1)
-        if self.bbox_head.use_distillation:
-            return self.bbox_head.loss_with_distillation(
-                x, img_metas, gt_bboxes, gt_labels
-            )
         return self.bbox_head.loss(x, img_metas, gt_bboxes, gt_labels)
 
     def predict(

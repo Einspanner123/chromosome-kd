@@ -85,7 +85,6 @@ class SingleDiffusionDetHead(nn.Module):
         shape_attention=None,
         use_normalized_classifier=False,
         classifier_temperature=20.0,
-        use_self_conditioning=False,
     ):
         super().__init__()
         self.feat_channels = feat_channels
@@ -96,8 +95,6 @@ class SingleDiffusionDetHead(nn.Module):
         self.use_sdpa = use_sdpa and _SDPA_AVAILABLE
         self.attn_half = attn_half
         self.use_normalized_classifier = use_normalized_classifier
-        # SC-RF: 自条件化标志, True 时创建 x0_prev_proj 并在 forward 中注入 x0_prev
-        self.use_self_conditioning = use_self_conditioning
 
         self.self_attn = nn.MultiheadAttention(
             feat_channels, num_heads, dropout=dropout
@@ -150,14 +147,6 @@ class SingleDiffusionDetHead(nn.Module):
         self.bbox_weights = bbox_weights
         self.num_heads = num_heads
         self.head_dim = feat_channels // num_heads
-
-        # SC-RF: x0_prev 投影层, 将上一步 x0 预测 (4维 bbox) 投影到特征空间
-        # 零初始化确保初始时 x0_prev_emb=0, SC-RF 等价于标准 RF
-        # 训练过程中 x0_prev_proj 逐渐学习有效的残差校正
-        if self.use_self_conditioning:
-            self.x0_prev_proj = nn.Linear(4, feat_channels)
-            nn.init.zeros_(self.x0_prev_proj.weight)
-            nn.init.zeros_(self.x0_prev_proj.bias)
 
     def _sdpa_self_attn(self, x_seq_bs_dim):
         """使用 SDPA 的高效 self-attention。
@@ -266,7 +255,7 @@ class SingleDiffusionDetHead(nn.Module):
         layers.append(nn.Linear(feat_channels, 4))
         return nn.Sequential(*layers)
 
-    def forward(self, features, bboxes, proposals, pooler, time_emb, x0_prev=None):
+    def forward(self, features, bboxes, proposals, pooler, time_emb):
         bs, num_boxes = bboxes.shape[:2]
         rois = bbox2roi([bboxes[i] for i in range(bs)])
         roi_features = pooler(features, rois)
@@ -281,15 +270,6 @@ class SingleDiffusionDetHead(nn.Module):
                 .mean(-1)
                 .view(bs, num_boxes, self.feat_channels)
             )
-
-        # SC-RF: 将上一步 x0 预测注入到 proposal features (残差学习)
-        # x0_prev: [bs, num_boxes, 4] (raw 坐标空间), 零初始化时 x0_prev_emb=0 不影响
-        # proposals 形状: 首 head 为 [bs, num_boxes, feat_channels],
-        #                 后续 head 为 [1, bs*num_boxes, feat_channels], 需 reshape 对齐
-        if self.use_self_conditioning and x0_prev is not None:
-            x0_prev_emb = self.x0_prev_proj(x0_prev)  # [bs, num_boxes, feat_channels]
-            x0_prev_emb = x0_prev_emb.reshape(proposals.shape)
-            proposals = proposals + x0_prev_emb
 
         roi_features = roi_features.view(
             bs * num_boxes, self.feat_channels, -1
