@@ -116,6 +116,60 @@ class DiffusionSampler:
                 )
         return x_raw_new
 
+    def apply_topk_pruning(
+        self,
+        x_raw: Tensor,
+        cls_logits: Tensor,
+        pred_bboxes: Tensor,
+        x0_raw: Tensor,
+        k: int,
+    ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+        """Top-K 框剪枝：保留每张图置信度最高的 K 个框。
+
+        数学理论:
+            在扩散采样第 1 步后，分类置信度已具判别力。
+            保留 Top-K 高置信框，丢弃其余，使后续步的
+            RoIAlign (O(N)) 和 DynamicConv (O(N)) 计算量线性降低。
+
+        Args:
+            x_raw: [bs, N, 4] 扩散空间框
+            cls_logits: [bs, N, num_classes] 分类 logits
+            pred_bboxes: [bs, N, 4] 图像空间框
+            x0_raw: [bs, N, 4] 扩散空间 x0 预测
+            k: 保留的框数
+
+        Returns:
+            (x_raw_pruned, cls_logits_pruned, pred_bboxes_pruned,
+             x0_raw_pruned, topk_indices)
+             所有张量 N 维 → K 维，topk_indices: [bs, K]
+        """
+        bs, n = x_raw.shape[:2]
+        if k >= n:
+            idx = torch.arange(n, device=x_raw.device).unsqueeze(0).expand(bs, -1)
+            return x_raw, cls_logits, pred_bboxes, x0_raw, idx
+
+        k = min(k, n)
+        scores = torch.sigmoid(cls_logits).max(dim=-1)[0]  # [bs, N]
+        topk_idx = scores.topk(k, dim=1).indices  # [bs, K]
+
+        idx_4d = topk_idx.unsqueeze(-1).expand(-1, -1, 4)  # [bs, K, 4]
+        idx_cls = topk_idx.unsqueeze(-1).expand(
+            -1, -1, cls_logits.shape[-1]
+        )  # [bs, K, C]
+
+        x_raw_pruned = x_raw.gather(1, idx_4d)
+        cls_logits_pruned = cls_logits.gather(1, idx_cls)
+        pred_bboxes_pruned = pred_bboxes.gather(1, idx_4d)
+        x0_raw_pruned = x0_raw.gather(1, idx_4d)
+
+        return (
+            x_raw_pruned,
+            cls_logits_pruned,
+            pred_bboxes_pruned,
+            x0_raw_pruned,
+            topk_idx,
+        )
+
     def xyxy_to_raw(
         self, bboxes: Tensor, img_metas: List[ImageMeta]
     ) -> Tensor:
