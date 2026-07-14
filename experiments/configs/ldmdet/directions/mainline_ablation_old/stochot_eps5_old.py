@@ -6,7 +6,7 @@
 
 SwanLab: 项目 'ldmdet-mainline-ablation-old', 实验 'stochot_eps5'
 """
-_base_ = ['../../../ldmdet_rf_heun_adaln_stochot_eps5.py']
+_base_ = ['../../ldmdet_rf_heun_adaln_stochot_eps5.py']
 
 # === SwanLab ===
 vis_backends = [
