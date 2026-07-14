@@ -1,0 +1,638 @@
+{
+  "ldmdet-mainline-ablation-24obj/a0_baseline": {
+    "name": "a0_baseline",
+    "project": "ldmdet-mainline-ablation-24obj",
+    "description": "A0 baseline",
+    "coco/bbox_mAP": {
+      "max": 0.774,
+      "count": 12
+    },
+    "coco/bbox_mAP_timestamp": {
+      "max": 1783329080000.0,
+      "count": 12
+    },
+    "coco/bbox_mAP_50": {
+      "max": 0.968,
+      "count": 12
+    },
+    "coco/bbox_mAP_50_timestamp": {
+      "max": 1783329080000.0,
+      "count": 12
+    },
+    "coco/bbox_mAP_75": {
+      "max": 0.916,
+      "count": 12
+    },
+    "coco/bbox_mAP_75_timestamp": {
+      "max": 1783329080000.0,
+      "count": 12
+    },
+    "coco/bbox_mAP_s": {
+      "max": 0.317,
+      "count": 12
+    },
+    "coco/bbox_mAP_s_timestamp": {
+      "max": 1783329080000.0,
+      "count": 12
+    },
+    "coco/bbox_mAP_m": {
+      "max": 0.773,
+      "count": 12
+    },
+    "coco/bbox_mAP_m_timestamp": {
+      "max": 1783329080000.0,
+      "count": 12
+    },
+    "coco/bbox_mAP_l": {
+      "max": 0.775,
+      "count": 12
+    },
+    "coco/bbox_mAP_l_timestamp": {
+      "max": 1783329080000.0,
+      "count": 12
+    }
+  },
+  "ldmdet-mainline-ablation-24obj/a1_rf_heun": {
+    "name": "a1_rf_heun",
+    "project": "ldmdet-mainline-ablation-24obj",
+    "description": "A1 RF+Heun",
+    "coco/bbox_mAP": {
+      "max": 0.856,
+      "count": 92
+    },
+    "coco/bbox_mAP_timestamp": {
+      "max": 1783404775000.0,
+      "count": 92
+    },
+    "coco/bbox_mAP_50": {
+      "max": 0.99,
+      "count": 92
+    },
+    "coco/bbox_mAP_50_timestamp": {
+      "max": 1783404775000.0,
+      "count": 92
+    },
+    "coco/bbox_mAP_75": {
+      "max": 0.971,
+      "count": 92
+    },
+    "coco/bbox_mAP_75_timestamp": {
+      "max": 1783404775000.0,
+      "count": 92
+    },
+    "coco/bbox_mAP_s": {
+      "max": 0.563,
+      "count": 92
+    },
+    "coco/bbox_mAP_s_timestamp": {
+      "max": 1783404775000.0,
+      "count": 92
+    },
+    "coco/bbox_mAP_m": {
+      "max": 0.853,
+      "count": 92
+    },
+    "coco/bbox_mAP_m_timestamp": {
+      "max": 1783404775000.0,
+      "count": 92
+    },
+    "coco/bbox_mAP_l": {
+      "max": 0.913,
+      "count": 92
+    },
+    "coco/bbox_mAP_l_timestamp": {
+      "max": 1783404775000.0,
+      "count": 92
+    }
+  },
+  "ldmdet-mainline-ablation-24obj/a2_rf_heun_adaln": {
+    "name": "a2_rf_heun_adaln",
+    "project": "ldmdet-mainline-ablation-24obj",
+    "description": "A2 AdaLN",
+    "coco/bbox_mAP": {
+      "max": 0.856,
+      "count": 112
+    },
+    "coco/bbox_mAP_timestamp": {
+      "max": 1783512395000.0,
+      "count": 112
+    },
+    "coco/bbox_mAP_50": {
+      "max": 0.99,
+      "count": 112
+    },
+    "coco/bbox_mAP_50_timestamp": {
+      "max": 1783512395000.0,
+      "count": 112
+    },
+    "coco/bbox_mAP_75": {
+      "max": 0.972,
+      "count": 112
+    },
+    "coco/bbox_mAP_75_timestamp": {
+      "max": 1783512395000.0,
+      "count": 112
+    },
+    "coco/bbox_mAP_s": {
+      "max": 0.565,
+      "count": 112
+    },
+    "coco/bbox_mAP_s_timestamp": {
+      "max": 1783512395000.0,
+      "count": 112
+    },
+    "coco/bbox_mAP_m": {
+      "max": 0.853,
+      "count": 112
+    },
+    "coco/bbox_mAP_m_timestamp": {
+      "max": 1783512395000.0,
+      "count": 112
+    },
+    "coco/bbox_mAP_l": {
+      "max": 0.919,
+      "count": 112
+    },
+    "coco/bbox_mAP_l_timestamp": {
+      "max": 1783512395000.0,
+      "count": 112
+    }
+  },
+  "ldmdet-mainline-ablation-24obj/a3_full_sota": {
+    "name": "a3_full_sota",
+    "project": "ldmdet-mainline-ablation-24obj",
+    "description": "A3 StochOT",
+    "coco/bbox_mAP": {
+      "max": 0.858,
+      "count": 144
+    },
+    "coco/bbox_mAP_timestamp": {
+      "max": 1783406269000.0,
+      "count": 144
+    },
+    "coco/bbox_mAP_50": {
+      "max": 0.99,
+      "count": 144
+    },
+    "coco/bbox_mAP_50_timestamp": {
+      "max": 1783406269000.0,
+      "count": 144
+    },
+    "coco/bbox_mAP_75": {
+      "max": 0.973,
+      "count": 144
+    },
+    "coco/bbox_mAP_75_timestamp": {
+      "max": 1783406269000.0,
+      "count": 144
+    },
+    "coco/bbox_mAP_s": {
+      "max": 0.586,
+      "count": 144
+    },
+    "coco/bbox_mAP_s_timestamp": {
+      "max": 1783406269000.0,
+      "count": 144
+    },
+    "coco/bbox_mAP_m": {
+      "max": 0.855,
+      "count": 144
+    },
+    "coco/bbox_mAP_m_timestamp": {
+      "max": 1783406269000.0,
+      "count": 144
+    },
+    "coco/bbox_mAP_l": {
+      "max": 0.908,
+      "count": 144
+    },
+    "coco/bbox_mAP_l_timestamp": {
+      "max": 1783406269000.0,
+      "count": 144
+    }
+  },
+  "ldmdet-mainline-ablation-24obj/a4_dpm_pp": {
+    "name": "a4_dpm_pp",
+    "project": "ldmdet-mainline-ablation-24obj",
+    "description": "A4 DPM-Solver++",
+    "coco/bbox_mAP": {
+      "max": 0.863,
+      "count": 147
+    },
+    "coco/bbox_mAP_timestamp": {
+      "max": 1783528834000.0,
+      "count": 147
+    },
+    "coco/bbox_mAP_50": {
+      "max": 0.99,
+      "count": 147
+    },
+    "coco/bbox_mAP_50_timestamp": {
+      "max": 1783528834000.0,
+      "count": 147
+    },
+    "coco/bbox_mAP_75": {
+      "max": 0.974,
+      "count": 147
+    },
+    "coco/bbox_mAP_75_timestamp": {
+      "max": 1783528834000.0,
+      "count": 147
+    },
+    "coco/bbox_mAP_s": {
+      "max": 0.583,
+      "count": 147
+    },
+    "coco/bbox_mAP_s_timestamp": {
+      "max": 1783528834000.0,
+      "count": 147
+    },
+    "coco/bbox_mAP_m": {
+      "max": 0.859,
+      "count": 147
+    },
+    "coco/bbox_mAP_m_timestamp": {
+      "max": 1783528834000.0,
+      "count": 147
+    },
+    "coco/bbox_mAP_l": {
+      "max": 0.914,
+      "count": 147
+    },
+    "coco/bbox_mAP_l_timestamp": {
+      "max": 1783528834000.0,
+      "count": 147
+    }
+  },
+  "ldmdet-ablation/chromo_24obj_random_seed42": {
+    "name": "chromo_24obj_random_seed42",
+    "project": "ldmdet-ablation",
+    "description": "24obj Random seed 42",
+    "coco/bbox_mAP": {
+      "max": 0.859,
+      "count": 89
+    },
+    "coco/bbox_mAP_timestamp": {
+      "max": 1782226695000.0,
+      "count": 89
+    },
+    "coco/bbox_mAP_50": {
+      "max": 0.989,
+      "count": 89
+    },
+    "coco/bbox_mAP_50_timestamp": {
+      "max": 1782226695000.0,
+      "count": 89
+    },
+    "coco/bbox_mAP_75": {
+      "max": 0.97,
+      "count": 89
+    },
+    "coco/bbox_mAP_75_timestamp": {
+      "max": 1782226695000.0,
+      "count": 89
+    },
+    "coco/bbox_mAP_s": {
+      "max": 0.571,
+      "count": 89
+    },
+    "coco/bbox_mAP_s_timestamp": {
+      "max": 1782226695000.0,
+      "count": 89
+    },
+    "coco/bbox_mAP_m": {
+      "max": 0.855,
+      "count": 89
+    },
+    "coco/bbox_mAP_m_timestamp": {
+      "max": 1782226695000.0,
+      "count": 89
+    },
+    "coco/bbox_mAP_l": {
+      "max": 0.909,
+      "count": 89
+    },
+    "coco/bbox_mAP_l_timestamp": {
+      "max": 1782226695000.0,
+      "count": 89
+    }
+  },
+  "ldmdet-ablation/chromo_24obj_random_seed123": {
+    "name": "chromo_24obj_random_seed123",
+    "project": "ldmdet-ablation",
+    "description": "24obj Random seed 123",
+    "coco/bbox_mAP": {
+      "max": 0.814,
+      "count": 13
+    },
+    "coco/bbox_mAP_timestamp": {
+      "max": 1782237642000.0,
+      "count": 13
+    },
+    "coco/bbox_mAP_50": {
+      "max": 0.979,
+      "count": 13
+    },
+    "coco/bbox_mAP_50_timestamp": {
+      "max": 1782237642000.0,
+      "count": 13
+    },
+    "coco/bbox_mAP_75": {
+      "max": 0.95,
+      "count": 13
+    },
+    "coco/bbox_mAP_75_timestamp": {
+      "max": 1782237642000.0,
+      "count": 13
+    },
+    "coco/bbox_mAP_s": {
+      "max": 0.416,
+      "count": 13
+    },
+    "coco/bbox_mAP_s_timestamp": {
+      "max": 1782237642000.0,
+      "count": 13
+    },
+    "coco/bbox_mAP_m": {
+      "max": 0.812,
+      "count": 13
+    },
+    "coco/bbox_mAP_m_timestamp": {
+      "max": 1782237642000.0,
+      "count": 13
+    },
+    "coco/bbox_mAP_l": {
+      "max": 0.857,
+      "count": 13
+    },
+    "coco/bbox_mAP_l_timestamp": {
+      "max": 1782237642000.0,
+      "count": 13
+    }
+  },
+  "ldmdet-ablation/chromo_24obj_random_seed789": {
+    "name": "chromo_24obj_random_seed789",
+    "project": "ldmdet-ablation",
+    "description": "24obj Random seed 789",
+    "coco/bbox_mAP": {
+      "max": 0.86,
+      "count": 112
+    },
+    "coco/bbox_mAP_timestamp": {
+      "max": 1782383420000.0,
+      "count": 112
+    },
+    "coco/bbox_mAP_50": {
+      "max": 0.989,
+      "count": 112
+    },
+    "coco/bbox_mAP_50_timestamp": {
+      "max": 1782383420000.0,
+      "count": 112
+    },
+    "coco/bbox_mAP_75": {
+      "max": 0.972,
+      "count": 112
+    },
+    "coco/bbox_mAP_75_timestamp": {
+      "max": 1782383420000.0,
+      "count": 112
+    },
+    "coco/bbox_mAP_s": {
+      "max": 0.563,
+      "count": 112
+    },
+    "coco/bbox_mAP_s_timestamp": {
+      "max": 1782383420000.0,
+      "count": 112
+    },
+    "coco/bbox_mAP_m": {
+      "max": 0.857,
+      "count": 112
+    },
+    "coco/bbox_mAP_m_timestamp": {
+      "max": 1782383420000.0,
+      "count": 112
+    },
+    "coco/bbox_mAP_l": {
+      "max": 0.912,
+      "count": 112
+    },
+    "coco/bbox_mAP_l_timestamp": {
+      "max": 1782383420000.0,
+      "count": 112
+    }
+  },
+  "chromosome-kd-benchmark-24obj/benchmark_diffusiondet_24obj": {
+    "name": "benchmark_diffusiondet_24obj",
+    "project": "chromosome-kd-benchmark-24obj",
+    "description": "DiffusionDet",
+    "coco/bbox_mAP": {
+      "max": 0.787,
+      "count": 54
+    },
+    "coco/bbox_mAP_timestamp": {
+      "max": 1779978427000.0,
+      "count": 54
+    },
+    "coco/bbox_mAP_50": {
+      "max": 0.97,
+      "count": 54
+    },
+    "coco/bbox_mAP_50_timestamp": {
+      "max": 1779978427000.0,
+      "count": 54
+    },
+    "coco/bbox_mAP_75": {
+      "max": 0.928,
+      "count": 54
+    },
+    "coco/bbox_mAP_75_timestamp": {
+      "max": 1779978427000.0,
+      "count": 54
+    },
+    "coco/bbox_mAP_s": {
+      "max": 0.5,
+      "count": 54
+    },
+    "coco/bbox_mAP_s_timestamp": {
+      "max": 1779978427000.0,
+      "count": 54
+    },
+    "coco/bbox_mAP_m": {
+      "max": 0.785,
+      "count": 54
+    },
+    "coco/bbox_mAP_m_timestamp": {
+      "max": 1779978427000.0,
+      "count": 54
+    },
+    "coco/bbox_mAP_l": {
+      "max": 0.806,
+      "count": 54
+    },
+    "coco/bbox_mAP_l_timestamp": {
+      "max": 1779978427000.0,
+      "count": 54
+    }
+  },
+  "chromosome-kd-benchmark-24obj/dino-r50-4scale": {
+    "name": "dino-r50-4scale",
+    "project": "chromosome-kd-benchmark-24obj",
+    "description": "DINO",
+    "coco/bbox_mAP": {
+      "max": 0.868,
+      "count": 93
+    },
+    "coco/bbox_mAP_timestamp": {
+      "max": 1779420935000.0,
+      "count": 93
+    },
+    "coco/bbox_mAP_50": {
+      "max": 0.992,
+      "count": 93
+    },
+    "coco/bbox_mAP_50_timestamp": {
+      "max": 1779420935000.0,
+      "count": 93
+    },
+    "coco/bbox_mAP_75": {
+      "max": 0.979,
+      "count": 93
+    },
+    "coco/bbox_mAP_75_timestamp": {
+      "max": 1779420935000.0,
+      "count": 93
+    },
+    "coco/bbox_mAP_s": {
+      "max": 0.563,
+      "count": 93
+    },
+    "coco/bbox_mAP_s_timestamp": {
+      "max": 1779420935000.0,
+      "count": 93
+    },
+    "coco/bbox_mAP_m": {
+      "max": 0.864,
+      "count": 93
+    },
+    "coco/bbox_mAP_m_timestamp": {
+      "max": 1779420935000.0,
+      "count": 93
+    },
+    "coco/bbox_mAP_l": {
+      "max": 0.928,
+      "count": 93
+    },
+    "coco/bbox_mAP_l_timestamp": {
+      "max": 1779420935000.0,
+      "count": 93
+    }
+  },
+  "chromosome-kd-benchmark-24obj/cascade-rcnn-r50": {
+    "name": "cascade-rcnn-r50",
+    "project": "chromosome-kd-benchmark-24obj",
+    "description": "Cascade R-CNN",
+    "coco/bbox_mAP": {
+      "max": 0.854,
+      "count": 102
+    },
+    "coco/bbox_mAP_timestamp": {
+      "max": 1779342328000.0,
+      "count": 102
+    },
+    "coco/bbox_mAP_50": {
+      "max": 0.987,
+      "count": 102
+    },
+    "coco/bbox_mAP_50_timestamp": {
+      "max": 1779342328000.0,
+      "count": 102
+    },
+    "coco/bbox_mAP_75": {
+      "max": 0.972,
+      "count": 102
+    },
+    "coco/bbox_mAP_75_timestamp": {
+      "max": 1779342328000.0,
+      "count": 102
+    },
+    "coco/bbox_mAP_s": {
+      "max": 0.525,
+      "count": 102
+    },
+    "coco/bbox_mAP_s_timestamp": {
+      "max": 1779342328000.0,
+      "count": 102
+    },
+    "coco/bbox_mAP_m": {
+      "max": 0.85,
+      "count": 102
+    },
+    "coco/bbox_mAP_m_timestamp": {
+      "max": 1779342328000.0,
+      "count": 102
+    },
+    "coco/bbox_mAP_l": {
+      "max": 0.905,
+      "count": 102
+    },
+    "coco/bbox_mAP_l_timestamp": {
+      "max": 1779342328000.0,
+      "count": 102
+    }
+  },
+  "chromosome-kd-benchmark-24obj/yolox-s": {
+    "name": "yolox-s",
+    "project": "chromosome-kd-benchmark-24obj",
+    "description": "YOLOX-S",
+    "coco/bbox_mAP": {
+      "max": 0.796,
+      "count": 150
+    },
+    "coco/bbox_mAP_timestamp": {
+      "max": 1779321399000.0,
+      "count": 150
+    },
+    "coco/bbox_mAP_50": {
+      "max": 0.987,
+      "count": 150
+    },
+    "coco/bbox_mAP_50_timestamp": {
+      "max": 1779321399000.0,
+      "count": 150
+    },
+    "coco/bbox_mAP_75": {
+      "max": 0.944,
+      "count": 150
+    },
+    "coco/bbox_mAP_75_timestamp": {
+      "max": 1779321399000.0,
+      "count": 150
+    },
+    "coco/bbox_mAP_s": {
+      "max": 0.452,
+      "count": 150
+    },
+    "coco/bbox_mAP_s_timestamp": {
+      "max": 1779321399000.0,
+      "count": 150
+    },
+    "coco/bbox_mAP_m": {
+      "max": 0.792,
+      "count": 150
+    },
+    "coco/bbox_mAP_m_timestamp": {
+      "max": 1779321399000.0,
+      "count": 150
+    },
+    "coco/bbox_mAP_l": {
+      "max": 0.839,
+      "count": 150
+    },
+    "coco/bbox_mAP_l_timestamp": {
+      "max": 1779321399000.0,
+      "count": 150
+    }
+  }
+}

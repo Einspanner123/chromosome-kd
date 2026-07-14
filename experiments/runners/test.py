@@ -101,7 +101,11 @@ def main():
     print(f'[SwanLab] project={_INFERENCE_SWANLAB_PROJECT}, exp_name={args.exp_name}, seed={args.seed}')
 
     # 切换为测试模式
-    if args.dataset == 'test':
+    # Runner.test() 使用 cfg.test_dataloader/test_evaluator, 因此需要根据
+    # --dataset 参数将 val 配置映射到 test 位:
+    #   --dataset val  (默认): 用 val_dataloader/val_evaluator (评估验证集)
+    #   --dataset test          : 用原始 test_dataloader/test_evaluator (评估测试集)
+    if args.dataset == 'val':
         cfg.test_dataloader = cfg.val_dataloader
         cfg.test_evaluator = cfg.val_evaluator
 
