@@ -94,12 +94,20 @@ class RFDPMSolverMultistep:
     在 t 空间用历史 x0_pred 做多项式插值，精确积分半线性 ODE。
     """
 
-    def __init__(self, num_steps: int = 6, solver_order: int = 2):
+    def __init__(
+        self,
+        num_steps: int = 6,
+        solver_order: int = 2,
+        timesteps: Optional[list[float]] = None,
+    ):
         self.num_steps = num_steps
         self.solver_order = solver_order
-        self.timesteps: list[float] = [
-            float(t) for t in torch.linspace(1.0, 0.0, num_steps + 1)
-        ]
+        if timesteps is not None:
+            self.timesteps = timesteps
+        else:
+            self.timesteps = [
+                float(t) for t in torch.linspace(1.0, 0.0, num_steps + 1)
+            ]
         self.reset()
 
     def reset(self):

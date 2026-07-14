@@ -20,7 +20,7 @@ from ldmdet.data.structures import (
 from ldmdet.diffusion.embeddings import SinusoidalPositionEmbeddings
 from ldmdet.diffusion.noise_schedule import cosine_noise_schedule
 from ldmdet.diffusion.rectified_flow import RectifiedFlow
-from ldmdet.diffusion.sampling import DiffusionSampler, _get_img_shape
+from ldmdet.diffusion.sampling import DiffusionSampler, _get_img_shape, KaryotypeScorer, pcse_select
 from ldmdet.utils.box_ops import bbox_xyxy_to_cxcywh
 
 
@@ -77,6 +77,22 @@ class DiffusionDetHead(nn.Module):
         step_exit_threshold: float = 0.01,
         step_exit_cls_threshold: float = 0.95,
         step_exit_min_steps: int = 1,
+        # PCSE: 配对一致性随机集成评分 (推理优化)
+        use_pcse: bool = False,
+        pcse_k: int = 5,
+        pcse_lambda: float = 0.5,
+        pcse_alphas: Tuple[float, float, float, float] = (1.0, 2.0, 1.5, 1.5),
+        pcse_diversity: str = 'seed',
+        # CCBR: 跨级联框更新 (推理优化)
+        use_ccbr: bool = False,
+        ccbr_alpha: float = 0.7,
+        ccbr_sigma: float = 0.1,
+        ccbr_lambda: float = 0.5,
+        ccbr_beta: float = 0.5,
+        # SHTS: SNR 层级时间步采样 (推理优化)
+        shts_alpha: float = 1.0,
+        shts_sigma: float = 0.15,
+        shts_shifted: bool = False,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -134,6 +150,11 @@ class DiffusionDetHead(nn.Module):
             coupling if coupling is not None else build_coupling('random')
         )
 
+        # SHTS: SNR 层级时间步采样 (推理优化, 需在_sampler前赋值)
+        self.shts_alpha = shts_alpha
+        self.shts_sigma = shts_sigma
+        self.shts_shifted = shts_shifted
+
         # 采样器
         self._sampler = DiffusionSampler(
             diffusion_type=diffusion_type,
@@ -151,6 +172,10 @@ class DiffusionDetHead(nn.Module):
             nms_thr=nms_thr,
             score_thr=score_thr,
             min_keep=min_keep,
+            # SHTS params
+            shts_alpha=self.shts_alpha,
+            shts_sigma=self.shts_sigma,
+            shts_shifted=self.shts_shifted,
         )
 
         self._init_weights(prior_prob)
@@ -185,6 +210,25 @@ class DiffusionDetHead(nn.Module):
         self.step_exit_cls_threshold = step_exit_cls_threshold
         self.step_exit_min_steps = step_exit_min_steps
         self._step_exit_stats = {}
+
+        # ============================================================
+        # PCSE: 配对一致性随机集成评分 (推理优化, 无需重训练)
+        # ============================================================
+        self.use_pcse = use_pcse
+        self.pcse_k = pcse_k
+        self.pcse_lambda = pcse_lambda
+        self.pcse_alphas = pcse_alphas
+        self.pcse_diversity = pcse_diversity
+        self._pcse_scorer = None  # 延迟初始化
+
+        # ============================================================
+        # CCBR: 跨级联框更新 (推理优化, 无需重训练)
+        # ============================================================
+        self.use_ccbr = use_ccbr
+        self.ccbr_alpha = ccbr_alpha
+        self.ccbr_sigma = ccbr_sigma
+        self.ccbr_lambda = ccbr_lambda
+        self.ccbr_beta = ccbr_beta
 
     def _init_weights(self, prior_prob):
         for head in self.head_series:
@@ -487,6 +531,22 @@ class DiffusionDetHead(nn.Module):
     ):
         device = features[0].device
         bs = len(img_metas)
+
+        # ================================================================
+        # PCSE 分支: 多假设采样 + 核型评分选择
+        # ================================================================
+        if self.use_pcse:
+            return self._predict_pcse(features, img_metas, rescale)
+
+        # ================================================================
+        # CCBR 分支: 跨级联框更新
+        # ================================================================
+        if self.use_ccbr:
+            return self._predict_ccbr(features, img_metas, rescale, return_trajectory)
+
+        # ================================================================
+        # 原始 predict (基线)
+        # ================================================================
         time_pairs = self._sampler.build_time_pairs(device)
         x_raw = torch.randn(bs, self.num_proposals, 4, device=device)
 
@@ -702,6 +762,10 @@ class DiffusionDetHead(nn.Module):
         t = torch.rand((bs,), device=device)
         if self.rf_schedule == 'shifted':
             t = self.rf_shift * t / (1 + (self.rf_shift - 1) * t)
+        elif self.rf_schedule == 'shts':
+            # SHTS CDF 反演采样 (Phase 2 训练匹配, Phase 1 推理仅用网格)
+            # 暂退化为 shifted 以保证训练稳定
+            t = self.rf_shift * t / (1 + (self.rf_shift - 1) * t)
         return t
 
     def _build_training_targets(self, bs, device, t, targets, gt_bboxes, external_noise=None):
@@ -777,6 +841,307 @@ class DiffusionDetHead(nn.Module):
         x0 = self._sampler.xyxy_to_raw(pred_bboxes_last, img_metas)
 
         return cls_logits_last, pred_bboxes_last, x0
+
+    # ================================================================
+    # CCBR: 跨级联框更新 — 前向方法
+    # ================================================================
+
+    @torch.no_grad()
+    def _forward_at_t_ccbr(
+        self, features, x_raw, t, img_metas, prev_head6_scores=None
+    ):
+        """CCBR 前向: 6 级级联 + 级联间软 renewal
+
+        Args:
+            features: 多尺度特征
+            x_raw: [bs, N, 4] 扩散空间框
+            t: 当前时间步 (float, 0~1)
+            img_metas: 图像元数据
+            prev_head6_scores: [bs, N] 上一时间步 Head 6 置信度, 或 None
+
+        Returns:
+            (cls_logits_last, pred_bboxes_last, x0, inter_cls_logits)
+        """
+        bs = x_raw.shape[0]
+        device = x_raw.device
+        curr_bboxes = self._sampler.raw_to_xyxy(x_raw, img_metas)
+        t_input = torch.full((bs,), t * self.timesteps, device=device)
+        time_emb = self.time_mlp(t_input)
+
+        inter_cls_logits = []
+        curr_proposals = None
+        final_pred_bboxes = None
+
+        for k, head in enumerate(self.head_series):
+            result = head(
+                features, curr_bboxes, curr_proposals,
+                self.roi_extractor, time_emb,
+            )
+            if len(result) == 4:
+                cls_logits, pred_bboxes, curr_proposals, _ = result
+            else:
+                cls_logits, pred_bboxes, curr_proposals = result
+            inter_cls_logits.append(cls_logits)
+            final_pred_bboxes = pred_bboxes
+
+            # CCBR: 级联间 renewal (除最后一级外)
+            if k < len(self.head_series) - 1 and self.use_ccbr:
+                curr_scores = torch.sigmoid(cls_logits).max(-1)[0]  # [bs, N]
+
+                # 融合置信度: 当前级 + 上一时间步 Head 6
+                if prev_head6_scores is not None:
+                    fused_conf = (
+                        self.ccbr_lambda * curr_scores
+                        + (1.0 - self.ccbr_lambda) * prev_head6_scores
+                    )
+                    # 自适应阈值
+                    mean_diff = (
+                        prev_head6_scores.mean() - curr_scores.mean()
+                    ).item()
+                    threshold = self._sampler.score_thr * (
+                        1.0 - self.ccbr_beta * mean_diff
+                    )
+                    threshold = max(min(threshold, 0.5), 0.01)
+                else:
+                    fused_conf = curr_scores
+                    threshold = self._sampler.score_thr
+
+                # 软 renewal
+                curr_bboxes = self._sampler.apply_inter_head_renewal(
+                    pred_bboxes, fused_conf, threshold,
+                    alpha=self.ccbr_alpha,
+                    sigma_scale=self.ccbr_sigma,
+                )
+            else:
+                curr_bboxes = pred_bboxes
+
+            # 保持 cascade_detach (CCBR 核心: 不改训练动态)
+            if self.cascade_detach:
+                curr_bboxes = curr_bboxes.detach()
+
+        cls_logits_last = inter_cls_logits[-1]
+        pred_bboxes_last = final_pred_bboxes
+        x0 = self._sampler.xyxy_to_raw(pred_bboxes_last, img_metas)
+
+        return cls_logits_last, pred_bboxes_last, x0, inter_cls_logits
+
+    # ================================================================
+    # PCSE: 单次假设采样 (用于多种子集成)
+    # ================================================================
+
+    @torch.no_grad()
+    def predict_single_hypothesis(
+        self, features, img_metas, seed=None, use_ensemble=False, rescale=True
+    ):
+        """单次独立假设采样 (PCSE 使用)
+
+        Args:
+            features: 多尺度特征
+            img_metas: 图像元数据
+            seed: 随机种子 (None = 不固定)
+            use_ensemble: 是否启用时间维 ensemble
+            rescale: 是否缩放回原始尺寸
+
+        Returns:
+            DetectionResult: 单次采样的检测结果
+        """
+        device = features[0].device
+        bs = len(img_metas)
+
+        if seed is not None:
+            torch.manual_seed(seed)
+
+        time_pairs = self._sampler.build_time_pairs(device)
+        x_raw = torch.randn(bs, self.num_proposals, 4, device=device)
+
+        ensemble_results = []
+        dpm_solver = self._sampler.create_dpm_solver()
+        if dpm_solver is not None:
+            dpm_solver.reset()
+
+        for step_idx, (t_curr, t_next) in enumerate(time_pairs):
+            cls_logits, pred_bboxes, x0_raw = self._forward_at_t(
+                features, x_raw, t_curr, img_metas
+            )
+
+            if use_ensemble:
+                ensemble_results.append((cls_logits, pred_bboxes))
+
+            if not ensemble_results:
+                ensemble_results.append((cls_logits, pred_bboxes))
+
+            if self.diffusion_type == 'ddpm':
+                curr_bboxes_xyxy, x_raw = self._sampler.ddim_step(
+                    t_curr, t_next, x_raw, cls_logits, pred_bboxes,
+                    img_metas, self.alphas_cumprod,
+                )
+                if t_next < 0:
+                    break
+            else:
+                if dpm_solver is not None:
+                    x_raw = dpm_solver.step(x_raw, x0_raw, t_curr, step_idx)
+                elif self.solver_type == 'heun' and t_next > 0:
+                    def model_fn(x_tmp, t_tmp):
+                        _, _, x0_tmp = self._forward_at_t(
+                            features, x_tmp, t_tmp, img_metas
+                        )
+                        return x0_tmp, None
+                    x_raw = self.rf.heun_step(
+                        x_raw, x0_raw, t_curr, t_next, model_fn
+                    )
+                else:
+                    x_raw = self.rf.step(x_raw, x0_raw, t_curr, t_next)
+
+                if self.box_renewal:
+                    x_raw = self._sampler.apply_box_renewal(x_raw, cls_logits)
+                if t_next <= 0:
+                    break
+
+        results = self._sampler.post_process(
+            ensemble_results, img_metas, rescale
+        )
+        return results[0]
+
+    # ================================================================
+    # PCSE: 多假设采样 + 核型评分选择
+    # ================================================================
+
+    @torch.no_grad()
+    def _predict_pcse(self, features, img_metas, rescale=True):
+        """PCSE 推理: K 次独立假设采样 + 核型评分选择
+
+        利用扩散采样的随机性生成 K 组候选检测假设,
+        用核型先验 (配对一致性) 对假设集合评分, 选择最优假设输出。
+        """
+        device = features[0].device
+
+        # 延迟初始化 KaryotypeScorer
+        if self._pcse_scorer is None:
+            # 对于 num_classes=24 (24obj), 0-21常染色体, 22=X, 23=Y
+            x_class_idx = self.num_classes - 2
+            y_class_idx = self.num_classes - 1
+            self._pcse_scorer = KaryotypeScorer(
+                num_autosome=22,
+                x_class_idx=x_class_idx,
+                y_class_idx=y_class_idx,
+                target_count=46,
+                count_sigma=2.0,
+                alphas=self.pcse_alphas,
+                lam=self.pcse_lambda,
+            )
+
+        # 生成 K 个独立假设
+        base_seed = 2024
+        hypotheses = []
+        for k in range(self.pcse_k):
+            hyp = self.predict_single_hypothesis(
+                features, img_metas,
+                seed=base_seed + k,
+                use_ensemble=self.use_ensemble,
+                rescale=rescale,
+            )
+            hypotheses.append(hyp)
+
+        # 评分选择
+        best_hyp = pcse_select(hypotheses, self._pcse_scorer)
+
+        # PCSE 插桩: 记录评分分布
+        try:
+            scores = [self._pcse_scorer.score(h.bboxes, h.scores, h.labels)
+                      for h in hypotheses]
+            import swanlab
+            swanlab.log({
+                'inference/pcse_k': len(hypotheses),
+                'inference/pcse_best_score': max(scores),
+                'inference/pcse_mean_score': sum(scores) / len(scores),
+                'inference/pcse_score_std': float(
+                    torch.tensor(scores).std()
+                ),
+            })
+        except Exception:
+            pass
+
+        return [best_hyp]
+
+    # ================================================================
+    # CCBR: 跨级联框更新推理
+    # ================================================================
+
+    @torch.no_grad()
+    def _predict_ccbr(self, features, img_metas, rescale=True, return_trajectory=False):
+        """CCBR 推理: 级联间 renewal + 后向置信度传播
+
+        增强现有 box_renewal 机制, 在 6 级级联 Head 之间建立跨级信息共享。
+        保持 cascade_detach=True, 仅在推理时共享信息。
+        """
+        device = features[0].device
+        bs = len(img_metas)
+        time_pairs = self._sampler.build_time_pairs(device)
+        x_raw = torch.randn(bs, self.num_proposals, 4, device=device)
+
+        # CCBR: 缓存上一时间步 Head 6 的置信度
+        prev_head6_scores = None  # [bs, N] or None (第一步)
+
+        ensemble_results = []
+        trajectory = []
+        dpm_solver = self._sampler.create_dpm_solver()
+        if dpm_solver is not None:
+            dpm_solver.reset()
+
+        for step_idx, (t_curr, t_next) in enumerate(time_pairs):
+            # CCBR 前向 (带级联间 renewal)
+            cls_logits, pred_bboxes, x0_raw, _ = self._forward_at_t_ccbr(
+                features, x_raw, t_curr, img_metas, prev_head6_scores
+            )
+
+            # 缓存当前时间步 Head 6 的置信度, 供下一时间步使用
+            prev_head6_scores = torch.sigmoid(cls_logits).max(-1)[0]  # [bs, N]
+
+            if return_trajectory:
+                trajectory.append((cls_logits.detach(), pred_bboxes.detach()))
+            if self.use_ensemble:
+                ensemble_results.append((cls_logits, pred_bboxes))
+
+            if not ensemble_results:
+                ensemble_results.append((cls_logits, pred_bboxes))
+
+            # 求解器步进 (不变)
+            if self.diffusion_type == 'ddpm':
+                curr_bboxes_xyxy, x_raw = self._sampler.ddim_step(
+                    t_curr, t_next, x_raw, cls_logits, pred_bboxes,
+                    img_metas, self.alphas_cumprod,
+                )
+                if t_next < 0:
+                    break
+            else:
+                if dpm_solver is not None:
+                    x_raw = dpm_solver.step(x_raw, x0_raw, t_curr, step_idx)
+                elif self.solver_type == 'heun' and t_next > 0:
+                    def model_fn(x_tmp, t_tmp):
+                        # Heun 第二阶也用 CCBR 前向
+                        _, _, x0_tmp, _ = self._forward_at_t_ccbr(
+                            features, x_tmp, t_tmp, img_metas, prev_head6_scores
+                        )
+                        return x0_tmp, None
+                    x_raw = self.rf.heun_step(
+                        x_raw, x0_raw, t_curr, t_next, model_fn
+                    )
+                else:
+                    x_raw = self.rf.step(x_raw, x0_raw, t_curr, t_next)
+
+                # 时间步间 box_renewal (现有, 保留)
+                if self.box_renewal:
+                    x_raw = self._sampler.apply_box_renewal(x_raw, cls_logits)
+                if t_next <= 0:
+                    break
+
+        results = self._sampler.post_process(
+            ensemble_results, img_metas, rescale
+        )
+
+        if return_trajectory:
+            return results, trajectory
+        return results
 
     def _normalize_pred_bboxes(self, all_pred_bboxes, img_metas):
         # 构建 scale 张量并广播除法，消除逐 head 逐 image 的双重循环

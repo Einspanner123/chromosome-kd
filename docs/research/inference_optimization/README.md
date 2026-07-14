@@ -60,8 +60,8 @@ backbone+FPN (1次, 26ms)
 |------|---------|:---:|------|------|
 | **IO1** 自适应步数终止 | 收敛后提前结束采样循环 | **证伪** | x0_Δrel 最低 0.166 (>>0.01 阈值), cls 一致率仅 65% | [IO1](./方向IO1_自适应步数提前终止.md) |
 | **IO2** 投机 Draft-Verify | 1步草稿+多步验证 | **证伪** | 早期步 cls 一致率 57%, draft 不可靠 | [IO2](./方向IO2_投机Draft_Verify.md) |
-| **IO3** Top-K 框剪枝 | N: 500→100 | **弱支持** | N=100 仅 1.82x (非 25x), Self-Attn 仅 2.2% | [IO3](./方向IO3_TopK框剪枝.md) |
-| **IO4** 级联头提前退出 | 跳过收敛的后续头 | **部分可行** | Head 4→5, 5→6 box_Δrel<0.008, 但 cls 一致率 88% | [IO4](./方向IO4_级联头提前退出.md) |
+| **IO3** Top-K 框剪枝 | N: 500→100 | **验证成功, 推荐K=300** | K=300 加速 1.34x, mAP Δ=-0.001；无需重训 | [IO3](./方向IO3_TopK框剪枝.md) |
+| **IO4** 级联头提前退出 | 跳过收敛的后续头 | **证伪** | 所有阈值退出率均为 0%，级联头是主动精炼设计而非冗余 | [IO4](./方向IO4_级联头提前退出.md) |
 | **IO5** 跨步 RoI 特征缓存 | 复用 RoI 特征 | **证伪** | 框位移 93-124 px/步, RoI 特征剧变 | [IO5](./方向IO5_跨步RoI特征缓存.md) |
 
 ### 已实现方向
@@ -71,6 +71,7 @@ backbone+FPN (1次, 26ms)
 | DPM-Solver++ | ✓ 已实现 | 历史 x0_pred 多项式插值，1 NFE/step。[rectified_flow.py](../../../ldmdet/diffusion/rectified_flow.py#L83) |
 | FP16/BF16 AMP | ✓ 已实现 | `amp_dtype` + `attn_half`。[head.py#L126](../../../ldmdet/core/head.py#L126) |
 | SDPA Flash Attention | ✓ 已实现 | `use_sdpa`。[single_head.py#L89](../../../ldmdet/core/single_head.py#L89) |
+| **IO3 Top-K 剪枝** | ✓ 已实现 | `topk_k=300` 推理时剪枝，无需重训。[head.py](../../../ldmdet/core/head.py) |
 
 ---
 
@@ -96,16 +97,17 @@ backbone+FPN (1次, 26ms)
 
 ### 推荐组合
 
+根据 IO3 实测：**IO3 K=300 单项即可获得 34% 加速，且 mAP 几乎无损**（Δ=-0.001），无需组合其他方向。
+
 ```
-阶段 1: B (DPM++4) + C (N=300) + A (skip1) → 预期 2.0-2.5x, mAP 降 ~0.005
-阶段 2: + E (5×5) + F (dim=32) 重训       → 预期 3.0x, mAP 降 ~0.008
+推荐默认配置: IO3 K=300 → 加速 1.34x, mAP 降 0.001
 ```
 
 ---
 
 ## 4. 验证方法
 
-在 SOTA checkpoint (`reproduce_0751_stochot_eps5_v2`, mAP=0.753) 上做**离线推理对比**：
+在 SOTA checkpoint (`a3_full_sota`, mAP=0.858) 上做**离线推理对比**：
 
 ```bash
 # 延迟验证

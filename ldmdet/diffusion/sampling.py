@@ -1,11 +1,13 @@
 """扩散采样模块
 
 包含 DDIM、Euler、Heun、DPM-Solver++ 等采样策略，
-以及框更新 (box renewal) 和后处理逻辑。
+以及框更新 (box renewal)、PCSE 核型评分、CCBR 级联间更新和后处理逻辑。
 """
 
+import math
 from typing import List, Optional, Tuple
 
+import numpy as np
 import torch
 from torch import Tensor
 from torchvision.ops import batched_nms
@@ -13,6 +15,7 @@ from torchvision.ops import batched_nms
 from ldmdet.data.structures import DetectionResult, ImageMeta
 from ldmdet.diffusion.noise_schedule import load_buffer
 from ldmdet.diffusion.rectified_flow import RFDPMSolverMultistep
+from ldmdet.diffusion.shts import build_shts_grid, build_shts_shifted_grid
 from ldmdet.utils.box_ops import bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh
 
 
@@ -39,6 +42,10 @@ class DiffusionSampler:
         nms_thr: float,
         score_thr: float,
         min_keep: int,
+        # SHTS params
+        shts_alpha: float = 1.0,
+        shts_sigma: float = 0.15,
+        shts_shifted: bool = False,
     ):
         self.diffusion_type = diffusion_type
         self.timesteps = timesteps
@@ -55,6 +62,10 @@ class DiffusionSampler:
         self.nms_thr = nms_thr
         self.score_thr = score_thr
         self.min_keep = min_keep
+        # SHTS params
+        self.shts_alpha = shts_alpha
+        self.shts_sigma = shts_sigma
+        self.shts_shifted = shts_shifted
 
     def build_time_pairs(
         self, device: torch.device
@@ -70,24 +81,55 @@ class DiffusionSampler:
             times = list(reversed(times.int().tolist()))
             return list(zip(times[:-1], times[1:]))
 
-        times = torch.linspace(
-            1.0, 0.0, steps=self.sampling_timesteps + 1, device=device
-        )
-        if self.rf_schedule == 'power':
-            times = times.pow(self.rf_power)
-        elif self.rf_schedule == 'shifted':
-            s = self.rf_shift
-            times = s * times / (1 + (s - 1) * times)
+        # SHTS schedule: 基于 SNR 导数的自适应网格
+        if self.rf_schedule == 'shts':
+            t_grid = self._build_shts_time_grid()
+            times = torch.tensor(t_grid, device=device)
+        else:
+            times = torch.linspace(
+                1.0, 0.0, steps=self.sampling_timesteps + 1, device=device
+            )
+            if self.rf_schedule == 'power':
+                times = times.pow(self.rf_power)
+            elif self.rf_schedule == 'shifted':
+                s = self.rf_shift
+                times = s * times / (1 + (s - 1) * times)
 
         time_pairs = []
         for i in range(len(times) - 1):
             time_pairs.append((times[i].item(), times[i + 1].item()))
         return time_pairs
 
+    def _build_shts_time_grid(self) -> List[float]:
+        """构建 SHTS 时间步网格"""
+        solver_order = 2 if self.solver_type in ('dpm_solver_pp', 'heun') else (3 if self.solver_type == 'dpm_solver_pp_3' else 1)
+        if self.shts_shifted:
+            return build_shts_shifted_grid(
+                self.sampling_timesteps, self.snr_scale,
+                rf_shift=self.rf_shift,
+                task_weight_alpha=self.shts_alpha,
+                task_weight_sigma=self.shts_sigma,
+                solver_order=solver_order,
+            )
+        return build_shts_grid(
+            self.sampling_timesteps, self.snr_scale,
+            task_weight_alpha=self.shts_alpha,
+            task_weight_sigma=self.shts_sigma,
+            solver_order=solver_order,
+        )
+
     def create_dpm_solver(self) -> Optional[RFDPMSolverMultistep]:
-        """创建 DPM-Solver++ 实例"""
+        """创建 DPM-Solver++ 实例，支持 SHTS 网格传递"""
         if self.solver_type in ('dpm_solver_pp', 'dpm_solver_pp_3'):
             solver_order = 3 if self.solver_type == 'dpm_solver_pp_3' else 2
+            # SHTS: 生成非均匀网格传递给 DPM-Solver++
+            if self.rf_schedule == 'shts':
+                t_grid = self._build_shts_time_grid()
+                return RFDPMSolverMultistep(
+                    num_steps=self.sampling_timesteps,
+                    solver_order=solver_order,
+                    timesteps=t_grid,
+                )
             return RFDPMSolverMultistep(
                 num_steps=self.sampling_timesteps, solver_order=solver_order
             )
@@ -115,6 +157,52 @@ class DiffusionSampler:
                     num_renew, 4, device=device
                 )
         return x_raw_new
+
+    # ================================================================
+    # CCBR: 级联间软 renewal (跨级联框更新)
+    # ================================================================
+
+    def apply_inter_head_renewal(
+        self,
+        pred_bboxes: Tensor,      # [bs, N, 4] xyxy, Head k 的预测
+        fused_conf: Tensor,       # [bs, N] 融合置信度
+        threshold: float,         # renewal 阈值
+        alpha: float = 0.7,       # 软 renewal 保留率
+        sigma_scale: float = 0.1, # 扰动幅度 (框对角线比例)
+    ) -> Tensor:
+        """级联间软 box_renewal
+
+        与 apply_box_renewal 的区别:
+        1. 作用在 xyxy 空间 (级联间), 非 raw 空间 (时间步间)
+        2. 软 renewal (alpha * pred + (1-alpha) * perturbed), 非纯噪声
+        3. 用融合置信度 (本级 + 后向传播), 非仅最后一级
+        """
+        bs, N, _ = pred_bboxes.shape
+        device = pred_bboxes.device
+
+        # 框对角线长度作为扰动尺度
+        diag = torch.sqrt(
+            (pred_bboxes[..., 2] - pred_bboxes[..., 0]).clamp(min=1e-6) ** 2
+            + (pred_bboxes[..., 3] - pred_bboxes[..., 1]).clamp(min=1e-6) ** 2
+        )  # [bs, N]
+
+        # 决策: 保留 or 软 renewal
+        keep = fused_conf > threshold  # [bs, N]
+        for i in range(bs):
+            if keep[i].sum() < self.min_keep:
+                _, topk_idx = fused_conf[i].topk(
+                    min(self.min_keep, N)
+                )
+                keep[i, topk_idx] = True
+
+        # 软 renewal: alpha * pred + (1-alpha) * (pred + sigma * noise)
+        noise = torch.randn(bs, N, 4, device=device)
+        sigma = sigma_scale * diag.unsqueeze(-1)  # [bs, N, 1]
+        perturbed = pred_bboxes + sigma * noise
+        renewed = alpha * pred_bboxes + (1 - alpha) * perturbed
+
+        result = torch.where(keep.unsqueeze(-1), pred_bboxes, renewed)
+        return result
 
     def apply_topk_pruning(
         self,
@@ -331,6 +419,132 @@ def predict_noise_from_start(
     return (
         sqrt_recip_alphas_cumprod_t * x_t - x0
     ) / sqrt_recipm1_alphas_cumprod_t
+
+
+# ================================================================
+# PCSE: 配对一致性随机集成评分 (KaryotypeScorer)
+# ================================================================
+
+
+class KaryotypeScorer:
+    """核型配对一致性评分器 (PCSE 核心)
+
+    利用核型先验 (数量、配对、形态、性染色体) 对检测假设评分，
+    从 K 个候选假设中选择最合法的输出。
+    """
+
+    def __init__(
+        self,
+        num_autosome: int = 22,
+        x_class_idx: int = 22,
+        y_class_idx: int = 23,
+        target_count: int = 46,
+        count_sigma: float = 2.0,
+        alphas: Tuple[float, float, float, float] = (1.0, 2.0, 1.5, 1.5),
+        lam: float = 0.5,
+    ):
+        self.num_autosome = num_autosome
+        self.x_class_idx = x_class_idx
+        self.y_class_idx = y_class_idx
+        self.target_count = target_count
+        self.count_sigma = count_sigma
+        self.alphas = alphas  # (alpha_count, beta_pair, gamma_morph, delta_sex)
+        self.lam = lam
+
+    def score(self, bboxes: Tensor, scores: Tensor, labels: Tensor) -> float:
+        """计算单个假设的综合评分
+
+        Args:
+            bboxes: [N, 4] xyxy 框坐标
+            scores: [N] 检测置信度
+            labels: [N] 类别标签
+
+        Returns:
+            float: 综合评分 (0~1), 越高越好
+        """
+        s_count = self._score_count(labels)
+        s_pair = self._score_pair(labels)
+        s_morph = self._score_morph(bboxes, labels)
+        s_sex = self._score_sex(labels)
+        s_karyo = (
+            self.alphas[0] * s_count
+            + self.alphas[1] * s_pair
+            + self.alphas[2] * s_morph
+            + self.alphas[3] * s_sex
+        )
+        s_karyo /= sum(self.alphas)  # 归一化到 [0, 1]
+        s_conf = scores.mean().item() if len(scores) > 0 else 0.0
+        return self.lam * s_conf + (1.0 - self.lam) * s_karyo
+
+    def _score_count(self, labels: Tensor) -> float:
+        """数量一致性评分: 染色体总数应接近 target_count"""
+        n = len(labels)
+        return math.exp(-((n - self.target_count) ** 2) / (2 * self.count_sigma ** 2))
+
+    def _score_pair(self, labels: Tensor) -> float:
+        """类别配对一致性评分: 每个常染色体类应恰好出现 2 次"""
+        counts = torch.bincount(labels, minlength=self.num_autosome + 2)
+        total = 0.0
+        for k in range(self.num_autosome):
+            n = counts[k].item()
+            if n == 2:
+                total += 1.0
+            elif n in (1, 3):
+                total += 0.5
+        return total / self.num_autosome
+
+    def _score_morph(self, bboxes: Tensor, labels: Tensor) -> float:
+        """形态配对一致性评分: 同源染色体对大小、长宽比相似"""
+        total_sim = 0.0
+        num_pairs = 0
+        for k in range(self.num_autosome):
+            idx = (labels == k).nonzero(as_tuple=True)[0]
+            if len(idx) != 2:
+                continue
+            b1, b2 = bboxes[idx[0]], bboxes[idx[1]]
+            w1, h1 = b1[2] - b1[0], b1[3] - b1[1]
+            w2, h2 = b2[2] - b2[0], b2[3] - b2[1]
+            A1, A2 = w1 * h1, w2 * h2
+            r1 = max(w1, h1) / max(min(w1, h1), 1e-6)
+            r2 = max(w2, h2) / max(min(w2, h2), 1e-6)
+            sim_size = 1.0 - abs(A1 - A2) / max(A1, A2, 1e-6)
+            sim_aspect = 1.0 - abs(r1 - r2) / max(r1, r2, 1e-6)
+            total_sim += 0.5 * (sim_size + sim_aspect)
+            num_pairs += 1
+        return total_sim / max(num_pairs, 1)
+
+    def _score_sex(self, labels: Tensor) -> float:
+        """性染色体一致性评分: 应为 XX (女) 或 XY (男)"""
+        n_x = (labels == self.x_class_idx).sum().item()
+        n_y = (labels == self.y_class_idx).sum().item()
+        if (n_x, n_y) in [(2, 0), (1, 1)]:
+            return 1.0
+        elif (n_x, n_y) in [(1, 0), (2, 1), (3, 0)]:
+            return 0.5
+        return 0.0
+
+
+def pcse_select(
+    hypotheses: List[DetectionResult],
+    scorer: KaryotypeScorer,
+) -> DetectionResult:
+    """PCSE 选择: 从 K 个假设中选择核型一致性最优的
+
+    Args:
+        hypotheses: K 个检测假设
+        scorer: 核型评分器
+
+    Returns:
+        评分最高的假设
+    """
+    best_score = -float('inf')
+    best_hypothesis = hypotheses[0]
+    for hyp in hypotheses:
+        s_total = scorer.score(hyp.bboxes, hyp.scores, hyp.labels)
+        if s_total > best_score:
+            best_score = s_total
+            best_hypothesis = hyp
+    return best_hypothesis
 
 
 def _get_img_shape(meta):
