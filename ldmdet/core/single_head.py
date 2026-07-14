@@ -85,6 +85,8 @@ class SingleDiffusionDetHead(nn.Module):
         shape_attention=None,
         use_normalized_classifier=False,
         classifier_temperature=20.0,
+        occlusion_prob=0.0,
+        occlusion_ratio_range=(0.2, 0.6),
     ):
         super().__init__()
         self.feat_channels = feat_channels
@@ -95,6 +97,12 @@ class SingleDiffusionDetHead(nn.Module):
         self.use_sdpa = use_sdpa and _SDPA_AVAILABLE
         self.attn_half = attn_half
         self.use_normalized_classifier = use_normalized_classifier
+
+        # 方向 Q1: 训练时 RoI 特征遮挡模拟
+        # occlusion_prob=0.0 (默认) 时不施加遮挡, 向后兼容
+        # 详见 docs/research/frontier_directions/方向Q_ATD_Amodal轨迹扩散.md §3.1
+        self.occlusion_prob = occlusion_prob
+        self.occlusion_ratio_range = tuple(occlusion_ratio_range)
 
         self.self_attn = nn.MultiheadAttention(
             feat_channels, num_heads, dropout=dropout
@@ -260,6 +268,11 @@ class SingleDiffusionDetHead(nn.Module):
         rois = bbox2roi([bboxes[i] for i in range(bs)])
         roi_features = pooler(features, rois)
 
+        # 方向 Q1: 训练时 RoI 特征遮挡模拟 (模拟染色体重叠场景)
+        # 遮挡施加在输入端, 损失仍对完整 GT 计算, 强制模型学习 amodal 补全
+        if self.occlusion_prob > 0:
+            roi_features = self._apply_occlusion(roi_features)
+
         # 方向 C1: 在 RoI 特征上应用局部形状注意力 (可选)
         if self.shape_attention is not None:
             roi_features = self.shape_attention(roi_features)
@@ -279,6 +292,63 @@ class SingleDiffusionDetHead(nn.Module):
             proposals, roi_features, time_emb, bs, num_boxes
         )
         return self._predict(fc_feature, bboxes, bs, num_boxes)
+
+    def _apply_occlusion(self, roi_features):
+        """方向 Q1: 训练时对 RoI 特征施加随机矩形零填充遮挡.
+
+        策略 A (Feature Masking): 在 RoI 特征图上随机选择矩形区域置零,
+        模拟染色体重叠导致的特征缺失。损失仍对完整 GT 计算, 强制模型
+        学习从部分观测恢复完整表示 (amodal completion).
+
+        详见 docs/research/frontier_directions/方向Q_ATD_Amodal轨迹扩散.md §3.1
+
+        Args:
+            roi_features: [N, C, H, W] RoI 特征张量
+
+        Returns:
+            与输入同形状的张量, 部分 RoI 的矩形区域被置零
+        """
+        if not self.training or self.occlusion_prob <= 0:
+            return roi_features
+
+        N, C, H, W = roi_features.shape
+        device = roi_features.device
+
+        # 每个 RoI 独立决定是否遮挡
+        occlude_mask = torch.rand(N, device=device) < self.occlusion_prob
+        if not occlude_mask.any():
+            return roi_features
+
+        # 采样面积比例 r, 遮挡矩形边长 = sqrt(r) * H (正方形)
+        # 使遮挡面积 ≈ r * H * W, 在 occlusion_ratio_range 范围内
+        lo, hi = self.occlusion_ratio_range
+        ratios = torch.empty(N, device=device).uniform_(lo, hi)
+        sqrt_ratios = ratios.sqrt()
+        occ_h = torch.clamp((H * sqrt_ratios).long(), min=1, max=H)
+        occ_w = torch.clamp((W * sqrt_ratios).long(), min=1, max=W)
+
+        # 随机起点 (向量化)
+        max_y0 = (H - occ_h).clamp(min=0)
+        max_x0 = (W - occ_w).clamp(min=0)
+        y0 = (torch.rand(N, device=device) * (max_y0 + 1).float()).long()
+        x0 = (torch.rand(N, device=device) * (max_x0 + 1).float()).long()
+
+        # 构建矩形遮挡掩码 (向量化, 无 Python 循环)
+        ys = torch.arange(H, device=device).view(1, H, 1).expand(N, H, W)
+        xs = torch.arange(W, device=device).view(1, 1, W).expand(N, H, W)
+        y0_exp, x0_exp = y0.view(N, 1, 1), x0.view(N, 1, 1)
+        occ_h_exp, occ_w_exp = occ_h.view(N, 1, 1), occ_w.view(N, 1, 1)
+        rect_mask = (ys >= y0_exp) & (ys < y0_exp + occ_h_exp) & \
+                    (xs >= x0_exp) & (xs < x0_exp + occ_w_exp)
+
+        # 仅对被选中遮挡的 RoI 施加
+        final_mask = rect_mask & occlude_mask.view(N, 1, 1)
+
+        # 零填充遮挡区域, 非遮挡区域保持原值
+        occluded_features = roi_features.clone()
+        mask_4d = final_mask.unsqueeze(1).expand(-1, C, -1, -1)
+        occluded_features.masked_fill_(mask_4d, 0.0)
+        return occluded_features
 
     def _conditioned_forward(
         self, proposals, roi_features, time_emb, bs, num_boxes
