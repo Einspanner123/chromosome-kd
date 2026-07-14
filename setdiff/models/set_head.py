@@ -126,7 +126,12 @@ class JointDiffusionHead(nn.Module):
         t_emb = self.time_embed(t)  # [B, feat_channels]
 
         # 5. Predict x_0
-        cls_logits, pred_boxes = self.encoder(x_t, t_emb, image_features)
+        cls_logits, pred_boxes = self.encoder(
+            x_t,
+            t_emb,
+            image_features,
+            matched_mask=(matched_labels >= 0),
+        )
 
         # 6. Compute loss
         outputs = {

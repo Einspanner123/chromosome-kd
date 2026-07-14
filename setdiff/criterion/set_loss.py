@@ -5,8 +5,10 @@ Combines:
 2. Box regression loss (L1 + GIoU on predicted x_0).
 3. Diffusion loss (MSE on x_0 prediction — the velocity loss equivalent).
 
-Only matched slots (label >= 0) contribute to losses; padding/unmatched
-slots (label == -1) are ignored.
+Matched slots (label >= 0) → predict their GT class.
+Unmatched slots (label == -1) → predict "no object" (all class targets = 0).
+All slots participate in classification loss; only matched slots contribute
+to box/diffusion losses.
 """
 
 from typing import Dict, Tuple
@@ -154,29 +156,43 @@ class SetCriterion(nn.Module):
         pred_logits: Tensor,
         matched_labels: Tensor,
     ) -> Tensor:
-        """Sigmoid focal loss on matched slots only.
+        """Sigmoid focal loss over ALL slots.
+
+        - Matched slots (label >= 0): target is one-hot for their class.
+        - Unmatched slots (label == -1): target is all zeros (no object).
+
+        This is the standard DETR approach for sigmoid focal loss: every slot
+        participates in classification, and unmatched slots learn to suppress
+        all class scores.
 
         Args:
             pred_logits: [B, N, C]
             matched_labels: [B, N] (label=-1 for unmatched)
         """
         B, N, C = pred_logits.shape
+
+        # One-hot targets: [B, N, C]
+        targets = torch.zeros_like(pred_logits)  # all zeros initially
         valid_mask = matched_labels >= 0  # [B, N]
+        if valid_mask.any():
+            valid_labels = matched_labels[valid_mask]  # [num_valid]
+            targets[valid_mask] = torch.zeros_like(
+                targets[valid_mask]
+            ).scatter_(1, valid_labels.clamp(0, C - 1).unsqueeze(1), 1.0)
 
-        if not valid_mask.any():
-            return pred_logits.sum() * 0.0
+        num_pos = valid_mask.sum().item()
+        flatten_logits = pred_logits.reshape(-1, C)
+        flatten_targets = targets.reshape(-1, C)
 
-        flat_logits = pred_logits[valid_mask]  # [num_valid, C]
-        flat_labels = matched_labels[valid_mask]  # [num_valid]
-
-        # One-hot encode (labels are clamped to [0, C-1] for safety)
-        one_hot = torch.zeros_like(flat_logits)
-        one_hot.scatter_(1, flat_labels.clamp(0, C - 1).unsqueeze(1), 1.0)
-
-        num_pos = flat_logits.shape[0]
         loss = sigmoid_focal_loss(
-            flat_logits, one_hot, alpha=self.alpha, gamma=self.gamma
+            flatten_logits,
+            flatten_targets,
+            alpha=self.alpha,
+            gamma=self.gamma,
         )
+        # Normalize by number of positive slots (same as mmdet DETR).
+        # With sigmoid focal loss on all slots, the effective normalization
+        # balances the huge negative (unmatched) contribution.
         return loss / max(num_pos, 1)
 
     def _loss_boxes(

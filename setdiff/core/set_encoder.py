@@ -106,11 +106,16 @@ class SetEncoder(nn.Module):
         x_t: Tensor,
         t_emb: Tensor,
         image_features: Tensor,
+        matched_mask: Tensor | None = None,
     ) -> tuple[Tensor, Tensor]:
         """Args:
             x_t: [B, N, 4] noisy boxes (joint state, cxcywh).
             t_emb: [B, dim] time embedding.
             image_features: [B, HW, C] flattened multi-scale features.
+            matched_mask: [B, N] or None. True = matched slot (has GT),
+                False = unmatched/padding. When provided during training,
+                an attention bias is added to prevent unmatched→matched
+                noise contamination in self-attention.
 
         Returns:
             cls_logits: [B, N, num_classes]
@@ -130,9 +135,33 @@ class SetEncoder(nn.Module):
         # Combined query for the decoder's tgt.
         tgt = query + box_pos + t  # [B, N, C]
 
+        # Attention bias for P0-2: prevent unmatched→matched contamination.
+        # During training, unmmatched slots carry pure noise as input and
+        # would inject random noise into active (matched) slot states via
+        # self-attention. We create a [B, N, N] bias where:
+        #   bias[i, j] = -inf if slot i is unmatched AND slot j is matched
+        #   bias[i, j] = 0   otherwise
+        # This blocks the contaminating path while preserving all other
+        # attention flows.
+        tgt_mask = None
+        if matched_mask is not None and self.training:
+            mm = matched_mask.bool()  # [B, N]
+            # block_mask[b, i, j] = True if i is unmatched & j is matched
+            block_mask = (~mm.unsqueeze(-1)) & mm.unsqueeze(-2)  # [B, N, N]
+            attn_bias = torch.zeros(
+                B, N, N, device=x_t.device, dtype=x_t.dtype
+            )
+            tgt_mask = attn_bias.masked_fill(block_mask, float('-inf'))
+            # PyTorch 2.x expects 3D attn_mask shape [B * H, N, N].
+            H = self.decoder.layers[0].self_attn.num_heads
+            tgt_mask = tgt_mask.repeat_interleave(H, dim=0)
+
         # Transformer Decoder: self-attn (tgt ↔ tgt) + cross-attn
         # (tgt ↔ image_features).
-        hs = self.decoder(tgt, image_features)  # [B, N, C]
+        # tgt_mask of shape [B*H, N, N] (expanded from [B, N, N]).
+        hs = self.decoder(
+            tgt, image_features, tgt_mask=tgt_mask
+        )  # [B, N, C]
 
         cls_logits = self.cls_head(hs)  # [B, N, num_classes]
         pred_boxes = self.box_head(hs)  # [B, N, 4]
