@@ -1031,7 +1031,7 @@ class DiTDiffusionDetHead(nn.Module):
             x0_raw = self._xyxy_to_raw(last_pred_bboxes_img, img_metas)
             return last_cls_logits, last_pred_bboxes_img, x0_raw, None
 
-    @torch.inference_mode()
+    @torch.no_grad()
     def predict(
         self, features, img_metas, rescale=True, return_trajectory=False
     ):
@@ -1040,18 +1040,17 @@ class DiTDiffusionDetHead(nn.Module):
         # 重置 ODE 诊断计数器，每个 val epoch 只记录前 4 个 batch 的轨迹
         self._ode_diag_count = 0
 
-        # 在 CPU 上计算 time_pairs, 避免 .item() 触发 GPU 同步
-        # linspace/pow/算术运算在 CPU 与 GPU 上数值完全一致
-        times_cpu = torch.linspace(1.0, 0.0, steps=self.sampling_timesteps + 1)
+        times = torch.linspace(
+            1.0, 0.0, steps=self.sampling_timesteps + 1, device=device
+        )
         if self.rf_schedule == 'power':
-            times_cpu = times_cpu.pow(self.rf_power)
+            times = times.pow(self.rf_power)
         elif self.rf_schedule == 'shifted':
             s = self.rf_shift
-            times_cpu = s * times_cpu / (1 + (s - 1) * times_cpu)
-        time_pairs = [
-            (times_cpu[i].item(), times_cpu[i + 1].item())
-            for i in range(len(times_cpu) - 1)
-        ]
+            times = s * times / (1 + (s - 1) * times)
+        time_pairs = []
+        for i in range(len(times) - 1):
+            time_pairs.append((times[i].item(), times[i + 1].item()))
 
         x_raw = self._init_inference_boxes(bs, device)
         x0_prev = None
@@ -1154,11 +1153,8 @@ class DiTDiffusionDetHead(nn.Module):
         bs, device = x_raw.shape[0], x_raw.device
         scores = torch.sigmoid(cls_logits).max(-1)[0]
         x_raw_new = x_raw.clone()
-        # 向量化: 一次性计算所有样本的 keep mask (避免 per-sample 比较)
-        keep_mask = scores > self.score_thr
-        # topk 补充和随机数生成保持 per-sample, 保证随机数序列与原实现一致
         for i in range(bs):
-            keep = keep_mask[i]
+            keep = scores[i] > self.score_thr
             if keep.sum() < self.min_keep:
                 _, topk_idx = scores[i].topk(
                     min(self.min_keep, scores.shape[1])
