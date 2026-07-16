@@ -18,8 +18,13 @@ default_hooks = dict(
 )
 
 # ── Environment ────────────────────────────────────
+# ── Performance Optimizations ─────────────────────
+# cudnn.benchmark: 自动选择最优卷积 kernel (精度无损, +3-5%)
+# pin_memory: 页锁定内存加速 CPU→GPU 传输 (精度无损, +3-10%)
+# torch.compile: 在 model config 中设置 torch_compile=True 启用 (精度无损, +1.5×)
+#   注意: 首次运行有 30-60s 编译开销, 需 warmup
 env_cfg = dict(
-    cudnn_benchmark=False,
+    cudnn_benchmark=True,
     mp_cfg=dict(mp_start_method='fork', opencv_num_threads=0),
     dist_cfg=dict(backend='nccl'),
 )

@@ -1,4 +1,5 @@
-from typing import Optional, Tuple
+import math
+from typing import Optional, Tuple, Union
 
 import torch
 from torch import Tensor
@@ -48,7 +49,9 @@ class RectifiedFlow:
 
         return x_t, velocity
 
-    def get_velocity(self, x_t: Tensor, x_0_pred: Tensor, t: Tensor) -> Tensor:
+    def get_velocity(
+        self, x_t: Tensor, x_0_pred: Tensor, t: Union[Tensor, float]
+    ) -> Tensor:
         """
         根据预测的 x_0 计算当前的速度 v_t。
         在 Rectified Flow 中, v_t = (x_t - x_0_pred) / t (当 t > 0 时)
@@ -56,6 +59,10 @@ class RectifiedFlow:
         那么从 x_t = (1-t)x_0 + t x_1 可以推导出 x_1 = (x_t - (1-t)x_0) / t
         则 v = x_1 - x_0 = (x_t - x_0) / t
         """
+        if isinstance(t, (int, float)):
+            # 标量路径: 直接用 Python float 广播, 避免创建 timestep tensor
+            v_t = (x_t - x_0_pred) / max(float(t), 1e-5)
+            return v_t
         t_view = t.view(-1, *([1] * (x_t.dim() - 1)))
         # 避免除以 0
         v_t = (x_t - x_0_pred) / torch.clamp(t_view, min=1e-5)
@@ -68,9 +75,8 @@ class RectifiedFlow:
         ODE 采样的一步 (Euler Step): x_{t_next} = x_t + (t_next - t_curr) * v_t
         """
         dt = t_next - t_curr
-        v_t = self.get_velocity(
-            x_t, x_0_pred, torch.tensor([t_curr], device=x_t.device)
-        )
+        # 直接传 Python float, 避免创建 timestep tensor 的开销
+        v_t = self.get_velocity(x_t, x_0_pred, t_curr)
         x_next = x_t + dt * v_t
         return x_next
 
@@ -87,21 +93,17 @@ class RectifiedFlow:
         x_next = x_t + (dt/2) * (v_t + v_next)
         """
         dt = t_next - t_curr
-        device = x_t.device
 
         # --- 1. Euler Step (预估下一步位置) ---
-        v_t = self.get_velocity(
-            x_t, x_0_pred, torch.tensor([t_curr], device=device)
-        )
+        # 直接传 Python float, 避免创建 timestep tensor 的开销
+        v_t = self.get_velocity(x_t, x_0_pred, t_curr)
         x_next_euler = x_t + dt * v_t
 
         # --- 2. 在 t_next 处进行第二次预测 ---
         x_0_pred_next, _ = model_fn(x_next_euler, t_next)
 
         # --- 3. 计算 BBox 修正 ---
-        v_next = self.get_velocity(
-            x_next_euler, x_0_pred_next, torch.tensor([t_next], device=device)
-        )
+        v_next = self.get_velocity(x_next_euler, x_0_pred_next, t_next)
         x_next = x_t + (dt / 2.0) * (v_t + v_next)
 
         return x_next
@@ -124,7 +126,43 @@ class RFDPMSolverMultistep:
         self.timesteps: list[float] = [
             float(t) for t in torch.linspace(1.0, 0.0, num_steps + 1)
         ]
+        self._precompute_phi_coefficients()
         self.reset()
+
+    def _precompute_phi_coefficients(self):
+        """在 __init__ 中预计算所有步的 phi1, phi2 系数。
+
+        phi1 依赖于 t_n (当前步) 和 t_next (下一步), 均在 self.timesteps 中。
+        phi2 依赖于 t_n, t_next, t_p (前一步), 也在 self.timesteps 中。
+        当调用方使用线性 schedule (t_n == self.timesteps[step_idx]) 时可直接查找,
+        避免每步重复调用 math.log; 非线性 schedule 时回退到运行时计算以保持精度一致。
+        """
+        self.phi1_list: list[float] = []
+        self.phi2_list: list[float] = []
+        for step_idx in range(self.num_steps):
+            t_n = self.timesteps[step_idx]
+            t_next = self.timesteps[step_idx + 1]
+            self.phi1_list.append(self._compute_phi1(t_n, t_next))
+            # phi2 需要 t_p (前一步), 仅在 step_idx >= 1 时有意义
+            if step_idx >= 1:
+                t_p = self.timesteps[step_idx - 1]
+                self.phi2_list.append(self._compute_phi2(t_n, t_next, t_p))
+            else:
+                self.phi2_list.append(0.0)  # placeholder, 不会被使用
+
+    @staticmethod
+    def _compute_phi1(t_n: float, t_next: float) -> float:
+        if t_next > 1e-7:
+            return t_next * math.log(t_n / t_next) - t_n + t_next
+        return -t_n
+
+    @staticmethod
+    def _compute_phi2(t_n: float, t_next: float, t_p: float) -> float:
+        if t_next > 1e-7:
+            return (t_next + t_p) * (t_n - t_next) - t_next * (
+                t_n + t_p
+            ) * math.log(t_n / t_next)
+        return t_p * t_n
 
     def reset(self):
         self.x0_history: list[torch.Tensor] = []
@@ -148,8 +186,6 @@ class RFDPMSolverMultistep:
         Returns:
             x_{n+1}, shape [N, 4]
         """
-        import math
-
         t_next = self.timesteps[step_idx + 1]
 
         self.x0_history.append(x0_pred)
@@ -168,7 +204,11 @@ class RFDPMSolverMultistep:
         t_p = self.t_history[-2]
         D1 = (x0_n - x0_p) / (t_n - t_p)
 
-        if t_next > 1e-7:
+        # 线性 schedule (t_n == self.timesteps[step_idx]) 时直接查找预计算 phi1,
+        # 避免 math.log 调用; 非线性 schedule 时回退到运行时计算保持精度一致
+        if t_n == self.timesteps[step_idx]:
+            phi1 = self.phi1_list[step_idx]
+        elif t_next > 1e-7:
             phi1 = t_next * math.log(t_n / t_next) - t_n + t_next
         else:
             phi1 = -t_n
@@ -181,11 +221,16 @@ class RFDPMSolverMultistep:
             D1_p = (x0_p - x0_pp) / (t_p - t_pp)
             D2 = (D1 - D1_p) / (t_n - t_pp)
 
-            if t_next > 1e-7:
-                phi2 = (
-                    (t_next + t_p) * (t_n - t_next)
-                    - t_next * (t_n + t_p) * math.log(t_n / t_next)
-                )
+            # phi2 同样优先使用预计算值, 需同时确认 t_p 与线性 schedule 一致
+            if (
+                t_n == self.timesteps[step_idx]
+                and t_p == self.timesteps[step_idx - 1]
+            ):
+                phi2 = self.phi2_list[step_idx]
+            elif t_next > 1e-7:
+                phi2 = (t_next + t_p) * (t_n - t_next) - t_next * (
+                    t_n + t_p
+                ) * math.log(t_n / t_next)
             else:
                 phi2 = t_p * t_n
 
