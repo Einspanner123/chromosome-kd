@@ -125,7 +125,7 @@ def main() -> None:
 
     fig.text(
         0.5, 0.01,
-        r"RF paradigm: 94\% ($+0.077$)  vs  solver/step: 6\% ($+0.005$)",
+        r"4-step vs 1-step: $\Delta$0.004 mAP $\Rightarrow$ solver/step contributes 6\% of total RF gain",
         ha="center", va="bottom", fontsize=7,
         bbox=dict(boxstyle="round,pad=0.3", fc="#f5f5f5", ec="0.7", lw=0.5),
     )

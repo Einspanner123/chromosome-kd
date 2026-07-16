@@ -97,7 +97,7 @@ def main() -> None:
 
     overall_mean = float(np.mean(aps))
     ax.axvline(overall_mean, color=C_OVERALL, lw=1.0, ls="--", alpha=0.8)
-    ax.text(0.752, len(classes) - 0.3,
+    ax.text(0.752, len(classes) - 0.8,
             f"mean = {overall_mean:.3f}",
             fontsize=7, color=C_OVERALL, ha="left", va="top",
             bbox=dict(boxstyle="round,pad=0.25", fc="white", ec=C_OVERALL,

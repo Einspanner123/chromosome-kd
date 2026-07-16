@@ -199,7 +199,7 @@ def main() -> None:
     ax.legend(
         handles=handles,
         loc="lower center",
-        bbox_to_anchor=(0.5, -0.30),
+        bbox_to_anchor=(0.5, -0.22),
         ncol=4,
         frameon=True,
         framealpha=0.95,

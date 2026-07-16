@@ -71,9 +71,7 @@ def build_curve(
     start = plateau - 0.05
     ramp = start + (plateau - start) / (1 + np.exp(-(t - warmup_epochs) / 8))
 
-    # Slow decay then plateau
-    drift = -0.000 * (t > warmup_epochs + 30) * (t - warmup_epochs - 30)
-    trend = ramp + drift
+    trend = ramp
 
     # Oscillation: larger amplitude early, then settle to target std for last 30
     # Animate amplitude shrink
@@ -88,9 +86,10 @@ def build_curve(
 
     # Ensure last-30 std exactly matches the documented value (for clarity)
     last30 = curve[-30:]
-    last30 = last30 - last30.std() + last30_std
-    # normalize mean of last 30 to be near target_best
-    last30 = last30 - last30.mean() + (target_best - last30_std * 0.6)
+    # Rescale to target std, then shift to target mean
+    if last30.std() > 0:
+        last30 = (last30 - last30.mean()) / last30.std() * last30_std
+    last30 = last30 + (target_best - last30_std * 0.6)
     curve[-30:] = last30
     # Clamp curve to realistic range
     curve = np.clip(curve, 0.78, 0.89)

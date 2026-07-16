@@ -101,9 +101,10 @@ def panel_trajectories(ax: plt.Axes) -> None:
     ax.text(1.04, 1.04, "$x_0$ (GT)", fontsize=7.5, ha="left", va="bottom")
 
     # time arrow - black solid, prominent
-    ax.annotate("", xy=(0.12, -0.22), xytext=(0.88, -0.22),
+    # Arrow: noise (x1, left) → GT (x0, right) = decreasing t (inference direction)
+    ax.annotate("", xy=(0.88, -0.22), xytext=(0.12, -0.22),
                 arrowprops=dict(arrowstyle="->", lw=1.2, color="black"))
-    ax.text(0.5, -0.30, r"decreasing $t$  (few-step)", fontsize=7.5, ha="center", 
+    ax.text(0.5, -0.30, r"decreasing $t$  (few-step)", fontsize=7.5, ha="center",
             color="black")
 
     ax.set_xlim(-0.18, 1.22)
@@ -173,12 +174,18 @@ def panel_adaln(ax: plt.Axes) -> None:
 
     # MLP splits into 3 vertical branches: gamma, beta, alpha
     mlp_bottom_y = y_top
-    # gamma column x
-    gx = 2.2
-    # beta column x
-    bx = 5.0
-    # alpha column x
-    alx = 7.8
+    # Modulate box center x = 1.5 + 2.8/2 = 2.9
+    # Gate box center x = 5.5 + 2.5/2 = 6.75
+    # gamma and beta both feed into Modulate, so place them above Modulate
+    mod_cx = 1.5 + 2.8 / 2   # 2.9
+    gate_cx = 5.5 + 2.5 / 2  # 6.75
+
+    # gamma (scale) — left half above Modulate
+    gx = mod_cx - 0.7
+    # beta (shift) — right half above Modulate
+    bx = mod_cx + 0.7
+    # alpha (gate) — above Gate
+    alx = gate_cx
 
     # gamma (scale)
     box(gx - 0.7, 3.9, 1.4, 0.7, r"$\gamma$ (scale)", fc="#ffffff", fontsize=7.5)
@@ -211,9 +218,9 @@ def panel_adaln(ax: plt.Axes) -> None:
     box(1.5, y_feat, 2.8, h_feat, r"$h \odot \gamma + \beta$", fc="#ffffff")
     arrow(1.0, y_feat + h_feat/2, 1.5, y_feat + h_feat/2, color=C_MIDGRAY, lw=1.0)
     
-    # gamma -> modulate (from above)
+    # gamma -> modulate (from above, into top of Modulate box)
     arrow(gx, 3.9, gx, y_feat + h_feat, color=C_DARKGRAY, lw=0.8)
-    # beta -> modulate (from above)
+    # beta -> modulate (from above, into top of Modulate box)
     arrow(bx, 3.9, bx, y_feat + h_feat, color=C_DARKGRAY, lw=0.8)
 
     # h' 
@@ -225,7 +232,7 @@ def panel_adaln(ax: plt.Axes) -> None:
     box(5.5, y_feat, 2.5, h_feat, r"$\alpha \cdot h'$", fc="#ffffff")
     arrow(4.9, y_feat + h_feat/2, 5.5, y_feat + h_feat/2, color=C_MIDGRAY, lw=1.0)
     
-    # alpha -> gate (from above)
+    # alpha -> gate (from above, into top of Gate box)
     arrow(alx, 3.9, alx, y_feat + h_feat, color=C_DARKGRAY, lw=0.8)
 
     # output

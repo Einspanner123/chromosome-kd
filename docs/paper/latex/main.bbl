@@ -1,0 +1,123 @@
+\begin{thebibliography}{20}
+\providecommand{\natexlab}[1]{#1}
+
+\bibitem[{Anonymous(2025)}]{deflomat2025}
+Anonymous. 2025.
+\newblock {DeFloMat}: Rectified Flow for Medical Object Detection.
+\newblock \emph{arXiv preprint (citation to be verified)}.
+
+\bibitem[{Baty et~al.(2025)}]{baty2025flowdet}
+Baty, T.; et~al. 2025.
+\newblock {FlowDet}: Conditional Flow Matching for Detection with Mini-batch
+  Optimal Transport.
+\newblock \emph{arXiv preprint (citation to be verified)}.
+\newblock FlowDet, conditional flow matching for detection.
+
+\bibitem[{Chen et~al.(2023)Chen, Bao, Sun, Li, Zhu, Liu, and
+  Jiang}]{chen2023diffusiondet}
+Chen, S.; Bao, Y.; Sun, J.; Li, Z.; Zhu, C.; Liu, H.; and Jiang, N. 2023.
+\newblock {DiffusionDet}: Diffusion Model for Object Detection.
+\newblock In \emph{Proc. IEEE/CVF Int. Conf. Comput. Vis. (ICCV)}, 1980--1989.
+
+\bibitem[{Cuturi(2013)}]{cuturi2013sinkhorn}
+Cuturi, M. 2013.
+\newblock Sinkhorn Distances: Lightspeed Computation of Optimal Transport.
+\newblock In \emph{Neural Inf. Process. Syst. (NeurIPS)}.
+
+\bibitem[{Dhariwal and Nichol(2021)}]{dhariwal2021diffusion}
+Dhariwal, P.; and Nichol, A. 2021.
+\newblock Diffusion Models Beat {GANs} on Image Synthesis.
+\newblock In \emph{Neural Inf. Process. Syst. (NeurIPS)}.
+
+\bibitem[{Ge et~al.(2021)Ge, Liu, Wang, Li, and Sun}]{ge2021yolox}
+Ge, Z.; Liu, S.; Wang, F.; Li, Z.; and Sun, J. 2021.
+\newblock {YOLOX}: Exceeding {YOLO} Series in 2021.
+\newblock \emph{arXiv preprint arXiv:2107.08430}.
+
+\bibitem[{He et~al.(2016)He, Zhang, Ren, and Sun}]{he2016resnet}
+He, K.; Zhang, X.; Ren, S.; and Sun, J. 2016.
+\newblock Deep Residual Learning for Image Recognition.
+\newblock In \emph{Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR)}.
+
+\bibitem[{Kuhn(1955)}]{hungarian1955assignment}
+Kuhn, H.~W. 1955.
+\newblock The Hungarian Method for the Assignment Problem.
+\newblock \emph{Naval Research Logistics Quarterly}, 2(1-2): 83--97.
+
+\bibitem[{Kuo et~al.(2024)}]{kuo2024chromosomenet}
+Kuo, H.-Y.; et~al. 2024.
+\newblock {ChromosomeNet}: Deep Learning for Chromosome Karyotyping on the
+  Taichung Dataset.
+\newblock \emph{IEEE Open J. Eng. Med. Biol.}
+
+\bibitem[{Lin et~al.(2017{\natexlab{a}})Lin, Doll{\'a}r, Girshick, He,
+  Hariharan, and Belongie}]{lin2017fpn}
+Lin, T.-Y.; Doll{\'a}r, P.; Girshick, R.; He, K.; Hariharan, B.; and Belongie,
+  S. 2017{\natexlab{a}}.
+\newblock Feature Pyramid Networks for Object Detection.
+\newblock In \emph{Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR)}.
+
+\bibitem[{Lin et~al.(2017{\natexlab{b}})Lin, Goyal, Girshick, He, and
+  Doll{\'a}r}]{lin2017focal}
+Lin, T.-Y.; Goyal, P.; Girshick, R.; He, K.; and Doll{\'a}r, P.
+  2017{\natexlab{b}}.
+\newblock Focal Loss for Dense Object Detection.
+\newblock In \emph{Proc. IEEE Int. Conf. Comput. Vis. (ICCV)}.
+
+\bibitem[{Lipman et~al.(2023)Lipman, Chen, Ben-Hamu, Nickel, and
+  Le}]{lipman2023flow}
+Lipman, Y.; Chen, R. T.~Q.; Ben-Hamu, H.; Nickel, M.; and Le, M. 2023.
+\newblock Flow Matching for Generative Modeling.
+\newblock In \emph{Int. Conf. Learn. Represent. (ICLR)}.
+
+\bibitem[{Liu, Gong, and Liu(2023)}]{liu2023rectified}
+Liu, X.; Gong, C.; and Liu, Q. 2023.
+\newblock Flow Straight and Fast: Learning to Generate and Transfer Data with
+  Rectified Flow.
+\newblock \emph{arXiv preprint arXiv:2209.03003}.
+
+\bibitem[{Loshchilov and Hutter(2017)}]{loshchilov2017sgdr}
+Loshchilov, I.; and Hutter, F. 2017.
+\newblock {SGDR}: Stochastic Gradient Descent with Warm Restarts.
+\newblock In \emph{Int. Conf. Learn. Represent. (ICLR)}.
+
+\bibitem[{Loshchilov and Hutter(2019)}]{loshchilov2019adamw}
+Loshchilov, I.; and Hutter, F. 2019.
+\newblock Decoupled Weight Decay Regularization.
+\newblock In \emph{Int. Conf. Learn. Represent. (ICLR)}.
+
+\bibitem[{Lu et~al.(2022)Lu, Zhou, Zhang, Bao, Chen, Su, and Zhu}]{lu2022dpmpp}
+Lu, C.; Zhou, K.; Zhang, Y.; Bao, F.; Chen, J.; Su, H.; and Zhu, J. 2022.
+\newblock {DPM-Solver++}: Fast Solver for Guided Sampling of Diffusion Models.
+\newblock In \emph{Neural Inf. Process. Syst. (NeurIPS)}.
+
+\bibitem[{Pooladian et~al.(2023)Pooladian, Niles-Weed, Ben-Hamu, Tong, Brenier,
+  and Lipman}]{pooladian2023multisample}
+Pooladian, A.-A.; Niles-Weed, J.; Ben-Hamu, H.; Tong, A.; Brenier, Y.; and
+  Lipman, Y. 2023.
+\newblock Multisample Flow Matching: Straightening Flows with Mini-batch
+  Optimal Transport.
+\newblock In \emph{Neural Inf. Process. Syst. (NeurIPS)}.
+
+\bibitem[{Ren et~al.(2015)Ren, He, Girshick, and Sun}]{ren2015faster}
+Ren, S.; He, K.; Girshick, R.; and Sun, J. 2015.
+\newblock Faster {R-CNN}: Towards Real-Time Object Detection with Region
+  Proposal Networks.
+\newblock In \emph{Neural Inf. Process. Syst. (NeurIPS)}.
+
+\bibitem[{Rezatofighi et~al.(2019)Rezatofighi, Tsoi, Gwak, Sadeghian, Reid, and
+  Savarese}]{rezatofighi2019giou}
+Rezatofighi, H.; Tsoi, N.; Gwak, J.; Sadeghian, A.; Reid, I.; and Savarese, S.
+  2019.
+\newblock Generalized Intersection over Union: A Metric and A Loss for Bounding
+  Box Regression.
+\newblock In \emph{Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR)}.
+
+\bibitem[{Tong et~al.(2023)Tong, Fatras, Malkin, Huguet, Zhang, Rector-Brooks,
+  Wolf, and Bengio}]{tong2023conditional}
+Tong, A.; Fatras, K.; Malkin, N.; Huguet, G.; Zhang, Y.; Rector-Brooks, J.;
+  Wolf, G.; and Bengio, Y. 2023.
+\newblock Conditional Flow Matching: Simulation-Free Dynamic Optimal Transport.
+\newblock In \emph{Int. Conf. Learn. Represent. (ICLR)}.
+
+\end{thebibliography}
