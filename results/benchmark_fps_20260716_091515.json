@@ -1,0 +1,34 @@
+[
+  {
+    "total_ms": 20.667691154479982,
+    "std_ms": 0.47546149558077194,
+    "fps": 48.38469824836905,
+    "backbone_neck_ms": 5.894910092353821,
+    "head_ms": 14.77278106212616,
+    "name": "cascade_rcnn",
+    "desc": "Cascade R-CNN R50 (two-stage, mmdet)",
+    "config": "experiments/configs/baselines/benchmark_24obj/cascade_rcnn_r50.py",
+    "checkpoint": "work_dirs/baselines/cascade_rcnn_r50/best_coco_bbox_mAP_epoch_72.pth",
+    "img_size": 512,
+    "warmup": 100,
+    "iters": 300,
+    "gpu": "NVIDIA RTX A6000",
+    "known_mAP": 0.854
+  },
+  {
+    "total_ms": 10.154855041503906,
+    "std_ms": 0.40572274181986095,
+    "fps": 98.47506398790532,
+    "backbone_neck_ms": 7.245665071805318,
+    "head_ms": 2.9091899696985877,
+    "name": "yolox_s",
+    "desc": "YOLOX-S (single-stage, mmdet)",
+    "config": "experiments/configs/baselines/benchmark_24obj/yolox_s.py",
+    "checkpoint": "work_dirs/baselines/yolox_s/best_coco_bbox_mAP_epoch_200.pth",
+    "img_size": 512,
+    "warmup": 100,
+    "iters": 300,
+    "gpu": "NVIDIA RTX A6000",
+    "known_mAP": 0.796
+  }
+]

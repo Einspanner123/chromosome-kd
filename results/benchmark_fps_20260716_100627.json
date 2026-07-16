@@ -1,0 +1,23 @@
+[
+  {
+    "total_ms": 24.379018001556396,
+    "std_ms": 1.0934410680998643,
+    "fps": 41.018879428866185,
+    "backbone_neck_ms": 5.950389645894369,
+    "head_ms": 18.428628355662028,
+    "name": "diffusiondet",
+    "desc": "DiffusionDet (DDPM, euler 1-step, ldmdet framework)",
+    "config": "experiments/configs/baselines/benchmark_24obj/diffusiondet_ddpm.py",
+    "checkpoint": "work_dirs/baselines/diffusiondet_24obj/best_coco_bbox_mAP_epoch_26.pth",
+    "img_size": 512,
+    "warmup": 100,
+    "iters": 300,
+    "gpu": "NVIDIA RTX A6000",
+    "known_mAP": 0.787,
+    "solver_type": "euler",
+    "sampling_timesteps": "unknown",
+    "num_proposals": 500,
+    "topk_pruning": false,
+    "topk_k": 100
+  }
+]

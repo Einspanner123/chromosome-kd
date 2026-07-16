@@ -1,5 +1,5 @@
 """Benchmark 24obj: DiffusionDet DDPM baseline — matches old benchmark_diffusiondet_24obj settings"""
-_base_ = ['../../ldmdet/rf_heun_adaln.py']
+_base_ = ['../../ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py']
 
 # === Override to benchmark_24obj dataset ===
 data_root = 'data/24_chromosomes_object/coco/'

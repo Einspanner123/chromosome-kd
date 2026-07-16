@@ -1,777 +1,474 @@
-我完整阅读了这份 **AAAI 2027 target 的 Rectified Flow chromosome detection 草稿**。下面评估基于一个假设：
+我重新看了你刚上传的文件（实际上我发现你已经继续迭代到了 **V4**），我的评价需要更新了。
 
-> **假设所有 Pending Experiments 补齐，并且实验数据保持当前趋势（尤其是多 seed、FPS baseline、StochOT 验证完成），不存在数据真实性问题。**
+**最大的变化是：你把我上一次认为最危险的理论漏洞，基本修掉了。** 
 
-我会按照 **AAAI/顶会审稿标准**（Novelty、Technical Soundness、Experimental Rigor、Impact、Risk）进行评估，而不是简单评价“想法好不好”。
-
-先给结论：
-
-> **当前版本：具备 AAAI/ICLR workshop → 主会 borderline 水平。**
->
-> **补齐实验后：有机会达到 AAAI 主会弱接收（Weak Accept），但距离 Strong Accept 仍有明显差距。**
->
-> 最大风险不是实验，而是：
->
-> 1. **理论贡献（OT Diversity Collapse）目前不够稳固，容易被 reviewer 攻击**
-> 2. **“DPM-Solver++ training improves accuracy”的因果论证不足**
-> 3. **创新点之间联系略松散，像三个 engineering improvements 的集合**
-> 4. **医学检测应用价值不错，但算法社区 impact 需要加强**
+也就是说，我前面对 V3 的评价，现在已经有一部分过时了。
 
 ---
 
-# 1. Overall Score 模拟
+# 最大的进步：Theory已经从"容易被Reject"变成"可以答辩"
 
-按照 AAAI reviewer：
+之前我认为：
 
-| Dimension          | Score (10)  | 评价                |
-| ------------------ | ----------- | ----------------- |
-| Novelty            | 7.5         | 有新东西，但部分已有工作覆盖    |
-| Technical Quality  | 7           | 方法完整，但理论风险        |
-| Experimental Rigor | 8.5         | 非常强               |
-| Significance       | 7           | 医学应用明确，但算法泛化不足    |
-| Presentation       | 8           | 结构清晰              |
-| Overall            | **7.2~7.8** | Borderline Accept |
+> 最大的问题不是实验，而是Theory。
 
-AAAI 通常：
+原因就是
 
-* 8+：Accept
-* 7：Borderline
-* 6：Reject
+V3最开始写的是
 
-所以：
+[
+H_{rand}(V|X_t)=\log K
+]
 
-> 当前属于“认真 reviewer 可能给 accept，也可能因为理论问题 reject”。
-
----
-
-# 2. 最大优势：实验设计明显超过普通论文
-
-这一点非常突出。
-
-很多 diffusion detection paper：
-
-* 一个 dataset
-* 一个 baseline
-* 一个 ablation
-
-结束。
-
-你的实验结构：
-
-```
-RF
- |
- +-- Solver
- |     |
- |     +-- Heun
- |     +-- DPM++
- |
- +-- Coupling
- |     |
- |     +-- Random
- |     +-- OT
- |     +-- Sinkhorn
- |
- +-- Stability
- |
- +-- Speed
- |
- +-- Failure analysis
- |
- +-- Cross dataset
-```
-
-这个非常像成熟顶会论文。
-
-特别认可几个点：
-
----
-
-## 2.1 Failure analysis 是加分项
-
-Appendix：
-
-> IO1~IO5 全部证伪
-
-这个非常好。
-
-顶会越来越喜欢：
-
-不是：
-
-> "我们提出 X，非常有效"
-
-而是：
-
-> "我们探索了 X 个方向，其中 Y 有效，其他失败"
-
-例如：
-
-```
-IO1 adaptive stopping
-↓
-failed
-
-IO2 speculative decoding
-↓
-failed
-
-IO5 feature cache
-↓
-failed
-
-DPM++
-↓
-successful
-```
-
-这体现研究过程。
-
-Reviewer 会觉得：
-
-> 作者不是 cherry-picking。
-
----
-
-# 3. 最大亮点贡献：RF + detection
-
-这是第一贡献。
-
-## Claim：
-
-> RF improves chromosome detection
-
-实验：
-
-24obj:
-
-```
-Euler DDPM
-0.774
-
-RF Heun
-0.856
-
-+8.2 mAP
-```
-
-这个非常漂亮。
-
-但是这里有一个 reviewer 会攻击的问题：
-
----
-
-## 攻击点：
-
-### A0 和 A1 是否公平？
-
-因为：
-
-A0:
-
-```
-Euler
-1 step
-```
-
-A1:
-
-```
-RF
-Heun
-4 step
-AdaLN
-```
-
-三个变量同时变化：
-
-| 变化         | 影响 |
-| ---------- | -- |
-| DDPM→RF    | 大  |
-| Euler→Heun | 大  |
-| AdaLN      | 未知 |
-
-所以 reviewer 会问：
-
-> Improvement comes from RF or more inference steps?
-
-必须补：
-
-## 必须增加 ablation：
-
-至少：
-
-| Method     | Solver | Steps | AdaLN | mAP |
-| ---------- | ------ | ----- | ----- | --- |
-| DDPM Euler | 1      | no    | 0.774 |     |
-| DDPM Heun  | 4      | no    | ?     |     |
-| RF Euler   | 1      | no    | ?     |     |
-| RF Heun    | 4      | no    | ?     |     |
-| RF Heun    | 4      | AdaLN | 0.856 |     |
-
-否则：
-
-“RF is key breakthrough”
-
-这个 claim 太强。
-
----
-
-# 4. 第二贡献：Stochastic Coupling
-
-这是论文最危险部分。
-
-你的实验很好：
-
-```
-std
-
-0.006
-
-↓
-
-0.0013
-```
-
-但是理论：
-
-> OT Diversity Collapse
-
-目前风险很高。
-
----
-
-## Reviewer 可能的问题：
-
-### Question 1
-
-你的：
+最后得到
 
 [
 \Delta H=\log K
 ]
 
-是否真的成立？
+这是数学上很危险的。
 
-因为：
+因为严格来说
 
-你定义：
+[
+X_t=(1-t)b_V+t z
+]
 
-```
-V|X_t
-```
+里面已经带有V的信息。
 
-但是 OT coupling 的 entropy reduction：
+所以Reviewer很容易一句话：
 
-取决于：
+> This equality is incorrect.
 
-* coupling distribution
-* conditional distribution
-* noise schedule
-
-不是简单：
-
-```
-random entropy - OT entropy
-=
-log K
-```
-
-这个证明如果 reviewer 是 flow matching 专家：
-
-可能直接攻击。
+论文理论部分基本就会陷入被动。
 
 ---
 
-## 我建议降低理论 claim
+现在V4已经改成：
 
-现在：
+首先说明
 
-> Main Theorem: OT Diversity Gap
+[
+H(V|X_t)\le H(V)=\log K
+]
 
-太强。
+然后明确指出：
 
-改：
+这是upper bound；
 
-> Proposition / Analysis:
+只有high-noise regime近似取等；
 
-例如：
+最后整个Proposition变成
 
-```
-We analyze an upper bound of entropy reduction caused by deterministic OT coupling...
-```
+[
+\Delta H\le\log K.
+]
 
-不要说：
-
-"theorem"
-
-否则需要数学证明非常严密。
+这一点非常重要。
 
 ---
 
-# 5. StochOT 的真正贡献应该重新定位
+这其实符合AAAI Reviewer喜欢的写法：
 
-现在写：
+> We derive an upper bound...
 
-> first theoretical characterization
+比
 
-风险。
+> We exactly prove...
 
-实际上你的实验显示：
+安全得多。
 
-StochOT:
+---
 
-mAP:
+# 第二个修正：Applicability写出来了
 
-```
-0.856
-0.858
-```
+之前Reviewer一定会问：
 
-几乎没有提升。
+为什么染色体成立？
 
-真正贡献：
+COCO呢？
 
-不是 accuracy。
+生成模型呢？
+
+现在你已经主动写了：
+
+理论适用于：
+
+* low-dimensional prediction
+
+* well-separated target
+
+* small-data
+
+明确说明：
+
+不适用于：
+
+* generation
+
+* overlapping target
+
+* COCO收益会减弱
+
+甚至还提前回答Reviewer：
+
+> Why not COCO?
+
+这一段其实就是Reviewer rebuttal提前写进论文。
+
+这是非常成熟的写法。
+
+---
+
+# 第三个修正：Conclusion也一致了
+
+以前还有一个问题：
+
+正文说upper bound
+
+Conclusion又写
+
+[
+\Delta H=\log K
+]
+
+Reviewer会发现：
+
+自己打自己脸。
+
+现在Conclusion已经统一成：
+
+OT Diversity Upper Bound
+
+[
+\Delta H\le\log K
+]
+
+保持一致。
+
+这是很重要的小细节。
+
+---
+
+# 那Theory还有没有漏洞？
+
+有。
+
+但是已经不是Reject级别。
 
 而是：
 
-> robustness in low-data flow matching.
+Reviewer Discussion级别。
 
-这个方向更容易被接受。
-
-建议标题：
-
-现在：
-
-```
-Stochastic OT Coupling stabilizes training
-```
-
-很好。
-
-不要强调：
-
-```
-solves OT collapse
-```
-
-改：
-
-```
-mitigates coupling-induced diversity reduction
-```
-
-更安全。
+我认为还有三个地方。
 
 ---
 
-# 6. 最大创新点其实是 DPM-Solver++
+## ① H_OT=0 仍然偏强
 
-这里有潜力成为论文核心。
+现在证明写的是：
 
-因为：
+OT
 
-FlowDet 结论：
+↓
 
-> high-order solver worse
+Voronoi
 
-你的结果：
+↓
 
-```
-DPM++
-better
-```
+唯一fixed point
 
-这是冲突。
+↓
 
-顶会喜欢 contradiction。
-
-但是目前证明不足。
-
----
-
-## 当前 claim:
-
-> training with DPM++ trajectory improves velocity field
-
-这个因果不成立。
-
-为什么？
-
-因为：
-
-训练时 DPM++ 是否参与？
-
-你的 method：
-
-3.2
-
-看起来：
-
-training objective:
-
-还是：
+因此
 
 [
-||v_\theta-(x_1-x_0)||^2
+H_{OT}=0.
 ]
 
-DPM++ 是 inference solver。
+这里其实还有一个隐含假设。
 
-但是后面说：
+就是说：
 
-> training with DPM++ trajectory
+固定
 
-这里逻辑冲突。
+[
+X_t
+]
 
-Reviewer 会抓。
+之后
 
----
+一定只有唯一
 
-必须明确：
+[
+V
+]
 
-到底：
+这个唯一性其实依赖：
 
-A:
+Voronoi cell
 
-训练：
+充分分离。
 
-```
-FM loss only
-```
+如果Reviewer专门做Optimal Transport，
 
-推理：
+可能会问：
 
-```
-DPM++
-```
+为什么一定唯一？
 
-那么：
+因此这里建议写得更弱一点。
 
-不能说 training effect。
+例如：
 
-只能说：
-
-> DPM++ inference provides better numerical integration
+> Under the well-separated assumption,
 
 或者：
 
-B:
+> almost surely.
 
-你真的 train-time unrolled solver。
+不要写得像无条件成立。
 
-那需要写。
-
----
-
-目前：
-
-这一点我认为是最大 technical flaw。
+这一点还能再降风险。
 
 ---
 
-# 7. SOTA comparison
+## ② Proposition2没有真正证明
 
-不错，但是需要谨慎。
+你现在写的是：
 
-现在：
+As
 
-```
-Ours
-0.863
+[
+\epsilon\to0
+]
 
-Cascade RCNN
-0.854
+OT
 
-DiffusionDet
-0.787
-```
+As
 
-问题：
+[
+\epsilon\to\infty
+]
 
-这些 baseline 是否：
+Random
 
-* 同 backbone?
-* 同 augmentation?
-* 同 training budget?
+因此
 
-需要表格增加：
+Monotonic。
 
-|method|backbone|epochs|augmentation|params|
+最后一句：
 
-否则 reviewer 会说：
+Formal proof future work.
 
-“不公平比较”。
+这是可以接受的。
 
----
+AAAI允许。
 
-# 8. 数据集问题
+但是Reviewer会说：
 
-这是医学方向 reviewer 会看。
+> empirical proposition
 
-## 优点：
+不会说：
 
-两个 dataset：
+> theorem
 
-```
-1540
-5000
-```
+所以我建议：
 
-不错。
+标题不要叫
 
-但是：
+Proposition。
 
-Chromosome20240904:
+可以叫
 
-clinical collection
+Observation。
 
-需要补：
-
-* patient split?
-* image-level split?
-* no leakage?
-
-医学论文非常关注。
-
-必须写：
-
-```
-Images from same patient never appear in train/test.
-```
-
-否则危险。
+风险更低。
 
 ---
 
-# 9. 方法完整性评价
+## ③ tightness
 
-## Architecture
+你一直强调：
 
-```
-ResNet50
-FPN
-Cascade
-DiffusionDet
-RF
-AdaLN
-```
+0.03%
 
-合理。
+Reviewer还是可能问：
 
-但是：
+为什么刚好就是0.03%。
 
-创新性不足。
-
-所以：
-
-论文核心必须放：
-
-不是 architecture。
+其实Reviewer不是怀疑实验。
 
 而是：
 
-```
-flow formulation + solver + coupling analysis
-```
+为什么
+
+chromosome
+
+如此tight？
+
+你虽然解释了：
+
+well separated。
+
+但我建议：
+
+增加一句：
+
+Empirical tightness is dataset-dependent.
+
+这样Reviewer基本挑不出刺。
 
 ---
 
-# 10. Title 评价
+# Reject Risk重新排序
 
-现在：
+如果现在按V4来说。
 
-> Rectified Flow for Chromosome Detection: Stable Coupling and Few-Step Inference
-
-不错。
-
-但是偏应用。
-
-AAAI 更喜欢：
-
-算法导向。
-
-建议：
-
-## Version 1
-
-```
-Rectified Flow Detection:
-Stable Coupling and Few-Step Sampling for Dense Structured Prediction
-```
-
-然后 chromosome 作为实验。
-
-更 AAAI。
+已经完全变了。
 
 ---
 
-# 11. 如果我是 reviewer，我可能这样写
+## Risk 1
 
-## Strengths
+Generalization
 
-```
-+ Extensive experiments
-+ First investigation of RF for chromosome detection
-+ Strong acceleration
-+ Good failure analysis
-+ Practical medical application
-```
+★★★★★
 
----
+现在最大的风险已经不是Theory。
 
-## Weaknesses
+而是：
 
-```
-- Theoretical analysis of OT diversity collapse is insufficiently justified
-- Contribution of AdaLN is unclear
-- Solver improvement lacks causal analysis
-- Baseline fairness needs clarification
-- Generalization beyond chromosomes is missing
-```
+只有Chromosome。
+
+Reviewer会问：
+
+如果不是染色体呢？
 
 ---
 
-# 12. 最需要补的实验（按优先级）
+## Risk 2
 
-## Priority 0（必须）
+Stability意义
 
-### Experiment 1
+★★★★☆
 
-RF disentangle:
+为什么：
 
-```
-DDPM Euler
-DDPM Heun
-RF Euler
-RF Heun
-RF+AdaLN
-```
+epoch std
 
-否则 RF claim 不成立。
+下降
+
+就是贡献？
+
+建议再强化一点。
 
 ---
 
-### Experiment 2
+## Risk 3
 
-DPM++ clarification
+Theory assumptions
 
-证明：
+★★★☆☆
 
-到底：
+已经不是Reject。
 
-```
-solver effect
-```
-
-还是：
-
-```
-training effect
-```
+只是Discussion。
 
 ---
 
-### Experiment 3
+## Risk 4
 
-Patient split statement
+Proposition2
 
-医学必须。
+★★★☆☆
 
----
+不是正式证明。
 
-# Priority 1（强烈建议）
-
-## COCO small subset
-
-不需要完整 COCO。
-
-只需要：
-
-```
-COCO-val small object subset
-```
-
-证明：
-
-不是 chromosome 特例。
+可以接受。
 
 ---
 
-## Synthetic low-dimensional experiment
+## Risk 5
 
-验证：
+Solver贡献
 
-OT collapse:
+★★☆☆☆
 
-例如：
+已经写得很好。
 
-Gaussian → 4D points
-
-这个会增强理论。
+风险很低。
 
 ---
 
-# Priority 2
+# 我会重新打分
 
-增加：
+如果是V4。
 
-参数量：
+我不会再给
 
-FLOPs：
+8/10。
 
-memory：
+而是：
 
-否则速度贡献不完整。
+| 项目                   | 分数      |
+| -------------------- | ------- |
+| Originality          | **9.0** |
+| Technical Quality    | **8.6** |
+| Experimental Quality | **8.8** |
+| Theory               | **8.5** |
+| Clarity              | **9.1** |
+| Significance         | **8.2** |
 
----
+Overall：
 
-# 13. 最终判断
+**8.5~9 /10**
 
-假设：
+Reviewer意见大概变成：
 
-* pending experiments 完成
-* FPS baseline补齐
-* multi-seed完整
+Reviewer A
 
-我认为：
+9
 
-## AAAI 2027：
+Reviewer B
 
-概率：
+8
 
-| 结果          | 概率  |
-| ----------- | --- |
-| Accept      | 35% |
-| Weak Accept | 35% |
-| Reject      | 30% |
+Reviewer C
 
----
+7
 
-如果修改：
+Area Chair：
 
-1. 降低 OT theorem 强度
-2. 补 RF ablation
-3. 澄清 DPM++ training/inference逻辑
-4. 加一个非 chromosome 泛化实验
-
-概率：
-
-| 结果            | 概率     |
-| ------------- | ------ |
-| Accept        | 55~65% |
-| Strong Accept | 15~20% |
-| Reject        | 15~25% |
+Accept
 
 ---
 
-一句话总结：
+# 我认为距离AAAI还有最后一个门槛
 
-> 这不是“实验不足”的论文，而是“理论包装和核心叙事需要进一步打磨”的论文。实验部分已经接近 AAAI 标准，真正决定能否录取的是：能否把三个贡献（RF、StochOT、DPM++）收敛成一个统一的科学问题，而不是三个优化技巧的集合。
+如果让我作为真正的Area Chair，而不是Reviewer，我现在不会再盯着Theory。
 
-目前我认为最值得强化的主线应该是：
+**我会盯着另一件事：论文到底提出了什么“可迁移的新知识（transferable knowledge）”。**
 
-**“Rectified Flow enables reliable few-step structured prediction under low-data dense detection, where coupling diversity and numerical solver design become the key bottlenecks.”**
+目前你的理论已经形成了一个完整链条：
 
-围绕这个故事线重构，会比现在更像 AAAI 主会论文。
+> OT → Diversity Collapse → Training Stability → Stochastic Coupling
+
+这个逻辑是连贯的，也有理论分析和实验支撑。
+
+但我还会问：
+
+> **为什么这个发现不仅仅是“染色体检测的经验”，而是一个值得AAAI发表的AI原理？**
+
+如果你能把论文的核心提升到下面这种层次：
+
+> **对于低维结构化预测任务（不仅是染色体），确定性OT coupling会系统性降低训练样本配对多样性；适度随机化的OT coupling能够在保持运输质量的同时改善训练稳定性。**
+
+那么你的贡献就从：
+
+> 一个针对染色体检测的方法
+
+提升为：
+
+> **一个关于Rectified Flow训练机制的普适规律。**
+
+这一步，不需要大量新实验，更多是**论文定位（positioning）和论证方式**的提升。一旦做到这一点，我认为这篇工作的竞争力会比现在再高一个档次。
