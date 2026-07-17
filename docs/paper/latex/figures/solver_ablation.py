@@ -32,12 +32,12 @@ plt.rcParams.update(
     {
         "font.family": "serif",
         "font.serif": ["Times New Roman", "DejaVu Serif"],
-        "font.size": 8,
-        "axes.labelsize": 10,
+        "font.size": 9,
+        "axes.labelsize": 11,
         "axes.titlesize": 11,
-        "xtick.labelsize": 8,
-        "ytick.labelsize": 8,
-        "legend.fontsize": 8,
+        "xtick.labelsize": 9,
+        "ytick.labelsize": 9,
+        "legend.fontsize": 8.5,
         "mathtext.fontset": "cm",
         "pdf.fonttype": 42,
         "ps.fonttype": 42,
@@ -65,7 +65,7 @@ SOLVER_COLORS = {"Heun": C_HEUN, "Euler": C_EULER, "DPM++": C_DPMPP}
 
 
 def main() -> None:
-    fig, ax = plt.subplots(figsize=(5.2, 3.4))
+    fig, ax = plt.subplots(figsize=(5.2, 3.9))
 
     names = [f"{s}\n{st}-step" for s, st, _ in CONFIGS]
     maps = [m for _, _, m in CONFIGS]
@@ -73,20 +73,22 @@ def main() -> None:
     hatches = ["//", "//", "//", "..", ".."]
 
     x = np.arange(len(CONFIGS))
-    bars = ax.bar(x, maps, width=0.6, color=colors, edgecolor="black", lw=0.6)
+    bars = ax.bar(x, maps, width=0.62, color=colors, edgecolor="black", lw=0.7)
     for bar, h in zip(bars, hatches):
         bar.set_hatch(h)
 
     for xi, m in zip(x, maps):
-        ax.text(xi, m + 0.00015, f"{m:.3f}", ha="center", va="bottom", fontsize=7)
+        ax.text(xi, m + 0.0002, f"{m:.3f}", ha="center", va="bottom",
+                fontsize=8.5, weight="bold")
 
     ax.set_xticks(x)
-    ax.set_xticklabels(names, fontsize=8)
-    ax.set_ylabel("mAP (24obj val)")
-    ax.set_ylim(0.845, 0.858)
+    ax.set_xticklabels(names, fontsize=9)
+    ax.set_ylabel("mAP (24obj val)", fontsize=10)
+    ax.set_ylim(0.845, 0.862)
     ax.yaxis.set_major_locator(plt.MultipleLocator(0.005))
     ax.set_axisbelow(True)
     ax.grid(axis="y", ls=":", lw=0.5, alpha=0.6)
+    ax.tick_params(axis="y", labelsize=9)
 
     # y-axis break symbol (//)
     break_y = 0.847
@@ -108,29 +110,30 @@ def main() -> None:
         Patch(facecolor="white", edgecolor="black", hatch="..", label="1-step"),
     ]
 
-    leg_solver = ax.legend(handles=solver_handles, loc="upper right",
-                           fontsize=7, frameon=True, framealpha=0.9,
-                           ncol=1, handletextpad=0.4, borderpad=0.3,
-                           handlelength=1.2, labelspacing=0.3,
-                           title="Solver", title_fontsize=7,
-                           bbox_to_anchor=(1.0, 1.0))
+    # Legends placed BELOW the axes (avoids overlap with tall broken-axis bars)
+    leg_solver = ax.legend(handles=solver_handles, loc="upper left",
+                           bbox_to_anchor=(0.0, -0.18),
+                           fontsize=8.5, frameon=False, ncol=3,
+                           handletextpad=0.4, handlelength=1.3,
+                           columnspacing=1.1, borderpad=0.3,
+                           title="Solver", title_fontsize=8.5)
     ax.add_artist(leg_solver)
 
-    leg_step = ax.legend(handles=step_handles, loc="upper right",
-                         fontsize=7, frameon=True, framealpha=0.9,
-                         ncol=1, handletextpad=0.4, borderpad=0.3,
-                         handlelength=1.2, labelspacing=0.3,
-                         title="Steps", title_fontsize=7,
-                         bbox_to_anchor=(0.68, 1.0))
+    leg_step = ax.legend(handles=step_handles, loc="upper left",
+                         bbox_to_anchor=(0.58, -0.18),
+                         fontsize=8.5, frameon=False, ncol=2,
+                         handletextpad=0.4, handlelength=1.3,
+                         columnspacing=0.9, borderpad=0.3,
+                         title="Steps", title_fontsize=8.5)
 
     fig.text(
-        0.5, 0.01,
+        0.5, 0.045,
         r"4-step vs 1-step: $\Delta$0.004 mAP $\Rightarrow$ solver/step contributes 6\% of total RF gain",
-        ha="center", va="bottom", fontsize=7,
+        ha="center", va="bottom", fontsize=8.5,
         bbox=dict(boxstyle="round,pad=0.3", fc="#f5f5f5", ec="0.7", lw=0.5),
     )
 
-    plt.tight_layout()
+    plt.subplots_adjust(left=0.12, right=0.97, top=0.95, bottom=0.30)
 
     out_pdf = HERE / "solver_ablation.pdf"
     out_png = HERE / "solver_ablation.png"

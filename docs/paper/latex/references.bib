@@ -11,30 +11,31 @@
   pages     = {1980--1989},
 }
 
-% TODO: Verify actual arXiv ID and author list for FlowDet (Baty et al., 2025) before submission
+% Verified via arXiv:2512.16771 (submitted 18 Dec 2025)
 @article{baty2025flowdet,
-  title   = {{FlowDet}: Conditional Flow Matching for Detection with Mini-batch Optimal Transport},
-  author  = {Baty, Tony and others},
-  journal = {arXiv preprint (citation to be verified)},
-  year    = {2025},
-  note    = {FlowDet, conditional flow matching for detection.},
+  title         = {{FlowDet}: Unifying Object Detection and Generative Transport Flows},
+  author        = {Baty, Enis and Bridges, C. P. and Hadfield, Simon},
+  eprint        = {2512.16771},
+  archivePrefix = {arXiv},
+  year          = {2025},
 }
 
-% TODO: Verify actual DeFloMat (2025) citation details before submission
+% Verified via arXiv:2512.22406 (submitted 26 Dec 2025)
 @article{deflomat2025,
-  title   = {{DeFloMat}: Rectified Flow for Medical Object Detection},
-  author  = {Anonymous},
-  journal = {arXiv preprint (citation to be verified)},
-  year    = {2025},
+  title         = {{DeFloMat}: Detection with Flow Matching for Stable and Efficient Generative Object Localization},
+  author        = {Lee, Hansang and Lee, Chaelin and Seo, Nieun and Lim, Joon Seok and Hong, Helen},
+  eprint        = {2512.22406},
+  archivePrefix = {arXiv},
+  year          = {2025},
 }
 
 % ===================== Rectified Flow / Flow Matching =====================
 
-@article{liu2023rectified,
-  title   = {Flow Straight and Fast: Learning to Generate and Transfer Data with Rectified Flow},
-  author  = {Liu, Xingchao and Gong, Chengyue and Liu, Qiang},
-  journal = {arXiv preprint arXiv:2209.03003},
-  year    = {2023},
+@inproceedings{liu2023rectified,
+  title     = {Flow Straight and Fast: Learning to Generate and Transfer Data with Rectified Flow},
+  author    = {Liu, Xingchao and Gong, Chengyue and Liu, Qiang},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2023},
 }
 
 @inproceedings{lipman2023flow,
@@ -60,22 +61,6 @@
 
 % ===================== DDPM / Diffusion Models =====================
 
-% Currently uncited; cite or remove before submission
-@inproceedings{ho2020denoising,
-  title     = {Denoising Diffusion Probabilistic Models},
-  author    = {Ho, Jonathan and Jain, Ajay and Abbeel, Pieter},
-  booktitle = {Neural Inf. Process. Syst. (NeurIPS)},
-  year      = {2020},
-}
-
-% Currently uncited; cite or remove before submission
-@inproceedings{song2021denoising,
-  title     = {Denoising Diffusion Implicit Models},
-  author    = {Song, Jiaming and Meng, Chenlin and Ermon, Stefano},
-  booktitle = {Int. Conf. Learn. Represent. (ICLR)},
-  year      = {2021},
-}
-
 @inproceedings{dhariwal2021diffusion,
   title     = {Diffusion Models Beat {GANs} on Image Synthesis},
   author    = {Dhariwal, Prafulla and Nichol, Alex},
@@ -92,14 +77,6 @@
   year      = {2022},
 }
 
-% Currently uncited; cite or remove before submission
-@inproceedings{song2021sde,
-  title     = {Score-Based Generative Modeling through Stochastic Differential Equations},
-  author    = {Song, Yang and Sohl-Dickstein, Jascha and Kingma, Diederik P. and Kumar, Abhishek and Ermon, Stefano and Poole, Ben},
-  booktitle = {Int. Conf. Learn. Represent. (ICLR)},
-  year      = {2021},
-}
-
 % ===================== Optimal Transport / Sinkhorn =====================
 
 @inproceedings{cuturi2013sinkhorn,
@@ -109,34 +86,7 @@
   year      = {2013},
 }
 
-% Currently uncited; cite or remove before submission
-@book{villani2009optimal,
-  title     = {Optimal Transport: Old and New},
-  author    = {Villani, C{\'e}dric},
-  publisher = {Springer-Verlag},
-  year      = {2009},
-  series    = {Grundlehren der mathematischen Wissenschaften},
-  volume    = {338},
-}
-
-% Currently uncited; cite or remove before submission
-@inproceedings{fatras2021minibatch,
-  title     = {Learning with Mini-batch Optimal Transport: A Unifying Approach},
-  author    = {Fatras, Kilian and Zeghloul, Younes and Flamary, R{\'e}mi},
-  booktitle = {Int. Conf. Artif. Intell. Stat. (AISTATS)},
-  year      = {2021},
-}
-
 % ===================== Object Detection / Backbones =====================
-
-% Currently uncited; cite or remove before submission
-% TODO: If cited in main.tex, update \cite key from he2016maskrcnn to he2017maskrcnn
-@inproceedings{he2017maskrcnn,
-  title     = {Mask {R-CNN}},
-  author    = {He, Kaiming and Gkioxari, Georgia and Doll{\'a}r, Piotr and Girshick, Ross},
-  booktitle = {Proc. IEEE Int. Conf. Comput. Vis. (ICCV)},
-  year      = {2017},
-}
 
 @inproceedings{ren2015faster,
   title     = {Faster {R-CNN}: Towards Real-Time Object Detection with Region Proposal Networks},
@@ -146,24 +96,11 @@
 }
 
 @article{ge2021yolox,
-  title   = {{YOLOX}: Exceeding {YOLO} Series in 2021},
-  author  = {Ge, Zheng and Liu, Songtao and Wang, Feng and Li, Zeming and Sun, Jian},
-  journal = {arXiv preprint arXiv:2107.08430},
-  year    = {2021},
-}
-
-@article{redmon2016you,
-  title   = {You Only Look Once: Unified, Real-Time Object Detection},
-  author  = {Redmon, Joseph and Divvala, Santosh and Girshick, Ross and Farhadi, Ali},
-  journal = {CVPR},
-  year    = {2016},
-}
-
-@article{bochkovskiy2020yolov4,
-  title   = {YOLOv4: Optimal Speed and Accuracy of Object Detection},
-  author  = {Bochkovskiy, Alexey and Wang, Chien-Yao and Liao, Hong-Yuan Mark},
-  journal = {arXiv preprint arXiv:2004.10934},
-  year    = {2020},
+  title         = {{YOLOX}: Exceeding {YOLO} Series in 2021},
+  author        = {Ge, Zheng and Liu, Songtao and Wang, Feng and Li, Zeming and Sun, Jian},
+  eprint        = {2107.08430},
+  archivePrefix = {arXiv},
+  year          = {2021},
 }
 
 @inproceedings{he2016resnet,
@@ -171,6 +108,7 @@
   author    = {He, Kaiming and Zhang, Xiangyu and Ren, Shaoqing and Sun, Jian},
   booktitle = {Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR)},
   year      = {2016},
+  pages     = {770--778},
 }
 
 @inproceedings{lin2017fpn,
@@ -178,31 +116,19 @@
   author    = {Lin, Tsung-Yi and Doll{\'a}r, Piotr and Girshick, Ross and He, Kaiming and Hariharan, Bharath and Belongie, Serge},
   booktitle = {Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR)},
   year      = {2017},
-}
-
-% Currently uncited; cite or remove before submission
-@inproceedings{lin2014coco,
-  title     = {Microsoft {COCO}: Common Objects in Context},
-  author    = {Lin, Tsung-Yi and Maire, Michael and Belongie, Serge and Hays, James and Perona, Pietro and Ramanan, Deva and Doll{\'a}r, Piotr and Zitnick, C. Lawrence},
-  booktitle = {Proc. Eur. Conf. Comput. Vis. (ECCV)},
-  year      = {2014},
-}
-
-% Currently uncited; cite or remove before submission
-@inproceedings{carion2020detr,
-  title     = {End-to-End Object Detection with Transformers},
-  author    = {Carion, Nicolas and Massa, Francisco and Synnaeve, Gabriel and Usunier, Nicolas and Kirillov, Alexander and Zagoruyko, Sergey},
-  booktitle = {Proc. Eur. Conf. Comput. Vis. (ECCV)},
-  year      = {2020},
+  pages     = {936--944},
 }
 
 % ===================== Chromosome Detection =====================
 
+% Verified via DOI:10.1109/OJEMB.2024.3512932 (IEEE Open J. Eng. Med. Biol., vol. 6, pp. 227-236)
 @article{kuo2024chromosomenet,
-  title   = {{ChromosomeNet}: Deep Learning for Chromosome Karyotyping on the Taichung Dataset},
-  author  = {Kuo, Hsin-Yi and others},
-  journal = {IEEE Open J. Eng. Med. Biol.},
+  title   = {{ChromosomeNet}: Deep Learning-Based Automated Chromosome Detection in Metaphase Cell Images},
+  author  = {Kuo, Chih-En and Li, Jun-Zhou and Tseng, Jenn-Jhy and Lo, Feng-Chu and Chen, Ming-Jer and Lu, Chien-Hsing},
+  journal = {IEEE Open Journal of Engineering in Medicine and Biology},
   year    = {2024},
+  volume  = {6},
+  pages   = {227--236},
 }
 
 % ===================== Training Stability / Misc =====================
@@ -219,6 +145,7 @@
   author    = {Lin, Tsung-Yi and Goyal, Priya and Girshick, Ross and He, Kaiming and Doll{\'a}r, Piotr},
   booktitle = {Proc. IEEE Int. Conf. Comput. Vis. (ICCV)},
   year      = {2017},
+  pages     = {2999--3007},
 }
 
 @inproceedings{rezatofighi2019giou,
@@ -226,6 +153,7 @@
   author    = {Rezatofighi, Hamid and Tsoi, Nathan and Gwak, JunYoung and Sadeghian, Amir and Reid, Ian and Savarese, Silvio},
   booktitle = {Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR)},
   year      = {2019},
+  pages     = {658--666},
 }
 
 @inproceedings{loshchilov2017sgdr,
@@ -235,11 +163,10 @@
   year      = {2017},
 }
 
-% TODO: Key violates lastname_year_keyword convention; if renamed to kuhn1955assignment, update \cite in main.tex
-@article{hungarian1955assignment,
+@article{kuhn1955assignment,
   title   = {The Hungarian Method for the Assignment Problem},
   author  = {Kuhn, H. W.},
-  journal = {Naval Research Logistics Quarterly},
+  journal = {{Naval Research Logistics Quarterly}},
   year    = {1955},
   volume  = {2},
   number  = {1-2},

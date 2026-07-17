@@ -1,17 +1,9 @@
 \begin{thebibliography}{20}
 \providecommand{\natexlab}[1]{#1}
 
-\bibitem[{Anonymous(2025)}]{deflomat2025}
-Anonymous. 2025.
-\newblock {DeFloMat}: Rectified Flow for Medical Object Detection.
-\newblock \emph{arXiv preprint (citation to be verified)}.
-
-\bibitem[{Baty et~al.(2025)}]{baty2025flowdet}
-Baty, T.; et~al. 2025.
-\newblock {FlowDet}: Conditional Flow Matching for Detection with Mini-batch
-  Optimal Transport.
-\newblock \emph{arXiv preprint (citation to be verified)}.
-\newblock FlowDet, conditional flow matching for detection.
+\bibitem[{Baty, Bridges, and Hadfield(2025)}]{baty2025flowdet}
+Baty, E.; Bridges, C.~P.; and Hadfield, S. 2025.
+\newblock {FlowDet}: Unifying Object Detection and Generative Transport Flows.
 
 \bibitem[{Chen et~al.(2023)Chen, Bao, Sun, Li, Zhu, Liu, and
   Jiang}]{chen2023diffusiondet}
@@ -32,37 +24,46 @@ Dhariwal, P.; and Nichol, A. 2021.
 \bibitem[{Ge et~al.(2021)Ge, Liu, Wang, Li, and Sun}]{ge2021yolox}
 Ge, Z.; Liu, S.; Wang, F.; Li, Z.; and Sun, J. 2021.
 \newblock {YOLOX}: Exceeding {YOLO} Series in 2021.
-\newblock \emph{arXiv preprint arXiv:2107.08430}.
 
 \bibitem[{He et~al.(2016)He, Zhang, Ren, and Sun}]{he2016resnet}
 He, K.; Zhang, X.; Ren, S.; and Sun, J. 2016.
 \newblock Deep Residual Learning for Image Recognition.
-\newblock In \emph{Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR)}.
+\newblock In \emph{Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR)},
+  770--778.
 
-\bibitem[{Kuhn(1955)}]{hungarian1955assignment}
+\bibitem[{Kuhn(1955)}]{kuhn1955assignment}
 Kuhn, H.~W. 1955.
 \newblock The Hungarian Method for the Assignment Problem.
-\newblock \emph{Naval Research Logistics Quarterly}, 2(1-2): 83--97.
+\newblock \emph{{Naval Research Logistics Quarterly}}, 2(1-2): 83--97.
 
-\bibitem[{Kuo et~al.(2024)}]{kuo2024chromosomenet}
-Kuo, H.-Y.; et~al. 2024.
-\newblock {ChromosomeNet}: Deep Learning for Chromosome Karyotyping on the
-  Taichung Dataset.
-\newblock \emph{IEEE Open J. Eng. Med. Biol.}
+\bibitem[{Kuo et~al.(2024)Kuo, Li, Tseng, Lo, Chen, and
+  Lu}]{kuo2024chromosomenet}
+Kuo, C.-E.; Li, J.-Z.; Tseng, J.-J.; Lo, F.-C.; Chen, M.-J.; and Lu, C.-H.
+  2024.
+\newblock {ChromosomeNet}: Deep Learning-Based Automated Chromosome Detection
+  in Metaphase Cell Images.
+\newblock \emph{IEEE Open Journal of Engineering in Medicine and Biology}, 6:
+  227--236.
+
+\bibitem[{Lee et~al.(2025)Lee, Lee, Seo, Lim, and Hong}]{deflomat2025}
+Lee, H.; Lee, C.; Seo, N.; Lim, J.~S.; and Hong, H. 2025.
+\newblock {DeFloMat}: Detection with Flow Matching for Stable and Efficient
+  Generative Object Localization.
 
 \bibitem[{Lin et~al.(2017{\natexlab{a}})Lin, Doll{\'a}r, Girshick, He,
   Hariharan, and Belongie}]{lin2017fpn}
 Lin, T.-Y.; Doll{\'a}r, P.; Girshick, R.; He, K.; Hariharan, B.; and Belongie,
   S. 2017{\natexlab{a}}.
 \newblock Feature Pyramid Networks for Object Detection.
-\newblock In \emph{Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR)}.
+\newblock In \emph{Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR)},
+  936--944.
 
 \bibitem[{Lin et~al.(2017{\natexlab{b}})Lin, Goyal, Girshick, He, and
   Doll{\'a}r}]{lin2017focal}
 Lin, T.-Y.; Goyal, P.; Girshick, R.; He, K.; and Doll{\'a}r, P.
   2017{\natexlab{b}}.
 \newblock Focal Loss for Dense Object Detection.
-\newblock In \emph{Proc. IEEE Int. Conf. Comput. Vis. (ICCV)}.
+\newblock In \emph{Proc. IEEE Int. Conf. Comput. Vis. (ICCV)}, 2999--3007.
 
 \bibitem[{Lipman et~al.(2023)Lipman, Chen, Ben-Hamu, Nickel, and
   Le}]{lipman2023flow}
@@ -74,7 +75,8 @@ Lipman, Y.; Chen, R. T.~Q.; Ben-Hamu, H.; Nickel, M.; and Le, M. 2023.
 Liu, X.; Gong, C.; and Liu, Q. 2023.
 \newblock Flow Straight and Fast: Learning to Generate and Transfer Data with
   Rectified Flow.
-\newblock \emph{arXiv preprint arXiv:2209.03003}.
+\newblock In \emph{International Conference on Learning Representations
+  (ICLR)}.
 
 \bibitem[{Loshchilov and Hutter(2017)}]{loshchilov2017sgdr}
 Loshchilov, I.; and Hutter, F. 2017.
@@ -111,7 +113,8 @@ Rezatofighi, H.; Tsoi, N.; Gwak, J.; Sadeghian, A.; Reid, I.; and Savarese, S.
   2019.
 \newblock Generalized Intersection over Union: A Metric and A Loss for Bounding
   Box Regression.
-\newblock In \emph{Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR)}.
+\newblock In \emph{Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR)},
+  658--666.
 
 \bibitem[{Tong et~al.(2023)Tong, Fatras, Malkin, Huguet, Zhang, Rector-Brooks,
   Wolf, and Bengio}]{tong2023conditional}

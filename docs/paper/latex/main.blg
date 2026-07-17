@@ -3,44 +3,48 @@ Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
 The top-level auxiliary file: main.aux
 The style file: aaai2027.bst
 Database file #1: references.bib
+Warning--empty journal in baty2025flowdet
+Warning--empty journal in ge2021yolox
+Warning--empty journal in deflomat2025
 You've used 20 entries,
             2840 wiz_defined-function locations,
-            667 strings with 7770 characters,
-and the built_in function-call counts, 12927 in all, are:
-= -- 949
-> -- 805
+            674 strings with 7996 characters,
+and the built_in function-call counts, 14375 in all, are:
+= -- 1080
+> -- 889
 < -- 0
-+ -- 298
-- -- 276
-* -- 902
-:= -- 2216
-add.period$ -- 81
++ -- 327
+- -- 305
+* -- 1033
+:= -- 2371
+add.period$ -- 77
 call.type$ -- 20
-change.case$ -- 188
+change.case$ -- 198
 chr.to.int$ -- 21
-cite$ -- 20
-duplicate$ -- 890
-empty$ -- 843
-format.name$ -- 326
-if$ -- 2448
+cite$ -- 23
+duplicate$ -- 963
+empty$ -- 929
+format.name$ -- 358
+if$ -- 2771
 int.to.chr$ -- 2
 int.to.str$ -- 1
-missing$ -- 197
-newline$ -- 105
+missing$ -- 212
+newline$ -- 101
 num.names$ -- 80
-pop$ -- 499
+pop$ -- 540
 preamble$ -- 1
-purify$ -- 159
+purify$ -- 168
 quote$ -- 0
-skip$ -- 399
+skip$ -- 464
 stack$ -- 0
-substring$ -- 283
-swap$ -- 406
+substring$ -- 442
+swap$ -- 473
 text.length$ -- 0
 text.prefix$ -- 0
 top$ -- 0
 type$ -- 180
-warning$ -- 0
-while$ -- 85
+warning$ -- 3
+while$ -- 99
 width$ -- 0
-write$ -- 247
+write$ -- 244
+(There were 3 warnings)

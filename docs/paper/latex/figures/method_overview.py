@@ -32,12 +32,12 @@ plt.rcParams.update(
     {
         "font.family": "serif",
         "font.serif": ["Times New Roman", "DejaVu Serif"],
-        "font.size": 8,
+        "font.size": 9,
         "axes.labelsize": 10,
-        "axes.titlesize": 10,
-        "xtick.labelsize": 8,
-        "ytick.labelsize": 8,
-        "legend.fontsize": 7.5,
+        "axes.titlesize": 11,
+        "xtick.labelsize": 9,
+        "ytick.labelsize": 9,
+        "legend.fontsize": 8,
         "mathtext.fontset": "cm",
         "pdf.fonttype": 42,
         "ps.fonttype": 42,
@@ -97,14 +97,14 @@ def panel_trajectories(ax: plt.Axes) -> None:
         ax.scatter(*p, s=22, c=C_RF, zorder=5, marker="o", edgecolor="white", lw=0.8)
 
     # endpoint labels
-    ax.text(-0.06, -0.06, "$x_1$ (noise)", fontsize=7.5, ha="left", va="top")
-    ax.text(1.04, 1.04, "$x_0$ (GT)", fontsize=7.5, ha="left", va="bottom")
+    ax.text(-0.06, -0.06, "$x_1$ (noise)", fontsize=8.5, ha="left", va="top")
+    ax.text(1.04, 1.04, "$x_0$ (GT)", fontsize=8.5, ha="left", va="bottom")
 
     # time arrow - black solid, prominent
     # Arrow: noise (x1, left) → GT (x0, right) = decreasing t (inference direction)
     ax.annotate("", xy=(0.88, -0.22), xytext=(0.12, -0.22),
                 arrowprops=dict(arrowstyle="->", lw=1.2, color="black"))
-    ax.text(0.5, -0.30, r"decreasing $t$  (few-step)", fontsize=7.5, ha="center",
+    ax.text(0.5, -0.30, r"decreasing $t$  (few-step)", fontsize=8.5, ha="center",
             color="black")
 
     ax.set_xlim(-0.18, 1.22)
@@ -112,7 +112,7 @@ def panel_trajectories(ax: plt.Axes) -> None:
     ax.set_aspect("equal")
     ax.set_xticks([])
     ax.set_yticks([])
-    ax.set_title("(a) Trajectories: RF vs DDPM", fontsize=10, weight="bold")
+    ax.set_title("(a)", loc="left", fontsize=12, weight="bold")
     
     # custom legend
     handles = [
@@ -123,7 +123,7 @@ def panel_trajectories(ax: plt.Axes) -> None:
         Line2D([0], [0], marker="o", color="w", markerfacecolor=C_GT,
                markeredgecolor="k", markersize=7, label="$x_0$ GT"),
     ]
-    ax.legend(handles=handles, loc="upper left", frameon=False, fontsize=7)
+    ax.legend(handles=handles, loc="upper left", frameon=False, fontsize=8)
     for spine in ax.spines.values():
         spine.set_visible(False)
 
@@ -132,117 +132,123 @@ def panel_trajectories(ax: plt.Axes) -> None:
 # Panel (b): AdaLN-Zero block
 # -------------------------------------------------------------------------------------
 def panel_adaln(ax: plt.Axes) -> None:
-    # Classic T-shape layout:
+    # Cleaner T-shape layout:
     #   TOP (horizontal, left->right):  t -> sin emb -> MLP
-    #   MLP drops down to 3 parallel branches:  gamma | beta | alpha
+    #   MLP drops to a junction bar, then to 3 branches:  gamma | beta | alpha
     #   BOTTOM (horizontal, left->right):  h -> Modulate -> Gate -> output
     #   gamma, beta feed into Modulate; alpha feeds into Gate
     ax.set_xlim(0, 10)
-    ax.set_ylim(0, 6)
+    ax.set_ylim(0, 6.5)
     ax.set_aspect("equal")
     ax.set_xticks([])
     ax.set_yticks([])
-    ax.set_title("(b) AdaLN-Zero Time Conditioning", fontsize=10, weight="bold")
+    ax.set_title("(b)", loc="left", fontsize=12, weight="bold")
     for spine in ax.spines.values():
         spine.set_visible(False)
 
-    def box(x, y, w, h, text, fc="#ffffff", ec=C_DARKGRAY, text_color="black", fontsize=8):
-        rect = FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.05", 
+    def box(x, y, w, h, text, fc="#ffffff", ec=C_DARKGRAY, text_color="black",
+            fontsize=8.5, weight="normal"):
+        rect = FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.05",
                               fc=fc, ec=ec, lw=0.9)
         ax.add_patch(rect)
-        ax.text(x + w / 2, y + h / 2, text, ha="center", va="center", 
-                fontsize=fontsize, color=text_color)
+        ax.text(x + w / 2, y + h / 2, text, ha="center", va="center",
+                fontsize=fontsize, color=text_color, weight=weight)
 
     def arrow(x1, y1, x2, y2, color=C_DARKGRAY, lw=1.0, mutation_scale=12):
         ax.annotate("", xy=(x2, y2), xytext=(x1, y1),
                     arrowprops=dict(arrowstyle="->", mutation_scale=mutation_scale,
                                     color=color, lw=lw), zorder=3)
 
-    # === TOP: time path (horizontal) ===
-    y_top = 5.0
-    h_top = 0.8
-    
-    # t
-    box(0.3, y_top, 1.0, h_top, r"$t$", fc=C_LIGHTGRAY)
-    # sin emb
-    box(1.7, y_top, 2.2, h_top, r"sin emb $\phi(t)$", 
-        fc=C_ADALN, ec=C_ADALN, text_color="white")
-    arrow(1.3, y_top + h_top/2, 1.7, y_top + h_top/2)
-    # MLP
-    box(4.3, y_top, 1.4, h_top, "MLP", fc=C_LIGHTGRAY)
-    arrow(3.9, y_top + h_top/2, 4.3, y_top + h_top/2)
+    def line(x1, y1, x2, y2, color=C_DARKGRAY, lw=0.9):
+        ax.plot([x1, x2], [y1, y2], color=color, lw=lw, zorder=2)
 
-    # MLP splits into 3 vertical branches: gamma, beta, alpha
-    mlp_bottom_y = y_top
+    # === TOP: time embedding path (horizontal) ===
+    y_top = 5.5
+    h_top = 0.8
+
+    # t
+    box(0.3, y_top, 1.0, h_top, r"$t$", fc=C_LIGHTGRAY, fontsize=9)
+    # sin emb
+    box(1.7, y_top, 2.2, h_top, r"sin emb $\phi(t)$",
+        fc=C_ADALN, ec=C_ADALN, text_color="white", fontsize=9)
+    arrow(1.3, y_top + h_top / 2, 1.7, y_top + h_top / 2)
+    # MLP
+    box(4.3, y_top, 1.4, h_top, "MLP", fc=C_LIGHTGRAY, fontsize=9)
+    arrow(3.9, y_top + h_top / 2, 4.3, y_top + h_top / 2)
+
+    mlp_cx = 5.0
+    mlp_bottom_y = y_top  # 5.5
+
+    # === MIDDLE: three modulation branches ===
+    y_branch = 3.8
+    h_branch = 0.7
     # Modulate box center x = 1.5 + 2.8/2 = 2.9
     # Gate box center x = 5.5 + 2.5/2 = 6.75
-    # gamma and beta both feed into Modulate, so place them above Modulate
-    mod_cx = 1.5 + 2.8 / 2   # 2.9
-    gate_cx = 5.5 + 2.5 / 2  # 6.75
+    mod_cx = 2.9
+    gate_cx = 6.75
 
-    # gamma (scale) — left half above Modulate
-    gx = mod_cx - 0.7
-    # beta (shift) — right half above Modulate
-    bx = mod_cx + 0.7
-    # alpha (gate) — above Gate
-    alx = gate_cx
+    # gamma (scale) and beta (shift) sit above Modulate; alpha (gate) above Gate
+    gx = mod_cx - 0.7   # 2.2
+    bx = mod_cx + 0.7   # 3.6
+    alx = gate_cx        # 6.75
 
-    # gamma (scale)
-    box(gx - 0.7, 3.9, 1.4, 0.7, r"$\gamma$ (scale)", fc="#ffffff", fontsize=7.5)
-    # beta (shift)
-    box(bx - 0.7, 3.9, 1.4, 0.7, r"$\beta$ (shift)", fc="#ffffff", fontsize=7.5)
-    # alpha (gate) - zero init
-    box(alx - 0.7, 3.9, 1.4, 0.7, r"$\alpha$ (gate)", fc="#f0f0f0", fontsize=7.5)
+    # Junction bar: vertical drop from MLP, horizontal bus, drops to branches
+    jun_y = mlp_bottom_y - 0.5  # 5.0
+    branch_top = y_branch + h_branch  # 4.5
+    line(mlp_cx, mlp_bottom_y, mlp_cx, jun_y)
+    line(gx, jun_y, alx, jun_y)
+    arrow(gx, jun_y, gx, branch_top, lw=0.9)
+    arrow(bx, jun_y, bx, branch_top, lw=0.9)
+    arrow(alx, jun_y, alx, branch_top, lw=0.9)
 
-    # Vertical arrows from MLP down to each of the 3
-    mlp_cx = 5.0
-    # horizontal junction line
-    ax.plot([gx, alx], [mlp_bottom_y - 0.3, mlp_bottom_y - 0.3], 
-            color=C_DARKGRAY, lw=0.9, zorder=2)
-    # vertical drop from MLP
-    arrow(mlp_cx, mlp_bottom_y, mlp_cx, mlp_bottom_y - 0.3, lw=0.9)
-    # vertical drops to gamma, beta, alpha
-    arrow(gx, mlp_bottom_y - 0.3, gx, 4.6, lw=0.9)
-    arrow(bx, mlp_bottom_y - 0.3, bx, 4.6, lw=0.9)
-    arrow(alx, mlp_bottom_y - 0.3, alx, 4.6, lw=0.9)
+    # gamma (scale) - light green tint (modulation)
+    box(gx - 0.6, y_branch, 1.2, h_branch, r"$\gamma$ (scale)",
+        fc="#e8f5ee", ec=C_ADALN, fontsize=8)
+    # beta (shift) - light green tint (modulation)
+    box(bx - 0.6, y_branch, 1.2, h_branch, r"$\beta$ (shift)",
+        fc="#e8f5ee", ec=C_ADALN, fontsize=8)
+    # alpha (gate) - zero-init, light gray
+    box(alx - 0.6, y_branch, 1.2, h_branch, r"$\alpha$ (gate)",
+        fc="#f0f0f0", ec=C_MIDGRAY, fontsize=8)
 
     # === BOTTOM: feature path (horizontal) ===
-    y_feat = 1.4
+    y_feat = 1.6
     h_feat = 0.9
-    
-    # feature h input
-    ax.text(0.6, y_feat + h_feat/2, r"$h$", 
-            fontsize=9, ha="center", color=C_DARKGRAY, weight="bold")
-    
-    # Modulate box: h * gamma + beta
-    box(1.5, y_feat, 2.8, h_feat, r"$h \odot \gamma + \beta$", fc="#ffffff")
-    arrow(1.0, y_feat + h_feat/2, 1.5, y_feat + h_feat/2, color=C_MIDGRAY, lw=1.0)
-    
-    # gamma -> modulate (from above, into top of Modulate box)
-    arrow(gx, 3.9, gx, y_feat + h_feat, color=C_DARKGRAY, lw=0.8)
-    # beta -> modulate (from above, into top of Modulate box)
-    arrow(bx, 3.9, bx, y_feat + h_feat, color=C_DARKGRAY, lw=0.8)
+    feat_top = y_feat + h_feat  # 2.5
 
-    # h' 
-    ax.text(4.7, y_feat + h_feat/2, r"$h'$", 
-            fontsize=9, ha="center", color=C_DARKGRAY, weight="bold")
-    arrow(4.3, y_feat + h_feat/2, 4.5, y_feat + h_feat/2, color=C_MIDGRAY, lw=1.0)
+    # feature h input
+    ax.text(0.6, y_feat + h_feat / 2, r"$h$",
+            fontsize=10, ha="center", color=C_DARKGRAY, weight="bold")
+
+    # Modulate box: h * gamma + beta
+    box(1.5, y_feat, 2.8, h_feat, r"$h \odot \gamma + \beta$", fc="#ffffff", fontsize=9)
+    arrow(1.0, y_feat + h_feat / 2, 1.5, y_feat + h_feat / 2, color=C_MIDGRAY, lw=1.0)
+
+    # gamma -> modulate (from above); beta -> modulate (from above)
+    arrow(gx, y_branch, gx, feat_top, color=C_ADALN, lw=0.9)
+    arrow(bx, y_branch, bx, feat_top, color=C_ADALN, lw=0.9)
+
+    # h'
+    ax.text(4.7, y_feat + h_feat / 2, r"$h'$",
+            fontsize=10, ha="center", color=C_DARKGRAY, weight="bold")
+    arrow(4.3, y_feat + h_feat / 2, 4.5, y_feat + h_feat / 2, color=C_MIDGRAY, lw=1.0)
 
     # Gate box: alpha * h'
-    box(5.5, y_feat, 2.5, h_feat, r"$\alpha \cdot h'$", fc="#ffffff")
-    arrow(4.9, y_feat + h_feat/2, 5.5, y_feat + h_feat/2, color=C_MIDGRAY, lw=1.0)
-    
-    # alpha -> gate (from above, into top of Gate box)
-    arrow(alx, 3.9, alx, y_feat + h_feat, color=C_DARKGRAY, lw=0.8)
+    box(5.5, y_feat, 2.5, h_feat, r"$\alpha \cdot h'$", fc="#ffffff", fontsize=9)
+    arrow(4.9, y_feat + h_feat / 2, 5.5, y_feat + h_feat / 2, color=C_MIDGRAY, lw=1.0)
+
+    # alpha -> gate (from above)
+    arrow(alx, y_branch, alx, feat_top, color=C_MIDGRAY, lw=0.9)
 
     # output
-    ax.text(8.9, y_feat + h_feat/2, r"out", 
-            fontsize=9, ha="center", color=C_DARKGRAY, weight="bold")
-    arrow(8.0, y_feat + h_feat/2, 8.5, y_feat + h_feat/2, color=C_MIDGRAY, lw=1.0)
+    ax.text(8.7, y_feat + h_feat / 2, r"out",
+            fontsize=10, ha="center", color=C_DARKGRAY, weight="bold")
+    arrow(8.0, y_feat + h_feat / 2, 8.3, y_feat + h_feat / 2, color=C_MIDGRAY, lw=1.0)
 
-    # zero-init note at bottom, dark gray
-    ax.text(5.0, 0.4, r"zero-init $\Rightarrow$ identity at $t{=}0$",
-            fontsize=7.5, ha="center", color=C_DARKGRAY, style="italic")
+    # zero-init note at bottom, dark gray, with light background pill
+    ax.text(5.0, 0.5, r"zero-init $\Rightarrow$ identity at $t{=}0$",
+            fontsize=8.5, ha="center", color=C_DARKGRAY, style="italic",
+            bbox=dict(boxstyle="round,pad=0.3", fc="#f7f7f7", ec="#cccccc", lw=0.5))
 
 
 # -------------------------------------------------------------------------------------
@@ -255,7 +261,7 @@ def panel_ot(ax: plt.Axes) -> None:
     ax.set_aspect("equal")
     ax.set_xticks([])
     ax.set_yticks([])
-    ax.set_title("(c) Coupling: Random vs Stochastic OT", fontsize=10, weight="bold")
+    ax.set_title("(c)", loc="left", fontsize=12, weight="bold")
     for spine in ax.spines.values():
         spine.set_visible(False)
 
@@ -267,32 +273,33 @@ def panel_ot(ax: plt.Axes) -> None:
     left_center = 2.5
     noise_x_l = left_center - 1.4
     gt_x_l = left_center + 1.4
-    
-    noise_y = np.linspace(1.2, 4.8, n)
-    gt_y = np.linspace(1.2, 4.8, n) + rng.normal(0, 0.1, size=n)
 
-    ax.text(left_center, 5.5, "Random", fontsize=9, ha="center", weight="bold", color=C_RAND)
-    
+    # GT column shifted downward to visualise the noise -> GT flow direction
+    noise_y = np.linspace(1.4, 4.9, n)
+    gt_y = np.linspace(0.9, 4.4, n) + rng.normal(0, 0.1, size=n)
+
+    ax.text(left_center, 5.6, "Random", fontsize=10, ha="center", weight="bold", color=C_RAND)
+
     # Draw random coupling lines (many crossings = high entropy)
     perm = rng.permutation(n)
     for i in range(n):
         ax.plot([noise_x_l, gt_x_l], [noise_y[i], gt_y[perm[i]]],
-                color=C_RAND, lw=0.8, alpha=0.75, zorder=2)
+                color=C_RAND, lw=0.9, alpha=0.75, zorder=2)
 
     # Draw nodes - noise are circles (light), GT are squares (dark)
     for y in noise_y:
-        ax.scatter(noise_x_l, y, s=60, c=C_NOISE, edgecolor="k", lw=0.7, 
+        ax.scatter(noise_x_l, y, s=70, c=C_NOISE, edgecolor="k", lw=0.7,
                    zorder=4, marker="o")
     for y in gt_y:
-        ax.scatter(gt_x_l, y, s=60, c=C_GT, edgecolor="k", lw=0.7, 
+        ax.scatter(gt_x_l, y, s=70, c=C_GT, edgecolor="k", lw=0.7,
                    zorder=4, marker="s")
 
     # Labels
-    ax.text(noise_x_l, 0.7, "noise", fontsize=7.5, ha="center", color=C_NOISE, weight="bold")
-    ax.text(gt_x_l, 0.7, "GT", fontsize=7.5, ha="center", color=C_GT, weight="bold")
-    
+    ax.text(noise_x_l, 0.85, "noise", fontsize=8.5, ha="center", color=C_NOISE, weight="bold")
+    ax.text(gt_x_l, 0.35, "GT", fontsize=8.5, ha="center", color=C_GT, weight="bold")
+
     # Entropy formula - larger font at bottom
-    ax.text(left_center, 0.15, r"$H(V|X_t)=\log K$", fontsize=9, ha="center", 
+    ax.text(left_center, 0.08, r"$H(V|X_t)=\log K$", fontsize=10, ha="center",
             color=C_RAND, weight="bold")
 
     # --- Right sub-panel: Stochastic OT (Sinkhorn) ---
@@ -300,7 +307,7 @@ def panel_ot(ax: plt.Axes) -> None:
     noise_x_r = right_center - 1.4
     gt_x_r = right_center + 1.4
 
-    ax.text(right_center, 5.5, "Stochastic OT", fontsize=9, ha="center", 
+    ax.text(right_center, 5.6, "Stochastic OT", fontsize=10, ha="center",
             weight="bold", color=C_OT)
 
     # Sinkhorn transport: mostly nearest-neighbor, with 1-2 longer jumps
@@ -310,25 +317,25 @@ def panel_ot(ax: plt.Axes) -> None:
     # One slightly longer jump
     ot_perm[5] = 4
     ot_perm[4] = 5
-    
+
     for i in range(n):
         ax.plot([noise_x_r, gt_x_r], [noise_y[i], gt_y[ot_perm[i]]],
-                color=C_OT, lw=0.8, alpha=0.75, zorder=2)
+                color=C_OT, lw=0.9, alpha=0.75, zorder=2)
 
     # Draw nodes
     for y in noise_y:
-        ax.scatter(noise_x_r, y, s=60, c=C_NOISE, edgecolor="k", lw=0.7, 
+        ax.scatter(noise_x_r, y, s=70, c=C_NOISE, edgecolor="k", lw=0.7,
                    zorder=4, marker="o")
     for y in gt_y:
-        ax.scatter(gt_x_r, y, s=60, c=C_GT, edgecolor="k", lw=0.7, 
+        ax.scatter(gt_x_r, y, s=70, c=C_GT, edgecolor="k", lw=0.7,
                    zorder=4, marker="s")
 
     # Labels
-    ax.text(noise_x_r, 0.7, "noise", fontsize=7.5, ha="center", color=C_NOISE, weight="bold")
-    ax.text(gt_x_r, 0.7, "GT", fontsize=7.5, ha="center", color=C_GT, weight="bold")
-    
+    ax.text(noise_x_r, 0.85, "noise", fontsize=8.5, ha="center", color=C_NOISE, weight="bold")
+    ax.text(gt_x_r, 0.35, "GT", fontsize=8.5, ha="center", color=C_GT, weight="bold")
+
     # Entropy formula - larger font at bottom
-    ax.text(right_center, 0.15, r"$0 < H(V|X_t) < \log K$", fontsize=9, ha="center", 
+    ax.text(right_center, 0.08, r"$0 < H(V|X_t) < \log K$", fontsize=10, ha="center",
             color=C_OT, weight="bold")
 
 
@@ -336,7 +343,7 @@ def panel_ot(ax: plt.Axes) -> None:
 # Main figure
 # -------------------------------------------------------------------------------------
 def main() -> None:
-    fig = plt.figure(figsize=(7.0, 2.8), constrained_layout=True)
+    fig = plt.figure(figsize=(7.2, 3.0), constrained_layout=True)
 
     gs = fig.add_gridspec(1, 3, width_ratios=[1.0, 1.3, 1.2])
     ax_a = fig.add_subplot(gs[0, 0])
