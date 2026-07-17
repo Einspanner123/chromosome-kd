@@ -8,6 +8,19 @@ SwanLab: 项目 'ldmdet-mainline-ablation-24obj', 实验名由 train.py 自动�
 """
 _base_ = ['./a0_baseline_24obj.py']
 
+# === 覆盖 EarlyStopping patience (30→15, 加速消融实验) ===
+custom_hooks = [
+    dict(
+        type='EarlyStoppingHook',
+        priority=50,
+        patience=15,
+        min_delta=0.001,
+        monitor='coco/bbox_mAP',
+        rule='greater',
+    ),
+    dict(type='CopyProjectHook', priority='VERY_LOW'),
+]
+
 # 覆盖 SwanLab: 移除 experiment_name, train.py 会自动添加 _seed{N} 后缀
 vis_backends = [
     dict(type='LocalVisBackend'),

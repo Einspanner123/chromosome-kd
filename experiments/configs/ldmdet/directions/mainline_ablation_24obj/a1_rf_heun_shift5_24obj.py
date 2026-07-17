@@ -15,6 +15,19 @@ model = dict(
     )
 )
 
+# === 覆盖 EarlyStopping patience (30→15, 加速消融实验) ===
+custom_hooks = [
+    dict(
+        type='EarlyStoppingHook',
+        priority=50,
+        patience=15,
+        min_delta=0.001,
+        monitor='coco/bbox_mAP',
+        rule='greater',
+    ),
+    dict(type='CopyProjectHook', priority='VERY_LOW'),
+]
+
 # === 覆盖 SwanLab ===
 vis_backends = [
     dict(type='LocalVisBackend'),
