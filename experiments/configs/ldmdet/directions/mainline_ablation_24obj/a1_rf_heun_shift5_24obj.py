@@ -15,12 +15,12 @@ model = dict(
     )
 )
 
-# === 覆盖 EarlyStopping patience (30→15, 加速消融实验) ===
+# === EarlyStopping patience=30 (reverted from 15: late burst risk) ===
 custom_hooks = [
     dict(
         type='EarlyStoppingHook',
         priority=50,
-        patience=15,
+        patience=30,
         min_delta=0.001,
         monitor='coco/bbox_mAP',
         rule='greater',
