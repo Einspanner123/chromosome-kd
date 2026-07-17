@@ -6,45 +6,45 @@ Database file #1: references.bib
 Warning--empty journal in baty2025flowdet
 Warning--empty journal in ge2021yolox
 Warning--empty journal in deflomat2025
-You've used 20 entries,
+You've used 22 entries,
             2840 wiz_defined-function locations,
-            674 strings with 7996 characters,
-and the built_in function-call counts, 14375 in all, are:
-= -- 1080
-> -- 889
+            685 strings with 8423 characters,
+and the built_in function-call counts, 15581 in all, are:
+= -- 1171
+> -- 966
 < -- 0
-+ -- 327
-- -- 305
-* -- 1033
-:= -- 2371
-add.period$ -- 77
-call.type$ -- 20
-change.case$ -- 198
-chr.to.int$ -- 21
-cite$ -- 23
-duplicate$ -- 963
-empty$ -- 929
-format.name$ -- 358
-if$ -- 2771
++ -- 358
+- -- 332
+* -- 1118
+:= -- 2586
+add.period$ -- 86
+call.type$ -- 22
+change.case$ -- 215
+chr.to.int$ -- 23
+cite$ -- 25
+duplicate$ -- 1041
+empty$ -- 998
+format.name$ -- 388
+if$ -- 2992
 int.to.chr$ -- 2
 int.to.str$ -- 1
-missing$ -- 212
-newline$ -- 101
-num.names$ -- 80
-pop$ -- 540
+missing$ -- 231
+newline$ -- 112
+num.names$ -- 88
+pop$ -- 575
 preamble$ -- 1
-purify$ -- 168
+purify$ -- 184
 quote$ -- 0
-skip$ -- 464
+skip$ -- 496
 stack$ -- 0
-substring$ -- 442
-swap$ -- 473
+substring$ -- 477
+swap$ -- 513
 text.length$ -- 0
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 180
+type$ -- 198
 warning$ -- 3
-while$ -- 99
+while$ -- 108
 width$ -- 0
-write$ -- 244
+write$ -- 271
 (There were 3 warnings)

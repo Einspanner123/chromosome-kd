@@ -1,4 +1,4 @@
-\begin{thebibliography}{20}
+\begin{thebibliography}{22}
 \providecommand{\natexlab}[1]{#1}
 
 \bibitem[{Baty, Bridges, and Hadfield(2025)}]{baty2025flowdet}
@@ -116,11 +116,26 @@ Rezatofighi, H.; Tsoi, N.; Gwak, J.; Sadeghian, A.; Reid, I.; and Savarese, S.
 \newblock In \emph{Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR)},
   658--666.
 
+\bibitem[{{South China Normal University}(2024)}]{rst_dataset}
+{South China Normal University}. 2024.
+\newblock {RST} (Chromosome20240904) Dataset.
+\newblock
+  \url{https://universe.roboflow.com/south-china-normal-university-imqzk/rst}.
+\newblock Roboflow Universe. Accessed: 2026-07-17.
+
 \bibitem[{Tong et~al.(2023)Tong, Fatras, Malkin, Huguet, Zhang, Rector-Brooks,
   Wolf, and Bengio}]{tong2023conditional}
 Tong, A.; Fatras, K.; Malkin, N.; Huguet, G.; Zhang, Y.; Rector-Brooks, J.;
   Wolf, G.; and Bengio, Y. 2023.
 \newblock Conditional Flow Matching: Simulation-Free Dynamic Optimal Transport.
 \newblock In \emph{Int. Conf. Learn. Represent. (ICLR)}.
+
+\bibitem[{Tseng et~al.(2023)Tseng, Lu, Li, Lai, Chen, Cheng, and
+  Kuo}]{tseng2023dataset}
+Tseng, J.-J.; Lu, C.-H.; Li, J.-Z.; Lai, H.-Y.; Chen, M.-H.; Cheng, F.-Y.; and
+  Kuo, C.-E. 2023.
+\newblock An Open Dataset of Annotated Metaphase Cell Images for Chromosome
+  Identification.
+\newblock \emph{Scientific Data}, 10: 104.
 
 \end{thebibliography}

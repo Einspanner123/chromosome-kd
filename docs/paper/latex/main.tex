@@ -73,7 +73,7 @@ We address these obstacles with \emph{Rectified Flow} (RF), which replaces
 the stochastic DDPM process with deterministic straight-line ODE paths. The RF
 training paradigm --- straight-line ODE paths combined with a shifted noise
 schedule --- proves to be the dominant source of accuracy gain on the 24
-Chromosomes Object (24obj) benchmark: KaryoFlow --- our RF-based detector ---
+Chromosomes Object benchmark: KaryoFlow --- our RF-based detector ---
 exceeds DiffusionDet by $+0.076$ \mAP{} and matches or exceeds Cascade R-CNN
 and YOLOX-S, and a solver$\times$step disentanglement ablation isolates this
 paradigm effect from incidental solver and step-count choices. To explain why
@@ -139,7 +139,7 @@ converts trajectories into clinical-grade latency.
 \paragraph{Contributions.}
 Our first contribution validates the RF training paradigm for chromosome
 detection. \emph{KaryoFlow} achieves $+0.082$ \mAP{} over the Euler baseline
-on 24obj and $+0.017$ over DDPM on the original dataset. Because the
+on 24 Chromosomes Object and $+0.017$ over DDPM on the original dataset. Because the
 A0$\to$A1 comparison changes several variables at once (DDPM$\to$RF,
 Euler$\to$Heun, $1\to4$ steps), a solver$\times$step disentanglement
 ablation attributes $94\%$ of the gain to the RF paradigm and only $6\%$ to
@@ -180,7 +180,7 @@ DPM-Solver++ is adopted off-the-shelf, our contribution being the
 disentanglement analysis.
 
 These contributions are backed by comprehensive validation. All claims are
-validated on both Chromosome20240904 (henceforth the \emph{original} dataset, $1{,}540$ images) and 24obj ($5{,}000$
+validated on both Chromosome20240904 (henceforth the \emph{original} dataset, $1{,}540$ images) and 24 Chromosomes Object ($5{,}000$
 images), with multi-seed coupling ablation, per-class AP analysis, test-set
 evaluation, and an FPS benchmark.
 
@@ -231,7 +231,7 @@ Coupling as a remedy interpolating between hard OT and random pairing.
 Prior work uses conventional detectors (YOLO, Faster R-CNN~\cite{ren2015faster})
 that leave a measurable accuracy gap on the fine-grained 24-class setting.
 ChromosomeNet~\cite{kuo2024chromosomenet} uses the same Taichung dataset as
-our 24obj benchmark but releases no code or pretrained models. We compare
+our 24 Chromosomes Object benchmark but releases no code or pretrained models. We compare
 against standard detectors with public implementations (Cascade R-CNN,
 YOLOX-S, DiffusionDet) and provide the first open-source diffusion-based
 detector for chromosome karyotyping with multi-seed validation and
@@ -299,7 +299,7 @@ cost-effective.
   \centering
   \small
   \caption{Solver$\times$step disentanglement ablation on the A1
-  checkpoint (24obj val, seed 42).}
+  checkpoint (24 Chromosomes Object val, seed 42).}
   \label{tab:solver-ablation}
   \begin{tabular}{lcrr}
     \toprule
@@ -431,7 +431,7 @@ monotonically increasing in $\epsilon$ (Proposition~\ref{prop:monotone},
 Appendix~\ref{app:proof-prop2}).
 
 \paragraph{Stochastic Coupling as training stabilizer.}
-While the \mAP{} improvement is marginal ($+0.002$ on 24obj), its impact on
+While the \mAP{} improvement is marginal ($+0.002$ on 24 Chromosomes Object), its impact on
 \emph{within-run training stability} is substantial
 (Table~\ref{tab:stability}, Figure~\ref{fig:training-stability}).
 
@@ -457,7 +457,7 @@ While the \mAP{} improvement is marginal ($+0.002$ on 24obj), its impact on
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]{figures/training_stability.pdf}
-  \caption{Training stability (24obj, real per-epoch mAP from training
+  \caption{Training stability (24 Chromosomes Object, real per-epoch mAP from training
   logs): Random coupling exhibits epoch-level oscillation with std
   $0.006$, while Stochastic Coupling ($\epsilon{=}5$) converges smoothly with
   std $0.0013$ ($4.6\times$ improvement). Shaded band marks the last 30
@@ -477,23 +477,32 @@ pruning because the $x_0$ history has a dimension mismatch (500 $\to K$).
 \subsection{Experimental Setup}\label{sec:exp-setup}
 
 \paragraph{Datasets.}
-Table~\ref{tab:datasets} summarizes the two chromosome datasets. Both datasets
+Table~\ref{tab:datasets} summarizes the two public chromosome datasets used in
+this paper, which we refer to as Dataset~1 and Dataset~2 hereafter. Dataset~1
+is Chromosome20240904 (RST)~\citep{rst_dataset}, a clinical collection of
+$1{,}540$ images. Dataset~2 is the 24 Chromosomes Object
+dataset~\citep{tseng2023dataset}, comprising $5{,}000$ images. Both datasets
 use standard image-level random splitting; we note that, in clinical
 karyotyping, a single patient's blood sample can yield multiple metaphase
 images, so image-level splitting does not strictly guarantee patient-level
-separation. The datasets do not include patient-level metadata.
+separation. The datasets do not include patient-level
+metadata.\footnote{Both datasets are publicly available: Dataset~1 (RST) on
+Roboflow Universe at
+\url{https://universe.roboflow.com/south-china-normal-university-imqzk/rst};
+Dataset~2 on Cell Image Library at \url{https://doi.org/10.7295/W9CIL54816}.}
 
 \begin{table}[t]
   \centering
   \small
-  \caption{Datasets used in this paper.}
+  \caption{Datasets used in this paper. Dataset~1 is Chromosome20240904 (RST);
+  Dataset~2 is the 24 Chromosomes Object dataset.}
   \label{tab:datasets}
   \begin{tabular}{lrrrr}
     \toprule
     Dataset & Train & Val & Test & Classes \\
     \midrule
-    Chromosome20240904        & 1,540 & 440 & 220  & 24 \\
-    24obj      & 3,500 & 500 & 1,000 & 24 \\
+    Dataset 1 & 1,540 & 440 & 220  & 24 \\
+    Dataset 2 & 3,500 & 500 & 1,000 & 24 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -508,14 +517,14 @@ $\text{wd}=10^{-4}$), 5-epoch linear warmup + CosineAnnealing
 noise schedule (shift$=3.0$). Default inference solver is Heun 4-step.
 
 \paragraph{Statistical considerations.}
-Cross-seed experiments (3 seeds: 42, 123, 789) are available for the original
-dataset. For 24obj, A3 (DPM-Solver++) has 3 seeds (mean $0.859 \pm 0.004$),
+Cross-seed experiments (3 seeds: 42, 123, 789) are available for Dataset~1.
+For Dataset~2, A3 (DPM-Solver++) has 3 seeds (mean $0.859 \pm 0.004$),
 confirming the $+0.005$ \mAP{} gap is within cross-seed noise.
 
 \subsection{Main Results: RF vs DDPM}\label{sec:exp-rf-vs-ddpm}
 
-\paragraph{24obj dataset ablation.}
-Table~\ref{tab:main-ablation} reports a cumulative ablation on the 24obj
+\paragraph{Dataset~2 ablation.}
+Table~\ref{tab:main-ablation} reports a cumulative ablation on the Dataset~2
 validation set: A0 (DDPM Euler baseline), A1 is KaryoFlow (RF+Heun), A2 adds
 Stochastic Coupling, A3 swaps to DPM-Solver++. AdaLN-Zero is used throughout
 but contributes null individually (Appendix~\ref{app:adaln}). The bulk of the
@@ -525,7 +534,7 @@ and DPM-Solver++ contribute stability and speed respectively.
 \begin{table*}[t]
   \centering
   \small
-  \caption{Main ablation on the 24obj dataset. NFE = total network
+  \caption{Main ablation on Dataset~2. NFE = total network
   forward evaluations per image. ``Last-30 std'' is within-run epoch \mAP{}
   std. A0$\to$A1 changes multiple variables; the
   disentanglement ablation (Table~\ref{tab:solver-ablation}) attributes
@@ -548,14 +557,14 @@ while solver/step configuration adds only $+0.005$ ($6\%$). Stochastic Coupling
 contributes $+0.002$ \mAP{} but $4.6\times$ smoother convergence. DPM-Solver++
 adds no precision ($+0.005$ is checkpoint noise) but is $1.71\times$ faster.
 
-\paragraph{Original dataset: RF vs DDPM.}
-On the original Chromosome20240904 dataset (3 seeds), RF outperforms DDPM by
+\paragraph{Dataset~1: RF vs DDPM.}
+On Dataset~1 (3 seeds), RF outperforms DDPM by
 $+0.017$ \mAP{} ($0.746$ vs $0.729$, lower variance $\pm 0.001$ vs $\pm
 0.004$) with 4-step inference vs DDPM's 1-step. DDPM gains only $+0.044$ from
 1$\to$8 steps ($0.628 \to 0.672$), whereas the RF paradigm yields $+0.082$
-\mAP{} on 24obj.
+\mAP{} on Dataset~2.
 
-\subsection{SOTA Comparison (The 24obj Dataset)}\label{sec:exp-sota}
+\subsection{SOTA Comparison (Dataset~2)}\label{sec:exp-sota}
 
 Table~\ref{tab:sota} compares our RF-based detector against standard and
 diffusion baselines on the same ResNet-50 backbone, 150 epochs, and
@@ -567,7 +576,7 @@ for the RF paradigm's advantage.
 \begin{table}[t]
   \centering
   \small
-  \caption{SOTA comparison on the 24obj dataset. LDMDet denotes our base detection framework.}
+  \caption{SOTA comparison on Dataset~2. LDMDet denotes our base detection framework.}
   \label{tab:sota}
   \begin{tabular}{@{}lrr@{}}
     \toprule
@@ -604,7 +613,7 @@ classifier could recover much of the remaining AP.
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]{figures/per_class_ap.pdf}
-  \caption{Per-class AP on the 24obj validation set (A3 DPM-Solver++).
+  \caption{Per-class AP on the Dataset~2 validation set (A3 DPM-Solver++).
   Bars are colored by chromosome size group. The dashed line is the overall
   mean. Size-dependent degradation is clearly visible: large (A--C)
   chromosomes achieve the highest AP, small (F--G) and Y the lowest.}
@@ -613,12 +622,12 @@ classifier could recover much of the remaining AP.
 
 \subsection{Coupling Ablation}\label{sec:exp-coupling}
 
-\paragraph{Original dataset, multi-seed.}
-On Chromosome20240904, all coupling methods produce statistically equivalent
+\paragraph{Dataset~1, multi-seed.}
+On Dataset~1, all coupling methods produce statistically equivalent
 \mAP{} (within $\pm 0.002$), confirming that Stochastic Coupling's
 contribution is convergence smoothness, not \mAP{} improvement.
 
-\paragraph{Multi-dimensional stability comparison (24obj).}
+\paragraph{Multi-dimensional stability comparison (Dataset~2).}
 Table~\ref{tab:stability-multi} reports five additional stability metrics.
 Stochastic Coupling achieves $30/30$ epochs within $1\%$ of the best \mAP{}
 (vs $13/30$ for Random), making late-stage checkpoint selection far more
@@ -628,7 +637,7 @@ training in small-data regimes.
 \begin{table}[t]
   \centering
   \footnotesize
-  \caption{Multi-dimensional stability comparison (24obj, single seed).
+  \caption{Multi-dimensional stability comparison (Dataset~2, single seed).
   Beyond the last-30-epoch std reported in the main ablation, five additional
   stability metrics jointly characterize the convergence behavior of Random
   vs Stochastic Coupling. CV = std/mean.}
@@ -669,7 +678,7 @@ At similar NFE, DPM-Solver++ 4-step (4 NFE, $0.863$) $\approx$ Heun 2-step
 \emph{computational}: $43\%$ fewer NFE at equal accuracy.
 
 \paragraph{Test set evaluation.}
-On the 24obj test set, A3 achieves \mAP{} $0.859$ (vs val $0.863$,
+On the Dataset~2 test set, A3 achieves \mAP{} $0.859$ (vs val $0.863$,
 $\Delta = -0.004$). The aggregate gap is minimal, but AP$_S$ drops by
 $-0.059$ ($0.583 \to 0.524$), indicating that small-chromosome detection
 (F19--G22, Y) generalizes worse than large chromosomes.
@@ -685,7 +694,7 @@ standard detectors are $3$--$7\times$ faster but less accurate.
   \centering
   \small
   \setlength{\tabcolsep}{4pt}
-  \caption{FPS / latency benchmark (24obj, RTX A6000, 512$\times$512).}
+  \caption{FPS / latency benchmark (Dataset~2, RTX A6000, 512$\times$512).}
   \label{tab:fps}
   \begin{tabular}{llrrr}
     \toprule
@@ -712,7 +721,7 @@ obtained before the crash, making our $+0.076$ \mAP{} claim conservative.
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]{figures/fps_map.pdf}
-  \caption{Speed-accuracy trade-off (24obj, RTX A6000, $512{\times}512$).
+  \caption{Speed-accuracy trade-off (Dataset~2, RTX A6000, $512{\times}512$).
   Log-scale FPS axis. Our RF variants (circle/square) occupy the
   high-accuracy region (\mAP{} $> 0.85$); standard detectors (triangle) are
   $3$--$7\times$ faster but less accurate. A3+IO3 K=200 ($14.2$ FPS,
@@ -727,10 +736,10 @@ head dominates $90\%+$ of latency; the backbone+neck is a minor cost
 ($\sim 5.8$\,ms, 4--8\%).
 
 \subsection{Cross-Dataset Summary}\label{sec:exp-cross}
-Across both datasets, RF outperforms DDPM ($+0.017$ \mAP{} on the original,
-$+0.076$ over DiffusionDet on 24obj), DPM-Solver++ matches Heun at lower NFE,
-and the best coupling is dataset-dependent (Hard OT $\approx$ Random on the
-original; Random $\approx$ Stochastic Coupling on 24obj).
+Across both datasets, RF outperforms DDPM ($+0.017$ \mAP{} on Dataset~1,
+$+0.076$ over DiffusionDet on Dataset~2), DPM-Solver++ matches Heun at lower NFE,
+and the best coupling is dataset-dependent (Hard OT $\approx$ Random on
+Dataset~1; Random $\approx$ Stochastic Coupling on Dataset~2).
 
 % ============================================================
 \section{Analysis and Discussion}\label{sec:analysis}
@@ -742,7 +751,7 @@ density ($\sim$46 per image) compounds per-box errors, the small training
 sets (1,540--5,000 images) limit the model's ability to learn complex curved
 DDPM trajectories, and the 24-class fine-grained task benefits from stable
 feature representations. The $+0.082$ \mAP{} improvement ($0.774 \to 0.856$)
-on 24obj confirms RF's effectiveness in this regime.
+on Dataset~2 confirms RF's effectiveness in this regime.
 
 \subsection{Stochastic Coupling: Smoothness, Not mAP}
 Stochastic Coupling's value is smoother convergence, not \mAP{} improvement:
@@ -805,8 +814,8 @@ deploying a ``false peak'' checkpoint.
 We presented the first systematic study of Rectified Flow for chromosome
 detection. The RF training paradigm --- straight-line ODE paths combined
 with a shifted noise schedule --- is the dominant source of accuracy gain,
-yielding $+0.082$ \mAP{} over the Euler baseline on 24obj and $+0.017$
-\mAP{} over DDPM on the original dataset, and our best variant surpasses
+yielding $+0.082$ \mAP{} over the Euler baseline on Dataset~2 and $+0.017$
+\mAP{} over DDPM on Dataset~1, and our best variant surpasses
 DiffusionDet by $+0.076$ \mAP{}; a solver$\times$step disentanglement
 ablation attributes $94\%$ of the gain to the RF training paradigm.
 Stochastic Coupling, grounded in our theoretical analysis of OT Diversity
@@ -967,7 +976,7 @@ mean$\pm$std figures can be independently verified seed by seed
 \begin{table}[t]
   \centering
   \small
-  \caption{Per-seed values for RF vs DDPM on Chromosome20240904.}
+  \caption{Per-seed values for RF vs DDPM on Dataset~1.}
   \label{tab:per-seed-rf-ddpm}
   \begin{tabular}{lrrr}
     \toprule
@@ -987,7 +996,7 @@ mean$\pm$std figures can be independently verified seed by seed
   \centering
   \small
   \caption{Per-seed values for the coupling ablation
-  (Chromosome20240904).}
+  (Dataset~1).}
   \label{tab:per-seed-coupling}
   \resizebox{\columnwidth}{!}{%
   \begin{tabular}{lrrrrrrrr}
@@ -1007,8 +1016,7 @@ mean$\pm$std figures can be independently verified seed by seed
 This appendix reports the standalone ablation of AdaLN-Zero referenced in
 Section~\ref{sec:method-rf} and the contribution discussion of the main text,
 confirming that its individual contribution to the $+0.082$ \mAP{} gain is
-null within the RF framework (Table~\ref{tab:adaln-ablation}). We conducted a separate ablation on the
-24obj dataset to verify AdaLN-Zero's individual contribution. Both
+null within the RF framework (Table~\ref{tab:adaln-ablation}). We conducted a separate ablation on Dataset~2 to verify AdaLN-Zero's individual contribution. Both
 experiments use identical configurations except for the time conditioning
 module (RF formulation, Heun solver 4-step, shifted schedule shift$=3.0$,
 random coupling, batch size 8, 150 epochs).
@@ -1016,7 +1024,7 @@ random coupling, batch size 8, 150 epochs).
 \begin{table}[t]
   \centering
   \small
-  \caption{AdaLN-Zero ablation on 24obj.}
+  \caption{AdaLN-Zero ablation on Dataset~2.}
   \label{tab:adaln-ablation}
   \begin{tabular}{lrr}
     \toprule
@@ -1045,7 +1053,7 @@ Section~\ref{sec:exp-sota} with detailed breakdowns.
 
 \paragraph{Y chromosome analysis.}
 The Y chromosome is the hardest class ($\mathrm{AP}{=}0.776$), with difficulty
-overdetermined by data and biology. The 24obj training set contains only about
+overdetermined by data and biology. The Dataset~2 training set contains only about
 $1{,}803$ Y-chromosome samples, compared with roughly $7{,}000$ per autosome
 and $5{,}123$ for the X chromosome --- a $3.9\times$ imbalance that directly
 limits the gradient updates the Y class receives. This imbalance is a
