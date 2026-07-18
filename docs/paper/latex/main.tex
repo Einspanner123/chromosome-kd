@@ -568,8 +568,10 @@ mAP$@0.5{:}0.95$ (10 IoU thresholds, step $0.05$).
 
 \paragraph{Statistical considerations.}
 Cross-seed experiments (3 seeds: 42, 123, 789) are available for Dataset~1.
-For Dataset~2, A3 (DPM-Solver++) has 3 seeds (mean $0.859 \pm 0.004$),
-confirming the $+0.005$ \mAP{} gap is within cross-seed noise.
+For Dataset~2, A3 (DPM-Solver++) has 3 seeds (mean $0.859 \pm 0.003$),
+confirming the $+0.002$ aggregate \mAP{} gap is within cross-seed variance,
+though per-image paired tests (Table~\ref{tab:stat-tests}) reveal a
+statistically significant $+0.006$ advantage.
 
 \subsection{Main Results: RF vs DDPM}\label{sec:exp-rf-vs-ddpm}
 
