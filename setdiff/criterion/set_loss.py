@@ -214,20 +214,36 @@ class SetCriterion(nn.Module):
         matched_boxes: Tensor,
         matched_labels: Tensor,
     ) -> Tensor:
-        """L1 loss on matched slots (x_0 prediction in cxcywh diffusion space).
+        """L1 loss on matched slots (x_0 prediction).
 
         对齐 LDMDet/DiffusionDet: L1 损失承担 x_0 预测回归.
+
+        关键修复 — L1 必须在 [0,1] 归一化空间计算, 不是扩散空间 [-s, s]:
+            根因: loss_bbox 在扩散空间计算时数值放大 2s 倍 (s=2 → 4x),
+                  而 loss_giou 的逆变换引入 1/(2s) 梯度衰减 (d_pred_norm/d_pred_diff=1/(2s)),
+                  两者不在同一空间导致有效权重失衡.
+                  严格梯度比: L1 梯度 ~ O(1), GIoU 梯度 ~ O(1/(2s)), 比值下界 2s:1 (s=2 → 4:1);
+                  但 GIoU 的几何依赖 (框重叠/包含关系) 使实际比值更大
+                  (subagent1 实测 ~10:1, s=2), 有效权重从 2:5:2 失衡,
+                  GIoU 几乎不学习 → mAP=0.
+            修复: 与 _loss_giou 一致, 先把 pred/tgt 从 [-s, s] 逆变换到 [0, 1]
+                  再计算 L1, 保证两项损失在同一空间, 梯度尺度一致.
         """
         valid_mask = matched_labels >= 0
 
         if not valid_mask.any():
             return pred_boxes.sum() * 0.0
 
-        pred = pred_boxes[valid_mask]  # [num_valid, 4]
-        tgt = matched_boxes[valid_mask]  # [num_valid, 4]
+        pred = pred_boxes[valid_mask]  # [num_valid, 4] in diffusion space [-s, s]
+        tgt = matched_boxes[valid_mask]  # [num_valid, 4] in diffusion space [-s, s]
         num_pos = pred.shape[0]
 
-        return F.l1_loss(pred, tgt, reduction='sum') / max(num_pos, 1)
+        # 逆变换: [-s, s] → [0, 1] (与 _loss_giou 一致, 保证梯度尺度对齐)
+        s = self.snr_scale
+        pred_norm = (pred.clamp(-s, s) / s + 1.0) / 2.0
+        tgt_norm = (tgt.clamp(-s, s) / s + 1.0) / 2.0
+
+        return F.l1_loss(pred_norm, tgt_norm, reduction='sum') / max(num_pos, 1)
 
     def _loss_giou(
         self,

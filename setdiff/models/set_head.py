@@ -139,7 +139,11 @@ class JointDiffusionHead(nn.Module):
             matched_mask=(matched_labels >= 0),
         )
 
-        # 6. Compute loss
+        # 6. Compute loss (返回加权单项, 对齐 LDMDet)
+        # 关键修复: 不添加 'loss' key (weighted total), 否则 mmengine parse_losses
+        # 会 sum 所有含 'loss' 的 key, 导致 double-counting:
+        #   实际 total = cls + bbox + giou + (2*cls + 5*bbox + 2*giou) = 3:6:3
+        # 修复后: 每项预乘权重, parse_losses 直接 sum 得到 2*cls + 5*bbox + 2*giou.
         outputs = {
             'pred_logits': cls_logits,
             'pred_boxes': pred_boxes,
@@ -148,9 +152,12 @@ class JointDiffusionHead(nn.Module):
             'matched_boxes': matched_boxes,
             'matched_labels': matched_labels,
         }
-        loss_dict, loss = self.criterion(outputs, targets)
-        loss_dict['loss'] = loss
-        return loss_dict
+        loss_dict, _ = self.criterion(outputs, targets)
+        # 权重预乘到单项 (mmengine parse_losses 直接 sum 各项)
+        return {
+            k: v * self.criterion.weight_dict.get(k, 1.0)
+            for k, v in loss_dict.items()
+        }
 
     @torch.no_grad()
     def predict(self, image_features: Tensor) -> Dict[str, Tensor]:
