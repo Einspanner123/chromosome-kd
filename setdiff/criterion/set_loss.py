@@ -1,14 +1,20 @@
 """SetCriterion — loss for joint diffusion detection.
 
-Combines:
+方案 A (对齐 LDMDet/DiffusionDet): 标准 DETR 集合预测损失
 1. Classification loss (sigmoid focal loss on class logits).
-2. Box regression loss (L1 + GIoU on predicted x_0).
-3. Diffusion loss (MSE on x_0 prediction — the velocity loss equivalent).
+2. Box regression loss (L1 on predicted x_0, cxcywh 扩散空间).
+3. GIoU loss (GIoU on predicted x_0, xyxy 空间).
+
+删除 loss_diff (MSE): 与 L1+GIoU 计算同一对象 (pred_boxes vs matched_boxes),
+属于冗余项; 检测领域 (DiffusionDet/LDMDet/DiffuDETR) 均无单独扩散 MSE,
+L1+GIoU 已隐式承担 x_0 预测损失.
 
 Matched slots (label >= 0) → predict their GT class.
 Unmatched slots (label == -1) → predict "no object" (all class targets = 0).
 All slots participate in classification loss; only matched slots contribute
-to box/diffusion losses.
+to bbox/giou losses.
+
+权重 2:5:2 对齐 DETR 家族 (DETR/Deformable DETR/DINO/LDMDet).
 """
 
 from typing import Dict, Tuple
@@ -31,12 +37,12 @@ def generalized_box_iou(boxes1: Tensor, boxes2: Tensor) -> Tensor:
     b1 = bbox_cxcywh_to_xyxy(boxes1)
     b2 = bbox_cxcywh_to_xyxy(boxes2)
 
-    area1 = (b1[:, 2] - b1[:, 0]).clamp(min=0) * (
-        b1[:, 3] - b1[:, 1]
-    ).clamp(min=0)
-    area2 = (b2[:, 2] - b2[:, 0]).clamp(min=0) * (
-        b2[:, 3] - b2[:, 1]
-    ).clamp(min=0)
+    area1 = (b1[:, 2] - b1[:, 0]).clamp(min=0) * (b1[:, 3] - b1[:, 1]).clamp(
+        min=0
+    )
+    area2 = (b2[:, 2] - b2[:, 0]).clamp(min=0) * (b2[:, 3] - b2[:, 1]).clamp(
+        min=0
+    )
 
     # Intersection
     lt = torch.max(b1[:, :2], b2[:, :2])
@@ -84,13 +90,14 @@ def sigmoid_focal_loss(
 
 
 class SetCriterion(nn.Module):
-    """Loss for joint diffusion detection.
+    """Loss for joint diffusion detection (方案 A, 对齐 LDMDet/DiffusionDet).
 
     Combines:
-    1. Classification loss (focal loss on class logits).
-    2. Box regression loss (L1 + GIoU on predicted x_0).
-    3. Diffusion loss (MSE on x_0 prediction, this is the velocity loss
-       equivalent).
+    1. Classification loss (focal loss on class logits, w=2).
+    2. Box regression loss (L1 on predicted x_0, w=5).
+    3. GIoU loss (GIoU on predicted x_0, w=2).
+
+    loss_diff (MSE) 已删除: 与 L1+GIoU 冗余, 检测领域无此实践.
     """
 
     def __init__(
@@ -105,10 +112,11 @@ class SetCriterion(nn.Module):
         self.alpha = alpha
         self.gamma = gamma
         if weight_dict is None:
+            # 方案 A: 2:5:2 对齐 DETR 家族 (cls : bbox : giou)
             weight_dict = {
-                'loss_cls': 1.0,
-                'loss_box': 1.0,
-                'loss_diff': 1.0,
+                'loss_cls': 2.0,
+                'loss_bbox': 5.0,
+                'loss_giou': 2.0,
             }
         self.weight_dict = weight_dict
 
@@ -124,7 +132,7 @@ class SetCriterion(nn.Module):
                 [B, N] (labels=-1 for padding/unmatched slots).
 
         Returns:
-            loss_dict: dict of loss terms.
+            loss_dict: dict of loss terms (loss_cls, loss_bbox, loss_giou).
             loss: scalar total loss (weighted sum).
         """
         pred_logits = outputs['pred_logits']  # [B, N, C]
@@ -133,17 +141,13 @@ class SetCriterion(nn.Module):
         matched_labels = targets['matched_labels']  # [B, N]
 
         loss_cls = self._loss_classification(pred_logits, matched_labels)
-        loss_box = self._loss_boxes(
-            pred_boxes, matched_boxes, matched_labels
-        )
-        loss_diff = self._loss_diffusion(
-            pred_boxes, matched_boxes, matched_labels
-        )
+        loss_bbox = self._loss_bbox(pred_boxes, matched_boxes, matched_labels)
+        loss_giou = self._loss_giou(pred_boxes, matched_boxes, matched_labels)
 
         loss_dict = {
             'loss_cls': loss_cls,
-            'loss_box': loss_box,
-            'loss_diff': loss_diff,
+            'loss_bbox': loss_bbox,
+            'loss_giou': loss_giou,
         }
 
         total = sum(
@@ -195,15 +199,15 @@ class SetCriterion(nn.Module):
         # balances the huge negative (unmatched) contribution.
         return loss / max(num_pos, 1)
 
-    def _loss_boxes(
+    def _loss_bbox(
         self,
         pred_boxes: Tensor,
         matched_boxes: Tensor,
         matched_labels: Tensor,
     ) -> Tensor:
-        """L1 + GIoU loss on matched slots.
+        """L1 loss on matched slots (x_0 prediction in cxcywh diffusion space).
 
-        Boxes are in cxcywh (diffusion space).
+        对齐 LDMDet/DiffusionDet: L1 损失承担 x_0 预测回归.
         """
         valid_mask = matched_labels >= 0
 
@@ -214,33 +218,27 @@ class SetCriterion(nn.Module):
         tgt = matched_boxes[valid_mask]  # [num_valid, 4]
         num_pos = pred.shape[0]
 
-        # L1 loss
-        l1 = F.l1_loss(pred, tgt, reduction='sum') / max(num_pos, 1)
+        return F.l1_loss(pred, tgt, reduction='sum') / max(num_pos, 1)
 
-        # GIoU loss
+    def _loss_giou(
+        self,
+        pred_boxes: Tensor,
+        matched_boxes: Tensor,
+        matched_labels: Tensor,
+    ) -> Tensor:
+        """GIoU loss on matched slots (x_0 prediction).
+
+        对齐 LDMDet/DiffusionDet: GIoU 提供几何重叠监督, 是检测 AP 的直接代理.
+        Boxes 在 cxcywh 扩散空间, 内部转 xyxy 计算 GIoU.
+        """
+        valid_mask = matched_labels >= 0
+
+        if not valid_mask.any():
+            return pred_boxes.sum() * 0.0
+
+        pred = pred_boxes[valid_mask]  # [num_valid, 4]
+        tgt = matched_boxes[valid_mask]  # [num_valid, 4]
+        num_pos = pred.shape[0]
+
         giou = generalized_box_iou(pred, tgt)  # [num_valid]
-        giou_loss = (1.0 - giou).sum() / max(num_pos, 1)
-
-        return l1 + giou_loss
-
-    def _loss_diffusion(
-        self,
-        pred_boxes: Tensor,
-        matched_boxes: Tensor,
-        matched_labels: Tensor,
-    ) -> Tensor:
-        """MSE on x_0 prediction (diffusion loss / velocity equivalent).
-
-        Only matched slots contribute — unmatched slots have velocity=0
-        (matched_box = noise), so their diffusion target is trivial.
-        """
-        valid_mask = matched_labels >= 0
-
-        if not valid_mask.any():
-            return pred_boxes.sum() * 0.0
-
-        pred = pred_boxes[valid_mask]  # [num_valid, 4]
-        tgt = matched_boxes[valid_mask]  # [num_valid, 4]
-        num_pos = pred.shape[0]
-
-        return F.mse_loss(pred, tgt, reduction='sum') / max(num_pos, 1)
+        return (1.0 - giou).sum() / max(num_pos, 1)

@@ -9,7 +9,7 @@ Training flow:
 2. Global coupled matching: match z to GT boxes (one-to-one).
 3. Forward diffusion: x_t = (1-t)*x_0_matched + t*z.
 4. Predict x_0: x_0_pred = SetEncoder(x_t, t, image_features).
-5. Loss: cls + box + diffusion (MSE on x_0_pred vs x_0_matched).
+5. Loss: cls (focal) + bbox (L1) + giou (对齐 LDMDet/DiffusionDet 2:5:2).
 
 Inference flow:
 1. Sample noise z ~ N(0, I) [N, 4].
@@ -50,6 +50,9 @@ class JointDiffusionHead(nn.Module):
         self.num_classes = num_classes
         self.num_sample_steps = num_sample_steps
         self.sampler = sampler
+        # snr_scale: GT 从 [0,1] 缩放到 [-snr_scale, +snr_scale] 匹配 N(0,1) 噪声
+        # 由 SetDiffDetector 在 loss()/predict() 中应用 (数据预处理, 不参与 RF 公式)
+        self.snr_scale = snr_scale
 
         # Set encoder (joint function approximator)
         self.encoder = SetEncoder(
@@ -93,7 +96,7 @@ class JointDiffusionHead(nn.Module):
             gt_labels: list of [M_i] GT labels, None for inference.
 
         Returns:
-            Training: dict with loss terms (loss_cls, loss_box, loss_diff,
+            Training: dict with loss terms (loss_cls, loss_bbox, loss_giou,
                 loss).
             Inference: dict with 'pred_logits' and 'pred_boxes'.
         """
@@ -122,8 +125,9 @@ class JointDiffusionHead(nn.Module):
         t = torch.rand(B, device=device)
         x_t, _velocity = self.rf.q_sample(matched_boxes, noise, t)
 
-        # 4. Time embedding
-        t_emb = self.time_embed(t)  # [B, feat_channels]
+        # 4. Time embedding (对齐 LDMDet: t * 1000 提高正弦嵌入分辨率)
+        t_scaled = t * 1000.0
+        t_emb = self.time_embed(t_scaled)  # [B, feat_channels]
 
         # 5. Predict x_0
         cls_logits, pred_boxes = self.encoder(
@@ -174,11 +178,11 @@ class JointDiffusionHead(nn.Module):
             t_next = float(timesteps[i + 1].item())
 
             t = torch.full((B,), t_curr, device=device)
-            t_emb = self.time_embed(t)
+            # 对齐 LDMDet: t * 1000 提高正弦嵌入分辨率
+            t_scaled = t * 1000.0
+            t_emb = self.time_embed(t_scaled)
 
-            cls_logits, pred_boxes = self.encoder(
-                x_t, t_emb, image_features
-            )
+            cls_logits, pred_boxes = self.encoder(x_t, t_emb, image_features)
 
             # Euler step on joint state
             x_t = self.rf.step(x_t, pred_boxes, t_curr, t_next)

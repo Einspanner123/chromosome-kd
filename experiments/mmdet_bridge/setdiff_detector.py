@@ -4,17 +4,17 @@
 """
 
 import copy
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 import torch
-from mmdet.models.detectors.base import BaseDetector
-from mmdet.registry import MODELS
-from mmdet.structures import DetDataSample
-from mmdet.utils import ConfigType, OptConfigType, OptMultiConfig
 from mmengine.structures import InstanceData as MMInstanceData
 from torch import Tensor
 
 from ldmdet.utils.box_ops import bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh
+from mmdet.models.detectors.base import BaseDetector
+from mmdet.registry import MODELS
+from mmdet.structures import DetDataSample
+from mmdet.utils import ConfigType, OptConfigType, OptMultiConfig
 from setdiff.models.set_head import JointDiffusionHead
 
 
@@ -27,8 +27,50 @@ class SetDiffDetector(BaseDetector):
 
     关键点:
         - GT boxes 格式转换: mmdet xyxy 像素坐标 → setdiff cxcywh 归一化
-        - 预测框格式转换: setdiff cxcywh 归一化 → mmdet xyxy 像素坐标
+        - snr_scale 缩放: GT [0,1] → diffusion [-snr_scale, +snr_scale]
+          匹配 N(0,1) 噪声尺度 (对齐 LDMDet head.py:789-790)
+        - 预测框格式转换: diffusion [-s,s] → [0,1] → cxcywh 像素 → xyxy 像素
     """
+
+    @staticmethod
+    def gt_to_diffusion_space(
+        gt_cxcywh_norm: Tensor, snr_scale: float
+    ) -> Tensor:
+        """GT 从 [0,1] cxcywh 缩放到 [-snr_scale, +snr_scale] 匹配 N(0,1) 噪声.
+
+        对齐 LDMDet head.py:789-790:
+            gt_diffusion = (norm_gt_cxcywh * 2 - 1) * snr_scale
+
+        Args:
+            gt_cxcywh_norm: [N, 4] GT boxes in [0, 1] cxcywh.
+            snr_scale: 缩放因子 (典型 2.0).
+
+        Returns:
+            gt_diffusion: [N, 4] in [-snr_scale, +snr_scale].
+        """
+        return (gt_cxcywh_norm * 2.0 - 1.0) * snr_scale
+
+    @staticmethod
+    def diffusion_to_norm_space(
+        pred_diffusion: Tensor, snr_scale: float
+    ) -> Tensor:
+        """预测框从 [-snr_scale, +snr_scale] 逆缩放到 [0, 1] cxcywh.
+
+        对齐 LDMDet sampling.py:278-284:
+            bboxes = (raw.clamp(-s, s) / s + 1) / 2
+
+        clamp 防止模型输出超出范围 (训练初期可能发生).
+
+        Args:
+            pred_diffusion: [N, 4] predicted boxes in diffusion space.
+            snr_scale: 缩放因子.
+
+        Returns:
+            pred_norm: [N, 4] in [0, 1] cxcywh.
+        """
+        s = snr_scale
+        clamped = pred_diffusion.clamp(-s, s)
+        return (clamped / s + 1.0) / 2.0
 
     def __init__(
         self,
@@ -40,7 +82,9 @@ class SetDiffDetector(BaseDetector):
         data_preprocessor: OptConfigType = None,
         init_cfg: OptMultiConfig = None,
     ) -> None:
-        super().__init__(data_preprocessor=data_preprocessor, init_cfg=init_cfg)
+        super().__init__(
+            data_preprocessor=data_preprocessor, init_cfg=init_cfg
+        )
 
         self.backbone = MODELS.build(backbone)
         self.neck = MODELS.build(neck) if neck is not None else None
@@ -60,9 +104,7 @@ class SetDiffDetector(BaseDetector):
         cfg.pop('type', None)
         return JointDiffusionHead(**cfg)
 
-    def extract_feat(
-        self, batch_inputs: Tensor
-    ) -> Tuple[Tensor, ...]:
+    def extract_feat(self, batch_inputs: Tensor) -> Tuple[Tensor, ...]:
         """backbone → neck → multi-scale features."""
         x = self.backbone(batch_inputs)
         if self.neck is not None:
@@ -94,13 +136,15 @@ class SetDiffDetector(BaseDetector):
             1. extract_feat → multi-scale features
             2. _flatten_features → [B, HW, C]
             3. 从 batch_data_samples 提取 gt_bboxes (xyxy 像素) 和 gt_labels
-            4. GT boxes 格式转换: xyxy 像素 → cxcywh 归一化
+            4. GT boxes 格式转换: xyxy 像素 → cxcywh 归一化 → diffusion [-s, s]
+               (snr_scale 缩放, 对齐 LDMDet head.py:789-790)
             5. 调用 self.bbox_head(flat_features, gt_boxes_list, gt_labels_list)
             6. 返回 loss dict
         """
         x = self.extract_feat(batch_inputs)
         flat_features = self._flatten_features(x)
 
+        snr_scale = self.bbox_head.snr_scale
         gt_boxes_list: List[Tensor] = []
         gt_labels_list: List[Tensor] = []
         for ds in batch_data_samples:
@@ -112,12 +156,16 @@ class SetDiffDetector(BaseDetector):
 
             # xyxy 像素 → cxcywh 像素 → cxcywh 归一化 (÷ img_w, ÷ img_h)
             gt_cxcywh = bbox_xyxy_to_cxcywh(gt_bboxes)
-            scale = gt_bboxes.new_tensor(
-                [img_w, img_h, img_w, img_h]
-            )
+            scale = gt_bboxes.new_tensor([img_w, img_h, img_w, img_h])
             gt_cxcywh_norm = gt_cxcywh / scale
 
-            gt_boxes_list.append(gt_cxcywh_norm)
+            # cxcywh 归一化 [0,1] → diffusion [-snr_scale, +snr_scale]
+            # 匹配 N(0,1) 噪声尺度 (修复 SetDiff mAP=0 根因)
+            gt_diffusion = self.gt_to_diffusion_space(
+                gt_cxcywh_norm, snr_scale
+            )
+
+            gt_boxes_list.append(gt_diffusion)
             gt_labels_list.append(gt_labels)
 
         return self.bbox_head(flat_features, gt_boxes_list, gt_labels_list)
@@ -133,8 +181,9 @@ class SetDiffDetector(BaseDetector):
         步骤:
             1. extract_feat → flatten → [B, HW, C]
             2. 调用 self.bbox_head.predict(flat_features)
-               → pred_logits [B, N, C], pred_boxes [B, N, 4] (cxcywh 归一化)
-            3. 预测框格式转换: cxcywh 归一化 → cxcywh 像素 (×img_shape) → xyxy 像素
+               → pred_logits [B, N, C], pred_boxes [B, N, 4] (diffusion [-s, s])
+            3. 预测框格式转换: diffusion [-s, s] → [0, 1] → cxcywh 像素 → xyxy 像素
+               (snr_scale 逆缩放, 对齐 LDMDet sampling.py:278-284)
             4. 如果 rescale=True, 除以 scale_factor 恢复到原图尺寸
             5. 格式化为 DetDataSample (pred_instances)
         """
@@ -142,19 +191,21 @@ class SetDiffDetector(BaseDetector):
         flat_features = self._flatten_features(x)
 
         # SetDiff head.predict 返回 dict: 'pred_logits' [B, N, C],
-        # 'pred_boxes' [B, N, 4] (cxcywh 归一化)
+        # 'pred_boxes' [B, N, 4] (diffusion [-snr_scale, +snr_scale])
         outputs = self.bbox_head.predict(flat_features)
         pred_logits = outputs['pred_logits']  # [B, N, C]
         pred_boxes = outputs['pred_boxes']  # [B, N, 4]
 
+        snr_scale = self.bbox_head.snr_scale
         B = pred_logits.shape[0]
         for i in range(B):
             ds = batch_data_samples[i]
             img_shape = ds.metainfo['img_shape']
             img_h, img_w = img_shape[0], img_shape[1]
 
-            # cxcywh 归一化 → cxcywh 像素 → xyxy 像素
-            boxes = pred_boxes[i]  # [N, 4]
+            # diffusion [-s, s] → [0, 1] cxcywh → cxcywh 像素 → xyxy 像素
+            boxes = pred_boxes[i]  # [N, 4] in diffusion space
+            boxes = self.diffusion_to_norm_space(boxes, snr_scale)
             scale = boxes.new_tensor([img_w, img_h, img_w, img_h])
             boxes = boxes * scale
             boxes = bbox_cxcywh_to_xyxy(boxes)
