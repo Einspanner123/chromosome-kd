@@ -1,14 +1,79 @@
 # Rectified Flow for Chromosome Detection: Stable Coupling and Few-Step Inference
 
+<!--
+============================================================
+TMI MIGRATION STRATEGY HEADER
+============================================================
+Target journal: IEEE Transactions on Medical Imaging (TMI)
+Template: IEEEtran.cls [journal,10pt]
+
+HARD CONSTRAINTS (verify against live author-instructions before submit):
+- Initial submission <= 10 pages INCLUDING references (hard cap, returned without review)
+- Abstract < 250 words; must include IEEEkeywords
+- Double-column, single-spaced, justified, 10pt
+- Single-anonymous review (author info OK in initial submission, no biographies)
+- NO supplementary text materials (since 2022-01-01) -> arXiv companion preprint
+- Figures/tables must appear inline in main text
+- References: IEEEtran.bst, author-name format (e.g., J. Smith)
+
+STRATEGY A+B (user-approved):
+- Strategy A: Compress appendices in main text (keep proof sketches, brief mentions)
+- Strategy B: Move detailed proofs/per-seed tables to arXiv companion preprint
+
+CONTENT DESTINATION LEGEND:
+  [MAIN PAPER]      -> retain in 10-page IEEE submission
+  [ARXIV COMPANION] -> move to arXiv preprint, cite from main paper
+  [COMPRESS]        -> reduce to 1-2 sentences inline, full version on arXiv
+  [DELETED]         -> not needed for TMI (kept in draft as fact record only)
+  [PLACEHOLDER]     -> new content to be added in Phase 3-D (robustness) or 3-E (theory)
+
+DRAFT STATUS:
+- This draft is the COMPLETE FACT RECORD (most detailed content, states facts clearly).
+- Selective writing for the 10-page IEEE main paper is a normal technique;
+  content marked [ARXIV COMPANION] or [DELETED] is NOT lost — it remains here
+  as the authoritative record and feeds the arXiv companion.
+- Sync state: synced to main.tex commit 737971aa (2026-07-18).
+============================================================
+-->
+
+> **TMI Positioning Note (per ChatGPT analysis, user-approved):**
+> The paper's novelty is ML theory (RF paradigm, OT Diversity Collapse, Stochastic
+> Coupling, solver disentanglement), NOT biological insight. Position as
+> "using chromosome detection as a vehicle to propose new detection theory and
+> training mechanisms" rather than "intelligent chromosome analysis."
+> Lead with algorithmic contributions; clinical context is the motivation, not the novelty.
+
 ## Abstract
 
-Chromosome karyotyping — the visual inspection of metaphase chromosomes under a microscope — is a cornerstone of clinical genetics, underpinning prenatal testing, congenital disorder diagnosis, and cancer cytogenetics. Yet the procedure remains labor-intensive: trained cytogeneticists must manually delineate, rotate, and classify roughly 46 tightly packed chromosomes per cell into 24 classes, a process that is slow, observer-dependent, and ill-suited to the throughput demands of modern diagnostics. Automating this analysis with a detector that is both accurate and fast enough for clinical deployment is therefore of considerable practical value, but it is hampered by three obstacles: the limited accuracy of conventional detectors on fine-grained, morphologically similar chromosomes; the slow many-step inference and curved-trajectory truncation errors of Denoising Diffusion Probabilistic Model (DDPM)-based diffusion detectors; and the training instability that arises when diffusion detectors are fit to small clinical datasets.
+<!-- [MAIN PAPER] Abstract rewritten for TMI: <=250 words, algorithm-focused positioning. Word count: ~223 -->
 
-We address these obstacles with *Rectified Flow* (RF), which replaces the stochastic DDPM process with deterministic straight-line ODE paths. The RF training paradigm — straight-line ODE paths — proves to be the dominant source of accuracy gain on the 24 Chromosomes Object benchmark: KaryoFlow — our RF-based detector — exceeds DiffusionDet by +0.076 mAP and matches or exceeds Cascade R-CNN and YOLOX-S, and a solver×step disentanglement ablation isolates this paradigm effect from incidental solver and step-count choices (the shifted noise schedule contributes negligibly on its own; see Appendix E). To explain why mini-batch OT coupling, beneficial in image generation, destabilizes training in low-dimensional structured prediction, we provide a theoretical characterization of Optimal Transport (OT) Diversity Collapse in the low-dimensional ($\mathbb{R}^4$) detection space, and propose Stochastic Coupling via Sinkhorn transport as a training stabilizer; it yields a large, highly significant mAP gain in the low-data regime ($+0.034$, $p<10^{-120}$ on $1.5$k images) that diminishes with dataset size, and reduces within-run convergence oscillation by 4.6× — the property of primary practical concern when training data are scarce. For inference, we deploy DPM-Solver++ for four-step inference, which provides a small but statistically significant precision advantage over Heun at matched step count ($+0.006$ per-image mAP, Wilcoxon $p<0.001$) together with a $1.71\times$ speedup, and combine it with Top-$K$ proposal pruning to push inference to a latency compatible with interactive clinical use.
+Diffusion-based object detectors frame localization as iterative denoising but inherit two pathologies from DDPM: slow many-step inference with curved-trajectory truncation errors, and training instability on small structured-prediction datasets. We address both with *Rectified Flow* (RF), which replaces the stochastic DDPM process with deterministic straight-line ODE paths, instantiated as *KaryoFlow* for chromosome karyotyping — a dense-detection task with 46 tightly packed objects across 24 morphologically similar classes.
 
-All claims are validated on two chromosome datasets with multi-seed experiments, per-class AP analysis, test-set evaluation, and state-of-the-art comparison. The resulting detector delivers a speed–accuracy trade-off that, together with the stable training behavior, points toward practical deployment in computer-assisted karyotyping.
+We make three contributions. First, the RF training paradigm is the dominant source of accuracy gain: KaryoFlow exceeds DiffusionDet by $+0.076$ mAP and matches Cascade R-CNN and YOLOX-S; a solver$\times$step disentanglement attributes 94% of the gain to RF. Second, we prove an upper bound $\Delta H \le \log K$ on conditional-entropy reduction from OT coupling in the low-dimensional ($\mathbb{R}^4$) detection space — characterizing *OT Diversity Collapse* — and propose Stochastic Coupling via Sinkhorn transport, which yields a large, highly significant mAP gain in the low-data regime ($+0.034$, $p<10^{-120}$) that diminishes with dataset size, and reduces within-run convergence oscillation by $4.6\times$. Third, DPM-Solver++ for four-step inference achieves a small but statistically significant precision advantage over Heun at matched step count ($+0.006$ per-image mAP, Wilcoxon $p<0.001$) with $1.71\times$ speedup, combined with Top-$K$ pruning.
+
+All claims are validated on two public chromosome datasets with multi-seed experiments, per-class AP analysis, and SOTA comparison.
+
+<!-- [MAIN PAPER] IEEEkeywords placeholder — to be finalized:
+Index Terms — Rectified Flow, object detection, optimal transport, diffusion models, medical image analysis, chromosome karyotyping
+-->
 
 ## 1. Introduction
+
+<!--
+[MAIN PAPER] TMI Intro Repositioning Plan (for Phase 2-B IEEEtran migration):
+- Current intro leads with clinical motivation (chromosome karyotyping workflow).
+- TMI-appropriate version should lead with the ALGORITHMIC problem (diffusion
+  detection inherits DDPM pathologies; RF as remedy) and use chromosome detection
+  as the motivating dense-detection INSTANCE, not the primary subject.
+- Suggested structure for 10-page IEEE:
+  P1: Diffusion detection + DDPM pathologies (algorithm-led, ~0.4 page)
+  P2: RF as remedy + three key bottlenecks (coupling/solver/stability) (~0.4 page)
+  P3: Chromosome karyotyping as motivating instance + scenario-to-method map (~0.3 page)
+  P4: Contributions summary + novelty boundary (~0.4 page)
+- The clinical detail (46 chromosomes, 24 classes, C-group/Y-chromosome difficulty)
+  moves to §4.1.1 Datasets or a brief motivating-paragraph, NOT the opening.
+- Keep Figure 1 (method overview) at end of intro.
+-->
 
 ### 1.1 Motivation
 
@@ -122,6 +187,17 @@ $$\Delta H \;=\; H_{\text{rand}}(V \mid X_t) - H_{\text{OT}}(V \mid X_t) \;\le\;
 
 **Proof sketch** (full proof in Appendix A): Under random coupling, $H_{\text{rand}}(V|X_t) \le H(V) = \log K$ in the high-noise regime. Under OT coupling with $N \to \infty$, $V = \operatorname{Voronoi}(\mathbf{z})$ is deterministic (Lemma), so given $X_t$ one recovers $\mathbf{z}$ and hence $V$, giving $H_{\text{OT}}(V | X_t) = 0$. Therefore $\Delta H \le \log K$.
 
+<!-- [PLACEHOLDER: Phase 3-E — Theory Deepening]
+Proposition 1 currently proves only the UPPER bound ΔH ≤ log K.
+For TMI, add a matching LOWER bound to demonstrate tightness:
+  Conjecture (lower bound): Under sufficient GT-box separation (sep = min_{j≠k} ||b_k - b_j||)
+  and high-noise regime (tσ >> sep), ΔH ≥ log K - O(exp(-c·sep²/(tσ)²)),
+  i.e., the upper bound is tight up to exponential decay in separation-to-noise ratio.
+This shows OT collapse is INHERENT to low-dimensional detection, not an artifact
+of the specific GT configuration. Proof sketch -> [MAIN PAPER]; full proof -> [ARXIV COMPANION].
+See Appendix A.1 for the placeholder insertion point.
+-->
+
 **Empirical validation** (Chromosome20240904): $\Delta H = 3.8415$, $\log K = 3.8427$ ($K_{\text{mean}} = 46.6$), relative error 0.03%. Figure 3 visualizes the partitioning and the empirical match, and the entropy phase diagram traces conditional entropy $H(V|Z)$ as a function of the stochastic coupling parameter $\epsilon$.
 
 ![**Figure: Entropy phase diagram.** Conditional entropy $H(V|Z)$ as a function of the stochastic coupling parameter $\epsilon$. Hard OT ($\epsilon{=}0$) collapses to $H{=}0$; Random coupling ($\epsilon{\to}\infty$) saturates at $H{=}3.8415 \approx \log K{=}3.8427$ (relative error 0.03%). Stochastic coupling with $\epsilon \ge 1$ recovers near-full diversity, while $\epsilon < 1$ falls in the danger zone of diversity collapse.](latex/figures/entropy_phase.png)
@@ -146,6 +222,16 @@ Table 2 shows that OT collapse is severe in detection ($\Delta H/H \approx 0.55$
 $$\pi_{\text{stoch}}(i) \;\sim\; \operatorname{Categorical}\!\left( \frac{ T_\epsilon(i,:) }{ \sum_j T_\epsilon(i,j) } \right).$$
 
 The key property is that $H_{\text{stoch}}(V|X_t; \epsilon)$ increases monotonically with $\epsilon$; endpoints are $\epsilon \to 0$ = hard OT and $\epsilon \to \infty$ = random coupling. We conjecture that $H_{\text{stoch}}$ is monotonically increasing in $\epsilon$ (Conjecture 1, Appendix A.2), supported by empirical validation.
+
+<!-- [PLACEHOLDER: Phase 3-E — Theory Deepening]
+Conjecture 1 (StochOT monotonicity) is currently stated with only an empirical
+argument (continuity of Sinkhorn solution in ε). For TMI, upgrade to a rigorous
+proof using the log-Sobolev inequality for Schrödinger bridges, or alternatively
+a coupling argument showing dH_stoch/dε ≥ 0 via the entropy-regularized OT
+first-order conditions. Proof sketch -> [MAIN PAPER]; full proof -> [ARXIV COMPANION].
+If a complete proof proves elusive, retain as Conjecture but add a formal
+partial-result proposition (e.g., monotonicity in the ε→0 and ε→∞ limits).
+-->
 
 #### 3.3.5 Stochastic Coupling as Training Stabilizer
 
@@ -332,6 +418,34 @@ A3 + IO3 K=200 is the fastest variant (70.46 ms / 14.2 FPS, mAP 0.860); A3 achie
 
 Across both datasets, RF outperforms DDPM ($+0.017$ mAP on Dataset 1, $+0.076$ over DiffusionDet on Dataset 2), DPM-Solver++ matches Heun at lower NFE and is slightly but significantly more accurate at matched step count ($+0.006$ mAP, Wilcoxon $p<10^{-3}$), and Stochastic Coupling's mAP gain is dataset-dependent: large and highly significant on the smaller Dataset 1 ($+0.034$ over Random, $p<10^{-120}$; Hard OT is in fact *worse* than Random, $-0.008$, $p<10^{-8}$, confirming OT diversity collapse), but negligible on Dataset 2 ($+0.0001$, $p{=}0.80$). The $4.6\times$ convergence-smoothness benefit holds on both.
 
+### 4.8 Robustness (Planned for TMI)
+
+<!-- [PLACEHOLDER: Phase 3-D — Lightweight Robustness Experiments]
+Two inference-only experiments to strengthen TMI evaluation (SIER criteria:
+Evaluation + Reproducibility). Both reuse existing checkpoints — NO retraining.
+
+(1) Annotation-noise robustness (Dataset 2, A3 checkpoint):
+    - Inject label noise by perturbing GT bbox coordinates (Gaussian jitter at
+      σ_bbox = {2, 5, 10} px) and class-label flips (rate = {5%, 10%, 20%}).
+    - Re-run inference on the perturbed test set; report mAP degradation curve.
+    - Hypothesis: RF's straight-line ODE is more robust to label noise than
+      DDPM's curved trajectory (lower truncation error amplification).
+    - Expected effort: ~1 day (inference-only, existing checkpoints).
+
+(2) Cross-dataset transfer (Dataset 1 → Dataset 2, zero-shot):
+    - Take A3 checkpoint trained on Dataset 2; evaluate on Dataset 1 test set
+      (and vice versa) WITHOUT fine-tuning.
+    - Report mAP + per-class AP to characterize cross-cohort generalization.
+    - Hypothesis: Stochastic Coupling's smoothness benefit generalizes across
+      cohorts; RF paradigm transfers better than DDPM due to straighter paths.
+    - Expected effort: ~0.5 day (inference-only).
+
+Both experiments → [MAIN PAPER] as a new §4.8 subsection (~0.5 page).
+Detailed per-perturbation tables → [ARXIV COMPANION].
+-->
+
+*To be added in Phase 3-D.*
+
 ## 5. Analysis and Discussion
 
 ### 5.1 Why RF Works for Chromosome Detection
@@ -368,7 +482,25 @@ We also acknowledge several limitations. First, the empirical validation is conf
 
 ## Appendix
 
+<!--
+TMI APPENDIX STRATEGY (Strategy A+B):
+- TMI prohibits supplementary text materials (since 2022-01-01).
+- Solution: Move detailed appendix content to an arXiv companion preprint.
+- Main paper retains only proof sketches (Strategy A) and brief mentions of
+  null-result ablations (D, E) inline in the text body.
+- Each appendix below is annotated with its TMI destination:
+    [MAIN PAPER] / [ARXIV COMPANION] / [COMPRESS] / [DELETED]
+- Content marked [ARXIV COMPANION] or [DELETED] is preserved in this draft
+  as the complete fact record and feeds the arXiv preprint.
+- Estimated page savings: ~3.4 pages of appendix compressed to ~0.4 page
+  (proof sketches + inline mentions) in the 10-page IEEE main paper.
+-->
+
 ### A. Proofs
+
+<!-- [MAIN PAPER: proof sketches only — retain §3.3.2 sketch + Conjecture 1 statement]
+    [ARXIV COMPANION: full proofs below + new lower bound (Phase 3-E placeholder)]
+    Page budget: ~0.2 page in main paper (sketch already inline at §3.3.2). -->
 
 This appendix provides the complete proofs of Proposition 1 and the Stochastic Coupling monotonicity argument referenced in Section 3.3, establishing the OT Diversity Collapse upper bound $\Delta H \le \log K$ and the monotonicity of Stochastic Coupling in $\epsilon$.
 
@@ -388,13 +520,53 @@ $$\Delta H = H_{\text{rand}}(V|X_t) - H_{\text{OT}}(V|X_t) \le \log K - 0 = \log
 
 **Remark on finite-$N$.** In practice, OT is solved on mini-batches of size $N$ (e.g., $N=2$ in our setting). For finite $N$, OT does not produce exact Voronoi partitioning — it produces an approximation that improves with $N$. The empirical validation ($\Delta H = 3.8415$ vs $\log K = 3.8427$, 0.03% error) confirms the $N \to \infty$ bound is an excellent approximation even for small $N$ in the chromosome detection setting, likely because $K \approx 46 \gg N$ and the GT boxes are well-separated in $\mathbb{R}^4$ relative to $\sigma$.
 
+<!-- [PLACEHOLDER: Phase 3-E — Lower Bound for Proposition 1]
+INSERTION POINT for the matching lower bound. The upper bound ΔH ≤ log K is
+proved above; TMI submission should add:
+
+  Proposition 2 (Lower Bound): Let sep = min_{j≠k} ||b_k - b_j|| denote the
+  minimum GT-box separation. In the high-noise regime (tσ ≥ c·sep for constant
+  c > 0), ΔH ≥ log K - K·exp(-sep²/(2t²σ²)), showing the upper bound is tight
+  up to exponential decay in (sep/(tσ))².
+
+Proof approach: Lower-bound H_rand(V|X_t) via the Gaussian mixture posterior
+entropy (Bhattacharyya bound on misclassification), and lower-bound H_OT(V|X_t)
+via the finite-N Voronoi cell overlap. Full proof -> [ARXIV COMPANION].
+Sketch -> [MAIN PAPER §3.3.2] (1 paragraph).
+-->
+
 #### A.2 Stochastic Coupling Monotonicity
 
 **Conjecture 1**: $H_{\text{stoch}}(V|X_t; \epsilon)$ monotonically increases with $\epsilon$.
 
 **Empirical argument**: As $\epsilon \to 0$, the Sinkhorn transport matrix $T_\epsilon$ converges to the deterministic OT assignment (hard coupling), so $H_{\text{stoch}} \to H_{\text{OT}} = 0$. As $\epsilon \to \infty$, $T_\epsilon$ converges to the uniform distribution (random coupling), so $H_{\text{stoch}} \to H_{\text{rand}} = \log K$. By the continuity of the Sinkhorn solution in $\epsilon$, $H_{\text{stoch}}$ increases monotonically. A formal proof would use the log-Sobolev inequality for Schrödinger bridges; we leave this as future work and rely on empirical validation of the monotonicity (Section 4.4). We therefore state this property as a conjecture rather than a proven proposition.
 
+<!-- [PLACEHOLDER: Phase 3-E — Rigorous Proof for Conjecture 1]
+INSERTION POINT for upgrading Conjecture 1 to a proven proposition (or adding
+a partial-result proposition). Candidate approaches:
+
+(1) Log-Sobolev inequality for Schrödinger bridges:
+    Show dH_stoch/dε ≥ 0 by differentiating the Sinkhorn objective and applying
+    the entropy-regularized OT first-order conditions.
+
+(2) Coupling argument:
+    Construct a monotone coupling between T_{ε1} and T_{ε2} for ε1 < ε2,
+    showing the assignment distribution under ε2 majorizes that under ε1.
+
+(3) If a complete proof is infeasible, add a formal PARTIAL result:
+    Proposition 3 (Endpoint Monotonicity): H_stoch(V|X_t; ε) is monotone in
+    the limits ε→0 and ε→∞, with H_stoch → 0 and H_stoch → log K respectively.
+    (This is already established by the empirical argument above; formalize it.)
+
+Full proof -> [ARXIV COMPANION]; sketch/statement -> [MAIN PAPER §3.3.4].
+-->
+
 ### B. Falsified Directions
+
+<!-- [DELETED from TMI main paper]
+    These negative results document internal research decisions but do not
+    advance the paper's claims. Retain in this draft as fact record only.
+    If a reviewer asks "did you try X?", cite the arXiv companion. -->
 
 This appendix records the research directions we explored and experimentally falsified, documenting the negative results that justify the method choices made in the main text.
 
@@ -410,6 +582,11 @@ This appendix records the research directions we explored and experimentally fal
 **Table B.1**: Falsified research directions.
 
 ### C. Per-Seed Values (Dataset 1)
+
+<!-- [ARXIV COMPANION]
+    Per-seed tables are too granular for the 10-page main paper. The main paper
+    reports mean±std aggregates (Tables 5-7); per-seed breakdowns move to arXiv
+    for full reproducibility verification. ]
 
 This appendix provides the per-seed numerical values underlying the multi-seed tables in Section 4.2 (RF vs DDPM) and Section 4.4 (coupling ablation), so that the aggregated mean±std figures can be independently verified seed by seed.
 
@@ -447,6 +624,10 @@ This appendix provides the per-seed numerical values underlying the multi-seed t
 
 ### D. AdaLN-Zero Ablation
 
+<!-- [COMPRESS to 1 sentence in main paper: "AdaLN-Zero contributes null
+     (ΔmAP = 0.000) within the RF framework (Appendix D, arXiv)." Already
+     mentioned at §1.2 Contributions and §3.1.2. Full table -> [ARXIV COMPANION].]
+
 This appendix reports the standalone ablation of AdaLN-Zero referenced in Section 3.1.2 and the contribution discussion of the main text, confirming that its individual contribution to the +0.082 mAP gain is null within the RF framework (Table D.1). We conducted a separate ablation on Dataset 2 to verify AdaLN-Zero's individual contribution. Both experiments use identical configurations except for the time conditioning module (RF formulation, Heun solver 4-step, shifted schedule shift=3.0, random coupling, 150 epochs).
 
 | Config | mAP | $\Delta$ mAP |
@@ -459,6 +640,11 @@ This appendix reports the standalone ablation of AdaLN-Zero referenced in Sectio
 AdaLN-Zero contributes *null* ($\Delta$mAP = 0.000) within the RF framework on this dataset. This is consistent with the hypothesis that RF's straight-line ODE paths already provide sufficient temporal structure, making the zero-initialized modulation redundant. We retain AdaLN-Zero as a standard conditioning mechanism (Dhariwal & Nichol, 2021) for consistency with the broader diffusion literature, but note that it does not contribute to the +0.082 mAP improvement claimed in Section 4.2.1. The entire +0.082 gap is attributable to the RF formulation itself (straight-line ODE paths); the shifted noise schedule contributes negligibly on its own, as shown in Appendix E.
 
 ### E. Shifted Noise Schedule Ablation
+
+<!-- [COMPRESS to 1 sentence in main paper: "The shifted noise schedule
+     (shift=3.0) contributes negligibly (ΔmAP = -0.001); the entire +0.082
+     gain is attributable to the RF formulation itself (Appendix E, arXiv)."
+     Already mentioned at §1.2 and Abstract. Full table -> [ARXIV COMPANION].]
 
 This appendix reports the standalone ablation of the shifted noise schedule referenced in Section 3.1.2, the abstract, and the conclusion. The shifted schedule (shift=3.0) is used throughout the paper as part of the RF training configuration, but its individual contribution to the +0.082 mAP gain has not been isolated thus far. We fill this gap by training an identical configuration with the shift set to $0$ (i.e., a linear schedule) on Dataset 2.
 
@@ -475,6 +661,14 @@ Both experiments use identical configurations except for the shift parameter (RF
 The shifted schedule's individual contribution is $\Delta \text{mAP} = -0.001$ ($\approx 0\%$), well within seed noise, although it yields a small $+0.008$ improvement on small objects (AP$_S$; AP$_M$ and AP$_L$ differ by at most 0.004). This confirms that the $+0.082$ mAP gain over the Euler baseline claimed in Section 4.2.1 is attributable to the RF formulation itself (straight-line ODE paths), not to the shifted schedule. We retain the shifted schedule as a standard detail inherited from the diffusion-detection literature, but it is not a separate source of accuracy gain. The solver×step disentanglement in Section 4.5 therefore attributes 94% of the $+0.082$ gap to the RF paradigm *as a whole*, which is dominated by the straight-line ODE paths.
 
 ### F. Per-Class AP Details
+
+<!-- MIXED DESTINATIONS:
+  F.1 Chromosome Size Groups    -> [ARXIV COMPANION] (reference material, brief inline mention OK)
+  F.2 Y Chromosome Analysis     -> [MAIN PAPER: 1-2 sentences in §4.3.1] + [ARXIV: full analysis]
+  F.3 C-group Discrimination    -> [ARXIV COMPANION] (detailed per-class numbers)
+  F.4 Complete Per-Class AP Table -> [ARXIV COMPANION] (24-row table too large for main)
+  F.5 Localization Saturation   -> [COMPRESS to 1 sentence in §5 Discussion]
+  Net main-paper cost: ~3 sentences + 0 tables; full content preserved here + arXiv. -->
 
 This appendix supplements the per-class AP analysis in Section 4.3.1 with detailed breakdowns.
 
