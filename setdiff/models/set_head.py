@@ -71,7 +71,9 @@ class JointDiffusionHead(nn.Module):
         self.matcher = HungarianMatcher()
 
         # Loss
-        self.criterion = SetCriterion(num_classes=num_classes)
+        self.criterion = SetCriterion(
+            num_classes=num_classes, snr_scale=snr_scale
+        )
 
         # Time embedding: Sinusoidal → small MLP for learnable projection
         self.time_embed = nn.Sequential(

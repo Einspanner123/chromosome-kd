@@ -98,6 +98,11 @@ class SetCriterion(nn.Module):
     3. GIoU loss (GIoU on predicted x_0, w=2).
 
     loss_diff (MSE) 已删除: 与 L1+GIoU 冗余, 检测领域无此实践.
+
+    GIoU 计算空间 (关键修复):
+        GIoU 必须在 [0,1] 归一化空间计算, 不是扩散空间 [-s, s].
+        根因: cxcywh 的 w,h 在扩散空间可能为负 (小目标), 导致框翻转.
+        详见 _loss_giou 文档.
     """
 
     def __init__(
@@ -106,11 +111,15 @@ class SetCriterion(nn.Module):
         weight_dict: Dict[str, float] | None = None,
         alpha: float = 0.25,
         gamma: float = 2.0,
+        snr_scale: float = 2.0,
     ):
         super().__init__()
         self.num_classes = num_classes
         self.alpha = alpha
         self.gamma = gamma
+        # snr_scale: GT 从 [0,1] 缩放到 [-s, +s] 匹配 N(0,1) 噪声.
+        # _loss_giou 需要逆变换回 [0,1] 空间计算 GIoU (修复框翻转 bug).
+        self.snr_scale = snr_scale
         if weight_dict is None:
             # 方案 A: 2:5:2 对齐 DETR 家族 (cls : bbox : giou)
             weight_dict = {
@@ -229,16 +238,29 @@ class SetCriterion(nn.Module):
         """GIoU loss on matched slots (x_0 prediction).
 
         对齐 LDMDet/DiffusionDet: GIoU 提供几何重叠监督, 是检测 AP 的直接代理.
-        Boxes 在 cxcywh 扩散空间, 内部转 xyxy 计算 GIoU.
+
+        关键修复 — GIoU 必须在 [0,1] 归一化空间计算, 不是扩散空间 [-s, s]:
+            根因: cxcywh 的 w,h 在扩散空间可能为负 (小目标 GT 经
+                  (x*2-1)*snr_scale 变换后). 例如 GT w=0.1 → 扩散空间 w=-1.6.
+                  bbox_cxcywh_to_xyxy 后: x1=cx-w/2 > x2=cx+w/2 (框翻转),
+                  area=0, giou=0, loss_giou=1.0 恒定.
+                  染色体小目标 w,h 通常 0.05-0.3, 全部为负 → loss_giou 完全失效.
+            修复: 调用 generalized_box_iou 前, 先把 pred/tgt 从 [-s, s]
+                  逆变换到 [0, 1] (与 SetDiffDetector.diffusion_to_norm_space 一致).
         """
         valid_mask = matched_labels >= 0
 
         if not valid_mask.any():
             return pred_boxes.sum() * 0.0
 
-        pred = pred_boxes[valid_mask]  # [num_valid, 4]
-        tgt = matched_boxes[valid_mask]  # [num_valid, 4]
+        pred = pred_boxes[valid_mask]  # [num_valid, 4] in diffusion space [-s, s]
+        tgt = matched_boxes[valid_mask]  # [num_valid, 4] in diffusion space [-s, s]
         num_pos = pred.shape[0]
 
-        giou = generalized_box_iou(pred, tgt)  # [num_valid]
+        # 逆变换: [-s, s] → [0, 1] (GIoU 需要在有效框空间计算, 修复框翻转 bug)
+        s = self.snr_scale
+        pred_norm = (pred.clamp(-s, s) / s + 1.0) / 2.0
+        tgt_norm = (tgt.clamp(-s, s) / s + 1.0) / 2.0
+
+        giou = generalized_box_iou(pred_norm, tgt_norm)  # [num_valid]
         return (1.0 - giou).sum() / max(num_pos, 1)

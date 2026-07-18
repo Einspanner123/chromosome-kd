@@ -285,3 +285,122 @@ class TestTimeEmbedScaling:
         assert t_input.max() > 1.0, (
             f't 似乎未被缩放: max={t_input.max()} (应 > 1)'
         )
+
+
+# ============================================================
+# 修复 4: GIoU 计算空间 — 必须在 [0,1] 归一化空间计算, 不是扩散空间
+# ============================================================
+
+
+class TestGIoUSpaceFix:
+    """GIoU 空间修复: GIoU 必须在 [0,1] 归一化空间计算, 不是扩散空间 [-s, s].
+
+    根因 (SetDiff mAP=0 的关键 bug):
+        cxcywh 的 w,h 在扩散空间可能为负 (小目标 GT 经 (x*2-1)*s 变换后).
+        例如 GT w=0.1 → 扩散空间 w=(0.1*2-1)*2 = -1.6 (负!).
+        bbox_cxcywh_to_xyxy 后: x1 = cx - w/2 = cx + 0.8, x2 = cx + w/2 = cx - 0.8,
+        即 x1 > x2, 框翻转. area=(x2-x1).clamp(min=0)=0, giou=0, loss_giou=1.0 恒定.
+        染色体小目标 w,h 通常 0.05-0.3, 全部为负 → loss_giou 完全失效.
+
+    修复: _loss_giou 内部逆变换 [-s, s] → [0, 1] 后再计算 GIoU.
+    """
+
+    def test_criterion_accepts_snr_scale(self):
+        """SetCriterion 应接受 snr_scale 参数"""
+        criterion = SetCriterion(num_classes=24, snr_scale=2.0)
+        assert hasattr(criterion, 'snr_scale')
+        assert criterion.snr_scale == 2.0
+
+    def test_criterion_default_snr_scale(self):
+        """SetCriterion 默认 snr_scale=2.0 (对齐 LDMDet)"""
+        criterion = SetCriterion(num_classes=24)
+        assert criterion.snr_scale == 2.0
+
+    def test_head_passes_snr_scale_to_criterion(self):
+        """JointDiffusionHead 应将 snr_scale 传给 SetCriterion"""
+        head = JointDiffusionHead(
+            num_queries=10,
+            feat_channels=64,
+            num_heads=4,
+            num_layers=2,
+            dim_feedforward=128,
+            num_classes=24,
+            snr_scale=3.0,
+        )
+        assert head.criterion.snr_scale == 3.0
+
+    def test_loss_giou_pred_equals_tgt_with_small_boxes(self):
+        """pred==tgt 时 loss_giou 应为 0, 即使 w,h 在扩散空间为负 (小目标).
+
+        这是 SetDiff mAP=0 的核心 bug 验证:
+        - GT [0.5, 0.5, 0.1, 0.1] ([0,1] 空间, 染色体典型小目标)
+        - 扩散空间: (0.1*2-1)*2 = -1.6 (w,h 为负!)
+        - 旧代码 (扩散空间计算 GIoU): 框翻转 → area=0 → giou=0 → loss=1.0
+        - 修复后 ([0,1] 空间计算): pred==tgt → giou=1 → loss=0
+        """
+        criterion = SetCriterion(num_classes=24, snr_scale=2.0)
+        B, N, C = 1, 2, 24
+        # GT 在 [0,1] 空间: 小目标 w,h=0.1 (染色体典型尺寸)
+        gt_norm = torch.tensor(
+            [[[0.5, 0.5, 0.1, 0.1], [0.3, 0.7, 0.05, 0.15]]]
+        )
+        # 转换到扩散空间 [-2, 2]: w,h 变为负数
+        gt_diffusion = (gt_norm * 2.0 - 1.0) * 2.0
+        # 验证 w,h 确实为负 (确保测试覆盖 bug 场景)
+        assert (gt_diffusion[..., 2:] < 0).all(), (
+            '测试前提失败: w,h 应在扩散空间为负'
+        )
+        outputs = {
+            'pred_logits': torch.randn(B, N, C),
+            'pred_boxes': gt_diffusion.clone(),  # pred == tgt
+        }
+        targets = {
+            'matched_boxes': gt_diffusion.clone(),
+            'matched_labels': torch.zeros(B, N, dtype=torch.long),
+        }
+        loss_dict, _ = criterion(outputs, targets)
+        # pred == tgt, GIoU 应为 1, loss 应为 0
+        # 旧代码 (bug): loss_giou ≈ 1.0 (框翻转)
+        assert torch.isclose(
+            loss_dict['loss_giou'], torch.tensor(0.0), atol=1e-5
+        ), (
+            f'loss_giou 应为 0 (pred==tgt), 实际: {loss_dict["loss_giou"]}. '
+            f'可能 GIoU 仍在扩散空间计算 (框翻转 bug).'
+        )
+
+    def test_loss_giou_uses_norm_space_not_diffusion_space(self):
+        """GIoU 应在 [0,1] 空间计算, 不是扩散空间.
+
+        构造两个不同的框, 验证 loss_giou 值与在 [0,1] 空间计算一致,
+        而不是与在扩散空间计算一致.
+        """
+        s = 2.0
+        criterion = SetCriterion(num_classes=24, snr_scale=s)
+        B, N, C = 1, 1, 24
+        # 两个不同的框 (扩散空间)
+        pred_diffusion = torch.tensor([[[0.0, 0.0, 0.0, 0.0]]])  # 中心, w=h=0
+        tgt_diffusion = torch.tensor([[[1.0, 1.0, 1.0, 1.0]]])
+        outputs = {
+            'pred_logits': torch.randn(B, N, C),
+            'pred_boxes': pred_diffusion,
+        }
+        targets = {
+            'matched_boxes': tgt_diffusion,
+            'matched_labels': torch.zeros(B, N, dtype=torch.long),
+        }
+        loss_dict, _ = criterion(outputs, targets)
+
+        # 手动在 [0,1] 空间计算预期 GIoU
+        pred_norm = (pred_diffusion.clamp(-s, s) / s + 1.0) / 2.0
+        tgt_norm = (tgt_diffusion.clamp(-s, s) / s + 1.0) / 2.0
+        # pred_norm = [0.5, 0.5, 0.5, 0.5], tgt_norm = [0.75, 0.75, 0.75, 0.75]
+        from setdiff.criterion.set_loss import generalized_box_iou
+        giou_expected = generalized_box_iou(pred_norm[0], tgt_norm[0])
+        loss_expected = (1.0 - giou_expected).mean()
+
+        assert torch.isclose(
+            loss_dict['loss_giou'], loss_expected, atol=1e-5
+        ), (
+            f'loss_giou 应与 [0,1] 空间计算一致: '
+            f'实际={loss_dict["loss_giou"]}, 预期={loss_expected}'
+        )
