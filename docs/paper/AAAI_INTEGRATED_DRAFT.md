@@ -36,20 +36,21 @@ DRAFT STATUS:
 ============================================================
 -->
 
-> **TMI Positioning Note (per ChatGPT analysis, user-approved):**
+> **TMI Positioning Note (per ChatGPT analysis + user review 2026-07-19):**
 > The paper's novelty is ML theory (RF paradigm, OT Diversity Collapse, Stochastic
-> Coupling, solver disentanglement), NOT biological insight. Position as
-> "using chromosome detection as a vehicle to propose new detection theory and
-> training mechanisms" rather than "intelligent chromosome analysis."
-> Lead with algorithmic contributions; clinical context is the motivation, not the novelty.
+> Coupling, solver disentanglement), NOT biological insight. However, the paper
+> must STILL LEAD FROM THE APPLICATION (chromosome karyotyping) — the algorithmic
+> novelty serves the clinical task, not vice versa. Balance: application context
+> opens the Abstract/Intro, algorithmic contributions follow as the solution.
+> Rationale: TMI is a medical imaging journal; reviewers expect clinical motivation first.
 
 ## Abstract
 
-<!-- [MAIN PAPER] Abstract rewritten for TMI: <=250 words, algorithm-focused positioning. Word count: ~223 -->
+<!-- [MAIN PAPER] Abstract for TMI: <=250 words, application-led opening + algorithmic contributions. Word count: ~243 -->
 
-Diffusion-based object detectors frame localization as iterative denoising but inherit two pathologies from DDPM: slow many-step inference with curved-trajectory truncation errors, and training instability on small structured-prediction datasets. We address both with *Rectified Flow* (RF), which replaces the stochastic DDPM process with deterministic straight-line ODE paths, instantiated as *KaryoFlow* for chromosome karyotyping — a dense-detection task with 46 tightly packed objects across 24 morphologically similar classes.
+Chromosome karyotyping — the visual inspection of metaphase chromosomes for clinical genetics — requires trained cytogeneticists to classify roughly 46 tightly packed chromosomes per cell into 24 morphologically similar classes, a process that is slow and observer-dependent. Automating this analysis demands a detector that is both accurate and fast enough for clinical deployment, but three obstacles arise: limited accuracy of conventional detectors on fine-grained chromosomes; slow many-step inference and curved-trajectory truncation errors of Denoising Diffusion Probabilistic Model (DDPM)-based diffusion detectors; and training instability on small clinical datasets.
 
-We make three contributions. First, the RF training paradigm is the dominant source of accuracy gain: KaryoFlow exceeds DiffusionDet by $+0.076$ mAP and matches Cascade R-CNN and YOLOX-S; a solver$\times$step disentanglement attributes 94% of the gain to RF. Second, we prove an upper bound $\Delta H \le \log K$ on conditional-entropy reduction from OT coupling in the low-dimensional ($\mathbb{R}^4$) detection space — characterizing *OT Diversity Collapse* — and propose Stochastic Coupling via Sinkhorn transport, which yields a large, highly significant mAP gain in the low-data regime ($+0.034$, $p<10^{-120}$) that diminishes with dataset size, and reduces within-run convergence oscillation by $4.6\times$. Third, DPM-Solver++ for four-step inference achieves a small but statistically significant precision advantage over Heun at matched step count ($+0.006$ per-image mAP, Wilcoxon $p<0.001$) with $1.71\times$ speedup, combined with Top-$K$ pruning.
+We address these obstacles with *Rectified Flow* (RF), which replaces the stochastic DDPM process with deterministic straight-line ODE paths, instantiated as *KaryoFlow*. The RF training paradigm is the dominant source of accuracy gain: KaryoFlow exceeds DiffusionDet by $+0.076$ mAP and matches Cascade R-CNN and YOLOX-S; a solver$\times$step disentanglement attributes 94% of the gain to RF. We prove an upper bound $\Delta H \le \log K$ on conditional-entropy reduction from OT coupling in the low-dimensional ($\mathbb{R}^4$) detection space — characterizing *OT Diversity Collapse* — and propose Stochastic Coupling via Sinkhorn transport, which yields a large, highly significant mAP gain in the low-data regime ($+0.034$, $p<10^{-120}$) that diminishes with dataset size, and reduces within-run convergence oscillation by $4.6\times$. DPM-Solver++ for four-step inference achieves a small but statistically significant precision advantage over Heun at matched step count ($+0.006$ per-image mAP, Wilcoxon $p<0.001$) with $1.71\times$ speedup, combined with Top-$K$ pruning.
 
 All claims are validated on two public chromosome datasets with multi-seed experiments, per-class AP analysis, and SOTA comparison.
 
