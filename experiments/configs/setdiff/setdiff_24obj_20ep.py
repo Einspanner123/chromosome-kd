@@ -40,7 +40,9 @@ custom_hooks = [
     dict(type='CopyProjectHook', priority='VERY_LOW'),
 ]
 
-# === SwanLab: 标记为 GIoU 空间修复后的 20ep 验证 ===
+# === SwanLab: 标记为全修复后的 20ep 验证 ===
+# 修复清单: snr_scale + 方案A(2:5:2) + t*1000 + GIoU在[0,1]空间
+#          + double-counting(移除loss key) + L1在[0,1]空间
 vis_backends = [
     dict(type='LocalVisBackend'),
     dict(type='TensorboardVisBackend'),
@@ -48,8 +50,8 @@ vis_backends = [
         type='SwanlabVisBackend',
         init_kwargs=dict(
             project='setdiff-24obj',
-            experiment_name='setdiff_giou_fix_20ep',
-            description='SetDiff GIoU空间修复 (snr_scale+方案A+t*1000+GIoU在[0,1]空间) | 20ep 快速验证',
+            experiment_name='setdiff_full_fix_20ep',
+            description='SetDiff 全修复 (snr_scale+方案A+t*1000+GIoU[0,1]+无double-counting+L1[0,1]) | 20ep 快速验证',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),
