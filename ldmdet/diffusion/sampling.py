@@ -46,6 +46,8 @@ class DiffusionSampler:
         shts_alpha: float = 1.0,
         shts_sigma: float = 0.15,
         shts_shifted: bool = False,
+        # 方向4: VGAR (Velocity-Guided Adaptive Renewal)
+        velocity_guided_renewal: bool = False,
     ):
         self.diffusion_type = diffusion_type
         self.timesteps = timesteps
@@ -66,6 +68,9 @@ class DiffusionSampler:
         self.shts_alpha = shts_alpha
         self.shts_sigma = shts_sigma
         self.shts_shifted = shts_shifted
+        # 方向4: VGAR — box_renewal × RF 速度场耦合
+        # 启用后, renewal 不再纯随机, 而是保留部分 v_θ 预测的 x0 方向
+        self.velocity_guided_renewal = velocity_guided_renewal
 
     def build_time_pairs(
         self, device: torch.device
@@ -136,12 +141,44 @@ class DiffusionSampler:
         return None
 
     def apply_box_renewal(
-        self, x_raw: Tensor, cls_logits: Tensor
+        self,
+        x_raw: Tensor,
+        cls_logits: Tensor,
+        x0_pred: Tensor = None,
+        t_curr: float = None,
     ) -> Tensor:
-        """框更新：低置信度框替换为随机噪声"""
+        """框更新：低置信度框替换为随机噪声或速度场引导的噪声
+
+        方向4 VGAR: 当 x0_pred 和 t_curr 提供且 velocity_guided_renewal=True 时,
+        renewal 不完全重置为纯随机噪声, 而是保留部分 v_θ 预测的 x0 方向:
+            x_renewed = alpha(t) * x0_pred + (1 - alpha(t)) * randn
+        其中 alpha(t) 随时间步自适应 (早期更随机, 后期更确定)。
+
+        Args:
+            x_raw: [bs, N, 4] 扩散空间框
+            cls_logits: [bs, N, num_classes] 分类 logits
+            x0_pred: [bs, N, 4] v_θ 预测的 x0 (可选, 不传则纯随机)
+            t_curr: 当前归一化时间步 [0, 1] (可选, 不传则纯随机)
+        """
         bs, device = x_raw.shape[0], x_raw.device
         scores = torch.sigmoid(cls_logits).max(-1)[0]
         x_raw_new = x_raw.clone()
+
+        # 方向4: 计算时间自适应 alpha
+        use_vgar = (
+            self.velocity_guided_renewal
+            and x0_pred is not None
+            and t_curr is not None
+        )
+        if use_vgar:
+            # alpha(t) = 0.2 + 0.6 * sigmoid(5 * (0.5 - t))
+            # t 大 (早期) → alpha 小 → 更随机 (探索)
+            # t 小 (后期) → alpha 大 → 更确定 (利用 x0_pred)
+            alpha = 0.2 + 0.6 * (
+                1.0 / (1.0 + math.exp(5.0 * (t_curr - 0.5)))
+            )
+        else:
+            alpha = 0.0  # 纯随机 renewal (向后兼容)
 
         for i in range(bs):
             keep = scores[i] > self.score_thr
@@ -153,9 +190,17 @@ class DiffusionSampler:
 
             num_renew = (~keep).sum()
             if num_renew > 0:
-                x_raw_new[i, ~keep] = torch.randn(
-                    num_renew, 4, device=device
-                )
+                noise = torch.randn(num_renew, 4, device=device)
+                if use_vgar:
+                    # VGAR: alpha * x0_pred + (1 - alpha) * noise
+                    # 利用 v_θ 预测的 x0 方向, 同时保持随机扰动 (探索)
+                    x0_renew = x0_pred[i, ~keep]
+                    x_raw_new[i, ~keep] = (
+                        alpha * x0_renew + (1.0 - alpha) * noise
+                    )
+                else:
+                    # 原始: 纯随机 renewal
+                    x_raw_new[i, ~keep] = noise
         return x_raw_new
 
     # ================================================================

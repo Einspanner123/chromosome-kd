@@ -144,3 +144,13 @@ ldmdet-experiments/
 
 # Broken symlinks from package installation
 mmdet/.mim/demo
+
+# Local development symlinks (pointing to other project workspaces)
+chromosome-kd
+
+# Backup files
+*.bak
+*.bak.*
+
+# Temporary copy scripts
+tmp_copy_*.sh

@@ -93,6 +93,11 @@ class DiffusionDetHead(nn.Module):
         shts_alpha: float = 1.0,
         shts_sigma: float = 0.15,
         shts_shifted: bool = False,
+        # 方向2: Per-Head Time Reparameterization (PHTR)
+        # 给每个级联头可学习的 time_scale/time_shift, 打破 time_emb 共享
+        use_time_reparam: bool = False,
+        # 方向4: VGAR (Velocity-Guided Adaptive Renewal)
+        velocity_guided_renewal: bool = False,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -155,6 +160,9 @@ class DiffusionDetHead(nn.Module):
         self.shts_sigma = shts_sigma
         self.shts_shifted = shts_shifted
 
+        # 方向4: VGAR — 透传给 DiffusionSampler
+        self.velocity_guided_renewal = velocity_guided_renewal
+
         # 采样器
         self._sampler = DiffusionSampler(
             diffusion_type=diffusion_type,
@@ -176,6 +184,8 @@ class DiffusionDetHead(nn.Module):
             shts_alpha=self.shts_alpha,
             shts_sigma=self.shts_sigma,
             shts_shifted=self.shts_shifted,
+            # 方向4: VGAR
+            velocity_guided_renewal=velocity_guided_renewal,
         )
 
         self._init_weights(prior_prob)
@@ -230,6 +240,21 @@ class DiffusionDetHead(nn.Module):
         self.ccbr_lambda = ccbr_lambda
         self.ccbr_beta = ccbr_beta
 
+        # ============================================================
+        # 方向2: Per-Head Time Reparameterization (PHTR)
+        # ============================================================
+        # 给每个级联头可学习的 time_scale 和 time_shift, 对共享的 time_emb
+        # 做 head 特有的仿射变换: time_emb_i = time_emb * scale_i + shift_i
+        # 初始化为 identity (scale=1, shift=0), 确保不破坏预训练兼容性
+        self.use_time_reparam = use_time_reparam
+        if self.use_time_reparam:
+            self.head_time_scale = nn.Parameter(
+                torch.ones(num_heads, feat_channels * 4)
+            )
+            self.head_time_shift = nn.Parameter(
+                torch.zeros(num_heads, feat_channels * 4)
+            )
+
     def _init_weights(self, prior_prob):
         for head in self.head_series:
             if hasattr(head, 'cls_head'):
@@ -256,9 +281,18 @@ class DiffusionDetHead(nn.Module):
         prev_logits = None
 
         for i, head in enumerate(self.head_series):
+            # 方向2: PHTR — 每个头的 time_emb 做独立仿射变换
+            # time_emb_i = time_emb * scale_i + shift_i
+            if self.use_time_reparam:
+                time_emb_i = (
+                    time_emb * self.head_time_scale[i]
+                    + self.head_time_shift[i]
+                )
+            else:
+                time_emb_i = time_emb
             result = head(
                 features, curr_bboxes, curr_proposals,
-                self.roi_extractor, time_emb,
+                self.roi_extractor, time_emb_i,
             )
             if len(result) == 4:
                 cls_logits, pred_bboxes, curr_proposals, _ = result
@@ -672,7 +706,12 @@ class DiffusionDetHead(nn.Module):
                     )
 
                 if self.box_renewal:
-                    x_raw = self._sampler.apply_box_renewal(x_raw, cls_logits)
+                    # 方向4 VGAR: 传入 v_θ 预测的 x0 和当前时间步, 启用速度场引导
+                    x_raw = self._sampler.apply_box_renewal(
+                        x_raw, cls_logits,
+                        x0_pred=x0_raw,
+                        t_curr=t_curr,
+                    )
                 if t_next <= 0:
                     break
 
@@ -993,7 +1032,12 @@ class DiffusionDetHead(nn.Module):
                     x_raw = self.rf.step(x_raw, x0_raw, t_curr, t_next)
 
                 if self.box_renewal:
-                    x_raw = self._sampler.apply_box_renewal(x_raw, cls_logits)
+                    # 方向4 VGAR: 传入 v_θ 预测的 x0 和当前时间步, 启用速度场引导
+                    x_raw = self._sampler.apply_box_renewal(
+                        x_raw, cls_logits,
+                        x0_pred=x0_raw,
+                        t_curr=t_curr,
+                    )
                 if t_next <= 0:
                     break
 
@@ -1131,7 +1175,12 @@ class DiffusionDetHead(nn.Module):
 
                 # 时间步间 box_renewal (现有, 保留)
                 if self.box_renewal:
-                    x_raw = self._sampler.apply_box_renewal(x_raw, cls_logits)
+                    # 方向4 VGAR: 传入 v_θ 预测的 x0 和当前时间步, 启用速度场引导
+                    x_raw = self._sampler.apply_box_renewal(
+                        x_raw, cls_logits,
+                        x0_pred=x0_raw,
+                        t_curr=t_curr,
+                    )
                 if t_next <= 0:
                     break
 
