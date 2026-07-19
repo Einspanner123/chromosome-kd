@@ -8,13 +8,12 @@
   author    = {Chen, Shoufa and Sun, Peize and Song, Yibing and Luo, Ping},
   booktitle = {Proc. IEEE/CVF Int. Conf. Comput. Vis. (ICCV)},
   year      = {2023},
-  note      = {Oral, Best Paper Finalist},
   pages     = {1980--1989},
 }
 
 @inproceedings{chen2024diffubox,
   title     = {{DiffuBox}: Refining {3D} Object Detection with Point Diffusion},
-  author    = {Chen, Xiangyu and Liu, Zhenzhen and Luo, Katie Z. and Datta, Siddhartha and Polavaram, Adhitya and Wang, Yan and You, Yurong and Li, Boyi and Pavone, Marco and Chao, Wei-Lun and Campbell, Mark and Hariharan, Bharath and Weinberger, Kilian Q.},
+  author    = {Chen, Xiangyu and Liu, Zhenzhen and Luo, Katie Z. and Datta, Siddhartha and Polavaram, Adhitya and Wang, Yan and others},
   booktitle = {Adv. Neural Inf. Process. Syst. (NeurIPS)},
   year      = {2024},
 }
@@ -24,6 +23,7 @@
   author    = {Cheng, Ho Kei and Schwing, Alexander},
   booktitle = {Proc. IEEE/CVF Int. Conf. Comput. Vis. (ICCV)},
   year      = {2025},
+  pages     = {15875--15884},
 }
 
 % Verified via arXiv:2512.16771 (submitted 18 Dec 2025)
@@ -67,11 +67,13 @@
   year      = {2023},
 }
 
+% Verified via arXiv:2304.14772 and ICML 2023 PMLR vol. 202 (published title and authors differ from early arXiv version)
 @inproceedings{pooladian2023multisample,
-  title     = {Multisample Flow Matching: Straightening Flows with Mini-batch Optimal Transport},
-  author    = {Pooladian, Aram-Alexandre and Niles-Weed, Jonathan and Ben-Hamu, Heli and Tong, Alexander and Brenier, Yann and Lipman, Yaron},
-  booktitle = {Adv. Neural Inf. Process. Syst. (NeurIPS)},
+  title     = {Multisample Flow Matching: Straightening Flows with Minibatch Couplings},
+  author    = {Pooladian, Aram-Alexandre and Ben-Hamu, Heli and Domingo-Enrich, Carles and Amos, Brandon and Lipman, Yaron and Chen, Ricky T. Q.},
+  booktitle = {Proc. Int. Conf. Mach. Learn. (ICML)},
   year      = {2023},
+  pages     = {28100--28127},
 }
 
 % ===================== DDPM / Diffusion Models =====================
@@ -85,11 +87,15 @@
 
 % ===================== ODE Solvers =====================
 
-@inproceedings{lu2022dpmpp,
-  title     = {{DPM-Solver++}: Fast Solver for Guided Sampling of Diffusion Models},
-  author    = {Lu, Cheng and Zhou, Kaiwen and Zhang, Yuxuan and Bao, Fan and Chen, Jianfei and Su, Hang and Zhu, Jun},
-  booktitle = {Adv. Neural Inf. Process. Syst. (NeurIPS)},
-  year      = {2022},
+% Verified via arXiv:2211.01095 v3 and DOI 10.1007/s11633-025-1562-4 (Machine Intelligence Research, 2025).
+% Earlier arXiv versions were submitted to ICLR 2023 but rejected; the paper was eventually
+% published in the journal Machine Intelligence Research. Authors updated to the published version.
+@article{lu2022dpmpp,
+  title     = {{DPM-Solver++}: Fast Solver for Guided Sampling of Diffusion Probabilistic Models},
+  author    = {Lu, Cheng and Zhou, Yuhao and Bao, Fan and Chen, Jianfei and Li, Chongxuan and Zhu, Jun},
+  journal   = {Machine Intelligence Research},
+  year      = {2025},
+  doi       = {10.1007/s11633-025-1562-4},
 }
 
 % ===================== Optimal Transport / Sinkhorn =====================
@@ -99,6 +105,7 @@
   author    = {Cuturi, Marco},
   booktitle = {Adv. Neural Inf. Process. Syst. (NeurIPS)},
   year      = {2013},
+  pages     = {2292--2300},
 }
 
 @book{santambrogio2015optimal,
@@ -116,6 +123,7 @@
   author    = {Ren, Shaoqing and He, Kaiming and Girshick, Ross and Sun, Jian},
   booktitle = {Adv. Neural Inf. Process. Syst. (NeurIPS)},
   year      = {2015},
+  pages     = {91--99},
 }
 
 @article{ge2021yolox,
@@ -211,7 +219,7 @@
 @misc{rst_dataset,
   title        = {{RST} (Chromosome20240904) Dataset},
   author       = {{South China Normal University}},
-  howpublished = {\url{https://universe.roboflow.com/south-china-normal-university-imqzk/rst}},
+  howpublished = {Roboflow Universe},
+  url          = {https://universe.roboflow.com/south-china-normal-university-imqzk/rst},
   year         = {2024},
-  note         = {Roboflow Universe. Accessed: 2026-07-17},
 }
