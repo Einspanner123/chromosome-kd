@@ -21,20 +21,15 @@
 \providecommand{\BIBdecl}{\relax}
 \BIBdecl
 
-\bibitem{chen2023diffusiondet}
-S.~Chen, P.~Sun, Y.~Song, and P.~Luo, ``{DiffusionDet}: Diffusion model for
-  object detection,'' in \emph{Proc. IEEE/CVF Int. Conf. Comput. Vis. (ICCV)},
-  2023, pp. 1980--1989, oral, Best Paper Finalist.
-
 \bibitem{liu2023rectified}
 X.~Liu, C.~Gong, and Q.~Liu, ``Flow straight and fast: Learning to generate and
-  transfer data with rectified flow,'' in \emph{International Conference on
-  Learning Representations (ICLR)}, 2023.
+  transfer data with rectified flow,'' in \emph{Int. Conf. Learn. Represent.
+  (ICLR)}, 2023.
 
 \bibitem{lu2022dpmpp}
-C.~Lu, K.~Zhou, Y.~Zhang, F.~Bao, J.~Chen, H.~Su, and J.~Zhu, ``{DPM-Solver++}:
-  Fast solver for guided sampling of diffusion models,'' in \emph{Neural Inf.
-  Process. Syst. (NeurIPS)}, 2022.
+C.~Lu, Y.~Zhou, F.~Bao, J.~Chen, C.~Li, and J.~Zhu, ``{DPM-Solver++}: Fast
+  solver for guided sampling of diffusion probabilistic models,'' \emph{Machine
+  Intelligence Research}, 2025.
 
 \bibitem{baty2025flowdet}
 E.~Baty, C.~P. Bridges, and S.~Hadfield, ``{FlowDet}: Unifying object detection
@@ -51,17 +46,22 @@ A.~Tong, K.~Fatras, N.~Malkin, G.~Huguet, Y.~Zhang, J.~Rector-Brooks, G.~Wolf,
   transport,'' in \emph{Int. Conf. Learn. Represent. (ICLR)}, 2023.
 
 \bibitem{pooladian2023multisample}
-A.-A. Pooladian, J.~Niles-Weed, H.~Ben-Hamu, A.~Tong, Y.~Brenier, and
-  Y.~Lipman, ``Multisample flow matching: Straightening flows with mini-batch
-  optimal transport,'' in \emph{Neural Inf. Process. Syst. (NeurIPS)}, 2023.
+A.-A. Pooladian, H.~Ben-Hamu, C.~Domingo-Enrich, B.~Amos, Y.~Lipman, and
+  R.~T.~Q. Chen, ``Multisample flow matching: Straightening flows with
+  minibatch couplings,'' in \emph{Proc. Int. Conf. Mach. Learn. (ICML)}, 2023,
+  pp. 28\,100--28\,127.
 
 \bibitem{dhariwal2021diffusion}
 P.~Dhariwal and A.~Nichol, ``Diffusion models beat {GANs} on image synthesis,''
-  in \emph{Neural Inf. Process. Syst. (NeurIPS)}, 2021.
+  in \emph{Adv. Neural Inf. Process. Syst. (NeurIPS)}, 2021.
+
+\bibitem{chen2023diffusiondet}
+S.~Chen, P.~Sun, Y.~Song, and P.~Luo, ``{DiffusionDet}: Diffusion model for
+  object detection,'' in \emph{Proc. IEEE/CVF Int. Conf. Comput. Vis. (ICCV)},
+  2023, pp. 1980--1989.
 
 \bibitem{chen2024diffubox}
-X.~Chen, Z.~Liu, K.~Z. Luo, S.~Datta, A.~Polavaram, Y.~Wang, Y.~You, B.~Li,
-  M.~Pavone, W.-L. Chao, M.~Campbell, B.~Hariharan, and K.~Q. Weinberger,
+X.~Chen, Z.~Liu, K.~Z. Luo, S.~Datta, A.~Polavaram, Y.~Wang \emph{et~al.},
   ``{DiffuBox}: Refining {3D} object detection with point diffusion,'' in
   \emph{Adv. Neural Inf. Process. Syst. (NeurIPS)}, 2024.
 
@@ -73,12 +73,12 @@ Y.~Lipman, R.~T.~Q. Chen, H.~Ben-Hamu, M.~Nickel, and M.~Le, ``Flow matching
 \bibitem{cheng2025curse}
 H.~K. Cheng and A.~Schwing, ``The curse of conditions: Analyzing and improving
   optimal transport for conditional flow-based generation,'' in \emph{Proc.
-  IEEE/CVF Int. Conf. Comput. Vis. (ICCV)}, 2025.
+  IEEE/CVF Int. Conf. Comput. Vis. (ICCV)}, 2025, pp. 15\,875--15\,884.
 
 \bibitem{ren2015faster}
 S.~Ren, K.~He, R.~Girshick, and J.~Sun, ``Faster {R-CNN}: Towards real-time
-  object detection with region proposal networks,'' in \emph{Neural Inf.
-  Process. Syst. (NeurIPS)}, 2015.
+  object detection with region proposal networks,'' in \emph{Adv. Neural Inf.
+  Process. Syst. (NeurIPS)}, 2015, pp. 91--99.
 
 \bibitem{kuo2024chromosomenet}
 C.-E. Kuo, J.-Z. Li, J.-J. Tseng, F.-C. Lo, M.-J. Chen, and C.-H. Lu,
@@ -92,12 +92,14 @@ F.~Santambrogio, \emph{Optimal Transport for Applied Mathematicians}.\hskip 1em
 
 \bibitem{cuturi2013sinkhorn}
 M.~Cuturi, ``Sinkhorn distances: Lightspeed computation of optimal transport,''
-  in \emph{Neural Inf. Process. Syst. (NeurIPS)}, 2013.
+  in \emph{Adv. Neural Inf. Process. Syst. (NeurIPS)}, 2013, pp. 2292--2300.
 
 \bibitem{rst_dataset}
+\BIBentryALTinterwordspacing
 {South China Normal University}, ``{RST} (chromosome20240904) dataset,''
-  \url{https://universe.roboflow.com/south-china-normal-university-imqzk/rst},
-  2024, roboflow Universe. Accessed: 2026-07-17.
+  Roboflow Universe, 2024. [Online]. Available:
+  \url{https://universe.roboflow.com/south-china-normal-university-imqzk/rst}
+\BIBentrySTDinterwordspacing
 
 \bibitem{tseng2023dataset}
 J.-J. Tseng, C.-H. Lu, J.-Z. Li, H.-Y. Lai, M.-H. Chen, F.-Y. Cheng, and C.-E.
@@ -124,7 +126,7 @@ I.~Loshchilov and F.~Hutter, ``Decoupled weight decay regularization,'' in
 
 \bibitem{lin2017focal}
 T.-Y. Lin, P.~Goyal, R.~Girshick, K.~He, and P.~Doll{\'a}r, ``Focal loss for
-  dense object detection,'' in \emph{Proc. IEEE Int. Conf. Comput. Vis.
+  dense object detection,'' in \emph{Proc. IEEE/CVF Int. Conf. Comput. Vis.
   (ICCV)}, 2017, pp. 2999--3007.
 
 \bibitem{rezatofighi2019giou}

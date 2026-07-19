@@ -18,43 +18,43 @@ Warning--empty journal in ge2021yolox
 Done.
 You've used 25 entries,
             4087 wiz_defined-function locations,
-            930 strings with 11774 characters,
-and the built_in function-call counts, 16311 in all, are:
-= -- 1144
-> -- 515
-< -- 70
-+ -- 262
-- -- 109
-* -- 760
-:= -- 2374
+            931 strings with 11559 characters,
+and the built_in function-call counts, 18104 in all, are:
+= -- 1313
+> -- 526
+< -- 114
++ -- 288
+- -- 114
+* -- 853
+:= -- 2571
 add.period$ -- 50
 call.type$ -- 25
-change.case$ -- 26
-chr.to.int$ -- 174
+change.case$ -- 24
+chr.to.int$ -- 294
 cite$ -- 28
-duplicate$ -- 1238
-empty$ -- 1546
-format.name$ -- 130
-if$ -- 3831
+duplicate$ -- 1315
+empty$ -- 1631
+format.name$ -- 123
+if$ -- 4255
 int.to.chr$ -- 0
 int.to.str$ -- 25
-missing$ -- 259
-newline$ -- 98
+missing$ -- 252
+newline$ -- 100
 num.names$ -- 25
-pop$ -- 713
+pop$ -- 685
 preamble$ -- 1
 purify$ -- 0
 quote$ -- 2
-skip$ -- 1266
+skip$ -- 1389
 stack$ -- 0
-substring$ -- 440
-swap$ -- 842
-text.length$ -- 12
+substring$ -- 748
+swap$ -- 970
+text.length$ -- 16
 text.prefix$ -- 0
 top$ -- 5
 type$ -- 25
 warning$ -- 3
-while$ -- 54
+while$ -- 70
 width$ -- 27
-write$ -- 232
+write$ -- 237
 (There were 3 warnings)
