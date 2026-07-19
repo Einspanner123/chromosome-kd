@@ -4,6 +4,13 @@ Finds optimal one-to-one assignment between noise proposals and GT boxes
 using ``scipy.optimize.linear_sum_assignment``. The matching depends on ALL
 noise vectors (global coupling), not per-slot — this is the key difference
 from per-proposal independent diffusion (DiffusionDet/DiffuDETR).
+
+方案 B (unmatched_strategy='random_gt'):
+    保留 Hungarian global coupled matching (matched slot 最优一对一),
+    unmatched slot 分配随机 GT (保证所有 slot 有监督).
+    动机: 原行为 unmatched slot = noise (velocity=0, box_head 无监督),
+    导致训练-推理分布不匹配 → mAP=0. 方案 B 让所有 slot 在 [GT, noise]
+    插值轨迹上, 同时保留 global coupled matching 的理论区分点.
 """
 
 from typing import List, Tuple
@@ -20,10 +27,28 @@ class HungarianMatcher:
     Finds optimal one-to-one assignment between noise proposals and GT boxes.
     Key: the matching depends on ALL noise vectors (global coupling), not
     per-slot.
+
+    Args:
+        cost_type: 'l2' (default) or 'l1', cost matrix metric.
+        unmatched_strategy: 控制 unmatched slot 的 x_start 分配策略.
+            - 'noise' (默认, 向后兼容): unmatched slot = noise (velocity=0).
+              ⚠️ 此策略导致 unmatched slot 训练-推理分布不匹配 (mAP=0 根因).
+            - 'random_gt' (方案 B): unmatched slot 从 GT 集合随机采样 (允许重复),
+              保证所有 slot 有监督. matched slot 仍由 Hungarian 一对一分配.
     """
 
-    def __init__(self, cost_type: str = 'l2'):
+    def __init__(
+        self,
+        cost_type: str = 'l2',
+        unmatched_strategy: str = 'noise',
+    ):
         self.cost_type = cost_type
+        if unmatched_strategy not in ('noise', 'random_gt'):
+            raise ValueError(
+                f"unmatched_strategy 必须是 'noise' 或 'random_gt', "
+                f"实际: {unmatched_strategy}"
+            )
+        self.unmatched_strategy = unmatched_strategy
 
     @torch.no_grad()
     def match(
@@ -41,15 +66,17 @@ class HungarianMatcher:
 
         Returns:
             matched_boxes: [N, 4] GT boxes reordered to match noise slots.
-                Unmatched slots receive the noise itself (so velocity = 0).
-            matched_labels: [N] labels (-1 for unmatched/padding slots).
+                策略 'noise': unmatched slots = noise (velocity=0).
+                策略 'random_gt': unmatched slots = 随机 GT (允许重复).
+            matched_labels: [N] labels.
+                策略 'noise': -1 for unmatched slots.
+                策略 'random_gt': 所有 slot >=0 (M=0 时全 -1).
         """
         N = noise.shape[0]
         M = gt_boxes.shape[0]
         device = noise.device
 
-        # Default: unmatched slots keep the noise itself (velocity = 0),
-        # label = -1 (ignored by loss).
+        # 初始化默认值 (策略 'noise' 行为)
         matched_boxes = noise.clone()
         matched_labels = torch.full(
             (N,), -1, dtype=torch.long, device=device
@@ -81,6 +108,22 @@ class HungarianMatcher:
         col_ind_t = torch.as_tensor(col_ind, device=device, dtype=torch.long)
         matched_boxes[row_ind_t] = gt_boxes[col_ind_t]
         matched_labels[row_ind_t] = gt_labels[col_ind_t]
+
+        # ============================================================
+        # 方案 B: unmatched slot 分配随机 GT
+        # ============================================================
+        if self.unmatched_strategy == 'random_gt':
+            # 找出 unmatched slot (label 仍为 -1)
+            unmatched_mask = matched_labels == -1  # [N]
+            num_unmatched = unmatched_mask.sum().item()
+            if num_unmatched > 0:
+                # 从 M 个 GT 中独立均匀采样 num_unmatched 个 (允许重复)
+                # 对齐 LDMDet: torch.randint(0, num_gt, (num_proposals,))
+                rand_idx = torch.randint(
+                    0, M, (num_unmatched,), device=device
+                )
+                matched_boxes[unmatched_mask] = gt_boxes[rand_idx]
+                matched_labels[unmatched_mask] = gt_labels[rand_idx]
 
         return matched_boxes, matched_labels
 

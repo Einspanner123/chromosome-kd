@@ -27,6 +27,7 @@ from setdiff.core.set_encoder import SetEncoder
 from setdiff.criterion.set_loss import SetCriterion
 from setdiff.diffusion.set_rf import SetRectifiedFlow
 from setdiff.matching.hungarian import HungarianMatcher
+from setdiff.matching.random_matcher import RandomMatcher
 
 
 class JointDiffusionHead(nn.Module):
@@ -46,6 +47,8 @@ class JointDiffusionHead(nn.Module):
         box_renewal: bool = True,
         score_thr: float = 0.3,
         min_keep: int = 75,
+        matcher_type: str = 'hungarian',
+        unmatched_strategy: str = 'noise',
     ):
         super().__init__()
         self.num_queries = num_queries
@@ -83,8 +86,31 @@ class JointDiffusionHead(nn.Module):
         # Set-level Rectified Flow
         self.rf = SetRectifiedFlow(snr_scale=snr_scale)
 
-        # Global coupled matcher
-        self.matcher = HungarianMatcher()
+        # Matcher 选择 (方案 A/B):
+        #   - 'hungarian' (默认): global coupled one-to-one matching.
+        #     unmatched_strategy='noise' (原行为, mAP=0 根因) |
+        #     'random_gt' (方案 B, unmatched slot 分配随机 GT)
+        #   - 'random' (方案 A): 所有 slot 随机分配 GT, 对齐 LDMDet
+        #     (unmatched_strategy 对 random matcher 无意义, 静默忽略)
+        if matcher_type == 'hungarian':
+            self.matcher = HungarianMatcher(
+                unmatched_strategy=unmatched_strategy
+            )
+        elif matcher_type == 'random':
+            if unmatched_strategy != 'noise':
+                import warnings
+                warnings.warn(
+                    f"matcher_type='random' 忽略 unmatched_strategy="
+                    f"'{unmatched_strategy}' (random matcher 无 unmatched "
+                    f"slot 概念). 建议移除该参数避免误配.",
+                    stacklevel=2,
+                )
+            self.matcher = RandomMatcher()
+        else:
+            raise ValueError(
+                f"matcher_type 必须是 'hungarian' 或 'random', "
+                f"实际: {matcher_type}"
+            )
 
         # Loss
         self.criterion = SetCriterion(
