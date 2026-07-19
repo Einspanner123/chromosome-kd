@@ -96,7 +96,7 @@ Chromosome karyotyping — the visual analysis of metaphase chromosomes for gene
 
 Rectified Flow (RF) offers a principled remedy: by replacing the curved stochastic DDPM trajectory with a deterministic straight-line ODE path from noise to ground truth, RF enables few-step inference with low truncation error, which is especially valuable when the per-image object density is high (~46 boxes per image) and errors compound across proposals. Applying RF to detection, however, raises three concrete questions that must be answered before the paradigm can be deployed in a clinical pipeline: how should noise samples be coupled to ground-truth boxes when the prediction space is low-dimensional and the number of targets per image is large? Which ODE solver delivers the best accuracy–latency trade-off in the few-step regime? And how can training be stabilized on the imbalanced, small-scale corpora that characterize medical imaging? These three questions — coupling design, solver selection, and training stability — are the bottlenecks of RF-based dense detection in low-data regimes, and our three contributions address them systematically.
 
-**From scenario to method.** A typical metaphase spread contains roughly forty-six chromosomes across twenty-four classes, many touching or overlapping. The difficulty is uneven: C-group chromosomes (C6–C12) are morphologically similar, distinguished mainly by subtle banding patterns, while the Y chromosome is among the smallest, appears in only one copy in male samples, and has roughly 1,800 training samples versus about 7,000 per autosome. A useful detector must therefore localize densely packed objects under few-step inference, train stably from an imbalanced small corpus, and run fast enough for interactive screening. These demands map onto our three ingredients: Rectified Flow supplies straight-line trajectories for few-step, low-truncation inference; Stochastic Coupling counteracts OT diversity collapse in the low-dimensional detection space; and DPM-Solver++ with Top-$K$ pruning converts trajectories into clinical-grade latency.
+**From scenario to method.** A typical metaphase spread contains roughly forty-six chromosomes across twenty-four classes, many touching or overlapping. The difficulty is uneven: C-group chromosomes (C6–C12) are morphologically similar, distinguished mainly by subtle banding patterns, while the Y chromosome is among the smallest, appears in only one copy in male samples, and has roughly 1,803 training samples versus about 7,000 per autosome. A useful detector must therefore localize densely packed objects under few-step inference, train stably from an imbalanced small corpus, and run fast enough for interactive screening. These demands map onto our three ingredients: Rectified Flow supplies straight-line trajectories for few-step, low-truncation inference; Stochastic Coupling counteracts OT diversity collapse in the low-dimensional detection space; and DPM-Solver++ with Top-$K$ pruning converts trajectories into clinical-grade latency.
 
 ### 1.2 Contributions
 
@@ -312,12 +312,12 @@ On Dataset 1 (3 seeds), RF outperforms DDPM by +0.017 mAP (0.746 vs 0.729, lower
 
 ### 4.3 SOTA Comparison (Dataset 2)
 
-Table 6 compares our RF-based detector against standard and diffusion baselines. Our best variant (A3, DPM-Solver++, 3-seed mean) trails RTMDet-L (a stronger CSPNeXt-L detector) by only $-0.004$ mAP and the multi-scale DINO R50 by $-0.010$ mAP (the latter outside our cross-seed variance of $\pm 0.003$), while exceeding Cascade R-CNN, YOLOX-S, and DiffusionDet — with the largest gain against the DDPM-based DiffusionDet ($+0.076$ mAP), direct evidence for the RF paradigm's advantage. Importantly, our method achieves this with $1.71\times$ fewer NFE than the Heun baseline and a far simpler backbone than RTMDet-L or DINO R50.
+Table 6 compares our RF-based detector against standard and diffusion baselines. Our best variant (A3, DPM-Solver++, 3-seed mean) trails RTMDet-L (a stronger CSPNeXt-L detector) by $0.010$ mAP and the multi-scale DINO R50 by $0.009$ mAP (both outside our cross-seed variance of $\pm 0.003$), while exceeding Cascade R-CNN, YOLOX-S, and DiffusionDet — with the largest gain against the DDPM-based DiffusionDet ($+0.076$ mAP at seed 42, $+0.072$ at the 3-seed mean), direct evidence for the RF paradigm's advantage. Importantly, our method achieves this with $1.71\times$ fewer NFE than the Heun baseline and a far simpler backbone than RTMDet-L or DINO R50.
 
 | Method | Backbone | mAP | AP50 | AP75 | AP$_S$ |
 |--------|----------|-----|------|------|--------|
-| DINO R50 | ResNet-50 | **0.869** | 0.991 | 0.977 | 0.553 |
-| RTMDet-L† | CSPNeXt-L | 0.863 | 0.991 | 0.974 | 0.540 |
+| DINO R50 | ResNet-50 | 0.868 | 0.992 | 0.979 | 0.553 |
+| RTMDet-L | CSPNeXt-L | **0.869** | 0.992 | 0.976 | 0.540 |
 | **Ours (A3 DPM++)** | ResNet-50 | 0.859 | 0.988 | 0.968 | 0.516 |
 | Ours (A2 Heun+StochOT) | ResNet-50 | 0.858 | 0.989 | 0.971 | 0.523 |
 | LDMDet (Random) | ResNet-50 | 0.856 | 0.989 | 0.969 | 0.502 |
@@ -325,9 +325,7 @@ Table 6 compares our RF-based detector against standard and diffusion baselines.
 | YOLOX-S | CSPDarkNet-S | 0.796 | 0.987 | 0.944 | 0.452 |
 | DiffusionDet | ResNet-50 | 0.787 | 0.970 | 0.928 | 0.500 |
 
-**Table 6**: SOTA comparison on Dataset 2 (independent inference; A3 reports 3-seed mean). LDMDet denotes our base detection framework. RTMDet-L uses a stronger CSPNeXt-L backbone; DINO R50 uses multi-scale deformable attention. Our method is competitive with RTMDet-L on overall mAP while offering $1.71\times$ faster inference; AP$_S$ differences among top methods are not statistically significant (Table 8).
-
-† RTMDet-L training was interrupted at epoch 86; the best checkpoint (epoch 85) is reported.
+**Table 6**: SOTA comparison on Dataset 2 (independent inference; A3 reports 3-seed mean). LDMDet denotes our base detection framework. RTMDet-L uses a stronger CSPNeXt-L backbone; DINO R50 uses multi-scale deformable attention. Our method is competitive with RTMDet-L on overall mAP while offering $1.71\times$ faster inference; AP$_S$ differences among top methods are not statistically significant (Table 8). The $+0.076$ mAP gain over DiffusionDet reported in the text uses the seed 42 best checkpoint (mAP 0.863); the 3-seed mean (0.859) yields $+0.072$. RTMDet-L and DINO R50 values are taken from complete training logs (best checkpoint at epoch 116 and final crashed-state checkpoint respectively).
 
 **Small-object performance and the medical-imaging direction.** On small objects, our detector (AP$_S{=}0.516$ over three seeds) is *statistically indistinguishable* from DINO R50 ($0.553$) and RTMDet-L ($0.540$): a per-image paired Wilcoxon test across the 60 small-object images finds no significant difference among the top methods (Table 8). We therefore do not claim a small-object *advantage*; rather, the result is that a single-shot RF detector with a plain ResNet-50 backbone is *competitive* on the small-object regime that is practically most relevant for chromosome analysis — the Y chromosome and several C-group chromosomes are small and morphologically subtle, and clinical karyotyping prioritizes per-class sensitivity over aggregate mAP. This competitiveness, achieved without the multi-scale deformable attention of DINO or the heavier CSPNeXt-L backbone of RTMDet-L, supports the broader direction of diffusion models for medical imaging where small-target detection under clutter is common. On Dataset 1, where the training set is smaller (1,540 images), our LDMDet (0.753 mAP) in fact exceeds both RTMDet-L (0.742) and DINO R50 (0.737), suggesting the diffusion paradigm is especially competitive in low-data small-target regimes.
 
@@ -501,7 +499,7 @@ IO3 pruning effectiveness depends on NFE per step: for Heun (2 NFE/step), prunin
 
 ### 5.5 Theory Applicability and Limitations
 
-The two-sided bound (Propositions 1–2) is tight in chromosome detection ($0.03\%$ gap): well-separated Voronoi cells (pairwise distances $> 20$ px vs $\sigma \sim 1$ px) make $P_{\text{err}} < 10^{-45}$ and $N=2$ mini-batch OT reduce to nearest-neighbor assignment. The low-dimensional regime ($d=4$, $K \approx 46$) yields $\Delta H/H \approx 0.69$ (Table 2), and the Gaussian noise source is approximately satisfied by our shifted Gaussian schedule.
+The two-sided bound (Propositions 1–2) is tight in chromosome detection ($0.03\%$ gap): well-separated Voronoi cells (pairwise distances $\approx 20$ px vs $\sigma \sim 1$ px) make $P_{\text{err}} < 10^{-45}$ and $N=2$ mini-batch OT reduce to nearest-neighbor assignment. The low-dimensional regime ($d=4$, $K \approx 46$) yields $\Delta H/H \approx 0.69$ (Table 2), and the Gaussian noise source is approximately satisfied by our shifted Gaussian schedule.
 
 The theory does not transfer to high-dimensional generation ($d \sim 10^5$, where $\Delta H/H \approx 0$ so OT collapse is negligible — consistent with OT-CFM's success), nor to densely overlapping targets where Assumptions 2 and 4 fail. For COCO ($K \sim 7$, $\Delta H/H \approx 0.55$), the theory predicts Stochastic Coupling would help but with smaller magnitude. The theory suggests RF + Stochastic Coupling would benefit detection tasks combining low $d$, high object density, and small training data — a profile including medical imaging, remote sensing, and other fine-grained dense detection tasks. We did not validate on COCO because its small $K$ reduces OT collapse severity; the appropriate validation dataset has high $K$ and low $d$, exactly the chromosome detection profile. The stability benefit is practically meaningful for clinical deployment: the 4.6× epoch stability improvement means checkpoint selection lands within 0.0013 of the trend (versus 0.006 for Random), reducing the risk of deploying a "false peak" checkpoint.
 
@@ -729,7 +727,7 @@ The C-group chromosomes (C6–C12) are the archetypal "hard to distinguish" clas
 | G21 | 0.789 | 0.989 | 0.947 | 0.638 | 0.795 | — |
 | G22 | 0.790 | 0.988 | 0.935 | 0.552 | 0.797 | — |
 | X | 0.885 | 0.985 | 0.980 | — | 0.884 | 0.892 |
-| Y | 0.776 | 0.972 | 0.933 | 0.577 | 0.788 | — |
+| Y | 0.779 | 0.972 | 0.933 | 0.577 | 0.788 | — |
 
 **Table F.1**: Complete per-class AP breakdown on the Dataset 2 validation set (A3 DPM-Solver++).
 
