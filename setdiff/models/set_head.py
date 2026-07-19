@@ -43,6 +43,9 @@ class JointDiffusionHead(nn.Module):
         snr_scale: float = 2.0,
         num_sample_steps: int = 4,
         sampler: str = 'euler',
+        box_renewal: bool = True,
+        score_thr: float = 0.3,
+        min_keep: int = 75,
     ):
         super().__init__()
         self.num_queries = num_queries
@@ -53,6 +56,19 @@ class JointDiffusionHead(nn.Module):
         # snr_scale: GT 从 [0,1] 缩放到 [-snr_scale, +snr_scale] 匹配 N(0,1) 噪声
         # 由 SetDiffDetector 在 loss()/predict() 中应用 (数据预处理, 不参与 RF 公式)
         self.snr_scale = snr_scale
+
+        # Box renewal (推理时): 低置信 slot 重置为 randn.
+        # 核心修复: 验证 unmatched slot 发散假设 —
+        # 训练时 unmatched slot 的 x_t 恒为 noise 且 pred_boxes 无监督,
+        # 推理时这些 slot 输出垃圾 pred_boxes, Euler step 把 x_t 推到 OOD,
+        # 通过 self-attention 污染 matched slot → mAP=0.
+        # 修复: 每步 Euler 后, 低置信 slot 重置为 randn (回到训练分布),
+        # 保留高置信 slot 继续迭代. 对齐 LDMDet apply_box_renewal.
+        self.box_renewal = box_renewal
+        self.score_thr = score_thr
+        # min_keep: 至少保留的 slot 数 (防止全被重置).
+        # 默认 num_queries//4=75 (300 queries 时).
+        self.min_keep = min_keep
 
         # Set encoder (joint function approximator)
         self.encoder = SetEncoder(
@@ -168,6 +184,13 @@ class JointDiffusionHead(nn.Module):
 
         Returns:
             dict with 'pred_logits' [B, N, C] and 'pred_boxes' [B, N, 4].
+
+        Box renewal (核心修复):
+            每步 Euler 后 (非最后一步), 低置信 slot 的 x_t 重置为 randn.
+            根因: 训练时 unmatched slot 的 x_t 恒为 noise, pred_boxes 无监督;
+            推理时这些 slot 输出垃圾, Euler 把 x_t 推到 OOD, 污染整个 state.
+            修复: 重置低置信 slot 为 randn, 让它们回到训练分布 (noise),
+            保留高置信 slot 继续迭代. 对齐 LDMDet apply_box_renewal.
         """
         B = image_features.shape[0]
         device = image_features.device
@@ -196,7 +219,59 @@ class JointDiffusionHead(nn.Module):
             # Euler step on joint state
             x_t = self.rf.step(x_t, pred_boxes, t_curr, t_next)
 
+            # Box renewal: 非最后一步时, 低置信 slot 重置为 randn
+            if self.box_renewal and i < self.num_sample_steps - 1:
+                x_t = self._apply_box_renewal(x_t, cls_logits)
+
         return {
             'pred_logits': cls_logits,
             'pred_boxes': pred_boxes,
         }
+
+    @torch.no_grad()
+    def _apply_box_renewal(
+        self,
+        x_t: Tensor,
+        cls_logits: Tensor,
+    ) -> Tensor:
+        """低置信 slot 重置为 randn, 保留高置信 slot.
+
+        对齐 LDMDet apply_box_renewal (sampling.py:143-204):
+            1. 计算 slot 置信度 = sigmoid(cls_logits).max(-1)
+            2. 置信度 < score_thr 的 slot 重置为 randn
+            3. 保证至少保留 min_keep 个 slot (topk 补足)
+
+        核心目的: 让 unmatched slot 的 x_t 保持在训练分布 (noise) 内,
+        避免发散到 OOD 后通过 self-attention 污染 matched slot.
+
+        Args:
+            x_t: [B, N, 4] 当前扩散状态 (Euler step 后).
+            cls_logits: [B, N, C] 分类 logits (encoder 输出).
+
+        Returns:
+            x_t_new: [B, N, 4] renewal 后的状态.
+        """
+        B, N, _ = x_t.shape
+        device = x_t.device
+
+        # slot 置信度: [B, N]
+        scores = torch.sigmoid(cls_logits).max(dim=-1)[0]
+        x_t_new = x_t.clone()
+
+        for b in range(B):
+            keep = scores[b] > self.score_thr
+            # 保证至少 min_keep 个 slot 保留 (topk 补足)
+            if keep.sum() < self.min_keep:
+                _, topk_idx = scores[b].topk(
+                    min(self.min_keep, N)
+                )
+                keep[topk_idx] = True
+
+            num_renew = (~keep).sum().item()
+            if num_renew > 0:
+                # 重置为 randn (回到训练 unmatched 分布)
+                x_t_new[b, ~keep] = torch.randn(
+                    num_renew, 4, device=device
+                )
+
+        return x_t_new

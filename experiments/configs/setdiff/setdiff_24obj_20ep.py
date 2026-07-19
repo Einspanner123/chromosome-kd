@@ -1,11 +1,15 @@
-"""SetDiff 24obj 20ep 快速验证配置
+"""SetDiff 24obj 20ep 快速验证配置 — Box Renewal 实验
 
-用于验证 snr_scale + 损失函数方案A + 时间嵌入缩放 修复后是否能产生正向 mAP 趋势.
+验证假设: unmatched slot 在推理时发散导致 mAP=0.
+修复: 推理时每步 Euler 后, 低置信 slot 重置为 randn (box_renewal),
+保留高置信 slot 继续迭代. 对齐 LDMDet apply_box_renewal.
+
 继承 setdiff_24obj.py, 仅覆盖:
   - max_epoch: 150 → 20 (快速验证)
   - param_scheduler: cosine T_max 同步改为 20
   - EarlyStopping: patience 30 → 10 (20ep 内合理终止)
-  - SwanLab experiment_name: 标记为 20ep 验证
+  - bbox_head: 显式启用 box_renewal (score_thr=0.3, min_keep=75)
+  - SwanLab experiment_name: 标记为 box_renewal 验证
 """
 
 _base_ = ['./setdiff_24obj.py']
@@ -40,9 +44,18 @@ custom_hooks = [
     dict(type='CopyProjectHook', priority='VERY_LOW'),
 ]
 
-# === SwanLab: 标记为全修复后的 20ep 验证 ===
-# 修复清单: snr_scale + 方案A(2:5:2) + t*1000 + GIoU在[0,1]空间
-#          + double-counting(移除loss key) + L1在[0,1]空间
+# === Box Renewal: 显式配置 (验证 unmatched slot 发散假设) ===
+# 核心修复: 推理时低置信 slot 重置为 randn, 回到训练分布 (noise),
+# 避免发散到 OOD 后通过 self-attention 污染 matched slot.
+model = dict(
+    bbox_head=dict(
+        box_renewal=True,
+        score_thr=0.3,
+        min_keep=75,  # num_queries//4 = 300//4
+    ),
+)
+
+# === SwanLab: 标记为 box_renewal 验证实验 ===
 vis_backends = [
     dict(type='LocalVisBackend'),
     dict(type='TensorboardVisBackend'),
@@ -50,8 +63,8 @@ vis_backends = [
         type='SwanlabVisBackend',
         init_kwargs=dict(
             project='setdiff-24obj',
-            experiment_name='setdiff_full_fix_20ep',
-            description='SetDiff 全修复 (snr_scale+方案A+t*1000+GIoU[0,1]+无double-counting+L1[0,1]) | 20ep 快速验证',
+            experiment_name='setdiff_box_renewal_20ep',
+            description='SetDiff Box Renewal 验证 | 修复: 推理时低置信slot重置为randn, 验证unmatched发散假设 | 20ep',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),
