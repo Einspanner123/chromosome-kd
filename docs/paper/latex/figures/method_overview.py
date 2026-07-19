@@ -1,9 +1,9 @@
 """
-Figure 1: Method Overview — Rectified Flow for Chromosome Detection.
+Figure 1: Method Overview - Rectified Flow for Chromosome Detection.
 
-Three-panel overview:
+Three-panel overview with clearer layout:
   (a) RF straight-line vs DDPM curved trajectory.
-  (b) AdaLN-Zero time conditioning block.
+  (b) AdaLN-Zero time conditioning block (redesigned with more space).
   (c) Coupling comparison: Random vs Stochastic OT (Sinkhorn).
 
 Run:  python method_overview.py
@@ -19,19 +19,14 @@ from matplotlib.lines import Line2D
 from figure_style import *
 
 
-# =====================================================================
-# Panel (a): Trajectories — RF straight vs DDPM curved
-# =====================================================================
 def panel_trajectories(ax: plt.Axes) -> None:
-    x1 = np.array([0.0, 0.0])   # noise
-    x0 = np.array([1.0, 1.0])   # GT
+    x1 = np.array([0.0, 0.0])
+    x0 = np.array([1.0, 1.0])
     t = np.linspace(0.0, 1.0, 300)
 
-    # RF straight-line path
     rf = (1.0 - t)[:, None] * x0 + t[:, None] * x1
     ax.plot(rf[:, 0], rf[:, 1], color=C_RF, lw=2.0, label="RF (straight)")
 
-    # DDPM curved path — smooth sine bend
     base = (1.0 - t)[:, None] * x0 + t[:, None] * x1
     perp = np.array([-0.6, 0.6])
     perp = perp / np.linalg.norm(perp)
@@ -40,27 +35,23 @@ def panel_trajectories(ax: plt.Axes) -> None:
     ax.plot(ddpm[:, 0], ddpm[:, 1], color=C_DDPM, lw=2.0, ls="--",
             label="DDPM (curved)")
 
-    # Endpoints
     ax.scatter(*x1, s=90, color=C_SOURCE, zorder=6, edgecolor="k", lw=1.0)
     ax.scatter(*x0, s=90, color=C_GT, zorder=6, edgecolor="k", lw=1.0)
 
-    # RF step nodes
     step_ts = [0.0, 0.33, 0.67, 1.0]
     for ts in step_ts:
         p = (1.0 - ts) * x0 + ts * x1
-        ax.scatter(*p, s=22, color=C_RF, zorder=5, marker="o",
+        ax.scatter(*p, s=25, color=C_RF, zorder=5, marker="o",
                    edgecolor="white", lw=0.8)
 
-    # Endpoint labels (offset to avoid overlap with markers)
     ax.text(-0.16, -0.14, r"$\mathbf{x}_1$ (noise)", fontsize=9,
             ha="left", va="top", color=C_SOURCE)
     ax.text(1.10, 1.08, r"$\mathbf{x}_0$ (GT box)", fontsize=9,
             ha="left", va="bottom", color="black")
 
-    # Time arrow (inference direction: noise → GT ≡ decreasing t)
     ax.annotate("", xy=(0.88, -0.22), xytext=(0.12, -0.22),
                 arrowprops=dict(arrowstyle="->", lw=1.2, color="black"))
-    ax.text(0.5, -0.32, "decreasing $t$  (few-step inference)",
+    ax.text(0.5, -0.32, "decreasing $t$  (few-step)",
             fontsize=8, ha="center", color="black")
 
     ax.set_xlim(-0.18, 1.22)
@@ -71,112 +62,89 @@ def panel_trajectories(ax: plt.Axes) -> None:
     ax.set_title("(a) Trajectories", **PANEL_LABEL_KW)
     hide_spines(ax)
 
-    # Compact legend
     handles = [
         Line2D([0], [0], color=C_RF, lw=2, label="RF (straight)"),
         Line2D([0], [0], color=C_DDPM, lw=2, ls="--", label="DDPM (curved)"),
         Line2D([0], [0], marker="o", color="w", markerfacecolor=C_SOURCE,
-               markeredgecolor="k", markersize=6, label="$\\mathbf{x}_1$ noise"),
+               markeredgecolor="k", markersize=6, label=r"$\mathbf{x}_1$ noise"),
         Line2D([0], [0], marker="o", color="w", markerfacecolor=C_GT,
-               markeredgecolor="k", markersize=6, label="$\\mathbf{x}_0$ GT"),
+               markeredgecolor="k", markersize=6, label=r"$\mathbf{x}_0$ GT"),
     ]
     ax.legend(handles=handles, loc="upper left", frameon=False, fontsize=8,
               handletextpad=0.4)
 
 
-# =====================================================================
-# Panel (b): AdaLN-Zero block
-# =====================================================================
 def panel_adaln(ax: plt.Axes) -> None:
     ax.set_xlim(0, 10)
-    ax.set_ylim(0, 6.5)
+    ax.set_ylim(0, 7)
     ax.set_aspect("equal")
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_title("(b) AdaLN-Zero", **PANEL_LABEL_KW)
     hide_spines(ax)
 
-    def line_2pt(x1, y1, x2, y2, color=C_DARKGRAY, lw=0.9):
+    def line(x1, y1, x2, y2, color=C_DARKGRAY, lw=0.9):
         ax.plot([x1, x2], [y1, y2], color=color, lw=lw, zorder=2)
 
-    # === TOP row: time embedding ===
-    y_top = 5.5; h_top = 0.8
-    box(ax, 0.3, y_top, 1.0, h_top, r"$t$", fc=C_LIGHTGRAY, fontsize=9)
-    box(ax, 1.7, y_top, 2.2, h_top, r"sin emb $\phi(t)$",
-        fc=C_ADALN, ec=C_ADALN, text_color="white", fontsize=9)
-    arrow(ax, 1.3, y_top + h_top/2, 1.7, y_top + h_top/2)
-    box(ax, 4.3, y_top, 1.4, h_top, "MLP", fc=C_LIGHTGRAY, fontsize=9)
-    arrow(ax, 3.9, y_top + h_top/2, 4.3, y_top + h_top/2)
+    x_start = 0.5
+    x_mid1 = 2.5
+    x_mid2 = 4.5
+    x_mid3 = 6.5
+    x_end = 8.5
 
-    mlp_cx = 5.0
-    mlp_bottom_y = y_top
+    y_time = 6.0
+    y_mlp = 5.0
+    y_bus = 4.2
+    y_modulation = 3.2
+    y_feature_in = 1.5
+    y_out = 0.5
 
-    # === MIDDLE: modulation branches ===
-    y_branch = 3.8; h_branch = 0.7
-    mod_cx = 2.9
-    gate_cx = 6.75
-    gx = mod_cx - 0.7
-    bx = mod_cx + 0.7
-    alx = gate_cx
+    box(ax, x_start, y_time, 1.2, 0.8, r"$t$", fc=C_LIGHTGRAY, fontsize=9, weight="bold")
+    box(ax, x_mid1, y_time, 1.8, 0.8, r"$\phi(t)$", fc=C_ADALN, ec=C_ADALN, text_color="white", fontsize=9, weight="bold")
+    box(ax, x_mid2, y_time, 1.5, 0.8, "MLP", fc=C_LIGHTGRAY, fontsize=9, weight="bold")
 
-    # Junction bar: MLP → horizontal bus → branches
-    jun_y = mlp_bottom_y - 0.5
-    branch_top = y_branch + h_branch
-    line_2pt(mlp_cx, mlp_bottom_y, mlp_cx, jun_y)
-    line_2pt(gx, jun_y, alx, jun_y)
-    arrow(ax, gx, jun_y, gx, branch_top, lw=0.9)
-    arrow(ax, bx, jun_y, bx, branch_top, lw=0.9)
-    arrow(ax, alx, jun_y, alx, branch_top, lw=0.9)
+    arrow(ax, x_start + 1.2, y_time + 0.4, x_mid1, y_time + 0.4)
+    arrow(ax, x_mid1 + 1.8, y_time + 0.4, x_mid2, y_time + 0.4)
 
-    box(ax, gx - 0.6, y_branch, 1.2, h_branch, r"$\gamma$ (scale)",
-        fc="#e8f5ee", ec=C_ADALN, fontsize=8)
-    box(ax, bx - 0.6, y_branch, 1.2, h_branch, r"$\beta$ (shift)",
-        fc="#e8f5ee", ec=C_ADALN, fontsize=8)
-    box(ax, alx - 0.6, y_branch, 1.2, h_branch, r"$\alpha$ (gate)",
-        fc="#f0f0f0", ec=C_MIDGRAY, fontsize=8)
+    line(x_mid2 + 0.75, y_time, x_mid2 + 0.75, y_bus)
+    line(x_start + 0.6, y_bus, x_mid3 + 1.0, y_bus)
 
-    # === BOTTOM row: feature path ===
-    y_feat = 1.6; h_feat = 0.9
-    feat_top = y_feat + h_feat
+    gamma_x = x_start + 0.5
+    beta_x = x_mid1 + 0.9
+    alpha_x = x_mid3
 
-    ax.text(0.6, y_feat + h_feat/2, r"$\mathbf{h}$",
-            fontsize=10, ha="center", color=C_DARKGRAY, weight="bold")
+    arrow(ax, gamma_x, y_bus, gamma_x, y_modulation + 0.8)
+    arrow(ax, beta_x, y_bus, beta_x, y_modulation + 0.8)
+    arrow(ax, alpha_x, y_bus, alpha_x, y_modulation + 0.8)
 
-    box(ax, 1.5, y_feat, 2.8, h_feat, r"$\mathbf{h} \odot \gamma + \beta$",
-        fc="#ffffff", fontsize=9)
-    arrow(ax, 1.0, y_feat + h_feat/2, 1.5, y_feat + h_feat/2,
-          color=C_MIDGRAY, lw=1.0)
+    box(ax, gamma_x - 0.6, y_modulation, 1.2, 0.8, r"$\gamma$", fc="#e8f5ee", ec=C_ADALN, fontsize=9, weight="bold")
+    box(ax, beta_x - 0.6, y_modulation, 1.2, 0.8, r"$\beta$", fc="#e8f5ee", ec=C_ADALN, fontsize=9, weight="bold")
+    box(ax, alpha_x - 0.6, y_modulation, 1.2, 0.8, r"$\alpha$", fc="#f0f0f0", ec=C_MIDGRAY, fontsize=9, weight="bold")
 
-    arrow(ax, gx, y_branch, gx, feat_top, color=C_ADALN, lw=0.9)
-    arrow(ax, bx, y_branch, bx, feat_top, color=C_ADALN, lw=0.9)
+    ax.text(gamma_x, y_modulation - 0.2, "(scale)", fontsize=7, ha="center", color=C_ADALN)
+    ax.text(beta_x, y_modulation - 0.2, "(shift)", fontsize=7, ha="center", color=C_ADALN)
+    ax.text(alpha_x, y_modulation - 0.2, "(gate)", fontsize=7, ha="center", color=C_MIDGRAY)
 
-    ax.text(4.7, y_feat + h_feat/2, r"$\mathbf{h}'$",
-            fontsize=10, ha="center", color=C_DARKGRAY, weight="bold")
-    arrow(ax, 4.3, y_feat + h_feat/2, 4.5, y_feat + h_feat/2,
-          color=C_MIDGRAY, lw=1.0)
+    ax.text(x_start + 0.5, y_feature_in + 0.4, r"$\mathbf{h}$", fontsize=10, ha="center", color=C_DARKGRAY, weight="bold")
+    box(ax, x_mid1 - 0.3, y_feature_in, 2.2, 0.9, r"$\mathbf{h} \odot \gamma + \beta$", fc="#ffffff", fontsize=9, weight="bold")
+    arrow(ax, x_start + 0.7, y_feature_in + 0.45, x_mid1 - 0.3, y_feature_in + 0.45, color=C_MIDGRAY)
 
-    box(ax, 5.5, y_feat, 2.5, h_feat, r"$\alpha \cdot \mathbf{h}'$",
-        fc="#ffffff", fontsize=9)
-    arrow(ax, 4.9, y_feat + h_feat/2, 5.5, y_feat + h_feat/2,
-          color=C_MIDGRAY, lw=1.0)
+    arrow(ax, gamma_x, y_modulation, gamma_x, y_feature_in + 0.9, color=C_ADALN, lw=0.9)
+    arrow(ax, beta_x, y_modulation, beta_x, y_feature_in + 0.9, color=C_ADALN, lw=0.9)
 
-    arrow(ax, alx, y_branch, alx, feat_top, color=C_MIDGRAY, lw=0.9)
+    ax.text(x_mid1 + 0.8, y_feature_in + 0.4, r"$\mathbf{h}'$", fontsize=10, ha="center", color=C_DARKGRAY, weight="bold")
+    box(ax, x_mid2, y_feature_in, 2.0, 0.9, r"$\alpha \cdot \mathbf{h}'$", fc="#ffffff", fontsize=9, weight="bold")
+    arrow(ax, x_mid1 + 0.8, y_feature_in + 0.45, x_mid2, y_feature_in + 0.45, color=C_MIDGRAY)
 
-    ax.text(8.7, y_feat + h_feat/2, "out",
-            fontsize=10, ha="center", color=C_DARKGRAY, weight="bold")
-    arrow(ax, 8.0, y_feat + h_feat/2, 8.3, y_feat + h_feat/2,
-          color=C_MIDGRAY, lw=1.0)
+    arrow(ax, alpha_x, y_modulation, alpha_x, y_feature_in + 0.9, color=C_MIDGRAY, lw=0.9)
 
-    # Zero-init note at bottom
-    annotation_box(ax, 0.5, 0.08,
-                   r"zero-init $\Rightarrow$ identity at $t{=}0$",
-                   fontsize=7.5, ha="center", va="bottom",
-                   fc="#f7f7f7", ec="#cccccc")
+    ax.text(x_end, y_feature_in + 0.4, "out", fontsize=10, ha="center", color=C_DARKGRAY, weight="bold")
+    arrow(ax, x_mid2 + 2.0, y_feature_in + 0.45, x_end, y_feature_in + 0.45, color=C_MIDGRAY)
+
+    annotation_box(ax, 0.5, 0.05, r"$zero$-$init$ $\Rightarrow$ identity at $t{=}0$",
+                   fontsize=8.5, ha="left", va="bottom", fc="#f7f7f7", ec="#cccccc")
 
 
-# =====================================================================
-# Panel (c): Coupling — Random vs Stochastic OT
-# =====================================================================
 def panel_ot(ax: plt.Axes) -> None:
     ax.set_xlim(0, 10)
     ax.set_ylim(0, 6)
@@ -189,7 +157,6 @@ def panel_ot(ax: plt.Axes) -> None:
     rng = np.random.default_rng(7)
     n = 6
 
-    # --- Left: Random coupling ---
     left_center = 2.5
     noise_x_l = left_center - 1.4
     gt_x_l = left_center + 1.4
@@ -218,7 +185,6 @@ def panel_ot(ax: plt.Axes) -> None:
     ax.text(left_center, 0.08, r"$H(V|X_t)=\log K$", fontsize=10,
             ha="center", color=C_RAND, weight="bold")
 
-    # --- Right: Stochastic OT ---
     right_center = 7.5
     noise_x_r = right_center - 1.4
     gt_x_r = right_center + 1.4
@@ -226,7 +192,6 @@ def panel_ot(ax: plt.Axes) -> None:
     ax.text(right_center, 5.6, "Stochastic OT", fontsize=10, ha="center",
             weight="bold", color=C_OT)
 
-    # Sinkhorn: mostly nearest-neighbor with small stochasticity
     ot_perm = np.arange(n)
     ot_perm[1], ot_perm[2] = ot_perm[2], ot_perm[1]
     ot_perm[5] = 4
@@ -251,13 +216,10 @@ def panel_ot(ax: plt.Axes) -> None:
             fontsize=10, ha="center", color=C_OT, weight="bold")
 
 
-# =====================================================================
-# Main
-# =====================================================================
 def main() -> None:
-    fig = plt.figure(figsize=FIG_CONFIG["1x3"]["figsize"], constrained_layout=True)
+    fig = plt.figure(figsize=(9.0, 3.5), constrained_layout=True)
 
-    gs = fig.add_gridspec(1, 3, width_ratios=[1.0, 1.3, 1.2])
+    gs = fig.add_gridspec(1, 3, width_ratios=[1.0, 1.5, 1.2], wspace=0.12)
     ax_a = fig.add_subplot(gs[0, 0])
     ax_b = fig.add_subplot(gs[0, 1])
     ax_c = fig.add_subplot(gs[0, 2])

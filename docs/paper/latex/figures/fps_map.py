@@ -1,7 +1,7 @@
 """
 Figure 7: Speed-Accuracy Trade-off (FPS vs mAP).
 
-Clean scatter plot with clear labels and no overlap.
+Clean scatter plot with strategically placed labels to avoid overlap.
 - Our RF variants: circles (Heun-based) / squares (DPM++ variants)
 - Baselines: triangles (paper-reported FPS)
 - RTMDet-L: distinct color (teal)
@@ -22,8 +22,8 @@ from figure_style import *
 
 C_OURS_BASE = C_EULER
 C_OURS_FAST = C_DPMPP
-C_BASELINE  = C_DDPM
-C_RTM       = "#196f7b"
+C_BASELINE = C_DDPM
+C_RTM = "#196f7b"
 
 DATA = [
     ("A1 Heun",       8.0,   0.856, "base"),
@@ -39,55 +39,92 @@ DATA = [
 ]
 
 GROUP_STYLE = {
-    "base":     {"color": C_OURS_BASE, "marker": "o", "z": 6},
-    "fast":     {"color": C_OURS_FAST, "marker": "s", "z": 6},
-    "baseline": {"color": C_BASELINE,  "marker": "^", "z": 5},
-    "rtmdet":   {"color": C_RTM,       "marker": "D", "z": 5},
+    "base": {"color": C_OURS_BASE, "marker": "o", "z": 6},
+    "fast": {"color": C_OURS_FAST, "marker": "s", "z": 6},
+    "baseline": {"color": C_BASELINE, "marker": "^", "z": 5},
+    "rtmdet": {"color": C_RTM, "marker": "D", "z": 5},
 }
 
-LABEL_CONFIG = {
-    "A1 Heun":       {"display": "A1",       "xy": (8.0, 0.856),  "xytext": (1.5, 0.850),  "ha": "right", "color": C_OURS_BASE},
-    "A2 +StochOT":   {"display": "A2",       "xy": (7.8, 0.858),  "xytext": (14.5, 0.840), "ha": "left", "color": C_OURS_BASE},
-    "A3 DPM++":      {"display": "A3",       "xy": (13.3, 0.863), "xytext": (6.5, 0.873),  "ha": "right", "color": C_OURS_FAST},
-    "A3 +IO3 K300":  {"display": "K300",     "xy": (14.0, 0.861), "xytext": (19.5, 0.868), "ha": "left", "color": C_OURS_FAST},
-    "A3 +IO3 K200":  {"display": "K200",     "xy": (14.2, 0.860), "xytext": (19.5, 0.856), "ha": "left", "color": C_OURS_FAST},
-    "A3 +IO3 K100":  {"display": "K100",     "xy": (14.3, 0.850), "xytext": (19.5, 0.843), "ha": "left", "color": C_OURS_FAST},
-    "Cascade R-CNN": {"display": "Cascade",  "xy": (48.4, 0.854), "xytext": (60.0, 0.860), "ha": "left", "color": C_BASELINE},
-    "YOLOX-S":       {"display": "YOLOX-S",  "xy": (98.5, 0.796), "xytext": (82.0, 0.798), "ha": "right", "color": C_BASELINE},
-    "DiffusionDet":  {"display": "DiffDet",  "xy": (41.0, 0.787), "xytext": (28.0, 0.780), "ha": "right", "color": C_BASELINE},
-    "RTMDet-L":      {"display": "RTMDet-L", "xy": (12.1, 0.863), "xytext": (5.5, 0.863),  "ha": "right", "color": C_RTM},
-}
+
+def create_label_config():
+    return {
+        "A1 Heun": {
+            "display": "A1", "xy": (8.0, 0.856), "xytext": (1.0, 0.842),
+            "ha": "right", "va": "top", "color": C_OURS_BASE
+        },
+        "A2 +StochOT": {
+            "display": "A2", "xy": (7.8, 0.858), "xytext": (3.0, 0.850),
+            "ha": "right", "va": "bottom", "color": C_OURS_BASE
+        },
+        "A3 DPM++": {
+            "display": "A3", "xy": (13.3, 0.863), "xytext": (20.0, 0.872),
+            "ha": "left", "va": "center", "color": C_OURS_FAST
+        },
+        "A3 +IO3 K300": {
+            "display": "K300", "xy": (14.0, 0.861), "xytext": (20.0, 0.868),
+            "ha": "left", "va": "bottom", "color": C_OURS_FAST
+        },
+        "A3 +IO3 K200": {
+            "display": "K200", "xy": (14.2, 0.860), "xytext": (20.0, 0.862),
+            "ha": "left", "va": "center", "color": C_OURS_FAST
+        },
+        "A3 +IO3 K100": {
+            "display": "K100", "xy": (14.3, 0.850), "xytext": (20.0, 0.845),
+            "ha": "left", "va": "center", "color": C_OURS_FAST
+        },
+        "Cascade R-CNN": {
+            "display": "Cascade", "xy": (48.4, 0.854), "xytext": (62.0, 0.858),
+            "ha": "left", "va": "center", "color": C_BASELINE
+        },
+        "YOLOX-S": {
+            "display": "YOLOX-S", "xy": (98.5, 0.796), "xytext": (82.0, 0.792),
+            "ha": "right", "va": "center", "color": C_BASELINE
+        },
+        "DiffusionDet": {
+            "display": "DiffDet", "xy": (41.0, 0.787), "xytext": (28.0, 0.782),
+            "ha": "right", "va": "center", "color": C_BASELINE
+        },
+        "RTMDet-L": {
+            "display": "RTMDet-L", "xy": (12.1, 0.863), "xytext": (5.5, 0.872),
+            "ha": "right", "va": "bottom", "color": C_RTM
+        },
+    }
 
 
 def main() -> None:
-    fig, ax = plt.subplots(figsize=(7.5, 5.0), constrained_layout=True)
+    fig, ax = plt.subplots(figsize=(8.0, 5.5), constrained_layout=True)
 
     for name, fps, mAP, group in DATA:
         s = GROUP_STYLE[group]
-        ax.scatter(fps, mAP, s=100, color=s["color"], marker=s["marker"],
+        ax.scatter(fps, mAP, s=120, color=s["color"], marker=s["marker"],
                    edgecolor="black", lw=0.8, zorder=s["z"])
 
-    for name in LABEL_CONFIG:
-        cfg = LABEL_CONFIG[name]
+    label_config = create_label_config()
+    for name, cfg in label_config.items():
         ax.annotate(
             cfg["display"],
             xy=cfg["xy"],
             xytext=cfg["xytext"],
-            fontsize=8,
+            fontsize=9,
             ha=cfg["ha"],
-            va="center",
+            va=cfg["va"],
             color="black",
-            bbox=dict(boxstyle="round,pad=0.2", fc="white", ec=cfg["color"], lw=0.8, alpha=0.9),
-            arrowprops=dict(arrowstyle="-", color="0.4", lw=0.6),
+            bbox=dict(boxstyle="round,pad=0.2", fc="white", ec=cfg["color"], lw=0.8, alpha=0.95),
+            arrowprops=dict(
+                arrowstyle="-",
+                color="gray",
+                lw=0.6,
+                connectionstyle="arc3,rad=0.1"
+            ),
             zorder=7,
         )
 
-    ax.set_xlabel("FPS (RTX A6000, 512x512)", fontsize=10)
-    ax.set_ylabel("mAP (24obj)", fontsize=10)
+    ax.set_xlabel("FPS (RTX A6000, 512x512)", fontsize=11)
+    ax.set_ylabel("mAP (24obj)", fontsize=11)
     ax.set_xlim(0, 110)
     ax.set_ylim(0.775, 0.875)
     ax.set_xticks([0, 20, 40, 60, 80, 100])
-    ax.tick_params(labelsize=9)
+    ax.tick_params(labelsize=10)
     ax.set_axisbelow(True)
     ax.grid(ls=":", lw=0.5, alpha=0.5)
 
