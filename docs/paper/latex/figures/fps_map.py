@@ -24,6 +24,7 @@ C_OURS_BASE = C_EULER
 C_OURS_FAST = C_DPMPP
 C_BASELINE = C_DDPM
 C_RTM = "#196f7b"
+C_DINO = "#8E44AD"
 
 DATA = [
     ("A1 Heun",       8.0,   0.856, "base"),
@@ -33,9 +34,10 @@ DATA = [
     ("A3 +IO3 K200",  14.2,   0.860, "fast"),
     ("A3 +IO3 K100",  14.3,   0.850, "fast"),
     ("Cascade R-CNN", 48.4,  0.854, "baseline"),
-    ("YOLOX-S",       98.5,   0.796, "baseline"),
-    ("DiffusionDet",  41.0,   0.787, "baseline"),
-    ("RTMDet-L",      12.1,   0.863, "rtmdet"),
+    ("YOLOX-S",       98.5,  0.796, "baseline"),
+    ("DiffusionDet",  41.0,  0.787, "baseline"),
+    ("RTMDet-L",      12.1,  0.863, "rtmdet"),
+    ("DINO-R50",       6.5,  0.869, "dino"),
 ]
 
 GROUP_STYLE = {
@@ -43,6 +45,7 @@ GROUP_STYLE = {
     "fast": {"color": C_OURS_FAST, "marker": "s", "z": 6},
     "baseline": {"color": C_BASELINE, "marker": "^", "z": 5},
     "rtmdet": {"color": C_RTM, "marker": "D", "z": 5},
+    "dino": {"color": C_DINO, "marker": "p", "z": 5},
 }
 
 
@@ -87,6 +90,10 @@ def create_label_config():
         "RTMDet-L": {
             "display": "RTMDet-L", "xy": (12.1, 0.863), "xytext": (5.5, 0.872),
             "ha": "right", "va": "bottom", "color": C_RTM
+        },
+        "DINO-R50": {
+            "display": "DINO-R50", "xy": (6.5, 0.869), "xytext": (20.0, 0.875),
+            "ha": "left", "va": "center", "color": C_DINO
         },
     }
 
@@ -137,6 +144,8 @@ def main() -> None:
                markeredgecolor="black", markersize=9, label="Baseline (paper)"),
         Line2D([0], [0], marker="D", color="w", markerfacecolor=C_RTM,
                markeredgecolor="black", markersize=9, label="RTMDet-L"),
+        Line2D([0], [0], marker="p", color="w", markerfacecolor=C_DINO,
+               markeredgecolor="black", markersize=9, label="DINO-R50"),
     ]
     ax.legend(handles=handles, loc="lower right", fontsize=9,
               frameon=True, framealpha=0.95)
