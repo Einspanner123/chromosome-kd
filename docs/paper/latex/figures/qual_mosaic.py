@@ -2,7 +2,7 @@
 Figure 8: Qualitative Detection Comparison - 3x3 Grid per Model.
 
 Each model gets its own 3x3 mosaic (9 patches, seamless).
-3 models total: Ground Truth | Ours (A3 DPM++) | Best Baseline.
+5 models total: Ground Truth | Ours | DiffusionDet | RTMDet | DINO-R50.
 
 Run:  python qual_mosaic.py
 Outputs: qual_mosaic.pdf, qual_mosaic.png
@@ -23,6 +23,7 @@ DATA_ROOT = HERE.parent.parent.parent.parent / "data"
 JEPG_DIR = DATA_ROOT / "24_chromosomes_object" / "JEPG"
 ANN_FILE = DATA_ROOT / "24_chromosomes_object" / "coco" / "valid" / "_annotations.coco.json"
 SOTA_FILE = HERE.parent.parent.parent.parent / "experiments" / "analysis" / "baseline_vs_sota_cache" / "24obj_SOTA_seed42_preds.json"
+BASELINE_DIR = HERE.parent.parent.parent.parent / "experiments" / "analysis" / "baseline_inference_24obj_cache"
 
 PATCH_SIZE = 400
 GRID_SIZE = 3
@@ -31,37 +32,61 @@ CAT_SHORT = {1:"A1",2:"A2",3:"A3",4:"B4",5:"B5",6:"C6",7:"C7",8:"C8",9:"C9",
              10:"C10",11:"C11",12:"C12",13:"D13",14:"D14",15:"D15",16:"E16",
              17:"E17",18:"E18",19:"F19",20:"F20",21:"G21",22:"G22",23:"X",24:"Y"}
 
-COLORS = {
-    'gt': '#2ECC71',
-    'ours': '#1E90FF',
-    'baseline': '#FF6347',
-    'missed': '#E63946',
-    'text_bg': 'white',
-    'text_fg': 'black',
-}
+MODELS = [
+    {"name": "gt", "title": "Ground Truth", "color": "#2ECC71"},
+    {"name": "ours", "title": "Ours (A3 DPM++)", "color": "#1E90FF"},
+    {"name": "diffusiondet", "title": "DiffusionDet", "color": "#FF6347"},
+    {"name": "rtmdet", "title": "RTMDet-L", "color": "#9B59B6"},
+    {"name": "dino", "title": "DINO-R50", "color": "#F39C12"},
+]
 
 
-def load_preds(model_name, iid):
-    from pathlib import Path
-    PRED_DIR = HERE / "baseline_preds"
+def load_model_preds(model_name):
+    if model_name == "ours":
+        with open(SOTA_FILE) as f:
+            preds = json.load(f)
+        result = {}
+        for p in preds:
+            result.setdefault(p["image_id"], []).append(p)
+        return result
     
     if model_name == "diffusiondet":
-        p = PRED_DIR / "diffusiondet_full.json"
-        if p.exists():
-            try:
-                all_preds = json.load(open(p))
-                return [pred for pred in all_preds if pred["image_id"] == iid]
-            except:
-                return []
-        return []
+        import os
+        PRED_DIR = HERE / "baseline_preds"
+        full_preds_file = PRED_DIR / "diffusiondet_full.json"
+        if full_preds_file.exists():
+            with open(full_preds_file) as f:
+                all_preds = json.load(f)
+            result = {}
+            for p in all_preds:
+                result.setdefault(p["image_id"], []).append(p)
+            return result
+        return {}
     
-    p = PRED_DIR / f"{model_name}_{iid}.json"
-    if p.exists():
-        try:
-            return json.load(open(p))
-        except:
-            return []
-    return []
+    if model_name == "rtmdet":
+        p_file = BASELINE_DIR / "RTMDet_L_seed42_preds.json"
+        if p_file.exists():
+            with open(p_file) as f:
+                data = json.load(f)
+            preds = data.get("predictions", []) if isinstance(data, dict) else data
+            result = {}
+            for p in preds:
+                result.setdefault(p["image_id"], []).append(p)
+            return result
+        return {}
+    
+    if model_name == "dino":
+        p_file = BASELINE_DIR / "DINO_R50_seed42_preds.json"
+        if p_file.exists():
+            with open(p_file) as f:
+                preds = json.load(f)
+            result = {}
+            for p in preds:
+                result.setdefault(p["image_id"], []).append(p)
+            return result
+        return {}
+    
+    return {}
 
 
 def get_crop_region(anns, img_shape, margin_ratio=0.15):
@@ -112,49 +137,46 @@ def draw_boxes_on_patch(image_pil, bboxes, labels, color, show_label=True):
     draw = ImageDraw.Draw(image_pil)
     img_w, img_h = image_pil.size
     
-    min_font_size = max(int(PATCH_SIZE * 0.035), 14)
+    base_pad = max(1, int(PATCH_SIZE * 0.004))
+    border_w = max(1, int(PATCH_SIZE * 0.002))
+    box_line_w = max(2, int(PATCH_SIZE * 0.006))
     
     try:
-        font_default = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", min_font_size)
+        font_tiny = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 
+                                       max(10, int(PATCH_SIZE * 0.025)))
     except:
-        font_default = ImageFont.load_default()
+        font_tiny = ImageFont.load_default()
     
     placed_labels = []
-    min_gap = max(4, int(PATCH_SIZE * 0.01))
     
     for idx, (bbox, label) in enumerate(zip(bboxes, labels)):
         x, y, w, h = bbox
         
-        box_font_size = max(int(min(w, h) * 0.35), min_font_size)
+        box_font_size = max(int(min(w, h) * 0.2), 10)
         try:
-            box_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", box_font_size)
+            box_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 
+                                          box_font_size)
         except:
-            box_font = font_default
+            box_font = font_tiny
         
-        draw.rectangle([x, y, x + w, y + h], outline=color, width=max(2, int(PATCH_SIZE * 0.008)))
+        draw.rectangle([x, y, x + w, y + h], outline=color, width=box_line_w)
         
         if not show_label or not label:
             continue
         
-        is_large_box = w > PATCH_SIZE * 0.12 and h > PATCH_SIZE * 0.1
-        is_priority = idx < 2
+        is_large_box = w > PATCH_SIZE * 0.1 and h > PATCH_SIZE * 0.08
         
         text_bbox = draw.textbbox((0, 0), label, font=box_font)
         text_w = text_bbox[2] - text_bbox[0]
         text_h = text_bbox[3] - text_bbox[1]
         
-        label_padding = max(3, int(PATCH_SIZE * 0.008))
-        border_width = max(1, int(PATCH_SIZE * 0.004))
-        
         if is_large_box:
-            avail_w = w - 2 * label_padding
-            avail_h = h - 2 * label_padding
-            
+            avail_w = w - 2 * base_pad
             if text_w > avail_w:
                 scale = avail_w / text_w
-                new_font_size = max(int(box_font_size * scale), 10)
+                new_size = max(int(box_font_size * scale), 8)
                 try:
-                    box_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", new_font_size)
+                    box_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", new_size)
                     text_bbox = draw.textbbox((0, 0), label, font=box_font)
                     text_w = text_bbox[2] - text_bbox[0]
                     text_h = text_bbox[3] - text_bbox[1]
@@ -164,75 +186,60 @@ def draw_boxes_on_patch(image_pil, bboxes, labels, color, show_label=True):
             lx = x + (w - text_w) / 2
             ly = y + (h - text_h) / 2
             
-            label_rect = [lx - label_padding, ly - label_padding, 
-                         lx + text_w + label_padding, ly + text_h + label_padding]
-            
-            label_rect[0] = max(0, label_rect[0])
-            label_rect[1] = max(0, label_rect[1])
-            label_rect[2] = min(img_w, label_rect[2])
-            label_rect[3] = min(img_h, label_rect[3])
-            
-            draw.rectangle(label_rect, fill=color)
+            draw.rectangle([lx - base_pad, ly - base_pad, lx + text_w + base_pad, ly + text_h + base_pad], fill=color)
             draw.text((lx, ly), label, fill='white', font=box_font)
-            placed_labels.append(label_rect)
+            placed_labels.append([lx - base_pad, ly - base_pad, lx + text_w + base_pad, ly + text_h + base_pad])
         else:
-            margin = max(4, int(PATCH_SIZE * 0.01))
-            
+            margin = max(2, int(PATCH_SIZE * 0.006))
             positions = []
             
-            above_y = y - text_h - margin - label_padding * 2
+            above_y = y - text_h - margin - base_pad * 2
             above_x = x + (w - text_w) / 2
             above_x = max(margin, min(img_w - text_w - margin, above_x))
             if above_y >= margin:
-                positions.append((above_x, above_y, 'above'))
+                positions.append((above_x, above_y))
             
             below_y = y + h + margin
             below_x = x + (w - text_w) / 2
             below_x = max(margin, min(img_w - text_w - margin, below_x))
-            if below_y + text_h + label_padding * 2 <= img_h - margin:
-                positions.append((below_x, below_y, 'below'))
+            if below_y + text_h + base_pad * 2 <= img_h - margin:
+                positions.append((below_x, below_y))
             
             right_x = x + w + margin
-            right_y = y + (h - text_h) / 2 - label_padding
-            if right_x + text_w + label_padding * 2 <= img_w - margin:
-                positions.append((right_x, right_y, 'right'))
+            right_y = y + (h - text_h) / 2 - base_pad
+            if right_x + text_w + base_pad * 2 <= img_w - margin:
+                positions.append((right_x, right_y))
             
-            left_x = x - text_w - margin - label_padding * 2
-            left_y = y + (h - text_h) / 2 - label_padding
+            left_x = x - text_w - margin - base_pad * 2
+            left_y = y + (h - text_h) / 2 - base_pad
             if left_x >= margin:
-                positions.append((left_x, left_y, 'left'))
+                positions.append((left_x, left_y))
             
             if not positions:
                 lx = x + (w - text_w) / 2
                 ly = y + h + margin
                 lx = max(margin, min(img_w - text_w - margin, lx))
                 ly = max(margin, min(img_h - text_h - margin, ly))
-                positions.append((lx, ly, 'fallback'))
+                positions.append((lx, ly))
             
-            placed = False
-            for lx, ly, pos_type in positions:
-                label_rect = [lx - label_padding - min_gap, ly - min_gap, 
-                             lx + text_w + label_padding + min_gap, ly + text_h + label_padding + min_gap]
-                
+            for lx, ly in positions:
+                label_rect = [lx - base_pad, ly, lx + text_w + base_pad, ly + text_h + base_pad * 2]
                 label_rect[0] = max(0, label_rect[0])
                 label_rect[1] = max(0, label_rect[1])
                 label_rect[2] = min(img_w, label_rect[2])
                 label_rect[3] = min(img_h, label_rect[3])
                 
-                display_rect = [lx - label_padding, ly, lx + text_w + label_padding, ly + text_h + label_padding * 2]
-                
                 overlap = False
-                for placed_label in placed_labels:
-                    if (label_rect[0] < placed_label[2] and label_rect[2] > placed_label[0] and
-                        label_rect[1] < placed_label[3] and label_rect[3] > placed_label[1]):
+                for pl in placed_labels:
+                    if (label_rect[0] < pl[2] and label_rect[2] > pl[0] and
+                        label_rect[1] < pl[3] and label_rect[3] > pl[1]):
                         overlap = True
                         break
                 
-                if not overlap or is_priority:
-                    draw.rectangle(display_rect, fill='white', outline=color, width=border_width)
-                    draw.text((lx, ly + label_padding), label, fill=color, font=box_font)
+                if not overlap:
+                    draw.rectangle(label_rect, fill='white', outline=color, width=border_w)
+                    draw.text((lx, ly + base_pad), label, fill=color, font=box_font)
                     placed_labels.append(label_rect)
-                    placed = True
                     break
     
     return image_pil
@@ -241,45 +248,34 @@ def draw_boxes_on_patch(image_pil, bboxes, labels, color, show_label=True):
 def draw_missed_badge(image_pil, color, case_num=None):
     draw = ImageDraw.Draw(image_pil)
     
-    large_font_size = max(int(PATCH_SIZE * 0.08), 20)
-    small_font_size = max(int(PATCH_SIZE * 0.04), 12)
+    big_font_size = max(16, int(PATCH_SIZE * 0.05))
+    small_font_size = max(10, int(PATCH_SIZE * 0.03))
     
     try:
-        font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", large_font_size)
-        font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", small_font_size)
+        font_big = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", big_font_size)
+        font_sm = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", small_font_size)
     except:
-        font_large = ImageFont.load_default()
-        font_small = ImageFont.load_default()
+        font_big = ImageFont.load_default()
+        font_sm = font_big
     
     cx = image_pil.width // 2
     cy = image_pil.height // 2
     
     if case_num is not None:
         text = str(case_num)
-        text_bbox = draw.textbbox((0, 0), text, font=font_large)
-        text_w = text_bbox[2] - text_bbox[0]
-        text_h = text_bbox[3] - text_bbox[1]
-        
-        pad = max(4, int(PATCH_SIZE * 0.02))
-        draw.rectangle(
-            [cx - text_w // 2 - pad, cy - text_h // 2 - pad,
-             cx + text_w // 2 + pad, cy + text_h // 2 + pad],
-            fill=color
-        )
-        draw.text((cx - text_w // 2, cy - text_h // 2), text, fill='white', font=font_large)
+        tb = draw.textbbox((0, 0), text, font=font_big)
+        tw, th = tb[2] - tb[0], tb[3] - tb[1]
+        pad = max(2, int(PATCH_SIZE * 0.015))
+        draw.rectangle([cx - tw // 2 - pad, cy - th // 2 - pad, cx + tw // 2 + pad, cy + th // 2 + pad], fill=color)
+        draw.text((cx - tw // 2, cy - th // 2), text, fill='white', font=font_big)
     else:
         text = "MISSED"
-        text_bbox = draw.textbbox((0, 0), text, font=font_small)
-        text_w = text_bbox[2] - text_bbox[0]
-        text_h = text_bbox[3] - text_bbox[1]
-        
-        pad = max(4, int(PATCH_SIZE * 0.02))
-        draw.rectangle(
-            [cx - text_w // 2 - pad, cy - text_h // 2 - pad,
-             cx + text_w // 2 + pad, cy + text_h // 2 + pad],
-            fill='white', outline=color, width=max(2, int(PATCH_SIZE * 0.006))
-        )
-        draw.text((cx - text_w // 2, cy - text_h // 2), text, fill=color, font=font_small)
+        tb = draw.textbbox((0, 0), text, font=font_sm)
+        tw, th = tb[2] - tb[0], tb[3] - tb[1]
+        pad = max(2, int(PATCH_SIZE * 0.015))
+        draw.rectangle([cx - tw // 2 - pad, cy - th // 2 - pad, cx + tw // 2 + pad, cy + th // 2 + pad],
+                      fill='white', outline=color, width=max(2, int(PATCH_SIZE * 0.004)))
+        draw.text((cx - tw // 2, cy - th // 2), text, fill=color, font=font_sm)
     
     return image_pil
 
@@ -287,22 +283,18 @@ def draw_missed_badge(image_pil, color, case_num=None):
 def draw_case_number(image_pil, case_num):
     draw = ImageDraw.Draw(image_pil)
     
-    font_size = max(int(PATCH_SIZE * 0.05), 16)
+    font_size = max(12, int(PATCH_SIZE * 0.035))
     try:
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
     except:
         font = ImageFont.load_default()
     
     text = str(case_num)
-    text_bbox = draw.textbbox((0, 0), text, font=font)
-    text_w = text_bbox[2] - text_bbox[0]
-    text_h = text_bbox[3] - text_bbox[1]
+    tb = draw.textbbox((0, 0), text, font=font)
+    tw, th = tb[2] - tb[0], tb[3] - tb[1]
     
-    pad = max(2, int(PATCH_SIZE * 0.01))
-    draw.rectangle(
-        [pad, pad, pad + text_w + pad * 2, pad + text_h + pad * 2],
-        fill='white', outline='#333333', width=1
-    )
+    pad = max(1, int(PATCH_SIZE * 0.008))
+    draw.rectangle([pad, pad, pad + tw + pad * 2, pad + th + pad * 2], fill='white', outline='#333333', width=1)
     draw.text((pad * 2, pad + 1), text, fill='#333333', font=font)
     
     return image_pil
@@ -317,7 +309,7 @@ def generate_patch(image, crop_region, bboxes, labels, color, has_detections=Tru
         transformed_bboxes = [transform_bbox(bbox, crop_region) for bbox in bboxes]
         resized = draw_boxes_on_patch(resized, transformed_bboxes, labels, color)
     elif not has_detections:
-        resized = draw_missed_badge(resized, COLORS['missed'])
+        resized = draw_missed_badge(resized, "#E63946")
     
     if case_num is not None:
         resized = draw_case_number(resized, case_num)
@@ -335,11 +327,11 @@ def compose_grid(patches):
 
 def main() -> None:
     gt_data = json.load(open(ANN_FILE))
-    sota_preds = json.load(open(SOTA_FILE))
-
-    sota_bi = {}
-    for p in sota_preds:
-        sota_bi.setdefault(p["image_id"], []).append(p)
+    
+    all_model_preds = {}
+    for model in MODELS:
+        if model["name"] != "gt":
+            all_model_preds[model["name"]] = load_model_preds(model["name"])
     
     gt_bi = {}
     for ann in gt_data["annotations"]:
@@ -348,22 +340,18 @@ def main() -> None:
     img_map = {img["id"]: img["file_name"] for img in gt_data["images"]}
 
     cases = [
-        {"iid": 1, "cats": [24], "label": "Y (rare)"},
-        {"iid": 2, "cats": [19, 20, 21, 22], "label": "F/G (small)"},
-        {"iid": 3, "cats": [24], "label": "Y (multi)"},
-        {"iid": 4, "cats": [13, 14], "label": "D (medium)"},
-        {"iid": 5, "cats": [23], "label": "X (single)"},
-        {"iid": 6, "cats": [1, 2], "label": "A1/A2"},
-        {"iid": 7, "cats": [21, 22], "label": "G21/G22"},
-        {"iid": 8, "cats": [1], "label": "A1 (large)"},
-        {"iid": 9, "cats": [16], "label": "E16"},
+        {"iid": 1, "cats": [24]},
+        {"iid": 2, "cats": [19, 20, 21, 22]},
+        {"iid": 3, "cats": [24]},
+        {"iid": 4, "cats": [13, 14]},
+        {"iid": 5, "cats": [23]},
+        {"iid": 6, "cats": [1, 2]},
+        {"iid": 7, "cats": [21, 22]},
+        {"iid": 8, "cats": [1]},
+        {"iid": 9, "cats": [16]},
     ]
 
-    baseline_name = "diffusiondet"
-
-    gt_patches = []
-    ours_patches = []
-    baseline_patches = []
+    model_patches_dict = {model["name"]: [] for model in MODELS}
 
     for case_idx, case in enumerate(cases):
         iid = case["iid"]
@@ -384,61 +372,65 @@ def main() -> None:
         gt_anns = gt_bi.get(iid, [])
         gt_targets = [a for a in gt_anns if a["category_id"] in target_cats]
         
-        ours_preds = [p for p in sota_bi.get(iid, [])
-                     if p["category_id"] in target_cats and p["score"] > 0.3]
-        
-        baseline_preds = load_preds(baseline_name, iid)
-        baseline_targets = [p for p in baseline_preds 
-                           if p["category_id"] in target_cats and p["score"] > 0.3]
+        all_model_targets = {}
+        for model_name, preds_bi in all_model_preds.items():
+            preds = preds_bi.get(iid, [])
+            all_model_targets[model_name] = [p for p in preds if p["score"] > 0.3]
 
-        crop_source = gt_targets if gt_targets else ours_preds
+        crop_source = gt_targets if gt_targets else (
+            all_model_targets.get("ours", []) or 
+            all_model_targets.get("diffusiondet", [])
+        )
         crop_region = get_crop_region(crop_source, image.size[::-1])
 
         gt_bboxes = [ann["bbox"] for ann in gt_targets]
         gt_labels = [CAT_SHORT.get(ann["category_id"], "?") for ann in gt_targets]
-        
-        ours_preds_sorted = sorted(ours_preds, key=lambda p: p["score"], reverse=True)[:3]
-        ours_bboxes = [pred["bbox"] for pred in ours_preds_sorted]
-        ours_labels = [CAT_SHORT.get(pred["category_id"], "?") for pred in ours_preds_sorted]
-        
-        baseline_sorted = sorted(baseline_targets, key=lambda p: p["score"], reverse=True)[:3]
-        baseline_bboxes = [pred["bbox"] for pred in baseline_sorted]
-        baseline_labels = [CAT_SHORT.get(pred["category_id"], "?") for pred in baseline_sorted]
+        gt_patch = generate_patch(image, crop_region, gt_bboxes, gt_labels, 
+                                 MODELS[0]["color"], case_num=case_num)
+        model_patches_dict["gt"].append(gt_patch)
 
-        gt_patch = generate_patch(image, crop_region, gt_bboxes, gt_labels, COLORS['gt'], case_num=case_num)
-        ours_patch = generate_patch(image, crop_region, ours_bboxes, ours_labels, 
-                                     COLORS['ours'], has_detections=len(ours_preds) > 0, case_num=case_num)
-        baseline_patch = generate_patch(image, crop_region, baseline_bboxes, baseline_labels,
-                                         COLORS['baseline'], has_detections=len(baseline_targets) > 0, case_num=case_num)
+        for model in MODELS[1:]:
+            model_name = model["name"]
+            model_color = model["color"]
+            
+            model_targets = all_model_targets.get(model_name, [])
+            
+            model_targets_sorted = sorted(model_targets, key=lambda p: p["score"], reverse=True)[:3]
+            model_bboxes = [p["bbox"] for p in model_targets_sorted]
+            model_labels = [CAT_SHORT.get(p["category_id"], "?") for p in model_targets_sorted]
+            
+            has_detections = len(model_targets) > 0
+            
+            patch = generate_patch(image, crop_region, model_bboxes, model_labels, 
+                                   model_color, has_detections=has_detections, case_num=case_num)
+            model_patches_dict[model_name].append(patch)
 
-        gt_patches.append(gt_patch)
-        ours_patches.append(ours_patch)
-        baseline_patches.append(baseline_patch)
-
-    if not gt_patches:
+    first_model = MODELS[0]["name"]
+    if not model_patches_dict[first_model]:
         print("Error: No valid patches generated!")
         return
 
-    print(f"Generated {len(gt_patches)} patches per model")
+    print(f"Generated {len(model_patches_dict[first_model])} patches per model")
 
-    gt_grid = compose_grid(gt_patches)
-    ours_grid = compose_grid(ours_patches)
-    baseline_grid = compose_grid(baseline_patches)
+    n_models = len(MODELS)
+    fig, axes = plt.subplots(1, n_models, figsize=(5 * n_models, 6))
 
-    fig, axes = plt.subplots(1, 3, figsize=(22, 8))
+    if n_models == 1:
+        axes = [axes]
 
-    titles = ["Ground Truth", "Ours (A3 DPM++)", "Baseline (DiffusionDet)"]
-    colors = ['#2ECC71', '#1E90FF', '#FF6347']
-    grids = [gt_grid, ours_grid, baseline_grid]
+    for idx, model in enumerate(MODELS):
+        model_name = model["name"]
+        model_title = model["title"]
+        model_color = model["color"]
+        
+        grid = compose_grid(model_patches_dict[model_name])
+        
+        axes[idx].imshow(grid)
+        axes[idx].set_title(model_title, fontsize=12, fontweight='bold', color=model_color, pad=10)
+        axes[idx].axis('off')
 
-    for idx, (ax, title, color, grid) in enumerate(zip(axes, titles, colors, grids)):
-        ax.imshow(grid)
-        ax.set_title(title, fontsize=14, fontweight='bold', color=color, pad=15)
-        ax.axis('off')
-
-    fig.subplots_adjust(wspace=0.05, left=0.02, right=0.98, top=0.88, bottom=0.05)
-
-    fig.suptitle("Qualitative Comparison: 9 Chromosome Cases", fontsize=16, fontweight='bold', y=0.95)
+    fig.subplots_adjust(wspace=0.03, left=0.01, right=0.99, top=0.88, bottom=0.04)
+    fig.suptitle("Qualitative Comparison: 9 Chromosome Cases", fontsize=14, fontweight='bold', y=0.93)
 
     save_fig(fig, "qual_mosaic")
 
