@@ -292,13 +292,13 @@ Table 5 reports a cumulative ablation on the Dataset 2 validation set: A0 (DDPM 
 | Experiment | Solver | Steps | NFE | mAP | AP50 | AP75 | AP$_S$ | AP$_M$ | AP$_L$ |
 |-----------|--------|-------|-----|-----|------|------|--------|--------|--------|
 | A0 baseline (Euler 1-step) | Euler | 1 | 1 | 0.774 | 0.968 | 0.916 | 0.317 | 0.773 | 0.775 |
-| **A1 RF+Heun (KaryoFlow)** | Heun | 4 | 7 | **0.857** | 0.989 | 0.969 | 0.502 | 0.853 | 0.867 |
-| A2 + Stochastic Coupling ($\epsilon{=}5$) | Heun | 4 | 7 | 0.857 | 0.989 | 0.971 | 0.523 | 0.854 | 0.864 |
+| **A1 RF+Heun (KaryoFlow)** | Heun | 4 | 7 | **0.856** | 0.989 | 0.969 | 0.502 | 0.853 | 0.867 |
+| A2 + Stochastic Coupling ($\epsilon{=}5$) | Heun | 4 | 7 | 0.858 | 0.989 | 0.971 | 0.523 | 0.854 | 0.864 |
 | **A3 DPM-Solver++** | DPM++ | 4 | 4 | **0.859±0.003** | 0.988 | 0.968 | 0.516±0.012 | 0.856 | 0.890 |
 
-**Table 5**: Main ablation on Dataset 2 (independent inference, seed 42 for A0–A2; 3-seed mean±std for A3). NFE = total network forward evaluations per image. "Last-30 std" is within-run epoch mAP std. A0→A1 changes multiple variables; the disentanglement ablation (Table 1) attributes 94% of the $+0.083$ gap to the RF training paradigm.
+**Table 5**: Main ablation on Dataset 2 (independent inference, seed 42 for A0–A2; 3-seed mean±std for A3). NFE = total network forward evaluations per image. "Last-30 std" is within-run epoch mAP std. A0→A1 changes multiple variables; the disentanglement ablation (Table 1) attributes 94% of the $+0.082$ gap to the RF training paradigm.
 
-The RF paradigm accounts for $+0.078$ mAP (94% of the $+0.083$ gap), while solver/step configuration adds only $+0.005$ (6%). On Dataset 2, Stochastic Coupling contributes no measurable mAP gain ($+0.000$, Wilcoxon $p{=}0.80$) but $4.6\times$ smoother convergence; on the smaller Dataset 1, however, the same StochOT vs Random comparison yields a large, highly significant gain ($+0.034$, $p<10^{-120}$; Table 9) — the benefit is real in low-data regimes and diminishes with dataset size. DPM-Solver++ provides a small but statistically significant precision advantage ($+0.006$ per-image mAP, Wilcoxon $p{<}0.001$, paired $t$ $p{<}0.001$; see Table 8) and is $1.71\times$ faster.
+The RF paradigm accounts for $+0.077$ mAP (94% of the $+0.082$ gap), while solver/step configuration adds only $+0.005$ (6%). On Dataset 2, Stochastic Coupling contributes no measurable mAP gain ($+0.0001$, Wilcoxon $p{=}0.80$) but $4.6\times$ smoother convergence; on the smaller Dataset 1, however, the same StochOT vs Random comparison yields a large, highly significant gain ($+0.034$, $p<10^{-120}$; Table 9) — the benefit is real in low-data regimes and diminishes with dataset size. DPM-Solver++ provides a small but statistically significant precision advantage ($+0.006$ per-image mAP, Wilcoxon $p{<}0.001$, paired $t$ $p{<}0.001$; see Table 8) and is $1.71\times$ faster.
 
 #### 4.2.2 Dataset 1 — RF vs DDPM
 
@@ -306,15 +306,15 @@ On Dataset 1 (3 seeds), RF outperforms DDPM by +0.017 mAP (0.746 vs 0.729, lower
 
 ### 4.3 SOTA Comparison (Dataset 2)
 
-Table 6 compares our RF-based detector against standard and diffusion baselines. Our best variant (A3, DPM-Solver++, 3-seed mean) trails RTMDet-L (a stronger CSPNeXt-L detector) by only $-0.004$ mAP and the multi-scale DINO R50 by $-0.010$ mAP (the latter outside our cross-seed variance of $\pm 0.003$), while exceeding Cascade R-CNN, YOLOX-S, and DiffusionDet — with the largest gain against the DDPM-based DiffusionDet ($+0.072$ mAP), direct evidence for the RF paradigm's advantage. Importantly, our method achieves this with $1.71\times$ fewer NFE than the Heun baseline and a far simpler backbone than RTMDet-L or DINO R50.
+Table 6 compares our RF-based detector against standard and diffusion baselines. Our best variant (A3, DPM-Solver++, 3-seed mean) trails RTMDet-L (a stronger CSPNeXt-L detector) by only $-0.004$ mAP and the multi-scale DINO R50 by $-0.010$ mAP (the latter outside our cross-seed variance of $\pm 0.003$), while exceeding Cascade R-CNN, YOLOX-S, and DiffusionDet — with the largest gain against the DDPM-based DiffusionDet ($+0.076$ mAP), direct evidence for the RF paradigm's advantage. Importantly, our method achieves this with $1.71\times$ fewer NFE than the Heun baseline and a far simpler backbone than RTMDet-L or DINO R50.
 
 | Method | Backbone | mAP | AP50 | AP75 | AP$_S$ |
 |--------|----------|-----|------|------|--------|
 | DINO R50 | ResNet-50 | **0.869** | 0.991 | 0.977 | 0.553 |
 | RTMDet-L† | CSPNeXt-L | 0.863 | 0.991 | 0.974 | 0.540 |
 | **Ours (A3 DPM++)** | ResNet-50 | 0.859 | 0.988 | 0.968 | 0.516 |
-| Ours (A2 Heun+StochOT) | ResNet-50 | 0.857 | 0.989 | 0.971 | 0.523 |
-| LDMDet (Random) | ResNet-50 | 0.857 | 0.989 | 0.969 | 0.502 |
+| Ours (A2 Heun+StochOT) | ResNet-50 | 0.858 | 0.989 | 0.971 | 0.523 |
+| LDMDet (Random) | ResNet-50 | 0.856 | 0.989 | 0.969 | 0.502 |
 | Cascade R-CNN | ResNet-50 | 0.854 | 0.987 | 0.972 | 0.525 |
 | YOLOX-S | CSPDarkNet-S | 0.796 | 0.987 | 0.944 | 0.452 |
 | DiffusionDet | ResNet-50 | 0.787 | 0.970 | 0.928 | 0.500 |

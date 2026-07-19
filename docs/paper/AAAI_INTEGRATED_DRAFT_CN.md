@@ -228,13 +228,13 @@ Table 6 报告了在 Dataset 2 验证集上的累积消融：A0（DDPM Euler 基
 | 实验 | Solver | Steps | NFE | mAP | AP50 | AP75 | AP$_S$ | AP$_M$ | AP$_L$ |
 |-----------|--------|-------|-----|-----|------|------|--------|--------|--------|
 | A0 baseline (Euler 1-step) | Euler | 1 | 1 | 0.774 | 0.968 | 0.916 | 0.317 | 0.773 | 0.775 |
-| **A1 RF+Heun (KaryoFlow)** | Heun | 4 | 7 | **0.857** | 0.989 | 0.969 | 0.502 | 0.853 | 0.867 |
-| A2 + Stochastic Coupling（$\epsilon{=}5$） | Heun | 4 | 7 | 0.857 | 0.989 | 0.971 | 0.523 | 0.854 | 0.864 |
+| **A1 RF+Heun (KaryoFlow)** | Heun | 4 | 7 | **0.856** | 0.989 | 0.969 | 0.502 | 0.853 | 0.867 |
+| A2 + Stochastic Coupling（$\epsilon{=}5$） | Heun | 4 | 7 | 0.858 | 0.989 | 0.971 | 0.523 | 0.854 | 0.864 |
 | **A3 DPM-Solver++** | DPM++ | 4 | 4 | **0.859**±0.003 | 0.988 | 0.968 | 0.516±0.012 | 0.856 | 0.890 |
 
-**表 6**：Dataset 2 上的主消融实验（独立推理，A0–A2 为 seed 42；A3 为 3-seed mean±std）。NFE = 每张图像的总网络前向评估次数。"Last-30 std" 为运行内 epoch mAP std。A0→A1 改变了多个变量；解耦消融（Table 2）将 +0.083 差距中的 94% 归因于 RF 训练范式。
+**表 6**：Dataset 2 上的主消融实验（独立推理，A0–A2 为 seed 42；A3 为 3-seed mean±std）。NFE = 每张图像的总网络前向评估次数。"Last-30 std" 为运行内 epoch mAP std。A0→A1 改变了多个变量；解耦消融（Table 2）将 +0.082 差距中的 94% 归因于 RF 训练范式。
 
-RF 范式贡献 +0.078 mAP（+0.083 差距的 94%），而 solver/步数配置仅增加 +0.005（6%）。在 Dataset 2 上，Stochastic Coupling 贡献无可测量的 mAP 增益（+0.000，Wilcoxon $p{=}0.80$），但带来 4.6× 更平滑的收敛；然而在较小的 Dataset 1 上，相同的 StochOT 对比 Random 比较带来大且高度显著的增益（+0.034，$p<10^{-120}$；Table 11）——这一收益在低数据情形下真实存在，并随数据集规模增大而减弱。DPM-Solver++ 提供小但统计显著的精度优势（+0.006 每图像 mAP，Wilcoxon $p{<}0.001$，配对 $t$ $p{<}0.001$；见 Table 10），并快 1.71×。
+RF 范式贡献 +0.077 mAP（+0.082 差距的 94%），而 solver/步数配置仅增加 +0.005（6%）。在 Dataset 2 上，Stochastic Coupling 贡献无可测量的 mAP 增益（+0.0001，Wilcoxon $p{=}0.80$），但带来 4.6× 更平滑的收敛；然而在较小的 Dataset 1 上，相同的 StochOT 对比 Random 比较带来大且高度显著的增益（+0.034，$p<10^{-120}$；Table 11）——这一收益在低数据情形下真实存在，并随数据集规模增大而减弱。DPM-Solver++ 提供小但统计显著的精度优势（+0.006 每图像 mAP，Wilcoxon $p{<}0.001$，配对 $t$ $p{<}0.001$；见 Table 10），并快 1.71×。
 
 #### 4.2.2 Dataset 1——RF 对比 DDPM
 
@@ -242,15 +242,15 @@ RF 范式贡献 +0.078 mAP（+0.083 差距的 94%），而 solver/步数配置�
 
 ### 4.3 SOTA 比较（Dataset 2）
 
-Table 7 将我们基于 RF 的检测器与标准检测器和扩散基线进行比较。我们的最佳变体（A3，DPM-Solver++，3-seed 均值）落后 RTMDet-L（更强的 CSPNeXt-L 检测器）仅 −0.004 mAP，落后多尺度 DINO R50 −0.010 mAP（后者超出我们的跨 seed 方差 ±0.003），同时超越 Cascade R-CNN、YOLOX-S (Ge et al., 2021) 和 DiffusionDet——其中相对基于 DDPM 的 DiffusionDet 的增益最大（+0.072 mAP），是 RF 范式优势的直接证据。值得注意的是，我们的方法以比 Heun 基线少 1.71× 的 NFE 实现这一结果，且使用比 RTMDet-L 或 DINO R50 简单得多的主干。
+Table 7 将我们基于 RF 的检测器与标准检测器和扩散基线进行比较。我们的最佳变体（A3，DPM-Solver++，3-seed 均值）落后 RTMDet-L（更强的 CSPNeXt-L 检测器）仅 −0.004 mAP，落后多尺度 DINO R50 −0.010 mAP（后者超出我们的跨 seed 方差 ±0.003），同时超越 Cascade R-CNN、YOLOX-S (Ge et al., 2021) 和 DiffusionDet——其中相对基于 DDPM 的 DiffusionDet 的增益最大（+0.076 mAP），是 RF 范式优势的直接证据。值得注意的是，我们的方法以比 Heun 基线少 1.71× 的 NFE 实现这一结果，且使用比 RTMDet-L 或 DINO R50 简单得多的主干。
 
 | 方法 | Backbone | mAP | AP50 | AP75 | AP$_S$ |
 |--------|----------|-----|------|------|--------|
 | DINO R50 | ResNet-50 | **0.869** | 0.991 | 0.977 | 0.553 |
 | RTMDet-L† | CSPNeXt-L | 0.863 | 0.991 | 0.974 | 0.540 |
 | **Ours (A3 DPM++)** | ResNet-50 | 0.859 | 0.988 | 0.968 | 0.516 |
-| Ours (A2 Heun+StochOT) | ResNet-50 | 0.857 | 0.989 | 0.971 | 0.523 |
-| LDMDet (Random) | ResNet-50 | 0.857 | 0.989 | 0.969 | 0.502 |
+| Ours (A2 Heun+StochOT) | ResNet-50 | 0.858 | 0.989 | 0.971 | 0.523 |
+| LDMDet (Random) | ResNet-50 | 0.856 | 0.989 | 0.969 | 0.502 |
 | Cascade R-CNN | ResNet-50 | 0.854 | 0.987 | 0.972 | 0.525 |
 | YOLOX-S | CSPDarkNet-S | 0.796 | 0.987 | 0.944 | 0.452 |
 | DiffusionDet | ResNet-50 | 0.787 | 0.970 | 0.928 | 0.500 |

@@ -75,7 +75,7 @@
 | A1 +RF+Heun | 24obj | ldmdet-mainline-ablation-24obj | (a1_rf_heun) | work_dirs/a1_rf_heun_24obj/ | a1_rf_heun_24obj.py | 0.856 | ✅ 完成 | 主路线消融 |
 | A2 +AdaLN-Zero | 24obj | ldmdet-mainline-ablation-24obj | (a2_rf_heun_adaln) | work_dirs/a2_rf_heun_adaln_24obj/ | a2_rf_heun_adaln_24obj.py | 0.856 | ✅ 完成 | 主路线消融 |
 | A3 +StochOT eps5 | 24obj | ldmdet-mainline-ablation-24obj | (a3_full_sota) | work_dirs/a3_full_sota_24obj/ | a3_full_sota_24obj.py | 0.858 | ✅ 完成 | 主路线消融 |
-| **A4 DPM-Solver++** | 24obj | ldmdet-mainline-ablation-24obj | (a4_dpm_pp) | work_dirs/a4_dpm_pp_24obj/ | a4_dpm_pp_24obj.py | **0.863** (3-seed: 0.859±0.004) | ✅ 完成 | 主路线消融 | <!-- verified: 2026-07-16: seed42=0.863, seed123=0.857@ep62, seed789=0.856@ep72 -->
+| **A4 DPM-Solver++** | 24obj | ldmdet-mainline-ablation-24obj | (a4_dpm_pp) | work_dirs/a4_dpm_pp_24obj/ | a4_dpm_pp_24obj.py | **0.863** (3-seed: 0.859±0.003) | ✅ 完成 | 主路线消融 | <!-- verified: 2026-07-16: seed42=0.863, seed123=0.857@ep62, seed789=0.856@ep72 -->
 | Random seed_42 | 24obj | ldmdet-ablation | p5xqii8mcqmbhuo5lhlff | work_dirs/24obj_ablation/random/seed_42/ | chromo_24obj_random.py | 0.859 | ✅ 完成 | 耦合消融 |
 | Random seed_789 | 24obj | ldmdet-ablation | r8n441mu4gws43xyoneoj | work_dirs/24obj_ablation/random/seed_789/ | chromo_24obj_random.py | 0.860 | ✅ 完成 | 耦合消融 |
 | Random seed_123 | 24obj | ldmdet-ablation | q6jgxefgxbp8f2sf5qzpc | work_dirs/24obj_ablation/random/seed_123/ | chromo_24obj_random.py | 0.814/0.860 ⚠ | ⚠ 中断 | 耦合消融 |
@@ -454,7 +454,7 @@
 
 | 实验 | 服务器 | SwanLab项目 | 结果 | 说明 |
 |------|--------|------------|------|------|
-| A4 DPM-Solver++ seed_123 | workstation | ldmdet-mainline-ablation-24obj | **0.857** @ ep62 | A4 多种子 ✅ 完成 (3-seed: 0.863/0.857/0.856, mean 0.859±0.004) |
+| A4 DPM-Solver++ seed_123 | workstation | ldmdet-mainline-ablation-24obj | **0.857** @ ep62 | A4 多种子 ✅ 完成 (3-seed: 0.863/0.857/0.856, mean 0.859±0.003) |
 | A4 DPM-Solver++ seed_789 | workstation | ldmdet-mainline-ablation-24obj | **0.856** @ ep72 | A4 多种子 ✅ 完成 |
 | StochOT ε=5 seed_123 (old) | ross | ldmdet-ablation | **0.746** @ ep57 | StochOT 多种子 ✅ 完成 (3-seed: 0.746/0.746/0.749, mean 0.747±0.002) |
 | StochOT ε=5 seed_789 (old) | ross | ldmdet-ablation | **0.749** @ ep69 | StochOT 多种子 ✅ 完成 |
@@ -883,7 +883,7 @@ rf_heun_adaln.py (chromo RF+Heun+AdaLN 基线, bs=4)
 
 | 实验 | 状态 | 说明 |
 |------|------|------|
-| A4 DPM-Solver++ seed_123 | ✅ 已完成 (0.857 @ ep62) | A4 多种子: 3-seed mean 0.859±0.004 | <!-- verified: 2026-07-16 -->
+| A4 DPM-Solver++ seed_123 | ✅ 已完成 (0.857 @ ep62) | A4 多种子: 3-seed mean 0.859±0.003 | <!-- verified: 2026-07-16 -->
 | A4 DPM-Solver++ seed_789 | ✅ 已完成 (0.856 @ ep72) | A4 多种子完成 | <!-- verified: 2026-07-16 -->
 | StochOT ε=2 seed_42 (old) | ✅ 已完成 (0.749 @ ep75) | ε 消融补充 | <!-- verified: 2026-07-16 -->
 | StochOT ε=5 seed_123 (old) | ✅ 已完成 (0.746 @ ep57, ross) | StochOT 多种子完成 (3-seed: 0.747±0.002) | <!-- verified: 2026-07-16 -->

@@ -178,7 +178,7 @@ Figure~\ref{fig:method_overview} summarizes the framework.
 
 \begin{figure*}[t]
   \centering
-  \includegraphics[width=\textwidth]{figures/method_overview.pdf}
+  \includegraphics[width=\textwidth,height=2.5in,keepaspectratio]{figures/method_overview.pdf}
   \caption{KaryoFlow overview. (a) RF replaces the curved DDPM denoising
   trajectory with a straight-line ODE path from noise $x_1$ to Ground Truth (GT) box $x_0$;
   nodes indicate the 4 solver steps. (b) Time conditioning
@@ -596,23 +596,23 @@ and DPM-Solver++ contribute stability and speed respectively.
   forward evaluations per image. ``Last-30 std'' is within-run epoch \mAP{}
   std. A0$\to$A1 changes multiple variables; the
   disentanglement ablation (Table~\ref{tab:solver-ablation}) attributes
-  94\% of the $+0.083$ gap to the RF training paradigm.}
+  94\% of the $+0.082$ gap to the RF training paradigm.}
   \label{tab:main-ablation}
   \begin{tabular}{llcrrrrrrr}
     \toprule
     Experiment & Solver & Steps & NFE & mAP & AP50 & AP75 & AP$_S$ & AP$_M$ & AP$_L$ \\
     \midrule
     A0 baseline (Euler 1-step)  & Euler   & 1 & 1 & 0.774 & 0.968 & 0.916 & 0.317 & 0.773 & 0.775 \\
-    \textbf{A1 RF+Heun (KaryoFlow)}   & Heun    & 4 & 7 & \textbf{0.857} & 0.989 & 0.969 & 0.502 & 0.853 & 0.867 \\
-    A2 + Stochastic Coupling ($\epsilon{=}5$)  & Heun    & 4 & 7 & 0.857 & 0.989 & 0.971 & 0.523 & 0.854 & 0.864 \\
+    \textbf{A1 RF+Heun (KaryoFlow)}   & Heun    & 4 & 7 & \textbf{0.856} & 0.989 & 0.969 & 0.502 & 0.853 & 0.867 \\
+    A2 + Stochastic Coupling ($\epsilon{=}5$)  & Heun    & 4 & 7 & 0.858 & 0.989 & 0.971 & 0.523 & 0.854 & 0.864 \\
     \textbf{A3 DPM-Solver++}    & DPM++   & 4 & 4 & \textbf{0.859}{\scriptsize$\pm$.003} & 0.988 & 0.968 & 0.516{\scriptsize$\pm$.012} & 0.856 & 0.890 \\
     \bottomrule
   \end{tabular}
 \end{table*}
 
-The RF paradigm accounts for $+0.078$ \mAP{} ($94\%$ of the $+0.083$ gap),
+The RF paradigm accounts for $+0.077$ \mAP{} ($94\%$ of the $+0.082$ gap),
 while solver/step configuration adds only $+0.005$ ($6\%$). On Dataset~2,
-Stochastic Coupling contributes no measurable \mAP{} gain ($+0.000$,
+Stochastic Coupling contributes no measurable \mAP{} gain ($+0.0001$,
 Wilcoxon $p{=}0.80$) but $4.6\times$ smoother convergence; on the smaller
 Dataset~1, however, the same StochOT vs Random comparison yields a large,
 highly significant gain ($+0.034$, $p<10^{-120}$;
@@ -637,7 +637,7 @@ RTMDet-L (a stronger CSPNeXt-L detector) by only $-0.004$ \mAP{} and the
 multi-scale DINO R50 by $-0.010$ \mAP{} (the latter outside our cross-seed
 variance of $\pm 0.003$), while exceeding Cascade R-CNN, YOLOX-S~\cite{ge2021yolox},
 and DiffusionDet --- with the largest gain against the DDPM-based
-DiffusionDet ($+0.072$ \mAP{}), direct evidence for the RF paradigm's
+DiffusionDet ($+0.076$ \mAP{}), direct evidence for the RF paradigm's
 advantage. Importantly, our method achieves this with $1.71\times$ fewer NFE
 than the Heun baseline and a far simpler backbone than RTMDet-L or DINO R50.
 
@@ -659,8 +659,8 @@ than the Heun baseline and a far simpler backbone than RTMDet-L or DINO R50.
     DINO R50               & ResNet-50     & \textbf{0.869} & 0.991 & 0.977 & 0.553 \\
     RTMDet-L$^\dagger$     & CSPNeXt-L     & 0.863          & 0.991 & 0.974 & 0.540 \\
     \textbf{Ours (A3 DPM++)} & ResNet-50   & 0.859          & 0.988 & 0.968 & 0.516 \\
-    Ours (A2 Heun+StochOT) & ResNet-50    & 0.857          & 0.989 & 0.971 & 0.523 \\
-    LDMDet (Random)        & ResNet-50     & 0.857          & 0.989 & 0.969 & 0.502 \\
+    Ours (A2 Heun+StochOT) & ResNet-50    & 0.858          & 0.989 & 0.971 & 0.523 \\
+    LDMDet (Random)        & ResNet-50     & 0.856          & 0.989 & 0.969 & 0.502 \\
     Cascade R-CNN          & ResNet-50     & 0.854          & 0.987 & 0.972 & 0.525 \\
     YOLOX-S                & CSPDarkNet-S  & 0.796          & 0.987 & 0.944 & 0.452 \\
     DiffusionDet           & ResNet-50     & 0.787          & 0.970 & 0.928 & 0.500 \\
@@ -995,21 +995,19 @@ dataset-dependent (negligible on Dataset~2: $+0.0001$, $p{=}0.80$; large on
 Dataset~1: $+0.034$, $p<10^{-120}$, Table~\ref{tab:stat-tests-coupling}), and a
 $4.6\times$ epoch-std reduction ($0.006 \to 0.0013$) that holds on both. The
 dataset-dependence is consistent with the theory: more data attenuates OT
-collapse and StochOT's marginal benefit. The smoothness benefit has practical
-consequences for checkpoint selection: with Random coupling, EarlyStopping
-may land on a ``lucky'' epoch $0.006$ above the trend that does not generalize
-to the test set; StochOT's $0.0013$ epoch std makes checkpoint selection far
-more reliable.
+collapse and StochOT's marginal benefit. The smoothness benefit aids
+checkpoint selection: Random coupling's EarlyStopping may land on a
+``lucky'' epoch ($0.006$ above trend) that fails on test; StochOT's
+$0.0013$ std is far more reliable.
 
 \subsection{DPM-Solver++ vs Heun: Computational and Small Precision Advantage}
-Since A2 (Heun) and A3 (DPM-Solver++) use identical FM training objectives,
-model weights at each epoch are identical. Yet DPM-Solver++ at matched 4-step
-yields a small but statistically significant \mAP{} improvement over Heun
-($+0.006$ per-image \mAP{}, Wilcoxon $p<10^{-3}$; Table~\ref{tab:stat-tests}),
-so the higher-order solver is slightly \emph{better}, not worse. Combined with
-its NFE reduction, the robust claim is: \emph{DPM-Solver++ achieves slightly
-higher accuracy than Heun at $43\%$ fewer NFE}, refining FlowDet's conclusion
-that higher-order solvers perform worse in detection.
+A2 (Heun) and A3 (DPM-Solver++) share identical FM training, so model
+weights are identical at each epoch. Yet DPM-Solver++ at matched 4-step
+yields a small but significant \mAP{} improvement ($+0.006$ per-image,
+Wilcoxon $p<10^{-3}$; Table~\ref{tab:stat-tests}), so the higher-order
+solver is slightly \emph{better}, not worse. Combined with NFE reduction:
+\emph{DPM-Solver++ achieves slightly higher accuracy than Heun at $43\%$
+fewer NFE}, refining FlowDet's conclusion.
 
 \subsection{IO3 Pruning: Solver-Dependent Effectiveness}
 IO3 pruning effectiveness depends on NFE per step: for Heun (2 NFE/step),
@@ -1020,15 +1018,11 @@ most speedup through NFE reduction, making IO3 less impactful.
 \subsection{Theory Applicability and Limitations}\label{sec:analysis-theory}
 The two-sided bound (Propositions~\ref{prop:ot-gap}--\ref{prop:ot-lower}) is
 tight in chromosome detection ($0.03\%$ gap): well-separated Voronoi cells
-(pairwise distances $> 20$\,px vs $\sigma \sim 1$\,px) make
-$P_{\mathrm{err}} < 10^{-45}$ and $N{=}2$ mini-batch OT reduce to
-nearest-neighbor assignment. The theory does not transfer to high-dimensional
-generation ($d \sim 10^5$, $\Delta H/H \approx 0$, consistent with OT-CFM's
-success) nor to densely overlapping targets. For COCO ($K \sim 7$,
-$\Delta H/H \approx 0.55$) the theory predicts Stochastic Coupling would
-help with smaller magnitude. The $4.6\times$ stability benefit is
-practically meaningful for clinical deployment: it reduces the risk of
-deploying a ``false peak'' checkpoint.
+($> 20$\,px vs $\sigma \sim 1$\,px) make $P_{\mathrm{err}} < 10^{-45}$. The
+theory does not transfer to high-dimensional generation ($d \sim 10^5$,
+$\Delta H/H \approx 0$) nor densely overlapping targets; for COCO ($K \sim 7$,
+$\Delta H/H \approx 0.55$) it predicts smaller-magnitude benefit. The
+$4.6\times$ stability benefit reduces ``false peak'' checkpoint risk.
 
 % ============================================================
 \section{Conclusion}\label{sec:conclusion}
@@ -1054,24 +1048,19 @@ advantage over Heun at matched step count is both computational ($1.71\times$
 fewer NFE) and a small but statistically significant precision gain
 ($+0.006$ per-image \mAP{}, Wilcoxon $p<10^{-3}$), refining FlowDet's
 conclusion that higher-order solvers perform worse in detection.
-We note that standard detectors such as YOLOX-S ($98.5$ FPS) and Cascade
-R-CNN ($48.4$ FPS) are several times faster than our $13.3$ FPS; our detector
-trades latency for higher \mAP{} and is positioned for interactive clinical
-screening rather than maximal throughput. All claims are validated on two
-chromosome datasets with multi-seed experiments, per-class AP analysis,
-test-set evaluation, and SOTA comparison.
+Standard detectors (YOLOX-S $98.5$ FPS, Cascade R-CNN $48.4$ FPS) are
+faster than our $13.3$ FPS; we trade latency for \mAP{} and target
+interactive clinical screening. All claims are validated on two datasets
+with multi-seed experiments, per-class AP, and SOTA comparison.
 
-Beyond chromosome detection, OT Diversity Collapse (severity $\Delta H/H
-\approx 0.69$) applies to any task with low-dimensional prediction space,
-high object density, and small training data; Table~\ref{tab:ot-severity}
-provides an a-priori diagnostic, and validation on a non-chromosome
-high-$K$ low-$d$ benchmark is a natural next step. We acknowledge three
-limitations: (i) empirical validation is confined to chromosome data
-(theory predicts COCO's $K \sim 7$ attenuates the benefit); (ii)
-Stochastic Coupling's \mAP{} gain is dataset-dependent (large on Dataset~1,
-zero on Dataset~2), though the $4.6\times$ smoothness benefit holds on
-both; (iii) the theory rests on well-separated targets, and densely
-overlapping scenes require extending the finite-$N$ analysis.
+OT Diversity Collapse (severity $\Delta H/H \approx 0.69$) generalizes to
+any low-dimensional, high-density, small-data task;
+Table~\ref{tab:ot-severity} provides an a-priori diagnostic.
+Limitations: (i) validation is confined to chromosome data (theory
+predicts COCO's $K \sim 7$ attenuates the benefit); (ii) Stochastic
+Coupling's \mAP{} gain is dataset-dependent, though the $4.6\times$
+smoothness benefit holds on both datasets; (iii) the theory assumes
+well-separated targets.
 
 % ============================================================
 \appendices
