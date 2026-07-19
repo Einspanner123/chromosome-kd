@@ -361,4 +361,26 @@ class WeightSummaryHook(Hook):
                 pass
 
 
+# ──────────────────────────────────────────────
+# AsyncCheckpointHook — 旧配置兼容别名
+# ──────────────────────────────────────────────
+
+from mmengine.hooks import CheckpointHook as _MmEngineCheckpointHook
+
+
+@HOOKS.register_module(force=True)
+class AsyncCheckpointHook(_MmEngineCheckpointHook):
+    """AsyncCheckpointHook — mmengine CheckpointHook 的兼容别名.
+
+    历史背景: 早期配置 (在 ross 上生成) 使用 ``type='AsyncCheckpointHook'`` 异步保存 ckpt,
+    但该实现已从当前代码库移除. 由于推理 (test.py) 仅加载已训练 ckpt, 不写入新 ckpt,
+    将其注册为 mmengine ``CheckpointHook`` 的别名即可让旧配置在推理时正常构建.
+
+    训练场景: 若需复现训练时的异步保存行为, 应恢复原始 AsyncCheckpointHook 实现;
+    本别名仅保证推理路径可用, 训练时退化为同步 CheckpointHook.
+    """
+
+    pass
+
+
 

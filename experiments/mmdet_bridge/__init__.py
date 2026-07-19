@@ -5,6 +5,11 @@
 """
 
 from experiments.mmdet_bridge.detector import LDMDetDetector  # noqa: F401
-from experiments.mmdet_bridge.hooks import CopyProjectHook, PredictionVisHook, WeightSummaryHook  # noqa: F401
+from experiments.mmdet_bridge.hooks import (  # noqa: F401
+    AsyncCheckpointHook,
+    CopyProjectHook,
+    PredictionVisHook,
+    WeightSummaryHook,
+)
 from experiments.mmdet_bridge.registry import register_all  # noqa: F401
 from experiments.mmdet_bridge.setdiff_detector import SetDiffDetector  # noqa: F401

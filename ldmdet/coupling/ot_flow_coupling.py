@@ -116,3 +116,38 @@ class OTFlowCoupling(CouplingStrategy):
     def compute_coupling_cost(self, x_start: Tensor, x_noise: Tensor) -> Tensor:
         """计算代价矩阵 (供诊断使用)."""
         return self._ot.compute_coupling_cost(x_start, x_noise)
+
+
+@register_coupling('hard_ot')
+class HardOTCoupling(OTFlowCoupling):
+    """Hard OT 耦合策略 — OTFlowCoupling 在 epsilon=0 + argmax 模式下的特例.
+
+    确定性最近邻匹配: 每个 proposal 配对代价最小的 GT.
+    当 epsilon→0 时 Sinkhorn 退化为 hard OT, 但 epsilon=0 会导致 Sinkhorn 数值不稳定,
+    因此实现上仍走 Sinkhorn 数值路径, 仅把默认 epsilon 设为极小值 (1e-3).
+
+    Args:
+        epsilon: Sinkhorn 熵正则化 (默认 1e-3, 模拟 hard OT)
+        num_iters: Sinkhorn 迭代次数
+        coupling_mode: 固定为 'argmax' (传入其它值会被忽略并发出警告)
+    """
+
+    def __init__(
+        self,
+        epsilon: float = 1e-3,
+        num_iters: int = 10,
+        coupling_mode: str = 'argmax',
+    ):
+        if coupling_mode != 'argmax':
+            import warnings
+            warnings.warn(
+                f"HardOTCoupling only supports coupling_mode='argmax', "
+                f"got {coupling_mode!r}; ignoring and using 'argmax'.",
+                stacklevel=2,
+            )
+            coupling_mode = 'argmax'
+        super().__init__(
+            epsilon=epsilon,
+            num_iters=num_iters,
+            coupling_mode=coupling_mode,
+        )
