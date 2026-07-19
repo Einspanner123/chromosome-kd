@@ -110,52 +110,116 @@ def transform_bbox(bbox, crop_region, target_size=PATCH_SIZE):
 
 def draw_boxes_on_patch(image_pil, bboxes, labels, color, show_label=True):
     draw = ImageDraw.Draw(image_pil)
+    img_w, img_h = image_pil.size
+    
+    min_font_size = max(int(PATCH_SIZE * 0.035), 14)
     
     try:
-        font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 13)
-        font_medium = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 14)
+        font_default = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", min_font_size)
     except:
-        font_small = ImageFont.load_default()
-        font_medium = font_small
+        font_default = ImageFont.load_default()
     
     placed_labels = []
+    min_gap = max(4, int(PATCH_SIZE * 0.01))
     
     for idx, (bbox, label) in enumerate(zip(bboxes, labels)):
         x, y, w, h = bbox
         
-        draw.rectangle([x, y, x + w, y + h], outline=color, width=3)
+        box_font_size = max(int(min(w, h) * 0.35), min_font_size)
+        try:
+            box_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", box_font_size)
+        except:
+            box_font = font_default
+        
+        draw.rectangle([x, y, x + w, y + h], outline=color, width=max(2, int(PATCH_SIZE * 0.008)))
         
         if not show_label or not label:
             continue
         
-        is_large_box = w > 50 and h > 40
+        is_large_box = w > PATCH_SIZE * 0.12 and h > PATCH_SIZE * 0.1
         is_priority = idx < 2
         
-        text_bbox = draw.textbbox((0, 0), label, font=font_small)
+        text_bbox = draw.textbbox((0, 0), label, font=box_font)
         text_w = text_bbox[2] - text_bbox[0]
         text_h = text_bbox[3] - text_bbox[1]
         
+        label_padding = max(3, int(PATCH_SIZE * 0.008))
+        border_width = max(1, int(PATCH_SIZE * 0.004))
+        
         if is_large_box:
-            lx = x + (w - text_w) / 2
-            ly = y + (h - text_h) / 2 - 2
+            avail_w = w - 2 * label_padding
+            avail_h = h - 2 * label_padding
             
-            draw.rectangle(
-                [lx - 2, ly, lx + text_w + 2, ly + text_h + 4],
-                fill=color
-            )
-            draw.text((lx, ly + 2), label, fill='white', font=font_small)
-            placed_labels.append((lx - 2, ly, lx + text_w + 2, ly + text_h + 4))
+            if text_w > avail_w:
+                scale = avail_w / text_w
+                new_font_size = max(int(box_font_size * scale), 10)
+                try:
+                    box_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", new_font_size)
+                    text_bbox = draw.textbbox((0, 0), label, font=box_font)
+                    text_w = text_bbox[2] - text_bbox[0]
+                    text_h = text_bbox[3] - text_bbox[1]
+                except:
+                    pass
+            
+            lx = x + (w - text_w) / 2
+            ly = y + (h - text_h) / 2
+            
+            label_rect = [lx - label_padding, ly - label_padding, 
+                         lx + text_w + label_padding, ly + text_h + label_padding]
+            
+            label_rect[0] = max(0, label_rect[0])
+            label_rect[1] = max(0, label_rect[1])
+            label_rect[2] = min(img_w, label_rect[2])
+            label_rect[3] = min(img_h, label_rect[3])
+            
+            draw.rectangle(label_rect, fill=color)
+            draw.text((lx, ly), label, fill='white', font=box_font)
+            placed_labels.append(label_rect)
         else:
-            positions = [
-                (x + (w - text_w) / 2, y - text_h - 4, 'above'),
-                (x + (w - text_w) / 2, y + h + 2, 'below'),
-                (x + w + 2, y + (h - text_h) / 2, 'right'),
-                (x - text_w - 4, y + (h - text_h) / 2, 'left'),
-            ]
+            margin = max(4, int(PATCH_SIZE * 0.01))
+            
+            positions = []
+            
+            above_y = y - text_h - margin - label_padding * 2
+            above_x = x + (w - text_w) / 2
+            above_x = max(margin, min(img_w - text_w - margin, above_x))
+            if above_y >= margin:
+                positions.append((above_x, above_y, 'above'))
+            
+            below_y = y + h + margin
+            below_x = x + (w - text_w) / 2
+            below_x = max(margin, min(img_w - text_w - margin, below_x))
+            if below_y + text_h + label_padding * 2 <= img_h - margin:
+                positions.append((below_x, below_y, 'below'))
+            
+            right_x = x + w + margin
+            right_y = y + (h - text_h) / 2 - label_padding
+            if right_x + text_w + label_padding * 2 <= img_w - margin:
+                positions.append((right_x, right_y, 'right'))
+            
+            left_x = x - text_w - margin - label_padding * 2
+            left_y = y + (h - text_h) / 2 - label_padding
+            if left_x >= margin:
+                positions.append((left_x, left_y, 'left'))
+            
+            if not positions:
+                lx = x + (w - text_w) / 2
+                ly = y + h + margin
+                lx = max(margin, min(img_w - text_w - margin, lx))
+                ly = max(margin, min(img_h - text_h - margin, ly))
+                positions.append((lx, ly, 'fallback'))
             
             placed = False
             for lx, ly, pos_type in positions:
-                label_rect = [lx - 2, ly, lx + text_w + 2, ly + text_h + 4]
+                label_rect = [lx - label_padding - min_gap, ly - min_gap, 
+                             lx + text_w + label_padding + min_gap, ly + text_h + label_padding + min_gap]
+                
+                label_rect[0] = max(0, label_rect[0])
+                label_rect[1] = max(0, label_rect[1])
+                label_rect[2] = min(img_w, label_rect[2])
+                label_rect[3] = min(img_h, label_rect[3])
+                
+                display_rect = [lx - label_padding, ly, lx + text_w + label_padding, ly + text_h + label_padding * 2]
                 
                 overlap = False
                 for placed_label in placed_labels:
@@ -165,22 +229,11 @@ def draw_boxes_on_patch(image_pil, bboxes, labels, color, show_label=True):
                         break
                 
                 if not overlap or is_priority:
-                    if is_priority and overlap:
-                        pass
-                    
-                    draw.rectangle(label_rect, fill='white', outline=color, width=1)
-                    draw.text((lx, ly + 1), label, fill=color, font=font_small)
+                    draw.rectangle(display_rect, fill='white', outline=color, width=border_width)
+                    draw.text((lx, ly + label_padding), label, fill=color, font=box_font)
                     placed_labels.append(label_rect)
                     placed = True
                     break
-            
-            if not placed and is_priority:
-                lx = x + (w - text_w) / 2
-                ly = y - text_h - 4
-                draw.rectangle([lx - 2, ly, lx + text_w + 2, ly + text_h + 4], 
-                             fill='white', outline=color, width=1)
-                draw.text((lx, ly + 1), label, fill=color, font=font_small)
-                placed_labels.append([lx - 2, ly, lx + text_w + 2, ly + text_h + 4])
     
     return image_pil
 
@@ -188,9 +241,12 @@ def draw_boxes_on_patch(image_pil, bboxes, labels, color, show_label=True):
 def draw_missed_badge(image_pil, color, case_num=None):
     draw = ImageDraw.Draw(image_pil)
     
+    large_font_size = max(int(PATCH_SIZE * 0.08), 20)
+    small_font_size = max(int(PATCH_SIZE * 0.04), 12)
+    
     try:
-        font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 22)
-        font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 14)
+        font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", large_font_size)
+        font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", small_font_size)
     except:
         font_large = ImageFont.load_default()
         font_small = ImageFont.load_default()
@@ -204,7 +260,7 @@ def draw_missed_badge(image_pil, color, case_num=None):
         text_w = text_bbox[2] - text_bbox[0]
         text_h = text_bbox[3] - text_bbox[1]
         
-        pad = 8
+        pad = max(4, int(PATCH_SIZE * 0.02))
         draw.rectangle(
             [cx - text_w // 2 - pad, cy - text_h // 2 - pad,
              cx + text_w // 2 + pad, cy + text_h // 2 + pad],
@@ -217,11 +273,11 @@ def draw_missed_badge(image_pil, color, case_num=None):
         text_w = text_bbox[2] - text_bbox[0]
         text_h = text_bbox[3] - text_bbox[1]
         
-        pad = 8
+        pad = max(4, int(PATCH_SIZE * 0.02))
         draw.rectangle(
             [cx - text_w // 2 - pad, cy - text_h // 2 - pad,
              cx + text_w // 2 + pad, cy + text_h // 2 + pad],
-            fill='white', outline=color, width=3
+            fill='white', outline=color, width=max(2, int(PATCH_SIZE * 0.006))
         )
         draw.text((cx - text_w // 2, cy - text_h // 2), text, fill=color, font=font_small)
     
@@ -231,8 +287,9 @@ def draw_missed_badge(image_pil, color, case_num=None):
 def draw_case_number(image_pil, case_num):
     draw = ImageDraw.Draw(image_pil)
     
+    font_size = max(int(PATCH_SIZE * 0.05), 16)
     try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
     except:
         font = ImageFont.load_default()
     
@@ -241,7 +298,7 @@ def draw_case_number(image_pil, case_num):
     text_w = text_bbox[2] - text_bbox[0]
     text_h = text_bbox[3] - text_bbox[1]
     
-    pad = 4
+    pad = max(2, int(PATCH_SIZE * 0.01))
     draw.rectangle(
         [pad, pad, pad + text_w + pad * 2, pad + text_h + pad * 2],
         fill='white', outline='#333333', width=1
