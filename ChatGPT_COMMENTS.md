@@ -1,578 +1,834 @@
-如果我是**AAAI / ICCV / NeurIPS 的 Senior PC 或 Area Chair**，并且参考近 **2023–2026 年 Diffusion、Flow Matching、Medical AI、Detection** 论文的真实 Reviewer 风格，我会给出如下评审意见。
+我认真阅读了这篇论文（截至 Discussion 与 Conclusion），整体评价是：
 
-你的 V5 已经不是普通论文的问题，而是已经进入**"Reviewer 会不会相信你的故事（story）"**的问题。
+> **这已经不是一篇普通的工程论文，而是一篇明显想冲 AAAI/ICLR/CVPR 的"理论+方法+实验"论文。**
+>
+> 但是，以目前版本来看，**最大的风险已经不再是实验，而是"Reviewer 是否相信你的理论以及你的故事是否闭环"。**
 
-下面我按照真正 Review 的格式来写。
-
----
-
-# Reviewer #1 (Theory-oriented, Score 8/10 Weak Accept)
-
-## Summary
-
-This paper applies Rectified Flow to chromosome detection and investigates three aspects:
-
-1. RF training paradigm
-2. OT Diversity Collapse and stochastic coupling
-3. DPM-Solver++ inference
-
-The paper is generally well organized and substantially more mature than previous versions. Experimental validation is significantly stronger than existing RF detection papers.
-
-The theoretical analysis of OT coupling is novel.
-
-However, several theoretical claims are still stronger than what the current evidence supports.
+如果按照 AAAI Reviewer 的标准（Novelty / Technical Quality / Evidence / Clarity / Impact）来评审，我会给出下面的意见。
 
 ---
 
-## Strengths
+# Overall Recommendation
 
-### 1. Story非常完整
+**评分：7.5~8.0 /10（Weak Accept ~ Borderline Accept）**
 
-以前很多Diffusion Detection论文都是：
+如果补齐几个关键实验以及进一步加强理论，可以进入：
 
-提出一个module
+> **8.5~9.0（Strong Accept）**
 
-+0.5 AP
+如果理论不能进一步加强，则容易被Reviewer认为：
 
-结束。
+> "Interesting engineering + overclaimed theory"
 
-这篇已经形成完整链条：
-
-Problem
-
-↓
-
-RF
-
-↓
-
-OT collapse
-
-↓
-
-Stochastic Coupling
-
-↓
-
-Few-step Solver
-
-↓
-
-Clinical deployment
-
-这是AAAI比较喜欢的叙事。
+这也是目前最大的Reject风险。
 
 ---
 
-### 2. 实验设计非常成熟
+# 一、总体评价
 
-Reviewer最喜欢看到：
+论文最大的优点不是RF。
 
-> "作者知道哪些变量需要控制。"
+而是：
 
-例如：
+> **你实际上提出了一个新的问题（OT Diversity Collapse）。**
 
-Solver × Step disentanglement
+真正Novelty排序应该是：
 
-这是近几年ICCV reviewer一直强调的。
+> ① OT Diversity Collapse理论
 
-很多论文会把
+>
 
-RF
+> ② Stochastic Coupling
 
-*
+>
 
-solver
+> ③ RF用于Detection
 
-*
+>
 
-step
+> ④ DPM Solver分析
 
-*
+目前论文虽然这么写了，
 
-scheduler
+但是Reviewer读下来会感觉：
 
-一起改。
+"RF才是主角。"
 
-Reviewer直接一句：
+事实上不是。
 
-> "The gain cannot be attributed."
+真正有可能发AAAI的其实是：
 
-你的V5已经主动解决了。
+> OT Diversity Collapse
 
-这是巨大提升。
-
----
-
-### 3. Statistical honesty
-
-这是我最喜欢的一点。
-
-你开始写：
-
-Strong claim
-
-Moderate claim
-
-Weak claim
-
-这其实就是Reviewer最希望作者做的。
-
-例如：
-
-StochOT
-
-+0.002
-
-你没有硬吹。
-
-Reviewer会非常舒服。
+因为这是别人没说过的问题。
 
 ---
 
-### 4. Clinical motivation真实
+# 二、Novelty评价
 
-不像很多Medical AI论文：
+AAAI Reviewer通常问三个问题：
 
-"Our method can help doctors."
+> Is it new?
 
-结束。
+>
 
-这里已经解释：
+> Is it technically interesting?
 
-46 chromosomes
+>
 
-24 classes
-
-Y chromosome
-
-C group
-
-small object
-
-clinical workflow
-
-比较真实。
+> Does it matter?
 
 ---
 
-# Weaknesses
+## 第一部分 RF
 
-下面开始是真正Reviewer会攻击的地方。
+Novelty：
 
-这些也是目前最大的Reject风险。
+★★☆☆☆
 
----
+几乎没有。
 
-# Major Concern 1
+Reviewer一定知道：
 
-理论贡献仍然过大。
+FlowDet
 
-Reviewer会说：
-
-> The paper claims the first theoretical analysis of OT Diversity Collapse.
-
-这是危险的。
-
-为什么？
-
-因为你实际上证明的是：
-
-一个entropy upper bound。
-
-不是：
-
-OT collapse本身。
-
-Reviewer容易认为：
-
-> "This is not a theory of OT collapse."
-
-而只是：
-
-某个特殊假设下的information bound。
-
-所以：
-
-现在Abstract里面：
-
-> first theoretical analysis
-
-建议改成
-
-> first theoretical characterization
-
-或者
-
-> first theoretical study
-
-否则Reviewer容易抓住。
-
----
-
-# Major Concern 2
-
-理论假设很多。
-
-Reviewer一定会圈：
-
-N→∞
-
-Voronoi
-
-Gaussian
-
-Well separated
-
-High noise
-
-几乎所有Lemma都依赖这些。
-
-于是Reviewer一句：
-
-> The theoretical assumptions appear rather restrictive.
-
-这是百分百会出现。
-
-目前虽然已经写Remark，
-
-但是Reviewer仍会问：
-
-> Does this apply beyond chromosome detection?
-
-所以建议Discussion专门增加：
-
-Theory applicability
-
-Theory limitation
-
-Future work
-
-不要放Remark。
-
-要放Discussion。
-
----
-
-# Major Concern 3
-
-理论与实验仍然没有真正闭环。
-
-Reviewer现在会问：
-
-既然理论预测：
-
-Entropy
-
-↓
-
-Stability
-
-为什么实验没有真正测Entropy？
-
-目前实验测的是：
-
-epoch std
-
-不是
-
-Entropy。
-
-Reviewer会说：
-
-> The theoretical quantity is never directly measured.
-
-这个意见近几年AAAI特别喜欢提。
-
-建议：
-
-增加一个实验：
-
-Random
-
-↓
-
-Entropy
-
-↓
-
-Hard OT
-
-↓
-
-Entropy
-
-↓
-
-Stochastic
-
-↓
-
-Entropy
-
-即使只是：
-
-Transport matrix entropy
-
-也可以。
-
-否则：
-
-Theory和Experiment联系还是弱。
-
----
-
-# Major Concern 4
-
-Stochastic Coupling贡献偏弱。
-
-Reviewer会说：
-
-+0.002 AP
-
-几乎没有提升。
-
-虽然你强调：
-
-稳定性。
-
-但是：
-
-目前：
-
-稳定性只有：
-
-epoch std。
-
-Reviewer可能继续追问：
-
-Early stopping
-
-Variance
-
-Convergence speed
-
-Need fewer epochs?
-
-Training failure rate?
-
-这些没有。
-
-所以：
-
-目前Stochastic更像：
-
-Engineering tweak。
-
-不是AAAI理论贡献。
-
----
-
-# Major Concern 5
-
-Novelty boundary仍然需要说明。
-
-Reviewer会问：
-
-Rectified Flow
-
-已有。
+DeFloMat
 
 Flow Matching
 
-已有。
+Rectified Flow
 
-Sinkhorn
+所以：
 
-已有。
+> RF做Detection
 
-DPM++
+不能作为Novelty。
 
-已有。
+你现在已经意识到了，所以整篇都在强调：
 
-那么：
+> RF Paradigm
 
-Novelty在哪里？
+而不是
 
-现在论文说：
+> RF。
 
-Theory
-
-*
-
-Detection adaptation
-
-*
-
-Clinical application
-
-Reviewer一般接受。
-
-但是最好Introduction最后增加一句：
-
-Unlike FlowDet...
-
-Unlike DeFloMat...
-
-Unlike OT-CFM...
-
-强调真正Novelty。
+这是正确的。
 
 ---
 
-# Minor Issues
+## 第二部分 Solver
 
-Reviewer还会提：
+Novelty：
 
-## DPM++
+★★☆☆☆
 
-既然证明：
+也是一般。
 
-没有accuracy gain。
+因为：
 
-为什么作为Contribution？
+DPM Solver++
 
-最好改：
+不是你提出的。
 
-Engineering optimization。
+Heun
 
-否则Reviewer会说：
+也不是。
 
-> This is not a scientific contribution.
+你的Novelty只有：
 
----
+> Solver disentanglement
 
-## AdaLN
+这个比较新。
 
-Appendix证明：
-
-没有贡献。
-
-正文还写Contribution。
-
-Reviewer会疑惑。
-
-建议正文弱化。
+但是Reviewer不会给很高评价。
 
 ---
 
-## FPS
+## 第三部分 OT理论
 
-Reviewer会说：
+这是全篇最强Novelty。
 
-YOLO还是快很多。
+★★★★☆
 
-Clinical deployment
+如果Reviewer相信的话。
 
-是不是过度宣传？
+尤其：
 
-建议：
+Proposition
 
-Interactive
+Lemma
 
-不要写：
+Entropy Bound
 
-Real-time。
+Voronoi
 
----
-
-# Reviewer #2 (Detection Expert)
-
-这个Reviewer一般最难。
-
-他不会看理论。
-
-他看Detection。
-
-他的意见可能是：
-
----
-
-The detector itself is largely inherited from DiffusionDet.
-
-Most contributions happen in the training paradigm.
-
-Therefore the paper resembles an empirical study plus theoretical analysis rather than a fundamentally new detection framework.
-
----
-
-这是Detection Reviewer最可能写的话。
+这些东西写得已经很像理论paper。
 
 但是：
 
-AAAI可以接受。
+Reviewer会继续问：
 
-ICCV可能会扣Novelty。
+> Why should I believe this?
+
+这就是目前最大风险。
 
 ---
 
-# Reviewer #3 (Medical AI)
+# 三、理论部分评审
 
-他一般喜欢。
+这里我会像Reviewer一样逐条看。
+
+---
+
+## Proposition
+
+你提出：
+
+ΔH≤logK
+
+这是合理的。
+
+证明也没问题。
+
+但是Reviewer不会卡证明。
+
+Reviewer真正会卡：
+
+> 为什么这个理论解释了训练稳定性？
+
+这是目前没有闭环的地方。
+
+你的逻辑是：
+
+OT
+
+↓
+
+Entropy下降
+
+↓
+
+Coupling Diversity下降
+
+↓
+
+Optimization更困难
+
+↓
+
+Training Oscillation增加
+
+↓
+
+mAP震荡
+
+这里只有：
+
+第一步
+
+第二步
+
+证明了。
+
+后面没有。
+
+所以Reviewer会说：
+
+> The connection between entropy reduction and optimization stability remains largely empirical.
+
+这句话几乎一定会出现。
+
+---
+
+建议增加：
+
+Optimization分析。
+
+例如：
+
+Variance of Gradient
+
+Gradient Diversity
+
+Gradient Covariance
+
+甚至：
+
+Fisher Information
+
+任何一个都可以。
+
+Reviewer马上就会信很多。
+
+---
+
+# 四、理论最大的缺口
+
+其实不是Proof。
+
+而是：
+
+> Why entropy collapse causes optimization instability?
+
+目前：
+
+没有任何理论。
+
+只有实验。
+
+所以Reviewer会觉得：
+
+理论解释实验。
+
+而不是：
+
+理论预测实验。
+
+这是两个等级。
+
+---
+
+建议：
+
+增加一个Section：
+
+```
+Entropy Collapse
+↓
+
+Gradient Diversity Reduction
+
+↓
+
+Optimization Noise
+
+↓
+
+Training Oscillation
+```
+
+哪怕只是：
+
+Proposition
+
+或者
+
+Corollary
+
+Reviewer都会觉得：
+
+理论完整了。
+
+---
+
+# 五、实验部分
+
+实验其实已经很多。
+
+但是：
+
+Reviewer还会想看几个东西。
+
+---
+
+## （1）跨数据集验证
+
+目前：
+
+只有Chromosome。
+
+Reviewer一定问：
+
+> Does this generalize?
+
+因为：
+
+你理论一直说：
+
+Low-dimensional detection.
+
+那：
+
+为什么不用：
+
+COCO
+
+CrowdHuman
+
+WiderFace
+
+VisDrone
+
+DOTA
+
+哪怕一个。
+
+哪怕只是：
+
+Stochastic Coupling
+
+也足够。
+
+否则：
+
+Reviewer容易说：
+
+> This may only work for chromosome detection.
+
+这是非常危险的。
+
+---
+
+## （2）Synthetic Experiment
+
+我其实非常建议。
 
 原因：
 
-终于不是：
+理论就是：
 
-拿个YOLO
+Entropy。
 
-换个Backbone。
+那最好的验证不是Detection。
 
-而是真的解释：
+而是：
 
-为什么Y难。
+Toy Example。
 
-为什么C组难。
+例如：
 
-为什么Small AP下降。
+二维。
 
-这部分是Medical AI Reviewer喜欢的。
+不同K。
+
+不同dimension。
+
+画：
+
+Entropy
+
+↓
+
+Training Curve
+
+↓
+
+Gradient Variance
+
+Reviewer会特别喜欢。
+
+因为：
+
+理论终于"看见了"。
 
 ---
 
-# Area Chair意见
+## （3）Dimension Ablation
 
-如果我是AC。
+你一直说：
 
-我会写：
+d=4
 
-This paper is considerably stronger than earlier diffusion-based chromosome detection papers.
+所以：
 
-The experimental methodology is sound.
+为什么不做：
 
-The statistical presentation is honest.
+```
+d=2
 
-The theory is interesting although somewhat idealized.
+d=4
 
-The main remaining concern is whether the theoretical analysis is sufficiently general to justify the claimed novelty.
+d=8
 
-If the authors moderate several claims and strengthen the discussion of limitations, I would lean toward acceptance.
+d=16
+
+```
+
+Entropy
+
+Stability
+
+全部画出来。
+
+Reviewer：
+
+直接信。
 
 ---
 
-# 对照近几年AAAI真实Review，我预计会出现的意见
+## （4）Object Number K
 
-| Reviewer意见          | 出现概率  |
-| ------------------- | ----- |
-| 理论假设太强              | ⭐⭐⭐⭐⭐ |
-| Novelty需要进一步强调      | ⭐⭐⭐⭐⭐ |
-| Theory没有直接验证Entropy | ⭐⭐⭐⭐⭐ |
-| StochOT提升较小         | ⭐⭐⭐⭐☆ |
-| DPM++只是Engineering  | ⭐⭐⭐⭐☆ |
-| 实验设计很好              | ⭐⭐⭐⭐⭐ |
-| Ablation充分          | ⭐⭐⭐⭐⭐ |
-| Story清晰             | ⭐⭐⭐⭐⭐ |
-| 医学应用真实              | ⭐⭐⭐⭐☆ |
-| 写作质量高               | ⭐⭐⭐⭐⭐ |
+你理论：
 
-## 综合专家意见（按AAAI 2026标准）
+logK
 
-相比你之前的 V3/V4，V5 最大的提升不是 mAP，而是**评审逻辑**：每个主要贡献都尽量配有对应的问题、理论或消融验证，论文整体的叙事已经接近成熟投稿水平。
+为什么：
 
-不过，如果以近几年 AAAI/ICCV 的评审标准来看，**最大的剩余风险已经不在实验，而在理论定位**：
+没有：
 
-1. 不要把理论贡献描述得超过证据支持的范围（例如将 "first theoretical analysis" 调整为更克制的表述）。
-2. 增加一个直接连接理论与实验的验证（例如测量 coupling entropy 或 transport entropy），让理论预测与实验指标形成闭环。
-3. 将 DPM-Solver++ 和 AdaLN 的贡献定位得更准确，避免 Reviewer 认为存在“包装贡献”的情况。
+K=5
 
-如果这些问题得到修正，我认为这篇论文会明显比前几个版本更符合 AAAI 对**完整性、可信度和论证严谨性**的要求。
+K=10
+
+K=20
+
+K=50
+
+实验？
+
+Reviewer一定想看。
+
+这是理论最自然的实验。
+
+---
+
+## （5）General Detection
+
+哪怕：
+
+VOC
+
+COCO mini
+
+只做：
+
+Stochastic Coupling
+
+Reviewer都会舒服很多。
+
+---
+
+# 六、实验说服力
+
+目前：
+
+RF
+
+实验很多。
+
+OT
+
+实验偏少。
+
+实际上应该反过来。
+
+因为：
+
+RF大家知道。
+
+OT没人知道。
+
+所以：
+
+OT实验应该更多。
+
+---
+
+建议增加：
+
+Entropy变化
+
+↓
+
+Gradient变化
+
+↓
+
+Loss Landscape
+
+↓
+
+Training Stability
+
+↓
+
+最终mAP
+
+形成：
+
+完整故事。
+
+---
+
+# 七、写作评价
+
+其实写得很好。
+
+明显比很多AAAI论文成熟。
+
+尤其：
+
+Contribution
+
+Novelty Boundary
+
+Discussion
+
+这些地方。
+
+但是：
+
+有一个问题：
+
+## 太强调自己
+
+例如：
+
+第一理论
+
+first systematic
+
+first characterization
+
+dominant contribution
+
+94%
+
+Reviewer容易产生逆反心理。
+
+建议：
+
+降低一点语气。
+
+例如：
+
+Instead of：
+
+> We provide the first theoretical characterization.
+
+可以：
+
+> We provide a theoretical perspective.
+
+或者：
+
+> To our knowledge...
+
+AAAI更喜欢这种。
+
+---
+
+# 八、Reviewer可能提出的问题
+
+我模拟几个Reviewer意见。
+
+---
+
+## Reviewer A（偏理论）
+
+> The entropy analysis is interesting.
+
+>
+
+> However the connection between entropy reduction and optimization stability remains heuristic.
+
+>
+
+> The paper would benefit from theoretical analysis on optimization dynamics.
+
+---
+
+## Reviewer B（偏实验）
+
+> Only chromosome datasets are evaluated.
+
+>
+
+> It remains unclear whether the proposed coupling generalizes to generic detection tasks.
+
+---
+
+## Reviewer C（偏CV）
+
+> Most accuracy gain comes from RF.
+
+>
+
+> The stochastic coupling contributes only 0.2% mAP.
+
+>
+
+> More evidence is needed that the stabilization is practically important.
+
+---
+
+## Reviewer D（比较严格）
+
+> The theory explains entropy reduction,
+
+>
+
+> but not why entropy reduction improves optimization.
+
+>
+
+> This weakens the theoretical contribution.
+
+---
+
+# 九、我认为最值得补充的实验（按优先级排序）
+
+## 第一优先级（必须补）
+
+⭐⭐⭐⭐⭐
+
+**Gradient Stability Analysis**
+
+例如：
+
+Gradient Norm
+
+Gradient Variance
+
+Gradient Cosine
+
+证明：
+
+Entropy↓
+
+↓
+
+Gradient Diversity↓
+
+↓
+
+Training稳定
+
+这是Reviewer最想看。
+
+---
+
+## 第二优先级（必须补）
+
+⭐⭐⭐⭐⭐
+
+**Toy Experiment**
+
+二维。
+
+Entropy。
+
+Voronoi。
+
+训练曲线。
+
+全部画出来。
+
+Reviewer非常容易接受。
+
+---
+
+## 第三优先级（推荐）
+
+⭐⭐⭐⭐
+
+Dimension Ablation
+
+```
+d=2
+
+4
+
+8
+
+16
+
+```
+
+验证：
+
+理论。
+
+---
+
+## 第四优先级
+
+⭐⭐⭐⭐
+
+K Ablation
+
+```
+K=5
+
+10
+
+20
+
+40
+
+```
+
+验证：
+
+logK。
+
+---
+
+## 第五优先级
+
+⭐⭐⭐
+
+COCO
+
+CrowdHuman
+
+VisDrone
+
+哪怕一个。
+
+不用很多。
+
+---
+
+# 十、理论最值得继续深挖的方向（我认为这是论文真正可以从AAAI提升到ICLR/CVPR Oral的关键）
+
+目前你的理论停留在：
+
+> **Entropy Geometry（信息论层面）**
+
+这是第一层。
+
+如果继续深入，我建议沿着下面的链条扩展：
+
+**OT Coupling → Entropy Collapse → Gradient Diversity Collapse → Optimization Landscape → Generalization**
+
+也就是说，把目前的信息论分析推进到优化理论分析。
+
+具体可以考虑：
+
+1. **Gradient Variance Bound**
+
+   * 推导不同Coupling下梯度方差的上界；
+   * 证明Hard OT导致梯度相关性增加、随机性下降。
+
+2. **Optimization Dynamics**
+
+   * 分析Entropy与Loss Surface Sharpness之间的关系；
+   * 或证明Stochastic Coupling相当于一种优化正则化。
+
+3. **Information Bottleneck视角**
+
+   * 将Coupling看作信息传输过程；
+   * 分析OT如何降低Coupling信息熵，从而降低训练样本多样性。
+
+4. **有限样本（Finite-sample）理论**
+
+   * 当前理论依赖于 (N\rightarrow\infty) 和Voronoi近似；
+   * 增加Finite-(N)误差界，会显著增强理论可信度。
+
+5. **推广到一般Structured Prediction**
+
+   * 不仅讨论Bounding Box（(d=4)），还分析Keypoint、Pose、Tracking等低维结构预测任务；
+   * 将理论从"染色体检测"提升为"低维结构预测中的OT耦合理论"，影响力会明显提升。
+
+---
+
+# 最终评审意见
+
+如果我是AAAI Reviewer，我会写下如下总结：
+
+> **这是一篇具有较强创新性的论文。论文最重要的贡献并非RF本身，而是首次提出并分析了低维检测空间中的OT Diversity Collapse现象，并提出Stochastic Coupling作为稳定训练的方法。实验较为充分，论文组织清晰，理论分析具有一定深度。**
+>
+> **目前最大的不足在于理论闭环尚未完全建立：论文证明了OT导致Entropy下降，但尚未从优化理论角度严格解释Entropy Collapse如何导致训练不稳定；此外，实验主要局限于染色体检测，缺少跨数据集验证，因此理论的普适性仍需进一步支撑。**
+>
+> **如果补充梯度稳定性分析、Toy理论验证实验，以及至少一个非染色体检测数据集验证，该论文将具有更强的说服力，其理论贡献也会更加完整，有望达到AAAI强接收甚至更高水平。**
