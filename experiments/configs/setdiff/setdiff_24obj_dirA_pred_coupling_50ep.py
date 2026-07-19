@@ -33,7 +33,10 @@
 
 继承 setdiff_24obj.py, 覆盖:
   - max_epoch: 150 → 50
-  - param_scheduler: warmup 1ep (start_factor=0.1) + cosine 49ep
+  - param_scheduler: warmup 5ep (start_factor=0.001) + cosine 45ep
+    (对齐 LDMDet ldmdet_rf_heun_shifted_bs2.py, 修复 warmup 1ep 的
+    scheduler 链 bug: LinearLR end=1 与 CosineAnnealingLR begin=1 重叠
+    导致 cosine 错误用 warmup 起始值 5e-6 作为 base_lr, 实际 lr 低 10 倍)
   - EarlyStopping: patience 30 → 15
   - bbox_head: coupling_source='pred_init' (方向 A 核心配置)
   - SwanLab experiment_name: setdiff_dirA_pred_coupling_50ep
@@ -45,14 +48,18 @@ _base_ = ['./setdiff_24obj.py']
 max_epoch = 50
 train_cfg = dict(max_epochs=max_epoch, val_interval=1)
 
-# 学习率调度: warmup 1ep (start_factor=0.1) + cosine 49ep
+# 学习率调度: warmup 5ep (start_factor=0.001) + cosine 45ep
+# 修复 scheduler 链 bug (2026-07-19): warmup 1ep 时 LinearLR end=1 与
+# CosineAnnealingLR begin=1 重叠, cosine 错误用 warmup 起始值 5e-6 作为
+# base_lr, 实际 lr 低 10 倍 (4.88e-6 vs 预期 4.4e-5). 对齐 LDMDet
+# ldmdet_rf_heun_shifted_bs2.py 的 warmup 5ep 配置 (已验证 lr 正确过渡到 5e-5).
 param_scheduler = [
-    dict(type='LinearLR', start_factor=0.1, by_epoch=True, begin=0, end=1),
+    dict(type='LinearLR', start_factor=0.001, by_epoch=True, begin=0, end=5),
     dict(
         type='CosineAnnealingLR',
         T_max=max_epoch,
         eta_min=0,
-        begin=1,
+        begin=5,
         end=max_epoch,
         by_epoch=True,
     ),
@@ -96,7 +103,7 @@ vis_backends = [
             description=(
                 'SetDiff 方向 A | coupling用pred_boxes匹配 (DS路径A) | '
                 '保留joint state+理论区分点 | 2次encoder forward | '
-                '50ep warmup1ep | GPU0'
+                '50ep warmup5ep (修复scheduler bug) | GPU0'
             ),
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
