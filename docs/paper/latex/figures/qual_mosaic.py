@@ -24,7 +24,7 @@ JEPG_DIR = DATA_ROOT / "24_chromosomes_object" / "JEPG"
 ANN_FILE = DATA_ROOT / "24_chromosomes_object" / "coco" / "valid" / "_annotations.coco.json"
 SOTA_FILE = HERE.parent.parent.parent.parent / "experiments" / "analysis" / "baseline_vs_sota_cache" / "24obj_SOTA_seed42_preds.json"
 
-PATCH_SIZE = 300
+PATCH_SIZE = 400
 GRID_SIZE = 3
 
 CAT_SHORT = {1:"A1",2:"A2",3:"A3",4:"B4",5:"B5",6:"C6",7:"C7",8:"C8",9:"C9",
@@ -112,8 +112,8 @@ def draw_boxes_on_patch(image_pil, bboxes, labels, color, show_label=True):
     draw = ImageDraw.Draw(image_pil)
     
     try:
-        font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 9)
-        font_medium = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 10)
+        font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 13)
+        font_medium = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 14)
     except:
         font_small = ImageFont.load_default()
         font_medium = font_small
@@ -128,7 +128,7 @@ def draw_boxes_on_patch(image_pil, bboxes, labels, color, show_label=True):
         if not show_label or not label:
             continue
         
-        is_large_box = w > 40 and h > 30
+        is_large_box = w > 50 and h > 40
         is_priority = idx < 2
         
         text_bbox = draw.textbbox((0, 0), label, font=font_small)
@@ -340,11 +340,11 @@ def main() -> None:
         gt_bboxes = [ann["bbox"] for ann in gt_targets]
         gt_labels = [CAT_SHORT.get(ann["category_id"], "?") for ann in gt_targets]
         
-        ours_preds_sorted = sorted(ours_preds, key=lambda p: p["score"], reverse=True)[:5]
+        ours_preds_sorted = sorted(ours_preds, key=lambda p: p["score"], reverse=True)[:3]
         ours_bboxes = [pred["bbox"] for pred in ours_preds_sorted]
         ours_labels = [CAT_SHORT.get(pred["category_id"], "?") for pred in ours_preds_sorted]
         
-        baseline_sorted = sorted(baseline_targets, key=lambda p: p["score"], reverse=True)[:5]
+        baseline_sorted = sorted(baseline_targets, key=lambda p: p["score"], reverse=True)[:3]
         baseline_bboxes = [pred["bbox"] for pred in baseline_sorted]
         baseline_labels = [CAT_SHORT.get(pred["category_id"], "?") for pred in baseline_sorted]
 
@@ -368,7 +368,7 @@ def main() -> None:
     ours_grid = compose_grid(ours_patches)
     baseline_grid = compose_grid(baseline_patches)
 
-    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    fig, axes = plt.subplots(1, 3, figsize=(22, 8))
 
     titles = ["Ground Truth", "Ours (A3 DPM++)", "Baseline (DiffusionDet)"]
     colors = ['#2ECC71', '#1E90FF', '#FF6347']
