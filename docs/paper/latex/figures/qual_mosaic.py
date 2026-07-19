@@ -112,25 +112,75 @@ def draw_boxes_on_patch(image_pil, bboxes, labels, color, show_label=True):
     draw = ImageDraw.Draw(image_pil)
     
     try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 14)
+        font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 9)
+        font_medium = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 10)
     except:
-        font = ImageFont.load_default()
+        font_small = ImageFont.load_default()
+        font_medium = font_small
     
-    for bbox, label in zip(bboxes, labels):
+    placed_labels = []
+    
+    for idx, (bbox, label) in enumerate(zip(bboxes, labels)):
         x, y, w, h = bbox
         
         draw.rectangle([x, y, x + w, y + h], outline=color, width=3)
         
-        if show_label and label:
-            text_bbox = draw.textbbox((x, y), label, font=font)
-            text_w = text_bbox[2] - text_bbox[0]
-            text_h = text_bbox[3] - text_bbox[1]
+        if not show_label or not label:
+            continue
+        
+        is_large_box = w > 40 and h > 30
+        is_priority = idx < 2
+        
+        text_bbox = draw.textbbox((0, 0), label, font=font_small)
+        text_w = text_bbox[2] - text_bbox[0]
+        text_h = text_bbox[3] - text_bbox[1]
+        
+        if is_large_box:
+            lx = x + (w - text_w) / 2
+            ly = y + (h - text_h) / 2 - 2
             
             draw.rectangle(
-                [x, y - text_h - 6, x + text_w + 4, y],
+                [lx - 2, ly, lx + text_w + 2, ly + text_h + 4],
                 fill=color
             )
-            draw.text((x + 2, y - text_h - 4), label, fill='white', font=font)
+            draw.text((lx, ly + 2), label, fill='white', font=font_small)
+            placed_labels.append((lx - 2, ly, lx + text_w + 2, ly + text_h + 4))
+        else:
+            positions = [
+                (x + (w - text_w) / 2, y - text_h - 4, 'above'),
+                (x + (w - text_w) / 2, y + h + 2, 'below'),
+                (x + w + 2, y + (h - text_h) / 2, 'right'),
+                (x - text_w - 4, y + (h - text_h) / 2, 'left'),
+            ]
+            
+            placed = False
+            for lx, ly, pos_type in positions:
+                label_rect = [lx - 2, ly, lx + text_w + 2, ly + text_h + 4]
+                
+                overlap = False
+                for placed_label in placed_labels:
+                    if (label_rect[0] < placed_label[2] and label_rect[2] > placed_label[0] and
+                        label_rect[1] < placed_label[3] and label_rect[3] > placed_label[1]):
+                        overlap = True
+                        break
+                
+                if not overlap or is_priority:
+                    if is_priority and overlap:
+                        pass
+                    
+                    draw.rectangle(label_rect, fill='white', outline=color, width=1)
+                    draw.text((lx, ly + 1), label, fill=color, font=font_small)
+                    placed_labels.append(label_rect)
+                    placed = True
+                    break
+            
+            if not placed and is_priority:
+                lx = x + (w - text_w) / 2
+                ly = y - text_h - 4
+                draw.rectangle([lx - 2, ly, lx + text_w + 2, ly + text_h + 4], 
+                             fill='white', outline=color, width=1)
+                draw.text((lx, ly + 1), label, fill=color, font=font_small)
+                placed_labels.append([lx - 2, ly, lx + text_w + 2, ly + text_h + 4])
     
     return image_pil
 
@@ -290,12 +340,11 @@ def main() -> None:
         gt_bboxes = [ann["bbox"] for ann in gt_targets]
         gt_labels = [CAT_SHORT.get(ann["category_id"], "?") for ann in gt_targets]
         
-        ours_preds_sorted = sorted(ours_preds, key=lambda p: p["score"], reverse=True)[:3]
+        ours_preds_sorted = sorted(ours_preds, key=lambda p: p["score"], reverse=True)[:5]
         ours_bboxes = [pred["bbox"] for pred in ours_preds_sorted]
-        ours_labels = [f"{CAT_SHORT.get(pred['category_id'], '?')} {pred['score']:.2f}" 
-                       for pred in ours_preds_sorted]
+        ours_labels = [CAT_SHORT.get(pred["category_id"], "?") for pred in ours_preds_sorted]
         
-        baseline_sorted = sorted(baseline_targets, key=lambda p: p["score"], reverse=True)[:3]
+        baseline_sorted = sorted(baseline_targets, key=lambda p: p["score"], reverse=True)[:5]
         baseline_bboxes = [pred["bbox"] for pred in baseline_sorted]
         baseline_labels = [CAT_SHORT.get(pred["category_id"], "?") for pred in baseline_sorted]
 
