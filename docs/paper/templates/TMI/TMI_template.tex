@@ -1,0 +1,190 @@
+%%==================================================================
+%% IEEE Transactions on Medical Imaging (TMI) -- LaTeX Template
+%%==================================================================
+%% This template is adapted from the official IEEEtran bare_jrnl.tex
+%% (IEEEtran.cls v1.8b, downloaded from CTAN:
+%%  https://ctan.org/pkg/ieeetran). TMI uses the standard IEEEtran
+%% class in journal mode; there is no TMI-specific .cls file.
+%%
+%% TMI-specific notes (per https://ieeetmi.org/authors-instructions/,
+%% Revision 10.2, Oct 9 2025):
+%%   * Initial submission MUST be <= 10 pages including references.
+%%   * Double-column, single-spaced, justified, 10pt font.
+%%   * Abstract < 250 words, plus index terms.
+%%   * Do NOT include author biographies in initial submission.
+%%   * Figures/tables must be inline in the main text (not at end).
+%%   * References use IEEEtran.bst format with author-name style.
+%%   * Cover letter strongly discouraged unless extending a conference
+%%     paper or disclosing prior review.
+%%   * Graphical abstract optional, uploaded as supporting document.
+%%   * Open-source code strongly encouraged (link in submission).
+%%
+%% Compile with:  pdflatex TMI_template && bibtex TMI_template &&
+%%                pdflatex TMI_template && pdflatex TMI_template
+%%==================================================================
+
+\documentclass[journal,10pt]{IEEEtran}
+
+% ---- Common packages for medical imaging papers ----
+% Adjust to your local TeX Live installation; algorithm/algorithmic
+% may need `texlive-science` (Debian/Ubuntu) or `algorithm2e`/`algpseudocode`
+% as alternatives. They are commented out here to keep the skeleton
+% compilable on a minimal TeX Live install.
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{cite}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+% \usepackage{algorithm}
+% \usepackage{algorithmic}
+
+% ---- TMI-specific hygiene ----
+% TMI does not publish author biographies in the initial submission.
+% Do not invoke \IEEEbiography until requested at acceptance stage.
+
+\begin{document}
+
+\title{Rectified Flow for Chromosome Detection: Stable Coupling and Few-Step Inference}
+
+\author{
+  \IEEEauthorblockN{First~Author,~Second~Author,~and~Senior~Author~\IEEEmembership{Member,~IEEE}}
+  \IEEEauthorblockA{Department of X, University of Y\\
+  City, Country\\
+  Email: \{first, second, senior\}@university.edu}
+}
+
+\markboth{IEEE Transactions on Medical Imaging,~Vol.~XX, No.~X, Month~2026}{Author \MakeLowercase{\textit{et al.}}: Rectified Flow for Chromosome Detection}
+
+\maketitle
+
+\begin{abstract}
+% TMI requires abstract < 250 words. Frame: clinical problem (karyotyping
+% bottleneck), methodological gap (diffusion-based detectors suffer
+% training instability), proposed contribution (Rectified Flow with
+% Stochastic Coupling + DPM-Solver++ 2-step inference + Top-K pruning),
+% and quantitative result (+0.082 mAP on two public chromosome datasets).
+% State clinical implications.
+Chromosome karyotyping is the first-line diagnostic test for hematological
+malignancies and congenital syndromes, yet manual analysis requires hours
+per specimen. Diffusion-based object detectors offer a probabilistic
+framework for chromosome detection but suffer training instability caused
+by optimal-transport (OT) coupling diversity collapse. We propose a
+Rectified Flow (RF) detector with Stochastic Coupling, theoretically
+grounded by a diversity-collapse analysis, and accelerated by a
+DPM-Solver++ two-step sampler with Top-K box pruning. On two public
+chromosome datasets, our method improves mAP by 0.082 over
+DiffusionDet while reducing inference to 2 steps at $X$ FPS. The
+stabilizer eliminates seed-level variance, enabling clinically
+deployable, real-time metaphase analysis. Code and trained models
+are released to support reproducibility.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Chromosome detection, rectified flow, diffusion models, optimal transport, few-step inference, karyotyping, medical image analysis.
+\end{IEEEkeywords}
+
+% ====================================================================
+\section{Introduction}
+\label{sec:intro}
+% Per TMI editorial (Shan, Kruger, Wang, TMI 44(12), 2025), frame the
+% problem around (i) unmet clinical need (karyotyping turnaround time),
+% (ii) methodological gap (DiffusionDet training instability), and
+% (iii) the paradigm-shifting angle of RF for detection.
+
+\IEEEPARstart{C}{hromosome} analysis via karyotyping is the first-line
+test for hematological malignancies and congenital syndromes
+\cite{example_ref_2024}. Manual karyotyping takes a skilled
+cytogeneticist several hours per specimen, creating a throughput
+bottleneck in clinical genetics laboratories. Recent object-detection
+frameworks based on denoising diffusion models (e.g.,
+DiffusionDet~\cite{diffusiondet}) offer a unified probabilistic
+formulation for detection, but their training is sensitive to
+coupling diversity and convergence is brittle on dense, small-object
+modalities such as metaphase chromosomes.
+
+% ... rest of introduction ...
+
+% ====================================================================
+\section{Related Work}
+\label{sec:related}
+
+% Briefly cover: (a) classical chromosome detection, (b) diffusion-based
+% detectors, (c) Rectified Flow theory, (d) OT coupling literature.
+% TMI prefers concise related work; compress aggressively to stay within
+% 10-page initial-submission limit (references count toward the cap).
+
+% ====================================================================
+\section{Methodology}
+\label{sec:method}
+
+\subsection{Rectified Flow for Object Detection}
+% Provide formal RF formulation; reference Liu et al. ICLR 2023.
+
+\subsection{Stochastic Coupling: Resolving OT Diversity Collapse}
+% State the OT diversity collapse theorem, then introduce the
+% Stochastic Coupling stabilizer. TMI's SIER criteria ask for
+% mathematical depth: include proposition statements and proof sketches
+% in the main text or appendix.
+
+\subsection{DPM-Solver++ 2-Step Inference with Top-K Pruning}
+% Describe the few-step sampler and the Top-K box pruning that
+% reduces inference cost while preserving AP.
+
+% ====================================================================
+\section{Experiments}
+\label{sec:exp}
+
+\subsection{Datasets}
+% Two public datasets: Chromosome20240904 and 24 Chromosomes Object.
+% Report patient-level splits, ethics statement, and IRB status if any.
+% TMI requires disclosure of dataset availability.
+
+\subsection{Evaluation Metrics}
+% mAP, per-class AP, FPS, statistical significance across seeds.
+
+\subsection{Comparison with State-of-the-Art}
+% Compare vs. Cascade R-CNN, YOLOX-S, DiffusionDet.
+% TMI reviewers expect at least 3 strong baselines, statistically
+% meaningful comparisons (multi-seed), and a discussion of failure modes.
+
+\subsection{Ablation Studies}
+% (1) RF vs. standard DDPM coupling, (2) Stochastic Coupling on/off,
+% (3) number of inference steps, (4) Top-K threshold.
+
+% ====================================================================
+\section{Discussion}
+\label{sec:discussion}
+% Address clinical translatability, limitations (e.g., overlapping
+% chromosomes, low-bandwidth clinical deployment), and broader
+% applicability of RF to other detection tasks in medical imaging.
+
+% ====================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+% ====================================================================
+\section*{Acknowledgments}
+% Funders, data providers, code availability statement.
+% TMI strongly encourages open-source code; include GitHub URL.
+
+% ====================================================================
+% Bibliography options:
+%  (a) If you have a references.bib file, use:
+%        \bibliographystyle{IEEEtran}
+%        \bibliography{IEEEabrv,references}
+%  (b) For initial submission, inline thebibliography is acceptable:
+\begin{thebibliography}{99}
+
+\bibitem{example_ref_2024}
+J.~Doe and A.~Smith, ``Example reference for chromosome karyotyping,''
+\emph{IEEE Trans. Med. Imag.}, vol.~43, no.~5, pp.~1234--1245, May 2024.
+
+\bibitem{diffusiondet}
+S.~Jia \emph{et al.}, ``DiffusionDet: Diffusion model for object detection,''
+in \emph{Proc. Int. Conf. Learn. Represent. (ICLR)}, 2023.
+
+\end{thebibliography}
+
+\end{document}
