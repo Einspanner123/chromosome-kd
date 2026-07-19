@@ -1,11 +1,8 @@
 """
-Figure 6: Per-Class AP Analysis.
+Figure 6: Per-Class AP Analysis — seaborn horizontal barplot with hue.
 
-Horizontal bar chart: 24 classes grouped by chromosome size (Large A-C,
-Medium D-E, Small F-G, Sex X/Y). Text color adapts to bar brightness
-for readability.
-
-Data source: main.tex / AAAI_INTEGRATED_DRAFT Section 4.3.1.
+24 classes grouped by chromosome size (Large A-C, Medium D-E, Small F-G, Sex X/Y).
+Uses sns.barplot() for automatic hue-based coloring and category ordering.
 
 Run:  python per_class_ap.py
 Outputs: per_class_ap.pdf, per_class_ap.png
@@ -13,12 +10,14 @@ Outputs: per_class_ap.pdf, per_class_ap.png
 
 from __future__ import annotations
 
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
 from figure_style import *
 
+# Tidy data: (group, class, AP)
 DATA = [
     ("Large", "A1", 0.913), ("Large", "A2", 0.907), ("Large", "A3", 0.905),
     ("Large", "B4", 0.905), ("Large", "B5", 0.908),
@@ -33,86 +32,79 @@ DATA = [
     ("Small", "G21", 0.789), ("Small", "G22", 0.790),
     ("Sex", "X", 0.885), ("Sex", "Y", 0.776),
 ]
+
 GROUP_COLOR = {"Large": C_LARGE, "Medium": C_MED, "Small": C_SMALL, "Sex": C_SEX}
-
-# Human-readable group names for separator labels
-GROUP_LABEL = {
-    "Large": "Large (A–C)",
-    "Medium": "Medium (D–E)",
-    "Small": "Small (F–G)",
-    "Sex": "Sex (X, Y)",
-}
+GROUP_ORDER = ["Large", "Medium", "Small", "Sex"]
 
 
-def _bar_text_color(rgb_tuple) -> str:
-    """Choose white or black text depending on bar luminance."""
-    if isinstance(rgb_tuple, str):
-        return "white"  # fallback
-    lum = 0.299 * rgb_tuple[0] + 0.587 * rgb_tuple[1] + 0.114 * rgb_tuple[2]
+def _bar_text_color(rgb) -> str:
+    """White on dark bars, black on light bars."""
+    if isinstance(rgb, str):
+        return "white"
+    lum = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
     return "white" if lum < 0.5 else "black"
 
 
 def main() -> None:
+    df = pd.DataFrame(DATA, columns=["group", "class", "ap"])
+    # Reverse so Large appears at top
+    cat_order = df["class"].tolist()[::-1]
+
     fig, ax = plt.subplots(figsize=(4.2, 5.2), constrained_layout=True)
 
-    # Reverse so Large appears at top
-    data = list(reversed(DATA))
-    classes = [d[1] for d in data]
-    aps = [d[2] for d in data]
-    colors = [GROUP_COLOR[d[0]] for d in data]
-    groups = [d[0] for d in data]
+    sns.barplot(
+        data=df, y="class", x="ap", hue="group",
+        palette=GROUP_COLOR, order=cat_order, hue_order=GROUP_ORDER,
+        dodge=False, edgecolor="black", linewidth=0.4,
+        saturation=1, ax=ax,
+    )
 
-    y = np.arange(len(classes))
-    bars = ax.barh(y, aps, height=0.6, color=colors, edgecolor="black", lw=0.4)
-
-    # Value labels inside bars — adapt text color, 8pt minimum
-    for bar, m, col in zip(bars, aps, colors):
-        txt_color = _bar_text_color(col)
-        ax.text(m - 0.004, bar.get_y() + bar.get_height() / 2,
-                f"{m:.3f}", va="center", ha="right",
+    # Value labels inside bars — one per patch, text color adaptive
+    for i, (_, row) in enumerate(df.iloc[::-1].iterrows()):
+        bar = ax.patches[i]
+        txt_color = _bar_text_color(GROUP_COLOR[row["group"]])
+        ax.text(row["ap"] - 0.004, bar.get_y() + bar.get_height() / 2,
+                f"{row['ap']:.3f}", va="center", ha="right",
                 fontsize=8, color=txt_color, fontweight="bold")
 
-    ax.set_yticks(y)
-    ax.set_yticklabels(classes, fontsize=8)
     ax.set_xlabel("AP", fontsize=9)
+    ax.set_ylabel("")
     ax.set_xlim(0.75, 0.93)
-    ax.set_ylim(-0.6, len(classes) - 0.4)
     ax.set_axisbelow(True)
     ax.grid(axis="x", ls=":", lw=0.5, alpha=0.6)
+    ax.legend().remove()  # remove seaborn auto-legend; we'll add custom
 
     # Overall mean line
-    overall_mean = float(np.mean(aps))
+    overall_mean = df["ap"].mean()
     ax.axvline(overall_mean, color=C_OVERALL, lw=1.0, ls="--", alpha=0.8)
-    # Mean label — concise
-    ax.text(overall_mean + 0.002, len(classes) - 0.8,
+    ax.text(overall_mean + 0.002, len(df) - 0.8,
             f"mean={overall_mean:.3f}",
             fontsize=7.5, color=C_OVERALL, ha="left", va="top",
             bbox=dict(boxstyle="round,pad=0.2", fc="white", ec=C_OVERALL,
                       lw=0.5, alpha=0.9))
 
-    # Group separator lines with group labels
-    group_order = ["Large", "Medium", "Small", "Sex"]
-    for i in range(len(group_order) - 1):
-        g_top = group_order[i]
-        g_bottom = group_order[i + 1]
-        if g_top in [d[0] for d in reversed(DATA) if True] and \
-           g_bottom in [d[0] for d in reversed(DATA) if True]:
-            # Find the boundary between last of g_top and first of g_bottom
-            reversed_data = list(reversed(DATA))
-            top_last_idx = None
-            bottom_first_idx = None
-            for j, (g, c, val) in enumerate(reversed_data):
-                if g == g_top:
-                    top_last_idx = j
-            for j, (g, c, val) in enumerate(reversed_data):
-                if g == g_bottom:
-                    bottom_first_idx = j
-                    break
-            if top_last_idx is not None and bottom_first_idx is not None:
-                sep_y = (y[top_last_idx] + y[bottom_first_idx]) / 2
-                ax.axhline(sep_y, color="0.7", lw=0.6, ls="--", alpha=0.7)
+    # Group separator lines (between group boundaries)
+    sep_y = lambda g: (cat_order.index(df[df["group"] == g]["class"].iloc[-1]) +
+                       cat_order.index(df[df["group"] == g]["class"].iloc[0])) / 2
+    # Actually simpler: compute from reversed index positions
+    reverted_positions = {row["class"]: i for i, (_, row)
+                          in enumerate(df.iloc[::-1].iterrows())}
+    for i in range(len(GROUP_ORDER) - 1):
+        g_top = GROUP_ORDER[i]
+        g_bot = GROUP_ORDER[i + 1]
+        top_last = df[df["group"] == g_top]["class"].iloc[-1]
+        bot_first = df[df["group"] == g_bot]["class"].iloc[0]
+        if top_last in reverted_positions and bot_first in reverted_positions:
+            sy = (reverted_positions[top_last] + reverted_positions[bot_first]) / 2
+            ax.axhline(sy, color="0.7", lw=0.6, ls="--", alpha=0.7)
 
-    # Legend
+    # Custom legend
+    handles = [
+        Patch(facecolor=GROUP_COLOR[g], edgecolor="black",
+              label=f"{g} ({chr(65+i)}–{chr(68+i) if i < 2 else 'G' if i == 2 else 'Y'})")
+        for i, g in enumerate(GROUP_ORDER)
+    ]
+    # Fix the label formatting
     handles = [
         Patch(facecolor=C_LARGE, edgecolor="black", label="Large (A–C)"),
         Patch(facecolor=C_MED, edgecolor="black", label="Medium (D–E)"),

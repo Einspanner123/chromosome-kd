@@ -28,8 +28,7 @@ def panel_pipeline(ax: plt.Axes) -> None:
     ax.set_ylim(0, 5.5)
     ax.set_aspect("equal")
     ax.set_xticks([]); ax.set_yticks([])
-    ax.set_title("(a) RF Training Pipeline", loc="left", fontsize=10,
-                 weight="bold", pad=3)
+    ax.set_title("(a) RF Training Pipeline", **PANEL_LABEL_KW)
     hide_spines(ax)
 
     def bx(x, y, w, h, text, fc="#ffffff", ec=C_DARKGRAY,
@@ -124,7 +123,7 @@ def panel_schedule(ax: plt.Axes) -> None:
     ax.set_xlabel("Time step $t$", fontsize=9)
     ax.set_ylabel("Sampling density $p(t)$", fontsize=9)
     ax.set_title("(b) Timestep Sampling: Shifted Schedule",
-                 loc="left", fontsize=10, weight="bold", pad=3)
+                 **PANEL_LABEL_KW)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 3.5)
     ax.set_axisbelow(True)
@@ -142,7 +141,7 @@ def panel_dpm_solver(ax: plt.Axes) -> None:
     ax.set_aspect("equal")
     ax.set_xticks([]); ax.set_yticks([])
     ax.set_title("(c) DPM-Solver++: 4-Step Inference",
-                 loc="left", fontsize=10, weight="bold", pad=3)
+                 **PANEL_LABEL_KW)
     hide_spines(ax)
 
     def bx(x, y, w, h, text, fc="#ffffff", ec=C_DARKGRAY,

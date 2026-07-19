@@ -113,8 +113,7 @@ def panel_voronoi(ax: plt.Axes) -> None:
     ax.set_yticks([])
     ax.set_xlabel("")
     ax.set_ylabel("")
-    ax.set_title("(a) Voronoi partitioning", loc="left", fontsize=10,
-                 weight="bold", pad=3)
+    ax.set_title("(a) Voronoi partitioning", **PANEL_LABEL_KW)
     hide_spines(ax)
 
     handles = [
@@ -162,8 +161,7 @@ def panel_dh(ax: plt.Axes) -> None:
     ax.set_ylim(0.0, 4.7)
     ax.set_axisbelow(True)
     ax.grid(axis="y", ls=":", lw=0.5, alpha=0.6)
-    ax.set_title("(b) Theory vs. empirical", loc="left", fontsize=10,
-                 weight="bold", pad=3)
+    ax.set_title("(b) Theory vs. empirical", **PANEL_LABEL_KW)
     ax.tick_params(axis="y", labelsize=8)
 
     # Arrow connecting the two bars
@@ -180,7 +178,7 @@ def panel_dh(ax: plt.Axes) -> None:
 
 def main() -> None:
     fig, axes = plt.subplots(
-        1, 2, figsize=(7.2, 3.0),
+        1, 2, figsize=FIG_CONFIG["1x2"]["figsize"],
         gridspec_kw={"width_ratios": [1.2, 1]},
         constrained_layout=True,
     )

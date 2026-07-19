@@ -9,6 +9,12 @@ Usage:
     import matplotlib.pyplot as plt
     # ... plotting code ...
     save_fig(fig, "my_figure")
+
+Design principles (from craft.md):
+  - seaborn base: set_theme + set_context for consistent defaults
+  - Layout contract: FIG_CONFIG standardizes multi-panel dimensions
+  - Lead lines: lead_label() for annotations at risk of overlap
+  - Restrained palette: colorblind-safe, one color per semantic concept
 """
 
 from __future__ import annotations
@@ -21,37 +27,44 @@ from matplotlib.patches import FancyBboxPatch, Rectangle, Patch
 from matplotlib.lines import Line2D
 
 # =====================================================================
-# rcParams — single source of truth
-# Font sizes optimized for IEEEtran column width (~89 mm / 3.5 in).
-# Minimum readable annotation: 8pt in figure; 7pt only for very minor labels.
+# Seaborn base style + paper context
 # =====================================================================
-RC_PARAMS = {
-    "font.family": "serif",
-    "font.serif": ["Times New Roman", "DejaVu Serif"],
+sns.set_theme(
+    style="white",              # white background, no top/right spines
+    font="serif",
+    font_scale=1.0,             # we control sizes via rcParams below
+    palette="colorblind",
+    rc={
+        "font.family": "serif",
+        "font.serif": ["Times New Roman", "DejaVu Serif"],
+        "mathtext.fontset": "cm",
+        "pdf.fonttype": 42,     # editable text in vector PDF
+        "ps.fonttype": 42,
+        "axes.linewidth": 0.8,
+        "lines.linewidth": 1.2,
+        "figure.dpi": 150,
+        "savefig.dpi": 300,
+        "axes.facecolor": "white",
+        "axes.edgecolor": "0.2",
+        "grid.color": "0.85",
+        "grid.alpha": 0.6,
+        "legend.frameon": True,
+        "legend.framealpha": 0.92,
+        "legend.edgecolor": "0.7",
+        "legend.fancybox": False,
+    },
+)
+
+# Apply paper context with our exact font sizes
+# (seaborn's "paper" context is a starting point; we override for IEEEtran)
+sns.set_context("paper", rc={
     "font.size": 9,
     "axes.labelsize": 10,
     "axes.titlesize": 11,
     "xtick.labelsize": 9,
     "ytick.labelsize": 9,
     "legend.fontsize": 8,
-    "mathtext.fontset": "cm",
-    "pdf.fonttype": 42,  # editable text in vector PDF
-    "ps.fonttype": 42,
-    "axes.linewidth": 0.8,
-    "lines.linewidth": 1.2,
-    "figure.dpi": 150,
-    "savefig.dpi": 300,
-    "axes.facecolor": "white",
-    "axes.edgecolor": "0.2",
-    "grid.color": "0.85",
-    "grid.alpha": 0.6,
-    "legend.frameon": True,
-    "legend.framealpha": 0.92,
-    "legend.edgecolor": "0.7",
-    "legend.fancybox": False,
-}
-
-plt.rcParams.update(RC_PARAMS)
+})
 
 # =====================================================================
 # Color palette — colorblind-safe, consistent across all figures
@@ -135,9 +148,8 @@ def arrow(ax: plt.Axes, x1: float, y1: float, x2: float, y2: float,
 
 
 def hide_spines(ax: plt.Axes) -> None:
-    """Hide all spines (axis borders)."""
-    for spine in ax.spines.values():
-        spine.set_visible(False)
+    """Hide all spines (axis borders). Uses seaborn's despine."""
+    sns.despine(ax=ax, left=True, bottom=True)
 
 
 def annotation_box(ax: plt.Axes, x: float, y: float, text: str,
@@ -150,3 +162,44 @@ def annotation_box(ax: plt.Axes, x: float, y: float, text: str,
             transform=ax.transAxes if isinstance(x, float) and x <= 1 else None,
             bbox=dict(boxstyle="round,pad=0.3", fc=fc, ec=ec, lw=0.5,
                       alpha=alpha), zorder=7)
+
+
+def lead_label(ax: plt.Axes, text: str, xy: tuple,
+               xytext: tuple, fontsize: float = 8,
+               color: str = C_DARKGRAY, ha: str = "left",
+               va: str = "center", lw: float = 0.5,
+               arrow_color: str = "0.6",
+               bbox_fc: str = "white", bbox_ec: str = "0.7",
+               bbox_alpha: float = 0.85) -> None:
+    """Place a text label with a short lead line connecting it to a data point.
+
+    Parameters
+    ----------
+    xy : (x, y) data coordinates of the target point
+    xytext : (x, y) data coordinates of the label
+    """
+    # Lead line (short connector) — 15% of the way from data to label
+    ax.annotate("", xy=(xy[0] + (xytext[0] - xy[0]) * 0.15,
+                        xy[1] + (xytext[1] - xy[1]) * 0.15),
+                xytext=xy,
+                arrowprops=dict(arrowstyle="-", color=arrow_color, lw=lw),
+                zorder=2)
+    # Label with subtle background
+    ax.text(xytext[0], xytext[1], text, fontsize=fontsize, color=color,
+            ha=ha, va=va, zorder=7,
+            bbox=dict(boxstyle="round,pad=0.2", fc=bbox_fc, ec=bbox_ec,
+                      lw=0.4, alpha=bbox_alpha))
+
+
+# =====================================================================
+# Layout contract: standard multi-panel figure dimensions
+# Used by method_overview (1x3), ot_theory (1x2),
+# qual_mosaic (3x2), tech_pipeline (3x1)
+# =====================================================================
+FIG_CONFIG = {
+    "1x2": {"figsize": (7.2, 3.0), "gridspec": {"wspace": 0.15}},
+    "1x3": {"figsize": (7.2, 3.2), "gridspec": {"wspace": 0.12}},
+    "3x2": {"figsize": (5.5, 5.0), "gridspec": {"wspace": 0.08, "hspace": 0.18}},
+    "3x1": {"figsize": (7.5, 7.5), "gridspec": {"hspace": 0.28}},
+}
+PANEL_LABEL_KW = dict(loc="left", fontsize=10, weight="bold", pad=3)

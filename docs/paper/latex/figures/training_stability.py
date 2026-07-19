@@ -1,8 +1,8 @@
 """
-Figure 5: Training Stability — Random vs Stochastic OT.
+Figure 5: Training Stability — Random vs Stochastic OT. (seaborn lineplot)
 
 Real per-epoch validation mAP curves loaded from swanlog scalars.json.
-Last-30-epoch window highlighted with std bands.
+Uses sns.lineplot() with tidy DataFrame for declarative styling.
 
 Data:
   A1 Random:  work_dirs/a1_rf_heun_24obj/.../scalars.json
@@ -17,6 +17,7 @@ from __future__ import annotations
 import glob
 import json
 
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -56,59 +57,65 @@ def main() -> None:
     a1_steps, a1_maps = load_scalars(glob.glob(a1_pattern))
     a3_steps, a3_maps = load_scalars(glob.glob(a3_pattern))
 
+    # Build tidy DataFrame for seaborn
+    df = pd.DataFrame({
+        "epoch": np.concatenate([a1_steps, a3_steps]),
+        "mAP": np.concatenate([a1_maps, a3_maps]),
+        "method": (
+            ["Random coupling"] * len(a1_maps)
+            + [r"Stochastic OT ($\epsilon{=}5$)"] * len(a3_maps)
+        ),
+    })
+
     # Last-30-epoch statistics
     a1_last30 = a1_maps[-30:]
     a3_last30 = a3_maps[-30:]
     a1_std = float(a1_last30.std())
     a3_std = float(a3_last30.std())
-    ratio = a1_std / a3_std if a3_std > 0 else float("inf")
-
-    a1_last30_steps = a1_steps[-30:]
-    a3_last30_steps = a3_steps[-30:]
+    a1_l30_s = a1_steps[-30:]
+    a3_l30_s = a3_steps[-30:]
     x_max = int(max(a1_steps[-1], a3_steps[-1]))
-
     A1_STD_DISPLAY = 0.006
     RATIO_DISPLAY = 4.6
 
     # Plot
     fig, ax = plt.subplots(figsize=(5.2, 2.8), constrained_layout=True)
 
-    ax.plot(a1_steps, a1_maps, color=C_RAND, lw=1.3, alpha=0.9,
-            label="Random coupling")
-    ax.plot(a3_steps, a3_maps, color=C_STOCH, lw=1.3, alpha=0.9,
-            label=r"Stochastic OT ($\epsilon{=}5$)")
+    METHOD_PAL = {"Random coupling": C_RAND,
+                  r"Stochastic OT ($\epsilon{=}5$)" : C_STOCH}
 
-    # Last-30-epoch highlight windows
-    ax.axvspan(a1_last30_steps[0], a1_last30_steps[-1],
-               color=C_RAND, alpha=0.08, zorder=0)
-    ax.axvspan(a3_last30_steps[0], a3_last30_steps[-1],
-               color=C_STOCH, alpha=0.08, zorder=0)
+    sns.lineplot(
+        data=df, x="epoch", y="mAP", hue="method",
+        palette=METHOD_PAL, linewidth=1.3, alpha=0.9, ax=ax,
+    )
 
-    # ±std bands
-    ax.fill_between(a1_last30_steps, a1_last30 - a1_std,
-                    a1_last30 + a1_std,
+    # Last-30 highlight + std bands
+    ax.axvspan(a1_l30_s[0], a1_l30_s[-1], color=C_RAND, alpha=0.08, zorder=0)
+    ax.axvspan(a3_l30_s[0], a3_l30_s[-1], color=C_STOCH, alpha=0.08, zorder=0)
+    ax.fill_between(a1_l30_s, a1_last30 - a1_std, a1_last30 + a1_std,
                     color=C_RAND, alpha=0.22, lw=0)
-    ax.fill_between(a3_last30_steps, a3_last30 - a3_std,
-                    a3_last30 + a3_std,
+    ax.fill_between(a3_l30_s, a3_last30 - a3_std, a3_last30 + a3_std,
                     color=C_STOCH, alpha=0.22, lw=0)
 
-    # Stability annotation — one compact box in top-left
+    # Stability annotation — one compact box
     ax.text(
         0.02, 0.98,
-        f"epoch std: {A1_STD_DISPLAY:.3f} $\\to$ {a3_std:.4f}\n"
+        f"epoch std: {A1_STD_DISPLAY:.3f} $\to$ {a3_std:.4f}\n"
         f"${RATIO_DISPLAY:.1f}\\times$ smoother",
         fontsize=8, ha="left", va="top", transform=ax.transAxes,
         bbox=dict(boxstyle="round,pad=0.3", fc="#f5f5ff", ec=C_STOCH, lw=0.6),
     )
 
-    ax.set_xlabel("Epoch")
-    ax.set_ylabel("mAP (24obj val)")
+    ax.set_xlabel("Epoch", fontsize=9)
+    ax.set_ylabel("mAP (24obj val)", fontsize=9)
     ax.set_xlim(0, x_max + 3)
     ax.set_ylim(0.785, 0.875)
     ax.set_axisbelow(True)
     ax.grid(ls=":", lw=0.5, alpha=0.5)
-    ax.legend(loc="lower right", frameon=True, framealpha=0.9,
-              fontsize=8, edgecolor="0.7")
+
+    # Use seaborn's legend but reposition
+    sns.move_legend(ax, "lower right", frameon=True, framealpha=0.9,
+                    fontsize=8, edgecolor="0.7")
     ax.set_title("Training Stability: Random vs Stochastic OT",
                  fontsize=10, pad=6)
 
@@ -118,7 +125,7 @@ def main() -> None:
           f"best {a1_maps.max():.4f}, last-30 std {a1_std:.4f}")
     print(f"  A3 (StochOT): {len(a3_maps)} epochs, "
           f"best {a3_maps.max():.4f}, last-30 std {a3_std:.4f}")
-    print(f"  Stability ratio: {ratio:.2f}x")
+    print(f"  Stability ratio: {a1_std/a3_std:.2f}x")
 
 
 if __name__ == "__main__":

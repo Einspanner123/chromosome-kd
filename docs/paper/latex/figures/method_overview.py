@@ -68,8 +68,7 @@ def panel_trajectories(ax: plt.Axes) -> None:
     ax.set_aspect("equal")
     ax.set_xticks([])
     ax.set_yticks([])
-    ax.set_title("(a) Trajectories", loc="left", fontsize=10, weight="bold",
-                 pad=3)
+    ax.set_title("(a) Trajectories", **PANEL_LABEL_KW)
     hide_spines(ax)
 
     # Compact legend
@@ -94,8 +93,7 @@ def panel_adaln(ax: plt.Axes) -> None:
     ax.set_aspect("equal")
     ax.set_xticks([])
     ax.set_yticks([])
-    ax.set_title("(b) AdaLN-Zero", loc="left", fontsize=10, weight="bold",
-                 pad=3)
+    ax.set_title("(b) AdaLN-Zero", **PANEL_LABEL_KW)
     hide_spines(ax)
 
     def line_2pt(x1, y1, x2, y2, color=C_DARKGRAY, lw=0.9):
@@ -185,8 +183,7 @@ def panel_ot(ax: plt.Axes) -> None:
     ax.set_aspect("equal")
     ax.set_xticks([])
     ax.set_yticks([])
-    ax.set_title("(c) Coupling strategies", loc="left", fontsize=10,
-                 weight="bold", pad=3)
+    ax.set_title("(c) Coupling strategies", **PANEL_LABEL_KW)
     hide_spines(ax)
 
     rng = np.random.default_rng(7)
@@ -258,7 +255,7 @@ def panel_ot(ax: plt.Axes) -> None:
 # Main
 # =====================================================================
 def main() -> None:
-    fig = plt.figure(figsize=(7.2, 3.2), constrained_layout=True)
+    fig = plt.figure(figsize=FIG_CONFIG["1x3"]["figsize"], constrained_layout=True)
 
     gs = fig.add_gridspec(1, 3, width_ratios=[1.0, 1.3, 1.2])
     ax_a = fig.add_subplot(gs[0, 0])
