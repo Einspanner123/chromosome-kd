@@ -1,45 +1,83 @@
 \relax 
-\bibstyle{aaai2027}
 \citation{chen2023diffusiondet}
 \citation{liu2023rectified}
-\newlabel{sec:intro}{{1}{1}{}{}{}}
 \citation{lu2022dpmpp}
 \citation{baty2025flowdet}
+\@writefile{toc}{\contentsline {section}{\numberline {I}Introduction}{1}{}\protected@file@percent }
+\newlabel{sec:intro}{{I}{1}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {I-}0a}Motivation.}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {I-}0b}From scenario to method.}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {I-}0c}Contributions.}{1}{}\protected@file@percent }
 \citation{baty2025flowdet}
 \citation{deflomat2025}
 \citation{tong2023conditional}
 \citation{pooladian2023multisample}
 \citation{dhariwal2021diffusion}
 \citation{chen2023diffusiondet}
+\citation{chen2024diffubox}
 \citation{baty2025flowdet}
 \citation{deflomat2025}
 \citation{liu2023rectified}
 \citation{lipman2023flow}
 \citation{tong2023conditional}
 \citation{pooladian2023multisample}
+\citation{cheng2025curse}
 \citation{ren2015faster}
 \citation{kuo2024chromosomenet}
 \citation{dhariwal2021diffusion}
-\newlabel{sec:related}{{2}{2}{}{}{}}
-\newlabel{sec:method}{{3}{2}{}{}{}}
-\newlabel{sec:method-rf}{{3}{2}{}{}{}}
 \citation{lu2022dpmpp}
-\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {I-}0d}Novelty boundary.}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {II}Related Work}{2}{}\protected@file@percent }
+\newlabel{sec:related}{{II}{2}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {II-}0a}Diffusion-based object detection.}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {II-}0b}Rectified Flow and Flow Matching.}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {II-}0c}Chromosome detection.}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {III}Method}{2}{}\protected@file@percent }
+\newlabel{sec:method}{{III}{2}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-A}}Rectified Flow for Detection (KaryoFlow)}{2}{}\protected@file@percent }
+\newlabel{sec:method-rf}{{\mbox  {III-A}}{2}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-A}0a}RF formulation.}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-A}0b}Time conditioning.}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-B}}ODE Solvers: Heun and DPM-Solver++}{2}{}\protected@file@percent }
+\newlabel{sec:method-solver}{{\mbox  {III-B}}{2}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0a}Heun solver (2nd-order).}{2}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces KaryoFlow overview. (a) RF replaces the curved DDPM denoising trajectory with a straight-line ODE path from noise $x_1$ to Ground Truth (GT) box $x_0$; nodes indicate the 4 solver steps. (b) Time conditioning injects the continuous time $t$ via AdaLN-Zero zero-initialized modulation so the network is identity at $t{=}0$. (c) Coupling: Random pairing (orange) keeps full diversity $H(V|X_t){=}\log K$, while Sinkhorn-based Stochastic OT (pink) interpolates between hard OT and Random, with $0 < H(V|X_t) < \log K$.}}{3}{}\protected@file@percent }
 \newlabel{fig:method_overview}{{1}{3}{}{}{}}
-\newlabel{sec:method-solver}{{3}{3}{}{}{}}
-\newlabel{tab:solver-ablation}{{1}{3}{}{}{}}
-\newlabel{sec:method-ot}{{3}{3}{}{}{}}
-\newlabel{lem:voronoi}{{1}{3}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0b}DPM-Solver++ (2nd-order multistep, 1 NFE/step).}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0c}Key finding: solver type is \ensuremath  {\mathrm  {mAP}}{}-neutral on A1; DPM-Solver++ buys NFE reduction.}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0d}Conclusion.}{3}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Solver$\times $step disentanglement ablation on the A1 checkpoint (24 Chromosomes Object val, seed 42).}}{3}{}\protected@file@percent }
+\newlabel{tab:solver-ablation}{{I}{3}{}{}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Solver$\times $step disentanglement ablation (A1 checkpoint). Bars are colored by solver type and hatched by step count. Solver/step configuration contributes only $+0.005$ \ensuremath  {\mathrm  {mAP}}{} ($6\%$); the remaining $+0.077$ \ensuremath  {\mathrm  {mAP}}{} ($94\%$) is attributable to the RF training paradigm.}}{3}{}\protected@file@percent }
+\newlabel{fig:solver-ablation}{{2}{3}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-C}}OT Diversity Collapse and Stochastic Coupling}{3}{}\protected@file@percent }
+\newlabel{sec:method-ot}{{\mbox  {III-C}}{3}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-C}0a}Voronoi partitioning by OT.}{3}{}\protected@file@percent }
+\citation{santambrogio2015optimal}
 \citation{cuturi2013sinkhorn}
 \citation{rst_dataset}
 \citation{tseng2023dataset}
-\newlabel{fig:solver-ablation}{{2}{4}{}{}{}}
-\newlabel{tab:ot-severity}{{2}{4}{}{}{}}
+\newlabel{lem:voronoi}{{1}{4}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-C}0b}Setup.}{4}{}\protected@file@percent }
 \newlabel{prop:ot-gap}{{1}{4}{}{}{}}
-\newlabel{fig:entropy-phase}{{3}{4}{}{}{}}
-\newlabel{tab:stability}{{3}{4}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-C}0c}Empirical validation (Chromosome20240904).}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-C}0d}Tight lower bound.}{4}{}\protected@file@percent }
+\newlabel{prop:ot-lower}{{2}{4}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-C}0e}Dimension-dependent severity.}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-C}0f}Stochastic Coupling via Sinkhorn transport.}{4}{}\protected@file@percent }
 \newlabel{def:stoch}{{1}{4}{}{}{}}
-\newlabel{sec:method-io3}{{3}{4}{}{}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Entropy phase diagram. Conditional entropy $H(V|Z)$ as a function of the stochastic coupling parameter $\epsilon $. Hard OT ($\epsilon {=}0$) collapses to $H{=}0$; Random coupling ($\epsilon {\to }\infty $) saturates at $H{=}3.8415 \approx \log K{=}3.8427$ (relative error $0.03\%$). Stochastic coupling with $\epsilon \ge 1$ recovers near-full diversity, while $\epsilon < 1$ falls in the danger zone of diversity collapse.}}{4}{}\protected@file@percent }
+\newlabel{fig:entropy-phase}{{3}{4}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces OT Diversity Collapse severity by scenario. OT loss is severe in detection, negligible in image generation.}}{4}{}\protected@file@percent }
+\newlabel{tab:ot-severity}{{II}{4}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-C}0g}Stochastic Coupling as training stabilizer.}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-D}}Top-$K$ Proposal Pruning}{4}{}\protected@file@percent }
+\newlabel{sec:method-io3}{{\mbox  {III-D}}{4}{}{}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {IV}Experiments}{4}{}\protected@file@percent }
+\newlabel{sec:exp}{{IV}{4}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-A}}Experimental Setup}{4}{}\protected@file@percent }
+\newlabel{sec:exp-setup}{{\mbox  {IV-A}}{4}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0a}Datasets.}{4}{}\protected@file@percent }
 \citation{he2016resnet}
 \citation{lin2017fpn}
 \citation{loshchilov2019adamw}
@@ -47,61 +85,111 @@
 \citation{lin2017focal}
 \citation{rezatofighi2019giou}
 \citation{kuhn1955assignment}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces OT Diversity Collapse. (a) Voronoi partitioning for $K{=}8$ GT boxes in a 2D projection. Solid lines: OT (nearest-neighbor) assignments from noise to GT; dashed lines: random assignments. (b) Empirical validation of Proposition~\ref {prop:ot-gap}: theoretical $\log K = 3.8427$ vs.\ empirical $\Delta H = 3.8415$ (relative error $0.03\%$).}}{5}{}\protected@file@percent }
 \newlabel{fig:ot-theory}{{4}{5}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Training stability: Stochastic Coupling yields $4.6\times $ smoother within-run convergence. ``Epoch std'' measures last-30-epoch \ensuremath  {\mathrm  {mAP}}{} oscillation within a single training run (not cross-seed variance).}}{5}{}\protected@file@percent }
+\newlabel{tab:stability}{{III}{5}{}{}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Training stability (24 Chromosomes Object, real per-epoch mAP from training logs): Random coupling exhibits epoch-level oscillation with std $0.006$, while Stochastic Coupling ($\epsilon {=}5$) converges smoothly with std $0.0013$ ($4.6\times $ improvement). Shaded band marks the last 30 epochs used for std computation.}}{5}{}\protected@file@percent }
 \newlabel{fig:training-stability}{{5}{5}{}{}{}}
-\newlabel{sec:exp}{{4}{5}{}{}{}}
-\newlabel{sec:exp-setup}{{4}{5}{}{}{}}
-\newlabel{tab:datasets}{{4}{5}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces Datasets used in this paper. Dataset~1 is Chromosome20240904 (RST); Dataset~2 is the 24 Chromosomes Object dataset.}}{5}{}\protected@file@percent }
+\newlabel{tab:datasets}{{IV}{5}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0b}Architecture and training.}{5}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0c}Detection protocol.}{5}{}\protected@file@percent }
 \citation{ge2021yolox}
-\newlabel{sec:exp-rf-vs-ddpm}{{4}{6}{}{}{}}
-\newlabel{sec:exp-sota}{{4}{6}{}{}{}}
-\newlabel{sec:exp-coupling}{{4}{6}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0d}Statistical considerations.}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-B}}Main Results: RF vs DDPM}{6}{}\protected@file@percent }
+\newlabel{sec:exp-rf-vs-ddpm}{{\mbox  {IV-B}}{6}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-B}0a}Dataset~2 ablation.}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-B}0b}Dataset~1: RF vs DDPM.}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-C}}SOTA Comparison (Dataset~2)}{6}{}\protected@file@percent }
+\newlabel{sec:exp-sota}{{\mbox  {IV-C}}{6}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-C}0a}Small-object performance and the medical-imaging direction.}{6}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Per-class AP on the Dataset~2 validation set (A3 DPM-Solver++). Bars are colored by chromosome size group. The dashed line is the overall mean. Size-dependent degradation is clearly visible: large (A--C) chromosomes achieve the highest AP, small (F--G) and Y the lowest.}}{6}{}\protected@file@percent }
 \newlabel{fig:per-class}{{6}{6}{}{}{}}
-\newlabel{sec:exp-solver}{{4}{6}{}{}{}}
-\newlabel{tab:main-ablation}{{5}{7}{}{}{}}
-\newlabel{tab:sota}{{6}{7}{}{}{}}
-\newlabel{tab:stability-multi}{{7}{7}{}{}{}}
-\newlabel{sec:exp-fps}{{4}{7}{}{}{}}
-\newlabel{sec:exp-cross}{{4}{7}{}{}{}}
-\newlabel{tab:fps}{{8}{7}{}{}{}}
-\newlabel{sec:analysis}{{5}{7}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-C}0b}Per-class AP analysis.}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-C}0c}Statistical significance of the ablation gains.}{6}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {V}{\ignorespaces Main ablation on Dataset~2 (independent inference, seed~42 for A0--A2; 3-seed mean$\pm $std for A3). NFE = total network forward evaluations per image. ``Last-30 std'' is within-run epoch \ensuremath  {\mathrm  {mAP}}{} std. A0$\to $A1 changes multiple variables; the disentanglement ablation (Table~\ref {tab:solver-ablation}) attributes 94\% of the $+0.083$ gap to the RF training paradigm.}}{7}{}\protected@file@percent }
+\newlabel{tab:main-ablation}{{V}{7}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {VI}{\ignorespaces SOTA comparison on Dataset~2 (independent inference; A3 reports 3-seed mean). LDMDet denotes our base detection framework. RTMDet-L uses a stronger CSPNeXt-L backbone; DINO R50 uses multi-scale deformable attention. Our method is competitive with RTMDet-L on overall \ensuremath  {\mathrm  {mAP}}{} while offering $1.71\times $ faster inference; AP$_S$ differences among top methods are not statistically significant (Table~\ref {tab:stat-tests}).}}{7}{}\protected@file@percent }
+\newlabel{tab:sota}{{VI}{7}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {VII}{\ignorespaces Per-image paired significance tests on Dataset~2 validation ($n{=}500$ images; AP$_S$ uses the $60$ images containing small objects). $\Delta $ is the mean per-image difference of the second model minus the first. Wilc.\ = Wilcoxon signed-rank; $t$ = paired Student's $t$-test. *** denotes $p<0.001$; ns = not significant ($p>0.05$).}}{7}{}\protected@file@percent }
+\newlabel{tab:stat-tests}{{VII}{7}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-D}}Coupling Ablation}{7}{}\protected@file@percent }
+\newlabel{sec:exp-coupling}{{\mbox  {IV-D}}{7}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-D}0a}Dataset~1, multi-seed.}{7}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {VIII}{\ignorespaces Per-image paired significance tests for the coupling ablation on Dataset~1 (pooled across $3$ training seeds, $n{=}440{\times }3{=}1320$; AP$_S$ uses $1314$ pairs after filtering images without small-object GT). $\Delta $ is the mean per-image difference of the second strategy minus the first. Wilc.\ = Wilcoxon signed-rank; $t$ = paired Student's $t$-test. *** denotes $p<0.001$; * denotes $p<0.05$.}}{7}{}\protected@file@percent }
+\newlabel{tab:stat-tests-coupling}{{VIII}{7}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {IX}{\ignorespaces Multi-dimensional stability comparison (Dataset~2, single seed). Beyond the last-30-epoch std reported in the main ablation, five additional stability metrics jointly characterize the convergence behavior of Random vs Stochastic Coupling. CV = std/mean.}}{7}{}\protected@file@percent }
+\newlabel{tab:stability-multi}{{IX}{7}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-D}0b}Multi-dimensional stability comparison (Dataset~2).}{7}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-D}0c}$\epsilon $ ablation.}{7}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {X}{\ignorespaces FPS / latency benchmark (Dataset~2, 512$\times $512, seed~42). Latency is reported as mean $\pm $ std over $200$ images on an RTX A6000.}}{8}{}\protected@file@percent }
+\newlabel{tab:fps}{{X}{8}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-E}}Solver Analysis}{8}{}\protected@file@percent }
+\newlabel{sec:exp-solver}{{\mbox  {IV-E}}{8}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-E}0a}DPM-Solver++ step ablation.}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-E}0b}DPM-Solver++ vs Heun at matched NFE.}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-E}0c}Test set evaluation.}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-F}}FPS / Latency Benchmark}{8}{}\protected@file@percent }
+\newlabel{sec:exp-fps}{{\mbox  {IV-F}}{8}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-G}}Cross-Dataset Summary}{8}{}\protected@file@percent }
+\newlabel{sec:exp-cross}{{\mbox  {IV-G}}{8}{}{}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Speed-accuracy trade-off (Dataset~2, RTX A6000, $512{\times }512$). Log-scale FPS axis. Our RF variants (circle/square) occupy the high-accuracy region (\ensuremath  {\mathrm  {mAP}}{} $> 0.85$); standard detectors (triangle) are $3$--$7\times $ faster but less accurate. A3+IO3 K=200 ($14.2$ FPS, \ensuremath  {\mathrm  {mAP}}{} $0.860$) achieves the best speed-accuracy trade-off among our variants.}}{8}{}\protected@file@percent }
 \newlabel{fig:fps-map}{{7}{8}{}{}{}}
-\newlabel{sec:analysis-theory}{{5}{8}{}{}{}}
-\newlabel{sec:conclusion}{{6}{8}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {XI}{\ignorespaces Annotation-noise robustness (Dataset~2 test, A3 checkpoint, seed~42, $1000$ images / $45{,}980$ GT instances). Rows: GT bbox jitter $\sigma _{\text  {bbox}}$ (px). Columns: GT class-flip rate $p$. Cells: \ensuremath  {\mathrm  {mAP}}{}@$[0.50{:}0.95]$. Clean baseline (top-left): $0.859$. The model degrades gracefully under mild noise ($\sigma {=}2$, $p{=}5\%$: $-0.193$ \ensuremath  {\mathrm  {mAP}}{}) and remains non-trivial even at the heaviest perturbation ($\sigma {=}10$, $p{=}20\%$: \ensuremath  {\mathrm  {mAP}}{}$=0.129$, still well above the $1/24{\approx }0.042$ chance level for class assignment).}}{8}{}\protected@file@percent }
+\newlabel{tab:robust-noise}{{XI}{8}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-H}}Robustness}{8}{}\protected@file@percent }
+\newlabel{sec:exp-robust}{{\mbox  {IV-H}}{8}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-H}0a}Annotation-noise robustness}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-H}0b}Cross-dataset zero-shot transfer}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {V}Analysis and Discussion}{9}{}\protected@file@percent }
+\newlabel{sec:analysis}{{V}{9}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-A}}Why RF Works for Chromosome Detection}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-B}}Stochastic Coupling: Dataset-Dependent mAP Gain Plus Smoothness}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}DPM-Solver++ vs Heun: Computational and Small Precision Advantage}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-D}}IO3 Pruning: Solver-Dependent Effectiveness}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-E}}Theory Applicability and Limitations}{9}{}\protected@file@percent }
+\newlabel{sec:analysis-theory}{{\mbox  {V-E}}{9}{}{}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {VI}Conclusion}{9}{}\protected@file@percent }
+\newlabel{sec:conclusion}{{VI}{9}{}{}{}}
+\citation{cuturi2013sinkhorn}
+\bibstyle{IEEEtran}
 \bibdata{references}
-\bibcite{baty2025flowdet}{{1}{2025}{{Baty, Bridges, and Hadfield}}{{}}}
-\bibcite{chen2023diffusiondet}{{2}{2023}{{Chen et~al.}}{{Chen, Bao, Sun, Li, Zhu, Liu, and Jiang}}}
-\bibcite{cuturi2013sinkhorn}{{3}{2013}{{Cuturi}}{{}}}
-\bibcite{dhariwal2021diffusion}{{4}{2021}{{Dhariwal and Nichol}}{{}}}
-\bibcite{ge2021yolox}{{5}{2021}{{Ge et~al.}}{{Ge, Liu, Wang, Li, and Sun}}}
-\bibcite{he2016resnet}{{6}{2016}{{He et~al.}}{{He, Zhang, Ren, and Sun}}}
-\bibcite{kuhn1955assignment}{{7}{1955}{{Kuhn}}{{}}}
-\bibcite{kuo2024chromosomenet}{{8}{2024}{{Kuo et~al.}}{{Kuo, Li, Tseng, Lo, Chen, and Lu}}}
-\bibcite{deflomat2025}{{9}{2025}{{Lee et~al.}}{{Lee, Lee, Seo, Lim, and Hong}}}
-\bibcite{lin2017fpn}{{10}{2017{a}}{{Lin et~al.}}{{Lin, Doll{\'a}r, Girshick, He, Hariharan, and Belongie}}}
-\bibcite{lin2017focal}{{11}{2017{b}}{{Lin et~al.}}{{Lin, Goyal, Girshick, He, and Doll{\'a}r}}}
-\bibcite{lipman2023flow}{{12}{2023}{{Lipman et~al.}}{{Lipman, Chen, Ben-Hamu, Nickel, and Le}}}
-\bibcite{liu2023rectified}{{13}{2023}{{Liu, Gong, and Liu}}{{}}}
-\bibcite{loshchilov2017sgdr}{{14}{2017}{{Loshchilov and Hutter}}{{}}}
-\bibcite{loshchilov2019adamw}{{15}{2019}{{Loshchilov and Hutter}}{{}}}
-\bibcite{lu2022dpmpp}{{16}{2022}{{Lu et~al.}}{{Lu, Zhou, Zhang, Bao, Chen, Su, and Zhu}}}
-\bibcite{pooladian2023multisample}{{17}{2023}{{Pooladian et~al.}}{{Pooladian, Niles-Weed, Ben-Hamu, Tong, Brenier, and Lipman}}}
-\bibcite{ren2015faster}{{18}{2015}{{Ren et~al.}}{{Ren, He, Girshick, and Sun}}}
-\bibcite{rezatofighi2019giou}{{19}{2019}{{Rezatofighi et~al.}}{{Rezatofighi, Tsoi, Gwak, Sadeghian, Reid, and Savarese}}}
-\bibcite{rst_dataset}{{20}{2024}{{South China Normal University}}{{}}}
-\bibcite{tong2023conditional}{{21}{2023}{{Tong et~al.}}{{Tong, Fatras, Malkin, Huguet, Zhang, Rector-Brooks, Wolf, and Bengio}}}
-\bibcite{tseng2023dataset}{{22}{2023}{{Tseng et~al.}}{{Tseng, Lu, Li, Lai, Chen, Cheng, and Kuo}}}
-\newlabel{app:proofs}{{A}{9}{}{}{}}
-\newlabel{app:proof-prop1}{{A}{9}{}{}{}}
-\citation{dhariwal2021diffusion}
-\newlabel{app:proof-prop2}{{A}{10}{}{}{}}
-\newlabel{prop:monotone}{{2}{10}{}{}{}}
-\newlabel{app:falsified}{{B}{10}{}{}{}}
-\newlabel{app:per-seed}{{C}{10}{}{}{}}
-\newlabel{tab:falsified}{{9}{10}{}{}{}}
-\newlabel{tab:per-seed-rf-ddpm}{{10}{10}{}{}{}}
-\newlabel{app:adaln}{{D}{10}{}{}{}}
-\newlabel{app:per-class}{{E}{10}{}{}{}}
-\newlabel{tab:per-seed-coupling}{{11}{11}{}{}{}}
-\newlabel{tab:adaln-ablation}{{12}{11}{}{}{}}
-\gdef \@abspage@last{11}
+\bibcite{chen2023diffusiondet}{1}
+\bibcite{liu2023rectified}{2}
+\bibcite{lu2022dpmpp}{3}
+\bibcite{baty2025flowdet}{4}
+\bibcite{deflomat2025}{5}
+\bibcite{tong2023conditional}{6}
+\bibcite{pooladian2023multisample}{7}
+\bibcite{dhariwal2021diffusion}{8}
+\bibcite{chen2024diffubox}{9}
+\bibcite{lipman2023flow}{10}
+\bibcite{cheng2025curse}{11}
+\bibcite{ren2015faster}{12}
+\bibcite{kuo2024chromosomenet}{13}
+\bibcite{santambrogio2015optimal}{14}
+\bibcite{cuturi2013sinkhorn}{15}
+\bibcite{rst_dataset}{16}
+\bibcite{tseng2023dataset}{17}
+\bibcite{he2016resnet}{18}
+\bibcite{lin2017fpn}{19}
+\bibcite{loshchilov2019adamw}{20}
+\bibcite{loshchilov2017sgdr}{21}
+\bibcite{lin2017focal}{22}
+\bibcite{rezatofighi2019giou}{23}
+\bibcite{kuhn1955assignment}{24}
+\bibcite{ge2021yolox}{25}
+\@writefile{toc}{\contentsline {section}{Appendix\nobreakspace  A: Proofs}{10}{}\protected@file@percent }
+\newlabel{app:proofs}{{A}{10}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {A-A}}Proof of Proposition~\ref {prop:ot-gap}}{10}{}\protected@file@percent }
+\newlabel{app:proof-prop1}{{\mbox  {A-A}}{10}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {A-B}}Proof of Proposition~\ref {prop:ot-lower}}{10}{}\protected@file@percent }
+\newlabel{app:proof-prop2}{{\mbox  {A-B}}{10}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {A-C}}Proof of Proposition~\ref {prop:monotone}}{10}{}\protected@file@percent }
+\newlabel{app:proof-prop3}{{\mbox  {A-C}}{10}{}{}{}}
+\newlabel{prop:monotone}{{3}{10}{}{}{}}
+\@writefile{toc}{\contentsline {section}{Appendix\nobreakspace  B: AdaLN-Zero and Shifted Schedule Ablations}{10}{}\protected@file@percent }
+\newlabel{app:adaln}{{B}{10}{}{}{}}
+\@writefile{toc}{\contentsline {section}{References}{10}{}\protected@file@percent }
+\gdef \@abspage@last{10}

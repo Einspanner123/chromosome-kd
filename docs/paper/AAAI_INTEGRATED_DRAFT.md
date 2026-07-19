@@ -635,7 +635,7 @@ This appendix reports the standalone ablation of AdaLN-Zero referenced in Sectio
 
 **Table D.1**: AdaLN-Zero ablation on Dataset 2.
 
-AdaLN-Zero contributes *null* ($\Delta$mAP = 0.000) within the RF framework on this dataset. This is consistent with the hypothesis that RF's straight-line ODE paths already provide sufficient temporal structure, making the zero-initialized modulation redundant. We retain AdaLN-Zero as a standard conditioning mechanism (Dhariwal & Nichol, 2021) for consistency with the broader diffusion literature, but note that it does not contribute to the +0.082 mAP improvement claimed in Section 4.2.1. The entire +0.082 gap is attributable to the RF formulation itself (straight-line ODE paths); the shifted noise schedule contributes negligibly on its own, as shown in Appendix E.
+AdaLN-Zero contributes *null* ($\Delta$mAP = 0.000) within the RF framework on this dataset. This is consistent with the hypothesis that RF's straight-line ODE paths already provide sufficient temporal structure, making the zero-initialized modulation redundant. We retain AdaLN-Zero as a standard conditioning mechanism (Dhariwal & Nichol, 2021) for consistency with the broader diffusion literature, but note that it does not contribute to the +0.082 mAP improvement claimed in Section 4.2.1. The entire +0.082 gap is attributable to the RF formulation itself (straight-line ODE paths); the shifted noise schedule contributes negligibly on its own, as shown in Appendix B.
 
 ### E. Shifted Noise Schedule Ablation
 
