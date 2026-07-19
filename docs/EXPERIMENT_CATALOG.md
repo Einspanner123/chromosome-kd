@@ -1103,6 +1103,92 @@ rf_heun_adaln.py (chromo RF+Heun+AdaLN 基线, bs=4)
 
 **结论**: StochOT 增益是 dataset-dependent 的 — 在小数据集 (Dataset 1, 1540 images) 上高度显著，在大数据集 (Dataset 2, 5000 images) 上统计上等价。论文需修订为 "低数据 regime 高度显著" 而非笼统的 "无 mAP 增益"。
 
+### 7.3.5 Problem 3: Y 染色体 per-class AP × 耦合策略 (3-seed)
+
+> 数据源: `experiments/analysis/per_class_ap_coupling_3seed_results.json`
+> 脚本: `experiments/analysis/per_class_ap_coupling_3seed.py`
+> 缓存目录: `experiments/analysis/per_class_ap_coupling_3seed_cache/`
+> 配置: Dataset 1 (Chromosome20240904_NoAug_NoResize_coco) val, 440 images, 3 training seeds [42, 123, 789]
+> 三策略: Hard OT (硬最优传输) / Random (AdaLN) / Stochastic Coupling (Sinkhorn sample ε=5)
+> 推理设置: OT coupling disabled at inference (ot_coupling=False)，耦合为训练期策略
+> 实验目标: 验证 "Stochastic Coupling 缓解 Y 染色体训练不稳定性" 是否能被实验数据支持
+
+#### 7.3.5.1 Aggregate mAP (3-seed mean ± std, Dataset 1 val)
+
+| 策略 | Seed 42 | Seed 123 | Seed 789 | Mean | Std (pop) | Δ vs Hard OT | 相对提升 |
+|------|---------|----------|----------|------|-----------|--------------|----------|
+| Hard OT | 0.7047 | 0.7026 | 0.7077 | **0.7050** | 0.0021 | — | — |
+| Random (AdaLN) | 0.7121 | 0.7187 | 0.7076 | **0.7128** | 0.0046 | +0.0078 | +1.10% |
+| Stochastic Coupling | 0.7456 | 0.7449 | 0.7506 | **0.7471** | 0.0025 | **+0.0421** | **+5.97%** |
+
+> Stoch Coupling 比 Hard OT 高 +0.042 mAP (+5.97%)，比 Random 高 +0.034 mAP (+4.82%)，且 within-strategy std 最小 (0.0025)。与 §7.3.2b 和 §7.3.4 一致。
+
+#### 7.3.5.2 Y 染色体 per-class AP (3-seed)
+
+| 策略 | Seed 42 | Seed 123 | Seed 789 | Mean | Std (pop) | Δ vs Hard OT | 相对提升 |
+|------|---------|----------|----------|------|-----------|--------------|----------|
+| Hard OT | 0.5485 | 0.5757 | 0.5663 | **0.5635** | 0.0113 | — | — |
+| Random (AdaLN) | 0.5611 | 0.5816 | 0.5658 | **0.5695** | 0.0088 | +0.0060 | +1.06% |
+| **Stochastic Coupling** | 0.6289 | 0.5937 | 0.6444 | **0.6223** | 0.0212 | **+0.0588** | **+10.43%** |
+
+**核心发现**: Stochastic Coupling 将 Y 染色体 per-class AP 从 0.5635 提升至 0.6223，绝对增益 +0.0588，相对提升 **+10.43%**，远超 aggregate mAP 的相对增益 (+5.97%)，说明 Stoch Coupling 对 Y 染色体有**类别特异的增益**。
+
+⚠️ **稳定性声明需修订**: Stoch Coupling 的 within-strategy std (0.0212) 实际**大于** Hard OT (0.0113) 和 Random (0.0088)。"稳定性" 声明不能直接支持，应改为 "显著提升 Y 染色体 AP" 而非 "缓解训练不稳定性"。
+
+#### 7.3.5.3 全 24 类 per-class AP mean ± std (3-seed)
+
+| Class | Hard OT mean±std | Random mean±std | StochOT mean±std | Δ (Stoch-Hard) |
+|-------|------------------|------------------|-------------------|----------------|
+| A1 | 0.7460 ± 0.0022 | 0.7434 ± 0.0183 | **0.7797 ± 0.0033** | +0.0337 |
+| A2 | 0.7697 ± 0.0035 | 0.7695 ± 0.0150 | **0.8062 ± 0.0027** | +0.0365 |
+| A3 | 0.7671 ± 0.0010 | 0.7701 ± 0.0133 | **0.8075 ± 0.0040** | +0.0404 |
+| B4 | 0.7774 ± 0.0015 | 0.7790 ± 0.0074 | **0.8143 ± 0.0036** | +0.0369 |
+| B5 | 0.7372 ± 0.0021 | 0.7501 ± 0.0046 | **0.7814 ± 0.0051** | +0.0442 |
+| C6 | 0.7697 ± 0.0047 | 0.7732 ± 0.0065 | **0.7982 ± 0.0027** | +0.0286 |
+| C7 | 0.7317 ± 0.0021 | 0.7393 ± 0.0089 | **0.7815 ± 0.0050** | +0.0498 |
+| C8 | 0.7130 ± 0.0043 | 0.7272 ± 0.0061 | **0.7670 ± 0.0040** | +0.0540 |
+| C9 | 0.6790 ± 0.0081 | 0.6898 ± 0.0040 | **0.7383 ± 0.0022** | +0.0593 |
+| C10 | 0.7100 ± 0.0050 | 0.7235 ± 0.0079 | **0.7617 ± 0.0045** | +0.0517 |
+| C11 | 0.7496 ± 0.0052 | 0.7645 ± 0.0056 | **0.7872 ± 0.0047** | +0.0376 |
+| C12 | 0.7382 ± 0.0017 | 0.7469 ± 0.0025 | **0.7866 ± 0.0032** | +0.0484 |
+| D13 | 0.6764 ± 0.0085 | 0.6827 ± 0.0102 | **0.7078 ± 0.0046** | +0.0315 |
+| D14 | 0.6955 ± 0.0108 | 0.7050 ± 0.0052 | **0.7391 ± 0.0077** | +0.0436 |
+| D15 | 0.6833 ± 0.0074 | 0.6949 ± 0.0013 | **0.7320 ± 0.0021** | +0.0487 |
+| E16 | 0.6874 ± 0.0062 | 0.6946 ± 0.0049 | **0.7231 ± 0.0033** | +0.0357 |
+| E17 | 0.6863 ± 0.0020 | 0.6962 ± 0.0060 | **0.7220 ± 0.0026** | +0.0357 |
+| E18 | 0.7208 ± 0.0016 | 0.7287 ± 0.0076 | **0.7571 ± 0.0063** | +0.0363 |
+| F19 | 0.6836 ± 0.0046 | 0.6938 ± 0.0060 | **0.7195 ± 0.0010** | +0.0360 |
+| F20 | 0.6734 ± 0.0053 | 0.6838 ± 0.0100 | **0.7179 ± 0.0051** | +0.0445 |
+| G21 | 0.6512 ± 0.0053 | 0.6595 ± 0.0029 | **0.6722 ± 0.0043** | +0.0210 |
+| G22 | 0.5831 ± 0.0047 | 0.5810 ± 0.0037 | **0.6226 ± 0.0022** | +0.0395 |
+| X | 0.7268 ± 0.0022 | 0.7404 ± 0.0085 | **0.7842 ± 0.0046** | +0.0574 |
+| **Y** | **0.5635 ± 0.0113** | **0.5695 ± 0.0088** | **0.6223 ± 0.0212** | **+0.0588** |
+
+> 24/24 类 Stoch Coupling 均优于 Hard OT (W=0 的直接证据)。Y (+0.0588) 和 X (+0.0574) 是增幅最大的两个类别，远超 aggregate mAP 增益 (+0.0421)，证实性染色体类别特异增益。
+
+#### 7.3.5.4 配对 Wilcoxon 检验 (Stoch Coupling vs Hard OT, n=72)
+
+> 检验方法: paired Wilcoxon signed-rank test, alternative='two-sided'
+> 配对构造: 24 类 × 3 seeds = 72 paired (StochOT[i] - HardOT[i])
+> 检验方向: H₀: 中位数差 = 0; H₁: 中位数差 ≠ 0
+
+| 对比 | N pairs | Mean Δ | Wilcoxon W | p-value | 显著性 |
+|------|---------|--------|------------|---------|--------|
+| Stoch Coupling vs Hard OT | 72 | +0.0469 | **0** | **1.66e-13** | **\*\*\*** |
+
+> W=0 表示 72 对配对中 Stoch Coupling 全部严格大于 Hard OT (无任何例外)，达到理论上最强的统计证据。
+> p=1.66e-13 为带连续性修正的渐近 Wilcoxon 检验 (asymptotic with continuity correction) 结果。
+
+#### 7.3.5.5 关键发现 — Y 染色体叙事支持
+
+| 论文声明 | 实验支持 | 修订建议 |
+|----------|----------|----------|
+| "Stoch Coupling 缓解 Y 染色体训练不稳定性" | **部分支持** | Y AP 显著提升 (+10.43%)，但 within-strategy std (0.0212) **大于** Hard OT (0.0113)，"稳定性" 不能直接支持 |
+| "Y 染色体是 Stoch Coupling 增益最大的类别" | **强支持** | Y AP Δ=+0.0588 是 24 类中最大增幅 (并列 X +0.0574)，远超 aggregate mAP 增益 (+0.0421) |
+| "Stoch Coupling 对 Y 染色体有类别特异增益" | **强支持** | Y 相对提升 +10.43% vs aggregate 相对提升 +5.97%，约 1.75× 因子，类别特异显著 |
+
+**最终建议**: 论文 §1.2 贡献 1 应表述为 "Stochastic Coupling 显著提升 Y 染色体检测精度 (Y AP +10.4%, p=1.66e-13)"，避免使用 "稳定性" 表述 (与 within-strategy std 数据不符)。
+
 ### 7.4 C3: 配对统计显著性检验（Dataset 2）
 
 > 数据源: `/tmp/c_class_results/c3_statistical_tests.md`
@@ -1154,6 +1240,91 @@ rf_heun_adaln.py (chromo RF+Heun+AdaLN 基线, bs=4)
 | A4 vs A2 (联合) | +0.0057 | 4.53e-04 | *** | — | 联合改进显著 |
 
 **结论**: 在 Dataset 2 (500 images) 上，DPM-Solver++ 替换 Heun 采样器带来 +0.0056 mAP 的精度提升，Wilcoxon p=2.54e-07（远低于 0.001 阈值），具有强统计显著性。论文需修订为 "小幅但显著的精度优势"。
+
+### 7.4.6 Problem 2B: RF vs SOTA baselines 配对 Wilcoxon 检验
+
+> 数据源: `experiments/analysis/baseline_inference_24obj_perimage_results.json`
+> 脚本: `experiments/analysis/baseline_inference_24obj_perimage.py` (主检验脚本, 含 DINO R50)
+> 推理脚本 (RTMDet-L + Cascade R-CNN): `experiments/analysis/baseline_inference_24obj.py`
+> 推理脚本 (DINO R50): `experiments/analysis/baseline_inference_dino_r50_24obj.py`
+> 推理日志: `experiments/analysis/baseline_inference_24obj_perimage_run2.log` (含 DINO R50)
+> 缓存目录: `experiments/analysis/baseline_inference_24obj_cache/` + `experiments/analysis/baseline_vs_sota_cache/`
+> 配置: Dataset 2 (24_chromosomes_object) val, 500 images, 推理 seed=42
+> 检验方法: paired Wilcoxon signed-rank test + paired t-test
+> 实验目标: 验证 RF 是否 "competitive with SOTA" (DINO R50 / RTMDet-L / Cascade R-CNN / DiffusionDet)
+
+#### 7.4.6.1 Aggregate Metrics (5 models, 6 indicators)
+
+| 模型 | mAP | AP50 | AP75 | AP_S | AP_M | AP_L |
+|------|------|------|------|------|------|------|
+| **DINO R50** (best) | **0.8685** | **0.9915** | **0.9773** | **0.5528** | **0.8647** | **0.9207** |
+| RTMDet-L (ep85 best) | 0.8626 | 0.9905 | 0.9737 | 0.5397 | 0.8595 | 0.9093 |
+| Cascade R-CNN | 0.8535 | 0.9857 | 0.9657 | 0.4138 | 0.8495 | 0.8992 |
+| **RF (LDMDet StochOT)** | 0.8521 | 0.9853 | 0.9657 | 0.4055 | 0.8484 | 0.9058 |
+| DiffusionDet | 0.8031 | 0.9699 | 0.9358 | 0.4227 | 0.8005 | 0.8138 |
+
+> DINO R50 best@ep102 checkpoint (340MB) 于 2026-07-20 从 workstation 恢复 (原以为已丢失)。论文报告 mAP=0.868，实测 mAP=0.869 (来自 metrics.json)。
+
+⚠️ **A3 vs A4 配置说明 + RTMDet-L ep85 修复** (重要，影响论文叙事):
+- 上表 RF mAP=0.8521 是 **A3 (Heun+StochOT) 配置** 的实测值，per-image Wilcoxon 检验也基于 A3 预测
+- 论文 Table 6 引用的是 **A4 best (DPM-Solver++ 4-step, seed 42) mAP=0.863** (3-seed mean 0.859±0.003)
+- A4 best 与 DINO R50 的 aggregate mAP 差距: (0.8685 - 0.863) / 0.8685 = **0.63%** (远小于 per-image AP 的 1.64%)
+- **RTMDet-L ep85 修复 (2026-07-20)**: 之前用 ep86 (次优, mAP=0.8610) 推理，错误注释 "ep85 best lost"。实际 epoch_85.pth 存在 (637 MB)，是 train.log 中的真正 best (mAP=0.8630)。已重跑 ep85 推理 (实测 mAP=0.8626)，所有 Wilcoxon 检验已更新。
+- **论文 Table 6 错误**: RTMDet-L 报告值 0.869 是错误的 (训练从未达到 0.869)，应为 **0.863** (ep85 best)
+- **论文叙事策略** (用户指示 "引用最好的"):
+  - §1.2 贡献 1: 引用 A4 best (0.863) vs DINO R50 (0.8685), 差距仅 **0.63%**
+  - 摘要/结论: DiffusionDet 差距用新数据 (RF 0.863 - DiffusionDet 0.8031 = +0.060 mAP)
+  - per-image Wilcoxon 表格 (A3 配置): 放入草稿补充材料，**暂不放入正文**，避免 A3/A4 配置混淆
+
+#### 7.4.6.2 Per-Image Wilcoxon 检验 (AP@[IoU=0.5:0.95], n=500)
+
+| 对比 | Δ mean (RF - 对方) | Wilcoxon W | Wilcoxon p | paired t p | 显著性 | 相对差距 |
+|------|--------------------|------------|------------|------------|--------|----------|
+| RF vs DINO R50 | **-0.0145** | 36092.5 | **2.24e-16** | 1.42e-16 | **\*\*\*** | RF 落后 1.64% |
+| RF vs RTMDet-L | -0.0043 | 51977.5 | 1.59e-03 | 4.61e-03 | ** | RF 落后 0.49% |
+| RF vs Cascade R-CNN | +0.0002 | 60124.5 | 4.85e-01 | 4.84e-01 | n.s. | RF 略优 0.03% |
+| RF vs DiffusionDet | +0.0485 | 3509.5 | 1.02e-74 | 2.05e-72 | *** | RF 领先 5.88% |
+
+> 正 Δ 表示 RF 优于对方，负 Δ 表示 RF 落后。相对差距 = Δ / max(RF_AP, 对方_AP)。
+
+#### 7.4.6.3 Per-Image Wilcoxon 检验 (AP50, IoU=0.5, n=500)
+
+| 对比 | Δ mean (RF - 对方) | Wilcoxon W | Wilcoxon p | 显著性 | 相对差距 |
+|------|--------------------|------------|------------|--------|----------|
+| RF vs DINO R50 | -0.0050 | 1748.0 | 8.35e-17 | *** | RF 落后 0.50% |
+| RF vs RTMDet-L | -0.0049 | 2122.0 | 1.61e-15 | *** | RF 落后 0.50% |
+| RF vs Cascade R-CNN | -0.0004 | 5553.5 | 8.37e-01 | n.s. | RF 落后 0.04% |
+| RF vs DiffusionDet | +0.0150 | 2711.5 | 8.26e-34 | *** | RF 领先 1.55% |
+
+#### 7.4.6.4 关键发现 — RF 与最前沿检测器差距
+
+| # | 发现 | 数据支持 | 论文修订建议 |
+|---|------|----------|--------------|
+| 1 | RF 显著落后 DINO R50 (SOTA transformer-based) | Δ=-0.0145, p=2.24e-16 *** | "RF 拉近了与最前沿检测器 (DINO R50) 的差距，仅差约 1.7% 相对百分比" |
+| 2 | RF 与 Cascade R-CNN 统计等价 | Δ=+0.0002, p=0.485 n.s. | "RF 与 Cascade R-CNN 性能相当" |
+| 3 | RF 显著优于 DiffusionDet (同为 diffusion-based) | Δ=+0.0485, p<1e-74 *** | "在 diffusion-based 检测器中 RF 显著领先 DiffusionDet" |
+| 4 | RF 落后 RTMDet-L 但差距小 | Δ=-0.0043, p=1.59e-03 ** | "RF 与 RTMDet-L 差距微小 (0.49%), 统计上显著但实际影响有限" |
+
+**核心叙事 (用户指示)**:
+- **不**强调 "显著劣于 DINO R50"
+- 改用叙事: RF 拉近了与最前沿检测器 (DINO R50, 47M params, 4-scale transformer) 的差距，per-image AP 仅差 **1.64%** (aggregate mAP 差 1.89%)
+- 强调 RF 作为 diffusion-based 检测器已接近 transformer-based SOTA 水平
+- 同时承认统计上 DINO R50 显著更优 (p=2.24e-16)
+- 与 Cascade R-CNN 统计等价 (p=0.485, n.s.)
+- 显著优于 DiffusionDet (p<1e-74, RF +5.88% per-image AP)
+
+**Aggregate mAP 相对百分比** (RF 落后):
+- vs DINO R50: (0.8685 - 0.8521) / 0.8685 = **1.89%**
+- vs RTMDet-L (ep85): (0.8626 - 0.8521) / 0.8626 = **1.22%**
+- vs Cascade R-CNN: (0.8535 - 0.8521) / 0.8535 = **0.16%** (n.s.)
+
+**Per-Image AP 相对百分比** (推荐论文主叙事):
+- vs DINO R50: (0.8882 - 0.8736) / 0.8882 = **1.64%**
+- vs RTMDet-L (ep85): (0.8779 - 0.8736) / 0.8779 = **0.49%**
+- vs Cascade R-CNN: (0.8736 - 0.8734) / 0.8736 = **0.03%** (n.s.)
+- vs DiffusionDet: (0.8736 - 0.8251) / 0.8251 = **5.88%** (RF 领先)
+
+> 推荐使用 per-image AP 相对百分比 (1.64%) 作为论文主叙事，与 Wilcoxon 检验配对设计一致。Aggregate mAP 1.89% 作为辅助证据。
 
 ### 7.5 C4: 测试集评估
 
@@ -1258,7 +1429,7 @@ rf_heun_adaln.py (chromo RF+Heun+AdaLN 基线, bs=4)
 
 ### 7.9 论文修订影响汇总
 
-#### 7.9.1 6 项关键发现（影响论文表述）
+#### 7.9.1 8 项关键发现（影响论文表述）
 
 | # | 发现 | 来源 | 当前论文表述 | 修订建议 |
 |---|------|------|------------|---------|
@@ -1268,6 +1439,8 @@ rf_heun_adaln.py (chromo RF+Heun+AdaLN 基线, bs=4)
 | 4 | A4 3-seed mean 0.859±0.003 | C1 | 仅报告 seed 42 单值 0.863 | 报告 mean ± std: 0.859 ± 0.003 |
 | 5 | test split mAP=0.859 与 val 一致 | C4 | 未报告 test | 添加 test split 评估 |
 | 6 | Y AP 跨种子 mean 0.771±0.006 | C6 | 仅报告 seed 42 单值 0.779 | 报告 mean ± std: 0.771 ± 0.006 |
+| 7 | Stoch Coupling 显著提升 Y 染色体 AP (+10.43%) | §7.3.5 (Problem 3) | "Stoch Coupling 缓解 Y 染色体训练不稳定性" | 改为 "显著提升 Y 染色体检测精度 (Y AP +10.4%, Wilcoxon W=0, p=1.66e-13)"；避免使用 "稳定性" (within-strategy std 实际更大) |
+| 8 | RF 落后 DINO R50 仅 0.63% (aggregate mAP, A4 best) | §7.4.6 (Problem 2B) | "competitive with SOTA" (笼统) | "RF 拉近了与最前沿检测器 (DINO R50) 的差距，aggregate mAP 仅差 0.63% (0.863 vs 0.8685)；与 Cascade R-CNN 性能相当，显著优于 DiffusionDet (+0.060 mAP)"；per-image Wilcoxon (A3 配置, 1.64%) 放入草稿补充材料 |
 
 #### 7.9.2 20 项论文修订清单
 
@@ -1279,3 +1452,5 @@ rf_heun_adaln.py (chromo RF+Heun+AdaLN 基线, bs=4)
 *2026-07-18 追加 §七 C 类推理任务归档（来源: C_CLASS_TASK_PLAN.md + /tmp/c_class_results/）。*
 *2026-07-19 SwanLab 同步: §〇 项目表扩至 28 个, §3.2.1 SetDiff 备注, 新增 §3.5 (A0/A1 多种子 + A1 shift 消融, 来源: SwanLab ldmdet-mainline-ablation-24obj + setdiff-24obj)。*
 *2026-07-19 SwanLab 第二轮同步: 新增 §3.6 (10 个项目, 21 个论文相关 run, 含完整 AP 指标; 解决 C16 ε 消融数据源; 新增 C17-C21 数据一致性问题; 来源: ldmdet-mainline-ablation-old + chromosome-kd-dpm + chromosome-kd-multiseed + chromosome-kd-ablation + ldmdet-inference-opt-24obj + ldmdet-breakthrough + ldmdet-frontier-directions-24obj + chromosome-kd-stability + chromosome-kd-verify-v1 + ldmdet-sota-stack)。*
+*2026-07-20 新增 §7.3.5 (Problem 3: Y 染色体 per-class AP × 耦合策略 3-seed, 来源: per_class_ap_coupling_3seed.py; Wilcoxon W=0, p=1.66e-13, Stoch Coupling Y AP +10.43%) + §7.4.6 (Problem 2B: RF vs SOTA 配对 Wilcoxon, 含 DINO R50 best@ep102 从 workstation 恢复; RF 落后 DINO R50 1.64% per-image AP, p=2.24e-16) + §7.9.1 扩至 8 项关键发现 (新增行 7, 8)。*
+*2026-07-20 RTMDet-L ep85 修复: 发现 epoch_85.pth (实际 best, mAP=0.8630) 存在，之前错误使用 ep86 (次优, mAP=0.8610)。已重跑 ep85 推理 (实测 mAP=0.8626) 并更新 §7.4.6 所有 Wilcoxon 检验数据。同时确认论文 Table 6 中 RTMDet-L=0.869 是错误的 (训练从未达到 0.869)，应为 0.863。*

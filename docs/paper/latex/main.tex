@@ -567,7 +567,7 @@ pruning because the $x_0$ history has a dimension mismatch (500 $\to K$).
 Table~\ref{tab:datasets} summarizes the two public chromosome datasets,
 referred to as Dataset~1 and Dataset~2. Dataset~1 is Chromosome20240904
 (RST)~\cite{rst_dataset}, $1{,}540$ images; Dataset~2 is the 24 Chromosomes
-Object dataset~\cite{tseng2023dataset}, $5{,}000$ images. Both use
+Object dataset~\cite{tseng2023dataset,lu2022cil54816}, $5{,}000$ images. Both use
 image-level random splitting; in clinical karyotyping, a single patient's
 blood sample can yield multiple metaphase images, so image-level splitting
 does not strictly guarantee patient-level separation, and the datasets do
@@ -1138,6 +1138,14 @@ endpoints give $H\to 0$ and $H\to\log K$.
 \emph{AdaLN-Zero and shifted schedule.} Both null ($\Delta$\mAP{}$=0.000$,
 $-0.001$); Y chromosome hardest ($\mathrm{AP}{=}0.779$, $\sim$1{,}803 vs
 $\sim$7{,}000 samples per autosome).
+
+% ============================================================
+\section*{Data Availability}
+The two public datasets used in this study are available from
+Roboflow Universe at \url{https://universe.roboflow.com/south-china-normal-university-imqzk/rst}
+(Dataset~1, RST)~\cite{rst_dataset} and from the Cell Image Library at
+\url{https://doi.org/10.7295/W9CIL54816} (Dataset~2, 24 Chromosomes Object)~\cite{tseng2023dataset,lu2022cil54816}.
+Source code will be released upon publication.
 
 % ============================================================
 \bibliographystyle{IEEEtran}
