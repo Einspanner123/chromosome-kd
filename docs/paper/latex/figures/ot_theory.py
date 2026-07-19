@@ -12,6 +12,7 @@ Outputs: ot_theory.pdf, ot_theory.png
 
 from __future__ import annotations
 
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial import Voronoi as SciVoronoi
@@ -134,29 +135,27 @@ def panel_dh(ax: plt.Axes) -> None:
     empirical = 3.8415
     rel_err = abs(theory - empirical) / theory * 100
 
-    bar_labels = [r"$\log K$ (theory)", r"$\Delta H$ (empirical)"]
-    values = [theory, empirical]
-    colors_panel = [C_RF, C_OT]
+    # Tidy DataFrame
+    df_bar = pd.DataFrame({
+        "label": [r"$\log K$ (theory)", r"$\Delta H$ (empirical)"],
+        "value": [theory, empirical],
+    })
+    PAL_BAR = [C_RF, C_OT]
 
-    x = np.arange(2)
-    bars = ax.bar(x, values, width=0.45, color=colors_panel,
-                  edgecolor="black", lw=0.7)
+    sns.barplot(data=df_bar, x="label", y="value",
+                hue="label", palette=PAL_BAR, edgecolor="black",
+                linewidth=0.7, saturation=1, width=0.45,
+                ax=ax, legend=False)
 
-    # Inside-bar labels: use contrasting text color
-    for bar, v, col in zip(bars, values, colors_panel):
-        # Determine text color based on bar brightness
-        if isinstance(col, tuple) and len(col) >= 3:
-            brightness = 0.299 * col[0] + 0.587 * col[1] + 0.114 * col[2]
-        else:
-            brightness = 0.5  # default
+    # Value labels inside bars — adaptive text color
+    for bar, val, col in zip(ax.patches, [theory, empirical], PAL_BAR):
+        brightness = 0.299*col[0] + 0.587*col[1] + 0.114*col[2]
         txt_color = "white" if brightness < 0.5 else "black"
         ax.text(bar.get_x() + bar.get_width() / 2,
                 bar.get_y() + bar.get_height() / 2,
-                f"{v:.4f}", ha="center", va="center",
+                f"{val:.4f}", ha="center", va="center",
                 fontsize=9, color=txt_color, fontweight="bold")
 
-    ax.set_xticks(x)
-    ax.set_xticklabels(bar_labels, fontsize=8)
     ax.set_ylabel(r"Conditional entropy reduction $\Delta H$", fontsize=9)
     ax.set_ylim(0.0, 4.7)
     ax.set_axisbelow(True)

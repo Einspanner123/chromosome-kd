@@ -12,9 +12,10 @@ Outputs: tech_pipeline.pdf, tech_pipeline.png
 
 from __future__ import annotations
 
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import FancyArrowPatch, Rectangle, FancyBboxPatch
+from matplotlib.patches import FancyBboxPatch, Rectangle
 from matplotlib.lines import Line2D
 
 from figure_style import *
@@ -105,8 +106,19 @@ def panel_schedule(ax: plt.Axes) -> None:
     shift = 3.0
     shifted = shift / (1 + (shift - 1) * t) ** 2
 
-    ax.plot(t, linear, color=C_RAND, lw=1.5, label="Linear (uniform)")
-    ax.plot(t, shifted, color=C_RF, lw=1.5, label=f"Shifted ($s$={shift})")
+    # Build tidy DataFrame
+    df_sched = pd.DataFrame({
+        "t": np.concatenate([t, t]),
+        "density": np.concatenate([linear, shifted]),
+        "schedule": (["Linear (uniform)"] * len(t)
+                     + [f"Shifted ($s$={shift})"] * len(t)),
+    })
+
+    sns.lineplot(data=df_sched, x="t", y="density", hue="schedule",
+                 palette={"Linear (uniform)": C_RAND,
+                          f"Shifted ($s$={shift})": C_RF},
+                 linewidth=1.5, ax=ax)
+    # Fill between for shifted (seaborn has no fill_between equivalent)
     ax.fill_between(t, 0, shifted, color=C_RF, alpha=0.12)
     ax.fill_between(t, 0, linear, color=C_RAND, alpha=0.08)
 
