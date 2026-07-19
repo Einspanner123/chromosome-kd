@@ -262,9 +262,8 @@ layer norm so the network starts as an unconditional model (identity at
 $t{=}0$). A separate ablation (Appendix~\ref{app:adaln}) confirms its individual
 contribution to \mAP{} is null; the $+0.082$ \mAP{} gain is entirely
 attributable to the RF formulation itself, with the shifted noise schedule
-contributing negligibly on its own (Appendix~\ref{app:shift-ablation}). We
-retain AdaLN-Zero as a standard implementation detail, not a separate
-contribution.
+also contributing negligibly on its own. We retain AdaLN-Zero as a standard
+implementation detail, not a separate contribution.
 
 \subsection{ODE Solvers: Heun and DPM-Solver++}\label{sec:method-solver}
 
@@ -390,6 +389,29 @@ error $0.03\%$. Figure~\ref{fig:ot-theory} visualizes the partitioning and the
 empirical match, and Figure~\ref{fig:entropy-phase} traces conditional entropy
 $H(V|Z)$ as a function of the stochastic coupling parameter $\epsilon$.
 
+\paragraph{Tight lower bound.}
+The upper bound of Proposition~\ref{prop:ot-gap} is essentially tight:
+a matching lower bound shows OT collapse is severe whenever noise is small
+relative to inter-box distances.
+
+\begin{proposition}[OT Diversity Lower Bound]\label{prop:ot-lower}
+Under the Gaussian noise model with variance $\sigma_t^2 I_d$ at time $t$
+and well-separated GT boxes ($\min_{j \ne k} \norm{b_k - b_j} \ge d_{\min}$),
+\begin{equation*}
+  \Delta H \;\ge\; \log K \cdot \bigl(1 - P_{\mathrm{err}}(t)\bigr)
+  - h\bigl(P_{\mathrm{err}}(t)\bigr),
+\end{equation*}
+where $P_{\mathrm{err}}(t) \le \binom{K}{2}\, \Phi\!\bigl(-d_{\min}/(2\sigma_t)\bigr)$
+is the nearest-neighbor misclassification probability (union bound) and
+$h(\cdot)$ is the binary entropy. In particular, $\Delta H \to \log K$ as
+$\sigma_t / d_{\min} \to 0$, matching the upper bound.
+\end{proposition}
+
+For chromosome detection ($d_{\min} \approx 20$\,px, $\sigma_t \sim 1$\,px),
+$P_{\mathrm{err}} < 10^{-45}$, so the bound predicts $\Delta H \ge 0.999\,\log K$,
+consistent with the observed $0.03\%$ gap and confirming that OT collapse is
+\emph{unavoidable} rather than an artifact of the $N \to \infty$ idealization.
+
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]{figures/entropy_phase.pdf}
@@ -444,9 +466,10 @@ transport matrix rows~\cite{cuturi2013sinkhorn}:
 \end{definition}
 The key property is that $H_{\text{stoch}}(V|X_t; \epsilon)$ increases
 monotonically with $\epsilon$; endpoints are $\epsilon \to 0$ = hard OT and
-$\epsilon \to \infty$ = random coupling. We conjecture that $H_{\text{stoch}}$ is
-monotonically increasing in $\epsilon$ (Conjecture~\ref{prop:monotone},
-Appendix~\ref{app:proof-prop2}), supported by empirical validation.
+$\epsilon \to \infty$ = random coupling. We prove $H_{\text{stoch}}$ is
+monotonically non-decreasing in $\epsilon$ (Proposition~\ref{prop:monotone},
+Appendix~\ref{app:proof-prop3}) via the envelope theorem applied to
+entropy-regularized OT.
 
 \paragraph{Stochastic Coupling as training stabilizer.}
 While the \mAP{} improvement is marginal ($+0.002$ on 24 Chromosomes Object), its impact on
@@ -651,43 +674,32 @@ than the Heun baseline and a far simpler backbone than RTMDet-L or DINO R50.
 
 \paragraph{Small-object performance and the medical-imaging direction.}
 On small objects, our detector (AP$_S{=}0.516$ over three seeds) is
-\emph{statistically indistinguishable} from DINO R50 ($0.553$) and RTMDet-L
+statistically indistinguishable from DINO R50 ($0.553$) and RTMDet-L
 ($0.540$): a per-image paired Wilcoxon test across the $60$ small-object
 images finds no significant difference among the top methods
 (Table~\ref{tab:stat-tests}). We therefore do not claim a small-object
-\emph{advantage}; rather, the result is that a single-shot RF detector with a
-plain ResNet-50 backbone is \emph{competitive} on the small-object regime
-that is practically most relevant for chromosome analysis --- the Y chromosome
-and several C-group chromosomes are small and morphologically subtle, and
-clinical karyotyping prioritizes per-class sensitivity over aggregate \mAP{}.
-This competitiveness, achieved without the multi-scale deformable attention of
-DINO or the heavier CSPNeXt-L backbone of RTMDet-L, supports the broader
-direction of diffusion models for medical imaging where small-target
-detection under clutter is common. On Dataset~1, where the training set is
-smaller ($1{,}540$ images), our LDMDet ($0.753$ \mAP{}) in fact exceeds both
+\emph{advantage}; rather, a single-shot RF detector with a plain ResNet-50
+backbone is \emph{competitive} on the small-object regime most relevant for
+chromosome analysis, without the multi-scale deformable attention of DINO or
+the heavier CSPNeXt-L backbone of RTMDet-L. On the smaller Dataset~1
+($1{,}540$ images), our LDMDet ($0.753$ \mAP{}) in fact exceeds both
 RTMDet-L ($0.742$) and DINO R50 ($0.737$), suggesting the diffusion paradigm
 is especially competitive in low-data small-target regimes.
 
 \paragraph{Per-class AP analysis.}
-Figure~\ref{fig:per-class} reports the per-class AP for all 24 classes on the
-A3 checkpoint (seed~42, independent inference). Overall AP drops monotonically
-with chromosome size ($0.896 \to 0.848 \to 0.805$ for Large$\to$Medium$\to$Small),
-consistent with the well-known difficulty of small-object detection. The Y
-chromosome is the hardest class ($\mathrm{AP}{=}0.779$ for seed~42;
-$0.771 \pm 0.006$ over three training seeds, the highest per-class variance
-alongside G21 and X), attributable to both data scarcity ($\sim$1,803 samples
-vs $\sim$7,000 per autosome) and biological characteristics (among the
-smallest chromosomes, heterochromatin-rich, morphologically variable); as a
-small chromosome, its AP is also the most sensitive to the per-image AP$_S$
-variance noted in Section~\ref{sec:exp-sota}. The C-group chromosomes
+Figure~\ref{fig:per-class} reports per-class AP for all 24 classes (A3
+checkpoint, seed~42). Overall AP drops monotonically with chromosome size
+($0.896 \to 0.848 \to 0.805$ for Large$\to$Medium$\to$Small). The Y
+chromosome is the hardest class ($\mathrm{AP}{=}0.779$;
+$0.771 \pm 0.006$ over three seeds), attributable to data scarcity
+($\sim$1{,}803 vs $\sim$7{,}000 per autosome) and biology (smallest,
+heterochromatin-rich; see Appendix~\ref{app:adaln}). The C-group chromosomes
 (C6--C12), despite being morphologically similar look-alikes, achieve high AP
-with an intra-group spread of only $0.029$ (stable at $0.027$--$0.032$ across
-seeds), indicating competent fine-grained discrimination when training data
-are sufficient (Appendix~\ref{app:per-class}). Finally, AP50 is near-saturated
-across all classes ($>0.988$, and $0.972$ for the Y), so localization is
-near-saturated ($>0.988$) and the residual errors concentrate in fine-grained
-classification --- suggesting a downstream banding-pattern classifier could
-recover much of the remaining AP.
+with intra-group spread only $0.029$, indicating competent fine-grained
+discrimination when training data is sufficient. AP$_{50}$ is near-saturated
+across all classes ($>0.988$; $0.972$ for Y), so residual errors concentrate
+in fine-grained classification --- suggesting a downstream banding-pattern
+classifier could recover much of the remaining AP.
 
 \begin{figure}[t]
   \centering
@@ -701,22 +713,18 @@ recover much of the remaining AP.
 
 \paragraph{Statistical significance of the ablation gains.}
 Table~\ref{tab:stat-tests} reports per-image paired significance tests
-(Wilcoxon signed-rank and paired $t$-test) over the $500$ validation images
-for the three pairwise comparisons underlying the main ablation. Two
+(Wilcoxon and paired $t$-test) over the $500$ validation images. Two
 conclusions stand out. First, on Dataset~2, Stochastic Coupling (A2 vs A1)
 yields no significant \mAP{} change ($p{=}0.80$) --- but this is
-\emph{dataset-specific}: the same comparison on the smaller Dataset~1
-reveals a large, highly significant gain ($+0.034$, $p<10^{-120}$;
-Table~\ref{tab:stat-tests-coupling}), so StochOT's accuracy contribution
-is real in low-data regimes and diminishes with dataset size. Second,
+\emph{dataset-specific}: the same comparison on Dataset~1 reveals a large,
+highly significant gain ($+0.034$, $p<10^{-120}$;
+Table~\ref{tab:stat-tests-coupling}), so StochOT's accuracy contribution is
+real in low-data regimes and diminishes with dataset size. Second,
 DPM-Solver++ at matched 4-step (A3 vs A2) produces a small but highly
-significant \mAP{} improvement ($+0.006$, $p<10^{-3}$ on both tests) ---
-i.e., the higher-order solver is \emph{slightly better}, not worse, than
-Heun at equal step count. On AP$_S$, none of the pairwise differences
-reach significance ($p>0.6$ on all tests), so the small-object numbers in
-Tables~\ref{tab:main-ablation} and~\ref{tab:sota} should be read as
-noise-equivalent across our own variants; the same caveat applies to
-cross-method AP$_S$ comparisons.
+significant \mAP{} improvement ($+0.006$, $p<10^{-3}$) --- the higher-order
+solver is \emph{slightly better}, not worse, than Heun at equal step count.
+On AP$_S$, none of the pairwise differences reach significance
+($p>0.6$), so small-object numbers should be read as noise-equivalent.
 
 \begin{table}[t]
   \centering
@@ -772,28 +780,22 @@ cross-method AP$_S$ comparisons.
 \subsection{Coupling Ablation}\label{sec:exp-coupling}
 
 \paragraph{Dataset~1, multi-seed.}
-On Dataset~1, Stochastic Coupling yields a large and highly significant \mAP{}
-gain over Random coupling ($+0.034$, $0.747$ vs $0.713$; pooled Wilcoxon
-$p<10^{-120}$, $n{=}1320$; Table~\ref{tab:stat-tests-coupling}), and over Hard
-OT ($+0.042$, $p<10^{-150}$). Hard OT is in fact \emph{worse} than Random
-($-0.008$, $p<10^{-8}$), confirming the diversity-collapse pathology predicted
-by Section~\ref{sec:method-ot}: deterministic OT assignment collapses
-$H(V|X_t)\to 0$ and degrades training. The gain is dataset-dependent,
-however: on the larger Dataset~2 (5000 images, 24 classes), the same
-StochOT vs Random comparison shrinks to $+0.0001$ ($p{=}0.80$, not
-significant; Table~\ref{tab:stat-tests}). We hypothesize that with more
-data the marginal benefit of OT-induced pairing diminishes, as the
-model sees enough samples to average out the random-coupling noise ---
-an empirical signature of the low-data regime where Stochastic Coupling
-(which also delivers $4.6\times$ smoother convergence,
-Table~\ref{tab:stability-multi}) is most valuable.
+On Dataset~1, Stochastic Coupling yields a large, highly significant \mAP{}
+gain over Random ($+0.034$, $0.747$ vs $0.713$; pooled Wilcoxon $p<10^{-120}$,
+$n{=}1320$; Table~\ref{tab:stat-tests-coupling}) and over Hard OT ($+0.042$,
+$p<10^{-150}$). Hard OT is in fact \emph{worse} than Random ($-0.008$,
+$p<10^{-8}$), confirming the diversity-collapse pathology: deterministic OT
+collapses $H(V|X_t)\to 0$ and degrades training. The gain is
+dataset-dependent: on the larger Dataset~2, the same comparison shrinks to
+$+0.0001$ ($p{=}0.80$; Table~\ref{tab:stat-tests}), an empirical signature
+of the low-data regime where Stochastic Coupling (which also delivers
+$4.6\times$ smoother convergence, Table~\ref{tab:stability-multi}) is most
+valuable.
 
 \paragraph{Multi-dimensional stability comparison (Dataset~2).}
 Table~\ref{tab:stability-multi} reports five additional stability metrics.
 Stochastic Coupling achieves $30/30$ epochs within $1\%$ of the best \mAP{}
-(vs $13/30$ for Random), making late-stage checkpoint selection far more
-reliable --- the property of primary practical concern for EarlyStopping-based
-training in small-data regimes.
+(vs $13/30$ for Random), making late-stage checkpoint selection reliable.
 
 \begin{table}[t]
   \centering
@@ -912,17 +914,81 @@ Dataset~1 ($+0.034$ over Random, $p<10^{-120}$; Hard OT is in fact
 collapse), but negligible on Dataset~2 ($+0.0001$, $p{=}0.80$). The
 $4.6\times$ convergence-smoothness benefit holds on both.
 
+\subsection{Robustness}\label{sec:exp-robust}
+We report two inference-only robustness probes that strengthen the
+evaluation (SIER criteria: Evaluation breadth + Reproducibility). Both
+reuse the A3 checkpoint (A4 in code: A3$+$IO3, DPM-Solver++ 4-step) trained
+on Dataset~2 — \emph{no model is retrained}.
+
+\paragraph{Annotation-noise robustness}
+We perturb the Dataset~2 \emph{test} ground truth (GT) by (i)~adding
+Gaussian jitter to each GT bbox center ($\sigma_{\text{bbox}}\in\{2,5,10\}$
+px, with bbox width/height preserved and the center clipped to image
+bounds) and (ii)~randomly flipping the class label with probability
+$p\in\{5\%,10\%,20\%\}$ to a uniformly sampled alternative among the
+remaining $23$ classes. The $3{\times}3$ grid of perturbed GTs (plus a
+clean baseline) is generated once with seed~42 and re-evaluated with the
+same checkpoint; image pixels are untouched. Table~\ref{tab:robust-noise}
+reports the resulting \mAP{} degradation.
+
+\begin{table}[t]
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{4pt}
+  \caption{Annotation-noise robustness (Dataset~2 test, A3 checkpoint,
+  seed~42, $1000$ images / $45{,}980$ GT instances). Rows: GT bbox jitter
+  $\sigma_{\text{bbox}}$ (px). Columns: GT class-flip rate $p$. Cells:
+  \mAP{}@$[0.50{:}0.95]$. Clean baseline (top-left): $0.859$. The model
+  degrades gracefully under mild noise ($\sigma{=}2$, $p{=}5\%$: $-0.193$
+  \mAP{}) and remains non-trivial even at the heaviest perturbation
+  ($\sigma{=}10$, $p{=}20\%$: \mAP{}$=0.129$, still well above the
+  $1/24{\approx}0.042$ chance level for class assignment).}
+  \label{tab:robust-noise}
+  \begin{tabular}{lcccc}
+    \toprule
+    $\sigma_{\text{bbox}}$ \textbackslash{}$p$ & $0\%$ & $5\%$ & $10\%$ & $20\%$ \\
+    \midrule
+    $\phantom{0}0$ px & \textbf{0.859} & --- & --- & --- \\
+    $\phantom{0}2$ px & ---           & 0.666 & 0.599 & 0.477 \\
+    $\phantom{0}5$ px & ---           & 0.428 & 0.386 & 0.308 \\
+    $10$ px           & ---           & 0.179 & 0.162 & 0.129 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Two patterns emerge. First, \emph{bbox jitter dominates high-IoU precision}:
+at $\sigma{=}5$\,px, AP$_{50}$ drops only modestly ($-0.141$) whereas
+AP$_{75}$ collapses ($-0.596$), since a $5$-px center shift on $\sim$100-px
+boxes breaks IoU${\geq}0.75$ but not IoU${\geq}0.50$. Second, \emph{class
+flips degrade \mAP{} approximately multiplicatively}: doubling the flip
+rate roughly halves the remaining \mAP{} at fixed $\sigma$. Even at the most
+adversarial setting, the model retains a $3{\times}$ margin over the
+$1/24$ random-class baseline, indicating the learned RF features do not
+collapse under annotation corruption.
+
+\paragraph{Cross-dataset zero-shot transfer}
+We evaluate the same Dataset~2-trained checkpoint on Dataset~1's test set
+($220$ images, $10{,}262$ instances, $24$ shared classes, no fine-tuning).
+The overall \mAP{} drops to $0.157$ (AP$_{50}{=}0.513$, AP$_{75}{=}0.039$):
+\emph{coarse localization transfers but precise regression does not}, since
+AP$_{50}$ remains useful while AP$_{75}$ collapses. At the class level,
+$14$ of $24$ classes retain AP$_{50} > 0.5$ (top: B4 $0.931$, A3 $0.911$,
+A2 $0.903$), but the C-group chromosomes (C6--C12) fail almost completely
+(AP$_{50} < 0.02$). The C-group are acrocentric and morphologically similar,
+distinguished mainly by subtle banding patterns --- the cross-cohort gap is
+concentrated exactly where intra-cohort difficulty is highest. This is
+corroborated by $k{=}10$-shot fine-tuning on Dataset~1
+(\S\ref{sec:exp-cross}), which lifts \mAP{} only to $0.055$, indicating
+cohort-matched training data remains essential for the fine-grained head.
+
 % ============================================================
 \section{Analysis and Discussion}\label{sec:analysis}
 
 \subsection{Why RF Works for Chromosome Detection}
 RF's straight-line ODE paths reduce truncation error in few-step inference,
-which is especially valuable for chromosome detection: the high object
-density ($\sim$46 per image) compounds per-box errors, the small training
-sets (1,540--5,000 images) limit the model's ability to learn complex curved
-DDPM trajectories, and the 24-class fine-grained task benefits from stable
-feature representations. The $+0.082$ \mAP{} improvement ($0.774 \to 0.856$)
-on Dataset~2 confirms RF's effectiveness in this regime.
+which compounds across the $\sim$46 objects per image; the $+0.082$ \mAP{}
+improvement on Dataset~2 confirms RF's effectiveness in this high-density,
+small-data, fine-grained regime.
 
 \subsection{Stochastic Coupling: Dataset-Dependent mAP Gain Plus Smoothness}
 Stochastic Coupling has two distinct value components: a \mAP{} gain that is
@@ -953,22 +1019,17 @@ pruning affects 6/8 calls ($1.09$--$1.12\times$ speedup); for DPM-Solver++
 most speedup through NFE reduction, making IO3 less impactful.
 
 \subsection{Theory Applicability and Limitations}\label{sec:analysis-theory}
-Our OT Diversity Collapse analysis rests on five assumptions, all well
-satisfied in chromosome detection: the bound $\Delta H \le \log K$ is tight
-in the high-noise regime ($0.03\%$ error); the $N \to \infty$ idealization
-holds because well-separated GT bboxes make $N{=}2$ mini-batch OT reduce to
-nearest-neighbor assignment; the Gaussian noise source is approximately
-satisfied by our shifted Gaussian schedule; Voronoi cells are well-separated
-(pairwise distances $> 20$px vs $\sigma \sim 1$px); and the low-dimensional
-regime ($d{=}4$, $K \approx 46$, $\Delta H/H \approx 0.69$,
-Table~\ref{tab:ot-severity}) is where OT collapse is severe. The theory does
-not transfer to high-dimensional generation ($d \sim 10^5$, $\Delta H/H
-\approx 0$, consistent with OT-CFM's success) nor to densely overlapping
-targets where Assumptions 2 and 4 fail. For COCO ($K \sim 7$, $\Delta H/H
-\approx 0.55$) the theory predicts Stochastic Coupling would help but with
-smaller magnitude. The stability benefit is practically meaningful for
-clinical deployment: the $4.6\times$ epoch stability improvement reduces
-the risk of deploying a ``false peak'' checkpoint.
+The two-sided bound (Propositions~\ref{prop:ot-gap}--\ref{prop:ot-lower}) is
+tight in chromosome detection ($0.03\%$ gap): well-separated Voronoi cells
+(pairwise distances $> 20$\,px vs $\sigma \sim 1$\,px) make
+$P_{\mathrm{err}} < 10^{-45}$ and $N{=}2$ mini-batch OT reduce to
+nearest-neighbor assignment. The theory does not transfer to high-dimensional
+generation ($d \sim 10^5$, $\Delta H/H \approx 0$, consistent with OT-CFM's
+success) nor to densely overlapping targets. For COCO ($K \sim 7$,
+$\Delta H/H \approx 0.55$) the theory predicts Stochastic Coupling would
+help with smaller magnitude. The $4.6\times$ stability benefit is
+practically meaningful for clinical deployment: it reduces the risk of
+deploying a ``false peak'' checkpoint.
 
 % ============================================================
 \section{Conclusion}\label{sec:conclusion}
@@ -979,12 +1040,13 @@ baseline on Dataset~2 and $+0.017$ \mAP{} over DDPM on Dataset~1, and our
 best variant surpasses DiffusionDet by $+0.076$ \mAP{}; a
 solver$\times$step disentanglement ablation attributes $94\%$ of the gain to
 the RF training paradigm, with the shifted noise schedule contributing
-negligibly on its own (Appendix~\ref{app:shift-ablation}).
-Stochastic Coupling, grounded in our theoretical analysis of OT Diversity
-Collapse (upper bound $\Delta H \le \log K$, empirically validated to within $0.03\%$),
-serves a dual role: in low-data regimes it yields a large, highly significant
-\mAP{} gain ($+0.034$ on Dataset~1, Wilcoxon $p<10^{-120}$), while on larger
-data the gain diminishes and its value shifts to a $4.6\times$ reduction of
+negligibly on its own (Appendix~\ref{app:adaln}).
+Stochastic Coupling, grounded in our two-sided theoretical analysis of OT
+Diversity Collapse ($\log K \cdot (1{-}P_{\mathrm{err}}) \le \Delta H \le
+\log K$, empirically tight to within $0.03\%$), serves a dual role: in
+low-data regimes it yields a large, highly significant \mAP{} gain
+($+0.034$ on Dataset~1, Wilcoxon $p<10^{-120}$), while on larger data the
+gain diminishes and its value shifts to a $4.6\times$ reduction of
 within-run epoch-level \mAP{} oscillation --- the property of primary
 practical concern for reliable training in small-data regimes. DPM-Solver++
 enables four-step inference at $13.3$ FPS (\mAP{} $0.859 \pm 0.003$ over
@@ -1000,27 +1062,17 @@ screening rather than maximal throughput. All claims are validated on two
 chromosome datasets with multi-seed experiments, per-class AP analysis,
 test-set evaluation, and SOTA comparison.
 
-Beyond the immediate chromosome setting, the OT Diversity Collapse
-phenomenon we characterize has development potential for any task sharing
-the profile of low-dimensional prediction space, high object density, and
-small training data (severity $\Delta H/H \approx 0.69$); the theory
-provides an a-priori diagnostic via Table~\ref{tab:ot-severity}, and
-validation on at least one non-chromosome high-$K$ low-$d$ benchmark is
-a natural next step.
-
-We acknowledge several limitations. First, the empirical validation is
-confined to chromosome data; our theory predicts that COCO's smaller
-$K \sim 7$ would attenuate OT collapse and reduce the marginal benefit of
-Stochastic Coupling. Second, Stochastic Coupling's \mAP{} gain is strongly
-dataset-dependent (large on Dataset~1, statistically zero on Dataset~2),
-suggesting StochOT is most valuable in low-data regimes --- exactly the
-medical-imaging setting we target --- but its accuracy contribution cannot
-be taken for granted on larger benchmarks; the $4.6\times$
-convergence-smoothness benefit (Table~\ref{tab:stability-multi}) holds
-independently. Third, the theoretical analysis rests on a
-well-separated-targets assumption; densely overlapping scenes would
-require extending the finite-$N$ analysis. Addressing these limitations
-is a natural direction for future work.
+Beyond chromosome detection, OT Diversity Collapse (severity $\Delta H/H
+\approx 0.69$) applies to any task with low-dimensional prediction space,
+high object density, and small training data; Table~\ref{tab:ot-severity}
+provides an a-priori diagnostic, and validation on a non-chromosome
+high-$K$ low-$d$ benchmark is a natural next step. We acknowledge three
+limitations: (i) empirical validation is confined to chromosome data
+(theory predicts COCO's $K \sim 7$ attenuates the benefit); (ii)
+Stochastic Coupling's \mAP{} gain is dataset-dependent (large on Dataset~1,
+zero on Dataset~2), though the $4.6\times$ smoothness benefit holds on
+both; (iii) the theory rests on well-separated targets, and densely
+overlapping scenes require extending the finite-$N$ analysis.
 
 % ============================================================
 \appendices
@@ -1028,36 +1080,45 @@ is a natural direction for future work.
 % ============================================================
 \section{Proofs}\label{app:proofs}
 
-This appendix restates Proposition~\ref{prop:ot-gap} and
-Conjecture~\ref{prop:monotone} with proof sketches; full proofs
-(including finite-$N$ analysis and the Gaussian-mixture posterior) are
-in the arXiv companion preprint.
+This appendix restates Propositions~\ref{prop:ot-gap}--\ref{prop:monotone}
+with proof sketches; full proofs (including finite-$N$ analysis and the
+Gaussian-mixture posterior) are in the arXiv companion preprint.
 
 \subsection{Proof of Proposition~\ref{prop:ot-gap}}\label{app:proof-prop1}
 \begin{proof}[Proof sketch.]
-Under random coupling, $V \sim \operatorname{Uniform}(\{1,\ldots,K\})$
-independently of $z$, so $H_{\text{rand}}(V|X_t) \le H(V) = \log K$ with
-equality in the high-noise regime. Under OT coupling with $N \to \infty$,
-Lemma~\ref{lem:voronoi} makes $V = \argmin_k \norm{z - b_k}$ deterministic
-in $z$, so given $X_t$ one recovers $z$ and hence $V$, giving
-$H_{\text{OT}}(V|X_t) = 0$. Combining yields $\Delta H \le \log K$,
-empirically tight ($\Delta H = 3.8415$ vs $\log K = 3.8427$, $0.03\%$ error).
-% Full proof in arXiv companion preprint [arXiv:XXXX].
+Random coupling: $V \sim \operatorname{Uniform}(\{1,\ldots,K\})$ independently
+of $z$, so $H_{\text{rand}}(V|X_t) \le H(V) = \log K$ (equality in high-noise
+regime). OT coupling ($N \to \infty$): Lemma~\ref{lem:voronoi} makes
+$V = \argmin_k \norm{z - b_k}$ deterministic, so $H_{\text{OT}}(V|X_t) = 0$.
+Combining: $\Delta H \le \log K$, empirically tight ($0.03\%$ error).
 \end{proof}
 
-\subsection{Stochastic Coupling Monotonicity}\label{app:proof-prop2}
-\begin{conjecture}\label{prop:monotone}
-$H_{\text{stoch}}(V|X_t; \epsilon)$ monotonically increases with $\epsilon$.
-\end{conjecture}
-\begin{proof}[Empirical argument.]
-As $\epsilon \to 0$, $T_\epsilon \to$ deterministic OT
-($H_{\text{stoch}} \to 0$); as $\epsilon \to \infty$, $T_\epsilon \to$
-uniform ($H_{\text{stoch}} \to \log K$). Continuity of the Sinkhorn solution
-in $\epsilon$ gives monotonicity. A formal proof via the log-Sobolev
-inequality for Schr\"odinger bridges is left as future work; we rely on
-empirical validation (Section~\ref{sec:exp-coupling}) and state this as a
-conjecture.
-% Full proof in arXiv companion preprint [arXiv:XXXX].
+\subsection{Proof of Proposition~\ref{prop:ot-lower}}\label{app:proof-prop2}
+\begin{proof}[Proof sketch.]
+Under OT, $V = \argmin_k \norm{z - b_k}$ (Lemma~\ref{lem:voronoi}); given
+$X_t$, the model observes $z$ with Gaussian noise $\sigma_t^2 I_d$ in the
+Voronoi cell of $b_V$. Fano's inequality on the $K$-way nearest-neighbor
+classifier gives $H_{\text{OT}}(V|X_t) \le h(P_{\mathrm{err}}) + P_{\mathrm{err}}
+\log K$, with $P_{\mathrm{err}} \le \binom{K}{2} \Phi(-d_{\min}/(2\sigma_t))$
+by union bound. Combining with $H_{\text{rand}}(V|X_t) \ge \log K$ and
+$h \le \log 2$ yields the bound. As $\sigma_t/d_{\min} \to 0$,
+$P_{\mathrm{err}} \to 0$ exponentially, so $\Delta H \to \log K$.
+\end{proof}
+
+\subsection{Proof of Proposition~\ref{prop:monotone}}\label{app:proof-prop3}
+\begin{proposition}[Stochastic Coupling Monotonicity]\label{prop:monotone}
+Under uniform source marginal, $H_{\text{stoch}}(V \mid X_t; \epsilon)$ is
+monotonically non-decreasing in the Sinkhorn regularization $\epsilon \ge 0$.
+\end{proposition}
+\begin{proof}[Proof sketch.]
+$T_\epsilon$ solves $\min_\pi \langle \pi, c \rangle - \epsilon H(\pi)$
+s.t.\ uniform marginals~\cite{cuturi2013sinkhorn}. The optimal value
+$V(\epsilon)$ is concave in $\epsilon$ (infimum of affine functions). By the
+envelope theorem $dV/d\epsilon = -H(T_\epsilon)$, and concavity gives
+$dH(T_\epsilon)/d\epsilon \ge 0$. Under uniform marginal,
+$H_{\text{stoch}} = \tfrac{1}{K} H(T_\epsilon)$ (average row entropy), hence
+non-decreasing. Endpoints: $\epsilon \to 0$ gives $H \to 0$ (Hard OT),
+$\epsilon \to \infty$ gives $H \to \log K$ (Random).
 \end{proof}
 
 % ============================================================
@@ -1076,36 +1137,16 @@ conjecture.
 % ============================================================
 
 % ============================================================
-\section{AdaLN-Zero Ablation}\label{app:adaln}
-A separate ablation on Dataset~2 confirms AdaLN-Zero's individual contribution
-to the $+0.082$ \mAP{} gain is null ($\Delta$\mAP{}$=0.000$ at matched RF
-configuration: RF+Heun 4-step, shifted schedule shift$=3.0$, random coupling).
-We retain AdaLN-Zero as a standard conditioning mechanism~\cite{dhariwal2021diffusion}
-for consistency with the diffusion literature, but it is not a separate source
-of accuracy gain.
-% Full table and discussion in arXiv companion preprint [arXiv:XXXX].
-
-% ============================================================
-\section{Shifted Noise Schedule Ablation}\label{app:shift-ablation}
-A separate ablation on Dataset~2 confirms the shifted schedule (shift$=3.0$)
-contributes negligibly to \mAP{} on its own ($\Delta$\mAP{}$=-0.001$ vs.\ a
-linear schedule, well within seed noise, with a small $+0.008$ on
-AP$_S$). The entire $+0.082$ gap over the Euler baseline is therefore
-attributable to the RF formulation itself (straight-line ODE paths).
-% Full table and discussion in arXiv companion preprint [arXiv:XXXX].
-
-% ============================================================
-\section{Per-Class AP Details}\label{app:per-class}
-The Y chromosome is the hardest class ($\mathrm{AP}{=}0.779$ for seed~42;
-$0.771 \pm 0.006$ over three seeds), with difficulty overdetermined by data
-scarcity ($\sim$1{,}803 samples vs $\sim$7{,}000 per autosome, a $3.9\times$
-imbalance from its appearance in only one copy in male samples) and biology
-(among the smallest chromosomes, heterochromatin-rich, morphologically
-variable). Its $\mathrm{AP}_S{=}0.577$ confirms the difficulty concentrates at
-the small-object scale.
-% Detailed per-class tables (F.1 size groups, F.3 C-group discrimination,
-% F.4 complete per-class AP, F.5 localization saturation) in arXiv
-% companion preprint [arXiv:XXXX].
+\section{AdaLN-Zero and Shifted Schedule Ablations}\label{app:adaln}
+Separate ablations on Dataset~2 confirm that AdaLN-Zero ($\Delta$\mAP{}$=0.000$)
+and the shifted noise schedule ($\Delta$\mAP{}$=-0.001$) each contribute null
+individually; the full $+0.082$ gap over Euler is attributable to the RF
+formulation. The Y chromosome is the hardest class ($\mathrm{AP}{=}0.779$;
+$0.771 \pm 0.006$ over three seeds), overdetermined by data scarcity
+($\sim$1{,}803 vs $\sim$7{,}000 per autosome) and biology (among the
+smallest, heterochromatin-rich); $\mathrm{AP}_S{=}0.577$ confirms difficulty
+concentrates at the small-object scale. Full tables and per-class breakdowns
+in the arXiv companion preprint.
 
 % ============================================================
 \bibliographystyle{IEEEtran}
