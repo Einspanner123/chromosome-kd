@@ -34,7 +34,7 @@ CAT_SHORT = {1:"A1",2:"A2",3:"A3",4:"B4",5:"B5",6:"C6",7:"C7",8:"C8",9:"C9",
 
 MODELS = [
     {"name": "gt", "title": "Ground Truth", "color": "#2ECC71"},
-    {"name": "ours", "title": "Ours (A3 DPM++)", "color": "#1E90FF"},
+    {"name": "ours", "title": "KaryoFlow (A3 DPM++)", "color": "#1E90FF"},
     {"name": "diffusiondet", "title": "DiffusionDet", "color": "#FF6347"},
     {"name": "rtmdet", "title": "RTMDet-L", "color": "#9B59B6"},
     {"name": "dino", "title": "DINO-R50", "color": "#F39C12"},
@@ -51,11 +51,9 @@ def load_model_preds(model_name):
         return result
     
     if model_name == "diffusiondet":
-        import os
-        PRED_DIR = HERE / "baseline_preds"
-        full_preds_file = PRED_DIR / "diffusiondet_full.json"
-        if full_preds_file.exists():
-            with open(full_preds_file) as f:
+        pred_file = SOTA_FILE.parent / "24obj_DiffusionDet_seed42_preds.json"
+        if pred_file.exists():
+            with open(pred_file) as f:
                 all_preds = json.load(f)
             result = {}
             for p in all_preds:
