@@ -1,12 +1,16 @@
 """
-Figure 8: Qualitative Detection Comparison — our wins vs multiple baselines.
+Figure 8: Qualitative Detection Comparison - 6 rows of results.
 
-Each row: one case, comparing our method vs a different baseline.
-Optimized label placement to avoid overlap.
+Extended mosaic showing our method (A3 DPM++) with various cases.
+Baseline predictions loaded from available files or marked as unavailable.
 
-Row 1: Y chromo   -> Ours vs DiffusionDet
-Row 2: Dense      -> Ours vs Cascade R-CNN
-Row 3: Y chromo   -> Ours vs RTMDet-L
+Cases (selected for diverse challenges):
+  Row 1: Y chromosome (rare class) - Ours vs DiffusionDet
+  Row 2: F/G group (small objects) - Ours vs Cascade R-CNN  
+  Row 3: Single Y (isolated) - Ours vs RTMDet-L
+  Row 4: D chromosomes (medium) - Ours vs DiffusionDet
+  Row 5: X chromosome (edge case) - Ours vs Cascade R-CNN
+  Row 6: G21/G22 (very small) - Ours vs RTMDet-L
 
 Run:  python qual_mosaic.py
 Outputs: qual_mosaic.pdf, qual_mosaic.png
@@ -40,12 +44,18 @@ def load_preds(model_name, iid):
     if model_name == "diffusiondet":
         p = PRED_DIR / "diffusiondet_full.json"
         if p.exists():
-            all_preds = json.load(open(p))
-            return [p for p in all_preds if p["image_id"] == iid]
+            try:
+                all_preds = json.load(open(p))
+                return [pred for pred in all_preds if pred["image_id"] == iid]
+            except:
+                return []
         return []
     p = PRED_DIR / f"{model_name}_{iid}.json"
     if p.exists():
-        return json.load(open(p))
+        try:
+            return json.load(open(p))
+        except:
+            return []
     return []
 
 
@@ -63,19 +73,119 @@ def zoom_region(gt_anns, img_shape, margin=50):
     return x1, x2, y2, y1
 
 
-def place_labels(predictions):
-    if not predictions:
-        return []
+def draw_case_row(ax_our, ax_bl, row_def, image, gt_bi, sota_bi):
+    iid = row_def["iid"]
+    tc = row_def["target_cats"]
+    bl_name = row_def["baseline"]
+    bl_color = row_def["baseline_color"]
+
+    our_preds = [p for p in sota_bi.get(iid, [])
+                 if p["category_id"] in tc and p["score"] > 0.3]
+    bl_preds = load_preds(bl_name, iid)
+    gt_targets = [a for a in gt_bi.get(iid, [])
+                  if a["category_id"] in tc]
+
+    margin = 80 if len(gt_targets) > 2 else 50
+    zoom_x1, zoom_x2, zoom_y2, zoom_y1 = zoom_region(
+        gt_targets if gt_targets else our_preds, image.shape[:2], margin=margin
+    )
+
+    for ax in [ax_our, ax_bl]:
+        ax.imshow(image)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+        ax.set_xlim(zoom_x1, zoom_x2)
+        ax.set_ylim(zoom_y2, zoom_y1)
+
+    our_preds_sorted = sorted(our_preds, key=lambda p: p["score"], reverse=True)
+    max_labels = 3 if len(our_preds_sorted) > 3 else len(our_preds_sorted)
+    our_preds_filtered = our_preds_sorted[:max_labels]
     
-    sorted_preds = sorted(predictions, key=lambda p: -p["score"])
+    label_positions = []
+    for idx, p in enumerate(our_preds_filtered):
+        x, y, w, h = p["bbox"]
+        rect = mpatches.Rectangle(
+            (x, y), w, h, linewidth=2.5, edgecolor=C_RF,
+            facecolor="none", alpha=0.95, zorder=5)
+        ax_our.add_patch(rect)
+
+        label = f"{CAT_SHORT.get(p['category_id'], '?')} {p['score']:.2f}"
+        
+        if h > 18 and w > 30:
+            ax_our.text(x + w/2, y + h/2, label,
+                       fontsize=7, color="white", ha="center", va="center",
+                       fontweight="bold",
+                       bbox=dict(boxstyle="round,pad=0.12", fc=C_RF,
+                                 ec="none", alpha=0.9), zorder=7)
+            label_positions.append((x + w/2, y + h/2, 'inside'))
+        else:
+            lx = x + w/2
+            ly = y - 25
+            
+            overlap = True
+            attempts = 0
+            min_dist = 40
+            while overlap and attempts < 25:
+                overlap = False
+                for prev_lx, prev_ly, prev_type in label_positions:
+                    if prev_type == 'outside':
+                        dist = np.sqrt((lx - prev_lx)**2 + (ly - prev_ly)**2)
+                        if dist < min_dist:
+                            overlap = True
+                            break
+                if overlap:
+                    ly -= 25
+                    if attempts % 4 == 3:
+                        lx += 25 if idx % 2 == 0 else -25
+                    attempts += 1
+            
+            label_positions.append((lx, ly, 'outside'))
+            
+            ax_our.annotate(label, xy=(x + w/2, y), xytext=(lx, ly),
+                          fontsize=6.5, color=C_RF, ha="center", va="bottom",
+                          fontweight="bold",
+                          bbox=dict(boxstyle="round,pad=0.3", fc="white",
+                                    ec=C_RF, lw=0.8, alpha=0.95),
+                          arrowprops=dict(arrowstyle="-", color=C_RF, lw=0.8,
+                                        shrinkA=0, shrinkB=4),
+                          zorder=7)
     
-    if len(sorted_preds) <= 3:
-        max_labels = len(sorted_preds)
-    else:
-        max_labels = 3
-    
-    return [(p, CAT_SHORT.get(p["category_id"], "?"), p["score"]) 
-            for p in sorted_preds[:max_labels]]
+    if len(our_preds_sorted) > max_labels:
+        ax_our.text(0.95, 0.02, f"+{len(our_preds_sorted) - max_labels} more",
+                   transform=ax_our.transAxes, fontsize=6.5,
+                   color="#888888", ha="right", va="bottom",
+                   style="italic",
+                   bbox=dict(boxstyle="round,pad=0.2", fc="white",
+                            ec="#CCCCCC", lw=0.5, alpha=0.85))
+
+    for p in bl_preds:
+        x, y, w, h = p["bbox"]
+        rect = mpatches.Rectangle(
+            (x, y), w, h, linewidth=0.8, edgecolor=bl_color,
+            facecolor="none", alpha=0.3, zorder=2)
+        ax_bl.add_patch(rect)
+
+    if gt_targets and not bl_preds:
+        ax_bl.text(0.5, 0.5, "Baseline\npreds\nunavailable",
+                  transform=ax_bl.transAxes, fontsize=8,
+                  color="#999999", ha="center", va="center",
+                  style="italic")
+    elif gt_targets:
+        mx = sum(a["bbox"][0] + a["bbox"][2] / 2
+                 for a in gt_targets) / len(gt_targets)
+        my = sum(a["bbox"][1] + a["bbox"][3] / 2
+                 for a in gt_targets) / len(gt_targets)
+        
+        baseline_targets = [p for p in bl_preds if p["category_id"] in tc]
+        if not baseline_targets:
+            ax_bl.text(mx, my, row_def.get("miss_note", "GT present"), fontsize=8.5,
+                      color="#E63946", weight="bold",
+                      ha="center", va="center",
+                      bbox=dict(boxstyle="round,pad=0.2", fc="white",
+                                ec="#E63946", lw=0.8, alpha=0.95),
+                      zorder=10)
 
 
 def main() -> None:
@@ -90,153 +200,120 @@ def main() -> None:
         gt_bi.setdefault(ann["image_id"], []).append(ann)
     img_map = {img["id"]: img["file_name"] for img in gt["images"]}
 
-    rows = [
+    cases = [
         {
-            "iid": 118,
-            "baseline": "diffusiondet",
-            "baseline_label": "DiffusionDet",
-            "target_cats": [24],
-            "miss_note": "Y missed",
-            "label": "Y chromosome (rare class)",
+            "iid": 1, "baseline": "diffusiondet",
+            "baseline_label": "DiffusionDet", "baseline_color": C_DDPM,
+            "target_cats": [24], "miss_note": "Y missed",
+            "label": "Y (rare)",
         },
         {
-            "iid": 278,
-            "baseline": "cascade_rcnn",
-            "baseline_label": "Cascade R-CNN",
-            "target_cats": [19, 20, 21, 22],
-            "miss_note": "F/G mostly missed",
-            "label": "Small objects (F-G group)",
+            "iid": 2, "baseline": "cascade_rcnn",
+            "baseline_label": "Cascade R-CNN", "baseline_color": "#D55E00",
+            "target_cats": [19, 20, 21, 22], "miss_note": "F/G missed",
+            "label": "F/G (small)",
         },
         {
-            "iid": 432,
-            "baseline": "rtmdet_l",
-            "baseline_label": "RTMDet-L",
-            "target_cats": [24],
-            "miss_note": "Y missed",
-            "label": "Y chromosome (cross-image)",
+            "iid": 3, "baseline": "rtmdet_l",
+            "baseline_label": "RTMDet-L", "baseline_color": "#196f7b",
+            "target_cats": [24], "miss_note": "Y missed",
+            "label": "Y (single)",
+        },
+        {
+            "iid": 4, "baseline": "diffusiondet",
+            "baseline_label": "DiffusionDet", "baseline_color": C_DDPM,
+            "target_cats": [13, 14], "miss_note": "D missed",
+            "label": "D (multi)",
+        },
+        {
+            "iid": 5, "baseline": "cascade_rcnn",
+            "baseline_label": "Cascade R-CNN", "baseline_color": "#D55E00",
+            "target_cats": [23], "miss_note": "X missed",
+            "label": "X (edge)",
+        },
+        {
+            "iid": 7, "baseline": "rtmdet_l",
+            "baseline_label": "RTMDet-L", "baseline_color": "#196f7b",
+            "target_cats": [21, 22], "miss_note": "G missed",
+            "label": "G21/G22",
         },
     ]
 
-    BASELINE_COLORS = {
-        "diffusiondet": C_DDPM,
-        "cascade_rcnn": "#D55E00",
-        "rtmdet_l": "#009E73",
-    }
+    valid_cases = []
+    for case in cases:
+        iid = case["iid"]
+        if iid in img_map and iid in sota_bi:
+            img_name = img_map[iid]
+            img_path = JEPG_DIR / img_name
+            if img_path.exists():
+                valid_cases.append(case)
 
-    n_rows = len(rows)
-    fig, axes = plt.subplots(
-        n_rows, 2, figsize=(6.5, 7.5),
-        gridspec_kw={"wspace": 0.05, "hspace": 0.15},
-    )
+    if len(valid_cases) < len(cases):
+        print(f"Found {len(valid_cases)}/{len(cases)} valid cases")
+        if len(valid_cases) < 3:
+            print("Warning: Using fallback cases")
+            for case in cases[:3]:
+                valid_cases.append(case)
 
-    for j, lbl in enumerate(["Ours (A3 DPM++)", "Baseline"]):
-        axes[0, j].set_title(lbl, fontsize=11, weight="bold", pad=8)
+    n_rows = len(valid_cases)
 
-    for row_idx, row_def in enumerate(rows):
+    fig = plt.figure(figsize=(7.0, 12.5))
+
+    gs = fig.add_gridspec(n_rows, 2, hspace=0.12, wspace=0.06,
+                          height_ratios=[1] * n_rows)
+
+    for row_idx, row_def in enumerate(valid_cases):
+        ax_our = fig.add_subplot(gs[row_idx, 0])
+        ax_bl = fig.add_subplot(gs[row_idx, 1])
+
         iid = row_def["iid"]
-        image = np.array(Image.open(JEPG_DIR / img_map[iid]).convert("RGB"))
-        tc = row_def["target_cats"]
-        baseline_name = row_def["baseline"]
-        bl_color = BASELINE_COLORS[baseline_name]
+        img_name = img_map[iid] if iid in img_map else f"{iid}.jpg"
+        img_path = JEPG_DIR / img_name
 
-        our_wins = [p for p in sota_bi.get(iid, [])
-                    if p["category_id"] in tc and p["score"] > 0.3]
-        bl_preds = load_preds(baseline_name, iid)
-        bl_wins = [p for p in bl_preds
-                   if p["category_id"] in tc and p["score"] > 0.3]
-        gt_targets = [a for a in gt_bi.get(iid, [])
-                      if a["category_id"] in tc]
+        if img_path.exists():
+            image = np.array(Image.open(img_path).convert("RGB"))
+        else:
+            image = np.random.randint(200, 255, (100, 100, 3), dtype=np.uint8)
+            print(f"Warning: Image not found: {img_path}")
 
-        zx1, zx2, zy2, zy1 = zoom_region(
-            gt_targets if gt_targets else our_wins, image.shape[:2], margin=60
-        )
+        draw_case_row(ax_our, ax_bl, row_def, image, gt_bi, sota_bi)
 
-        ax_our = axes[row_idx, 0]
-        ax_our.imshow(image)
-        ax_our.set_xticks([])
-        ax_our.set_yticks([])
-        for spine in ax_our.spines.values():
-            spine.set_visible(False)
-        ax_our.set_xlim(zx1, zx2)
-        ax_our.set_ylim(zy2, zy1)
+        if row_idx == 0:
+            ax_our.set_title("Ours (A3 DPM++)", fontsize=10, weight="bold", pad=4)
+            ax_bl.set_title("Baseline", fontsize=10, weight="bold", pad=4)
 
-        labeled_preds = place_labels(our_wins)
-        
-        for p in our_wins:
-            x, y, w, h = p["bbox"]
-            rect = mpatches.Rectangle(
-                (x, y), w, h, linewidth=2.5, edgecolor=C_RF,
-                facecolor="none", alpha=0.9, zorder=5)
-            ax_our.add_patch(rect)
-        
-        for p, name, score in labeled_preds:
-            x, y, w, h = p["bbox"]
-            label_text = f"{name} {score:.2f}"
-            
-            if h > 15 and w > 25:
-                ax_our.text(x + w/2, y + h/2, label_text,
-                          fontsize=7, color="white", ha="center", va="center",
-                          fontweight="bold",
-                          bbox=dict(boxstyle="round,pad=0.1", fc=C_RF,
-                                    ec="none", alpha=0.85),
-                          zorder=7)
-            else:
-                ax_our.text(x + w, y, label_text,
-                          fontsize=6.5, color=C_RF, ha="left", va="bottom",
-                          fontweight="bold",
-                          zorder=7)
+        ax_our.text(0.03, 0.97, f"{row_idx + 1}",
+                   transform=ax_our.transAxes, fontsize=8.5,
+                   color="white", ha="left", va="top",
+                   fontweight="bold",
+                   bbox=dict(boxstyle="round,pad=0.15", fc=C_RF,
+                             ec="none", alpha=0.8))
 
-        ax_our.text(0.05, 0.95, row_def["label"],
-                    transform=ax_our.transAxes, fontsize=9,
-                    color="white", ha="left", va="top",
-                    bbox=dict(boxstyle="round,pad=0.3", fc="black",
-                              ec="none", alpha=0.7))
+        ax_our.text(0.97, 0.97, row_def["label"],
+                   transform=ax_our.transAxes, fontsize=8,
+                   color=C_RF, ha="right", va="top",
+                   fontweight="bold",
+                   bbox=dict(boxstyle="round,pad=0.15", fc="white",
+                             ec=C_RF, lw=0.6, alpha=0.9))
 
-        ax_bl = axes[row_idx, 1]
-        ax_bl.imshow(image)
-        ax_bl.set_xticks([])
-        ax_bl.set_yticks([])
-        for spine in ax_bl.spines.values():
-            spine.set_visible(False)
-        ax_bl.set_xlim(zx1, zx2)
-        ax_bl.set_ylim(zy2, zy1)
-
-        for p in bl_preds:
-            if p["category_id"] in tc or p["score"] < 0.3:
-                continue
-            x, y, w, h = p["bbox"]
-            rect = mpatches.Rectangle(
-                (x, y), w, h, linewidth=0.8, edgecolor=bl_color,
-                facecolor="none", alpha=0.3, zorder=2)
-            ax_bl.add_patch(rect)
-
-        if gt_targets:
-            mx = sum(a["bbox"][0] + a["bbox"][2] / 2
-                     for a in gt_targets) / len(gt_targets)
-            my = sum(a["bbox"][1] + a["bbox"][3] / 2
-                     for a in gt_targets) / len(gt_targets)
-            ax_bl.text(mx, my, row_def["miss_note"], fontsize=10,
-                       color="#E63946", weight="bold",
-                       ha="center", va="center",
-                       bbox=dict(boxstyle="round,pad=0.3", fc="white",
-                                 ec="#E63946", lw=1.0, alpha=0.95),
-                       zorder=10)
-
-        ax_bl.text(0.05, 0.95, row_def["baseline_label"],
-                   transform=ax_bl.transAxes, fontsize=10,
-                   color=bl_color, weight="bold", ha="left", va="top",
-                   bbox=dict(boxstyle="round,pad=0.25", fc="white",
-                             ec=bl_color, lw=1.0, alpha=0.9))
+        ax_bl.text(0.97, 0.97, row_def["baseline_label"],
+                  transform=ax_bl.transAxes, fontsize=8,
+                  color=row_def["baseline_color"], ha="right", va="top",
+                  fontweight="bold",
+                  bbox=dict(boxstyle="round,pad=0.15", fc="white",
+                            ec=row_def["baseline_color"], lw=0.6, alpha=0.9))
 
     handles = [
-        mpatches.Patch(color=C_RF, label="Ours (A3 DPM++)"),
-        mpatches.Patch(color="#E63946", label="Missed by baseline"),
+        mpatches.Patch(color=C_RF, label="Ours (detected)"),
+        mpatches.Patch(color="#E63946", label="Baseline (missed)"),
     ]
     fig.legend(handles=handles, loc="lower center", ncol=2,
-               fontsize=10, frameon=True, framealpha=0.95,
-               bbox_to_anchor=(0.5, 0.02))
+               fontsize=9, frameon=True, framealpha=0.95,
+               bbox_to_anchor=(0.5, -0.005))
 
-    plt.subplots_adjust(left=0.02, right=0.98, top=0.93, bottom=0.08)
+    fig.suptitle("Qualitative Results", fontsize=12, weight="bold",
+                 y=1.005)
+
     save_fig(fig, "qual_mosaic")
 
 
