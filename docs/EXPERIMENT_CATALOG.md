@@ -227,6 +227,26 @@
 | PD-RF 渐进蒸馏 | 0.851 | -0.007 | ✅/⚠ | Progressive Distillation (已归档, 2026-07-11) | <!-- verified: 2026-07-16: 本地 scalars.json max=0.851 (count=31) -->
 | I1 Seesaw+Normalized | 0.744 | — | ✅/⚠ | ⚠ 实为 chromo 数据集 (非 24obj), 误列入本节 | <!-- verified: 2026-07-16 -->
 
+#### 2.1.4 24obj Solver×Step 解耦推理 (A4 checkpoint, 项目 `ldmdet-inference`)
+
+> 数据来源: 2026-07-15 在 A4 (DPM-Solver++) 训练的 checkpoint (`best_coco_bbox_mAP_epoch_117.pth`, seed 42) 上, 通过覆盖推理 solver 和步数进行的受控对比。所有实验在 24obj val (500 images) 上评估。论文 §4.5 Solver Analysis 直接引用本表数据。
+
+| 实验 | SwanLab run_id | exp_name | Solver | Steps | NFE | mAP | AP50 | AP75 | 本地日志 |
+|------|---------------|----------|--------|-------|-----|-----|------|------|---------|
+| DPM-Solver++ 1-step | (ldmdet-inference) | `dpm_pp_1step` | DPM-Solver++ | 1 | 1 | 0.860 | — | — | `work_dirs/a4_dpm_pp_24obj/20260715_010957/` |
+| DPM-Solver++ 2-step | (ldmdet-inference) | `dpm_pp_2step` | DPM-Solver++ | 2 | 2 | 0.863 | — | — | `work_dirs/a4_dpm_pp_24obj/20260715_011053/` |
+| **Heun 2-step** | `ijsaub6e3kcxbkgi7dkok` | `heun_2step` | Heun | 2 | 3 | **0.863** | 0.988 | 0.972 | `work_dirs/a4_dpm_pp_24obj/20260715_011546/` |
+| Heun 4-step | (ldmdet-inference) | `heun_4step` | Heun | 4 | 7 | 0.864 | — | — | `work_dirs/a4_dpm_pp_24obj/20260715_011706/` |
+
+> 论文引用 (main.tex L834-846):
+> - "DPM-Solver++ converges at 2 steps (mAP 0.863, seed 42)" ← dpm_pp_2step
+> - "DPM-Solver++ 4-step (4 NFE, 0.863) ≈ Heun 2-step (3 NFE, 0.863) — equal accuracy, so DPM-Solver++ buys 43% fewer NFE at no cost" ← heun_2step
+>
+> 复现命令 (Heun 2-step 为例):
+> `experiments/runners/test.py experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_dpm_pp_24obj.py --checkpoint work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth --dataset val --sampling-steps 2 --solver-type heun --exp-name heun_2step`
+>
+> ⚠ 注意: 本表为 **同 checkpoint 切换 solver** 的对比 (A4 checkpoint + 不同推理 solver)。论文中 "+0.006 per-image mAP at matched 4-step" (Table 8/`tab:stat-tests`) 是 **不同 checkpoint** 的对比 (A2 Heun-trained vs A4 DPM-Solver++-trained), 两者不可混淆。在同 A4 checkpoint 上, Heun 4-step 聚合 mAP=0.864 略高于 DPM-Solver++ 4-step=0.863, 但 per-image paired 检验的结论以 A2 vs A4 checkpoint 对比为准。 <!-- verified: 2026-07-19 SwanLab + 本地日志 -->
+
 ### 2.2 Chromosome20240904 (chromo) 数据集实验 — ⚠ 暂时废弃
 
 > ⚠ 以下结论基于旧数据集 (mAP≈0.72-0.75), 24obj 数据集上的结论已更新。以下实验记录保留供参考, 但不可与 24obj 实验对比。
