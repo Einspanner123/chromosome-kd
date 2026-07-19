@@ -1,218 +1,127 @@
-"""Figure 6: Speed-Accuracy Trade-off (FPS vs mAP).
+"""
+Figure 7: Speed-Accuracy Trade-off (FPS vs mAP).
 
-Scatter plot of mAP vs FPS for the 24obj benchmark.
+Clean scatter plot — no zoomed inset, no overlapping labels.
+- Our RF variants: circles (Heun-based) / squares (DPM++ variants)
+- Baselines: triangles (paper-reported FPS from Table 7)
+- RTMDet-L FPS from our own benchmark (same hardware/setup)
+- Direct text labels with minimal leader lines
 
-Ours (A1-A3, IO3 variants) colored separately from baselines
-(Cascade R-CNN, YOLOX-S, DiffusionDet). All FPS measurements are from
-the same hardware (RTX A6000, 512x512, batch=1).
+All FPS from RTX A6000, 512x512, batch=1, 200 images (paper) or 50 runs (ours).
 
 Run:  python fps_map.py
-Outputs:
-  fps_map.pdf
-  fps_map.png
+Outputs: fps_map.pdf, fps_map.png
 """
+
 from __future__ import annotations
 
-from pathlib import Path
-
-import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
+import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from mpl_toolkits.axes_grid1.inset_locator import mark_inset, zoomed_inset_axes
 
-plt.rcParams.update(
-    {
-        "font.family": "serif",
-        "font.serif": ["Times New Roman", "DejaVu Serif"],
-        "font.size": 8,
-        "axes.labelsize": 9,
-        "axes.titlesize": 10,
-        "xtick.labelsize": 7.5,
-        "ytick.labelsize": 7.5,
-        "legend.fontsize": 7,
-        "mathtext.fontset": "cm",
-        "pdf.fonttype": 42,
-        "ps.fonttype": 42,
-        "axes.linewidth": 0.8,
-    }
-)
+from figure_style import *
 
-PAL = sns.color_palette("colorblind")
+# Colors
+C_OURS_BASE = C_EULER       # orange — Heun-based
+C_OURS_FAST = C_DPMPP       # green  — DPM-Solver++
+C_BASELINE  = C_DDPM        # red    — non-RF baselines (paper-reported FPS)
+C_RTM       = "#009E73"     # green  — RTMDet-L (our benchmark)
 
-C_OURS_BASE = PAL[1]
-C_OURS_FAST = PAL[2]
-C_BASELINE = PAL[3]
-C_PARETO = PAL[0]
-
-HERE = Path(__file__).resolve().parent
-
+# (name, fps, mAP, group)
 DATA = [
-    ("A1 RF+Heun",        8.0,   0.856, "Ours-base"),
-    ("A2 +StochOT",       7.8,   0.858, "Ours-base"),
-    ("A3 DPM-Solver++",  13.3,   0.863, "Ours-fast"),
-    ("A3 +IO3 K=300",    14.0,   0.861, "Ours-fast"),
-    ("A3 +IO3 K=200",    14.2,   0.860, "Ours-fast"),
-    ("A3 +IO3 K=100",    14.3,   0.850, "Ours-fast"),
-    ("Cascade R-CNN",    48.4,   0.854, "Baseline"),
-    ("YOLOX-S",          98.5,   0.796, "Baseline"),
-    ("DiffusionDet",     41.0,   0.787, "Baseline"),
+    # Our variants
+    ("A1 Heun",       8.0,   0.856, "base"),
+    ("A2 +StochOT",   7.8,   0.858, "base"),
+    ("A3 DPM++",     13.3,   0.863, "fast"),
+    ("A3 +IO3 K300",  14.0,   0.861, "fast"),
+    ("A3 +IO3 K200",  14.2,   0.860, "fast"),
+    ("A3 +IO3 K100",  14.3,   0.850, "fast"),
+    # Baselines (paper Table 7)
+    ("Cascade R-CNN",  48.4,  0.854, "baseline"),
+    ("YOLOX-S",        98.5,  0.796, "baseline"),
+    ("DiffusionDet",   41.0,  0.787, "baseline"),
+    # Additional (benchmarked)
+    ("RTMDet-L",       12.1,  0.863, "rtmdet"),
 ]
-TYPE_COLOR = {
-    "Ours-base": C_OURS_BASE,
-    "Ours-fast": C_OURS_FAST,
-    "Baseline": C_BASELINE,
-}
-TYPE_MARKER = {
-    "Ours-base": "o",
-    "Ours-fast": "s",
-    "Baseline": "^",
+
+GROUP_STYLE = {
+    "base":     {"color": C_OURS_BASE, "marker": "o", "z": 6},
+    "fast":     {"color": C_OURS_FAST, "marker": "s", "z": 6},
+    "baseline": {"color": C_BASELINE,  "marker": "^", "z": 5},
+    "rtmdet":   {"color": C_RTM,       "marker": "D", "z": 5},
 }
 
-
-def compute_pareto_front(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
-    """Compute Pareto front (maximize both x=FPS and y=mAP)."""
-    sorted_pts = sorted(points, key=lambda p: (-p[0], p[1]))
-    front: list[tuple[float, float]] = []
-    max_y = -float("inf")
-    for x, y in sorted_pts:
-        if y > max_y:
-            front.append((x, y))
-            max_y = y
-    front.reverse()
-    return front
+# Manual label placements to avoid overlap
+LABEL_POS = {
+    "A1 Heun":       (8.0,   0.856,  -8,  12,  "right"),
+    "A2 +StochOT":   (7.8,   0.858, -10, -14,  "right"),
+    "A3 DPM++":      (13.3,  0.863,  14, -12,  "left"),
+    "A3 +IO3 K300":  (14.0,  0.861,  10,  10,  "left"),
+    "A3 +IO3 K200":  (14.2,  0.860,  18, -4,   "left"),
+    "A3 +IO3 K100":  (14.3,  0.850, -14,  14,  "right"),
+    "Cascade R-CNN": (48.4,  0.854,  10,  14,  "left"),
+    "YOLOX-S":       (98.5,  0.796, -10,  10,  "right"),
+    "DiffusionDet":  (41.0,  0.787,  10, -16,  "left"),
+    "RTMDet-L":      (12.1,  0.863, -12, -14,  "right"),
+}
 
 
 def main() -> None:
-    fig, ax = plt.subplots(figsize=(5.5, 3.6), constrained_layout=True)
+    fig, ax = plt.subplots(figsize=(5.5, 3.8))
 
-    ours_data = [(n, f, m, t) for n, f, m, t in DATA if t in ("Ours-base", "Ours-fast")]
-    baseline_data = [(n, f, m, t) for n, f, m, t in DATA if t == "Baseline"]
+    # Draw points
+    for name, fps, mAP, group in DATA:
+        s = GROUP_STYLE[group]
+        ax.scatter(fps, mAP, s=70, color=s["color"], marker=s["marker"],
+                   edgecolor="k", lw=0.6, zorder=s["z"])
 
-    for name, fps, mAP, mtype in DATA:
-        ax.scatter(
-            fps, mAP, s=65,
-            color=TYPE_COLOR[mtype], marker=TYPE_MARKER[mtype],
-            edgecolor="k", lw=0.6, zorder=5,
-        )
+    # Draw labels with leader lines
+    for name, _, _, _ in DATA:
+        fps, mAP, dx, dy, ha = LABEL_POS[name]
+        # Shorten display name for labels
+        display = name
+        if name.startswith("A1"): display = "A1"
+        elif name.startswith("A2"): display = "A2"
+        elif name.startswith("A3") and "IO3" not in name: display = "A3"
+        elif "IO3 K300" in name: display = "K300"
+        elif "IO3 K200" in name: display = "K200"
+        elif "IO3 K100" in name: display = "K100"
+        elif "Cascade" in name: display = "Cascade R-CNN"
+        elif "YOLOX" in name: display = "YOLOX-S"
 
-    for name, fps, mAP, mtype in baseline_data:
-        if "YOLOX" in name:
-            offset = (-6, 5)
-            ha = "right"
-        elif "Cascade" in name:
-            offset = (6, 5)
-            ha = "left"
-        else:
-            offset = (6, -9)
-            ha = "left"
-        ax.annotate(
-            name, xy=(fps, mAP), xytext=offset, textcoords="offset points",
-            fontsize=7, ha=ha,
-        )
+        # Leader line
+        ax.annotate("", xy=(fps + dx * 0.15, mAP + dy * 0.15),
+                    xytext=(fps, mAP),
+                    arrowprops=dict(arrowstyle="-", color="0.5", lw=0.5),
+                    zorder=2)
+        # Label
+        ax.text(fps + dx, mAP + dy, display, fontsize=7.5,
+                ha=ha, va="center", color="black", zorder=7)
 
-    ours_pts = [(f, m) for _, f, m, t in DATA if t in ("Ours-base", "Ours-fast")]
-    pareto_pts = compute_pareto_front(ours_pts)
-    if len(pareto_pts) >= 2:
-        pf_x = [p[0] for p in pareto_pts]
-        pf_y = [p[1] for p in pareto_pts]
-        ax.plot(pf_x, pf_y, color=C_PARETO, lw=1.2, ls="--", zorder=3, alpha=0.7)
-
-    ax.text(
-        0.98, 0.96,
-        "Ours: Pareto front",
-        transform=ax.transAxes, ha="right", va="top",
-        fontsize=7.5, color=C_PARETO, style="italic",
-        bbox=dict(boxstyle="round,pad=0.3", fc="white", ec=C_PARETO,
-                  lw=0.6, alpha=0.9),
-    )
-
-    ax.set_xlabel("FPS (RTX A6000, 512×512)")
-    ax.set_ylabel("mAP (24obj)")
-    ax.set_xlim(0, 105)
-    ax.set_ylim(0.77, 0.875)
+    # Axes
+    ax.set_xlabel("FPS (RTX A6000, 512×512)", fontsize=9)
+    ax.set_ylabel("mAP (24obj)", fontsize=9)
+    ax.set_xlim(0, 108)
+    ax.set_ylim(0.775, 0.875)
     ax.set_xticks([0, 20, 40, 60, 80, 100])
     ax.set_axisbelow(True)
     ax.grid(ls=":", lw=0.5, alpha=0.5)
 
-    ax_inset = zoomed_inset_axes(ax, zoom=1.7, loc="upper left", borderpad=1.5)
-
-    for name, fps, mAP, mtype in ours_data:
-        ax_inset.scatter(
-            fps, mAP, s=45,
-            color=TYPE_COLOR[mtype], marker=TYPE_MARKER[mtype],
-            edgecolor="k", lw=0.6, zorder=5,
-        )
-
-    if len(pareto_pts) >= 2:
-        pf_x = [p[0] for p in pareto_pts]
-        pf_y = [p[1] for p in pareto_pts]
-        ax_inset.plot(pf_x, pf_y, color=C_PARETO, lw=1.2, ls="--", zorder=3)
-
-    left_labels = {"A1 RF+Heun": "A1", "A2 +StochOT": "A2"}
-    right_labels = {"A3 DPM-Solver++": "A3", "A3 +IO3 K=300": "K300",
-                    "A3 +IO3 K=200": "K200", "A3 +IO3 K=100": "K100"}
-
-    left_data = [(n, f, m, t) for n, f, m, t in ours_data if n in left_labels]
-    right_data = [(n, f, m, t) for n, f, m, t in ours_data if n in right_labels]
-    right_data.sort(key=lambda x: -x[2])
-
-    for i, (name, fps, mAP, mtype) in enumerate(left_data):
-        short = left_labels[name]
-        y_offset = 8 + i * (-18)
-        ax_inset.annotate(
-            short, xy=(fps, mAP),
-            xytext=(-6, y_offset), textcoords="offset points",
-            fontsize=6, ha="right", va="center",
-            arrowprops=dict(arrowstyle="-", color="0.5", lw=0.5),
-        )
-
-    for i, (name, fps, mAP, mtype) in enumerate(right_data):
-        short = right_labels[name]
-        y_offset = 10 - i * 14
-        ax_inset.annotate(
-            short, xy=(fps, mAP),
-            xytext=(6, y_offset), textcoords="offset points",
-            fontsize=6, ha="left", va="center",
-            arrowprops=dict(arrowstyle="-", color="0.5", lw=0.5),
-        )
-
-    ax_inset.set_xlim(5.5, 17.5)
-    ax_inset.set_ylim(0.840, 0.872)
-    ax_inset.set_xticks([8, 12, 16])
-    ax_inset.set_yticks([0.845, 0.855, 0.865])
-    ax_inset.tick_params(labelsize=6)
-    ax_inset.grid(ls=":", lw=0.5, alpha=0.5)
-    ax_inset.set_axisbelow(True)
-
-    mark_inset(ax, ax_inset, loc1=2, loc2=4, fc="none", ec="0.5", lw=0.8, ls="--")
-
+    # Legend
     handles = [
         Line2D([0], [0], marker="o", color="w", markerfacecolor=C_OURS_BASE,
-               markeredgecolor="k", markersize=7, label="Ours-base"),
+               markeredgecolor="k", markersize=8, label="Ours (Heun)"),
         Line2D([0], [0], marker="s", color="w", markerfacecolor=C_OURS_FAST,
-               markeredgecolor="k", markersize=7, label="Ours-fast"),
+               markeredgecolor="k", markersize=8, label="Ours (DPM++)"),
         Line2D([0], [0], marker="^", color="w", markerfacecolor=C_BASELINE,
-               markeredgecolor="k", markersize=7, label="Baseline"),
-        Line2D([0], [0], color=C_PARETO, lw=1.2, ls="--", label="Pareto front"),
+               markeredgecolor="k", markersize=8, label="Baseline (paper)"),
+        Line2D([0], [0], marker="D", color="w", markerfacecolor=C_RTM,
+               markeredgecolor="k", markersize=8, label="RTMDet-L"),
     ]
-    ax.legend(
-        handles=handles,
-        loc="lower center",
-        bbox_to_anchor=(0.5, -0.22),
-        ncol=4,
-        frameon=True,
-        framealpha=0.95,
-        fontsize=7,
-    )
+    ax.legend(handles=handles, loc="lower right",
+              frameon=True, framealpha=0.95, fontsize=7.5)
 
-    out_pdf = HERE / "fps_map.pdf"
-    out_png = HERE / "fps_map.png"
-    fig.savefig(out_pdf, bbox_inches="tight")
-    fig.savefig(out_png, dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    print(f"Saved {out_pdf}")
-    print(f"Saved {out_png}")
+    save_fig(fig, "fps_map")
 
 
 if __name__ == "__main__":
