@@ -161,6 +161,11 @@ class JointDiffusionHead(nn.Module):
         noise = torch.randn(B, self.num_queries, 4, device=device)
 
         # 2. Global coupled matching: match z to GT boxes (one-to-one)
+        # coupling 阶段: 构造训练轨迹 x_t = (1-t)*x_0_matched + t*noise.
+        # 方案 A (random): 所有 slot 随机分配 GT (对齐 LDMDet _couple_single_image).
+        # 方案 B (hungarian+random_gt): matched slot 最优一对一, unmatched 随机 GT.
+        # 关键: coupling 阶段保证所有 slot 在 [GT, noise] 插值轨迹上,
+        # 避免训练-推理分布不匹配 (mAP=0 根因).
         matched_boxes, matched_labels = self.matcher.match_batch(
             noise, gt_boxes, gt_labels
         )
@@ -182,19 +187,21 @@ class JointDiffusionHead(nn.Module):
         )
 
         # 6. Compute loss (返回加权单项, 对齐 LDMDet)
-        # 关键修复: 不添加 'loss' key (weighted total), 否则 mmengine parse_losses
-        # 会 sum 所有含 'loss' 的 key, 导致 double-counting:
+        # 关键修复 1: 不添加 'loss' key (weighted total), 否则 mmengine parse_losses
+        #   会 sum 所有含 'loss' 的 key, 导致 double-counting:
         #   实际 total = cls + bbox + giou + (2*cls + 5*bbox + 2*giou) = 3:6:3
-        # 修复后: 每项预乘权重, parse_losses 直接 sum 得到 2*cls + 5*bbox + 2*giou.
+        #   修复后: 每项预乘权重, parse_losses 直接 sum 得到 2*cls + 5*bbox + 2*giou.
+        #
+        # 关键修复 2 (2026-07-19): 传入原始 GT 给 criterion, 不传 coupling 阶段的
+        #   matched_boxes/matched_labels. criterion 内部用 Hungarian 重新匹配
+        #   pred_boxes 和 GT, num_pos=M (不是 N=300), 避免梯度稀释 37.5 倍.
+        #   对齐 LDMDet criterion.py: coupling 阶段 (随机分配 GT) 与 loss 阶段
+        #   (Hungarian 重匹配) 分离, 两阶段独立决策.
         outputs = {
             'pred_logits': cls_logits,
             'pred_boxes': pred_boxes,
         }
-        targets = {
-            'matched_boxes': matched_boxes,
-            'matched_labels': matched_labels,
-        }
-        loss_dict, _ = self.criterion(outputs, targets)
+        loss_dict, _ = self.criterion(outputs, gt_boxes, gt_labels)
         # 权重预乘到单项 (mmengine parse_losses 直接 sum 各项)
         return {
             k: v * self.criterion.weight_dict.get(k, 1.0)

@@ -101,8 +101,8 @@ class LossMonitor:
     def measure_criterion_gradient_ratio(
         criterion,
         pred_boxes,
-        matched_boxes,
-        matched_labels,
+        gt_boxes_list,
+        gt_labels_list,
     ) -> Dict[str, float]:
         """测量 criterion 层面的加权梯度比 (controlled, 不依赖 head 几何).
 
@@ -118,11 +118,14 @@ class LossMonitor:
         修复后 (L1 和 GIoU 都在 [0,1] 空间):
             pred 接近 tgt 时 ratio ≈ 2.5 (由权重 5:2 决定).
 
+        2026-07-19 重构: criterion 内部用 Hungarian 重新匹配 (num_pos=M),
+            故本方法接收原始 GT list (不再接收 expanded matched_boxes/labels).
+
         Args:
             criterion: SetCriterion 实例.
             pred_boxes: [B, N, 4] 预测框 (扩散空间 [-s, s]).
-            matched_boxes: [B, N, 4] 匹配的 GT 框 (扩散空间).
-            matched_labels: [B, N] 匹配标签 (-1 for unmatched).
+            gt_boxes_list: List[Tensor[M_i, 4]] 每张图的 GT (扩散空间).
+            gt_labels_list: List[Tensor[M_i]] 每张图的 GT label.
 
         Returns:
             dict with 'loss_bbox', 'loss_giou' 加权梯度 norm,
@@ -130,19 +133,16 @@ class LossMonitor:
         """
         # 创建可学习 pred_boxes (leaf parameter)
         pred_leaf = nn.Parameter(pred_boxes.detach().clone())
+        B, N = pred_leaf.shape[:2]
 
         outputs = {
             'pred_logits': torch.zeros(
-                *matched_labels.shape, criterion.num_classes
+                B, N, criterion.num_classes
             ),
             'pred_boxes': pred_leaf,
         }
-        targets = {
-            'matched_boxes': matched_boxes.detach(),
-            'matched_labels': matched_labels.detach(),
-        }
 
-        loss_dict, _ = criterion(outputs, targets)
+        loss_dict, _ = criterion(outputs, gt_boxes_list, gt_labels_list)
 
         grad_norms: Dict[str, float] = {}
         # loss_cls 不依赖 pred_boxes, 仅测量 loss_bbox 和 loss_giou
@@ -177,9 +177,26 @@ class LossMonitor:
     ) -> Dict[str, float]:
         """验证 loss_bbox 和 loss_giou 在同一空间 ([0,1]) 计算.
 
+        ⚠️ 独立数学检查 (2026-07-19 说明):
+            本方法不调用 criterion.forward, 不经过 Hungarian 重匹配,
+            直接对传入的 pred_boxes 和 matched_boxes 计算 L1 数值对比,
+            验证 "L1 在扩散空间 vs [0,1] 空间" 的 2*s 数值因子.
+            参数名 matched_boxes/matched_labels 仅表示 "与 pred 对应的
+            GT 张量" (用于局部 L1 对比), 与 set_head coupling 阶段的
+            matched_boxes (轨迹构造产物) 是不同概念, 不共享匹配语义.
+
+            如需验证 criterion 内部 Hungarian 重匹配行为, 请使用:
+            - measure_criterion_gradient_ratio (接收 gt_boxes_list)
+
         通过对比 L1 在扩散空间 vs [0,1] 空间的数值, 验证空间尺度因子 2*s.
         修复后 _loss_bbox 在 [0,1] 空间计算 (与 _loss_giou 一致),
         因此扩散空间 L1 应是 [0,1] 空间 L1 的 2*s 倍.
+
+        Args:
+            criterion: SetCriterion 实例 (仅取 snr_scale, 不调用 forward).
+            pred_boxes: [B, N, 4] 预测框 (扩散空间, 仅用于数值对比).
+            matched_boxes: [B, N, 4] 对应 GT (扩散空间, 与 pred 一一对齐).
+            matched_labels: [B, N] label (仅用于 valid mask, ≥0 视为有效).
 
         Returns:
             dict with 'loss_bbox_norm_space', 'loss_bbox_diffusion_space',
@@ -261,11 +278,12 @@ class LossMonitor:
         # 转换到扩散空间 [-s, s]
         pred_diff_ctrl = (pred_norm_ctrl * 2.0 - 1.0) * s
         tgt_diff_ctrl = (tgt_norm_ctrl * 2.0 - 1.0) * s
+        # 2026-07-19: criterion 内部 Hungarian 重新匹配, 传原始 GT list
         LossMonitor.measure_criterion_gradient_ratio(
             criterion,
             pred_diff_ctrl,
-            tgt_diff_ctrl,
-            torch.tensor([[0]]),
+            [tgt_diff_ctrl[0]],  # gt_boxes_list: List[Tensor[M,4]]
+            [torch.tensor([0])],  # gt_labels_list: List[Tensor[M]]
         )
 
         print('\n[4] Loss 空间一致性:')

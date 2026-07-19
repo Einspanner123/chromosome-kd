@@ -11,6 +11,13 @@ from per-proposal independent diffusion (DiffusionDet/DiffuDETR).
     动机: 原行为 unmatched slot = noise (velocity=0, box_head 无监督),
     导致训练-推理分布不匹配 → mAP=0. 方案 B 让所有 slot 在 [GT, noise]
     插值轨迹上, 同时保留 global coupled matching 的理论区分点.
+
+match_indices (loss 阶段重新匹配, 2026-07-19 新增):
+    参考 LDMDet criterion.py 的 loss 阶段重匹配思想 (matcher 不同: Hungarian
+    1-to-1 vs LDMDet SimOTA 1-to-many): loss 计算时用 Hungarian 重新匹配
+    pred_boxes 和 GT, num_pos=M (不是 N=300), 避免梯度稀释 37.5 倍.
+    与 match() 区别: match() 返回 expanded matched_boxes/labels (coupling 阶段);
+    match_indices() 返回 (src_idx, tgt_idx) 索引对 (loss 阶段).
 """
 
 from typing import List, Tuple
@@ -161,3 +168,89 @@ class HungarianMatcher:
             matched_labels[i] = ml
 
         return matched_boxes, matched_labels
+
+    # ============================================================
+    # loss 阶段: match_indices (参考 LDMDet criterion.py 的重匹配思想)
+    # ============================================================
+    @torch.no_grad()
+    def match_indices(
+        self,
+        pred_boxes: Tensor,
+        gt_boxes: Tensor,
+    ) -> Tuple[Tensor, Tensor]:
+        """Loss-stage matching: 找 pred_boxes 与 GT 的最优一对一匹配.
+
+        参考 LDMDet criterion.py line 84 `self.matcher(outputs, targets)` 的
+        loss 阶段重匹配思想 (matcher 不同: Hungarian 1-to-1 vs LDMDet SimOTA
+        1-to-many): loss 计算时用 Hungarian 重新匹配 pred_boxes 和 GT,
+        num_pos=M (不是 N=300), 避免梯度稀释 37.5 倍.
+
+        与 match() 区别:
+            - match() (coupling 阶段): 输入是 noise, 返回 expanded
+              matched_boxes [N,4] / matched_labels [N] (所有 slot 都有值,
+              unmatched_strategy 决定 unmatched slot 行为).
+            - match_indices() (loss 阶段): 输入是 pred_boxes, 返回索引对
+              (src_idx, tgt_idx), 长度 K=min(N,M). 只 matched slot 参与
+              bbox/giou loss, num_pos=K.
+
+        Args:
+            pred_boxes: [N, 4] 模型预测的 x_0 (扩散空间 cxcywh).
+            gt_boxes: [M, 4] 原始 GT (扩散空间 cxcywh).
+
+        Returns:
+            src_idx: [K] long, matched slot 在 N 中的索引.
+            tgt_idx: [K] long, 对应 GT 在 M 中的索引.
+            K = min(N, M).
+        """
+        N = pred_boxes.shape[0]
+        M = gt_boxes.shape[0]
+        device = pred_boxes.device
+
+        if M == 0 or N == 0:
+            empty = torch.zeros(0, dtype=torch.long, device=device)
+            return empty, empty
+
+        # 截断: M > N 时只取前 N 个 GT (一对一限制)
+        if M > N:
+            gt_boxes = gt_boxes[:N]
+            M = N
+
+        # Cost matrix: squared Euclidean distance in diffusion space.
+        pred_det = pred_boxes.detach()
+        if self.cost_type == 'l2':
+            diff = pred_det.unsqueeze(1) - gt_boxes.unsqueeze(0)  # [N, M, 4]
+            cost = diff.pow(2).sum(-1)  # [N, M]
+        else:
+            cost = torch.cdist(pred_det, gt_boxes, p=1)  # [N, M]
+
+        # scipy linear_sum_assignment operates on CPU.
+        cost_cpu = asarray(cost.detach().cpu())
+        row_ind, col_ind = linear_sum_assignment(cost_cpu)
+
+        src_idx = torch.as_tensor(row_ind, device=device, dtype=torch.long)
+        tgt_idx = torch.as_tensor(col_ind, device=device, dtype=torch.long)
+        return src_idx, tgt_idx
+
+    @torch.no_grad()
+    def match_indices_batch(
+        self,
+        pred_boxes_batch: Tensor,
+        gt_boxes_list: List[Tensor],
+    ) -> List[Tuple[Tensor, Tensor]]:
+        """批量 loss-stage matching.
+
+        Args:
+            pred_boxes_batch: [B, N, 4] 模型预测的 x_0 (扩散空间).
+            gt_boxes_list: list of [M_i, 4] 每张图的 GT (扩散空间).
+
+        Returns:
+            results: list of (src_idx, tgt_idx), 长度 B.
+        """
+        B = pred_boxes_batch.shape[0]
+        results = []
+        for i in range(B):
+            src_idx, tgt_idx = self.match_indices(
+                pred_boxes_batch[i], gt_boxes_list[i]
+            )
+            results.append((src_idx, tgt_idx))
+        return results

@@ -1,23 +1,41 @@
 """SetCriterion — loss for joint diffusion detection.
 
-方案 A (对齐 LDMDet/DiffusionDet): 标准 DETR 集合预测损失
-1. Classification loss (sigmoid focal loss on class logits).
-2. Box regression loss (L1 on predicted x_0, cxcywh 扩散空间).
-3. GIoU loss (GIoU on predicted x_0, xyxy 空间).
+参考 LDMDet criterion.py 的 loss 阶段重匹配思想 (2026-07-19 修复):
+    loss 计算时用 Hungarian 重新匹配 pred_boxes 和 GT, num_pos=M (不是 N=300),
+    避免梯度稀释 37.5 倍 (旧 planA/B per-slot 梯度 0.000733 vs LDMDet baseline
+    0.025125, 实测 16/600 比值).
 
-删除 loss_diff (MSE): 与 L1+GIoU 计算同一对象 (pred_boxes vs matched_boxes),
-属于冗余项; 检测领域 (DiffusionDet/LDMDet/DiffuDETR) 均无单独扩散 MSE,
-L1+GIoU 已隐式承担 x_0 预测损失.
+    ⚠️ 与 LDMDet 的关键区别 (设计选择, 非完全对齐):
+        - LDMDet matcher: SimOTA 动态 Top-K (1-to-many), num_pos = sum(dynamic_k_i),
+          通常 > M (每 GT 可匹配多个 proposal).
+        - SetDiff matcher: Hungarian 1-to-1 (对齐 DETR 家族 + v4 理论 "global
+          coupled matching"), num_pos = sum(M_i) = M.
+        - SetDiff 的 num_pos 比 LDMDet 更小, per-slot 梯度更大 (~1-3x, 取决于
+          dynamic_k), 这是为了保留 SetDiff v4 理论区分点 (一对一全局耦合匹配).
 
-Matched slots (label >= 0) → predict their GT class.
-Unmatched slots (label == -1) → predict "no object" (all class targets = 0).
-All slots participate in classification loss; only matched slots contribute
-to bbox/giou losses.
+    coupling 阶段 (matcher.match_batch) 仍负责构造轨迹 x_t = (1-t)*x_0_matched
+    + t*noise, 保证所有 slot 在 [GT, noise] 插值轨迹上 (训练-推理分布对齐);
+    loss 阶段 (criterion 内部 matcher.match_indices_batch) 独立做 Hungarian
+    一对一匹配, 决定哪些 slot 是正样本 (参与 bbox/giou loss).
+
+    两阶段分离的设计 (与 LDMDet 一致):
+        - coupling 阶段: 控制 box_head 见过的输入分布 (所有 slot 都见过 GT-noise
+          插值, 不再有 unmatched slot 的 OOD 问题).
+        - loss 阶段: 控制梯度归一化 (num_pos=M, 梯度集中, 不稀释).
+    LDMDet 同时满足两个目标, 此处参考其行为 (matcher 实现不同).
+
+Loss 组成 (方案 A 参考 LDMDet/DiffusionDet):
+1. Classification loss (sigmoid focal loss on class logits, w=2).
+   - 所有 slot 参与 (matched=正样本, unmatched=背景).
+2. Box regression loss (L1 on predicted x_0, cxcywh, w=5).
+   - 只对 matched slot 计算, num_pos=M.
+3. GIoU loss (GIoU on predicted x_0, xyxy, w=2).
+   - 只对 matched slot 计算, num_pos=M.
 
 权重 2:5:2 对齐 DETR 家族 (DETR/Deformable DETR/DINO/LDMDet).
 """
 
-from typing import Dict, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -25,6 +43,7 @@ import torch.nn.functional as F
 from torch import Tensor
 
 from ldmdet.utils.box_ops import bbox_cxcywh_to_xyxy
+from setdiff.matching.hungarian import HungarianMatcher
 
 
 def generalized_box_iou(boxes1: Tensor, boxes2: Tensor) -> Tensor:
@@ -90,28 +109,33 @@ def sigmoid_focal_loss(
 
 
 class SetCriterion(nn.Module):
-    """Loss for joint diffusion detection (方案 A, 对齐 LDMDet/DiffusionDet).
+    """Loss for joint diffusion detection (对齐 LDMDet criterion.py).
 
     Combines:
     1. Classification loss (focal loss on class logits, w=2).
+       所有 slot 参与 (matched=正样本, unmatched=背景).
     2. Box regression loss (L1 on predicted x_0, w=5).
+       只对 matched slot 计算, num_pos=M (对齐 LDMDet, 不稀释).
     3. GIoU loss (GIoU on predicted x_0, w=2).
+       只对 matched slot 计算, num_pos=M.
 
-    loss_diff (MSE) 已删除: 与 L1+GIoU 冗余, 检测领域无此实践.
+    内置 HungarianMatcher: loss 计算时重新匹配 pred_boxes 和 GT.
+    coupling 阶段的 matched_boxes/matched_labels 不再传入 criterion
+    (它们仅用于轨迹构造, 由 set_head._forward_train 处理).
 
     GIoU 计算空间 (关键修复):
         GIoU 必须在 [0,1] 归一化空间计算, 不是扩散空间 [-s, s].
         根因: cxcywh 的 w,h 在扩散空间可能为负 (小目标), 导致框翻转.
-        详见 _loss_giou 文档.
     """
 
     def __init__(
         self,
         num_classes: int,
-        weight_dict: Dict[str, float] | None = None,
+        weight_dict: Optional[Dict[str, float]] = None,
         alpha: float = 0.25,
         gamma: float = 2.0,
         snr_scale: float = 2.0,
+        cost_type: str = 'l2',
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -120,6 +144,10 @@ class SetCriterion(nn.Module):
         # snr_scale: GT 从 [0,1] 缩放到 [-s, +s] 匹配 N(0,1) 噪声.
         # _loss_giou 需要逆变换回 [0,1] 空间计算 GIoU (修复框翻转 bug).
         self.snr_scale = snr_scale
+        # loss 阶段重新匹配的 matcher (对齐 LDMDet criterion.py line 84).
+        # 与 set_head 中的 coupling matcher 区分: coupling matcher 决定轨迹,
+        # loss matcher 决定哪些 slot 是正样本.
+        self.matcher = HungarianMatcher(cost_type=cost_type)
         if weight_dict is None:
             # 方案 A: 2:5:2 对齐 DETR 家族 (cls : bbox : giou)
             weight_dict = {
@@ -132,13 +160,14 @@ class SetCriterion(nn.Module):
     def forward(
         self,
         outputs: Dict[str, Tensor],
-        targets: Dict[str, Tensor],
+        gt_boxes_list: List[Tensor],
+        gt_labels_list: List[Tensor],
     ) -> Tuple[Dict[str, Tensor], Tensor]:
         """Args:
             outputs: dict with 'pred_logits' [B, N, C], 'pred_boxes'
-                [B, N, 4].
-            targets: dict with 'matched_boxes' [B, N, 4], 'matched_labels'
-                [B, N] (labels=-1 for padding/unmatched slots).
+                [B, N, 4] (扩散空间 cxcywh).
+            gt_boxes_list: list of [M_i, 4] 每张图的原始 GT (扩散空间 cxcywh).
+            gt_labels_list: list of [M_i] 每张图的原始 GT label.
 
         Returns:
             loss_dict: dict of loss terms (loss_cls, loss_bbox, loss_giou).
@@ -146,12 +175,21 @@ class SetCriterion(nn.Module):
         """
         pred_logits = outputs['pred_logits']  # [B, N, C]
         pred_boxes = outputs['pred_boxes']  # [B, N, 4]
-        matched_boxes = targets['matched_boxes']  # [B, N, 4]
-        matched_labels = targets['matched_labels']  # [B, N]
 
-        loss_cls = self._loss_classification(pred_logits, matched_labels)
-        loss_bbox = self._loss_bbox(pred_boxes, matched_boxes, matched_labels)
-        loss_giou = self._loss_giou(pred_boxes, matched_boxes, matched_labels)
+        # 1. loss 阶段重新匹配 (对齐 LDMDet criterion.py line 84)
+        # 返回 List[(src_idx [K_i], tgt_idx [K_i])], K_i = min(N, M_i)
+        indices_list = self.matcher.match_indices_batch(
+            pred_boxes, gt_boxes_list
+        )
+
+        # 2. cls loss: 所有 slot 参与 (matched=正样本, unmatched=背景)
+        loss_cls = self._loss_classification(
+            pred_logits, gt_labels_list, indices_list
+        )
+
+        # 3. bbox/giou loss: 只对 matched slot, num_pos = sum(K_i) = sum(M_i)
+        loss_bbox = self._loss_bbox(pred_boxes, gt_boxes_list, indices_list)
+        loss_giou = self._loss_giou(pred_boxes, gt_boxes_list, indices_list)
 
         loss_dict = {
             'loss_cls': loss_cls,
@@ -167,33 +205,41 @@ class SetCriterion(nn.Module):
     def _loss_classification(
         self,
         pred_logits: Tensor,
-        matched_labels: Tensor,
+        gt_labels_list: List[Tensor],
+        indices_list: List[Tuple[Tensor, Tensor]],
     ) -> Tensor:
         """Sigmoid focal loss over ALL slots.
 
-        - Matched slots (label >= 0): target is one-hot for their class.
-        - Unmatched slots (label == -1): target is all zeros (no object).
+        - Matched slots (由 matcher.match_indices 决定): target 是其匹配 GT
+          类别的 one-hot.
+        - Unmatched slots: target 是全零 (背景).
 
-        This is the standard DETR approach for sigmoid focal loss: every slot
-        participates in classification, and unmatched slots learn to suppress
-        all class scores.
-
-        Args:
-            pred_logits: [B, N, C]
-            matched_labels: [B, N] (label=-1 for unmatched)
+        所有 slot 都参与 (DETR 标准), unmatched slot 学习抑制所有类别分数.
+        num_pos = sum(K_i) (batch 总 matched 数, = sum(M_i) 因为一对一).
         """
         B, N, C = pred_logits.shape
+        device = pred_logits.device
+
+        # 构建每张图的 target_labels: [B, N], -1 表示 unmatched (背景)
+        target_labels = torch.full(
+            (B, N), -1, dtype=torch.long, device=device
+        )
+        for b, (src_idx, tgt_idx) in enumerate(indices_list):
+            if len(src_idx) > 0:
+                target_labels[b, src_idx] = gt_labels_list[b][tgt_idx]
 
         # One-hot targets: [B, N, C]
-        targets = torch.zeros_like(pred_logits)  # all zeros initially
-        valid_mask = matched_labels >= 0  # [B, N]
+        targets = torch.zeros_like(pred_logits)
+        valid_mask = target_labels >= 0  # [B, N]
         if valid_mask.any():
-            valid_labels = matched_labels[valid_mask]  # [num_valid]
+            valid_labels = target_labels[valid_mask]  # [num_valid]
             targets[valid_mask] = torch.zeros_like(
                 targets[valid_mask]
             ).scatter_(1, valid_labels.clamp(0, C - 1).unsqueeze(1), 1.0)
 
-        num_pos = valid_mask.sum().item()
+        # num_pos 保留为张量, 避免 .item() 同步 (对齐 LDMDet criterion.py)
+        num_pos = valid_mask.sum().clamp(min=1)
+
         flatten_logits = pred_logits.reshape(-1, C)
         flatten_targets = targets.reshape(-1, C)
 
@@ -203,40 +249,42 @@ class SetCriterion(nn.Module):
             alpha=self.alpha,
             gamma=self.gamma,
         )
-        # Normalize by number of positive slots (same as mmdet DETR).
-        # With sigmoid focal loss on all slots, the effective normalization
-        # balances the huge negative (unmatched) contribution.
-        return loss / max(num_pos, 1)
+        # 用 batch 内 matched slot 总数归一化 (对齐 mmdet DETR).
+        return loss / num_pos
 
     def _loss_bbox(
         self,
         pred_boxes: Tensor,
-        matched_boxes: Tensor,
-        matched_labels: Tensor,
+        gt_boxes_list: List[Tensor],
+        indices_list: List[Tuple[Tensor, Tensor]],
     ) -> Tensor:
-        """L1 loss on matched slots (x_0 prediction).
+        """L1 loss on matched slots (x_0 prediction), num_pos = sum(M_i).
 
         对齐 LDMDet/DiffusionDet: L1 损失承担 x_0 预测回归.
+        只对 matcher.match_indices 决定的 matched slot 计算 (一对一),
+        num_pos = sum(M_i) 而不是 N, 避免梯度稀释.
 
         关键修复 — L1 必须在 [0,1] 归一化空间计算, 不是扩散空间 [-s, s]:
             根因: loss_bbox 在扩散空间计算时数值放大 2s 倍 (s=2 → 4x),
-                  而 loss_giou 的逆变换引入 1/(2s) 梯度衰减 (d_pred_norm/d_pred_diff=1/(2s)),
+                  而 loss_giou 的逆变换引入 1/(2s) 梯度衰减,
                   两者不在同一空间导致有效权重失衡.
-                  严格梯度比: L1 梯度 ~ O(1), GIoU 梯度 ~ O(1/(2s)), 比值下界 2s:1 (s=2 → 4:1);
-                  但 GIoU 的几何依赖 (框重叠/包含关系) 使实际比值更大
-                  (subagent1 实测 ~10:1, s=2), 有效权重从 2:5:2 失衡,
-                  GIoU 几乎不学习 → mAP=0.
             修复: 与 _loss_giou 一致, 先把 pred/tgt 从 [-s, s] 逆变换到 [0, 1]
-                  再计算 L1, 保证两项损失在同一空间, 梯度尺度一致.
+                  再计算 L1.
         """
-        valid_mask = matched_labels >= 0
+        # 收集所有 matched (pred_box, gt_box) 对
+        pred_list = []
+        tgt_list = []
+        for b, (src_idx, tgt_idx) in enumerate(indices_list):
+            if len(src_idx) > 0:
+                pred_list.append(pred_boxes[b, src_idx])
+                tgt_list.append(gt_boxes_list[b][tgt_idx])
 
-        if not valid_mask.any():
+        if not pred_list:
             return pred_boxes.sum() * 0.0
 
-        pred = pred_boxes[valid_mask]  # [num_valid, 4] in diffusion space [-s, s]
-        tgt = matched_boxes[valid_mask]  # [num_valid, 4] in diffusion space [-s, s]
-        num_pos = pred.shape[0]
+        pred = torch.cat(pred_list, dim=0)  # [sum(M_i), 4] 扩散空间 [-s, s]
+        tgt = torch.cat(tgt_list, dim=0)
+        num_pos = pred.shape[0]  # = sum(M_i)
 
         # 逆变换: [-s, s] → [0, 1] (与 _loss_giou 一致, 保证梯度尺度对齐)
         s = self.snr_scale
@@ -248,12 +296,14 @@ class SetCriterion(nn.Module):
     def _loss_giou(
         self,
         pred_boxes: Tensor,
-        matched_boxes: Tensor,
-        matched_labels: Tensor,
+        gt_boxes_list: List[Tensor],
+        indices_list: List[Tuple[Tensor, Tensor]],
     ) -> Tensor:
-        """GIoU loss on matched slots (x_0 prediction).
+        """GIoU loss on matched slots (x_0 prediction), num_pos = sum(M_i).
 
         对齐 LDMDet/DiffusionDet: GIoU 提供几何重叠监督, 是检测 AP 的直接代理.
+        只对 matcher.match_indices 决定的 matched slot 计算 (一对一),
+        num_pos = sum(M_i) 而不是 N.
 
         关键修复 — GIoU 必须在 [0,1] 归一化空间计算, 不是扩散空间 [-s, s]:
             根因: cxcywh 的 w,h 在扩散空间可能为负 (小目标 GT 经
@@ -264,13 +314,18 @@ class SetCriterion(nn.Module):
             修复: 调用 generalized_box_iou 前, 先把 pred/tgt 从 [-s, s]
                   逆变换到 [0, 1] (与 SetDiffDetector.diffusion_to_norm_space 一致).
         """
-        valid_mask = matched_labels >= 0
+        pred_list = []
+        tgt_list = []
+        for b, (src_idx, tgt_idx) in enumerate(indices_list):
+            if len(src_idx) > 0:
+                pred_list.append(pred_boxes[b, src_idx])
+                tgt_list.append(gt_boxes_list[b][tgt_idx])
 
-        if not valid_mask.any():
+        if not pred_list:
             return pred_boxes.sum() * 0.0
 
-        pred = pred_boxes[valid_mask]  # [num_valid, 4] in diffusion space [-s, s]
-        tgt = matched_boxes[valid_mask]  # [num_valid, 4] in diffusion space [-s, s]
+        pred = torch.cat(pred_list, dim=0)
+        tgt = torch.cat(tgt_list, dim=0)
         num_pos = pred.shape[0]
 
         # 逆变换: [-s, s] → [0, 1] (GIoU 需要在有效框空间计算, 修复框翻转 bug)
@@ -278,5 +333,5 @@ class SetCriterion(nn.Module):
         pred_norm = (pred.clamp(-s, s) / s + 1.0) / 2.0
         tgt_norm = (tgt.clamp(-s, s) / s + 1.0) / 2.0
 
-        giou = generalized_box_iou(pred_norm, tgt_norm)  # [num_valid]
+        giou = generalized_box_iou(pred_norm, tgt_norm)
         return (1.0 - giou).sum() / max(num_pos, 1)

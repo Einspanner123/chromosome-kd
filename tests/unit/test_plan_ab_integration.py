@@ -122,32 +122,40 @@ class TestPlanAIntegration:
         assert outputs['pred_logits'].shape == (B, N, 24)
         assert outputs['pred_boxes'].shape == (B, N, 4)
 
-    def test_loss_bbox_giou_all_slots(self):
-        """方案 A: loss_bbox / loss_giou 对所有 slot 生效 (不只 matched)."""
+    def test_loss_bbox_giou_only_matched_slots(self):
+        """方案 A: loss_bbox / loss_giou 只对 matched slot 生效 (num_pos=M).
+
+        2026-07-19 修复 (对齐 LDMDet criterion.py): criterion 内部用
+        Hungarian 重新匹配 pred_boxes 和 GT, num_pos=M (不是 N=300),
+        避免梯度稀释 37.5 倍.
+
+        验证: criterion 的 matcher.match_indices 被调用, 返回 M 对匹配
+        (而不是用 coupling 阶段的 N 个 matched_labels).
+        """
         torch.manual_seed(42)
         head = _build_head(matcher_type='random')
-        image_features, gt_boxes_list, gt_labels_list = _make_batch()
+        image_features, gt_boxes_list, gt_labels_list = _make_batch(M=5)
 
-        # 捕获 criterion 输入 (用 mock 包装 forward)
-        original_forward = head.criterion.forward
+        # 捕获 criterion 内部 matcher 的 match_indices 调用
         captured = {}
+        original_match_indices = head.criterion.matcher.match_indices
 
-        def capture_forward(outputs, targets):
-            captured['matched_labels'] = targets['matched_labels']
-            return original_forward(outputs, targets)
+        def capture(pred, gt):
+            result = original_match_indices(pred, gt)
+            captured['src_len'] = len(result[0])
+            captured['tgt_len'] = len(result[1])
+            return result
 
-        head.criterion.forward = capture_forward
+        head.criterion.matcher.match_indices = capture
 
         loss_dict = head(image_features, gt_boxes_list, gt_labels_list)
 
-        # 验证: 所有 slot label >= 0 (都参与 bbox/giou loss)
-        matched_labels = captured['matched_labels']
-        num_valid = (matched_labels >= 0).sum().item()
-        total_slots = matched_labels.numel()
-        assert num_valid == total_slots, (
-            f"方案 A: 所有 slot 应参与 bbox/giou loss, "
-            f"实际 {num_valid}/{total_slots}"
+        # criterion 应做 M=5 对匹配 (不是 N=20)
+        assert captured['src_len'] == 5, (
+            f"方案 A: criterion 应做 M=5 对匹配 (num_pos=M), "
+            f"实际 {captured['src_len']} (旧稀释行为 num_pos=N)"
         )
+        assert captured['tgt_len'] == 5
 
 
 class TestPlanBIntegration:
@@ -237,29 +245,37 @@ class TestPlanBIntegration:
         assert outputs['pred_logits'].shape == (B, N, 24)
         assert outputs['pred_boxes'].shape == (B, N, 4)
 
-    def test_loss_bbox_giou_all_slots(self):
-        """方案 B: loss_bbox / loss_giou 对所有 slot 生效."""
+    def test_loss_bbox_giou_only_matched_slots(self):
+        """方案 B: loss_bbox / loss_giou 只对 matched slot 生效 (num_pos=M).
+
+        2026-07-19 修复 (对齐 LDMDet criterion.py): criterion 内部用
+        Hungarian 重新匹配 pred_boxes 和 GT, num_pos=M (不是 N=300),
+        避免梯度稀释 37.5 倍.
+
+        与方案 A 的区别: 方案 B coupling 阶段用 Hungarian 一对一 + unmatched
+        随机 GT; 但 loss 阶段两者相同 (criterion 内部重新匹配).
+        """
         torch.manual_seed(42)
         head = _build_head(
             matcher_type='hungarian', unmatched_strategy='random_gt'
         )
-        image_features, gt_boxes_list, gt_labels_list = _make_batch()
+        image_features, gt_boxes_list, gt_labels_list = _make_batch(M=5)
 
-        original_forward = head.criterion.forward
         captured = {}
+        original_match_indices = head.criterion.matcher.match_indices
 
-        def capture_forward(outputs, targets):
-            captured['matched_labels'] = targets['matched_labels']
-            return original_forward(outputs, targets)
+        def capture(pred, gt):
+            result = original_match_indices(pred, gt)
+            captured['src_len'] = len(result[0])
+            captured['tgt_len'] = len(result[1])
+            return result
 
-        head.criterion.forward = capture_forward
+        head.criterion.matcher.match_indices = capture
 
         loss_dict = head(image_features, gt_boxes_list, gt_labels_list)
 
-        matched_labels = captured['matched_labels']
-        num_valid = (matched_labels >= 0).sum().item()
-        total_slots = matched_labels.numel()
-        assert num_valid == total_slots, (
-            f"方案 B: 所有 slot 应参与 bbox/giou loss, "
-            f"实际 {num_valid}/{total_slots}"
+        assert captured['src_len'] == 5, (
+            f"方案 B: criterion 应做 M=5 对匹配 (num_pos=M), "
+            f"实际 {captured['src_len']} (旧稀释行为 num_pos=N)"
         )
+        assert captured['tgt_len'] == 5

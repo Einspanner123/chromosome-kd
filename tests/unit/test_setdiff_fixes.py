@@ -40,15 +40,16 @@ class TestSetCriterionLossA:
         """forward 返回的 loss_dict 应包含 loss_cls, loss_bbox, loss_giou"""
         criterion = SetCriterion(num_classes=24)
         B, N, C = 2, 10, 24
+        # 2026-07-19: criterion 接收原始 GT list, 内部 Hungarian 重新匹配
+        gt_boxes_list = [torch.randn(N, 4) for _ in range(B)]
+        gt_labels_list = [
+            torch.randint(0, C, (N,)) for _ in range(B)
+        ]
         outputs = {
             'pred_logits': torch.randn(B, N, C),
             'pred_boxes': torch.randn(B, N, 4),
         }
-        targets = {
-            'matched_boxes': torch.randn(B, N, 4),
-            'matched_labels': torch.randint(-1, C, (B, N)),
-        }
-        loss_dict, total = criterion(outputs, targets)
+        loss_dict, total = criterion(outputs, gt_boxes_list, gt_labels_list)
         assert set(loss_dict.keys()) == {'loss_cls', 'loss_bbox', 'loss_giou'}
         assert 'loss_diff' not in loss_dict
         assert 'loss_box' not in loss_dict
@@ -60,19 +61,20 @@ class TestSetCriterionLossA:
         而非扩散空间 [-s, s]. pred=0, tgt=1 在扩散空间,
         逆变换到 [0,1] 空间: pred_norm=0.5, tgt_norm=0.75,
         L1 = sum(|0.75-0.5|) * 5slots / 5 = 4 * 0.25 = 1.0.
+
+        2026-07-19: M=N=5 (Hungarian 一对一匹配所有 slot),
+        所有 GT=1, 所有 pred=0, 任意匹配 L1 sum 都相同.
         """
         criterion = SetCriterion(num_classes=24)
         B, N, C = 1, 5, 24
-        # 所有 slot 都是 matched (label >= 0)
+        # M=N=5: 所有 slot 都被匹配 (一对一)
+        gt_boxes_list = [torch.ones(N, 4)]  # 扩散空间 1
+        gt_labels_list = [torch.zeros(N, dtype=torch.long)]
         outputs = {
             'pred_logits': torch.randn(B, N, C),
             'pred_boxes': torch.zeros(B, N, 4),  # 扩散空间 0
         }
-        targets = {
-            'matched_boxes': torch.ones(B, N, 4),  # 扩散空间 1
-            'matched_labels': torch.zeros(B, N, dtype=torch.long),
-        }
-        loss_dict, _ = criterion(outputs, targets)
+        loss_dict, _ = criterion(outputs, gt_boxes_list, gt_labels_list)
         # 修复后 ([0,1] 空间):
         # pred_norm = (0/2+1)/2 = 0.5, tgt_norm = (1/2+1)/2 = 0.75
         # sum(|0.75-0.5|) = 5*4*0.25 = 5.0, /num_pos=5 → 1.0
@@ -81,7 +83,12 @@ class TestSetCriterionLossA:
         )
 
     def test_loss_giou_is_giou_loss(self):
-        """loss_giou 应为 1 - GIoU"""
+        """loss_giou 应为 1 - GIoU
+
+        2026-07-19: M=N=3, gt_boxes = pred_boxes (相同集合).
+        Hungarian 最优匹配为 identity (pred[i]→gt[i], cost=0),
+        每个 matched pair 的 pred==tgt, GIoU=1, loss=0.
+        """
         criterion = SetCriterion(num_classes=24)
         B, N, C = 1, 3, 24
         # 完全重叠的框 → GIoU=1 → loss_giou=0
@@ -94,15 +101,14 @@ class TestSetCriterionLossA:
                 ]
             ]
         )
+        # M=N=3, gt_boxes = boxes (相同集合), Hungarian 匹配 identity
+        gt_boxes_list = [boxes[0]]
+        gt_labels_list = [torch.zeros(N, dtype=torch.long)]
         outputs = {
             'pred_logits': torch.randn(B, N, C),
             'pred_boxes': boxes.clone(),
         }
-        targets = {
-            'matched_boxes': boxes.clone(),
-            'matched_labels': torch.zeros(B, N, dtype=torch.long),
-        }
-        loss_dict, _ = criterion(outputs, targets)
+        loss_dict, _ = criterion(outputs, gt_boxes_list, gt_labels_list)
         assert torch.isclose(
             loss_dict['loss_giou'], torch.tensor(0.0), atol=1e-5
         )
@@ -111,15 +117,14 @@ class TestSetCriterionLossA:
         """total loss 应为 sum(loss_i * weight_i)"""
         criterion = SetCriterion(num_classes=24)
         B, N, C = 1, 5, 24
+        # M=N=5
+        gt_boxes_list = [torch.randn(N, 4)]
+        gt_labels_list = [torch.zeros(N, dtype=torch.long)]
         outputs = {
             'pred_logits': torch.randn(B, N, C),
             'pred_boxes': torch.randn(B, N, 4),
         }
-        targets = {
-            'matched_boxes': torch.randn(B, N, 4),
-            'matched_labels': torch.zeros(B, N, dtype=torch.long),
-        }
-        loss_dict, total = criterion(outputs, targets)
+        loss_dict, total = criterion(outputs, gt_boxes_list, gt_labels_list)
         expected = (
             loss_dict['loss_cls'] * 2.0
             + loss_dict['loss_bbox'] * 5.0
@@ -128,37 +133,38 @@ class TestSetCriterionLossA:
         assert torch.isclose(total, expected, atol=1e-5)
 
     def test_unmatched_slots_excluded_from_bbox_giou(self):
-        """label=-1 的 slot 不应参与 loss_bbox/loss_giou"""
+        """criterion 内部 Hungarian 只匹配 M 对, 其余 slot 不参与 bbox/giou loss.
+
+        2026-07-19 修复: num_pos=M (不是 N), 避免梯度稀释.
+        验证: M=2, N=4. pred[0:2] 等于 GT (会被匹配, loss=0),
+        pred[2:4] 远离 GT (不匹配, 不参与 loss). 总 loss_bbox/giou=0.
+        """
         criterion = SetCriterion(num_classes=24)
         B, N, C = 1, 4, 24
+        # M=2 个 GT
+        gt_boxes_list = [
+            torch.tensor(
+                [[0.5, 0.5, 0.2, 0.2], [0.3, 0.3, 0.1, 0.1]]
+            )
+        ]
+        gt_labels_list = [torch.tensor([0, 0])]
+        # pred: 前 2 个 slot 等于 GT (会被匹配), 后 2 个 slot 远离 (不匹配)
         outputs = {
             'pred_logits': torch.randn(B, N, C),
             'pred_boxes': torch.tensor(
                 [
                     [
-                        [0.5, 0.5, 0.2, 0.2],
-                        [0.9, 0.9, 0.9, 0.9],  # unmatched, 应被排除
-                        [0.3, 0.3, 0.1, 0.1],
-                        [0.8, 0.8, 0.8, 0.8],
+                        [0.5, 0.5, 0.2, 0.2],  # = GT[0]
+                        [0.3, 0.3, 0.1, 0.1],  # = GT[1]
+                        [10.0, 10.0, 10.0, 10.0],  # 远离, 不匹配
+                        [20.0, 20.0, 20.0, 20.0],  # 远离, 不匹配
                     ]
-                ]  # unmatched, 应被排除
+                ]
             ),
         }
-        targets = {
-            'matched_boxes': torch.tensor(
-                [
-                    [
-                        [0.5, 0.5, 0.2, 0.2],
-                        [0.0, 0.0, 0.0, 0.0],  # unmatched slot 的 GT (不参与)
-                        [0.3, 0.3, 0.1, 0.1],
-                        [0.0, 0.0, 0.0, 0.0],
-                    ]
-                ]  # unmatched slot 的 GT (不参与)
-            ),
-            'matched_labels': torch.tensor([[0, -1, 0, -1]]),
-        }
-        loss_dict, _ = criterion(outputs, targets)
-        # 只有 2 个 matched slot, 且 pred==gt, 所以 loss_bbox=0, loss_giou=0
+        loss_dict, _ = criterion(outputs, gt_boxes_list, gt_labels_list)
+        # matched slot 的 pred==tgt, 所以 loss_bbox=0, loss_giou=0
+        # unmatched slot 不参与 (num_pos=M=2, 不是 N=4)
         assert torch.isclose(
             loss_dict['loss_bbox'], torch.tensor(0.0), atol=1e-5
         )
@@ -342,6 +348,9 @@ class TestGIoUSpaceFix:
         - 扩散空间: (0.1*2-1)*2 = -1.6 (w,h 为负!)
         - 旧代码 (扩散空间计算 GIoU): 框翻转 → area=0 → giou=0 → loss=1.0
         - 修复后 ([0,1] 空间计算): pred==tgt → giou=1 → loss=0
+
+        2026-07-19: M=N=2, gt_boxes = pred_boxes (相同集合),
+        Hungarian 匹配 identity, 每 pair 的 pred==tgt.
         """
         criterion = SetCriterion(num_classes=24, snr_scale=2.0)
         B, N, C = 1, 2, 24
@@ -355,15 +364,14 @@ class TestGIoUSpaceFix:
         assert (gt_diffusion[..., 2:] < 0).all(), (
             '测试前提失败: w,h 应在扩散空间为负'
         )
+        # M=N=2, gt_boxes = pred_boxes (相同集合)
+        gt_boxes_list = [gt_diffusion[0]]
+        gt_labels_list = [torch.zeros(N, dtype=torch.long)]
         outputs = {
             'pred_logits': torch.randn(B, N, C),
             'pred_boxes': gt_diffusion.clone(),  # pred == tgt
         }
-        targets = {
-            'matched_boxes': gt_diffusion.clone(),
-            'matched_labels': torch.zeros(B, N, dtype=torch.long),
-        }
-        loss_dict, _ = criterion(outputs, targets)
+        loss_dict, _ = criterion(outputs, gt_boxes_list, gt_labels_list)
         # pred == tgt, GIoU 应为 1, loss 应为 0
         # 旧代码 (bug): loss_giou ≈ 1.0 (框翻转)
         assert torch.isclose(
@@ -378,6 +386,8 @@ class TestGIoUSpaceFix:
 
         构造两个不同的框, 验证 loss_giou 值与在 [0,1] 空间计算一致,
         而不是与在扩散空间计算一致.
+
+        2026-07-19: M=N=1, 单 slot 单 GT, Hungarian 必匹配.
         """
         s = 2.0
         criterion = SetCriterion(num_classes=24, snr_scale=s)
@@ -385,15 +395,14 @@ class TestGIoUSpaceFix:
         # 两个不同的框 (扩散空间)
         pred_diffusion = torch.tensor([[[0.0, 0.0, 0.0, 0.0]]])  # 中心, w=h=0
         tgt_diffusion = torch.tensor([[[1.0, 1.0, 1.0, 1.0]]])
+        # M=N=1
+        gt_boxes_list = [tgt_diffusion[0]]
+        gt_labels_list = [torch.zeros(N, dtype=torch.long)]
         outputs = {
             'pred_logits': torch.randn(B, N, C),
             'pred_boxes': pred_diffusion,
         }
-        targets = {
-            'matched_boxes': tgt_diffusion,
-            'matched_labels': torch.zeros(B, N, dtype=torch.long),
-        }
-        loss_dict, _ = criterion(outputs, targets)
+        loss_dict, _ = criterion(outputs, gt_boxes_list, gt_labels_list)
 
         # 手动在 [0,1] 空间计算预期 GIoU
         pred_norm = (pred_diffusion.clamp(-s, s) / s + 1.0) / 2.0
@@ -501,6 +510,9 @@ class TestDoubleCountingAndL1SpaceFix:
         修复后: total = 2*cls + 5*bbox + 2*giou (权重 2:5:2)
 
         验证方法: 构造已知 loss 场景, 检查 total 与预期一致.
+
+        2026-07-19: criterion 内部 Hungarian 重新匹配 (num_pos=M),
+        重建 forward 时需传原始 GT list 给 criterion (不再传 matched_boxes).
         """
         head = JointDiffusionHead(
             num_queries=10,
@@ -540,11 +552,10 @@ class TestDoubleCountingAndL1SpaceFix:
             matched_mask=(matched_labels >= 0),
         )
         outputs = {'pred_logits': cls_logits, 'pred_boxes': pred_boxes}
-        targets = {
-            'matched_boxes': matched_boxes,
-            'matched_labels': matched_labels,
-        }
-        criterion_dict, criterion_total = head.criterion(outputs, targets)
+        # 2026-07-19: 传原始 GT list (criterion 内部 Hungarian 重新匹配)
+        criterion_dict, criterion_total = head.criterion(
+            outputs, gt_boxes, gt_labels
+        )
 
         # 修复后: head_total 应等于 criterion_total (2*cls + 5*bbox + 2*giou)
         # 旧代码 (bug): head_total = criterion_total + sum(未加权单项) > criterion_total
@@ -566,6 +577,8 @@ class TestDoubleCountingAndL1SpaceFix:
 
         旧代码: L1 在扩散空间计算, 数值 4x (s=2), 有效权重 2:20:2.
         修复后: L1 逆变换到 [0,1] 空间, 数值与 LDMDet 一致, 权重 2:5:2.
+
+        2026-07-19: M=N=2, Hungarian 一对一匹配, 每 pair pred→tgt.
         """
         s = 2.0
         criterion = SetCriterion(num_classes=24, snr_scale=s)
@@ -582,17 +595,18 @@ class TestDoubleCountingAndL1SpaceFix:
         gt_diffusion = (gt_norm * 2.0 - 1.0) * s
         pred_diffusion = (pred_norm * 2.0 - 1.0) * s
 
+        # M=N=2
+        gt_boxes_list = [gt_diffusion[0]]
+        gt_labels_list = [torch.zeros(N, dtype=torch.long)]
         outputs = {
             'pred_logits': torch.randn(B, N, C),
             'pred_boxes': pred_diffusion,
         }
-        targets = {
-            'matched_boxes': gt_diffusion,
-            'matched_labels': torch.zeros(B, N, dtype=torch.long),
-        }
-        loss_dict, _ = criterion(outputs, targets)
+        loss_dict, _ = criterion(outputs, gt_boxes_list, gt_labels_list)
 
         # 手动在 [0,1] 空间计算预期 L1
+        # Hungarian 匹配: pred[0]→gt[0], pred[1]→gt[1] (假设最近邻)
+        # 由于 pred 与 gt 一一对应且偏差小, identity 是最优匹配
         import torch.nn.functional as F
         l1_expected = F.l1_loss(
             pred_norm, gt_norm, reduction='sum'
@@ -611,6 +625,8 @@ class TestDoubleCountingAndL1SpaceFix:
         """loss_bbox 和 loss_giou 应在同一空间 ([0,1]) 计算.
 
         确保梯度尺度一致, L1:GIoU 梯度比由权重 (5:2) 决定, 不是空间尺度 (32:1).
+
+        2026-07-19: M=N=1, 单 slot 单 GT, Hungarian 必匹配.
         """
         s = 2.0
         criterion = SetCriterion(num_classes=24, snr_scale=s)
@@ -621,15 +637,14 @@ class TestDoubleCountingAndL1SpaceFix:
         pred_diffusion = (pred_norm * 2.0 - 1.0) * s
         tgt_diffusion = (tgt_norm * 2.0 - 1.0) * s
 
+        # M=N=1
+        gt_boxes_list = [tgt_diffusion[0]]
+        gt_labels_list = [torch.zeros(N, dtype=torch.long)]
         outputs = {
             'pred_logits': torch.randn(B, N, C),
             'pred_boxes': pred_diffusion,
         }
-        targets = {
-            'matched_boxes': tgt_diffusion,
-            'matched_labels': torch.zeros(B, N, dtype=torch.long),
-        }
-        loss_dict, _ = criterion(outputs, targets)
+        loss_dict, _ = criterion(outputs, gt_boxes_list, gt_labels_list)
 
         # 验证 loss_bbox 在 [0,1] 空间的值
         import torch.nn.functional as F

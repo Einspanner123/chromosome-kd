@@ -179,14 +179,18 @@ class TestMeasureCriterionGradientRatio:
 
         [0,1] 空间: pred=[0.5,0.5,0.3,0.3] vs tgt=[0.5,0.5,0.2,0.2]
         (同中心, GIoU 不饱和)
-        返回扩散空间 [-s, s] 的值.
+        返回扩散空间 [-s, s] 的值, 以及 GT list 形式 (适配新 criterion).
         """
         pred_norm = torch.tensor([[[0.5, 0.5, 0.3, 0.3]]])
         tgt_norm = torch.tensor([[[0.5, 0.5, 0.2, 0.2]]])
         # 转换到扩散空间 [-s, s]
         pred_diff = (pred_norm * 2.0 - 1.0) * s
         tgt_diff = (tgt_norm * 2.0 - 1.0) * s
-        return pred_diff, tgt_diff
+        # 2026-07-19: criterion 内部 Hungarian 重新匹配, 传原始 GT list
+        # gt_boxes_list: List[Tensor[M,4]], gt_labels_list: List[Tensor[M]]
+        gt_boxes_list = [tgt_diff[0]]  # M=1 GT
+        gt_labels_list = [torch.tensor([0])]
+        return pred_diff, gt_boxes_list, gt_labels_list
 
     def test_ratio_in_healthy_range_when_pred_close_to_tgt(self):
         """pred 接近 tgt 时, 加权梯度比应在 [0.5, 6.0] (修复后 ≈ 2.5).
@@ -195,12 +199,14 @@ class TestMeasureCriterionGradientRatio:
         修复前: L1 在扩散空间, ratio ≈ 5s:2 = 5 (s=2), 接近上界.
         """
         criterion = SetCriterion(num_classes=24, snr_scale=2.0)
-        pred_diff, tgt_diff = self._make_close_pred_tgt(s=2.0)
+        pred_diff, gt_boxes_list, gt_labels_list = self._make_close_pred_tgt(
+            s=2.0
+        )
         grad_norms = LossMonitor.measure_criterion_gradient_ratio(
             criterion,
             pred_diff,
-            tgt_diff,
-            torch.tensor([[0]]),
+            gt_boxes_list,
+            gt_labels_list,
         )
         ratio = grad_norms['ratio_bbox_giou']
         # 修复后 ≈ 2.5 (权重 5:2); 给出宽松范围 [0.5, 6.0] 容忍数值波动
@@ -217,12 +223,14 @@ class TestMeasureCriterionGradientRatio:
         修复后: ratio ≈ 2.5 (远低于 8.0).
         """
         criterion = SetCriterion(num_classes=24, snr_scale=2.0)
-        pred_diff, tgt_diff = self._make_close_pred_tgt(s=2.0)
+        pred_diff, gt_boxes_list, gt_labels_list = self._make_close_pred_tgt(
+            s=2.0
+        )
         grad_norms = LossMonitor.measure_criterion_gradient_ratio(
             criterion,
             pred_diff,
-            tgt_diff,
-            torch.tensor([[0]]),
+            gt_boxes_list,
+            gt_labels_list,
         )
         ratio = grad_norms['ratio_bbox_giou']
         assert ratio < 8.0, (
@@ -233,12 +241,14 @@ class TestMeasureCriterionGradientRatio:
     def test_grad_norms_positive(self):
         """criterion 各 loss 项梯度 norm 应为正数."""
         criterion = SetCriterion(num_classes=24, snr_scale=2.0)
-        pred_diff, tgt_diff = self._make_close_pred_tgt(s=2.0)
+        pred_diff, gt_boxes_list, gt_labels_list = self._make_close_pred_tgt(
+            s=2.0
+        )
         grad_norms = LossMonitor.measure_criterion_gradient_ratio(
             criterion,
             pred_diff,
-            tgt_diff,
-            torch.tensor([[0]]),
+            gt_boxes_list,
+            gt_labels_list,
         )
         for k in ['loss_bbox', 'loss_giou']:
             assert grad_norms[k] > 0, (
@@ -248,12 +258,14 @@ class TestMeasureCriterionGradientRatio:
     def test_grad_norms_finite(self):
         """criterion 各 loss 项梯度 norm 应为有限值."""
         criterion = SetCriterion(num_classes=24, snr_scale=2.0)
-        pred_diff, tgt_diff = self._make_close_pred_tgt(s=2.0)
+        pred_diff, gt_boxes_list, gt_labels_list = self._make_close_pred_tgt(
+            s=2.0
+        )
         grad_norms = LossMonitor.measure_criterion_gradient_ratio(
             criterion,
             pred_diff,
-            tgt_diff,
-            torch.tensor([[0]]),
+            gt_boxes_list,
+            gt_labels_list,
         )
         for k in ['loss_bbox', 'loss_giou']:
             assert torch.isfinite(torch.tensor(grad_norms[k])), (
@@ -263,12 +275,14 @@ class TestMeasureCriterionGradientRatio:
     def test_ratio_bbox_giou_key_present(self):
         """返回 dict 应包含 'ratio_bbox_giou' key."""
         criterion = SetCriterion(num_classes=24, snr_scale=2.0)
-        pred_diff, tgt_diff = self._make_close_pred_tgt(s=2.0)
+        pred_diff, gt_boxes_list, gt_labels_list = self._make_close_pred_tgt(
+            s=2.0
+        )
         grad_norms = LossMonitor.measure_criterion_gradient_ratio(
             criterion,
             pred_diff,
-            tgt_diff,
-            torch.tensor([[0]]),
+            gt_boxes_list,
+            gt_labels_list,
         )
         assert 'ratio_bbox_giou' in grad_norms
 
@@ -276,12 +290,14 @@ class TestMeasureCriterionGradientRatio:
         """验证 ratio 确实由 weight_dict 决定 (而非空间尺度)."""
         # 默认 weight_dict: loss_bbox=5.0, loss_giou=2.0 → ratio ≈ 5:2 = 2.5
         criterion = SetCriterion(num_classes=24, snr_scale=2.0)
-        pred_diff, tgt_diff = self._make_close_pred_tgt(s=2.0)
+        pred_diff, gt_boxes_list, gt_labels_list = self._make_close_pred_tgt(
+            s=2.0
+        )
         grad_norms = LossMonitor.measure_criterion_gradient_ratio(
             criterion,
             pred_diff,
-            tgt_diff,
-            torch.tensor([[0]]),
+            gt_boxes_list,
+            gt_labels_list,
         )
         default_ratio = grad_norms['ratio_bbox_giou']
 
@@ -295,8 +311,8 @@ class TestMeasureCriterionGradientRatio:
         grad_norms_flipped = LossMonitor.measure_criterion_gradient_ratio(
             criterion_flipped,
             pred_diff,
-            tgt_diff,
-            torch.tensor([[0]]),
+            gt_boxes_list,
+            gt_labels_list,
         )
         flipped_ratio = grad_norms_flipped['ratio_bbox_giou']
 
