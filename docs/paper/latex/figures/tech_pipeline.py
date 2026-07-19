@@ -208,7 +208,7 @@ def panel_dpm_solver(ax: plt.Axes) -> None:
     ax.annotate("", xy=(8.5, 3.9), xytext=(8.5, 2.5),
                 arrowprops=dict(arrowstyle="<->", color="#E63946", lw=1.0),
                 zorder=5)
-    ax.text(9.2, 3.2, "1.71$\ imes$\nNFE\nsaving", fontsize=7,
+    ax.text(9.2, 3.2, r"1.71$\times$\nNFE\nsaving", fontsize=7,
             ha="left", va="center", color="#E63946", weight="bold")
 
     # x0 prediction formula

@@ -1,7 +1,7 @@
 """
 Figure 4: Entropy Phase Diagram — H(V|Z) vs Sinkhorn regularization epsilon.
 
-Rewritten with adjustText for automatic label placement.
+Optimized: manual label placement with strategic positioning to avoid overlap.
 Data: work_dirs/stability/warm_restart_v2/.../velocity_entropy_results.json
 
 Run:  python entropy_phase.py
@@ -17,7 +17,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.interpolate import PchipInterpolator
-from adjustText import adjust_text
 
 from figure_style import *
 
@@ -39,7 +38,6 @@ def load_entropy_data(path: Path) -> dict:
 def main() -> None:
     data = load_entropy_data(DATA_PATH)
 
-    # Extract stochastic-OT series
     eps_vals: list[float] = []
     h_means: list[float] = []
     for entry in data.values():
@@ -55,109 +53,100 @@ def main() -> None:
     h_hard_ot = float(data["ot"]["H_V_Z_mean"])
     h_random = float(data["random"]["H_V_Z_mean"])
 
-    # Axes in log10(epsilon) space
     x_left = -3.0
     x_right = 3.0
     x_data = np.log10(eps_vals)
 
-    # Monotone PCHIP interpolation for theory curve
     x_fit = np.concatenate(([x_left], x_data, [x_right]))
     y_fit = np.concatenate(([h_hard_ot], h_means, [h_random]))
     pchip = PchipInterpolator(x_fit, y_fit)
     x_dense = np.linspace(x_left, x_right, 500)
     y_dense = pchip(x_dense)
 
-    # Tidy DataFrame
     df_meas = pd.DataFrame({
         "log_eps": x_data,
         "H": h_means,
     })
 
-    # ── Plot ──
-    fig, ax = plt.subplots(figsize=(5.6, 3.6), constrained_layout=True)
+    fig, ax = plt.subplots(figsize=(6.5, 4.2), constrained_layout=True)
 
-    # Region backgrounds
-    ax.axvspan(x_left, 0.0, color=C_DANGER, alpha=0.7, zorder=0)
-    ax.axvspan(0.0, x_right, color=C_SAFE, alpha=0.7, zorder=0)
+    ax.axvspan(x_left, 0.0, color=C_DANGER, alpha=0.4, zorder=0)
+    ax.axvspan(0.0, x_right, color=C_SAFE, alpha=0.4, zorder=0)
     ax.axvline(0.0, color="0.5", ls=":", lw=0.6, alpha=0.4, zorder=1)
 
-    # Horizontal reference lines
-    ax.axhline(LOG_K, color=C_RAND, ls="--", lw=0.9, alpha=0.7, zorder=2)
-    ax.axhline(h_hard_ot, color=C_OT, ls="--", lw=0.9, alpha=0.7, zorder=2)
+    ax.axhline(LOG_K, color=C_RAND, ls="--", lw=0.9, alpha=0.5, zorder=2)
+    ax.axhline(h_hard_ot, color=C_OT, ls="--", lw=0.9, alpha=0.5, zorder=2)
 
-    # Theory curve
     df_theory = pd.DataFrame({"x": x_dense, "y": y_dense})
     sns.lineplot(data=df_theory, x="x", y="y", color=C_RF,
-                 linewidth=1.8, alpha=0.85, zorder=3, ax=ax,
-                 label=r"Theory: $H(V|Z)$ monotone $\uparrow$")
+                 linewidth=2.0, alpha=0.9, zorder=3, ax=ax,
+                 label=r"Empirical monotone interpolation")
 
-    # Measured data: scatter only (no error bars)
     sns.scatterplot(data=df_meas, x="log_eps", y="H", color=C_RF,
-                    s=55, edgecolor="white", linewidth=1.2,
+                    s=65, edgecolor="white", linewidth=1.5,
                     zorder=5, ax=ax)
 
-    # Endpoint markers
-    ax.plot(x_left, h_hard_ot, "s", color=C_OT, ms=8, mfc=C_OT,
-            mec="black", mew=0.7, zorder=6)
-    ax.plot(x_right, h_random, "D", color=C_RAND, ms=7, mfc=C_RAND,
-            mec="black", mew=0.7, zorder=6)
+    ax.plot(x_left, h_hard_ot, "s", color=C_OT, ms=10, mfc=C_OT,
+            mec="black", mew=0.8, zorder=6)
+    ax.plot(x_right, h_random, "D", color=C_RAND, ms=9, mfc=C_RAND,
+            mec="black", mew=0.8, zorder=6)
 
-    # ── Labels with adjustText ──
-    # Increase fontsize and add bbox so labels are readable
-    fs = 9
-    texts_to_adjust = []
+    fs = 9.5
 
-    t1 = ax.text(x_left, h_hard_ot, "Hard OT ($\\epsilon{=}0$)",
-                 fontsize=fs, ha="left", va="bottom", color=C_OT,
-                 bbox=dict(boxstyle="round,pad=0.15", fc="white",
-                           ec="none", alpha=0.85))
-    texts_to_adjust.append(t1)
-
-    t2 = ax.text(x_right, h_random, "Random ($\\epsilon{=}\\infty$)",
-                 fontsize=fs, ha="right", va="bottom", color=C_RAND,
-                 bbox=dict(boxstyle="round,pad=0.15", fc="white",
-                           ec="none", alpha=0.85))
-    texts_to_adjust.append(t2)
-
-    # Reference annotations on the right
-    t3 = ax.text(x_right + 0.5, LOG_K, rf"$\log K$={LOG_K:.2f}",
-                 fontsize=fs, ha="left", va="center", color=C_RAND,
-                 bbox=dict(boxstyle="round,pad=0.15", fc="white",
-                           ec="none", alpha=0.85))
-    texts_to_adjust.append(t3)
-
-    t4 = ax.text(x_right + 0.5, h_random,
-                 f"$H_{{\\mathrm{{Random}}}}$={h_random:.2f}",
-                 fontsize=fs, ha="left", va="center", color=C_RAND,
-                 bbox=dict(boxstyle="round,pad=0.15", fc="white",
-                           ec="none", alpha=0.85))
-    texts_to_adjust.append(t4)
-
-    # adjustText — push labels away from data AND keep them off the curve
-    adjust_text(
-        texts_to_adjust,
-        ax=ax,
-        arrowprops=dict(arrowstyle="-", color="0.5", lw=0.4, shrinkA=5),
-        force_text=(1.5, 1.5),     # strong text-text repulsion
-        force_points=(2.0, 2.0),   # strong text↔datapoint repulsion (curve)
-        expand=(1.5, 1.5),         # generous bounding box margin
-        lim=400,
-        precision=0.005,
-        va="center",
+    ax.annotate(
+        f"Hard OT (ε=0)\nH={h_hard_ot:.2f}",
+        xy=(x_left, h_hard_ot),
+        xytext=(-2.2, 0.35),
+        fontsize=fs,
+        color=C_OT,
+        ha="center",
+        va="top",
+        bbox=dict(boxstyle="round,pad=0.2", fc="white", ec=C_OT, lw=0.8, alpha=0.9),
+        arrowprops=dict(arrowstyle="-", color=C_OT, lw=0.8),
+        zorder=7,
     )
 
-    # ── Axes ──
-    ax.set_xlabel(r"Entropic regularization $\epsilon$", fontsize=10)
-    ax.set_ylabel(r"Conditional entropy $H(V|Z)$", fontsize=10)
+    ax.annotate(
+        r"$\log K$" + f"\n={LOG_K:.2f}",
+        xy=(2.8, LOG_K),
+        xytext=(2.2, 4.15),
+        fontsize=fs,
+        color=C_RAND,
+        ha="left",
+        va="center",
+        bbox=dict(boxstyle="round,pad=0.2", fc="white", ec=C_RAND, lw=0.8, alpha=0.9),
+        arrowprops=dict(arrowstyle="-", color=C_RAND, lw=0.8),
+        zorder=7,
+    )
+
+    ax.annotate(
+        f"Random (ε=∞)\nH={h_random:.2f}",
+        xy=(x_right, h_random),
+        xytext=(2.2, 3.55),
+        fontsize=fs,
+        color=C_RAND,
+        ha="left",
+        va="center",
+        bbox=dict(boxstyle="round,pad=0.2", fc="white", ec=C_RAND, lw=0.8, alpha=0.9),
+        arrowprops=dict(arrowstyle="-", color=C_RAND, lw=0.8),
+        zorder=7,
+    )
+
+    ax.set_xlabel(r"Entropic regularization $\epsilon$", fontsize=11)
+    ax.set_ylabel(r"Conditional entropy $H(V|Z)$", fontsize=11)
 
     tick_positions = [x_left, -2, -1, 0, 1, 2, x_right]
     tick_labels = ["0", "0.01", "0.1", "1", "10", "100", r"$\infty$"]
     ax.set_xticks(tick_positions)
-    ax.set_xticklabels(tick_labels)
-    ax.set_xlim(x_left - 0.5, x_right + 0.5)
-    ax.set_ylim(-0.15, 4.35)
+    ax.set_xticklabels(tick_labels, fontsize=9)
+    ax.tick_params(axis='y', labelsize=9)
+    ax.set_xlim(-3.8, 3.8)
+    ax.set_ylim(-0.2, 4.4)
     ax.set_axisbelow(True)
     ax.grid(ls=":", lw=0.4, alpha=0.4, zorder=0)
+
+    legend = ax.legend(loc="upper left", fontsize=9, frameon=True,
+                       framealpha=0.9, edgecolor="0.7")
 
     save_fig(fig, "entropy_phase")
 

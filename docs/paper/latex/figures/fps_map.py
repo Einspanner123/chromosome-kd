@@ -1,13 +1,12 @@
 """
 Figure 7: Speed-Accuracy Trade-off (FPS vs mAP).
 
-Clean scatter plot — no zoomed inset, no overlapping labels.
+Clean scatter plot with clear labels and no overlap.
 - Our RF variants: circles (Heun-based) / squares (DPM++ variants)
-- Baselines: triangles (paper-reported FPS from Table 7)
-- RTMDet-L FPS from our own benchmark (same hardware/setup)
-- Direct text labels with minimal leader lines
+- Baselines: triangles (paper-reported FPS)
+- RTMDet-L: distinct color (teal)
 
-All FPS from RTX A6000, 512x512, batch=1, 200 images (paper) or 50 runs (ours).
+All FPS from RTX A6000, 512x512, batch=1, 200 images.
 
 Run:  python fps_map.py
 Outputs: fps_map.pdf, fps_map.png
@@ -21,27 +20,22 @@ from matplotlib.lines import Line2D
 
 from figure_style import *
 
-# Colors
-C_OURS_BASE = C_EULER       # orange — Heun-based
-C_OURS_FAST = C_DPMPP       # green  — DPM-Solver++
-C_BASELINE  = C_DDPM        # red    — non-RF baselines (paper-reported FPS)
-C_RTM       = "#009E73"     # green  — RTMDet-L (our benchmark)
+C_OURS_BASE = C_EULER
+C_OURS_FAST = C_DPMPP
+C_BASELINE  = C_DDPM
+C_RTM       = "#196f7b"
 
-# (name, fps, mAP, group)
 DATA = [
-    # Our variants
     ("A1 Heun",       8.0,   0.856, "base"),
     ("A2 +StochOT",   7.8,   0.858, "base"),
     ("A3 DPM++",     13.3,   0.863, "fast"),
     ("A3 +IO3 K300",  14.0,   0.861, "fast"),
     ("A3 +IO3 K200",  14.2,   0.860, "fast"),
     ("A3 +IO3 K100",  14.3,   0.850, "fast"),
-    # Baselines (paper Table 7)
-    ("Cascade R-CNN",  48.4,  0.854, "baseline"),
-    ("YOLOX-S",        98.5,  0.796, "baseline"),
-    ("DiffusionDet",   41.0,  0.787, "baseline"),
-    # Additional (benchmarked)
-    ("RTMDet-L",       12.1,  0.863, "rtmdet"),
+    ("Cascade R-CNN", 48.4,  0.854, "baseline"),
+    ("YOLOX-S",       98.5,   0.796, "baseline"),
+    ("DiffusionDet",  41.0,   0.787, "baseline"),
+    ("RTMDet-L",      12.1,   0.863, "rtmdet"),
 ]
 
 GROUP_STYLE = {
@@ -51,75 +45,64 @@ GROUP_STYLE = {
     "rtmdet":   {"color": C_RTM,       "marker": "D", "z": 5},
 }
 
-# Manual label placements to avoid overlap
-LABEL_POS = {
-    "A1 Heun":       (8.0,   0.856,  -8,  12,  "right"),
-    "A2 +StochOT":   (7.8,   0.858, -10, -14,  "right"),
-    "A3 DPM++":      (13.3,  0.863,  14, -12,  "left"),
-    "A3 +IO3 K300":  (14.0,  0.861,  10,  10,  "left"),
-    "A3 +IO3 K200":  (14.2,  0.860,  18, -4,   "left"),
-    "A3 +IO3 K100":  (14.3,  0.850, -14,  14,  "right"),
-    "Cascade R-CNN": (48.4,  0.854,  10,  14,  "left"),
-    "YOLOX-S":       (98.5,  0.796, -10,  10,  "right"),
-    "DiffusionDet":  (41.0,  0.787,  10, -16,  "left"),
-    "RTMDet-L":      (12.1,  0.863, -12, -14,  "right"),
+LABEL_CONFIG = {
+    "A1 Heun":       {"display": "A1",       "xy": (8.0, 0.856),  "xytext": (1.5, 0.850),  "ha": "right", "color": C_OURS_BASE},
+    "A2 +StochOT":   {"display": "A2",       "xy": (7.8, 0.858),  "xytext": (14.5, 0.840), "ha": "left", "color": C_OURS_BASE},
+    "A3 DPM++":      {"display": "A3",       "xy": (13.3, 0.863), "xytext": (6.5, 0.873),  "ha": "right", "color": C_OURS_FAST},
+    "A3 +IO3 K300":  {"display": "K300",     "xy": (14.0, 0.861), "xytext": (19.5, 0.868), "ha": "left", "color": C_OURS_FAST},
+    "A3 +IO3 K200":  {"display": "K200",     "xy": (14.2, 0.860), "xytext": (19.5, 0.856), "ha": "left", "color": C_OURS_FAST},
+    "A3 +IO3 K100":  {"display": "K100",     "xy": (14.3, 0.850), "xytext": (19.5, 0.843), "ha": "left", "color": C_OURS_FAST},
+    "Cascade R-CNN": {"display": "Cascade",  "xy": (48.4, 0.854), "xytext": (60.0, 0.860), "ha": "left", "color": C_BASELINE},
+    "YOLOX-S":       {"display": "YOLOX-S",  "xy": (98.5, 0.796), "xytext": (82.0, 0.798), "ha": "right", "color": C_BASELINE},
+    "DiffusionDet":  {"display": "DiffDet",  "xy": (41.0, 0.787), "xytext": (28.0, 0.780), "ha": "right", "color": C_BASELINE},
+    "RTMDet-L":      {"display": "RTMDet-L", "xy": (12.1, 0.863), "xytext": (5.5, 0.863),  "ha": "right", "color": C_RTM},
 }
 
 
 def main() -> None:
-    fig, ax = plt.subplots(figsize=(5.5, 3.8))
+    fig, ax = plt.subplots(figsize=(7.5, 5.0), constrained_layout=True)
 
-    # Draw points
     for name, fps, mAP, group in DATA:
         s = GROUP_STYLE[group]
-        ax.scatter(fps, mAP, s=70, color=s["color"], marker=s["marker"],
-                   edgecolor="k", lw=0.6, zorder=s["z"])
+        ax.scatter(fps, mAP, s=100, color=s["color"], marker=s["marker"],
+                   edgecolor="black", lw=0.8, zorder=s["z"])
 
-    # Draw labels with leader lines
-    for name, _, _, _ in DATA:
-        fps, mAP, dx, dy, ha = LABEL_POS[name]
-        # Shorten display name for labels
-        display = name
-        if name.startswith("A1"): display = "A1"
-        elif name.startswith("A2"): display = "A2"
-        elif name.startswith("A3") and "IO3" not in name: display = "A3"
-        elif "IO3 K300" in name: display = "K300"
-        elif "IO3 K200" in name: display = "K200"
-        elif "IO3 K100" in name: display = "K100"
-        elif "Cascade" in name: display = "Cascade R-CNN"
-        elif "YOLOX" in name: display = "YOLOX-S"
+    for name in LABEL_CONFIG:
+        cfg = LABEL_CONFIG[name]
+        ax.annotate(
+            cfg["display"],
+            xy=cfg["xy"],
+            xytext=cfg["xytext"],
+            fontsize=8,
+            ha=cfg["ha"],
+            va="center",
+            color="black",
+            bbox=dict(boxstyle="round,pad=0.2", fc="white", ec=cfg["color"], lw=0.8, alpha=0.9),
+            arrowprops=dict(arrowstyle="-", color="0.4", lw=0.6),
+            zorder=7,
+        )
 
-        # Leader line
-        ax.annotate("", xy=(fps + dx * 0.15, mAP + dy * 0.15),
-                    xytext=(fps, mAP),
-                    arrowprops=dict(arrowstyle="-", color="0.5", lw=0.5),
-                    zorder=2)
-        # Label
-        ax.text(fps + dx, mAP + dy, display, fontsize=7.5,
-                ha=ha, va="center", color="black", zorder=7)
-
-    # Axes
-    ax.set_xlabel("FPS (RTX A6000, 512×512)", fontsize=9)
-    ax.set_ylabel("mAP (24obj)", fontsize=9)
-    ax.set_xlim(0, 108)
+    ax.set_xlabel("FPS (RTX A6000, 512x512)", fontsize=10)
+    ax.set_ylabel("mAP (24obj)", fontsize=10)
+    ax.set_xlim(0, 110)
     ax.set_ylim(0.775, 0.875)
     ax.set_xticks([0, 20, 40, 60, 80, 100])
+    ax.tick_params(labelsize=9)
     ax.set_axisbelow(True)
     ax.grid(ls=":", lw=0.5, alpha=0.5)
 
-    # Legend
     handles = [
         Line2D([0], [0], marker="o", color="w", markerfacecolor=C_OURS_BASE,
-               markeredgecolor="k", markersize=8, label="Ours (Heun)"),
+               markeredgecolor="black", markersize=9, label="Ours (Heun)"),
         Line2D([0], [0], marker="s", color="w", markerfacecolor=C_OURS_FAST,
-               markeredgecolor="k", markersize=8, label="Ours (DPM++)"),
+               markeredgecolor="black", markersize=9, label="Ours (DPM++)"),
         Line2D([0], [0], marker="^", color="w", markerfacecolor=C_BASELINE,
-               markeredgecolor="k", markersize=8, label="Baseline (paper)"),
+               markeredgecolor="black", markersize=9, label="Baseline (paper)"),
         Line2D([0], [0], marker="D", color="w", markerfacecolor=C_RTM,
-               markeredgecolor="k", markersize=8, label="RTMDet-L"),
+               markeredgecolor="black", markersize=9, label="RTMDet-L"),
     ]
-    ax.legend(handles=handles, loc="lower right",
-              frameon=True, framealpha=0.95, fontsize=7.5)
+    ax.legend(handles=handles, loc="lower right", fontsize=9,
+              frameon=True, framealpha=0.95)
 
     save_fig(fig, "fps_map")
 
