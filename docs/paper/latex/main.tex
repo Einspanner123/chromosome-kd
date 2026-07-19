@@ -184,9 +184,9 @@ Figure~\ref{fig:method_overview} summarizes the framework.
   nodes indicate the 4 solver steps. (b) Time conditioning
   injects the continuous time $t$ via AdaLN-Zero zero-initialized modulation so the
   network is identity at $t{=}0$. (c) Coupling: Random pairing (orange)
-  keeps full diversity $H(V|X_t){=}\log K$, while Sinkhorn-based Stochastic
+  keeps full diversity $H(V \mid X_t){=}\log K$, while Sinkhorn-based Stochastic
   OT (pink) interpolates between hard OT and Random, with
-  $0 < H(V|X_t) < \log K$.}
+  $0 < H(V \mid X_t) < \log K$.}
   \label{fig:method_overview}
 \end{figure*}
 
@@ -244,14 +244,14 @@ The conditional probability path is
 \begin{equation*}
   \mathbf{x}_t = (1-t)\, \mathbf{x}_0 + t\, \mathbf{x}_1, \qquad t \in [0,1],
 \end{equation*}
-where $x_0$ is the target (GT bbox) and $x_1$ is the source (Gaussian
+where $\mathbf{x}_0$ is the target (GT bbox) and $\mathbf{x}_1$ is the source (Gaussian
 noise). The corresponding velocity field is constant along the path,
-$v = x_1 - x_0$, and the training objective is the flow matching loss
+$\mathbf{v} = \mathbf{x}_1 - \mathbf{x}_0$, and the training objective is the flow matching loss
 \begin{equation*}
-  \mathcal{L}_{FM} = \E_{t, \mathbf{x}_0, \mathbf{x}_1}\!\left[ \norm{ \mathbf{v}_\theta(\mathbf{x}_t, t) - (\mathbf{x}_1 - \mathbf{x}_0) }^2 \right].
+  \mathcal{L}_{\mathrm{FM}} = \E_{t, \mathbf{x}_0, \mathbf{x}_1}\!\left[ \norm{ \mathbf{v}_\theta(\mathbf{x}_t, t) - (\mathbf{x}_1 - \mathbf{x}_0) }^2 \right].
 \end{equation*}
 \emph{Detection-specific adaptation}: source $\mathbf{x}_1 \sim \mathcal{N}(\mathbf{0},
-\sigma^2 \mathbf{I}_4)$, target $x_0$ are GT bboxes, $d=4$ (vs.\ $d=196{,}608$ in
+\sigma^2 \mathbf{I}_4)$, target $\mathbf{x}_0$ are GT bboxes, $d=4$ (vs.\ $d=196{,}608$ in
 image generation), and $K \approx 46$ targets per image.
 
 \paragraph{Time conditioning.}
@@ -352,17 +352,17 @@ FlowDet's conclusion that higher-order solvers perform worse in detection.
 \begin{lemma}[OT $\to$ Voronoi]\label{lem:voronoi}
 When $N \to \infty$, OT coupling partitions $\R^d$ into $K$ Voronoi cells
 $\mathcal{V}_k = \{\mathbf{z} : \norm{\mathbf{z} - \mathbf{b}_k} \le \norm{\mathbf{z} - \mathbf{b}_j},\; \forall j \ne k\}$,
-assigning each $z_i$ to its nearest GT box.
+assigning each $\mathbf{z}_i$ to its nearest GT box.
 \end{lemma}
 This is the standard semi-discrete OT limit~\cite{santambrogio2015optimal}.
 
 \paragraph{Setup.}
 Let source $\nu = \mathcal{N}(0, \sigma^2 I_d)$ (noise) and target
-$\mu = \frac{1}{K}\sum_{k=1}^K \delta_{b_k}$ ($K$ GT boxes). A coupling assigns
-each noise sample $z_i$ to a target box $b_{V_i}$. We let
+$\mu = \frac{1}{K}\sum_{k=1}^K \delta_{\mathbf{b}_k}$ ($K$ GT boxes). A coupling assigns
+each noise sample $\mathbf{z}_i$ to a target box $\mathbf{b}_{V_i}$. We let
 \begin{itemize}[leftmargin=*,topsep=2pt,itemsep=0pt]
   \item $V \in \{1,\ldots,K\}$: coupling assignment RV (which GT box a noise sample is paired with),
-  \item $X_t = (1-t) b_V + t z$: the flow state observed by the model,
+  \item $X_t = (1-t)\, \mathbf{b}_V + t\, \mathbf{z}$: the flow state observed by the model,
   \item $H(V \mid X_t)$: conditional entropy of $V$ given $X_t$ --- how much $X_t$ leaks about $V$.
 \end{itemize}
 
@@ -375,10 +375,10 @@ requiring $N \to \infty$) and the Gaussian noise model,
 \end{proposition}
 
 \begin{proof}[Proof sketch (full proof in Appendix~\ref{app:proofs}).]
-Under random coupling, $H_{\text{rand}}(V|X_t) \le H(V) = \log K$ in the
+Under random coupling, $H_{\text{rand}}(V \mid X_t) \le H(V) = \log K$ in the
 high-noise regime. Under OT coupling with $N \to \infty$, $V =
-\operatorname{Voronoi}(z)$ is deterministic (Lemma~\ref{lem:voronoi}), so given
-$X_t$ one recovers $z$ and hence $V$, giving $H_{\text{OT}}(V | X_t) = 0$.
+\operatorname{Voronoi}(\mathbf{z})$ is deterministic (Lemma~\ref{lem:voronoi}), so given
+$X_t$ one recovers $\mathbf{z}$ and hence $V$, giving $H_{\text{OT}}(V \mid X_t) = 0$.
 Therefore $\Delta H \le \log K$.
 \end{proof}
 
@@ -386,7 +386,7 @@ Therefore $\Delta H \le \log K$.
 $\Delta H = 3.8415$, $\log K = 3.8427$ ($K_{\text{mean}} = 46.6$), relative
 error $0.03\%$. Figure~\ref{fig:ot-theory} visualizes the partitioning and the
 empirical match, and Figure~\ref{fig:entropy-phase} traces conditional entropy
-$H(V|Z)$ as a function of the stochastic coupling parameter $\epsilon$.
+$H(V \mid Z)$ as a function of the stochastic coupling parameter $\epsilon$.
 
 \paragraph{Tight lower bound.}
 The upper bound of Proposition~\ref{prop:ot-gap} is essentially tight:
@@ -414,7 +414,7 @@ consistent with the observed $0.03\%$ gap and confirming that OT collapse is
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]{figures/entropy_phase.pdf}
-  \caption{Entropy phase diagram. Conditional entropy $H(V|Z)$ as a function
+  \caption{Entropy phase diagram. Conditional entropy $H(V \mid Z)$ as a function
   of the stochastic coupling parameter $\epsilon$. Hard OT ($\epsilon{=}0$)
   collapses to $H{=}0$; Random coupling ($\epsilon{\to}\infty$) saturates at
   $H{=}3.8415 \approx \log K{=}3.8427$ (relative error $0.03\%$). Stochastic
@@ -463,7 +463,7 @@ transport matrix rows~\cite{cuturi2013sinkhorn}:
   \pi_{\text{stoch}}(i) \;\sim\; \operatorname{Categorical}\!\left( \frac{ T_\epsilon(i,:) }{ \sum_j T_\epsilon(i,j) } \right).
 \end{equation*}
 \end{definition}
-The key property is that $H_{\text{stoch}}(V|X_t; \epsilon)$ increases
+The key property is that $H_{\text{stoch}}(V \mid X_t; \epsilon)$ increases
 monotonically with $\epsilon$; endpoints are $\epsilon \to 0$ = hard OT and
 $\epsilon \to \infty$ = random coupling. We prove $H_{\text{stoch}}$ is
 monotonically non-decreasing in $\epsilon$ (Proposition~\ref{prop:monotone},
@@ -784,7 +784,7 @@ gain over Random ($+0.034$, $0.747$ vs $0.713$; pooled Wilcoxon $p<10^{-120}$,
 $n{=}1320$; Table~\ref{tab:stat-tests-coupling}) and over Hard OT ($+0.042$,
 $p<10^{-150}$). Hard OT is in fact \emph{worse} than Random ($-0.008$,
 $p<10^{-8}$), confirming the diversity-collapse pathology: deterministic OT
-collapses $H(V|X_t)\to 0$ and degrades training. The gain is
+collapses $H(V \mid X_t)\to 0$ and degrades training. The gain is
 dataset-dependent: on the larger Dataset~2, the same comparison shrinks to
 $+0.0001$ ($p{=}0.80$; Table~\ref{tab:stat-tests}), an empirical signature
 of the low-data regime where Stochastic Coupling (which also delivers
@@ -1086,20 +1086,20 @@ Gaussian-mixture posterior) are in the arXiv companion preprint.
 \subsection{Proof of Proposition~\ref{prop:ot-gap}}\label{app:proof-prop1}
 \begin{proof}[Proof sketch.]
 Random coupling: $V \sim \operatorname{Uniform}(\{1,\ldots,K\})$ independently
-of $z$, so $H_{\text{rand}}(V|X_t) \le H(V) = \log K$ (equality in high-noise
+of $\mathbf{z}$, so $H_{\text{rand}}(V \mid X_t) \le H(V) = \log K$ (equality in high-noise
 regime). OT coupling ($N \to \infty$): Lemma~\ref{lem:voronoi} makes
-$V = \argmin_k \norm{z - b_k}$ deterministic, so $H_{\text{OT}}(V|X_t) = 0$.
+$V = \argmin_k \norm{\mathbf{z} - \mathbf{b}_k}$ deterministic, so $H_{\text{OT}}(V \mid X_t) = 0$.
 Combining: $\Delta H \le \log K$, empirically tight ($0.03\%$ error).
 \end{proof}
 
 \subsection{Proof of Proposition~\ref{prop:ot-lower}}\label{app:proof-prop2}
 \begin{proof}[Proof sketch.]
-Under OT, $V = \argmin_k \norm{z - b_k}$ (Lemma~\ref{lem:voronoi}); given
-$X_t$, the model observes $z$ with Gaussian noise $\sigma_t^2 I_d$ in the
-Voronoi cell of $b_V$. Fano's inequality on the $K$-way nearest-neighbor
-classifier gives $H_{\text{OT}}(V|X_t) \le h(P_{\mathrm{err}}) + P_{\mathrm{err}}
+Under OT, $V = \argmin_k \norm{\mathbf{z} - \mathbf{b}_k}$ (Lemma~\ref{lem:voronoi}); given
+$X_t$, the model observes $\mathbf{z}$ with Gaussian noise $\sigma_t^2 I_d$ in the
+Voronoi cell of $\mathbf{b}_V$. Fano's inequality on the $K$-way nearest-neighbor
+classifier gives $H_{\text{OT}}(V \mid X_t) \le h(P_{\mathrm{err}}) + P_{\mathrm{err}}
 \log K$, with $P_{\mathrm{err}} \le \binom{K}{2} \Phi(-d_{\min}/(2\sigma_t))$
-by union bound. Combining with $H_{\text{rand}}(V|X_t) \ge \log K$ and
+by union bound. Combining with $H_{\text{rand}}(V \mid X_t) \ge \log K$ and
 $h \le \log 2$ yields the bound. As $\sigma_t/d_{\min} \to 0$,
 $P_{\mathrm{err}} \to 0$ exponentially, so $\Delta H \to \log K$.
 \end{proof}
