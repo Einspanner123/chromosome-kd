@@ -112,3 +112,32 @@ class RandomMatcher:
             matched_labels[i] = ml
 
         return matched_boxes, matched_labels
+
+    # ============================================================
+    # 方向 A (DS 路径 A, 2026-07-19): coupling 用 pred_boxes matching
+    # ============================================================
+    @torch.no_grad()
+    def match_coupling_batch(
+        self,
+        proposals: Tensor,
+        noise: Tensor,
+        gt_boxes_list: List[Tensor],
+        gt_labels_list: List[Tensor],
+    ) -> Tuple[Tensor, Tensor]:
+        """方向 A 接口兼容: 忽略 proposals, 直接复用 match_batch.
+
+        RandomMatcher 不基于 cost matrix (直接 torch.randint 随机采样),
+        proposals 参数无意义. 此方法仅为统一 matcher 接口 (HungarianMatcher
+        和 RandomMatcher 都支持 match_coupling_batch), 以便 set_head._forward_train
+        能用统一代码路径调用.
+
+        Args:
+            proposals: [B, N, 4] 忽略 (RandomMatcher 不基于 cost matrix).
+            noise: [B, N, 4] 仅用于 fallback (与 match_batch 的 noise_batch 一致).
+            gt_boxes_list: list of [M_i, 4] tensors.
+            gt_labels_list: list of [M_i] tensors.
+
+        Returns:
+            与 match_batch(noise, ...) 完全一致.
+        """
+        return self.match_batch(noise, gt_boxes_list, gt_labels_list)

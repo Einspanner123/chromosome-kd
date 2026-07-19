@@ -49,6 +49,8 @@ class JointDiffusionHead(nn.Module):
         min_keep: int = 75,
         matcher_type: str = 'hungarian',
         unmatched_strategy: str = 'noise',
+        enable_self_attn: bool = True,
+        coupling_source: str = 'noise',
     ):
         super().__init__()
         self.num_queries = num_queries
@@ -60,6 +62,20 @@ class JointDiffusionHead(nn.Module):
         # 由 SetDiffDetector 在 loss()/predict() 中应用 (数据预处理, 不参与 RF 公式)
         self.snr_scale = snr_scale
 
+        # 方向 A (DS 路径 A, 2026-07-19): coupling 阶段用 pred_boxes 做 matching.
+        # 'noise' (默认): 原行为, coupling 用 noise 做 matching (random/Hungarian).
+        # 'pred_init': 第一次 encoder forward (no_grad, t=1.0) 得到 pred_init,
+        #   用 pred_init 做 coupling matching. matching 随训练稳定 (DETR 早期
+        #   matching 也不稳定, 但随训练收敛). 保留 joint state + 理论区分点.
+        # ⚠️ 已知张力: coupling matching 用 t=1.0 的 pred_init, loss matching
+        #   用 sampled t 的 pred_boxes, 两者天然不一致. 但比"完全随机(noise)"稳定.
+        if coupling_source not in ('noise', 'pred_init'):
+            raise ValueError(
+                f"coupling_source 必须是 'noise' 或 'pred_init', "
+                f"实际: {coupling_source}"
+            )
+        self.coupling_source = coupling_source
+
         # Box renewal (推理时): 低置信 slot 重置为 randn.
         # 核心修复: 验证 unmatched slot 发散假设 —
         # 训练时 unmatched slot 的 x_t 恒为 noise 且 pred_boxes 无监督,
@@ -67,6 +83,8 @@ class JointDiffusionHead(nn.Module):
         # 通过 self-attention 污染 matched slot → mAP=0.
         # 修复: 每步 Euler 后, 低置信 slot 重置为 randn (回到训练分布),
         # 保留高置信 slot 继续迭代. 对齐 LDMDet apply_box_renewal.
+        # 方向 C 注: enable_self_attn=False 时 self-attention 污染机制不存在,
+        # box_renewal 无必要, 但保留不删 (对照实验).
         self.box_renewal = box_renewal
         self.score_thr = score_thr
         # min_keep: 至少保留的 slot 数 (防止全被重置).
@@ -74,6 +92,8 @@ class JointDiffusionHead(nn.Module):
         self.min_keep = min_keep
 
         # Set encoder (joint function approximator)
+        # 方向 C: enable_self_attn=False 时用对角 mask 阻断 slot 间交互,
+        # 退化为 per-proposal 范式 (对齐 DiffusionDet).
         self.encoder = SetEncoder(
             num_queries=num_queries,
             feat_channels=feat_channels,
@@ -81,6 +101,7 @@ class JointDiffusionHead(nn.Module):
             num_layers=num_layers,
             dim_feedforward=dim_feedforward,
             num_classes=num_classes,
+            enable_self_attn=enable_self_attn,
         )
 
         # Set-level Rectified Flow
@@ -160,15 +181,40 @@ class JointDiffusionHead(nn.Module):
         # 1. Sample noise z ~ N(0, I) [B, N, 4]
         noise = torch.randn(B, self.num_queries, 4, device=device)
 
-        # 2. Global coupled matching: match z to GT boxes (one-to-one)
-        # coupling 阶段: 构造训练轨迹 x_t = (1-t)*x_0_matched + t*noise.
-        # 方案 A (random): 所有 slot 随机分配 GT (对齐 LDMDet _couple_single_image).
-        # 方案 B (hungarian+random_gt): matched slot 最优一对一, unmatched 随机 GT.
-        # 关键: coupling 阶段保证所有 slot 在 [GT, noise] 插值轨迹上,
-        # 避免训练-推理分布不匹配 (mAP=0 根因).
-        matched_boxes, matched_labels = self.matcher.match_batch(
-            noise, gt_boxes, gt_labels
-        )
+        # 2. Coupling matching: 决定每个 slot 的 x_start (GT 分配)
+        # coupling 阶段构造训练轨迹 x_t = (1-t)*x_0_matched + t*noise.
+        #
+        # 方向 A (coupling_source='pred_init', 2026-07-19):
+        #   第一次 encoder forward (no_grad, t=1.0) 得到 pred_init,
+        #   用 pred_init 做 coupling matching (而非 noise). matching 随训练
+        #   稳定 (DETR 早期 matching 也不稳定, 但随训练收敛).
+        #   ⚠️ 已知张力: coupling matching 用 t=1.0 的 pred_init, loss matching
+        #   用 sampled t 的 pred_boxes, 两者天然不一致. 但比 noise 稳定.
+        #
+        # 原行为 (coupling_source='noise'):
+        #   方案 A (random): 所有 slot 随机分配 GT (对齐 LDMDet).
+        #   方案 B (hungarian+random_gt): matched slot 最优一对一, unmatched 随机 GT.
+        if self.coupling_source == 'pred_init':
+            # 方向 A: 第一次 forward (no_grad) 用 t=1.0 得到 pred_init
+            # noise 是 t=1.0 的状态 (x_t = (1-1)*x_start + 1*noise = noise)
+            # 第一次 forward 与推理首步一致 (predict() 第一步 timesteps[0]=1.0)
+            with torch.no_grad():
+                t_full = torch.ones(B, device=device)
+                t_full_scaled = t_full * 1000.0
+                t_full_emb = self.time_embed(t_full_scaled)
+                # matched_mask=None: 第一次 forward 时还没有 matching 信息
+                _, pred_init = self.encoder(
+                    noise, t_full_emb, image_features
+                )
+            # 用 pred_init 做 coupling matching (proposals=pred_init, fallback=noise)
+            matched_boxes, matched_labels = self.matcher.match_coupling_batch(
+                pred_init, noise, gt_boxes, gt_labels
+            )
+        else:
+            # 原行为: coupling 用 noise 做 matching
+            matched_boxes, matched_labels = self.matcher.match_batch(
+                noise, gt_boxes, gt_labels
+            )
 
         # 3. Sample time t ~ U(0, 1) and forward diffusion
         t = torch.rand(B, device=device)
@@ -178,7 +224,7 @@ class JointDiffusionHead(nn.Module):
         t_scaled = t * 1000.0
         t_emb = self.time_embed(t_scaled)  # [B, feat_channels]
 
-        # 5. Predict x_0
+        # 5. Predict x_0 (第二次 forward, 需要梯度)
         cls_logits, pred_boxes = self.encoder(
             x_t,
             t_emb,

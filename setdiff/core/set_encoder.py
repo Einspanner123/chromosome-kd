@@ -8,6 +8,7 @@ Transformer is chosen for compatibility with the detection community
 """
 
 import math
+from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -46,6 +47,20 @@ class SetEncoder(nn.Module):
 
     Output: ``cls_logits`` [B, N, num_classes], ``pred_boxes`` [B, N, 4]
     (predicted x_0 in diffusion space, NOT velocity).
+
+    方向 C (2026-07-19, per-proposal 退化诊断性消融):
+        enable_self_attn=False 时, 用对角 mask 阻断 slot 间交互, 每个 slot
+        只 attend to 自己. self-attention 退化为 per-slot 线性变换 (保留
+        value/out 投影), 但满足 "slot 间无信息流动" 的核心需求, 等价于
+        per-proposal 范式 (对齐 DiffusionDet).
+
+        ⚠️ 对角 mask ≠ 严格跳过 self-attn 层 (跳过层方案需重写
+        nn.TransformerDecoderLayer, 改动量大). mask 方案更简洁, 且
+        满足方向 C 的诊断目的: 验证 self-attention 是否是 mAP=0 根因.
+
+        互斥处理: enable_self_attn=False 优先于 matched_mask. 对角 mask
+        是 matched_mask 的超集 (阻断所有 inter-slot, 包括 unmatched→matched
+        路径), 所以 matched_mask 在 enable_self_attn=False 时完全冗余.
     """
 
     def __init__(
@@ -56,11 +71,14 @@ class SetEncoder(nn.Module):
         num_layers: int,
         dim_feedforward: int,
         num_classes: int,
+        enable_self_attn: bool = True,
     ):
         super().__init__()
         self.num_queries = num_queries
         self.feat_channels = feat_channels
         self.num_classes = num_classes
+        # 方向 C: False 时用对角 mask 阻断 slot 间 self-attention 交互
+        self.enable_self_attn = enable_self_attn
 
         # Box position encoding: MLP(4 → C → C)
         self.box_pos_embed = MLP(
@@ -106,8 +124,8 @@ class SetEncoder(nn.Module):
         x_t: Tensor,
         t_emb: Tensor,
         image_features: Tensor,
-        matched_mask: Tensor | None = None,
-    ) -> tuple[Tensor, Tensor]:
+        matched_mask: Optional[Tensor] = None,
+    ) -> Tuple[Tensor, Tensor]:
         """Args:
             x_t: [B, N, 4] noisy boxes (joint state, cxcywh).
             t_emb: [B, dim] time embedding.
@@ -135,16 +153,30 @@ class SetEncoder(nn.Module):
         # Combined query for the decoder's tgt.
         tgt = query + box_pos + t  # [B, N, C]
 
-        # Attention bias for P0-2: prevent unmatched→matched contamination.
-        # During training, unmmatched slots carry pure noise as input and
-        # would inject random noise into active (matched) slot states via
-        # self-attention. We create a [B, N, N] bias where:
-        #   bias[i, j] = -inf if slot i is unmatched AND slot j is matched
-        #   bias[i, j] = 0   otherwise
-        # This blocks the contaminating path while preserving all other
-        # attention flows.
+        # Attention mask 构造 (互斥处理, 优先级: enable_self_attn > matched_mask):
+        #
+        # 方向 C (enable_self_attn=False): 对角 mask 阻断所有 inter-slot 交互,
+        #   每个 slot 只 attend to 自己. 是 matched_mask 的超集, 所以
+        #   matched_mask 在此模式下完全冗余, 被忽略.
+        #
+        # 原行为 (enable_self_attn=True + matched_mask): 仅阻断 unmatched→matched
+        #   的噪声污染路径, 保留 matched→matched 和 unmatched→unmatched 的交互.
         tgt_mask = None
-        if matched_mask is not None and self.training:
+        if not self.enable_self_attn:
+            # 方向 C: 对角 mask, 非对角位置 -inf (每个 slot 只 attend to 自己)
+            diag_mask = torch.full(
+                (N, N), float('-inf'), device=x_t.device, dtype=x_t.dtype
+            )
+            diag_mask.fill_diagonal_(0.0)
+            # 数值稳定性防御 (C-2): 确保对角线为 0, 避免 softmax NaN
+            assert diag_mask.diagonal().abs().max() < 1e-6, (
+                "对角 mask 的对角线必须为 0, 否则 softmax 会产生 NaN"
+            )
+            # PyTorch 2.x 期望 [B * H, N, N] (C-1: 用 repeat_interleave 而非 expand)
+            H = self.decoder.layers[0].self_attn.num_heads
+            tgt_mask = diag_mask.unsqueeze(0).repeat_interleave(B * H, dim=0)
+        elif matched_mask is not None and self.training:
+            # 原行为: 阻断 unmatched→matched 的噪声污染
             mm = matched_mask.bool()  # [B, N]
             # block_mask[b, i, j] = True if i is unmatched & j is matched
             block_mask = (~mm.unsqueeze(-1)) & mm.unsqueeze(-2)  # [B, N, N]

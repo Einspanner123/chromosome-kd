@@ -170,6 +170,134 @@ class HungarianMatcher:
         return matched_boxes, matched_labels
 
     # ============================================================
+    # 方向 A (DS 路径 A, 2026-07-19): coupling 用 pred_boxes matching
+    # ============================================================
+    @torch.no_grad()
+    def match_coupling_batch(
+        self,
+        proposals: Tensor,
+        noise: Tensor,
+        gt_boxes_list: List[Tensor],
+        gt_labels_list: List[Tensor],
+    ) -> Tuple[Tensor, Tensor]:
+        """用 proposals 做 matching 决策, unmatched slot 用 noise fallback.
+
+        方向 A (DS 路径 A, 2026-07-19): coupling 阶段用 pred_boxes (proposals)
+        做 matching, 而非 noise. matching 随训练稳定 (DETR 早期 matching 也不
+        稳定, 但随训练收敛). 保留 joint state + 理论区分点.
+
+        与 match_batch 的关键区别:
+            - match_batch(noise_batch, ...): 用 noise_batch 做 cost matrix,
+              unmatched slot fallback 也用 noise_batch (第一个参数).
+            - match_coupling_batch(proposals, noise, ...): 用 proposals 做
+              cost matrix, unmatched slot fallback 用 noise (第二个参数).
+              这样 unmatched_strategy='noise' 时 unmatched slot 仍是 noise,
+              保持与 match_batch 一致的语义.
+
+        已知张力 (Plan agent A-3, 需配合 set_head._forward_train 理解):
+            coupling matching 用 t=1.0 的 pred_init (proposals), loss matching
+            用 sampled t 的 pred_boxes, 两者天然不一致. 但方向 A 的改进是
+            coupling 从"完全随机(noise)"变成"基于模型预测(pred_init)", 即使
+            t 不同, 至少都是模型预测, 比 noise 稳定.
+
+        Args:
+            proposals: [B, N, 4] 用于 cost matrix (扩散空间, 来自 pred_init).
+            noise: [B, N, 4] 用于 unmatched slot 的 matched_boxes fallback.
+            gt_boxes_list: list of [M_i, 4] 每张图的 GT (扩散空间).
+            gt_labels_list: list of [M_i] 每张图的 GT label.
+
+        Returns:
+            matched_boxes: [B, N, 4] matched slot = GT, unmatched slot =
+                noise (unmatched_strategy='noise') 或随机 GT ('random_gt').
+            matched_labels: [B, N] matched slot = GT label, unmatched = -1
+                ('noise') 或随机 GT label ('random_gt').
+        """
+        B, N, _ = noise.shape
+        device = noise.device
+
+        # unmatched slot 的 fallback 用 noise (不是 proposals)
+        # 对齐 match_batch line 158 的语义: matched_boxes 初始化为 fallback
+        matched_boxes = noise.clone()
+        matched_labels = torch.full(
+            (B, N), -1, dtype=torch.long, device=device
+        )
+
+        for i in range(B):
+            mb, ml = self._match_coupling_single(
+                proposals[i], noise[i], gt_boxes_list[i], gt_labels_list[i]
+            )
+            matched_boxes[i] = mb
+            matched_labels[i] = ml
+
+        return matched_boxes, matched_labels
+
+    @torch.no_grad()
+    def _match_coupling_single(
+        self,
+        proposals: Tensor,
+        noise: Tensor,
+        gt_boxes: Tensor,
+        gt_labels: Tensor,
+    ) -> Tuple[Tensor, Tensor]:
+        """单图 coupling matching: 用 proposals 做 cost, noise 做 fallback.
+
+        与 match() 的区别:
+            - match(noise, ...): cost 和 fallback 都用 noise.
+            - _match_coupling_single(proposals, noise, ...): cost 用 proposals,
+              fallback 用 noise.
+
+        保留 match() 的全部逻辑 (M>N 截断, random_gt 策略等).
+        """
+        N = noise.shape[0]
+        M = gt_boxes.shape[0]
+        device = noise.device
+
+        # unmatched slot 的 fallback 用 noise (不是 proposals)
+        matched_boxes = noise.clone()
+        matched_labels = torch.full(
+            (N,), -1, dtype=torch.long, device=device
+        )
+
+        if M == 0:
+            return matched_boxes, matched_labels
+
+        if M > N:
+            # More GT than slots: keep only the N cheapest matches.
+            gt_boxes = gt_boxes[:N]
+            gt_labels = gt_labels[:N]
+            M = N
+
+        # Cost matrix: 用 proposals (而非 noise) 计算 L2 距离
+        proposals_det = proposals.detach()
+        if self.cost_type == 'l2':
+            diff = proposals_det.unsqueeze(1) - gt_boxes.unsqueeze(0)  # [N, M, 4]
+            cost = diff.pow(2).sum(-1)  # [N, M]
+        else:
+            cost = torch.cdist(proposals_det, gt_boxes, p=1)  # [N, M]
+
+        # scipy linear_sum_assignment operates on CPU.
+        cost_cpu = asarray(cost.detach().cpu())
+        row_ind, col_ind = linear_sum_assignment(cost_cpu)
+
+        row_ind_t = torch.as_tensor(row_ind, device=device, dtype=torch.long)
+        col_ind_t = torch.as_tensor(col_ind, device=device, dtype=torch.long)
+        matched_boxes[row_ind_t] = gt_boxes[col_ind_t]
+        matched_labels[row_ind_t] = gt_labels[col_ind_t]
+
+        # 方案 B: unmatched slot 分配随机 GT (与 match() 一致)
+        if self.unmatched_strategy == 'random_gt':
+            unmatched_mask = matched_labels == -1
+            num_unmatched = unmatched_mask.sum().item()
+            if num_unmatched > 0:
+                rand_idx = torch.randint(
+                    0, M, (num_unmatched,), device=device
+                )
+                matched_boxes[unmatched_mask] = gt_boxes[rand_idx]
+                matched_labels[unmatched_mask] = gt_labels[rand_idx]
+
+        return matched_boxes, matched_labels
+
+    # ============================================================
     # loss 阶段: match_indices (参考 LDMDet criterion.py 的重匹配思想)
     # ============================================================
     @torch.no_grad()
