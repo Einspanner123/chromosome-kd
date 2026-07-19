@@ -87,8 +87,8 @@ def main() -> None:
     ax.set_yticks(y_pos)
     ax.set_yticklabels(classes, fontsize=10)
     ax.set_xlabel('Average Precision (AP)', fontsize=11)
-    ax.set_xlim(0.70, 0.96)
-    ax.set_xticks(np.arange(0.70, 0.97, 0.05))
+    ax.set_xlim(0.65, 1.00)
+    ax.set_xticks(np.arange(0.65, 1.01, 0.10))
     ax.invert_yaxis()
     ax.set_axisbelow(True)
     ax.grid(axis='x', ls=':', lw=0.4, alpha=0.5)
@@ -114,7 +114,7 @@ def main() -> None:
     
     overall_mean = df["ap"].mean()
     ax.axvline(overall_mean, color=C_OVERALL, lw=1.2, ls='--', alpha=0.7, zorder=2)
-    mean_label_x = min(overall_mean + 0.005, 0.95)
+    mean_label_x = min(overall_mean + 0.01, 0.98)
     ax.text(mean_label_x, n - 0.5, f'Mean={overall_mean:.3f}',
             fontsize=9, color=C_OVERALL, ha='left', va='top',
             bbox=dict(boxstyle='round,pad=0.3', fc='white', ec=C_OVERALL, lw=0.8))
