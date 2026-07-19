@@ -357,7 +357,8 @@ assigning each $\mathbf{z}_i$ to its nearest GT box.
 This is the standard semi-discrete OT limit~\cite{santambrogio2015optimal}.
 
 \paragraph{Setup.}
-Let source $\nu = \mathcal{N}(0, \sigma^2 I_d)$ (noise) and target
+Let source $\nu = \mathcal{N}(0, \sigma^2 I_d)$ (noise; effective std at time $t$
+is $\sigma_t = t\sigma$ along the RF path) and target
 $\mu = \frac{1}{K}\sum_{k=1}^K \delta_{\mathbf{b}_k}$ ($K$ GT boxes). A coupling assigns
 each noise sample $\mathbf{z}_i$ to a target box $\mathbf{b}_{V_i}$. We let
 \begin{itemize}[leftmargin=*,topsep=2pt,itemsep=0pt]
@@ -562,7 +563,7 @@ RoIAlign and NMS, and diffusion space where GT boxes are converted to cxcywh,
 normalized to $[0,1]$, and linearly mapped to $[-s, +s]$ with $s{=}2.0$ to
 match the noise distribution. The forward diffusion uses the rectified-flow
 linear path $x_t = (1{-}t)\,x_0 + t\,\varepsilon$ (the DDPM baseline uses a
-cosine schedule $x_t = \sqrt{\bar\alpha}_t\, x_0 + \sqrt{1{-}\bar\alpha}_t\,\varepsilon$).
+cosine schedule $x_t = \sqrt{\bar\alpha_t}\, x_0 + \sqrt{1{-}\bar\alpha_t}\,\varepsilon$).
 At inference, 500 random-noise proposals are iteratively denoised; with
 time-ensemble enabled, predictions from all sampling steps
 ($500 \times \text{steps}$ boxes) are concatenated and deduplicated by
@@ -1100,9 +1101,9 @@ monotonically non-decreasing in the Sinkhorn regularization $\epsilon \ge 0$.
 \end{proposition}
 \begin{proof}[Proof sketch.]
 $T_\epsilon$ solves $\min_\pi \langle \pi, c \rangle - \epsilon H(\pi)$ s.t.\
-uniform marginals~\cite{cuturi2013sinkhorn}. The optimal value $V(\epsilon)$
+uniform marginals~\cite{cuturi2013sinkhorn}. The optimal value $\mathcal{V}(\epsilon)$
 is concave in $\epsilon$ (infimum of affine functions), so by the envelope
-theorem $dV/d\epsilon = -H(T_\epsilon)$ and $dH(T_\epsilon)/d\epsilon \ge 0$.
+theorem $d\mathcal{V}/d\epsilon = -H(T_\epsilon)$ and $dH(T_\epsilon)/d\epsilon \ge 0$.
 Under uniform marginal, $H_{\text{stoch}} = \tfrac{1}{K} H(T_\epsilon)$
 (average row entropy), hence non-decreasing. Endpoints: $\epsilon \to 0$
 gives $H \to 0$ (Hard OT), $\epsilon \to \infty$ gives $H \to \log K$.

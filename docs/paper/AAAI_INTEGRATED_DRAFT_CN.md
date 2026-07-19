@@ -124,7 +124,7 @@ DPM-Solver++ 的优势 *既是计算层面的，也是一项小的精度增益*�
 
 #### 3.3.2 命题：OT 多样性差距
 
-**设置**：令源 $\nu = \mathcal{N}(0, \sigma^2 I_d)$（噪声），目标 $\mu = \frac{1}{K}\sum_{k=1}^K \delta_{\mathbf{b}_k}$（$K$ 个 GT 框）。一个耦合将每个噪声样本 $\mathbf{z}_i$ 分配给一个目标框 $\mathbf{b}_{V_i}$。我们令：
+**设置**：令源 $\nu = \mathcal{N}(0, \sigma^2 I_d)$（噪声；沿 RF 路径在时刻 $t$ 处的有效标准差为 $\sigma_t = t\sigma$），目标 $\mu = \frac{1}{K}\sum_{k=1}^K \delta_{\mathbf{b}_k}$（$K$ 个 GT 框）。一个耦合将每个噪声样本 $\mathbf{z}_i$ 分配给一个目标框 $\mathbf{b}_{V_i}$。我们令：
 - $V \in \{1, \ldots, K\}$：耦合分配随机变量（一个噪声样本与哪个 GT 框配对）
 - $X_t = (1-t) \mathbf{b}_V + t \mathbf{z}$：模型观测到的 flow 状态
 - $H(V \mid X_t)$：给定 $X_t$ 时 $V$ 的条件熵——$X_t$ 关于 $V$ 泄漏了多少信息
@@ -172,7 +172,7 @@ $$\pi_{\text{stoch}}(i) \;\sim\; \operatorname{Categorical}\!\left( \frac{ T_\ep
 
 **命题 3**（Stochastic Coupling 单调性）。在均匀源边际下，$H_{\text{stoch}}(V \mid X_t; \epsilon)$ 关于 Sinkhorn 正则化参数 $\epsilon \ge 0$ 单调非递减。
 
-**证明梗概**（完整证明见 Appendix A.3）：$T_\epsilon$ 求解 $\min_\pi \langle \pi, c \rangle - \epsilon H(\pi)$ s.t. 均匀边际 (Cuturi, 2013)。最优值 $V(\epsilon)$ 关于 $\epsilon$ 是凹的（仿射函数的下确界）。由包络定理 $dV/d\epsilon = -H(T_\epsilon)$，凹性给出 $dH(T_\epsilon)/d\epsilon \ge 0$。在均匀边际下，$H_{\text{stoch}} = \tfrac{1}{K} H(T_\epsilon)$（平均行熵），故非递减。端点：$\epsilon \to 0$ 给出 $H \to 0$（Hard OT），$\epsilon \to \infty$ 给出 $H \to \log K$（Random）。
+**证明梗概**（完整证明见 Appendix A.3）：$T_\epsilon$ 求解 $\min_\pi \langle \pi, c \rangle - \epsilon H(\pi)$ s.t. 均匀边际 (Cuturi, 2013)。最优值 $\mathcal{V}(\epsilon)$ 关于 $\epsilon$ 是凹的（仿射函数的下确界）。由包络定理 $d\mathcal{V}/d\epsilon = -H(T_\epsilon)$，凹性给出 $dH(T_\epsilon)/d\epsilon \ge 0$。在均匀边际下，$H_{\text{stoch}} = \tfrac{1}{K} H(T_\epsilon)$（平均行熵），故非递减。端点：$\epsilon \to 0$ 给出 $H \to 0$（Hard OT），$\epsilon \to \infty$ 给出 $H \to \log K$（Random）。
 
 #### 3.3.5 Stochastic Coupling 作为训练稳定器
 
@@ -213,7 +213,7 @@ Table 5 概述了本文使用的两个公开染色体数据集，以下简称为
 
 #### 4.1.3 检测协议
 
-框在两个空间表示：图像空间（绝对像素 xyxy）用于 RoIAlign 和 NMS；扩散空间中 GT 框转换为 cxcywh，归一化到 $[0,1]$，并线性映射到 $[-s, +s]$，其中 $s{=}2.0$，以匹配噪声分布。前向扩散使用 rectified-flow 线性路径 $x_t = (1{-}t)\,x_0 + t\,\varepsilon$（DDPM 基线使用 cosine 调度 $x_t = \sqrt{\bar\alpha}_t\, x_0 + \sqrt{1{-}\bar\alpha}_t\,\varepsilon$）。推理时，500 个随机噪声 proposals 被迭代去噪；启用 time-ensemble 时，所有采样步的预测（$500 \times \text{steps}$ 个框）被拼接并通过逐类 NMS（IoU 阈值 0.5）去重。NMS 后不应用分数阈值；所有存活框被传递给 COCO evaluator，其截断至每张图像 maxDets=100。评估使用标准 COCO mAP$@0.5{:}0.95$（10 个 IoU 阈值，步长 0.05）。
+框在两个空间表示：图像空间（绝对像素 xyxy）用于 RoIAlign 和 NMS；扩散空间中 GT 框转换为 cxcywh，归一化到 $[0,1]$，并线性映射到 $[-s, +s]$，其中 $s{=}2.0$，以匹配噪声分布。前向扩散使用 rectified-flow 线性路径 $x_t = (1{-}t)\,x_0 + t\,\varepsilon$（DDPM 基线使用 cosine 调度 $x_t = \sqrt{\bar\alpha_t}\, x_0 + \sqrt{1{-}\bar\alpha_t}\,\varepsilon$）。推理时，500 个随机噪声 proposals 被迭代去噪；启用 time-ensemble 时，所有采样步的预测（$500 \times \text{steps}$ 个框）被拼接并通过逐类 NMS（IoU 阈值 0.5）去重。NMS 后不应用分数阈值；所有存活框被传递给 COCO evaluator，其截断至每张图像 maxDets=100。评估使用标准 COCO mAP$@0.5{:}0.95$（10 个 IoU 阈值，步长 0.05）。
 
 #### 4.1.4 统计考量
 
@@ -441,7 +441,7 @@ $$H_{\text{OT}}(V|X_t) \;\le\; h(P_{\text{err}}) + P_{\text{err}} \log K,$$
 
 **命题 3**（Stochastic Coupling 单调性）。在均匀源边际下，$H_{\text{stoch}}(V \mid X_t; \epsilon)$ 关于 Sinkhorn 正则化参数 $\epsilon \ge 0$ 单调非递减。
 
-**证明梗概。** $T_\epsilon$ 求解 $\min_\pi \langle \pi, c \rangle - \epsilon H(\pi)$ s.t. 均匀边际 (Cuturi, 2013)。最优值 $V(\epsilon)$ 关于 $\epsilon$ 是凹的（$\epsilon$ 的仿射函数的下确界）。由包络定理 $dV/d\epsilon = -H(T_\epsilon)$，凹性给出 $dH(T_\epsilon)/d\epsilon \ge 0$。在均匀边际下，$H_{\text{stoch}} = \tfrac{1}{K} H(T_\epsilon)$（平均行熵），故关于 $\epsilon$ 非递减。端点：$\epsilon \to 0$ 给出 $H \to 0$（Hard OT），$\epsilon \to \infty$ 给出 $H \to \log K$（Random）。
+**证明梗概。** $T_\epsilon$ 求解 $\min_\pi \langle \pi, c \rangle - \epsilon H(\pi)$ s.t. 均匀边际 (Cuturi, 2013)。最优值 $\mathcal{V}(\epsilon)$ 关于 $\epsilon$ 是凹的（$\epsilon$ 的仿射函数的下确界）。由包络定理 $d\mathcal{V}/d\epsilon = -H(T_\epsilon)$，凹性给出 $dH(T_\epsilon)/d\epsilon \ge 0$。在均匀边际下，$H_{\text{stoch}} = \tfrac{1}{K} H(T_\epsilon)$（平均行熵），故关于 $\epsilon$ 非递减。端点：$\epsilon \to 0$ 给出 $H \to 0$（Hard OT），$\epsilon \to \infty$ 给出 $H \to \log K$（Random）。
 
 ### B. 被证伪的方向
 

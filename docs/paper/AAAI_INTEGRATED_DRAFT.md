@@ -188,7 +188,7 @@ This is the standard semi-discrete OT limit (Santambrogio, 2015).
 
 #### 3.3.2 Proposition: OT Diversity Gap
 
-**Setup**: Let source $\nu = \mathcal{N}(0, \sigma^2 I_d)$ (noise), target $\mu = \frac{1}{K}\sum_{k=1}^K \delta_{\mathbf{b}_k}$ ($K$ GT boxes). A coupling assigns each noise sample $\mathbf{z}_i$ to a target box $\mathbf{b}_{V_i}$. We let:
+**Setup**: Let source $\nu = \mathcal{N}(0, \sigma^2 I_d)$ (noise; effective std at time $t$ is $\sigma_t = t\sigma$ along the RF path), target $\mu = \frac{1}{K}\sum_{k=1}^K \delta_{\mathbf{b}_k}$ ($K$ GT boxes). A coupling assigns each noise sample $\mathbf{z}_i$ to a target box $\mathbf{b}_{V_i}$. We let:
 - $V \in \{1, \ldots, K\}$: coupling assignment RV (which GT box a noise sample is paired with)
 - $X_t = (1-t) \mathbf{b}_V + t \mathbf{z}$: the flow state observed by the model
 - $H(V \mid X_t)$: conditional entropy of $V$ given $X_t$ — how much $X_t$ leaks about $V$
@@ -236,7 +236,7 @@ The key property is that $H_{\text{stoch}}(V|X_t; \epsilon)$ increases monotonic
 
 **Proposition 3** (Stochastic Coupling Monotonicity). Under uniform source marginal, $H_{\text{stoch}}(V \mid X_t; \epsilon)$ is monotonically non-decreasing in the Sinkhorn regularization $\epsilon \ge 0$.
 
-**Proof sketch** (full proof in Appendix A.3): $T_\epsilon$ solves $\min_\pi \langle \pi, c \rangle - \epsilon H(\pi)$ s.t. uniform marginals (Cuturi, 2013). The optimal value $V(\epsilon)$ is concave in $\epsilon$ (infimum of affine functions). By the envelope theorem $dV/d\epsilon = -H(T_\epsilon)$, and concavity gives $dH(T_\epsilon)/d\epsilon \ge 0$. Under uniform marginal, $H_{\text{stoch}} = \tfrac{1}{K} H(T_\epsilon)$ (average row entropy), hence non-decreasing. Endpoints: $\epsilon \to 0$ gives $H \to 0$ (Hard OT), $\epsilon \to \infty$ gives $H \to \log K$ (Random).
+**Proof sketch** (full proof in Appendix A.3): $T_\epsilon$ solves $\min_\pi \langle \pi, c \rangle - \epsilon H(\pi)$ s.t. uniform marginals (Cuturi, 2013). The optimal value $\mathcal{V}(\epsilon)$ is concave in $\epsilon$ (infimum of affine functions). By the envelope theorem $d\mathcal{V}/d\epsilon = -H(T_\epsilon)$, and concavity gives $dH(T_\epsilon)/d\epsilon \ge 0$. Under uniform marginal, $H_{\text{stoch}} = \tfrac{1}{K} H(T_\epsilon)$ (average row entropy), hence non-decreasing. Endpoints: $\epsilon \to 0$ gives $H \to 0$ (Hard OT), $\epsilon \to \infty$ gives $H \to \log K$ (Random).
 
 #### 3.3.5 Stochastic Coupling as Training Stabilizer
 
@@ -277,7 +277,7 @@ Our base detection framework, denoted LDMDet, uses a ResNet-50 backbone with FPN
 
 #### 4.1.3 Detection Protocol
 
-Boxes are represented in two spaces: image space (absolute pixel xyxy) for RoIAlign and NMS, and diffusion space where GT boxes are converted to cxcywh, normalized to $[0,1]$, and linearly mapped to $[-s, +s]$ with $s{=}2.0$ to match the noise distribution. The forward diffusion uses the rectified-flow linear path $x_t = (1{-}t)\,x_0 + t\,\varepsilon$ (the DDPM baseline uses a cosine schedule $x_t = \sqrt{\bar\alpha}_t\, x_0 + \sqrt{1{-}\bar\alpha}_t\,\varepsilon$). At inference, 500 random-noise proposals are iteratively denoised; with time-ensemble enabled, predictions from all sampling steps ($500 \times \text{steps}$ boxes) are concatenated and deduplicated by per-class NMS (IoU threshold $0.5$). No score thresholding is applied after NMS; all surviving boxes are passed to the COCO evaluator, which truncates to $\text{maxDets}{=}100$ per image. Evaluation uses the standard COCO mAP$@0.5{:}0.95$ (10 IoU thresholds, step $0.05$).
+Boxes are represented in two spaces: image space (absolute pixel xyxy) for RoIAlign and NMS, and diffusion space where GT boxes are converted to cxcywh, normalized to $[0,1]$, and linearly mapped to $[-s, +s]$ with $s{=}2.0$ to match the noise distribution. The forward diffusion uses the rectified-flow linear path $x_t = (1{-}t)\,x_0 + t\,\varepsilon$ (the DDPM baseline uses a cosine schedule $x_t = \sqrt{\bar\alpha_t}\, x_0 + \sqrt{1{-}\bar\alpha_t}\,\varepsilon$). At inference, 500 random-noise proposals are iteratively denoised; with time-ensemble enabled, predictions from all sampling steps ($500 \times \text{steps}$ boxes) are concatenated and deduplicated by per-class NMS (IoU threshold $0.5$). No score thresholding is applied after NMS; all surviving boxes are passed to the COCO evaluator, which truncates to $\text{maxDets}{=}100$ per image. Evaluation uses the standard COCO mAP$@0.5{:}0.95$ (10 IoU thresholds, step $0.05$).
 
 #### 4.1.4 Statistical Considerations
 
@@ -556,7 +556,7 @@ where $P_{\text{err}}$ is the misclassification probability of the optimal neare
 
 **Proposition 3** (Stochastic Coupling Monotonicity). Under uniform source marginal, $H_{\text{stoch}}(V \mid X_t; \epsilon)$ is monotonically non-decreasing in the Sinkhorn regularization $\epsilon \ge 0$.
 
-**Proof sketch.** $T_\epsilon$ solves $\min_\pi \langle \pi, c \rangle - \epsilon H(\pi)$ s.t. uniform marginals (Cuturi, 2013). The optimal value $V(\epsilon)$ is concave in $\epsilon$ (infimum of affine functions in $\epsilon$). By the envelope theorem $dV/d\epsilon = -H(T_\epsilon)$, and concavity gives $dH(T_\epsilon)/d\epsilon \ge 0$. Under uniform marginal, $H_{\text{stoch}} = \tfrac{1}{K} H(T_\epsilon)$ (average row entropy), hence non-decreasing in $\epsilon$. Endpoints: $\epsilon \to 0$ gives $H \to 0$ (Hard OT), $\epsilon \to \infty$ gives $H \to \log K$ (Random).
+**Proof sketch.** $T_\epsilon$ solves $\min_\pi \langle \pi, c \rangle - \epsilon H(\pi)$ s.t. uniform marginals (Cuturi, 2013). The optimal value $\mathcal{V}(\epsilon)$ is concave in $\epsilon$ (infimum of affine functions in $\epsilon$). By the envelope theorem $d\mathcal{V}/d\epsilon = -H(T_\epsilon)$, and concavity gives $dH(T_\epsilon)/d\epsilon \ge 0$. Under uniform marginal, $H_{\text{stoch}} = \tfrac{1}{K} H(T_\epsilon)$ (average row entropy), hence non-decreasing in $\epsilon$. Endpoints: $\epsilon \to 0$ gives $H \to 0$ (Hard OT), $\epsilon \to \infty$ gives $H \to \log K$ (Random).
 
 ### B. Falsified Directions
 
