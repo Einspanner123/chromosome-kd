@@ -32,10 +32,9 @@ TMI 投稿迁移策略头部
 - 为 10 页 IEEE 主文进行选择性写作是正常技术；
   标记为 [ARXIV COMPANION] 或 [DELETED] 的内容并未丢失——它在此保留
   作为权威记录并供给 arXiv companion。
-- 同步状态：同步至 EN 草稿 2026-07-19 版本（包含 10 条审稿意见修订 + 全部数值修复）；
-  当前 main.tex 状态：10 页 IEEE TMI 投稿版，0 errors，246-word abstract。
+- 同步状态：同步至 main.tex commit 8f67c88a（2026-07-19，Phase 3 完成）。
   Phase 3 变更已纳入：
-  - 新增 Proposition 2（OT Diversity 下界，Fano 不等式 + 并集界）
+  - 新增 Proposition 2（OT Diversity 下界，Fano 不等式）
   - Conjecture 1 升级为 Proposition 3（单调性，包络定理证明）
   - 跨数据集 §4.8 修正：Dataset 1 = Chromosome20240904（220 test imgs,
     10262 instances），非 AutoKary（118 test imgs）。数值：mAP=0.157,
@@ -62,9 +61,9 @@ TMI 投稿迁移策略头部
     叙事方向（用户反馈 2026-07-19）：以"基于扩散的检测器引入染色体成像"开头；
     理论服务于任务，而非相反。 -->
 
-染色体核型分析——为遗传诊断而对中期染色体进行的显微镜检查——仍是临床细胞遗传学中一项缓慢、耗费大量人力且依赖观察者的基石。每个中期细胞包含约 46 条紧密排列的染色体，跨越 24 个形态相似的类别；自动化这一分析需要一个既精确又足够快速以适用于常规临床部署的检测器。传统 anchor-based 检测器在细粒度组内判别上遇到瓶颈，而基于扩散的检测器继承了其图像生成祖先的缓慢多步推理和轨迹截断误差，且小型临床数据集进一步使训练失稳。
+染色体核型分析——为遗传诊断而对中期染色体进行的显微镜检查——仍是临床细胞遗传学中一项缓慢、耗费大量人力且依赖观察者的核心环节。每个中期细胞包含约 46 条紧密排列的染色体，跨越 24 个形态相似的类别；自动化这一分析需要一个既精确又足够快速以适用于常规临床部署的检测器。传统 anchor-based 检测器在细粒度组内判别上遇到瓶颈，而基于扩散的检测器继承了其图像生成祖先的缓慢多步推理和轨迹截断误差，且小型临床数据集进一步使训练失稳。
 
-我们引入 *KaryoFlow*，一种基于 *Rectified Flow* (RF) 的染色体核型分析扩散检测器，它以确定性的直线 ODE 路径取代 DDPM 的弯曲随机轨迹。三项贡献针对染色体成像的具体困难。RF 范式本身带来主要的精度增益，超越 DiffusionDet +0.060 mAP 并匹敌 Cascade R-CNN，一项受控消融将 94% 的增益归因于 RF 而非 solver 或步数选择。我们进一步刻画了在低维（$\mathbb{R}^4$）检测空间中出现的 *OT Diversity Collapse*，并提出基于 Sinkhorn transport 的 *Stochastic Coupling*，恢复耦合多样性并在低数据情形下稳定训练。最后，DPM-Solver++ 配合 Top-$K$ proposal 剪枝以临床级延迟实现四步推理，相对 Heun 基线具有小但统计显著的精度优势。
+我们引入 *KaryoFlow*，一种基于 *Rectified Flow* (RF) 的染色体核型分析扩散检测器，它以确定性的直线 ODE 路径取代 DDPM 的弯曲随机轨迹。三项贡献针对染色体成像的具体困难。RF 范式本身带来主要的精度增益，超越 DiffusionDet $+0.060$ mAP 并超越 Cascade R-CNN，一项受控消融将 $94\%$ 的增益归因于 RF 而非 solver 或步数选择。我们进一步形式化分析了在低维（$\mathbb{R}^4$）检测空间中出现的 *OT Diversity Collapse*，并提出基于 Sinkhorn transport 的 *Stochastic Coupling*，恢复耦合多样性并在低数据情形下稳定训练。配合 Top-$K$ proposal 剪枝的 DPM-Solver++ 以临床级延迟实现四步推理，相对 Heun 具有统计显著的精度优势（$+0.006$ mAP，$p<10^{-6}$）。
 
 所有声明均在两个公开染色体数据集上经多 seed 实验、逐类 AP 分析和 SOTA 比较得到验证，支持基于扩散的检测作为细粒度医学影像的实用范式。
 
@@ -89,7 +88,7 @@ Index Terms --- Rectified Flow, object detection, optimal transport, diffusion m
 - 在引言末尾保留 Figure 1（方法总览）。
 -->
 
-染色体核型分析——为遗传疾病诊断而对中期染色体进行的视觉分析——仍然是一项耗费大量人力的临床任务。每张中期图像包含约 46 条紧密排列的染色体，跨越 24 个类别（A1–Y），存在严重的类别不平衡、组内细粒度相似性以及频繁的相互重叠。自动化这一过程需要一个既精确又足够快速以适用于临床部署的检测器，然而过去十年发展出的三族方法在至少一项要求上都留下了可观的差距。传统 anchor-based 检测器（Cascade R-CNN、YOLOX）达到可观的通量，但在细粒度 24 类判别上遇到瓶颈——这种判别需要区分例如近端着丝粒 C 组染色体之间的差异。Transformer 检测器（DINO）提升精度，但需要多尺度可变形注意力和相当沉重的主干，这在临床数据稀缺时并不吸引人。基于扩散的检测器（DiffusionDet）将检测重新表述为从带噪框进行的迭代去噪，为任务的结构化预测本质提供了概念上优雅的契合，但它们继承了 DDPM 祖先的缓慢多步推理和弯曲轨迹截断误差，并进一步被临床成像典型的小训练集所失稳。
+染色体核型分析——为遗传疾病诊断而对中期染色体进行的视觉分析——仍然是一项耗费大量人力的临床任务。每张中期图像包含约 46 条紧密排列的染色体，跨越 24 个类别（A1–Y），存在严重的类别不平衡、组内细粒度相似性以及频繁的相互重叠。自动化这一过程需要一个既精确又足够快速以适用于临床部署的检测器，然而过去十年发展的主要几族方法在至少一项要求上都留下了可观的差距。传统 anchor-based 检测器（Cascade R-CNN、YOLOX）达到可观的通量，但在细粒度 24 类判别上遇到瓶颈——这种判别需要区分例如近端着丝粒 C 组染色体之间的差异。Transformer 检测器（DINO）提升精度，但需要多尺度可变形注意力和相当沉重的主干，这在临床数据稀缺时并不吸引人。基于扩散的检测器（DiffusionDet）将检测重新表述为从带噪框进行的迭代去噪，为任务的结构化预测本质提供了概念上优雅的契合，但它们继承了 DDPM 祖先的缓慢多步推理和弯曲轨迹截断误差，并进一步被临床成像典型的小训练集所失稳。
 
 Rectified Flow (RF) 提供了一种有原则的补救：通过以从噪声到 ground truth 的确定性直线 ODE 路径取代弯曲的随机 DDPM 轨迹，RF 实现了低截断误差的少步推理，这在每张图像目标密度高（每张约 46 个框）且误差在 proposals 间复合时尤为宝贵。然而，将 RF 应用于检测提出了三个具体问题，必须先回答才能将该范式部署到临床流水线：当预测空间低维且每张图像目标数量大时，噪声样本应如何与 ground-truth 框耦合？哪个 ODE solver 在少步情形下提供最佳精度-延迟权衡？以及如何在不平衡、小规模的医学影像语料上稳定训练？这三个问题——耦合设计、solver 选择和训练稳定性——是 RF 在低数据情形下用于密集检测的瓶颈，我们的三项贡献系统地应对它们。
 
@@ -97,13 +96,13 @@ Rectified Flow (RF) 提供了一种有原则的补救：通过以从噪声到 gr
 
 基于上述场景到方法的映射，我们做出三项贡献，每项都关联到染色体检测的一个具体困难，并在两个公开数据集（Chromosome20240904，1,540 张图像；24 Chromosomes Object，5,000 张图像）上经多 seed 实验、逐类 AP 分析、测试集评估和 FPS 基准验证。
 
-第一个困难是现有检测器在细粒度 24 类染色体图像上的精度天花板，anchor-based 设计在密集排列和组内形态相似性上挣扎。我们的 *KaryoFlow* 检测器通过采用 RF 训练范式应对这一问题，在 24 Chromosomes Object 上相对 Euler 基线取得 +0.082 mAP，在原始数据集上相对 DDPM 取得 +0.017 mAP。在与 SOTA 检测器的比较中（实验数据见 Section 4.3），KaryoFlow 作为 diffusion-based 检测器已接近 transformer-based SOTA DINO R50（47M 参数）的水平：aggregate mAP 仅差约 $0.63\%$（$0.863$ 对 $0.8685$），与 Cascade R-CNN 性能相当，显著优于基于 DDPM 的 DiffusionDet（$+0.060$ mAP）。虽然 DINO R50 在逐图像配对 Wilcoxon 检验下仍统计显著更优，但 RF 作为 diffusion-based 方法已显著缩小与 transformer-based SOTA 的差距。详细统计检验见草稿补充材料（暂未纳入正文）。由于 A0→A1 的比较同时改变了多个变量（DDPM→RF、Euler→Heun、1→4 步），我们进一步进行 solver×step 解耦消融实验，将 94% 的增益归因于 RF 范式，仅 6% 归因于 solver 和步数选择；AdaLN-Zero 单独贡献为零（Appendix B）。实际意义在于精度增益来自范式本身而非 solver 调参，这对临床部署（跨站点和 seed 的可复现性至关重要）意义重大。
+第一个困难是现有检测器在细粒度 24 类染色体图像上的精度天花板，anchor-based 设计在密集排列和组内形态相似性上挣扎。我们的 *KaryoFlow* 检测器通过采用 RF 训练范式应对这一问题，在 24 Chromosomes Object 上相对 Euler 基线取得 $+0.082$ mAP，在原始数据集上相对 DDPM 取得 $+0.017$ mAP。在与 SOTA 检测器的比较中（实验数据见 Section 4.3），KaryoFlow 作为 diffusion-based 检测器已接近 transformer-based SOTA DINO R50（47M 参数）的水平：聚合 mAP 仅差约 $0.63\%$（$0.863$ 对 $0.868$），超越 Cascade R-CNN，并显著优于基于 DDPM 的 DiffusionDet（seed 42 best 上 $+0.060$ mAP，3-seed 均值上 $+0.056$）。虽然 DINO R50 在逐图像配对 Wilcoxon 检验下仍统计显著更优，但 RF 作为 diffusion-based 方法已大幅缩小与 transformer-based SOTA 的差距。详细统计检验见补充材料（暂未纳入正文）。由于 `A0→A1` 的比较同时改变了多个变量（DDPM→RF、Euler→Heun、1→4 步），我们进一步进行 solver×step 解耦消融实验，将 $94\%$ 的增益归因于 RF 范式，仅 $6\%$ 归因于 solver 和步数选择；AdaLN-Zero 单独贡献为零（Appendix B）。实际意义在于精度增益来自范式本身而非 solver 调参，这对临床部署（跨站点和 seed 的可复现性至关重要）意义重大。
 
-第二个困难是由低维检测空间中最优传输 (OT) 耦合诱发的训练病理。当预测维度 $d=4$ 且每张图像包含 $K \approx 46$ 个 ground-truth 框时，确定性 OT 分配将耦合多样性坍缩至零——我们将这一失效模式形式化为 *OT Diversity Collapse*（上界 $\Delta H \le \log K$，经 Fano 不等式匹配下界，经验上紧致至 0.03%）——这种坍缩损害训练，在数据稀缺时尤为显著。我们提出 *Stochastic Coupling*，从 Sinkhorn transport 矩阵采样分配而非取 argmax，恢复耦合多样性并稳定训练。这一补救措施在临床数据最稀缺处最有价值：在较小的 Dataset 1 上它带来大且高度显著的 mAP 增益（+0.034，$p<10^{-120}$），并随数据集规模增大而减弱；在两个数据集上它都将运行内 epoch 级 mAP 振荡降低 4.6×，使基于 EarlyStopping 训练的 checkpoint selection 可靠。
+第二个困难是由低维检测空间中最优传输 (OT) 耦合诱发的训练病理。当预测维度 $d=4$ 且每张图像包含 $K \approx 46$ 个 ground-truth 框时，确定性 OT 分配将耦合多样性坍缩至零——我们将这一失效模式形式化分析为 *OT Diversity Collapse*（上界 $\Delta H \le \log K$，经 Fano 不等式匹配下界，经验上紧致至 $0.03\%$）——这种坍缩损害训练，在数据稀缺时尤为显著。我们提出 *Stochastic Coupling*，从 Sinkhorn transport 矩阵采样分配而非取 argmax，恢复耦合多样性并稳定训练。这一补救措施在临床数据最稀缺处最有价值：在较小的 Dataset 1 上它带来大且高度显著的 mAP 增益（$+0.034$，$p<10^{-120}$），并随数据集规模增大而减弱；在两个数据集上它都将运行内 epoch 级 mAP 振荡降低 $4.6\times$，使基于 EarlyStopping 训练的 checkpoint 选择可靠。
 
-第三个困难是推理延迟：DDPM-based 检测器的弯曲、多步轨迹与交互式临床筛查不兼容，而朴素的少步 DDPM 受截断误差影响。我们部署 DPM-Solver++ 用于四步 RF 推理，相对 Heun 取得 1.71× 加速同时保持精度（3 个 seed 上 $0.859 \pm 0.003$ mAP），并结合 Top-$K$ proposal 剪枝达到 13.3–14.2 FPS。一项受控的逐图像配对消融实验表明，DPM-Solver++ 实际上在匹配步数下相对 Heun 提供小但统计显著的精度优势（+0.006 每图像 mAP，Wilcoxon $p<0.001$，Table 8），修正了 FlowDet 关于高阶 solver 表现更差的结论：在匹配步数下，高阶 solver 略 *更好*，而非更差，同时 NFE 更少。
+第三个困难是推理延迟：DDPM-based 检测器的弯曲、多步轨迹与交互式临床筛查不兼容，而朴素的少步 DDPM 受截断误差影响。我们部署 DPM-Solver++ 用于四步 RF 推理，相对 Heun 取得 $1.71\times$ 加速同时保持精度（3 个 seed 上 $0.859 \pm 0.003$ mAP），并结合 Top-$K$ proposal 剪枝达到 13.3–14.2 FPS。一项受控的逐图像配对消融实验表明，DPM-Solver++ 在匹配步数下相对 Heun 提供统计显著的精度优势（$+0.006$ 每图像 mAP，Wilcoxon $p<10^{-6}$，Table 8），修正了 FlowDet 关于高阶 solver 表现更差的结论：在匹配步数下，高阶 solver 略 *更好*，而非更差，同时 NFE 更少。
 
-为阐明我们相对于最接近先前工作的新颖性：相对于 FlowDet（采用 mini-batch OT 的 CFM，报告高阶 solver 表现更差），我们的新颖性在于：(i) 对 *为何* mini-batch OT 在低维结构化预测中成为训练瓶颈的形式化分析（Section 3.3），以及 (ii) 一个 solver×step 解耦表明，在匹配步数下，高阶 DPM-Solver++ 实际上略但显著地 *优于* Heun，同时 NFE 减少 1.71×。相对于 DeFloMat（用于医学检测的 RF，将耦合视为实现细节），我们提供了将耦合设计作为训练病理的理论分析以及 Stochastic Coupling 补救措施。不同于 OT-CFM 和多样本 flow matching（高维图像生成，$d \sim 10^5$），我们的设置是低维（$d=4$）且 $K \approx 46$，此时 OT 坍缩显著（$\Delta H/H \approx 0.69$）。AdaLN-Zero (Dhariwal & Nichol, 2021) 作为标准实现细节被复用（Appendix B）；DPM-Solver++ 是现成采用，我们的贡献在于带逐图像配对统计检验的受控解耦分析。
+为阐明我们相对于最接近先前工作的新颖性：相对于 FlowDet（采用 mini-batch OT 的 CFM，报告高阶 solver 表现更差），我们的新颖性在于 (i) 对 *为何* mini-batch OT 在低维结构化预测中成为瓶颈的形式化分析（Section 3.3），以及 (ii) 一个 solver×step 解耦表明，在匹配步数下，高阶 DPM-Solver++ 相对 Heun *改善* 精度同时 NFE 减少 $1.71\times$。相对于 DeFloMat（用于医学检测的 RF，将耦合视为实现细节），我们提供了将耦合设计作为训练病理的形式化分析以及 Stochastic Coupling 补救措施。不同于 OT-CFM 和多样本 flow matching（高维图像生成，$d \sim 10^5$），我们的设置是低维（$d=4$）且 $K \approx 46$，此时 OT 坍缩显著（$\Delta H/H \approx 0.69$）。AdaLN-Zero (Dhariwal & Nichol, 2021) 作为标准实现细节被复用（Appendix B）；DPM-Solver++ 是现成采用，我们的贡献在于带逐图像配对统计检验的受控解耦分析。
 
 ![**图 1**：KaryoFlow 总览。(a) RF 以从噪声 $\mathbf{x}_1$ 到 Ground Truth (GT) 框 $\mathbf{x}_0$ 的直线 ODE 路径取代弯曲的 DDPM 去噪轨迹；节点表示 4 个 solver 步。(b) 时间条件通过 AdaLN-Zero 零初始化调制注入连续时间 $t$，使网络在 $t{=}0$ 时为恒等映射。(c) 耦合：Random pairing（橙色）保持完全多样性 $H(V|X_t){=}\log K$，而基于 Sinkhorn 的 Stochastic OT（粉色）在 hard OT 和 Random 之间插值，对应 $0 < H(V|X_t) < \log K$。](latex/figures/method_overview.png)
 
@@ -113,15 +112,15 @@ Rectified Flow (RF) 提供了一种有原则的补救：通过以从噪声到 gr
 
 基于扩散的检测器将检测重构为从噪声框到 GT 框的迭代去噪。现有工作存在三个关键空白：
 
-**DiffusionDet** 基于 DDPM，弯曲的随机轨迹使少步推理既慢又产生截断误差。**DiffuBox** (Chen et al., 2024) 将扩散扩展到 3D 检测，但其 point-diffusion 精化范式与我们的 2D noise-box-to-GT 公式本质不同，无法直接借鉴。**FlowDet** 最接近我们的工作——它采用 mini-batch OT 耦合的 Conditional Flow Matching，但有两个关键缺陷：报告"高阶 solver 表现更差"却未分析原因，且未察觉 OT 耦合在低维检测空间中的危害。**DeFloMat** 将 Rectified Flow 用于医学检测，但把耦合当作实现细节，忽略了其在低数据场景下的关键作用。
+**DiffusionDet** 基于 DDPM，弯曲的随机轨迹使少步推理既慢又产生截断误差。**DiffuBox** (Chen et al., 2024) 将扩散扩展到 3D 检测，但其 point-diffusion 精化范式与我们的 2D noise-box-to-GT 公式本质不同，无法直接借鉴。**FlowDet** 最接近我们的工作——它采用 mini-batch OT 耦合的 Conditional Flow Matching，但有两个关键缺陷：报告"高阶 solver 表现更差"却未分析原因，且未察觉 OT 耦合在低维检测空间中的危害。**DeFloMat** 将 Rectified Flow 用于医学检测，但把耦合当作实现细节，忽略了其在低数据情形下的关键作用。
 
-我们的工作恰好弥补这三个空白：(1) 形式化分析 OT 耦合在低维空间的多样性坍缩病理，回答 FlowDet 未触及的"为何"问题；(2) 通过受控 solver 解耦实验证明高阶 solver 在匹配步数下反而略优，修正 FlowDet 的结论；(3) 将耦合设计从实现细节提升为可分析的训练病理，并提出 Stochastic Coupling 作为补救。
+我们的工作恰好弥补这三个空白：(1) 形式化分析低维空间中 OT 多样性坍缩病理，回答 FlowDet 未触及的"为何"问题；(2) 通过受控 solver 解耦实验证明高阶 solver 在匹配步数下反而略优，修正 FlowDet 的结论；(3) 将耦合设计从实现细节提升为可分析的训练病理，并提出 Stochastic Coupling 作为补救。
 
 ### 2.2 Rectified Flow 与 Flow Matching
 
 Rectified Flow (Liu et al., 2023) 以直线 ODE 路径取代弯曲 DDPM 轨迹，Flow Matching (Lipman et al., 2023) 提供统一训练框架。现有 OT 耦合方法（OT-CFM、多样本 flow matching）在 *图像生成* 中表现良好——那是高维（$d \sim 10^5$）、$K$ 等于 batch 大小的场景，OT 损失可忽略。
 
-但检测场景的本质截然不同：维度极低（$d=4$），每张图像目标数多（$K \approx 46$）。FlowDet 和 DeFloMat 同样在低维检测场景下使用 RF/flow matching，但前者仅报告 OT 耦合的经验结果而未分析其失效机理，后者更将耦合视为实现细节——两者都未察觉低维空间中的 OT 多样性坍缩。我们的核心洞察是：正是在这个低维、高 $K$ 的场景下，OT 耦合逼近其 $\log K$ 熵减上界，耦合多样性坍缩到零。这一失效模式既未被 OT-CFM 等高维工作触及（高维下 OT 损失可忽略），也不同于并发工作 (Cheng & Schwing, 2025) 分析的条件高维生成退化（其失效模式是条件偏斜先验，与我们的低维坍缩正交）。我们不仅分析了这一病理，还提出 Stochastic Coupling 作为在 hard OT 与随机配对之间插值的补救措施——这是首个针对低维结构化预测中 OT 坍缩的显式解决方案。除检测之外，flow matching 在生物医学成像领域的应用日益增多：Jones 等人 (2026) 系统分析了 flow matching 在细胞显微镜图像上的设计空间，Nützel 等人 (2026) 将子类条件化的 flow matching 应用于医学图像增强。在 TMI 期刊上，Yang 等人 (2025) 和 Shen 等人 (2025) 分别展示了扩散模型在跨域医学图像分割和鲁棒分类中的应用。
+但检测场景的本质截然不同：维度极低（$d=4$），每张图像目标数多（$K \approx 46$）。FlowDet 和 DeFloMat 同样在低维检测场景下使用 RF/flow matching，但前者仅报告 OT 耦合的经验结果而未分析其失效机理，后者更将耦合视为实现细节——两者都未察觉低维空间中的 OT 多样性坍缩。我们的核心洞察是：正是在这个低维、高 $K$ 的情形下，OT 耦合逼近其 $\log K$ 熵减上界，耦合多样性坍缩到零。这一失效模式既未被 OT-CFM 等高维工作触及（高维下 OT 损失可忽略），也不同于并发工作 (Cheng & Schwing, 2025) 对条件高维生成退化的分析（其失效模式是条件偏斜先验，与我们的低维坍缩正交）。我们不仅分析了这一病理，还提出 Stochastic Coupling 作为在 hard OT 与随机配对之间插值的补救措施——这是首个针对低维结构化预测中 OT 坍缩的显式解决方案。除检测之外，flow matching 在生物医学成像领域的应用日益增多：Jones 等人 (2026) 系统分析了 flow matching 在细胞显微镜图像上的设计空间，Nützel 等人 (2026) 将子类条件化的 flow matching 应用于医学图像增强。在 TMI 期刊上，Yang 等人 (2025) 和 Shen 等人 (2025) 分别展示了扩散模型在跨域医学图像分割和鲁棒分类中的应用。
 
 ### 2.3 染色体检测
 
@@ -148,7 +147,7 @@ $$\mathcal{L}_{FM} = \mathbb{E}_{t, \mathbf{x}_0, \mathbf{x}_1}\!\left[ \left\lV
 
 #### 3.1.2 时间条件
 
-AdaLN-Zero (Dhariwal & Nichol, 2021) 作为时间条件机制，以零初始化的自适应 layer norm 替代 scale_shift 条件，使网络初始时表现为无条件模型（在 $t{=}0$ 时为恒等映射）。独立的消融实验（Appendix B）证实其对 mAP 的单独贡献为零；+0.082 mAP 增益完全归因于 RF 公式本身，偏移的噪声调度自身贡献可忽略（Appendix B）。我们将 AdaLN-Zero 作为标准实现细节保留，而非单独的贡献。
+AdaLN-Zero (Dhariwal & Nichol, 2021) 作为时间条件机制，以零初始化的自适应 layer norm 替代 scale_shift 条件，使网络初始时表现为无条件模型（在 $t{=}0$ 时为恒等映射）。独立的消融实验（Appendix B）证实其对 mAP 的单独贡献为零；$+0.082$ mAP 增益完全归因于 RF 公式本身，偏移的噪声调度自身贡献可忽略（Appendix B）。我们将 AdaLN-Zero 作为标准实现细节保留，而非单独的贡献。
 
 ### 3.2 ODE Solvers
 
@@ -158,7 +157,7 @@ RF 范式给出直线 ODE 路径，但求解该 ODE 的 solver 选择决定了�
 
 **Heun（二阶 predictor-corrector）。** 通过预测-校正提供二阶精度，每步 2 NFE，4 步共 7 NFE（最后一步退化为 Euler）。详细公式见 Appendix A.4。
 
-**DPM-Solver++（二阶 multistep）。** 我们将 DPM-Solver++ (Lu et al., 2022) 适配到 RF 线性路径的 data-prediction 形式，利用 $\mathbf{x}_0$ 历史在 $t$ 空间中的多项式插值实现 1 NFE/步，4 步共 4 NFE（相比 Heun 的 7 NFE 加速 1.71×）。$t \to 0$ 处的奇点由 $\epsilon$ 截断处理。详细推导见 Appendix A.5。
+**DPM-Solver++（二阶 multistep）。** 我们将 DPM-Solver++ (Lu et al., 2022) 适配到 RF 线性路径的 data-prediction 形式，利用 $\mathbf{x}_0$ 历史在 $t$ 空间中的多项式插值实现 1 NFE/步，4 步共 4 NFE（相比 Heun 的 7 NFE 加速 $1.71\times$）。$t \to 0$ 处的奇点由 $\epsilon$ 截断处理。详细推导见 Appendix A.5。
 
 ### 3.3 OT Diversity Collapse 与 Stochastic Coupling
 
@@ -190,7 +189,7 @@ $$\pi_{\text{stoch}}(i) \sim \operatorname{Categorical}\!\left( \frac{T_\epsilon
 
 ### 3.4 Top-$K$ Proposal Pruning
 
-推理时 500 个 proposals 全部通过 4 步 cascade 头，而 cascade 头占据 90%+ 的延迟（§4.6）。在第 0 步之后，基于置信度分数将 proposals 从 500 剪枝到 $K$；只有 top-$K$ 个 proposals 进入第 1–3 步，从而将后续 3 步的计算量降低 $500/K$ 倍。
+推理时 500 个 proposals 全部通过 4 步 cascade 头，而 cascade 头占据 $90\%+$ 的延迟（§4.6）。在第 0 步之后，基于置信度分数将 proposals 从 500 剪枝到 $K$；只有 top-$K$ 个 proposals 进入第 1–3 步，从而将后续 3 步的计算量降低 $500/K$ 倍。
 
 与 DPM-Solver++ 兼容需要在剪枝后调用 `dpm_solver.reset()`，因为 $\mathbf{x}_0$ 历史存在维度不匹配（500 → $K$）。
 
@@ -200,7 +199,7 @@ $$\pi_{\text{stoch}}(i) \sim \operatorname{Categorical}\!\left( \frac{T_\epsilon
 
 #### 4.1.1 数据集
 
-Table 4 概述了本文使用的两个公开染色体数据集，以下简称为 Dataset 1 和 Dataset 2。Dataset 1 为 Chromosome20240904 (RST) (South China Normal University, 2024)，临床采集数据，1,540 张图像，经 Roboflow Universe 公开发布。Dataset 2 为 24 Chromosomes Object 数据集 (Tseng et al., 2023; Lu et al., 2022)，包含 5,000 张图像，经 Cell Image Library 公开发布。两个数据集均采用标准图像级随机划分；我们注意到，在临床核型分析中，单个患者的血样可产生多张中期图像，因此图像级划分并不能严格保证患者级分离。这些数据集不包含患者级元数据。数据集的获取地址见上述参考文献条目。
+Table 4 概述了本文使用的两个公开染色体数据集，以下简称为 Dataset 1 和 Dataset 2。Dataset 1 为 Chromosome20240904 (RST) \cite{south2024chromosome}，临床采集数据，1,540 张图像，经 Roboflow Universe 公开发布。Dataset 2 为 24 Chromosomes Object 数据集 \cite{tseng2023dataset,lu2022cil54816}，包含 5,000 张图像，经 Cell Image Library 公开发布。两个数据集均采用标准图像级随机划分；我们注意到，在临床核型分析中，单个患者的血样可产生多张中期图像，因此图像级划分并不能严格保证患者级分离。这些数据集不包含患者级元数据。数据集的获取地址见上述参考文献条目。
 
 | 数据集 | Train | Val | Test | 类别数 |
 |---------|-------|-----|------|---------|
@@ -232,36 +231,34 @@ Table 5 报告了累积消融：A0（DDPM Euler 基线），A1 是 KaryoFlow（R
 | A2 + Stochastic Coupling ($\epsilon{=}5$) | Heun | 4 | 7 | 0.858 | 0.989 | 0.971 | 0.523 | 0.854 | 0.864 |
 | **A3 DPM-Solver++** | DPM++ | 4 | 4 | **0.859** | 0.988 | 0.968 | 0.516 | 0.856 | 0.890 |
 
-**表 5**：主消融实验（独立推理；A0–A2 为 seed 42，A3 为 3-seed best value）。*问题*：A0→A1 精度增益中有多少归因于 RF 范式，多少归因于 solver 和步数的联合变化？*结论*：RF 训练范式贡献 +0.077 mAP（+0.082 差距的 94%），solver/步数配置仅贡献 +0.005（6%）；Stochastic Coupling 和 DPM-Solver++ 进一步分别贡献稳定性和推理速度。正文中报告了跨 seed std（A3 mAP $0.859 \pm 0.003$，AP$_S$ $0.516 \pm 0.012$ over 3 seeds）。NFE = 每张图像的总网络前向评估次数。
+**表 5**：主消融实验（独立推理；A0–A2 为 seed 42，A3 为 3-seed 均值）。*问题*：`A0→A1` 精度增益中有多少归因于 RF 范式，多少归因于 solver 和步数的联合变化？*结论*：RF 训练范式贡献 $+0.077$ mAP（$+0.082$ 差距的 $94\%$），solver/步数配置仅贡献 $+0.005$（$6\%$）；Stochastic Coupling 和 DPM-Solver++ 进一步分别贡献稳定性和推理速度。正文中报告了跨 seed std（A3 mAP $0.859 \pm 0.003$，AP$_S$ $0.516 \pm 0.012$ over 3 seeds）。NFE = 每张图像的总网络前向评估次数。
 
-RF 范式贡献 +0.077 mAP（+0.082 差距的 94%），而 solver/步数配置仅增加 +0.005（6%）。在 Dataset 2 上，Stochastic Coupling 贡献无可测量的 mAP 增益（+0.0001，Wilcoxon $p{=}0.80$），但带来 4.6× 更平滑的收敛；然而在较小的 Dataset 1 上，相同的 StochOT 对比 Random 比较带来大且高度显著的增益（+0.034，$p<10^{-120}$；Table 9）——这一收益在低数据情形下真实存在，并随数据集规模增大而减弱。DPM-Solver++ 提供小但统计显著的精度优势（+0.006 每图像 mAP，Wilcoxon $p{<}0.001$，配对 $t$ $p{<}0.001$；见 Table 8），并快 1.71×。
+RF 范式贡献 $+0.077$ mAP（$+0.082$ 差距的 $94\%$），而 solver/步数配置仅增加 $+0.005$（$6\%$）。在 Dataset 2 上，Stochastic Coupling 贡献无可测量的 mAP 增益（$+0.0001$，Wilcoxon $p{=}0.80$），但带来 $4.6\times$ 更平滑的收敛；然而在较小的 Dataset 1 上，相同的 Stochastic Coupling 对比 Random 比较带来大且高度显著的增益（$+0.034$，$p<10^{-120}$；Table 9）——这一收益在低数据情形下真实存在，并随数据集规模增大而减弱。DPM-Solver++ 提供小但统计显著的精度优势（$+0.006$ 每图像 mAP，Wilcoxon $p{<}10^{-6}$，配对 $t$ $p{<}10^{-6}$；见 Table 8），并快 $1.71\times$。
 
-跨数据集的 RF 对比 DDPM 比较进一步确认了范式的优势：RF 以 4 步推理对比 DDPM 的 1 步推理，在两个数据集上均超出 DDPM——在较大的 Dataset 2 上 +0.082 mAP，在较小的 Dataset 1 上 +0.017 mAP（0.746 对 0.729，更低方差 ±0.001 对 ±0.004）。DDPM 从 1→8 步仅获得 +0.044（0.628 → 0.672），增益远不及 RF 范式。
+跨数据集的 RF 对比 DDPM 比较进一步确认了范式的优势：RF 以 4 步推理对比 DDPM 的 1 步推理，在两个数据集上均超出 DDPM——在较大的 Dataset 2 上 $+0.082$ mAP，在较小的 Dataset 1 上 $+0.017$ mAP（0.746 对 0.729，更低方差 ±0.001 对 ±0.004）。DDPM 从 1→8 步仅获得 $+0.044$（0.628 → 0.672），增益远不及 RF 范式。
 
 ### 4.3 SOTA 比较
 
-Table 6 将我们基于 RF 的检测器与标准检测器和扩散基线进行比较。我们的最佳变体（A3，DPM-Solver++，3-seed 均值）落后 RTMDet-L（更强的 CSPNeXt-L 检测器）$0.004$ mAP，落后多尺度 DINO R50 $0.009$ mAP（两者均超出我们的跨 seed 方差 $\pm 0.003$），同时超越 Cascade R-CNN、YOLOX-S 和 DiffusionDet——其中相对基于 DDPM 的 DiffusionDet 的增益最大（seed 42 best 上 $+0.060$ mAP，3-seed 均值上 $+0.056$），是 RF 范式优势的直接证据。值得注意的是，我们的方法以比 Heun 基线少 1.71× 的 NFE 实现这一结果，且使用比 RTMDet-L 或 DINO R50 简单得多的主干。
+Table 6 将我们基于 RF 的检测器与标准检测器和扩散基线进行比较。我们的最佳变体（A3，DPM-Solver++，3-seed 均值）落后 RTMDet-L（更强的 CSPNeXt-L 检测器）$0.004$ mAP，落后多尺度 DINO R50 $0.009$ mAP（两者均超出我们的跨 seed 方差 $\pm 0.003$），同时超越 Cascade R-CNN、YOLOX-S 和 DiffusionDet——其中相对基于 DDPM 的 DiffusionDet 的增益最大（seed 42 best 上 $+0.060$ mAP，3-seed 均值上 $+0.056$），是 RF 范式优势的直接证据。值得注意的是，我们的方法以比 Heun 基线少 $1.71\times$ 的 NFE 实现这一结果，且使用比 RTMDet-L 或 DINO R50 简单得多的主干。
 
 | 方法 | Backbone | mAP | AP50 | AP75 | AP$_S$ |
 |--------|----------|-----|------|------|--------|
 | DINO R50 | ResNet-50 | **0.868** | 0.992 | 0.979 | 0.553 |
 | RTMDet-L | CSPNeXt-L | 0.863 | 0.992 | 0.976 | 0.540 |
 | **Ours (A3 DPM++)** | ResNet-50 | 0.859 | 0.988 | 0.968 | 0.516 |
-| Ours (A2 Heun+StochOT) | ResNet-50 | 0.858 | 0.989 | 0.971 | 0.523 |
+| Ours (A2 Heun+Stoch. Coup.) | ResNet-50 | 0.858 | 0.989 | 0.971 | 0.523 |
 | Ours (Random) | ResNet-50 | 0.856 | 0.989 | 0.969 | 0.502 |
 | Cascade R-CNN | ResNet-50 | 0.854 | 0.987 | 0.972 | 0.525 |
 | YOLOX-S | CSPDarkNet-S | 0.796 | 0.987 | 0.944 | 0.452 |
 | DiffusionDet | ResNet-50 | 0.803 | 0.970 | 0.928 | 0.500 |
 
-**表 6**：SOTA 比较（独立推理；A3 为 3-seed 均值）。RTMDet-L 使用更强的 CSPNeXt-L 主干；DINO R50 使用多尺度可变形注意力。我们的方法在整体 mAP 上与 RTMDet-L 竞争力相当，同时推理快 1.71×；顶级方法间的 AP$_S$ 差异在统计上不显著（Table 8）。正文中报告的相对 DiffusionDet 的 $+0.060$ mAP 增益使用 seed 42 best checkpoint（mAP 0.863）；3-seed 均值（0.859）给出 $+0.056$。RTMDet-L 和 DINO R50 数值取自完整训练日志（分别为 epoch 85 的 best checkpoint 和最终崩溃状态 checkpoint）。
+**表 6**：SOTA 比较（独立推理；A3 为 3-seed 均值）。RTMDet-L 使用更强的 CSPNeXt-L 主干；DINO R50 使用多尺度可变形注意力。我们的方法在整体 mAP 上与 RTMDet-L 竞争力相当，同时推理快 $1.71\times$；顶级方法间的 AP$_S$ 差异在统计上不显著（Table 8）。正文中报告的相对 DiffusionDet 的 $+0.060$ mAP 增益使用 seed 42 best checkpoint（mAP 0.863）；3-seed 均值（0.859）给出 $+0.056$。RTMDet-L 和 DINO R50 数值取自完整训练日志（分别为 epoch 85 的 best checkpoint 和最终崩溃状态 checkpoint）。
 
 **小目标性能与医学影像方向。** 在小目标上，我们的检测器（3 个 seed 上 AP$_S{=}0.516$）与 DINO R50（$0.553$）和 RTMDet-L（$0.540$）*统计上不可区分*：在 60 张小目标图像上进行的逐图像配对 Wilcoxon 检验未发现顶级方法间存在显著差异（Table 8）。因此我们不 claim 小目标 *优势*；而是结果表明，一个使用普通 ResNet-50 主干的 single-shot RF 检测器，在对染色体分析最具实践相关性的小目标情形下具有 *竞争力*——Y 染色体和若干 C 组染色体小且形态微妙，而临床核型分析优先考虑逐类灵敏度而非聚合 mAP。这种竞争力在无需 DINO 的多尺度可变形注意力或 RTMDet-L 更沉重的 CSPNeXt-L 主干的情况下取得，支持了扩散模型用于医学影像的更广方向，其中杂乱下的小目标检测很常见。在 Dataset 1（训练集较小，1,540 张图像）上，KaryoFlow（0.753 mAP）实际上超过 RTMDet-L（0.742）和 DINO R50（0.737），提示扩散范式在低数据小目标情形下尤其具有竞争力。
 
 #### 4.3.1 逐类 AP 分析
 
-Figure 5 报告了 A3 checkpoint（seed 42，独立推理）上全部 24 个类别的逐类 AP。三种模式具有临床相关性。
-
-第一，整体 AP 随染色体尺寸单调下降（Large→Medium→Small 为 $0.896 \to 0.848 \to 0.805$），与已知的小目标检测困难一致，但也与临床现实吻合：最小染色体（F 组、G 组、Y）承载最高的诊断风险——性染色体非整倍体和 21 三体是最频繁的核型分析转诊原因之一，因此这些小类别上的检测精度对临床效用影响不成比例地大。
+Figure 5 报告了 A3 checkpoint（seed 42，独立推理）上全部 24 个类别的逐类 AP。第一，整体 AP 随染色体尺寸单调下降（Large→Medium→Small 为 $0.896 \to 0.848 \to 0.805$），与已知的小目标检测困难一致，但也与临床现实吻合：最小染色体（F 组、G 组、Y）承载最高的诊断风险——性染色体非整倍体和 21 三体是最频繁的核型分析转诊原因之一，因此这些小类别上的检测精度对临床效用影响不成比例地大。
 
 第二，Y 染色体是最难的类别（seed 42 时 AP=0.779；3 个训练 seed 上 $0.771 \pm 0.006$，与 G21 和 X 并列为最高的逐类方差）。三个因素复合：(i) *数据稀缺*——Y 仅在男性样本中以单拷贝出现，约 1,803 个训练样本，而每条常染色体约 7,000 个；(ii) *形态*——Y 是最小染色体之一，富含异染色质，且在个体间形态变异较大，因此其视觉外观本质上不如常染色体稳定；(iii) *类别不平衡*——临床队列中男女采样比例进一步降低 Y 的先验。作为小染色体，其 AP 也对 Section 4.3 提及的逐图像 AP$_S$ 方差最为敏感。从临床角度看，Y 检测对性别确定和性染色体非整倍体筛查至关重要，因此即便此最难类别的 AP（0.779）在配合下游分类器时也是临床可操作的。
 
@@ -273,18 +270,18 @@ Figure 5 报告了 A3 checkpoint（seed 42，独立推理）上全部 24 个类�
 
 #### 4.3.2 消融增益的统计显著性
 
-Table 8 报告了主消融背后三个两两比较在 500 张验证图像上的逐图像配对显著性检验（Wilcoxon signed-rank 和配对 $t$-test）。两个结论突出。首先，在 Dataset 2 上，Stochastic Coupling（A2 对 A1）未产生显著的 mAP 变化（$p{=}0.80$）——但这是 *数据集特定的*：在较小的 Dataset 1 上，相同比较揭示大且高度显著的增益（+0.034，$p<10^{-120}$；Table 9），因此 StochOT 的精度贡献在低数据情形下真实存在，并随数据集规模增大而减弱。其次，DPM-Solver++ 在匹配 4 步下（A3 对 A2）产生小但高度显著的 mAP 改善（+0.006，两种检验 $p<10^{-3}$）——即在相等步数下，高阶 solver 略 *更好*，而非更差。在 AP$_S$ 上，所有两两差异均未达到显著（所有检验 $p>0.6$），因此 Table 5 和 Table 6 中的小目标数值在我们自己的各变体间应视为噪声等价；同样的告诫适用于跨方法 AP$_S$ 比较。
+Table 8 报告了主消融背后三个两两比较在 500 张验证图像上的逐图像配对显著性检验（Wilcoxon signed-rank 和配对 $t$-test）。两个结论突出。首先，在 Dataset 2 上，Stochastic Coupling（A2 对 A1）未产生显著的 mAP 变化（$p{=}0.80$）——但这是 *数据集特定的*：在较小的 Dataset 1 上，相同比较揭示大且高度显著的增益（$+0.034$，$p<10^{-120}$；Table 9），因此 Stochastic Coupling 的精度贡献在低数据情形下真实存在，并随数据集规模增大而减弱。其次，DPM-Solver++ 在匹配 4 步下（A3 对 A2）产生小但高度显著的 mAP 改善（$+0.006$，两种检验 $p<10^{-6}$）——即在相等步数下，高阶 solver 略 *更好*，而非更差。在 AP$_S$ 上，所有两两差异均未达到显著（所有检验 $p>0.6$），因此 Table 5 和 Table 6 中的小目标数值在我们自己的各变体间应视为噪声等价；同样的告诫适用于跨方法 AP$_S$ 比较。
 
 | 比较 | Metric | $\Delta$ | Wilc. $p$ | $t$ $p$ | $n$ |
 |------------|--------|----------|-----------|---------|-----|
-| A2−A1 (StochOT) | mAP | $+0.0001$ | $0.797$ ns | $0.944$ ns | 500 |
+| A2−A1 (Stoch. Coup.) | mAP | $+0.0001$ | $0.797$ ns | $0.944$ ns | 500 |
 | A3−A2 (DPM++) | mAP | $+0.0056$ | $\mathbf{2.5\!\cdot\!10^{-7}}$ *** | $\mathbf{8.4\!\cdot\!10^{-7}}$ *** | 500 |
 | A3−A1 (combined) | mAP | $+0.0057$ | $4.5\!\cdot\!10^{-4}$ *** | $4.9\!\cdot\!10^{-5}$ *** | 500 |
-| A2−A1 (StochOT) | AP$_S$ | $+0.0012$ | $0.783$ ns | $0.947$ ns | 60 |
+| A2−A1 (Stoch. Coup.) | AP$_S$ | $+0.0012$ | $0.783$ ns | $0.947$ ns | 60 |
 | A3−A2 (DPM++) | AP$_S$ | $-0.0031$ | $0.855$ ns | $0.855$ ns | 60 |
 | A3−A1 (combined) | AP$_S$ | $-0.0019$ | $0.691$ ns | $0.898$ ns | 60 |
 
-**表 8**：Dataset 2 验证集上的逐图像配对显著性检验（$n{=}500$ 张图像；AP$_S$ 使用 60 张含小目标的图像）。$\Delta$ 为第二个模型减去第一个模型的平均逐图像差异。Wilc. = Wilcoxon signed-rank；$t$ = 配对 Student's $t$-test。*** 表示 $p<0.001$；ns = 不显著（$p>0.05$）。*问题*：A2−A1（Stochastic Coupling）和 A3−A2（DPM-Solver++）增益在 Dataset 2 上是否在逐图像层面统计显著，小目标情形（AP$_S$）是否同样成立？*结论*：Stochastic Coupling 在较大的 Dataset 2 上未产生显著的 mAP 变化（$p{=}0.80$；其精度收益局限于低数据的 Dataset 1，见 Table 9），而 DPM-Solver++ 在匹配 4 步下产生小但高度显著的 mAP 改善（+0.006，$p<10^{-6}$）——高阶 solver 在相等步数下略 *更好*，而非更差；所有两两 AP$_S$ 差异均未达到显著，因此我们自己各变体间的小目标数值是噪声等价的。
+**表 8**：Dataset 2 验证集上的逐图像配对显著性检验（$n{=}500$ 张图像；AP$_S$ 使用 60 张含小目标的图像）。$\Delta$ 为第二个模型减去第一个模型的平均逐图像差异。Wilc. = Wilcoxon signed-rank；$t$ = 配对 Student's $t$-test。*** 表示 $p<0.001$；ns = 不显著（$p>0.05$）。*问题*：A2−A1（Stochastic Coupling）和 A3−A2（DPM-Solver++）增益在 Dataset 2 上是否在逐图像层面统计显著，小目标情形（AP$_S$）是否同样成立？*结论*：Stochastic Coupling 在较大的 Dataset 2 上未产生显著的 mAP 变化（$p{=}0.80$；其精度收益局限于低数据的 Dataset 1，见 Table 9），而 DPM-Solver++ 在匹配 4 步下产生小但高度显著的 mAP 改善（$+0.006$，$p<10^{-6}$）——高阶 solver 在相等步数下略 *更好*，而非更差；所有两两 AP$_S$ 差异均未达到显著，因此我们自己各变体间的小目标数值是噪声等价的。
 
 | 比较 | Metric | $\Delta$ | Wilc. $p$ | $t$ $p$ | $n$ |
 |------------|--------|----------|-----------|---------|-----|
@@ -307,11 +304,11 @@ Figure 7 在 9 个代表性案例上可视化各模型的检测结果，覆盖�
 
 #### 4.4.1 Dataset 1，多 seed
 
-在 Dataset 1 上（Table C.2），Stochastic Coupling 相对 Random coupling 带来大且高度显著的 mAP 增益（+0.034，0.747 对 0.713；pooled Wilcoxon $p<10^{-120}$，$n{=}1320$；Table 9），相对 Hard OT 也有大幅增益（+0.042，$p<10^{-150}$）。Hard OT 实际上 *比* Random *更差*（−0.008，$p<10^{-8}$），证实了 Section 3.3 预测的多样性坍缩病理：确定性 OT 分配使 $H(V|X_t)\to 0$ 并损害训练。然而该增益依赖数据集：在较大的 Dataset 2（5000 张图像，24 类）上，相同的 StochOT 对比 Random 比较缩小至 +0.0001（$p{=}0.80$，不显著；Table 8）。我们推测，数据更多时 OT 诱发配对的边际收益减弱，因为模型见到足够多样本来平均掉随机耦合噪声——这是 Stochastic Coupling（也带来 4.6× 更平滑收敛，Table 7）最有价值的低数据情形的经验特征。
+在 Dataset 1 上（Table C.2），Stochastic Coupling 相对 Random coupling 带来大且高度显著的 mAP 增益（$+0.034$，0.747 对 0.713；pooled Wilcoxon $p<10^{-120}$，$n{=}1320$；Table 9），相对 Hard OT 也有大幅增益（$+0.042$，$p<10^{-150}$）。Hard OT 实际上 *比* Random *更差*（$-0.008$，$p<10^{-8}$），证实了 Section 3.3 预测的多样性坍缩病理：确定性 OT 分配使 $H(V|X_t)\to 0$ 并损害训练。然而该增益依赖数据集：在较大的 Dataset 2（5000 张图像，24 类）上，相同的 Stochastic Coupling 对比 Random 比较缩小至 $+0.0001$（$p{=}0.80$，不显著；Table 8）。我们推测，数据更多时 OT 诱发配对的边际收益减弱，因为模型见到足够多样本来平均掉随机耦合噪声——这是 Stochastic Coupling（也带来 $4.6\times$ 更平滑收敛，Table 7）最有价值的低数据情形的经验特征。
 
 #### 4.4.2 多维稳定性比较（Dataset 2）
 
-Table 7 报告了五项额外的稳定性指标。Stochastic Coupling 在最后 30 个 epoch 中有 30/30 个 epoch 处于最佳 mAP 的 1% 之内（Random 为 13/30），使后期 checkpoint selection 远为可靠——这是小数据情形下基于 EarlyStopping 训练的首要实践关切属性。
+Table 7 报告了五项额外的稳定性指标。Stochastic Coupling 在最后 30 个 epoch 中有 30/30 个 epoch 处于最佳 mAP 的 1% 之内（Random 为 13/30），使后期 checkpoint 选择远为可靠——这是小数据情形下基于 EarlyStopping 训练的首要实践关切属性。
 
 | 指标 | A1 (Random) | A3 (Stochastic Coupling $\epsilon{=}5$) | 增益 |
 |--------|-------------|-----------------------------------------|------|
@@ -323,9 +320,9 @@ Table 7 报告了五项额外的稳定性指标。Stochastic Coupling 在最后 
 | Total training epochs | 92 | 144 | — |
 | Training failure rate (9 runs) | 0/9 | 0/9 | — |
 
-**表 7**：多维稳定性比较（Dataset 2，单 seed）。除主消融中报告的 last-30-epoch std 外，五项额外的稳定性指标联合刻画 Random 对比 Stochastic Coupling 的收敛行为。CV = std/mean。*问题*：Stochastic Coupling 是否仅在 epoch-std 的狭义上改善训练可靠性，还是稳定性优势延伸到多个实践有意义的指标，如 checkpoint-selection 鲁棒性、收敛范围和训练失败率？*结论*：Stochastic Coupling 在每个被测轴上都胜出：4.6× 更低的 epoch std，4.4× 更低的变异系数，4.6× 更窄的 mAP 范围，关键的是 30/30 个 epoch 处于最佳 mAP 的 1% 之内对比 Random 的 13/30——使小数据情形下基于 EarlyStopping 训练的后期 checkpoint selection 远为可靠，两种配置在 9 次运行中均零训练失败。
+**表 7**：多维稳定性比较（Dataset 2，单 seed）。除主消融中报告的 last-30-epoch std 外，五项额外的稳定性指标联合刻画 Random 对比 Stochastic Coupling 的收敛行为。CV = std/mean。*问题*：Stochastic Coupling 是否仅在 epoch-std 的狭义上改善训练可靠性，还是稳定性优势延伸到多个实践有意义的指标，如 checkpoint-selection 鲁棒性、收敛范围和训练失败率？*结论*：Stochastic Coupling 在每个被测轴上都胜出：$4.6\times$ 更低的 epoch std，$4.4\times$ 更低的变异系数，$4.6\times$ 更窄的 mAP 范围，关键的是 $30/30$ 个 epoch 处于最佳 mAP 的 $1\%$ 之内对比 Random 的 $13/30$——使小数据情形下基于 EarlyStopping 训练的后期 checkpoint 选择远为可靠，两种配置在 $9$ 次运行中均零训练失败。
 
-Figure 4 可视化了逐 epoch mAP 曲线，直观展示 4.6× 平滑性增益：Random coupling 表现出 epoch 级振荡，而 Stochastic Coupling 平滑收敛。
+Figure 4 可视化了逐 epoch mAP 曲线，直观展示 $4.6\times$ 平滑性增益：Random coupling 表现出 epoch 级振荡，而 Stochastic Coupling 平滑收敛。
 
 ![**图 4**：训练稳定性（24 Chromosomes Object，来自训练日志的真实逐 epoch mAP）：Random coupling 表现出 epoch 级振荡，std 为 0.006，而 Stochastic Coupling（$\epsilon{=}5$）平滑收敛，std 为 0.0013（4.6× 改善）。阴影带标记用于 std 计算的最后 30 个 epoch。](latex/figures/training_stability.png)
 
@@ -337,7 +334,7 @@ $\epsilon < 1$ 是有害的（在相同增广设置下 mAP −1.3%）；$\epsilo
 
 #### 4.5.1 Solver×Step 解耦消融
 
-为分离 RF 训练范式与 solver/步数选择的贡献，我们在 A1 checkpoint 上评估所有 solver×step 组合（Table 1，Figure 2）。在匹配步数下 solver 类型 *对 mAP 无影响*（4 步和 1 步时 Euler = DPM-Solver++）。步数仅有边际影响（1 到 4 步 +0.004）。Heun 相对 Euler 4 步的 +0.001 优势以 1.75× NFE 为代价（7 对 4）——并不划算。因此联合 solver/步数配置仅占 +0.082 A0→A1 差距中的 +0.005 mAP（6%），其余 94% 归因于 RF 训练范式。在完整模型上（A3 对 A2），DPM-Solver++ 在匹配 4 步下实际上略但显著地 *更* 精确于 Heun（+0.006 每图像 mAP，Wilcoxon $p<10^{-3}$；Table 8），因此其优势既是计算层面的，也是一项小的精度增益——修正了 FlowDet 关于高阶 solver 在检测中表现更差的结论。
+为分离 RF 训练范式与 solver/步数选择的贡献，我们在 A1 checkpoint 上评估所有 solver×step 组合（Table 1，Figure 2）。在匹配步数下 solver 类型 *对 mAP 无影响*（4 步和 1 步时 Euler = DPM-Solver++）。步数仅有边际影响（1 到 4 步 $+0.004$）。Heun 相对 Euler 4 步的 $+0.001$ 优势以 $1.75\times$ NFE 为代价（7 对 4）——并不划算。因此联合 solver/步数配置仅占 $+0.082$ `A0→A1` 差距中的 $+0.005$ mAP（$6\%$），其余 $94\%$ 归因于 RF 训练范式。在完整模型上（A3 对 A2），DPM-Solver++ 在匹配 4 步下实际上略但显著地 *更* 精确于 Heun（$+0.006$ 每图像 mAP，Wilcoxon $p<10^{-6}$；Table 8），因此其优势既是计算层面的，也是一项小的精度增益——修正了 FlowDet 关于高阶 solver 在检测中表现更差的结论。
 
 | Solver | Steps | NFE | mAP |
 |--------|-------|-----|-----|
@@ -349,7 +346,7 @@ $\epsilon < 1$ 是有害的（在相同增广设置下 mAP −1.3%）；$\epsilo
 
 **表 1**：A1 checkpoint 上的 solver×step 解耦消融（24 Chromosomes Object 验证集，seed 42）。
 
-![**图 2**：solver×step 解耦消融实验（A1 checkpoint）。柱形按 solver 类型着色，按步数加斜线纹理。Solver/步数配置仅贡献 +0.005 mAP（6%）；其余 +0.077 mAP（94%）归因于 RF 训练范式。](latex/figures/solver_ablation.png)
+![**图 2**：solver×step 解耦消融实验（A1 checkpoint）。柱形按 solver 类型着色，按步数加斜线纹理。Solver/步数配置仅贡献 $+0.005$ mAP（$6\%$）；其余 $+0.077$ mAP（$94\%$）归因于 RF 训练范式。](latex/figures/solver_ablation.png)
 
 #### 4.5.2 DPM-Solver++ 步数消融
 
@@ -357,11 +354,11 @@ DPM-Solver++ 在 2 步收敛（mAP 0.863，seed 42）；超过 2 步无收益，
 
 #### 4.5.3 匹配 NFE 下 DPM-Solver++ 对比 Heun
 
-在相近 NFE 下，DPM-Solver++ 4 步（4 NFE，0.863）≈ Heun 2 步（3 NFE，0.863）——精度相当，因此 DPM-Solver++ 以零成本换取 43% 更少的 NFE。关键在于，在匹配 *步数* 下（4 对 4），DPM-Solver++ 实际上略但显著地 *更* 精确于 Heun（+0.006 每图像 mAP，Wilcoxon $p<10^{-3}$；Table 8），因此其优势既是计算层面的，也是一项小的精度增益——而非仅从匹配 NFE 比较中可能推断的"纯属计算层面"。
+在相近 NFE 下，DPM-Solver++ 4 步（4 NFE，$0.863$）≈ Heun 2 步（3 NFE，$0.863$）——精度相当，因此 DPM-Solver++ 以零成本换取 43% 更少的 NFE。关键在于，在匹配 *步数* 下（4 对 4），DPM-Solver++ 实际上略但显著地 *更* 精确于 Heun（$+0.006$ 每图像 mAP，Wilcoxon $p<10^{-6}$；Table 8），因此其优势既是计算层面的，也是一项小的精度增益——而非仅从匹配 NFE 比较中可能推断的"纯属计算层面"。
 
 #### 4.5.4 测试集评估
 
-在 Dataset 2 测试集上，A3 取得 mAP 0.859（对比验证集 seed 42 的 0.863，$\Delta = -0.004$），证实整体精度泛化良好。然而 AP$_S$ 点估计在同一 checkpoint 上从 0.499（验证集）摆动到 0.577（测试集）——这提示在该 24 类基准上 AP$_S$ 是高方差的（仅 60 张验证图像含小目标），应结合 Table 8 中的逐图像显著性检验解读，而非作为点估计。
+在 Dataset 2 测试集上，A3 取得 mAP 0.859（对比验证集 seed 42 的 0.863，$\Delta = -0.004$），证实整体精度泛化良好。然而 AP$_S$ 点估计在同一 checkpoint 上从 $0.499$（验证集）摆动到 $0.577$（测试集）——这提示在该 24 类基准上 AP$_S$ 是高方差的（仅 60 张验证图像含小目标），应结合 Table 8 中的逐图像显著性检验解读，而非作为点估计。
 
 ### 4.6 FPS / 延迟基准
 
@@ -381,13 +378,13 @@ Table 10 和 Figure 6 报告了在 $512{\times}512$ 输入分辨率下的速度-
 
 **表 10**：FPS / 延迟基准（Dataset 2，512×512，seed 42）。延迟为 RTX A6000 上 200 张图像的均值；所有变体的逐图像 std 低于 3.4 ms，为清晰起见省略（报告最佳值）。*问题*：基于扩散的检测器是否达到与交互式临床筛查兼容的延迟，相对 single-shot 检测器的精度代价是多少？*结论*：A3 配合 DPM-Solver++ 和 Top-$K$ 剪枝在 mAP 0.860–0.863 下达到 13.3–14.2 FPS，比基于 DDPM 的 DiffusionDet（41 FPS 但 mAP 0.803）有数量级的改善；标准 single-shot 检测器快 3–7× 但 mAP 落后 0.005–0.067，将 RF 检测器定位于交互式筛查延迟带而非最大通量带。
 
-A3 + Top-$K$ (K=200) 是最快的变体（70.46 ms / 14.2 FPS，mAP 0.860）；A3 在 mAP 0.863 下达到 75 ms / 13.3 FPS。cascade 头占据 90%+ 的延迟；主干+颈部是次要成本（约 5.8 ms，4–8%）。
+A3 + Top-$K$ (K=200) 是最快的变体（70.46 ms / 14.2 FPS，mAP 0.860）；A3 在 mAP 0.863 下达到 75 ms / 13.3 FPS。cascade 头占据 $90\%+$ 的延迟；主干+颈部是次要成本（约 5.8 ms，4–8%）。
 
 ![**图 6**：速度-精度权衡（Dataset 2，RTX A6000，512×512）。FPS 轴为对数尺度。我们的 RF 变体（圆形/方形）位于高精度区（mAP > 0.85）；标准检测器（三角形）快 3–7× 但精度较低。A3+Top-$K$ (K=200)（14.2 FPS，mAP 0.860）在我们各变体中取得最佳速度-精度权衡。](latex/figures/fps_map.png)
 
 ### 4.7 跨数据集总结
 
-在两个数据集上，RF 均优于 DDPM（Dataset 1 上 +0.017 mAP，Dataset 2 上相对 DiffusionDet +0.060），DPM-Solver++ 在更低 NFE 下匹配 Heun 并在匹配步数下略但显著地更精确（+0.006 mAP，Wilcoxon $p<10^{-3}$），而 Stochastic Coupling 的 mAP 增益依赖数据集：在较小的 Dataset 1 上大且高度显著（相对 Random +0.034，$p<10^{-120}$；Hard OT 实际上 *比* Random *更差*，−0.008，$p<10^{-8}$，证实 OT 多样性坍缩），但在 Dataset 2 上可忽略（+0.0001，$p{=}0.80$）。4.6× 收敛平滑性收益在两个数据集上均成立。
+在两个数据集上，RF 均优于 DDPM（Dataset 1 上 $+0.017$ mAP，Dataset 2 上相对 DiffusionDet $+0.060$），DPM-Solver++ 在更低 NFE 下匹配 Heun 并在匹配步数下略但显著地更精确（$+0.006$ mAP，Wilcoxon $p<10^{-6}$），而 Stochastic Coupling 的 mAP 增益依赖数据集：在较小的 Dataset 1 上大且高度显著（相对 Random $+0.034$，$p<10^{-120}$；Hard OT 实际上 *比* Random *更差*，$-0.008$，$p<10^{-8}$，证实 OT 多样性坍缩），但在 Dataset 2 上可忽略（$+0.0001$，$p{=}0.80$）。$4.6\times$ 收敛平滑性收益在两个数据集上均成立。
 
 ### 4.8 鲁棒性
 
@@ -410,17 +407,17 @@ A3 + Top-$K$ (K=200) 是最快的变体（70.46 ms / 14.2 FPS，mAP 0.860）；A
 
 ### 5.1 为何 RF 适用于染色体检测
 
-RF 的直线 ODE 路径减少了少步推理中的截断误差，这对染色体检测尤为重要：高目标密度（每张图像约 46 个）会复合每框误差，小训练集（1,540–5,000 张图像）限制了模型学习复杂弯曲 DDPM 轨迹的能力，而 24 类细粒度任务受益于稳定的特征表示。Dataset 2 上 +0.082 mAP 的改善（$0.774 \to 0.856$）证实了 RF 在此情形下的有效性。
+RF 的直线 ODE 路径减少了少步推理中的截断误差，这对染色体检测尤为重要：高目标密度（每张图像约 46 个）会复合每框误差，小训练集（1,540–5,000 张图像）限制了模型学习复杂弯曲 DDPM 轨迹的能力，而 24 类细粒度任务受益于稳定的特征表示。Dataset 2 上 $+0.082$ mAP 的改善（$0.774 \to 0.856$）证实了 RF 在此情形下的有效性。
 
 ### 5.2 Stochastic Coupling：依赖数据集的 mAP 增益加平滑性
 
-Stochastic Coupling 的价值有两个不同的组成部分。在 Dataset 2（5000 张图像）上，mAP 增益可忽略（+0.0001，$p{=}0.80$，Table 8），其价值完全在于更平滑的收敛（4.6× epoch-std 减少，0.006 → 0.0013）。然而在较小的 Dataset 1（1540 张图像）上，相同比较揭示大且高度显著的 mAP 增益（+0.034，$p<10^{-120}$，Table 9），叠加于平滑性收益之上。这种数据集依赖性与理论一致：数据更多时，模型见到足够多样本来平均掉随机耦合噪声，从而削弱 OT 坍缩及 StochOT 的边际收益。
+Stochastic Coupling 的价值有两个不同的组成部分。在 Dataset 2（5000 张图像）上，mAP 增益可忽略（$+0.0001$，$p{=}0.80$，Table 8），其价值完全在于更平滑的收敛（$4.6\times$ epoch-std 减少，0.006 → 0.0013）。然而在较小的 Dataset 1（1540 张图像）上，相同比较揭示大且高度显著的 mAP 增益（$+0.034$，$p<10^{-120}$，Table 9），叠加于平滑性收益之上。这种数据集依赖性与理论一致：数据更多时，模型见到足够多样本来平均掉随机耦合噪声，从而削弱 OT 坍缩及 Stochastic Coupling 的边际收益。
 
-在两个数据集上，平滑性收益对 checkpoint selection 具有实际后果：在 Random coupling 下，checkpoint selection 可能落在高出趋势 0.006 的某个"幸运"epoch 上——这是一个可能无法泛化的假峰。Stochastic Coupling 的 0.0013 epoch std 使 checkpoint selection 远为可靠。seed 123 的结果（mAP 0.857 对 seed 42 的 0.863，$\Delta = -0.006$）证实 epoch 振荡直接影响 EarlyStopping 选择哪个 checkpoint。形式化的因果链（Stochastic Coupling → 通过更好的 checkpoint selection 实现更好的测试泛化）需要逐 epoch 测试评估，留作未来工作。
+在两个数据集上，平滑性收益对 checkpoint 选择具有实际后果：在 Random coupling 下，checkpoint 选择可能落在高出趋势 0.006 的某个"幸运"epoch 上——这是一个可能无法泛化的假峰。Stochastic Coupling 的 0.0013 epoch std 使 checkpoint 选择远为可靠。seed 123 的结果（mAP 0.857 对 seed 42 的 0.863，$\Delta = -0.006$）证实 epoch 振荡直接影响 EarlyStopping 选择哪个 checkpoint。形式化的因果链（Stochastic Coupling → 通过更好的 checkpoint 选择实现更好的测试泛化）需要逐 epoch 测试评估，留作未来工作。
 
 ### 5.3 DPM-Solver++ 对比 Heun：计算优势与小精度增益
 
-由于 A2（Heun）和 A3（DPM-Solver++）使用相同的 FM 训练目标，每个 epoch 的模型权重相同。然而 DPM-Solver++ 在匹配 4 步下相对 Heun 产生小但统计显著的 mAP 改善（+0.006 每图像 mAP，Wilcoxon $p<10^{-3}$；Table 8），因此高阶 solver 略 *更好*，而非更差。结合其 NFE 减少，稳健的 claim 是：*DPM-Solver++ 在 NFE 减少 43% 的情况下取得略高于 Heun 的精度*，修正了 FlowDet 关于高阶 solver 在检测中表现更差的结论。
+由于 A2（Heun）和 A3（DPM-Solver++）使用相同的 FM 训练目标，每个 epoch 的模型权重相同。然而 DPM-Solver++ 在匹配 4 步下相对 Heun 产生小但统计显著的 mAP 改善（$+0.006$ 每图像 mAP，Wilcoxon $p<10^{-6}$；Table 8），因此高阶 solver 略 *更好*，而非更差。结合其 NFE 减少，稳健的 claim 是：*DPM-Solver++ 在 NFE 减少 43% 的情况下取得略高于 Heun 的精度*，修正了 FlowDet 关于高阶 solver 在检测中表现更差的结论。
 
 ### 5.4 Top-$K$ 剪枝：依赖 Solver 的有效性
 
@@ -428,17 +425,17 @@ Top-$K$ 剪枝的有效性取决于每步 NFE：对 Heun（2 NFE/步），剪枝
 
 ### 5.5 理论适用性与局限
 
-双侧界（命题 1–2）在染色体检测中紧致（0.03% 间隙）：良分离的 Voronoi 单元（成对距离 $\approx 20$ px 对比 $\sigma \sim 1$ px）使 $P_{\text{err}} < 10^{-45}$，且 $N=2$ 的 mini-batch OT 退化为最近邻分配。低维情形（$d=4$，$K \approx 46$）下 $\Delta H/H \approx 0.69$（Table 2），高斯噪声源由我们的偏移高斯调度近似满足。
+双侧界（命题 1–2）在染色体检测中紧致（$0.03\%$ 间隙）：良分离的 Voronoi 单元（成对距离 $\approx 20$ px 对比 $\sigma \sim 1$ px）使 $P_{\text{err}} < 10^{-45}$，且 $N=2$ 的 mini-batch OT 退化为最近邻分配。低维情形（$d=4$，$K \approx 46$）下 $\Delta H/H \approx 0.69$（Table 2），高斯噪声源由我们的偏移高斯调度近似满足。
 
-该理论不能迁移到高维生成（$d \sim 10^5$，此时 $\Delta H/H \approx 0$，故 OT 坍缩可忽略——与 OT-CFM 的成功一致），也不能迁移到密集重叠目标的情形（假设 2 和 4 失效）。对于 COCO（$K \sim 7$，$\Delta H/H \approx 0.55$），理论预测 Stochastic Coupling 会有帮助但幅度较小。理论提示 RF + Stochastic Coupling 将使结合低 $d$、高目标密度和小训练数据的检测任务受益——这一画像包括医学成像、遥感以及其他细粒度密集检测任务。我们未在 COCO 上验证，因为其较小的 $K$ 降低了 OT 坍缩严重性；合适的验证数据集应具有高 $K$ 和低 $d$，正是染色体检测的画像。稳定性收益对临床部署具有实际意义：4.6× 的 epoch 稳定性提升意味着 checkpoint selection 处于趋势的 0.0013 之内（对比 Random 的 0.006），降低了部署"假峰"checkpoint 的风险。
+该理论不能迁移到高维生成（$d \sim 10^5$，此时 $\Delta H/H \approx 0$，故 OT 坍缩可忽略——与 OT-CFM 的成功一致），也不能迁移到密集重叠目标的情形（假设 2 和 4 失效）。对于 COCO（$K \sim 7$，$\Delta H/H \approx 0.55$），理论预测 Stochastic Coupling 会有帮助但幅度较小。理论提示 RF + Stochastic Coupling 将使结合低 $d$、高目标密度和小训练数据的检测任务受益——这一画像包括医学成像、遥感以及其他细粒度密集检测任务。我们未在 COCO 上验证，因为其较小的 $K$ 降低了 OT 坍缩严重性；合适的验证数据集应具有高 $K$ 和低 $d$，正是染色体检测的画像。稳定性收益对临床部署具有实际意义：$4.6\times$ 的 epoch 稳定性提升意味着 checkpoint 选择处于趋势的 0.0013 之内（对比 Random 的 0.006），降低了部署"假峰"checkpoint 的风险。
 
 ## 6. 结论
 
-我们引入 *KaryoFlow*，一种将 Rectified Flow 引入临床细胞遗传学的染色体核型分析扩散检测器。RF 训练范式——以直线 ODE 路径取代弯曲 DDPM 轨迹——是精度增益的主导来源，在 Dataset 2 上相对 Euler 基线取得 +0.082 mAP，在 Dataset 1 上相对 DDPM 取得 +0.017 mAP，且我们的最佳变体以 +0.060 mAP 超越基于 DDPM 的 DiffusionDet 同时匹敌 Cascade R-CNN；solver×step 解耦消融实验将此增益的 94% 归因于 RF 范式本身。Stochastic Coupling 建立在我们对低维（$\mathbb{R}^4$）检测空间中 OT Diversity Collapse 的刻画之上，恢复耦合多样性并稳定训练：在低数据情形下它带来大且高度显著的 mAP 增益（+0.034，$p<10^{-120}$），而在较大数据上增益转为 4.6× 的运行内 epoch 级振荡减少，使 checkpoint selection 可靠。DPM-Solver++ 配合 Top-$K$ 剪枝以 13.3–14.2 FPS 实现四步推理，并相对 Heun 具有小但统计显著的精度优势，将检测器置于交互式筛查延迟带。标准 single-shot 检测器仍快 3–7×，因此我们的方法以延迟换取精度，定位于交互式临床筛查而非最大通量。
+我们引入 *KaryoFlow*，一种将 Rectified Flow 引入临床细胞遗传学的染色体核型分析扩散检测器。RF 训练范式——以直线 ODE 路径取代弯曲 DDPM 轨迹——是精度增益的主导来源，在 Dataset 2 上相对 Euler 基线取得 $+0.082$ mAP，在 Dataset 1 上相对 DDPM 取得 $+0.017$ mAP，且我们的最佳变体以 $+0.060$ mAP 超越基于 DDPM 的 DiffusionDet 同时超越 Cascade R-CNN；solver$\times$step 解耦消融实验将此增益的 $94\%$ 归因于 RF 范式本身。Stochastic Coupling 建立在我们对低维（$\mathbb{R}^4$）检测空间中 OT Diversity Collapse 的形式化分析之上，恢复耦合多样性并稳定训练：在低数据情形下它带来大且高度显著的 mAP 增益（$+0.034$，$p<10^{-120}$），而在较大数据上增益转为 $4.6\times$ 的运行内 epoch 级振荡减少，使 checkpoint 选择可靠。配合 Top-$K$ 剪枝的 DPM-Solver++ 以 13.3–14.2 FPS 实现四步推理，并相对 Heun 具有精度增益（$+0.006$ mAP，$p<10^{-6}$），将检测器置于交互式筛查延迟带。标准 single-shot 检测器仍快 3–7$\times$，因此我们的方法以延迟换取精度，定位于交互式临床筛查而非最大通量。
 
-除染色体核型分析外，我们所刻画的 OT Diversity Collapse 现象对染色体并非特异——它在预测空间低维、每张图像目标密度高、训练语料小的情况下出现。这一画像在医学影像中反复出现：组织病理学中的细胞检测（每个 tile 多个核，$d=4$ bbox，小标注队列），乳腺 X 光和视网膜成像中的病灶检测（小目标，有限阳性案例），以及微生物菌落计数。在这些设置中，确定性 OT 耦合向 $\log K$ 坍缩，Stochastic Coupling 提供相同的双重收益——低数据情形下的精度、一般情形下的稳定性——正如我们在染色体上观察到的。理论通过 Table 2 提供 a-priori 诊断：任何 $d \ll 100$ 且 $K \gg 10$ 的任务是候选，严重性 $\Delta H/H$ 预测 Stochastic Coupling 是否会有帮助。在至少一个非染色体高 $K$ 低 $d$ 基准上的验证——细胞检测是最自然的下一步——将大幅强化普遍性 claim。
+除染色体核型分析外，我们所形式化分析的 OT Diversity Collapse 现象对染色体并非特异——它在预测空间低维、每张图像目标密度高、训练语料小的情况下出现。这一画像在医学影像中反复出现：组织病理学中的细胞检测（每个 tile 多个核，$d=4$ bbox，小标注队列），乳腺 X 光和视网膜成像中的病灶检测（小目标，有限阳性案例），以及微生物菌落计数。在这些设置中，确定性 OT 耦合向 $\log K$ 坍缩，Stochastic Coupling 提供相同的双重收益——低数据情形下的精度、一般情形下的稳定性——正如我们在染色体上观察到的。理论通过 Table 2 提供 a-priori 诊断：任何 $d \ll 100$ 且 $K \gg 10$ 的任务是候选，严重性 $\Delta H/H$ 预测 Stochastic Coupling 是否会有帮助。在至少一个非染色体高 $K$ 低 $d$ 基准上的验证——细胞检测是最自然的下一步——将大幅强化普遍性 claim。
 
-我们承认三项局限。第一，经验验证限于染色体数据；在 COCO 或细胞检测基准上验证将检验 OT 坍缩预测的普遍性。第二，Stochastic Coupling 的 mAP 增益依赖数据集（Dataset 1 上大，Dataset 2 上可忽略），因此其精度贡献不能在更大基准上视为理所当然——尽管 4.6× 稳定性收益独立成立。第三，理论分析假设良分离目标；密集重叠场景需要扩展到有限 $N$ 分析。应对这些局限是未来工作的自然方向。
+我们承认三项局限。第一，经验验证限于染色体数据；在 COCO 或细胞检测基准上验证将检验 OT 坍缩预测的普遍性。第二，Stochastic Coupling 的 mAP 增益依赖数据集（Dataset 1 上大，Dataset 2 上可忽略），因此其精度贡献不能在更大基准上视为理所当然——尽管 $4.6\times$ 稳定性收益独立成立。第三，理论分析假设良分离目标；密集重叠场景需要扩展到有限 $N$ 分析。应对这些局限是未来工作的自然方向。
 
 ## 附录
 
@@ -482,7 +479,7 @@ PHASE 3 重组（commit 8f67c88a, 2026-07-19）：
 
 **设置**：源 $\nu = \mathcal{N}(0, \sigma^2 I_d)$，目标 $\mu = \frac{1}{K}\sum_{k=1}^K \delta_{\mathbf{b}_k}$。一个耦合 $\pi$ 将噪声样本 $\{\mathbf{z}_i\}_{i=1}^N$ 分配给目标框 $\{\mathbf{b}_{V_i}\}_{i=1}^N$。flow 状态为 $X_t = (1-t) \mathbf{b}_V + t \mathbf{z}$，其中 $\mathbf{z} \sim \nu$，$V$ 为耦合分配。
 
-**证明梗概。** 随机耦合：$V \sim \operatorname{Uniform}(\{1,\ldots,K\})$ 且与 $\mathbf{z}$ 独立，故 $H_{\text{rand}}(V|X_t) \le H(V) = \log K$（在高噪声情形下等号成立，此时高斯混合后验近似均匀）。OT 耦合（$N \to \infty$）：引理使 $V = \arg\min_k \lVert\mathbf{z} - \mathbf{b}_k\rVert$（Voronoi 分配）成为 $\mathbf{z}$ 的确定性函数，故给定 $X_t$ 即可恢复 $\mathbf{z} = (X_t - (1-t)\mathbf{b}_V)/t$ 进而恢复 $V$，得到 $H_{\text{OT}}(V|X_t) = 0$。结合：$\Delta H \le \log K$，经验上紧致（0.03% 误差）。
+**证明梗概。** 随机耦合：$V \sim \operatorname{Uniform}(\{1,\ldots,K\})$ 且与 $\mathbf{z}$ 独立，故 $H_{\text{rand}}(V|X_t) \le H(V) = \log K$（在高噪声情形下等号成立，此时高斯混合后验近似均匀）。OT 耦合（$N \to \infty$）：引理使 $V = \arg\min_k \lVert\mathbf{z} - \mathbf{b}_k\rVert$（Voronoi 分配）成为 $\mathbf{z}$ 的确定性函数，故给定 $X_t$ 即可恢复 $\mathbf{z} = (X_t - (1-t)\mathbf{b}_V)/t$ 进而恢复 $V$，得到 $H_{\text{OT}}(V|X_t) = 0$。结合：$\Delta H \le \log K$，经验上紧致（$0.03\%$ 误差）。
 
 **关于有限 $N$ 的注记。** 在实践中，OT 在大小为 $N$ 的 mini-batch 上求解（例如在我们的设置中 $N=2$）。对于有限 $N$，OT 并不产生精确的 Voronoi partitioning——它产生一个随 $N$ 改进的近似。经验验证（$\Delta H = 3.8415$ 对比 $\log K = 3.8427$，0.03% 误差）证实即便对于小 $N$，$N \to \infty$ 界在染色体检测设置下也是极佳的近似，可能因为 $K \approx 46 \gg N$ 且 GT 框在 $\mathbb{R}^4$ 中相对于 $\sigma$ 良分离。
 
@@ -490,7 +487,7 @@ PHASE 3 重组（commit 8f67c88a, 2026-07-19）：
 
 **证明梗概。** 在 OT 下，$V = \arg\min_k \lVert\mathbf{z} - \mathbf{b}_k\rVert$（引理）；给定 $X_t$，模型在 $\mathbf{b}_V$ 的 Voronoi 单元内以高斯噪声 $\sigma_t^2 I_d$ 观测 $\mathbf{z}$。Fano 不等式给出
 $$H_{\text{OT}}(V|X_t) \;\le\; h(P_{\text{err}}) + P_{\text{err}} \log K,$$
-其中 $P_{\text{err}}$ 是最优最近邻规则的误分类概率。在 $\binom{K}{2}$ 对 Voronoi 单元上取并集界（每对相距 $d_{\min}$，$\mathbf{z}$ 服从高斯噪声 $\sigma_t$）给出 $P_{\text{err}} \le \binom{K}{2}\, \Phi(-d_{\min}/(2\sigma_t))$。结合 $H_{\text{rand}}(V|X_t) \ge \log K$（高噪声情形下后验均匀）及 $h \le \log 2$ 即得。当 $\sigma_t/d_{\min} \to 0$ 时 $P_{\text{err}} \to 0$ 指数级衰减（高斯尾），故 $\Delta H \to \log K$，与上界匹配。对于染色体检测（$d_{\min} \approx 20$ px，$\sigma_t \sim 1$ px），$P_{\text{err}} < 10^{-45}$，故 $\Delta H \ge 0.999\,\log K$，与观测到的 0.03% 间隙一致。
+其中 $P_{\text{err}}$ 是最优最近邻规则的误分类概率。在 $\binom{K}{2}$ 对 Voronoi 单元上取并集界（每对相距 $d_{\min}$，$\mathbf{z}$ 服从高斯噪声 $\sigma_t$）给出 $P_{\text{err}} \le \binom{K}{2}\, \Phi(-d_{\min}/(2\sigma_t))$。结合 $H_{\text{rand}}(V|X_t) \ge \log K$（高噪声情形下后验均匀）及 $h \le \log 2$ 即得。当 $\sigma_t/d_{\min} \to 0$ 时 $P_{\text{err}} \to 0$ 指数级衰减（高斯尾），故 $\Delta H \to \log K$，与上界匹配。对于染色体检测（$d_{\min} \approx 20$ px，$\sigma_t \sim 1$ px），$P_{\text{err}} < 10^{-45}$，故 $\Delta H \ge 0.999\,\log K$，与观测到的 $0.03\%$ 间隙一致。
 
 #### A.3 命题 3 的证明（Stochastic Coupling 单调性）
 
@@ -538,7 +535,7 @@ $$\varphi_1 = t_{n+1}\log\tfrac{t_n}{t_{n+1}} - t_n + t_{n+1},\quad \mathbf{D}_1
 
 <!-- [仅 ARXIV COMPANION — Phase 3 重组中从 TMI 主文移除]
     逐 seed 表格对 10 页主文过于细粒度。主文报告 mean±std 聚合
-    （Table 5-7）；逐 seed 分解移至 arXiv 以供完整复现性验证。]
+    （Table 5-7）；逐 seed 分解移至 arXiv 以供完整复现性验证。 ]
 
 **与正文的对应关系。** 本附录支撑 §4.2（RF 对比 DDPM，Table 5）和 §4.4（耦合消融，Table 9）中的多 seed 表格，提供聚合 mean±std 数值背后的逐 seed 数值。下方每个子表对应一个具体的正文表格：§C.1 支撑 §4.2.2 中引用的 Dataset 1 RF-vs-DDPM 比较；§C.2 支撑 §4.4.1 中引用的 Dataset 1 耦合消融。逐 seed 分解允许独立验证正文中报告的跨 seed 方差（A3 ±0.003，DDPM ±0.002 等）逐 seed 重现，且无个体 seed 是驱动聚合的离群点。
 
@@ -562,9 +559,9 @@ $$\varphi_1 = t_{n+1}\log\tfrac{t_n}{t_{n+1}} - t_n + t_{n+1},\quad \mathbf{D}_1
 | Hard OT | 0 | 42 | 0.705 | 0.894 | 0.792 | 0.409 | 0.702 | 0.543 |
 | Hard OT | 0 | 123 | 0.703 | 0.897 | 0.792 | 0.412 | 0.700 | 0.548 |
 | Hard OT | 0 | 789 | 0.707 | 0.897 | 0.794 | 0.425 | 0.702 | 0.566 |
-| Random | ∞ | 42 | 0.713 | 0.909 | 0.800 | 0.421 | 0.711 | 0.626 |
-| Random | ∞ | 123 | 0.718 | 0.909 | 0.804 | 0.442 | 0.716 | 0.629 |
-| Random | ∞ | 789 | 0.708 | 0.904 | 0.796 | 0.423 | 0.702 | 0.527 |
+| Random | $\infty$ | 42 | 0.713 | 0.909 | 0.800 | 0.421 | 0.711 | 0.626 |
+| Random | $\infty$ | 123 | 0.718 | 0.909 | 0.804 | 0.442 | 0.716 | 0.629 |
+| Random | $\infty$ | 789 | 0.708 | 0.904 | 0.796 | 0.423 | 0.702 | 0.527 |
 | Stochastic Coupling | 5 | 42 | 0.745 | 0.941 | 0.832 | 0.510 | 0.738 | 0.638 |
 | Stochastic Coupling | 5 | 123 | 0.745 | 0.942 | 0.834 | 0.505 | 0.739 | 0.636 |
 | Stochastic Coupling | 5 | 789 | 0.750 | 0.943 | 0.837 | 0.519 | 0.743 | 0.620 |
@@ -581,7 +578,7 @@ $$\varphi_1 = t_{n+1}\log\tfrac{t_n}{t_{n+1}} - t_n + t_{n+1},\quad \mathbf{D}_1
      "AdaLN-Zero and Shifted Schedule Ablations" 单节（约 1 段）于
      10 页 IEEE 主文中。完整表格在此保留作为事实记录。]
 
-本附录报告 Section 3.1.2 及正文贡献讨论中引用的 AdaLN-Zero 独立消融，证实其在 RF 框架内对 +0.082 mAP 增益的单独贡献为零（Table D.1）。我们在 Dataset 2 上进行了独立的消融以验证 AdaLN-Zero 的单独贡献。两个实验除时间条件模块外配置相同（RF 公式、Heun solver 4 步、偏移调度 shift=3.0、随机耦合、150 epochs）。
+本附录报告 Section 3.1.2 及正文贡献讨论中引用的 AdaLN-Zero 独立消融，证实其在 RF 框架内对 $+0.082$ mAP 增益的单独贡献为零（Table D.1）。我们在 Dataset 2 上进行了独立的消融以验证 AdaLN-Zero 的单独贡献。两个实验除时间条件模块外配置相同（RF 公式、Heun solver 4 步、偏移调度 shift=3.0、随机耦合、150 epochs）。
 
 | Config | mAP | $\Delta$ mAP |
 |--------|-----|--------------|
@@ -590,7 +587,7 @@ $$\varphi_1 = t_{n+1}\log\tfrac{t_n}{t_{n+1}} - t_n + t_{n+1},\quad \mathbf{D}_1
 
 **表 D.1**：Dataset 2 上的 AdaLN-Zero 消融。
 
-AdaLN-Zero 在此数据集上的 RF 框架内贡献为 *零*（$\Delta$mAP = 0.000）。这与如下假设一致：RF 的直线 ODE 路径已提供充分的时间结构，使零初始化的调制成为冗余。我们将 AdaLN-Zero 作为标准条件机制 (Dhariwal & Nichol, 2021) 保留，以与更广泛的扩散文献保持一致，但指出它并不贡献于 Section 4.2.1 中所声明的 +0.082 mAP 改善。整个 +0.082 差距归因于 RF 公式本身（直线 ODE 路径）；偏移的噪声调度自身贡献可忽略，如 Appendix B 所示。
+AdaLN-Zero 在此数据集上的 RF 框架内贡献为 *零*（$\Delta$mAP = 0.000）。这与如下假设一致：RF 的直线 ODE 路径已提供充分的时间结构，使零初始化的调制成为冗余。我们将 AdaLN-Zero 作为标准条件机制 (Dhariwal & Nichol, 2021) 保留，以与更广泛的扩散文献保持一致，但指出它并不贡献于 Section 4.2.1 中所声明的 $+0.082$ mAP 改善。整个 $+0.082$ 差距归因于 RF 公式本身（直线 ODE 路径）；偏移的噪声调度自身贡献可忽略，如 Appendix B 所示。
 
 ### E. 偏移噪声调度消融
 
@@ -599,7 +596,7 @@ AdaLN-Zero 在此数据集上的 RF 框架内贡献为 *零*（$\Delta$mAP = 0.0
      "AdaLN-Zero and Shifted Schedule Ablations" 单节（约 1 段）于
      10 页 IEEE 主文中。完整表格在此保留作为事实记录。]
 
-本附录报告 Section 3.1.2、摘要和结论中引用的偏移噪声调度的独立消融。偏移调度（shift=3.0）作为 RF 训练配置的一部分贯穿本文使用，但其对 +0.082 mAP 增益的单独贡献此前未被分离。我们通过在 Dataset 2 上以 shift 设为 0（即线性调度）训练相同配置来填补这一空白。
+本附录报告 Section 3.1.2、摘要和结论中引用的偏移噪声调度的独立消融。偏移调度（shift=3.0）作为 RF 训练配置的一部分贯穿本文使用，但其对 $+0.082$ mAP 增益的单独贡献此前未被分离。我们通过在 Dataset 2 上以 shift 设为 $0$（即线性调度）训练相同配置来填补这一空白。
 
 两个实验除 shift 参数外配置相同（RF 公式、Heun solver 4 步、随机耦合、150 epochs、seed 42）。结果按验证 mAP 的最佳 checkpoint 报告。
 
@@ -609,9 +606,9 @@ AdaLN-Zero 在此数据集上的 RF 框架内贡献为 *零*（$\Delta$mAP = 0.0
 | Shifted (shift=3.0) | 0.856 | 0.990 | 0.971 | 0.563 |
 | $\Delta$ | $-0.001$ | $+0.001$ | $0.000$ | $+0.008$ |
 
-**表 E.1**：Dataset 2 上的偏移噪声调度消融。偏移调度对 mAP 的单独贡献可忽略；整个相对 Euler 基线的 +0.082 差距归因于 RF 公式本身。线性调度运行的运行内 epoch mAP std 为 0.0037（最后 30 个 epoch）。AP$_M$ 和 AP$_L$ 在两种调度间至多相差 0.004（未显示）。
+**表 E.1**：Dataset 2 上的偏移噪声调度消融。偏移调度对 mAP 的单独贡献可忽略；整个相对 Euler 基线的 $+0.082$ 差距归因于 RF 公式本身。线性调度运行的运行内 epoch mAP std 为 0.0037（最后 30 个 epoch）。AP$_M$ 和 AP$_L$ 在两种调度间至多相差 0.004（未显示）。
 
-偏移调度的单独贡献为 $\Delta$mAP = −0.001（≈0%），完全处于 seed 噪声范围内，尽管它在小目标上带来小的 +0.008 改善（AP$_S$；AP$_M$ 和 AP$_L$ 至多相差 0.004）。这证实 Section 4.2.1 中所声明的相对 Euler 基线的 +0.082 mAP 增益归因于 RF 公式本身（直线 ODE 路径），而非偏移调度。我们将偏移调度作为继承自扩散检测文献的标准细节保留，但它不是单独的精度增益来源。因此 Section 4.5 中的 solver×step 解耦将 +0.082 差距的 94% 归因于 *作为整体* 的 RF 范式，其中直线 ODE 路径占主导。
+偏移调度的单独贡献为 $\Delta \text{mAP} = -0.001$（$\approx 0\%$），完全处于 seed 噪声范围内，尽管它在小目标上带来小的 $+0.008$ 改善（AP$_S$；AP$_M$ 和 AP$_L$ 至多相差 0.004）。这证实 Section 4.2.1 中所声明的相对 Euler 基线的 $+0.082$ mAP 增益归因于 RF 公式本身（直线 ODE 路径），而非偏移调度。我们将偏移调度作为继承自扩散检测文献的标准细节保留，但它不是单独的精度增益来源。因此 Section 4.5 中的 solver×step 解耦将 $+0.082$ 差距的 $94\%$ 归因于 *作为整体* 的 RF 范式，其中直线 ODE 路径占主导。
 
 ### F. 逐类 AP 细节
 
@@ -677,25 +674,3 @@ C 组染色体（C6–C12）是典型的"难以区分"类别：七条中大尺�
 #### F.5 定位饱和与下游潜力
 
 所有类别的 AP50 接近饱和（>0.988，Y 为 0.972），因此定位接近饱和（>0.988），残余误差集中在细粒度分类上。一个在正确定位的裁剪区域上工作的下游精化阶段——带纹分类器或形态感知的重新评分头——原则上可恢复相当一部分剩余 AP，因为上游检测器已经提供了正确的区域。
-
-
-## 草稿补充材料（暂不放入正文）
-
-> 以下表格为 per-image Wilcoxon 跨方法比较的初步结果，**暂不放入正文**。
-> 原因: per-image Wilcoxon 检验使用的是 A3 (Heun+StochOT) 配置的 RF 预测，
-> 而 Table 6 引用的是 A4 best (DPM-Solver++) 配置的 RF mAP。
-> 两者配置不同，直接并列会引起读者困惑。
-> 待后续用 A4 配置重跑 per-image Wilcoxon 后，再决定是否纳入正文。
-> 可作为 arXiv companion preprint 的补充材料。
-
-### Table 8b (草稿): RF vs SOTA Per-Image Wilcoxon 检验 (A3 配置, n=500)
-
-| 对比 | Δ mean (RF - 对方) | Wilcoxon W | p 值 | 显著性 | 相对差距 |
-|------|--------------------|------------|------|--------|----------|
-| RF (A3) vs DINO R50 | -0.0145 | 36092.5 | 2.24e-16 | *** | RF 落后 1.64% |
-| RF (A3) vs RTMDet-L | -0.0041 | 51573.0 | 1.02e-03 | ** | RF 落后 0.47% |
-| RF (A3) vs Cascade R-CNN | +0.0002 | 60124.5 | 4.85e-01 | n.s. | RF 略优 0.03% |
-| RF (A3) vs DiffusionDet | +0.0485 | 3509.5 | 1.02e-74 | *** | RF 领先 5.88% |
-
-> 注: RF 使用 A3 (Heun+StochOT) 配置, mAP=0.8521; Table 6 引用 A4 best mAP=0.863。
-> Per-image AP (非 aggregate mAP) 用于配对检验。
