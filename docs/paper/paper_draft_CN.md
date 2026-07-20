@@ -350,7 +350,7 @@ $\epsilon < 1$ 是有害的（在相同增广设置下 mAP −1.3%）；$\epsilo
 
 #### 4.5.2 DPM-Solver++ 步数消融
 
-DPM-Solver++ 在 2 步收敛（mAP 0.863，seed 42）；超过 2 步无收益，证实 RF 轨迹接近直线。
+DPM-Solver++ 在 2 步收敛（mAP 0.863，seed 42）；超过 2 步无收益，证实 RF 轨迹接近直线。我们以 DPM-Solver++ 2M 多步法的离散化误差诊断量 $\eta_{\mathrm{str}} := \lVert D_1\rVert / \lVert \hat{\mathbf{x}}_0\rVert$（$D_1$ 为二阶校正项，$\hat{\mathbf{x}}_0$ 为 data-prediction）量化该现象：理想 RF 的直线 ODE 路径对应恒定速度场，理论上有 $D_1 \to 0$ 即 $\eta_{\mathrm{str}} \to 0$。在 3 个 seed（42/123/789）的 A3 checkpoint 上实测，$\eta_{\mathrm{str}}$ 沿 4 步推理单调下降 $3.43 \to 2.45 \to 1.68$（mean ± std: step1 $3.43 \pm 0.36$, step2 $2.45 \pm 0.24$, step3 $1.68 \pm 0.15$；500 张图像/seed 的 batch 均值）。$\eta_{\mathrm{str}}$ 在第 2 步已降至 step1 的 $71\%$，对应"2 步即收敛"的实证观察：第 3 步及之后的二阶校正贡献随 $\eta_{\mathrm{str}}$ 衰减而趋于零，构成对 RF 直线性 claim 的定量支撑而非仅依赖 mAP 点估计。
 
 #### 4.5.3 匹配 NFE 下 DPM-Solver++ 对比 Heun
 
@@ -422,6 +422,12 @@ Stochastic Coupling 的价值有两个不同的组成部分。在 Dataset 2（50
 ### 5.4 Top-$K$ 剪枝：依赖 Solver 的有效性
 
 Top-$K$ 剪枝的有效性取决于每步 NFE：对 Heun（2 NFE/步），剪枝影响 6/8 次调用（1.09–1.12× 加速）；对 DPM-Solver++（1 NFE/步），影响 3/4 次调用（1.05–1.08×）。DPM-Solver++ 已通过 NFE 减少获得大部分加速，使 Top-$K$ 影响较小。
+
+**Top-$K$ 剪枝与 DPM-Solver++ 多步历史的交互。** Top-$K$ 在每步剪枝后对低置信度 proposals 做 box renewal（重置为噪声），随之触发了 `dpm_solver.reset()`，清空 DPM-Solver++ 2M 所依赖的 $\hat{\mathbf{x}}_0$ 历史。我们在 seed 42 的 A3 checkpoint 上以 $\eta_{\mathrm{str}}$ 诊断该交互：相对 baseline 的单调下降模式 $3.94 \to 2.79 \to 1.89$，K=200 配置呈现 V-shape $1.37 \to 2.24 \to 1.54$（step1 异常低，因 reset 后退化为 Euler 一阶；step2 升高，因新历史建立后二阶校正 $D_1$ 恢复）。该 V-shape 模式确认 Top-$K$ + box renewal 在每步冷启动 DPM-Solver++，理论上方损了多步法的二阶精度优势。
+
+**K=100 掉点归因的证伪。** 一个自然的猜测是 K=100 相对 K=200 的 mAP 退化（$-0.010$，Table 10）源于更激进的 box renewal 进一步破坏 DPM-Solver++ 多步历史。但实测 K=100 与 K=200 的 $\eta_{\mathrm{str}}$ 几乎相同（step2: 2.18 vs 2.24，step3: 1.54 vs 1.54），均呈 V-shape 且二阶校正量级一致——D3 路径未被进一步破坏。因此 K=100 的掉点主因是 proposal 数量不足（100 个框覆盖 ~46 条染色体 + 重叠冗余时容量紧张），而非 DPM-Solver++ 历史污染。
+
+**Box renewal 对 $\eta_{\mathrm{str}}$ 的整体影响（D3 矛盾的化解）。** 关闭 box renewal 后 $\eta_{\mathrm{str}}$ 整体降至 baseline 的 44%（step1: 1.50 vs 3.43，step3: 0.70 vs 1.68；3-seed 均值），轨迹更接近理想 RF 直线，但 mAP 仅变化 $-0.0003 \pm 0.003$（噪声范围内）。这表明 box renewal 通过污染 $\eta_{\mathrm{str}}$ 量化上"弯曲"了 RF 轨迹，但该弯曲对最终 mAP 影响可忽略——DPM-Solver++ 的二阶校正即便在 renewal 污染下仍提供 §4.5.3 中 $+0.006$ mAP 的精度优势，因 proposals 在每步冷启动后由 RF 速度场重新对齐至直线 ODE 路径。
 
 ### 5.5 理论适用性与局限
 
