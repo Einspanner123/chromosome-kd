@@ -31,6 +31,12 @@ class DiffusionDetCriterion(nn.Module):
         scale_aware_giou: bool = False,
         bbox_loss_mode: str = 'l1',
         bbox_loss_eps: float = 1e-2,
+        # R3: v-prediction 等价的损失重加权
+        # 理论 (theory_analysis_RF_DPM.md §4.3): L_v = (1/t²) L_x0 (L2 squared 下)
+        # L1 loss 下严格等价应为 1/t, 这里用 1/t² 匹配理论 doc 的梯度放大 claim
+        # 并对权重做 batch normalization (均值=1), 避免训练崩溃
+        v_prediction: bool = False,
+        v_prediction_t_eps: float = 1e-2,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -47,6 +53,8 @@ class DiffusionDetCriterion(nn.Module):
         self.scale_aware_giou = scale_aware_giou
         self.bbox_loss_mode = bbox_loss_mode
         self.bbox_loss_eps = bbox_loss_eps
+        self.v_prediction = v_prediction
+        self.v_prediction_t_eps = v_prediction_t_eps
 
 
     def forward(
@@ -251,10 +259,26 @@ class DiffusionDetCriterion(nn.Module):
             per_elem_l1 = F.l1_loss(
                 src_cxcywh, tgt_cxcywh, reduction='none'
             )  # [bs, N, 4]
-            masked_l1 = per_elem_l1 * fg_masks.unsqueeze(-1).float()
+            if self.v_prediction and t is not None:
+                # R3: v-prediction 等价的 1/t² 损失加权
+                # t 是 [bs,] 张量 (shifted schedule 后, 范围 [0,1])
+                # 理论 (§4.3): v-prediction 在 t→0 时梯度放大 1/t²
+                # batch normalization (均值=1) 控制绝对幅度, 避免训练崩溃
+                t_clamped = t.clamp(min=self.v_prediction_t_eps)
+                v_weight = 1.0 / (t_clamped ** 2)  # [bs,]
+                v_weight = v_weight / v_weight.mean().detach()
+                v_weight = v_weight.view(-1, 1, 1)  # [bs, 1, 1]
+                masked_l1 = (
+                    per_elem_l1
+                    * fg_masks.unsqueeze(-1).float()
+                    * v_weight
+                )
+            else:
+                masked_l1 = per_elem_l1 * fg_masks.unsqueeze(-1).float()
 
             loss_bbox = self.loss_bbox.loss_weight * masked_l1.sum() / num_pos
             # GIoU loss: 逐元素计算后 mask
+            # GIoU 不是 t 的简单函数, v_prediction 下保持不加权
             per_giou = ops.generalized_box_iou_loss(
                 src_boxes.reshape(-1, 4),
                 tgt_boxes.reshape(-1, 4),
