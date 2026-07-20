@@ -227,35 +227,51 @@ Figure~\ref{fig:method_overview} summarizes the framework.
 \section{Related Work}\label{sec:related}
 
 \paragraph{Diffusion-based object detection}
-DiffusionDet~\cite{chen2023diffusiondet} formulates detection as iterative
-denoising from noisy boxes using DDPM, but curved DDPM trajectories make
-few-step inference slow and truncation-error-prone. DiffuBox~\cite{chen2024diffubox}
-extends the diffusion paradigm to 3D object detection via point-diffusion
-refinement of coarse proposals, but the 3D point-diffusion setting differs
-substantially from our 2D noise-box-to-GT formulation. FlowDet~\cite{baty2025flowdet}
-applies Conditional Flow Matching with mini-batch OT coupling and reports
-higher-order solvers perform worse, but does not analyze \emph{why} mini-batch
-OT becomes a liability in low-dimensional structured prediction.
-DeFloMat~\cite{deflomat2025} uses Rectified Flow for medical detection but
-treats coupling as an implementation detail. Our work closes these gaps with
-a formal analysis of OT Diversity Collapse and a controlled solver
-disentanglement refining FlowDet's conclusion.
+Diffusion-based detectors reformulate detection as iterative denoising from
+noisy boxes to GT boxes. Existing works leave three key gaps.
+\emph{DiffusionDet}~\cite{chen2023diffusiondet} relies on DDPM, whose curved
+stochastic trajectories make few-step inference slow and
+truncation-error-prone. \emph{DiffuBox}~\cite{chen2024diffubox} extends
+diffusion to 3D detection, but its point-diffusion refinement paradigm is
+fundamentally different from our 2D noise-box-to-GT formulation and cannot
+be directly borrowed. \emph{FlowDet}~\cite{baty2025flowdet} is closest to
+our work---it uses Conditional Flow Matching with mini-batch OT coupling,
+but has two key shortcomings: it reports ``higher-order solvers perform
+worse'' without analyzing why, and overlooks the harm of OT coupling in
+low-dimensional detection spaces. \emph{DeFloMat}~\cite{deflomat2025} applies
+Rectified Flow to medical detection but treats coupling as an implementation
+detail, ignoring its critical role in low-data regimes. Our work fills these
+three gaps: (i) we formally analyze the OT diversity collapse pathology in
+low-dimensional spaces, answering the ``why'' question FlowDet left
+unaddressed; (ii) we show via a controlled solver disentanglement that
+higher-order solvers are in fact slightly \emph{better} at matched step
+count, correcting FlowDet's conclusion; (iii) we elevate coupling design
+from an implementation detail to an analyzable training pathology and
+propose Stochastic Coupling as a remedy.
 
 \paragraph{Rectified Flow and Flow Matching}
 Rectified Flow~\cite{liu2023rectified} replaces curved DDPM trajectories with
 straight-line ODE paths, and Flow Matching~\cite{lipman2023flow} provides a
-unified training framework. OT-CFM~\cite{tong2023conditional} and multisample
-flow matching~\cite{pooladian2023multisample} use mini-batch OT coupling
-successfully in \emph{image generation} ($d \sim 10^5$, $K \approx$ batch size),
-but the behavior in low-dimensional structured prediction ($d$ small, $K$
-targets per image) has not been characterized in terms of diversity collapse.
-Concurrent work analyzes OT degradation in conditional high-dimensional
-generation~\cite{cheng2025curse}, but the failure mode there
-(condition-skewed prior) is orthogonal to the low-dimensional diversity
-collapse we characterize. With $d=4$ and $K \approx 46$, OT coupling
-approaches its $\log K$ entropy-reduction upper bound, collapsing coupling
-diversity. We characterize this failure mode and propose Stochastic Coupling
-as a remedy interpolating between hard OT and random pairing.
+unified training framework. Existing OT coupling methods (OT-CFM~\cite{tong2023conditional},
+multisample flow matching~\cite{pooladian2023multisample}) work well in
+\emph{image generation}---a high-dimensional ($d \sim 10^5$) setting where
+$K$ equals batch size and OT loss is negligible. But detection is
+fundamentally different: the dimensionality is extremely low ($d=4$) and
+each image contains many targets ($K \approx 46$).
+\emph{FlowDet}~\cite{baty2025flowdet} and \emph{DeFloMat}~\cite{deflomat2025}
+also work in this low-dimensional setting, but neither recognized the OT
+diversity collapse: FlowDet only reports empirical OT results, and DeFloMat
+treats coupling as an implementation detail. Our key insight is that
+precisely in this low-dimensional, high-$K$ regime, OT coupling approaches
+its $\log K$ entropy-reduction upper bound and coupling diversity collapses
+to zero. This failure mode is neither touched by OT-CFM and other
+high-dimensional works (where OT loss is negligible) nor equivalent to the
+concurrent analysis of Cheng and Schwing~\cite{cheng2025curse} on conditional
+high-dimensional generation degradation (their failure mode is
+condition-skewed prior, orthogonal to our low-dimensional collapse). We not
+only analyze this pathology but also propose Stochastic Coupling as an
+interpolating remedy between hard OT and random pairing---the first explicit
+solution for OT collapse in low-dimensional structured prediction.
 
 \paragraph{Chromosome detection}
 Automated chromosome detection has been studied for decades, originally
@@ -293,8 +309,8 @@ The conditional probability path is
   \mathbf{x}_t = (1-t)\, \mathbf{x}_0 + t\, \mathbf{x}_1, \qquad t \in [0,1],
 \end{equation}
 where $\mathbf{x}_0$ is the target (GT bbox) and $\mathbf{x}_1$ is the source (Gaussian
-noise). The corresponding velocity field is constant along the path,
-$\mathbf{v} = \mathbf{x}_1 - \mathbf{x}_0$, and the training objective is the flow matching loss
+noise). The corresponding velocity field is constant along the path of~(\ref{eq:rf-path}),
+$\mathbf{v} = \mathbf{x}_1 - \mathbf{x}_0$, and the training objective is the flow matching loss in~(\ref{eq:fm-loss})
 \begin{equation}\label{eq:fm-loss}
   \mathcal{L}_{\mathrm{FM}} = \E_{t, \mathbf{x}_0, \mathbf{x}_1}\!\left[ \norm{ \mathbf{v}_\theta(\mathbf{x}_t, t) - (\mathbf{x}_1 - \mathbf{x}_0) }^2 \right].
 \end{equation}
@@ -314,7 +330,7 @@ a standard implementation detail.
 \subsection{ODE Solvers}\label{sec:method-solver}
 
 \paragraph{Heun solver (2nd-order)}
-Heun's method provides 2nd-order ODE accuracy via a predictor--corrector:
+Heun's method provides 2nd-order ODE accuracy via the predictor--corrector in~(\ref{eq:heun}):
 \begin{equation}\label{eq:heun}
 \begin{aligned}
   \hat{\mathbf{x}}_{t-\Delta t} &= \mathbf{x}_t + \Delta t \cdot \mathbf{v}_\theta(\mathbf{x}_t, t), \\
@@ -330,7 +346,7 @@ directly predicts $\mathbf{x}_0$ (the GT box), and the update uses polynomial
 interpolation of the $\mathbf{x}_0$ history in $t$ space (not the log-SNR
 $\lambda$ space of VP-SDE). The RF-ODE in data-prediction form is
 $d\mathbf{x}/dt = (\mathbf{x} - \mathbf{x}_0(t))/t$; integrating exactly over
-$[t_n, t_{n+1}]$ with linear $\mathbf{x}_0(t)$ interpolation yields
+$[t_n, t_{n+1}]$ with linear $\mathbf{x}_0(t)$ interpolation yields the update in~(\ref{eq:dpmpp})
 \begin{equation}\label{eq:dpmpp}
 \begin{aligned}
   \mathbf{x}_{t_{n+1}} &= \tfrac{t_{n+1}}{t_n}\,\mathbf{x}_{t_n}
@@ -444,13 +460,13 @@ empirical match, and Figure~\ref{fig:entropy-phase} traces conditional entropy
 $H(V \mid Z)$ as a function of the stochastic coupling parameter $\epsilon$.
 
 \paragraph{Tight lower bound}
-The upper bound of Proposition~\ref{prop:ot-gap} is essentially tight:
+The upper bound~(\ref{eq:ot-upper}) of Proposition~\ref{prop:ot-gap} is essentially tight:
 a matching lower bound shows OT collapse is severe whenever noise is small
 relative to inter-box distances.
 
 \begin{proposition}[OT Diversity Lower Bound]\label{prop:ot-lower}
 Under the Gaussian noise model with variance $\sigma_t^2 I_d$ at time $t$
-and well-separated GT boxes ($\min_{j \ne k} \norm{b_k - b_j} \ge d_{\min}$),
+and well-separated GT boxes ($\min_{j \ne k} \norm{\mathbf{b}_k - \mathbf{b}_j} \ge d_{\min}$),
 \begin{equation}\label{eq:ot-lower}
   \Delta H \;\ge\; \log K \cdot \bigl(1 - P_{\mathrm{err}}(t)\bigr)
   - h\bigl(P_{\mathrm{err}}(t)\bigr),
@@ -462,7 +478,7 @@ $\sigma_t / d_{\min} \to 0$, matching the upper bound.
 \end{proposition}
 
 For chromosome detection ($d_{\min} \approx 20$\,px, $\sigma_t \sim 1$\,px),
-$P_{\mathrm{err}} < 10^{-45}$, so the bound predicts $\Delta H \ge 0.999\,\log K$,
+$P_{\mathrm{err}} < 10^{-45}$, so the bound~(\ref{eq:ot-lower}) predicts $\Delta H \ge 0.999\,\log K$,
 consistent with the observed $0.03\%$ gap and confirming that OT collapse is
 \emph{unavoidable} rather than an artifact of the $N \to \infty$ idealization.
 
@@ -524,11 +540,11 @@ transport matrix rows~\cite{cuturi2013sinkhorn}:
   \pi_{\text{stoch}}(i) \;\sim\; \operatorname{Categorical}\!\left( \frac{ T_\epsilon(i,:) }{ \sum_j T_\epsilon(i,j) } \right).
 \end{equation}
 \end{definition}
-The key property is that $H_{\text{stoch}}(V \mid X_t; \epsilon)$ increases
+The key property of the coupling in~(\ref{eq:stoch-coupling}) is that $H_{\text{stoch}}(V \mid X_t; \epsilon)$ increases
 monotonically with $\epsilon$; endpoints are $\epsilon \to 0$ = hard OT and
 $\epsilon \to \infty$ = random coupling.
 \begin{proposition}[Stochastic Coupling Monotonicity]\label{prop:monotone}
-Under uniform source marginal, $H_{\text{stoch}}(V \mid X_t; \epsilon)$ is
+Under uniform source marginal, the Stochastic Coupling of Definition~\ref{def:stoch} satisfies that $H_{\text{stoch}}(V \mid X_t; \epsilon)$ is
 monotonically non-decreasing in the Sinkhorn regularization $\epsilon \ge 0$
 (proof in Appendix~\ref{app:proofs}, via the envelope theorem applied to
 entropy-regularized OT).
@@ -550,7 +566,7 @@ While the \mAP{} improvement is marginal ($+0.002$ on 24 Chromosomes Object), it
     \toprule
     Configuration & Best mAP & Epoch std \\
     \midrule
-    RF + AdaLN (no Stoch.~Coup.)         & 0.856 & 0.006 \\
+    RF + AdaLN (no Stoch.~Coup.)         & 0.856 & 0.0060 \\
     RF + AdaLN + Stoch.~Coup. ($\epsilon{=}5$) & 0.858 & \textbf{0.0013} \\
     \midrule
     Stability gain & --- & $4.6\times$ \\
@@ -563,7 +579,7 @@ While the \mAP{} improvement is marginal ($+0.002$ on 24 Chromosomes Object), it
   \includegraphics[width=\columnwidth]{figures/training_stability.pdf}
   \caption{Training stability (24 Chromosomes Object, real per-epoch mAP from training
   logs): Random coupling exhibits epoch-level oscillation with std
-  $0.006$, while Stochastic Coupling ($\epsilon{=}5$) converges smoothly with
+  $0.0060$, while Stochastic Coupling ($\epsilon{=}5$) converges smoothly with
   std $0.0013$ ($4.6\times$ improvement). Shaded band marks the last 30
   epochs used for std computation.}
   \label{fig:training-stability}
@@ -914,7 +930,7 @@ Stochastic Coupling achieves $30/30$ epochs within $1\%$ of the best \mAP{}
     \toprule
     Metric & A1 (Random) & A3 (Stochastic Coupling ($\epsilon{=}5$)) & Gain \\
     \midrule
-    Last-30 epoch std                 & 0.006          & 0.0013         & $4.6\times$ \\
+    Last-30 epoch std                 & 0.0060         & 0.0013         & $4.6\times$ \\
     Last-30 CV (std/mean)             & 0.69\%         & 0.16\%         & $4.4\times$ \\
     Last-30 range (max$-$min)         & 0.023          & 0.005          & $4.6\times$ \\
     Epochs within $1\%$ of best (last 30) & 13/30 (43\%)   & 30/30 (100\%)  & --- \\
@@ -1075,38 +1091,33 @@ larger data. DPM-Solver++ with Top-$K$ pruning delivers four-step inference
 at $13.3$--$14.2$ FPS with a small but significant precision advantage over
 Heun, positioning the detector for interactive clinical screening.
 
-The OT Diversity Collapse phenomenon is not chromosome-specific --- it
-arises whenever $d \ll 100$, $K \gg 10$, and the training corpus is small
-(Table~\ref{tab:ot-severity}), recurring in cell detection, lesion
-detection, and colony counting. Limitations: (i) validation confined to
-chromosome data; (ii) Stochastic Coupling's \mAP{} gain is dataset-dependent
-(stability benefit holds independently); (iii) the theory assumes
-well-separated targets.
+The OT Diversity Collapse is not chromosome-specific --- it arises whenever
+$d \ll 100$, $K \gg 10$, and the training corpus is small
+(Table~\ref{tab:ot-severity}), recurring in cell, lesion, and colony
+detection. Limitations: (i) validation confined to chromosome data;
+(ii) Stochastic Coupling's \mAP{} gain is dataset-dependent (stability
+benefit holds independently); (iii) theory assumes well-separated targets.
 
 % ============================================================
 \appendices
 
 % ============================================================
 \section{Proofs and Additional Ablations}\label{app:proofs}
-Full proofs in the arXiv companion.
-\emph{Prop.~\ref{prop:ot-gap}} ($\Delta H \le \log K$): OT makes $V$
+Full proofs in the arXiv companion. Proposition~\ref{prop:ot-gap}: OT makes $V$
 deterministic (Lemma~\ref{lem:voronoi}), so $H_{\text{OT}}=0$.
-\emph{Prop.~\ref{prop:ot-lower}} (Fano): $P_{\mathrm{err}} \le
-\binom{K}{2}\Phi(-d_{\min}/(2\sigma_t))$; as $\sigma_t/d_{\min}\to 0$,
-$\Delta H \to \log K$.
-\emph{Prop.~\ref{prop:monotone}} (envelope theorem): Sinkhorn
+Proposition~\ref{prop:ot-lower} (Fano): $P_{\mathrm{err}} \le
+\binom{K}{2}\Phi(-d_{\min}/(2\sigma_t))$, so $\Delta H \to \log K$ as
+$\sigma_t/d_{\min}\to 0$. Proposition~\ref{prop:monotone}: Sinkhorn
 $\mathcal{V}(\epsilon)$ concave $\Rightarrow$ $dH/d\epsilon \ge 0$.
-\emph{AdaLN-Zero and shifted schedule:} both null ($\Delta$\mAP{}$=0.000$,
-$-0.001$); Y chromosome hardest ($\mathrm{AP}{=}0.779$, $\sim$1{,}803 vs
-$\sim$7{,}000 samples per autosome).
+AdaLN-Zero and shifted schedule both null ($\Delta$\mAP{}$=0.000$, $-0.001$);
+Y chromosome hardest ($\mathrm{AP}{=}0.779$, $\sim$1{,}803 vs $\sim$7{,}000
+samples per autosome).
 
 % ============================================================
 \section*{Data Availability}
-The two public datasets used in this study are Dataset~1 (RST,
-Chromosome20240904)~\cite{rst_dataset} and Dataset~2 (24 Chromosomes
-Object)~\cite{tseng2023dataset,lu2022cil54816}; access URLs are provided
-in the aforementioned reference entries. Source code will be released
-upon publication.
+Datasets: Dataset~1 (RST, Chromosome20240904)~\cite{rst_dataset} and
+Dataset~2 (24 Chromosomes Object)~\cite{tseng2023dataset,lu2022cil54816};
+URLs in the aforementioned references. Code released upon publication.
 
 % ============================================================
 \bibliographystyle{IEEEtran}

@@ -115,11 +115,17 @@ Rectified Flow (RF) 提供了一种有原则的补救：通过以从噪声到 gr
 
 ### 2.1 基于扩散的目标检测
 
-DiffusionDet 将检测表述为使用 DDPM 从带噪框进行的迭代去噪，但弯曲的 DDPM 轨迹使少步推理缓慢且易产生截断误差。DiffuBox (Chen et al., 2024) 通过对粗 proposals 进行 point-diffusion 精化，将扩散范式扩展到 3D 目标检测，但 3D point-diffusion 设置与我们的 2D noise-box-to-GT 公式存在本质差异。FlowDet 采用带 mini-batch OT 耦合的 Conditional Flow Matching，并报告高阶 solver 表现更差，但未分析 *为何* mini-batch OT 在低维结构化预测中成为训练瓶颈。DeFloMat 将 Rectified Flow 用于医学检测，但把耦合视为实现细节。我们的工作通过对 OT Diversity Collapse 的形式化分析以及一个修正 FlowDet 结论的受控 solver 解耦实验，弥补了这些空白。
+基于扩散的检测器将检测重构为从噪声框到 GT 框的迭代去噪。现有工作存在三个关键空白：
+
+**DiffusionDet** 基于 DDPM，弯曲的随机轨迹使少步推理既慢又产生截断误差。**DiffuBox** (Chen et al., 2024) 将扩散扩展到 3D 检测，但其 point-diffusion 精化范式与我们的 2D noise-box-to-GT 公式本质不同，无法直接借鉴。**FlowDet** 最接近我们的工作——它采用 mini-batch OT 耦合的 Conditional Flow Matching，但有两个关键缺陷：报告"高阶 solver 表现更差"却未分析原因，且未察觉 OT 耦合在低维检测空间中的危害。**DeFloMat** 将 Rectified Flow 用于医学检测，但把耦合当作实现细节，忽略了其在低数据场景下的关键作用。
+
+我们的工作恰好弥补这三个空白：(1) 形式化分析 OT 耦合在低维空间的多样性坍缩病理，回答 FlowDet 未触及的"为何"问题；(2) 通过受控 solver 解耦实验证明高阶 solver 在匹配步数下反而略优，修正 FlowDet 的结论；(3) 将耦合设计从实现细节提升为可分析的训练病理，并提出 Stochastic Coupling 作为补救。
 
 ### 2.2 Rectified Flow 与 Flow Matching
 
-Rectified Flow 以直线 ODE 路径取代弯曲的 DDPM 轨迹，而 Flow Matching 提供了统一的训练框架。OT-CFM 和多样本 flow matching 在 *图像生成*（$d \sim 10^5$，$K \approx$ batch 大小）中成功使用 mini-batch OT 耦合，但其在低维结构化预测（$d$ 小，每张图像 $K$ 个目标）中的行为尚未在多样性坍缩的框架下被刻画。并发工作 (Cheng & Schwing, 2025) 分析了条件高维生成中的 OT 退化，但其中的失效模式（条件偏斜先验）与我们刻画的低维多样性坍缩正交。当 $d=4$ 且 $K \approx 46$ 时，OT 耦合逼近其 $\log K$ 熵减上界，使耦合多样性坍缩。我们刻画这一失效模式，并提出 Stochastic Coupling 作为在 hard OT 与随机配对之间插值的补救措施。
+Rectified Flow (Liu et al., 2023) 以直线 ODE 路径取代弯曲 DDPM 轨迹，Flow Matching (Lipman et al., 2023) 提供统一训练框架。现有 OT 耦合方法（OT-CFM、多样本 flow matching）在 *图像生成* 中表现良好——那是高维（$d \sim 10^5$）、$K$ 等于 batch 大小的场景，OT 损失可忽略。
+
+但检测场景的本质截然不同：维度极低（$d=4$），每张图像目标数多（$K \approx 46$）。FlowDet 和 DeFloMat 同样在低维检测场景下使用 RF/flow matching，但前者仅报告 OT 耦合的经验结果而未分析其失效机理，后者更将耦合视为实现细节——两者都未察觉低维空间中的 OT 多样性坍缩。我们的核心洞察是：正是在这个低维、高 $K$ 的场景下，OT 耦合逼近其 $\log K$ 熵减上界，耦合多样性坍缩到零。这一失效模式既未被 OT-CFM 等高维工作触及（高维下 OT 损失可忽略），也不同于并发工作 (Cheng & Schwing, 2025) 分析的条件高维生成退化（其失效模式是条件偏斜先验，与我们的低维坍缩正交）。我们不仅分析了这一病理，还提出 Stochastic Coupling 作为在 hard OT 与随机配对之间插值的补救措施——这是首个针对低维结构化预测中 OT 坍缩的显式解决方案。
 
 ### 2.3 染色体检测
 

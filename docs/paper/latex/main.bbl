@@ -32,13 +32,19 @@ C.~Lu, Y.~Zhou, F.~Bao, J.~Chen, C.~Li, and J.~Zhu, ``{DPM-Solver++}: Fast
   Intelligence Research}, 2025.
 
 \bibitem{baty2025flowdet}
+\BIBentryALTinterwordspacing
 E.~Baty, C.~P. Bridges, and S.~Hadfield, ``{FlowDet}: Unifying object detection
-  and generative transport flows,'' 2025.
+  and generative transport flows,'' arXiv:2512.16771, 2025. [Online].
+  Available: \url{https://arxiv.org/abs/2512.16771}
+\BIBentrySTDinterwordspacing
 
 \bibitem{deflomat2025}
+\BIBentryALTinterwordspacing
 H.~Lee, C.~Lee, N.~Seo, J.~S. Lim, and H.~Hong, ``{DeFloMat}: Detection with
   flow matching for stable and efficient generative object localization,''
-  2025.
+  arXiv:2512.22406, 2025. [Online]. Available:
+  \url{https://arxiv.org/abs/2512.22406}
+\BIBentrySTDinterwordspacing
 
 \bibitem{tong2023conditional}
 A.~Tong, K.~Fatras, N.~Malkin, G.~Huguet, Y.~Zhang, J.~Rector-Brooks, G.~Wolf,
@@ -147,7 +153,10 @@ H.~W. Kuhn, ``The hungarian method for the assignment problem,'' \emph{{Naval
   Research Logistics Quarterly}}, vol.~2, no. 1-2, pp. 83--97, 1955.
 
 \bibitem{ge2021yolox}
+\BIBentryALTinterwordspacing
 Z.~Ge, S.~Liu, F.~Wang, Z.~Li, and J.~Sun, ``{YOLOX}: Exceeding {YOLO} series
-  in 2021,'' 2021.
+  in 2021,'' arXiv:2107.08430, 2021. [Online]. Available:
+  \url{https://arxiv.org/abs/2107.08430}
+\BIBentrySTDinterwordspacing
 
 \end{thebibliography}
