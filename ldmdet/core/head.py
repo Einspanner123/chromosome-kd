@@ -771,6 +771,18 @@ class DiffusionDetHead(nn.Module):
             except Exception:
                 pass
 
+        # R1 诊断: 收集本次推理的 eta_str 历史 (DPM-Solver++ 直线度指标)
+        # dpm_solver.eta_str_history 在每个 step 后 append 一个值;
+        # 4 步推理下通常 length=3 (step 0 是 linear, 无 D1; step 1/2/3 记录)
+        # 保存到 self._last_eta_str_log 供实验脚本读取 (不写入 SwanLab, 避免污染训练指标)
+        try:
+            if dpm_solver is not None and hasattr(dpm_solver, 'eta_str_history'):
+                self._last_eta_str_log = list(dpm_solver.eta_str_history)
+            else:
+                self._last_eta_str_log = []
+        except Exception:
+            self._last_eta_str_log = []
+
         if return_trajectory:
             return results, trajectory
         return results

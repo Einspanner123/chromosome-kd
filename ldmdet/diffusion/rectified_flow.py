@@ -113,6 +113,9 @@ class RFDPMSolverMultistep:
     def reset(self):
         self.x0_history: list[torch.Tensor] = []
         self.t_history: list[float] = []
+        # R1 诊断: 记录每步的直线度指标 eta_str
+        # eta_str = ||D1|| / ||x0||, 理想 RF 下 D1=0, eta_str=0
+        self.eta_str_history: list[float] = []
 
     def step(
         self,
@@ -139,6 +142,15 @@ class RFDPMSolverMultistep:
         x0_p = self.x0_history[-2]
         t_p = self.t_history[-2]
         D1 = (x0_n - x0_p) / (t_n - t_p)
+
+        # R1 诊断: 记录 eta_str = ||D1|| / ||x0|| (batch 均值)
+        # 理想 RF (直线 ODE, x0(t)=const) 下 D1=0, eta_str=0
+        # eta_str 大表示学习轨迹非直线, DPM-Solver++ 二阶校正生效
+        with torch.no_grad():
+            d1_norm = D1.norm(dim=-1)  # [bs, N]
+            x0_norm = x0_n.norm(dim=-1).clamp(min=1e-6)  # [bs, N]
+            eta_str = (d1_norm / x0_norm).mean().item()
+            self.eta_str_history.append(eta_str)
 
         if t_next > 1e-7:
             phi1 = t_next * math.log(t_n / t_next) - t_n + t_next
