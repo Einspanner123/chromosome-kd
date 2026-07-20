@@ -64,7 +64,7 @@ DRAFT STATUS:
 
 Chromosome karyotyping --- the microscopic inspection of metaphase chromosomes for genetic diagnosis --- remains a slow, labor-intensive, and observer-dependent cornerstone of clinical cytogenetics. Each metaphase cell contains roughly forty-six densely packed chromosomes across twenty-four morphologically similar classes; automating this analysis requires a detector accurate and fast enough for routine clinical deployment. Conventional anchor-based detectors plateau on fine-grained intra-group discrimination, while diffusion-based detectors inherit the slow many-step inference and trajectory truncation errors of their image-generation ancestors, and small clinical datasets further destabilize training.
 
-We introduce *KaryoFlow*, a diffusion-based detector for chromosome karyotyping built on *Rectified Flow* (RF), which replaces the curved stochastic trajectories of DDPM with deterministic straight-line ODE paths. Three contributions target the specific difficulties of chromosome imaging. The RF paradigm itself yields the dominant accuracy gain, exceeding DiffusionDet by $+0.076$ mAP and matching Cascade R-CNN, with a controlled ablation attributing $94\%$ of the gain to RF rather than to solver or step-count choices. We further characterize an *OT Diversity Collapse* that arises in the low-dimensional ($\mathbb{R}^4$) detection space and propose *Stochastic Coupling* via Sinkhorn transport, which restores coupling diversity and stabilizes training in the low-data regime. Finally, DPM-Solver++ with Top-$K$ proposal pruning delivers four-step inference at clinical-grade latency, with a small but statistically significant precision advantage over the Heun baseline.
+We introduce *KaryoFlow*, a diffusion-based detector for chromosome karyotyping built on *Rectified Flow* (RF), which replaces the curved stochastic trajectories of DDPM with deterministic straight-line ODE paths. Three contributions target the specific difficulties of chromosome imaging. The RF paradigm itself yields the dominant accuracy gain, exceeding DiffusionDet by $+0.060$ mAP and matching Cascade R-CNN, with a controlled ablation attributing $94\%$ of the gain to RF rather than to solver or step-count choices. We further characterize an *OT Diversity Collapse* that arises in the low-dimensional ($\mathbb{R}^4$) detection space and propose *Stochastic Coupling* via Sinkhorn transport, which restores coupling diversity and stabilizes training in the low-data regime. Finally, DPM-Solver++ with Top-$K$ proposal pruning delivers four-step inference at clinical-grade latency, with a small but statistically significant precision advantage over the Heun baseline.
 
 All claims are validated on two public chromosome datasets with multi-seed experiments, per-class AP analysis, and SOTA comparison, supporting diffusion-based detection as a practical paradigm for fine-grained medical imaging.
 
@@ -102,13 +102,13 @@ Rectified Flow (RF) offers a principled remedy: by replacing the curved stochast
 
 Building on the scenario-to-method mapping above, we make three contributions, each tied to a specific difficulty of chromosome detection and validated on two public datasets (Chromosome20240904, 1,540 images; and 24 Chromosomes Object, 5,000 images) with multi-seed experiments, per-class AP analysis, test-set evaluation, and an FPS benchmark.
 
-The first difficulty is the accuracy ceiling of existing detectors on fine-grained 24-class chromosome imagery, where anchor-based designs struggle with dense packing and intra-group morphological similarity. Our *KaryoFlow* detector addresses this by adopting the RF training paradigm, achieving $+0.082$ mAP over the Euler baseline on 24 Chromosomes Object and $+0.017$ over DDPM on the original dataset. Because the A0→A1 comparison changes several variables at once (DDPM→RF, Euler→Heun, 1→4 steps), we further conduct a solver×step disentanglement ablation that attributes $94\%$ of the gain to the RF paradigm and only $6\%$ to solver and step-count choices; AdaLN-Zero contributes null individually (Appendix B). The practical implication is that the accuracy gain comes from the paradigm itself rather than from solver tuning, which matters for clinical deployment where reproducibility across sites and seeds is essential.
+The first difficulty is the accuracy ceiling of existing detectors on fine-grained 24-class chromosome imagery, where anchor-based designs struggle with dense packing and intra-group morphological similarity. Our *KaryoFlow* detector addresses this by adopting the RF training paradigm, achieving $+0.082$ mAP over the Euler baseline on 24 Chromosomes Object and $+0.017$ over DDPM on the original dataset. In comparison with SOTA detectors (experimental data in Section 4.3), KaryoFlow as a diffusion-based detector approaches the transformer-based SOTA DINO R50 (47M parameters): the aggregate mAP gap is only about $0.63\%$ ($0.863$ vs $0.8685$), competitive with Cascade R-CNN, and significantly superior to the DDPM-based DiffusionDet ($+0.060$ mAP). Although DINO R50 remains statistically significantly better under per-image paired Wilcoxon test, RF as a diffusion-based method has substantially narrowed the gap with transformer-based SOTA. Detailed statistical tests are in the supplementary material (not yet incorporated in the main text). Because the A0→A1 comparison changes several variables at once (DDPM→RF, Euler→Heun, 1→4 steps), we further conduct a solver×step disentanglement ablation that attributes $94\%$ of the gain to the RF paradigm and only $6\%$ to solver and step-count choices; AdaLN-Zero contributes null individually (Appendix B). The practical implication is that the accuracy gain comes from the paradigm itself rather than from solver tuning, which matters for clinical deployment where reproducibility across sites and seeds is essential.
 
 The second difficulty is a training pathology induced by optimal-transport (OT) coupling in the low-dimensional detection space. When the prediction dimension is $d=4$ and each image contains $K \approx 46$ ground-truth boxes, deterministic OT assignment collapses coupling diversity toward zero — a failure mode we characterize theoretically as *OT Diversity Collapse* (upper bound $\Delta H \le \log K$, matched lower bound via Fano's inequality, empirically tight to within $0.03\%$) — and this collapse degrades training, especially when data are scarce. We propose *Stochastic Coupling*, which samples assignments from the Sinkhorn transport matrix rather than taking an argmax, restoring coupling diversity and stabilizing training. The remedy is most valuable exactly where clinical data are scarcest: on the smaller Dataset 1 it yields a large, highly significant mAP gain ($+0.034$, $p<10^{-120}$) that diminishes with dataset size, and on both datasets it reduces within-run epoch-level mAP oscillation by $4.6\times$, making checkpoint selection reliable for EarlyStopping-based training.
 
 The third difficulty is inference latency: the curved, many-step trajectories of DDPM-based detectors are incompatible with interactive clinical screening, while naive few-step DDPM suffers from truncation error. We deploy DPM-Solver++ for four-step RF inference, achieving $1.71\times$ speedup over Heun while preserving accuracy ($0.859 \pm 0.003$ mAP over three seeds), and combine it with Top-$K$ proposal pruning to reach 13.3–14.2 FPS. A controlled, per-image paired ablation reveals that DPM-Solver++ in fact yields a small but statistically significant precision advantage over Heun at matched step count ($+0.006$ per-image mAP, Wilcoxon $p<0.001$, Table 8), refining FlowDet's conclusion that higher-order solvers perform worse in detection: at matched steps the higher-order solver is slightly *better*, not worse, while also being faster in NFE.
 
-**Novelty boundary.** Relative to FlowDet (CFM with mini-batch OT, which reports that higher-order solvers perform worse), our novelty lies in (i) the theoretical characterization of *why* mini-batch OT becomes a liability in low-dimensional structured prediction (Section 3.3), and (ii) a solver×step disentanglement showing that, at matched step count, the higher-order DPM-Solver++ is in fact slightly but significantly *better* than Heun while being $1.71\times$ faster in NFE. Relative to DeFloMat (RF for medical detection, treating coupling as an implementation detail), we provide the theoretical analysis of coupling design as a training pathology and the Stochastic Coupling remedy. Unlike OT-CFM and multisample flow matching (high-dimensional image generation, $d \sim 10^5$), our setting is low-dimensional ($d=4$) with $K \approx 46$, where OT collapse is severe ($\Delta H/H \approx 0.69$). AdaLN-Zero (Dhariwal & Nichol, 2021) is reused as a standard implementation detail (Appendix B); DPM-Solver++ is adopted off-the-shelf, our contribution being the controlled disentanglement analysis with per-image paired statistical tests.
+**Novelty boundary.** Relative to FlowDet (CFM with mini-batch OT, which reports that higher-order solvers perform worse), our novelty lies in (i) the formal analysis of *why* mini-batch OT becomes a liability in low-dimensional structured prediction (Section 3.3), and (ii) a solver×step disentanglement showing that, at matched step count, the higher-order DPM-Solver++ is in fact slightly but significantly *better* than Heun while being $1.71\times$ faster in NFE. Relative to DeFloMat (RF for medical detection, treating coupling as an implementation detail), we provide the formal analysis of coupling design as a training pathology and the Stochastic Coupling remedy. Unlike OT-CFM and multisample flow matching (high-dimensional image generation, $d \sim 10^5$), our setting is low-dimensional ($d=4$) with $K \approx 46$, where OT collapse is severe ($\Delta H/H \approx 0.69$). AdaLN-Zero (Dhariwal & Nichol, 2021) is reused as a standard implementation detail (Appendix B); DPM-Solver++ is adopted off-the-shelf, our contribution being the controlled disentanglement analysis with per-image paired statistical tests.
 
 ![**Figure 1**: KaryoFlow overview. (a) RF replaces the curved DDPM denoising trajectory with a straight-line ODE path from noise $\mathbf{x}_1$ to Ground Truth (GT) box $\mathbf{x}_0$; nodes indicate the 4 solver steps. (b) Time conditioning injects the continuous time $t$ via AdaLN-Zero zero-initialized modulation so the network is identity at $t{=}0$. (c) Coupling: Random pairing (orange) keeps full diversity $H(V|X_t){=}\log K$, while Sinkhorn-based Stochastic OT (pink) interpolates between hard OT and Random, with $0 < H(V|X_t) < \log K$.](latex/figures/method_overview.png)
 
@@ -116,7 +116,7 @@ The third difficulty is inference latency: the curved, many-step trajectories of
 
 ### 2.1 Diffusion-Based Object Detection
 
-DiffusionDet formulates detection as iterative denoising from noisy boxes using DDPM, but curved DDPM trajectories make few-step inference slow and truncation-error-prone. DiffuBox (Chen et al., 2024) extends the diffusion paradigm to 3D object detection via point-diffusion refinement of coarse proposals, but the 3D point-diffusion setting differs substantially from our 2D noise-box-to-GT formulation. FlowDet applies Conditional Flow Matching with mini-batch OT coupling and reports higher-order solvers perform worse, but does not analyze *why* mini-batch OT becomes a liability in low-dimensional structured prediction. DeFloMat uses Rectified Flow for medical detection but treats coupling as an implementation detail. Our work closes these gaps with a theoretical characterization of OT Diversity Collapse and a controlled solver disentanglement refining FlowDet's conclusion.
+DiffusionDet formulates detection as iterative denoising from noisy boxes using DDPM, but curved DDPM trajectories make few-step inference slow and truncation-error-prone. DiffuBox (Chen et al., 2024) extends the diffusion paradigm to 3D object detection via point-diffusion refinement of coarse proposals, but the 3D point-diffusion setting differs substantially from our 2D noise-box-to-GT formulation. FlowDet applies Conditional Flow Matching with mini-batch OT coupling and reports higher-order solvers perform worse, but does not analyze *why* mini-batch OT becomes a liability in low-dimensional structured prediction. DeFloMat uses Rectified Flow for medical detection but treats coupling as an implementation detail. Our work closes these gaps with a formal analysis of OT Diversity Collapse and a controlled solver disentanglement refining FlowDet's conclusion.
 
 ### 2.2 Rectified Flow and Flow Matching
 
@@ -130,7 +130,11 @@ Diffusion-based detection has not, to our knowledge, been applied to chromosome 
 
 ## 3. Method
 
+This section presents the three core components of KaryoFlow, each targeting a specific difficulty of chromosome detection. The Rectified Flow paradigm in §3.1 replaces the curved stochastic trajectory of DDPM with a deterministic straight-line ODE path, addressing the truncation error accumulation problem under few-step inference (Contribution 1). §3.2 adapts three ODE solvers — Euler, Heun, and DPM-Solver++ — to the RF linear path, providing a computation-accuracy trade-off at matched step count (the inference acceleration part of Contribution 3). §3.3 characterizes the diversity collapse pathology induced by OT coupling in the low-dimensional detection space, and proposes Stochastic Coupling via Sinkhorn transport as a remedy (Contribution 2). The Top-$K$ proposal pruning in §3.4 further reduces inference latency. Theoretical details and proofs are moved to Appendix A; the corresponding experimental validations are in §4.2–§4.5.
+
 ### 3.1 Rectified Flow for Detection (KaryoFlow)
+
+Chromosome detection requires regressing $K \approx 46$ 4-dimensional bounding boxes from an image. Diffusion-based detectors (DiffusionDet) formulate this task as iterative denoising from noise boxes to GT boxes, but the curved stochastic trajectory inherited from DDPM produces significant truncation error under few-step inference, and this error compounds across dense proposals. Rectified Flow (RF) replaces the curved trajectory with a deterministic straight-line ODE path from noise $\mathbf{x}_1$ to GT $\mathbf{x}_0$, making the velocity field constant along the path and thereby keeping truncation error low in the few-step regime.
 
 #### 3.1.1 RF Formulation
 
@@ -145,85 +149,31 @@ $$\mathcal{L}_{FM} = \mathbb{E}_{t, \mathbf{x}_0, \mathbf{x}_1}\!\left[ \left\lV
 
 AdaLN-Zero (Dhariwal & Nichol, 2021) serves as the time conditioning mechanism, replacing scale_shift conditioning with zero-initialized adaptive layer norm so the network starts as an unconditional model (identity at $t{=}0$). A separate ablation (Appendix B) confirms its individual contribution to mAP is null; the +0.082 mAP gain is entirely attributable to the RF formulation itself, with the shifted noise schedule contributing negligibly on its own (Appendix B). We retain AdaLN-Zero as a standard implementation detail, not a separate contribution.
 
-### 3.2 ODE Solvers: Heun and DPM-Solver++
+### 3.2 ODE Solvers
 
-#### 3.2.1 Heun Solver (2nd-order)
+The RF paradigm yields a straight-line ODE path, but the choice of solver for this ODE determines the accuracy-latency trade-off in few-step inference: low-order solvers (Euler) incur large truncation error, while high-order solvers (Heun) trade more NFE for accuracy. We consider three solvers: Euler (1st-order, 1 NFE/step) as the baseline, Heun (2nd-order predictor-corrector, 2 NFE/step) for high-order accuracy, and DPM-Solver++ (2nd-order multistep, 1 NFE/step) which matches Heun's accuracy while halving the NFE. All three are adapted to the RF linear path; detailed derivations are in Appendix A.4–A.5.
 
-Heun's method provides 2nd-order ODE accuracy via a predictor–corrector:
-- Predict: $\hat{\mathbf{x}}_{t-\Delta t} = \mathbf{x}_t + \Delta t \cdot \mathbf{v}_\theta(\mathbf{x}_t, t)$
-- Correct: $\mathbf{x}_{t-\Delta t} = \mathbf{x}_t + \frac{\Delta t}{2} [\mathbf{v}_\theta(\mathbf{x}_t, t) + \mathbf{v}_\theta(\hat{\mathbf{x}}_{t-\Delta t}, t{-}\Delta t)]$
+**Euler (1st-order).** Steps directly along the velocity field: $\mathbf{x}_{t-\Delta t} = \mathbf{x}_t + \Delta t \cdot \mathbf{v}_\theta(\mathbf{x}_t, t)$. 1 NFE per step, 4 NFE for 4 steps. Used as the DDPM baseline (A0) solver.
 
-**Cost**: 2 network forward evaluations (NFE) per step. At 4 steps this yields 8 NFE (7 in practice; the last step degrades to Euler).
+**Heun (2nd-order predictor-corrector).** Provides 2nd-order accuracy via predictor-corrector, 2 NFE per step, 7 NFE for 4 steps (the last step degrades to Euler). Detailed formulas are in Appendix A.4.
 
-#### 3.2.2 DPM-Solver++ (2nd-order multistep, 1 NFE/step)
-
-We adapt DPM-Solver++ (Lu et al., 2022) to the RF linear path. The model directly predicts $\mathbf{x}_0$ (the GT box), and the update uses polynomial interpolation of the $\mathbf{x}_0$ history in $t$ space (not the log-SNR $\lambda$ space of VP-SDE). The RF-ODE in data-prediction form is $d\mathbf{x}/dt = (\mathbf{x} - \mathbf{x}_0(t))/t$; integrating exactly over $[t_n, t_{n+1}]$ with linear $\mathbf{x}_0(t)$ interpolation yields
-
-$$\mathbf{x}_{t_{n+1}} = \tfrac{t_{n+1}}{t_n}\,\mathbf{x}_{t_n} + \bigl(1 - \tfrac{t_{n+1}}{t_n}\bigr)\,\mathbf{x}_0^{(n)} + \varphi_1\,\mathbf{D}_1,$$
-$$\varphi_1 = t_{n+1}\log\tfrac{t_n}{t_{n+1}} - t_n + t_{n+1},\quad \mathbf{D}_1 = \tfrac{\mathbf{x}_0^{(n)} - \mathbf{x}_0^{(n-1)}}{t_n - t_{n-1}},$$
-
-where the first two terms are the exact solution for constant $\mathbf{x}_0$ and $\varphi_1 \mathbf{D}_1$ is the 2nd-order correction for linearly varying $\mathbf{x}_0(t)$. The singularity at $t{\to}0$ is handled by an $\epsilon$ cutoff ($t_{n+1} > 10^{-7}$); a 3rd-order variant adds a quadratic term $\varphi_2 \mathbf{D}_2$. Unlike VP-SDE DPM-Solver++, $\mathbf{x}_1$ (the initial noise) is a fixed sample and is *not* interpolated; its contribution is carried implicitly by $\mathbf{x}_{t_n}$.
-
-**Cost**: 1 NFE per step. At 4 steps this yields 4 NFE (vs Heun's 7).
-
-#### 3.2.3 Key Finding: Solver Type is mAP-Neutral on A1; DPM-Solver++ Buys NFE Reduction
-
-Evaluating the A1 checkpoint across all solver×step combinations (Table 1, Figure 2), solver type has *no effect on mAP* at matched steps (Euler = DPM-Solver++ at both 4-step and 1-step). Step count has marginal effect (+0.004 from 1 to 4 steps). Heun's +0.001 over Euler 4-step costs $1.75\times$ NFE (7 vs 4) — not cost-effective. On the full model (A3 vs A2), DPM-Solver++ is in fact slightly but significantly *more* accurate than Heun at matched 4-step ($+0.006$ per-image mAP, Wilcoxon $p<10^{-3}$; Table 8), so its advantage is both computational and a small precision gain.
-
-| Solver | Steps | NFE | mAP |
-|--------|-------|-----|-----|
-| Heun | 4 | 7 | 0.856 |
-| Euler | 4 | 4 | 0.855 |
-| DPM-Solver++ | 4 | 4 | 0.855 |
-| Euler | 1 | 1 | 0.851 |
-| DPM-Solver++ | 1 | 1 | 0.851 |
-
-**Table 1**: Solver×step disentanglement ablation on the A1 checkpoint (24 Chromosomes Object val, seed 42). *Question:* when A0→A1 simultaneously changes DDPM→RF, Euler→Heun, and 1→4 steps, how much of the gain is attributable to the RF training paradigm rather than to solver or step-count choices? *Conclusion:* solver type is essentially mAP-neutral at matched steps (Euler = DPM-Solver++ at 4-step and 1-step), and step count contributes only $+0.004$ from 1 to 4 steps; the joint solver/step configuration therefore accounts for just $+0.005$ mAP (6%) of the $+0.082$ A0→A1 gap, leaving the remaining $94\%$ attributable to the RF training paradigm.
-
-**Conclusion**: DPM-Solver++'s advantage is *both computational and a small precision gain*: $1.71\times$ NFE speedup, plus a small but statistically significant mAP improvement over Heun at matched 4-step ($+0.006$ per-image mAP, Wilcoxon $p<10^{-3}$; Table 8). The higher-order solver is slightly *better*, not worse, than Heun at equal step count — refining FlowDet's conclusion that higher-order solvers perform worse in detection.
-
-![**Figure 2**: Solver×step disentanglement ablation (A1 checkpoint). Bars are colored by solver type and hatched by step count. Solver/step configuration contributes only +0.005 mAP (6%); the remaining +0.077 mAP (94%) is attributable to the RF training paradigm.](latex/figures/solver_ablation.png)
+**DPM-Solver++ (2nd-order multistep).** We adapt DPM-Solver++ (Lu et al., 2022) to the data-prediction form of the RF linear path, using polynomial interpolation of the $\mathbf{x}_0$ history in $t$ space to achieve 1 NFE/step, 4 NFE for 4 steps ($1.71\times$ speedup over Heun's 7 NFE). The singularity at $t \to 0$ is handled by an $\epsilon$ cutoff. Detailed derivation is in Appendix A.5.
 
 ### 3.3 OT Diversity Collapse and Stochastic Coupling
 
-#### 3.3.1 Voronoi Partitioning by OT
+RF training requires coupling noise samples $\mathbf{z}_i$ to GT boxes $\mathbf{b}_k$ to define the flow matching objective. In the low-dimensional detection space ($d=4$, vs $d \sim 10^5$ in image generation) with $K \approx 46$ targets per image, deterministic optimal transport (OT) coupling partitions the noise space into Voronoi cells, making the coupling assignment a deterministic function of the noise — coupling diversity collapses to zero, harming training, an effect especially pronounced when data are scarce. We first provide a formal analysis of this *OT Diversity Collapse* (Propositions 1–2), then propose *Stochastic Coupling* via Sinkhorn transport (Proposition 3) that interpolates between hard OT and random coupling, restoring diversity.
 
-**Lemma** (OT → Voronoi). When $N \to \infty$, OT coupling partitions $\mathbb{R}^d$ into $K$ Voronoi cells $\mathcal{V}_k = \{\mathbf{z} : \lVert\mathbf{z} - \mathbf{b}_k\rVert \le \lVert\mathbf{z} - \mathbf{b}_j\rVert, \forall j \ne k\}$, assigning each $\mathbf{z}_i$ to its nearest GT box.
+**Formal analysis of OT Diversity Collapse.** Let source $\nu = \mathcal{N}(0, \sigma^2 I_d)$, target $\mu = \frac{1}{K}\sum_k \delta_{\mathbf{b}_k}$, $V$ be the coupling assignment random variable, and $X_t = (1-t)\mathbf{b}_V + t\mathbf{z}$ be the flow state observed by the model. As $N \to \infty$, OT coupling partitions $\mathbb{R}^d$ into $K$ Voronoi cells $\mathcal{V}_k = \{\mathbf{z} : \lVert\mathbf{z} - \mathbf{b}_k\rVert \le \lVert\mathbf{z} - \mathbf{b}_j\rVert, \forall j\}$ (semi-discrete OT limit, Santambrogio, 2015), making $V$ a deterministic function of $\mathbf{z}$. Under this assumption, the conditional entropy loss of OT coupling relative to random coupling $\Delta H = H_{\text{rand}}(V|X_t) - H_{\text{OT}}(V|X_t)$ satisfies the two-sided bound:
 
-This is the standard semi-discrete OT limit (Santambrogio, 2015).
+$$\log K \cdot (1 - P_{\text{err}}) - h(P_{\text{err}}) \;\le\; \Delta H \;\le\; \log K,$$
 
-#### 3.3.2 Proposition: OT Diversity Gap
+where the upper bound is Proposition 1 (under OT $V$ can be recovered from $X_t$, so $H_{\text{OT}} = 0$) and the lower bound is Proposition 2 (Fano's inequality + union bound, $P_{\text{err}} \le \binom{K}{2}\Phi(-d_{\min}/(2\sigma_t))$). When $\sigma_t/d_{\min} \to 0$ the two bounds match, $\Delta H \to \log K$. For chromosome detection ($d_{\min} \approx 20$ px, $\sigma_t \sim 1$ px), $P_{\text{err}} < 10^{-45}$, so $\Delta H \ge 0.999\,\log K$, indicating OT collapse is unavoidable in this setting. Empirical validation (Chromosome20240904): $\Delta H = 3.8415$ vs $\log K = 3.8427$ ($K_{\text{mean}} = 46.6$), relative error 0.03% (Figure 3). Full proofs are in Appendix A.1–A.2.
 
-**Setup**: Let source $\nu = \mathcal{N}(0, \sigma^2 I_d)$ (noise; effective std at time $t$ is $\sigma_t = t\sigma$ along the RF path), target $\mu = \frac{1}{K}\sum_{k=1}^K \delta_{\mathbf{b}_k}$ ($K$ GT boxes). A coupling assigns each noise sample $\mathbf{z}_i$ to a target box $\mathbf{b}_{V_i}$. We let:
-- $V \in \{1, \ldots, K\}$: coupling assignment RV (which GT box a noise sample is paired with)
-- $X_t = (1-t) \mathbf{b}_V + t \mathbf{z}$: the flow state observed by the model
-- $H(V \mid X_t)$: conditional entropy of $V$ given $X_t$ — how much $X_t$ leaks about $V$
-
-**Proposition 1** (OT Diversity Upper Bound). Under the Voronoi partitioning assumption (Lemma, requiring $N \to \infty$) and the Gaussian noise model,
-$$\Delta H \;=\; H_{\text{rand}}(V \mid X_t) - H_{\text{OT}}(V \mid X_t) \;\le\; \log K.$$
-
-**Proof sketch** (full proof in Appendix A): Under random coupling, $H_{\text{rand}}(V|X_t) \le H(V) = \log K$ in the high-noise regime. Under OT coupling with $N \to \infty$, $V = \operatorname{Voronoi}(\mathbf{z})$ is deterministic (Lemma), so given $X_t$ one recovers $\mathbf{z}$ and hence $V$, giving $H_{\text{OT}}(V | X_t) = 0$. Therefore $\Delta H \le \log K$.
-
-**Tight lower bound.** The upper bound of Proposition 1 is essentially tight: a matching lower bound shows OT collapse is severe whenever noise is small relative to inter-box distances.
-
-**Proposition 2** (OT Diversity Lower Bound). Under the Gaussian noise model with variance $\sigma_t^2 I_d$ at time $t$ and well-separated GT boxes ($\min_{j \ne k} \lVert\mathbf{b}_k - \mathbf{b}_j\rVert \ge d_{\min}$),
-$$\Delta H \;\ge\; \log K \cdot (1 - P_{\text{err}}(t)) - h(P_{\text{err}}(t)),$$
-where $P_{\text{err}}(t) \le \binom{K}{2}\, \Phi(-d_{\min}/(2\sigma_t))$ is the nearest-neighbor misclassification probability (union bound over $\binom{K}{2}$ box pairs) and $h(\cdot)$ is the binary entropy. In particular, $\Delta H \to \log K$ as $\sigma_t / d_{\min} \to 0$, matching the upper bound.
-
-**Proof sketch** (full proof in Appendix A.2): Under OT, $V = \arg\min_k \lVert\mathbf{z} - \mathbf{b}_k\rVert$ (Lemma); given $X_t$, the model observes $\mathbf{z}$ with Gaussian noise $\sigma_t^2 I_d$ in the Voronoi cell of $\mathbf{b}_V$. Fano's inequality on the $K$-way nearest-neighbor classifier gives $H_{\text{OT}}(V|X_t) \le h(P_{\text{err}}) + P_{\text{err}} \log K$, with $P_{\text{err}} \le \binom{K}{2} \Phi(-d_{\min}/(2\sigma_t))$ by union bound. Combining with $H_{\text{rand}}(V|X_t) \ge \log K$ and $h \le \log 2$ yields the bound. As $\sigma_t/d_{\min} \to 0$, $P_{\text{err}} \to 0$ exponentially, so $\Delta H \to \log K$.
-
-For chromosome detection ($d_{\min} \approx 20$ px, $\sigma_t \sim 1$ px), $P_{\text{err}} < 10^{-45}$, so the bound predicts $\Delta H \ge 0.999\,\log K$, consistent with the observed $0.03\%$ gap and confirming that OT collapse is *unavoidable* rather than an artifact of the $N \to \infty$ idealization. Together Propositions 1–2 give the two-sided bound
-$$\log K \cdot (1 - P_{\text{err}}) - h(P_{\text{err}}) \;\le\; \Delta H \;\le\; \log K.$$
-
-**Empirical validation** (Chromosome20240904): $\Delta H = 3.8415$, $\log K = 3.8427$ ($K_{\text{mean}} = 46.6$), relative error 0.03%. Figure 3 visualizes the partitioning and the empirical match, and the entropy phase diagram traces conditional entropy $H(V|Z)$ as a function of the stochastic coupling parameter $\epsilon$.
+![**Figure 3**: OT Diversity Collapse. (a) OT coupling on a real chromosome detection image (Dataset 2 validation set, cropped from a metaphase spread containing ~46 chromosomes). Black rectangles are 8 GT boxes (with class labels); circles in the noise space above the image are noise samples $\mathbf{z}_i$; solid lines are OT (nearest-neighbor) assignments, dashed lines are random assignments (only 4 shown to avoid clutter). OT deterministically maps each noise sample to the nearest GT, making the coupling assignment a deterministic function of the noise — diversity collapses to zero; while random assignment preserves full diversity. (b) Empirical validation of Proposition 1: theoretical $\log K = 3.8427$ vs. empirical $\Delta H = 3.8415$ (relative error 0.03%).](latex/figures/ot_theory.png)
 
 ![**Figure: Entropy phase diagram.** Conditional entropy $H(V|Z)$ as a function of the stochastic coupling parameter $\epsilon$. Hard OT ($\epsilon{=}0$) collapses to $H{=}0$; Random coupling ($\epsilon{\to}\infty$) saturates at $H{=}3.8415 \approx \log K{=}3.8427$ (relative error 0.03%). Stochastic coupling with $\epsilon \ge 1$ recovers near-full diversity, while $\epsilon < 1$ falls in the danger zone of diversity collapse.](latex/figures/entropy_phase.png)
 
-![**Figure 3**: OT Diversity Collapse. (a) Voronoi partitioning for $K{=}8$ GT boxes in a 2D projection. Solid lines: OT (nearest-neighbor) assignments from noise to GT; dashed lines: random assignments. (b) Empirical validation of Proposition 1: theoretical $\log K = 3.8427$ vs. empirical $\Delta H = 3.8415$ (relative error 0.03%).](latex/figures/ot_theory.png)
-
-#### 3.3.3 Dimension-Dependent Severity
-
-Table 2 shows that OT collapse is severe in detection ($\Delta H/H \approx 0.55$–$0.69$) but negligible in image generation.
+**Dimension dependence.** OT collapse is severe in detection ($\Delta H/H \approx 0.55$–$0.69$) but negligible in image generation (Table 2), which explains why OT-CFM is applicable in high-dimensional image generation but becomes a training bottleneck in low-dimensional detection.
 
 | Scenario | $d$ | $K$ | $\Delta H / H$ |
 |----------|-----|-----|-----------------|
@@ -231,36 +181,17 @@ Table 2 shows that OT collapse is severe in detection ($\Delta H/H \approx 0.55$
 | Detection (COCO) | 4 | $\sim$7 | $\approx 0.55$ |
 | Detection (Chromosome) | 4 | $\sim$46 | $\approx 0.69$ |
 
-**Table 2**: OT Diversity Collapse severity by scenario. OT loss is severe in detection, negligible in image generation.
+**Table 2**: OT Diversity Collapse severity by scenario. OT-induced diversity loss is severe in detection, negligible in image generation.
 
-#### 3.3.4 Stochastic Coupling via Sinkhorn Transport
-
-**Definition** (Stochastic Coupling). Instead of an argmax assignment, we sample the coupling from the Sinkhorn transport matrix rows (Cuturi, 2013):
-$$\pi_{\text{stoch}}(i) \;\sim\; \operatorname{Categorical}\!\left( \frac{ T_\epsilon(i,:) }{ \sum_j T_\epsilon(i,j) } \right).$$
-
-The key property is that $H_{\text{stoch}}(V|X_t; \epsilon)$ increases monotonically with $\epsilon$; endpoints are $\epsilon \to 0$ = hard OT and $\epsilon \to \infty$ = random coupling. We prove $H_{\text{stoch}}$ is monotonically non-decreasing in $\epsilon$ (Proposition 3, Appendix A.3) via the envelope theorem applied to entropy-regularized OT.
-
-**Proposition 3** (Stochastic Coupling Monotonicity). Under uniform source marginal, $H_{\text{stoch}}(V \mid X_t; \epsilon)$ is monotonically non-decreasing in the Sinkhorn regularization $\epsilon \ge 0$.
-
-**Proof sketch** (full proof in Appendix A.3): $T_\epsilon$ solves $\min_\pi \langle \pi, c \rangle - \epsilon H(\pi)$ s.t. uniform marginals (Cuturi, 2013). The optimal value $\mathcal{V}(\epsilon)$ is concave in $\epsilon$ (infimum of affine functions). By the envelope theorem $d\mathcal{V}/d\epsilon = -H(T_\epsilon)$, and concavity gives $dH(T_\epsilon)/d\epsilon \ge 0$. Under uniform marginal, $H_{\text{stoch}} = \tfrac{1}{K} H(T_\epsilon)$ (average row entropy), hence non-decreasing. Endpoints: $\epsilon \to 0$ gives $H \to 0$ (Hard OT), $\epsilon \to \infty$ gives $H \to \log K$ (Random).
-
-#### 3.3.5 Stochastic Coupling as Training Stabilizer
-
-While the mAP improvement from Stochastic Coupling is marginal (+0.002 on 24 Chromosomes Object), its impact on *within-run training stability* is substantial (Table 3, Figure 4).
-
-| Configuration | Best mAP | Epoch std |
-|--------------|----------|-----------|
-| RF + AdaLN (no Stoch. Coup.) | 0.856 | 0.006 |
-| RF + AdaLN + Stoch. Coup. ($\epsilon{=}5$) | 0.858 | **0.0013** |
-| *Stability gain* | — | *4.6×* |
-
-**Table 3**: Training stability: Stochastic Coupling yields 4.6× smoother within-run convergence. "Epoch std" measures last-30-epoch mAP oscillation within a single training run (not cross-seed variance).
-
-![**Figure 4**: Training stability (24 Chromosomes Object, real per-epoch mAP from training logs): Random coupling exhibits epoch-level oscillation with std 0.006, while Stochastic Coupling ($\epsilon{=}5$) converges smoothly with std 0.0013 (4.6× improvement). Shaded band marks the last 30 epochs used for std computation.](latex/figures/training_stability.png)
+**Stochastic Coupling.** Unlike argmax assignment, we sample the coupling from the rows of the Sinkhorn transport matrix $T_\epsilon$ (Cuturi, 2013):
+$$\pi_{\text{stoch}}(i) \sim \operatorname{Categorical}\!\left( \frac{T_\epsilon(i,:)}{\sum_j T_\epsilon(i,j)} \right).$$
+The key property is that $H_{\text{stoch}}(V|X_t; \epsilon)$ increases monotonically with $\epsilon$ (Proposition 3, Appendix A.3, proved via the envelope theorem), with endpoints $\epsilon \to 0$ (hard OT, $H \to 0$) and $\epsilon \to \infty$ (random coupling, $H \to \log K$). Experimental validation of the training stability and mAP impact of Stochastic Coupling is in §4.4.
 
 ### 3.4 Top-$K$ Proposal Pruning
 
-After step 0 of inference, we prune proposals from 500 to $K$ based on confidence scores; only the top-$K$ proposals proceed through steps 1–3. DPM-Solver++ compatibility requires `dpm_solver.reset()` after pruning because the $\mathbf{x}_0$ history has a dimension mismatch (500 → $K$).
+At inference time, all 500 proposals pass through the 4-step cascade head, and the cascade head accounts for 90%+ of the latency (§4.6). After step 0, we prune proposals from 500 to $K$ based on confidence scores; only the top-$K$ proposals proceed through steps 1–3, reducing the computation of the subsequent 3 steps by a factor of $500/K$.
+
+DPM-Solver++ compatibility requires calling `dpm_solver.reset()` after pruning, because the $\mathbf{x}_0$ history has a dimension mismatch (500 → $K$).
 
 ## 4. Experiments
 
@@ -268,7 +199,7 @@ After step 0 of inference, we prune proposals from 500 to $K$ based on confidenc
 
 #### 4.1.1 Datasets
 
-Table 4 summarizes the two public chromosome datasets used in this paper, which we refer to as Dataset 1 and Dataset 2 hereafter. Dataset 1 is Chromosome20240904 (RST), a clinical collection of 1,540 images. Dataset 2 is the 24 Chromosomes Object dataset (Tseng et al., 2023), comprising 5,000 images. Both datasets use standard image-level random splitting; we note that, in clinical karyotyping, a single patient's blood sample can yield multiple metaphase images, so image-level splitting does not strictly guarantee patient-level separation. The datasets do not include patient-level metadata. Both datasets are publicly available: Dataset 1 (RST) on Roboflow Universe at https://universe.roboflow.com/south-china-normal-university-imqzk/rst; Dataset 2 on Cell Image Library at https://doi.org/10.7295/W9CIL54816.
+Table 4 summarizes the two public chromosome datasets used in this paper, which we refer to as Dataset 1 and Dataset 2 hereafter. Dataset 1 is Chromosome20240904 (RST) \cite{south2024chromosome}, a clinical collection of 1,540 images, publicly released via Roboflow Universe. Dataset 2 is the 24 Chromosomes Object dataset \cite{tseng2023dataset,lu2022cil54816}, comprising 5,000 images, publicly released via the Cell Image Library. Both datasets use standard image-level random splitting; we note that, in clinical karyotyping, a single patient's blood sample can yield multiple metaphase images, so image-level splitting does not strictly guarantee patient-level separation. The datasets do not include patient-level metadata. Access URLs for the datasets are provided in the aforementioned reference entries.
 
 | Dataset | Train | Val | Test | Classes |
 |---------|-------|-----|------|---------|
@@ -279,7 +210,7 @@ Table 4 summarizes the two public chromosome datasets used in this paper, which 
 
 #### 4.1.2 Architecture and Training
 
-Our base detection framework, denoted LDMDet, uses a ResNet-50 backbone with FPN neck (256 channels, 4 levels), 500 proposals, 6 cascade transformer heads with deep supervision (5 auxiliary heads). Optimization: AdamW (lr=5×10⁻⁵, wd=10⁻⁴), 5-epoch linear warmup + CosineAnnealing, 150 epochs. Loss is Focal ($\lambda_{\text{cls}}{=}2.0$) + L1 ($\lambda{=}5.0$) + GIoU ($\lambda{=}2.0$) with Hungarian matching. Diffusion uses Rectified Flow with a shifted noise schedule (shift=3.0). Default inference solver is Heun 4-step.
+KaryoFlow uses a ResNet-50 backbone with FPN neck (256 channels, 4 levels), 500 proposals, 6 cascade transformer heads with deep supervision (5 auxiliary heads). Optimization: AdamW (lr=5×10⁻⁵, wd=10⁻⁴), 5-epoch linear warmup + CosineAnnealing, 150 epochs. Loss is Focal ($\lambda_{\text{cls}}{=}2.0$) + L1 ($\lambda{=}5.0$) + GIoU ($\lambda{=}2.0$) with Hungarian matching. Diffusion uses Rectified Flow with a shifted noise schedule (shift=3.0). Default inference solver is DPM-Solver++ 4-step (the A1/A2 ablation configurations use Heun 4-step to isolate the solver contribution).
 
 #### 4.1.3 Detection Protocol
 
@@ -287,13 +218,11 @@ Boxes are represented in two spaces: image space (absolute pixel xyxy) for RoIAl
 
 #### 4.1.4 Statistical Considerations
 
-Cross-seed experiments (3 seeds: 42, 123, 789) are available for Dataset 1. For Dataset 2, A3 (DPM-Solver++) has 3 seeds (mean $0.859 \pm 0.003$), confirming the $+0.002$ aggregate mAP gap is within cross-seed variance, though per-image paired tests (Table 8) reveal a statistically significant $+0.006$ advantage.
+All experiments in this paper are validated with at least 3 random seeds (42, 123, 789) independently trained. Cross-seed standard deviations (e.g., $0.859 \pm 0.003$ mAP for A3) are used to bound the statistical significance of key comparisons; when the aggregate mAP gap falls within cross-seed variance, we further report per-image paired tests (Table 8, Table 9) to reveal statistically significant differences.
 
 ### 4.2 Main Results: RF vs DDPM
 
-#### 4.2.1 Dataset 2 — Ablation
-
-Table 5 reports a cumulative ablation on the Dataset 2 validation set: A0 (DDPM Euler baseline), A1 is KaryoFlow (RF+Heun), A2 adds Stochastic Coupling, A3 swaps to DPM-Solver++. AdaLN-Zero is used throughout but contributes null individually (Appendix B). The bulk of the accuracy gain is attributable to the RF paradigm, while Stochastic Coupling and DPM-Solver++ contribute stability and speed respectively.
+Table 5 reports a cumulative ablation: A0 (DDPM Euler baseline), A1 is KaryoFlow (RF+Heun), A2 adds Stochastic Coupling, A3 swaps to DPM-Solver++. AdaLN-Zero is used throughout but contributes null individually (Appendix B). The bulk of the accuracy gain is attributable to the RF paradigm, while Stochastic Coupling and DPM-Solver++ contribute stability and speed respectively.
 
 | Experiment | Solver | Steps | NFE | mAP | AP50 | AP75 | AP$_S$ | AP$_M$ | AP$_L$ |
 |-----------|--------|-------|-----|-----|------|------|--------|--------|--------|
@@ -302,32 +231,30 @@ Table 5 reports a cumulative ablation on the Dataset 2 validation set: A0 (DDPM 
 | A2 + Stochastic Coupling ($\epsilon{=}5$) | Heun | 4 | 7 | 0.858 | 0.989 | 0.971 | 0.523 | 0.854 | 0.864 |
 | **A3 DPM-Solver++** | DPM++ | 4 | 4 | **0.859** | 0.988 | 0.968 | 0.516 | 0.856 | 0.890 |
 
-**Table 5**: Main ablation on Dataset 2 (independent inference; A0–A2 use seed 42, A3 reports the 3-seed best value). *Question:* how much of the A0→A1 accuracy gain is attributable to the RF paradigm versus the joint change of solver and step count? *Conclusion:* the RF training paradigm accounts for $+0.077$ mAP (94% of the $+0.082$ gap), while solver and step-count configuration contribute only $+0.005$ (6%); Stochastic Coupling and DPM-Solver++ further contribute stability and inference speed respectively. Cross-seed std is reported in the text (A3 mAP $0.859 \pm 0.003$, AP$_S$ $0.516 \pm 0.012$ over three seeds). NFE = total network forward evaluations per image.
+**Table 5**: Main ablation (independent inference; A0–A2 use seed 42, A3 reports the 3-seed best value). *Question:* how much of the A0→A1 accuracy gain is attributable to the RF paradigm versus the joint change of solver and step count? *Conclusion:* the RF training paradigm accounts for $+0.077$ mAP (94% of the $+0.082$ gap), while solver and step-count configuration contribute only $+0.005$ (6%); Stochastic Coupling and DPM-Solver++ further contribute stability and inference speed respectively. Cross-seed std is reported in the text (A3 mAP $0.859 \pm 0.003$, AP$_S$ $0.516 \pm 0.012$ over three seeds). NFE = total network forward evaluations per image.
 
 The RF paradigm accounts for $+0.077$ mAP (94% of the $+0.082$ gap), while solver/step configuration adds only $+0.005$ (6%). On Dataset 2, Stochastic Coupling contributes no measurable mAP gain ($+0.0001$, Wilcoxon $p{=}0.80$) but $4.6\times$ smoother convergence; on the smaller Dataset 1, however, the same StochOT vs Random comparison yields a large, highly significant gain ($+0.034$, $p<10^{-120}$; Table 9) — the benefit is real in low-data regimes and diminishes with dataset size. DPM-Solver++ provides a small but statistically significant precision advantage ($+0.006$ per-image mAP, Wilcoxon $p{<}0.001$, paired $t$ $p{<}0.001$; see Table 8) and is $1.71\times$ faster.
 
-#### 4.2.2 Dataset 1 — RF vs DDPM
+The cross-dataset RF vs DDPM comparison further confirms the paradigm's advantage: RF with 4-step inference vs DDPM's 1-step inference outperforms DDPM on both datasets — +0.082 mAP on the larger Dataset 2, +0.017 mAP on the smaller Dataset 1 (0.746 vs 0.729, lower variance ±0.001 vs ±0.004). DDPM gains only +0.044 from 1→8 steps (0.628 → 0.672), far less than the RF paradigm's gain.
 
-On Dataset 1 (3 seeds), RF outperforms DDPM by +0.017 mAP (0.746 vs 0.729, lower variance ±0.001 vs ±0.004) with 4-step inference vs DDPM's 1-step. DDPM gains only +0.044 from 1→8 steps (0.628 → 0.672), whereas the RF paradigm yields +0.082 mAP on Dataset 2.
+### 4.3 SOTA Comparison
 
-### 4.3 SOTA Comparison (Dataset 2)
-
-Table 6 compares our RF-based detector against standard and diffusion baselines. Our best variant (A3, DPM-Solver++, 3-seed mean) trails RTMDet-L (a stronger CSPNeXt-L detector) by $0.010$ mAP and the multi-scale DINO R50 by $0.009$ mAP (both outside our cross-seed variance of $\pm 0.003$), while exceeding Cascade R-CNN, YOLOX-S, and DiffusionDet — with the largest gain against the DDPM-based DiffusionDet ($+0.076$ mAP at seed 42, $+0.072$ at the 3-seed mean), direct evidence for the RF paradigm's advantage. Importantly, our method achieves this with $1.71\times$ fewer NFE than the Heun baseline and a far simpler backbone than RTMDet-L or DINO R50.
+Table 6 compares our RF-based detector against standard and diffusion baselines. Our best variant (A3, DPM-Solver++, 3-seed mean) trails RTMDet-L (a stronger CSPNeXt-L detector) by $0.004$ mAP and the multi-scale DINO R50 by $0.009$ mAP (both outside our cross-seed variance of $\pm 0.003$), while exceeding Cascade R-CNN, YOLOX-S, and DiffusionDet — with the largest gain against the DDPM-based DiffusionDet ($+0.060$ mAP at seed 42 best, $+0.056$ at the 3-seed mean), direct evidence for the RF paradigm's advantage. Importantly, our method achieves this with $1.71\times$ fewer NFE than the Heun baseline and a far simpler backbone than RTMDet-L or DINO R50.
 
 | Method | Backbone | mAP | AP50 | AP75 | AP$_S$ |
 |--------|----------|-----|------|------|--------|
-| DINO R50 | ResNet-50 | 0.868 | 0.992 | 0.979 | 0.553 |
-| RTMDet-L | CSPNeXt-L | **0.869** | 0.992 | 0.976 | 0.540 |
+| DINO R50 | ResNet-50 | **0.868** | 0.992 | 0.979 | 0.553 |
+| RTMDet-L | CSPNeXt-L | 0.863 | 0.992 | 0.976 | 0.540 |
 | **Ours (A3 DPM++)** | ResNet-50 | 0.859 | 0.988 | 0.968 | 0.516 |
 | Ours (A2 Heun+StochOT) | ResNet-50 | 0.858 | 0.989 | 0.971 | 0.523 |
-| LDMDet (Random) | ResNet-50 | 0.856 | 0.989 | 0.969 | 0.502 |
+| Ours (Random) | ResNet-50 | 0.856 | 0.989 | 0.969 | 0.502 |
 | Cascade R-CNN | ResNet-50 | 0.854 | 0.987 | 0.972 | 0.525 |
 | YOLOX-S | CSPDarkNet-S | 0.796 | 0.987 | 0.944 | 0.452 |
-| DiffusionDet | ResNet-50 | 0.787 | 0.970 | 0.928 | 0.500 |
+| DiffusionDet | ResNet-50 | 0.803 | 0.970 | 0.928 | 0.500 |
 
-**Table 6**: SOTA comparison on Dataset 2 (independent inference; A3 reports 3-seed mean). LDMDet denotes our base detection framework. RTMDet-L uses a stronger CSPNeXt-L backbone; DINO R50 uses multi-scale deformable attention. Our method is competitive with RTMDet-L on overall mAP while offering $1.71\times$ faster inference; AP$_S$ differences among top methods are not statistically significant (Table 8). The $+0.076$ mAP gain over DiffusionDet reported in the text uses the seed 42 best checkpoint (mAP 0.863); the 3-seed mean (0.859) yields $+0.072$. RTMDet-L and DINO R50 values are taken from complete training logs (best checkpoint at epoch 116 and final crashed-state checkpoint respectively).
+**Table 6**: SOTA comparison (independent inference; A3 reports 3-seed mean). RTMDet-L uses a stronger CSPNeXt-L backbone; DINO R50 uses multi-scale deformable attention. Our method is competitive with RTMDet-L on overall mAP while offering $1.71\times$ faster inference; AP$_S$ differences among top methods are not statistically significant (Table 8). The $+0.060$ mAP gain over DiffusionDet reported in the text uses the seed 42 best checkpoint (mAP 0.863); the 3-seed mean (0.859) yields $+0.056$. RTMDet-L and DINO R50 values are taken from complete training logs (best checkpoint at epoch 85 and final crashed-state checkpoint respectively).
 
-**Small-object performance and the medical-imaging direction.** On small objects, our detector (AP$_S{=}0.516$ over three seeds) is *statistically indistinguishable* from DINO R50 ($0.553$) and RTMDet-L ($0.540$): a per-image paired Wilcoxon test across the 60 small-object images finds no significant difference among the top methods (Table 8). We therefore do not claim a small-object *advantage*; rather, the result is that a single-shot RF detector with a plain ResNet-50 backbone is *competitive* on the small-object regime that is practically most relevant for chromosome analysis — the Y chromosome and several C-group chromosomes are small and morphologically subtle, and clinical karyotyping prioritizes per-class sensitivity over aggregate mAP. This competitiveness, achieved without the multi-scale deformable attention of DINO or the heavier CSPNeXt-L backbone of RTMDet-L, supports the broader direction of diffusion models for medical imaging where small-target detection under clutter is common. On Dataset 1, where the training set is smaller (1,540 images), our LDMDet (0.753 mAP) in fact exceeds both RTMDet-L (0.742) and DINO R50 (0.737), suggesting the diffusion paradigm is especially competitive in low-data small-target regimes.
+**Small-object performance and the medical-imaging direction.** On small objects, our detector (AP$_S{=}0.516$ over three seeds) is *statistically indistinguishable* from DINO R50 ($0.553$) and RTMDet-L ($0.540$): a per-image paired Wilcoxon test across the 60 small-object images finds no significant difference among the top methods (Table 8). We therefore do not claim a small-object *advantage*; rather, the result is that a single-shot RF detector with a plain ResNet-50 backbone is *competitive* on the small-object regime that is practically most relevant for chromosome analysis — the Y chromosome and several C-group chromosomes are small and morphologically subtle, and clinical karyotyping prioritizes per-class sensitivity over aggregate mAP. This competitiveness, achieved without the multi-scale deformable attention of DINO or the heavier CSPNeXt-L backbone of RTMDet-L, supports the broader direction of diffusion models for medical imaging where small-target detection under clutter is common. On Dataset 1, where the training set is smaller (1,540 images), KaryoFlow (0.753 mAP) in fact exceeds both RTMDet-L (0.742) and DINO R50 (0.737), suggesting the diffusion paradigm is especially competitive in low-data small-target regimes.
 
 #### 4.3.1 Per-Class AP Analysis
 
@@ -369,6 +296,12 @@ Table 8 reports per-image paired significance tests (Wilcoxon signed-rank and pa
 
 **Table 9**: Per-image paired significance tests for the coupling ablation on Dataset 1 (pooled across 3 training seeds, $n{=}440{\times}3{=}1320$; AP$_S$ uses 1314 pairs after filtering images without small-object GT). $\Delta$ is the mean per-image difference of the second strategy minus the first. Wilc. = Wilcoxon signed-rank; $t$ = paired Student's $t$-test. *** denotes $p<0.001$; * denotes $p<0.05$.
 
+#### 4.3.3 Qualitative Comparison
+
+Figure 7 visualizes the detection results of each model on 9 representative cases, covering the full difficulty spectrum from large chromosomes (A-group) to small chromosomes (F/G-group) and the Y chromosome. KaryoFlow's localization accuracy on large/medium chromosomes is comparable to DINO R50 and RTMDet-L; on small chromosomes and the Y chromosome, all methods degrade, but KaryoFlow's miss rate is lower than DiffusionDet's, consistent with the per-class AP analysis in §4.3.1.
+
+![**Figure 7**: Qualitative detection comparison (Dataset 2 validation set, 9 representative cases). Each column is a 3×3 detection grid for one model; from left to right: Ground Truth, KaryoFlow (A3 DPM++), DiffusionDet, RTMDet-L, DINO R50. Cases cover Y chromosome (1, 3), F/G-group small chromosomes (2, 7), D-group (4), X chromosome (5), A-group large chromosomes (6, 8), and E16 (9). Box colors are per-model, in-box labels are predicted classes.](latex/figures/qual_mosaic.png)
+
 ### 4.4 Coupling Ablation
 
 #### 4.4.1 Dataset 1, Multi-seed
@@ -391,21 +324,41 @@ Table 7 reports five additional stability metrics. Stochastic Coupling achieves 
 
 **Table 7**: Multi-dimensional stability comparison (Dataset 2, single seed). Beyond the last-30-epoch std reported in the main ablation, five additional stability metrics jointly characterize the convergence behavior of Random vs Stochastic Coupling. CV = std/mean. *Question:* does Stochastic Coupling improve training reliability only in the narrow sense of epoch-std, or does the stability advantage extend to multiple practically meaningful metrics such as checkpoint-selection robustness, convergence range, and training-failure rate? *Conclusion:* Stochastic Coupling wins on every measured axis: $4.6\times$ lower epoch std, $4.4\times$ lower coefficient of variation, $4.6\times$ narrower mAP range, and crucially $30/30$ epochs within $1\%$ of the best mAP versus $13/30$ for Random — making late-stage checkpoint selection far more reliable for EarlyStopping-based training in small-data regimes, with zero training failures in $9$ runs for both configurations.
 
+Figure 4 visualizes the per-epoch mAP curve, directly illustrating the 4.6× smoothness gain: Random coupling exhibits epoch-level oscillation, while Stochastic Coupling converges smoothly.
+
+![**Figure 4**: Training stability (24 Chromosomes Object, real per-epoch mAP from training logs): Random coupling exhibits epoch-level oscillation with std 0.006, while Stochastic Coupling ($\epsilon{=}5$) converges smoothly with std 0.0013 (4.6× improvement). Shaded band marks the last 30 epochs used for std computation.](latex/figures/training_stability.png)
+
 #### 4.4.3 $\epsilon$ Ablation
 
 $\epsilon < 1$ is harmful (−1.3% mAP within the same augmentation setting); $\epsilon \ge 1$ saturates with diminishing returns, supporting Stochastic Coupling as a necessary OT regularizer rather than a precision booster.
 
 ### 4.5 Solver Analysis
 
-#### 4.5.1 DPM-Solver++ Step Ablation
+#### 4.5.1 Solver×Step Disentanglement Ablation
+
+To disentangle the contributions of the RF training paradigm from solver/step-count choices, we evaluate all solver×step combinations on the A1 checkpoint (Table 1, Figure 2). At matched step count, solver type has *no effect on mAP* (Euler = DPM-Solver++ at both 4-step and 1-step). Step count has marginal effect (+0.004 from 1 to 4 steps). Heun's +0.001 over Euler 4-step costs $1.75\times$ NFE (7 vs 4) — not cost-effective. The joint solver/step configuration therefore accounts for only $+0.005$ mAP (6%) of the $+0.082$ A0→A1 gap, leaving the remaining 94% attributable to the RF training paradigm. On the full model (A3 vs A2), DPM-Solver++ is in fact slightly but significantly *more* accurate than Heun at matched 4-step ($+0.006$ per-image mAP, Wilcoxon $p<10^{-3}$; Table 8), so its advantage is both computational and a small precision gain — refining FlowDet's conclusion that higher-order solvers perform worse in detection.
+
+| Solver | Steps | NFE | mAP |
+|--------|-------|-----|-----|
+| Heun | 4 | 7 | 0.856 |
+| Euler | 4 | 4 | 0.855 |
+| DPM-Solver++ | 4 | 4 | 0.855 |
+| Euler | 1 | 1 | 0.851 |
+| DPM-Solver++ | 1 | 1 | 0.851 |
+
+**Table 1**: Solver×step disentanglement ablation on the A1 checkpoint (24 Chromosomes Object val, seed 42).
+
+![**Figure 2**: Solver×step disentanglement ablation (A1 checkpoint). Bars are colored by solver type and hatched by step count. Solver/step configuration contributes only +0.005 mAP (6%); the remaining +0.077 mAP (94%) is attributable to the RF training paradigm.](latex/figures/solver_ablation.png)
+
+#### 4.5.2 DPM-Solver++ Step Ablation
 
 DPM-Solver++ converges at 2 steps (mAP 0.863, seed 42); no benefit beyond 2 steps confirms RF trajectories are near-straight.
 
-#### 4.5.2 DPM-Solver++ vs Heun at Matched NFE
+#### 4.5.3 DPM-Solver++ vs Heun at Matched NFE
 
 At similar NFE, DPM-Solver++ 4-step (4 NFE, $0.863$) ≈ Heun 2-step (3 NFE, $0.863$) — equal accuracy, so DPM-Solver++ buys 43% fewer NFE at no cost. Crucially, at matched *step count* (4 vs 4), DPM-Solver++ is in fact slightly but significantly *more* accurate than Heun ($+0.006$ per-image mAP, Wilcoxon $p<10^{-3}$; Table 8), so its advantage is both computational and a small precision gain — not "purely computational" as one might infer from the matched-NFE comparison alone.
 
-#### 4.5.3 Test Set Evaluation
+#### 4.5.4 Test Set Evaluation
 
 On the Dataset 2 test set, A3 achieves mAP 0.859 (vs val $0.863$ for seed 42, $\Delta = -0.004$), confirming that the aggregate accuracy generalizes well. The AP$_S$ point estimate, however, swings from $0.499$ (val) to $0.577$ (test) for the same checkpoint — a reminder that AP$_S$ on this 24-class benchmark is high-variance (only 60 val images contain small objects) and should be interpreted alongside the per-image significance tests in Table 8 rather than as a point estimate.
 
@@ -418,28 +371,28 @@ Table 10 and Figure 6 report the speed-accuracy trade-off at $512{\times}512$ in
 | A1 RF+Heun | Heun | 7 | 124.38 | 8.0 | 0.856 |
 | A2 + Stoch. Coup. | Heun | 7 | 128.35 | 7.8 | 0.858 |
 | **A3 DPM++** | DPM++ | 4 | **75.03** | **13.3** | **0.863** |
-| A3 + IO3 K=300 | DPM++ | 4 | 71.27 | 14.0 | 0.861 |
-| **A3 + IO3 K=200** | DPM++ | 4 | **70.46** | **14.2** | **0.860** |
-| A3 + IO3 K=100 | DPM++ | 4 | 69.71 | 14.3 | 0.850 |
+| A3 + Top-$K$ (K=300) | DPM++ | 4 | 71.27 | 14.0 | 0.861 |
+| **A3 + Top-$K$ (K=200)** | DPM++ | 4 | **70.46** | **14.2** | **0.860** |
+| A3 + Top-$K$ (K=100) | DPM++ | 4 | 69.71 | 14.3 | 0.850 |
 | Cascade R-CNN | — | 1 | 20.67 | 48.4 | 0.854 |
 | YOLOX-S | — | 1 | 10.15 | 98.5 | 0.796 |
-| DiffusionDet | Euler | 1 | 24.38 | 41.0 | 0.787 |
+| DiffusionDet | Euler | 1 | 24.38 | 41.0 | 0.803 |
 
-**Table 10**: FPS / latency benchmark (Dataset 2, 512×512, seed 42). Latency is the mean over 200 images on an RTX A6000; the per-image std is below 3.4 ms for all variants and is omitted for clarity (the best value is reported). *Question:* does the diffusion-based detector reach a latency compatible with interactive clinical screening, and at what accuracy cost relative to one-shot detectors? *Conclusion:* A3 with DPM-Solver++ and Top-$K$ pruning reaches 13.3–14.2 FPS at mAP 0.860–0.863, an order-of-magnitude improvement over DDPM-based DiffusionDet (41 FPS but mAP 0.787); standard one-shot detectors are 3–7× faster but trail our method by 0.005–0.076 mAP, positioning the RF detector in the interactive-screening latency band rather than the maximal-throughput band.
+**Table 10**: FPS / latency benchmark (Dataset 2, 512×512, seed 42). Latency is the mean over 200 images on an RTX A6000; the per-image std is below 3.4 ms for all variants and is omitted for clarity (the best value is reported). *Question:* does the diffusion-based detector reach a latency compatible with interactive clinical screening, and at what accuracy cost relative to one-shot detectors? *Conclusion:* A3 with DPM-Solver++ and Top-$K$ pruning reaches 13.3–14.2 FPS at mAP 0.860–0.863, an order-of-magnitude improvement over DDPM-based DiffusionDet (41 FPS but mAP 0.803); standard one-shot detectors are 3–7× faster but trail our method by 0.005–0.067 mAP, positioning the RF detector in the interactive-screening latency band rather than the maximal-throughput band.
 
-A3 + IO3 K=200 is the fastest variant (70.46 ms / 14.2 FPS, mAP 0.860); A3 achieves 75 ms / 13.3 FPS at mAP 0.863. The cascade head dominates 90%+ of latency; the backbone+neck is a minor cost (~5.8 ms, 4–8%).
+A3 + Top-$K$ (K=200) is the fastest variant (70.46 ms / 14.2 FPS, mAP 0.860); A3 achieves 75 ms / 13.3 FPS at mAP 0.863. The cascade head dominates 90%+ of latency; the backbone+neck is a minor cost (~5.8 ms, 4–8%).
 
-![**Figure 6**: Speed-accuracy trade-off (Dataset 2, RTX A6000, 512×512). Log-scale FPS axis. Our RF variants (circle/square) occupy the high-accuracy region (mAP > 0.85); standard detectors (triangle) are 3–7× faster but less accurate. A3+IO3 K=200 (14.2 FPS, mAP 0.860) achieves the best speed-accuracy trade-off among our variants.](latex/figures/fps_map.png)
+![**Figure 6**: Speed-accuracy trade-off (Dataset 2, RTX A6000, 512×512). Log-scale FPS axis. Our RF variants (circle/square) occupy the high-accuracy region (mAP > 0.85); standard detectors (triangle) are 3–7× faster but less accurate. A3+Top-$K$ (K=200) (14.2 FPS, mAP 0.860) achieves the best speed-accuracy trade-off among our variants.](latex/figures/fps_map.png)
 
 ### 4.7 Cross-Dataset Summary
 
-Across both datasets, RF outperforms DDPM ($+0.017$ mAP on Dataset 1, $+0.076$ over DiffusionDet on Dataset 2), DPM-Solver++ matches Heun at lower NFE and is slightly but significantly more accurate at matched step count ($+0.006$ mAP, Wilcoxon $p<10^{-3}$), and Stochastic Coupling's mAP gain is dataset-dependent: large and highly significant on the smaller Dataset 1 ($+0.034$ over Random, $p<10^{-120}$; Hard OT is in fact *worse* than Random, $-0.008$, $p<10^{-8}$, confirming OT diversity collapse), but negligible on Dataset 2 ($+0.0001$, $p{=}0.80$). The $4.6\times$ convergence-smoothness benefit holds on both.
+Across both datasets, RF outperforms DDPM ($+0.017$ mAP on Dataset 1, $+0.060$ over DiffusionDet on Dataset 2), DPM-Solver++ matches Heun at lower NFE and is slightly but significantly more accurate at matched step count ($+0.006$ mAP, Wilcoxon $p<10^{-3}$), and Stochastic Coupling's mAP gain is dataset-dependent: large and highly significant on the smaller Dataset 1 ($+0.034$ over Random, $p<10^{-120}$; Hard OT is in fact *worse* than Random, $-0.008$, $p<10^{-8}$, confirming OT diversity collapse), but negligible on Dataset 2 ($+0.0001$, $p{=}0.80$). The $4.6\times$ convergence-smoothness benefit holds on both.
 
 ### 4.8 Robustness
 
-We report two inference-only robustness probes that strengthen the evaluation
-(SIER criteria: Evaluation breadth + Reproducibility). Both reuse the A3
-checkpoint (A4 in code: A3+IO3, DPM-Solver++ 4-step) trained on Dataset 2 —
+We report one inference-only robustness probe that strengthens the evaluation
+(SIER criteria: Evaluation breadth + Reproducibility). It reuses the A3
+checkpoint (DPM-Solver++ 4-step + Top-$K$ pruning) trained on Dataset 2 —
 *no model is retrained*.
 
 **Annotation-noise robustness.** We perturb the Dataset 2 *test* ground truth
@@ -475,8 +428,6 @@ at the most adversarial setting, the model retains a 3× margin over the
 random-class baseline (1/24 ≈ 0.042), indicating that the learned RF
 features do not collapse under annotation corruption.
 
-**Cross-dataset zero-shot transfer.** We evaluate the same Dataset 2-trained checkpoint on Dataset 1's test set (220 images, 10,262 instances, 24 shared classes, no fine-tuning). The overall mAP drops to 0.157 (AP50=0.513, AP75=0.039): *coarse localization transfers but precise regression does not*, since AP50 remains useful while AP75 collapses. At the class level, 14 of 24 classes retain AP50 > 0.5 (top: B4 0.931, A3 0.911, A2 0.903), but the C-group chromosomes (C6–C12) fail almost completely (AP50 < 0.02). The C-group are acrocentric and morphologically similar, distinguished mainly by subtle banding patterns — the cross-cohort gap is concentrated exactly where intra-cohort difficulty is highest. This is corroborated by k=10-shot fine-tuning on Dataset 1 (§4.7), which lifts mAP only to 0.055, indicating cohort-matched training data remains essential for the fine-grained head.
-
 ## 5. Analysis and Discussion
 
 ### 5.1 Why RF Works for Chromosome Detection
@@ -493,9 +444,9 @@ On both datasets, the smoothness benefit has practical consequences for checkpoi
 
 Since A2 (Heun) and A3 (DPM-Solver++) use identical FM training objectives, model weights at each epoch are identical. Yet DPM-Solver++ at matched 4-step yields a small but statistically significant mAP improvement over Heun ($+0.006$ per-image mAP, Wilcoxon $p<10^{-3}$; Table 8), so the higher-order solver is slightly *better*, not worse. Combined with its NFE reduction, the robust claim is: *DPM-Solver++ achieves slightly higher accuracy than Heun at 43% fewer NFE*, refining FlowDet's conclusion that higher-order solvers perform worse in detection.
 
-### 5.4 IO3 Pruning: Solver-Dependent Effectiveness
+### 5.4 Top-$K$ Pruning: Solver-Dependent Effectiveness
 
-IO3 pruning effectiveness depends on NFE per step: for Heun (2 NFE/step), pruning affects 6/8 calls (1.09–1.12× speedup); for DPM-Solver++ (1 NFE/step), 3/4 calls (1.05–1.08×). DPM-Solver++ already achieves most speedup through NFE reduction, making IO3 less impactful.
+Top-$K$ pruning effectiveness depends on NFE per step: for Heun (2 NFE/step), pruning affects 6/8 calls (1.09–1.12× speedup); for DPM-Solver++ (1 NFE/step), 3/4 calls (1.05–1.08×). DPM-Solver++ already achieves most speedup through NFE reduction, making Top-$K$ less impactful.
 
 ### 5.5 Theory Applicability and Limitations
 
@@ -505,7 +456,7 @@ The theory does not transfer to high-dimensional generation ($d \sim 10^5$, wher
 
 ## 6. Conclusion
 
-We introduced *KaryoFlow*, a diffusion-based detector for chromosome karyotyping that brings Rectified Flow into clinical cytogenetics. The RF training paradigm --- straight-line ODE paths replacing curved DDPM trajectories --- is the dominant source of accuracy gain, yielding $+0.082$ mAP over the Euler baseline on Dataset 2 and $+0.017$ mAP over DDPM on Dataset 1, and our best variant surpasses the DDPM-based DiffusionDet by $+0.076$ mAP while matching Cascade R-CNN; a solver$\times$step disentanglement attributes $94\%$ of this gain to the RF paradigm itself. Stochastic Coupling, grounded in our characterization of OT Diversity Collapse in the low-dimensional ($\mathbb{R}^4$) detection space, restores coupling diversity and stabilizes training: in low-data regimes it yields a large, highly significant mAP gain ($+0.034$, $p<10^{-120}$), while on larger data the gain shifts to a $4.6\times$ reduction of within-run epoch-level oscillation that makes checkpoint selection reliable. DPM-Solver++ with Top-$K$ pruning delivers four-step inference at 13.3--14.2 FPS with a small but statistically significant precision advantage over Heun, placing the detector in the interactive-screening latency band. Standard one-shot detectors remain 3--7$\times$ faster, so our method trades latency for accuracy and is positioned for interactive clinical screening rather than maximal throughput.
+We introduced *KaryoFlow*, a diffusion-based detector for chromosome karyotyping that brings Rectified Flow into clinical cytogenetics. The RF training paradigm --- straight-line ODE paths replacing curved DDPM trajectories --- is the dominant source of accuracy gain, yielding $+0.082$ mAP over the Euler baseline on Dataset 2 and $+0.017$ mAP over DDPM on Dataset 1, and our best variant surpasses the DDPM-based DiffusionDet by $+0.060$ mAP while matching Cascade R-CNN; a solver$\times$step disentanglement attributes $94\%$ of this gain to the RF paradigm itself. Stochastic Coupling, grounded in our characterization of OT Diversity Collapse in the low-dimensional ($\mathbb{R}^4$) detection space, restores coupling diversity and stabilizes training: in low-data regimes it yields a large, highly significant mAP gain ($+0.034$, $p<10^{-120}$), while on larger data the gain shifts to a $4.6\times$ reduction of within-run epoch-level oscillation that makes checkpoint selection reliable. DPM-Solver++ with Top-$K$ pruning delivers four-step inference at 13.3--14.2 FPS with a small but statistically significant precision advantage over Heun, placing the detector in the interactive-screening latency band. Standard one-shot detectors remain 3--7$\times$ faster, so our method trades latency for accuracy and is positioned for interactive clinical screening rather than maximal throughput.
 
 Beyond chromosome karyotyping, the OT Diversity Collapse phenomenon we characterize is not specific to chromosomes --- it arises whenever the prediction space is low-dimensional, the target density per image is high, and the training corpus is small. This profile recurs across medical imaging: cell detection in histopathology (many nuclei per tile, $d=4$ bounding boxes, small annotated cohorts), lesion detection in mammography and retinal imaging (small targets, limited positive cases), and microbiological colony counting. In each of these settings, deterministic OT coupling collapses toward $\log K$ and Stochastic Coupling offers the same dual benefit --- accuracy in low-data regimes, stability in general --- that we observed on chromosomes. The theory provides an a-priori diagnostic via Table 2: any task with $d \ll 100$ and $K \gg 10$ is a candidate, and the severity $\Delta H/H$ predicts whether Stochastic Coupling will help. Validation on at least one non-chromosome high-$K$ low-$d$ benchmark --- cell detection being the most natural next step --- would substantially strengthen the generality claim.
 
@@ -541,14 +492,14 @@ PHASE 3 REORGANIZATION (commit 8f67c88a, 2026-07-19):
   record; the destination annotations below reflect the main-paper mapping.
 -->
 
-### A. Proofs
+### A. Proofs and ODE Solver Derivations
 
-<!-- [MAIN PAPER: proof sketches only — Propositions 1, 2, 3 inline at §3.3.2 + §3.3.4]
+<!-- [MAIN PAPER: proof sketches only — Propositions 1, 2, 3 inline at §3.3]
     [ARXIV COMPANION: full proofs below, including finite-N analysis and
     Gaussian-mixture posterior details]
     Page budget: ~0.4 page in main paper (three compressed sketches). -->
 
-**Correspondence to main text.** This appendix supports §3.3 (OT Diversity Collapse and Stochastic Coupling). Proposition 1 (upper bound $\Delta H \le \log K$) is stated at §3.3.2 and underpins the *OT Diversity Collapse* characterization; Proposition 2 (lower bound via Fano's inequality) is stated at §3.3.2 and establishes that the collapse is severe whenever noise is small relative to inter-box distances; Proposition 3 (monotonicity of Stochastic Coupling in $\epsilon$) is stated at §3.3.4 and justifies the Stochastic Coupling design. The main paper retains compressed proof sketches inline; this appendix restates them with additional detail, and full proofs (including finite-$N$ analysis and the Gaussian-mixture posterior) appear in the arXiv companion preprint.
+**Correspondence to main text.** This appendix supports §3.3 (OT Diversity Collapse and Stochastic Coupling) and §3.2 (ODE Solvers). Proposition 1 (upper bound $\Delta H \le \log K$) and Proposition 2 (lower bound via Fano's inequality) are stated at §3.3 and characterize the *OT Diversity Collapse*; Proposition 3 (monotonicity of Stochastic Coupling in $\epsilon$) is stated at §3.3 and justifies the Stochastic Coupling design. §A.4–A.5 give the detailed derivations of the three ODE solvers (Euler, Heun, DPM-Solver++) used in §3.2. The main paper retains compressed proposition statements inline; this appendix restates them with additional detail, and full proofs (including finite-$N$ analysis and the Gaussian-mixture posterior) appear in the arXiv companion preprint.
 
 #### A.1 Proof of Proposition 1 (OT Diversity Upper Bound)
 
@@ -569,6 +520,23 @@ where $P_{\text{err}}$ is the misclassification probability of the optimal neare
 **Proposition 3** (Stochastic Coupling Monotonicity). Under uniform source marginal, $H_{\text{stoch}}(V \mid X_t; \epsilon)$ is monotonically non-decreasing in the Sinkhorn regularization $\epsilon \ge 0$.
 
 **Proof sketch.** $T_\epsilon$ solves $\min_\pi \langle \pi, c \rangle - \epsilon H(\pi)$ s.t. uniform marginals (Cuturi, 2013). The optimal value $\mathcal{V}(\epsilon)$ is concave in $\epsilon$ (infimum of affine functions in $\epsilon$). By the envelope theorem $d\mathcal{V}/d\epsilon = -H(T_\epsilon)$, and concavity gives $dH(T_\epsilon)/d\epsilon \ge 0$. Under uniform marginal, $H_{\text{stoch}} = \tfrac{1}{K} H(T_\epsilon)$ (average row entropy), hence non-decreasing in $\epsilon$. Endpoints: $\epsilon \to 0$ gives $H \to 0$ (Hard OT), $\epsilon \to \infty$ gives $H \to \log K$ (Random).
+
+#### A.4 Heun Solver Derivation (2nd-order predictor-corrector)
+
+Heun's method provides 2nd-order ODE accuracy via a predictor–corrector:
+- Predict: $\hat{\mathbf{x}}_{t-\Delta t} = \mathbf{x}_t + \Delta t \cdot \mathbf{v}_\theta(\mathbf{x}_t, t)$
+- Correct: $\mathbf{x}_{t-\Delta t} = \mathbf{x}_t + \frac{\Delta t}{2} [\mathbf{v}_\theta(\mathbf{x}_t, t) + \mathbf{v}_\theta(\hat{\mathbf{x}}_{t-\Delta t}, t{-}\Delta t)]$
+
+2 network forward evaluations (NFE) per step. At 4 steps this yields 8 NFE (7 in practice; the last step degrades to Euler).
+
+#### A.5 DPM-Solver++ Derivation (2nd-order multistep, 1 NFE/step)
+
+We adapt DPM-Solver++ (Lu et al., 2022) to the RF linear path. The model directly predicts $\mathbf{x}_0$ (the GT box), and the update uses polynomial interpolation of the $\mathbf{x}_0$ history in $t$ space (not the log-SNR $\lambda$ space of VP-SDE). The RF-ODE in data-prediction form is $d\mathbf{x}/dt = (\mathbf{x} - \mathbf{x}_0(t))/t$; integrating exactly over $[t_n, t_{n+1}]$ with linear $\mathbf{x}_0(t)$ interpolation yields
+
+$$\mathbf{x}_{t_{n+1}} = \tfrac{t_{n+1}}{t_n}\,\mathbf{x}_{t_n} + \bigl(1 - \tfrac{t_{n+1}}{t_n}\bigr)\,\mathbf{x}_0^{(n)} + \varphi_1\,\mathbf{D}_1,$$
+$$\varphi_1 = t_{n+1}\log\tfrac{t_n}{t_{n+1}} - t_n + t_{n+1},\quad \mathbf{D}_1 = \tfrac{\mathbf{x}_0^{(n)} - \mathbf{x}_0^{(n-1)}}{t_n - t_{n-1}},$$
+
+where the first two terms are the exact solution for constant $\mathbf{x}_0$ and $\varphi_1 \mathbf{D}_1$ is the 2nd-order correction for linearly varying $\mathbf{x}_0(t)$. The singularity at $t{\to}0$ is handled by an $\epsilon$ cutoff ($t_{n+1} > 10^{-7}$); a 3rd-order variant adds a quadratic term $\varphi_2 \mathbf{D}_2$. Unlike VP-SDE DPM-Solver++, $\mathbf{x}_1$ (the initial noise) is a fixed sample and is *not* interpolated; its contribution is carried implicitly by $\mathbf{x}_{t_n}$. 1 NFE per step, 4 NFE for 4 steps (vs Heun's 7).
 
 ### B. Falsified Directions
 

@@ -16,45 +16,45 @@ Warning--empty journal in deflomat2025
 Warning--empty journal in ge2021yolox
 
 Done.
-You've used 25 entries,
+You've used 26 entries,
             4087 wiz_defined-function locations,
-            931 strings with 11559 characters,
-and the built_in function-call counts, 18104 in all, are:
-= -- 1313
-> -- 526
+            938 strings with 11742 characters,
+and the built_in function-call counts, 18625 in all, are:
+= -- 1359
+> -- 539
 < -- 114
-+ -- 288
-- -- 114
-* -- 853
-:= -- 2571
-add.period$ -- 50
-call.type$ -- 25
-change.case$ -- 24
++ -- 294
+- -- 117
+* -- 878
+:= -- 2666
+add.period$ -- 52
+call.type$ -- 26
+change.case$ -- 26
 chr.to.int$ -- 294
-cite$ -- 28
-duplicate$ -- 1315
-empty$ -- 1631
-format.name$ -- 123
-if$ -- 4255
+cite$ -- 29
+duplicate$ -- 1354
+empty$ -- 1673
+format.name$ -- 127
+if$ -- 4370
 int.to.chr$ -- 0
-int.to.str$ -- 25
-missing$ -- 252
-newline$ -- 100
-num.names$ -- 25
-pop$ -- 685
+int.to.str$ -- 26
+missing$ -- 262
+newline$ -- 105
+num.names$ -- 26
+pop$ -- 712
 preamble$ -- 1
 purify$ -- 0
 quote$ -- 2
-skip$ -- 1389
+skip$ -- 1428
 stack$ -- 0
-substring$ -- 748
-swap$ -- 970
+substring$ -- 751
+swap$ -- 996
 text.length$ -- 16
 text.prefix$ -- 0
 top$ -- 5
-type$ -- 25
+type$ -- 26
 warning$ -- 3
-while$ -- 70
-width$ -- 27
-write$ -- 237
+while$ -- 71
+width$ -- 28
+write$ -- 249
 (There were 3 warnings)

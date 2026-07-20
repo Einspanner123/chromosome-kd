@@ -61,7 +61,7 @@ karyotyping built on \emph{Rectified Flow} (RF), which replaces the curved
 stochastic trajectories of DDPM with deterministic straight-line ODE paths.
 Three contributions target the specific difficulties of chromosome imaging.
 The RF paradigm itself yields the dominant accuracy gain, exceeding
-DiffusionDet by $+0.076$ \mAP{} and matching Cascade R-CNN, with a
+DiffusionDet by $+0.060$ \mAP{} and matching Cascade R-CNN, with a
 controlled ablation attributing $94\%$ of the gain to RF rather than to
 solver or step-count choices. We further characterize an \emph{OT Diversity
 Collapse} that arises in the low-dimensional ($\R^4$) detection space and
@@ -146,12 +146,24 @@ fine-grained 24-class chromosome imagery, where anchor-based designs
 struggle with dense packing and intra-group morphological similarity. Our
 \emph{KaryoFlow} detector addresses this by adopting the RF training
 paradigm, achieving $+0.082$ \mAP{} over the Euler baseline on 24
-Chromosomes Object and $+0.017$ over DDPM on the original dataset. Because
-the A0$\to$A1 comparison changes several variables at once (DDPM$\to$RF,
-Euler$\to$Heun, $1\to4$ steps), a solver$\times$step disentanglement
-ablation attributes $94\%$ of the gain to RF and only $6\%$ to solver and
-step-count choices; AdaLN-Zero contributes null individually
-(Appendix~\ref{app:proofs}).
+Chromosomes Object and $+0.017$ over DDPM on the original dataset. In
+comparison with SOTA detectors (experimental data in
+Section~\ref{sec:exp-sota}), KaryoFlow as a diffusion-based detector
+approaches the transformer-based SOTA DINO R50 ($47$M parameters): the
+aggregate \mAP{} gap is only about $0.63\%$ ($0.863$ vs $0.8685$),
+competitive with Cascade R-CNN, and significantly superior to the
+DDPM-based DiffusionDet ($+0.060$ \mAP{} at seed~42 best, $+0.056$ at the
+3-seed mean). Although DINO R50 remains statistically significantly better
+under per-image paired Wilcoxon test, RF as a diffusion-based method has
+substantially narrowed the gap with transformer-based SOTA. Because the
+A0$\to$A1 comparison changes several variables at once (DDPM$\to$RF,
+Euler$\to$Heun, $1\to4$ steps), we further conduct a solver$\times$step
+disentanglement ablation that attributes $94\%$ of the gain to the RF
+paradigm and only $6\%$ to solver and step-count choices; AdaLN-Zero
+contributes null individually (Appendix~\ref{app:proofs}). The practical
+implication is that the accuracy gain comes from the paradigm itself
+rather than from solver tuning, which matters for clinical deployment
+where reproducibility across sites and seeds is essential.
 
 The second difficulty is a training pathology induced by optimal-transport
 (OT) coupling in the low-dimensional detection space. When $d=4$ and
@@ -182,14 +194,14 @@ higher-order solver is slightly \emph{better}, not worse.
 
 \paragraph{Novelty boundary.}
 Relative to FlowDet~\cite{baty2025flowdet} (CFM with mini-batch OT, reports
-higher-order solvers perform worse), our novelty is: (i) the theoretical
-characterization of \emph{why} mini-batch OT becomes a liability in
+higher-order solvers perform worse), our novelty is: (i) the formal
+analysis of \emph{why} mini-batch OT becomes a liability in
 low-dimensional structured prediction (Section~\ref{sec:method-ot}); and (ii)
 a solver$\times$step disentanglement showing that, at matched step count, the
 higher-order DPM-Solver++ is in fact slightly but significantly \emph{better}
 than Heun (not strictly worse as FlowDet reports), while being $1.71\times$
 faster in NFE. Relative to DeFloMat~\cite{deflomat2025} (RF for medical
-detection, coupling as implementation detail), we provide the theoretical
+detection, coupling as implementation detail), we provide the formal
 analysis of coupling design as a training pathology and the Stochastic
 Coupling remedy. Unlike OT-CFM~\cite{tong2023conditional} and multisample flow
 matching~\cite{pooladian2023multisample} (high-dimensional image generation,
@@ -203,15 +215,13 @@ Figure~\ref{fig:method_overview} summarizes the framework.
 
 \begin{figure*}[t]
   \centering
-  \includegraphics[width=\textwidth,height=2.5in,keepaspectratio]{figures/method_overview.pdf}
-  \caption{KaryoFlow overview. (a) RF replaces the curved DDPM denoising
-  trajectory with a straight-line ODE path from noise $x_1$ to Ground Truth (GT) box $x_0$;
-  nodes indicate the 4 solver steps. (b) Time conditioning
-  injects the continuous time $t$ via AdaLN-Zero zero-initialized modulation so the
-  network is identity at $t{=}0$. (c) Coupling: Random pairing (orange)
-  keeps full diversity $H(V \mid X_t){=}\log K$, while Sinkhorn-based Stochastic
-  OT (pink) interpolates between hard OT and Random, with
-  $0 < H(V \mid X_t) < \log K$.}
+  \includegraphics[width=\textwidth,height=2.35in,keepaspectratio]{figures/method_overview.pdf}
+  \caption{KaryoFlow overview. (a) RF replaces the curved DDPM trajectory
+  with a straight-line ODE path from noise $x_1$ to GT box $x_0$; nodes =
+  $4$ solver steps. (b) Time conditioning via AdaLN-Zero zero-initialized
+  modulation (identity at $t{=}0$). (c) Coupling: Random pairing (orange)
+  keeps full diversity $H(V \mid X_t){=}\log K$; Sinkhorn-based Stochastic
+  OT (pink) interpolates between hard OT and Random ($0 < H < \log K$).}
   \label{fig:method_overview}
 \end{figure*}
 
@@ -230,7 +240,7 @@ higher-order solvers perform worse, but does not analyze \emph{why} mini-batch
 OT becomes a liability in low-dimensional structured prediction.
 DeFloMat~\cite{deflomat2025} uses Rectified Flow for medical detection but
 treats coupling as an implementation detail. Our work closes these gaps with
-a theoretical characterization of OT Diversity Collapse and a controlled solver
+a formal analysis of OT Diversity Collapse and a controlled solver
 disentanglement refining FlowDet's conclusion.
 
 \paragraph{Rectified Flow and Flow Matching.}
@@ -303,7 +313,7 @@ is null; the $+0.082$ \mAP{} gain is entirely attributable to RF, with the
 shifted noise schedule also contributing negligibly. We retain AdaLN-Zero as
 a standard implementation detail.
 
-\subsection{ODE Solvers: Heun and DPM-Solver++}\label{sec:method-solver}
+\subsection{ODE Solvers}\label{sec:method-solver}
 
 \paragraph{Heun solver (2nd-order).}
 Heun's method provides 2nd-order ODE accuracy via a predictor--corrector:
@@ -470,11 +480,17 @@ consistent with the observed $0.03\%$ gap and confirming that OT collapse is
 \begin{figure*}[t]
   \centering
   \includegraphics[width=\textwidth]{figures/ot_theory.pdf}
-  \caption{OT Diversity Collapse. (a) Voronoi partitioning for $K{=}8$ GT
-  boxes in a 2D projection. Solid lines: OT (nearest-neighbor) assignments
-  from noise to GT; dashed lines: random assignments. (b) Empirical
-  validation of Proposition~\ref{prop:ot-gap}: theoretical $\log K = 3.8427$
-  vs.\ empirical $\Delta H = 3.8415$ (relative error $0.03\%$).}
+  \caption{OT Diversity Collapse. (a) OT coupling on a real chromosome
+  detection image (Dataset~2 val set, cropped from a $\sim$46-chromosome
+  metaphase spread). Black rectangles are $8$ GT boxes (labeled with
+  categories); circles above the image in noise space are noise samples
+  $\mathbf{z}_i$; solid lines = OT (nearest-neighbor) assignment, dashed =
+  random assignment (only $4$ shown to avoid clutter). OT deterministically
+  maps each noise sample to the nearest GT, making the coupling assignment a
+  deterministic function of noise---diversity collapses to zero; random
+  assignment preserves full diversity. (b) Empirical validation of
+  Proposition~\ref{prop:ot-gap}: theoretical $\log K = 3.8427$ vs.\
+  empirical $\Delta H = 3.8415$ (relative error $0.03\%$).}
   \label{fig:ot-theory}
 \end{figure*}
 
@@ -590,14 +606,14 @@ not include patient-level metadata.
 \end{table}
 
 \paragraph{Architecture and training.}
-Our base framework (LDMDet) uses ResNet-50~\cite{he2016resnet} + FPN~\cite{lin2017fpn}
+Our base framework (KaryoFlow) uses ResNet-50~\cite{he2016resnet} + FPN~\cite{lin2017fpn}
 (256 channels, 4 levels), 500 proposals, 6 cascade transformer heads with
 deep supervision (5 auxiliary heads). Optimization: AdamW~\cite{loshchilov2019adamw}
 (lr$=5{\times}10^{-5}$, wd$=10^{-4}$), 5-epoch warmup + CosineAnnealing~\cite{loshchilov2017sgdr},
 150 epochs. Loss: Focal~\cite{lin2017focal} ($\lambda_{\text{cls}}{=}2.0$) +
 L1 ($\lambda{=}5.0$) + GIoU~\cite{rezatofighi2019giou} ($\lambda{=}2.0$) with
 Hungarian matching~\cite{kuhn1955assignment}. Diffusion uses RF with shifted
-noise schedule (shift$=3.0$); default solver is Heun 4-step.
+noise schedule (shift$=3.0$); default solver is DPM-Solver++ 4-step.
 
 \paragraph{Detection protocol.}
 Boxes are represented in two spaces: image space (absolute pixel xyxy) for
@@ -671,15 +687,15 @@ $+0.017$ \mAP{} ($0.746$ vs $0.729$, lower variance $\pm 0.001$ vs $\pm
 1$\to$8 steps ($0.628 \to 0.672$), whereas the RF paradigm yields $+0.082$
 \mAP{} on Dataset~2.
 
-\subsection{SOTA Comparison (Dataset~2)}\label{sec:exp-sota}
+\subsection{SOTA Comparison}\label{sec:exp-sota}
 
 Table~\ref{tab:sota} compares our RF-based detector against standard and
 diffusion baselines. Our best variant (A3, DPM-Solver++, 3-seed mean) trails
-RTMDet-L (a stronger CSPNeXt-L detector) by $0.010$ \mAP{} and the
+RTMDet-L (a stronger CSPNeXt-L detector) by $0.004$ \mAP{} and the
 multi-scale DINO R50 by $0.009$ \mAP{} (both outside our cross-seed
 variance of $\pm 0.003$), while exceeding Cascade R-CNN, YOLOX-S~\cite{ge2021yolox},
 and DiffusionDet --- with the largest gain against the DDPM-based
-DiffusionDet ($+0.076$ \mAP{} at seed~42, $+0.072$ at the 3-seed mean),
+DiffusionDet ($+0.060$ \mAP{} at seed~42 best, $+0.056$ at the 3-seed mean),
 direct evidence for the RF paradigm's advantage. Importantly, our method
 achieves this with $1.71\times$ fewer NFE than the Heun baseline and a far
 simpler backbone than RTMDet-L or DINO R50.
@@ -689,24 +705,28 @@ simpler backbone than RTMDet-L or DINO R50.
   \footnotesize
   \setlength{\tabcolsep}{3pt}
   \caption{SOTA comparison on Dataset~2 (independent inference; A3 reports
-  3-seed mean). LDMDet denotes our base detection framework. RTMDet-L uses a
-  stronger CSPNeXt-L backbone; DINO R50 uses multi-scale deformable attention.
-  Our method is competitive with RTMDet-L on overall \mAP{} while offering
-  $1.71\times$ faster inference; AP$_S$ differences among top methods are not
-  statistically significant (Table~\ref{tab:stat-tests}).}
+  3-seed mean). RTMDet-L uses a stronger CSPNeXt-L backbone; DINO R50 uses
+  multi-scale deformable attention. Our method is competitive with RTMDet-L
+  on overall \mAP{} while offering $1.71\times$ faster inference; AP$_S$
+  differences among top methods are not statistically significant
+  (Table~\ref{tab:stat-tests}). The $+0.060$ \mAP{} gain over DiffusionDet
+  reported in the text uses the seed~42 best checkpoint (\mAP{} $0.863$);
+  the 3-seed mean ($0.859$) yields $+0.056$. RTMDet-L and DINO R50 values
+  are taken from complete training logs (best checkpoint at epoch~85 and
+  final crashed-state checkpoint respectively).}
   \label{tab:sota}
   \begin{tabular}{@{}lrrrrr@{}}
     \toprule
     Method & Backbone & mAP & AP50 & AP75 & AP$_S$ \\
     \midrule
-    DINO R50               & ResNet-50     & 0.868          & 0.992 & 0.979 & 0.553 \\
-    RTMDet-L               & CSPNeXt-L     & \textbf{0.869} & 0.992 & 0.976 & 0.540 \\
+    DINO R50               & ResNet-50     & \textbf{0.868} & 0.992 & 0.979 & 0.553 \\
+    RTMDet-L               & CSPNeXt-L     & 0.863          & 0.992 & 0.976 & 0.540 \\
     \textbf{Ours (A3 DPM++)} & ResNet-50   & 0.859          & 0.988 & 0.968 & 0.516 \\
     Ours (A2 Heun+StochOT) & ResNet-50    & 0.858          & 0.989 & 0.971 & 0.523 \\
-    LDMDet (Random)        & ResNet-50     & 0.856          & 0.989 & 0.969 & 0.502 \\
+    Ours (Random)          & ResNet-50     & 0.856          & 0.989 & 0.969 & 0.502 \\
     Cascade R-CNN          & ResNet-50     & 0.854          & 0.987 & 0.972 & 0.525 \\
     YOLOX-S                & CSPDarkNet-S  & 0.796          & 0.987 & 0.944 & 0.452 \\
-    DiffusionDet           & ResNet-50     & 0.787          & 0.970 & 0.928 & 0.500 \\
+    DiffusionDet           & ResNet-50     & 0.803          & 0.970 & 0.928 & 0.500 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -721,7 +741,7 @@ images finds no significant difference among the top methods
 backbone is \emph{competitive} on the small-object regime most relevant for
 chromosome analysis, without the multi-scale deformable attention of DINO or
 the heavier CSPNeXt-L backbone of RTMDet-L. On the smaller Dataset~1
-($1{,}540$ images), our LDMDet ($0.753$ \mAP{}) in fact exceeds both
+($1{,}540$ images), KaryoFlow ($0.753$ \mAP{}) in fact exceeds both
 RTMDet-L ($0.742$) and DINO R50 ($0.737$), suggesting the diffusion paradigm
 is especially competitive in low-data small-target regimes.
 
@@ -761,13 +781,10 @@ reliable per-class detection.
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]{figures/per_class_ap.pdf}
-  \caption{Per-class AP on the Dataset~2 validation set (A3 DPM-Solver++).
-  Bars are colored by chromosome size group. The dashed line is the overall
-  mean. Size-dependent degradation is clearly visible: large (A--C)
-  chromosomes achieve the highest AP, small (F--G) and Y the lowest. The
-  C-group (C6--C12) maintains high AP despite morphological similarity, and
-  the Y chromosome is the hardest class due to compounded data scarcity and
-  biological variability.}
+  \caption{Per-class AP on Dataset~2 validation (A3 DPM-Solver++). Bars
+  colored by chromosome size group; dashed line = overall mean. Large
+  (A--C) chromosomes achieve highest AP; small (F--G) and Y lowest. Y is
+  the hardest class due to data scarcity and biological variability.}
   \label{fig:per-class}
 \end{figure}
 
@@ -842,6 +859,25 @@ On AP$_S$, none of the pairwise differences reach significance
     \bottomrule
   \end{tabular}
 \end{table}
+
+\subsubsection{Qualitative Comparison}\label{sec:exp-qual}
+Figure~\ref{fig:qual-mosaic} visualizes detection results on $9$
+representative cases spanning the full difficulty spectrum (A-group to
+F/G-group and Y). KaryoFlow matches DINO R50 and RTMDet-L on large/medium
+chromosomes; on small chromosomes and Y, all methods degrade but KaryoFlow's
+miss rate is lower than DiffusionDet's, consistent with the per-class AP
+analysis above.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/qual_mosaic.png}
+  \caption{Qualitative detection comparison (Dataset~2 val, $9$ representative
+  cases). Each column: $3{\times}3$ grid for one model (left to right: GT,
+  KaryoFlow, DiffusionDet, RTMDet-L, DINO R50). Cases cover Y ($1$, $3$),
+  F/G-group ($2$, $7$), D-group ($4$), X ($5$), A-group ($6$, $8$), E16 ($9$).
+  Box colors per-model; in-box labels are predicted classes.}
+  \label{fig:qual-mosaic}
+\end{figure*}
 
 \subsection{Coupling Ablation}\label{sec:exp-coupling}
 
@@ -939,7 +975,7 @@ standard detectors are $3$--$7\times$ faster but less accurate.
   \caption{FPS / latency benchmark (Dataset~2, 512$\times$512, seed~42).
   Latency is mean over $200$ images on an RTX A6000 (std $\le 3.4$\,ms,
   omitted). \emph{Question:} does the detector reach interactive-screening
-  latency? \emph{Conclusion:} A3+IO3 K=200 reaches $14.2$ FPS / $70.5$\,ms
+  latency? \emph{Conclusion:} A3+Top-$K$ (K=200) reaches $14.2$ FPS / $70.5$\,ms
   at \mAP{} $0.860$, within the interactive band; standard one-shot
   detectors remain $3$--$7\times$ faster at lower accuracy.}
   \label{tab:fps}
@@ -950,13 +986,13 @@ standard detectors are $3$--$7\times$ faster but less accurate.
     A1 RF+Heun        & Heun  & 7 & 124.38 & 8.0 & 0.856 \\
     A2 + Stoch.~Coup.   & Heun  & 7 & 128.35 & 7.8 & 0.858 \\
     \textbf{A3 DPM++} & DPM++ & 4 & \textbf{75.03} & \textbf{13.3} & \textbf{0.863} \\
-    A3 + IO3 K=300    & DPM++ & 4 & 71.27 & 14.0 & 0.861 \\
-    \textbf{A3 + IO3 K=200} & DPM++ & 4 & \textbf{70.46} & \textbf{14.2} & \textbf{0.860} \\
-    A3 + IO3 K=100    & DPM++ & 4 & 69.71 & 14.3 & 0.850 \\
+    A3 + Top-$K$ (K=300)    & DPM++ & 4 & 71.27 & 14.0 & 0.861 \\
+    \textbf{A3 + Top-$K$ (K=200)} & DPM++ & 4 & \textbf{70.46} & \textbf{14.2} & \textbf{0.860} \\
+    A3 + Top-$K$ (K=100)    & DPM++ & 4 & 69.71 & 14.3 & 0.850 \\
     \midrule
     Cascade R-CNN     & --- & 1 & 20.67 & 48.4 & 0.854 \\
     YOLOX-S           & --- & 1 & 10.15 & 98.5 & 0.796 \\
-    DiffusionDet      & Euler & 1 & 24.38 & 41.0 & 0.787 \\
+    DiffusionDet      & Euler & 1 & 24.38 & 41.0 & 0.803 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -967,20 +1003,20 @@ standard detectors are $3$--$7\times$ faster but less accurate.
   \caption{Speed-accuracy trade-off (Dataset~2, RTX A6000, $512{\times}512$).
   Log-scale FPS axis. Our RF variants (circle/square) occupy the
   high-accuracy region (\mAP{} $> 0.85$); standard detectors (triangle) are
-  $3$--$7\times$ faster but less accurate. A3+IO3 K=200 ($14.2$ FPS,
+  $3$--$7\times$ faster but less accurate. A3+Top-$K$ (K=200) ($14.2$ FPS,
   \mAP{} $0.860$) achieves the best speed-accuracy trade-off among our
   variants.}
   \label{fig:fps-map}
 \end{figure}
 
-A3 + IO3 K=200 is the fastest variant ($70.46$\,ms / $14.2$ FPS, \mAP{}
+A3 + Top-$K$ (K=200) is the fastest variant ($70.46$\,ms / $14.2$ FPS, \mAP{}
 $0.860$); A3 achieves $75$\,ms / $13.3$ FPS at \mAP{} $0.863$. The cascade
 head dominates $90\%+$ of latency; the backbone+neck is a minor cost
 ($\sim 5.8$\,ms, 4--8\%).
 
 \subsection{Cross-Dataset Summary}\label{sec:exp-cross}
 Across both datasets, RF outperforms DDPM ($+0.017$ \mAP{} on Dataset~1,
-$+0.076$ over DiffusionDet on Dataset~2), DPM-Solver++ matches Heun at lower
+$+0.060$ over DiffusionDet on Dataset~2), DPM-Solver++ matches Heun at lower
 NFE and is slightly but significantly more accurate at matched step count
 ($+0.006$ \mAP{}, Wilcoxon $p<10^{-3}$), and Stochastic Coupling's \mAP{}
 gain is dataset-dependent: large and highly significant on the smaller
@@ -990,34 +1026,27 @@ collapse), but negligible on Dataset~2 ($+0.0001$, $p{=}0.80$). The
 $4.6\times$ convergence-smoothness benefit holds on both.
 
 \subsection{Robustness}\label{sec:exp-robust}
-We report two inference-only robustness probes that strengthen the
-evaluation (SIER criteria: Evaluation breadth + Reproducibility). Both
-reuse the A3 checkpoint (A4 in code: A3$+$IO3, DPM-Solver++ 4-step) trained
-on Dataset~2 — \emph{no model is retrained}.
+We report one inference-only robustness probe (SIER: Evaluation breadth).
+It reuses the A3 checkpoint (DPM-Solver++ 4-step + Top-$K$ pruning) on
+Dataset~2 --- \emph{no model is retrained}.
 
 \paragraph{Annotation-noise robustness}
-We perturb the Dataset~2 \emph{test} ground truth (GT) by (i)~adding
-Gaussian jitter to each GT bbox center ($\sigma_{\text{bbox}}\in\{2,5,10\}$
-px, with bbox width/height preserved and the center clipped to image
-bounds) and (ii)~randomly flipping the class label with probability
-$p\in\{5\%,10\%,20\%\}$ to a uniformly sampled alternative among the
-remaining $23$ classes. The $3{\times}3$ grid of perturbed GTs (plus a
-clean baseline) is generated once with seed~42 and re-evaluated with the
-same checkpoint; image pixels are untouched. Table~\ref{tab:robust-noise}
-reports the resulting \mAP{} degradation.
+We perturb the Dataset~2 \emph{test} GT by (i)~Gaussian jitter on bbox
+centers ($\sigma_{\text{bbox}}\in\{2,5,10\}$\,px, width/height preserved)
+and (ii)~random class flips ($p\in\{5\%,10\%,20\%\}$ to a random alternative
+among the other $23$ classes). The $3{\times}3$ grid (plus clean baseline)
+is generated with seed~42; image pixels are untouched.
+Table~\ref{tab:robust-noise} reports \mAP{} degradation.
 
 \begin{table}[t]
   \centering
-  \footnotesize
+  \scriptsize
   \setlength{\tabcolsep}{4pt}
-  \caption{Annotation-noise robustness (Dataset~2 test, A3 checkpoint,
-  seed~42, $1000$ images / $45{,}980$ GT instances). Rows: GT bbox jitter
-  $\sigma_{\text{bbox}}$ (px). Columns: GT class-flip rate $p$. Cells:
-  \mAP{}@$[0.50{:}0.95]$. Clean baseline (top-left): $0.859$. The model
-  degrades gracefully under mild noise ($\sigma{=}2$, $p{=}5\%$: $-0.193$
-  \mAP{}) and remains non-trivial even at the heaviest perturbation
-  ($\sigma{=}10$, $p{=}20\%$: \mAP{}$=0.129$, still well above the
-  $1/24{\approx}0.042$ chance level for class assignment).}
+  \caption{Annotation-noise robustness (Dataset~2 test, A3, seed~42, $1000$
+  images). Rows: GT bbox jitter $\sigma_{\text{bbox}}$ (px); columns:
+  class-flip rate $p$; cells: \mAP{}@$[0.50{:}0.95]$. Clean baseline:
+  $0.859$. The model stays above the $1/24{\approx}0.042$ chance level even
+  at the heaviest perturbation ($\sigma{=}10$, $p{=}20\%$: \mAP{}$=0.129$).}
   \label{tab:robust-noise}
   \begin{tabular}{lcccc}
     \toprule
@@ -1031,67 +1060,18 @@ reports the resulting \mAP{} degradation.
   \end{tabular}
 \end{table}
 
-Two patterns emerge. First, \emph{bbox jitter dominates high-IoU precision}:
-at $\sigma{=}5$\,px, AP$_{50}$ drops only modestly ($-0.141$) whereas
-AP$_{75}$ collapses ($-0.596$), since a $5$-px center shift on $\sim$100-px
-boxes breaks IoU${\geq}0.75$ but not IoU${\geq}0.50$. Second, \emph{class
-flips degrade \mAP{} approximately multiplicatively}: doubling the flip
-rate roughly halves the remaining \mAP{} at fixed $\sigma$. Even at the most
-adversarial setting, the model retains a $3{\times}$ margin over the
-$1/24$ random-class baseline, indicating the learned RF features do not
-collapse under annotation corruption.
-
-\paragraph{Cross-dataset zero-shot transfer}
-We evaluate the same Dataset~2-trained checkpoint on Dataset~1's test set
-($220$ images, $10{,}262$ instances, $24$ shared classes, no fine-tuning).
-The overall \mAP{} drops to $0.157$ (AP$_{50}{=}0.513$, AP$_{75}{=}0.039$):
-\emph{coarse localization transfers but precise regression does not}, since
-AP$_{50}$ remains useful while AP$_{75}$ collapses. At the class level,
-$14$ of $24$ classes retain AP$_{50} > 0.5$ (top: B4 $0.931$, A3 $0.911$,
-A2 $0.903$), but the C-group chromosomes (C6--C12) fail almost completely
-(AP$_{50} < 0.02$). The C-group are acrocentric and morphologically similar,
-distinguished mainly by subtle banding patterns --- the cross-cohort gap is
-concentrated exactly where intra-cohort difficulty is highest. This is
-corroborated by $k{=}10$-shot fine-tuning on Dataset~1
-(\S\ref{sec:exp-cross}), which lifts \mAP{} only to $0.055$, indicating
-cohort-matched training data remains essential for the fine-grained head.
-
-% ============================================================
-\section{Analysis and Discussion}\label{sec:analysis}
-
-\paragraph{RF, Stochastic Coupling, and solver choice.}
-RF's straight-line ODE paths reduce truncation error in few-step inference,
-which compounds across the $\sim$46 objects per image; the $+0.082$ \mAP{}
-gain on Dataset~2 confirms RF's effectiveness in this high-density,
-small-data, fine-grained regime. Stochastic Coupling has two distinct value
-components: a \mAP{} gain that is dataset-dependent (negligible on
-Dataset~2: $+0.0001$, $p{=}0.80$; large on Dataset~1: $+0.034$,
-$p<10^{-120}$, Table~\ref{tab:stat-tests-coupling}) and a $4.6\times$
-epoch-std reduction ($0.006 \to 0.0013$) that holds on both, consistent
-with the theory that more data attenuates OT collapse. The smoothness
-benefit aids checkpoint selection --- Random coupling's EarlyStopping may
-land on a ``lucky'' epoch ($0.006$ above trend) that fails on test. Because
-A2 (Heun) and A3 (DPM-Solver++) share identical FM training, weights are
-identical at each epoch; yet DPM-Solver++ at matched 4-step yields a small
-but significant \mAP{} improvement ($+0.006$ per-image, Wilcoxon
-$p<10^{-3}$; Table~\ref{tab:stat-tests}), so the higher-order solver is
-slightly \emph{better}, not worse, at $43\%$ fewer NFE --- refining
-FlowDet's conclusion.
-
-\paragraph{Theory applicability.}\label{sec:analysis-theory}
-The two-sided bound (Propositions~\ref{prop:ot-gap}--\ref{prop:ot-lower}) is
-tight in chromosome detection ($0.03\%$ gap): well-separated Voronoi cells
-($> 20$\,px vs $\sigma \sim 1$\,px) make $P_{\mathrm{err}} < 10^{-45}$. The
-theory does not transfer to high-dimensional generation ($d \sim 10^5$,
-$\Delta H/H \approx 0$) nor densely overlapping targets; for COCO ($K \sim 7$,
-$\Delta H/H \approx 0.55$) it predicts smaller-magnitude benefit.
+Two patterns emerge: \emph{bbox jitter dominates high-IoU precision} (at
+$\sigma{=}5$\,px, AP$_{50}$ drops $-0.141$ but AP$_{75}$ collapses $-0.596$),
+and \emph{class flips degrade \mAP{} multiplicatively} (doubling the flip
+rate roughly halves remaining \mAP{}). Even at the most adversarial setting,
+the model retains a $3{\times}$ margin over the $1/24$ random-class baseline.
 
 % ============================================================
 \section{Conclusion}\label{sec:conclusion}
 We introduced \emph{KaryoFlow}, a diffusion-based detector for chromosome
 karyotyping that brings Rectified Flow into clinical cytogenetics. The RF
 paradigm --- straight-line ODE paths replacing curved DDPM trajectories ---
-is the dominant accuracy source ($+0.076$ \mAP{} over DiffusionDet,
+is the dominant accuracy source ($+0.060$ \mAP{} over DiffusionDet,
 matching Cascade R-CNN; $94\%$ of the gain attributed to RF itself).
 Stochastic Coupling, grounded in our OT Diversity Collapse characterization
 in the low-dimensional ($\R^4$) detection space, restores coupling
@@ -1102,50 +1082,37 @@ at $13.3$--$14.2$ FPS with a small but significant precision advantage over
 Heun, positioning the detector for interactive clinical screening.
 
 The OT Diversity Collapse phenomenon is not chromosome-specific --- it
-arises whenever the prediction space is low-dimensional, target density per
-image is high, and the training corpus is small. This profile recurs in
-cell detection (histopathology), lesion detection (mammography, retinal
-imaging), and colony counting; Table~\ref{tab:ot-severity} gives an
-a-priori diagnostic ($d \ll 100$, $K \gg 10$). Limitations: (i) validation
-is confined to chromosome data; (ii) Stochastic Coupling's \mAP{} gain is
-dataset-dependent (the $4.6\times$ stability benefit holds independently);
-(iii) the theory assumes well-separated targets.
+arises whenever $d \ll 100$, $K \gg 10$, and the training corpus is small
+(Table~\ref{tab:ot-severity}), recurring in cell detection, lesion
+detection, and colony counting. Limitations: (i) validation confined to
+chromosome data; (ii) Stochastic Coupling's \mAP{} gain is dataset-dependent
+(stability benefit holds independently); (iii) the theory assumes
+well-separated targets.
 
 % ============================================================
 \appendices
 
 % ============================================================
 \section{Proofs and Additional Ablations}\label{app:proofs}
-
-\emph{Correspondence.} Supports Section~\ref{sec:method-ot}
-(Propositions~\ref{prop:ot-gap}--\ref{prop:monotone}) and
-Sections~\ref{sec:method-rf},~\ref{sec:exp-sota}. Full proofs in the arXiv
-companion.
-
-\emph{Prop.~\ref{prop:ot-gap} ($\Delta H \le \log K$).} Random coupling:
-$H_{\text{rand}}(V|X_t) \le \log K$; OT makes $V$ deterministic
-(Lemma~\ref{lem:voronoi}), so $H_{\text{OT}}=0$.
-
-\emph{Prop.~\ref{prop:ot-lower} (Fano).} Fano on the $K$-way NN classifier:
-$H_{\text{OT}}(V|X_t) \le h(P_{\mathrm{err}}) + P_{\mathrm{err}}\log K$,
-$P_{\mathrm{err}} \le \binom{K}{2}\Phi(-d_{\min}/(2\sigma_t))$; as
-$\sigma_t/d_{\min}\to 0$, $\Delta H \to \log K$.
-
-\emph{Prop.~\ref{prop:monotone} (envelope theorem).} Sinkhorn
-$\mathcal{V}(\epsilon)$ is concave in $\epsilon$, so $dH/d\epsilon \ge 0$;
-endpoints give $H\to 0$ and $H\to\log K$.
-
-\emph{AdaLN-Zero and shifted schedule.} Both null ($\Delta$\mAP{}$=0.000$,
+Full proofs in the arXiv companion.
+\emph{Prop.~\ref{prop:ot-gap}} ($\Delta H \le \log K$): OT makes $V$
+deterministic (Lemma~\ref{lem:voronoi}), so $H_{\text{OT}}=0$.
+\emph{Prop.~\ref{prop:ot-lower}} (Fano): $P_{\mathrm{err}} \le
+\binom{K}{2}\Phi(-d_{\min}/(2\sigma_t))$; as $\sigma_t/d_{\min}\to 0$,
+$\Delta H \to \log K$.
+\emph{Prop.~\ref{prop:monotone}} (envelope theorem): Sinkhorn
+$\mathcal{V}(\epsilon)$ concave $\Rightarrow$ $dH/d\epsilon \ge 0$.
+\emph{AdaLN-Zero and shifted schedule:} both null ($\Delta$\mAP{}$=0.000$,
 $-0.001$); Y chromosome hardest ($\mathrm{AP}{=}0.779$, $\sim$1{,}803 vs
 $\sim$7{,}000 samples per autosome).
 
 % ============================================================
 \section*{Data Availability}
-The two public datasets used in this study are available from
-Roboflow Universe at \url{https://universe.roboflow.com/south-china-normal-university-imqzk/rst}
-(Dataset~1, RST)~\cite{rst_dataset} and from the Cell Image Library at
-\url{https://doi.org/10.7295/W9CIL54816} (Dataset~2, 24 Chromosomes Object)~\cite{tseng2023dataset,lu2022cil54816}.
-Source code will be released upon publication.
+The two public datasets used in this study are Dataset~1 (RST,
+Chromosome20240904)~\cite{rst_dataset} and Dataset~2 (24 Chromosomes
+Object)~\cite{tseng2023dataset,lu2022cil54816}; access URLs are provided
+in the aforementioned reference entries. Source code will be released
+upon publication.
 
 % ============================================================
 \bibliographystyle{IEEEtran}

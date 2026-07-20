@@ -97,7 +97,7 @@ M.~Cuturi, ``Sinkhorn distances: Lightspeed computation of optimal transport,''
 \bibitem{rst_dataset}
 \BIBentryALTinterwordspacing
 {South China Normal University}, ``{RST} (chromosome20240904) dataset,''
-  Roboflow Universe, 2024. [Online]. Available:
+  Roboflow Universe, 2024, accessed Jul. 2026. [Online]. Available:
   \url{https://universe.roboflow.com/south-china-normal-university-imqzk/rst}
 \BIBentrySTDinterwordspacing
 
@@ -105,6 +105,13 @@ M.~Cuturi, ``Sinkhorn distances: Lightspeed computation of optimal transport,''
 J.-J. Tseng, C.-H. Lu, J.-Z. Li, H.-Y. Lai, M.-H. Chen, F.-Y. Cheng, and C.-E.
   Kuo, ``An open dataset of annotated metaphase cell images for chromosome
   identification,'' \emph{Scientific Data}, vol.~10, p. 104, 2023.
+
+\bibitem{lu2022cil54816}
+\BIBentryALTinterwordspacing
+C.-H. Lu, C.-E. Kuo, and J.-J. Tseng, ``{CIL:54816} - 24 chromosomes object
+  dataset,'' Cell Image Library, 2022. [Online]. Available:
+  \url{https://doi.org/10.7295/W9CIL54816}
+\BIBentrySTDinterwordspacing
 
 \bibitem{he2016resnet}
 K.~He, X.~Zhang, S.~Ren, and J.~Sun, ``Deep residual learning for image
