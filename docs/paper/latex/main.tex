@@ -55,7 +55,6 @@ Conventional anchor-based detectors plateau on fine-grained intra-group
 discrimination, while diffusion-based detectors inherit the slow many-step
 inference and trajectory truncation errors of their image-generation
 ancestors, and small clinical datasets further destabilize training.
-
 We introduce \emph{KaryoFlow}, a diffusion-based detector for chromosome
 karyotyping built on \emph{Rectified Flow} (RF), which replaces the curved
 stochastic trajectories of DDPM with deterministic straight-line ODE paths.
@@ -70,7 +69,6 @@ coupling diversity and stabilizes training in the low-data regime. Finally,
 DPM-Solver++ with Top-$K$ proposal pruning delivers four-step inference at
 clinical-grade latency, with a small but statistically significant
 precision advantage over the Heun baseline.
-
 All claims are validated on two public chromosome datasets with multi-seed
 experiments, per-class AP analysis, and SOTA comparison, supporting
 diffusion-based detection as a practical paradigm for fine-grained medical
@@ -291,15 +289,15 @@ similar C-group).
 
 \paragraph{RF formulation}
 The conditional probability path is
-\begin{equation*}
+\begin{equation}\label{eq:rf-path}
   \mathbf{x}_t = (1-t)\, \mathbf{x}_0 + t\, \mathbf{x}_1, \qquad t \in [0,1],
-\end{equation*}
+\end{equation}
 where $\mathbf{x}_0$ is the target (GT bbox) and $\mathbf{x}_1$ is the source (Gaussian
 noise). The corresponding velocity field is constant along the path,
 $\mathbf{v} = \mathbf{x}_1 - \mathbf{x}_0$, and the training objective is the flow matching loss
-\begin{equation*}
+\begin{equation}\label{eq:fm-loss}
   \mathcal{L}_{\mathrm{FM}} = \E_{t, \mathbf{x}_0, \mathbf{x}_1}\!\left[ \norm{ \mathbf{v}_\theta(\mathbf{x}_t, t) - (\mathbf{x}_1 - \mathbf{x}_0) }^2 \right].
-\end{equation*}
+\end{equation}
 \emph{Detection-specific adaptation}: source $\mathbf{x}_1 \sim \mathcal{N}(\mathbf{0},
 \sigma^2 \mathbf{I}_4)$, target $\mathbf{x}_0$ are GT bboxes, $d=4$ (vs.\ $d=196{,}608$ in
 image generation), and $K \approx 46$ targets per image.
@@ -317,10 +315,12 @@ a standard implementation detail.
 
 \paragraph{Heun solver (2nd-order)}
 Heun's method provides 2nd-order ODE accuracy via a predictor--corrector:
-\begin{align*}
+\begin{equation}\label{eq:heun}
+\begin{aligned}
   \hat{\mathbf{x}}_{t-\Delta t} &= \mathbf{x}_t + \Delta t \cdot \mathbf{v}_\theta(\mathbf{x}_t, t), \\
   \mathbf{x}_{t-\Delta t}       &= \mathbf{x}_t + \tfrac{\Delta t}{2}\,[ \mathbf{v}_\theta(\mathbf{x}_t, t) + \mathbf{v}_\theta(\hat{\mathbf{x}}_{t-\Delta t}, t{-}\Delta t) ].
-\end{align*}
+\end{aligned}
+\end{equation}
 \emph{Cost}: 2 network forward evaluations (NFE) per step. At 4 steps this yields 8 NFE (7 in practice;
 the last step degrades to Euler).
 
@@ -331,13 +331,15 @@ interpolation of the $\mathbf{x}_0$ history in $t$ space (not the log-SNR
 $\lambda$ space of VP-SDE). The RF-ODE in data-prediction form is
 $d\mathbf{x}/dt = (\mathbf{x} - \mathbf{x}_0(t))/t$; integrating exactly over
 $[t_n, t_{n+1}]$ with linear $\mathbf{x}_0(t)$ interpolation yields
-\begin{align*}
+\begin{equation}\label{eq:dpmpp}
+\begin{aligned}
   \mathbf{x}_{t_{n+1}} &= \tfrac{t_{n+1}}{t_n}\,\mathbf{x}_{t_n}
     + \bigl(1 - \tfrac{t_{n+1}}{t_n}\bigr)\,\mathbf{x}_0^{(n)}
     + \varphi_1\,\mathbf{D}_1, \\
   \varphi_1 &= t_{n+1}\log\tfrac{t_n}{t_{n+1}} - t_n + t_{n+1},\;
   \mathbf{D}_1 = \tfrac{\mathbf{x}_0^{(n)} - \mathbf{x}_0^{(n-1)}}{t_n - t_{n-1}},
-\end{align*}
+\end{aligned}
+\end{equation}
 where the first two terms are the exact solution for constant $\mathbf{x}_0$
 and $\varphi_1 \mathbf{D}_1$ is the 2nd-order correction for linearly varying
 $\mathbf{x}_0(t)$. The singularity at $t{\to}0$ is handled by an $\epsilon$
@@ -362,11 +364,10 @@ advantage is both computational and a small precision gain.
   \centering
   \small
   \caption{Solver$\times$step disentanglement ablation on the A1
-  checkpoint (24 Chromosomes Object val, seed 42). \emph{Question:} how
-  much of the A0$\to$A1 gain is RF vs solver/step? \emph{Conclusion:}
-  solver type is \mAP{}-neutral at matched steps; the joint solver/step
-  configuration accounts for just $+0.005$ \mAP{} ($6\%$) of the
-  $+0.082$ gap, leaving $94\%$ attributable to RF.}
+  checkpoint (24 Chromosomes Object val, seed 42). Solver type is
+  \mAP{}-neutral at matched steps; the joint solver/step configuration
+  accounts for $+0.005$ \mAP{} ($6\%$) of the $+0.082$ gap, leaving
+  $94\%$ attributable to RF.}
   \label{tab:solver-ablation}
   \begin{tabular}{lcrr}
     \toprule
@@ -423,9 +424,9 @@ each noise sample $\mathbf{z}_i$ to a target box $\mathbf{b}_{V_i}$. We let
 \begin{proposition}[OT Diversity Upper Bound]\label{prop:ot-gap}
 Under the Voronoi partitioning assumption (Lemma~\ref{lem:voronoi},
 requiring $N \to \infty$) and the Gaussian noise model,
-\begin{equation*}
+\begin{equation}\label{eq:ot-upper}
   \Delta H \;=\; H_{\text{rand}}(V \mid X_t) - H_{\text{OT}}(V \mid X_t) \;\le\; \log K.
-\end{equation*}
+\end{equation}
 \end{proposition}
 
 \begin{proof}[Proof sketch (full proof in Appendix~\ref{app:proofs}).]
@@ -450,10 +451,10 @@ relative to inter-box distances.
 \begin{proposition}[OT Diversity Lower Bound]\label{prop:ot-lower}
 Under the Gaussian noise model with variance $\sigma_t^2 I_d$ at time $t$
 and well-separated GT boxes ($\min_{j \ne k} \norm{b_k - b_j} \ge d_{\min}$),
-\begin{equation*}
+\begin{equation}\label{eq:ot-lower}
   \Delta H \;\ge\; \log K \cdot \bigl(1 - P_{\mathrm{err}}(t)\bigr)
   - h\bigl(P_{\mathrm{err}}(t)\bigr),
-\end{equation*}
+\end{equation}
 where $P_{\mathrm{err}}(t) \le \binom{K}{2}\, \Phi\!\bigl(-d_{\min}/(2\sigma_t)\bigr)$
 is the nearest-neighbor misclassification probability (union bound) and
 $h(\cdot)$ is the binary entropy. In particular, $\Delta H \to \log K$ as
@@ -519,9 +520,9 @@ Table~\ref{tab:ot-severity} shows that OT collapse is severe in detection
 \begin{definition}[Stochastic Coupling]\label{def:stoch}
 Instead of an argmax assignment, we sample the coupling from the Sinkhorn
 transport matrix rows~\cite{cuturi2013sinkhorn}:
-\begin{equation*}
+\begin{equation}\label{eq:stoch-coupling}
   \pi_{\text{stoch}}(i) \;\sim\; \operatorname{Categorical}\!\left( \frac{ T_\epsilon(i,:) }{ \sum_j T_\epsilon(i,j) } \right).
-\end{equation*}
+\end{equation}
 \end{definition}
 The key property is that $H_{\text{stoch}}(V \mid X_t; \epsilon)$ increases
 monotonically with $\epsilon$; endpoints are $\epsilon \to 0$ = hard OT and
@@ -648,11 +649,9 @@ and DPM-Solver++ contribute stability and speed respectively.
   \caption{Main ablation on Dataset~2 (independent inference, seed~42 for
   A0--A2; 3-seed mean for A3, std in text). NFE = total network
   forward evaluations per image. ``Last-30 std'' is within-run epoch \mAP{}
-  std. \emph{Question:} how much of the A0$\to$A1 gain is RF vs
-  solver/step? \emph{Conclusion:} RF dominates ($+0.077$, $94\%$);
-  solver/step adds only $+0.005$ ($6\%$); Stoch.\ Coupling stabilizes
-  without changing \mAP{}; DPM-Solver++ matches Heun at $1.71\times$ fewer
-  NFE.}
+  std. RF dominates the A0$\to$A1 gain ($+0.077$, $94\%$); solver/step
+  adds only $+0.005$ ($6\%$); Stoch.\ Coupling stabilizes without changing
+  \mAP{}; DPM-Solver++ matches Heun at $1.71\times$ fewer NFE.}
   \label{tab:main-ablation}
   \begin{tabular}{llcrrrrrrr}
     \toprule
@@ -811,13 +810,12 @@ On AP$_S$, none of the pairwise differences reach significance
   ($n{=}500$ images; AP$_S$ uses the $60$ images containing small objects).
   $\Delta$ is the mean per-image difference of the second model minus the
   first. Wilc.\ = Wilcoxon signed-rank; $t$ = paired Student's $t$-test.
-  *** denotes $p<0.001$; ns = not significant ($p>0.05$). \emph{Question:}
-  are the A2$-$A1 and A3$-$A2 gains significant per-image?
-  \emph{Conclusion:} Stoch.\ Coupling is not significant on Dataset~2
-  ($p{=}0.80$; its benefit is confined to Dataset~1,
-  Table~\ref{tab:stat-tests-coupling}); DPM-Solver++ at matched 4-step is
-  small but highly significant ($+0.006$, $p<10^{-6}$) --- slightly
-  \emph{better} than Heun; AP$_S$ differences are noise-equivalent.}
+  *** denotes $p<0.001$; ns = not significant ($p>0.05$). Stoch.\
+  Coupling is not significant on Dataset~2 ($p{=}0.80$; its benefit is
+  confined to Dataset~1, Table~\ref{tab:stat-tests-coupling});
+  DPM-Solver++ at matched 4-step is small but highly significant
+  ($+0.006$, $p<10^{-6}$) --- slightly better than Heun; AP$_S$
+  differences are noise-equivalent.}
   \label{tab:stat-tests}
   \begin{tabular}{@{}llrrrr@{}}
     \toprule
@@ -904,13 +902,10 @@ Stochastic Coupling achieves $30/30$ epochs within $1\%$ of the best \mAP{}
   \footnotesize
   \caption{Multi-dimensional stability comparison (Dataset~2, single seed).
   Beyond the last-30-epoch std in the main ablation, five additional metrics
-  characterize convergence. CV = std/mean. \emph{Question:} does Stoch.\
-  Coupling improve only epoch-std, or does stability extend to
-  checkpoint-selection robustness, range, and failure rate?
-  \emph{Conclusion:} Stoch.\ Coupling wins on every axis: $4.6\times$ lower
-  std, $30/30$ vs $13/30$ epochs within $1\%$ of best \mAP{}, zero failures
-  in $9$ runs --- making late-stage checkpoint selection reliable for
-  EarlyStopping in small-data regimes.}
+  characterize convergence. CV = std/mean. Stochastic Coupling wins on
+  every axis: $4.6\times$ lower std, $30/30$ vs $13/30$ epochs within
+  $1\%$ of best \mAP{}, zero failures in $9$ runs --- making late-stage
+  checkpoint selection reliable for EarlyStopping in small-data regimes.}
   \label{tab:stability-multi}
   \setlength{\tabcolsep}{4pt}
   \renewcommand{\arraystretch}{1.05}
@@ -974,9 +969,8 @@ standard detectors are $3$--$7\times$ faster but less accurate.
   \setlength{\tabcolsep}{3pt}
   \caption{FPS / latency benchmark (Dataset~2, 512$\times$512, seed~42).
   Latency is mean over $200$ images on an RTX A6000 (std $\le 3.4$\,ms,
-  omitted). \emph{Question:} does the detector reach interactive-screening
-  latency? \emph{Conclusion:} A3+Top-$K$ (K=200) reaches $14.2$ FPS / $70.5$\,ms
-  at \mAP{} $0.860$, within the interactive band; standard one-shot
+  omitted). A3+Top-$K$ (K=200) reaches $14.2$ FPS / $70.5$\,ms at \mAP{}
+  $0.860$, within the interactive-screening band; standard one-shot
   detectors remain $3$--$7\times$ faster at lower accuracy.}
   \label{tab:fps}
   \begin{tabular}{llrrrr}
