@@ -82,7 +82,6 @@ Rectified Flow, object detection, optimal transport, diffusion models, medical i
 % ============================================================
 \section{Introduction}\label{sec:intro}
 
-\paragraph{Motivation}
 Chromosome karyotyping --- the visual analysis of metaphase chromosomes for
 genetic disease diagnosis --- remains a labor-intensive clinical task. Each
 metaphase image contains about $46$ tightly packed chromosomes across $24$
@@ -118,7 +117,6 @@ questions --- coupling design, solver selection, and training stability ---
 are the bottlenecks of RF-based dense detection in low-data regimes, and
 our three contributions address them systematically.
 
-\paragraph{From scenario to method}
 A typical metaphase spread contains roughly forty-six chromosomes across
 twenty-four classes, many touching or overlapping. The difficulty is uneven:
 C-group chromosomes (C6--C12) are morphologically similar, distinguished mainly
@@ -132,7 +130,6 @@ trajectories for few-step, low-truncation inference; Stochastic Coupling
 counteracts OT diversity collapse; and DPM-Solver++ with Top-$K$ pruning
 converts trajectories into clinical-grade latency.
 
-\paragraph{Contributions}
 Building on the scenario-to-method mapping above, we make three
 contributions, each tied to a specific difficulty of chromosome detection
 and validated on two public datasets (Chromosome20240904, $1{,}540$ images;
@@ -190,8 +187,8 @@ Table~\ref{tab:stat-tests}), refining FlowDet's~\cite{baty2025flowdet}
 conclusion that higher-order solvers perform worse: at matched steps the
 higher-order solver is slightly \emph{better}, not worse.
 
-\paragraph{Novelty boundary}
-Relative to FlowDet~\cite{baty2025flowdet} (CFM with mini-batch OT, reports
+To clarify our novelty relative to the closest prior work:
+relative to FlowDet~\cite{baty2025flowdet} (CFM with mini-batch OT, reports
 higher-order solvers perform worse), our novelty is: (i) the formal
 analysis of \emph{why} mini-batch OT becomes a liability in
 low-dimensional structured prediction (Section~\ref{sec:method-ot}); and (ii)
@@ -271,7 +268,14 @@ high-dimensional generation degradation (their failure mode is
 condition-skewed prior, orthogonal to our low-dimensional collapse). We not
 only analyze this pathology but also propose Stochastic Coupling as an
 interpolating remedy between hard OT and random pairing---the first explicit
-solution for OT collapse in low-dimensional structured prediction.
+solution for OT collapse in low-dimensional structured prediction. Beyond
+detection, flow matching is gaining traction in biomedical imaging:
+Jones et al.~\cite{jones2026flowmatching} elucidate the flow-matching design
+space for cellular microscopy, and Nützel et al.~\cite{nutzel2026flowmatching}
+apply subclass-conditioned flow matching to medical image augmentation. On
+the TMI venue specifically, Yang et al.~\cite{yang2025dgddm} and Shen
+et al.~\cite{shen2025ladine} demonstrate diffusion models for cross-domain
+medical image segmentation and robust classification, respectively.
 
 \paragraph{Chromosome detection}
 Automated chromosome detection has been studied for decades, originally
@@ -291,7 +295,9 @@ uses the same Taichung dataset as our 24 Chromosomes Object benchmark but
 releases no code or pretrained models; recent CNN classifiers focus on
 the downstream classification step assuming boxes are already given,
 sidestepping the detection problem we address. Diffusion-based detection
-has not, to our knowledge, been applied to chromosome karyotyping. We
+has not, to our knowledge, been applied to chromosome karyotyping, though
+a concurrent work uses a restoration diffusion network for chromosome
+anomaly augmentation~\cite{zhang2026perturb}. We
 close this gap with the first open-source diffusion-based detector for
 chromosome karyotyping (code released upon publication), validated with
 multi-seed experiments and per-class AP analysis that exposes where the

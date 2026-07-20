@@ -81,6 +81,31 @@ H.~K. Cheng and A.~Schwing, ``The curse of conditions: Analyzing and improving
   optimal transport for conditional flow-based generation,'' in \emph{Proc.
   IEEE/CVF Int. Conf. Comput. Vis. (ICCV)}, 2025, pp. 15\,875--15\,884.
 
+\bibitem{jones2026flowmatching}
+\BIBentryALTinterwordspacing
+C.~Jones, E.~Noutahi, J.~Hartford, and C.~Eastwood, ``Elucidating the design
+  space of flow matching for cellular microscopy,'' arXiv:2603.26790, 2026.
+  [Online]. Available: \url{https://arxiv.org/abs/2603.26790}
+\BIBentrySTDinterwordspacing
+
+\bibitem{nutzel2026flowmatching}
+\BIBentryALTinterwordspacing
+F.~N{\"u}tzel, M.~Dombrowski, and B.~Kainz, ``Flow matching with optimized
+  subclass priors for medical image augmentation,'' arXiv:2605.16469, 2026.
+  [Online]. Available: \url{https://arxiv.org/abs/2605.16469}
+\BIBentrySTDinterwordspacing
+
+\bibitem{yang2025dgddm}
+H.~Yang, W.~Hua, Z.~Xu, and J.~Sun, ``Domain-generalized discrete diffusion
+  model for cross-domain medical image segmentation,'' \emph{IEEE Transactions
+  on Medical Imaging}, vol.~44, no.~11, pp. 4131--4142, 2025.
+
+\bibitem{shen2025ladine}
+X.~Shen, H.~Huang, B.~Nichyporuk, and T.~Arbel, ``Improving robustness and
+  reliability in medical image classification with latent-guided diffusion and
+  nested-ensembles,'' \emph{IEEE Transactions on Medical Imaging}, vol.~44,
+  no.~12, pp. 4890--4902, 2025.
+
 \bibitem{ren2015faster}
 S.~Ren, K.~He, R.~Girshick, and J.~Sun, ``Faster {R-CNN}: Towards real-time
   object detection with region proposal networks,'' in \emph{Adv. Neural Inf.
@@ -91,6 +116,15 @@ C.-E. Kuo, J.-Z. Li, J.-J. Tseng, F.-C. Lo, M.-J. Chen, and C.-H. Lu,
   ``{ChromosomeNet}: Deep learning-based automated chromosome detection in
   metaphase cell images,'' \emph{IEEE Open Journal of Engineering in Medicine
   and Biology}, vol.~6, pp. 227--236, 2024.
+
+\bibitem{zhang2026perturb}
+\BIBentryALTinterwordspacing
+Y.~Zhang, H.~Chen, C.~Yang, Y.~Chu, S.~Chen, J.~Wu, J.~Hu, N.~Li, J.~Su,
+  Y.~Chen, A.~Xu, X.~Gao, and A.~Yin, ``Perturb-and-restore: Simulation-driven
+  structural augmentation framework for imbalance chromosomal anomaly
+  detection,'' arXiv:2604.00854, 2026. [Online]. Available:
+  \url{https://arxiv.org/abs/2604.00854}
+\BIBentrySTDinterwordspacing
 
 \bibitem{santambrogio2015optimal}
 F.~Santambrogio, \emph{Optimal Transport for Applied Mathematicians}.\hskip 1em

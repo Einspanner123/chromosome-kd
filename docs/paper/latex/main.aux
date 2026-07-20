@@ -2,9 +2,6 @@
 \citation{liu2023rectified}
 \@writefile{toc}{\contentsline {section}{\numberline {I}Introduction}{1}{}\protected@file@percent }
 \newlabel{sec:intro}{{I}{1}{}{}{}}
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {I-}0a}Motivation}{1}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {I-}0b}From scenario to method}{1}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {I-}0c}Contributions}{1}{}\protected@file@percent }
 \citation{lu2022dpmpp}
 \citation{baty2025flowdet}
 \citation{baty2025flowdet}
@@ -23,15 +20,18 @@
 \citation{baty2025flowdet}
 \citation{deflomat2025}
 \citation{cheng2025curse}
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {I-}0d}Novelty boundary}{2}{}\protected@file@percent }
+\citation{jones2026flowmatching}
+\citation{nutzel2026flowmatching}
+\citation{yang2025dgddm}
+\citation{shen2025ladine}
 \@writefile{toc}{\contentsline {section}{\numberline {II}Related Work}{2}{}\protected@file@percent }
 \newlabel{sec:related}{{II}{2}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {II-}0a}Diffusion-based object detection}{2}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {II-}0b}Rectified Flow and Flow Matching}{2}{}\protected@file@percent }
 \citation{ren2015faster}
 \citation{kuo2024chromosomenet}
+\citation{zhang2026perturb}
 \citation{dhariwal2021diffusion}
-\citation{lu2022dpmpp}
 \@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces KaryoFlow overview. (a) RF replaces the curved DDPM trajectory with a straight-line ODE path from noise $x_1$ to GT box $x_0$; nodes = $4$ solver steps. (b) Time conditioning via AdaLN-Zero zero-initialized modulation (identity at $t{=}0$). (c) Coupling: Random pairing (orange) keeps full diversity $H(V \mid X_t){=}\log K$; Sinkhorn-based Stochastic OT (pink) interpolates between hard OT and Random ($0 < H < \log K$).}}{3}{}\protected@file@percent }
 \newlabel{fig:method_overview}{{1}{3}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {II-}0c}Chromosome detection}{3}{}\protected@file@percent }
@@ -47,6 +47,7 @@
 \newlabel{sec:method-solver}{{\mbox  {III-B}}{3}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0a}Heun solver (2nd-order)}{3}{}\protected@file@percent }
 \newlabel{eq:heun}{{3}{3}{}{}{}}
+\citation{lu2022dpmpp}
 \citation{santambrogio2015optimal}
 \@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Solver$\times $step disentanglement ablation on the A1 checkpoint (24 Chromosomes Object val, seed 42). Solver type is \ensuremath  {\mathrm  {mAP}}{}-neutral at matched steps; the joint solver/step configuration accounts for $+0.005$ \ensuremath  {\mathrm  {mAP}}{} ($6\%$) of the $+0.082$ gap, leaving $94\%$ attributable to RF.}}{4}{}\protected@file@percent }
 \newlabel{tab:solver-ablation}{{I}{4}{}{}{}}
@@ -54,18 +55,16 @@
 \newlabel{eq:dpmpp}{{4}{4}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0c}Key finding: solver type is \ensuremath  {\mathrm  {mAP}}{}-neutral on A1; DPM-Solver++ buys NFE reduction}{4}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0d}Conclusion}{4}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Solver$\times $step disentanglement ablation (A1 checkpoint). Bars are colored by solver type and hatched by step count. Solver/step configuration contributes only $+0.005$ \ensuremath  {\mathrm  {mAP}}{} ($6\%$); the remaining $+0.077$ \ensuremath  {\mathrm  {mAP}}{} ($94\%$) is attributable to the RF training paradigm.}}{4}{}\protected@file@percent }
+\newlabel{fig:solver-ablation}{{2}{4}{}{}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-C}}OT Diversity Collapse and Stochastic Coupling}{4}{}\protected@file@percent }
 \newlabel{sec:method-ot}{{\mbox  {III-C}}{4}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-C}0a}Voronoi partitioning by OT}{4}{}\protected@file@percent }
 \newlabel{lem:voronoi}{{1}{4}{}{}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Solver$\times $step disentanglement ablation (A1 checkpoint). Bars are colored by solver type and hatched by step count. Solver/step configuration contributes only $+0.005$ \ensuremath  {\mathrm  {mAP}}{} ($6\%$); the remaining $+0.077$ \ensuremath  {\mathrm  {mAP}}{} ($94\%$) is attributable to the RF training paradigm.}}{4}{}\protected@file@percent }
-\newlabel{fig:solver-ablation}{{2}{4}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-C}0b}Setup}{4}{}\protected@file@percent }
 \newlabel{prop:ot-gap}{{1}{4}{}{}{}}
 \newlabel{eq:ot-upper}{{5}{4}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-C}0c}Empirical validation (Chromosome20240904)}{4}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-C}0d}Tight lower bound}{4}{}\protected@file@percent }
-\newlabel{prop:ot-lower}{{2}{4}{}{}{}}
 \citation{cuturi2013sinkhorn}
 \citation{rst_dataset}
 \citation{tseng2023dataset}
@@ -81,16 +80,18 @@
 \newlabel{fig:entropy-phase}{{3}{5}{}{}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces OT Diversity Collapse severity by scenario. OT loss is severe in detection, negligible in image generation.}}{5}{}\protected@file@percent }
 \newlabel{tab:ot-severity}{{II}{5}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-C}0d}Tight lower bound}{5}{}\protected@file@percent }
+\newlabel{prop:ot-lower}{{2}{5}{}{}{}}
 \newlabel{eq:ot-lower}{{6}{5}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-C}0e}Dimension-dependent severity}{5}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-C}0f}Stochastic Coupling via Sinkhorn transport}{5}{}\protected@file@percent }
 \newlabel{def:stoch}{{1}{5}{}{}{}}
 \newlabel{eq:stoch-coupling}{{7}{5}{}{}{}}
-\newlabel{prop:monotone}{{3}{5}{}{}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Training stability: Stochastic Coupling yields $4.6\times $ smoother within-run convergence. ``Epoch std'' measures last-30-epoch \ensuremath  {\mathrm  {mAP}}{} oscillation within a single training run (not cross-seed variance).}}{5}{}\protected@file@percent }
 \newlabel{tab:stability}{{III}{5}{}{}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces Datasets used in this paper. Dataset~1 is Chromosome20240904 (RST); Dataset~2 is the 24 Chromosomes Object dataset.}}{5}{}\protected@file@percent }
 \newlabel{tab:datasets}{{IV}{5}{}{}{}}
+\newlabel{prop:monotone}{{3}{5}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-C}0g}Stochastic Coupling as training stabilizer}{5}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-D}}Top-$K$ Proposal Pruning}{5}{}\protected@file@percent }
 \newlabel{sec:method-io3}{{\mbox  {III-D}}{5}{}{}{}}
@@ -100,7 +101,6 @@
 \newlabel{sec:exp-setup}{{\mbox  {IV-A}}{5}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0a}Datasets}{5}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0b}Architecture and training}{5}{}\protected@file@percent }
-\citation{ge2021yolox}
 \@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces OT Diversity Collapse. (a) OT coupling on a real chromosome detection image (Dataset~2 val set, cropped from a $\sim $46-chromosome metaphase spread). Black rectangles are $8$ GT boxes (labeled with categories); circles above the image in noise space are noise samples $\mathbf  {z}_i$; solid lines = OT (nearest-neighbor) assignment, dashed = random assignment (only $4$ shown to avoid clutter). OT deterministically maps each noise sample to the nearest GT, making the coupling assignment a deterministic function of noise---diversity collapses to zero; random assignment preserves full diversity. (b) Empirical validation of Proposition~\ref {prop:ot-gap}: theoretical $\log K = 3.8427$ vs.\ empirical $\Delta H = 3.8415$ (relative error $0.03\%$).}}{6}{}\protected@file@percent }
 \newlabel{fig:ot-theory}{{4}{6}{}{}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Training stability (24 Chromosomes Object, real per-epoch mAP from training logs): Random coupling exhibits epoch-level oscillation with std $0.0060$, while Stochastic Coupling ($\epsilon {=}5$) converges smoothly with std $0.0013$ ($4.6\times $ improvement). Shaded band marks the last 30 epochs used for std computation.}}{6}{}\protected@file@percent }
@@ -111,6 +111,7 @@
 \newlabel{sec:exp-rf-vs-ddpm}{{\mbox  {IV-B}}{6}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-B}0a}Dataset~2 ablation}{6}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-B}0b}Dataset~1: RF vs DDPM}{6}{}\protected@file@percent }
+\citation{ge2021yolox}
 \@writefile{lot}{\contentsline {table}{\numberline {V}{\ignorespaces Main ablation on Dataset~2 (independent inference, seed~42 for A0--A2; 3-seed mean for A3, std in text). NFE = total network forward evaluations per image. ``Last-30 std'' is within-run epoch \ensuremath  {\mathrm  {mAP}}{} std. RF dominates the A0$\to $A1 gain ($+0.077$, $94\%$); solver/step adds only $+0.005$ ($6\%$); Stoch.\ Coupling stabilizes without changing \ensuremath  {\mathrm  {mAP}}{}; DPM-Solver++ matches Heun at $1.71\times $ fewer NFE.}}{7}{}\protected@file@percent }
 \newlabel{tab:main-ablation}{{V}{7}{}{}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {VI}{\ignorespaces SOTA comparison on Dataset~2 (independent inference; A3 reports 3-seed mean). RTMDet-L uses a stronger CSPNeXt-L backbone; DINO R50 uses multi-scale deformable attention. Our method is competitive with RTMDet-L on overall \ensuremath  {\mathrm  {mAP}}{} while offering $1.71\times $ faster inference; AP$_S$ differences among top methods are not statistically significant (Table~\ref {tab:stat-tests}). The $+0.060$ \ensuremath  {\mathrm  {mAP}}{} gain over DiffusionDet reported in the text uses the seed~42 best checkpoint (\ensuremath  {\mathrm  {mAP}}{} $0.863$); the 3-seed mean ($0.859$) yields $+0.056$. RTMDet-L and DINO R50 values are taken from complete training logs (best checkpoint at epoch~85 and final crashed-state checkpoint respectively).}}{7}{}\protected@file@percent }
@@ -135,23 +136,21 @@
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-D}0a}Dataset~1, multi-seed}{8}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-D}0b}Multi-dimensional stability comparison (Dataset~2)}{8}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-D}0c}$\epsilon $ ablation}{8}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-E}}Solver Analysis}{8}{}\protected@file@percent }
-\newlabel{sec:exp-solver}{{\mbox  {IV-E}}{8}{}{}{}}
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-E}0a}DPM-Solver++ step ablation}{8}{}\protected@file@percent }
 \@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Qualitative detection comparison (Dataset~2 val, $9$ representative cases). Each column: $3{\times }3$ grid for one model (left to right: GT, KaryoFlow, DiffusionDet, RTMDet-L, DINO R50). Cases cover Y ($1$, $3$), F/G-group ($2$, $7$), D-group ($4$), X ($5$), A-group ($6$, $8$), E16 ($9$). Box colors per-model; in-box labels are predicted classes.}}{9}{}\protected@file@percent }
 \newlabel{fig:qual-mosaic}{{7}{9}{}{}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {X}{\ignorespaces FPS / latency benchmark (Dataset~2, 512$\times $512, seed~42). Latency is mean over $200$ images on an RTX A6000 (std $\le 3.4$\,ms, omitted). A3+Top-$K$ (K=200) reaches $14.2$ FPS / $70.5$\,ms at \ensuremath  {\mathrm  {mAP}}{} $0.860$, within the interactive-screening band; standard one-shot detectors remain $3$--$7\times $ faster at lower accuracy.}}{9}{}\protected@file@percent }
-\newlabel{tab:fps}{{X}{9}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-E}}Solver Analysis}{9}{}\protected@file@percent }
+\newlabel{sec:exp-solver}{{\mbox  {IV-E}}{9}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-E}0a}DPM-Solver++ step ablation}{9}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-E}0b}DPM-Solver++ vs Heun at matched NFE}{9}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-E}0c}Test set evaluation}{9}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-F}}FPS / Latency Benchmark}{9}{}\protected@file@percent }
 \newlabel{sec:exp-fps}{{\mbox  {IV-F}}{9}{}{}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Speed-accuracy trade-off (Dataset~2, RTX A6000, $512{\times }512$). Log-scale FPS axis. Our RF variants (circle/square) occupy the high-accuracy region (\ensuremath  {\mathrm  {mAP}}{} $> 0.85$); standard detectors (triangle) are $3$--$7\times $ faster but less accurate. A3+Top-$K$ (K=200) ($14.2$ FPS, \ensuremath  {\mathrm  {mAP}}{} $0.860$) achieves the best speed-accuracy trade-off among our variants.}}{9}{}\protected@file@percent }
-\newlabel{fig:fps-map}{{8}{9}{}{}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-G}}Cross-Dataset Summary}{9}{}\protected@file@percent }
 \newlabel{sec:exp-cross}{{\mbox  {IV-G}}{9}{}{}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-H}}Robustness}{9}{}\protected@file@percent }
-\newlabel{sec:exp-robust}{{\mbox  {IV-H}}{9}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {X}{\ignorespaces FPS / latency benchmark (Dataset~2, 512$\times $512, seed~42). Latency is mean over $200$ images on an RTX A6000 (std $\le 3.4$\,ms, omitted). A3+Top-$K$ (K=200) reaches $14.2$ FPS / $70.5$\,ms at \ensuremath  {\mathrm  {mAP}}{} $0.860$, within the interactive-screening band; standard one-shot detectors remain $3$--$7\times $ faster at lower accuracy.}}{9}{}\protected@file@percent }
+\newlabel{tab:fps}{{X}{9}{}{}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Speed-accuracy trade-off (Dataset~2, RTX A6000, $512{\times }512$). Log-scale FPS axis. Our RF variants (circle/square) occupy the high-accuracy region (\ensuremath  {\mathrm  {mAP}}{} $> 0.85$); standard detectors (triangle) are $3$--$7\times $ faster but less accurate. A3+Top-$K$ (K=200) ($14.2$ FPS, \ensuremath  {\mathrm  {mAP}}{} $0.860$) achieves the best speed-accuracy trade-off among our variants.}}{9}{}\protected@file@percent }
+\newlabel{fig:fps-map}{{8}{9}{}{}{}}
 \citation{rst_dataset}
 \citation{tseng2023dataset}
 \citation{lu2022cil54816}
@@ -168,27 +167,34 @@
 \bibcite{chen2024diffubox}{9}
 \bibcite{lipman2023flow}{10}
 \bibcite{cheng2025curse}{11}
-\bibcite{ren2015faster}{12}
-\bibcite{kuo2024chromosomenet}{13}
-\bibcite{santambrogio2015optimal}{14}
-\bibcite{cuturi2013sinkhorn}{15}
-\bibcite{rst_dataset}{16}
-\bibcite{tseng2023dataset}{17}
-\bibcite{lu2022cil54816}{18}
-\bibcite{he2016resnet}{19}
-\bibcite{lin2017fpn}{20}
-\bibcite{loshchilov2019adamw}{21}
-\bibcite{loshchilov2017sgdr}{22}
+\bibcite{jones2026flowmatching}{12}
+\bibcite{nutzel2026flowmatching}{13}
+\bibcite{yang2025dgddm}{14}
+\bibcite{shen2025ladine}{15}
+\bibcite{ren2015faster}{16}
+\bibcite{kuo2024chromosomenet}{17}
 \@writefile{lot}{\contentsline {table}{\numberline {XI}{\ignorespaces Annotation-noise robustness (Dataset~2 test, A3, seed~42, $1000$ images). Rows: GT bbox jitter $\sigma _{\text  {bbox}}$ (px); columns: class-flip rate $p$; cells: \ensuremath  {\mathrm  {mAP}}{}@$[0.50{:}0.95]$. Clean baseline: $0.859$. The model stays above the $1/24{\approx }0.042$ chance level even at the heaviest perturbation ($\sigma {=}10$, $p{=}20\%$: \ensuremath  {\mathrm  {mAP}}{}$=0.129$).}}{10}{}\protected@file@percent }
 \newlabel{tab:robust-noise}{{XI}{10}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-H}}Robustness}{10}{}\protected@file@percent }
+\newlabel{sec:exp-robust}{{\mbox  {IV-H}}{10}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-H}0a}Annotation-noise robustness}{10}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {V}Conclusion}{10}{}\protected@file@percent }
 \newlabel{sec:conclusion}{{V}{10}{}{}{}}
 \@writefile{toc}{\contentsline {section}{Appendix\nobreakspace  A: Proofs and Additional Ablations}{10}{}\protected@file@percent }
 \newlabel{app:proofs}{{A}{10}{}{}{}}
 \@writefile{toc}{\contentsline {section}{References}{10}{}\protected@file@percent }
-\bibcite{lin2017focal}{23}
-\bibcite{rezatofighi2019giou}{24}
-\bibcite{kuhn1955assignment}{25}
-\bibcite{ge2021yolox}{26}
+\bibcite{zhang2026perturb}{18}
+\bibcite{santambrogio2015optimal}{19}
+\bibcite{cuturi2013sinkhorn}{20}
+\bibcite{rst_dataset}{21}
+\bibcite{tseng2023dataset}{22}
+\bibcite{lu2022cil54816}{23}
+\bibcite{he2016resnet}{24}
+\bibcite{lin2017fpn}{25}
+\bibcite{loshchilov2019adamw}{26}
+\bibcite{loshchilov2017sgdr}{27}
+\bibcite{lin2017focal}{28}
+\bibcite{rezatofighi2019giou}{29}
+\bibcite{kuhn1955assignment}{30}
+\bibcite{ge2021yolox}{31}
 \gdef \@abspage@last{11}
