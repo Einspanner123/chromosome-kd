@@ -136,6 +136,10 @@ monitor_logs/
 .build_tmp/
 .hf_cache/
 
+# Analysis cache (intermediate inference outputs, large)
+experiments/analysis/*_cache/
+experiments/analysis/*_run*.log
+
 # Nested git repos / external experiment trackers
 ldmdet-experiments/
 
