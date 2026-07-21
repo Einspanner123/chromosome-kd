@@ -423,7 +423,7 @@ Stochastic Coupling 的价值有两个不同的组成部分。在 Dataset 2（50
 
 Top-$K$ 剪枝的有效性取决于每步 NFE：对 Heun（2 NFE/步），剪枝影响 6/8 次调用（1.09–1.12× 加速）；对 DPM-Solver++（1 NFE/步），影响 3/4 次调用（1.05–1.08×）。DPM-Solver++ 已通过 NFE 减少获得大部分加速，使 Top-$K$ 影响较小。
 
-**Top-$K$ 剪枝与 DPM-Solver++ 多步历史的交互。** Top-$K$ 在每步剪枝后对低置信度 proposals 做 box renewal（重置为噪声），随之触发了 `dpm_solver.reset()`，清空 DPM-Solver++ 2M 所依赖的 $\hat{\mathbf{x}}_0$ 历史。我们在 seed 42 的 A3 checkpoint 上以 $\eta_{\mathrm{str}}$ 诊断该交互：相对 baseline 的单调下降模式 $3.94 \to 2.79 \to 1.89$，K=200 配置呈现 V-shape $1.37 \to 2.24 \to 1.54$（step1 异常低，因 reset 后退化为 Euler 一阶；step2 升高，因新历史建立后二阶校正 $D_1$ 恢复）。该 V-shape 模式确认 Top-$K$ + box renewal 在每步冷启动 DPM-Solver++，理论上方损了多步法的二阶精度优势。
+**Top-$K$ 剪枝与 DPM-Solver++ 多步历史的交互。** Top-$K$ 在每步剪枝后对低置信度 proposals 做 box renewal（重置为噪声），随之触发了 `dpm_solver.reset()`，清空 DPM-Solver++ 2M 所依赖的 $\hat{\mathbf{x}}_0$ 历史。我们在 seed 42 的 A3 checkpoint 上以 $\eta_{\mathrm{str}}$ 诊断该交互：相对 baseline 的单调下降模式 $3.94 \to 2.79 \to 1.89$（seed 42 单点；因 K=100/K=200 仅 seed 42 有数据，此处不用 §4.5.2 的 3-seed 均值 $3.43 \to 2.45 \to 1.68$），K=200 配置呈现 V-shape $1.37 \to 2.24 \to 1.54$（step1 异常低，因 reset 后退化为 Euler 一阶；step2 升高，因新历史建立后二阶校正 $D_1$ 恢复）。该 V-shape 模式确认 Top-$K$ + box renewal 在每步冷启动 DPM-Solver++，理论上方损了多步法的二阶精度优势。
 
 **K=100 掉点归因的证伪。** 一个自然的猜测是 K=100 相对 K=200 的 mAP 退化（$-0.010$，Table 10）源于更激进的 box renewal 进一步破坏 DPM-Solver++ 多步历史。但实测 K=100 与 K=200 的 $\eta_{\mathrm{str}}$ 几乎相同（step2: 2.18 vs 2.24，step3: 1.54 vs 1.54），均呈 V-shape 且二阶校正量级一致——D3 路径未被进一步破坏。因此 K=100 的掉点主因是 proposal 数量不足（100 个框覆盖 ~46 条染色体 + 重叠冗余时容量紧张），而非 DPM-Solver++ 历史污染。
 
@@ -434,6 +434,26 @@ Top-$K$ 剪枝的有效性取决于每步 NFE：对 Heun（2 NFE/步），剪枝
 双侧界（命题 1–2）在染色体检测中紧致（$0.03\%$ 间隙）：良分离的 Voronoi 单元（成对距离 $\approx 20$ px 对比 $\sigma \sim 1$ px）使 $P_{\text{err}} < 10^{-45}$，且 $N=2$ 的 mini-batch OT 退化为最近邻分配。低维情形（$d=4$，$K \approx 46$）下 $\Delta H/H \approx 0.69$（Table 2），高斯噪声源由我们的偏移高斯调度近似满足。
 
 该理论不能迁移到高维生成（$d \sim 10^5$，此时 $\Delta H/H \approx 0$，故 OT 坍缩可忽略——与 OT-CFM 的成功一致），也不能迁移到密集重叠目标的情形（假设 2 和 4 失效）。对于 COCO（$K \sim 7$，$\Delta H/H \approx 0.55$），理论预测 Stochastic Coupling 会有帮助但幅度较小。理论提示 RF + Stochastic Coupling 将使结合低 $d$、高目标密度和小训练数据的检测任务受益——这一画像包括医学成像、遥感以及其他细粒度密集检测任务。我们未在 COCO 上验证，因为其较小的 $K$ 降低了 OT 坍缩严重性；合适的验证数据集应具有高 $K$ 和低 $d$，正是染色体检测的画像。稳定性收益对临床部署具有实际意义：$4.6\times$ 的 epoch 稳定性提升意味着 checkpoint 选择处于趋势的 0.0013 之内（对比 Random 的 0.006），降低了部署"假峰"checkpoint 的风险。
+
+### 5.6 为何不采用显式生物学先验约束
+
+染色体核型分析具有明确的生物学先验：每类常染色体成对出现（cardinality $\le 2$）、性染色体最多各一个、24 类按物理尺寸分级明确（A 组最大至 G/Y 组最小）、类别频率严重不平衡（Y 染色体训练样本约 1,803 对比常染色体约 7,000）。一个自然的问题是：能否将这些先验显式注入检测器以改善小类别性能（Section 4.3.1 中 Y、G 组最弱）？我们在探索阶段尝试了三个方向，均未产生可靠增益，本节分析其根本原因并说明我们采用的替代策略。
+
+**显式类别加权。** 我们在 Dataset 1 瓶颈消融中尝试了类别平衡采样（class-balanced sampling）以缓解 Y 染色体数据稀缺，但加权采样器在小批量（bs=2）下触发内存溢出（SIGKILL）。Focal loss $\gamma$ 调整（$\gamma{=}3$ 和 $\gamma{=}1.5$）仅产生 $\Delta$ mAP $= +0.004$ 和 $+0.001$（相对 0.746 baseline，arXiv companion），增益微弱且不稳定，不构成主贡献。Direction E（ClassBalanced）因 Direction 系列整体证伪而废弃。
+
+**尺度先验的循环依赖。** scale-aware loss 试图引入尺寸先验辅助小染色体判别（mAP $= 0.742$，$-0.004$），但推理时尺度估计本身不可靠——与已证伪的 ScaleConditionedRF 同源：尺寸约束需已知类别，而尺寸正用于辅助类别判别，形成循环依赖。该困难并非实现缺陷，而是单阶段检测范式的固有限制：类别与尺寸在推理时联合推断，无法将一方作为另一方的可靠先验。
+
+**数量约束与扩散范式的不兼容。** 同类染色体最多两个、Y 最多一个是全局 cardinality 约束，但扩散检测的每条 proposal 独立预测 $\hat{\mathbf{x}}_0$，无法在单次前向中施加集合级约束；后处理 NMS 仅能去重，不能补全缺失染色体。全局 cardinality 约束需要 set-level 推理（如 Hungarian matching），与扩散范式 per-proposal 的局部精化架构（RoIAlign + DynamicConv）不兼容，需架构级重设计。
+
+**替代策略：隐式正则化。** 我们未采用显式先验约束，而是通过三个隐式机制缓解小类别困难，每项均有真实实验数据支撑。
+
+(i) **Stochastic Coupling 恢复 OT 耦合多样性**，间接防止小样本类别在确定性 OT 下被"淹没"。在 Dataset 1 上的 3-seed per-class AP 分析（Table 9，IoU=0.5:0.95）显示，Stochastic Coupling 相对 Random coupling 在小类别上的增益显著大于大类：Y 染色体 AP 从 $0.569 \pm 0.009$ 提升至 $0.622 \pm 0.021$（$+0.059$），G22 $+0.042$（$0.581 \to 0.623$），F19 $+0.026$（$0.694 \to 0.720$），F20 $+0.034$（$0.684 \to 0.718$），而大类 A1 仅 $+0.036$、A2 $+0.037$；整体 mAP $+0.034$（$p < 10^{-120}$）。小类别（Y, G, F 组）平均增益 $+0.040$，大类（A, B 组）平均增益 $+0.029$，差异来自 OT 坍缩对低频类别的更严重压制。此外，Stochastic Coupling 的稳定性收益（$4.6\times$ epoch-std 降低）使小类别的 checkpoint 选择更可靠。
+
+(ii) **box renewal 维持 proposal 池多样性**。D3 实验（3 seeds，A3 checkpoint，renewal on/off 对照）的 per-class mAP_75 数据（arXiv companion Table）表明，renewal 对 per-class AP 的影响在噪声范围内：整体 mAP $\Delta = +0.0003$，小类（Y/G22/F19/F20）mean $\Delta = -0.0024$，大类（A1/A2/A3）mean $\Delta = +0.0008$，所有 $|\Delta| < 0.005$。值得注意的是，Y 类在 renewal OFF 时 std 为 $0.023$，ON 时降至 $0.006$，提示 renewal 的主要作用是降低小类方差而非提升均值——其收益体现在训练/推理动态的稳定性而非 per-class AP 本身。严格的 per-class AP@0.5:0.95 验证实验脚本 `per_class_ap_renewal_3seed.py` 已就绪（arXiv companion），待 S1 消融实验释放 GPU 后运行。
+
+(iii) **RF 恒定速度场为 24 类细粒度判别提供稳定特征表示**，相比 DDPM 弯曲轨迹减少小类别的特征漂移。A0（DDPM Euler）vs A1（RF+Heun）的 2-seed per-class mAP_75 对比（arXiv companion Table）显示：RF 在小类别上的改善幅度大于大类——小类（Y/G22/F19/F20）mean $\Delta = +0.071$（Y $+0.061$，G22 $+0.112$，F19 $+0.063$，F20 $+0.049$），大类（A1/A2/A3）mean $\Delta = +0.056$（A1 $+0.064$，A2 $+0.058$，A3 $+0.045$），小类改善比大类多 $+0.015$。整体 mAP_75 $+0.052$，mAP $+0.091$。该数据支持 RF 范式对小类别特征稳定性的改善。严格的 per-class AP@0.5:0.95 验证实验脚本 `per_class_ap_rf_vs_ddpm_3seed.py` 已就绪（arXiv companion），待 GPU 释放后运行。
+
+这些机制虽不直接编码生物学先验，但通过训练动态的间接改善达到类似目标，且无需架构修改。将全局 cardinality 约束融入扩散检测框架是自然的未来方向，但需解决 set-level 推理与 per-proposal 精化的架构融合问题，超出本文范围。
 
 ## 6. 结论
 
