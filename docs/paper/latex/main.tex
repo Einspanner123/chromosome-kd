@@ -14,6 +14,19 @@
 \usepackage{enumitem}
 \usepackage{graphicx}
 \usepackage{url}
+\usepackage{tikz}
+\usetikzlibrary{positioning, arrows.meta, calc, fit, shapes.geometric}
+
+% ---------- TikZ color palette (matches figure_style.py) ----------
+\definecolor{C_RF}{HTML}{0173B2}        % blue   -- Rectified Flow
+\definecolor{C_DDPM}{HTML}{D55E00}      % verm.  -- DDPM baseline
+\definecolor{C_ADALN}{HTML}{029E73}     % green  -- AdaLN-Zero
+\definecolor{C_OT}{HTML}{CC78BC}        % purple -- OT coupling (Sinkhorn)
+\definecolor{C_RAND}{HTML}{DE8F05}      % orange -- Random coupling
+\definecolor{C_SOURCE}{HTML}{949494}    % gray   -- noise / source
+\definecolor{C_LIGHTGRAY}{HTML}{E8E8E8}
+\definecolor{C_MIDGRAY}{HTML}{666666}
+\definecolor{C_LIGHTGREEN}{HTML}{E8F5EE}
 
 % ---------- Theorem environments ----------
 \newtheorem{lemma}{Lemma}
@@ -190,7 +203,7 @@ Figure~\ref{fig:method_overview} summarizes the framework.
 
 \begin{figure*}[t]
   \centering
-  \includegraphics[width=\textwidth,height=2.35in,keepaspectratio]{figures/method_overview.pdf}
+  \input{figures/tikz_figures/method_overview.tex}
   \caption{KaryoFlow overview. (a) RF replaces the curved DDPM trajectory
   with a straight-line ODE path from noise $x_1$ to GT box $x_0$; nodes =
   $4$ solver steps. (b) Time conditioning via AdaLN-Zero zero-initialized

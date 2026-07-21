@@ -1,0 +1,229 @@
+% ============================================================
+%  method_overview.tex
+%  TikZ version of method_overview.pdf (Figure 1, paper draft).
+%
+%  Three-panel overview:
+%    (a) RF straight-line vs DDPM curved trajectory.
+%    (b) AdaLN-Zero time conditioning block.
+%    (c) Coupling strategies: Random vs Stochastic OT (Sinkhorn).
+%
+%  Required preamble (in main.tex):
+%    \usepackage{tikz}
+%    \usetikzlibrary{positioning, arrows.meta, calc, fit, shapes.geometric}
+%    \definecolor{C_RF}{HTML}{0173B2}
+%    \definecolor{C_DDPM}{HTML}{D55E00}
+%    \definecolor{C_ADALN}{HTML}{029E73}
+%    \definecolor{C_OT}{HTML}{CC78BC}
+%    \definecolor{C_RAND}{HTML}{DE8F05}
+%    \definecolor{C_SOURCE}{HTML}{949494}
+%    \definecolor{C_LIGHTGRAY}{HTML}{E8E8E8}
+%    \definecolor{C_MIDGRAY}{HTML}{666666}
+%    \definecolor{C_LIGHTGREEN}{HTML}{E8F5EE}
+%
+%  Usage (replaces \includegraphics{...method_overview.pdf}):
+%    \input{figures/tikz_figures/method_overview.tex}
+% ============================================================
+
+\begin{minipage}[c]{0.27\textwidth}
+\centering
+\begin{tikzpicture}[x=0.85in, y=0.85in]
+  % --- Panel (a): Trajectories ---
+  % RF straight line: noise (0,0) -> GT (1,1)
+  \draw[C_RF, line width=1.2pt] (0,0) -- (1,1);
+
+  % DDPM curved line: same endpoints, sinusoidal perpendicular bend.
+  % bend = 0.28 * sin(pi*t)^1.5, perp = (-0.707, 0.707)
+  % ddpm_x = (1-t) - 0.198 * sin(pi*t)^1.5
+  % ddpm_y = (1-t) + 0.198 * sin(pi*t)^1.5
+  \draw[C_DDPM, line width=1.2pt, dashed,
+        domain=0:1, samples=60, smooth]
+    plot ({1-\x-0.198*pow(sin(deg(pi*\x)),1.5)},
+          {1-\x+0.198*pow(sin(deg(pi*\x)),1.5)});
+
+  % Noise marker at (0,0): large gray circle
+  \filldraw[C_SOURCE, draw=black, line width=0.5pt] (0,0) circle (4pt);
+  % GT marker at (1,1): large black circle
+  \filldraw[black] (1,1) circle (4pt);
+
+  % Step nodes on RF line at t = 0, 0.33, 0.67, 1.0
+  % (position p = (1-t, 1-t))
+  \foreach \t in {0, 0.33, 0.67, 1.0} {
+    \pgfmathsetmacro{\px}{1-\t}
+    \filldraw[C_RF, draw=white, line width=0.4pt] (\px, \px) circle (2pt);
+  }
+
+  % Labels for endpoints (descriptors in caption to save space)
+  \node[anchor=north east, font=\footnotesize, inner sep=2pt]
+    at (-0.02,-0.02) {$\mathbf{x}_1$};
+  \node[anchor=south west, font=\footnotesize, inner sep=2pt]
+    at (1.02,1.02) {$\mathbf{x}_0$};
+
+  % "decreasing t" arrow below the trajectories
+  \draw[->, line width=0.8pt] (0.12,-0.22) -- (0.88,-0.22);
+  \node[font=\scriptsize] at (0.5,-0.32) {decreasing $t$ (few-step)};
+
+  % Legend (top-left)
+  \node[anchor=north west, font=\scriptsize, inner sep=1pt, align=left]
+    at (-0.15, 1.20) {%
+    {\color{C_RF}\rule[2pt]{8pt}{1.2pt}}~RF (straight)\\[1pt]
+    {\color{C_DDPM}\rule[2pt]{8pt}{1.2pt}}~DDPM (curved)%
+  };
+\end{tikzpicture}
+\\[2pt]
+{\footnotesize (a) Trajectories}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.42\textwidth}
+\centering
+\begin{tikzpicture}[x=0.28in, y=0.28in,
+  every node/.style={font=\footnotesize}]
+  % --- Panel (b): AdaLN-Zero ---
+  % Coordinates match method_overview.py panel_adaln.
+
+  % Top row: t -> phi(t) -> MLP (centered at y=6.4)
+  \node[draw, rounded corners=2pt, fill=C_LIGHTGRAY, draw=black,
+        minimum width=1.2in/0.28in, minimum height=0.8in/0.28in,
+        inner sep=1pt]
+        (tbox) at (1.1, 6.4) {$t$};
+  \node[draw, rounded corners=2pt, fill=C_ADALN, draw=C_ADALN, text=white,
+        minimum width=1.8in/0.28in, minimum height=0.8in/0.28in,
+        inner sep=1pt]
+        (phibox) at (3.4, 6.4) {$\phi(t)$};
+  \node[draw, rounded corners=2pt, fill=C_LIGHTGRAY, draw=black,
+        minimum width=1.5in/0.28in, minimum height=0.8in/0.28in,
+        inner sep=1pt]
+        (mlpbox) at (5.25, 6.4) {MLP};
+
+  % Arrows top row (at y=6.4)
+  \draw[-Stealth, line width=0.8pt] (tbox.east) -- (phibox.west);
+  \draw[-Stealth, line width=0.8pt] (phibox.east) -- (mlpbox.west);
+
+  % Vertical line from MLP center down to bus (y=6.0 -> y=4.2)
+  \draw[line width=0.7pt] (5.25, 6.0) -- (5.25, 4.2);
+  % Horizontal bus at y=4.2, spanning gamma (x=1.0) to alpha (x=6.5)
+  \draw[line width=0.7pt] (1.0, 4.2) -- (6.5, 4.2);
+
+  % Three vertical arrows from bus down to gamma/beta/alpha boxes (y=4.2 -> y=4.0)
+  \draw[-Stealth, line width=0.7pt] (1.0, 4.2) -- (1.0, 4.0);
+  \draw[-Stealth, line width=0.7pt] (3.4, 4.2) -- (3.4, 4.0);
+  \draw[-Stealth, line width=0.7pt] (6.5, 4.2) -- (6.5, 4.0);
+
+  % gamma/beta/alpha boxes at y=3.6 (center)
+  \node[draw, rounded corners=2pt, fill=C_LIGHTGREEN, draw=C_ADALN,
+        minimum width=1.2in/0.28in, minimum height=0.8in/0.28in,
+        inner sep=1pt]
+        (gammabox) at (1.0, 3.6) {$\gamma$};
+  \node[draw, rounded corners=2pt, fill=C_LIGHTGREEN, draw=C_ADALN,
+        minimum width=1.2in/0.28in, minimum height=0.8in/0.28in,
+        inner sep=1pt]
+        (betabox) at (3.4, 3.6) {$\beta$};
+  \node[draw, rounded corners=2pt, fill=C_LIGHTGRAY, draw=C_MIDGRAY,
+        minimum width=1.2in/0.28in, minimum height=0.8in/0.28in,
+        inner sep=1pt]
+        (alphabox) at (6.5, 3.6) {$\alpha$};
+
+  % Small annotations below gamma/beta/alpha
+  \node[font=\tiny, text=C_ADALN] at (1.0, 3.0) {(scale)};
+  \node[font=\tiny, text=C_ADALN] at (3.4, 3.0) {(shift)};
+  \node[font=\tiny, text=C_MIDGRAY] at (6.5, 3.0) {(gate)};
+
+  % Bottom row: h -> (h * gamma + beta) -> h' -> (alpha * h') -> out (at y=1.95)
+  \node (hin) at (1.0, 1.95) {$\mathbf{h}$};
+  \node[draw, rounded corners=2pt, fill=white, draw=black,
+        minimum width=2.2in/0.28in, minimum height=0.9in/0.28in,
+        inner sep=1pt]
+        (modbox) at (3.4, 1.95) {$\mathbf{h} \odot \gamma + \beta$};
+  \node (hprime) at (5.0, 1.95) {$\mathbf{h}'$};
+  \node[draw, rounded corners=2pt, fill=white, draw=black,
+        minimum width=2.0in/0.28in, minimum height=0.9in/0.28in,
+        inner sep=1pt]
+        (gatebox) at (6.5, 1.95) {$\alpha \cdot \mathbf{h}'$};
+  \node (outnode) at (8.5, 1.95) {out};
+
+  % Arrows bottom row (left-to-right)
+  \draw[-Stealth, line width=0.7pt] (1.3, 1.95) -- (2.3, 1.95);
+  \draw[-Stealth, line width=0.7pt] (4.5, 1.95) -- (4.7, 1.95);
+  \draw[-Stealth, line width=0.7pt] (5.3, 1.95) -- (5.9, 1.95);
+  \draw[-Stealth, line width=0.7pt] (7.1, 1.95) -- (8.2, 1.95);
+
+  % Vertical arrows from gamma/beta to bottom modulation box
+  \draw[-Stealth, line width=0.7pt, C_ADALN] (1.0, 3.2) -- (1.0, 2.4);
+  \draw[-Stealth, line width=0.7pt, C_ADALN] (3.4, 3.2) -- (3.4, 2.4);
+  % Vertical arrow from alpha to bottom gate box
+  \draw[-Stealth, line width=0.7pt, C_MIDGRAY] (6.5, 3.2) -- (6.5, 2.4);
+
+  % Annotation box: zero-init identity
+  \node[draw, rounded corners=2pt, fill=white, draw=black!50,
+        font=\scriptsize, inner sep=2pt]
+    at (4.0, 0.55) {zero-init $\Rightarrow$ identity at $t{=}0$};
+\end{tikzpicture}
+\\[2pt]
+{\footnotesize (b) AdaLN-Zero}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.26\textwidth}
+\centering
+\begin{tikzpicture}[x=0.20in, y=0.20in,
+  every node/.style={font=\footnotesize}]
+  % --- Panel (c): Coupling strategies ---
+  % Left group: Random (centered at x=2.5)
+  % Right group: Stochastic OT (centered at x=7.5)
+
+  % Noise y-coordinates (6 points, evenly spaced)
+  % noise_y = linspace(1.4, 4.9, 6) = [1.4, 2.1, 2.8, 3.5, 4.2, 4.9]
+  % GT y-coordinates (6 points, evenly spaced, shifted down)
+  % gt_y = linspace(0.9, 4.4, 6) = [0.9, 1.6, 2.3, 3.0, 3.7, 4.4]
+
+  % ===== Random group (left) =====
+  \node[text=C_RAND, font=\footnotesize\bfseries] at (2.5, 5.6) {Random};
+
+  % Noise dots (gray circles, left column at x=1.1)
+  \foreach \y in {1.4, 2.1, 2.8, 3.5, 4.2, 4.9} {
+    \filldraw[C_SOURCE, draw=black, line width=0.4pt] (1.1, \y) circle (4pt);
+  }
+  % GT dots (black squares, right column at x=3.9)
+  \foreach \y in {0.9, 1.6, 2.3, 3.0, 3.7, 4.4} {
+    \filldraw[black] (3.9, \y) +(-4pt,-4pt) rectangle +(4pt,4pt);
+  }
+
+  % Random permutation lines (orange).
+  % Permutation: (0->5, 1->2, 2->4, 3->1, 4->0, 5->3) -- visually random
+  \draw[C_RAND, line width=0.7pt, opacity=0.75] (1.1, 1.4) -- (3.9, 4.4);
+  \draw[C_RAND, line width=0.7pt, opacity=0.75] (1.1, 2.1) -- (3.9, 2.3);
+  \draw[C_RAND, line width=0.7pt, opacity=0.75] (1.1, 2.8) -- (3.9, 3.7);
+  \draw[C_RAND, line width=0.7pt, opacity=0.75] (1.1, 3.5) -- (3.9, 1.6);
+  \draw[C_RAND, line width=0.7pt, opacity=0.75] (1.1, 4.2) -- (3.9, 0.9);
+  \draw[C_RAND, line width=0.7pt, opacity=0.75] (1.1, 4.9) -- (3.9, 3.0);
+
+  % Labels for Random group
+  \node[font=\scriptsize, text=C_SOURCE] at (1.1, 0.5) {noise};
+  \node[font=\scriptsize] at (3.9, 0.5) {GT};
+  \node[font=\scriptsize, text=C_RAND] at (2.5, 0.0) {$H(V|X_t)=\log K$};
+
+  % ===== Stochastic OT group (right) =====
+  \node[text=C_OT, font=\footnotesize\bfseries] at (7.5, 5.6) {Stochastic OT};
+
+  % Noise dots (left column at x=6.1)
+  \foreach \y in {1.4, 2.1, 2.8, 3.5, 4.2, 4.9} {
+    \filldraw[C_SOURCE, draw=black, line width=0.4pt] (6.1, \y) circle (4pt);
+  }
+  % GT dots (right column at x=8.9)
+  \foreach \y in {0.9, 1.6, 2.3, 3.0, 3.7, 4.4} {
+    \filldraw[black] (8.9, \y) +(-4pt,-4pt) rectangle +(4pt,4pt);
+  }
+
+  % Stochastic OT lines (purple, nearly sorted: swap (1,2) and (4,5))
+  % Permutation: (0->0, 1->2, 2->1, 3->3, 4->5, 5->4)
+  \draw[C_OT, line width=0.7pt, opacity=0.75] (6.1, 1.4) -- (8.9, 0.9);
+  \draw[C_OT, line width=0.7pt, opacity=0.75] (6.1, 2.1) -- (8.9, 2.3);
+  \draw[C_OT, line width=0.7pt, opacity=0.75] (6.1, 2.8) -- (8.9, 1.6);
+  \draw[C_OT, line width=0.7pt, opacity=0.75] (6.1, 3.5) -- (8.9, 3.0);
+  \draw[C_OT, line width=0.7pt, opacity=0.75] (6.1, 4.2) -- (8.9, 4.4);
+  \draw[C_OT, line width=0.7pt, opacity=0.75] (6.1, 4.9) -- (8.9, 3.7);
+
+  % Labels for OT group
+  \node[font=\scriptsize, text=C_SOURCE] at (6.1, 0.5) {noise};
+  \node[font=\scriptsize] at (8.9, 0.5) {GT};
+  \node[font=\scriptsize, text=C_OT] at (7.5, 0.0) {$0 < H(V|X_t) < \log K$};
+\end{tikzpicture}
+\\[2pt]
+{\footnotesize (c) Coupling strategies}
+\end{minipage}
