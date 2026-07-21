@@ -14,7 +14,10 @@ from torchvision.ops import batched_nms
 
 from ldmdet.data.structures import DetectionResult, ImageMeta
 from ldmdet.diffusion.noise_schedule import load_buffer
-from ldmdet.diffusion.rectified_flow import RFDPMSolverMultistep
+from ldmdet.diffusion.rectified_flow import (
+    RFDPMSolverAdaptive,
+    RFDPMSolverMultistep,
+)
 from ldmdet.diffusion.shts import build_shts_grid, build_shts_shifted_grid
 from ldmdet.utils.box_ops import bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh
 
@@ -48,6 +51,11 @@ class DiffusionSampler:
         shts_shifted: bool = False,
         # 方向4: VGAR (Velocity-Guided Adaptive Renewal)
         velocity_guided_renewal: bool = False,
+        # 方向 D: 自适应阶次 DPM-Solver++ (推理时改动, 无需重训练)
+        # 仅当 solver_type='dpm_solver_pp_adaptive' 时生效
+        adaptive_solver_mode: str = 'static',
+        adaptive_num_3rd_steps: int = 2,
+        adaptive_eta_3rd_threshold: float = 0.5,
     ):
         self.diffusion_type = diffusion_type
         self.timesteps = timesteps
@@ -71,6 +79,10 @@ class DiffusionSampler:
         # 方向4: VGAR — box_renewal × RF 速度场耦合
         # 启用后, renewal 不再纯随机, 而是保留部分 v_θ 预测的 x0 方向
         self.velocity_guided_renewal = velocity_guided_renewal
+        # 方向 D: 自适应阶次 DPM-Solver++ 参数
+        self.adaptive_solver_mode = adaptive_solver_mode
+        self.adaptive_num_3rd_steps = adaptive_num_3rd_steps
+        self.adaptive_eta_3rd_threshold = adaptive_eta_3rd_threshold
 
     def build_time_pairs(
         self, device: torch.device
@@ -107,7 +119,13 @@ class DiffusionSampler:
 
     def _build_shts_time_grid(self) -> List[float]:
         """构建 SHTS 时间步网格"""
-        solver_order = 2 if self.solver_type in ('dpm_solver_pp', 'heun') else (3 if self.solver_type == 'dpm_solver_pp_3' else 1)
+        # 方向 D: dpm_solver_pp_adaptive 也按 3 阶准备网格 (允许最大阶次)
+        if self.solver_type in ('dpm_solver_pp', 'heun'):
+            solver_order = 2
+        elif self.solver_type in ('dpm_solver_pp_3', 'dpm_solver_pp_adaptive'):
+            solver_order = 3
+        else:
+            solver_order = 1
         if self.shts_shifted:
             return build_shts_shifted_grid(
                 self.sampling_timesteps, self.snr_scale,
@@ -137,6 +155,23 @@ class DiffusionSampler:
                 )
             return RFDPMSolverMultistep(
                 num_steps=self.sampling_timesteps, solver_order=solver_order
+            )
+        # 方向 D: 自适应阶次 solver (推理时改动, 无需重训练)
+        if self.solver_type == 'dpm_solver_pp_adaptive':
+            if self.rf_schedule == 'shts':
+                t_grid = self._build_shts_time_grid()
+                return RFDPMSolverAdaptive(
+                    num_steps=self.sampling_timesteps,
+                    timesteps=t_grid,
+                    adaptive_mode=self.adaptive_solver_mode,
+                    num_3rd_steps=self.adaptive_num_3rd_steps,
+                    eta_3rd_threshold=self.adaptive_eta_3rd_threshold,
+                )
+            return RFDPMSolverAdaptive(
+                num_steps=self.sampling_timesteps,
+                adaptive_mode=self.adaptive_solver_mode,
+                num_3rd_steps=self.adaptive_num_3rd_steps,
+                eta_3rd_threshold=self.adaptive_eta_3rd_threshold,
             )
         return None
 

@@ -5,6 +5,7 @@
 """
 
 import copy
+import logging
 import math
 from typing import Dict, Optional, Tuple
 
@@ -22,6 +23,8 @@ from ldmdet.diffusion.noise_schedule import cosine_noise_schedule
 from ldmdet.diffusion.rectified_flow import RectifiedFlow
 from ldmdet.diffusion.sampling import DiffusionSampler, _get_img_shape, KaryotypeScorer, pcse_select
 from ldmdet.utils.box_ops import bbox_xyxy_to_cxcywh
+
+logger = logging.getLogger(__name__)
 
 
 class DiffusionDetHead(nn.Module):
@@ -98,6 +101,16 @@ class DiffusionDetHead(nn.Module):
         use_time_reparam: bool = False,
         # 方向4: VGAR (Velocity-Guided Adaptive Renewal)
         velocity_guided_renewal: bool = False,
+        # 方向 C: Step-aware embedding (DPM-Solver++ step 编号感知)
+        # 让 cascade head 知道当前在 solver 的第几步 (0..num_solver_steps-1)
+        # step_proj 零初始化, 确保加载预训练权重时行为不变 (step_emb≡0)
+        use_step_aware: bool = False,
+        num_solver_steps: int = 4,
+        # 方向 D: 自适应阶次 DPM-Solver++ (推理时改动, 无需重训练)
+        # 仅当 solver_type='dpm_solver_pp_adaptive' 时生效
+        adaptive_solver_mode: str = 'static',
+        adaptive_num_3rd_steps: int = 2,
+        adaptive_eta_3rd_threshold: float = 0.5,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -186,6 +199,10 @@ class DiffusionDetHead(nn.Module):
             shts_shifted=self.shts_shifted,
             # 方向4: VGAR
             velocity_guided_renewal=velocity_guided_renewal,
+            # 方向 D: 自适应阶次 solver 参数
+            adaptive_solver_mode=adaptive_solver_mode,
+            adaptive_num_3rd_steps=adaptive_num_3rd_steps,
+            adaptive_eta_3rd_threshold=adaptive_eta_3rd_threshold,
         )
 
         self._init_weights(prior_prob)
@@ -255,6 +272,44 @@ class DiffusionDetHead(nn.Module):
                 torch.zeros(num_heads, feat_channels * 4)
             )
 
+        # ============================================================
+        # 方向 C: Step-aware embedding (DPM-Solver++ step 编号感知)
+        # ============================================================
+        # 让 cascade head 知道当前在 DPM-Solver++ 的第几步.
+        # 设计:
+        #   - step_idx (int ∈ [0, num_solver_steps-1]) → SinusoidalPositionEmbeddings
+        #   - step_mlp: 4 层 MLP (与 time_mlp 同结构), 输出 feat_channels*4
+        #   - step_proj: Linear(feat_channels*4, feat_channels*4), 零初始化
+        #   - time_emb_final = time_emb + step_proj(step_mlp(step_idx))
+        #
+        # 零初始化保证:
+        #   - 加载预训练权重 (无 step_mlp/step_proj 参数) 时, step_proj.weight=0, bias=0
+        #     → step_emb≡0 → time_emb_final = time_emb → 与未启用 step-aware 行为完全一致
+        #   - 训练初期梯度通过 step_proj 流回 step_mlp, 逐步学到 step-conditional 行为
+        #
+        # 训练时: loss() 随机采样 step_idx (与 t 独立), 让模型见到所有 step 模式
+        # 推理时: predict() 在每个 solver step 前 set_step_idx(step_idx)
+        self.use_step_aware = use_step_aware
+        self.num_solver_steps = num_solver_steps
+        if self.use_step_aware:
+            self.step_mlp = nn.Sequential(
+                SinusoidalPositionEmbeddings(feat_channels),
+                nn.Linear(feat_channels, feat_channels * 4),
+                nn.SiLU(),
+                nn.Linear(feat_channels * 4, feat_channels * 4),
+            )
+            self.step_proj = nn.Linear(
+                feat_channels * 4, feat_channels * 4
+            )
+            # 零初始化 step_proj: 确保 step_emb≡0 at init, 不破坏预训练
+            nn.init.zeros_(self.step_proj.weight)
+            nn.init.zeros_(self.step_proj.bias)
+        # 当前 step_idx 状态 (训练时 loss() 随机采样, 推理时 predict() 按 solver step 设置)
+        # None 表示未设置 (forward 时回退到 zeros_like(t), 即 step_idx=0)
+        # 注意: 不用 buffer, 因为训练时是 [bs] 张量, 推理时是 [bs] 张量, 形状不固定
+        # 调用方 (loss/predict) 负责在 forward 前设置, 避免跨 batch 残留
+        self._current_step_tensor: Optional[torch.Tensor] = None
+
     def _init_weights(self, prior_prob):
         for head in self.head_series:
             if hasattr(head, 'cls_head'):
@@ -269,6 +324,19 @@ class DiffusionDetHead(nn.Module):
 
     def forward(self, features, bboxes, t):
         time_emb = self.time_mlp(t)
+        # 方向 C: 加入 step-aware embedding (零初始化时不影响)
+        # _current_step_tensor 由 loss()/predict() 在 forward 前设置;
+        # None 时回退到 zeros (step_idx=0), 保证未启用场景行为不变
+        if self.use_step_aware:
+            if self._current_step_tensor is None:
+                step = torch.zeros_like(t)
+            else:
+                step = self._current_step_tensor
+                # 形状对齐: 标量或 [1] 广播到 [bs]
+                if step.shape[0] != t.shape[0]:
+                    step = step.expand(t.shape[0])
+            step_emb = self.step_proj(self.step_mlp(step))
+            time_emb = time_emb + step_emb
         # IO4: 每次推理清空退出统计 (仅本次 forward 记录)
         if not self.training and self.head_early_exit_enabled:
             self._exit_stats = {}
@@ -531,6 +599,16 @@ class DiffusionDetHead(nn.Module):
 
         t_input = t if self.diffusion_type == 'ddpm' else t * self.timesteps
 
+        # 方向 C: 训练时随机采样 step_idx (与 t 独立), 让模型学到 step-conditional 行为
+        # 推理时 predict() 会按实际 solver step 设置, 训练时随机覆盖所有可能
+        if self.use_step_aware:
+            self._current_step_tensor = torch.randint(
+                0, self.num_solver_steps, (bs,), device=device,
+                dtype=torch.float32,
+            )
+        else:
+            self._current_step_tensor = None
+
         # 模型前向：若启用 AMP，在 autocast 下执行（线性层/attention 用半精度加速）
         if self.amp_dtype is not None:
             with torch.cuda.amp.autocast(dtype=self.amp_dtype):
@@ -544,6 +622,9 @@ class DiffusionDetHead(nn.Module):
             all_cls_logits, all_pred_bboxes, all_curr_proposals = self(
                 features, curr_bboxes, t_input
             )
+
+        # 方向 C: forward 后立即清空, 避免跨 batch 残留 (val/test 走 predict 路径)
+        self._current_step_tensor = None
 
         norm_pred_bboxes = self._normalize_pred_bboxes(
             all_pred_bboxes, img_metas
@@ -587,6 +668,14 @@ class DiffusionDetHead(nn.Module):
         ensemble_results = []
         trajectory = []
         dpm_solver = self._sampler.create_dpm_solver()
+        # 显式校验: 防止 solver_type 拼写错误或未知值时静默降级到 Euler.
+        # create_dpm_solver() 仅对 euler/heun 返回 None (合法), 其他 solver_type
+        # 必须返回有效实例, 否则下方 if-elif-else 会静默走 Euler 分支.
+        if dpm_solver is None:
+            assert self.solver_type in ('euler', 'heun'), (
+                f"solver_type='{self.solver_type}' 不被 create_dpm_solver() 支持, "
+                f"且不属于 euler/heun. 请检查配置或扩展 create_dpm_solver()."
+            )
         if dpm_solver is not None:
             dpm_solver.reset()
 
@@ -599,6 +688,13 @@ class DiffusionDetHead(nn.Module):
         step_exit_idx = None  # 收敛退出的步索引 (None 表示未退出)
 
         for step_idx, (t_curr, t_next) in enumerate(time_pairs):
+            # 方向 C: 推理时按实际 solver step 设置 step_idx
+            # _forward_at_t 内部调用 self.forward, 会读取 _current_step_tensor
+            if self.use_step_aware:
+                self._current_step_tensor = torch.full(
+                    (bs,), float(step_idx), device=device,
+                    dtype=torch.float32,
+                )
             cls_logits, pred_bboxes, x0_raw = self._forward_at_t(
                 features, x_raw, t_curr, img_metas
             )
@@ -734,8 +830,8 @@ class DiffusionDetHead(nn.Module):
                     'inference/pruning_kept_mean_score': self._pruning_stats['kept_mean_score'],
                     'inference/pruning_step': self._pruning_stats['pruning_step'],
                 })
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f'[SwanLab] inference metrics log failed: {e}')
 
         # IO4: SwanLab 插桩 — 上传级联头提前退出统计
         if self.head_early_exit_enabled and exit_head_indices:
@@ -750,8 +846,8 @@ class DiffusionDetHead(nn.Module):
                     'inference/early_exit_exit_steps': len(exit_head_indices),
                     'inference/early_exit_saving_ratio': 1.0 - avg_active / self.num_heads,
                 })
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f'[SwanLab] inference metrics log failed: {e}')
 
         # IO1: SwanLab 插桩 — 上传步级提前终止统计
         if self.step_early_exit_enabled and step_exit_idx is not None:
@@ -768,20 +864,33 @@ class DiffusionDetHead(nn.Module):
                     'inference/step_exit_relative_delta': self._step_exit_stats.get('mean_relative_delta', 0.0),
                     'inference/step_exit_consistency': self._step_exit_stats.get('mean_consistency', 0.0),
                 })
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f'[SwanLab] inference metrics log failed: {e}')
 
         # R1 诊断: 收集本次推理的 eta_str 历史 (DPM-Solver++ 直线度指标)
         # dpm_solver.eta_str_history 在每个 step 后 append 一个值;
         # 4 步推理下通常 length=3 (step 0 是 linear, 无 D1; step 1/2/3 记录)
         # 保存到 self._last_eta_str_log 供实验脚本读取 (不写入 SwanLab, 避免污染训练指标)
-        try:
-            if dpm_solver is not None and hasattr(dpm_solver, 'eta_str_history'):
-                self._last_eta_str_log = list(dpm_solver.eta_str_history)
-            else:
-                self._last_eta_str_log = []
-        except Exception:
+        # 注意: 不用 try-except 吞错 — 如果 dpm_solver 缺少诊断字段, 应显式报错而非静默回退
+        if dpm_solver is not None:
+            self._last_eta_str_log = list(dpm_solver.eta_str_history)
+            # 方向 A/D 诊断: 同时收集 per-dim eta_str 和 eta_3rd
+            self._last_eta_str_per_dim_log = [
+                list(x) for x in dpm_solver.eta_str_per_dim_history
+            ]
+            self._last_eta_3rd_log = list(dpm_solver.eta_3rd_history)
+            # 方向 D: 自适应 solver 才有 applied_3rd_history; 普通 solver 设为空
+            self._last_applied_3rd_log = list(
+                getattr(dpm_solver, 'applied_3rd_history', [])
+            )
+        else:
             self._last_eta_str_log = []
+            self._last_eta_str_per_dim_log = []
+            self._last_eta_3rd_log = []
+            self._last_applied_3rd_log = []
+
+        # 方向 C: 清理 step_idx 状态, 避免跨调用残留
+        self._current_step_tensor = None
 
         if return_trajectory:
             return results, trajectory
@@ -918,6 +1027,17 @@ class DiffusionDetHead(nn.Module):
         curr_bboxes = self._sampler.raw_to_xyxy(x_raw, img_metas)
         t_input = torch.full((bs,), t * self.timesteps, device=device)
         time_emb = self.time_mlp(t_input)
+        # 方向 C: CCBR 路径也需要注入 step_emb (与 forward 路径一致)
+        # _current_step_tensor 由 predict/_predict_ccbr 在外层循环设置
+        if self.use_step_aware:
+            if self._current_step_tensor is None:
+                step = torch.zeros_like(t_input)
+            else:
+                step = self._current_step_tensor
+                if step.shape[0] != t_input.shape[0]:
+                    step = step.expand(t_input.shape[0])
+            step_emb = self.step_proj(self.step_mlp(step))
+            time_emb = time_emb + step_emb
 
         inter_cls_logits = []
         curr_proposals = None
@@ -1007,10 +1127,25 @@ class DiffusionDetHead(nn.Module):
 
         ensemble_results = []
         dpm_solver = self._sampler.create_dpm_solver()
+        # 显式校验: 防止 solver_type 拼写错误或未知值时静默降级到 Euler.
+        # create_dpm_solver() 仅对 euler/heun 返回 None (合法), 其他 solver_type
+        # 必须返回有效实例, 否则下方 if-elif-else 会静默走 Euler 分支.
+        if dpm_solver is None:
+            assert self.solver_type in ('euler', 'heun'), (
+                f"solver_type='{self.solver_type}' 不被 create_dpm_solver() 支持, "
+                f"且不属于 euler/heun. 请检查配置或扩展 create_dpm_solver()."
+            )
         if dpm_solver is not None:
             dpm_solver.reset()
 
         for step_idx, (t_curr, t_next) in enumerate(time_pairs):
+            # 方向 C: 推理时按实际 solver step 设置 step_idx
+            # _forward_at_t 内部调用 self.forward, 会读取 _current_step_tensor
+            if self.use_step_aware:
+                self._current_step_tensor = torch.full(
+                    (bs,), float(step_idx), device=device,
+                    dtype=torch.float32,
+                )
             cls_logits, pred_bboxes, x0_raw = self._forward_at_t(
                 features, x_raw, t_curr, img_metas
             )
@@ -1056,6 +1191,10 @@ class DiffusionDetHead(nn.Module):
         results = self._sampler.post_process(
             ensemble_results, img_metas, rescale
         )
+
+        # 方向 C: 清理 step_idx 状态 (避免跨调用残留)
+        self._current_step_tensor = None
+
         return results[0]
 
     # ================================================================
@@ -1114,8 +1253,11 @@ class DiffusionDetHead(nn.Module):
                     torch.tensor(scores).std()
                 ),
             })
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f'[SwanLab] PCSE metrics log failed: {e}')
+
+        # 方向 C: 清理 step_idx 状态 (PCSE 提前 return, 跳过 predict 末尾清理)
+        self._current_step_tensor = None
 
         return [best_hyp]
 
@@ -1141,10 +1283,24 @@ class DiffusionDetHead(nn.Module):
         ensemble_results = []
         trajectory = []
         dpm_solver = self._sampler.create_dpm_solver()
+        # 显式校验: 防止 solver_type 拼写错误或未知值时静默降级到 Euler.
+        # create_dpm_solver() 仅对 euler/heun 返回 None (合法), 其他 solver_type
+        # 必须返回有效实例, 否则下方 if-elif-else 会静默走 Euler 分支.
+        if dpm_solver is None:
+            assert self.solver_type in ('euler', 'heun'), (
+                f"solver_type='{self.solver_type}' 不被 create_dpm_solver() 支持, "
+                f"且不属于 euler/heun. 请检查配置或扩展 create_dpm_solver()."
+            )
         if dpm_solver is not None:
             dpm_solver.reset()
 
         for step_idx, (t_curr, t_next) in enumerate(time_pairs):
+            # 方向 C: 推理时按实际 solver step 设置 step_idx (CCBR 路径)
+            if self.use_step_aware:
+                self._current_step_tensor = torch.full(
+                    (bs,), float(step_idx), device=device,
+                    dtype=torch.float32,
+                )
             # CCBR 前向 (带级联间 renewal)
             cls_logits, pred_bboxes, x0_raw, _ = self._forward_at_t_ccbr(
                 features, x_raw, t_curr, img_metas, prev_head6_scores
@@ -1199,6 +1355,9 @@ class DiffusionDetHead(nn.Module):
         results = self._sampler.post_process(
             ensemble_results, img_metas, rescale
         )
+
+        # 方向 C: 清理 step_idx 状态 (CCBR 提前 return, 跳过 predict 末尾清理)
+        self._current_step_tensor = None
 
         if return_trajectory:
             return results, trajectory
