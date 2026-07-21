@@ -117,6 +117,8 @@ def main():
     # 通过 num_workers=0 + batch_size=1 简化诊断
     cfg.val_dataloader['num_workers'] = 0
     cfg.val_dataloader['batch_size'] = 1
+    # num_workers=0 时 persistent_workers 必须为 False, 否则 DataLoader 报错
+    cfg.val_dataloader['persistent_workers'] = False
 
     # 构建 Runner (用于加载 checkpoint 和构建模型)
     cfg.load_from = args.checkpoint
@@ -160,12 +162,14 @@ def main():
             if n_processed >= args.num_images:
                 break
 
-            # 标准 predict 调用 (会自动收集 _last_eta_str_log 等)
-            outputs = bbox_head.predict(
-                data['inputs'] if 'inputs' in data else
-                runner.model.data_processor(data, False)['inputs'],
-                data['data_samples'] if 'data_samples' in data else
-                runner.model.data_processor(data, False)['data_samples'],
+            # 通过 data_preprocessor 将 data 移到 GPU (与 mmengine 推理路径一致)
+            data = model.data_preprocessor(data)
+
+            # 调用 model.predict (非 bbox_head.predict): detector 会先 extract_feat
+            # (backbone+neck) 再调 bbox_head.predict, 否则 roi_align 维度错误.
+            # bbox_head.predict 内部会收集 _last_eta_str_log 等诊断量.
+            outputs = model.predict(
+                data['inputs'], data['data_samples'],
             )
 
             # 收集诊断量 (head.py predict() 末尾保存到 self._last_*_log)
@@ -250,18 +254,29 @@ def main():
 
     # 方向 D 关键诊断: eta_3rd 随 step 的变化趋势
     # 如果早期 step eta_3rd 高, 后期低, 则方向 D 重构假设成立
-    eta_3rd_trend = []
-    for step_str, stats in results["eta_3rd_per_step"].items():
-        eta_3rd_trend.append(stats["mean"])
+    # 注意: history 不足的 step (solver_order>=3 但 len(x0_history)<3) 会记录 0.0,
+    #       这些 0.0 是 "未计算" 而非 "真实为 0", 必须排除否则趋势判断错误.
+    eta_3rd_all = [
+        stats["mean"]
+        for step_str, stats in results["eta_3rd_per_step"].items()
+    ]
+    # 过滤掉未计算的 step (mean=0.0 且 std=0.0 表示 history 不足, 未算 D2)
+    eta_3rd_valid = [
+        v for v in eta_3rd_all if v > 0.0
+    ]
+    if len(eta_3rd_valid) >= 2:
+        if eta_3rd_valid[0] > eta_3rd_valid[-1]:
+            trend = "decreasing (假设成立: 早期高, 后期低)"
+        elif eta_3rd_valid[0] < eta_3rd_valid[-1]:
+            trend = "increasing (假设不成立: 早期低, 后期高)"
+        else:
+            trend = "flat (无明显趋势)"
+    else:
+        trend = "insufficient data (有效 step < 2)"
     results["direction_d_summary"] = {
-        "eta_3rd_by_step": eta_3rd_trend,
-        "trend": (
-            "decreasing (假设成立: 早期高, 后期低)"
-            if len(eta_3rd_trend) >= 2 and eta_3rd_trend[0] > eta_3rd_trend[-1]
-            else "increasing (假设不成立: 早期低, 后期高)"
-            if len(eta_3rd_trend) >= 2 and eta_3rd_trend[0] < eta_3rd_trend[-1]
-            else "insufficient data"
-        ),
+        "eta_3rd_by_step": eta_3rd_all,
+        "eta_3rd_valid": eta_3rd_valid,
+        "trend": trend,
     }
 
     # 输出
@@ -292,8 +307,12 @@ def main():
     print("方向 D 关键诊断: eta_3rd (||D2||/||x0||) 随 step 变化")
     print("=" * 60)
     for step_str, stats in results["eta_3rd_per_step"].items():
-        print(f"  step {step_str}: mean={stats['mean']:.4f} std={stats['std']:.4f}")
-    print(f"\n趋势: {results['direction_d_summary']['trend']}")
+        valid = stats['mean'] > 0.0 or stats['std'] > 0.0
+        tag = "" if valid else " (history 不足, 未计算 D2)"
+        print(f"  step {step_str}: mean={stats['mean']:.4f} std={stats['std']:.4f}{tag}")
+    valid_str = ", ".join(f"{v:.4f}" for v in results['direction_d_summary']['eta_3rd_valid'])
+    print(f"\n有效 eta_3rd (排除 history 不足): [{valid_str}]")
+    print(f"趋势: {results['direction_d_summary']['trend']}")
     print("→ 若 decreasing, 则方向 D 重构假设成立 "
           "(早期 step 用 3 阶, 后期用 2 阶)")
 
