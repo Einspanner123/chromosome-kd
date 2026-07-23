@@ -69,18 +69,6 @@ class DiffusionDetHead(nn.Module):
         topk_pruning_enabled: bool = False,
         topk_k: int = 100,
         topk_pruning_step: int = 0,
-        # IO4: 级联头提前退出 (推理优化)
-        head_early_exit_enabled: bool = False,
-        head_exit_box_threshold: float = 0.005,
-        head_exit_cls_threshold: float = 0.98,
-        head_exit_min_heads: int = 3,
-        head_exit_max_heads: int = 6,
-        head_exit_time_aware: bool = True,
-        # IO1: 自适应步数提前终止 (推理优化)
-        step_early_exit_enabled: bool = False,
-        step_exit_threshold: float = 0.01,
-        step_exit_cls_threshold: float = 0.95,
-        step_exit_min_steps: int = 1,
         # PCSE: 配对一致性随机集成评分 (推理优化)
         use_pcse: bool = False,
         pcse_k: int = 5,
@@ -224,24 +212,6 @@ class DiffusionDetHead(nn.Module):
         self.topk_pruning_step = topk_pruning_step
         self._pruning_stats = {}
 
-        # IO4: 级联头提前退出 (推理优化, 不影响训练)
-        self.head_early_exit_enabled = head_early_exit_enabled
-        self.head_exit_box_threshold = head_exit_box_threshold
-        self.head_exit_cls_threshold = head_exit_cls_threshold
-        self.head_exit_min_heads = head_exit_min_heads
-        self.head_exit_max_heads = min(head_exit_max_heads, num_heads)
-        self.head_exit_time_aware = head_exit_time_aware
-        self._exit_stats = {}
-
-        # IO1: 自适应步数提前终止 (推理优化, 不影响训练)
-        # RF 直线路径: t→0 时 x_t ≈ x_0, x0_pred 趋于稳定
-        # 检测相邻步 x0_pred 的相对 L2 变化 + argmax 一致率, 收敛则提前终止
-        self.step_early_exit_enabled = step_early_exit_enabled
-        self.step_exit_threshold = step_exit_threshold
-        self.step_exit_cls_threshold = step_exit_cls_threshold
-        self.step_exit_min_steps = step_exit_min_steps
-        self._step_exit_stats = {}
-
         # ============================================================
         # PCSE: 配对一致性随机集成评分 (推理优化, 无需重训练)
         # ============================================================
@@ -351,9 +321,6 @@ class DiffusionDetHead(nn.Module):
             else:
                 probe.record_inference_tensor_stats('cascade/step_emb', step_emb)
             time_emb = time_emb + step_emb
-        # IO4: 每次推理清空退出统计 (仅本次 forward 记录)
-        if not self.training and self.head_early_exit_enabled:
-            self._exit_stats = {}
         inter_cls_logits = []
         inter_pred_bboxes = []
         inter_curr_proposals = []
@@ -392,32 +359,6 @@ class DiffusionDetHead(nn.Module):
                 probe.record_inference_tensor_stats(f'cascade/head{i}/cls_logits', cls_logits)
                 probe.record_inference_tensor_stats(f'cascade/head{i}/pred_bboxes', pred_bboxes)
 
-            # IO4: 级联头提前退出 (仅推理时启用)
-            # 从 min_heads 头开始检测收敛, 不在最后一个头检测 (无意义)
-            if (
-                not self.training
-                and self.head_early_exit_enabled
-                and prev_bboxes is not None
-                and i >= self.head_exit_min_heads - 1
-                and i < len(self.head_series) - 1
-            ):
-                converged, stats = self._check_head_convergence(
-                    pred_bboxes, prev_bboxes,
-                    cls_logits, prev_logits, t,
-                )
-                if converged:
-                    # 用当前头结果填充剩余头, 保持输出形状
-                    for _ in range(len(self.head_series) - i - 1):
-                        inter_cls_logits.append(cls_logits.clone())
-                        inter_pred_bboxes.append(pred_bboxes.clone())
-                        inter_curr_proposals.append(curr_proposals)
-                    self._exit_stats = {
-                        'exit_head_idx': i,
-                        'total_heads': len(self.head_series),
-                        **stats,
-                    }
-                    break
-
             curr_bboxes = (
                 pred_bboxes.detach()
                 if self.cascade_detach
@@ -437,168 +378,6 @@ class DiffusionDetHead(nn.Module):
             torch.stack(inter_pred_bboxes[-1:]),
             inter_curr_proposals[-1:],
         )
-
-    # ================================================================
-    # IO4: 级联头提前退出辅助方法
-    # ================================================================
-
-    def _get_exit_threshold(self, t_norm: float) -> Tuple[float, float]:
-        """根据归一化时间步 [0,1] 返回 (box_threshold, cls_threshold)。
-
-        早期步 (t_norm > 0.5): 框还在大幅调整, 用严格阈值 (少退出)
-        中期步 (0.2 < t_norm ≤ 0.5): 适中阈值
-        后期步 (t_norm ≤ 0.2): 框已稳定, 用宽松阈值 (多退出)
-        """
-        if t_norm > 0.5:
-            return 0.002, 0.99
-        elif t_norm > 0.2:
-            return 0.005, 0.98
-        else:
-            return 0.01, 0.95
-
-    def _check_head_convergence(
-        self,
-        curr_bboxes: torch.Tensor,
-        prev_bboxes: torch.Tensor,
-        curr_logits: torch.Tensor,
-        prev_logits: torch.Tensor,
-        t: torch.Tensor,
-    ) -> Tuple[bool, Dict]:
-        """检测级联头是否收敛。
-
-        判据:
-        1. 框位置: 框对角线归一化的 L2 变化 < box_threshold
-        2. 分类: 高置信度框 (sigmoid > 0.3) 的 argmax 一致率 > cls_threshold
-
-        Args:
-            curr_bboxes: 当前头预测框 [bs, N, 4] xyxy
-            prev_bboxes: 上一头预测框 [bs, N, 4] xyxy
-            curr_logits: 当前头分类 logits [bs, N, C]
-            prev_logits: 上一头分类 logits [bs, N, C]
-            t: 时间步 [bs], 范围 [0, timesteps]
-
-        Returns:
-            (converged, stats): 是否收敛, 统计信息字典
-        """
-        # 归一化时间步
-        if torch.is_tensor(t):
-            t_norm = (t.mean() / self.timesteps).item()
-        else:
-            t_norm = float(t) / self.timesteps
-
-        # 获取阈值
-        if self.head_exit_time_aware:
-            box_thr, cls_thr = self._get_exit_threshold(t_norm)
-        else:
-            box_thr = self.head_exit_box_threshold
-            cls_thr = self.head_exit_cls_threshold
-
-        # 框位置收敛: 用框对角线长度归一化
-        w = (curr_bboxes[..., 2] - curr_bboxes[..., 0]).clamp(min=1.0)
-        h = (curr_bboxes[..., 3] - curr_bboxes[..., 1]).clamp(min=1.0)
-        box_scale = torch.sqrt(w * w + h * h)
-        delta = (curr_bboxes - prev_bboxes).norm(dim=-1)
-        relative_delta = (delta / box_scale).mean()
-
-        # 分类收敛: 高置信度框的 argmax 一致率
-        curr_scores = torch.sigmoid(curr_logits).max(dim=-1)[0]
-        valid_mask = curr_scores > 0.3
-        if valid_mask.any():
-            curr_label = curr_logits.argmax(dim=-1)
-            prev_label = prev_logits.argmax(dim=-1)
-            consistency = (curr_label == prev_label).float()
-            mean_consistency = (
-                (consistency * valid_mask.float()).sum()
-                / valid_mask.float().sum()
-            )
-        else:
-            # 无高置信度框, 默认分类收敛
-            mean_consistency = torch.tensor(
-                1.0, device=curr_bboxes.device
-            )
-
-        converged = bool(
-            relative_delta < box_thr and mean_consistency > cls_thr
-        )
-
-        stats = {
-            'mean_relative_delta': relative_delta.item(),
-            'mean_consistency': mean_consistency.item(),
-            'box_thr': box_thr,
-            'cls_thr': cls_thr,
-            't_norm': t_norm,
-            'converged': converged,
-        }
-        return converged, stats
-
-    # ================================================================
-    # IO1: 自适应步数提前终止辅助方法
-    # ================================================================
-
-    def _check_step_convergence(
-        self,
-        x0_curr: torch.Tensor,
-        x0_prev: torch.Tensor,
-        cls_curr: torch.Tensor,
-        cls_prev: torch.Tensor,
-        t_curr: float,
-    ) -> Tuple[bool, Dict]:
-        """检测相邻采样步的 x0 预测是否收敛。
-
-        RF 直线路径理论: t→0 时 x_t = (1-t)x_0 + t·noise → x_0,
-        模型预测的 x0_pred 在小 t 时趋于稳定。
-
-        判据 (batch 级别, 标量比较):
-        1. 框位置: ‖x0_curr - x0_prev‖ / ‖x0_curr‖ < step_exit_threshold
-        2. 分类: 高置信度框 (sigmoid > 0.3) 的 argmax 一致率 > step_exit_cls_threshold
-
-        Args:
-            x0_curr: 当前步 x0 预测 [bs, N, 4]
-            x0_prev: 上一步 x0 预测 [bs, N, 4]
-            cls_curr: 当前步分类 logits [bs, N, C]
-            cls_prev: 上一步分类 logits [bs, N, C]
-            t_curr: 当前归一化时间步 [0, 1]
-
-        Returns:
-            (converged, stats): 是否收敛 (batch 标量), 统计信息字典
-        """
-        # 框位置收敛: 相对 L2 变化
-        # 用 x0_curr 的范数归一化, 避免 scale 依赖
-        delta = (x0_curr - x0_prev).norm(dim=-1)  # [bs, N]
-        magnitude = x0_curr.norm(dim=-1).clamp(min=1e-6)  # [bs, N]
-        relative_delta = (delta / magnitude).mean()  # 标量
-
-        # 分类收敛: 高置信度框的 argmax 一致率
-        curr_scores = torch.sigmoid(cls_curr).max(dim=-1)[0]  # [bs, N]
-        valid_mask = curr_scores > 0.3
-        if valid_mask.any():
-            curr_label = cls_curr.argmax(dim=-1)  # [bs, N]
-            prev_label = cls_prev.argmax(dim=-1)  # [bs, N]
-            consistency = (curr_label == prev_label).float()
-            mean_consistency = (
-                (consistency * valid_mask.float()).sum()
-                / valid_mask.float().sum()
-            )
-        else:
-            # 无高置信度框, 默认分类收敛
-            mean_consistency = torch.tensor(
-                1.0, device=x0_curr.device
-            )
-
-        converged = bool(
-            relative_delta < self.step_exit_threshold
-            and mean_consistency > self.step_exit_cls_threshold
-        )
-
-        stats = {
-            'mean_relative_delta': relative_delta.item(),
-            'mean_consistency': mean_consistency.item(),
-            'box_thr': self.step_exit_threshold,
-            'cls_thr': self.step_exit_cls_threshold,
-            't_curr': float(t_curr),
-            'converged': converged,
-        }
-        return converged, stats
 
     # ================================================================
     # 训练损失
@@ -710,14 +489,6 @@ class DiffusionDetHead(nn.Module):
         if dpm_solver is not None:
             dpm_solver.reset()
 
-        # IO4: 收集每步提前退出统计
-        exit_head_indices = []
-
-        # IO1: 步级收敛检测状态
-        x0_prev = None
-        cls_prev = None
-        step_exit_idx = None  # 收敛退出的步索引 (None 表示未退出)
-
         for step_idx, (t_curr, t_next) in enumerate(time_pairs):
             # 方向 C: 推理时按实际 solver step 设置 step_idx
             # _forward_at_t 内部调用 self.forward, 会读取 _current_step_tensor
@@ -744,16 +515,6 @@ class DiffusionDetHead(nn.Module):
                 f'inference/step{step_idx}/t_curr', float(t_curr)
             )
 
-            # IO4: 记录本步退出头索引
-            if (
-                self.head_early_exit_enabled
-                and self._exit_stats
-                and 'exit_head_idx' in self._exit_stats
-            ):
-                exit_head_indices.append(
-                    self._exit_stats['exit_head_idx']
-                )
-
             # IO3: Top-K 框剪枝 — 在指定步后保留 Top-K 高置信框
             if (
                 self.topk_pruning_enabled
@@ -777,10 +538,6 @@ class DiffusionDetHead(nn.Module):
                     'n_after': self.topk_k,
                     'kept_mean_score': scores.mean().item(),
                 }
-                # 剪枝改变了 proposal 集合, 清空 IO1 收敛历史
-                x0_prev = None
-                cls_prev = None
-
             if return_trajectory:
                 trajectory.append((cls_logits.detach(), pred_bboxes.detach()))
             if self.use_ensemble:
@@ -789,33 +546,6 @@ class DiffusionDetHead(nn.Module):
             # Always keep last result for non-ensemble (DDPM single-step)
             if not ensemble_results:
                 ensemble_results.append((cls_logits, pred_bboxes))
-
-            # IO1: 自适应步数提前终止 (仅推理时启用)
-            # 检测当前步与上一步的 x0_pred 收敛, 收敛则填充剩余步并退出
-            if (
-                self.step_early_exit_enabled
-                and x0_prev is not None
-                and step_idx >= self.step_exit_min_steps
-                and step_idx < len(time_pairs) - 1
-            ):
-                converged, stats = self._check_step_convergence(
-                    x0_raw, x0_prev, cls_logits, cls_prev, t_curr,
-                )
-                if converged:
-                    # 用当前步结果填充剩余 ensemble 步, 保持多步投票一致性
-                    for _ in range(len(time_pairs) - step_idx - 1):
-                        ensemble_results.append(
-                            (cls_logits.clone(), pred_bboxes.clone())
-                        )
-                    step_exit_idx = step_idx
-                    self._step_exit_stats = {
-                        'exit_step_idx': step_idx,
-                        'total_steps': len(time_pairs),
-                        **stats,
-                    }
-                    break
-
-            # 训练时不触发 IO1, 但 predict 仅推理调用, 上述分支已足够
 
             if self.diffusion_type == 'ddpm':
                 curr_bboxes_xyxy, x_raw = self._sampler.ddim_step(
@@ -875,11 +605,6 @@ class DiffusionDetHead(nn.Module):
                 if t_next <= 0:
                     break
 
-            # IO1: 更新收敛检测历史 (仅当本步未触发提前退出时)
-            # 若已 break, 此行不执行
-            x0_prev = x0_raw
-            cls_prev = cls_logits
-
         results = self._sampler.post_process(
             ensemble_results, img_metas, rescale
         )
@@ -893,40 +618,6 @@ class DiffusionDetHead(nn.Module):
                     'inference/pruning_n_after': self._pruning_stats['n_after'],
                     'inference/pruning_kept_mean_score': self._pruning_stats['kept_mean_score'],
                     'inference/pruning_step': self._pruning_stats['pruning_step'],
-                })
-            except Exception as e:
-                logger.warning(f'[SwanLab] inference metrics log failed: {e}')
-
-        # IO4: SwanLab 插桩 — 上传级联头提前退出统计
-        if self.head_early_exit_enabled and exit_head_indices:
-            try:
-                import swanlab
-                # 实际执行头数 = exit_idx + 1 (exit_idx 从 0 开始)
-                active_heads_list = [i + 1 for i in exit_head_indices]
-                avg_active = sum(active_heads_list) / len(active_heads_list)
-                swanlab.log({
-                    'inference/early_exit_avg_active_heads': avg_active,
-                    'inference/early_exit_total_heads': self.num_heads,
-                    'inference/early_exit_exit_steps': len(exit_head_indices),
-                    'inference/early_exit_saving_ratio': 1.0 - avg_active / self.num_heads,
-                })
-            except Exception as e:
-                logger.warning(f'[SwanLab] inference metrics log failed: {e}')
-
-        # IO1: SwanLab 插桩 — 上传步级提前终止统计
-        if self.step_early_exit_enabled and step_exit_idx is not None:
-            try:
-                import swanlab
-                total_steps = len(time_pairs)
-                # 实际执行步数 = exit_idx + 1 (exit_idx 从 0 开始)
-                # Heun 每步 2 NFE, exit 后省略 (total - exit - 1) 步 = 2*(total-exit-1) NFE
-                active_steps = step_exit_idx + 1
-                swanlab.log({
-                    'inference/step_exit_active_steps': active_steps,
-                    'inference/step_exit_total_steps': total_steps,
-                    'inference/step_exit_saving_ratio': 1.0 - active_steps / total_steps,
-                    'inference/step_exit_relative_delta': self._step_exit_stats.get('mean_relative_delta', 0.0),
-                    'inference/step_exit_consistency': self._step_exit_stats.get('mean_consistency', 0.0),
                 })
             except Exception as e:
                 logger.warning(f'[SwanLab] inference metrics log failed: {e}')

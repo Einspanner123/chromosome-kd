@@ -24,14 +24,6 @@ class DiffusionDetCriterion(nn.Module):
         loss_bbox: nn.Module,
         loss_giou: nn.Module,
         deep_supervision: bool = True,
-        scale_aware: bool = False,
-        scale_aware_mode: str = 'inverse',
-        scale_aware_min_weight: float = 0.5,
-        scale_aware_max_weight: float = 3.0,
-        scale_aware_alpha: float = 0.15,
-        scale_aware_giou: bool = False,
-        bbox_loss_mode: str = 'l1',
-        bbox_loss_eps: float = 1e-2,
         # R3: v-prediction 等价的损失重加权
         # 理论 (theory_analysis_RF_DPM.md §4.3): L_v = (1/t²) L_x0 (L2 squared 下)
         # L1 loss 下严格等价应为 1/t, 这里用 1/t² 匹配理论 doc 的梯度放大 claim
@@ -46,14 +38,6 @@ class DiffusionDetCriterion(nn.Module):
         self.loss_bbox = loss_bbox
         self.loss_giou = loss_giou
         self.deep_supervision = deep_supervision
-        self.scale_aware = scale_aware
-        self.scale_aware_mode = scale_aware_mode
-        self.scale_aware_min_weight = scale_aware_min_weight
-        self.scale_aware_max_weight = scale_aware_max_weight
-        self.scale_aware_alpha = scale_aware_alpha
-        self.scale_aware_giou = scale_aware_giou
-        self.bbox_loss_mode = bbox_loss_mode
-        self.bbox_loss_eps = bbox_loss_eps
         self.v_prediction = v_prediction
         self.v_prediction_t_eps = v_prediction_t_eps
 
@@ -194,114 +178,42 @@ class DiffusionDetCriterion(nn.Module):
         tgt_cxcywh = bbox_xyxy_to_cxcywh(tgt_boxes)  # [bs, N, 4]
         src_cxcywh = bbox_xyxy_to_cxcywh(src_boxes)  # [bs, N, 4]
 
-        # 初始化 per_elem_l1 (探针使用, 各分支会赋值; None 表示该分支无 L1 分布)
-        per_elem_l1 = None
-
-        if self.scale_aware:
-            tgt_areas = tgt_cxcywh[:, :, 2] * tgt_cxcywh[:, :, 3]  # [bs, N]
-            if self.scale_aware_mode == 'log_linear':
-                log_areas = torch.log(tgt_areas + 1e-8)
-                log_mean = log_areas[fg_masks].mean()
-                log_std = log_areas[fg_masks].std() + 1e-8
-                z = (log_areas - log_mean) / log_std
-                scale_w = 1.0 - self.scale_aware_alpha * z
-                scale_w = scale_w.clamp(
-                    1.0 - self.scale_aware_alpha * 3,
-                    1.0 + self.scale_aware_alpha * 3,
-                )
-            elif self.scale_aware_mode == 'sqrt_inverse':
-                raw_w = 1.0 / torch.sqrt(tgt_areas + 1e-6)
-                scale_w = raw_w / raw_w[fg_masks].mean()
-                scale_w = scale_w.clamp(
-                    self.scale_aware_min_weight, self.scale_aware_max_weight
-                )
-            else:
-                raw_w = 1.0 / (tgt_areas + 1e-6)
-                scale_w = raw_w / raw_w[fg_masks].mean()
-                scale_w = scale_w.clamp(
-                    self.scale_aware_min_weight, self.scale_aware_max_weight
-                )
-            per_elem_l1 = F.l1_loss(
-                src_cxcywh, tgt_cxcywh, reduction='none'
-            )  # [bs, N, 4]
-            weighted_l1 = per_elem_l1 * scale_w.unsqueeze(-1)  # [bs, N, 4]
-
-            # 仅对正样本求和
-            weighted_sum = (weighted_l1 * fg_masks.unsqueeze(-1).float()).sum()
-            loss_bbox = self.loss_bbox.loss_weight * weighted_sum / num_pos
-            # GIoU: 逐元素计算后 mask
-            per_giou = ops.generalized_box_iou_loss(
-                src_boxes.reshape(-1, 4),
-                tgt_boxes.reshape(-1, 4),
-                reduction='none',
-            ).reshape(bs, -1)
-            per_giou = torch.nan_to_num(per_giou, nan=0.0)
-            if self.scale_aware_giou:
-                # GIoU 也按 scale_w 加权
-                per_giou = per_giou * scale_w
-
-            loss_giou = (
-                self.loss_giou.loss_weight
-                * (per_giou * fg_masks.float()).sum()
-                / num_pos
-            )
-        elif self.bbox_loss_mode == 'relative_l1':
-            tgt_w = tgt_cxcywh[:, :, 2].clamp(min=self.bbox_loss_eps)
-            tgt_h = tgt_cxcywh[:, :, 3].clamp(min=self.bbox_loss_eps)
-            scale = torch.stack([tgt_w, tgt_h, tgt_w, tgt_h], dim=-1)
-            per_elem_l1 = F.l1_loss(src_cxcywh, tgt_cxcywh, reduction='none')
-            masked_rel = (per_elem_l1 / scale) * fg_masks.unsqueeze(-1).float()
-
-            loss_bbox = self.loss_bbox.loss_weight * masked_rel.sum() / num_pos
-            per_giou = ops.generalized_box_iou_loss(
-                src_boxes.reshape(-1, 4),
-                tgt_boxes.reshape(-1, 4),
-                reduction='none',
-            ).reshape(bs, -1)
-            per_giou = torch.nan_to_num(per_giou, nan=0.0)
-
-            loss_giou = (
-                self.loss_giou.loss_weight
-                * (per_giou * fg_masks.float()).sum()
-                / num_pos
+        # L1 loss: 逐元素计算后 mask
+        per_elem_l1 = F.l1_loss(
+            src_cxcywh, tgt_cxcywh, reduction='none'
+        )  # [bs, N, 4]
+        if self.v_prediction and t is not None:
+            # R3: v-prediction 等价的 1/t² 损失加权
+            # t 是 [bs,] 张量 (shifted schedule 后, 范围 [0,1])
+            # 理论 (§4.3): v-prediction 在 t→0 时梯度放大 1/t²
+            # batch normalization (均值=1) 控制绝对幅度, 避免训练崩溃
+            t_clamped = t.clamp(min=self.v_prediction_t_eps)
+            v_weight = 1.0 / (t_clamped ** 2)  # [bs,]
+            v_weight = v_weight / v_weight.mean().detach()
+            v_weight = v_weight.view(-1, 1, 1)  # [bs, 1, 1]
+            masked_l1 = (
+                per_elem_l1
+                * fg_masks.unsqueeze(-1).float()
+                * v_weight
             )
         else:
-            # L1 loss: 逐元素计算后 mask
-            per_elem_l1 = F.l1_loss(
-                src_cxcywh, tgt_cxcywh, reduction='none'
-            )  # [bs, N, 4]
-            if self.v_prediction and t is not None:
-                # R3: v-prediction 等价的 1/t² 损失加权
-                # t 是 [bs,] 张量 (shifted schedule 后, 范围 [0,1])
-                # 理论 (§4.3): v-prediction 在 t→0 时梯度放大 1/t²
-                # batch normalization (均值=1) 控制绝对幅度, 避免训练崩溃
-                t_clamped = t.clamp(min=self.v_prediction_t_eps)
-                v_weight = 1.0 / (t_clamped ** 2)  # [bs,]
-                v_weight = v_weight / v_weight.mean().detach()
-                v_weight = v_weight.view(-1, 1, 1)  # [bs, 1, 1]
-                masked_l1 = (
-                    per_elem_l1
-                    * fg_masks.unsqueeze(-1).float()
-                    * v_weight
-                )
-            else:
-                masked_l1 = per_elem_l1 * fg_masks.unsqueeze(-1).float()
+            masked_l1 = per_elem_l1 * fg_masks.unsqueeze(-1).float()
 
-            loss_bbox = self.loss_bbox.loss_weight * masked_l1.sum() / num_pos
-            # GIoU loss: 逐元素计算后 mask
-            # GIoU 不是 t 的简单函数, v_prediction 下保持不加权
-            per_giou = ops.generalized_box_iou_loss(
-                src_boxes.reshape(-1, 4),
-                tgt_boxes.reshape(-1, 4),
-                reduction='none',
-            ).reshape(bs, -1)
-            per_giou = torch.nan_to_num(per_giou, nan=0.0)
+        loss_bbox = self.loss_bbox.loss_weight * masked_l1.sum() / num_pos
+        # GIoU loss: 逐元素计算后 mask
+        # GIoU 不是 t 的简单函数, v_prediction 下保持不加权
+        per_giou = ops.generalized_box_iou_loss(
+            src_boxes.reshape(-1, 4),
+            tgt_boxes.reshape(-1, 4),
+            reduction='none',
+        ).reshape(bs, -1)
+        per_giou = torch.nan_to_num(per_giou, nan=0.0)
 
-            loss_giou = (
-                self.loss_giou.loss_weight
-                * (per_giou * fg_masks.float()).sum()
-                / num_pos
-            )
+        loss_giou = (
+            self.loss_giou.loss_weight
+            * (per_giou * fg_masks.float()).sum()
+            / num_pos
+        )
 
         # 探针: box 损失详细统计 (正样本数, L1/GIoU per-elem 分布)
         probe.record_scalar('criterion/num_pos', num_pos.item())

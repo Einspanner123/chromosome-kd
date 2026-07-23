@@ -75,20 +75,10 @@ BATCH_PLAN = {
         'ckpt': 'work_dirs/direction_exps/direction_d_box_refine/best_coco_bbox_mAP_epoch_55.pth',
         'analyzers': ['trajectory'],
     },
-    'direction_b': {
-        'config': 'experiments/configs/ldmdet/direction_b_decoupled_head.py',
-        'ckpt': 'work_dirs/direction_exps/direction_b_decoupled_head/best_coco_bbox_mAP_epoch_74.pth',
-        'analyzers': ['roi_feature', 'head_output'],
-    },
     'focal_gamma_3': {
         'config': 'experiments/configs/bottleneck/focal_gamma_3.py',
         'ckpt': 'work_dirs/bottleneck/ablation/focal_gamma_3/best_coco_bbox_mAP_epoch_88.pth',
         'analyzers': ['head_output'],
-    },
-    'no_box_renewal': {
-        'config': 'experiments/configs/bottleneck/no_box_renewal.py',
-        'ckpt': 'work_dirs/bottleneck/ablation/no_box_renewal/best_coco_bbox_mAP_epoch_13.pth',
-        'analyzers': ['trajectory'],
     },
     # 24obj 数据集对照 (架构/损失与新数据集一致, 仅数据集不同)
     'ghss_24obj': {

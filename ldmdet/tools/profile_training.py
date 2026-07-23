@@ -147,8 +147,6 @@ def build_model(args):
         loss_bbox=L1Loss(loss_weight=5.0),
         loss_giou=GIoULoss(loss_weight=2.0),
         deep_supervision=True,
-        scale_aware=args.scale_aware,
-        scale_aware_mode='inverse',
     )
 
     coupling = build_coupling(args.coupling, epsilon=args.ot_epsilon, num_iters=args.ot_num_iters)
@@ -409,7 +407,6 @@ def main():
                         help="disable SDPA, use nn.MultiheadAttention instead")
     parser.add_argument("--attn-half", action="store_true",
                         help="use FP16 for attention computation (faster, minor precision diff)")
-    parser.add_argument("--scale-aware", action="store_true")
     parser.add_argument("--num-warmup", type=int, default=5)
     parser.add_argument("--num-profile", type=int, default=20)
     parser.add_argument("--num-val", type=int, default=3,
