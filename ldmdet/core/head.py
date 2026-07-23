@@ -338,6 +338,20 @@ class DiffusionDetHead(nn.Module):
             p.requires_grad_(False)
         teacher.eval()
 
+    def _apply(self, fn):
+        """覆写 _apply, 将 device/dtype 变更传播到 Teacher。
+
+        Teacher 通过 object.__setattr__ 持有 (非 nn.Module 子模块),
+        标准 nn.Module.to()/cuda()/float() 不会自动传播到 Teacher,
+        导致 GPU 训练时 Teacher 留在 CPU 触发 device 不匹配。
+        覆写 _apply (to/cuda 等的内部机制) 确保 Teacher 与 Student
+        始终在同一 device 上。
+        """
+        super()._apply(fn)
+        if self._teacher is not None:
+            self._teacher._apply(fn)
+        return self
+
     def init_student_from_teacher(self):
         """从 Teacher 初始化 Student 权重 (Head Distillation v2)
 

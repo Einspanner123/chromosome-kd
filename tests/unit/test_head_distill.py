@@ -27,6 +27,7 @@ v2 六项修正 (见 REFLOW_HEAD_DISTILL_IMPL_PLAN.md §2.2):
 import os
 import sys
 
+import pytest
 import torch
 import torch.nn as nn
 
@@ -188,6 +189,63 @@ class TestTeacherInjection:
         # (teacher 通过 _teacher 引用, 不是 nn.Module 子模块)
         assert student_param_count_after == student_param_count_before, \
             "Teacher 参数不应出现在 student.parameters() 中"
+
+    def test_apply_propagates_to_teacher(self):
+        """_apply 将 device/dtype 变更传播到 Teacher (修复 GPU 训练 device 不匹配)
+
+        Teacher 通过 object.__setattr__ 持有 (非子模块), 标准 to()/cuda()
+        不会自动传播。覆写 _apply 确保 Teacher 跟随 Student 迁移。
+        用 double() 在 CPU 上验证 _apply 传播路径 (无需 GPU)。
+        """
+        student = DiffusionDetHead(
+            num_classes=24, feat_channels=64, num_proposals=10, num_heads=3,
+            single_head=_make_single_head(), roi_extractor=_make_roi_extractor(),
+            criterion=None,
+            use_distillation=True,
+        )
+        teacher = DiffusionDetHead(
+            num_classes=24, feat_channels=64, num_proposals=10, num_heads=6,
+            single_head=_make_single_head(), roi_extractor=_make_roi_extractor(),
+            criterion=None,
+        )
+        student.set_teacher(teacher)
+
+        # 初始均为 float32
+        student_param = next(student.parameters())
+        teacher_param = next(teacher.parameters())
+        assert student_param.dtype == torch.float32
+        assert teacher_param.dtype == torch.float32
+
+        # double() 触发 _apply → 应传播到 Teacher
+        student.double()
+
+        # Teacher 参数应也变成 float64 (证明 _apply 已传播)
+        for p in teacher.parameters():
+            assert p.dtype == torch.float64, \
+                "Teacher 应随 Student.double() 一起变更 dtype (_apply 传播)"
+
+    @pytest.mark.skipif(
+        not torch.cuda.is_available(), reason='需要 GPU 验证 device 迁移'
+    )
+    def test_teacher_on_cuda_after_student_to_cuda(self):
+        """Student.to('cuda') 后 Teacher 也在 cuda 上 (端到端 device 验证)"""
+        student = DiffusionDetHead(
+            num_classes=24, feat_channels=64, num_proposals=10, num_heads=3,
+            single_head=_make_single_head(), roi_extractor=_make_roi_extractor(),
+            criterion=None,
+            use_distillation=True,
+        )
+        teacher = DiffusionDetHead(
+            num_classes=24, feat_channels=64, num_proposals=10, num_heads=6,
+            single_head=_make_single_head(), roi_extractor=_make_roi_extractor(),
+            criterion=None,
+        )
+        student.set_teacher(teacher)
+        student.to('cuda')
+
+        teacher_param = next(teacher.parameters())
+        assert teacher_param.is_cuda, \
+            "Teacher 应在 Student.to('cuda') 后迁移到 cuda"
 
 
 # ============================================================
