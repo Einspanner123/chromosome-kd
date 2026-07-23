@@ -80,13 +80,12 @@ class LDMDetDetector(BaseDetector):
         sh_cfg = cfg.pop('single_head')
         sh_cfg.pop('type', None)
 
-        # 方向 C1: 可选的局部形状注意力
+        # 方向 C1 / M1: 可选的局部形状注意力 / 形态感知 RoI 编码器
+        # 通过 MODELS 注册表构建, 支持任何已注册模块 (如 MorphologyAwareRoIEncoder)
         shape_attention = None
         if 'shape_attention' in sh_cfg:
-            from ldmdet.core.shape_attention import ShapeAttention
             sa_cfg = sh_cfg.pop('shape_attention')
-            sa_cfg.pop('type', None)
-            shape_attention = ShapeAttention(**sa_cfg)
+            shape_attention = MODELS.build(sa_cfg)
 
         single_head = SingleDiffusionDetHead(
             shape_attention=shape_attention, **sh_cfg

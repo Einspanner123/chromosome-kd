@@ -4,8 +4,8 @@ from mmdet.registry import MODELS
 from mmengine.registry import OPTIMIZERS, OPTIM_WRAPPER_CONSTRUCTORS
 
 from ldmdet.core import (
-    DiffusionDetHead, DynamicConv, NormalizedLinear, SingleDiffusionDetHead,
-    SingleRoIExtractor,
+    DiffusionDetHead, DynamicConv, MorphologyAwareRoIEncoder, NormalizedLinear,
+    SingleDiffusionDetHead, SingleRoIExtractor,
 )
 from ldmdet.criterion import (
     BBoxL1Cost, DiffusionDetCriterion, DiffusionDetMatcher,
@@ -34,6 +34,7 @@ MODELS.register_module(name='PurePyTorchSeesawLoss', module=SeesawLoss, force=Tr
 MODELS.register_module(name='PurePyTorchL1Loss', module=L1Loss, force=True)
 MODELS.register_module(name='PurePyTorchGIoULoss', module=GIoULoss, force=True)
 MODELS.register_module(name='PurePyTorchNormalizedLinear', module=NormalizedLinear, force=True)
+MODELS.register_module(name='PurePyTorchMorphologyAwareRoIEncoder', module=MorphologyAwareRoIEncoder, force=True)
 MODELS.register_module(name='PurePyTorchFocalLossCost', module=FocalLossCost, force=True)
 MODELS.register_module(name='PurePyTorchBBoxL1Cost', module=BBoxL1Cost, force=True)
 MODELS.register_module(name='PurePyTorchIoUCost', module=IoUCost, force=True)

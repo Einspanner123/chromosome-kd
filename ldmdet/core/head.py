@@ -18,6 +18,7 @@ from ldmdet.data.structures import (
     InstanceData,
     ModelOutput,
 )
+from ldmdet.diagnostics.instrumentation import probe
 from ldmdet.diffusion.embeddings import SinusoidalPositionEmbeddings
 from ldmdet.diffusion.noise_schedule import cosine_noise_schedule
 from ldmdet.diffusion.rectified_flow import RectifiedFlow
@@ -209,6 +210,9 @@ class DiffusionDetHead(nn.Module):
 
         # AMP: 仅模型前向使用半精度，criterion 始终 FP32
         # 推荐值: torch.bfloat16 (同动态范围，无需 GradScaler)
+        # 支持字符串 (配置文件无需 import torch, 避免 mmengine lazy_import 冲突)
+        if isinstance(amp_dtype, str):
+            amp_dtype = getattr(torch, amp_dtype)
         self.amp_dtype = amp_dtype
 
         if torch_compile and hasattr(torch, 'compile'):
@@ -324,6 +328,11 @@ class DiffusionDetHead(nn.Module):
 
     def forward(self, features, bboxes, t):
         time_emb = self.time_mlp(t)
+        # 探针: time_emb 激活统计 (训练时每 100 步, 推理时每次)
+        if self.training:
+            probe.record_tensor_stats('cascade/time_emb', time_emb)
+        else:
+            probe.record_inference_tensor_stats('cascade/time_emb', time_emb)
         # 方向 C: 加入 step-aware embedding (零初始化时不影响)
         # _current_step_tensor 由 loss()/predict() 在 forward 前设置;
         # None 时回退到 zeros (step_idx=0), 保证未启用场景行为不变
@@ -336,6 +345,11 @@ class DiffusionDetHead(nn.Module):
                 if step.shape[0] != t.shape[0]:
                     step = step.expand(t.shape[0])
             step_emb = self.step_proj(self.step_mlp(step))
+            # 探针: step_emb 激活统计 (仅 use_step_aware 时有意义)
+            if self.training:
+                probe.record_tensor_stats('cascade/step_emb', step_emb)
+            else:
+                probe.record_inference_tensor_stats('cascade/step_emb', step_emb)
             time_emb = time_emb + step_emb
         # IO4: 每次推理清空退出统计 (仅本次 forward 记录)
         if not self.training and self.head_early_exit_enabled:
@@ -369,6 +383,14 @@ class DiffusionDetHead(nn.Module):
             inter_cls_logits.append(cls_logits)
             inter_pred_bboxes.append(pred_bboxes)
             inter_curr_proposals.append(curr_proposals)
+
+            # 探针: per-head 激活统计 (cls_logits + pred_bboxes)
+            if self.training:
+                probe.record_tensor_stats(f'cascade/head{i}/cls_logits', cls_logits)
+                probe.record_tensor_stats(f'cascade/head{i}/pred_bboxes', pred_bboxes)
+            else:
+                probe.record_inference_tensor_stats(f'cascade/head{i}/cls_logits', cls_logits)
+                probe.record_inference_tensor_stats(f'cascade/head{i}/pred_bboxes', pred_bboxes)
 
             # IO4: 级联头提前退出 (仅推理时启用)
             # 从 min_heads 头开始检测收敛, 不在最后一个头检测 (无意义)
@@ -634,6 +656,12 @@ class DiffusionDetHead(nn.Module):
         # t 是 [bs] 的扩散时间, 用于 SNR 感知匹配和损失加权
         losses = self.criterion(outputs, targets, t=t)
 
+        # 探针: 训练时 t 分布 + 损失分解
+        probe.record_tensor_stats('train/t', t)
+        for name, val in losses.items():
+            if isinstance(val, torch.Tensor):
+                probe.record_scalar(f'train/loss/{name}', val.item())
+
         return losses
 
     # ================================================================
@@ -646,6 +674,9 @@ class DiffusionDetHead(nn.Module):
     ):
         device = features[0].device
         bs = len(img_metas)
+
+        # 探针: 推理开始标记 (清空推理缓冲区)
+        probe.on_inference_begin()
 
         # ================================================================
         # PCSE 分支: 多假设采样 + 核型评分选择
@@ -697,6 +728,20 @@ class DiffusionDetHead(nn.Module):
                 )
             cls_logits, pred_bboxes, x0_raw = self._forward_at_t(
                 features, x_raw, t_curr, img_metas
+            )
+
+            # 探针: 推理时 per-step 激活统计 (x0_pred + cls_logits + pred_bboxes)
+            probe.record_inference_tensor_stats(
+                f'inference/step{step_idx}/x0_pred', x0_raw
+            )
+            probe.record_inference_tensor_stats(
+                f'inference/step{step_idx}/cls_logits', cls_logits
+            )
+            probe.record_inference_tensor_stats(
+                f'inference/step{step_idx}/pred_bboxes', pred_bboxes
+            )
+            probe.record_inference_scalar(
+                f'inference/step{step_idx}/t_curr', float(t_curr)
             )
 
             # IO4: 记录本步退出头索引
@@ -803,11 +848,30 @@ class DiffusionDetHead(nn.Module):
 
                 if self.box_renewal:
                     # 方向4 VGAR: 传入 v_θ 预测的 x0 和当前时间步, 启用速度场引导
+                    # 探针: 记录 box_renewal 前的 x_raw (用于计算重置率)
+                    x_raw_before = x_raw.clone()
+                    n_before = x_raw.shape[1]
                     x_raw = self._sampler.apply_box_renewal(
                         x_raw, cls_logits,
                         x0_pred=x0_raw,
                         t_curr=t_curr,
                     )
+                    # 探针: box_renewal 统计 (重置率 + 置信度分布)
+                    n_after = x_raw.shape[1]
+                    if n_before > 0:
+                        renewal_rate = 1.0 - min(n_after, n_before) / n_before
+                        probe.record_inference_scalar(
+                            f'inference/step{step_idx}/box_renewal_rate', renewal_rate
+                        )
+                    # proposal 置信度分布 (max sigmoid score)
+                    scores = torch.sigmoid(cls_logits).max(-1)[0]
+                    probe.record_inference_tensor_stats(
+                        f'inference/step{step_idx}/proposal_scores', scores
+                    )
+                # 探针: solver 推进后的 x_raw 统计
+                probe.record_inference_tensor_stats(
+                    f'inference/step{step_idx}/x_raw_after', x_raw
+                )
                 if t_next <= 0:
                     break
 
@@ -889,8 +953,29 @@ class DiffusionDetHead(nn.Module):
             self._last_eta_3rd_log = []
             self._last_applied_3rd_log = []
 
+        # 探针: 上传 solver 诊断量到推理缓冲区
+        for i, eta in enumerate(self._last_eta_str_log):
+            probe.record_inference_scalar(f'inference/eta_str/step{i}', eta)
+        for i, eta in enumerate(self._last_eta_3rd_log):
+            probe.record_inference_scalar(f'inference/eta_3rd/step{i}', eta)
+        # per-dim eta_str (cx, cy, w, h)
+        for i, eta_dim in enumerate(self._last_eta_str_per_dim_log):
+            for j, dim_name in enumerate(['cx', 'cy', 'w', 'h']):
+                if j < len(eta_dim):
+                    probe.record_inference_scalar(
+                        f'inference/eta_str_per_dim/step{i}/{dim_name}', eta_dim[j]
+                    )
+        # 方向 D: applied_3rd history
+        for i, applied in enumerate(self._last_applied_3rd_log):
+            probe.record_inference_scalar(
+                f'inference/applied_3rd/step{i}', float(applied)
+            )
+
         # 方向 C: 清理 step_idx 状态, 避免跨调用残留
         self._current_step_tensor = None
+
+        # 探针: 推理结束, flush 推理缓冲区到 SwanLab
+        probe.on_inference_end()
 
         if return_trajectory:
             return results, trajectory

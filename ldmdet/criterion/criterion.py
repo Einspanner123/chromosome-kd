@@ -9,6 +9,7 @@ from torch import Tensor
 from torchvision import ops
 
 from ldmdet.data.structures import InstanceData, ModelOutput
+from ldmdet.diagnostics.instrumentation import probe
 from ldmdet.utils.box_ops import bbox_xyxy_to_cxcywh
 
 
@@ -78,6 +79,8 @@ class DiffusionDetCriterion(nn.Module):
                 aux_losses = self._get_loss(aux_out, targets, aux_indices, t)
                 for name, val in aux_losses.items():
                     losses[f'aux_{i}_{name}'] = val
+            # 探针: deep_supervision aux loss 数量
+            probe.record_scalar('criterion/n_aux_outputs', len(outputs.aux_outputs))
         self._last_indices = indices
         return losses
 
@@ -92,6 +95,11 @@ class DiffusionDetCriterion(nn.Module):
             indices = self.matcher(outputs, targets)
         loss_cls = self._loss_classification(outputs, targets, indices)
         loss_bbox, loss_giou = self._loss_boxes(outputs, targets, indices, t)
+
+        # 探针: 损失分量标量 (训练时每 100 步)
+        probe.record_scalar('criterion/loss_cls', loss_cls.item())
+        probe.record_scalar('criterion/loss_bbox', loss_bbox.item())
+        probe.record_scalar('criterion/loss_giou', loss_giou.item())
 
         return {
             'loss_cls': loss_cls,
@@ -186,6 +194,9 @@ class DiffusionDetCriterion(nn.Module):
         tgt_cxcywh = bbox_xyxy_to_cxcywh(tgt_boxes)  # [bs, N, 4]
         src_cxcywh = bbox_xyxy_to_cxcywh(src_boxes)  # [bs, N, 4]
 
+        # 初始化 per_elem_l1 (探针使用, 各分支会赋值; None 表示该分支无 L1 分布)
+        per_elem_l1 = None
+
         if self.scale_aware:
             tgt_areas = tgt_cxcywh[:, :, 2] * tgt_cxcywh[:, :, 3]  # [bs, N]
             if self.scale_aware_mode == 'log_linear':
@@ -238,8 +249,8 @@ class DiffusionDetCriterion(nn.Module):
             tgt_w = tgt_cxcywh[:, :, 2].clamp(min=self.bbox_loss_eps)
             tgt_h = tgt_cxcywh[:, :, 3].clamp(min=self.bbox_loss_eps)
             scale = torch.stack([tgt_w, tgt_h, tgt_w, tgt_h], dim=-1)
-            per_elem = F.l1_loss(src_cxcywh, tgt_cxcywh, reduction='none')
-            masked_rel = (per_elem / scale) * fg_masks.unsqueeze(-1).float()
+            per_elem_l1 = F.l1_loss(src_cxcywh, tgt_cxcywh, reduction='none')
+            masked_rel = (per_elem_l1 / scale) * fg_masks.unsqueeze(-1).float()
 
             loss_bbox = self.loss_bbox.loss_weight * masked_rel.sum() / num_pos
             per_giou = ops.generalized_box_iou_loss(
@@ -291,5 +302,24 @@ class DiffusionDetCriterion(nn.Module):
                 * (per_giou * fg_masks.float()).sum()
                 / num_pos
             )
+
+        # 探针: box 损失详细统计 (正样本数, L1/GIoU per-elem 分布)
+        probe.record_scalar('criterion/num_pos', num_pos.item())
+        probe.record_scalar('criterion/fg_ratio', fg_masks.float().mean().item())
+        # per-elem L1 分布 (仅正样本)
+        if per_elem_l1 is not None:
+            pos_l1 = per_elem_l1[fg_masks]
+            if pos_l1.numel() > 0:
+                probe.record_tensor_stats('criterion/l1_per_elem', pos_l1)
+        # per-giou 分布 (仅正样本)
+        if per_giou is not None:
+            pos_giou = per_giou[fg_masks]
+            if pos_giou.numel() > 0:
+                probe.record_tensor_stats('criterion/giou_per_elem', pos_giou)
+        # 预测 box vs GT box 的 cxcywh 差异 (仅正样本, per-dim)
+        if src_cxcywh is not None and tgt_cxcywh is not None:
+            box_diff = (src_cxcywh - tgt_cxcywh).abs()[fg_masks]
+            if box_diff.numel() > 0:
+                probe.record_tensor_stats('criterion/box_diff', box_diff)
 
         return loss_bbox, loss_giou

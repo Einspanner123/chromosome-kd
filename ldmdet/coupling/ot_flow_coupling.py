@@ -11,6 +11,7 @@ from torch import Tensor
 
 from ldmdet.coupling._sinkhorn_ops import sinkhorn_transport
 from ldmdet.coupling.base import CouplingStrategy, register_coupling
+from ldmdet.diagnostics.instrumentation import probe
 from ldmdet.diffusion.ot_flow_matching import OTFlowMatching
 
 
@@ -95,6 +96,33 @@ class OTFlowCoupling(CouplingStrategy):
         self.last_cost = cost.detach()
         self.last_transport = transport.detach()
         self.last_coupling_mode = self._ot.coupling_mode  # 'argmax' 或 'multinomial'
+
+        # 探针: coupling 诊断 (训练时每 100 步)
+        # coupling 熵 = mean(per-column Shannon entropy), 衡量 OT 多样性
+        # 熵高 = 多样性好; 熵低 = OT Diversity Collapse (命题 1-2 病理)
+        probe.record_scalar('coupling/M_gt', float(M))
+        probe.record_scalar('coupling/N_proposals', float(N))
+        probe.record_scalar('coupling/epsilon', float(self.epsilon))
+        # cost 矩阵统计
+        probe.record_tensor_stats('coupling/cost_matrix', cost.detach())
+        # transport 矩阵统计
+        probe.record_tensor_stats('coupling/transport_matrix', transport.detach())
+        # coupling 熵 (per-column Shannon entropy of transport_col)
+        col_sums_ent = transport.sum(dim=0, keepdim=True).clamp_min(1e-10)
+        transport_col_ent = transport / col_sums_ent  # [M, N], 每列和为 1
+        # Shannon entropy: H = -sum(p * log(p)), per column
+        p_safe = transport_col_ent.clamp_min(1e-10)
+        entropy_per_col = -(p_safe * p_safe.log()).sum(dim=0)  # [N]
+        max_entropy = torch.log(torch.tensor(float(M))).clamp_min(1e-10)
+        probe.record_scalar(
+            'coupling/mean_entropy', float(entropy_per_col.mean().item())
+        )
+        probe.record_scalar(
+            'coupling/normalized_entropy',
+            float((entropy_per_col.mean() / max_entropy).item()),
+        )
+        # OT Diversity Collapse 指标: 归一化熵 < 0.3 表示严重坍缩
+        probe.record_tensor_stats('coupling/entropy_per_col', entropy_per_col.detach())
 
         # 列归一化: 每个 proposal (列) 从 M 个 GT 中选一个
         col_sums = transport.sum(dim=0, keepdim=True).clamp_min(1e-10)  # [1, N]
