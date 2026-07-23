@@ -26,6 +26,7 @@ from torch import Tensor
 from mmengine.hooks import Hook
 from mmdet.registry import HOOKS
 
+from ldmdet.diagnostics.instrumentation import probe
 from ldmdet.diagnostics.stats import (
     compute_weight_stats,
     compute_grad_stats,
@@ -90,6 +91,9 @@ class TrainingDiagnosticsHook(Hook):
         log_numerical_health: bool = True,
         log_loss_breakdown: bool = True,
         diagnostics_callback: Optional[Callable] = None,
+        enable_probe: bool = True,
+        probe_train_interval: int = 100,
+        probe_inference: bool = True,
     ):
         self.weight_grad_interval = weight_grad_interval
         self.activation_interval = activation_interval
@@ -108,6 +112,11 @@ class TrainingDiagnosticsHook(Hook):
         self.log_loss_breakdown = log_loss_breakdown
         self.diagnostics_callback = diagnostics_callback
 
+        # Probe 配置
+        self.enable_probe = enable_probe
+        self.probe_train_interval = probe_train_interval
+        self.probe_inference = probe_inference
+
         # 运行时状态
         self._activation_hooks: List[Any] = []
         self._activation_cache: Dict[str, Tensor] = {}
@@ -116,7 +125,7 @@ class TrainingDiagnosticsHook(Hook):
     # ── 生命周期 ────────────────────────────────
 
     def before_run(self, runner) -> None:
-        """注册前向 hook 采集激活."""
+        """注册前向 hook 采集激活, 启用 Probe."""
         model = self._get_model(runner)
 
         # 分组模块
@@ -125,6 +134,29 @@ class TrainingDiagnosticsHook(Hook):
         # 注册激活 hook
         if self.log_activations and self.activation_layers:
             self._register_activation_hooks(model)
+
+        # 启用 Probe (运行时探针)
+        if self.enable_probe:
+            probe.enable(
+                train_interval=self.probe_train_interval,
+                inference_enabled=self.probe_inference,
+            )
+            probe.register_grad_hooks(model)
+            logger.info(
+                f'[TrainingDiagnosticsHook] Probe enabled: '
+                f'train_interval={self.probe_train_interval}, '
+                f'inference={self.probe_inference}'
+            )
+
+    def before_train_iter(
+        self,
+        runner,
+        batch_idx: int,
+        data_batch=None,
+    ) -> None:
+        """训练 iter 开始前, 通知 Probe 当前步."""
+        if self.enable_probe:
+            probe.on_train_iter_begin(runner.iter)
 
     def after_train_iter(
         self,
@@ -156,6 +188,16 @@ class TrainingDiagnosticsHook(Hook):
                     swanlab_log(diag_data, step)
             except Exception as e:
                 logger.warning(f'diagnostics_callback failed: {e}')
+
+        # 5. Probe: flush 训练缓冲区到 SwanLab
+        if self.enable_probe:
+            probe.on_train_iter_end(step)
+
+    def after_run(self, runner) -> None:
+        """训练结束, 禁用 Probe."""
+        if self.enable_probe:
+            probe.disable()
+        self._remove_hooks()
 
     # ── 权重/梯度统计 ───────────────────────────
 
