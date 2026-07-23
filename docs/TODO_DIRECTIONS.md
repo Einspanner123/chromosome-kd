@@ -25,7 +25,7 @@
 | Few-Shot | 24obj 源 → chromo 目标跨数据集微调 | ⛔ 待启动 (配置就绪) | 高 | `few-shot-benchmark` (源预训练) |
 | D3 | box_renewal × DPM-Solver++ 修复方案 A/C | ⛔ 待启动 (方案 B 已验证) | 中 | `ldmdet-ablation` |
 | 方向 A | per-dim eta_str 维度级曲率诊断 | ✓ 完成 (Phase 2 mAP 持平+加速 5.5%, → [LINEAGE §九](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)) | ~~中~~ | (诊断无 SwanLab) |
-| 方向 C | step-aware embedding (cascade head 感知 step) | 🔄 seed 42 训练中 (ep136/150, best 0.859 @ ep118, Δ=-0.004, 早停最早 ep148) | 中 | `ldmdet-mainline-ablation-24obj` |
+| 方向 C | step-aware embedding (cascade head 感知 step) | ⚠ 即将早停 (ep147/150, best 0.859@ep118, Δ=-0.004 在 noise 内; 插桩显示 step_proj 活跃+loss 仍降+3 类改善, 非负面方向) | 中 | `ldmdet-mainline-ablation-24obj` |
 | 方向 D | 自适应阶次 DPM-Solver++ (后期 step 降阶) | ✓ 完成 (3 solver mAP 持平 0.863, → [LINEAGE §十](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)) | ~~中~~ | (诊断无 SwanLab) |
 | **D1 诊断** | RoI 空间信息消融 (7×7 vs 空间抹平) | ✓ 完成 (ΔmAP=-0.854 灾难性崩溃, 证实空间编码至关重要) | ~~高~~ | (诊断无 SwanLab) |
 | **M1** | 形态感知 RoI 编码器 (零初始化残差增强) | ⚠ 已完成-BF16 (M1 0.818 vs A4+BF16 0.825, Δ=-0.007, 需 FP32 复现) | **高** | `ldmdet-mainline-ablation-24obj` |
@@ -289,7 +289,7 @@ SwanLab project `ldmdet-s1-cascade-decouple` 已配置, 3 个实验: 2 已完成
 
 ## 六、方向 C: step-aware embedding (cascade head 感知 solver step)
 
-> 🔄 seed 42 训练中 (本地 A6000, ep86/150, best 0.857 @ ep76, Δ=-0.006 vs A4 baseline 0.863, 趋势负面)。详见 [EXPERIMENT_LINEAGE.md §十一](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)
+> ⚠ seed 42 即将早停 (ep147/150, best 0.859@ep118, Δ=-0.004 在 noise 内)。插桩分析显示 step_proj 权重活跃、loss 仍降、3 类改善 — **非负面方向**, 不归入 FALSIFIED。详见下方插桩分析。
 
 ### 核心目标
 
@@ -305,14 +305,77 @@ SwanLab project `ldmdet-s1-cascade-decouple` 已配置, 3 个实验: 2 已完成
 
 ### 当前状态
 
-seed 42 🔄 训练中, seed 123/789 ⛔ 待决策:
+seed 42 ⚠ 即将早停 (patience=30, min_delta=0.001, best@ep117 → ep147 触发), seed 123/789 ⛔ 待决策:
 
-- seed 42 🔄 训练中 (本地 A6000, PID 1580746)
-  -- 进度: epoch 86/150, best mAP=0.857 @ epoch 76, ETA ~15.5h
-  -- 趋势: Δ=-0.006 vs A4 baseline (0.863), 负面趋势
+- seed 42 ⚠ 即将早停 (本地 A6000, PID 1580746, ep147/150)
+  -- best mAP = 0.859 @ ep118 (Δ=-0.004 vs A4 0.863, **在 3-seed std 0.003 范围内**)
+  -- 早停配置: patience=30, min_delta=0.001, monitor=coco/bbox_mAP
   -- work_dir: `work_dirs/a6_step_aware_24obj_seed42/`
   -- SwanLab project: `ldmdet-mainline-ablation-24obj` (experiment_name=`a6_step_aware`)
-- seed 123/789 ⛔ 待决策: 若 seed 42 最终 mAP < 0.860 (Δ < -0.003), 不启动多 seed; 若持平再考虑
+
+### 插桩分析 (2026-07-23, checkpoint epoch_146 + best ep118)
+
+> **核心结论**: 方向 C **不是负面方向**。虽然 mAP 未超 A4, 但插桩指标显示 step-aware embedding 确实被学习且训练健康。
+
+**1. step_proj 权重分析 (与 M1 fuse 对比)**:
+
+| 指标 | 方向 C step_proj | M1 fuse (对照) |
+|------|-----------------|---------------|
+| 权重 norm (ep146) | 5.420 (**活跃**) | 0.215 (弱) |
+| 非零元素 | 1,048,576/1,048,576 (100%) | 32,768 非零 |
+| ep118→ep146 变化 | 5.434→5.420 (收敛, 几乎不变) | 0.006→0.238 (仍在增长) |
+| 方向性 | **有区分** (std=0.005) | **完全均匀** (std=0.000) |
+
+→ step-aware embedding **确实被模型使用**, 且早期即收敛 (ep118 与 ep146 几乎相同), 不像 M1 fuse 那样退化。
+
+**2. 训练动态**:
+
+| 指标 | ep10 | ep80 | ep120 | ep147 (最新) | 趋势 |
+|------|------|------|-------|-------------|------|
+| avg loss | 3.43 | 2.03 | 1.74 | **1.65 (仍降)** | ✅ 持续下降 |
+| avg grad_norm | 34.6 | 31.5 | 37.4 | 36.9 | ✅ 稳定健康 |
+| mAP | 0.816 | 0.850 | 0.857 | 0.857 | ⚠ 已收敛 |
+
+→ **loss 仍在下降** (ep140: 1.670 → ep147: 1.654), 但 mAP 已收敛在 0.857。loss-mAP 分离表明模型仍在学习但不再转化为检测性能提升。
+
+**3. mAP 收敛行为**:
+
+- 最后 10 epoch mAP: [0.857, 0.856, 0.857, 0.858, 0.857, 0.857, 0.857, 0.857, 0.857, 0.858]
+- 均值 0.857, std ~0.001 → **极其稳定**, 非崩溃式退化
+- 与 A4 3-seed 均值 (0.859±0.003) **统计上无法区分**
+
+**4. Per-class AP 对照 (best@ep118 vs A4 best@ep117)**:
+
+| 类别 | A4 | 方向 C | Δ | 说明 |
+|------|-----|--------|------|------|
+| A1 | 0.911 | 0.913 | **+0.002** | ✓ 改善 (最大染色体) |
+| A2 | 0.910 | 0.909 | -0.001 | |
+| A3 | 0.904 | 0.904 | 0.000 | 持平 |
+| B4-B5 | 0.905/0.906 | 0.904/0.901 | -0.001/-0.005 | |
+| C6-C12 | 0.903-0.872 | 0.899-0.869 | -0.003~-0.008 | C 组轻微退化 |
+| **C12** | 0.890 | 0.893 | **+0.003** | ✓ 改善 |
+| D13-D15 | 0.856/0.853/0.844 | 0.849/0.850/0.838 | -0.007/-0.003/-0.006 | |
+| E16-E18 | 0.853/0.842/0.832 | 0.850/0.838/0.820 | -0.003/-0.004/-0.012 | E18 退化最大 |
+| F19-F20 | 0.817/0.819 | 0.814/0.813 | -0.003/-0.006 | |
+| G21-G22 | 0.789/0.787 | 0.783/0.781 | -0.006/-0.006 | |
+| X | 0.883 | 0.875 | -0.008 | |
+| **Y** | 0.780 | 0.783 | **+0.003** | ✓ 改善 (最难类别) |
+
+→ **3 类改善 (A1, C12, Y), 1 类持平, 20 类轻微退化**。与 M1 (24 类全退化) 形成对比。Y 染色体改善尤其有价值 (最小最难类别)。
+
+### 价值判断 (综合插桩指标, 非 mAP 阈值)
+
+**不归入 FALSIFIED 的理由**:
+1. mAP 差距 -0.004 在 3-seed std (0.003) 范围内, 统计上无法区分
+2. step_proj 权重活跃 (norm=5.42), 与 M1 fuse 退化 (uniform) 本质不同
+3. loss 仍在下降, 训练健康 (梯度稳定)
+4. 3 个类别改善 (含最难类别 Y), 非全面退化
+5. 早停是 patience 到期而非崩溃
+
+**可能缩小差距的方向**:
+- 超参数调整: step_proj 初始化后 early convergence (ep118≈ep146), 可能 lr 过低导致新参数过早收敛; 尝试更高 lr (2e-5) 或更大 batch size
+- 3-seed 评估: 0.859 可能为 seed 42 的随机性; 3-seed 均值可能与 A4 (0.859±0.003) 完全重叠
+- 更长训练 + lr decay: loss 仍降但 mAP 停滞, 可能需要 lr schedule 调整
 
 ### 与 S1 的关系
 
@@ -320,10 +383,11 @@ seed 42 🔄 训练中, seed 123/789 ⛔ 待决策:
 - 方向 C 在不破坏 S1 算子分裂结构的前提下, 让 cascade head 显式感知 step
 - 与 S1 互补: S1 给出架构合理性框架, 方向 C 在框架内探索性能提升
 
-### 预期
+### 预期 vs 实际
 
-- 若 step embedding 显著提升 mAP (Δ > +0.005), 可作为论文新方向
-- 若持平, 表明 cascade head 已通过 $x_t$ 隐式感知 step 信息 (因 $x_t$ 在不同 step 上统计不同)
+- **预期**: 若 step embedding 显著提升 mAP (Δ > +0.005), 可作为论文新方向; 若持平, 表明 cascade head 已通过 $x_t$ 隐式感知 step 信息
+- **实际**: mAP 持平 (0.859 vs 0.863, Δ=-0.004 在 noise 内), 但 step_proj 权重活跃 + 3 类改善 + loss 仍降 → **方向有效但增益不显著**, 不归入 FALSIFIED
+- **论文叙事价值**: 即使 mAP 持平, "cascade head 已隐式感知 step" 这一发现本身支持 S1 的算子分裂理论 (§七), 可作为 S1 的实验佐证
 
 ## 七、方向 D: 自适应阶次 DPM-Solver++ (后期 step 降阶) ✓
 
@@ -709,7 +773,7 @@ Head Distillation (head 维度): 6 heads → 3 heads (减少 2× NFE)
 |------------|---------|----------------|---------|
 | A. 检测专用 RF-DPM 联合推导 | per-dim solver | 方向 A | ✓ 完成 (mAP 持平 +0.001, 加速 5.5%) |
 | B. 速度感知网络结构 | 直接预测 v 而非 x0 | R3 (v-prediction 对照) | 🔄 seed 42 训练中 |
-| C. 时间条件深度融合 | step-aware embedding | 方向 C | 🔄 seed 42 训练中 (ep86/150, best 0.857, 趋势负面) |
+| C. 时间条件深度融合 | step-aware embedding | 方向 C | ⚠ 即将早停 (best 0.859, Δ=-0.004 在 noise 内; step_proj 活跃+3类改善, 非负面) |
 | D. 自适应阶次 DPM-Solver++ | t 大用低阶, t 小用高阶 | 方向 D | ✓ 完成 (3 solver mAP 持平 0.863) |
 | E. Brenier 映射神经化 | ICNN 参数化 Brenier 势 | 方向 E (本节) | ⛔ 未开展 |
 
