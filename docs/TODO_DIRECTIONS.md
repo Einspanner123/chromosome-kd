@@ -25,7 +25,7 @@
 | Few-Shot | 24obj 源 → chromo 目标跨数据集微调 | ⛔ 待启动 (配置就绪) | 高 | `few-shot-benchmark` (源预训练) |
 | D3 | box_renewal × DPM-Solver++ 修复方案 A/C | ⛔ 待启动 (方案 B 已验证) | 中 | `ldmdet-ablation` |
 | 方向 A | per-dim eta_str 维度级曲率诊断 | ✓ 完成 (Phase 2 mAP 持平+加速 5.5%, → [LINEAGE §九](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)) | ~~中~~ | (诊断无 SwanLab) |
-| 方向 C | step-aware embedding (cascade head 感知 step) | ⚠ 即将早停 (ep147/150, best 0.859@ep118, Δ=-0.004 在 noise 内; 插桩显示 step_proj 活跃+loss 仍降+3 类改善, 非负面方向) | 中 | `ldmdet-mainline-ablation-24obj` |
+| 方向 C | step-aware embedding (cascade head 感知 step) | ✓ 已完成 (早停@ep148, best 0.859@ep118, Δ=-0.004 在 noise 内; step_proj 活跃+3类改善, 非负面, 保留为 S1 佐证) | ~~中~~ | `ldmdet-mainline-ablation-24obj` |
 | 方向 D | 自适应阶次 DPM-Solver++ (后期 step 降阶) | ✓ 完成 (3 solver mAP 持平 0.863, → [LINEAGE §十](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)) | ~~中~~ | (诊断无 SwanLab) |
 | **D1 诊断** | RoI 空间信息消融 (7×7 vs 空间抹平) | ✓ 完成 (ΔmAP=-0.854 灾难性崩溃, 证实空间编码至关重要) | ~~高~~ | (诊断无 SwanLab) |
 | **M1** | 形态感知 RoI 编码器 (零初始化残差增强) | ⚠ 已完成-BF16 (M1 0.818 vs A4+BF16 0.825, Δ=-0.007, 需 FP32 复现) | **高** | `ldmdet-mainline-ablation-24obj` |
@@ -289,7 +289,7 @@ SwanLab project `ldmdet-s1-cascade-decouple` 已配置, 3 个实验: 2 已完成
 
 ## 六、方向 C: step-aware embedding (cascade head 感知 solver step)
 
-> ⚠ seed 42 即将早停 (ep147/150, best 0.859@ep118, Δ=-0.004 在 noise 内)。插桩分析显示 step_proj 权重活跃、loss 仍降、3 类改善 — **非负面方向**, 不归入 FALSIFIED。详见下方插桩分析。
+> ✓ **已完成** (2026-07-23 早停@ep148, best 0.859@ep118)。插桩分析显示 step_proj 活跃、loss 仍降、3 类改善 — **非负面方向**, 不归入 FALSIFIED, 保留为 S1 理论佐证。
 
 ### 核心目标
 
@@ -305,13 +305,14 @@ SwanLab project `ldmdet-s1-cascade-decouple` 已配置, 3 个实验: 2 已完成
 
 ### 当前状态
 
-seed 42 ⚠ 即将早停 (patience=30, min_delta=0.001, best@ep117 → ep147 触发), seed 123/789 ⛔ 待决策:
+seed 42 ✓ 已完成 (早停@ep148, best 0.859@ep118):
 
-- seed 42 ⚠ 即将早停 (本地 A6000, PID 1580746, ep147/150)
+- seed 42 ✓ 已完成 (本地 A6000, 早停@ep148/150)
   -- best mAP = 0.859 @ ep118 (Δ=-0.004 vs A4 0.863, **在 3-seed std 0.003 范围内**)
-  -- 早停配置: patience=30, min_delta=0.001, monitor=coco/bbox_mAP
+  -- 早停: "the monitored metric did not improve in the last 30 records. best score: 0.859."
   -- work_dir: `work_dirs/a6_step_aware_24obj_seed42/`
   -- SwanLab project: `ldmdet-mainline-ablation-24obj` (experiment_name=`a6_step_aware`)
+- seed 123/789: 不启动 (方向 C 非负面但增益不显著, GPU 优先分配给 M1 FP32 复现)
 
 ### 插桩分析 (2026-07-23, checkpoint epoch_146 + best ep118)
 
@@ -773,7 +774,7 @@ Head Distillation (head 维度): 6 heads → 3 heads (减少 2× NFE)
 |------------|---------|----------------|---------|
 | A. 检测专用 RF-DPM 联合推导 | per-dim solver | 方向 A | ✓ 完成 (mAP 持平 +0.001, 加速 5.5%) |
 | B. 速度感知网络结构 | 直接预测 v 而非 x0 | R3 (v-prediction 对照) | 🔄 seed 42 训练中 |
-| C. 时间条件深度融合 | step-aware embedding | 方向 C | ⚠ 即将早停 (best 0.859, Δ=-0.004 在 noise 内; step_proj 活跃+3类改善, 非负面) |
+| C. 时间条件深度融合 | step-aware embedding | 方向 C | ✓ 完成 (早停@ep148, best 0.859, Δ=-0.004 在 noise 内; step_proj 活跃+3类改善, 非负面) |
 | D. 自适应阶次 DPM-Solver++ | t 大用低阶, t 小用高阶 | 方向 D | ✓ 完成 (3 solver mAP 持平 0.863) |
 | E. Brenier 映射神经化 | ICNN 参数化 Brenier 势 | 方向 E (本节) | ⛔ 未开展 |
 
