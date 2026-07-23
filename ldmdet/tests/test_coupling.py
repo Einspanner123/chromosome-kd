@@ -1,22 +1,31 @@
-"""测试 ldmdet.coupling — 所有耦合策略"""
+"""测试 ldmdet.coupling — 所有耦合策略
+
+当前可用策略:
+  - random: 随机匹配
+  - hard_ot: 硬 OT (最近邻, 确定性)
+  - ot_flow: Sinkhorn OT (支持 coupling_mode='argmax' 确定性 / 'multinomial' 随机)
+
+已移除策略 (代码清理 2026-07-23):
+  - sinkhorn_argmax → 合并入 ot_flow (coupling_mode='argmax')
+  - sinkhorn_stochastic → 合并入 ot_flow (coupling_mode='multinomial')
+  - ghss → 已证伪移除 (GHSS coupling strategy 未能正确集成)
+"""
 
 import torch
 import pytest
 from ldmdet.coupling import build_coupling
-from ldmdet.coupling._sinkhorn_ops import _OT_GENERATORS
-from ldmdet.utils.constants import CHROMO_GROUP_OF_CLASS
 
 
 # 所有耦合策略名
-COUPLING_NAMES = ['random', 'hard_ot', 'sinkhorn_argmax', 'sinkhorn_stochastic', 'ghss']
+COUPLING_NAMES = ['random', 'hard_ot', 'ot_flow']
 
 # 需要 epsilon/num_iters 参数的策略
-_SINKHORN_NAMES = {'sinkhorn_argmax', 'sinkhorn_stochastic', 'ghss'}
+_OT_NAMES = {'ot_flow'}
 
 
 def _build(name, **kwargs):
-    """构建耦合策略，仅对 Sinkhorn 类策略传递额外参数"""
-    if name in _SINKHORN_NAMES:
+    """构建耦合策略，仅对 OT 类策略传递额外参数"""
+    if name in _OT_NAMES:
         return build_coupling(name, **kwargs)
     return build_coupling(name)
 
@@ -32,7 +41,7 @@ class TestBuildCoupling:
             build_coupling('nonexistent')
 
     def test_with_kwargs(self):
-        c = build_coupling('sinkhorn_stochastic', epsilon=5.0, num_iters=20)
+        c = build_coupling('ot_flow', epsilon=5.0, num_iters=20)
         assert c.epsilon == 5.0
         assert c.num_iters == 20
 
@@ -122,10 +131,14 @@ class TestHardOTCoupling:
         assert idx[1].item() == 1
 
 
-class TestSinkhornArgmaxCoupling:
+class TestOTFlowArgmaxCoupling:
+    """ot_flow with coupling_mode='argmax' (确定性)"""
+
     def test_deterministic(self):
         """argmax 解码是确定性的"""
-        coupling = build_coupling('sinkhorn_argmax', epsilon=1.0, num_iters=10)
+        coupling = build_coupling(
+            'ot_flow', epsilon=1.0, num_iters=10, coupling_mode='argmax'
+        )
         noise = torch.randn(50, 4)
         gt = torch.randn(10, 4)
         gt_labels = torch.randint(0, 24, (10,))
@@ -134,118 +147,17 @@ class TestSinkhornArgmaxCoupling:
         assert torch.equal(idx1, idx2)
 
 
-class TestSinkhornStochasticCoupling:
+class TestOTFlowMultinomialCoupling:
+    """ot_flow with coupling_mode='multinomial' (随机采样)"""
+
     def test_stochastic(self):
         """随机采样应产生不同结果 (概率极高)"""
-        coupling = build_coupling('sinkhorn_stochastic', epsilon=5.0, num_iters=10)
+        coupling = build_coupling(
+            'ot_flow', epsilon=5.0, num_iters=10, coupling_mode='multinomial'
+        )
         noise = torch.randn(100, 4)
         gt = torch.randn(10, 4)
         gt_labels = torch.randint(0, 24, (10,))
         _, idx1 = coupling.couple(noise, gt, gt_labels, torch.device('cpu'))
         _, idx2 = coupling.couple(noise, gt, gt_labels, torch.device('cpu'))
         assert not torch.equal(idx1, idx2)
-
-    def test_with_seed(self):
-        """使用 seed + 清空全局 generator 缓存后应可复现"""
-        noise = torch.randn(50, 4)
-        gt = torch.randn(10, 4)
-        gt_labels = torch.randint(0, 24, (10,))
-
-        # 清空缓存后用相同 seed 采样, 结果应可复现
-        _OT_GENERATORS.clear()
-        coupling = build_coupling('sinkhorn_stochastic', epsilon=5.0, num_iters=10, sample_seed=42)
-        _, idx1 = coupling.couple(noise, gt, gt_labels, torch.device('cpu'))
-
-        _OT_GENERATORS.clear()
-        coupling2 = build_coupling('sinkhorn_stochastic', epsilon=5.0, num_iters=10, sample_seed=42)
-        _, idx2 = coupling2.couple(noise, gt, gt_labels, torch.device('cpu'))
-
-        assert torch.equal(idx1, idx2), "相同 seed 清空缓存后应产生相同结果"
-        assert (idx1 >= 0).all() and (idx1 < 10).all()
-
-
-class TestGHSSCoupling:
-    def test_group_respect(self):
-        """GHSS 应按组分配噪声"""
-        coupling = build_coupling('ghss', epsilon=5.0, num_iters=10)
-        noise = torch.randn(50, 4)
-        gt = torch.randn(10, 4)
-        # 全部属于同一组 (group 0: class 0,1,2)
-        gt_labels = torch.tensor([0, 1, 2, 0, 1, 2, 0, 1, 2, 0])
-        x_start, matched_idx = coupling.couple(noise, gt, gt_labels, torch.device('cpu'))
-        assert x_start.shape == (50, 4)
-        assert (matched_idx >= 0).all() and (matched_idx < 10).all()
-
-    def test_multi_group(self):
-        """多组情况"""
-        coupling = build_coupling('ghss', epsilon=5.0, num_iters=10)
-        noise = torch.randn(100, 4)
-        gt = torch.randn(20, 4)
-        # 跨多个组
-        gt_labels = torch.cat([
-            torch.zeros(5, dtype=torch.long),       # group 0
-            torch.ones(5, dtype=torch.long) * 3,    # group 1 (class 3,4)
-            torch.ones(5, dtype=torch.long) * 12,   # group 3 (class 12,13,14)
-            torch.ones(5, dtype=torch.long) * 22,   # group 7 (class 22,23)
-        ])
-        x_start, matched_idx = coupling.couple(noise, gt, gt_labels, torch.device('cpu'))
-        assert x_start.shape == (100, 4)
-        assert (matched_idx >= 0).all() and (matched_idx < 20).all()
-
-    def test_group_isolation_no_cross_group_matching(self):
-        """GHSS 核心特性: 噪声 slot 匹配的 GT 必须属于分配给它的组, 禁止跨组匹配"""
-        coupling = build_coupling('ghss', epsilon=5.0, num_iters=10)
-        noise = torch.randn(100, 4)
-        gt = torch.randn(20, 4)
-        # 4 组, 每组 5 个 GT, GT 索引范围: group0=[0,5), group1=[5,10), group3=[10,15), group7=[15,20)
-        gt_labels = torch.cat([
-            torch.zeros(5, dtype=torch.long),       # group 0 (class 0-2)
-            torch.ones(5, dtype=torch.long) * 3,    # group 1 (class 3-4)
-            torch.ones(5, dtype=torch.long) * 12,   # group 3 (class 12-14)
-            torch.ones(5, dtype=torch.long) * 22,   # group 7 (class 22-23)
-        ])
-        _, matched_idx = coupling.couple(noise, gt, gt_labels, torch.device('cpu'))
-
-        # 每个 matched GT 的组
-        gt_groups = torch.tensor(CHROMO_GROUP_OF_CLASS)[gt_labels]
-        matched_groups = gt_groups[matched_idx]
-
-        # 所有 4 个组都应被分配到噪声 slot
-        assert len(torch.unique(matched_groups)) == 4
-
-        # 每组分配的噪声 slot 数应与组内 GT 数成正比 (每组 5/20 = 25%)
-        for g in [0, 1, 3, 7]:
-            count = (matched_groups == g).sum().item()
-            assert count == 25, f"group {g} 应分配 25 个 slot, 实际 {count}"
-
-        # 核心断言: 不存在跨组匹配
-        # group 0 的噪声 slot 只能匹配 GT 索引 [0, 5)
-        # group 1 的噪声 slot 只能匹配 GT 索引 [5, 10)
-        # 以此类推
-        group_gt_ranges = {0: (0, 5), 1: (5, 10), 3: (10, 15), 7: (15, 20)}
-        for g, (lo, hi) in group_gt_ranges.items():
-            slots_for_g = matched_idx[matched_groups == g]
-            # 所有匹配的 GT 索引必须落在该组的范围内
-            assert ((slots_for_g >= lo) & (slots_for_g < hi)).all(), (
-                f"group {g} 存在跨组匹配: GT 索引应在 [{lo}, {hi}), 实际 {slots_for_g.tolist()}"
-            )
-
-    def test_group_isolation_all_groups_present(self):
-        """即使某些组只有 1 个 GT, GHSS 仍应为其分配噪声 slot"""
-        coupling = build_coupling('ghss', epsilon=5.0, num_iters=10)
-        noise = torch.randn(80, 4)
-        gt = torch.randn(10, 4)
-        # 不均匀分组: group 0 有 7 个, group 1 有 1 个, group 3 有 1 个, group 7 有 1 个
-        gt_labels = torch.cat([
-            torch.zeros(7, dtype=torch.long),       # group 0
-            torch.ones(1, dtype=torch.long) * 3,    # group 1
-            torch.ones(1, dtype=torch.long) * 12,   # group 3
-            torch.ones(1, dtype=torch.long) * 22,   # group 7
-        ])
-        _, matched_idx = coupling.couple(noise, gt, gt_labels, torch.device('cpu'))
-
-        gt_groups = torch.tensor(CHROMO_GROUP_OF_CLASS)[gt_labels]
-        matched_groups = gt_groups[matched_idx]
-        # 每个组都应至少有 1 个噪声 slot
-        for g in [0, 1, 3, 7]:
-            assert (matched_groups == g).sum() > 0, f"group {g} 未被分配任何噪声 slot"

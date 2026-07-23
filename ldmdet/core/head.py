@@ -100,6 +100,13 @@ class DiffusionDetHead(nn.Module):
         adaptive_solver_mode: str = 'static',
         adaptive_num_3rd_steps: int = 2,
         adaptive_eta_3rd_threshold: float = 0.5,
+        # Head Distillation v2: 少 Head (H=3) 蒸馏多 Head (H=6)
+        # 详见 docs/research/proposals/REFLOW_HEAD_DISTILL_IMPL_PLAN.md §2
+        use_distillation: bool = False,
+        distill_lambda: float = 0.05,
+        distill_head_map: Optional[Dict[int, int]] = None,
+        deep_supervision_aux_weight: float = 1.0,
+        freeze_backbone: bool = False,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -284,6 +291,23 @@ class DiffusionDetHead(nn.Module):
         # 调用方 (loss/predict) 负责在 forward 前设置, 避免跨 batch 残留
         self._current_step_tensor: Optional[torch.Tensor] = None
 
+        # ============================================================
+        # Head Distillation v2: 少 Head (H=3) 蒸馏多 Head (H=6)
+        # ============================================================
+        # Teacher (H=6, A4 冻结) 监督 Student (H=3) 的 fc_feature
+        # L_distill = (1/K) Σ_k MSE(student_fc_k, teacher_fc_{map(k)}.detach())
+        # Student head 0/1/2 ← Teacher head 0/2/5 (输入对齐 + 中间 + main 对齐)
+        self.use_distillation = use_distillation
+        self.distill_lambda = distill_lambda
+        # 默认映射: Student H=3 → Teacher H=6
+        #   head 0 ↔ head 0 (输入对齐, 都是第一个 head)
+        #   head 1 ↔ head 2 (中间, 进度对齐 ~1/2 处)
+        #   head 2 ↔ head 5 (main 对齐, 都是最后一个 head = 主输出)
+        self.distill_head_map = distill_head_map or {0: 0, 1: 2, 2: 5}
+        self.deep_supervision_aux_weight = deep_supervision_aux_weight
+        self.freeze_backbone = freeze_backbone
+        self._teacher: Optional[nn.Module] = None
+
     def _init_weights(self, prior_prob):
         for head in self.head_series:
             if hasattr(head, 'cls_head'):
@@ -291,6 +315,85 @@ class DiffusionDetHead(nn.Module):
                 if hasattr(last_layer, 'bias') and last_layer.bias is not None:
                     bias_value = -(math.log((1 - prior_prob) / prior_prob))
                     nn.init.constant_(last_layer.bias, bias_value)
+
+    # ================================================================
+    # Head Distillation v2: Teacher 注入
+    # ================================================================
+
+    def set_teacher(self, teacher: nn.Module):
+        """注入 Teacher 模型并冻结其参数。
+
+        Teacher 通过 _teacher 引用持有 (非 nn.Module 子模块),
+        不出现在 self.parameters() 中, 避免参数进入 optimizer。
+        使用 object.__setattr__ 绕过 nn.Module 的自动子模块注册。
+
+        Args:
+            teacher: Teacher DiffusionDetHead 实例 (H=6, A4 权重)
+        """
+        # object.__setattr__ 绕过 nn.Module.__setattr__ 的自动注册,
+        # 使 Teacher 参数不进入 self.parameters() / optimizer
+        object.__setattr__(self, '_teacher', teacher)
+        # 冻结 Teacher 所有参数
+        for p in teacher.parameters():
+            p.requires_grad_(False)
+        teacher.eval()
+
+    def init_student_from_teacher(self):
+        """从 Teacher 初始化 Student 权重 (Head Distillation v2)
+
+        Student head 0/1/2 ← Teacher head 0/2/5 (与 distill_head_map 一致),
+        共享模块 (time_mlp, roi_extractor 等) 直接从 Teacher 复制。
+
+        S1 已证随机初始化 H=3 训练失败 (N_cascade e2e 教训),
+        因此 Student 必须从 Teacher 初始化而非随机。
+        """
+        if self._teacher is None:
+            logger.warning(
+                'init_student_from_teacher: Teacher 未注入, 跳过初始化'
+            )
+            return
+
+        teacher_sd = self._teacher.state_dict()
+        student_sd = self.state_dict()
+        new_sd = {}
+
+        # 1. 复制非 head_series 的共享模块 (time_mlp, roi_extractor, rf 等)
+        for k, v in teacher_sd.items():
+            if not k.startswith('head_series.'):
+                if k in student_sd and student_sd[k].shape == v.shape:
+                    new_sd[k] = v
+
+        # 2. 按 distill_head_map 复制 head_series
+        # Student head 0 ← Teacher head 0 (输入对齐)
+        # Student head 1 ← Teacher head 2 (中间进度对齐)
+        # Student head 2 ← Teacher head 5 (main 对齐)
+        for s_idx, t_idx in self.distill_head_map.items():
+            prefix_s = f'head_series.{s_idx}.'
+            prefix_t = f'head_series.{t_idx}.'
+            for k, v in teacher_sd.items():
+                if k.startswith(prefix_t):
+                    new_k = prefix_s + k[len(prefix_t):]
+                    if (
+                        new_k in student_sd
+                        and student_sd[new_k].shape == v.shape
+                    ):
+                        new_sd[new_k] = v
+
+        missing, unexpected = self.load_state_dict(new_sd, strict=False)
+        if missing:
+            logger.warning(
+                f'init_student_from_teacher: missing keys ({len(missing)}): '
+                f'{missing[:5]}'
+            )
+        if unexpected:
+            logger.warning(
+                f'init_student_from_teacher: unexpected keys ({len(unexpected)}): '
+                f'{unexpected[:5]}'
+            )
+        logger.info(
+            f'init_student_from_teacher: 已从 Teacher 初始化 Student '
+            f'({len(new_sd)}/{len(student_sd)} keys)'
+        )
 
     # ================================================================
     # 前向传播
@@ -384,6 +487,16 @@ class DiffusionDetHead(nn.Module):
     # ================================================================
 
     def loss(self, features, img_metas, gt_bboxes, gt_labels, x_raw_shared=None):
+        # Head Distillation v2: 蒸馏模式分支
+        if self.use_distillation and self._teacher is not None:
+            return self._loss_with_distillation(
+                features, img_metas, gt_bboxes, gt_labels
+            )
+        if self.use_distillation and self._teacher is None:
+            logger.warning(
+                'use_distillation=True 但 Teacher 未注入, 回退到普通 loss(). '
+                '请检查 detector 是否正确构建了 Teacher.'
+            )
         device = features[0].device
         bs = len(img_metas)
 
@@ -436,6 +549,163 @@ class DiffusionDetHead(nn.Module):
         losses = self.criterion(outputs, targets, t=t)
 
         # 探针: 训练时 t 分布 + 损失分解
+        probe.record_tensor_stats('train/t', t)
+        for name, val in losses.items():
+            if isinstance(val, torch.Tensor):
+                probe.record_scalar(f'train/loss/{name}', val.item())
+
+        return losses
+
+    # ================================================================
+    # Head Distillation v2: 蒸馏训练损失
+    # ================================================================
+
+    def _loss_with_distillation(
+        self, features, img_metas, gt_bboxes, gt_labels
+    ):
+        """Head Distillation v2 蒸馏损失。
+
+        Student (H=3) 和 Teacher (H=6) 共享噪声/时间步, forward 后对
+        fc_feature 做 headwise MSE 蒸馏:
+          L_total = L_det(student) + λ · L_distill
+          L_distill = (1/K) Σ_k MSE(student_fc_k, teacher_fc_{map(k)})
+
+        v2 修正 (见 REFLOW_HEAD_DISTILL_IMPL_PLAN.md §2.2):
+          - 蒸馏 fc_feature (非 pred_bboxes), 梯度更稳定
+          - head 映射 {0→0, 1→2, 2→5} (输入/中间/main 对齐)
+          - λ=0.05 保守起步
+          - aux loss 权重降至 deep_supervision_aux_weight
+        """
+        device = features[0].device
+        bs = len(img_metas)
+
+        targets = self._normalize_targets(
+            gt_bboxes, gt_labels, img_metas, bs
+        )
+        t = self._sample_t(bs, device)
+
+        # 共享噪声: Student/Teacher 使用相同 x_raw (v2 修正 #5: 确定性 coupling)
+        x_raw_shared = torch.randn(
+            bs, self.num_proposals, 4, device=device
+        )
+        x_boxes, x_starts, x_noises, matched_gt_indices = (
+            self._build_training_targets(
+                bs, device, t, targets, gt_bboxes,
+                external_noise=x_raw_shared,
+            )
+        )
+        x_noisy_batch = torch.stack(x_boxes)
+        curr_bboxes = self._sampler.raw_to_xyxy(x_noisy_batch, img_metas)
+        t_input = t if self.diffusion_type == 'ddpm' else t * self.timesteps
+
+        # 方向 C: Student step-aware — 共享 step_idx 给 Teacher
+        # (若 step_idx 不一致, Student/Teacher 的 step_emb 不同, 破坏蒸馏对齐)
+        if self.use_step_aware:
+            shared_step = torch.randint(
+                0, self.num_solver_steps, (bs,), device=device,
+                dtype=torch.float32,
+            )
+            self._current_step_tensor = shared_step
+            teacher = self._teacher
+            if hasattr(teacher, '_current_step_tensor'):
+                teacher._current_step_tensor = shared_step
+        else:
+            self._current_step_tensor = None
+            teacher = self._teacher
+            if hasattr(teacher, '_current_step_tensor'):
+                teacher._current_step_tensor = None
+
+        # Student forward (收集 fc_features)
+        if self.amp_dtype is not None:
+            with torch.cuda.amp.autocast(dtype=self.amp_dtype):
+                s_cls, s_bbox, s_fc_feats = self(
+                    features, curr_bboxes, t_input
+                )
+            s_cls = s_cls.float()
+            s_bbox = s_bbox.float()
+            s_fc_feats = [f.float() for f in s_fc_feats]
+        else:
+            s_cls, s_bbox, s_fc_feats = self(
+                features, curr_bboxes, t_input
+            )
+        self._current_step_tensor = None
+
+        # Teacher forward (no_grad, 收集 fc_features)
+        # AMP: Teacher forward 也用半精度, 与 Student 保持一致
+        with torch.no_grad():
+            if self.amp_dtype is not None:
+                with torch.cuda.amp.autocast(dtype=self.amp_dtype):
+                    t_cls, t_bbox, t_fc_feats = teacher(
+                        features, curr_bboxes, t_input
+                    )
+                t_fc_feats = [f.float() for f in t_fc_feats]
+            else:
+                t_cls, t_bbox, t_fc_feats = teacher(
+                    features, curr_bboxes, t_input
+                )
+
+        # 检测损失 L_det
+        norm_pred_bboxes = self._normalize_pred_bboxes(s_bbox, img_metas)
+        outputs = self._build_outputs(s_cls, norm_pred_bboxes)
+        losses = self.criterion(outputs, targets, t=t)
+
+        # v2 修正 #6: aux loss 权重降低
+        if (
+            self.deep_supervision
+            and self.deep_supervision_aux_weight != 1.0
+        ):
+            for key in list(losses.keys()):
+                if key.startswith('aux_'):
+                    losses[key] = (
+                        losses[key] * self.deep_supervision_aux_weight
+                    )
+
+        # 蒸馏损失 L_distill (headwise fc_feature MSE)
+        # v2 修正 #6: 蒸馏所有 mapped head (§2.1 公式 (1/K)Σ_k)
+        # §2.6 "仅 main head" 描述最小可用配置, 当前蒸馏全部 mapped head
+        distill_loss = torch.tensor(
+            0.0, device=device, dtype=s_bbox.dtype
+        )
+        n_distill = 0
+        for s_idx, t_idx in self.distill_head_map.items():
+            if s_idx < len(s_fc_feats) and t_idx < len(t_fc_feats):
+                # 缓存 MSE 结果, 避免 probe 重复计算
+                head_gap = F.mse_loss(
+                    s_fc_feats[s_idx].float(),
+                    t_fc_feats[t_idx].float().detach(),
+                )
+                distill_loss = distill_loss + head_gap
+                n_distill += 1
+                # 探针: 逐 head feature gap
+                probe.record_scalar(
+                    f'distill/head{s_idx}_feat_gap', head_gap.item()
+                )
+        if n_distill > 0:
+            distill_loss = distill_loss / n_distill
+        else:
+            logger.warning(
+                f'蒸馏 loss 计算了 0 个 head (n_distill=0). '
+                f'distill_head_map={self.distill_head_map}, '
+                f'student_heads={len(s_fc_feats)}, '
+                f'teacher_heads={len(t_fc_feats)}. '
+                f'请检查 head 映射配置.'
+            )
+
+        losses['loss_distill'] = self.distill_lambda * distill_loss
+
+        # 探针: 蒸馏 loss 统计
+        probe.record_scalar('distill/loss_distill', distill_loss.item())
+        probe.record_scalar(
+            'distill/loss_ratio',
+            distill_loss.item() / max(
+                sum(
+                    v.item()
+                    for k, v in losses.items()
+                    if isinstance(v, torch.Tensor) and 'distill' not in k
+                ),
+                1e-8,
+            ),
+        )
         probe.record_tensor_stats('train/t', t)
         for name, val in losses.items():
             if isinstance(val, torch.Tensor):

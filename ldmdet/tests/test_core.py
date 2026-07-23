@@ -496,7 +496,7 @@ class TestDiffusionDetHeadOTCoupling:
             loss_giou=GIoULoss(loss_weight=2.0),
             deep_supervision=True,
         )
-        coupling = build_coupling('sinkhorn_stochastic', epsilon=5.0, num_iters=10)
+        coupling = build_coupling('ot_flow', epsilon=5.0, num_iters=10)
         head = DiffusionDetHead(
             num_classes=24, feat_channels=64, num_proposals=50, num_heads=3,
             snr_scale=2.0, timesteps=1000, sampling_timesteps=1,

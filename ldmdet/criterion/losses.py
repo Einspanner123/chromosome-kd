@@ -1,4 +1,4 @@
-"""损失函数: FocalLoss, GIoULoss, L1Loss, SeesawLoss"""
+"""损失函数: FocalLoss, GIoULoss, L1Loss, SeesawLoss, FeatureDistillLoss"""
 
 import torch
 import torch.nn as nn
@@ -223,3 +223,29 @@ class SeesawLoss(nn.Module):
             weighted_loss = alpha_t * weighted_loss
 
         return weighted_loss
+
+
+class FeatureDistillLoss(nn.Module):
+    """Feature-level 蒸馏损失 (MSE on fc_feature)
+
+    用于 Head Distillation v2: Student head 的 fc_feature (box head 前的中间特征)
+    与 Teacher head 的 fc_feature 对齐。
+
+    详见 docs/research/proposals/REFLOW_HEAD_DISTILL_IMPL_PLAN.md §2.4
+
+    Args:
+        loss_weight: 损失权重 (对应 distill_lambda, 默认 0.05)
+        normalize: 是否对特征做 L2 归一化后再计算 MSE (消除幅度差异, 关注方向对齐)
+    """
+
+    def __init__(self, loss_weight: float = 0.05, normalize: bool = False):
+        super().__init__()
+        self.loss_weight = loss_weight
+        self.normalize = normalize
+
+    def forward(self, student_feat: Tensor, teacher_feat: Tensor) -> Tensor:
+        if self.normalize:
+            student_feat = F.normalize(student_feat, dim=-1)
+            teacher_feat = F.normalize(teacher_feat, dim=-1)
+        loss = F.mse_loss(student_feat, teacher_feat)
+        return loss * self.loss_weight
