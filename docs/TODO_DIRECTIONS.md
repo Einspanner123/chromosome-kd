@@ -28,10 +28,10 @@
 | 方向 C | step-aware embedding (cascade head 感知 step) | ✓ 已完成 (早停@ep148, best 0.859@ep118, Δ=-0.004 在 noise 内; step_proj 活跃+3类改善, 非负面, 保留为 S1 佐证) | ~~中~~ | `ldmdet-mainline-ablation-24obj` |
 | 方向 D | 自适应阶次 DPM-Solver++ (后期 step 降阶) | ✓ 完成 (3 solver mAP 持平 0.863, → [LINEAGE §十](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)) | ~~中~~ | (诊断无 SwanLab) |
 | **D1 诊断** | RoI 空间信息消融 (7×7 vs 空间抹平) | ✓ 完成 (ΔmAP=-0.854 灾难性崩溃, 证实空间编码至关重要) | ~~高~~ | (诊断无 SwanLab) |
-| **M1** | 形态感知 RoI 编码器 (零初始化残差增强) | ⚠ 已完成-BF16 (M1 0.818 vs A4+BF16 0.825, Δ=-0.007, 需 FP32 复现) | **高** | `ldmdet-mainline-ablation-24obj` |
+| **M1** | 形态感知 RoI 编码器 (零初始化残差增强) | 🔄 FP32 复现中 (BF16 0.818, lr 调度器 bug 修复后重启, ETA ~8h) | **高** | `ldmdet-mainline-ablation-24obj` |
 | **M4** | 级联头角色分化 (损失权重衰减) | ⛔ 待启动 (D3 诊断支持, 零代码改动) | 中-高 | (待创建) |
-| **ReFlow (Standard MSE)** | 基于 Coupling 变换的 2-Rectification | ⛔ 待启动 (代码设计中) | **高** | `ldmdet-reflow-standard` (待创建) |
-| **Head Distillation** | 少 Head (3) 蒸馏多 Head (6) | ⛔ 待启动 (代码设计中) | **高** | `ldmdet-head-distill` (待创建) |
+| **ReFlow (Standard MSE)** | 基于 Coupling 变换的 2-Rectification | ⛔ 待启动 (方案 v2 已定, 见 [proposals](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/REFLOW_HEAD_DISTILL_IMPL_PLAN.md)) | **高** | `ldmdet-reflow-standard` (待创建) |
+| **Head Distillation** | 少 Head (3) 蒸馏多 Head (6) | ⛔ 待启动 (方案 v2 已定, 优先实施, 见 [proposals](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/REFLOW_HEAD_DISTILL_IMPL_PLAN.md)) | **高** | `ldmdet-head-distill` (待创建) |
 | 跨数据集扩展 | OT Collapse 普遍性 claim 验证 | ⛔ 纯理论推导 | 中 (最高级目标) | — |
 | SC-RF | 自条件化 RF | 🔄 运行中 (待评估) | 待评估 | `ldmdet-breakthrough` |
 | VGAR | Velocity-Guided Adaptive Renewal | ⛔ 待系统评估 | 中 | `ldmdet-mainline-ablation-24obj` |
