@@ -10,6 +10,8 @@ from typing import Optional, Tuple
 import torch
 from torch import Tensor
 
+from ldmdet.diagnostics.instrumentation import probe
+
 
 class RectifiedFlow:
     """1-RectFlow: 直线路径前向扩散与采样。"""
@@ -37,6 +39,13 @@ class RectifiedFlow:
         t_view = t.view(-1, *([1] * (x_start.dim() - 1)))
         x_t = (1.0 - t_view) * x_start + t_view * x_noise
         velocity = x_noise - x_start
+
+        # 探针: RF 前向加噪路径统计 (训练时每 100 步)
+        probe.record_tensor_stats('rf/x_t', x_t)
+        probe.record_tensor_stats('rf/velocity', velocity)
+        probe.record_tensor_stats('rf/x_start', x_start)
+        probe.record_tensor_stats('rf/x_noise', x_noise)
+
         return x_t, velocity
 
     def get_velocity(self, x_t: Tensor, x_0_pred: Tensor, t: Tensor) -> Tensor:
@@ -350,3 +359,102 @@ class RFDPMSolverAdaptive(RFDPMSolverMultistep):
         self.applied_3rd_history.append(applied_3rd)
 
         return linear + correction
+
+
+class RFDPMSolverPerDim(RFDPMSolverMultistep):
+    """方向 A Phase 2: per-dim 阶数分配的 DPM-Solver++
+
+    基于 per-dim eta_str 诊断 (方向 A Phase 1):
+      - h 维度 (index 3) eta_str 4-11, 曲率最小
+      - cx, cy 维度 (index 0, 1) eta_str 17-50, 曲率最大
+      - w 维度 (index 2) eta_str 介于二者之间, 与 cx/cy 接近
+
+    策略:
+      - h 维度用 1 阶 (Euler/linear, 仅线性项)
+      - cx, cy, w 维度用 2 阶 (DPM-Solver++, linear + D1 校正)
+
+    实现: 在 step() 中, linear 项对所有维度应用, correction 项仅对 dpm_dims 应用。
+    bbox 最后一维 = (cx, cy, w, h), 即 index 0/1/2 = dpm, index 3 = euler。
+
+    推理时改动, 不需要重训练 (基于已训好的 A4 checkpoint 直接推理)。
+    """
+
+    def __init__(
+        self,
+        num_steps: int = 6,
+        timesteps: Optional[list[float]] = None,
+        euler_dims: tuple = (3,),       # h 维度用 1 阶
+        dpm_dims: tuple = (0, 1, 2),    # cx, cy, w 维度用 2 阶
+    ):
+        super().__init__(
+            num_steps=num_steps,
+            solver_order=2,
+            timesteps=timesteps,
+        )
+        self.euler_dims = tuple(euler_dims)
+        self.dpm_dims = tuple(dpm_dims)
+
+    def step(
+        self,
+        x: torch.Tensor,
+        x0_pred: torch.Tensor,
+        t_n: float,
+        step_idx: int,
+    ) -> torch.Tensor:
+        """per-dim 阶数分配单步积分。
+
+        linear 项对所有维度应用 (1 阶 Euler);
+        correction = phi1 * D1 仅对 dpm_dims 维度应用 (2 阶 DPM-Solver++)。
+        """
+        t_next = self.timesteps[step_idx + 1]
+
+        self.x0_history.append(x0_pred)
+        self.t_history.append(t_n)
+        if len(self.x0_history) > self.solver_order:
+            self.x0_history.pop(0)
+            self.t_history.pop(0)
+
+        linear = (t_next / t_n) * x + (1.0 - t_next / t_n) * x0_pred
+
+        # 历史不足 2 步时, 所有维度退化为 1 阶 (linear)
+        if len(self.x0_history) < 2:
+            self.eta_str_history.append(0.0)
+            self.eta_str_per_dim_history.append([0.0] * x.shape[-1])
+            self.eta_3rd_history.append(0.0)
+            return linear
+
+        x0_n = self.x0_history[-1]
+        x0_p = self.x0_history[-2]
+        t_p = self.t_history[-2]
+        D1 = (x0_n - x0_p) / (t_n - t_p)
+
+        # 诊断 (与基类一致)
+        with torch.no_grad():
+            d1_norm = D1.norm(dim=-1)
+            x0_norm = x0_n.norm(dim=-1).clamp(min=1e-6)
+            eta_str = (d1_norm / x0_norm).mean().item()
+            self.eta_str_history.append(eta_str)
+
+            d1_abs = D1.abs()
+            x0_abs = x0_n.abs().clamp(min=1e-6)
+            eta_per_dim = (d1_abs / x0_abs).mean(dim=(0, 1)).tolist()
+            self.eta_str_per_dim_history.append(eta_per_dim)
+
+        if t_next > 1e-7:
+            phi1 = t_next * math.log(t_n / t_next) - t_n + t_next
+        else:
+            phi1 = -t_n
+
+        correction = phi1 * D1
+
+        # per-dim 阶数分配: 仅 dpm_dims 维度应用 correction
+        dim_mask = torch.zeros(
+            x.shape[-1], device=x.device, dtype=x.dtype
+        )
+        for d in self.dpm_dims:
+            dim_mask[d] = 1.0
+
+        # eta_3rd = 0.0 (per-dim solver 不使用 3 阶)
+        self.eta_3rd_history.append(0.0)
+
+        return linear + correction * dim_mask

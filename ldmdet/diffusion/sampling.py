@@ -17,6 +17,7 @@ from ldmdet.diffusion.noise_schedule import load_buffer
 from ldmdet.diffusion.rectified_flow import (
     RFDPMSolverAdaptive,
     RFDPMSolverMultistep,
+    RFDPMSolverPerDim,
 )
 from ldmdet.diffusion.shts import build_shts_grid, build_shts_shifted_grid
 from ldmdet.utils.box_ops import bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh
@@ -120,7 +121,8 @@ class DiffusionSampler:
     def _build_shts_time_grid(self) -> List[float]:
         """构建 SHTS 时间步网格"""
         # 方向 D: dpm_solver_pp_adaptive 也按 3 阶准备网格 (允许最大阶次)
-        if self.solver_type in ('dpm_solver_pp', 'heun'):
+        # 方向 A: dpm_solver_pp_per_dim 按 2 阶准备网格
+        if self.solver_type in ('dpm_solver_pp', 'heun', 'dpm_solver_pp_per_dim'):
             solver_order = 2
         elif self.solver_type in ('dpm_solver_pp_3', 'dpm_solver_pp_adaptive'):
             solver_order = 3
@@ -172,6 +174,18 @@ class DiffusionSampler:
                 adaptive_mode=self.adaptive_solver_mode,
                 num_3rd_steps=self.adaptive_num_3rd_steps,
                 eta_3rd_threshold=self.adaptive_eta_3rd_threshold,
+            )
+        # 方向 A Phase 2: per-dim 阶数分配 solver (推理时改动, 无需重训练)
+        # h 维度 (index 3) 用 1 阶 Euler, cx/cy/w 维度 (index 0/1/2) 用 2 阶 DPM-Solver++
+        if self.solver_type == 'dpm_solver_pp_per_dim':
+            if self.rf_schedule == 'shts':
+                t_grid = self._build_shts_time_grid()
+                return RFDPMSolverPerDim(
+                    num_steps=self.sampling_timesteps,
+                    timesteps=t_grid,
+                )
+            return RFDPMSolverPerDim(
+                num_steps=self.sampling_timesteps,
             )
         return None
 
