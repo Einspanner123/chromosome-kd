@@ -3,30 +3,39 @@
 > 本文档梳理 KaryoFlow (染色体检测论文, 目标 TMI 期刊) 所有进行中或待启动的研究方向。
 > 这些方向部分有代码就绪、配置就绪或实验已在运行, 部分仅有理论框架。
 > 每个方向附 **可靠数据源地址** (本地服务器路径 / SwanLab project / config 路径)。
-> 更新时间: 2026-07-21
+> 更新时间: 2026-07-22
 >
 > 📌 **关联文档**:
-> - [docs/EXPERIMENT_LINEAGE.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md) (主路线实验脉络, A0-A4 主路线消融已完成)
+> - [docs/EXPERIMENT_LINEAGE.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md) (主路线实验脉络, A0-A4 主路线消融已完成, 方向 A/D 已迁入)
+> - [docs/FALSIFIED_DIRECTIONS.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/FALSIFIED_DIRECTIONS.md) (已证伪方向归档)
+> - [docs/EXPERIMENT_CATALOG.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_CATALOG.md) (实验数据索引)
 > - [docs/paper/paper_draft_CN.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/paper/paper_draft_CN.md) (论文草稿, §6 结论与未来工作)
 > - [docs/paper/theory_analysis_RF_DPM.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/paper/theory_analysis_RF_DPM.md) (R1/S1/D3/R3 理论深化分析)
 >
 > ⚠ **状态约定**: 🔄 运行中 / ⛔ 待启动 / ✓ 已完成 / 🔴 已证伪
+>
+> 📋 **文档流转规则**: 方向完成后, 有效→迁入 EXPERIMENT_LINEAGE.md; 证伪→迁入 FALSIFIED_DIRECTIONS.md; 本文档仅保留 🔄进行中 + ⛔待启动 + 边际待验证方向。
 
 ## 〇、方向索引与状态汇总
 
 | 编号 | 方向 | 状态 | 优先级 | SwanLab Project |
 |------|------|------|--------|-----------------|
-| R3 | x0-prediction vs v-prediction 对照重训 | 🔄 进行中 (seed 42 训练中) | 中 | `ldmdet-r3-vpred` |
-| S1 | Cascade Head × Solver Step 解耦消融 | 🔄 部分完成 (s1_h3_s4 ✓ / s1_h3_s8 ✓ / s1_h6_s2 🔄) | 高 | `ldmdet-s1-cascade-decouple` |
+| R3 | x0-prediction vs v-prediction 对照重训 | 🔄 进行中 (seed 42, workstation SSH 不可达, 状态待确认) | 中 | `ldmdet-r3-vpred` |
+| S1 | Cascade Head × Solver Step 解耦消融 | 🔄 部分完成 (s1_h3_s4 ✓ / s1_h3_s8 ✓ / s1_h6_s2 ⚠ workstation 不可达待确认) | 高 | `ldmdet-s1-cascade-decouple` |
 | Few-Shot | 24obj 源 → chromo 目标跨数据集微调 | ⛔ 待启动 (配置就绪) | 高 | `few-shot-benchmark` (源预训练) |
 | D3 | box_renewal × DPM-Solver++ 修复方案 A/C | ⛔ 待启动 (方案 B 已验证) | 中 | `ldmdet-ablation` |
-| 方向 A | per-dim eta_str 维度级曲率诊断 | ✓ 诊断完成 (部分支持) / Phase 2 ⛔ 待启动 | 中 | (诊断无 SwanLab) |
-| 方向 C | step-aware embedding (cascade head 感知 step) | ⛔ 待启动 (代码就绪) | 中 | `ldmdet-mainline-ablation-24obj` |
-| 方向 D | 自适应阶次 DPM-Solver++ (后期 step 降阶) | ✓ 诊断完成 (支持假设) / mAP 对比 ⛔ 待跑 | 中 | (诊断无 SwanLab) |
-| 2-RectFlow | Reflow 进一步拉直轨迹 | ⛔ 纯理论推测 | 低 | — |
+| 方向 A | per-dim eta_str 维度级曲率诊断 | ✓ 完成 (Phase 2 mAP 持平+加速 5.5%, → [LINEAGE §九](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)) | ~~中~~ | (诊断无 SwanLab) |
+| 方向 C | step-aware embedding (cascade head 感知 step) | 🔄 seed 42 训练中 (ep136/150, best 0.859 @ ep118, Δ=-0.004, 早停最早 ep148) | 中 | `ldmdet-mainline-ablation-24obj` |
+| 方向 D | 自适应阶次 DPM-Solver++ (后期 step 降阶) | ✓ 完成 (3 solver mAP 持平 0.863, → [LINEAGE §十](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)) | ~~中~~ | (诊断无 SwanLab) |
+| **D1 诊断** | RoI 空间信息消融 (7×7 vs 空间抹平) | ✓ 完成 (ΔmAP=-0.854 灾难性崩溃, 证实空间编码至关重要) | ~~高~~ | (诊断无 SwanLab) |
+| **M1** | 形态感知 RoI 编码器 (零初始化残差增强) | ⚠ 已完成-BF16 (M1 0.818 vs A4+BF16 0.825, Δ=-0.007, 需 FP32 复现) | **高** | `ldmdet-mainline-ablation-24obj` |
+| **M4** | 级联头角色分化 (损失权重衰减) | ⛔ 待启动 (D3 诊断支持, 零代码改动) | 中-高 | (待创建) |
+| **ReFlow (Standard MSE)** | 基于 Coupling 变换的 2-Rectification | ⛔ 待启动 (代码设计中) | **高** | `ldmdet-reflow-standard` (待创建) |
+| **Head Distillation** | 少 Head (3) 蒸馏多 Head (6) | ⛔ 待启动 (代码设计中) | **高** | `ldmdet-head-distill` (待创建) |
 | 跨数据集扩展 | OT Collapse 普遍性 claim 验证 | ⛔ 纯理论推导 | 中 (最高级目标) | — |
 | SC-RF | 自条件化 RF | 🔄 运行中 (待评估) | 待评估 | `ldmdet-breakthrough` |
 | VGAR | Velocity-Guided Adaptive Renewal | ⛔ 待系统评估 | 中 | `ldmdet-mainline-ablation-24obj` |
+| 方向 E | Brenier 映射神经化 (ICNN 参数化, 突破方向) | ⛔ 未开展 (纯理论, TMI 投稿后) | 低 | — |
 
 ## 一、R3: x0-prediction vs v-prediction 对照重训
 
@@ -73,10 +82,10 @@
 seed 42 🔄 训练中, seed 123/789 ⛔ 待启动:
 
 - seed 42 🔄 训练中 (workstation A4000)
-  -- 进度: epoch 8, best mAP=0.802 (warmup 阶段), ETA ~1.4 天
+  -- ⚠ **workstation SSH 不可达 (2026-07-22), 状态待确认** — 上次记录: epoch 8, best mAP=0.802 (warmup 阶段)
   -- SwanLab project: `ldmdet-r3-vpred`
-- seed 123 ⛔ 待启动 (等待 GPU 空闲, 计划 ross A6000)
-- seed 789 ⛔ 待启动 (等待 GPU 空闲, 计划 workstation A5000)
+- seed 123 ⛔ 待启动 (等待 GPU 空闲)
+- seed 789 ⛔ 待启动 (等待 GPU 空闲)
 
 ### 预期结果
 
@@ -133,17 +142,15 @@ seed 42 🔄 训练中, seed 123/789 ⛔ 待启动:
 
 ### 当前状态
 
-s1_h3_s4 / s1_h3_s8 已完成, s1_h6_s2 训练中:
+s1_h3_s4 / s1_h3_s8 已完成, s1_h6_s2 状态待确认:
 
 - `s1_h3_s4` ✓ 已完成 (之前会话, 结果见 memory)
 - `s1_h3_s8` ✓ 已完成
   -- 进度: best mAP=0.859 (epoch 64), 30 epochs 未改善早停
   -- 算力: ross A6000 (PID 501721)
-- `s1_h6_s2` 🔄 训练中
-  -- 进度: epoch 123/150, best mAP=0.859 (epoch 106), ETA ~5h
-  -- 算力: workstation A5000 (PID 1098621)
+- `s1_h6_s2` ⚠ **workstation SSH 不可达 (2026-07-22), 状态待确认** — 上次记录: epoch 123/150, best mAP=0.859 (epoch 106), 可能已完成或早停
 
-SwanLab project `ldmdet-s1-cascade-decouple` 已配置, 3 个实验状态如下: 2 已完成 + 1 训练中。
+SwanLab project `ldmdet-s1-cascade-decouple` 已配置, 3 个实验: 2 已完成 + 1 待确认。
 
 ### 关键结论 (阶段性)
 
@@ -265,52 +272,24 @@ SwanLab project `ldmdet-s1-cascade-decouple` 已配置, 3 个实验状态如下:
 - 中 (方案 B 已解决诊断需求, 方案 A/C 主要用于理论完整性验证)
 - 实验成本: 方案 A 仅推理时改动 (1 行代码), 方案 C 需重训 checkpoint
 
-## 五、方向 A: per-dim eta_str 维度级曲率诊断
+## 五、方向 A: per-dim eta_str 维度级曲率诊断 ✓
 
-> ✓ 诊断完成 (部分支持), Phase 2 (检测专用 solver) ⛔ 待启动。零成本诊断, 无 SwanLab。详见 [EXPERIMENT_LINEAGE.md §九](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)
+> ✓ **已完成** (2026-07-22)。Phase 2 per-dim solver mAP 持平 (+0.001) + 推理加速 5.5%。
+> 已迁入 [EXPERIMENT_LINEAGE.md §九](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md), 本节仅保留索引。
 
-### 核心目标
+### 关键结果
 
-- 在 A4 checkpoint 上零成本诊断检测空间 4 维 (cxcywh) 各维度的曲率差异
-- 探究是否可设计 per-dim solver: w,h 维度用低阶 solver, cx,cy 用高阶
-- 量化位置维度 (cx,cy) vs 尺度维度 (w,h) 的曲率差距
-
-### 诊断方法
-
-- 在 A4 checkpoint (best mAP=0.859, epoch 117) 上跑 50 张图 × 3 个 solver (dpm_solver_pp / dpm_solver_pp_3 / dpm_solver_pp_adaptive)
-- 计算 wh/cxcy 维度 eta_str 比值, 量化位置维度 vs 尺度维度的曲率差距
-- 诊断脚本: `experiments/analysis/direction_a_d_diagnosis.py`
-- 配置: `experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_dpm_pp_24obj.py`
-- checkpoint: `work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth`
-- 结果 JSON: `work_dirs/diagnosis/dpm_pp_2nd.json`, `work_dirs/diagnosis/dpm_pp_3rd.json`, `work_dirs/diagnosis/dpm_pp_adaptive.json`
-
-### 诊断结果
-
-- **dpm_solver_pp (2 阶)**: wh/cxcy 比值 0.41-0.50
-  -- h 维度 eta_str (4-11) 显著小于 cx,cy (17-50), h 维度曲率比 cx,cy 小 3-5×
-- **dpm_solver_pp_3 (3 阶)**: wh/cxcy 比值 0.25-0.59
-  -- step 0 有数值异常 (h=77.9, 待分析)
-  -- w 维度差距较小 (1.5-2×)
-- **结论**: 部分支持假设
-  -- h 维度曲率显著小于 cx,cy (3-5× 差距), 支持原假设
-  -- w 维度差距较小 (1.5-2×), 部分证伪 "w,h 都显著小于 cx,cy" 的强假设 (w 维度需修正假设)
-- **不加入 FALSIFIED_DIRECTIONS.md**: 不是完全证伪, 仅需修正假设 (w 维度差距小于预期)
-
-### Phase 2 (待启动)
-
-- 设计 w,h 维度用低阶 solver、cx,cy 用高阶的混合方案 (检测专用 solver)
-- 但 w 维度差距较小, 实际增益可能有限
-- 状态: ⛔ 待启动 (优先级中)
-
-### 与 R1 的关系
-
-- R1: 整体 $\eta_{str}$ 量化"2 步收敛"
-- 方向 A: per-dim $\eta_{str}$ 量化各维度曲率差异
-- 互补: R1 决定步数, 方向 A 决定 per-dim 阶数分配
+- **Phase 1 诊断**: h 维度曲率显著小于 cx,cy (3-5×), w 维度差距较小 (1.5-2×), 部分支持假设
+- **Phase 2 per-dim solver**: h 维度 1 阶 + cxcy/w 维度 2 阶, mAP=0.863 (持平 +0.001), 延迟 −8.3ms (加速 5.5%)
+- **实现**: [RFDPMSolverPerDim](file:///home/linkst/workspace/projects/chromosome-kd/ldmdet/diffusion/rectified_flow.py)
+- **配置**: `experiments/configs/ldmdet/directions/mainline_ablation_24obj/a8_per_dim_solver_24obj.py`
+- **评估脚本**: [experiments/analysis/direction_a_per_dim_comparison.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/direction_a_per_dim_comparison.py)
+- **结果数据**: [work_dirs/diagnosis/direction_a_per_dim_comparison.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/direction_a_per_dim_comparison.json)
+- **论文纳入**: §5.4 (方向 A 深化), 约 0.3 页
 
 ## 六、方向 C: step-aware embedding (cascade head 感知 solver step)
 
-> ⛔ 待启动 (代码就绪)。详见 [EXPERIMENT_LINEAGE.md §十一](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)
+> 🔄 seed 42 训练中 (本地 A6000, ep86/150, best 0.857 @ ep76, Δ=-0.006 vs A4 baseline 0.863, 趋势负面)。详见 [EXPERIMENT_LINEAGE.md §十一](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)
 
 ### 核心目标
 
@@ -326,10 +305,14 @@ SwanLab project `ldmdet-s1-cascade-decouple` 已配置, 3 个实验状态如下:
 
 ### 当前状态
 
-- ⛔ 待启动训练 (ross A6000 即将启动 seed 42)
-- 3 seeds (42/123/789) 重训计划
-- 对照: A4 baseline (3-seed 均值 0.859 ± 0.003)
-- SwanLab project: `ldmdet-mainline-ablation-24obj` (experiment_name=`a6_step_aware`)
+seed 42 🔄 训练中, seed 123/789 ⛔ 待决策:
+
+- seed 42 🔄 训练中 (本地 A6000, PID 1580746)
+  -- 进度: epoch 86/150, best mAP=0.857 @ epoch 76, ETA ~15.5h
+  -- 趋势: Δ=-0.006 vs A4 baseline (0.863), 负面趋势
+  -- work_dir: `work_dirs/a6_step_aware_24obj_seed42/`
+  -- SwanLab project: `ldmdet-mainline-ablation-24obj` (experiment_name=`a6_step_aware`)
+- seed 123/789 ⛔ 待决策: 若 seed 42 最终 mAP < 0.860 (Δ < -0.003), 不启动多 seed; 若持平再考虑
 
 ### 与 S1 的关系
 
@@ -342,76 +325,258 @@ SwanLab project `ldmdet-s1-cascade-decouple` 已配置, 3 个实验状态如下:
 - 若 step embedding 显著提升 mAP (Δ > +0.005), 可作为论文新方向
 - 若持平, 表明 cascade head 已通过 $x_t$ 隐式感知 step 信息 (因 $x_t$ 在不同 step 上统计不同)
 
-## 七、方向 D: 自适应阶次 DPM-Solver++ (后期 step 降阶)
+## 七、方向 D: 自适应阶次 DPM-Solver++ (后期 step 降阶) ✓
 
-> ✓ 诊断完成 (支持假设), mAP 对比实验 ⛔ 待跑。零成本诊断, 无 SwanLab。详见 [EXPERIMENT_LINEAGE.md §十](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)
+> ✓ **已完成** (2026-07-22)。3 solver mAP 完全持平 (0.863), 自适应方案仅 4.2% 加速。
+> 已迁入 [EXPERIMENT_LINEAGE.md §十](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md), 本节仅保留索引。
 
-### 核心目标
+### 关键结果
 
-- 基于 $\eta_{3rd}$ 趋势设计自适应降阶策略: 后期 step 的 3 阶校正项显著小于早期, 可降为 2 阶
-- 验证 RF 轨迹在 $t \to 0$ 时趋于直线的假设 (3 阶校正项 $D_2$ 应小)
-- 与 R1 整体 $\eta_{str}$ 互补: R1 决定步数, 方向 D 决定每步阶数
+- **诊断**: η_3rd step1=44.6 → step2=18.2 (降幅 59%), 支持后期 step 可降阶假设
+- **mAP 对比**: DPM++ 2阶 / 3阶 / 自适应 三者 mAP 均为 0.863 (ΔmAP=0.000)
+- **结论**: 4 步采样下 2 阶 DPM-Solver++ 已足够, 3 阶校正项无额外增益, 佐证 R1 "2 步收敛"
+- **评估脚本**: [experiments/analysis/direction_d_solver_comparison.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/direction_d_solver_comparison.py)
+- **结果数据**: [work_dirs/diagnosis/direction_d_comparison.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/direction_d_comparison.json)
+- **论文纳入**: §5.4 (方向 D 深化), 约 0.2 页
 
-### 诊断方法
+## 八、ReFlow (Standard MSE 版)：基于 Coupling 变换的 2-Rectification
 
-- 在 A4 checkpoint 上跑 50 张图 × 3 个 solver (dpm_solver_pp / dpm_solver_pp_3 / dpm_solver_pp_adaptive)
-- 测量 $\eta_{3rd} = \|D_2\|/\|\hat{x}_0\|$ 随 step 的变化趋势
-- 实现位置: `ldmdet/diffusion/rectified_flow.py` (`RFDPMSolverAdaptive`, static + eta_threshold 两种模式)
-- 配置: `experiments/configs/ldmdet/directions/mainline_ablation_24obj/a7_dpm_pp_adaptive_24obj.py`
-- 结果 JSON: `work_dirs/diagnosis/dpm_pp_adaptive.json`
-
-### 诊断结果
-
-- $\eta_{3rd}$ 趋势: step 1 = 44.6 → step 2 = 18.2 (decreasing, 降幅 59%)
-- **结论**: ✓ 支持重构假设 — 后期 step 的 3 阶校正项显著小于早期, 可降为 2 阶
-- 与 R1 整体 $\eta_{str}$ 单调下降 (3.43→2.45→1.68) 一致, 但方向 D 量化了 3 阶项的衰减
-
-### 待跑实验
-
-- mAP 对比实验: dpm_solver_pp (2 阶) vs dpm_solver_pp_3 (3 阶) vs dpm_solver_pp_adaptive (自适应)
-- 零成本推理 (无需重训, 直接在 A4 checkpoint 上评估)
-- 预期: adaptive 在保持 mAP 的同时减少后期 step 计算量
-- 状态: ⛔ 待跑 (优先级中)
-
-### 与 R1 的关系
-
-- R1: 整体 $\eta_{str}$ 量化"2 步收敛"
-- 方向 D: per-step 3 阶项 $\eta_{3rd}$ 量化"后期 step 可降阶"
-- 互补: R1 决定步数, 方向 D 决定每步阶数
-
-## 八、2-RectFlow (Reflow) 潜在方向
-
-> 纯理论推测, ⛔ 未启动。理论依据: [theory_analysis_RF_DPM.md §1.4](file:///home/linkst/workspace/projects/chromosome-kd/docs/paper/theory_analysis_RF_DPM.md)
+> ⛔ 待启动 (代码设计中)。理论依据: [Rectified Flow 主论文 §4](https://arxiv.org/abs/2209.03003), [Straightness of RF (2410.14949)](https://arxiv.org/abs/2410.14949)
+> **重要声明**: 此为全新方法，与 2023-2024 年已证伪的 ReFlow (velocity loss 版) 有本质区别，详见下方"与已证伪 ReFlow 的关键差异"
 
 ### 核心目标
 
-- 若 $\eta_{\text{str}}$ 持续 > 0.1, 考虑 2-RectFlow (Liu et al., 2023) 进一步拉直轨迹
-- 将 "RF 训练成功" 从经验观察提升为可量化结论 ($\eta_{\text{str}} \to 0$)
+- 验证 $\eta_{\text{str}} > 0.1$ 时，2-Rectification 是否能有效拉直轨迹
+- 探索减少推理步数的可能性 (4步 → 2步 → 1步)
+- 为 DPM-Solver++ 的有效性提供轨迹层面的理论解释
+
+### 与已证伪 ReFlow (velocity loss 版) 的关键差异
+
+| 方面 | 已证伪 ReFlow (velocity loss 版) | 本 ReFlow (Standard MSE 版) |
+|------|---------------------------------|---------------------------|
+| **损失函数** | 新增 velocity loss: $\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{det}} + \lambda \cdot \mathcal{L}_{\text{vel}}$ | **标准检测损失**: $\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{det}}$ (无 velocity loss) |
+| **梯度冲突** | ✅ 已证实 (cos = −0.104, 86.8% 梯度负相关) | ❌ 预计无 (单一目标函数) |
+| **优化目标** | 两个冲突目标: 速度预测 vs 检测 | 单一目标: 检测精度 |
+| **实验结果** | mAP = 0.739 (chromo), 低于 baseline 0.751 | **未实验过** |
+| **应用阶段** | 2023-2024 年，旧 chromo 数据集 | 2024-2025 年，新 24obj 数据集 |
 
 ### 理论依据
 
-- R1 诊断显示 $\eta_{\text{str}} \in [0.7, 1.5]$ 非零 (3-seed 实验), 轨迹并非理想直线
-- baseline (renewal on): step 1 $\eta_{\text{str}}=3.43 \pm 0.36$, step 3 $=1.68 \pm 0.15$
-- renewal off: step 1 $\eta_{\text{str}}=1.50 \pm 0.33$, step 3 $=0.70 \pm 0.09$
-- 修正了论文 §4.5.2 "RF 轨迹接近直线" 的 claim: 更准确表述是 "轨迹曲率在 step 2 后足够小, 使 DPM-Solver++ 校正项对 mAP 的边际贡献 < 0.001"
+- R1 诊断显示 $\eta_{\text{str}} \in [0.7, 1.5]$ 非零 (3-seed 实验)，轨迹并非理想直线
+- **触发条件已满足**: $\eta_{\text{str}} \approx 1.5 > 0.1$，理论上 reflow 可能有收益
+- Rectified Flow 论文 (2023) 证明 2-Rectification 可显著拉直轨迹 ($\gamma_{2,T} \to 0$)
+- [Straightness of RF (2410.14949)](https://arxiv.org/abs/2410.14949) 提供 $\gamma_{2,T}$ 的严格收敛理论
 
-### 触发条件
+### 方法原理
 
-- 若 $\eta_{\text{str}} > 0.1$ 持续 (当前 $\eta_{\text{str}} \approx 1.5$, 理论上 reflow 可能有收益)
-- 若 $\eta_{\text{str}} < 0.01$, reflow 收益有限 (无需启动)
+**Step 1: 生成新 Coupling**
+使用已训练的 1-RF 模型 (A4, mAP=0.863) 对训练集推理，生成新的 coupling 对：
+- 原始 coupling: $(x_0^{\text{GT}}, x_1^{\text{noise}})$
+- 新 coupling: $(x_0^{\text{pred},(2)}, x_1^{\text{noise}})$，其中 $x_0^{\text{pred},(2)} = f_{\theta_A4}(x_1^{\text{noise}}, t=0)$
 
-### 风险
+**Step 2: 用新 Coupling 训练 2-RF**
+- **关键**: 损失函数**不变**，仍然使用标准检测损失
+- 仅替换 coupling 的 $x_0$ 部分 (用模型预测替代原始 GT)
+- 这与 Rectified Flow 论文的标准做法一致
 
-- reflow 需重训, 成本高 (3 seeds × 150 epochs)
-- 当前 2 步已收敛 (mAP 0.863, DPM-Solver++ 2 步即收敛), reflow 收益可能有限
-- 理论分析已预防审稿人质疑 (R1 已提供 $\eta_{\text{str}}$ 量化诊断)
+**数学表达式**
+$$\mathcal{L}_{\text{total}} = \mathbb{E}_{(x_0, x_1) \sim p_0(x_0)p_1(x_1)} \left[ \ell_{\text{det}}(\hat{x}_0(x_t, t), x_0^{\text{GT}}) \right]$$
+其中 $x_t = (1-t) \cdot x_0^{\text{pred},(2)} + t \cdot x_1^{\text{noise}}$ (使用新 coupling)
+
+### 实施计划
+
+**Phase 1: 准备 (1-2 天)**
+- [ ] 用 A4 checkpoint (24obj, mAP=0.863) 对训练集推理，生成 $(x_0^{\text{pred},(2)}, x_1^{\text{noise}})$ 对
+- [ ] 保存为 `.npy` 文件，用于后续训练
+
+**Phase 2: 代码实现 (1-2 天)**
+- [ ] 在 `rectified_flow.py` 中添加 `use_reflow_coupling` 参数
+- [ ] reflow 模式下从预生成的 coupling 文件加载 $x_0^{\text{pred},(2)}$
+- [ ] **损失函数不变**: 仍然使用 `criterion(bbox_pred, cls_scores, ...)`
+
+**Phase 3: 验证实验 (3-5 天)**
+- [ ] 1-seed 快速验证 (30 epochs，检查 loss 曲线和 mAP)
+- [ ] 3-seed 完整实验 (150 epochs，与 A4 baseline 对比)
+- [ ] 记录 reflow 前后 $\eta_{\text{str}}$ 变化
+
+**Phase 4: 步数验证 (1-2 天)**
+- [ ] 测试 reflow 后模型在 4/2/1 步推理下的 mAP
+- [ ] 对比 A4 baseline (4步 vs 2步 vs 1步)
+
+### 成功判据
+
+1. ✅ mAP ≥ A4 baseline (0.863, 24obj 数据集)
+2. ✅ $\eta_{\text{str}}$ 显著下降 (例如从 1.5 降至 < 0.5)
+3. ✅ 1-2 步推理 mAP 接近 4 步水平 (减少 NFE)
+
+### 风险与缓解
+
+| 风险 | 缓解策略 |
+|------|---------|
+| **Circular Dependency**: 模型用自己的预测训练自己 | 限制 reflow 训练 epochs (≤ 50)，或混合 reflow coupling 与原始 GT coupling |
+| **Confirmation Bias**: 模型强化自身的错误预测 | 定期在验证集检查，若 mAP 下降立即停止 |
+| **过拟合**: 训练数据分布变化 (模型预测 vs GT) | 使用较低的学习率 (1e-5)，加强正则化 |
 
 ### 优先级
 
-- 低 (理论分析已预防审稿人质疑, 无需实验验证)
-- 仅在审稿人强烈要求或 $\eta_{\text{str}}$ 显著恶化时启动
+- **高** (有 R1 η_str 诊断的内部支撑，理论完备，与已证伪方法有本质区别)
+- 可与 §九 Head Distillation 并行实施
 
-## 九、跨数据集扩展 (最高级目标, 理论推导)
+## 九、Head Distillation：少 Head (3) 蒸馏多 Head (6)
+
+> ⛔ 待启动 (代码设计中)。理论依据: 与 §八 ReFlow 的数学同构性, S1 的 H×S 理论分析
+
+### 核心目标
+
+- 验证 head 数量从 6 减到 3 时，能否通过知识蒸馏保持 mAP
+- 探索减少 NFE 的另一条路径 (6 heads × 4 steps = 24 NFE → 3 heads × 4 steps = 12 NFE)
+- 为 S1 的 H×S 不可交换性提供蒸馏层面的补充验证
+
+### 与 ReFlow 的数学同构性
+
+ReFlow 在 **时间维度** 上做 "多→少" 蒸馏，Head Distillation 在 **head 维度** 上做完全同构的操作：
+
+| 维度 | ReFlow (时间维度蒸馏) | Head Distillation (head 维度蒸馏) |
+|------|---------------------|-----------------------------------|
+| "时间"变量 | $t \in [0, 1]$ | $k \in \{1, 2, \ldots, H\}$ (head index) |
+| Teacher | 多步推理 $(t_1, t_2, t_3, t_4)$ | 多 head 推理 $(h_1, h_2, h_3, h_4, h_5, h_6)$ |
+| Student | 同一个模型，少步推理 | 少 head 模型 (如 $h_1, h_2, h_3$) |
+| 目标值 | $x_0^{\text{Teacher}}(t)$ | $\hat{x}_0^{(K)}$ (所有 head 后的最终预测) |
+| 蒸馏损失 | $\|v_\theta(x_t, t) - v_{\text{Teacher}}(x_t, t)\|^2$ | $\|h_k(x_{\text{input}}) - h_K(x_{\text{input}})\|^2$ |
+
+### 与 S1 理论的联系
+
+S1 的 H×S 理论说明 "仅改变 H 会破坏横向收敛性"：
+- 已证伪的 **N_cascade e2e** (H=3, 重训): mAP = 0.684 (-0.172)，原因是随机初始化的 3 个 head 无法学会 6 个 head 才能达到的横向收敛
+- **Head Distillation 的优势**: Student 的 head 从一开始就被 Teacher 的 head 监督，继承 Teacher 的行为分布
+
+**与 S1 实验的关键区别**:
+- S1 的 H=3, S=4 (进行中): **随机初始化** 3 个 head，直接训练
+- Head Distillation (新): **Teacher 监督下** 3 个 head 学习 6 个 head 的行为
+
+### 与已证伪 N_cascade e2e 的本质区别
+
+| 方面 | N_cascade e2e (已证伪) | Head Distillation (新) |
+|------|----------------------|------------------------|
+| 初始化 | 随机初始化 H=3 | 继承 Teacher H=6 的行为 (蒸馏监督) |
+| 训练方式 | 直接训练，只有检测损失 | 检测损失 + 蒸馏损失 (模仿 Teacher) |
+| 收敛期望 | 3 个 head 达到 6 个 head 的横向收敛 | 3 个 head 模仿 6 个 head 的输出 |
+| 实验结果 | mAP = 0.684，收敛失败 | 未实验过 |
+
+### 蒸馏方案设计
+
+#### 方案 A: Headwise Matching (推荐)
+
+**核心思想**: 让 Student 的第 k 个 head 模仿 Teacher 的第 2k 个 head
+
+```python
+# Teacher: 冻结的 H=6 A4 模型
+teacher_heads = [h_1, h_2, h_3, h_4, h_5, h_6]
+for h in teacher_heads:
+    h.requires_grad = False
+
+# Student: H=3，可训练
+student_heads = [h_1, h_2, h_3]  # 初始化可以用 Teacher 的 h_1, h_3, h_5
+
+# 蒸馏逻辑
+student_outputs = []
+teacher_outputs = []
+
+# Student 前向
+x = x_input
+for k in range(3):
+    x = student_heads[k](x)
+    student_outputs.append(x)
+
+# Teacher 前向
+x_t = x_input
+for k in range(6):
+    x_t = teacher_heads[k](x_t)
+    if k in [1, 3, 5]:  # h_2, h_4, h_6
+        teacher_outputs.append(x_t.detach())
+
+# 蒸馏损失: Student k ≈ Teacher 2k
+L_distill = sum(MSE(student_outputs[k], teacher_outputs[k]) for k in range(3))
+
+# 总损失
+L_total = L_detection + λ * L_distill
+```
+
+#### 方案 B: Direct Final Distillation (简单)
+
+让 Student 的最终输出直接模仿 Teacher 的最终输出：
+```python
+student_final = H3_model(x_input)
+teacher_final = H6_model(x_input).detach()
+L_distill = MSE(student_final, teacher_final)
+```
+
+### 蒸馏损失设计
+
+**总损失**:
+$$\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{det}}(\hat{x}_0, x_0^{\text{GT}}) + \lambda \cdot \mathcal{L}_{\text{distill}}$$
+
+**蒸馏损失选择**:
+- **MSE**: $\|\hat{x}_0^{\text{Student}} - \hat{x}_0^{\text{Teacher}}\|^2$ (简单有效)
+- **GIoU**: $\text{GIoU}(\hat{x}_0^{\text{Student}}, \hat{x}_0^{\text{Teacher}})$ (bbox 专用)
+- **组合**: 3×MSE + GIoU (兼顾坐标精度和 IoU)
+
+**超参 λ**:
+- 建议范围: [0.1, 0.5, 1.0]
+- 可先从 λ=0.3 开始
+
+### 实施计划
+
+**Phase 1: 分析 (1 天)**
+- [ ] Head Output Analysis: 分析 Teacher 模型不同 head 的输出差异
+  - 是否是渐进的？(head 1 粗 → head 6 精)
+  - 坐标分布有何不同？
+- [ ] 确定蒸馏方案 (推荐方案 A)
+
+**Phase 2: 代码实现 (2-3 天)**
+- [ ] 在 `head.py` 中添加 `distill_teacher` 参数
+- [ ] 实现蒸馏损失计算 (MSE 和 GIoU)
+- [ ] 添加 `distill_lambda` 配置项
+
+**Phase 3: 训练与评估 (3-5 天)**
+- [ ] 用 A4 checkpoint 初始化 Student 的 H=3 heads
+- [ ] 1-seed 快速验证 (30 epochs)
+- [ ] 3-seed 完整实验 (150 epochs)
+
+**Phase 4: 与 S1 对比 (1 天)**
+- [ ] Head Distillation 的 H=3 vs S1 直接训练的 H=3
+- [ ] 验证 "蒸馏能否弥补 H 减少的损失"
+
+### 成功判据
+
+1. ✅ mAP ≥ 0.84 (比 A4 的 0.863 允许小幅度下降)
+2. ✅ 比 S1 直接训练的 H=3 有显著提升 (如果 S1 成功)
+3. ✅ NFE 从 24 降到 12 (2× 加速)
+
+### 风险与缓解
+
+| 风险 | 缓解策略 |
+|------|---------|
+| Head 功能不均匀 (head 1 粗 vs head 6 精) | 同时蒸馏 feature map 和 output |
+| Student capacity 不够 | 不减少每个 head 的参数量，只减少数量 |
+| λ 调参困难 | 多个 λ 值并行尝试 |
+| Teacher 存在噪声 | Teacher 的预测也可能有错误 (非完美监督) |
+
+### 与 ReFlow 的联合优化 (高级)
+
+**理想情况**: ReFlow + Head Distillation
+```
+ReFlow (时间维度): 4 steps → 2 steps (减少 2× NFE)
+Head Distillation (head 维度): 6 heads → 3 heads (减少 2× NFE)
+联合效果: 24 NFE → 6 NFE (4× 加速)
+```
+
+### 优先级
+
+- **高** (与 ReFlow 同优先级，可并行实施)
+- 成功后为论文提供 "维度蒸馏" 的统一框架 (时间 + head)
+
+## 十、跨数据集扩展 (最高级目标, 理论推导)
 
 > 纯理论推导, ⛔ 无实验验证。对应论文 §6 结论与未来工作。
 
@@ -510,6 +675,115 @@ SwanLab project `ldmdet-s1-cascade-decouple` 已配置, 3 个实验状态如下:
 - 3 seeds (42/123/789) 重训, 与 A4 baseline 对照
 - 若 VGAR 显著改善 $\eta_{\text{str}}$ 且 mAP 不退化, 可作为论文新方向纳入
 
+## 十二、方向 E: Brenier 映射神经化 (突破方向, 全新)
+
+> ⛔ 未开展 (纯理论)。基于 doubao AI 建议 + 最优传输理论。TMI 投稿后考虑。
+> 核心设想: 用 ICNN 参数化 Brenier 势 φ, T*(z) = ∇φ(z) 直接给出从噪声到 bbox 的最优传输映射
+
+### 核心理论
+
+- **Brenier 定理**: 在平方距离代价下, 最优传输映射 T* = ∇φ 存在且唯一 (φ 为凸函数)
+- **ICNN (Makkuva et al., 2020)**: 提供参数化凸函数的方法, 通过非负权重 + 单调激活保证凸性
+- **4D bbox 空间**: 输入维度 d=4 (低维), ICNN 计算成本可控
+
+### 与当前架构的冲突
+
+- ⚠ **架构冲突**: 当前 cascade head (RoIAlign + DynamicConv) vs ICNN 参数化 φ, 架构完全不同
+- ⚠ **训练范式冲突**: flow matching 损失 vs Wasserstein 距离损失, 需重训
+- ⚠ **推理范式冲突**: DPM-Solver++ 多步积分 vs ∇φ 一步映射, 无法复用 solver 框架
+
+### 分阶段计划
+
+- **E.1 理论分析** (纯理论, ~2 天): 推导 4D Brenier 势形式, 分析 ICNN 表达能力, 纳入论文 §6 未来工作 (~0.2 页)
+- **E.2 ICNN 原型** (代码, ~3 天): 实现 4D ICNN + ∇φ 自动微分 + Sinkhorn 损失, 单元测试凸性
+- **E.3 训练验证** (高成本, ~4.5 天): ICNN 替代 cascade head, 3 seeds × 150 epochs
+
+### 优先级
+
+- **低** (突破性方向, 风险高, TMI 10 页限制下难以纳入)
+- **建议**: 仅做 E.1 (理论分析), 纳入论文 §6 未来工作, 不做实验
+
+### doubao 方向对照 (A/B/C/D/E)
+
+| doubao 方向 | 核心建议 | 当前论文对应方向 | 当前状态 |
+|------------|---------|----------------|---------|
+| A. 检测专用 RF-DPM 联合推导 | per-dim solver | 方向 A | ✓ 完成 (mAP 持平 +0.001, 加速 5.5%) |
+| B. 速度感知网络结构 | 直接预测 v 而非 x0 | R3 (v-prediction 对照) | 🔄 seed 42 训练中 |
+| C. 时间条件深度融合 | step-aware embedding | 方向 C | 🔄 seed 42 训练中 (ep86/150, best 0.857, 趋势负面) |
+| D. 自适应阶次 DPM-Solver++ | t 大用低阶, t 小用高阶 | 方向 D | ✓ 完成 (3 solver mAP 持平 0.863) |
+| E. Brenier 映射神经化 | ICNN 参数化 Brenier 势 | 方向 E (本节) | ⛔ 未开展 |
+
+> ⚠ **关键发现**: doubao 方向 D 假设"t 小时需要高阶修正", 但实际诊断显示 η_3rd 在后期 step (t 小) 显著降低 (44.6→18.2, 降幅 59%), 即实际趋势与 doubao 假设相反。
+
+---
+
+## 十三、模型结构改进 (M1-M5, 基于 D1-D5 诊断)
+
+> 📌 详细方案: [docs/research/STRUCTURAL_IMPROVEMENT_ANALYSIS.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/STRUCTURAL_IMPROVEMENT_ANALYSIS.md)
+> 基线: A4 (DPM-Solver++, mAP=0.863, checkpoint best_epoch_117)
+> 诊断脚本: `experiments/analysis/structural_diagnosis.py` (D1-D5) + `experiments/analysis/d1_roi_ablation.py` (D1 消融)
+
+### D1 消融实验结果 ✓ (2026-07-22)
+
+| 指标 | Baseline (7×7) | Ablation (空间抹平) | Δ |
+|------|---------------|-------------------|---|
+| mAP | 0.863 | 0.009 | **-0.854** |
+| AP50 | 0.988 | 0.048 | -0.940 |
+
+**结论**: 7×7 空间结构至关重要, DynamicConv 已有效提取 (非丢失)。M1 应**增强**而非重建空间编码。
+
+### M1: 形态感知 RoI 编码器 ⭐ 最高优先级 — ⚠ 已完成-BF16 (需 FP32 复现)
+
+- **设计**: 零初始化残差分支 (`roi_features + morph_emb`), 方向解耦卷积 (h_conv 臂长比 + v_conv 着丝粒)
+- **D1 验证**: 初始状态不改变 A4 行为 (morph_emb≡0), 训练中逐步增强形态编码, 不破坏已验证有效的空间通路
+- **实现** ✅:
+  - 模块: [ldmdet/core/morphology_encoder.py](file:///home/linkst/workspace/projects/chromosome-kd/ldmdet/core/morphology_encoder.py) — `MorphologyAwareRoIEncoder`
+  - 接线: 填充 `shape_attention` hook ([single_head.py:277-278](file:///home/linkst/workspace/projects/chromosome-kd/ldmdet/core/single_head.py)), detector.py 用 `MODELS.build` 构建任意注册模块
+  - 配置: [m1_morphology_aware_24obj.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/configs/ldmdet/directions/mainline_ablation_24obj/m1_morphology_aware_24obj.py) — `load_from` A4, 30ep, lr=1e-5
+  - workstation 配置: [m1_morphology_aware_24obj_ws.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/configs/ldmdet/directions/mainline_ablation_24obj/m1_morphology_aware_24obj_ws.py) — BF16 AMP (`amp_dtype='bfloat16'`), 适配 A5000 24GB (实测显存 21GB < 24GB); head.py 支持 amp 字符串转换避免 mmengine lazy_import 冲突
+  - 测试: [test_morphology_encoder.py](file:///home/linkst/workspace/projects/chromosome-kd/ldmdet/tests/test_morphology_encoder.py) — 15 测试全通过 (零初始化恒等性/方向解耦/梯度流/参数配置)
+- **训练状态** (2026-07-23 启动, 已完成): workstation `100.99.131.26`, A5000 GPU 0, seed 42, 30ep BF16
+  - A4 checkpoint 加载成功 (missing keys = M1 新参数 h_conv/v_conv/norm/fuse, 保持零初始化 fuse=0 → 恒等残差)
+  - BF16 显存 20888 MiB (vs FP32 37506 MiB, 降 44%), SwanLab: `m1_morphology_aware_ws`
+- **结果** ⚠ 负面 (BF16 条件下, 需 FP32 复现确认):
+  - M1 best mAP = 0.818 @ ep1 (全程 0.811-0.818 波动, 30 epoch 未改善)
+  - fuse 权重非零 (norm=0.215, 32768 非零), M1 确实学到但退化
+  - **BF16 诊断** (2026-07-23, 零成本 eval): A4+BF16 = 0.825 (vs A4+FP32 0.863, **BF16 掉点 -0.038**)
+  - M1 vs A4+BF16 = **-0.007** (noise 范围但偏负面)
+  - **Per-class AP**: 所有 24 类全部退化, 无一类改善; 退化最严重 E17(-0.016)、F20(-0.015)、C12(-0.013)、E18/Y(-0.012); M1 预期受益的 C 组/G 组均退化
+  - **fuse 权重分析** (关键发现): h_conv/v_conv 权重沿空间维度**完全均匀** (ratio=1.01, std=0.0000) — M1 **未学到方向性形态信息**, morph_emb 退化为常数偏置; fuse norm 从 ep1 的 0.006 增长到 ep30 的 0.238, 但方向卷积权重未分化
+  - **根因**: (1) 零初始化 fuse 的梯度瓶颈 → h_conv/v_conv 梯度极弱; (2) BF16 加剧梯度噪声; (3) (7,1)+(1,7) 感受野与 7×7 RoI 同尺寸, 缺乏空间上下文
+  - **结论**: BF16 虚假掉点 0.038 是主要"退化"来源; M1 真实效果 -0.007 需 FP32 复现确认; fuse 权重均匀表明设计可能需改进
+  - **待办**: 方向 C 结束后 (本地 GPU 空闲, ~2.5h) 用原 m1 配置 FP32 跑公平复现 (lr=2e-5, 1ep warmup, 让 fuse 更快学习); 若 FP32 下 h_conv/v_conv 仍均匀, 需重新设计
+  - **详细分析**: [STRUCTURAL_IMPROVEMENT_ANALYSIS.md §3.1.6](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/STRUCTURAL_IMPROVEMENT_ANALYSIS.md)
+- **训练命令** (workstation):
+  ```bash
+  ssh linkst@100.99.131.26 "cd /home/linkst/workplace/chromo/chromosome-kd && \
+    /home/linkst/miniconda3/envs/chromo-new/bin/python experiments/runners/train.py \
+    experiments/configs/ldmdet/directions/mainline_ablation_24obj/m1_morphology_aware_24obj_ws.py \
+    --work-dir work_dirs/m1_morphology_aware_24obj_ws --gpu-id 0 --seed 42"
+  ```
+- **重点**: C 组 (亚中着丝粒) 和 G/Y 组 (尺寸相近需形态区分) per-class AP
+- **参数开销**: 262.8K/head × 6 = 1.58M (<总参数 0.5%)
+
+### M4: 级联头角色分化 — ⛔ 待启动 (中-高优先级)
+
+- **设计**: 方案 A (损失权重衰减), 零代码改动, 仅改 criterion 配置
+- **D3 诊断支持**: head0 修正最大 (reg std 0.94), 后级递减, 等权 deep_supervision 可能非最优
+- **训练**: 从 A4 checkpoint 微调, 对比等权 vs 衰减
+
+### 优先级排序 (D1-D5 诊断后修正)
+
+| 方案 | 优先级 | 修正原因 |
+|------|--------|---------|
+| M1 形态感知 RoI 编码器 | ⭐最高 | D1 证实空间编码至关重要, M1 增强非重建; D4 显示 G21/Y 需形态区分 |
+| M4 级联头角色分化 | 中-高 | D3 显示头间有自然分化但不充分, 零代码改动低成本 |
+| M2 尺度-类别耦合头 | ↓中 | D4 推翻: 模型已隐式学到强尺寸→类别映射, 边际收益有限 |
+| M3 重叠感知注意力 | ↓低 | D5 显示 head2-3 已有聚焦, head0 均匀但处理噪声框 |
+| M5 学习式 renewal | 低 | D4 显示 Y 样本量最少, 但收益不确定 |
+
+---
+
 ## 附: SwanLab Project 映射 (待做方向相关)
 
 | SwanLab Project | 方向 | 状态 | URL Pattern |
@@ -520,12 +794,18 @@ SwanLab project `ldmdet-s1-cascade-decouple` 已配置, 3 个实验状态如下:
 | `ldmdet-breakthrough` | SC-RF 自条件化 | 🔄 运行中 | `https://swanlab.cn/@einspanner/ldmdet-breakthrough/runs/<run_id>` |
 | `ldmdet-mainline-ablation-24obj` | VGAR (a4_vgar) + 方向 C (a6_step_aware) | ⛔ 待启动 | `https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/<run_id>` |
 | `ldmdet-ablation` | D3 修复方案 B (已完成) | ✓ 已完成 | `https://swanlab.cn/@einspanner/ldmdet-ablation/runs/<run_id>` |
-| (无 SwanLab) | 方向 A per-dim η_str 诊断 | ✓ 诊断完成 (部分支持) | 本地脚本 `experiments/analysis/direction_a_d_diagnosis.py` |
-| (无 SwanLab) | 方向 D 自适应阶次诊断 | ✓ 诊断完成 (支持假设) | 本地脚本 `experiments/analysis/direction_a_d_diagnosis.py` |
+| (无SwanLab) | 方向 A per-dim η_str 诊断 + Phase 2 | ✓ 完成 (→ [LINEAGE §九](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)) | `direction_a_d_diagnosis.py` + `direction_a_per_dim_comparison.py` |
+| (无SwanLab) | 方向 D 自适应阶次诊断 + mAP 对比 | ✓ 完成 (→ [LINEAGE §十](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)) | `direction_a_d_diagnosis.py` + `direction_d_solver_comparison.py` |
+| (无SwanLab) | D1 RoI 空间消融 + D1-D5 结构诊断 | ✓ 完成 (ΔmAP=-0.854) | `d1_roi_ablation.py` + `structural_diagnosis.py` → `work_dirs/diagnosis/` |
+| `ldmdet-mainline-ablation-24obj` (m1_morphology_aware_ws) | M1 形态感知 RoI 编码器 | ⚠ 已完成-BF16 (0.818 vs A4+BF16 0.825, Δ=-0.007; fuse 权重均匀未学到方向性, 需 FP32 复现) | SwanLab exp: `m1_morphology_aware_ws` |
+| (待创建) | M4 级联头角色分化 | ⛔ 待启动 | 详见 [STRUCTURAL_IMPROVEMENT_ANALYSIS.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/STRUCTURAL_IMPROVEMENT_ANALYSIS.md) |
+| `ldmdet-reflow-standard` | **ReFlow (Standard MSE)** | ⛔ 待创建 | `https://swanlab.cn/@einspanner/ldmdet-reflow-standard/runs/<run_id>` |
+| `ldmdet-head-distill` | **Head Distillation** | ⛔ 待创建 | `https://swanlab.cn/@einspanner/ldmdet-head-distill/runs/<run_id>` |
 
 > SwanLab 用户名: `einspanner` (登录态见 `/home/linkst/.swanlab/.netrc`, api_key 已配置)
 > 目标微调 project (Few-Shot 14 个配置) 待 FBM CrossAttn 源预训练完成后配置
 
 <!-- 文档结束。
      更新策略: 当方向状态变化 (如训练启动 / 完成 / 证伪), 更新对应章节的 ⛔/🔄/✓/🔴 标记和 SwanLab run_id。
-     R3/S1/Few-Shot/D3/方向 C 方向均有代码或配置就绪, 方向 A/D 已完成零成本诊断, 2-RectFlow/跨数据集扩展仍为纯理论。 -->
+     方向完成后: 有效→迁入 EXPERIMENT_LINEAGE.md; 证伪→迁入 FALSIFIED_DIRECTIONS.md; 本文档仅保留 🔄进行中 + ⛔待启动。
+     R3/S1/方向 C 进行中, 方向 A/D 已完成迁入 LINEAGE, ReFlow/Head Distillation/方向 E 待启动。 -->

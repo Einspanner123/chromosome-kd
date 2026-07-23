@@ -76,6 +76,7 @@
 | A2 +AdaLN-Zero | 24obj | ldmdet-mainline-ablation-24obj | (a2_rf_heun_adaln) | work_dirs/a2_rf_heun_adaln_24obj/ | a2_rf_heun_adaln_24obj.py | 0.856 | ✅ 完成 | 主路线消融 |
 | A3 +StochOT eps5 | 24obj | ldmdet-mainline-ablation-24obj | (a3_full_sota) | work_dirs/a3_full_sota_24obj/ | a3_full_sota_24obj.py | 0.858 | ✅ 完成 | 主路线消融 |
 | **A4 DPM-Solver++** | 24obj | ldmdet-mainline-ablation-24obj | (a4_dpm_pp) | work_dirs/a4_dpm_pp_24obj/ | a4_dpm_pp_24obj.py | **0.863** (3-seed: 0.859±0.003) | ✅ 完成 | 主路线消融 | <!-- verified: 2026-07-16: seed42=0.863, seed123=0.857@ep62, seed789=0.856@ep72 -->
+| M1 形态感知 RoI (BF16) | 24obj | ldmdet-mainline-ablation-24obj | (m1_morphology_aware_ws) | ⚠ workstation `100.99.131.26`: work_dirs/m1_morphology_aware_24obj_ws/ | m1_morphology_aware_24obj_ws.py | 0.818 (BF16) | ⚠ 已完成-BF16 (best@ep1, Δ=-0.007 vs A4+BF16 0.825; BF16 掉点 -0.038 已确认; fuse 权重均匀未学到方向性, 需 FP32 复现) | 结构改进 | <!-- 2026-07-23 完成: 30ep BF16, best 0.818@ep1; A4+BF16=0.825 (BF16掉点-0.038已确认); M1 vs A4+BF16=-0.007; per-class 24类全退化; fuse h_conv/v_conv 完全均匀(ratio=1.01,std=0)未学到方向性; 待FP32复现(lm1_morphology_aware_24obj_fp32.py, lr=2e-5) -->
 | Random seed_42 | 24obj | ldmdet-ablation | p5xqii8mcqmbhuo5lhlff | work_dirs/24obj_ablation/random/seed_42/ | chromo_24obj_random.py | 0.859 | ✅ 完成 | 耦合消融 |
 | Random seed_789 | 24obj | ldmdet-ablation | r8n441mu4gws43xyoneoj | work_dirs/24obj_ablation/random/seed_789/ | chromo_24obj_random.py | 0.860 | ✅ 完成 | 耦合消融 |
 | Random seed_123 | 24obj | ldmdet-ablation | q6jgxefgxbp8f2sf5qzpc | work_dirs/24obj_ablation/random/seed_123/ | chromo_24obj_random.py | 0.814/0.860 ⚠ | ⚠ 中断 | 耦合消融 |
@@ -925,6 +926,7 @@ rf_heun_adaln.py (chromo RF+Heun+AdaLN 基线, bs=4)
 | cross_domain/ | AutoKary 跨域实验 (2026-07-13) | ✅ 新增 |
 | chromogen_phase1_sd15_24obj*/ | ChromoGen SD1.5 生成模型 (24obj) | ✅ 新增 |
 | ablation_old/ | 旧 epsilon 消融归档 | ✅ 新增 |
+| diagnosis/ | 零成本推理诊断实验 (D1-D5 结构诊断 + 方向 A/D 对比 + D1 消融) | ✅ 新增 |
 
 ### 6.4 FPS Benchmark 结果 (RTX A6000)
 
@@ -943,6 +945,17 @@ rf_heun_adaln.py (chromo RF+Heun+AdaLN 基线, bs=4)
 | YOLOX-S | — | 1 | 10.15 ± 0.41 | 98.5 | 0.796 |
 | DiffusionDet | Euler | 1 | 24.38 ± 1.09 | 41.0 | 0.787 |
 | RTMDet-L | — | — | 33.06 ± 0.80 | 30.3 | 0.869 |
+
+### 6.5 零成本推理诊断实验 (work_dirs/diagnosis/)
+
+> 基线: A4 (DPM-Solver++, mAP=0.863, checkpoint best_epoch_117), 500 张验证图推理, 无 SwanLab
+
+| 实验 | 脚本 | 输出 JSON | 结果 | 状态 |
+|------|------|-----------|------|------|
+| D1-D5 结构诊断 | `experiments/analysis/structural_diagnosis.py` | `structural_diagnosis_v2.json` | 6 瓶颈假设: 2 推翻 (时间条件化/尺度类别), 4 部分支持/确认 | ✅ |
+| 方向 D solver 对比 | `experiments/analysis/direction_d_solver_comparison.py` | `direction_d_comparison.json` | 3 solver mAP 持平 0.863, 自适应加速 4.2% | ✅ |
+| 方向 A per-dim solver | `experiments/analysis/direction_a_per_dim_comparison.py` | `direction_a_per_dim_comparison.json` | ΔmAP=+0.001, Δlatency=-8.3ms (5.5% 加速) | ✅ |
+| **D1 RoI 空间消融** | `experiments/analysis/d1_roi_ablation.py` | `d1_roi_ablation.json` | baseline mAP=0.863 → ablation mAP=0.009 (**Δ=-0.854 灾难性崩溃**), 证实 7×7 空间编码至关重要 | ✅ |
 
 ---
 
