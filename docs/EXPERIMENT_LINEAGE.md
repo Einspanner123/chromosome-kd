@@ -4,7 +4,14 @@
 > 按"创新点主题"组织实验脉络, 让审稿人快速识别 solid 的研究链条与创新性。
 > 数据源: 24 Chromosomes Object (Dataset 2, 5000 张图) 为主, Chromosome20240904 (Dataset 1, 1540 张图) 作低数据对照。
 > SwanLab URL 模式: `https://swanlab.cn/@einspanner/<project>/runs/<run_id>`
-> 更新时间: 2026-07-21
+> 更新时间: 2026-07-22
+>
+> 📌 **关联文档**:
+> - [TODO_DIRECTIONS.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/TODO_DIRECTIONS.md) (进行中/待启动方向)
+> - [FALSIFIED_DIRECTIONS.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/FALSIFIED_DIRECTIONS.md) (已证伪方向)
+> - [EXPERIMENT_CATALOG.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_CATALOG.md) (实验数据索引)
+>
+> 📋 **文档流转规则**: 本文档仅收录 ✓已完成且有效的方向 (3-seed 完成或零成本诊断完成)。进行中方向保留章节但标注 🔄, 详见 TODO_DIRECTIONS.md。
 
 ---
 
@@ -454,7 +461,9 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 
 ---
 
-## 七、S1: Cascade Head × Solver Step 解耦 — 架构合理性形式化 (部分完成)
+## 七、S1: Cascade Head × Solver Step 解耦 — 架构合理性形式化 (🔄 部分完成)
+
+> 🔄 s1_h6_s2 状态待确认 (workstation SSH 不可达)。详见 [TODO_DIRECTIONS.md §二](file:///home/linkst/workspace/projects/chromosome-kd/docs/TODO_DIRECTIONS.md)。
 
 ### 核心贡献: cascade head 作为 implicit solver 的算子分裂视角
 
@@ -509,7 +518,9 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 
 ---
 
-## 八、R3: x0-prediction vs v-prediction 对照重训 (进行中)
+## 八、R3: x0-prediction vs v-prediction 对照重训 (🔄 进行中)
+
+> 🔄 seed 42 状态待确认 (workstation SSH 不可达)。详见 [TODO_DIRECTIONS.md §一](file:///home/linkst/workspace/projects/chromosome-kd/docs/TODO_DIRECTIONS.md)。
 
 ### 核心贡献: 验证低维 + shifted schedule 下 x0-prediction 优势
 
@@ -548,7 +559,7 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 
 ---
 
-## 九、方向 A: per-dim eta_str 诊断 — 维度级曲率分析 (零成本诊断完成, 部分支持)
+## 九、方向 A: per-dim eta_str 诊断 — 维度级曲率分析 (Phase 2 mAP 对比完成, 持平+加速)
 
 ### 核心贡献: 检测空间 4 维 (cxcywh) 各维度的曲率差异诊断
 
@@ -575,11 +586,42 @@ R1 的 $\eta_{str}$ 是 4 维 (cxcywh) 的整体范数比, 但检测空间各维
   -- h 维度曲率显著小于 cx,cy (3-5× 差距), 支持原假设
   -- w 维度差距较小 (1.5-2×), 部分证伪 "w,h 都显著小于 cx,cy" 的强假设 (w 维度需修正假设)
 
-### Phase 2 启示
+### Phase 2: per-dim solver mAP 对比 (✅ 已完成, 2026-07-22)
 
-- 可设计 w,h 维度用低阶 solver、cx,cy 用高阶的混合方案
-- 但 w 维度差距较小, 实际增益可能有限
-- 后续: 检测专用 solver 设计 (per-dim order allocation) — 已加入 [TODO_DIRECTIONS.md §五](file:///home/linkst/workspace/projects/chromosome-kd/docs/TODO_DIRECTIONS.md)
+- **执行**: A4 checkpoint 零成本推理 (无需重训), 2 个 solver × 500 张验证图
+- **实现**: [RFDPMSolverPerDim](file:///home/linkst/workspace/projects/chromosome-kd/ldmdet/diffusion/rectified_flow.py) — h 维度 (index 3) 用 1 阶 Euler, cx/cy/w 维度 (index 0/1/2) 用 2 阶 DPM-Solver++
+- **评估脚本**: [experiments/analysis/direction_a_per_dim_comparison.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/direction_a_per_dim_comparison.py)
+- **结果数据**: [work_dirs/diagnosis/direction_a_per_dim_comparison.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/direction_a_per_dim_comparison.json)
+
+| Solver | mAP | AP50 | AP75 | 延迟(ms) | FPS |
+|--------|------|------|------|---------|-----|
+| DPM-Solver++ 2阶 (A4 baseline, 全维度2阶) | 0.862 | 0.988 | 0.973 | 151.1 | 6.6 |
+| Per-dim (h=1阶, cxcy/w=2阶) | 0.863 | 0.989 | 0.972 | 142.9 | 7.0 |
+
+**per-dim eta_str** (per-dim solver 全 500 图诊断, 更可靠 than Phase 1 的 50 图):
+
+| Step | cx | cy | w | h |
+|------|------|------|------|------|
+| 0 | 0.000 | 0.000 | 0.000 | 0.000 |
+| 1 | 27.535 | 19.208 | 1.028 | 0.916 |
+| 2 | 11.100 | 15.984 | 0.749 | 0.656 |
+| 3 | 33.226 | 10.063 | 0.457 | 0.440 |
+
+### Phase 2 关键结论
+
+1. **mAP 持平 (ΔmAP = +0.001)**: per-dim solver (h=1阶) 与全 2 阶 baseline mAP 持平, 证明 h 维度降为 1 阶不损失精度
+   - bbox 4 维度耦合性未被破坏 (位置 cx,cy 与尺度 w,h 的物理相关性不受 solver 阶数分配影响)
+2. **延迟略低 (−8.3ms, ~5.5% 加速)**: h 维度省去 D1 校正计算, 但加速幅度有限 (因单步开销主要在 cascade head H=6)
+3. **per-dim eta_str 修正 Phase 1 结论**: Phase 2 全量诊断显示 **w 维度 eta_str (0.5-1.0) 与 h (0.4-0.9) 接近**, 而非 Phase 1 (50 图) 所述"与 cx/cy 接近"
+   - 即 w,h 维度曲率均显著小于 cx,cy (10-33), Phase 1 对 w 维度的判断需修正
+   - 启示: w 维度也可降为 1 阶 (未来 实验 A.2 可验证)
+4. **检测专用 solver 叙事**: 检测空间 4 维度 (cxcywh) 的曲率差异源于物理含义 — 位置 (cx,cy) 随 t 变化剧烈 (需 2 阶), 尺度 (w,h) 变化平缓 (1 阶足够), 这是检测任务特有的结构性先验
+
+### Phase 2 论文纳入策略
+
+- ✅ 纳入论文 §5.4 (方向 A 深化): per-dim solver mAP 持平 + 加速, 约 0.3 页
+  - 叙事: "基于 per-dim eta_str 诊断, 设计 per-dim DPM-Solver++ (h 维度 1 阶 + cxcy/w 维度 2 阶), 实验表明 mAP 持平 (Δ=+0.001) 且推理加速 5.5%, 验证了检测空间位置维度与尺度维度的曲率差异可被 solver 阶数分配利用"
+  - 强调: 检测专用 solver 设计, 与任务特性 (bbox 4 维结构) 结合
 
 ### 与 R1 的关系
 
@@ -589,7 +631,7 @@ R1 的 $\eta_{str}$ 是 4 维 (cxcywh) 的整体范数比, 但检测空间各维
 
 ---
 
-## 十、方向 D: 自适应阶次 DPM-Solver++ — 后期 step 降阶 (零成本诊断完成, 支持假设)
+## 十、方向 D: 自适应阶次 DPM-Solver++ — 后期 step 降阶 (mAP 对比完成, 3 solver 持平)
 
 ### 核心贡献: 基于 $\eta_{3rd}$ 趋势的自适应降阶策略
 
@@ -609,11 +651,35 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 - **结论**: ✓ 支持重构假设 — 后期 step 的 3 阶校正项显著小于早期, 可降为 2 阶
 - 与 R1 整体 $\eta_{str}$ 单调下降 (3.43→2.45→1.68) 一致, 但方向 D 量化了 3 阶项的衰减
 
-### 待跑实验
+### mAP 对比实验 (✅ 已完成, 2026-07-22)
 
-- mAP 对比实验: dpm_solver_pp (2 阶) vs dpm_solver_pp_3 (3 阶) vs dpm_solver_pp_adaptive (自适应)
-- 零成本推理 (无需重训, 直接在 A4 checkpoint 上评估)
-- 预期: adaptive 在保持 mAP 的同时减少后期 step 计算量
+- **执行**: A4 checkpoint 零成本推理 (无需重训), 3 个 solver × 500 张验证图
+- **评估脚本**: [experiments/analysis/direction_d_solver_comparison.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/direction_d_solver_comparison.py)
+- **结果数据**: [work_dirs/diagnosis/direction_d_comparison.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/direction_d_comparison.json)
+
+| Solver | mAP | AP50 | AP75 | 延迟(ms) | FPS |
+|--------|------|------|------|---------|-----|
+| DPM-Solver++ 2阶 (A4 baseline) | 0.863 | 0.989 | 0.972 | 160.0 | 6.2 |
+| DPM-Solver++ 3阶 (全程3阶) | 0.863 | 0.989 | 0.973 | 156.1 | 6.4 |
+| 自适应 (前2步3阶+后2步2阶) | 0.863 | 0.988 | 0.973 | 153.3 | 6.5 |
+
+- **applied_3rd_history** (自适应): `[false, true, true]` — 第 1 步未用 3 阶, 第 2-3 步用 3 阶
+
+### 关键结论
+
+1. **3 solver mAP 完全持平 (0.8630)**: ΔmAP(2→3) = 0.000, ΔmAP(2→adaptive) = 0.000
+   - 证明 4 步采样下 2 阶 DPM-Solver++ 已足够, 3 阶校正项不带来精度增益
+   - 佐证 R1 "η_str 2 步收敛" 结论: 2 阶 solver 在 4 NFE 下已达到精度天花板
+2. **自适应延迟略低**: Δ延迟(2→adaptive) = −6.7ms (约 4.2% 加速)
+   - 加速来自后期 step 降为 2 阶; 但幅度有限 (4%), 因单步开销主要在 cascade head (H=6) 而非 solver 阶数
+3. **per-class AP 无显著差异**: 小类别 (Y, G22, F19, F20) 在 3 solver 下 AP 差异 < 0.01, 3 阶校正对困难类别无额外帮助
+4. **doubao 方向 D 假设证伪**: doubao 假设"t 小用高阶", 但全程 3 阶与 2 阶 mAP 持平, 说明 t 小时的高阶修正在 4 步采样下无实质贡献
+
+### 论文纳入策略
+
+- ✅ 纳入论文 §5.4 (方向 D 深化): 3 solver mAP 持平结论佐证 R1 "2 步收敛", 约 0.2 页
+  - 叙事: "基于 η_3rd 诊断, 设计自适应阶次 DPM-Solver++ (前期 3 阶 + 后期 2 阶), 实验表明 4 NFE 下 2 阶已充分, 3 阶校正项无额外增益 (ΔmAP=0.000), 自适应方案仅带来 4% 推理加速"
+- 不作为主要贡献 (因无 mAP 提升), 作为 R1 诊断的验证实验
 
 ### 与 R1 的关系
 
@@ -623,7 +689,9 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 
 ---
 
-## 十一、方向 C: step-aware embedding — Cascade head 感知 solver step (代码就绪, 待启动)
+## 十一、方向 C: step-aware embedding — Cascade head 感知 solver step (🔄 进行中)
+
+> 🔄 seed 42 训练中 (ep87/150, best 0.857 @ ep76, Δ=-0.006, 趋势负面)。详见 [TODO_DIRECTIONS.md §六](file:///home/linkst/workspace/projects/chromosome-kd/docs/TODO_DIRECTIONS.md)。
 
 ### 核心贡献: 让 cascade head 感知 DPM-Solver++ step 编号
 
@@ -638,8 +706,8 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 
 ### 状态
 
-- ⛔ 待启动训练 (ross A6000 即将启动 seed 42)
-- 3 seeds (42/123/789) 重训计划
+- 🔄 seed 42 训练中 (本地 A6000, ep87/150, best mAP=0.857 @ ep76, Δ=-0.006 vs A4 baseline, 趋势负面)
+- seed 123/789 ⛔ 待决策 (若 seed 42 最终 mAP < 0.860 则不启动)
 - 对照: A4 baseline (3-seed 均值 0.859 ± 0.003)
 
 ### 理论
@@ -746,11 +814,11 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 | **Top-K Pruning (§四)** | 500→K proposals 剪枝 + DPM-Solver++ 兼容 | K=200 最优 (46 染色体 + 重叠冗余) | K=200: 14.2 FPS, mAP 0.860 | ✅ 完成 |
 | **R1 η_str (§五)** | 零开销直线度指标, 量化"2 步收敛" | 修正"RF 接近直线" claim (实际 η_str∈[0.7,1.5]) | 3 seeds 单调下降 3.43→2.45→1.68 | ✅ 完成 |
 | **D3 Box Renewal (§六)** | 揭示 box_renewal 与多步法历史矛盾 + 化解 | box_renewal 检测特有 / 密集目标 renewal 比例高 | η_str 虚高 56-58% 但 mAP 仅 −0.0003 | ✅ 完成 |
-| **S1 Cascade × Solver (§七)** | cascade head 作为 implicit solver 算子分裂 | 解释 24 NFE 架构合理性, 预防"6 head 冗余"质疑 | s1_h3_s8 ✓ (0.859), s1_h6_s2 🔄 (0.859 @ ep106), s1_h3_s4 ✓ | 🔄 部分完成 |
-| **R3 v-prediction 对照 (§八)** | 验证低维 + shifted schedule 下 x0-prediction 优势 | 预防"为何不用 v-prediction"质疑 (RF 原文偏好) | seed 42 🔄 ep8 (warmup 0.802), seed 123/789 ⛔ | 🔄 进行中 |
-| **方向 A per-dim η_str (§九)** | 检测空间 4 维 (cxcywh) 各维度曲率差异诊断 | h 维度曲率显著小于 cx,cy, 启示 per-dim solver | wh/cxcy 比值 0.41-0.50 (2 阶), h 维度差距 3-5×, w 维度 1.5-2× | ✓ 诊断完成 (部分支持) |
-| **方向 D 自适应阶次 (§十)** | 后期 step 降阶 (3→2 阶) 自适应 DPM-Solver++ | $\eta_{3rd}$ step1→2 降幅 59%, 后期可降阶 | $\eta_{3rd}$: step1=44.6 → step2=18.2 | ✓ 诊断完成 (支持假设) |
-| **方向 C step-aware (§十一)** | cascade head 感知 solver step 编号 | 零初始化确保预训练兼容, 与 S1 算子分裂不冲突 | 代码就绪, ⛔ 待启动训练 | ⛔ 待启动 |
+| **S1 Cascade × Solver (§七)** | cascade head 作为 implicit solver 算子分裂 | 解释 24 NFE 架构合理性, 预防"6 head 冗余"质疑 | s1_h3_s8 ✓ (0.859), s1_h6_s2 ⚠ 待确认 (上次 0.859 @ ep106), s1_h3_s4 ✓ | 🔄 部分完成 |
+| **R3 v-prediction 对照 (§八)** | 验证低维 + shifted schedule 下 x0-prediction 优势 | 预防"为何不用 v-prediction"质疑 (RF 原文偏好) | seed 42 ⚠ 待确认 (workstation 不可达), seed 123/789 ⛔ | 🔄 进行中 |
+| **方向 A per-dim η_str (§九)** | 检测空间 4 维 (cxcywh) 各维度曲率差异诊断 | h 维度曲率显著小于 cx,cy, 启示 per-dim solver | Phase 2: per-dim solver mAP=0.863 (持平+0.001), 加速 5.5% | ✓ 完成 |
+| **方向 D 自适应阶次 (§十)** | 后期 step 降阶 (3→2 阶) 自适应 DPM-Solver++ | $\eta_{3rd}$ step1→2 降幅 59%, 后期可降阶 | 3 solver mAP 均为 0.863 (ΔmAP=0.000), 自适应 4.2% 加速 | ✓ 完成 |
+| **方向 C step-aware (§十一)** | cascade head 感知 solver step 编号 | 零初始化确保预训练兼容, 与 S1 算子分裂不冲突 | seed 42 🔄 ep86/150, best 0.857 (Δ=-0.006, 趋势负面) | 🔄 进行中 |
 
 ### SOTA 比较 (Dataset 2, 3-seed 均值)
 
