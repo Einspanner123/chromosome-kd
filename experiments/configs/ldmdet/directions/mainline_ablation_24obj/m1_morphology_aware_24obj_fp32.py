@@ -33,7 +33,17 @@ optim_wrapper = dict(
 )
 
 param_scheduler = [
-    dict(type='LinearLR', start_factor=0.1, by_epoch=True, begin=0, end=1),
+    # convert_to_iter_based=True: warmup 按迭代 ramp (1750 更新点),
+    # 避免 by_epoch=True + 1ep warmup 的 bug (LinearLR 仅 1 个更新点,
+    # cosine 误用 warmup-start lr 作为 base, 导致 lr 低 10×)
+    dict(
+        type='LinearLR',
+        start_factor=0.1,
+        by_epoch=True,
+        begin=0,
+        end=1,
+        convert_to_iter_based=True,
+    ),
     dict(
         type='CosineAnnealingLR',
         T_max=max_epoch,
