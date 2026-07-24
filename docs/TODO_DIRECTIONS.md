@@ -3,7 +3,7 @@
 > 本文档梳理 KaryoFlow (染色体检测论文, 目标 TMI 期刊) 所有进行中或待启动的研究方向。
 > 这些方向部分有代码就绪、配置就绪或实验已在运行, 部分仅有理论框架。
 > 每个方向附 **可靠数据源地址** (本地服务器路径 / SwanLab project / config 路径)。
-> 更新时间: 2026-07-22
+> 更新时间: 2026-07-25
 >
 > 📌 **关联文档**:
 > - [docs/EXPERIMENT_LINEAGE.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md) (主路线实验脉络, A0-A4 主路线消融已完成, 方向 A/D 已迁入)
@@ -20,18 +20,18 @@
 
 | 编号 | 方向 | 状态 | 优先级 | SwanLab Project |
 |------|------|------|--------|-----------------|
-| R3 | x0-prediction vs v-prediction 对照重训 | 🔄 进行中 (seed 42, workstation SSH 不可达, 状态待确认) | 中 | `ldmdet-r3-vpred` |
-| S1 | Cascade Head × Solver Step 解耦消融 | 🔄 部分完成 (s1_h3_s4 ✓ / s1_h3_s8 ✓ / s1_h6_s2 ⚠ workstation 不可达待确认) | 高 | `ldmdet-s1-cascade-decouple` |
+| R3 | x0-prediction vs v-prediction 对照重训 | ✓ seed 42 完成 (早停@ep64, best 0.855@ep34, Δ=-0.008 单 seed 支持 R3.2); seed 123/789 ⛔ 待补 | 中 | `ldmdet-r3-vpred` |
+| S1 | Cascade Head × Solver Step 解耦消融 | ✓ 已完成 (h3_s4/h3_s8/h6_s2 三组全部 0.859, S1.3 闭环, → [LINEAGE §七](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)) | ~~高~~ | `ldmdet-s1-cascade-decouple` |
 | Few-Shot | 24obj 源 → chromo 目标跨数据集微调 | ⛔ 待启动 (配置就绪) | 高 | `few-shot-benchmark` (源预训练) |
 | D3 | box_renewal × DPM-Solver++ 修复方案 A/C | ⛔ 待启动 (方案 B 已验证) | 中 | `ldmdet-ablation` |
 | 方向 A | per-dim eta_str 维度级曲率诊断 | ✓ 完成 (Phase 2 mAP 持平+加速 5.5%, → [LINEAGE §九](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)) | ~~中~~ | (诊断无 SwanLab) |
 | 方向 C | step-aware embedding (cascade head 感知 step) | ✓ 已完成 (早停@ep148, best 0.859@ep118, Δ=-0.004 在 noise 内; step_proj 活跃+3类改善, 非负面, 保留为 S1 佐证) | ~~中~~ | `ldmdet-mainline-ablation-24obj` |
 | 方向 D | 自适应阶次 DPM-Solver++ (后期 step 降阶) | ✓ 完成 (3 solver mAP 持平 0.863, → [LINEAGE §十](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)) | ~~中~~ | (诊断无 SwanLab) |
 | **D1 诊断** | RoI 空间信息消融 (7×7 vs 空间抹平) | ✓ 完成 (ΔmAP=-0.854 灾难性崩溃, 证实空间编码至关重要) | ~~高~~ | (诊断无 SwanLab) |
-| **M1** | 形态感知 RoI 编码器 (零初始化残差增强) | 🔄 FP32 复现中 (ep19/30, best mAP=0.860, ETA ~3h, 确认 BF16 精度损失为根因) | **高** | `ldmdet-mainline-ablation-24obj` |
+| **M1** | 形态感知 RoI 编码器 (零初始化残差增强) | ✓ FP32 复现完成 (best 0.862@ep19, Δ=-0.001 与 A4 持平, BF16 误导确认; h_conv/v_conv FP32 下仍均匀 → 设计问题非精度问题, 待 M1-v2 改进) | ~~高~~ | `ldmdet-mainline-ablation-24obj` |
 | **M4** | 级联头角色分化 (损失权重衰减) | ⛔ 待启动 (D3 诊断支持, 零代码改动) | 中-高 | (待创建) |
 | **ReFlow (Standard MSE)** | 基于 Coupling 变换的 2-Rectification | ⛔ 待启动 (方案 v2 已定, 见 [proposals](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/REFLOW_HEAD_DISTILL_IMPL_PLAN.md)) | **高** | `ldmdet-reflow-standard` (待创建) |
-| **Head Distillation** | 少 Head (3) 蒸馏多 Head (6) | 🔄 运行中 (v2 已实现并启动, H=3←H=6 Teacher, λ=0.05, freeze backbone, bs=2, 150ep, 见 [proposals](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/REFLOW_HEAD_DISTILL_IMPL_PLAN.md)) | **高** | `ldmdet-head-distill` |
+| **Head Distillation** | 少 Head (3) 蒸馏多 Head (6) | ⚠ 异常中断@ep99/150 (best 0.711@ep96, 仍在缓慢上升 0.705→0.711→0.709; 14:57:33 nohup 戛然而止无报错, 待恢复决策) | **高** | `ldmdet-head-distill` |
 | 跨数据集扩展 | OT Collapse 普遍性 claim 验证 | ⛔ 纯理论推导 | 中 (最高级目标) | — |
 | SC-RF | 自条件化 RF | 🔄 运行中 (待评估) | 待评估 | `ldmdet-breakthrough` |
 | VGAR | Velocity-Guided Adaptive Renewal | ⛔ 待系统评估 | 中 | `ldmdet-mainline-ablation-24obj` |
@@ -39,7 +39,7 @@
 
 ## 一、R3: x0-prediction vs v-prediction 对照重训
 
-> 🔄 进行中: seed 42 训练中 (workstation A4000), seed 123/789 ⛔ 待启动。理论依据: [theory_analysis_RF_DPM.md §4](file:///home/linkst/workspace/projects/chromosome-kd/docs/paper/theory_analysis_RF_DPM.md)
+> ✓ seed 42 已完成 (2026-07-25 确认, 早停@ep64, best 0.855@ep34, 单 seed 支持 R3.2); seed 123/789 ⛔ 待补 (3-seed 完整验证)。理论依据: [theory_analysis_RF_DPM.md §4](file:///home/linkst/workspace/projects/chromosome-kd/docs/paper/theory_analysis_RF_DPM.md)
 
 ### 核心目标
 
@@ -79,13 +79,30 @@
 
 ### 当前状态
 
-seed 42 🔄 训练中, seed 123/789 ⛔ 待启动:
+seed 42 ✓ 已完成 (2026-07-25 确认, workstation A4000), seed 123/789 ⛔ 待补:
 
-- seed 42 🔄 训练中 (workstation A4000)
-  -- ⚠ **workstation SSH 不可达 (2026-07-22), 状态待确认** — 上次记录: epoch 8, best mAP=0.802 (warmup 阶段)
+- seed 42 ✓ 早停完成 (workstation A4000, ep64/150 触发 patience=30)
+  -- best mAP = 0.855 @ ep34 (Δ=-0.008 vs A4 0.863, 超 3-seed noise ±0.003 但偏小)
+  -- last mAP = 0.837 @ ep64 (best 之后 30 epoch 未刷新)
+  -- work_dir: `work_dirs/r3_vpred_24obj_seed42/` (workstation `/home/linkst/workplace/chromo/chromosome-kd/`)
   -- SwanLab project: `ldmdet-r3-vpred`
-- seed 123 ⛔ 待启动 (等待 GPU 空闲)
-- seed 789 ⛔ 待启动 (等待 GPU 空闲)
+  -- 训练曲线: ep8 warmup=0.802 → ep34 best=0.855 → 长期停滞 (ep34-ep64 未刷新) → 早停
+  -- **支持 R3.2**: v-prediction 在低维 (d=4) + shifted schedule (s=3.0) 下劣于 x0-prediction, 与理论预测一致
+  -- **3-seed 完整验证待补**: 单 seed 已支持方向性结论, 但论文纳入需 3-seed 确认 std
+- seed 123 ⛔ 待启动 (等待 GPU 空闲, workstation A5000 可承接)
+- seed 789 ⛔ 待启动 (等待 GPU 空闲, ross A6000 可承接)
+
+### 论文纳入决策 (2026-07-25)
+
+**选项 A** (推荐): 论文标注 "preliminary single-seed result", TMI 投稿后补 3-seed
+- 单 seed Δ=-0.008 已支持 R3.2 方向性结论, 不与命题冲突
+- TMI 10 页限制下, R3 仅作为 §3.1.1 末段或附录的初步证据 (~0.2 页)
+
+**选项 B**: 投稿前补 seed 123/789 完成 3-seed (workstation A5000 + ross A6000 并行, ~24h)
+- 提供 3-seed std, 强化命题 R3.2 证据强度
+- 风险: 延迟投稿时间, 但 GPU 空闲可立即启动
+
+**待用户决策**: 投稿时间 vs 证据强度的权衡
 
 ### 预期结果
 
@@ -102,7 +119,7 @@ seed 42 🔄 训练中, seed 123/789 ⛔ 待启动:
 
 ## 二、S1: Cascade Head × Solver Step 解耦消融
 
-> 🔄 部分完成: s1_h3_s4 ✓ / s1_h3_s8 ✓ 已完成, s1_h6_s2 🔄 训练中 (epoch 123/150)。理论依据: [theory_analysis_RF_DPM.md §2](file:///home/linkst/workspace/projects/chromosome-kd/docs/paper/theory_analysis_RF_DPM.md)
+> ✓ 已完成 (2026-07-25 确认, 三组实验全部 0.859, S1.3 闭环)。已迁入 [EXPERIMENT_LINEAGE.md §七](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)。理论依据: [theory_analysis_RF_DPM.md §2](file:///home/linkst/workspace/projects/chromosome-kd/docs/paper/theory_analysis_RF_DPM.md)
 
 ### 核心目标
 
@@ -142,21 +159,25 @@ seed 42 🔄 训练中, seed 123/789 ⛔ 待启动:
 
 ### 当前状态
 
-s1_h3_s4 / s1_h3_s8 已完成, s1_h6_s2 状态待确认:
+三组实验全部完成 (2026-07-25 确认):
 
-- `s1_h3_s4` ✓ 已完成 (之前会话, 结果见 memory)
-- `s1_h3_s8` ✓ 已完成
-  -- 进度: best mAP=0.859 (epoch 64), 30 epochs 未改善早停
-  -- 算力: ross A6000 (PID 501721)
-- `s1_h6_s2` ⚠ **workstation SSH 不可达 (2026-07-22), 状态待确认** — 上次记录: epoch 123/150, best mAP=0.859 (epoch 106), 可能已完成或早停
+- `s1_h3_s4` ✓ 已完成 (best mAP=0.859, 之前会话)
+- `s1_h3_s8` ✓ 已完成 (best mAP=0.859@ep64, 30 epochs 未改善早停, ross A6000)
+- `s1_h6_s2` ✓ 已完成 (workstation, 早停@ep136/150 触发 patience=30)
+  -- best mAP = 0.859 @ ep106
+  -- last mAP = 0.856 @ ep136
+  -- work_dir: `work_dirs/s1_h6_s2_24obj/` (workstation `/home/linkst/workplace/chromo/chromosome-kd/`)
+  -- 早停: "the monitored metric did not improve in the last 30 records. best score: 0.859."
 
-SwanLab project `ldmdet-s1-cascade-decouple` 已配置, 3 个实验: 2 已完成 + 1 待确认。
+SwanLab project `ldmdet-s1-cascade-decouple` 已配置, 3 个实验全部完成。
 
-### 关键结论 (阶段性)
+### 关键结论 (最终)
 
-- s1_h6_s2 (H=6, S=2, NFE=12) 在 12 NFE 下 best mAP=0.859, **达到 A3 baseline 3-seed 均值水平 (0.859 ± 0.003)**
-- 说明**减少 step 并保持 head 可在更少 NFE 下维持性能**, 与 S1 命题 S1.3 (H×S 可交换性边界) 对照: H=6 充分大时减小 S 仍可保持横向收敛性
-- s1_h3_s8 (H=3, S=8, NFE=24) best mAP=0.859, 与 baseline 持平, 表明同等 NFE 下 H=3 S=8 可补偿 H 减半
+- **三组实验 mAP 全部为 0.859**, 与 A3 baseline 3-seed 均值 (0.859 ± 0.003) 完全持平
+- **S1.3 命题完整闭环**: H=3,S=4 / H=6,S=2 / H=3,S=8 三组同 NFE 或不同 NFE 配置下 mAP 持平
+- 说明 H×S **不是简单不变量**:
+  -- H=6 充分大时减小 S (6→2) 仍可保持横向收敛性 (s1_h6_s2 = 0.859)
+  -- H 减半 (6→3) 时增加 S (4→8) 可补偿 (s1_h3_s8 = 0.859)
 - 与已证伪 N_cascade e2e (mAP 0.684, −0.172) 形成对比: 该实验减小 H 但未相应增加 S, 横向收敛性被破坏
 - 详见 [EXPERIMENT_LINEAGE.md §七](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)
 
@@ -489,7 +510,8 @@ $$\mathcal{L}_{\text{total}} = \mathbb{E}_{(x_0, x_1) \sim p_0(x_0)p_1(x_1)} \le
 
 ## 九、Head Distillation：少 Head (3) 蒸馏多 Head (6)
 
-> ⛔ 待启动 (代码设计中)。理论依据: 与 §八 ReFlow 的数学同构性, S1 的 H×S 理论分析
+> ⚠ v2 异常中断@ep99/150 (2026-07-25 确认)。理论依据: 与 §八 ReFlow 的数学同构性, S1 的 H×S 理论分析
+> v2 配置: H=3←H=6 Teacher, λ=0.05, freeze backbone, bs=2, 150ep, 见 [proposals](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/REFLOW_HEAD_DISTILL_IMPL_PLAN.md)
 
 ### 核心目标
 
@@ -635,6 +657,36 @@ ReFlow (时间维度): 4 steps → 2 steps (减少 2× NFE)
 Head Distillation (head 维度): 6 heads → 3 heads (减少 2× NFE)
 联合效果: 24 NFE → 6 NFE (4× 加速)
 ```
+
+### v2 实验状态 (2026-07-25, ⚠ 异常中断)
+
+**v2 实现**: H=3 Student ← H=6 Teacher (A4 checkpoint 冻结), λ=0.05, freeze backbone, bs=2, 150ep
+
+**训练曲线**:
+| epoch | mAP | loss | loss_distill |
+|-------|-----|------|--------------|
+| ~10 | 0.673 | — | — |
+| ~50 | 0.681 | — | — |
+| ~80 | 0.693 | — | — |
+| ~90 | 0.705 | — | — |
+| 96 (best) | **0.711** | ~1.86 | ~0.033 |
+| 98 (last eval) | 0.709 | ~1.92 | ~0.033 |
+
+**中断情况**:
+- 跑到 epoch 99 iter 550/1750 (2026-07-24 14:57:33) nohup 日志戛然而止, 无报错
+- GPU 已空闲, 无 train.py 进程, 推测 nohup 被外部信号 kill (可能 SSH 断开/OOM killer/手动 kill)
+- 距离 max_epoch=150 还差 51 epoch (~5h)
+
+**关键观察**:
+- 最近 5 ep mAP: 0.705→0.711→0.703→0.709→0.704→0.711→0.709 (**仍在缓慢上升**)
+- loss_distill 稳定在 ~0.033 (Teacher 监督有效, 但 student 容量受限)
+- best 0.711 vs A4 0.863 = **-0.152** (H=3 学生模型架构容量限制明显)
+- 显存仅 2.4GB (freeze backbone + H=3, 单卡可跑)
+
+**待用户决策**:
+- 选项 A: 从 epoch_98.pth 续训到 ep150 (ross A6000 空闲, ~5h), 看是否能突破 0.715+
+- 选项 B: 归档当前结果为负面 (H=3 容量限制, 蒸馏无法弥补), 转向 M1-v2 或 M4
+- 选项 C: 分析 distill loss 曲线 + teacher/student 输出差异后再决策
 
 ### 优先级
 
@@ -797,7 +849,7 @@ Head Distillation (head 维度): 6 heads → 3 heads (减少 2× NFE)
 
 **结论**: 7×7 空间结构至关重要, DynamicConv 已有效提取 (非丢失)。M1 应**增强**而非重建空间编码。
 
-### M1: 形态感知 RoI 编码器 ⭐ 最高优先级 — ⚠ 已完成-BF16 (需 FP32 复现)
+### M1: 形态感知 RoI 编码器 ⭐ 最高优先级 — ✓ FP32 复现完成 (持平 A4, 设计问题确认)
 
 - **设计**: 零初始化残差分支 (`roi_features + morph_emb`), 方向解耦卷积 (h_conv 臂长比 + v_conv 着丝粒)
 - **D1 验证**: 初始状态不改变 A4 行为 (morph_emb≡0), 训练中逐步增强形态编码, 不破坏已验证有效的空间通路
@@ -805,30 +857,45 @@ Head Distillation (head 维度): 6 heads → 3 heads (减少 2× NFE)
   - 模块: [ldmdet/core/morphology_encoder.py](file:///home/linkst/workspace/projects/chromosome-kd/ldmdet/core/morphology_encoder.py) — `MorphologyAwareRoIEncoder`
   - 接线: 填充 `shape_attention` hook ([single_head.py:277-278](file:///home/linkst/workspace/projects/chromosome-kd/ldmdet/core/single_head.py)), detector.py 用 `MODELS.build` 构建任意注册模块
   - 配置: [m1_morphology_aware_24obj.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/configs/ldmdet/directions/mainline_ablation_24obj/m1_morphology_aware_24obj.py) — `load_from` A4, 30ep, lr=1e-5
+  - FP32 复现配置: [m1_morphology_aware_24obj_fp32.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/configs/ldmdet/directions/mainline_ablation_24obj/m1_morphology_aware_24obj_fp32.py) — lr=2e-5 (2×), 1ep warmup, 30ep, FP32, SwanLab `m1_morphology_aware_fp32`
   - workstation 配置: [m1_morphology_aware_24obj_ws.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/configs/ldmdet/directions/mainline_ablation_24obj/m1_morphology_aware_24obj_ws.py) — BF16 AMP (`amp_dtype='bfloat16'`), 适配 A5000 24GB (实测显存 21GB < 24GB); head.py 支持 amp 字符串转换避免 mmengine lazy_import 冲突
   - 测试: [test_morphology_encoder.py](file:///home/linkst/workspace/projects/chromosome-kd/ldmdet/tests/test_morphology_encoder.py) — 15 测试全通过 (零初始化恒等性/方向解耦/梯度流/参数配置)
-- **训练状态** (2026-07-23 启动, 已完成): workstation `100.99.131.26`, A5000 GPU 0, seed 42, 30ep BF16
+- **训练状态** (2026-07-23 BF16 + 2026-07-24 FP32 复现, ✓ 全部完成):
+  - BF16: workstation A5000, seed 42, 30ep, 显存 20888 MiB (vs FP32 37506 MiB, 降 44%), SwanLab: `m1_morphology_aware_ws`
+  - FP32 复现: ross A6000, seed 42, 30ep, 显存 37.5GB, SwanLab: `m1_morphology_aware_fp32`
   - A4 checkpoint 加载成功 (missing keys = M1 新参数 h_conv/v_conv/norm/fuse, 保持零初始化 fuse=0 → 恒等残差)
-  - BF16 显存 20888 MiB (vs FP32 37506 MiB, 降 44%), SwanLab: `m1_morphology_aware_ws`
-- **结果** ⚠ 负面 (BF16 条件下, 需 FP32 复现确认):
-  - M1 best mAP = 0.818 @ ep1 (全程 0.811-0.818 波动, 30 epoch 未改善)
-  - fuse 权重非零 (norm=0.215, 32768 非零), M1 确实学到但退化
-  - **BF16 诊断** (2026-07-23, 零成本 eval): A4+BF16 = 0.825 (vs A4+FP32 0.863, **BF16 掉点 -0.038**)
-  - M1 vs A4+BF16 = **-0.007** (noise 范围但偏负面)
-  - **Per-class AP**: 所有 24 类全部退化, 无一类改善; 退化最严重 E17(-0.016)、F20(-0.015)、C12(-0.013)、E18/Y(-0.012); M1 预期受益的 C 组/G 组均退化
-  - **fuse 权重分析** (关键发现): h_conv/v_conv 权重沿空间维度**完全均匀** (ratio=1.01, std=0.0000) — M1 **未学到方向性形态信息**, morph_emb 退化为常数偏置; fuse norm 从 ep1 的 0.006 增长到 ep30 的 0.238, 但方向卷积权重未分化
-  - **根因**: (1) 零初始化 fuse 的梯度瓶颈 → h_conv/v_conv 梯度极弱; (2) BF16 加剧梯度噪声; (3) (7,1)+(1,7) 感受野与 7×7 RoI 同尺寸, 缺乏空间上下文
-  - **结论**: BF16 虚假掉点 0.038 是主要"退化"来源; M1 真实效果 -0.007 需 FP32 复现确认; fuse 权重均匀表明设计可能需改进
-  - **待办**: 方向 C 结束后 (本地 GPU 空闲, ~2.5h) 用原 m1 配置 FP32 跑公平复现 (lr=2e-5, 1ep warmup, 让 fuse 更快学习); 若 FP32 下 h_conv/v_conv 仍均匀, 需重新设计
-  - **详细分析**: [STRUCTURAL_IMPROVEMENT_ANALYSIS.md §3.1.6](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/STRUCTURAL_IMPROVEMENT_ANALYSIS.md)
-- **训练命令** (workstation):
+- **结果** ✓ FP32 复现完成 (2026-07-25):
+  - **mAP 对比**:
+    | 配置 | mAP | Δ vs A4 | 说明 |
+    |------|-----|---------|------|
+    | A4 (FP32) | 0.863 | — | 基线 |
+    | A4+BF16 | 0.825 | -0.038 | BF16 本身掉点 |
+    | M1 (BF16) | 0.818 | -0.045 | BF16 虚假退化 |
+    | **M1 (FP32)** | **0.862** | **-0.001** | **统计上持平！BF16 误导** |
+  - **M1 FP32 训练曲线**: 30 epoch 完成, best 0.862@ep19, last 0.859@ep30, 全程稳定 (0.854-0.862)
+  - **fuse 权重分析 (FP32 best@ep19 vs BF16 ep30)**:
+    | 指标 | M1 FP32 (ep19) | M1 BF16 (ep30) | 结论 |
+    |------|---------------|----------------|------|
+    | fuse norm | 0.36-0.43 | 0.215 | FP32 增长更大 (lr 2×) |
+    | h_conv ratio (空间) | 1.01-1.02 | 1.01 | **仍均匀** |
+    | h_conv std (空间维度) | 0.0001 | 0.0000 | **仍均匀** |
+    | v_conv ratio (空间) | 1.02 | 1.01 | **仍均匀** |
+  - **核心结论**: M1 FP32 mAP=0.862 与 A4 (0.863) **统计上持平** (Δ=-0.001)。BF16 实验完全误导 — BF16 导致 -0.044 虚假退化。但 h_conv/v_conv 在 FP32 下**仍然均匀**, 确认是**设计问题而非精度问题**:
+    -- (1) 零初始化 fuse 的梯度瓶颈 → h_conv/v_conv 梯度极弱 (即使 lr 2×)
+    -- (2) (7,1)+(1,7) 感受野与 7×7 RoI 同尺寸, 缺乏空间上下文
+    -- (3) morph_emb 退化为常数偏置, 未学到方向性形态信息
+  - **详细分析**: [STRUCTURAL_IMPROVEMENT_ANALYSIS.md §3.1.7](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/STRUCTURAL_IMPROVEMENT_ANALYSIS.md)
+- **M1-v2 改进方向** (若后续启动):
+  - 非零初始化 fuse (如小常数初始化 0.01, 打破梯度瓶颈)
+  - 显式形态先验注入 (臂长比/面积作为输入, 而非依赖卷积发现)
+  - 注意力机制替代方向卷积 (self-attention 自然捕获空间关系)
+- **训练命令** (FP32 复现, ross):
   ```bash
-  ssh linkst@100.99.131.26 "cd /home/linkst/workplace/chromo/chromosome-kd && \
-    /home/linkst/miniconda3/envs/chromo-new/bin/python experiments/runners/train.py \
-    experiments/configs/ldmdet/directions/mainline_ablation_24obj/m1_morphology_aware_24obj_ws.py \
-    --work-dir work_dirs/m1_morphology_aware_24obj_ws --gpu-id 0 --seed 42"
+  ssh linkst@100.122.196.41 "cd /media/ross/8TB/linkst/chromo/chromosome-kd && \
+    /home/linkst/data/miniconda3/envs/chromo/bin/python experiments/runners/train.py \
+    experiments/configs/ldmdet/directions/mainline_ablation_24obj/m1_morphology_aware_24obj_fp32.py \
+    --work-dir work_dirs/m1_morphology_aware_24obj_fp32 --gpu-id 0 --seed 42"
   ```
-- **重点**: C 组 (亚中着丝粒) 和 G/Y 组 (尺寸相近需形态区分) per-class AP
 - **参数开销**: 262.8K/head × 6 = 1.58M (<总参数 0.5%)
 
 ### M4: 级联头角色分化 — ⛔ 待启动 (中-高优先级)
@@ -853,19 +920,19 @@ Head Distillation (head 维度): 6 heads → 3 heads (减少 2× NFE)
 
 | SwanLab Project | 方向 | 状态 | URL Pattern |
 |-----------------|------|------|-------------|
-| `ldmdet-r3-vpred` | R3 v-prediction | 🔄 seed 42 训练中, seed 123/789 ⛔ | `https://swanlab.cn/@einspanner/ldmdet-r3-vpred/runs/<run_id>` |
-| `ldmdet-s1-cascade-decouple` | S1 cascade × solver | 🔄 2 已完成 + 1 训练中 (s1_h6_s2) | `https://swanlab.cn/@einspanner/ldmdet-s1-cascade-decouple/runs/<run_id>` |
+| `ldmdet-r3-vpred` | R3 v-prediction | ✓ seed 42 完成 (best 0.855@ep34, Δ=-0.008 单 seed 支持 R3.2), seed 123/789 ⛔ 待补 | `https://swanlab.cn/@einspanner/ldmdet-r3-vpred/runs/<run_id>` |
+| `ldmdet-s1-cascade-decouple` | S1 cascade × solver | ✓ 三组全部完成 (h3_s4/h3_s8/h6_s2 = 0.859/0.859/0.859, S1.3 闭环 → LINEAGE §七) | `https://swanlab.cn/@einspanner/ldmdet-s1-cascade-decouple/runs/<run_id>` |
 | `few-shot-benchmark` | Few-Shot 源预训练 | 🔄 1 运行中, 6 已完成 | `https://swanlab.cn/@einspanner/few-shot-benchmark/runs/<run_id>` |
 | `ldmdet-breakthrough` | SC-RF 自条件化 | 🔄 运行中 | `https://swanlab.cn/@einspanner/ldmdet-breakthrough/runs/<run_id>` |
-| `ldmdet-mainline-ablation-24obj` | VGAR (a4_vgar) + 方向 C (a6_step_aware) | ⛔ 待启动 | `https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/<run_id>` |
+| `ldmdet-mainline-ablation-24obj` | VGAR (a4_vgar) + 方向 C (a6_step_aware) + M1 (m1_morphology_aware_ws/fp32) | ✓ 方向 C 完成; M1 FP32 完成 (best 0.862@ep19, 持平 A4); VGAR ⛔ 待启动 | `https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/<run_id>` |
 | `ldmdet-ablation` | D3 修复方案 B (已完成) | ✓ 已完成 | `https://swanlab.cn/@einspanner/ldmdet-ablation/runs/<run_id>` |
 | (无SwanLab) | 方向 A per-dim η_str 诊断 + Phase 2 | ✓ 完成 (→ [LINEAGE §九](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)) | `direction_a_d_diagnosis.py` + `direction_a_per_dim_comparison.py` |
 | (无SwanLab) | 方向 D 自适应阶次诊断 + mAP 对比 | ✓ 完成 (→ [LINEAGE §十](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)) | `direction_a_d_diagnosis.py` + `direction_d_solver_comparison.py` |
 | (无SwanLab) | D1 RoI 空间消融 + D1-D5 结构诊断 | ✓ 完成 (ΔmAP=-0.854) | `d1_roi_ablation.py` + `structural_diagnosis.py` → `work_dirs/diagnosis/` |
-| `ldmdet-mainline-ablation-24obj` (m1_morphology_aware_ws) | M1 形态感知 RoI 编码器 | ⚠ 已完成-BF16 (0.818 vs A4+BF16 0.825, Δ=-0.007; fuse 权重均匀未学到方向性, 需 FP32 复现) | SwanLab exp: `m1_morphology_aware_ws` |
+| `ldmdet-mainline-ablation-24obj` (m1_morphology_aware_fp32) | M1 FP32 复现 | ✓ 完成 (best 0.862@ep19, Δ=-0.001 持平 A4, BF16 误导确认; h_conv/v_conv 仍均匀 → 设计问题) | SwanLab exp: `m1_morphology_aware_fp32` |
+| `ldmdet-head-distill` | **Head Distillation v2** | ⚠ 异常中断@ep99/150 (best 0.711@ep96, 仍在缓慢上升, 待恢复决策) | `https://swanlab.cn/@einspanner/ldmdet-head-distill/runs/<run_id>` |
 | (待创建) | M4 级联头角色分化 | ⛔ 待启动 | 详见 [STRUCTURAL_IMPROVEMENT_ANALYSIS.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/STRUCTURAL_IMPROVEMENT_ANALYSIS.md) |
 | `ldmdet-reflow-standard` | **ReFlow (Standard MSE)** | ⛔ 待创建 | `https://swanlab.cn/@einspanner/ldmdet-reflow-standard/runs/<run_id>` |
-| `ldmdet-head-distill` | **Head Distillation** | ⛔ 待创建 | `https://swanlab.cn/@einspanner/ldmdet-head-distill/runs/<run_id>` |
 
 > SwanLab 用户名: `einspanner` (登录态见 `/home/linkst/.swanlab/.netrc`, api_key 已配置)
 > 目标微调 project (Few-Shot 14 个配置) 待 FBM CrossAttn 源预训练完成后配置
@@ -873,4 +940,4 @@ Head Distillation (head 维度): 6 heads → 3 heads (减少 2× NFE)
 <!-- 文档结束。
      更新策略: 当方向状态变化 (如训练启动 / 完成 / 证伪), 更新对应章节的 ⛔/🔄/✓/🔴 标记和 SwanLab run_id。
      方向完成后: 有效→迁入 EXPERIMENT_LINEAGE.md; 证伪→迁入 FALSIFIED_DIRECTIONS.md; 本文档仅保留 🔄进行中 + ⛔待启动。
-     R3/S1/方向 C 进行中, 方向 A/D 已完成迁入 LINEAGE, ReFlow/Head Distillation/方向 E 待启动。 -->
+     2026-07-25 更新: R3 seed 42 ✓ + S1 ✓ (迁入 LINEAGE §七) + M1 FP32 ✓ 完成 (持平 A4, 设计问题确认); Head Distillation v2 ⚠ 异常中断@ep99 待恢复决策。 -->
