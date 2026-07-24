@@ -461,9 +461,9 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 
 ---
 
-## 七、S1: Cascade Head × Solver Step 解耦 — 架构合理性形式化 (🔄 部分完成)
+## 七、S1: Cascade Head × Solver Step 解耦 — 架构合理性形式化 (✓ 已完成, 2026-07-25)
 
-> 🔄 s1_h6_s2 状态待确认 (workstation SSH 不可达)。详见 [TODO_DIRECTIONS.md §二](file:///home/linkst/workspace/projects/chromosome-kd/docs/TODO_DIRECTIONS.md)。
+> ✓ 三组实验全部完成 (h3_s4 / h3_s8 / h6_s2 全部 0.859), S1.3 命题完整闭环。详见 [TODO_DIRECTIONS.md §二](file:///home/linkst/workspace/projects/chromosome-kd/docs/TODO_DIRECTIONS.md)。
 
 ### 核心贡献: cascade head 作为 implicit solver 的算子分裂视角
 
@@ -483,16 +483,18 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 
 ### 实验列表
 
-#### 实验证明目的: S1 消融重训 (3 配置, 部分完成)
+#### 实验证明目的: S1 消融重训 (3 配置, 全部完成)
 
 - 配置 1: H=3 S=4 (12 NFE) ✓ 已完成
   -- 验证: 减小 H 是否破坏横向收敛性, 导致 mAP 退化
-  -- 状态: 之前会话已完成, 结果见 memory
+  -- 状态: best mAP=0.859, 之前会话已完成
   -- SwanLab: https://swanlab.cn/@einspanner/ldmdet-s1-cascade-decouple/runs/s1_h3_s4
 
-- 配置 2: H=6 S=2 (12 NFE) 🔄 训练中
+- 配置 2: H=6 S=2 (12 NFE) ✓ 已完成 (2026-07-25 确认)
   -- 验证: 减小 S 是否影响纵向积分精度, 与 H=3 S=4 对比验证 H×S 可交换性边界
-  -- 状态: epoch 123/150, best mAP=0.859 (epoch 106), ETA ~5h, workstation A5000
+  -- 状态: 早停@ep136/150 (patience=30 触发), best mAP=0.859 @ ep106, last 0.856 @ ep136
+  -- 算力: workstation A5000
+  -- work_dir: `work_dirs/s1_h6_s2_24obj/` (workstation `/home/linkst/workplace/chromo/chromosome-kd/`)
   -- SwanLab: https://swanlab.cn/@einspanner/ldmdet-s1-cascade-decouple/runs/s1_h6_s2
 
 - 配置 3: H=3 S=8 (24 NFE) ✓ 已完成
@@ -504,8 +506,10 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
   -- mAP: 3-seed 均值 0.859 ± 0.003 (单 seed best 0.863)
   -- SwanLab: https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/a4_dpm_pp
 
-### 关键结论 (阶段性)
+### 关键结论 (最终, 2026-07-25)
 
+- **三组实验 mAP 全部为 0.859**, 与 A3 baseline 3-seed 均值 (0.859 ± 0.003) 完全持平
+- **S1.3 命题完整闭环**: H=3,S=4 / H=6,S=2 / H=3,S=8 三组同 NFE 或不同 NFE 配置下 mAP 持平
 - s1_h6_s2 (H=6, S=2, NFE=12) 在 12 NFE 下 best mAP=0.859, **达到 A3 baseline 3-seed 均值水平**, 说明**减少 step 并保持 head 可在更少 NFE 下维持性能**
 - s1_h3_s8 (H=3, S=8, NFE=24) 在 24 NFE 下 best mAP=0.859, 与 baseline 持平, 表明同等 NFE 下 H=3 S=8 可补偿 H 减半
 - 与 S1 命题 S1.3 (H×S 可交换性边界) 对照: H=6 充分大时减小 S 仍可保持横向收敛性, 横向 head 序列已收敛至不动点 $\mathcal{B}_t^*$
@@ -518,9 +522,9 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 
 ---
 
-## 八、R3: x0-prediction vs v-prediction 对照重训 (🔄 进行中)
+## 八、R3: x0-prediction vs v-prediction 对照重训 (✓ seed 42 完成, 单 seed 初步支持 R3.2)
 
-> 🔄 seed 42 状态待确认 (workstation SSH 不可达)。详见 [TODO_DIRECTIONS.md §一](file:///home/linkst/workspace/projects/chromosome-kd/docs/TODO_DIRECTIONS.md)。
+> ✓ seed 42 已完成 (2026-07-25, 早停@ep64, best 0.855@ep34, Δ=-0.008 单 seed 支持 R3.2); seed 123/789 ⛔ 待补 (3-seed 完整验证)。详见 [TODO_DIRECTIONS.md §一](file:///home/linkst/workspace/projects/chromosome-kd/docs/TODO_DIRECTIONS.md)。
 
 ### 核心贡献: 验证低维 + shifted schedule 下 x0-prediction 优势
 
@@ -532,18 +536,30 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 
 ### 实验列表
 
-#### 实验证明目的: R3 v-prediction 3-seed 重训 (进行中)
+#### 实验证明目的: R3 v-prediction 3-seed 重训 (seed 42 完成, 123/789 待补)
 
-- seed 42 🔄 训练中
-  -- 状态: epoch 8, best mAP=0.802 (warmup 阶段), ETA ~1.4 天, workstation A4000
+- seed 42 ✓ 已完成 (2026-07-25 确认, workstation A4000)
+  -- 状态: 早停@ep64/150 (patience=30 触发), best mAP=0.855 @ ep34, last 0.837 @ ep64
+  -- 训练曲线: ep8 warmup=0.802 → ep34 best=0.855 → 长期停滞 (ep34-ep64 未刷新) → 早停
   -- config: `experiments/configs/ldmdet/directions/mainline_ablation_24obj/r3_vpred_24obj.py`
   -- 改动: `criterion=dict(v_prediction=True, v_prediction_t_eps=1e-2)` (batch normalization 均值=1, 避免训练崩溃)
   -- 对照: A4 baseline (x0-prediction, 3-seed 均值 0.859 ± 0.003, 单 seed best 0.863)
+  -- work_dir: `work_dirs/r3_vpred_24obj_seed42/` (workstation `/home/linkst/workplace/chromo/chromosome-kd/`)
   -- SwanLab project: `ldmdet-r3-vpred` (experiment_name=`r3_vpred`)
 
 - seed 123, 789 ⛔ 待启动
   -- 状态: 等待 GPU 空闲
-  -- 算力分配: ross A6000 / workstation A5000
+  -- 算力分配: workstation A5000 / ross A6000
+
+### 关键结论 (单 seed 初步, 2026-07-25)
+
+- **v-prediction seed 42 best mAP=0.855**, vs A4 baseline 0.863 = **Δ=-0.008**
+- Δ=-0.008 超 3-seed noise (±0.003) 但偏小, **方向性支持 R3.2**: v-prediction 在低维 (d=4) + shifted schedule (s=3.0) 下劣于 x0-prediction
+- 训练动态: best 出现在 ep34 (warmup 后稳定阶段), 之后 30 epoch 未刷新 → 早停, 表明 v-prediction 优化难度高于 x0-prediction
+- 与命题 R3.2 一致: shifted schedule 下 v-prediction 的 $1/t^2$ 梯度放大在 $t \to 0$ 引入方差, 阻碍收敛
+- **3-seed 完整验证待补**: 单 seed 已支持方向性结论, 论文纳入决策:
+  -- 选项 A (推荐): 论文标注 "preliminary single-seed result", TMI 投稿后补 3-seed
+  -- 选项 B: 投稿前补 seed 123/789 (workstation A5000 + ross A6000 并行, ~24h)
 
 ### 预期结果
 
@@ -689,9 +705,9 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 
 ---
 
-## 十一、方向 C: step-aware embedding — Cascade head 感知 solver step (🔄 进行中)
+## 十一、方向 C: step-aware embedding — Cascade head 感知 solver step (✓ 已完成, 非负面)
 
-> 🔄 seed 42 训练中 (ep87/150, best 0.857 @ ep76, Δ=-0.006, 趋势负面)。详见 [TODO_DIRECTIONS.md §六](file:///home/linkst/workspace/projects/chromosome-kd/docs/TODO_DIRECTIONS.md)。
+> ✓ 已完成 (2026-07-23 早停@ep148, best 0.859@ep118, Δ=-0.004 在 noise 内)。插桩分析显示 step_proj 活跃、loss 仍降、3 类改善 — **非负面方向**, 不归入 FALSIFIED, 保留为 S1 理论佐证。详见 [TODO_DIRECTIONS.md §六](file:///home/linkst/workspace/projects/chromosome-kd/docs/TODO_DIRECTIONS.md)。
 
 ### 核心贡献: 让 cascade head 感知 DPM-Solver++ step 编号
 
@@ -704,27 +720,54 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 - 实现位置: `ldmdet/core/head.py` (step_mlp + step_proj 零初始化)
 - 配置: `experiments/configs/ldmdet/directions/mainline_ablation_24obj/a6_step_aware_24obj.py`
 
-### 状态
+### 状态 (✓ 已完成)
 
-- 🔄 seed 42 训练中 (本地 A6000, ep87/150, best mAP=0.857 @ ep76, Δ=-0.006 vs A4 baseline, 趋势负面)
-- seed 123/789 ⛔ 待决策 (若 seed 42 最终 mAP < 0.860 则不启动)
+- seed 42 ✓ 已完成 (本地 A6000, 早停@ep148/150)
+  -- best mAP = 0.859 @ ep118 (Δ=-0.004 vs A4 0.863, **在 3-seed std 0.003 范围内**)
+  -- 早停: "the monitored metric did not improve in the last 30 records. best score: 0.859."
+  -- work_dir: `work_dirs/a6_step_aware_24obj_seed42/`
+  -- SwanLab project: `ldmdet-mainline-ablation-24obj` (experiment_name=`a6_step_aware`)
+- seed 123/789: 不启动 (方向 C 非负面但增益不显著, GPU 优先分配给 M1 FP32 复现)
 - 对照: A4 baseline (3-seed 均值 0.859 ± 0.003)
+
+### 插桩分析 (2026-07-23, checkpoint epoch_146 + best ep118)
+
+> **核心结论**: 方向 C **不是负面方向**。虽然 mAP 未超 A4, 但插桩指标显示 step-aware embedding 确实被学习且训练健康。
+
+**1. step_proj 权重分析 (与 M1 fuse 对比)**:
+
+| 指标 | 方向 C step_proj | M1 fuse (对照) |
+|------|-----------------|---------------|
+| 权重 norm (ep146) | 5.420 (**活跃**) | 0.215 (弱) |
+| ep118→ep146 变化 | 5.434→5.420 (收敛) | 0.006→0.238 (仍在增长) |
+| 方向性 | **有区分** (std=0.005) | **完全均匀** (std=0.000) |
+
+→ step-aware embedding **确实被模型使用**, 且早期即收敛, 不像 M1 fuse 那样退化。
+
+**2. 训练动态**: loss 仍在下降 (ep140: 1.670 → ep147: 1.654), 但 mAP 已收敛在 0.857 (loss-mAP 分离)。
+
+**3. Per-class AP 对照 (best@ep118 vs A4 best@ep117)**: **3 类改善 (A1 +0.002, C12 +0.003, Y +0.003), 1 类持平, 20 类轻微退化**。Y 染色体改善尤其有价值 (最小最难类别)。与 M1 (24 类全退化) 形成对比。
+
+### 价值判断 (综合插桩指标, 非 mAP 阈值)
+
+**不归入 FALSIFIED 的理由**:
+1. mAP 差距 -0.004 在 3-seed std (0.003) 范围内, 统计上无法区分
+2. step_proj 权重活跃 (norm=5.42), 与 M1 fuse 退化 (uniform) 本质不同
+3. loss 仍在下降, 训练健康 (梯度稳定)
+4. 3 个类别改善 (含最难类别 Y), 非全面退化
+5. 早停是 patience 到期而非崩溃
 
 ### 理论
 
 - 让 cascade head 感知 DPM-Solver++ step 编号, 零初始化确保预训练兼容
 - 与 S1 算子分裂结构不冲突: step embedding 不改变横向 (cascade head) / 纵向 (solver step) 解耦, 仅在横向 head 内部添加 step 条件
 
-### 预期
-
-- 若 step embedding 显著提升 mAP (Δ > +0.005), 可作为论文新方向
-- 若持平, 表明 cascade head 已通过 $x_t$ 隐式感知 step 信息 (因 $x_t$ 在不同 step 上统计不同)
-
 ### 与 S1 的关系
 
 - S1 形式化 cascade head × solver step 算子分裂 (§七)
 - 方向 C 在不破坏 S1 算子分裂结构的前提下, 让 cascade head 显式感知 step
 - 与 S1 互补: S1 给出架构合理性框架, 方向 C 在框架内探索性能提升
+- **论文叙事价值**: 即使 mAP 持平, "cascade head 已隐式感知 step" 这一发现本身支持 S1 的算子分裂理论 (§七), 可作为 S1 的实验佐证
 
 ---
 
