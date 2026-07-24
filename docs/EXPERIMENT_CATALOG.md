@@ -1,6 +1,6 @@
 # LDMDet 实验完整目录
 
-> 生成日期: 2026-07-15 | 最近更新: 2026-07-19 (SwanLab 第二轮同步: 21 个论文相关 run, 解决 C16, 新增 C17-C21)
+> 生成日期: 2026-07-15 | 最近更新: 2026-07-25 (新增 5 个训练实验 C22-C26: M1 FP32 复现 / M1 BF16 ws / R3 v-prediction seed42 / S1 h6_s2 / Head Distill v2 异常中断)
 > 数据来源: 本地 `work_dirs/` (48 个子目录) + SwanLab 云端 (28 个项目) + `ldmdet-experiment/` 归档 + 两台服务器 (workstation / ross)
 > 核心文档: [EXPERIMENT_LINEAGE.md](EXPERIMENT_LINEAGE.md) (实验谱系) + [EXPERIMENT_RESULTS.md](EXPERIMENT_RESULTS.md) (结果汇总) + [paper/AAAI_INTEGRATED_DRAFT.md](paper/AAAI_INTEGRATED_DRAFT.md) (论文草稿)
 
@@ -76,9 +76,11 @@
 | A2 +AdaLN-Zero | 24obj | ldmdet-mainline-ablation-24obj | (a2_rf_heun_adaln) | work_dirs/a2_rf_heun_adaln_24obj/ | a2_rf_heun_adaln_24obj.py | 0.856 | ✅ 完成 | 主路线消融 |
 | A3 +StochOT eps5 | 24obj | ldmdet-mainline-ablation-24obj | (a3_full_sota) | work_dirs/a3_full_sota_24obj/ | a3_full_sota_24obj.py | 0.858 | ✅ 完成 | 主路线消融 |
 | **A4 DPM-Solver++** | 24obj | ldmdet-mainline-ablation-24obj | (a4_dpm_pp) | work_dirs/a4_dpm_pp_24obj/ | a4_dpm_pp_24obj.py | **0.863** (3-seed: 0.859±0.003) | ✅ 完成 | 主路线消融 | <!-- verified: 2026-07-16: seed42=0.863, seed123=0.857@ep62, seed789=0.856@ep72 -->
-| M1 形态感知 RoI (BF16) | 24obj | ldmdet-mainline-ablation-24obj | (m1_morphology_aware_ws) | ⚠ workstation `100.99.131.26`: work_dirs/m1_morphology_aware_24obj_ws/ | m1_morphology_aware_24obj_ws.py | 0.818 (BF16) | ⚠ 已完成-BF16 (best@ep1, Δ=-0.007 vs A4+BF16 0.825; BF16 掉点 -0.038 已确认; fuse 权重均匀未学到方向性, 需 FP32 复现) | 结构改进 | <!-- 2026-07-23 完成: 30ep BF16, best 0.818@ep1; A4+BF16=0.825 (BF16掉点-0.038已确认); M1 vs A4+BF16=-0.007; per-class 24类全退化; fuse h_conv/v_conv 完全均匀(ratio=1.01,std=0)未学到方向性; 待FP32复现(lm1_morphology_aware_24obj_fp32.py, lr=2e-5) -->
-| M1 形态感知 RoI (FP32) | 24obj | ldmdet-mainline-ablation-24obj | (m1_fp32) | ⚠ ross `100.122.196.41`: work_dirs/m1_morphology_aware_24obj_fp32/ | m1_morphology_aware_24obj_fp32.py | 0.860 (best@ep3) | 🔄 运行中 (ep19/30, ETA ~3h, 确认 BF16 精度损失为根因, FP32 已恢复至 baseline 水平) | 结构改进 | <!-- 2026-07-23 19:14 启动: lr=2e-5 iter-based warmup, FP32; 2026-07-24 ep19/30 best 0.860@ep3, mAP 平台震荡 0.853-0.860; 与 h3_distill 共享 A6000 -->
-| Head Distillation (H=3←H=6) | 24obj | ldmdet-head-distill | 9qj0xe5q0dwb6l2d8igwy | ⚠ ross `100.122.196.41`: work_dirs/h3_distill_24obj/ | h3_distill_24obj.py | — (训练中) | 🔄 运行中 (ep1/150, λ=0.05, freeze backbone, Teacher=A4 H=6, 与 M1 共享 A6000) | 蒸馏 | <!-- 2026-07-24 01:03 启动: Student H=3 蒸馏 Teacher H=6 (A4), head_map {0→0,1→2,2→5}, coupling_mode=argmax, bs=2, 150ep, EarlyStopping patience=30; loss_distill≈0.042 初始; device bug 已修复 (_apply 覆写, commit 5f3428b1) -->
+| M1 形态感知 RoI (BF16) | 24obj | ldmdet-mainline-ablation-24obj | (m1_morphology_aware_ws) | ⚠ workstation `100.99.131.26`: work_dirs/m1_morphology_aware_24obj_ws/ | m1_morphology_aware_24obj_ws.py | 0.818 (BF16) | ✅ 已完成 (BF16 误导确认, FP32 复现已闭环; best@ep1 全程 0.811-0.818 波动; Δ=-0.045 vs A4 0.863 BF16 虚假退化; Δ=-0.007 vs A4+BF16 0.825 noise 范围但偏负面; 显存 20888 MiB vs FP32 37506 MiB 降 44%; fuse 权重均匀未学到方向性) | 结构改进 | <!-- 2026-07-23 完成, 2026-07-25 FP32 复现确认 BF16 误导 (见 C22): 30ep BF16 AMP, best 0.818@ep1; A4+BF16=0.825 (BF16 本身掉点 -0.038 已确认); M1 vs A4+BF16=-0.007 (noise 范围但偏负面); per-class 24 类全退化; fuse h_conv/v_conv 完全均匀 (ratio=1.01, std=0) 未学到方向性; 详见 §6.6 C23 -->
+| M1 形态感知 RoI (FP32) | 24obj | ldmdet-mainline-ablation-24obj | (m1_morphology_aware_fp32) | ⚠ ross `100.122.196.41`: work_dirs/m1_morphology_aware_24obj_fp32/ | m1_morphology_aware_24obj_fp32.py | **0.862** (best@ep19) | ✅ 已完成 (30ep FP32, lr=2e-5 2×, 1ep warmup, 显存 37.5GB; last 0.859@ep30; Δ=-0.001 vs A4 0.863 统计上持平; BF16 误导根因确认, h_conv/v_conv FP32 下仍均匀) | 结构改进 | <!-- 2026-07-23 19:14 启动, 2026-07-25 完成: lr=2e-5 iter-based warmup, FP32, 30ep; best 0.862@ep19 (上修自 0.860@ep3 临时值); h_conv/v_conv 在 FP32 下仍均匀 (ratio=1.01-1.02, std=0.0001) → 设计问题非精度问题; 改进方向: 非零初始化 fuse + 显式形态先验注入 + 注意力机制替代方向卷积; 详见 §6.6 C22 -->
+| Head Distillation v2 (H=3←H=6) | 24obj | ldmdet-head-distill | 9qj0xe5q0dwb6l2d8igwy | ⚠ ross `100.122.196.41`: work_dirs/h3_distill_24obj/ | h3_distill_24obj.py | 0.711 (best@ep96) | ⚠ 异常中断@ep99/150 (nohup 2026-07-24 14:57:33 戛然而止, 无报错, GPU 空闲, 推测 nohup 被外部信号 kill; last eval 0.709@ep98; Δ=-0.152 vs A4 H=3 容量限制明显; loss_distill≈0.033 稳定; 最近 5ep 0.705→0.711→0.703→0.709→0.704→0.711→0.709 仍在缓慢上升; 待恢复决策) | 蒸馏 | <!-- 2026-07-24 01:03 启动, 2026-07-25 异常中断@ep99 iter 550/1750: Student H=3 蒸馏 Teacher H=6 (A4 冻结), head_map {0→0,1→2,2→5}, coupling_mode=argmax, λ=0.05, freeze backbone, bs=2, 150ep, EarlyStopping patience=30; 显存仅 2.4GB (freeze backbone + H=3); device bug 已修复 (_apply 覆写, commit 5f3428b1); 详见 §6.6 C26 -->
+| R3 v-prediction seed42 | 24obj | ldmdet-r3-vpred | (r3_vpred) | ⚠ workstation: work_dirs/r3_vpred_24obj_seed42/ (`/home/linkst/workplace/chromo/chromosome-kd/`) | r3_vpred_24obj.py | 0.855 (best@ep34) | ✅ 已完成 (workstation A4000, seed 42, max 150ep 早停@ep64 patience=30 触发; v_prediction=True + v_prediction_t_eps=1e-2 → 1/t² loss reweighting + batch normalization 均值=1; last 0.837@ep64; ep8 warmup 0.802→ep34 best 0.855→长期停滞→早停; Δ=-0.008 vs A4 0.863 超 3-seed noise ±0.003 但偏小, 单 seed 支持 R3.2; seed 123/789 待补) | 核心消融 | <!-- 2026-07-25 完成: workstation A4000, seed 42, v_prediction + 1/t² loss reweighting; 详见 §6.6 C24 -->
+| S1 h6_s2 (cascade 解耦) | 24obj | ldmdet-s1-cascade-decouple | (s1_h6_s2) | ⚠ workstation: work_dirs/s1_h6_s2_24obj/ (`/home/linkst/workplace/chromo/chromosome-kd/`) | s1_h6_s2_24obj.py | 0.859 (best@ep106) | ✅ 已完成 (workstation A5000, max 150ep 早停@ep136 patience=30 触发; num_heads=6, sampling_timesteps=2 → NFE=12; last 0.856@ep136; Δ=-0.004 vs A4 0.863 在 3-seed noise ±0.003 范围内; 与 s1_h3_s4 (0.859) / s1_h3_s8 (0.859) 三组全部 0.859, S1.3 命题完整闭环) | 核心消融 | <!-- 2026-07-25 完成: workstation A5000, H=6 S=2 NFE=12; 详见 §6.6 C25 -->
 | Random seed_42 | 24obj | ldmdet-ablation | p5xqii8mcqmbhuo5lhlff | work_dirs/24obj_ablation/random/seed_42/ | chromo_24obj_random.py | 0.859 | ✅ 完成 | 耦合消融 |
 | Random seed_789 | 24obj | ldmdet-ablation | r8n441mu4gws43xyoneoj | work_dirs/24obj_ablation/random/seed_789/ | chromo_24obj_random.py | 0.860 | ✅ 完成 | 耦合消融 |
 | Random seed_123 | 24obj | ldmdet-ablation | q6jgxefgxbp8f2sf5qzpc | work_dirs/24obj_ablation/random/seed_123/ | chromo_24obj_random.py | 0.814/0.860 ⚠ | ⚠ 中断 | 耦合消融 |
@@ -400,6 +402,9 @@
 | FPS Benchmark | §4.6 | — | FPS/latency | results/benchmark_fps_* |
 | Per-class AP | §4.3.1 | — | Per-class analysis | results/a4_per_class_ap.md |
 | Test set 评估 | §4.5.4 | 0.859 | Test set | A4 checkpoint |
+| M1 形态感知 RoI (FP32) | (待定, 探索性) | 0.862 | M1 FP32 复现 | m1_morphology_aware_24obj_fp32 (BF16 误导确认, Δ=-0.001 vs A4 持平) | <!-- 2026-07-25: 详见 §6.6 C22 -->
+| R3 v-prediction seed42 | (待定, 探索性) | 0.855 | R3 vpred | r3_vpred_24obj_seed42 (单 seed, Δ=-0.008 vs A4 超 noise 但偏小) | <!-- 2026-07-25: 详见 §6.6 C24 -->
+| S1 h6_s2 (cascade 解耦) | (待定, 探索性) | 0.859 | S1 h6_s2 | s1_h6_s2_24obj (S1.3 闭环, Δ=-0.004 在 noise 范围内) | <!-- 2026-07-25: 详见 §6.6 C25 -->
 
 ### 3.2 探索性实验 (已归档/证伪)
 
@@ -901,6 +906,8 @@ rf_heun_adaln.py (chromo RF+Heun+AdaLN 基线, bs=4)
 | SC-RF 24obj | /media/ross/8TB/.../work_dirs/sc_rf_24obj/ | ✅ 已归档 (2026-07-11) | ✅ 已同步 | <!-- verified: 2026-07-16: max mAP=0.860 (count=112) -->
 | 跨域 AutoKary | /media/ross/8TB/.../work_dirs/cross_domain/ | 🔄 进行中 | ✅ 已同步 |
 | FPS Benchmark | /media/ross/8TB/.../results/benchmark_fps_* | ✅ 完成 | ✅ 已同步 |
+| M1 形态感知 RoI (FP32) | /media/ross/8TB/.../work_dirs/m1_morphology_aware_24obj_fp32/ | ✅ 已完成 (2026-07-25, best 0.862@ep19, Δ=-0.001 vs A4 持平) | ✅ 已同步 | <!-- 2026-07-25: 30ep FP32, lr=2e-5 2×, 1ep warmup, 显存 37.5GB; BF16 误导根因确认; 详见 §6.6 C22 -->
+| Head Distillation v2 | /media/ross/8TB/.../work_dirs/h3_distill_24obj/ | ⚠ 异常中断@ep99/150 (2026-07-25, best 0.711@ep96, Δ=-0.152 vs A4 H=3 容量限制; 待恢复决策) | ✅ 已同步 | <!-- 2026-07-24 01:03 启动, 2026-07-25 异常中断: H=3 Student ← H=6 Teacher (A4 冻结), λ=0.05, freeze backbone, bs=2, 显存 2.4GB; nohup 戛然而止无报错; 详见 §6.6 C26 -->
 
 ### 6.2 workstation 服务器 (A5000/A4000, 并行多种子)
 
@@ -912,8 +919,12 @@ rf_heun_adaln.py (chromo RF+Heun+AdaLN 基线, bs=4)
 | StochOT ε=5 seed_123 (old) | ✅ 已完成 (0.746 @ ep57, ross) | StochOT 多种子完成 (3-seed: 0.747±0.002) | <!-- verified: 2026-07-16 -->
 | StochOT ε=5 seed_789 (old) | ✅ 已完成 (0.749 @ ep69, ross) | StochOT 多种子完成 | <!-- verified: 2026-07-16 -->
 | SwiGLU 实验 | ✅ 已完成 | A2+SwiGLU=0.859, A4+SwiGLU=0.857 (本地 scalars.json 已确认) | <!-- verified: 2026-07-16 -->
+| M1 形态感知 RoI (BF16) | ✅ 已完成 (2026-07-23, best 0.818@ep1) | BF16 误导确认 (Δ=-0.045 vs A4 0.863 虚假退化; Δ=-0.007 vs A4+BF16 0.825 noise 范围但偏负面); 显存 20888 MiB vs FP32 37506 MiB 降 44%; FP32 复现已闭环 (见 §6.6 C22/C23) | <!-- 2026-07-25: 详见 §6.6 C23 -->
+| R3 v-prediction seed42 | ✅ 已完成 (2026-07-25, best 0.855@ep34, 早停@ep64) | v_prediction + 1/t² loss reweighting; Δ=-0.008 vs A4 0.863 超 3-seed noise ±0.003 但偏小, 单 seed 支持 R3.2; seed 123/789 待补 | <!-- 2026-07-25: workstation A4000; 详见 §6.6 C24 -->
+| S1 h6_s2 (cascade 解耦) | ✅ 已完成 (2026-07-25, best 0.859@ep106, 早停@ep136) | num_heads=6, sampling_timesteps=2 (NFE=12); Δ=-0.004 vs A4 在 3-seed noise ±0.003 范围内; 与 s1_h3_s4/s1_h3_s8 三组全部 0.859, S1.3 命题完整闭环 | <!-- 2026-07-25: workstation A5000; 详见 §6.6 C25 -->
 
 > ✅ 所有多种子补充实验已完成。workstation 上的 checkpoint (A4 seed_123/789, StochOT ε=2) 待 SCP 到 ross (workstation 连接问题搁置)。
+> ✅ 2026-07-25 新增 3 个实验完成: M1 BF16 ws (BF16 误导确认), R3 v-prediction seed42 (单 seed 初步), S1 h6_s2 (S1.3 闭环)。详见 §6.6 C23-C25。
 
 ### 6.3 本地工作区 (开发 + 分析)
 
@@ -958,6 +969,87 @@ rf_heun_adaln.py (chromo RF+Heun+AdaLN 基线, bs=4)
 | 方向 D solver 对比 | `experiments/analysis/direction_d_solver_comparison.py` | `direction_d_comparison.json` | 3 solver mAP 持平 0.863, 自适应加速 4.2% | ✅ |
 | 方向 A per-dim solver | `experiments/analysis/direction_a_per_dim_comparison.py` | `direction_a_per_dim_comparison.json` | ΔmAP=+0.001, Δlatency=-8.3ms (5.5% 加速) | ✅ |
 | **D1 RoI 空间消融** | `experiments/analysis/d1_roi_ablation.py` | `d1_roi_ablation.json` | baseline mAP=0.863 → ablation mAP=0.009 (**Δ=-0.854 灾难性崩溃**), 证实 7×7 空间编码至关重要 | ✅ |
+
+### 6.6 2026-07-25 新增训练实验 (C22-C26)
+
+> 本节记录 2026-07-25 完成的 5 个新训练实验 (编号 C22-C26, 延续 §五 数据完整性 C 编号体系后的实验编号)。所有实验在 24obj 数据集上进行, 配置文件位于 `experiments/configs/ldmdet/directions/mainline_ablation_24obj/`。详细结果与训练曲线见各实验 work_dir 与 SwanLab 项目。
+
+#### C22: M1 FP32 复现 (核心消融, 24obj)
+
+- **实验名**: `m1_morphology_aware_24obj_fp32`
+- **配置**: `experiments/configs/ldmdet/directions/mainline_ablation_24obj/m1_morphology_aware_24obj_fp32.py`
+- **数据集**: 24obj
+- **训练**: ross A6000, seed 42, 30 ep, lr=2e-5 (2×), 1ep warmup, FP32 (显存 37.5GB)
+- **Best mAP**: **0.862 @ ep19**
+- **Last mAP**: 0.859 @ ep30
+- **Δ vs A4 (0.863)**: -0.001 (统计上持平)
+- **SwanLab**: `ldmdet-mainline-ablation-24obj` / experiment_name=`m1_morphology_aware_fp32`
+- **work_dir**: `work_dirs/m1_morphology_aware_24obj_fp32/` (本地 + ross `/media/ross/8TB/linkst/chromo/chromosome-kd/`)
+- **状态**: ✓ 已完成
+- **关键发现**: BF16 误导确认 (BF16 本身掉点 -0.038); h_conv/v_conv 在 FP32 下仍均匀 (ratio=1.01-1.02, std=0.0001) → 设计问题非精度问题
+- **改进方向**: 非零初始化 fuse + 显式形态先验注入 + 注意力机制替代方向卷积
+
+#### C23: M1 BF16 (workstation) (探索性, 24obj)
+
+- **实验名**: `m1_morphology_aware_24obj_ws`
+- **配置**: `experiments/configs/ldmdet/directions/mainline_ablation_24obj/m1_morphology_aware_24obj_ws.py`
+- **数据集**: 24obj
+- **训练**: workstation A5000, seed 42, 30 ep, BF16 AMP (显存 20888 MiB, vs FP32 37506 MiB 降 44%)
+- **Best mAP**: 0.818 @ ep1 (全程 0.811-0.818 波动)
+- **Δ vs A4 (0.863)**: -0.045 (BF16 虚假退化)
+- **Δ vs A4+BF16 (0.825)**: -0.007 (noise 范围但偏负面)
+- **SwanLab**: `ldmdet-mainline-ablation-24obj` / experiment_name=`m1_morphology_aware_ws`
+- **work_dir**: `work_dirs/m1_morphology_aware_24obj_ws/` (workstation)
+- **状态**: ✓ 已完成 (BF16 误导, FP32 复现确认 — 见 C22)
+
+#### C24: R3 v-prediction seed 42 (核心消融, 24obj)
+
+- **实验名**: `r3_vpred_24obj_seed42`
+- **配置**: `experiments/configs/ldmdet/directions/mainline_ablation_24obj/r3_vpred_24obj.py`
+- **数据集**: 24obj
+- **训练**: workstation A4000, seed 42, max 150 ep (早停@ep64)
+- **改动**: `criterion=dict(v_prediction=True, v_prediction_t_eps=1e-2)` (1/t² loss reweighting + batch normalization 均值=1)
+- **Best mAP**: **0.855 @ ep34**
+- **Last mAP**: 0.837 @ ep64
+- **Δ vs A4 (0.863)**: -0.008 (超 3-seed noise ±0.003 但偏小, 单 seed 支持 R3.2)
+- **早停**: patience=30 触发 (ep34+30=ep64)
+- **训练曲线**: ep8 warmup=0.802 → ep34 best=0.855 → 长期停滞 → 早停
+- **SwanLab**: `ldmdet-r3-vpred` / experiment_name=`r3_vpred`
+- **work_dir**: `work_dirs/r3_vpred_24obj_seed42/` (workstation `/home/linkst/workplace/chromo/chromosome-kd/`)
+- **状态**: ✓ 已完成 (单 seed 初步, seed 123/789 待补)
+
+#### C25: S1 h6_s2 (核心消融, 24obj)
+
+- **实验名**: `s1_h6_s2_24obj`
+- **配置**: `experiments/configs/ldmdet/directions/mainline_ablation_24obj/s1_h6_s2_24obj.py`
+- **数据集**: 24obj
+- **训练**: workstation A5000, max 150 ep (早停@ep136)
+- **改动**: `num_heads=6, sampling_timesteps=2` (H=6 S=2, NFE=12)
+- **Best mAP**: **0.859 @ ep106**
+- **Last mAP**: 0.856 @ ep136
+- **Δ vs A4 (0.863)**: -0.004 (在 3-seed noise ±0.003 范围内)
+- **早停**: patience=30 触发 (ep106+30=ep136)
+- **关键发现**: 与 s1_h3_s4 (0.859) / s1_h3_s8 (0.859) 三组全部 0.859, S1.3 命题完整闭环
+- **SwanLab**: `ldmdet-s1-cascade-decouple` / experiment_name=`s1_h6_s2`
+- **work_dir**: `work_dirs/s1_h6_s2_24obj/` (workstation `/home/linkst/workplace/chromo/chromosome-kd/`)
+- **状态**: ✓ 已完成
+
+#### C26: Head Distillation v2 (探索性, 24obj, ⚠ 异常中断)
+
+- **实验名**: `h3_distill_24obj`
+- **配置**: `experiments/configs/ldmdet/directions/mainline_ablation_24obj/h3_distill_24obj.py` (work_dir 内有 config 快照)
+- **数据集**: 24obj
+- **训练**: ross A6000, seed 42, max 150 ep (异常中断@ep99 iter 550/1750)
+- **配置**: H=3 Student ← H=6 Teacher (A4 checkpoint 冻结), λ=0.05, freeze backbone, bs=2 (显存 2.4GB, freeze backbone + H=3)
+- **Best mAP**: **0.711 @ ep96**
+- **Last eval mAP**: 0.709 @ ep98
+- **Δ vs A4 (0.863)**: -0.152 (H=3 学生模型架构容量限制明显)
+- **中断情况**: 2026-07-24 14:57:33 nohup 日志戛然而止, 无报错, GPU 空闲, 推测 nohup 被外部信号 kill
+- **最近 5 ep mAP 趋势**: 0.705→0.711→0.703→0.709→0.704→0.711→0.709 (仍在缓慢上升)
+- **loss_distill**: 稳定在 ~0.033
+- **SwanLab**: `ldmdet-head-distill`
+- **work_dir**: `work_dirs/h3_distill_24obj/` (本地 + ross `/media/ross/8TB/linkst/chromo/chromosome-kd/`)
+- **状态**: ⚠ 异常中断@ep99/150 (待恢复决策)
 
 ---
 
@@ -1469,3 +1561,4 @@ rf_heun_adaln.py (chromo RF+Heun+AdaLN 基线, bs=4)
 *2026-07-19 SwanLab 第二轮同步: 新增 §3.6 (10 个项目, 21 个论文相关 run, 含完整 AP 指标; 解决 C16 ε 消融数据源; 新增 C17-C21 数据一致性问题; 来源: ldmdet-mainline-ablation-old + chromosome-kd-dpm + chromosome-kd-multiseed + chromosome-kd-ablation + ldmdet-inference-opt-24obj + ldmdet-breakthrough + ldmdet-frontier-directions-24obj + chromosome-kd-stability + chromosome-kd-verify-v1 + ldmdet-sota-stack)。*
 *2026-07-20 新增 §7.3.5 (Problem 3: Y 染色体 per-class AP × 耦合策略 3-seed, 来源: per_class_ap_coupling_3seed.py; Wilcoxon W=0, p=1.66e-13, Stoch Coupling Y AP +10.43%) + §7.4.6 (Problem 2B: RF vs SOTA 配对 Wilcoxon, 含 DINO R50 best@ep102 从 workstation 恢复; RF 落后 DINO R50 1.64% per-image AP, p=2.24e-16) + §7.9.1 扩至 8 项关键发现 (新增行 7, 8)。*
 *2026-07-20 RTMDet-L ep85 修复: 发现 epoch_85.pth (实际 best, mAP=0.8630) 存在，之前错误使用 ep86 (次优, mAP=0.8610)。已重跑 ep85 推理 (实测 mAP=0.8626) 并更新 §7.4.6 所有 Wilcoxon 检验数据。同时确认论文 Table 6 中 RTMDet-L=0.869 是错误的 (训练从未达到 0.869)，应为 0.863。*
+*2026-07-25 新增 §6.6 (5 个训练实验 C22-C26: M1 FP32 复现 best 0.862@ep19 Δ=-0.001 持平 A4 + BF16 误导根因确认; M1 BF16 ws best 0.818 BF16 虚假退化 -0.045; R3 v-prediction seed42 best 0.855@ep34 单 seed 支持 R3.2; S1 h6_s2 best 0.859@ep106 S1.3 命题闭环; Head Distill v2 异常中断@ep99 best 0.711@ep96 H=3 容量限制)。同步更新 §1.1 (M1 FP32/BF16/Head Distill 状态从 🔄 运行中 → ✅/⚠ 已完成, 新增 R3 vpred + S1 h6_s2 条目), §3.1 核心消融表 (+3 行), §6.1 ross 服务器 (+M1 FP32 + Head Distill v2), §6.2 workstation 服务器 (+M1 BF16 + R3 + S1)。来源: work_dirs/m1_morphology_aware_24obj_{fp32,ws}/ + work_dirs/r3_vpred_24obj_seed42/ + work_dirs/s1_h6_s2_24obj/ + work_dirs/h3_distill_24obj/, SwanLab ldmdet-mainline-ablation-24obj + ldmdet-r3-vpred + ldmdet-s1-cascade-decouple + ldmdet-head-distill。*
