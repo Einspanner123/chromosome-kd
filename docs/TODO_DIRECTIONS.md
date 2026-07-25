@@ -3,7 +3,7 @@
 > 本文档梳理 KaryoFlow (染色体检测论文, 目标 TMI 期刊) 所有进行中或待启动的研究方向。
 > 这些方向部分有代码就绪、配置就绪或实验已在运行, 部分仅有理论框架。
 > 每个方向附 **可靠数据源地址** (本地服务器路径 / SwanLab project / config 路径)。
-> 更新时间: 2026-07-25
+> 更新时间: 2026-07-25 (ReFlow 代码就绪 + coupling 生成中; Head Distill Plan A 训练中)
 >
 > 📌 **关联文档**:
 > - [docs/EXPERIMENT_LINEAGE.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md) (主路线实验脉络, A0-A4 主路线消融已完成, 方向 A/D 已迁入)
@@ -30,8 +30,8 @@
 | **D1 诊断** | RoI 空间信息消融 (7×7 vs 空间抹平) | ✓ 完成 (ΔmAP=-0.854 灾难性崩溃, 证实空间编码至关重要) | ~~高~~ | (诊断无 SwanLab) |
 | **M1** | 形态感知 RoI 编码器 (零初始化残差增强) | ✓ FP32 复现完成 (best 0.862@ep19, Δ=-0.001 与 A4 持平, BF16 误导确认; h_conv/v_conv FP32 下仍均匀 → 设计问题非精度问题, 待 M1-v2 改进) | ~~高~~ | `ldmdet-mainline-ablation-24obj` |
 | **M4** | 级联头角色分化 (损失权重衰减) | ⛔ 待启动 (D3 诊断支持, 零代码改动) | 中-高 | (待创建) |
-| **ReFlow (Standard MSE)** | 基于 Coupling 变换的 2-Rectification | ⛔ 待启动 (方案 v2 已定, 见 [proposals](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/REFLOW_HEAD_DISTILL_IMPL_PLAN.md)) | **高** | `ldmdet-reflow-standard` (待创建) |
-| **Head Distillation** | 少 Head (3) 蒸馏多 Head (6) | ⚠ 异常中断@ep99/150 (best 0.711@ep96, 仍在缓慢上升 0.705→0.711→0.709; 14:57:33 nohup 戛然而止无报错, 待恢复决策) | **高** | `ldmdet-head-distill` |
+| **ReFlow (Standard MSE)** | 基于 Coupling 变换的 2-Rectification | 🔄 代码就绪 + coupling 生成中 (workstation A5000, 3500 图 A4 推理); 代码 commit `66edac84`+`9de633dc`, 36 单元测试通过; 见 [proposals](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/REFLOW_HEAD_DISTILL_IMPL_PLAN.md) | **高** | `ldmdet-reflow` (`reflow_standard`) |
+| **Head Distillation** | 少 Head (3) 蒸馏多 Head (6) | 🔄 方案 A 训练中 (ross A6000, ep7/150, **best 0.854@ep4** 接近 A4 baseline 0.863, 方案 A 有效修复特征不匹配); v2 异常中断 best 0.711 已归因 (backbone 冻结致特征分布不匹配) | **高** | `ldmdet-head-distill` |
 | 跨数据集扩展 | OT Collapse 普遍性 claim 验证 | ⛔ 纯理论推导 | 中 (最高级目标) | — |
 | SC-RF | 自条件化 RF | 🔄 运行中 (待评估) | 待评估 | `ldmdet-breakthrough` |
 | VGAR | Velocity-Guided Adaptive Renewal | ⛔ 待系统评估 | 中 | `ldmdet-mainline-ablation-24obj` |
