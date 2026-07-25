@@ -65,8 +65,13 @@ class LDMDetDetector(BaseDetector):
         self.test_cfg = test_cfg
         self.bbox_head = self._build_head(bbox_head)
 
+        # 方案A: 保存 teacher_checkpoint 路径, 供 init_weights 加载 backbone/neck
+        # (不用 load_from — 会覆盖 init_student_from_teacher 的 head 映射权重)
+        self._teacher_checkpoint = teacher_checkpoint
+
         # Head Distillation v2: 冻结 backbone + neck
         # v2 修正 #1: 蒸馏聚焦 head, 减少 param 量, 避免 backbone 漂移
+        # 方案A: freeze_backbone=False 时不冻结, backbone 从 A4 加载并微调
         if self.bbox_head.freeze_backbone:
             self._freeze_backbone()
 
@@ -288,6 +293,10 @@ class LDMDetDetector(BaseDetector):
 
         Head Distillation v2 的 Teacher 通过 object.__setattr__ 存储,
         不是 nn.Module 子模块, 不受 super().train() 影响, 始终保持 eval。
+
+        方案A (freeze_backbone=False): backbone 参与训练, 但 backbone 配置中
+        frozen_stages=1 仍冻结 stem, norm_eval=True 仍使 BN 处于 eval — 标准
+        fine-tuning 实践, 无需在此特殊处理。
         """
         super().train(mode)
         if self.bbox_head.freeze_backbone:
@@ -295,6 +304,98 @@ class LDMDetDetector(BaseDetector):
             if self.neck is not None:
                 self.neck.eval()
         return self
+
+    def init_weights(self):
+        """重写 init_weights: 方案A — 从 A4 checkpoint 加载 backbone/neck 权重
+
+        时序 (mmengine Runner):
+          1. __init__: 构建 backbone/neck/head + 注入 Teacher + init_student_from_teacher
+             (Student head ← Teacher head 映射, 此时 backbone 仍为默认初始化)
+          2. init_weights (本方法):
+             a. super().init_weights(): 加载 ImageNet 预训练 backbone (init_cfg),
+                不触及 bbox_head (无 init_cfg) → head 映射权重保留
+             b. _load_backbone_from_checkpoint: 用 A4 的 backbone/neck 覆盖 ImageNet
+                权重, 使 Student 特征空间与 Teacher head 对齐 (修复 root cause)
+          3. load_from (若设置): 会覆盖全部 state_dict — 方案A **不使用 load_from**,
+             避免破坏 head 映射 (A4 head 1/2 会错误覆盖 Student head 1/2)
+
+        root cause: v2 freeze_backbone=True 使 Student backbone 停在 ImageNet,
+        而 Teacher head 在 A4 (染色体训练) 特征上学习 → 特征分布不匹配, mAP 0.711。
+        方案A: 加载 A4 backbone + 解冻, Student/Teacher 共享 A4 特征空间。
+        """
+        super().init_weights()
+        # 方案A: 蒸馏模式 + 未冻结 backbone + 有 teacher_checkpoint 时, 加载 A4 backbone/neck
+        if (self.bbox_head.use_distillation
+                and not self.bbox_head.freeze_backbone
+                and self._teacher_checkpoint is not None):
+            self._load_backbone_from_checkpoint(self._teacher_checkpoint)
+
+    def _load_backbone_from_checkpoint(self, checkpoint_path: str):
+        """从完整 detector checkpoint 加载 backbone/neck 权重 (方案A)
+
+        与 _load_teacher_checkpoint 不同: 这里加载到 Student 自身的 backbone/neck,
+        而非 Teacher head。仅提取 backbone.*/neck.* 前缀, 不触及 bbox_head.*
+        (head 映射权重由 __init__ 的 init_student_from_teacher 设置, 必须保留)。
+
+        Args:
+            checkpoint_path: A4 完整 detector checkpoint 路径
+                (含 backbone.* + neck.* + bbox_head.* 全部状态)
+        """
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
+        state_dict = checkpoint.get('state_dict', checkpoint)
+
+        # 提取 backbone 权重 (去前缀)
+        backbone_sd = {
+            k[len('backbone.'):]: v for k, v in state_dict.items()
+            if k.startswith('backbone.')
+        }
+        # 提取 neck 权重 (去前缀)
+        neck_sd = {
+            k[len('neck.'):]: v for k, v in state_dict.items()
+            if k.startswith('neck.')
+        }
+
+        if not backbone_sd:
+            logger.warning(
+                f'方案A: checkpoint {checkpoint_path} 中未找到 "backbone." 前缀, '
+                'backbone 保持 ImageNet 预训练权重 (特征不匹配风险!)'
+            )
+        else:
+            missing, unexpected = self.backbone.load_state_dict(
+                backbone_sd, strict=False
+            )
+            if missing:
+                logger.warning(
+                    f'方案A: backbone missing keys ({len(missing)}): {missing[:5]}'
+                )
+            if unexpected:
+                logger.warning(
+                    f'方案A: backbone unexpected keys ({len(unexpected)}): '
+                    f'{unexpected[:5]}'
+                )
+            logger.info(
+                f'方案A: backbone 权重已从 {checkpoint_path} 加载 '
+                f'({len(backbone_sd)} keys)'
+            )
+
+        if neck_sd and self.neck is not None:
+            missing, unexpected = self.neck.load_state_dict(
+                neck_sd, strict=False
+            )
+            if missing:
+                logger.warning(
+                    f'方案A: neck missing keys ({len(missing)}): {missing[:5]}'
+                )
+            if unexpected:
+                logger.warning(
+                    f'方案A: neck unexpected keys ({len(unexpected)}): '
+                    f'{unexpected[:5]}'
+                )
+            logger.info(
+                f'方案A: neck 权重已从 {checkpoint_path} 加载 ({len(neck_sd)} keys)'
+            )
+        elif neck_sd and self.neck is None:
+            logger.warning('方案A: checkpoint 含 neck 权重但模型无 neck, 跳过')
 
     def extract_feat(self, batch_inputs: torch.Tensor) -> Tuple[torch.Tensor, ...]:
         x = self.backbone(batch_inputs)
@@ -313,6 +414,7 @@ class LDMDetDetector(BaseDetector):
                 pad_shape=ds.metainfo.get('pad_shape'),
                 ori_shape=ds.metainfo.get('ori_shape'),
                 scale_factor=ds.metainfo.get('scale_factor'),
+                img_id=ds.metainfo.get('img_id'),
             ))
             gt_bboxes.append(ds.gt_instances.bboxes)
             gt_labels.append(ds.gt_instances.labels)
@@ -333,6 +435,7 @@ class LDMDetDetector(BaseDetector):
                 pad_shape=ds.metainfo.get('pad_shape'),
                 ori_shape=ds.metainfo.get('ori_shape'),
                 scale_factor=ds.metainfo.get('scale_factor'),
+                img_id=ds.metainfo.get('img_id'),
             ))
 
         results_list = self.bbox_head.predict(x, img_metas, rescale=rescale)

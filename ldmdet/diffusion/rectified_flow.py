@@ -16,8 +16,22 @@ from ldmdet.diagnostics.instrumentation import probe
 class RectifiedFlow:
     """1-RectFlow: 直线路径前向扩散与采样。"""
 
-    def __init__(self, snr_scale: float = 2.0):
+    def __init__(
+        self,
+        snr_scale: float = 2.0,
+        # ReFlow (Standard MSE): 标记用参数, 不改变 q_sample 行为
+        # use_reflow_coupling=True 时, head._build_training_targets 从预存 coupling
+        # 加载 x_start(=x_0^pred) 和 noise, 跳过在线 OT (详见 REFLOW_HEAD_DISTILL_IMPL_PLAN.md §1)
+        use_reflow_coupling: bool = False,
+        reflow_dims: str = 'all',
+    ):
         self.snr_scale = snr_scale
+        self.use_reflow_coupling = use_reflow_coupling
+        # reflow_dims: 'all' (全维度拉直) | 'cxcy' (仅 cx/cy 拉直, w/h 仍用 GT)
+        # 方向 A 诊断: h 维度曲率小, w 维度差距小, cx/cy 曲率最大
+        assert reflow_dims in ('all', 'cxcy'), \
+            f"reflow_dims 必须是 'all' 或 'cxcy', got {reflow_dims}"
+        self.reflow_dims = reflow_dims
 
     def q_sample(
         self,

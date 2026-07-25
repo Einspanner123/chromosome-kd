@@ -30,6 +30,11 @@ class DiffusionDetCriterion(nn.Module):
         # 并对权重做 batch normalization (均值=1), 避免训练崩溃
         v_prediction: bool = False,
         v_prediction_t_eps: float = 1e-2,
+        # ReFlow (Standard MSE): box target 模式
+        # 'gt' (默认): box target = GT bboxes (现有行为)
+        # 'x0_pred': box target = x_0^pred (A4 推理预测, RF 拉直目标)
+        # 详见 REFLOW_HEAD_DISTILL_IMPL_PLAN.md §1.2 混合 target 设计
+        box_target_mode: str = 'gt',
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -40,6 +45,9 @@ class DiffusionDetCriterion(nn.Module):
         self.deep_supervision = deep_supervision
         self.v_prediction = v_prediction
         self.v_prediction_t_eps = v_prediction_t_eps
+        assert box_target_mode in ('gt', 'x0_pred'), \
+            f"box_target_mode 必须是 'gt' 或 'x0_pred', got {box_target_mode}"
+        self.box_target_mode = box_target_mode
 
 
     def forward(
@@ -47,12 +55,18 @@ class DiffusionDetCriterion(nn.Module):
         outputs: ModelOutput,
         targets: List[InstanceData],
         t: Optional[Tensor] = None,
+        # ReFlow (Standard MSE): box target = A4 预测 (x_0^pred), 替代 GT
+        # 仅当 box_target_mode='x0_pred' 时生效; 'gt' 模式忽略此参数
+        # 形状: [bs, max_gt, 4] (xyxy, 已 padded) 或 list[[n_i, 4]]
+        box_targets: Optional[Tensor] = None,
     ) -> Dict[str, Tensor]:
         # 主输出: 使用 matcher.forward 并建立 GT 缓存
         indices, gt_cache = self.matcher.forward_with_gt_cache(
             outputs, targets
         )
-        losses = self._get_loss(outputs, targets, indices, t)
+        losses = self._get_loss(
+            outputs, targets, indices, t, box_targets=box_targets
+        )
 
         if self.deep_supervision and outputs.aux_outputs is not None:
             for i, aux_out in enumerate(outputs.aux_outputs):
@@ -60,7 +74,9 @@ class DiffusionDetCriterion(nn.Module):
                 aux_indices, gt_cache = self.matcher.forward_with_gt_cache(
                     aux_out, targets, gt_cache
                 )
-                aux_losses = self._get_loss(aux_out, targets, aux_indices, t)
+                aux_losses = self._get_loss(
+                    aux_out, targets, aux_indices, t, box_targets=box_targets
+                )
                 for name, val in aux_losses.items():
                     losses[f'aux_{i}_{name}'] = val
             # 探针: deep_supervision aux loss 数量
@@ -74,11 +90,14 @@ class DiffusionDetCriterion(nn.Module):
         targets: List[InstanceData],
         indices: List[Tuple[Tensor, Tensor]] = None,
         t: Optional[Tensor] = None,
+        box_targets: Optional[Tensor] = None,
     ) -> Dict[str, Tensor]:
         if indices is None:
             indices = self.matcher(outputs, targets)
         loss_cls = self._loss_classification(outputs, targets, indices)
-        loss_bbox, loss_giou = self._loss_boxes(outputs, targets, indices, t)
+        loss_bbox, loss_giou = self._loss_boxes(
+            outputs, targets, indices, t, box_targets=box_targets
+        )
 
         # 探针: 损失分量标量 (训练时每 100 步)
         probe.record_scalar('criterion/loss_cls', loss_cls.item())
@@ -140,9 +159,27 @@ class DiffusionDetCriterion(nn.Module):
         return loss_cls / num_pos
 
     def _loss_boxes(
-        self, outputs, targets, indices, t: Optional[Tensor] = None
+        self,
+        outputs,
+        targets,
+        indices,
+        t: Optional[Tensor] = None,
+        box_targets: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Tensor]:
-        src_boxes = outputs.pred_boxes  # [bs, num_queries, 4]
+        """计算 box L1 + GIoU 损失.
+
+        空间一致性约定 (ReFlow 修复 BUG #1):
+          - src_boxes (outputs.pred_boxes): 归一化 xyxy [0,1]
+          - targets[*].bboxes (GT): 归一化 xyxy [0,1] (由 head._normalize_targets 转换)
+          - box_targets (ReFlow x0_pred): **必须** 归一化 xyxy [0,1]
+            (head.loss() 中已将 raw cxcywh scaled 转换为归一化 xyxy,
+             切勿直接传 raw 扩散空间的 coupling x0_pred)
+
+        ReFlow 混合 target (box_target_mode='x0_pred'):
+          - cls target 始终用 GT (matcher 基于 GT 分配正负样本)
+          - box target 切换为 x0_pred (per-proposal 或 per-GT 布局, 按形状自动分流)
+        """
+        src_boxes = outputs.pred_boxes  # [bs, num_queries, 4] 归一化 xyxy [0,1]
         bs = src_boxes.shape[0]
 
         # 构建 padded GT bboxes: [bs, max_gt, 4]
@@ -164,13 +201,56 @@ class DiffusionDetCriterion(nn.Module):
             if n > 0:
                 gt_bboxes_padded[i, :n] = t_data.bboxes
 
-        # Gather matched GT bboxes: [bs, N, 4]
-        matched_gt_inds_clamped = matched_gt_inds.clamp(min=0)
-        tgt_boxes = torch.gather(
-            gt_bboxes_padded,
-            1,
-            matched_gt_inds_clamped.unsqueeze(-1).expand(-1, -1, 4),
+        # ReFlow (Standard MSE): box target 来源选择
+        # 'gt' (默认): box target = GT bboxes (现有行为)
+        # 'x0_pred': box target = A4 预测 (x_0^pred), 仅当传入 box_targets 时生效;
+        #            未传则安全降级到 GT (避免训练崩溃)
+        # cls target 始终用 GT (matcher 基于 GT 分配正负样本, 不受此处影响)
+        use_x0_pred = (
+            self.box_target_mode == 'x0_pred' and box_targets is not None
         )
+        if use_x0_pred:
+            # REFLOW_HEAD_DISTILL_IMPL_PLAN.md §1.2: box target = x_0^pred (RF 拉直目标)
+            # 两种布局 (按形状自动分流):
+            #   - per-proposal [bs, num_proposals, 4]: 每个 proposal 的 A4 预测 (轨迹端点),
+            #     与 pred_boxes 直接对齐, 不经 matcher gather (canonical ReFlow)
+            #   - per-GT [bs, max_gt, 4]: 每个 GT 的 A4 预测, 按 matched_gt_inds gather
+            is_per_proposal = (
+                not isinstance(box_targets, (list, tuple))
+                and box_targets.shape[1] == src_boxes.shape[1]
+            )
+            if is_per_proposal:
+                # per-proposal: 直接对齐 (RF 每个提案有独立轨迹端点 x_0^pred)
+                tgt_boxes = box_targets.to(src_boxes)  # [bs, num_proposals, 4]
+            else:
+                # per-GT: 对齐到 [bs, max_gt, 4] 并 gather (与 GT 布局一致)
+                if isinstance(box_targets, (list, tuple)):
+                    target_boxes_padded = src_boxes.new_zeros(bs, max_gt, 4)
+                    for i, bt in enumerate(box_targets):
+                        n = bt.shape[0]
+                        if n > 0:
+                            target_boxes_padded[i, :n] = bt
+                else:
+                    n_box = box_targets.shape[1]
+                    if n_box >= max_gt:
+                        target_boxes_padded = box_targets[:, :max_gt].to(src_boxes)
+                    else:
+                        target_boxes_padded = src_boxes.new_zeros(bs, max_gt, 4)
+                        target_boxes_padded[:, :n_box] = box_targets.to(src_boxes)
+                matched_gt_inds_clamped = matched_gt_inds.clamp(min=0)
+                tgt_boxes = torch.gather(
+                    target_boxes_padded,
+                    1,
+                    matched_gt_inds_clamped.unsqueeze(-1).expand(-1, -1, 4),
+                )
+        else:
+            # 'gt' 模式 或 'x0_pred' 未传 box_targets → 用 GT
+            matched_gt_inds_clamped = matched_gt_inds.clamp(min=0)
+            tgt_boxes = torch.gather(
+                gt_bboxes_padded,
+                1,
+                matched_gt_inds_clamped.unsqueeze(-1).expand(-1, -1, 4),
+            )
 
         # num_pos 保留为张量，避免 .item() 同步
         num_pos = fg_masks.sum().clamp(min=1)

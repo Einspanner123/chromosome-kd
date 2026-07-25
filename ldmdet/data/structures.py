@@ -50,12 +50,14 @@ class ImageMeta:
         pad_shape: (h, w) padding 后的尺寸
         ori_shape: 原始图像尺寸
         scale_factor: 缩放因子
+        img_id: 图像唯一标识 (ReFlow coupling 索引键; None 时回退到 batch 索引)
     """
 
     img_shape: Tuple[int, int]
     pad_shape: Optional[Tuple[int, int]] = None
     ori_shape: Optional[Tuple[int, int]] = None
     scale_factor: Optional[Union[List[float], Tensor]] = None
+    img_id: Optional[int] = None
 
 
 @dataclass

@@ -23,7 +23,7 @@ from ldmdet.diffusion.embeddings import SinusoidalPositionEmbeddings
 from ldmdet.diffusion.noise_schedule import cosine_noise_schedule
 from ldmdet.diffusion.rectified_flow import RectifiedFlow
 from ldmdet.diffusion.sampling import DiffusionSampler, _get_img_shape, KaryotypeScorer, pcse_select
-from ldmdet.utils.box_ops import bbox_xyxy_to_cxcywh
+from ldmdet.utils.box_ops import bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +107,13 @@ class DiffusionDetHead(nn.Module):
         distill_head_map: Optional[Dict[int, int]] = None,
         deep_supervision_aux_weight: float = 1.0,
         freeze_backbone: bool = False,
+        # ReFlow (Standard MSE): 预存 coupling 替代在线 OT
+        # 详见 docs/research/proposals/REFLOW_HEAD_DISTILL_IMPL_PLAN.md §1
+        use_reflow_coupling: bool = False,
+        reflow_coupling_path: Optional[str] = None,
+        # ReFlow per-dim 拉直维度选择 (标记用, 当前 criterion 仅实现 'all';
+        # 'cxcy' per-dim 消融为可选未来扩展, 见方案 §1.4)
+        reflow_dims: str = 'all',
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -131,7 +138,15 @@ class DiffusionDetHead(nn.Module):
         self.loss_aux = loss_aux
 
         # 扩散组件
-        self.rf = RectifiedFlow(snr_scale=snr_scale)
+        # RectifiedFlow 的 use_reflow_coupling / reflow_dims 为标记参数,
+        # q_sample 行为不变 (reflow 逻辑在 _build_training_targets 中处理);
+        # reflow_dims 留作未来 per-dim 拉直扩展 (当前 criterion 仅实现 'all')
+        self.rf = RectifiedFlow(
+            snr_scale=snr_scale,
+            use_reflow_coupling=use_reflow_coupling,
+            reflow_dims=reflow_dims,
+        )
+        self.reflow_dims = reflow_dims
         self.time_mlp = nn.Sequential(
             SinusoidalPositionEmbeddings(feat_channels),
             nn.Linear(feat_channels, feat_channels * 4),
@@ -307,6 +322,26 @@ class DiffusionDetHead(nn.Module):
         self.deep_supervision_aux_weight = deep_supervision_aux_weight
         self.freeze_backbone = freeze_backbone
         self._teacher: Optional[nn.Module] = None
+
+        # ============================================================
+        # ReFlow (Standard MSE): 预存 coupling (x_0^pred, x_1^noise)
+        # ============================================================
+        # 用 A4 推理生成的 (x_0^pred, x_1^noise) 替代在线 (GT, randn),
+        # 训练 2-RF 拉直轨迹 (cls=GT, box=x_0^pred 混合 target, 详见方案 §1.2)
+        # coupling 懒加载: __init__ 仅存路径, 首次 _build_training_targets 调用时加载
+        # (避免 __init__ 阶段文件不存在导致测试/构建失败; 也便于测试 mock)
+        self.use_reflow_coupling = use_reflow_coupling
+        self.reflow_coupling_path = reflow_coupling_path
+        self._reflow_couplings: Optional[dict] = None
+        # ReFlow coupling 生成支持: predict() 结束时设置, __init__ 预初始化为 None
+        # 避免 predict() 调用前访问导致 AttributeError (测试/诊断场景)
+        self._last_x_raw_initial: Optional[torch.Tensor] = None
+        self._last_x0_final: Optional[torch.Tensor] = None
+        if self.use_reflow_coupling:
+            assert self.reflow_coupling_path is not None, (
+                "use_reflow_coupling=True 时必须指定 reflow_coupling_path "
+                "(指向 generate_reflow_couplings.py 生成的 coupling 文件)"
+            )
 
     def _init_weights(self, prior_prob):
         for head in self.head_series:
@@ -516,10 +551,17 @@ class DiffusionDetHead(nn.Module):
 
         targets = self._normalize_targets(gt_bboxes, gt_labels, img_metas, bs)
         t = self._sample_t(bs, device)
+        # ReFlow: 用 img_id 索引预存 coupling (非 reflow 模式传 None, 回退 batch 索引)
+        # ImageMeta 是 dataclass, 用属性访问 (img_id=None 时回退 batch 索引, 便于测试)
+        img_ids = (
+            [meta.img_id if meta.img_id is not None else i
+             for i, meta in enumerate(img_metas)]
+            if self.use_reflow_coupling else None
+        )
         x_boxes, x_starts, x_noises, matched_gt_indices = (
             self._build_training_targets(
                 bs, device, t, targets, gt_bboxes,
-                external_noise=x_raw_shared,
+                external_noise=x_raw_shared, img_ids=img_ids,
             )
         )
         x_noisy_batch = torch.stack(x_boxes)
@@ -560,7 +602,26 @@ class DiffusionDetHead(nn.Module):
         outputs = self._build_outputs(all_cls_logits, norm_pred_bboxes)
         # 方向三: 传 t 给 criterion (若 criterion 不支持 t 则被忽略, 向后兼容)
         # t 是 [bs] 的扩散时间, 用于 SNR 感知匹配和损失加权
-        losses = self.criterion(outputs, targets, t=t)
+        # ReFlow: 传 per-proposal x_0^pred 作为 box target
+        # (criterion.box_target_mode='x0_pred' 时生效; 'gt' 模式忽略, 向后兼容)
+        # x_starts 在 reflow 模式 = x_0^pred [num_proposals, 4], stack → [bs, num_proposals, 4]
+        #
+        # 空间一致性修复 (BUG #1): x_starts 来自 coupling 的 x0_pred 字段,
+        # 处于 raw 扩散空间 (cxcywh, scaled [-snr_scale, snr_scale]); 而
+        # outputs.pred_boxes 处于归一化 xyxy 空间 [0,1] (经 _normalize_pred_bboxes).
+        # criterion._loss_boxes 假设 box_targets 与 src_boxes 同空间, 必须先转换:
+        #   raw cxcywh [-snr, snr] → normalized cxcywh [0,1] → normalized xyxy [0,1]
+        # (与 _sampler.raw_to_xyxy 的前两步一致, 但不乘 img_scale 以保持归一化)
+        if self.use_reflow_coupling:
+            raw_x_starts = torch.stack(x_starts)  # [bs, num_proposals, 4] raw cxcywh
+            norm_cxcywh = (
+                raw_x_starts.clamp(-self.snr_scale, self.snr_scale)
+                / self.snr_scale + 1
+            ) / 2  # → [0, 1]
+            box_targets = bbox_cxcywh_to_xyxy(norm_cxcywh)  # → normalized xyxy [0,1]
+        else:
+            box_targets = None
+        losses = self.criterion(outputs, targets, t=t, box_targets=box_targets)
 
         # 探针: 训练时 t 分布 + 损失分解
         probe.record_tensor_stats('train/t', t)
@@ -758,6 +819,10 @@ class DiffusionDetHead(nn.Module):
         # ================================================================
         time_pairs = self._sampler.build_time_pairs(device)
         x_raw = torch.randn(bs, self.num_proposals, 4, device=device)
+        # ReFlow coupling 生成支持: 记录初始噪声 x_1 (raw 空间), 供
+        # generate_reflow_couplings.py 读取 (仅 box_renewal/ensemble/pruning 关闭时为干净轨迹)
+        x_raw_initial = x_raw.detach().clone()
+        x0_final = None  # 跟踪最后一步的 x0 预测
 
         ensemble_results = []
         trajectory = []
@@ -784,6 +849,8 @@ class DiffusionDetHead(nn.Module):
             cls_logits, pred_bboxes, x0_raw = self._forward_at_t(
                 features, x_raw, t_curr, img_metas
             )
+            # ReFlow coupling 生成: 跟踪每步 x0, 循环结束后保留最后一步
+            x0_final = x0_raw
 
             # 探针: 推理时 per-step 激活统计 (x0_pred + cls_logits + pred_bboxes)
             probe.record_inference_tensor_stats(
@@ -893,6 +960,19 @@ class DiffusionDetHead(nn.Module):
             ensemble_results, img_metas, rescale
         )
 
+        # ReFlow coupling 生成支持: 暴露初始噪声与最终 x0 (raw 空间, [bs, num_proposals, 4])
+        # generate_reflow_couplings.py 读取这两个属性构造 (x_0^pred, x_1^noise) coupling.
+        # 注意: 仅当 box_renewal/use_ensemble/topk_pruning 关闭时为干净的单轨迹;
+        #       正常推理 (box_renewal 开) 下 x_raw_initial 仍为初始噪声, x0_final 为最后一步 x0.
+        # 防御性断言: time_pairs 为空 (sampling_timesteps=0) 时 x0_final 仍为 None,
+        # generate_reflow_couplings.py 读取会 TypeError, 此处显式报错便于定位
+        assert x0_final is not None, (
+            "predict() 结束时 x0_final 为 None — time_pairs 为空 "
+            "(sampling_timesteps=0?). ReFlow coupling 生成需要至少一步采样."
+        )
+        self._last_x_raw_initial = x_raw_initial
+        self._last_x0_final = x0_final
+
         # IO3: SwanLab 插桩 — 上传剪枝统计
         if self.topk_pruning_enabled and self._pruning_stats:
             try:
@@ -988,10 +1068,60 @@ class DiffusionDetHead(nn.Module):
             t = self.rf_shift * t / (1 + (self.rf_shift - 1) * t)
         return t
 
-    def _build_training_targets(self, bs, device, t, targets, gt_bboxes, external_noise=None):
+    def _build_training_targets(
+        self, bs, device, t, targets, gt_bboxes,
+        external_noise=None, img_ids=None,
+    ):
+        """构建训练 targets (x_noisy, x_start, x_noise, matched_gt_idx).
+
+        ReFlow 模式 (use_reflow_coupling=True): 从预存 coupling 加载
+        x_start=x_0^pred 与 noise=x_1^noise (A4 推理生成), 替代在线 (GT, randn);
+        matched_idx 仍在线重算 (基于 GT, 供 cls 正样本分配). 详见方案 §1.2.
+
+        Args:
+            img_ids: 可选, 每图的 coupling 键 (真实训练用 img_id; 测试/未传时回退到 batch 索引 i).
+        """
+        # ReFlow: 懒加载 coupling (首次调用时从磁盘载入, 后续复用)
+        if self.use_reflow_coupling and self._reflow_couplings is None:
+            self._reflow_couplings = self._load_reflow_coupling(
+                self.reflow_coupling_path
+            )
+
         x_boxes, x_starts, x_noises, matched_gt_indices = [], [], [], []
         for i in range(bs):
             num_gt = gt_bboxes[i].shape[0]
+            # ReFlow coupling 键: 优先 img_id, 回退 batch 索引 (测试路径)
+            img_key = img_ids[i] if img_ids is not None else i
+
+            if self.use_reflow_coupling:
+                coupling = self._reflow_couplings[img_key]
+                # 预存 per-proposal noise (x_1) 与 x_0^pred (轨迹端点)
+                noise = coupling['noise'].to(device)
+                x_start = coupling['x0_pred'].to(device)
+
+                if num_gt == 0:
+                    # 无 GT: 无正样本, x_start 置零 (box target 不参与)
+                    x_start = torch.zeros_like(noise)
+                    matched_idx = torch.zeros(
+                        self.num_proposals, dtype=torch.long, device=device
+                    )
+                else:
+                    # matched_idx 在线重算: OT couple (noise, GT) 仅供 cls 分配
+                    norm_gt_cxcywh = bbox_xyxy_to_cxcywh(targets[i].bboxes)
+                    gt_diffusion = (norm_gt_cxcywh * 2 - 1) * self.snr_scale
+                    _, matched_idx = self._couple_single_image(
+                        noise, gt_diffusion, targets[i].labels, device
+                    )
+                x_noisy, x_noise = self._forward_diffusion(
+                    x_start, noise, t[i : i + 1]
+                )
+                matched_gt_indices.append(matched_idx)
+                x_starts.append(x_start)
+                x_noises.append(x_noise)
+                x_boxes.append(x_noisy)
+                continue
+
+            # 标准 / OT 模式 (现有行为)
             if num_gt == 0:
                 if external_noise is not None:
                     noise = external_noise[i]
@@ -1023,6 +1153,19 @@ class DiffusionDetHead(nn.Module):
             x_noises.append(x_noise)
             x_boxes.append(x_noisy)
         return x_boxes, x_starts, x_noises, matched_gt_indices
+
+    def _load_reflow_coupling(self, path: str):
+        """加载预存的 reflow coupling 文件 (懒加载).
+
+        格式 (generate_reflow_couplings.py 生成):
+            {img_id: {'noise': tensor[num_proposals, 4],   # x_1^noise (A4 推理时的噪声)
+                      'x0_pred': tensor[num_proposals, 4]}} # x_0^pred  (A4 推理预测, 轨迹端点)
+
+        Returns:
+            dict: img_id → {'noise', 'x0_pred'}
+        """
+        logger.info(f'ReFlow: 加载 coupling 文件 {path}')
+        return torch.load(path, map_location='cpu')
 
     def _couple_single_image(self, noise, gt_diffusion, gt_labels, device):
         if self.ot_coupling and self.diffusion_type == 'rectified_flow':
