@@ -531,7 +531,7 @@
 #### 3.5.4 同步汇总
 
 - 本批次新增 7 个论文相关实验 (A0 多种子 ×2 + A1 多种子 ×2 + A1 shift 消融 ×3), 全部来自 `ldmdet-mainline-ablation-24obj` 项目。
-- A0/A1 多种子补齐了 §3.4 中 A4 多种子的对照, 现已具备 A0/A1/A4 三组 3-seed 稳定性数据 (A1 seed_789 待完成)。
+- A0/A1 多种子补齐了 §3.4 中 A4 多种子的对照, 现已具备 A0/A1/A4 三组 3-seed 稳定性数据 (A1 seed_789 已于 2026-07-20 完成, 见 §3.5.2)。A2 (paper) 多种子补充进行中 (§3.7)。
 - A1 shift 消融验证 rf_shift 非关键超参, 支持论文中默认 rf_shift=3 的合理性。
 - 跳过的项目: `ldmdet-inference` (108 个, 已归档至 §七)、`ldmdet-inference-opt-24obj` (4 个, 反向优化已回退)、`ldmdet-sota-stack` (3 个, chromo 数据集)、`ldmdet-frontier-directions-24obj` (5 个, 全部 CRASHED)、`setdiff-24obj` (18 个, 全部 mAP=0, 见 §3.2.1)、`chromosome-kd-*` 早期项目 (与 24obj 主线无关)。
 
@@ -746,6 +746,30 @@
 - **进入论文正文/附录** 的实验: §3.6.1 (StochOT ε 消融, 论文 §4.4.3), §3.6.2 (DPM-Solver++ chromo 历史, 仅 §2.2.6 归档), §3.6.3 (SOTA 多种子, 论文 §4.4.2), §3.6.5 (IO1/3/4 训练, §七 C 类推理), §3.6.6 (PD-RF v2/v3/v4, §3.2.2 续)。
 - 跳过的实验: `ldmdet-inference` 108 个 (无训练曲线, 已在 §七归档)、`setdiff-24obj` 18 个 (mAP=0, §3.2.1)、`chromosome-kd-*` 早期项目 (与 24obj 主线无关, §3.6.12 已记录元数据)。
 - **访问问题**: `ldmdet-inference` 项目所有 108 个 run 的 metrics 接口返回 404 (推理任务不记录训练曲线, 非错误, 结果在 §七本地 JSON)。其他项目无访问问题。<!-- verified: 2026-07-19 SwanLab -->
+
+### 3.7 A3 (paper Table 5 A2) RF+Heun+StochOT 多种子补充 (2026-07-26 启动)
+
+> **用途**: 论文 Table 5 主消融中 A2 (RF+Heun+StochOT, LINEAGE A3 = `a3_full_sota_24obj`) 当前仅 seed_42 (mAP=0.858), 需补充 seed 123/789 以匹配 A0/A1/A3 的 3-seed 统计显著性分析。启动后论文 Table 5 可从 "A0–A2 为 seed 42, A3 为 3-seed 均值" 升级为全部 4 组 3-seed 均值。
+>
+> **配置**: `experiments/configs/ldmdet/directions/mainline_ablation_24obj/a3_full_sota_24obj_multiseed.py` (基于 `a3_full_sota_24obj.py`, Heun solver + StochOT eps5 + AdaLN-Zero, bs=4, 150ep, EarlyStopping patience=30)
+>
+> **命名对应** (见 §C4): LINEAGE A3 (`a3_full_sota`) = paper Table 5 A2 (+ Stochastic Coupling); LINEAGE A4 (`a4_dpm_pp`) = paper Table 5 A3 (DPM-Solver++)
+
+| 实验 | seed | 服务器 | GPU | SwanLab run_id | mAP | 状态 | 启动时间 |
+|------|------|--------|-----|----------------|-----|------|----------|
+| A3 (paper A2) seed_42 (main) | 42 | — | — | (已存在于 §2.1.1) | 0.858 | ✅ FINISHED | 历史 |
+| A3 (paper A2) seed_123 | 123 | workstation (hk-a5ks) | GPU 1 (A4000 16GB) | 87i1tfhd | — | 🔄 RUNNING | 2026-07-26 02:48 |
+| A3 (paper A2) seed_789 | 789 | workstation (hk-a5ks) | GPU 0 (A5000 24GB) | — | — | ⏳ PENDING (ReFlow 完成后自动启动) | — |
+
+> **SwanLab**: 项目 `ldmdet-mainline-ablation-24obj`, URL: `https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/{run_id}`
+>
+> **执行细节**:
+> - seed_123 于 2026-07-26 02:48 启动于 workstation GPU 1 (A4000), ~1.6s/iter, 预计 2-3 天完成 (含 EarlyStopping)
+> - seed_789 通过 `logs/a3_multiseed/wait_and_launch_seed789.sh` 自动等待 ReFlow (PID 1268229) 完成后启动于 GPU 0 (A5000)
+> - work_dir: `work_dirs/a3_full_sota_24obj_multiseed_seed{123,789}/` (workstation)
+> - 日志: `logs/a3_multiseed/seed_{123,789}.log` (workstation)
+>
+> **预期**: A2 3-seed 完成后, 论文 Table 5 可更新为全 4 组 3-seed 均值 (A0=0.767±0.012, A1=0.855±0.003, A2=TBD, A3=0.859±0.003), 强化主消融的统计显著性。<!-- 2026-07-26 启动 -->
 
 ---
 
