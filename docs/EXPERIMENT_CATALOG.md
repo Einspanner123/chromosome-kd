@@ -513,9 +513,9 @@
 |------|--------|-----|------|------|------|----------|
 | A1 RF+Heun seed_42 (main) | pe6ljc6zlobcs744wcm8q | 0.856 | 0.990 | 0.971 | ✅ FINISHED | 92 |
 | A1 RF+Heun seed_123 | 42dbc2wwimx5hf69g2ktx | 0.857 | 0.990 | 0.970 | ✅ FINISHED | 95 |
-| A1 RF+Heun seed_789 | zbnloib75zw0t3ab13hsq | 0.852 | 0.987 | 0.968 | ⚠ RUNNING | 37 |
+| A1 RF+Heun seed_789 | zbnloib75zw0t3ab13hsq | 0.852 | 0.987 | 0.968 | ✅ FINISHED | 67 |
 
-> A1 3-seed: mean=0.855, std=0.003 (sample std)。⚠ seed_789 仍在训练 (37/150 epochs), 当前 mAP=0.852 为临时最大值, 待完成后更新。A1 多种子稳定性显著优于 A0 (std 0.003 vs 0.012), 与 A4 (std=0.004) 同量级, 验证 RF+Heun 显著降低初始化敏感性。<!-- verified: 2026-07-19 SwanLab -->
+> A1 3-seed: mean=0.855, std=0.003 (sample std)。seed_789 已完成 (EarlyStopping@ep67, best mAP=0.852@ep37, 2026-07-20 完成)。A1 多种子稳定性显著优于 A0 (std 0.003 vs 0.012), 与 A4 (std=0.004) 同量级, 验证 RF+Heun 显著降低初始化敏感性。<!-- verified: 2026-07-26: 本地 scalars.json + 训练日志确认 EarlyStopping@ep67, best@ep37; 原 2026-07-19 SwanLab 标注 RUNNING 为过期状态 -->
 
 #### 3.5.3 A1 rf_schedule / rf_shift 消融 (24obj, seed_42)
 
