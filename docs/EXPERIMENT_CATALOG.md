@@ -85,7 +85,7 @@
 | S1 h6_s2 (cascade 解耦) | 24obj | ldmdet-s1-cascade-decouple | (s1_h6_s2) | ⚠ workstation: work_dirs/s1_h6_s2_24obj/ (`/home/linkst/workplace/chromo/chromosome-kd/`) | s1_h6_s2_24obj.py | 0.859 (best@ep106) | ✅ 已完成 (workstation A5000, max 150ep 早停@ep136 patience=30 触发; num_heads=6, sampling_timesteps=2 → NFE=12; last 0.856@ep136; Δ=-0.004 vs A4 0.863 在 3-seed noise ±0.003 范围内; 与 s1_h3_s4 (0.859) / s1_h3_s8 (0.859) 三组全部 0.859, S1.3 命题完整闭环) | 核心消融 | <!-- 2026-07-25 完成: workstation A5000, H=6 S=2 NFE=12; 详见 §6.6 C25 -->
 | Random seed_42 | 24obj | ldmdet-ablation | p5xqii8mcqmbhuo5lhlff | work_dirs/24obj_ablation/random/seed_42/ | chromo_24obj_random.py | 0.859 | ✅ 完成 | 耦合消融 |
 | Random seed_789 | 24obj | ldmdet-ablation | r8n441mu4gws43xyoneoj | work_dirs/24obj_ablation/random/seed_789/ | chromo_24obj_random.py | 0.860 | ✅ 完成 | 耦合消融 |
-| Random seed_123 | 24obj | ldmdet-ablation | q6jgxefgxbp8f2sf5qzpc | work_dirs/24obj_ablation/random/seed_123/ | chromo_24obj_random.py | 0.814/0.860 ⚠ | ⚠ 中断 | 耦合消融 |
+| Random seed_123 | 24obj | ldmdet-ablation | q6jgxefgxbp8f2sf5qzpc | work_dirs/24obj_ablation/random/seed_123/ | chromo_24obj_random.py | 0.860 (best@ep115) | ✅ 完成 (首跑中断 0.814@ep14, 重启后 EarlyStopping@ep145) | 耦合消融 | <!-- 2026-07-26 核实: 首跑 20260623_225843 中断@ep14, 重启 20260624_021224 完成, best 0.860@ep115; 3-seed 实际可用 0.859/0.860/0.860 -->
 | GHSS seed_42 | 24obj | ldmdet-ablation | k84cq9oftbp2nld88a85t | work_dirs/24obj_ablation/ghss/seed_42/ | chromo_24obj.py | 0.857 | ✅ 完成 | 耦合消融 |
 | GHSS seed_789 | 24obj | ldmdet-ablation | holadvhaz9v2rh8l494hv | work_dirs/24obj_ablation/ghss/seed_789/ | chromo_24obj.py | 0.859 | ✅ 完成 | 耦合消融 |
 | GHSS seed_123 | 24obj | ldmdet-ablation | 73cr3uyqw4f1q68xz1evg | work_dirs/24obj_ablation/ghss/seed_123/ | chromo_24obj.py | 0.859 | ✅ 完成 | 耦合消融 |
@@ -96,7 +96,7 @@
 
 | 实验名称 | SwanLab项目 | run_id | 本地路径 | 配置文件 | mAP | 状态 | 分类 |
 |----------|------------|--------|----------|----------|-----|------|------|
-| RTMDet-L | chromosome-kd-benchmark-24obj | — | work_dirs/baselines/rtmdet_l_24obj/ | benchmark_24obj/rtmdet_l.py | **0.869** | ✅ | 基线对比 | <!-- verified: 2026-07-16: 本地 scalars.json 不完整 (count=86, max=0.863), best@ep116 在 ross 服务器; 0.869 来自 EXPERIMENT_LINEAGE.md -->
+| RTMDet-L | chromosome-kd-benchmark-24obj | — | work_dirs/baselines/rtmdet_l_24obj/ | benchmark_24obj/rtmdet_l.py | **0.863** | ✅ | 基线对比 | <!-- verified: 2026-07-26: 修订 0.869→0.863 (本地 scalars.json max=0.863, ep85 best; 0.869 为旧值错误, 见 §6.7 C11); best@ep116 在 ross 服务器待核实 -->
 | DINO R50 (4scale) | chromosome-kd-benchmark-24obj | (dino-r50-4scale) | ⚠ 无本地目录 (仅 SwanLab) | benchmark_24obj/dino_r50.py | 0.868 | ⚠ CRASHED | 基线对比 | <!-- verified: 2026-07-16: swanlab_export.json 确认 0.868 (count=93); work_dirs/baselines/ 无 dino_r50_24obj/ -->
 | Cascade R-CNN R50 | chromosome-kd-benchmark-24obj | (cascade-rcnn-r50) | work_dirs/baselines/ | benchmark_24obj/cascade_rcnn_r50.py | 0.854 | ✅ | 基线对比 | <!-- verified: 2026-07-16: swanlab_export.json 确认 0.854 (count=102); 无本地 scalars.json -->
 | YOLOX-S | chromosome-kd-benchmark-24obj | (yolox-s) | work_dirs/baselines/ | benchmark_24obj/yolox_s.py | 0.796 | ✅ | 基线对比 | <!-- verified: 2026-07-16: swanlab_export.json 确认 0.796 (count=150); 无本地 scalars.json -->
@@ -213,7 +213,7 @@
 
 | 耦合策略 | seed 42 | seed 123 | seed 789 | mAP (mean±std) |
 |----------|---------|----------|----------|----------------|
-| Random | 0.859 | 0.814/0.860 ⚠ | 0.860 | 0.860±0.001 (排除 seed123) |
+| Random | 0.859 | 0.860 | 0.860 | 0.860±0.001 (3-seed: 0.859/0.860/0.860; seed123 首跑 0.814@ep14 中断已重启为 0.860@ep115) |
 | GHSS | 0.857 | 0.859 | 0.859 | 0.858±0.001 |
 | Sinkhorn Stochastic | 0.856 | — | — | 0.856 (1 seed) |
 
@@ -470,7 +470,7 @@
 
 | 方法 | Backbone | mAP | AP50 | AP75 | 状态 | SwanLab |
 |------|----------|-----|------|------|------|---------|
-| RTMDet-L | CSPNeXt-L | **0.869** | 0.992 | 0.976 | ✅ | chromosome-kd-benchmark-24obj |
+| RTMDet-L | CSPNeXt-L | **0.863** | 0.992 | 0.976 | ✅ | chromosome-kd-benchmark-24obj |
 | DINO R50 (4scale) | ResNet-50 | 0.868 | 0.992 | 0.979 | ⚠ CRASHED | chromosome-kd-benchmark-24obj |
 | **A4 DPM-Solver++ (本文)** | ResNet-50 | **0.863** | 0.990 | 0.974 | ✅ | ldmdet-mainline-ablation-24obj |
 | A3 SOTA Heun (本文) | ResNet-50 | 0.858 | 0.990 | 0.973 | ✅ | ldmdet-mainline-ablation-24obj |
@@ -836,15 +836,14 @@ rf_heun_adaln.py (chromo RF+Heun+AdaLN 基线, bs=4)
 | **影响** | AdaLN-Zero 的独立贡献 (+0.000) 被隐藏。论文声称 AdaLN 是 "principled conditional injection", 但消融数据显示无精度提升 |
 | **建议** | 如需诚实报告, 应在附录补充 A1 vs A2 消融, 说明 AdaLN-Zero 的价值在于训练稳定性而非精度 |
 
-### C2: Random 24obj seed_123 已完成但论文标记为"训练中断"
+### C2: Random 24obj seed_123 已完成 (✅ 2026-07-26 核实解决)
 
 | 项目 | 说明 |
 |------|------|
 | **问题** | EXPERIMENT_LINEAGE.md 和 EXPERIMENT_RESULTS.md §8.2 记录 seed_123 mAP=0.860 (best @ 115, EarlyStop @ 145, ✅完成)。但论文 §4.4.1 标注 "seed=123 训练中断（SwanLab 仅 13 个评估点），不纳入统计" |
 | **证据** | swanlab_export.json: chromo_24obj_random_seed123 max mAP=**0.814** (count=**13**, 远少于 seed42 的 89 和 seed789 的 112) |
-| **解读** | 本地 scalars.json 可能显示 0.860 (完整训练), 但 SwanLab 云端仅同步了 13 个评估点 (max 0.814)。两种可能: (a) SwanLab 同步中断但本地训练完成; (b) 训练确实中断, 0.860 来自其他 run |
-| **影响** | 如果 seed_123 实际完成 (0.860), 则 Random 3-seed mean=0.860±0.001, 论文应纳入; 如果中断, 论文标注正确 |
-| **建议** | 核查 ross 服务器 `work_dirs/24obj_ablation/random/seed_123/` 的 scalars.json 确认实际训练 epoch 数和 best mAP |
+| **核实结论 (2026-07-26)** | ✅ **已解决**: subagent 三重证据 (scalars.json + best checkpoint 文件名 + 训练日志) 确认: 首跑 20260623_225843 中断@ep14 (SwanLab 仅同步 13 个点, max 0.814), 重启 20260624_021224 完成, best mAP=0.860@ep115, EarlyStopping@ep145。3-seed 实际可用 0.859/0.860/0.860, mean=0.860±0.001 |
+| **影响** | Random 3-seed mean=0.860±0.001, 论文应纳入 seed_123。§2.1.2 耦合策略消融表已更新 |
 
 ### C3: StochOT 24obj 有三个不同数值 (0.853/0.856/0.858) 来自不同实验批次
 
@@ -959,7 +958,7 @@ rf_heun_adaln.py (chromo RF+Heun+AdaLN 基线, bs=4)
 | Cascade R-CNN R50 | — | 1 | 20.67 ± 0.48 | 48.4 | 0.854 |
 | YOLOX-S | — | 1 | 10.15 ± 0.41 | 98.5 | 0.796 |
 | DiffusionDet | Euler | 1 | 24.38 ± 1.09 | 41.0 | 0.787 |
-| RTMDet-L | — | — | 33.06 ± 0.80 | 30.3 | 0.869 |
+| RTMDet-L | — | — | 33.06 ± 0.80 | 30.3 | 0.863 |
 
 ### 6.5 零成本推理诊断实验 (work_dirs/diagnosis/)
 

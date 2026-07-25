@@ -66,9 +66,11 @@ $$\eta_{\text{str}}^{(n)} := \frac{\left\| \mathbf{D}_1^{(n)} \right\|_2}{\left\
 
 **命题 R1.2（与理想 RF 的关系）。** 若 $v_\theta$ 精确恢复 $v = x_1 - x_0$（理想 1-RectFlow），则 $\forall n: \eta_{\text{str}}^{(n)} = 0$，此时 DPM-Solver++ 任意步数等价于 1 步 Euler 的精确线性外推。
 
-**命题 R1.3（与 mAP 步数收敛的对应）。** 若 $\bar{\eta}_{\text{str}}^{(n)} < \epsilon_{\text{conv}}$ 对所有 $n \ge N_0$ 成立，则 DPM-Solver++ 在 $N_0$ 步后无显著精度增益——因为高阶校正项 $\varphi_1 \mathbf{D}_1$ 已被 $\eta_{\text{str}}$ 界住。
+**猜想 R1.3（与 mAP 步数收敛的对应）。** 若 $\bar{\eta}_{\text{str}}^{(n)} < \epsilon_{\text{conv}}$ 对所有 $n \ge N_0$ 成立，则 DPM-Solver++ 在 $N_0$ 步后无显著精度增益——因为高阶校正项 $\varphi_1 \mathbf{D}_1$ 已被 $\eta_{\text{str}}$ 界住。
 
-证明梗概：DPM-Solver++ 二阶更新为 $\mathbf{x}_{t_{n+1}} = \frac{t_{n+1}}{t_n}\mathbf{x}_{t_n} + (1 - \frac{t_{n+1}}{t_n})\hat{x}_0^{(n)} + \varphi_1 \mathbf{D}_1^{(n)}$（[Appendix A.5](file:///home/linkst/workspace/projects/chromosome-kd/docs/paper/paper_draft_CN.md#L506-L513)）。前两项是常数 $\hat{x}_0$ 的精确解，$\varphi_1 \mathbf{D}_1$ 是非直线性校正。若 $\|\mathbf{D}_1\|/\|\hat{x}_0\| < \epsilon$，则校正项相对主项的范数比为 $\varphi_1 \epsilon / (1 - t_{n+1}/t_n)$，对小 $\epsilon$ 可忽略。$\square$
+> **注**：R1.3 原列为"命题"，但现有证明仅为直观论证（证明梗概见下），未给出严格误差界与 $\epsilon_{\text{conv}}$ 的显式形式，故降级为猜想。严格的证明需要：(i) $\eta_{\text{str}}$ 到 mAP 的 Lipschitz 映射；(ii) $\varphi_1$ 与 $t$ 的显式依赖关系。这两点超出本文范围，留作未来工作。
+
+证明梗概：DPM-Solver++ 二阶更新为 $\mathbf{x}_{t_{n+1}} = \frac{t_{n+1}}{t_n}\mathbf{x}_{t_n} + (1 - \frac{t_{n+1}}{t_n})\hat{x}_0^{(n)} + \varphi_1 \mathbf{D}_1^{(n)}$（[Appendix A.5](file:///home/linkst/workspace/projects/chromosome-kd/docs/paper/paper_draft_CN.md#L506-L513)）。前两项是常数 $\hat{x}_0$ 的精确解，$\varphi_1 \mathbf{D}_1$ 是非直线性校正。若 $\|\mathbf{D}_1\|/\|\hat{x}_0\| < \epsilon$，则校正项相对主项的范数比为 $\varphi_1 \epsilon / (1 - t_{n+1}/t_n)$，对小 $\epsilon$ 可忽略。（直观论证，非严格证明）
 
 ### 1.4 与论文 claim 的对应
 
@@ -138,7 +140,7 @@ $$x_{\text{final}} = \mathcal{A}_{t_3} \circ \mathcal{B}_{t_3, H} \circ \cdots \
 
 **推论 S1.2（DPM-Solver++ 框架的有效性）。** 若命题 S1.1 成立且 $H = 6$ 足够大，则每个 solver step 内的 6 head 已收敛到 $\mathcal{B}_t^*$，故 DPM-Solver++ 把 $\mathcal{B}_t^* \circ \mathcal{A}_t$ 视为单次"复合 $v_\theta$ 评估"是合理的。这解释了为何 DPM-Solver++ 仅需 4 NFE 框架——它把横向精化吸收进 $\mathcal{B}_t^*$。
 
-**命题 S1.3（H 与 S 的可交换性边界）。** 在横向收敛假设下，减小 $H$（如 $H=3$）需增大 $S$ 以补偿，反之亦然。但 $H \times S$ 不是不变量：因 $\mathcal{A}_t$ 是二阶 solver 而 $\mathcal{B}_{t,k}$ 是一阶精化，$H$ 减半需 $S$ 增加多于两倍。
+**猜想 S1.3（H 与 S 的可交换性边界，实验修正为弱形式）。** 在横向收敛假设下，减小 $H$（如 $H=3$）需增大 $S$ 以补偿，反之亦然。**原预测（强形式，已证伪）**：$H \times S$ 不是不变量——因 $\mathcal{A}_t$ 是二阶 solver 而 $\mathcal{B}_{t,k}$ 是一阶精化，$H$ 减半需 $S$ 增加多于两倍。**实验证伪**：H=3,S=4 / H=6,S=2 / H=3,S=8 三组 mAP 全部持平于 0.859（见 [EXPERIMENT_LINEAGE.md §七](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)），说明在 mAP 指标（noise floor $\pm 0.003$）上 $H \times S$ 近似为不变量。**修正后的弱形式**：$H \times S$ 在 mAP 上近似不变（因低维 $d=4$ 空间中横向/纵向精度损失均被 noise floor 吸收），但在更精细的指标（如 $\eta_{\text{str}}$、per-class AP）上可能不是不变量——此弱形式尚待 $\eta_{\text{str}}$ 实验验证。
 
 ### 2.5 与已证伪 N_cascade e2e 的区分
 

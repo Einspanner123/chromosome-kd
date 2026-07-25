@@ -316,7 +316,7 @@ x0_pred (噪声) → 算 s → 算 κ → 算 t_eff → step → 新 x → 新 x
 
 ---
 
-## 六、Direction B (DecoupledHead, 证伪)
+## 六、Direction B (DecoupledHead, ⚠ 数据更正: 证伪存疑)
 
 ### 核心设想
 
@@ -332,7 +332,11 @@ x0_pred (噪声) → 算 s → 算 κ → 算 t_eff → step → 新 x → 新 x
   -- config: experiments/configs/ldmdet/direction_b_decoupled_head.py
   -- work_dir: work_dirs/direction_exps/direction_b_decoupled_head/20260629_152911/
   -- SwanLab: ldmdet-ablation, run_id=2ckzmso4c94fojr8jobej, URL: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/2ckzmso4c94fojr8jobej
-  -- best mAP=0.7020 @ epoch 25 (Δ=−0.044, ⛔ 已停止)
+  -- best mAP=0.7490 @ epoch 74 (Δ=+0.003 vs baseline 0.746, 在 noise 范围内; 原记录 0.7020 @ ep25 为中间值, 已更正)
+  -- 训练在 epoch 87 中断 (iter 150/385), 86 个 epoch 已完成评估, best 在 epoch 74
+  -- ⚠ 证伪结论存疑: 真实 best 略超 baseline, 非"显著退化"; 单 seed + 训练中断, 需 3-seed 复核 (2026-07-26 subagent 三重证据确认: scalars.json + best checkpoint 文件名 + 训练日志)
+
+⚠ **数据更正注记 (2026-07-26)**: 以下失败原因分析基于旧错误数据 (best=0.702, Δ=−0.044)。subagent 三重证据核实确认真实 best=0.749 @ ep74 (Δ=+0.003, 略超 baseline)。这些失败原因分析可能不再成立, 保留作为历史记录, 待 3-seed 复核后重新评估。
 
 ### 失败原因分析
 
@@ -346,7 +350,7 @@ x0_pred (噪声) → 算 s → 算 κ → 算 t_eff → step → 新 x → 新 x
 
 ### 核心设想
 
-四个方向在 Direction 系列设计阶段被规划, 但因 Direction B 证伪 + Direction D 持平 baseline, 整个 Direction 系列停止推进, 这四个方向未启动即废弃。
+四个方向在 Direction 系列设计阶段被规划, 但因 Direction B 数据更正 (证伪存疑, 真实 best 0.749 略超 baseline) + Direction D 持平 baseline, 整个 Direction 系列停止推进, 这四个方向未启动即废弃。
 
 ### 废弃状态
 
@@ -377,7 +381,7 @@ x0_pred (噪声) → 算 s → 算 κ → 算 t_eff → step → 新 x → 新 x
 ### 失败原因分析
 
 无 (未启动)。废弃决策基于:
-1. Direction B (DecoupledHead) 证伪 (Δ=−0.044), 表明架构解耦方向无效
+1. Direction B (DecoupledHead) 数据更正 (原 Δ=−0.044 基于错误数据, 真实 best 0.749 @ ep74, Δ=+0.003 在 noise 内), 证伪存疑 (单 seed + 训练中断, 待 3-seed 复核); 但 Direction D 持平 + N_cascade e2e 严重退化仍表明架构解耦方向边际收益不足
 2. Direction D (BoxRefineNet) 持平 baseline (Δ=+0.001), 表明架构增强方向边际收益不足
 3. 整个 Direction 系列让位于非线性轨迹实验 (E4.x, E6, E7) 和后续 24obj 主路线消融 (A0-A4)
 
@@ -591,7 +595,7 @@ FBM simple gate 源预训练, 期望在 24obj 源预训练阶段验证 simple ga
 | IO2 draft-verify | — | — | 24obj | — | ⛔ 证伪 |
 | IO4 head early-exit | — | — | 24obj | — | ⛔ 证伪 |
 | IO5 RoI feature cache | — | — | 24obj | — | ⛔ 证伪 |
-| Direction B (DecoupledHead) | 0.702 | −0.044 | chromo | ldmdet-ablation | ⛔ 证伪 |
+| Direction B (DecoupledHead) | 0.749 (best@ep74) | +0.003 (原记录 0.702/−0.044 错误) | chromo | ldmdet-ablation | ⚠ 证伪存疑 (单 seed + 训练中断, 待 3-seed 复核) |
 | Direction C/F/A/E | — | — | — | — | ⛔ 未启动废弃 |
 | h_velocity_loss | — | — | 24obj | ldmdet-frontier-directions | ⛔ CRASHED |
 | FBM SimpleGate | 0.677 | — | 24obj | few-shot-benchmark | ⛔ 失败 |
@@ -616,7 +620,7 @@ FBM simple gate 源预训练, 期望在 24obj 源预训练阶段验证 simple ga
 1. **配置字段存在 ≠ 代码生效**: ScaleConditionedRF 的最大教训——dumped config 中含字段不代表 head.py 集成。后续所有"声称有效"的方向必须经代码级核查 (备份 head.py / commit diff / 单元测试)。
 2. **推理时依赖 x0_pred 的决策都不可靠**: ScaleConditionedRF 缺陷 1 + IO1/IO2 证伪 + h_velocity_loss 崩溃, 三处独立证实 RF 在 t≈1 时模型输入近乎纯噪声, 任何基于 x0_pred 的决策 (尺度估计 / 提前终止 / draft-verify / v-prediction) 都不可靠。
 3. **生成模型特征与检测任务空间不兼容**: FBM §二 + scheme_a_dinov2_s §十一 + FBM SimpleGate §九, 三处独立证实生成模型 (ChromoGen UNet / DINOv2) 的特征服务于像素级任务, 与 bbox 级检测任务特征空间不兼容, 简单注入反而有害。
-4. **架构解耦方向无效**: Direction B (DecoupledHead, −0.044) + N_cascade e2e (−0.172) + IO4 head early-exit (退出率 0%), 三处独立证实 cascade head 的共享特征路径和横向精化不可解耦, S1 理论分析 (theory_analysis_RF_DPM.md §2) 预测并解释了该现象。
+4. **架构解耦方向边际收益不足**: Direction B (DecoupledHead, 数据更正: 真实 best 0.749, Δ=+0.003 在 noise 内, 原证伪结论存疑, 单 seed + 训练中断待 3-seed 复核) + N_cascade e2e (−0.172 严重退化) + IO4 head early-exit (退出率 0%), 后两者仍证实 cascade head 的共享特征路径和横向精化不可解耦; S1 理论分析 (theory_analysis_RF_DPM.md §2) 预测并解释了该现象。
 5. **chromo 数据集架构天花板约 0.75**: Bottleneck 系列 §十 + Direction 系列 §六/七 + 早期失败 §十一, 均未超越 0.746 baseline, 证实 chromo 数据集上架构天花板约 0.75。突破需换数据集 (24obj, A3=0.859) 或换范式 (RF + DPM-Solver++), 这正是论文最终选择。
 6. **box renewal 是核心机制**: no_box_renewal (−0.016) + IO5 RoI cache (box 位移 93-124 px/步) + D3 矛盾 (theory_analysis_RF_DPM.md §3), 三处独立触及 box renewal 机制。box renewal 虽污染 η_str 诊断, 但对最终精度贡献显著, 不可移除。
 7. **负面记录的价值**: 这些证伪方向证明最终设计 (RF + Heun/DPM-Solver++ + Stochastic Coupling + Top-K 剪枝 + 6 cascade head + box renewal) 的每个组件都经过充分验证, 排除了多个看似合理的替代方案, 支撑论文的方法选择合理性。

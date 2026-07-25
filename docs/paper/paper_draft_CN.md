@@ -96,7 +96,7 @@ Rectified Flow (RF) 提供了一种有原则的补救：通过以从噪声到 gr
 
 基于上述场景到方法的映射，我们做出三项贡献，每项都关联到染色体检测的一个具体困难，并在两个公开数据集（Chromosome20240904，1,540 张图像；24 Chromosomes Object，5,000 张图像）上经多 seed 实验、逐类 AP 分析、测试集评估和 FPS 基准验证。
 
-第一个困难是现有检测器在细粒度 24 类染色体图像上的精度天花板，anchor-based 设计在密集排列和组内形态相似性上挣扎。我们的 *KaryoFlow* 检测器通过采用 RF 训练范式应对这一问题，在 24 Chromosomes Object 上相对 Euler 基线取得 $+0.082$ mAP，在原始数据集上相对 DDPM 取得 $+0.017$ mAP。在与 SOTA 检测器的比较中（实验数据见 Section 4.3），KaryoFlow 作为 diffusion-based 检测器已接近 transformer-based SOTA DINO R50（47M 参数）的水平：聚合 mAP 仅差约 $0.63\%$（$0.863$ 对 $0.868$），超越 Cascade R-CNN，并显著优于基于 DDPM 的 DiffusionDet（seed 42 best 上 $+0.060$ mAP，3-seed 均值上 $+0.056$）。虽然 DINO R50 在逐图像配对 Wilcoxon 检验下仍统计显著更优，但 RF 作为 diffusion-based 方法已大幅缩小与 transformer-based SOTA 的差距。详细统计检验见补充材料（暂未纳入正文）。由于 `A0→A1` 的比较同时改变了多个变量（DDPM→RF、Euler→Heun、1→4 步），我们进一步进行 solver×step 解耦消融实验，将 $94\%$ 的增益归因于 RF 范式，仅 $6\%$ 归因于 solver 和步数选择；AdaLN-Zero 单独贡献为零（Appendix B）。实际意义在于精度增益来自范式本身而非 solver 调参，这对临床部署（跨站点和 seed 的可复现性至关重要）意义重大。
+第一个困难是现有检测器在细粒度 24 类染色体图像上的精度天花板，anchor-based 设计在密集排列和组内形态相似性上挣扎。我们的 *KaryoFlow* 检测器通过采用 RF 训练范式应对这一问题，在 24 Chromosomes Object 上相对 Euler 基线取得 $+0.082$ mAP，在原始数据集上相对 DDPM 取得 $+0.017$ mAP。在与 SOTA 检测器的比较中（实验数据见 Section 4.3），KaryoFlow 作为 diffusion-based 检测器已接近 transformer-based SOTA DINO R50（47M 参数）的水平：聚合 mAP 仅差约 $1.0\%$（$0.859$ 对 $0.868$，3-seed 均值），超越 Cascade R-CNN，并显著优于基于 DDPM 的 DiffusionDet（seed 42 best 上 $+0.060$ mAP，3-seed 均值上 $+0.056$）。虽然 DINO R50 在逐图像配对 Wilcoxon 检验下仍统计显著更优，但 RF 作为 diffusion-based 方法已大幅缩小与 transformer-based SOTA 的差距。详细统计检验见补充材料（暂未纳入正文）。由于 `A0→A1` 的比较同时改变了多个变量（DDPM→RF、Euler→Heun、1→4 步），我们进一步进行 solver×step 解耦消融实验，将 $94\%$ 的增益归因于 RF 范式，仅 $6\%$ 归因于 solver 和步数选择；AdaLN-Zero 单独贡献为零（Appendix B）。实际意义在于精度增益来自范式本身而非 solver 调参，这对临床部署（跨站点和 seed 的可复现性至关重要）意义重大。
 
 第二个困难是由低维检测空间中最优传输 (OT) 耦合诱发的训练病理。当预测维度 $d=4$ 且每张图像包含 $K \approx 46$ 个 ground-truth 框时，确定性 OT 分配将耦合多样性坍缩至零——我们将这一失效模式形式化分析为 *OT Diversity Collapse*（上界 $\Delta H \le \log K$，经 Fano 不等式匹配下界，经验上紧致至 $0.03\%$）——这种坍缩损害训练，在数据稀缺时尤为显著。我们提出 *Stochastic Coupling*，从 Sinkhorn transport 矩阵采样分配而非取 argmax，恢复耦合多样性并稳定训练。这一补救措施在临床数据最稀缺处最有价值：在较小的 Dataset 1 上它带来大且高度显著的 mAP 增益（$+0.034$，$p<10^{-120}$），并随数据集规模增大而减弱；在两个数据集上它都将运行内 epoch 级 mAP 振荡降低 $4.6\times$，使基于 EarlyStopping 训练的 checkpoint 选择可靠。
 
@@ -158,6 +158,8 @@ RF 范式给出直线 ODE 路径，但求解该 ODE 的 solver 选择决定了�
 **Heun（二阶 predictor-corrector）。** 通过预测-校正提供二阶精度，每步 2 NFE，4 步共 7 NFE（最后一步退化为 Euler）。详细公式见 Appendix A.4。
 
 **DPM-Solver++（二阶 multistep）。** 我们将 DPM-Solver++ (Lu et al., 2022) 适配到 RF 线性路径的 data-prediction 形式，利用 $\mathbf{x}_0$ 历史在 $t$ 空间中的多项式插值实现 1 NFE/步，4 步共 4 NFE（相比 Heun 的 7 NFE 加速 $1.71\times$）。$t \to 0$ 处的奇点由 $\epsilon$ 截断处理。详细推导见 Appendix A.5。
+
+**Cascade head 与 solver step 的算子分裂。** 我们的架构在每个 solver step 内顺序执行 $H=6$ 个 cascade head（每个做 RoIAlign + DynamicConv + $\hat{x}_0$ 预测），共 $H \times S = 24$ 次前向。形式化地，设 $\mathcal{A}_t$ 为 solver 算子（固定 $v_\theta$ 推进 $t$），$\mathcal{B}_{t,k}$ 为第 $k$ 个 cascade head 算子（固定 $t$ 精化 $x$）。一次完整推理为交替复合 $\mathcal{A}_{t_3} \circ \mathcal{B}_{t_3,H} \circ \cdots \circ \mathcal{B}_{t_0,1}$，构成算子分裂：cascade head 在固定 $t$ 上横向精化 $x_t$（类似 Cascade R-CNN 的级联精化），solver step 在固定精化链上纵向推进 $t$。在 cascade head 序列收敛至不动点 $\mathcal{B}_t^*$ 的假设下，DPM-Solver++ 把复合算子 $\mathcal{B}_t^* \circ \mathcal{A}_t$ 视为单次 $v_\theta$ 评估，故 4 NFE 框架有效——它把横向精化吸收进 $\mathcal{B}_t^*$。受控消融（$H{=}3,S{=}4$ / $H{=}6,S{=}2$ / $H{=}3,S{=}8$，mAP 均为 $0.859$）表明 $H \times S$ 在 mAP 上近似不变，支持该框架的有效性；详细形式化分析见 arXiv companion。
 
 ### 3.3 OT Diversity Collapse 与 Stochastic Coupling
 
@@ -350,7 +352,7 @@ $\epsilon < 1$ 是有害的（在相同增广设置下 mAP −1.3%）；$\epsilo
 
 #### 4.5.2 DPM-Solver++ 步数消融
 
-DPM-Solver++ 在 2 步收敛（mAP 0.863，seed 42）；超过 2 步无收益，证实 RF 轨迹接近直线。我们以 DPM-Solver++ 2M 多步法的离散化误差诊断量 $\eta_{\mathrm{str}} := \lVert D_1\rVert / \lVert \hat{\mathbf{x}}_0\rVert$（$D_1$ 为二阶校正项，$\hat{\mathbf{x}}_0$ 为 data-prediction）量化该现象：理想 RF 的直线 ODE 路径对应恒定速度场，理论上有 $D_1 \to 0$ 即 $\eta_{\mathrm{str}} \to 0$。在 3 个 seed（42/123/789）的 A3 checkpoint 上实测，$\eta_{\mathrm{str}}$ 沿 4 步推理单调下降 $3.43 \to 2.45 \to 1.68$（mean ± std: step1 $3.43 \pm 0.36$, step2 $2.45 \pm 0.24$, step3 $1.68 \pm 0.15$；500 张图像/seed 的 batch 均值）。$\eta_{\mathrm{str}}$ 在第 2 步已降至 step1 的 $71\%$，对应"2 步即收敛"的实证观察：第 3 步及之后的二阶校正贡献随 $\eta_{\mathrm{str}}$ 衰减而趋于零，构成对 RF 直线性 claim 的定量支撑而非仅依赖 mAP 点估计。
+DPM-Solver++ 在 2 步收敛（mAP 0.863，seed 42）；超过 2 步无收益，表明 RF 轨迹曲率在 step 2 后足够小，使 DPM-Solver++ 二阶校正项对 mAP 的边际贡献低于噪声阈值。我们以 DPM-Solver++ 2M 多步法的离散化误差诊断量 $\eta_{\mathrm{str}} := \lVert D_1\rVert / \lVert \hat{\mathbf{x}}_0\rVert$（$D_1$ 为二阶校正项，$\hat{\mathbf{x}}_0$ 为 data-prediction）量化该现象：理想 RF 的直线 ODE 路径对应恒定速度场，理论上有 $D_1 \to 0$ 即 $\eta_{\mathrm{str}} \to 0$（形式化地，命题 R1.1–R1.2：$\eta_{\mathrm{str}} \ge 0$，且理想 1-RectFlow 下恒为零；猜想 R1.3：$\eta_{\mathrm{str}} < \epsilon_{\mathrm{conv}}$ 蕴含 DPM-Solver++ 步数收敛——详见 arXiv companion）。在 3 个 seed（42/123/789）的 A3 checkpoint 上实测，$\eta_{\mathrm{str}}$ 沿 4 步推理单调下降 $3.43 \to 2.45 \to 1.68$（mean ± std: step1 $3.43 \pm 0.36$, step2 $2.45 \pm 0.24$, step3 $1.68 \pm 0.15$；500 张图像/seed 的 batch 均值）。$\eta_{\mathrm{str}}$ 在第 2 步已降至 step1 的 $71\%$，对应"2 步即收敛"的实证观察：第 3 步及之后的二阶校正贡献随 $\eta_{\mathrm{str}}$ 衰减而趋于零，构成对 RF 直线性 claim 的定量支撑而非仅依赖 mAP 点估计。
 
 #### 4.5.3 匹配 NFE 下 DPM-Solver++ 对比 Heun
 
@@ -427,7 +429,7 @@ Top-$K$ 剪枝的有效性取决于每步 NFE：对 Heun（2 NFE/步），剪枝
 
 **K=100 掉点归因的证伪。** 一个自然的猜测是 K=100 相对 K=200 的 mAP 退化（$-0.010$，Table 10）源于更激进的 box renewal 进一步破坏 DPM-Solver++ 多步历史。但实测 K=100 与 K=200 的 $\eta_{\mathrm{str}}$ 几乎相同（step2: 2.18 vs 2.24，step3: 1.54 vs 1.54），均呈 V-shape 且二阶校正量级一致——D3 路径未被进一步破坏。因此 K=100 的掉点主因是 proposal 数量不足（100 个框覆盖 ~46 条染色体 + 重叠冗余时容量紧张），而非 DPM-Solver++ 历史污染。
 
-**Box renewal 对 $\eta_{\mathrm{str}}$ 的整体影响（D3 矛盾的化解）。** 关闭 box renewal 后 $\eta_{\mathrm{str}}$ 整体降至 baseline 的 44%（step1: 1.50 vs 3.43，step3: 0.70 vs 1.68；3-seed 均值），轨迹更接近理想 RF 直线，但 mAP 仅变化 $-0.0003 \pm 0.003$（噪声范围内）。这表明 box renewal 通过污染 $\eta_{\mathrm{str}}$ 量化上"弯曲"了 RF 轨迹，但该弯曲对最终 mAP 影响可忽略——DPM-Solver++ 的二阶校正即便在 renewal 污染下仍提供 §4.5.3 中 $+0.006$ mAP 的精度优势，因 proposals 在每步冷启动后由 RF 速度场重新对齐至直线 ODE 路径。
+**Box renewal 对 $\eta_{\mathrm{str}}$ 的整体影响（D3 矛盾的化解）。** 关闭 box renewal 后 $\eta_{\mathrm{str}}$ 整体降至 baseline 的 44%（step1: 1.50 vs 3.43，step3: 0.70 vs 1.68；3-seed 均值），轨迹更接近理想 RF 直线，但 mAP 仅变化 $-0.0003 \pm 0.003$（噪声范围内）。这表明 box renewal 通过污染 $\eta_{\mathrm{str}}$ 量化上"弯曲"了 RF 轨迹（形式化地，命题 D3.1：renewal 后 $D_1$ 期望范数由 renewal 噪声主导而非轨迹曲率，使 $\eta_{\mathrm{str}}$ 诊断失效——详见 arXiv companion），但该弯曲对最终 mAP 影响可忽略——DPM-Solver++ 的二阶校正即便在 renewal 污染下仍提供 §4.5.3 中 $+0.006$ mAP 的精度优势，因 proposals 在每步冷启动后由 RF 速度场重新对齐至直线 ODE 路径。
 
 ### 5.5 理论适用性与局限
 
