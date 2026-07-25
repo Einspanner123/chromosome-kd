@@ -81,6 +81,11 @@ def main():
     # test_evaluator 不参与 (我们手动迭代, 不调用 runner.test())
     # 但 Runner.from_cfg 要求 test_evaluator 存在, 沿用 base 配置即可
 
+    # Runner.from_cfg 要求 work_dir 存在; 若 A4 config 未定义则给临时目录
+    # (coupling 生成不需要 work_dir, 仅满足 Runner 构建要求)
+    if 'work_dir' not in cfg:
+        cfg.work_dir = 'work_dirs/reflow_couplings_temp'
+
     runner = Runner.from_cfg(cfg)
     runner.load_checkpoint(args.checkpoint)
 
