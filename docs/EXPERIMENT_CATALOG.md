@@ -72,10 +72,10 @@
 | 实验名称 | 数据集 | SwanLab项目 | run_id | 本地路径 | 配置文件 | mAP | 状态 | 分类 |
 |----------|--------|------------|--------|----------|----------|-----|------|------|
 | A0 baseline (Euler 1步) | 24obj | ldmdet-mainline-ablation-24obj | (a0_baseline) | work_dirs/a0_baseline_24obj/ | a0_baseline_24obj.py | 0.774 | ✅ 完成 | 主路线消融 |
-| A1 +RF+Heun | 24obj | ldmdet-mainline-ablation-24obj | (a1_rf_heun) | work_dirs/a1_rf_heun_24obj/ | a1_rf_heun_24obj.py | 0.856 | ✅ 完成 | 主路线消融 |
-| A2 +AdaLN-Zero | 24obj | ldmdet-mainline-ablation-24obj | (a2_rf_heun_adaln) | work_dirs/a2_rf_heun_adaln_24obj/ | a2_rf_heun_adaln_24obj.py | 0.856 | ✅ 完成 | 主路线消融 |
-| A3 +StochOT eps5 | 24obj | ldmdet-mainline-ablation-24obj | (a3_full_sota) | work_dirs/a3_full_sota_24obj/ | a3_full_sota_24obj.py | 0.858 | ✅ 完成 | 主路线消融 |
-| **A4 DPM-Solver++** | 24obj | ldmdet-mainline-ablation-24obj | (a4_dpm_pp) | work_dirs/a4_dpm_pp_24obj/ | a4_dpm_pp_24obj.py | **0.863** (3-seed: 0.859±0.003) | ✅ 完成 | 主路线消融 | <!-- verified: 2026-07-16: seed42=0.863, seed123=0.857@ep62, seed789=0.856@ep72 -->
+| A1 +RF+Heun | 24obj | ldmdet-mainline-ablation-24obj | (a1_rf_heun) | work_dirs/a1_rf_heun_24obj/ | a1_rf_heun_24obj.py | 0.856 val (test: 0.857) | ✅ 完成 | 主路线消融 | <!-- 2026-07-26 test mAP=0.857 (Δ=+0.001) -->
+| A2 +AdaLN-Zero | 24obj | ldmdet-mainline-ablation-24obj | (a2_rf_heun_adaln) | work_dirs/a2_rf_heun_adaln_24obj/ | a2_rf_heun_adaln_24obj.py | 0.856 val | ✅ 完成 | 主路线消融 |
+| A3 +StochOT eps5 | 24obj | ldmdet-mainline-ablation-24obj | (a3_full_sota) | work_dirs/a3_full_sota_24obj/ | a3_full_sota_24obj.py | 0.858 val (test: 0.858) | ✅ 完成 | 主路线消融 | <!-- 2026-07-26 test mAP=0.858 (Δ=0.000); 论文 Table 5/6 中 "A2 + Stoch. Coup." 对应此 checkpoint -->
+| **A4 DPM-Solver++** | 24obj | ldmdet-mainline-ablation-24obj | (a4_dpm_pp) | work_dirs/a4_dpm_pp_24obj/ | a4_dpm_pp_24obj.py | **0.863 val** (3-seed val: 0.859±0.003; **test: 0.859**) | ✅ 完成 | 主路线消融 | <!-- verified: 2026-07-16: seed42=0.863 val, seed123=0.857@ep62 val, seed789=0.856@ep72 val; 2026-07-26 test set mAP=0.859 (Δ=−0.004 vs val seed42 best, 唯一显著偏差; 见 §7.5 C4) -->
 | M1 形态感知 RoI (BF16) | 24obj | ldmdet-mainline-ablation-24obj | (m1_morphology_aware_ws) | ⚠ workstation `100.99.131.26`: work_dirs/m1_morphology_aware_24obj_ws/ | m1_morphology_aware_24obj_ws.py | 0.818 (BF16) | ✅ 已完成 (BF16 误导确认, FP32 复现已闭环; best@ep1 全程 0.811-0.818 波动; Δ=-0.045 vs A4 0.863 BF16 虚假退化; Δ=-0.007 vs A4+BF16 0.825 noise 范围但偏负面; 显存 20888 MiB vs FP32 37506 MiB 降 44%; fuse 权重均匀未学到方向性) | 结构改进 | <!-- 2026-07-23 完成, 2026-07-25 FP32 复现确认 BF16 误导 (见 C22): 30ep BF16 AMP, best 0.818@ep1; A4+BF16=0.825 (BF16 本身掉点 -0.038 已确认); M1 vs A4+BF16=-0.007 (noise 范围但偏负面); per-class 24 类全退化; fuse h_conv/v_conv 完全均匀 (ratio=1.01, std=0) 未学到方向性; 详见 §6.6 C23 -->
 | M1 形态感知 RoI (FP32) | 24obj | ldmdet-mainline-ablation-24obj | (m1_morphology_aware_fp32) | ⚠ ross `100.122.196.41`: work_dirs/m1_morphology_aware_24obj_fp32/ | m1_morphology_aware_24obj_fp32.py | **0.862** (best@ep19) | ✅ 已完成 (30ep FP32, lr=2e-5 2×, 1ep warmup, 显存 37.5GB; last 0.859@ep30; Δ=-0.001 vs A4 0.863 统计上持平; BF16 误导根因确认, h_conv/v_conv FP32 下仍均匀) | 结构改进 | <!-- 2026-07-23 19:14 启动, 2026-07-25 完成: lr=2e-5 iter-based warmup, FP32, 30ep; best 0.862@ep19 (上修自 0.860@ep3 临时值); h_conv/v_conv 在 FP32 下仍均匀 (ratio=1.01-1.02, std=0.0001) → 设计问题非精度问题; 改进方向: 非零初始化 fuse + 显式形态先验注入 + 注意力机制替代方向卷积; 详见 §6.6 C22 -->
 | Head Distillation v2 (H=3←H=6, freeze backbone) | 24obj | ldmdet-head-distill | 9qj0xe5q0dwb6l2d8igwy | ⚠ ross `100.122.196.41`: work_dirs/h3_distill_24obj/ | h3_distill_24obj.py | 0.711 (best@ep96) | ⚠ 已归因 (方案 A 替代): 异常中断@ep99/150, Δ=-0.152 vs A4; **根因**: freeze_backbone=True 致 Student backbone 停在 ImageNet, 而 Teacher head 在 A4 染色体特征上学习 → 特征分布不匹配, 学习缓慢; loss_distill≈0.033 稳定但 mAP 停滞 0.71; 方案 A (解冻 backbone + A4 权重加载) 已启动替代 | 蒸馏 | <!-- 2026-07-24 01:03 启动, 2026-07-25 异常中断@ep99; 根因: backbone 冻结致特征不匹配; 方案 A 替代见下行; 详见 §6.6 C26 -->
@@ -96,11 +96,11 @@
 
 | 实验名称 | SwanLab项目 | run_id | 本地路径 | 配置文件 | mAP | 状态 | 分类 |
 |----------|------------|--------|----------|----------|-----|------|------|
-| RTMDet-L | chromosome-kd-benchmark-24obj | — | work_dirs/baselines/rtmdet_l_24obj/ | benchmark_24obj/rtmdet_l.py | **0.863** | ✅ | 基线对比 | <!-- verified: 2026-07-26: 修订 0.869→0.863 (本地 scalars.json max=0.863, ep85 best; 0.869 为旧值错误, 见 §6.7 C11); best@ep116 在 ross 服务器待核实 -->
-| DINO R50 (4scale) | chromosome-kd-benchmark-24obj | (dino-r50-4scale) | ⚠ 无本地目录 (仅 SwanLab) | benchmark_24obj/dino_r50.py | 0.868 | ⚠ CRASHED | 基线对比 | <!-- verified: 2026-07-16: swanlab_export.json 确认 0.868 (count=93); work_dirs/baselines/ 无 dino_r50_24obj/ -->
-| Cascade R-CNN R50 | chromosome-kd-benchmark-24obj | (cascade-rcnn-r50) | work_dirs/baselines/ | benchmark_24obj/cascade_rcnn_r50.py | 0.854 | ✅ | 基线对比 | <!-- verified: 2026-07-16: swanlab_export.json 确认 0.854 (count=102); 无本地 scalars.json -->
-| YOLOX-S | chromosome-kd-benchmark-24obj | (yolox-s) | work_dirs/baselines/ | benchmark_24obj/yolox_s.py | 0.796 | ✅ | 基线对比 | <!-- verified: 2026-07-16: swanlab_export.json 确认 0.796 (count=150); 无本地 scalars.json -->
-| DiffusionDet | chromosome-kd-benchmark-24obj | (benchmark_diffusiondet) | work_dirs/baselines/ | benchmark_24obj/diffusiondet_ddpm.py | 0.787 | ⚠ CRASHED | 基线对比 | <!-- verified: 2026-07-16: swanlab_export.json 确认 0.787 (count=54); 无本地 scalars.json -->
+| RTMDet-L | chromosome-kd-benchmark-24obj | — | work_dirs/baselines/rtmdet_l_24obj/ | benchmark_24obj/rtmdet_l.py | **0.863 val** | ✅ | 基线对比 | <!-- verified: 2026-07-26: 修订 0.869→0.863 (本地 scalars.json max=0.863, ep85 best; 0.869 为旧值错误, 见 §6.7 C11); best@ep116 在 ross 服务器待核实; test 未评估 (RTMDet-L 仅用于 SOTA 对比, 不在 Table 10 FPS 表主列) -->
+| DINO R50 (4scale) | chromosome-kd-benchmark-24obj | (dino-r50-4scale) | ⚠ 无本地目录 (仅 SwanLab) | benchmark_24obj/dino_r50.py | 0.868 val | ⚠ CRASHED | 基线对比 | <!-- verified: 2026-07-16: swanlab_export.json 确认 0.868 (count=93, 训练未完整完成); work_dirs/baselines/ 无 dino_r50_24obj/; test 未评估 -->
+| Cascade R-CNN R50 | chromosome-kd-benchmark-24obj | (cascade-rcnn-r50) | work_dirs/baselines/ | benchmark_24obj/cascade_rcnn_r50.py | 0.854 val (test: 0.853) | ✅ | 基线对比 | <!-- verified: 2026-07-16: swanlab_export.json 确认 0.854 (count=102); 无本地 scalars.json; 2026-07-26 test set mAP=0.853 (Δ=−0.001) -->
+| YOLOX-S | chromosome-kd-benchmark-24obj | (yolox-s) | work_dirs/baselines/ | benchmark_24obj/yolox_s.py | 0.796 val (test: 0.795) | ✅ | 基线对比 | <!-- verified: 2026-07-16: swanlab_export.json 确认 0.796 (count=150); 无本地 scalars.json; 2026-07-26 test set mAP=0.795 (Δ=−0.001) -->
+| DiffusionDet | chromosome-kd-benchmark-24obj | (benchmark_diffusiondet) | work_dirs/baselines/ | benchmark_24obj/diffusiondet_ddpm.py | 0.803 val (test: 0.804) | ⚠ 早期 CRASHED (count=54, 已用 diffusiondet_24obj/ep26 替代) | 基线对比 | <!-- verified: 2026-07-16: swanlab_export.json 早期 CRASHED run 0.787 (count=54); 论文使用 diffusiondet_24obj/best_coco_bbox_mAP_epoch_26.pth (val mAP=0.803); 2026-07-26 test set mAP=0.804 (Δ=+0.001) -->
 
 ### 1.3 24obj 数据集 — 探索性实验 (未进论文/已归档)
 
@@ -468,17 +468,19 @@
 
 ### 3.3 基线对比实验 (24obj)
 
-| 方法 | Backbone | mAP | AP50 | AP75 | 状态 | SwanLab |
-|------|----------|-----|------|------|------|---------|
+| 方法 | Backbone | mAP (val) | AP50 | AP75 | 状态 | SwanLab |
+|------|----------|:---------:|------|------|------|---------|
 | RTMDet-L | CSPNeXt-L | **0.863** | 0.992 | 0.976 | ✅ | chromosome-kd-benchmark-24obj |
 | DINO R50 (4scale) | ResNet-50 | 0.868 | 0.992 | 0.979 | ⚠ CRASHED | chromosome-kd-benchmark-24obj |
 | **A4 DPM-Solver++ (本文)** | ResNet-50 | **0.863** | 0.990 | 0.974 | ✅ | ldmdet-mainline-ablation-24obj |
 | A3 SOTA Heun (本文) | ResNet-50 | 0.858 | 0.990 | 0.973 | ✅ | ldmdet-mainline-ablation-24obj |
 | Cascade R-CNN R50 | ResNet-50 | 0.854 | 0.987 | 0.972 | ✅ | chromosome-kd-benchmark-24obj |
 | YOLOX-S | CSPDarkNet-S | 0.796 | 0.987 | 0.944 | ✅ | chromosome-kd-benchmark-24obj |
-| DiffusionDet | ResNet-50 | 0.787 | 0.970 | 0.928 | ⚠ CRASHED | chromosome-kd-benchmark-24obj |
+| DiffusionDet | ResNet-50 | 0.803 | 0.970 | 0.928 | ⚠ 早期 CRASHED, 已用 ep26 替代 | chromosome-kd-benchmark-24obj |
 
-> 数据来源: `results/swanlab_export.json`。YOLOX-S 论文中修正为 0.796 (原 EXPERIMENT_RESULTS.md 标注 0.803)。
+> 数据来源: `results/swanlab_export.json`。
+> - YOLOX-S 论文中修正为 0.796 (原 EXPERIMENT_RESULTS.md 标注 0.803)。
+> - DiffusionDet 论文中已修正为 0.803 (原 CRASHED run 0.787, count=54; 已用 `work_dirs/baselines/diffusiondet_24obj/best_coco_bbox_mAP_epoch_26.pth` 替代; 2026-07-26 test set mAP=0.804)。
 
 ### 3.4 已完成的补充实验 (2026-07-15/16)
 
@@ -970,19 +972,20 @@ rf_heun_adaln.py (chromo RF+Heun+AdaLN 基线, bs=4)
 
 > 数据来源: `results/benchmark_fps_20260714_231841.{md,json}` + `results/benchmark_fps_20260714_234842.{md,json}` + `results/benchmark_fps_20260715_013222.{md,json}` + `results/benchmark_fps_20260716_091515.json` + `results/benchmark_fps_20260716_100627.json` (baseline)
 > **Baseline 测试参数**: warmup=100, iters=300, CUDA event timing, 512×512, batch=1 (比 A1-A4 的 warmup=10/iters=100 更严谨)
+> **mAP 来源**: val (seed42 best checkpoint), 与 FPS 测量用同一 checkpoint; test mAP 见 §7.5 C4
 
-| 模型 | 采样器 | 步数 | 延迟 (ms) | FPS | mAP |
-|------|--------|:---:|----------:|----:|---:|
-| A1 (RF+Heun) | Heun | 4 | 124.38 ± 3.38 | 8.0 | 0.856 |
-| A3 (SOTA, Heun) | Heun | 4 | 128.35 ± 1.95 | 7.8 | 0.858 |
-| **A4 (DPM-Solver++)** | **DPM++** | **4** | **75.03 ± 0.96** | **13.3** | **0.863** |
-| A4+IO3 K=300 | DPM++ | 4 | 71.27 ± 2.39 | 14.0 | 0.861 |
-| **A4+IO3 K=200** | **DPM++** | **4** | **70.46 ± 2.28** | **14.2** | **0.860** |
-| A4+IO3 K=100 | DPM++ | 4 | 69.71 ± 1.98 | 14.3 | 0.850 |
-| Cascade R-CNN R50 | — | 1 | 20.67 ± 0.48 | 48.4 | 0.854 |
-| YOLOX-S | — | 1 | 10.15 ± 0.41 | 98.5 | 0.796 |
-| DiffusionDet | Euler | 1 | 24.38 ± 1.09 | 41.0 | 0.787 |
-| RTMDet-L | — | — | 33.06 ± 0.80 | 30.3 | 0.863 |
+| 模型 | 采样器 | 步数 | 延迟 (ms) | FPS | mAP (val) | mAP (test) |
+|------|--------|:---:|----------:|----:|:---------:|:----------:|
+| A1 (RF+Heun) | Heun | 4 | 124.38 ± 3.38 | 8.0 | 0.856 | 0.857 |
+| A3 (SOTA, Heun) | Heun | 4 | 128.35 ± 1.95 | 7.8 | 0.858 | 0.858 |
+| **A4 (DPM-Solver++)** | **DPM++** | **4** | **75.03 ± 0.96** | **13.3** | **0.863** | **0.859** |
+| A4+IO3 K=300 | DPM++ | 4 | 71.27 ± 2.39 | 14.0 | 0.861 | 0.860 |
+| **A4+IO3 K=200** | **DPM++** | **4** | **70.46 ± 2.28** | **14.2** | **0.860** | **0.859** |
+| A4+IO3 K=100 | DPM++ | 4 | 69.71 ± 1.98 | 14.3 | 0.850 | 0.847 |
+| Cascade R-CNN R50 | — | 1 | 20.67 ± 0.48 | 48.4 | 0.854 | 0.853 |
+| YOLOX-S | — | 1 | 10.15 ± 0.41 | 98.5 | 0.796 | 0.795 |
+| DiffusionDet | Euler | 1 | 24.38 ± 1.09 | 41.0 | 0.803 | 0.804 |
+| RTMDet-L | — | — | 33.06 ± 0.80 | 30.3 | 0.863 | — |
 
 ### 6.5 零成本推理诊断实验 (work_dirs/diagnosis/)
 
@@ -1140,7 +1143,7 @@ rf_heun_adaln.py (chromo RF+Heun+AdaLN 基线, bs=4)
 | C1: A4 多种子推理 | P0 | 验证主结果 0.863 mAP 跨种子稳定性 | ✅ 完成 | 3-seed mean 0.859±0.003，与 seed 42 单值一致 |
 | C2: 耦合多种子推理 | P0 | 验证 Stochastic Coupling 稳定性声明 | ✅ 完成 | Dataset 1 上 StochOT vs Random +0.0308 mAP (p<1e-120) |
 | C3: 配对显著性检验 | P0 | 关键 mAP 差异的统计检验 | ✅ 完成 | A4 vs A3: Δ=+0.0056, Wilcoxon p=2.54e-07 *** |
-| C4: 测试集评估 | P1 | test split 泛化性 | ✅ 完成 | A4 seed42 test mAP=0.859，与 val 一致 |
+| C4: 测试集评估 | P1 | test split 泛化性 | ✅ 完成 | 9 模型全评估 (2026-07-26); A3 DPM++ test 0.859 (Δ=−0.004 vs val 0.863), 其余 8 模型 Δ ≤ 0.001 |
 | C5: Dataset 1 SOTA 数值核实 | ✅ 已解决 | 论文 A1 段落三数值核实 | ✅ 完成 | 三个数值 (0.753/0.742/0.737) 均有实验依据 |
 | C6: Per-class 多种子稳定性 | P2 | per-class AP 跨种子验证 | ✅ 完成 | Y AP 0.771±0.006，最大 std 0.0060 (Y) |
 | C7: Shift 消融独立推理 | P1 | SG6 shift 消融数据验证 | ✅ 完成 | Δ=−0.001 mAP，与训练 log 一致 |
@@ -1461,14 +1464,38 @@ rf_heun_adaln.py (chromo RF+Heun+AdaLN 基线, bs=4)
 ### 7.5 C4: 测试集评估
 
 > 数据源: C_CLASS_TASK_PLAN.md §10 / C4
-> 配置: A4 (DPM-Solver++ 4-step), seed 42, Dataset 2 test split
+> 配置: 全部 9 个模型 (论文 Table 10 全部行), 各取 seed 42 best checkpoint
+> 评估日期: 2026-07-26
+> 评估脚本: [results/run_test_eval_batch.sh](file:///home/linkst/workspace/projects/chromosome-kd/results/run_test_eval_batch.sh)
+> 完整日志: [results/test_eval_20260726_181932/](file:///home/linkst/workspace/projects/chromosome-kd/results/test_eval_20260726_181932/)
+> 分析报告: [results/test_eval_20260726_181932/ANALYSIS.md](file:///home/linkst/workspace/projects/chromosome-kd/results/test_eval_20260726_181932/ANALYSIS.md)
+
+#### 9 模型 val vs test 完整对照
+
+| 模型 | Val mAP (seed42) | Test mAP | Δ (test−val) | 备注 |
+|------|:---------:|:--------:|:----------:|------|
+| A1 RF+Heun | 0.856 | 0.857 | +0.001 | 稳定 |
+| A2 + Stoch. Coup. | 0.858 | 0.858 |  0.000 | 稳定 |
+| **A3 DPM++** | **0.863** | **0.859** | **−0.004** | 唯一显著下降 |
+| A3+TopK K=300 | 0.861 | 0.860 | −0.001 | 稳定; test 上反超 A3 DPM++ |
+| A3+TopK K=200 | 0.860 | 0.859 | −0.001 | 稳定; test 上与 A3 持平 |
+| A3+TopK K=100 | 0.850 | 0.847 | −0.003 | 稳定; K=100 有害结论 robust |
+| Cascade R-CNN | 0.854 | 0.853 | −0.001 | 稳定 |
+| YOLOX-S | 0.796 | 0.795 | −0.001 | 稳定 |
+| DiffusionDet | 0.803 | 0.804 | +0.001 | 稳定 |
+
+#### A3 DPM++ 详细指标 (val vs test)
 
 | Split | mAP | AP50 | AP75 | AP_S | AP_M | AP_L |
 |-------|------|------|------|------|------|------|
 | val (500 images) | 0.863 | 0.989 | 0.972 | 0.499 | 0.860 | 0.901 |
 | **test** | **0.859** | 0.988 | 0.971 | **0.577** | 0.856 | 0.914 |
 
-**结论**: test split mAP=0.859 与 val mean (0.859±0.003) 完全一致，无过拟合迹象。AP_S point estimate 从 val 的 0.499 摆动到 test 的 0.577（与 main.tex L861-865 一致），反映了小目标 AP_S 的高方差特性（C1 三种子 AP_S std=0.012）。
+**结论**: 9 模型中 8 个 val→test Δ ≤ 0.001, 仅 A3 DPM++ 有 −0.004 偏差 (best-checkpoint ep117 对 val 轻微过拟合)。test mAP=0.859 与 val 3-seed mean (0.859±0.003) 完全一致，无系统性过拟合。AP_S point estimate 从 val 的 0.499 摆动到 test 的 0.577（与 main.tex L861-865 一致），反映了小目标 AP_S 的高方差特性（C1 三种子 AP_S std=0.012）。Top-K 剪枝叙事增强: K=300 test 0.860 ≥ A3 0.859, K=200 test 0.859 = A3 0.859 (完全 free)。
+
+**配置文件修复记录**:
+- Cascade R-CNN: 创建 [cascade_rcnn_r50_test_eval.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/configs/baselines/benchmark_24obj/cascade_rcnn_r50_test_eval.py) 修复路径双拼接问题
+- YOLOX-S: 创建 [yolox_s_test_eval.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/configs/baselines/benchmark_24obj/yolox_s_test_eval.py) 移除 EMAHook (test 模式下 ema_model 未初始化; best checkpoint 已含 EMA 权重)
 
 ### 7.6 C7: Shift 消融独立推理验证
 
