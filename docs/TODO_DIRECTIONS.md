@@ -3,10 +3,10 @@
 > 本文档梳理 KaryoFlow (染色体检测论文, 目标 TMI 期刊) 所有进行中或待启动的研究方向。
 > 这些方向部分有代码就绪、配置就绪或实验已在运行, 部分仅有理论框架。
 > 每个方向附 **可靠数据源地址** (本地服务器路径 / SwanLab project / config 路径)。
-> 更新时间: 2026-07-25 (ReFlow 代码就绪 + coupling 生成中; Head Distill Plan A 训练中)
+> 更新时间: 2026-07-27 (ReFlow 当前run失败+重试中; Head Distillation 完成 → LINEAGE §十五)
 >
 > 📌 **关联文档**:
-> - [docs/EXPERIMENT_LINEAGE.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md) (主路线实验脉络, A0-A4 主路线消融已完成, 方向 A/D 已迁入)
+> - [docs/EXPERIMENT_LINEAGE.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md) (主路线实验脉络, 已完成方向)
 > - [docs/FALSIFIED_DIRECTIONS.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/FALSIFIED_DIRECTIONS.md) (已证伪方向归档)
 > - [docs/EXPERIMENT_CATALOG.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_CATALOG.md) (实验数据索引)
 > - [docs/paper/paper_draft_CN.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/paper/paper_draft_CN.md) (论文草稿, §6 结论与未来工作)
@@ -15,6 +15,8 @@
 > ⚠ **状态约定**: 🔄 运行中 / ⛔ 待启动 / ✓ 已完成 / 🔴 已证伪
 >
 > 📋 **文档流转规则**: 方向完成后, 有效→迁入 EXPERIMENT_LINEAGE.md; 证伪→迁入 FALSIFIED_DIRECTIONS.md; 本文档仅保留 🔄进行中 + ⛔待启动 + 边际待验证方向。
+>
+> 📝 **命名约定** (2026-07-26): 本文档为研究规划用途, **保留内部实验代号** (24obj / A0-A4 / IO3 / StochOT 等) 以便与 SwanLab run_id、配置文件路径、work_dirs 目录直接对应。正式命名映射见 EXPERIMENT_LINEAGE.md 头部命名约定块。方向迁入 LINEAGE/FALSIFIED 时会自动转换为正式名。
 
 ## 〇、方向索引与状态汇总
 
@@ -30,8 +32,8 @@
 | **D1 诊断** | RoI 空间信息消融 (7×7 vs 空间抹平) | ✓ 完成 (ΔmAP=-0.854 灾难性崩溃, 证实空间编码至关重要) | ~~高~~ | (诊断无 SwanLab) |
 | **M1** | 形态感知 RoI 编码器 (零初始化残差增强) | ✓ FP32 复现完成 (best 0.862@ep19, Δ=-0.001 与 A4 持平, BF16 误导确认; h_conv/v_conv FP32 下仍均匀 → 设计问题非精度问题, 待 M1-v2 改进) | ~~高~~ | `ldmdet-mainline-ablation-24obj` |
 | **M4** | 级联头角色分化 (损失权重衰减) | ⛔ 待启动 (D3 诊断支持, 零代码改动) | 中-高 | (待创建) |
-| **ReFlow (Standard MSE)** | 基于 Coupling 变换的 2-Rectification | 🔄 代码就绪 + coupling 生成中 (workstation A5000, 3500 图 A4 推理); 代码 commit `66edac84`+`9de633dc`, 36 单元测试通过; 见 [proposals](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/REFLOW_HEAD_DISTILL_IMPL_PLAN.md) | **高** | `ldmdet-reflow` (`reflow_standard`) |
-| **Head Distillation** | 少 Head (3) 蒸馏多 Head (6) | 🔄 方案 A 训练中 (ross A6000, ep7/150, **best 0.854@ep4** 接近 A4 baseline 0.863, 方案 A 有效修复特征不匹配); v2 异常中断 best 0.711 已归因 (backbone 冻结致特征分布不匹配) | **高** | `ldmdet-head-distill` |
+| **ReFlow (Standard MSE)** | 基于 Coupling 变换的 2-Rectification | 🔄 **重试中** (当前run失败 best 0.646@ep42, 配置Bug缺失load_from+方法风险mAP_75崩塌, → [FALSIFIED §十四](file:///home/linkst/workspace/projects/chromosome-kd/docs/FALSIFIED_DIRECTIONS.md); 重试配置: load_from+A4+lr=5e-5+150ep, 关键判据 mAP_75 是否仍崩塌) | **高** | `ldmdet-reflow` (`reflow_standard`) |
+| **Head Distillation** | 少 Head (3) 蒸馏多 Head (6) | ✅ **完成** (best 0.860@ep10 early stop@ep40, Δ=-0.003 vs A4 0.863 在 noise 内, NFE 24→12 加速 2x, → [LINEAGE §十五](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)); 失败配置 ⛔ 证伪 (freeze_backbone=True, → [FALSIFIED §十三](file:///home/linkst/workspace/projects/chromosome-kd/docs/FALSIFIED_DIRECTIONS.md)) | ~~高~~ | `ldmdet-head-distill` |
 | 跨数据集扩展 | OT Collapse 普遍性 claim 验证 | ⛔ 纯理论推导 | 中 (最高级目标) | — |
 | SC-RF | 自条件化 RF | 🔄 运行中 (待评估) | 待评估 | `ldmdet-breakthrough` |
 | VGAR | Velocity-Guided Adaptive Renewal | ⛔ 待系统评估 | 中 | `ldmdet-mainline-ablation-24obj` |
@@ -427,7 +429,9 @@ seed 42 ✓ 已完成 (早停@ep148, best 0.859@ep118):
 
 ## 八、ReFlow (Standard MSE 版)：基于 Coupling 变换的 2-Rectification
 
-> ⛔ 待启动 (代码设计中)。理论依据: [Rectified Flow 主论文 §4](https://arxiv.org/abs/2209.03003), [Straightness of RF (2410.14949)](https://arxiv.org/abs/2410.14949)
+> 🔄 **重试中** (2026-07-27): 当前run失败 best 0.646@ep42 (配置Bug缺失load_from+方法风险mAP_75崩塌 0.733→0.543), → [FALSIFIED §十四](file:///home/linkst/workspace/projects/chromosome-kd/docs/FALSIFIED_DIRECTIONS.md); 重试配置: load_from+A4+lr=5e-5+150ep, 关键判据 mAP_75 是否仍崩塌
+> ⚠ **数据修正**: 用户记忆 "best 0.542@ep50" 错误, 实际 best 0.646@ep42; "已证伪 velocity loss 版 0.739" 标签错误, 0.739 来自 nonlinear_trajectory (非 velocity loss), 真正 h_velocity_loss best=0.856
+> 理论依据: [Rectified Flow 主论文 §4](https://arxiv.org/abs/2209.03003), [Straightness of RF (2410.14949)](https://arxiv.org/abs/2410.14949)
 > **重要声明**: 此为全新方法，与 2023-2024 年已证伪的 ReFlow (velocity loss 版) 有本质区别，详见下方"与已证伪 ReFlow 的关键差异"
 
 ### 核心目标
@@ -510,8 +514,10 @@ $$\mathcal{L}_{\text{total}} = \mathbb{E}_{(x_0, x_1) \sim p_0(x_0)p_1(x_1)} \le
 
 ## 九、Head Distillation：少 Head (3) 蒸馏多 Head (6)
 
-> ⚠ v2 异常中断@ep99/150 (2026-07-25 确认)。理论依据: 与 §八 ReFlow 的数学同构性, S1 的 H×S 理论分析
-> v2 配置: H=3←H=6 Teacher, λ=0.05, freeze backbone, bs=2, 150ep, 见 [proposals](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/REFLOW_HEAD_DISTILL_IMPL_PLAN.md)
+> ✅ **完成** (2026-07-27 归档): best 0.860@ep10 (early stop@ep40), Δ=-0.003 vs A4 0.863 在 noise 内, NFE 24→12 加速 2x, → [LINEAGE §十五](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)
+> ⛔ **失败配置证伪** (2026-07-27 归档): 配置Bug freeze_backbone=True 致特征分布不匹配, best 0.717, → [FALSIFIED §十三](file:///home/linkst/workspace/projects/chromosome-kd/docs/FALSIFIED_DIRECTIONS.md)
+> 理论依据: 与 §八 ReFlow 的数学同构性, S1 的 H×S 理论分析
+> 失败配置: H=3←H=6 Teacher, λ=0.05, freeze backbone, bs=2, 150ep, 见 [proposals](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/REFLOW_HEAD_DISTILL_IMPL_PLAN.md)
 
 ### 核心目标
 
