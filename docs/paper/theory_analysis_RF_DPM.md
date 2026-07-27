@@ -351,11 +351,12 @@ R1 与 D3 的实验仅需推理时改动，无需重训，可在 1–2 天内完
 
 ## 6. 总结
 
-四个方向（R1+S1+D3+R3）合计约 1.4 页增量，与 TMI 10 页约束兼容。**R1 和 D3 已完成 3 seed 实验验证**，核心价值：
+四个方向（R1+S1+D3+R3）已纳入 paper_draft_CN.md 主文（2026-07-27 合并）：
 
-- **R1（已验证）**：把"2 步收敛"从经验观察提升为可量化结论——$\eta_{\text{str}}$ 单调递减 51-53%（3 seed 稳定），step 3 校正贡献已低于噪声阈值。修正了"RF 轨迹接近直线"的 claim（实际 $\eta_{\text{str}} \in [0.7, 1.5]$ 非零，但曲率已足够小）。
-- **S1（纯理论）**：形式化 cascade head × solver step 的解耦关系，解释 24 NFE 与 4 NFE 框架的相容性，预防审稿人对架构冗余的质疑。
-- **D3（已验证，部分证伪）**：揭示 box_renewal 与 DPM-Solver++ 的隐含矛盾——renewal 使 $\eta_{\text{str}}$ 虚高 56-58% 但 mAP 仅 -0.0003。**D3 对 K=100 掉点的解释被实验证伪**（K=100/K=200 的 $\eta_{\text{str}}$ 几乎相同），掉点主因仍是 proposal 数量不足。新发现：Top-K reset 改变 $\eta_{\text{str}}$ 模式（单调递减 → V 型）。
+- **R1 → §4.5.2 + Appendix A.6**：$\eta_{\mathrm{str}}$ 定义作为命题 4 正式纳入；Figure 5 描述已添加（四子图：baseline/renewal-off/TopK/K100vsK200）；实验数据完整纳入正文。
+- **S1 → §3.2 末段**：cascade head × solver step 的算子分裂已写入正文，含 H×S 消融结果。
+- **D3 → §5.4**：Top-K 剪枝与 DPM-Solver++ 交互、K=100 证伪、renewal 对 $\eta_{\mathrm{str}}$ 影响均已纳入。
+- **R3 → §5.3 新增段落**：x0-prediction vs v-prediction 的防御性分析，含低维+偏移调度下的选择理由。
 - **R3（纯理论）**：预防审稿人对"x0 vs v-prediction"的质疑，强调设置依赖性而非绝对优劣。
 
 四个方向均不重复 Adaptive Step–RoI Feature Cache / Flow Matching Detection / Cascade Head Count E2E 的失败模式：R1 是观测非决策，S1 是描述性分析非重训，D3 是诊断非新模块，R3 是解释非替换。

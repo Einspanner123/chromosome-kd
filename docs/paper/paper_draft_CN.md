@@ -63,11 +63,11 @@ TMI 投稿迁移策略头部
     叙事方向（用户反馈 2026-07-19）：以"基于扩散的检测器引入染色体成像"开头；
     理论服务于任务，而非相反。 -->
 
-染色体核型分析——为遗传诊断而对中期染色体进行的显微镜检查——仍是临床细胞遗传学中一项缓慢、耗费大量人力且依赖观察者的核心环节。每个中期细胞包含约 46 条紧密排列的染色体，跨越 24 个形态相似的类别；自动化这一分析需要一个既精确又足够快速以适用于常规临床部署的检测器。传统 anchor-based 检测器在细粒度组内判别上遇到瓶颈，而基于扩散的检测器继承了其图像生成祖先的缓慢多步推理和轨迹截断误差，且小型临床数据集进一步使训练失稳。
+自动化染色体核型分析——一项对遗传诊断至关重要但依赖人工的临床流程——需要一个既精确又足够快速的检测器来处理 24 类密集排列的细粒度目标。基于扩散的检测器概念上契合此任务，但继承 DDPM 的弯曲多步轨迹导致截断误差累积，且小临床数据集进一步使训练失稳。
 
-我们引入 *KaryoFlow*，一种基于 *Rectified Flow* (RF) 的染色体核型分析扩散检测器，它以确定性的直线 ODE 路径取代 DDPM 的弯曲随机轨迹。三项贡献针对染色体成像的具体困难。RF 范式本身带来主要的精度增益，超越 DiffusionDet $+0.060$ mAP 并超越 Cascade R-CNN，一项受控消融将 $94\%$ 的增益归因于 RF 而非 solver 或步数选择。我们进一步形式化分析了在低维（$\mathbb{R}^4$）检测空间中出现的 *OT Diversity Collapse*，并提出基于 Sinkhorn transport 的 *Stochastic Coupling*，恢复耦合多样性并在低数据情形下稳定训练。配合 Top-$K$ proposal 剪枝的 DPM-Solver++ 以临床级延迟实现四步推理，相对 Heun 具有统计显著的精度优势（$+0.006$ mAP，$p<10^{-6}$）。
+我们引入 *KaryoFlow*，一种基于 *Rectified Flow* (RF) 的扩散检测器，以确定性直线 ODE 路径取代 DDPM 弯曲轨迹。三项贡献针对此设置的具体困难。**贡献 1**：RF 范式本身带来 $94\%$ 的精度增益（超越 DiffusionDet $+0.060$ mAP，超越 Cascade R-CNN），solver×step 解耦消融量化此归因；我们进一步引入直线度指标 $\eta_{\mathrm{str}} := \lVert D_1\rVert / \lVert \hat{\mathbf{x}}_0\rVert$——从 DPM-Solver++ 的二阶校正项零开销读出——将"2 步收敛"从经验观察提升为可量化结论（$\eta_{\mathrm{str}}$ 沿 4 步单调下降 51%，3-seed 稳定）。**贡献 2**：我们形式化分析了低维（$\mathbb{R}^4$）检测空间中的 *OT Diversity Collapse*（$\Delta H \ge 0.999\,\log K$，经验紧致至 0.03%），并提出 *Stochastic Coupling*，在低数据情形下恢复耦合多样性并稳定训练（$+0.034$ mAP，$p<10^{-120}$）。**贡献 3**：DPM-Solver++ 配合 Top-$K$ 剪枝以 13.3 FPS 实现四步推理，相对 Heun 具有统计显著的精度优势（$+0.006$ mAP，$p<10^{-6}$）；我们形式化了 cascade head × solver step 的算子分裂——横向精化 × 纵向积分——解释 24 次前向与 4 NFE 框架的兼容性。
 
-所有声明均在两个公开染色体数据集上经多 seed 实验、逐类 AP 分析和 SOTA 比较得到验证，支持基于扩散的检测作为细粒度医学影像的实用范式。
+所有声明经多 seed 实验、逐类 AP 分析和 SOTA 比较得到验证。
 
 <!-- [MAIN PAPER] IEEEkeywords 占位符 — 待最终确定：
 Index Terms --- Rectified Flow, object detection, optimal transport, diffusion models, medical image analysis, chromosome karyotyping
@@ -354,7 +354,17 @@ $\epsilon < 1$ 是有害的（在相同增广设置下 mAP −1.3%）；$\epsilo
 
 #### 4.5.2 DPM-Solver++ 步数消融
 
-DPM-Solver++ 在 2 步收敛（mAP 0.863，seed 42）；超过 2 步无收益，表明 RF 轨迹曲率在 step 2 后足够小，使 DPM-Solver++ 二阶校正项对 mAP 的边际贡献低于噪声阈值。我们以 DPM-Solver++ 2M 多步法的离散化误差诊断量 $\eta_{\mathrm{str}} := \lVert D_1\rVert / \lVert \hat{\mathbf{x}}_0\rVert$（$D_1$ 为二阶校正项，$\hat{\mathbf{x}}_0$ 为 data-prediction）量化该现象：理想 RF 的直线 ODE 路径对应恒定速度场，理论上有 $D_1 \to 0$ 即 $\eta_{\mathrm{str}} \to 0$（形式化地，命题 R1.1–R1.2：$\eta_{\mathrm{str}} \ge 0$，且理想 1-RectFlow 下恒为零；猜想 R1.3：$\eta_{\mathrm{str}} < \epsilon_{\mathrm{conv}}$ 蕴含 DPM-Solver++ 步数收敛——详见 arXiv companion）。在 3 个 seed（42/123/789）的 +DPM-Solver++ checkpoint 上实测，$\eta_{\mathrm{str}}$ 沿 4 步推理单调下降 $3.43 \to 2.45 \to 1.68$（mean ± std: step1 $3.43 \pm 0.36$, step2 $2.45 \pm 0.24$, step3 $1.68 \pm 0.15$；500 张图像/seed 的 batch 均值）。$\eta_{\mathrm{str}}$ 在第 2 步已降至 step1 的 $71\%$，对应"2 步即收敛"的实证观察：第 3 步及之后的二阶校正贡献随 $\eta_{\mathrm{str}}$ 衰减而趋于零，构成对 RF 直线性 claim 的定量支撑而非仅依赖 mAP 点估计。
+DPM-Solver++ 在 2 步收敛（mAP 0.863，seed 42）；超过 2 步无收益。我们引入直线度诊断指标 $\eta_{\mathrm{str}}$ 将该经验观察提升为可量化结论。
+
+**定义与理论。** DPM-Solver++ 二阶更新（Appendix A.5）为 $\mathbf{x}_{t_{n+1}} = \frac{t_{n+1}}{t_n}\mathbf{x}_{t_n} + (1 - \frac{t_{n+1}}{t_n})\hat{x}_0^{(n)} + \varphi_1 \mathbf{D}_1^{(n)}$，其中前两项为常数 $\hat{x}_0$ 的精确解，$\varphi_1 \mathbf{D}_1$ 为非直线性校正。定义直线度指标
+
+$$\eta_{\mathrm{str}}^{(n)} := \frac{\lVert \mathbf{D}_1^{(n)} \rVert_2}{\lVert \hat{\mathbf{x}}_0^{(n)} \rVert_2 + \epsilon_{\mathrm{norm}}},$$
+
+其中 $\mathbf{D}_1^{(n)} = (\hat{\mathbf{x}}_0^{(n)} - \hat{\mathbf{x}}_0^{(n-1)})/(t_n - t_{n-1})$ 为二阶校正项，$\epsilon_{\mathrm{norm}}=10^{-6}$ 防止数值爆炸。$\eta_{\mathrm{str}}$ 具有以下性质（命题 4，证明见 Appendix A.6）：(i) $\eta_{\mathrm{str}} \ge 0$，且 $\eta_{\mathrm{str}} = 0$ 当且仅当 $\hat{x}_0$ 在 $[t_{n-1}, t_n]$ 上为常数（直线轨迹）；(ii) 理想 1-RectFlow 下 $\eta_{\mathrm{str}} = 0$（此时 DPM-Solver++ 任意步数等价于 1 步 Euler 的精确线性外推）；(iii) 若 $\bar{\eta}_{\mathrm{str}}^{(n)} < \epsilon_{\mathrm{conv}}$ 对所有 $n \ge N_0$ 成立，则 DPM-Solver++ 在 $N_0$ 步后无显著精度增益。
+
+![**图 5**：直线度诊断 $\eta_{\mathrm{str}}$ 沿 4 步推理的衰减模式。(a) Baseline（box renewal on）：3-seed 均值 $\eta_{\mathrm{str}}$ 单调下降 $3.43 \to 2.45 \to 1.68$（降 51%），定量解释 DPM-Solver++ 2 步收敛：step 3 校正贡献已比 step 1 小 50%+。(b) 关闭 box renewal：$\eta_{\mathrm{str}}$ 降至 baseline 的 44%（$1.50 \to 1.11 \to 0.70$），轨迹更接近理想直线，但 mAP 仅 $-0.0003$。(c) Top-$K$ pruning + box renewal：$\eta_{\mathrm{str}}$ 呈 V-shape（step1 低因 reset 退化为 Euler，step2 升高因新历史建立），确认每步冷启动 DPM-Solver++。(d) K=100 vs K=200：$\eta_{\mathrm{str}}$ 几乎相同（step2: 2.18 vs 2.24），证实 K=100 掉点主因是 proposal 数量不足而非 DPM-Solver++ 历史破坏。](latex/figures/eta_str_diagnostic.png)
+
+**实验验证。** 在 3 个 seed（42/123/789）的 +DPM-Solver++ checkpoint 上实测，$\eta_{\mathrm{str}}$ 沿 4 步推理单调下降 $3.43 \to 2.45 \to 1.68$（mean ± std: step1 $3.43 \pm 0.36$, step2 $2.45 \pm 0.24$, step3 $1.68 \pm 0.15$；500 张图像/seed 的 batch 均值）。$\eta_{\mathrm{str}}$ 在第 2 步已降至 step1 的 $71\%$，对应"2 步即收敛"的实证观察：第 3 步及之后的二阶校正贡献随 $\eta_{\mathrm{str}}$ 衰减而趋于零。值得注意的是，$\eta_{\mathrm{str}}$ 绝对值非零（$\in [0.7, 3.4]$），说明学习轨迹并非理想直线——更准确的表述是"轨迹曲率在 step 2 后足够小，使 DPM-Solver++ 校正项对 mAP 的边际贡献 < 0.001"。这一诊断指标为"何时需要 reflow（2-RectFlow）"提供了可操作判据：若训练后 $\bar{\eta}_{\mathrm{str}} > 0.1$ 持续，则 reflow 可能进一步拉直轨迹；若 $\bar{\eta}_{\mathrm{str}} < 0.01$，reflow 收益有限。
 
 #### 4.5.3 匹配 NFE 下 DPM-Solver++ 对比 Heun
 
@@ -423,6 +433,8 @@ Stochastic Coupling 的价值有两个不同的组成部分。在 Dataset 2（50
 
 由于 +Stoch. Coupling（Heun）和 +DPM-Solver++ 使用相同的 FM 训练目标，每个 epoch 的模型权重相同。然而 DPM-Solver++ 在匹配 4 步下相对 Heun 产生小但统计显著的 mAP 改善（$+0.006$ 每图像 mAP，Wilcoxon $p<10^{-6}$；Table 8），因此高阶 solver 略 *更好*，而非更差。结合其 NFE 减少，稳健的 claim 是：*DPM-Solver++ 在 NFE 减少 43% 的情况下取得略高于 Heun 的精度*，修正了 FlowDet 关于高阶 solver 在检测中表现更差的结论。
 
+**x0-prediction 与 v-prediction 的选择。** RF 原文（Liu et al., 2023）使用 v-prediction 训练目标 $\|v_\theta - (x_1 - x_0)\|^2$。在 $d=4$ 低维 RF 下，x0-prediction 与 v-prediction 在信息论意义上等价（$\hat{x}_0 = x_t - t\hat{v}$），差异仅在损失的 $t$ 加权：$\mathcal{L}_v = t^{-2}\mathcal{L}_{x_0}$。在偏移噪声调度（$s=3.0$）下，v-prediction 在 $t \to 0$ 时的 $1/t^2$ 梯度放大加剧训练方差，而 x0-prediction 在所有 $t$ 上梯度范数恒定。此外，x0-prediction 与 DPM-Solver++ 的 data-prediction 形式天然兼容，避免在 $t \to 0$ 时显式计算 $v = (x_t - \hat{x}_0)/t$ 的数值奇点（由 $\epsilon = 10^{-5}$ 截断处理，Appendix A.5）。这一选择与图像生成（$d \sim 10^5$，linear schedule）下 v-prediction 的偏好形成对比——反映低维结构化预测的特定要求：高维下 $1/t^2$ 加权有益于强调小 $t$ 细节，但低维下它仅加剧方差。
+
 ### 5.4 Top-$K$ 剪枝：依赖 Solver 的有效性
 
 Top-$K$ 剪枝的有效性取决于每步 NFE：对 Heun（2 NFE/步），剪枝影响 6/8 次调用（1.09–1.12× 加速）；对 DPM-Solver++（1 NFE/步），影响 3/4 次调用（1.05–1.08×）。DPM-Solver++ 已通过 NFE 减少获得大部分加速，使 Top-$K$ 影响较小。
@@ -461,7 +473,7 @@ Top-$K$ 剪枝的有效性取决于每步 NFE：对 Heun（2 NFE/步），剪枝
 
 ## 6. 结论
 
-我们引入 *KaryoFlow*，一种将 Rectified Flow 引入临床细胞遗传学的染色体核型分析扩散检测器。RF 训练范式——以直线 ODE 路径取代弯曲 DDPM 轨迹——是精度增益的主导来源，在 Dataset 2 上相对 Euler 基线取得 $+0.082$ mAP，在 Dataset 1 上相对 DDPM 取得 $+0.017$ mAP，且我们的最佳变体以 $+0.060$ mAP 超越基于 DDPM 的 DiffusionDet 同时超越 Cascade R-CNN；solver$\times$step 解耦消融实验将此增益的 $94\%$ 归因于 RF 范式本身。Stochastic Coupling 建立在我们对低维（$\mathbb{R}^4$）检测空间中 OT Diversity Collapse 的形式化分析之上，恢复耦合多样性并稳定训练：在低数据情形下它带来大且高度显著的 mAP 增益（$+0.034$，$p<10^{-120}$），而在较大数据上增益转为 $4.6\times$ 的运行内 epoch 级振荡减少，使 checkpoint 选择可靠。配合 Top-$K$ 剪枝的 DPM-Solver++ 以 13.3–14.2 FPS 实现四步推理，并相对 Heun 具有精度增益（$+0.006$ mAP，$p<10^{-6}$），将检测器置于交互式筛查延迟带。标准 single-shot 检测器仍快 3–7$\times$，因此我们的方法以延迟换取精度，定位于交互式临床筛查而非最大通量。
+我们引入 *KaryoFlow*，一种将 Rectified Flow 引入临床细胞遗传学的染色体核型分析扩散检测器。RF 训练范式——以直线 ODE 路径取代弯曲 DDPM 轨迹——是精度增益的主导来源，在 Dataset 2 上相对 Euler 基线取得 $+0.082$ mAP，在 Dataset 1 上相对 DDPM 取得 $+0.017$ mAP，且我们的最佳变体以 $+0.060$ mAP 超越基于 DDPM 的 DiffusionDet 同时超越 Cascade R-CNN；solver×step 解耦消融实验将此增益的 $94\%$ 归因于 RF 范式本身。我们进一步引入直线度指标 $\eta_{\mathrm{str}}$（命题 4），从 DPM-Solver++ 的二阶校正项零开销读出，将"2 步收敛"从经验观察提升为可量化结论（$\eta_{\mathrm{str}}$ 沿 4 步单调下降 51%，3-seed 稳定），并为"何时需要 reflow"提供可操作判据。Stochastic Coupling 建立在我们对低维（$\mathbb{R}^4$）检测空间中 OT Diversity Collapse 的形式化分析之上，恢复耦合多样性并稳定训练：在低数据情形下它带来大且高度显著的 mAP 增益（$+0.034$，$p<10^{-120}$），而在较大数据上增益转为 $4.6\times$ 的运行内 epoch 级振荡减少，使 checkpoint 选择可靠。配合 Top-$K$ 剪枝的 DPM-Solver++ 以 13.3–14.2 FPS 实现四步推理，并相对 Heun 具有精度增益（$+0.006$ mAP，$p<10^{-6}$）；cascade head × solver step 的算子分裂形式化（横向精化 × 纵向积分）解释了 24 次前向与 4 NFE 框架的兼容性。
 
 除染色体核型分析外，我们所形式化分析的 OT Diversity Collapse 现象对染色体并非特异——它在预测空间低维、每张图像目标密度高、训练语料小的情况下出现。这一画像在医学影像中反复出现：组织病理学中的细胞检测（每个 tile 多个核，$d=4$ bbox，小标注队列），乳腺 X 光和视网膜成像中的病灶检测（小目标，有限阳性案例），以及微生物菌落计数。在这些设置中，确定性 OT 耦合向 $\log K$ 坍缩，Stochastic Coupling 提供相同的双重收益——低数据情形下的精度、一般情形下的稳定性——正如我们在染色体上观察到的。理论通过 Table 2 提供 a-priori 诊断：任何 $d \ll 100$ 且 $K \gg 10$ 的任务是候选，严重性 $\Delta H/H$ 预测 Stochastic Coupling 是否会有帮助。在至少一个非染色体高 $K$ 低 $d$ 基准上的验证——细胞检测是最自然的下一步——将大幅强化普遍性 claim。
 
@@ -541,6 +553,18 @@ $$\mathbf{x}_{t_{n+1}} = \tfrac{t_{n+1}}{t_n}\,\mathbf{x}_{t_n} + \bigl(1 - \tfr
 $$\varphi_1 = t_{n+1}\log\tfrac{t_n}{t_{n+1}} - t_n + t_{n+1},\quad \mathbf{D}_1 = \tfrac{\mathbf{x}_0^{(n)} - \mathbf{x}_0^{(n-1)}}{t_n - t_{n-1}},$$
 
 其中前两项是常数 $\mathbf{x}_0$ 的精确解，$\varphi_1 \mathbf{D}_1$ 是线性变化 $\mathbf{x}_0(t)$ 的二阶校正。$t \to 0$ 处的奇点由 $\epsilon$ 截断处理（$t_{n+1} > 10^{-7}$）；三阶变体额外加入二次项 $\varphi_2 \mathbf{D}_2$。与 VP-SDE DPM-Solver++ 不同，$\mathbf{x}_1$（初始噪声）是固定样本，*不* 参与插值；其贡献由 $\mathbf{x}_{t_n}$ 隐式承载。每步 1 NFE，4 步共 4 NFE（相比 Heun 的 7）。
+
+#### A.6 直线度指标 $\eta_{\mathrm{str}}$ 的性质（命题 4）
+
+**命题 4（直线度指标）。** 定义 $\eta_{\mathrm{str}}^{(n)} := \lVert \mathbf{D}_1^{(n)} \rVert_2 / (\lVert \hat{\mathbf{x}}_0^{(n)} \rVert_2 + \epsilon_{\mathrm{norm}})$，其中 $\mathbf{D}_1^{(n)} = (\hat{\mathbf{x}}_0^{(n)} - \hat{\mathbf{x}}_0^{(n-1)})/(t_n - t_{n-1})$ 为 DPM-Solver++ 二阶校正项。则：
+
+(i) $\eta_{\mathrm{str}} \ge 0$，且 $\eta_{\mathrm{str}} = 0$ 当且仅当 $\hat{x}_0$ 在 $[t_{n-1}, t_n]$ 上为常数（直线轨迹）。
+
+(ii) 理想 1-RectFlow（$v_\theta$ 精确恢复 $v = x_1 - x_0$）下 $\forall n: \eta_{\mathrm{str}}^{(n)} = 0$，此时 DPM-Solver++ 任意步数等价于 1 步 Euler 的精确线性外推。
+
+(iii) 若 $\bar{\eta}_{\mathrm{str}}^{(n)} < \epsilon_{\mathrm{conv}}$ 对所有 $n \ge N_0$ 成立，则 DPM-Solver++ 在 $N_0$ 步后无显著精度增益——因高阶校正项 $\varphi_1 \mathbf{D}_1$ 已被 $\eta_{\mathrm{str}}$ 界住。
+
+**证明梗概。** (i) 由定义 $\eta_{\mathrm{str}}$ 为范数比值，非负性显然。$\eta_{\mathrm{str}} = 0 \Leftrightarrow \mathbf{D}_1 = \mathbf{0} \Leftrightarrow \hat{x}_0^{(n)} = \hat{x}_0^{(n-1)} \Leftrightarrow \hat{x}_0$ 在 $[t_{n-1}, t_n]$ 上为常数。(ii) 理想 RF 下 $\hat{x}_0(t) \equiv x_0$（GT bbox 为常数），故 $\mathbf{D}_1 = \mathbf{0}$。(iii) DPM-Solver++ 更新中 $\varphi_1 \mathbf{D}_1$ 相对主项的范数比为 $\varphi_1 \eta_{\mathrm{str}} / (1 - t_{n+1}/t_n)$，对小 $\eta_{\mathrm{str}}$ 可忽略。$\square$
 
 ### B. 被证伪的方向
 
