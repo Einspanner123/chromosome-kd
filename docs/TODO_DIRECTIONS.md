@@ -3,7 +3,7 @@
 > 本文档梳理 KaryoFlow (染色体检测论文, 目标 TMI 期刊) 所有进行中或待启动的研究方向。
 > 这些方向部分有代码就绪、配置就绪或实验已在运行, 部分仅有理论框架。
 > 每个方向附 **可靠数据源地址** (本地服务器路径 / SwanLab project / config 路径)。
-> 更新时间: 2026-07-27 (校验+归档: R3 3-seed完成→LINEAGE §八, D3→LINEAGE §六, D1→LINEAGE §十五, M1→LINEAGE §十五, SC-RF→LINEAGE §十五; 全部代号替换为描述性名称; Few-Shot FBM CrossAttn 中断@ep59)
+> 更新时间: 2026-07-28 (ReFlow 重试确认方法本质失败 → FALSIFIED §十四, 从本文档移除; 2026-07-27 校验+归档: R3 3-seed完成→LINEAGE §八, D3→LINEAGE §六, D1→LINEAGE §十五, M1→LINEAGE §十五, SC-RF→LINEAGE §十五; 全部代号替换为描述性名称; Few-Shot FBM CrossAttn 中断@ep59)
 >
 > 📌 **关联文档**:
 > - [docs/EXPERIMENT_LINEAGE.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md) (主路线实验脉络, 已完成方向)
@@ -23,7 +23,6 @@
 | 方向 | 状态 | 优先级 | SwanLab Project |
 |------|------|--------|-----------------|
 | Few-Shot 跨数据集微调 | ⛔ **探索性** (不在当前论文范围, 6/7 源预训练就绪, FBM CrossAttn best 0.857@ep45 中断) | ~~高~~ | `few-shot-benchmark` |
-| ReFlow 2-Rectification | 🔄 **重试中** (当前run失败 best 0.646@ep42, → [FALSIFIED §十四](file:///home/linkst/workspace/projects/chromosome-kd/docs/FALSIFIED_DIRECTIONS.md); 重试关键判据: mAP_75 是否仍崩塌) | **高** | `ldmdet-reflow` |
 | 跨数据集扩展 (OT Collapse 普遍性) | ⛔ **探索性** (纯理论, 不在当前论文范围) | ~~中~~ | — |
 | 速度引导自适应 Renewal | ⛔ 待系统评估 (代码就绪) | 中 | `ldmdet-mainline-ablation-24obj` |
 | Brenier 映射神经化 | ⛔ 未开展 (纯理论, TMI 投稿后) | 低 | — |
@@ -103,92 +102,7 @@
 - 验证论文 §4.3.1 "Dataset 1 上 KaryoFlow 超过 RTMDet-L 和 DINO R50" 的低数据优势
 - 若 FBM CrossAttn 源预训练成功 (>0.85), 可作为 LDMDet 变体参与对比
 
-## 二、ReFlow (Standard MSE 版)：基于 Coupling 变换的 2-Rectification
-
-> 🔄 **重试中** (2026-07-27): 当前run失败 best 0.646@ep42 (配置Bug缺失load_from+方法风险mAP_75崩塌 0.733→0.543), → [FALSIFIED §十四](file:///home/linkst/workspace/projects/chromosome-kd/docs/FALSIFIED_DIRECTIONS.md); 重试配置: load_from+A4+lr=5e-5+150ep, 关键判据 mAP_75 是否仍崩塌
-> ⚠ **数据修正**: 用户记忆 "best 0.542@ep50" 错误, 实际 best 0.646@ep42; "已证伪 velocity loss 版 0.739" 标签错误, 0.739 来自 nonlinear_trajectory (非 velocity loss), 真正 h_velocity_loss best=0.856
-> 理论依据: [Rectified Flow 主论文 §4](https://arxiv.org/abs/2209.03003), [Straightness of RF (2410.14949)](https://arxiv.org/abs/2410.14949)
-> **重要声明**: 此为全新方法，与 2023-2024 年已证伪的 ReFlow (velocity loss 版) 有本质区别，详见下方"与已证伪 ReFlow 的关键差异"
-
-### 核心目标
-
-- 验证 $\eta_{\text{str}} > 0.1$ 时，2-Rectification 是否能有效拉直轨迹
-- 探索减少推理步数的可能性 (4步 → 2步 → 1步)
-- 为 DPM-Solver++ 的有效性提供轨迹层面的理论解释
-
-### 与已证伪 ReFlow (velocity loss 版) 的关键差异
-
-| 方面 | 已证伪 ReFlow (velocity loss 版) | 本 ReFlow (Standard MSE 版) |
-|------|---------------------------------|---------------------------|
-| **损失函数** | 新增 velocity loss: $\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{det}} + \lambda \cdot \mathcal{L}_{\text{vel}}$ | **标准检测损失**: $\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{det}}$ (无 velocity loss) |
-| **梯度冲突** | ✅ 已证实 (cos = −0.104, 86.8% 梯度负相关) | ❌ 预计无 (单一目标函数) |
-| **优化目标** | 两个冲突目标: 速度预测 vs 检测 | 单一目标: 检测精度 |
-| **实验结果** | mAP = 0.739 (chromo), 低于 baseline 0.751 | **未实验过** |
-| **应用阶段** | 2023-2024 年，旧 chromo 数据集 | 2024-2025 年，新 24obj 数据集 |
-
-### 理论依据
-
-- R1 诊断显示 $\eta_{\text{str}} \in [0.7, 1.5]$ 非零 (3-seed 实验)，轨迹并非理想直线
-- **触发条件已满足**: $\eta_{\text{str}} \approx 1.5 > 0.1$，理论上 reflow 可能有收益
-- Rectified Flow 论文 (2023) 证明 2-Rectification 可显著拉直轨迹 ($\gamma_{2,T} \to 0$)
-- [Straightness of RF (2410.14949)](https://arxiv.org/abs/2410.14949) 提供 $\gamma_{2,T}$ 的严格收敛理论
-
-### 方法原理
-
-**Step 1: 生成新 Coupling**
-使用已训练的 1-RF 模型 (A4, mAP=0.863) 对训练集推理，生成新的 coupling 对：
-- 原始 coupling: $(x_0^{\text{GT}}, x_1^{\text{noise}})$
-- 新 coupling: $(x_0^{\text{pred},(2)}, x_1^{\text{noise}})$，其中 $x_0^{\text{pred},(2)} = f_{\theta_A4}(x_1^{\text{noise}}, t=0)$
-
-**Step 2: 用新 Coupling 训练 2-RF**
-- **关键**: 损失函数**不变**，仍然使用标准检测损失
-- 仅替换 coupling 的 $x_0$ 部分 (用模型预测替代原始 GT)
-- 这与 Rectified Flow 论文的标准做法一致
-
-**数学表达式**
-$$\mathcal{L}_{\text{total}} = \mathbb{E}_{(x_0, x_1) \sim p_0(x_0)p_1(x_1)} \left[ \ell_{\text{det}}(\hat{x}_0(x_t, t), x_0^{\text{GT}}) \right]$$
-其中 $x_t = (1-t) \cdot x_0^{\text{pred},(2)} + t \cdot x_1^{\text{noise}}$ (使用新 coupling)
-
-### 实施计划
-
-**Phase 1: 准备 (1-2 天)**
-- [ ] 用 A4 checkpoint (24obj, mAP=0.863) 对训练集推理，生成 $(x_0^{\text{pred},(2)}, x_1^{\text{noise}})$ 对
-- [ ] 保存为 `.npy` 文件，用于后续训练
-
-**Phase 2: 代码实现 (1-2 天)**
-- [ ] 在 `rectified_flow.py` 中添加 `use_reflow_coupling` 参数
-- [ ] reflow 模式下从预生成的 coupling 文件加载 $x_0^{\text{pred},(2)}$
-- [ ] **损失函数不变**: 仍然使用 `criterion(bbox_pred, cls_scores, ...)`
-
-**Phase 3: 验证实验 (3-5 天)**
-- [ ] 1-seed 快速验证 (30 epochs，检查 loss 曲线和 mAP)
-- [ ] 3-seed 完整实验 (150 epochs，与 A4 baseline 对比)
-- [ ] 记录 reflow 前后 $\eta_{\text{str}}$ 变化
-
-**Phase 4: 步数验证 (1-2 天)**
-- [ ] 测试 reflow 后模型在 4/2/1 步推理下的 mAP
-- [ ] 对比 A4 baseline (4步 vs 2步 vs 1步)
-
-### 成功判据
-
-1. ✅ mAP ≥ A4 baseline (0.863, 24obj 数据集)
-2. ✅ $\eta_{\text{str}}$ 显著下降 (例如从 1.5 降至 < 0.5)
-3. ✅ 1-2 步推理 mAP 接近 4 步水平 (减少 NFE)
-
-### 风险与缓解
-
-| 风险 | 缓解策略 |
-|------|---------|
-| **Circular Dependency**: 模型用自己的预测训练自己 | 限制 reflow 训练 epochs (≤ 50)，或混合 reflow coupling 与原始 GT coupling |
-| **Confirmation Bias**: 模型强化自身的错误预测 | 定期在验证集检查，若 mAP 下降立即停止 |
-| **过拟合**: 训练数据分布变化 (模型预测 vs GT) | 使用较低的学习率 (1e-5)，加强正则化 |
-
-### 优先级
-
-- **高** (有 R1 η_str 诊断的内部支撑，理论完备，与已证伪方法有本质区别)
-- 可与 §九 Head Distillation 并行实施
-
-## 三、跨数据集扩展 (最高级目标, 理论推导)
+## 二、跨数据集扩展 (最高级目标, 理论推导)
 
 > 纯理论推导, ⛔ 无实验验证。对应论文 §6 结论与未来工作。
 
@@ -226,7 +140,7 @@ $$\mathcal{L}_{\text{total}} = \mathbb{E}_{(x_0, x_1) \sim p_0(x_0)p_1(x_1)} \le
 - 将大幅强化普遍性 claim
 - 理论通过 Table 2 提供 a-priori 诊断: 严重性 $\Delta H/H$ 预测 Stochastic Coupling 是否会有帮助
 
-## 四、速度引导自适应 Renewal
+## 三、速度引导自适应 Renewal
 
 > 已集成到 head.py, 待系统评估。config: `experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_vgar_24obj.py`
 
@@ -260,7 +174,7 @@ $$\mathcal{L}_{\text{total}} = \mathbb{E}_{(x_0, x_1) \sim p_0(x_0)p_1(x_1)} \le
 - 3 seeds (42/123/789) 重训, 与 A4 baseline 对照
 - 若速度引导自适应 Renewal 显著改善 $\eta_{\text{str}}$ 且 mAP 不退化, 可作为论文新方向纳入
 
-## 五、Brenier 映射神经化 (突破方向, 纯理论)
+## 四、Brenier 映射神经化 (突破方向, 纯理论)
 
 > ⛔ 未开展 (纯理论)。基于 doubao AI 建议 + 最优传输理论。TMI 投稿后考虑。
 > 核心设想: 用 ICNN 参数化 Brenier 势 φ, T*(z) = ∇φ(z) 直接给出从噪声到 bbox 的最优传输映射
@@ -302,7 +216,7 @@ $$\mathcal{L}_{\text{total}} = \mathbb{E}_{(x_0, x_1) \sim p_0(x_0)p_1(x_1)} \le
 
 ---
 
-## 六、级联头角色分化 — ⛔ 待启动 (中-高优先级)
+## 五、级联头角色分化 — ⛔ 待启动 (中-高优先级)
 
 > 详细方案: [STRUCTURAL_IMPROVEMENT_ANALYSIS.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/STRUCTURAL_IMPROVEMENT_ANALYSIS.md)
 
@@ -329,7 +243,6 @@ M1 FP32 null result 已归档至 [LINEAGE §十五](file:///home/linkst/workspac
 | `few-shot-benchmark` | Few-Shot 源预训练 | 🔄 1 中断 (best 0.857@ep45), 6 已完成 | `https://swanlab.cn/@einspanner/few-shot-benchmark/runs/<run_id>` |
 | `ldmdet-mainline-ablation-24obj` | 速度引导自适应 Renewal (a4_vgar) | ⛔ 待启动 | `https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/<run_id>` |
 | (待创建) | 级联头角色分化 | ⛔ 待启动 | 详见 [STRUCTURAL_IMPROVEMENT_ANALYSIS.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/STRUCTURAL_IMPROVEMENT_ANALYSIS.md) |
-| `ldmdet-reflow` | ReFlow 2-Rectification | 🔄 重试中 | `https://swanlab.cn/@einspanner/ldmdet-reflow/runs/<run_id>` |
 
 > SwanLab 用户名: `einspanner` (登录态见 `/home/linkst/.swanlab/.netrc`, api_key 已配置)
 > 目标微调 project (Few-Shot 14 个配置) 待 FBM CrossAttn 源预训练完成后配置
@@ -337,4 +250,4 @@ M1 FP32 null result 已归档至 [LINEAGE §十五](file:///home/linkst/workspac
 <!-- 文档结束。
      更新策略: 当方向状态变化 (如训练启动 / 完成 / 证伪), 更新对应章节的 ⛔/🔄/✓/🔴 标记和 SwanLab run_id。
      方向完成后: 有效→迁入 EXPERIMENT_LINEAGE.md; 证伪→迁入 FALSIFIED_DIRECTIONS.md; 本文档仅保留 🔄进行中 + ⛔待启动。
-     2026-07-27 更新: 删除已归档方向 S1 (→LINEAGE §七), 方向 A (→LINEAGE §九), 方向 C (→LINEAGE §十一), 方向 D (→LINEAGE §十), Head Distillation (→LINEAGE §十五); ReFlow 重试中。 -->
+     2026-07-27 更新: 删除已归档方向 S1 (→LINEAGE §七), 方向 A (→LINEAGE §九), 方向 C (→LINEAGE §十一), 方向 D (→LINEAGE §十), Head Distillation (→LINEAGE §十五); ReFlow 重试确认方法本质失败 → FALSIFIED §十四。 -->

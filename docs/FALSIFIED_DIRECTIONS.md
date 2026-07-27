@@ -640,11 +640,11 @@ freeze_backbone=True
 
 ---
 
-## 十四、ReFlow Standard MSE 当前run (配置Bug+方法风险, 待重试定论)
+## 十四、ReFlow Standard MSE (方法本质失败, 重试确认)
 
-> **失败性质**: ⚠ **配置Bug为主因 + 方法固有风险为次因** (当前run失败不可挽救, 待重试后最终定论)
-> **方法学判定**: 存疑 (用户指示"配置问题不能否定方法失败", 需修复配置重试后再判定)
-> **归档日期**: 2026-07-27
+> **失败性质**: ⛔ **方法本质失败** (重试确认: 配置 Bug 已修复, 但方法固有风险依然存在, 30 epoch 零改善)
+> **方法学判定**: 方法本质问题 (cls/box 不一致 + Circular dependency + mAP_75 退化, 配置修复后仍失败)
+> **归档日期**: 2026-07-27 (v1 失败归档) / 2026-07-28 (重试确认归档)
 
 ### 实验配置
 
@@ -688,19 +688,60 @@ freeze_backbone=True
 | mAP_50-mAP_75 gap | 0.226→0.392 | 0.014 | gap 扩大 73% |
 | loss 趋势 | ep42 后饱和 | — | lr 已衰减至 0 |
 
-### 方法学判定 (待重试后定论)
+### 方法学判定 (重试确认: 方法本质失败)
 
 - **代码实现正确**: coupling 加载/q_sample 公式/空间转换/per-proposal 对齐全部正确 (Subagent 3 代码审查确认)
-- **当前run失败不可挽救**: best 0.646 已回退, lr 已衰减至 0, mAP_75 崩塌
-- **方法固有风险存在**: 即使修复配置, cls/box 不一致 + mAP_75 崩塌趋势可能仍出现
-- **重试判据**: 若重试后 mAP_75 仍崩塌 (<0.70 @ ep50), 则判定方法本质失败
+- **v1 失败不可挽救**: best 0.646 已回退, lr 已衰减至 0, mAP_75 崩塌
+- **重试确认方法本质失败**: 配置 Bug 已修复 (load_from=A4 + lr=5e-5 + 150ep), 但 30 epoch 零改善, mAP_75 仍崩塌
+- **重试判据命中**: mAP_75 在 ep2=0.687, ep19=0.608 两次跌破 0.70; best 始终在 ep1 (=A4 checkpoint 本身)
 
-### 复活因素 (重试计划)
+### 重试实验结果 (2026-07-27 16:03 → 22:01, EarlyStopping @ ep31)
 
-1. **配置修复**: load_from=A4 best ep117 + lr=5e-5 + max_epoch=150
-2. **关键判据**: 重试后观察 mAP_75 是否仍崩塌
-3. **若 mAP_75 稳定**: 说明是配置问题, 方法有效
-4. **若 mAP_75 仍崩塌**: 说明是方法本质问题 (A4 模糊预测当目标注定定位退化), 判定方法失败
+> workstation `100.99.131.26`: work_dirs/reflow_standard_24obj/
+> SwanLab run_id: bj8bmny5 (本地 scalars.json 完整, project 'ldmdet-reflow' 上传异常 404)
+> 配置: load_from=A4 best ep117 + lr=5e-5 + max_epoch=150 + warmup 5ep + cosine
+
+#### 重试配置 vs v1 失败配置
+
+| 参数 | v1 (失败) | 重试 (确认失败) |
+|------|-----------|----------------|
+| `load_from` | **None** (Bug根因) | **A4 best ep117** ✅ 修复 |
+| lr | 1e-5 | **5e-5** ✅ 修复 |
+| max_epoch | 50 | **150** ✅ 修复 |
+| EarlyStopping | 未配置 | patience=30 (ep31 触发) |
+
+#### 逐 epoch mAP 关键数据
+
+| Epoch | mAP | mAP_50 | mAP_75 | 备注 |
+|-------|-----|--------|--------|------|
+| **1** | **0.862** | 0.989 | **0.970** | **best** = A4 checkpoint 本身, 非 reflow 贡献 |
+| 2 | 0.618 | 0.974 | 0.687 | ⚠ mAP 崩塌 -0.244, mAP_75 跌破 0.70 |
+| 11 | 0.812 | 0.986 | 0.946 | 重试阶段最高 mAP (仍 < A4 0.863) |
+| 19 | 0.586 | 0.937 | 0.608 | ⚠ mAP 最低, mAP_75 再次跌破 0.70 |
+| 31 | 0.794 | 0.983 | 0.917 | EarlyStopping 触发 (30 ep 零改善) |
+
+#### 重试统计
+
+| 指标 | v1 (失败) | 重试 (确认失败) | A4 baseline |
+|------|-----------|----------------|-------------|
+| best mAP | 0.646 @ ep42 | **0.862 @ ep1** (= A4 本身) | 0.863 |
+| 重试阶段最高 mAP (ep2-31) | — | 0.812 @ ep11 (Δ=-0.051) | — |
+| 重试阶段最低 mAP (ep2-31) | — | 0.586 @ ep19 (Δ=-0.277) | — |
+| mAP_75 跌破 0.70 次数 | 持续 | **2 次** (ep2, ep19) | 0 次 |
+| mAP_75 跌破 0.80 次数 | 持续 | **8 次** | 0 次 |
+| 训练停止原因 | lr 衰减至 0 | **EarlyStopping** (patience=30) | — |
+| 配置 Bug | 3 个 (load_from/lr/epoch) | **全部修复** ✅ | — |
+
+### 重试确认: 方法本质失败根因
+
+配置 Bug 修复后, 4 个方法固有风险依然全部命中 (与 v1 相同):
+
+1. **cls/box 不一致** (方法设计问题): OT 重算 matched_idx (noise↔GT) 但 box_target=x0_pred (A4 预测) → cls 说"GT_j"但 box 说"A4 预测的另一个框"
+2. **Circular dependency** (方法设计问题): 模型用 A4 自预测训练, 强化 A4 的系统误差 → 30 epoch 零改善 (best 始终 ep1)
+3. **box_renewal 训推不一致** (方法设计问题): 生成关、eval 开 → proposal 分布偏移
+4. **mAP_75 退化** (方法本质问题): 模型学习预测 A4 的 x0_pred, 而 A4 对噪声 proposal 的预测本身模糊 → 模型学到模糊定位 (mAP_75 两次跌破 0.70)
+
+**关键证据**: best=0.862 @ ep1 是 A4 checkpoint 加载后的初始状态 (load_from=A4), reflow coupling 训练 30 个 epoch **零改善** — 证明 reflow 不仅没有拉直轨迹提升性能, 反而持续损害 A4 已学到的表示 (ep2 起 mAP 崩塌至 0.618).
 
 ### 数据修正
 
@@ -712,6 +753,8 @@ freeze_backbone=True
 1. **微调实验必须设置 load_from**: 从零训练 + 微调参数 (低 lr + 少 epoch) 是致命组合
 2. **mAP_75 是定位精度的关键指标**: mAP_50 持平但 mAP_75 崩塌说明方法损害精细定位
 3. **用户标准 "配置问题不能否定方法失败"**: 需从方法固有风险角度判定, 不能仅归咎于配置
+4. **重试隔离了"配置 Bug" vs "方法本质问题"** (2026-07-28 确认): 配置 Bug 修复后 (load_from+A4+lr=5e-5+150ep), 方法本质问题依然存在 — best 0.862@ep1 = A4 本身, 30 epoch 零改善, mAP_75 仍崩塌 (ep2=0.687, ep19=0.608). EarlyStopping @ ep31 自动终止. **ReFlow 2-Rectification (Standard MSE) 方向正式判定方法本质失败**
+5. **best@ep1 = checkpoint 本身是微调失败的强信号**: 若 best 始终在 ep1 且后续零改善, 说明训练目标 (reflow coupling x0_pred) 不仅无益反而有害, 应立即检查 cls/box 一致性
 
 ---
 
@@ -737,7 +780,7 @@ freeze_backbone=True
 | h_velocity_loss | — | — | Dataset 2 | ldmdet-frontier-directions | ⛔ CRASHED |
 | FBM SimpleGate | 0.677 | — | Dataset 2 | few-shot-benchmark | ⛔ 失败 |
 | Head Distillation 失败配置 (freeze_backbone=True) | 0.717 | −0.146 | Dataset 2 | ldmdet-head-distill | ⛔ 配置Bug (修复配置 0.860 有效, → LINEAGE) |
-| ReFlow Standard MSE (缺失load_from) | 0.646 | −0.217 | Dataset 2 | ldmdet-reflow | ⚠ 配置Bug+方法风险 (待重试定论) |
+| ReFlow Standard MSE (方法本质失败, 重试确认) | 0.862@ep1(=A4) / 0.646(v1) | −0.001 / −0.217 | Dataset 2 | ldmdet-reflow | ⛔ 方法本质失败 (重试确认) |
 | scale_aware_loss | 0.742 | −0.004 | Dataset 1 | ldmdet-ablation | ⛔ 证伪 |
 | relative_l1_loss | 0.740 | −0.006 | Dataset 1 | ldmdet-ablation | ⛔ 证伪 |
 | high_cls_weight | 0.739 | −0.007 | Dataset 1 | ldmdet-ablation | ⛔ 证伪 |
