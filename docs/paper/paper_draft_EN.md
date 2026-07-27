@@ -1,5 +1,7 @@
 # Rectified Flow for Chromosome Detection: Stable Coupling and Few-Step Inference
 
+> 📋 **Naming Convention**: This document uses formal paper names (Dataset 1 / Dataset 2 / DDPM baseline / RF+Heun / +Stoch. Coupling / +DPM-Solver++). Internal experiment codenames (24obj / A0-A3 / StochOT) are retained only in file paths, config names, and log filenames for engineering compatibility.
+
 <!--
 ============================================================
 TMI MIGRATION STRATEGY HEADER
@@ -98,7 +100,7 @@ A typical metaphase spread contains roughly forty-six chromosomes across twenty-
 
 Building on the scenario-to-method mapping above, we make three contributions, each tied to a specific difficulty of chromosome detection and validated on two public datasets (Chromosome20240904, 1,540 images; and 24 Chromosomes Object, 5,000 images) with multi-seed experiments, per-class AP analysis, test-set evaluation, and an FPS benchmark.
 
-The first difficulty is the accuracy ceiling of existing detectors on fine-grained 24-class chromosome imagery, where anchor-based designs struggle with dense packing and intra-group morphological similarity. Our *KaryoFlow* detector addresses this by adopting the RF training paradigm, achieving $+0.082$ mAP over the Euler baseline on 24 Chromosomes Object and $+0.017$ over DDPM on the original dataset. In comparison with SOTA detectors (experimental data in Section 4.3), KaryoFlow as a diffusion-based detector approaches the transformer-based SOTA DINO R50 (47M parameters): the aggregate mAP gap is only about $0.63\%$ ($0.863$ vs $0.868$), exceeding Cascade R-CNN, and significantly superior to the DDPM-based DiffusionDet ($+0.060$ mAP at seed 42 best, $+0.056$ at the 3-seed mean). Although DINO R50 remains statistically significantly better under per-image paired Wilcoxon test, RF as a diffusion-based method has substantially narrowed the gap with transformer-based SOTA. Detailed statistical tests are in the supplementary material (not yet incorporated in the main text). Because the A0→A1 comparison changes several variables at once (DDPM→RF, Euler→Heun, 1→4 steps), we further conduct a solver×step disentanglement ablation that attributes $94\%$ of the gain to the RF paradigm and only $6\%$ to solver and step-count choices; AdaLN-Zero contributes null individually (Appendix B). The practical implication is that the accuracy gain comes from the paradigm itself rather than from solver tuning, which matters for clinical deployment where reproducibility across sites and seeds is essential.
+The first difficulty is the accuracy ceiling of existing detectors on fine-grained 24-class chromosome imagery, where anchor-based designs struggle with dense packing and intra-group morphological similarity. Our *KaryoFlow* detector addresses this by adopting the RF training paradigm, achieving $+0.082$ mAP over the Euler baseline on 24 Chromosomes Object and $+0.017$ over DDPM on the original dataset. In comparison with SOTA detectors (experimental data in Section 4.3), KaryoFlow as a diffusion-based detector approaches the transformer-based SOTA DINO R50 (47M parameters): the aggregate mAP gap is only about $0.63\%$ ($0.863$ vs $0.868$), exceeding Cascade R-CNN, and significantly superior to the DDPM-based DiffusionDet ($+0.060$ mAP at seed 42 best, $+0.056$ at the 3-seed mean). Although DINO R50 remains statistically significantly better under per-image paired Wilcoxon test, RF as a diffusion-based method has substantially narrowed the gap with transformer-based SOTA. Detailed statistical tests are in the supplementary material (not yet incorporated in the main text). Because the DDPM baseline→RF+Heun comparison changes several variables at once (DDPM→RF, Euler→Heun, 1→4 steps), we further conduct a solver×step disentanglement ablation that attributes $94\%$ of the gain to the RF paradigm and only $6\%$ to solver and step-count choices; AdaLN-Zero contributes null individually (Appendix B). The practical implication is that the accuracy gain comes from the paradigm itself rather than from solver tuning, which matters for clinical deployment where reproducibility across sites and seeds is essential.
 
 The second difficulty is a training pathology induced by optimal-transport (OT) coupling in the low-dimensional detection space. When the prediction dimension is $d=4$ and each image contains $K \approx 46$ ground-truth boxes, deterministic OT assignment collapses coupling diversity toward zero — a failure mode we formally analyze as *OT Diversity Collapse* (upper bound $\Delta H \le \log K$, matched lower bound via Fano's inequality, empirically tight to within $0.03\%$) — and this collapse degrades training, especially when data are scarce. We propose *Stochastic Coupling*, which samples assignments from the Sinkhorn transport matrix rather than taking an argmax, restoring coupling diversity and stabilizing training. The remedy is most effective exactly where clinical data are scarcest: on the smaller Dataset 1 it yields a large, highly significant mAP gain ($+0.034$, $p<10^{-120}$) that diminishes with dataset size, and on both datasets it reduces within-run epoch-level mAP oscillation by $4.6\times$, making checkpoint selection reliable for EarlyStopping-based training.
 
@@ -155,7 +157,7 @@ AdaLN-Zero (Dhariwal & Nichol, 2021) serves as the time conditioning mechanism, 
 
 The RF paradigm yields a straight-line ODE path, but the choice of solver for this ODE determines the accuracy-latency trade-off in few-step inference: low-order solvers (Euler) incur large truncation error, while high-order solvers (Heun) trade more NFE for accuracy. We consider three solvers: Euler (1st-order, 1 NFE/step) as the baseline, Heun (2nd-order predictor-corrector, 2 NFE/step) for high-order accuracy, and DPM-Solver++ (2nd-order multistep, 1 NFE/step) which matches Heun's accuracy while halving the NFE. All three are adapted to the RF linear path; detailed derivations are in Appendix A.4–A.5.
 
-**Euler (1st-order).** Steps directly along the velocity field: $\mathbf{x}_{t-\Delta t} = \mathbf{x}_t + \Delta t \cdot \mathbf{v}_\theta(\mathbf{x}_t, t)$. 1 NFE per step, 4 NFE for 4 steps. Used as the DDPM baseline (A0) solver.
+**Euler (1st-order).** Steps directly along the velocity field: $\mathbf{x}_{t-\Delta t} = \mathbf{x}_t + \Delta t \cdot \mathbf{v}_\theta(\mathbf{x}_t, t)$. 1 NFE per step, 4 NFE for 4 steps. Used as the DDPM baseline solver.
 
 **Heun (2nd-order predictor-corrector).** Provides 2nd-order accuracy via predictor-corrector, 2 NFE per step, 7 NFE for 4 steps (the last step degrades to Euler). Detailed formulas are in Appendix A.4.
 
@@ -212,7 +214,7 @@ Table 4 summarizes the two public chromosome datasets used in this paper, which 
 
 #### 4.1.2 Architecture and Training
 
-KaryoFlow uses a ResNet-50 backbone with FPN neck (256 channels, 4 levels), 500 proposals, 6 cascade transformer heads with deep supervision (5 auxiliary heads). Optimization: AdamW (lr=5×10⁻⁵, wd=10⁻⁴), 5-epoch linear warmup + CosineAnnealing, 150 epochs. Loss is Focal ($\lambda_{\text{cls}}{=}2.0$) + L1 ($\lambda{=}5.0$) + GIoU ($\lambda{=}2.0$) with Hungarian matching. Diffusion uses Rectified Flow with a shifted noise schedule (shift=3.0). Default inference solver is DPM-Solver++ 4-step (the A1/A2 ablation configurations use Heun 4-step to isolate the solver contribution).
+KaryoFlow uses a ResNet-50 backbone with FPN neck (256 channels, 4 levels), 500 proposals, 6 cascade transformer heads with deep supervision (5 auxiliary heads). Optimization: AdamW (lr=5×10⁻⁵, wd=10⁻⁴), 5-epoch linear warmup + CosineAnnealing, 150 epochs. Loss is Focal ($\lambda_{\text{cls}}{=}2.0$) + L1 ($\lambda{=}5.0$) + GIoU ($\lambda{=}2.0$) with Hungarian matching. Diffusion uses Rectified Flow with a shifted noise schedule (shift=3.0). Default inference solver is DPM-Solver++ 4-step (the RF+Heun/+Stoch. Coupling ablation configurations use Heun 4-step to isolate the solver contribution).
 
 #### 4.1.3 Detection Protocol
 
@@ -220,20 +222,20 @@ Boxes are represented in two spaces: image space (absolute pixel xyxy) for RoIAl
 
 #### 4.1.4 Statistical Considerations
 
-All experiments in this paper are validated with at least 3 random seeds (42, 123, 789) independently trained. Cross-seed standard deviations (e.g., $0.859 \pm 0.003$ mAP for A3) are used to bound the statistical significance of key comparisons; when the aggregate mAP gap falls within cross-seed variance, we further report per-image paired tests (Table 8, Table 9) to reveal statistically significant differences.
+All experiments in this paper are validated with at least 3 random seeds (42, 123, 789) independently trained. Cross-seed standard deviations (e.g., $0.859 \pm 0.003$ mAP for +DPM-Solver++) are used to bound the statistical significance of key comparisons; when the aggregate mAP gap falls within cross-seed variance, we further report per-image paired tests (Table 8, Table 9) to reveal statistically significant differences.
 
 ### 4.2 Main Results: RF vs DDPM
 
-Table 5 reports a cumulative ablation: A0 (DDPM Euler baseline), A1 is KaryoFlow (RF+Heun), A2 adds Stochastic Coupling, A3 swaps to DPM-Solver++. AdaLN-Zero is used throughout but contributes null individually (Appendix B). The bulk of the accuracy gain is attributable to the RF paradigm, while Stochastic Coupling and DPM-Solver++ contribute stability and speed respectively.
+Table 5 reports a cumulative ablation: DDPM baseline (Euler 1-step), RF+Heun is KaryoFlow, +Stoch. Coupling adds Stochastic Coupling, +DPM-Solver++ swaps to DPM-Solver++. AdaLN-Zero is used throughout but contributes null individually (Appendix B). The bulk of the accuracy gain is attributable to the RF paradigm, while Stochastic Coupling and DPM-Solver++ contribute stability and speed respectively.
 
 | Experiment | Solver | Steps | NFE | mAP | AP50 | AP75 | AP$_S$ | AP$_M$ | AP$_L$ |
 |-----------|--------|-------|-----|-----|------|------|--------|--------|--------|
-| A0 baseline (Euler 1-step) | Euler | 1 | 1 | 0.774 | 0.968 | 0.916 | 0.317 | 0.773 | 0.775 |
-| **A1 RF+Heun (KaryoFlow)** | Heun | 4 | 7 | **0.856** | 0.989 | 0.969 | 0.502 | 0.853 | 0.867 |
-| A2 + Stochastic Coupling ($\epsilon{=}5$) | Heun | 4 | 7 | 0.858 | 0.989 | 0.971 | 0.523 | 0.854 | 0.864 |
-| **A3 DPM-Solver++** | DPM++ | 4 | 4 | **0.859** | 0.988 | 0.968 | 0.516 | 0.856 | 0.890 |
+| DDPM baseline (Euler 1-step) | Euler | 1 | 1 | 0.774 | 0.968 | 0.916 | 0.317 | 0.773 | 0.775 |
+| **RF+Heun (KaryoFlow)** | Heun | 4 | 7 | **0.856** | 0.989 | 0.969 | 0.502 | 0.853 | 0.867 |
+| +Stoch. Coupling ($\epsilon{=}5$) | Heun | 4 | 7 | 0.858 | 0.989 | 0.971 | 0.523 | 0.854 | 0.864 |
+| **+DPM-Solver++** | DPM++ | 4 | 4 | **0.859** | 0.988 | 0.968 | 0.516 | 0.856 | 0.890 |
 
-**Table 5**: Main ablation (independent inference; A0–A2 use seed 42, A3 reports the 3-seed mean). *Question:* how much of the A0→A1 accuracy gain is attributable to the RF paradigm versus the joint change of solver and step count? *Conclusion:* the RF training paradigm accounts for $+0.077$ mAP (94% of the $+0.082$ gap), while solver and step-count configuration contribute only $+0.005$ (6%); Stochastic Coupling and DPM-Solver++ further contribute stability and inference speed respectively. Cross-seed std is reported in the text (A3 mAP $0.859 \pm 0.003$, AP$_S$ $0.516 \pm 0.012$ over three seeds). NFE = total network forward evaluations per image.
+**Table 5**: Main ablation (independent inference; DDPM baseline–+Stoch. Coupling use seed 42, +DPM-Solver++ reports the 3-seed mean). *Question:* how much of the DDPM baseline→RF+Heun accuracy gain is attributable to the RF paradigm versus the joint change of solver and step count? *Conclusion:* the RF training paradigm accounts for $+0.077$ mAP (94% of the $+0.082$ gap), while solver and step-count configuration contribute only $+0.005$ (6%); Stochastic Coupling and DPM-Solver++ further contribute stability and inference speed respectively. Cross-seed std is reported in the text (+DPM-Solver++ mAP $0.859 \pm 0.003$, AP$_S$ $0.516 \pm 0.012$ over three seeds). NFE = total network forward evaluations per image.
 
 The RF paradigm accounts for $+0.077$ mAP (94% of the $+0.082$ gap), while solver/step configuration adds only $+0.005$ (6%). On Dataset 2, Stochastic Coupling contributes no measurable mAP gain ($+0.0001$, Wilcoxon $p{=}0.80$) but $4.6\times$ smoother convergence; on the smaller Dataset 1, however, the same Stochastic Coupling vs Random comparison yields a large, highly significant gain ($+0.034$, $p<10^{-120}$; Table 9) — the benefit is real in low-data regimes and diminishes with dataset size. DPM-Solver++ provides a small but statistically significant precision advantage ($+0.006$ per-image mAP, Wilcoxon $p{<}10^{-6}$, paired $t$ $p{<}10^{-6}$; see Table 8) and is $1.71\times$ faster.
 
@@ -241,26 +243,26 @@ The cross-dataset RF vs DDPM comparison further confirms the paradigm's advantag
 
 ### 4.3 SOTA Comparison
 
-Table 6 compares our RF-based detector against standard and diffusion baselines. Our best variant (A3, DPM-Solver++, 3-seed mean) trails RTMDet-L (a stronger CSPNeXt-L detector) by $0.004$ mAP and the multi-scale DINO R50 by $0.009$ mAP (both outside our cross-seed variance of $\pm 0.003$), while exceeding Cascade R-CNN, YOLOX-S, and DiffusionDet — with the largest gain against the DDPM-based DiffusionDet ($+0.060$ mAP at seed 42 best, $+0.056$ at the 3-seed mean), direct evidence for the RF paradigm's advantage. Importantly, our method achieves this with $1.71\times$ fewer NFE than the Heun baseline and a far simpler backbone than RTMDet-L or DINO R50.
+Table 6 compares our RF-based detector against standard and diffusion baselines. Our best variant (+DPM-Solver++, 3-seed mean) trails RTMDet-L (a stronger CSPNeXt-L detector) by $0.004$ mAP and the multi-scale DINO R50 by $0.009$ mAP (both outside our cross-seed variance of $\pm 0.003$), while exceeding Cascade R-CNN, YOLOX-S, and DiffusionDet — with the largest gain against the DDPM-based DiffusionDet ($+0.060$ mAP at seed 42 best, $+0.056$ at the 3-seed mean), direct evidence for the RF paradigm's advantage. Importantly, our method achieves this with $1.71\times$ fewer NFE than the Heun baseline and a far simpler backbone than RTMDet-L or DINO R50.
 
 | Method | Backbone | mAP | AP50 | AP75 | AP$_S$ |
 |--------|----------|-----|------|------|--------|
 | DINO R50 | ResNet-50 | **0.868** | 0.992 | 0.979 | 0.553 |
 | RTMDet-L | CSPNeXt-L | 0.863 | 0.992 | 0.976 | 0.540 |
-| **Ours (A3 DPM++)** | ResNet-50 | 0.859 | 0.988 | 0.968 | 0.516 |
-| Ours (A2 Heun+Stoch. Coup.) | ResNet-50 | 0.858 | 0.989 | 0.971 | 0.523 |
+| **Ours (+DPM-Solver++)** | ResNet-50 | 0.859 | 0.988 | 0.968 | 0.516 |
+| Ours (+Stoch. Coupling, Heun) | ResNet-50 | 0.858 | 0.989 | 0.971 | 0.523 |
 | Ours (Random) | ResNet-50 | 0.856 | 0.989 | 0.969 | 0.502 |
 | Cascade R-CNN | ResNet-50 | 0.854 | 0.987 | 0.972 | 0.525 |
 | YOLOX-S | CSPDarkNet-S | 0.796 | 0.987 | 0.944 | 0.452 |
 | DiffusionDet | ResNet-50 | 0.803 | 0.970 | 0.928 | 0.500 |
 
-**Table 6**: SOTA comparison (independent inference; A3 reports 3-seed mean). RTMDet-L uses a stronger CSPNeXt-L backbone; DINO R50 uses multi-scale deformable attention. Our method is competitive with RTMDet-L on overall mAP while offering $1.71\times$ faster inference; AP$_S$ differences among top methods are not statistically significant (Table 8). The $+0.060$ mAP gain over DiffusionDet reported in the text uses the seed 42 best checkpoint (mAP 0.863); the 3-seed mean (0.859) yields $+0.056$. RTMDet-L and DINO R50 values are taken from complete training logs (best checkpoint at epoch 85 and final crashed-state checkpoint respectively).
+**Table 6**: SOTA comparison (independent inference; +DPM-Solver++ reports 3-seed mean). RTMDet-L uses a stronger CSPNeXt-L backbone; DINO R50 uses multi-scale deformable attention. Our method is competitive with RTMDet-L on overall mAP while offering $1.71\times$ faster inference; AP$_S$ differences among top methods are not statistically significant (Table 8). The $+0.060$ mAP gain over DiffusionDet reported in the text uses the seed 42 best checkpoint (mAP 0.863); the 3-seed mean (0.859) yields $+0.056$. RTMDet-L and DINO R50 values are taken from complete training logs (best checkpoint at epoch 85 and final crashed-state checkpoint respectively).
 
 **Small-object performance and the medical-imaging direction.** On small objects, our detector (AP$_S{=}0.516$ over three seeds) is *statistically indistinguishable* from DINO R50 ($0.553$) and RTMDet-L ($0.540$): a per-image paired Wilcoxon test across the 60 small-object images finds no significant difference among the top methods (Table 8). We therefore do not claim a small-object *advantage*; rather, the result is that a single-shot RF detector with a plain ResNet-50 backbone is *competitive* on the small-object regime that is practically most relevant for chromosome analysis — the Y chromosome and several C-group chromosomes are small and morphologically subtle, and clinical karyotyping prioritizes per-class sensitivity over aggregate mAP. This competitiveness, achieved without the multi-scale deformable attention of DINO or the heavier CSPNeXt-L backbone of RTMDet-L, supports the broader direction of diffusion models for medical imaging where small-target detection under clutter is common. On Dataset 1, where the training set is smaller (1,540 images), KaryoFlow (0.753 mAP) in fact exceeds both RTMDet-L (0.742) and DINO R50 (0.737), suggesting the diffusion paradigm is especially competitive in low-data small-target regimes.
 
 #### 4.3.1 Per-Class AP Analysis
 
-Figure 5 reports the per-class AP for all 24 classes on the A3 checkpoint (seed 42, independent inference). First, overall AP drops monotonically with chromosome size ($0.896 \to 0.848 \to 0.805$ for Large→Medium→Small), consistent with the well-known difficulty of small-object detection but also with the clinical reality that the smallest chromosomes (F-group, G-group, Y) carry the highest diagnostic stakes — sex-chromosome aneuploidies and trisomy 21 are among the most frequent karyotyping referrals, so the detection accuracy on these small classes matters disproportionately for clinical utility.
+Figure 5 reports the per-class AP for all 24 classes on the +DPM-Solver++ checkpoint (seed 42, independent inference). First, overall AP drops monotonically with chromosome size ($0.896 \to 0.848 \to 0.805$ for Large→Medium→Small), consistent with the well-known difficulty of small-object detection but also with the clinical reality that the smallest chromosomes (F-group, G-group, Y) carry the highest diagnostic stakes — sex-chromosome aneuploidies and trisomy 21 are among the most frequent karyotyping referrals, so the detection accuracy on these small classes matters disproportionately for clinical utility.
 
 Second, the Y chromosome is the hardest class (AP=0.779 for seed 42; $0.771 \pm 0.006$ over three training seeds, the highest per-class variance alongside G21 and X). Three factors compound: (i) *data scarcity* — Y appears in only one copy in male samples, yielding roughly 1,803 training instances versus about 7,000 per autosome; (ii) *morphology* — Y is among the smallest chromosomes, heterochromatin-rich, and morphologically variable across individuals, so its visual appearance is inherently less stable than the autosomes; and (iii) *class imbalance* — the male-to-female sampling ratio in clinical cohorts further reduces the Y prior. As a small chromosome, its AP is also the most sensitive to the per-image AP$_S$ variance noted in Section 4.3. From a clinical standpoint, Y detection is critical for sex determination and sex-chromosome aneuploidy screening, so even this hardest-class AP (0.779) is clinically actionable when paired with a downstream classifier.
 
@@ -268,22 +270,22 @@ Third, the C-group chromosomes (C6–C12) merit detailed examination because the
 
 Finally, AP50 is near-saturated across all classes (>0.988, and 0.972 for the Y), so localization is near-saturated and the residual errors concentrate in fine-grained classification — suggesting a downstream banding-pattern classifier operating on the detected boxes could recover much of the remaining AP, which is the standard two-stage clinical workflow (detect, then classify).
 
-![**Figure 5**: Per-class AP on the Dataset 2 validation set (A3 DPM-Solver++). Bars are colored by chromosome size group. The dashed line is the overall mean. Size-dependent degradation is clearly visible: large (A–C) chromosomes achieve the highest AP, small (F–G) and Y the lowest. The C-group (C6–C12) maintains high AP despite morphological similarity, and the Y chromosome is the hardest class due to compounded data scarcity and biological variability.](latex/figures/per_class_ap.png)
+![**Figure 5**: Per-class AP on the Dataset 2 validation set (+DPM-Solver++). Bars are colored by chromosome size group. The dashed line is the overall mean. Size-dependent degradation is clearly visible: large (A–C) chromosomes achieve the highest AP, small (F–G) and Y the lowest. The C-group (C6–C12) maintains high AP despite morphological similarity, and the Y chromosome is the hardest class due to compounded data scarcity and biological variability.](latex/figures/per_class_ap.png)
 
 #### 4.3.2 Statistical Significance of the Ablation Gains
 
-Table 8 reports per-image paired significance tests (Wilcoxon signed-rank and paired $t$-test) over the 500 validation images for the three pairwise comparisons underlying the main ablation. Two conclusions stand out. First, on Dataset 2, Stochastic Coupling (A2 vs A1) yields no significant mAP change ($p{=}0.80$) — but this is *dataset-specific*: the same comparison on the smaller Dataset 1 reveals a large, highly significant gain ($+0.034$, $p<10^{-120}$; Table 9), so Stochastic Coupling's accuracy contribution is real in low-data regimes and diminishes with dataset size. Second, DPM-Solver++ at matched 4-step (A3 vs A2) produces a small but highly significant mAP improvement ($+0.006$, $p<10^{-6}$ on both tests) — i.e., the higher-order solver is *slightly better*, not worse, than Heun at equal step count. On AP$_S$, none of the pairwise differences reach significance ($p>0.6$ on all tests), so the small-object numbers in Tables 5 and 6 should be read as noise-equivalent across our own variants; the same caveat applies to cross-method AP$_S$ comparisons.
+Table 8 reports per-image paired significance tests (Wilcoxon signed-rank and paired $t$-test) over the 500 validation images for the three pairwise comparisons underlying the main ablation. Two conclusions stand out. First, on Dataset 2, Stochastic Coupling (+Stoch. Coupling vs RF+Heun) yields no significant mAP change ($p{=}0.80$) — but this is *dataset-specific*: the same comparison on the smaller Dataset 1 reveals a large, highly significant gain ($+0.034$, $p<10^{-120}$; Table 9), so Stochastic Coupling's accuracy contribution is real in low-data regimes and diminishes with dataset size. Second, DPM-Solver++ at matched 4-step (+DPM-Solver++ vs +Stoch. Coupling) produces a small but highly significant mAP improvement ($+0.006$, $p<10^{-6}$ on both tests) — i.e., the higher-order solver is *slightly better*, not worse, than Heun at equal step count. On AP$_S$, none of the pairwise differences reach significance ($p>0.6$ on all tests), so the small-object numbers in Tables 5 and 6 should be read as noise-equivalent across our own variants; the same caveat applies to cross-method AP$_S$ comparisons.
 
 | Comparison | Metric | $\Delta$ | Wilc. $p$ | $t$ $p$ | $n$ |
 |------------|--------|----------|-----------|---------|-----|
-| A2−A1 (Stoch. Coup.) | mAP | $+0.0001$ | $0.797$ ns | $0.944$ ns | 500 |
-| A3−A2 (DPM++) | mAP | $+0.0056$ | $\mathbf{2.5\!\cdot\!10^{-7}}$ *** | $\mathbf{8.4\!\cdot\!10^{-7}}$ *** | 500 |
-| A3−A1 (combined) | mAP | $+0.0057$ | $4.5\!\cdot\!10^{-4}$ *** | $4.9\!\cdot\!10^{-5}$ *** | 500 |
-| A2−A1 (Stoch. Coup.) | AP$_S$ | $+0.0012$ | $0.783$ ns | $0.947$ ns | 60 |
-| A3−A2 (DPM++) | AP$_S$ | $-0.0031$ | $0.855$ ns | $0.855$ ns | 60 |
-| A3−A1 (combined) | AP$_S$ | $-0.0019$ | $0.691$ ns | $0.898$ ns | 60 |
+| +Stoch. Coupling−RF+Heun (Stoch. Coup.) | mAP | $+0.0001$ | $0.797$ ns | $0.944$ ns | 500 |
+| +DPM-Solver++−+Stoch. Coupling (DPM++) | mAP | $+0.0056$ | $\mathbf{2.5\!\cdot\!10^{-7}}$ *** | $\mathbf{8.4\!\cdot\!10^{-7}}$ *** | 500 |
+| +DPM-Solver++−RF+Heun (combined) | mAP | $+0.0057$ | $4.5\!\cdot\!10^{-4}$ *** | $4.9\!\cdot\!10^{-5}$ *** | 500 |
+| +Stoch. Coupling−RF+Heun (Stoch. Coup.) | AP$_S$ | $+0.0012$ | $0.783$ ns | $0.947$ ns | 60 |
+| +DPM-Solver++−+Stoch. Coupling (DPM++) | AP$_S$ | $-0.0031$ | $0.855$ ns | $0.855$ ns | 60 |
+| +DPM-Solver++−RF+Heun (combined) | AP$_S$ | $-0.0019$ | $0.691$ ns | $0.898$ ns | 60 |
 
-**Table 8**: Per-image paired significance tests on Dataset 2 validation ($n{=}500$ images; AP$_S$ uses the 60 images containing small objects). $\Delta$ is the mean per-image difference of the second model minus the first. Wilc. = Wilcoxon signed-rank; $t$ = paired Student's $t$-test. *** denotes $p<0.001$; ns = not significant ($p>0.05$). *Question:* are the A2−A1 (Stochastic Coupling) and A3−A2 (DPM-Solver++) gains statistically significant at the per-image level on Dataset 2, and does the small-object regime (AP$_S$) admit the same conclusions? *Conclusion:* Stochastic Coupling yields no significant mAP change on the larger Dataset 2 ($p{=}0.80$; its accuracy benefit is confined to the low-data Dataset 1, see Table 9), whereas DPM-Solver++ at matched 4-step produces a small but highly significant mAP improvement ($+0.006$, $p<10^{-6}$) — the higher-order solver is slightly *better*, not worse, than Heun at equal step count; none of the pairwise AP$_S$ differences reach significance, so small-object numbers across our own variants are noise-equivalent.
+**Table 8**: Per-image paired significance tests on Dataset 2 validation ($n{=}500$ images; AP$_S$ uses the 60 images containing small objects). $\Delta$ is the mean per-image difference of the second model minus the first. Wilc. = Wilcoxon signed-rank; $t$ = paired Student's $t$-test. *** denotes $p<0.001$; ns = not significant ($p>0.05$). *Question:* are the +Stoch. Coupling−RF+Heun (Stochastic Coupling) and +DPM-Solver++−+Stoch. Coupling (DPM-Solver++) gains statistically significant at the per-image level on Dataset 2, and does the small-object regime (AP$_S$) admit the same conclusions? *Conclusion:* Stochastic Coupling yields no significant mAP change on the larger Dataset 2 ($p{=}0.80$; its accuracy benefit is confined to the low-data Dataset 1, see Table 9), whereas DPM-Solver++ at matched 4-step produces a small but highly significant mAP improvement ($+0.006$, $p<10^{-6}$) — the higher-order solver is slightly *better*, not worse, than Heun at equal step count; none of the pairwise AP$_S$ differences reach significance, so small-object numbers across our own variants are noise-equivalent.
 
 | Comparison | Metric | $\Delta$ | Wilc. $p$ | $t$ $p$ | $n$ |
 |------------|--------|----------|-----------|---------|-----|
@@ -300,7 +302,7 @@ Table 8 reports per-image paired significance tests (Wilcoxon signed-rank and pa
 
 Figure 7 visualizes the detection results of each model on 9 representative cases, covering the full difficulty spectrum from large chromosomes (A-group) to small chromosomes (F/G-group) and the Y chromosome. KaryoFlow's localization accuracy on large/medium chromosomes is comparable to DINO R50 and RTMDet-L; on small chromosomes and the Y chromosome, all methods degrade, but KaryoFlow's miss rate is lower than DiffusionDet's, consistent with the per-class AP analysis in §4.3.1.
 
-![**Figure 7**: Qualitative detection comparison (Dataset 2 validation set, 9 representative cases). Each column is a 3×3 detection grid for one model; from left to right: Ground Truth, KaryoFlow (A3 DPM++), DiffusionDet, RTMDet-L, DINO R50. Cases cover Y chromosome (1, 3), F/G-group small chromosomes (2, 7), D-group (4), X chromosome (5), A-group large chromosomes (6, 8), and E16 (9). Box colors are per-model, in-box labels are predicted classes.](latex/figures/qual_mosaic.png)
+![**Figure 7**: Qualitative detection comparison (Dataset 2 validation set, 9 representative cases). Each column is a 3×3 detection grid for one model; from left to right: Ground Truth, KaryoFlow (+DPM-Solver++), DiffusionDet, RTMDet-L, DINO R50. Cases cover Y chromosome (1, 3), F/G-group small chromosomes (2, 7), D-group (4), X chromosome (5), A-group large chromosomes (6, 8), and E16 (9). Box colors are per-model, in-box labels are predicted classes.](latex/figures/qual_mosaic.png)
 
 ### 4.4 Coupling Ablation
 
@@ -312,7 +314,7 @@ On Dataset 1 (Table C.2), Stochastic Coupling yields a large and highly signific
 
 Table 7 reports five additional stability metrics. Stochastic Coupling achieves 30/30 epochs within 1% of the best mAP (vs 13/30 for Random), making late-stage checkpoint selection far more reliable — the property of primary practical concern for EarlyStopping-based training in small-data regimes.
 
-| Metric | A1 (Random) | A3 (Stochastic Coupling $\epsilon{=}5$) | Gain |
+| Metric | RF+Heun (Random) | +DPM-Solver++ (Stochastic Coupling $\epsilon{=}5$) | Gain |
 |--------|-------------|-----------------------------------------|------|
 | Last-30 epoch std | 0.006 | 0.0013 | 4.6× |
 | Last-30 CV (std/mean) | 0.69% | 0.16% | 4.4× |
@@ -336,7 +338,7 @@ $\epsilon < 1$ is harmful (−1.3% mAP within the same augmentation setting); $\
 
 #### 4.5.1 Solver×Step Disentanglement Ablation
 
-To disentangle the contributions of the RF training paradigm from solver/step-count choices, we evaluate all solver×step combinations on the A1 checkpoint (Table 1, Figure 2). At matched step count, solver type has *no effect on mAP* (Euler = DPM-Solver++ at both 4-step and 1-step). Step count has marginal effect (+0.004 from 1 to 4 steps). Heun's +0.001 over Euler 4-step costs $1.75\times$ NFE (7 vs 4) — not cost-effective. The joint solver/step configuration therefore accounts for only $+0.005$ mAP (6%) of the $+0.082$ A0→A1 gap, leaving the remaining 94% attributable to the RF training paradigm. On the full model (A3 vs A2), DPM-Solver++ is *more* accurate than Heun at matched 4-step ($+0.006$ per-image mAP, Wilcoxon $p<10^{-6}$; Table 8), so its advantage is both computational and a small precision gain — refining FlowDet's conclusion that higher-order solvers perform worse in detection.
+To disentangle the contributions of the RF training paradigm from solver/step-count choices, we evaluate all solver×step combinations on the RF+Heun checkpoint (Table 1, Figure 2). At matched step count, solver type has *no effect on mAP* (Euler = DPM-Solver++ at both 4-step and 1-step). Step count has marginal effect (+0.004 from 1 to 4 steps). Heun's +0.001 over Euler 4-step costs $1.75\times$ NFE (7 vs 4) — not cost-effective. The joint solver/step configuration therefore accounts for only $+0.005$ mAP (6%) of the $+0.082$ DDPM baseline→RF+Heun gap, leaving the remaining 94% attributable to the RF training paradigm. On the full model (+DPM-Solver++ vs +Stoch. Coupling), DPM-Solver++ is *more* accurate than Heun at matched 4-step ($+0.006$ per-image mAP, Wilcoxon $p<10^{-6}$; Table 8), so its advantage is both computational and a small precision gain — refining FlowDet's conclusion that higher-order solvers perform worse in detection.
 
 | Solver | Steps | NFE | mAP |
 |--------|-------|-----|-----|
@@ -346,9 +348,9 @@ To disentangle the contributions of the RF training paradigm from solver/step-co
 | Euler | 1 | 1 | 0.851 |
 | DPM-Solver++ | 1 | 1 | 0.851 |
 
-**Table 1**: Solver×step disentanglement ablation on the A1 checkpoint (24 Chromosomes Object val, seed 42).
+**Table 1**: Solver×step disentanglement ablation on the RF+Heun checkpoint (24 Chromosomes Object val, seed 42).
 
-![**Figure 2**: Solver×step disentanglement ablation (A1 checkpoint). Bars are colored by solver type and hatched by step count. Solver/step configuration contributes only +0.005 mAP (6%); the remaining +0.077 mAP (94%) is attributable to the RF training paradigm.](latex/figures/solver_ablation.png)
+![**Figure 2**: Solver×step disentanglement ablation (RF+Heun checkpoint). Bars are colored by solver type and hatched by step count. Solver/step configuration contributes only +0.005 mAP (6%); the remaining +0.077 mAP (94%) is attributable to the RF training paradigm.](latex/figures/solver_ablation.png)
 
 #### 4.5.2 DPM-Solver++ Step Ablation
 
@@ -360,7 +362,7 @@ At similar NFE, DPM-Solver++ 4-step (4 NFE, $0.863$) ≈ Heun 2-step (3 NFE, $0.
 
 #### 4.5.4 Test Set Evaluation
 
-On the Dataset 2 test set, A3 achieves mAP 0.859 (vs val $0.863$ for seed 42, $\Delta = -0.004$), confirming that the aggregate accuracy generalizes well. The AP$_S$ point estimate, however, swings from $0.499$ (val) to $0.577$ (test) for the same checkpoint — a reminder that AP$_S$ on this 24-class benchmark is high-variance (only 60 val images contain small objects) and should be interpreted alongside the per-image significance tests in Table 8 rather than as a point estimate.
+On the Dataset 2 test set, +DPM-Solver++ achieves mAP 0.859 (vs val $0.863$ for seed 42, $\Delta = -0.004$), confirming that the aggregate accuracy generalizes well. The AP$_S$ point estimate, however, swings from $0.499$ (val) to $0.577$ (test) for the same checkpoint — a reminder that AP$_S$ on this 24-class benchmark is high-variance (only 60 val images contain small objects) and should be interpreted alongside the per-image significance tests in Table 8 rather than as a point estimate.
 
 ### 4.6 FPS / Latency Benchmark
 
@@ -368,21 +370,21 @@ Table 10 and Figure 6 report the speed-accuracy trade-off at $512{\times}512$ in
 
 | Model | Solver | NFE | Latency (ms) | FPS | mAP |
 |-------|--------|-----|-------------|-----|-----|
-| A1 RF+Heun | Heun | 7 | 124.38 | 8.0 | 0.856 |
-| A2 + Stoch. Coup. | Heun | 7 | 128.35 | 7.8 | 0.858 |
-| **A3 DPM++** | DPM++ | 4 | **75.03** | **13.3** | **0.863** |
-| A3 + Top-$K$ (K=300) | DPM++ | 4 | 71.27 | 14.0 | 0.861 |
-| **A3 + Top-$K$ (K=200)** | DPM++ | 4 | **70.46** | **14.2** | **0.860** |
-| A3 + Top-$K$ (K=100) | DPM++ | 4 | 69.71 | 14.3 | 0.850 |
+| RF+Heun | Heun | 7 | 124.38 | 8.0 | 0.856 |
+| +Stoch. Coupling | Heun | 7 | 128.35 | 7.8 | 0.858 |
+| **+DPM-Solver++** | DPM++ | 4 | **75.03** | **13.3** | **0.863** |
+| +DPM-Solver++ + Top-$K$ (K=300) | DPM++ | 4 | 71.27 | 14.0 | 0.861 |
+| **+DPM-Solver++ + Top-$K$ (K=200)** | DPM++ | 4 | **70.46** | **14.2** | **0.860** |
+| +DPM-Solver++ + Top-$K$ (K=100) | DPM++ | 4 | 69.71 | 14.3 | 0.850 |
 | Cascade R-CNN | — | 1 | 20.67 | 48.4 | 0.854 |
 | YOLOX-S | — | 1 | 10.15 | 98.5 | 0.796 |
 | DiffusionDet | Euler | 1 | 24.38 | 41.0 | 0.803 |
 
-**Table 10**: FPS / latency benchmark (Dataset 2, 512×512, seed 42). Latency is the mean over 200 images on an RTX A6000; the per-image std is below 3.4 ms for all variants and is omitted for clarity (the best value is reported). *Question:* does the diffusion-based detector reach a latency compatible with interactive clinical screening, and at what accuracy cost relative to one-shot detectors? *Conclusion:* A3 with DPM-Solver++ and Top-$K$ pruning reaches 13.3–14.2 FPS at mAP 0.860–0.863, an order-of-magnitude improvement over DDPM-based DiffusionDet (41 FPS but mAP 0.803); standard one-shot detectors are 3–7× faster but trail our method by 0.005–0.067 mAP, positioning the RF detector in the interactive-screening latency band rather than the maximal-throughput band.
+**Table 10**: FPS / latency benchmark (Dataset 2, 512×512, seed 42). Latency is the mean over 200 images on an RTX A6000; the per-image std is below 3.4 ms for all variants and is omitted for clarity (the best value is reported). *Question:* does the diffusion-based detector reach a latency compatible with interactive clinical screening, and at what accuracy cost relative to one-shot detectors? *Conclusion:* +DPM-Solver++ with Top-$K$ pruning reaches 13.3–14.2 FPS at mAP 0.860–0.863, an order-of-magnitude improvement over DDPM-based DiffusionDet (41 FPS but mAP 0.803); standard one-shot detectors are 3–7× faster but trail our method by 0.005–0.067 mAP, positioning the RF detector in the interactive-screening latency band rather than the maximal-throughput band.
 
-A3 + Top-$K$ (K=200) is the fastest variant (70.46 ms / 14.2 FPS, mAP 0.860); A3 achieves 75 ms / 13.3 FPS at mAP 0.863. The cascade head dominates 90%+ of latency; the backbone+neck is a minor cost (~5.8 ms, 4–8%).
++DPM-Solver++ + Top-$K$ (K=200) is the fastest variant (70.46 ms / 14.2 FPS, mAP 0.860); +DPM-Solver++ achieves 75 ms / 13.3 FPS at mAP 0.863. The cascade head dominates 90%+ of latency; the backbone+neck is a minor cost (~5.8 ms, 4–8%).
 
-![**Figure 6**: Speed-accuracy trade-off (Dataset 2, RTX A6000, 512×512). Log-scale FPS axis. Our RF variants (circle/square) occupy the high-accuracy region (mAP > 0.85); standard detectors (triangle) are 3–7× faster but less accurate. A3+Top-$K$ (K=200) (14.2 FPS, mAP 0.860) achieves the best speed-accuracy trade-off among our variants.](latex/figures/fps_map.png)
+![**Figure 6**: Speed-accuracy trade-off (Dataset 2, RTX A6000, 512×512). Log-scale FPS axis. Our RF variants (circle/square) occupy the high-accuracy region (mAP > 0.85); standard detectors (triangle) are 3–7× faster but less accurate. +DPM-Solver++ + Top-$K$ (K=200) (14.2 FPS, mAP 0.860) achieves the best speed-accuracy trade-off among our variants.](latex/figures/fps_map.png)
 
 ### 4.7 Cross-Dataset Summary
 
@@ -391,7 +393,7 @@ Across both datasets, RF outperforms DDPM ($+0.017$ mAP on Dataset 1, $+0.060$ o
 ### 4.8 Robustness
 
 We report one inference-only robustness probe that strengthens the evaluation
-(SIER criteria: Evaluation breadth + Reproducibility). It reuses the A3
+(SIER criteria: Evaluation breadth + Reproducibility). It reuses the +DPM-Solver++
 checkpoint (DPM-Solver++ 4-step + Top-$K$ pruning) trained on Dataset 2 —
 *no model is retrained*.
 
@@ -404,7 +406,7 @@ classes. The 3×3 grid of perturbed GTs (plus a clean baseline) is generated
 once with seed 42 and re-evaluated with the same checkpoint; image pixels are
 untouched. Table 11 reports the resulting mAP degradation.
 
-**Table 11**: Annotation-noise robustness (Dataset 2 test, A3 checkpoint,
+**Table 11**: Annotation-noise robustness (Dataset 2 test, +DPM-Solver++ checkpoint,
 seed 42, 1000 images / 45,980 GT instances). Rows: GT bbox jitter σ_bbox
 (px). Columns: GT class-flip rate p. Cells: mAP@[0.50:0.95]. Clean baseline
 (top-left): 0.859.
@@ -442,7 +444,7 @@ On both datasets, the smoothness benefit has practical consequences for checkpoi
 
 ### 5.3 DPM-Solver++ vs Heun: Computational and Small Precision Advantage
 
-Since A2 (Heun) and A3 (DPM-Solver++) use identical FM training objectives, model weights at each epoch are identical. Yet DPM-Solver++ at matched 4-step yields a small but statistically significant mAP improvement over Heun ($+0.006$ per-image mAP, Wilcoxon $p<10^{-6}$; Table 8), so the higher-order solver is slightly *better*, not worse. Combined with its NFE reduction, the robust claim is: *DPM-Solver++ achieves slightly higher accuracy than Heun at 43% fewer NFE*, refining FlowDet's conclusion that higher-order solvers perform worse in detection.
+Since +Stoch. Coupling (Heun) and +DPM-Solver++ use identical FM training objectives, model weights at each epoch are identical. Yet DPM-Solver++ at matched 4-step yields a small but statistically significant mAP improvement over Heun ($+0.006$ per-image mAP, Wilcoxon $p<10^{-6}$; Table 8), so the higher-order solver is slightly *better*, not worse. Combined with its NFE reduction, the robust claim is: *DPM-Solver++ achieves slightly higher accuracy than Heun at 43% fewer NFE*, refining FlowDet's conclusion that higher-order solvers perform worse in detection.
 
 ### 5.4 Top-$K$ Pruning: Solver-Dependent Effectiveness
 
@@ -545,16 +547,16 @@ where the first two terms are the exact solution for constant $\mathbf{x}_0$ and
     advance the paper's claims. Retain in this draft as fact record only.
     If a reviewer asks "did you try X?", cite the arXiv companion. -->
 
-**Correspondence to main text.** This appendix justifies the method choices made in §3 (Method) and §4 (Experiments) by documenting the research directions we explored and experimentally falsified. Each falsified direction corresponds to an alternative design that we considered and rejected with empirical evidence: IO1–IO5 concern inference-time optimizations that failed to improve over the default pipeline (§3.2, §4.6); the flow-matching-detection and $N_{\text{cascade}}$ e2e directions concern architectural alternatives to RF + cascade heads that degraded mAP (§3.1). The negative results explain *why* our final design does not include these components, and are retained here as the complete fact record; the main paper mentions them only where directly relevant to a design decision.
+**Correspondence to main text.** This appendix justifies the method choices made in §3 (Method) and §4 (Experiments) by documenting the research directions we explored and experimentally falsified. Each falsified direction corresponds to an alternative design that we considered and rejected with empirical evidence: inference-time optimization directions (Adaptive Step, Draft-Verify, Head Early-Exit, RoI Feature Cache) concern inference-time optimizations that failed to improve over the default pipeline (§3.2, §4.6); Flow Matching Detection and Cascade Head Count E2E concern architectural alternatives to RF + cascade heads that degraded mAP (§3.1). The negative results explain *why* our final design does not include these components, and are retained here as the complete fact record; the main paper mentions them only where directly relevant to a design decision.
 
 | Direction | Verdict / Evidence |
 |-----------|--------------------|
-| IO1 adaptive step | Falsified: $x_0$ rel. $\Delta$ min 0.166 |
-| IO2 draft-verify | Falsified: early-step cls agreement 57% |
-| IO4 head early-exit | Falsified: 0% exit rate at all thresholds |
-| IO5 RoI feature cache | Falsified: box displacement 93–124 px/step |
-| Flow matching det. | Falsified: mAP 0.823 (−0.033) |
-| $N_{\text{cascade}}$ e2e | Falsified: mAP 0.684 (−0.172) |
+| Adaptive Step | Falsified: $x_0$ rel. $\Delta$ min 0.166 |
+| Draft-Verify | Falsified: early-step cls agreement 57% |
+| Head Early-Exit | Falsified: 0% exit rate at all thresholds |
+| RoI Feature Cache | Falsified: box displacement 93–124 px/step |
+| Flow Matching Detection | Falsified: mAP 0.823 (−0.033) |
+| Cascade Head Count E2E | Falsified: mAP 0.684 (−0.172) |
 
 **Table B.1**: Falsified research directions.
 
@@ -565,7 +567,7 @@ where the first two terms are the exact solution for constant $\mathbf{x}_0$ and
     reports mean±std aggregates (Tables 5-7); per-seed breakdowns move to arXiv
     for full reproducibility verification. ]
 
-**Correspondence to main text.** This appendix supports the multi-seed tables in §4.2 (RF vs DDPM, Table 5) and §4.4 (Coupling Ablation, Table 9) by providing the per-seed numerical values underlying the aggregated mean±std figures. Each sub-table below corresponds to a specific main-text table: §C.1 underlies the Dataset 1 RF-vs-DDPM comparison cited in §4.2.2; §C.2 underlies the Dataset 1 coupling ablation cited in §4.4.1. The per-seed breakdowns allow independent verification that the cross-seed variance reported in the main text ($\pm 0.003$ for A3, $\pm 0.002$ for DDPM, etc.) is reproduced seed by seed, and that no individual seed is an outlier driving the aggregate.
+**Correspondence to main text.** This appendix supports the multi-seed tables in §4.2 (RF vs DDPM, Table 5) and §4.4 (Coupling Ablation, Table 9) by providing the per-seed numerical values underlying the aggregated mean±std figures. Each sub-table below corresponds to a specific main-text table: §C.1 underlies the Dataset 1 RF-vs-DDPM comparison cited in §4.2.2; §C.2 underlies the Dataset 1 coupling ablation cited in §4.4.1. The per-seed breakdowns allow independent verification that the cross-seed variance reported in the main text ($\pm 0.003$ for +DPM-Solver++, $\pm 0.002$ for DDPM, etc.) is reproduced seed by seed, and that no individual seed is an outlier driving the aggregate.
 
 #### C.1 RF vs DDPM (Section 4.2.2)
 
@@ -697,7 +699,7 @@ The C-group chromosomes (C6–C12) are the archetypal "hard to distinguish" clas
 | X | 0.885 | 0.985 | 0.980 | — | 0.884 | 0.892 |
 | Y | 0.779 | 0.972 | 0.933 | 0.577 | 0.788 | — |
 
-**Table F.1**: Complete per-class AP breakdown on the Dataset 2 validation set (A3 DPM-Solver++).
+**Table F.1**: Complete per-class AP breakdown on the Dataset 2 validation set (+DPM-Solver++).
 
 #### F.5 Localization Saturation and Downstream Potential
 

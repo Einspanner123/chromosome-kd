@@ -34,7 +34,7 @@ CAT_SHORT = {1:"A1",2:"A2",3:"A3",4:"B4",5:"B5",6:"C6",7:"C7",8:"C8",9:"C9",
 
 MODELS = [
     {"name": "gt", "title": "Ground Truth", "color": "#2ECC71"},
-    {"name": "ours", "title": "KaryoFlow (A3 DPM++)", "color": "#1E90FF"},
+    {"name": "ours", "title": "KaryoFlow (DPM-Solver++)", "color": "#1E90FF"},
     {"name": "diffusiondet", "title": "DiffusionDet", "color": "#FF6347"},
     {"name": "rtmdet", "title": "RTMDet-L", "color": "#9B59B6"},
     {"name": "dino", "title": "DINO-R50", "color": "#F39C12"},

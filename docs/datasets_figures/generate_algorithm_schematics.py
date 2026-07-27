@@ -4,14 +4,14 @@ Outputs (PNG, EN + ZH versions):
   experiment_lineage_schematics[_zh].png       (combined 2x4 grid, 7 panels)
   panel_{a..g}_<name>[_zh].png                 (individual panels)
 
-7 panels (BoxRefineNet removed — ΔmAP ≈ 0, on par with baseline):
+7 panels (Box Refine Net removed — ΔmAP ≈ 0, on par with baseline):
   (a) DiffusionDet DDPM (root baseline)
   (b) RF + Heun + Shifted + AdaLN-Zero
   (c) DPM-Solver++ (RF multistep)  — efficiency: iso-quality, NFE -37%
   (d) Hard OT Coupling
   (e) Sinkhorn Stochastic OT
   (f) Focal Loss gamma=3
-  (g) OT Flow Coupling (E4.2)
+  (g) OT Flow Coupling
 
 ZH version: annotations in Chinese, proper nouns kept in English.
 """
@@ -432,10 +432,10 @@ def panel_focal(ax):
 
 
 # ════════════════════════════════════════════════════════════
-# Panel (g): OT Flow Coupling (E4.2)  [was (h), renumbered after removing BoxRefineNet]
+# Panel (g): OT Flow Coupling  [was (h), renumbered after removing Box Refine Net]
 # ════════════════════════════════════════════════════════════
 def panel_ot_flow(ax):
-    style_ax(ax, '(g) OT Flow Coupling  (E4.2)', '+0.005', C_POS)
+    style_ax(ax, '(g) OT Flow Coupling', '+0.005', C_POS)
 
     y_base = 0.68
     t = np.linspace(0, 1, 100)
@@ -543,7 +543,7 @@ def generate(lang: str, out_dir: str):
 
 def main():
     out_dir = os.path.dirname(os.path.abspath(__file__))
-    # Remove old BoxRefineNet files (panel_g_box_refine was the old panel g)
+    # Remove old Box Refine Net files (panel_g_box_refine was the old panel g)
     old_g = os.path.join(out_dir, 'panel_g_box_refine.png')
     if os.path.exists(old_g):
         os.remove(old_g)

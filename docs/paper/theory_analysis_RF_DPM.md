@@ -1,5 +1,7 @@
 # RF 与 DPM-Solver++ 理论深化分析
 
+> 📋 **命名约定**: 本文档使用论文正式名称 (Dataset 1 / Dataset 2 / RF+Heun / +Stoch. Coupling / +DPM-Solver++ / Adaptive Step / Draft-Verify / Top-K / Head Early-Exit / RoI Feature Cache / Cascade Head Count)。内部实验代号 (24obj / A0-A3 / IO1-IO5 / N_cascade) 仅保留在文件路径和代码引用中以兼容工程实现。
+
 <!--
 ============================================================
 文档定位
@@ -16,7 +18,7 @@
 
 约束：
   - 与 TMI 10 页主文兼容（合计约 1.5 页增量，可压缩到 §5.3 + Appendix A）
-  - 不重复 IO1–IO5 / flow-matching-det / N_cascade e2e 的失败模式
+  - 不重复 Adaptive Step–RoI Feature Cache / Flow Matching Detection / Cascade Head Count E2E 的失败模式
   - 与现有代码（rectified_flow.py, head.py, sampling.py）保持一致
 ============================================================
 -->
@@ -75,12 +77,12 @@ $$\eta_{\text{str}}^{(n)} := \frac{\left\| \mathbf{D}_1^{(n)} \right\|_2}{\left\
 ### 1.4 与论文 claim 的对应
 
 - **"2 步收敛"**：等价于 $\bar{\eta}_{\text{str}}^{(2)} \ll 1$，即 2 步后校正项已可忽略。
-- **"94% 增益归因于 RF 范式"**：若 $\bar{\eta}_{\text{str}}$ 在 A1（RF+Heun）和 A3（DPM++）上数值接近且都很小，则 solver 选择不影响轨迹直线度，仅影响每步 NFE——支持"solver 贡献 6%"的结论。
+- **"94% 增益归因于 RF 范式"**：若 $\bar{\eta}_{\text{str}}$ 在 RF+Heun 和 +DPM-Solver++ 上数值接近且都很小，则 solver 选择不影响轨迹直线度，仅影响每步 NFE——支持"solver 贡献 6%"的结论。
 - **"是否需要 reflow"**：若训练后 $\bar{\eta}_{\text{str}} > 0.1$ 持续，则 2-RectFlow（Liu et al., 2023）可能进一步拉直轨迹；若 $\bar{\eta}_{\text{str}} < 0.01$，reflow 收益有限。
 
 ### 1.5 实验验证（已完成，3 seeds × 4 configs）
 
-**实验设置**：在 A3 (DPM-Solver++) 的 3 个 seed checkpoint 上推理 500 张验证图，记录每步的 $\bar{\eta}_{\text{str}}^{(n)}$。代码改动见 [rectified_flow.py:113-118, 146-153](file:///home/linkst/workspace/projects/chromosome-kd/ldmdet/diffusion/rectified_flow.py#L113-L153) 和 [head.py:774-784](file:///home/linkst/workspace/projects/chromosome-kd/ldmdet/core/head.py#L774-L784)，实验脚本见 [r1_eta_str_measure.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/r1_eta_str_measure.py)。
+**实验设置**：在 +DPM-Solver++ 的 3 个 seed checkpoint 上推理 500 张验证图，记录每步的 $\bar{\eta}_{\text{str}}^{(n)}$。代码改动见 [rectified_flow.py:113-118, 146-153](file:///home/linkst/workspace/projects/chromosome-kd/ldmdet/diffusion/rectified_flow.py#L113-L153) 和 [head.py:774-784](file:///home/linkst/workspace/projects/chromosome-kd/ldmdet/core/head.py#L774-L784)，实验脚本见 [r1_eta_str_measure.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/r1_eta_str_measure.py)。
 
 **核心结果**（详见 [r1_d3_summary.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/r1_d3_summary.py) 输出）：
 
@@ -101,9 +103,9 @@ $$\eta_{\text{str}}^{(n)} := \frac{\left\| \mathbf{D}_1^{(n)} \right\|_2}{\left\
 
 ### 1.6 与已证伪方向的区分
 
-- **IO1（adaptive step early-exit）**：根据收敛提前终止，**改变推理步数**，已被证伪。
+- **Adaptive Step（adaptive step early-exit）**：根据收敛提前终止，**改变推理步数**，已被证伪。
 - **R1**：仅**观测** $\eta_{\text{str}}$，不改变任何推理流程，提供事后诊断。
-- R1 不触发 IO1 的失败模式（IO1 失败原因是 step 1 的 x0_pred 不稳定，R1 不依赖该判据做决策）。
+- R1 不触发 Adaptive Step 的失败模式（Adaptive Step 失败原因是 step 1 的 x0_pred 不稳定，R1 不依赖该判据做决策）。
 
 ---
 
@@ -142,21 +144,21 @@ $$x_{\text{final}} = \mathcal{A}_{t_3} \circ \mathcal{B}_{t_3, H} \circ \cdots \
 
 **猜想 S1.3（H 与 S 的可交换性边界，实验修正为弱形式）。** 在横向收敛假设下，减小 $H$（如 $H=3$）需增大 $S$ 以补偿，反之亦然。**原预测（强形式，已证伪）**：$H \times S$ 不是不变量——因 $\mathcal{A}_t$ 是二阶 solver 而 $\mathcal{B}_{t,k}$ 是一阶精化，$H$ 减半需 $S$ 增加多于两倍。**实验证伪**：H=3,S=4 / H=6,S=2 / H=3,S=8 三组 mAP 全部持平于 0.859（见 [EXPERIMENT_LINEAGE.md §七](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)），说明在 mAP 指标（noise floor $\pm 0.003$）上 $H \times S$ 近似为不变量。**修正后的弱形式**：$H \times S$ 在 mAP 上近似不变（因低维 $d=4$ 空间中横向/纵向精度损失均被 noise floor 吸收），但在更精细的指标（如 $\eta_{\text{str}}$、per-class AP）上可能不是不变量——此弱形式尚待 $\eta_{\text{str}}$ 实验验证。
 
-### 2.5 与已证伪 N_cascade e2e 的区分
+### 2.5 与已证伪 Cascade Head Count e2e 的区分
 
-**N_cascade e2e（已证伪，mAP 0.684，−0.172）**：重训架构，把 cascade head 数量从 6 改为其他值，端到端评估。
+**Cascade Head Count e2e（已证伪，mAP 0.684，−0.172）**：重训架构，把 cascade head 数量从 6 改为其他值，端到端评估。
 
 **S1**：仅**分析**已有 $H=6, S=4$ 架构的算子分裂结构，不重训。S1 是描述性分析，不引入新配置。
 
 S1 的价值在于：
-- 解释为何 N_cascade e2e 失败——减小 $H$ 破坏横向收敛性，而 $S$ 未相应增加；
+- 解释为何 Cascade Head Count e2e 失败——减小 $H$ 破坏横向收敛性，而 $S$ 未相应增加；
 - 给出"solver 阶数 vs cascade head 数量"的理论权衡框架，避免未来重试类似 e2e 实验。
 
 ### 2.6 对论文 §3.2 的补充建议
 
 在 §3.2 末尾补 1 段（约 0.3 页）：
 
-> **Cascade head 与 solver step 的解耦。** 我们的架构在每个 solver step 内顺序执行 $H=6$ 个 cascade head（每个做 RoIAlign + DynamicConv + $\hat{x}_0$ 预测），共 $H \times S = 24$ 次前向。形式化地，cascade head 在固定 $t$ 上精化 $x_t$（横向收敛），solver step 在固定精化链上推进 $t$（纵向积分），两者构成算子分裂。在 cascade head 序列收敛至不动点 $\mathcal{B}_t^*$ 的假设下，DPM-Solver++ 把复合算子 $\mathcal{B}_t^* \circ \mathcal{A}_t$ 视为单次 $v_\theta$ 评估，故 4 NFE 框架有效。这一视角解释了为何减少 cascade head 数量（Appendix B，$N_{\text{cascade}}$ e2e 方向，−0.172 mAP）会破坏精度——横向收敛性被破坏而 $S$ 未相应增加——并预测了"solver 阶数 × cascade 深度"的可交换性边界。
+> **Cascade head 与 solver step 的解耦。** 我们的架构在每个 solver step 内顺序执行 $H=6$ 个 cascade head（每个做 RoIAlign + DynamicConv + $\hat{x}_0$ 预测），共 $H \times S = 24$ 次前向。形式化地，cascade head 在固定 $t$ 上精化 $x_t$（横向收敛），solver step 在固定精化链上推进 $t$（纵向积分），两者构成算子分裂。在 cascade head 序列收敛至不动点 $\mathcal{B}_t^*$ 的假设下，DPM-Solver++ 把复合算子 $\mathcal{B}_t^* \circ \mathcal{A}_t$ 视为单次 $v_\theta$ 评估，故 4 NFE 框架有效。这一视角解释了为何减少 cascade head 数量（Appendix B，Cascade Head Count e2e 方向，−0.172 mAP）会破坏精度——横向收敛性被破坏而 $S$ 未相应增加——并预测了"solver 阶数 × cascade 深度"的可交换性边界。
 
 ---
 
@@ -225,7 +227,7 @@ if self.box_renewal:
 
 ### 3.6 实验验证（已完成）
 
-在 A3 checkpoint 上，3-seed 测试了 4 个配置（无需重训，仅推理时切换）。**关键结果**：
+在 +DPM-Solver++ checkpoint 上，3-seed 测试了 4 个配置（无需重训，仅推理时切换）。**关键结果**：
 
 | 配置 | mAP (3 seeds) | Step 1 $\eta_{\text{str}}$ | Step 2 | Step 3 | 模式 |
 |------|---------------|---------------------------|--------|--------|------|
@@ -329,7 +331,7 @@ TMI 10 页主文当前已满（[main_layout.txt](file:///home/linkst/workspace/p
 
 | 实验 | 方向 | 成本 | 价值 | 优先级 |
 |------|------|------|------|--------|
-| $\eta_{\text{str}}$ 在 A1/A3 上测度 | R1 | 1 推理 pass + 1 行代码 | 高（定量验证 2 步收敛） | 高 |
+| $\eta_{\text{str}}$ 在 RF+Heun/+DPM-Solver++ 上测度 | R1 | 1 推理 pass + 1 行代码 | 高（定量验证 2 步收敛） | 高 |
 | box_renewal on/off × K={100,200} | D3 | 4 配置 × 3 seed × 500 图 | 高（验证 K=100 掉点解释） | 高 |
 | 方案 A/B/C 对比 | D3 | 同上 | 中（修复方案验证） | 中 |
 | x0 vs v-prediction 重训 | R3 | 3 seed × 150 epoch | 低（理论已充分） | 不推荐 |
@@ -356,7 +358,7 @@ R1 与 D3 的实验仅需推理时改动，无需重训，可在 1–2 天内完
 - **D3（已验证，部分证伪）**：揭示 box_renewal 与 DPM-Solver++ 的隐含矛盾——renewal 使 $\eta_{\text{str}}$ 虚高 56-58% 但 mAP 仅 -0.0003。**D3 对 K=100 掉点的解释被实验证伪**（K=100/K=200 的 $\eta_{\text{str}}$ 几乎相同），掉点主因仍是 proposal 数量不足。新发现：Top-K reset 改变 $\eta_{\text{str}}$ 模式（单调递减 → V 型）。
 - **R3（纯理论）**：预防审稿人对"x0 vs v-prediction"的质疑，强调设置依赖性而非绝对优劣。
 
-四个方向均不重复 IO1–IO5 / flow-matching-det / N_cascade e2e 的失败模式：R1 是观测非决策，S1 是描述性分析非重训，D3 是诊断非新模块，R3 是解释非替换。
+四个方向均不重复 Adaptive Step–RoI Feature Cache / Flow Matching Detection / Cascade Head Count E2E 的失败模式：R1 是观测非决策，S1 是描述性分析非重训，D3 是诊断非新模块，R3 是解释非替换。
 
 **实验产出**：
 - [r1_eta_str_measure.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/r1_eta_str_measure.py)：η_str 测量脚本（支持 `--box-renewal on/off`）

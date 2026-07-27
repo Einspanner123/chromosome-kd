@@ -144,12 +144,12 @@ DDPM-based DiffusionDet ($+0.060$ \mAP{} at seed~42 best, $+0.056$ at the
 3-seed mean). Although DINO R50 remains statistically better
 under a per-image paired Wilcoxon test, RF as a diffusion-based method has
 narrowed the gap with transformer-based SOTA. Because the
-A0$\to$A1 comparison changes several variables at once (DDPM$\to$RF,
-Euler$\to$Heun, $1\to4$ steps), we further conduct a solver$\times$step
-disentanglement ablation that attributes $94\%$ of the gain to the RF
-paradigm and only $6\%$ to solver and step-count choices; AdaLN-Zero
-contributes null individually (Appendix~\ref{app:proofs}). The accuracy
-gain therefore originates from the paradigm itself
+DDPM-baseline$\to$RF+Heun comparison changes several variables at once
+(DDPM$\to$RF, Euler$\to$Heun, $1\to4$ steps), we further conduct a
+solver$\times$step disentanglement ablation that attributes $94\%$ of the
+gain to the RF paradigm and only $6\%$ to solver and step-count choices;
+AdaLN-Zero contributes null individually (Appendix~\ref{app:proofs}). The
+accuracy gain therefore originates from the paradigm itself
 rather than from solver tuning.
 
 The second difficulty is a training pathology induced by optimal-transport
@@ -363,25 +363,25 @@ initial noise) is a fixed sample and is \emph{not} interpolated; its
 contribution is carried implicitly by $\mathbf{x}_{t_n}$.
 \emph{Cost}: 1 NFE per step. At 4 steps this yields 4 NFE (vs Heun's 7).
 
-\paragraph{Solver type is \mAP{}-neutral on A1}
-Evaluating the A1 checkpoint across all solver$\times$step combinations
+\paragraph{Solver type is \mAP{}-neutral on RF+Heun}
+Evaluating the RF+Heun checkpoint across all solver$\times$step combinations
 (Table~\ref{tab:solver-ablation}, Figure~\ref{fig:solver-ablation}), solver
 type has \emph{no effect on \mAP{}} at matched steps (Euler = DPM-Solver++ at
 both 4-step and 1-step). Step count has marginal effect ($+0.004$ from 1 to 4
 steps). Heun's $+0.001$ over Euler 4-step costs $1.75\times$ NFE (7 vs 4),
-not cost-effective. On the full model (A3 vs A2), DPM-Solver++ is slightly
-but significantly \emph{more} accurate than Heun at matched 4-step ($+0.006$
-per-image \mAP{}, Wilcoxon $p<10^{-6}$; Table~\ref{tab:stat-tests}), so its
-advantage is both computational and statistical.
+not cost-effective. On the full model (DPM-Solver++ vs +Stoch.~Coupling),
+DPM-Solver++ is slightly but significantly \emph{more} accurate than Heun at
+matched 4-step ($+0.006$ per-image \mAP{}, Wilcoxon $p<10^{-6}$;
+Table~\ref{tab:stat-tests}), so its advantage is both computational and
+statistical.
 
 \begin{table}[t]
   \centering
   \small
-  \caption{Solver$\times$step disentanglement ablation on the A1
-  checkpoint (24 Chromosomes Object val, seed 42). Solver type is
-  \mAP{}-neutral at matched steps; the joint solver/step configuration
-  accounts for $+0.005$ \mAP{} ($6\%$) of the $+0.082$ gap, leaving
-  $94\%$ attributable to RF.}
+  \caption{Solver$\times$step disentanglement ablation on the RF+Heun
+  checkpoint (Dataset~2 val, seed 42). Solver type is \mAP{}-neutral at
+  matched steps; the joint solver/step configuration accounts for $+0.005$
+  \mAP{} ($6\%$) of the $+0.082$ gap, leaving $94\%$ attributable to RF.}
   \label{tab:solver-ablation}
   \begin{tabular}{lcrr}
     \toprule
@@ -399,7 +399,7 @@ advantage is both computational and statistical.
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]{figures/solver_ablation.pdf}
-  \caption{Solver$\times$step disentanglement ablation (A1 checkpoint).
+  \caption{Solver$\times$step disentanglement ablation (RF+Heun checkpoint).
   Bars are colored by solver type and hatched by step count. Solver/step
   configuration contributes only $+0.005$ \mAP{} ($6\%$); the remaining
   $+0.077$ \mAP{} ($94\%$) is attributable to the RF training paradigm.}
@@ -564,8 +564,8 @@ While the \mAP{} improvement is marginal ($+0.002$ on 24 Chromosomes Object), it
     \toprule
     Configuration & Best mAP & Epoch std \\
     \midrule
-    RF + AdaLN (no Stoch.~Coup.)         & 0.856 & 0.0060 \\
-    RF + AdaLN + Stoch.~Coup. ($\epsilon{=}5$) & 0.858 & \textbf{0.0013} \\
+    RF + AdaLN (no Stoch.~Coupling)         & 0.856 & 0.0060 \\
+    RF + AdaLN + Stoch.~Coupling ($\epsilon{=}5$) & 0.858 & \textbf{0.0013} \\
     \midrule
     Stability gain & --- & $4.6\times$ \\
     \bottomrule
@@ -583,7 +583,7 @@ While the \mAP{} improvement is marginal ($+0.002$ on 24 Chromosomes Object), it
   \label{fig:training-stability}
 \end{figure}
 
-\subsection{Top-$K$ Proposal Pruning}\label{sec:method-io3}
+\subsection{Top-$K$ Proposal Pruning}\label{sec:method-topk}
 After step 0 of inference, we prune proposals from 500 to $K$ based on
 confidence scores; only the top-$K$ proposals proceed through steps 1--3.
 DPM-Solver++ compatibility requires \texttt{dpm\_solver.reset()} after
@@ -642,7 +642,7 @@ $\text{maxDets}{=}100$).
 
 \paragraph{Statistical considerations}
 Cross-seed experiments (3 seeds: 42, 123, 789) are available for Dataset~1.
-For Dataset~2, A3 (DPM-Solver++) has 3 seeds (mean $0.859 \pm 0.003$),
+For Dataset~2, the DPM-Solver++ variant has 3 seeds (mean $0.859 \pm 0.003$),
 confirming the $+0.002$ aggregate \mAP{} gap is within cross-seed variance,
 though per-image paired tests (Table~\ref{tab:stat-tests}) reveal a
 statistically significant $+0.006$ advantage.
@@ -651,8 +651,8 @@ statistically significant $+0.006$ advantage.
 
 \paragraph{Dataset~2 ablation}
 Table~\ref{tab:main-ablation} reports a cumulative ablation on the Dataset~2
-validation set: A0 (DDPM Euler baseline), A1 is KaryoFlow (RF+Heun), A2 adds
-Stochastic Coupling, A3 swaps to DPM-Solver++. AdaLN-Zero is used throughout
+validation set: the DDPM Euler baseline, RF+Heun (KaryoFlow), adds Stochastic
+Coupling, then swaps to DPM-Solver++. AdaLN-Zero is used throughout
 but contributes null individually (Appendix~\ref{app:proofs}). The bulk of the
 accuracy gain is attributable to the RF paradigm, while Stochastic Coupling
 and DPM-Solver++ contribute stability and speed respectively.
@@ -661,27 +661,28 @@ and DPM-Solver++ contribute stability and speed respectively.
   \centering
   \small
   \caption{Main ablation on Dataset~2 (independent inference, seed~42 for
-  A0--A2; 3-seed mean for A3, std in text). NFE = total network
-  forward evaluations per image. ``Last-30 std'' is within-run epoch \mAP{}
-  std. RF dominates the A0$\to$A1 gain ($+0.077$, $94\%$); solver/step
-  adds only $+0.005$ ($6\%$); Stoch.\ Coupling stabilizes without changing
-  \mAP{}; DPM-Solver++ matches Heun at $1.71\times$ fewer NFE.}
+  the first three rows; 3-seed mean for DPM-Solver++, std in text). NFE =
+  total network forward evaluations per image. ``Last-30 std'' is within-run
+  epoch \mAP{} std. RF dominates the baseline$\to$RF+Heun gain ($+0.077$,
+  $94\%$); solver/step adds only $+0.005$ ($6\%$); Stoch.\ Coupling
+  stabilizes without changing \mAP{}; DPM-Solver++ matches Heun at
+  $1.71\times$ fewer NFE.}
   \label{tab:main-ablation}
   \begin{tabular}{llcrrrrrrr}
     \toprule
     Experiment & Solver & Steps & NFE & mAP & AP50 & AP75 & AP$_S$ & AP$_M$ & AP$_L$ \\
     \midrule
-    A0 baseline (Euler 1-step)  & Euler   & 1 & 1 & 0.774 & 0.968 & 0.916 & 0.317 & 0.773 & 0.775 \\
-    \textbf{A1 RF+Heun (KaryoFlow)}   & Heun    & 4 & 7 & \textbf{0.856} & 0.989 & 0.969 & 0.502 & 0.853 & 0.867 \\
-    A2 + Stochastic Coupling ($\epsilon{=}5$)  & Heun    & 4 & 7 & 0.858 & 0.989 & 0.971 & 0.523 & 0.854 & 0.864 \\
-    \textbf{A3 DPM-Solver++}    & DPM++   & 4 & 4 & \textbf{0.859} & 0.988 & 0.968 & 0.516 & 0.856 & 0.890 \\
+    DDPM baseline (Euler 1-step)  & Euler   & 1 & 1 & 0.774 & 0.968 & 0.916 & 0.317 & 0.773 & 0.775 \\
+    \textbf{RF+Heun (KaryoFlow)}   & Heun    & 4 & 7 & \textbf{0.856} & 0.989 & 0.969 & 0.502 & 0.853 & 0.867 \\
+    +Stoch.~Coupling ($\epsilon{=}5$)  & Heun    & 4 & 7 & 0.858 & 0.989 & 0.971 & 0.523 & 0.854 & 0.864 \\
+    \textbf{DPM-Solver++}    & DPM++   & 4 & 4 & \textbf{0.859} & 0.988 & 0.968 & 0.516 & 0.856 & 0.890 \\
     \bottomrule
   \end{tabular}
 \end{table*}
 
 The RF paradigm accounts for $+0.077$ \mAP{} ($94\%$ of the $+0.082$ gap),
-while solver/step configuration adds only $+0.005$ ($6\%$). The A3 row
-reports the 3-seed mean; cross-seed std is $\pm 0.003$ for \mAP{} and
+while solver/step configuration adds only $+0.005$ ($6\%$). The DPM-Solver++
+row reports the 3-seed mean; cross-seed std is $\pm 0.003$ for \mAP{} and
 $\pm 0.012$ for AP$_S$, well below the inter-method gaps of interest. On
 Dataset~2, Stochastic Coupling contributes no measurable \mAP{} gain
 ($+0.0001$, Wilcoxon $p{=}0.80$) but $4.6\times$ smoother convergence; on
@@ -703,7 +704,7 @@ $+0.017$ \mAP{} ($0.746$ vs $0.729$, lower variance $\pm 0.001$ vs $\pm
 \subsection{SOTA Comparison}\label{sec:exp-sota}
 
 Table~\ref{tab:sota} compares our RF-based detector against standard and
-diffusion baselines. Our best variant (A3, DPM-Solver++, 3-seed mean) trails
+diffusion baselines. Our best variant (DPM-Solver++, 3-seed mean) trails
 RTMDet-L (a stronger CSPNeXt-L detector) by $0.004$ \mAP{} and the
 multi-scale DINO R50 by $0.009$ \mAP{} (both outside our cross-seed
 variance of $\pm 0.003$), while exceeding Cascade R-CNN, YOLOX-S~\cite{ge2021yolox},
@@ -717,10 +718,10 @@ simpler backbone than RTMDet-L or DINO R50.
   \centering
   \footnotesize
   \setlength{\tabcolsep}{3pt}
-  \caption{SOTA comparison on Dataset~2 (independent inference; A3 reports
-  3-seed mean). RTMDet-L uses a stronger CSPNeXt-L backbone; DINO R50 uses
-  multi-scale deformable attention. Our method is competitive with RTMDet-L
-  on overall \mAP{} while offering $1.71\times$ faster inference; AP$_S$
+  \caption{SOTA comparison on Dataset~2 (independent inference; DPM-Solver++
+  reports 3-seed mean). RTMDet-L uses a stronger CSPNeXt-L backbone; DINO
+  R50 uses multi-scale deformable attention. Our method is competitive with
+  RTMDet-L on overall \mAP{} while offering $1.71\times$ fewer NFE; AP$_S$
   differences among top methods are not statistically significant
   (Table~\ref{tab:stat-tests}). The $+0.060$ \mAP{} gain over DiffusionDet
   reported in the text uses the seed~42 best checkpoint (\mAP{} $0.863$);
@@ -734,8 +735,8 @@ simpler backbone than RTMDet-L or DINO R50.
     \midrule
     DINO R50               & ResNet-50     & \textbf{0.868} & 0.992 & 0.979 & 0.553 \\
     RTMDet-L               & CSPNeXt-L     & 0.863          & 0.992 & 0.976 & 0.540 \\
-    \textbf{Ours (A3 DPM++)} & ResNet-50   & 0.859          & 0.988 & 0.968 & 0.516 \\
-    Ours (A2 Heun+Stoch.~Coup.) & ResNet-50    & 0.858          & 0.989 & 0.971 & 0.523 \\
+    \textbf{Ours (DPM-Solver++)} & ResNet-50   & 0.859          & 0.988 & 0.968 & 0.516 \\
+    Ours (Heun+Stoch.~Coupling) & ResNet-50    & 0.858          & 0.989 & 0.971 & 0.523 \\
     Ours (Random)          & ResNet-50     & 0.856          & 0.989 & 0.969 & 0.502 \\
     Cascade R-CNN          & ResNet-50     & 0.854          & 0.987 & 0.972 & 0.525 \\
     YOLOX-S                & CSPDarkNet-S  & 0.796          & 0.987 & 0.944 & 0.452 \\
@@ -759,7 +760,7 @@ RTMDet-L ($0.742$) and DINO R50 ($0.737$), suggesting the diffusion paradigm
 is competitive in low-data small-target regimes.
 
 \paragraph{Per-class AP analysis}
-Figure~\ref{fig:per-class} reports per-class AP for all 24 classes (A3
+Figure~\ref{fig:per-class} reports per-class AP for all 24 classes (DPM-Solver++
 checkpoint, seed~42). First,
 overall AP drops monotonically with chromosome size
 ($0.896 \to 0.848 \to 0.805$ for Large$\to$Medium$\to$Small), and the
@@ -793,7 +794,7 @@ reliable per-class detection.
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]{figures/per_class_ap.pdf}
-  \caption{Per-class AP on Dataset~2 validation (A3 DPM-Solver++). Bars
+  \caption{Per-class AP on Dataset~2 validation (DPM-Solver++). Bars
   colored by chromosome size group; dashed line = overall mean. Large
   (A--C) chromosomes achieve highest AP; small (F--G) and Y lowest. Y is
   the hardest class due to data scarcity and biological variability.}
@@ -803,13 +804,13 @@ reliable per-class detection.
 \paragraph{Statistical significance of the ablation gains}
 Table~\ref{tab:stat-tests} reports per-image paired significance tests
 (Wilcoxon and paired $t$-test) over the $500$ validation images. Two
-conclusions stand out. First, on Dataset~2, Stochastic Coupling (A2 vs A1)
+conclusions stand out. First, on Dataset~2, Stochastic Coupling (vs Random)
 yields no significant \mAP{} change ($p{=}0.80$) --- but this is
 \emph{dataset-specific}: the same comparison on Dataset~1 reveals a
 highly significant gain ($+0.034$, $p<10^{-120}$;
 Table~\ref{tab:stat-tests-coupling}), so Stochastic Coupling's accuracy contribution is
 real in low-data regimes and diminishes with dataset size. Second,
-DPM-Solver++ at matched 4-step (A3 vs A2) produces a highly
+DPM-Solver++ at matched 4-step (vs Heun+Stoch.~Coupling) produces a highly
 significant \mAP{} improvement ($+0.006$, $p<10^{-6}$) --- the higher-order
 solver is \emph{slightly better} than Heun at equal step count.
 On AP$_S$, none of the pairwise differences reach significance
@@ -834,13 +835,13 @@ On AP$_S$, none of the pairwise differences reach significance
     \toprule
     Comparison & Metric & $\Delta$ & Wilc.\ $p$ & $t$ $p$ & $n$ \\
     \midrule
-    A2$-$A1 (Stoch.~Coup.)  & \mAP   & $+0.0001$ & $0.797$ ns  & $0.944$ ns  & 500 \\
-    A3$-$A2 (DPM++)    & \mAP   & $+0.0056$ & $\mathbf{2.5\!\cdot\!10^{-7}}$ *** & $\mathbf{8.4\!\cdot\!10^{-7}}$ *** & 500 \\
-    A3$-$A1 (combined) & \mAP   & $+0.0057$ & $4.5\!\cdot\!10^{-4}$ *** & $4.9\!\cdot\!10^{-5}$ *** & 500 \\
+    Stoch.~Coupling$-$Random  & \mAP   & $+0.0001$ & $0.797$ ns  & $0.944$ ns  & 500 \\
+    DPM$+$$-$Stoch.~Coupling    & \mAP   & $+0.0056$ & $\mathbf{2.5\!\cdot\!10^{-7}}$ *** & $\mathbf{8.4\!\cdot\!10^{-7}}$ *** & 500 \\
+    DPM$+$$-$Random (combined) & \mAP   & $+0.0057$ & $4.5\!\cdot\!10^{-4}$ *** & $4.9\!\cdot\!10^{-5}$ *** & 500 \\
     \midrule
-    A2$-$A1 (Stoch.~Coup.)  & AP$_S$ & $+0.0012$ & $0.783$ ns  & $0.947$ ns  & 60  \\
-    A3$-$A2 (DPM++)    & AP$_S$ & $-0.0031$ & $0.855$ ns  & $0.855$ ns  & 60  \\
-    A3$-$A1 (combined) & AP$_S$ & $-0.0019$ & $0.691$ ns  & $0.898$ ns  & 60  \\
+    Stoch.~Coupling$-$Random  & AP$_S$ & $+0.0012$ & $0.783$ ns  & $0.947$ ns  & 60  \\
+    DPM$+$$-$Stoch.~Coupling    & AP$_S$ & $-0.0031$ & $0.855$ ns  & $0.855$ ns  & 60  \\
+    DPM$+$$-$Random (combined) & AP$_S$ & $-0.0019$ & $0.691$ ns  & $0.898$ ns  & 60  \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -860,13 +861,13 @@ On AP$_S$, none of the pairwise differences reach significance
     \toprule
     Comparison & Metric & $\Delta$ & Wilc.\ $p$ & $t$ $p$ & $n$ \\
     \midrule
-    Stoch$-$Rand   & \mAP   & $+0.0308$ & $\mathbf{9.0\!\cdot\!10^{-126}}$ *** & $\mathbf{9.9\!\cdot\!10^{-130}}$ *** & 1320 \\
+    Stoch.~Coupling$-$Random   & \mAP   & $+0.0308$ & $\mathbf{9.0\!\cdot\!10^{-126}}$ *** & $\mathbf{9.9\!\cdot\!10^{-130}}$ *** & 1320 \\
     Hard$-$Rand    & \mAP   & $-0.0061$ & $1.2\!\cdot\!10^{-8}$ ***  & $1.6\!\cdot\!10^{-9}$ ***  & 1320 \\
-    Stoch$-$Hard   & \mAP   & $+0.0369$ & $\mathbf{9.0\!\cdot\!10^{-155}}$ *** & $\mathbf{2.8\!\cdot\!10^{-156}}$ *** & 1320 \\
+    Stoch.~Coupling$-$Hard   & \mAP   & $+0.0369$ & $\mathbf{9.0\!\cdot\!10^{-155}}$ *** & $\mathbf{2.8\!\cdot\!10^{-156}}$ *** & 1320 \\
     \midrule
-    Stoch$-$Rand   & AP$_S$ & $+0.0450$ & $3.9\!\cdot\!10^{-68}$ ***  & $2.5\!\cdot\!10^{-75}$ ***  & 1314 \\
+    Stoch.~Coupling$-$Random   & AP$_S$ & $+0.0450$ & $3.9\!\cdot\!10^{-68}$ ***  & $2.5\!\cdot\!10^{-75}$ ***  & 1314 \\
     Hard$-$Rand    & AP$_S$ & $-0.0051$ & $1.7\!\cdot\!10^{-2}$ *    & $2.2\!\cdot\!10^{-2}$ *    & 1314 \\
-    Stoch$-$Hard   & AP$_S$ & $+0.0501$ & $1.9\!\cdot\!10^{-83}$ *** & $5.9\!\cdot\!10^{-85}$ *** & 1314 \\
+    Stoch.~Coupling$-$Hard   & AP$_S$ & $+0.0501$ & $1.9\!\cdot\!10^{-83}$ *** & $5.9\!\cdot\!10^{-85}$ *** & 1314 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -925,7 +926,7 @@ Stochastic Coupling achieves $30/30$ epochs within $1\%$ of the best \mAP{}
   \resizebox{\columnwidth}{!}{%
   \begin{tabular}{@{}lrrr@{}}
     \toprule
-    Metric & A1 (Random) & A3 (Stochastic Coupling ($\epsilon{=}5$)) & Gain \\
+    Metric & Random coupling & Stoch.~Coupling ($\epsilon{=}5$) & Gain \\
     \midrule
     Last-30 epoch std                 & 0.0060         & 0.0013         & $4.6\times$ \\
     Last-30 CV (std/mean)             & 0.69\%         & 0.16\%         & $4.4\times$ \\
@@ -959,20 +960,21 @@ at no cost. At matched \emph{step count} (4 vs 4), DPM-Solver++ is
 indicating the advantage is not purely computational.
 
 \paragraph{Test set evaluation}
-On the Dataset~2 test set, A3 achieves \mAP{} $0.859$ (vs val $0.863$ for
-seed~42, $\Delta = -0.004$), confirming that the aggregate accuracy
-generalizes well. The AP$_S$ point estimate, however, swings from $0.499$
-(val) to $0.577$ (test) for the same checkpoint, indicating that AP$_S$ on
-this 24-class benchmark is high-variance (only $60$ val images contain small
-objects) and should be interpreted alongside the per-image significance tests
-in Table~\ref{tab:stat-tests} rather than as a point estimate.
+On the Dataset~2 test set, DPM-Solver++ achieves \mAP{} $0.859$ (vs val
+$0.863$ for seed~42, $\Delta = -0.004$), confirming that the aggregate
+accuracy generalizes well. The AP$_S$ point estimate, however, swings from
+$0.499$ (val) to $0.577$ (test) for the same checkpoint, indicating that
+AP$_S$ on this 24-class benchmark is high-variance (only $60$ val images
+contain small objects) and should be interpreted alongside the per-image
+significance tests in Table~\ref{tab:stat-tests} rather than as a point
+estimate.
 
 \subsection{FPS / Latency Benchmark}\label{sec:exp-fps}
 
 Table~\ref{tab:fps} and Figure~\ref{fig:fps-map} report the speed-accuracy
 trade-off at $512{\times}512$ input resolution. DPM-Solver++
 with Top-$K$ pruning reaches a latency compatible with interactive use, while
-standard detectors are $3$--$7\times$ faster but less accurate.
+single-shot detectors (Cascade R-CNN, YOLOX-S) trade accuracy for speed.
 
 \begin{table}[t]
   \centering
@@ -980,20 +982,21 @@ standard detectors are $3$--$7\times$ faster but less accurate.
   \setlength{\tabcolsep}{3pt}
   \caption{FPS / latency benchmark (Dataset~2, 512$\times$512, seed~42).
   Latency is mean over $200$ images on an RTX A6000 (std $\le 3.4$\,ms,
-  omitted). A3+Top-$K$ (K=200) reaches $14.2$ FPS / $70.5$\,ms at \mAP{}
-  $0.860$, within the interactive-screening band; standard one-shot
-  detectors remain $3$--$7\times$ faster at lower accuracy.}
+  omitted). DPM-Solver++ +Top-$K$ (K=200) reaches $14.2$ FPS / $70.5$\,ms
+  at \mAP{} $0.860$, within the interactive-screening band; single-shot
+  detectors (Cascade R-CNN, YOLOX-S) are $3.6$--$7.4\times$ faster at
+  lower accuracy.}
   \label{tab:fps}
   \begin{tabular}{llrrrr}
     \toprule
     Model & Solver & NFE & Latency (ms) & FPS & mAP \\
     \midrule
-    A1 RF+Heun        & Heun  & 7 & 124.38 & 8.0 & 0.856 \\
-    A2 + Stoch.~Coup.   & Heun  & 7 & 128.35 & 7.8 & 0.858 \\
-    \textbf{A3 DPM++} & DPM++ & 4 & \textbf{75.03} & \textbf{13.3} & \textbf{0.863} \\
-    A3 + Top-$K$ (K=300)    & DPM++ & 4 & 71.27 & 14.0 & 0.861 \\
-    \textbf{A3 + Top-$K$ (K=200)} & DPM++ & 4 & \textbf{70.46} & \textbf{14.2} & \textbf{0.860} \\
-    A3 + Top-$K$ (K=100)    & DPM++ & 4 & 69.71 & 14.3 & 0.850 \\
+    RF+Heun        & Heun  & 7 & 124.38 & 8.0 & 0.856 \\
+    +Stoch.~Coupling   & Heun  & 7 & 128.35 & 7.8 & 0.858 \\
+    \textbf{DPM-Solver++} & DPM++ & 4 & \textbf{75.03} & \textbf{13.3} & \textbf{0.863} \\
+    DPM-Solver++ +Top-$K$ (K=300)    & DPM++ & 4 & 71.27 & 14.0 & 0.861 \\
+    \textbf{DPM-Solver++ +Top-$K$ (K=200)} & DPM++ & 4 & \textbf{70.46} & \textbf{14.2} & \textbf{0.860} \\
+    DPM-Solver++ +Top-$K$ (K=100)    & DPM++ & 4 & 69.71 & 14.3 & 0.850 \\
     \midrule
     Cascade R-CNN     & --- & 1 & 20.67 & 48.4 & 0.854 \\
     YOLOX-S           & --- & 1 & 10.15 & 98.5 & 0.796 \\
@@ -1007,21 +1010,21 @@ standard detectors are $3$--$7\times$ faster but less accurate.
   \includegraphics[width=\columnwidth]{figures/fps_map.pdf}
   \caption{Speed-accuracy trade-off (Dataset~2, RTX A6000, $512{\times}512$).
   Log-scale FPS axis. Our RF variants (circle/square) occupy the
-  high-accuracy region (\mAP{} $> 0.85$); standard detectors (triangle) are
-  $3$--$7\times$ faster but less accurate. A3+Top-$K$ (K=200) ($14.2$ FPS,
+  high-accuracy region (\mAP{} $> 0.85$); single-shot detectors (triangle)
+  trade accuracy for speed. DPM-Solver++ +Top-$K$ (K=200) ($14.2$ FPS,
   \mAP{} $0.860$) achieves the best speed-accuracy trade-off among our
   variants.}
   \label{fig:fps-map}
 \end{figure}
 
-A3 + Top-$K$ (K=200) is the fastest variant ($70.46$\,ms / $14.2$ FPS, \mAP{}
-$0.860$); A3 achieves $75$\,ms / $13.3$ FPS at \mAP{} $0.863$. The cascade
-head dominates $90\%+$ of latency; the backbone+neck is a minor cost
-($\sim 5.8$\,ms, 4--8\%).
+DPM-Solver++ +Top-$K$ (K=200) is the fastest variant ($70.46$\,ms /
+$14.2$ FPS, \mAP{} $0.860$); DPM-Solver++ achieves $75$\,ms / $13.3$ FPS
+at \mAP{} $0.863$. The cascade head dominates $90\%+$ of latency; the
+backbone+neck is a minor cost ($\sim 5.8$\,ms, 4--8\%).
 
 \subsection{Robustness}\label{sec:exp-robust}
 We report one inference-only robustness probe (SIER: Evaluation breadth).
-It reuses the A3 checkpoint (DPM-Solver++ 4-step + Top-$K$ pruning) on
+It reuses the DPM-Solver++ checkpoint (4-step + Top-$K$ pruning) on
 Dataset~2 --- \emph{no model is retrained}.
 
 \paragraph{Annotation-noise robustness}
@@ -1036,11 +1039,12 @@ Table~\ref{tab:robust-noise} reports \mAP{} degradation.
   \centering
   \scriptsize
   \setlength{\tabcolsep}{4pt}
-  \caption{Annotation-noise robustness (Dataset~2 test, A3, seed~42, $1000$
-  images). Rows: GT bbox jitter $\sigma_{\text{bbox}}$ (px); columns:
-  class-flip rate $p$; cells: \mAP{}@$[0.50{:}0.95]$. Clean baseline:
-  $0.859$. The model stays above the $1/24{\approx}0.042$ chance level even
-  at the heaviest perturbation ($\sigma{=}10$, $p{=}20\%$: \mAP{}$=0.129$).}
+  \caption{Annotation-noise robustness (Dataset~2 test, DPM-Solver++,
+  seed~42, $1000$ images). Rows: GT bbox jitter $\sigma_{\text{bbox}}$ (px);
+  columns: class-flip rate $p$; cells: \mAP{}@$[0.50{:}0.95]$. Clean
+  baseline: $0.859$. The model stays above the $1/24{\approx}0.042$ chance
+  level even at the heaviest perturbation ($\sigma{=}10$, $p{=}20\%$:
+  \mAP{}$=0.129$).}
   \label{tab:robust-noise}
   \begin{tabular}{lcccc}
     \toprule

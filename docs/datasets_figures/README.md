@@ -1,14 +1,16 @@
 # 实验脉络算法示意图 — 图片解读
 
+> 📋 **命名约定**: 本文档使用论文正式名称 (Dataset 1 / Dataset 2 / +Stoch. Coupling / Box Refine Net)。内部实验代号 (24obj / chromo / A0-A4 / E4.2 / Direction D) 仅保留在文件名、配置名和脚本路径中以兼容工程实现。
+
 本目录包含 `EXPERIMENT_LINEAGE.md` 中各改进的底层算法可视化示意图，共 7 个面板，覆盖从 DiffusionDet DDPM 根基线到 OT Flow 耦合的完整改进脉络。
 
 - **拼版**: `experiment_lineage_schematics.png` (EN) / `experiment_lineage_schematics_zh.png` (中文)
 - **单图**: `panel_{a..g}_<name>.png` (EN) / `panel_{a..g}_<name>_zh.png` (中文)
 - **生成脚本**: `generate_algorithm_schematics.py`（`python generate_algorithm_schematics.py` 一次性生成全部 16 张 PNG）
 
-> **基线**: DiffusionDet DDPM = 0.729 ± 0.003 → RF+Heun+AdaLN = 0.746 ± 0.001（chromo 数据集, DiffusionDet 默认 aug, 3 seeds）
+> **基线**: DiffusionDet DDPM = 0.729 ± 0.003 → RF+Heun+AdaLN = 0.746 ± 0.001（Dataset 1, DiffusionDet 默认 aug, 3 seeds）
 >
-> ⚠️ **暂时废弃**：该基线及下文 (a)-(g) 各面板的 ΔmAP 结论均基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的结论已更新（A0-A4 主路线消融，见 EXPERIMENT_RESULTS.md §8.5 / EXPERIMENT_LINEAGE.md §3.2）。算法示意图本身仍可用于方法说明，但对应的量化结论以 24obj 为准。
+> ⚠️ **暂时废弃**：该基线及下文 (a)-(g) 各面板的 ΔmAP 结论均基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），Dataset 2 上的结论已更新（DDPM baseline → +DPM-Solver++ 主路线消融，见 EXPERIMENT_RESULTS.md §8.5 / EXPERIMENT_LINEAGE.md §3.2）。算法示意图本身仍可用于方法说明，但对应的量化结论以 Dataset 2 为准。
 
 ---
 
@@ -93,12 +95,12 @@
 **解读**:
 - **Hard OT（硬配对）**: 在 minibatch 内求解最优传输，得到双射（bijective）配对 $\pi$，使 $\sum_i c(x_0^{(i)}, x_1^{(\pi_i)})$ 最小
 - 相比随机配对（$x_1$ 与任意 $x_0$ 配对），OT 配对使训练轨迹更短、更直，理论上加速收敛
-- 但实践中 **ΔmAP 仅 +0.001**：chromo 数据集的检测框分布相对集中，随机配对的次优性被 RF 的轨迹拉直能力补偿，OT 的边际收益有限
+- 但实践中 **ΔmAP 仅 +0.001**：Dataset 1的检测框分布相对集中，随机配对的次优性被 RF 的轨迹拉直能力补偿，OT 的边际收益有限
 - 公式移至底部避免被交叉配对箭头遮挡
 
 ---
 
-### (e) Sinkhorn Stochastic OT — 边际收益
+### (e) Stochastic Coupling — 边际收益
 
 **文件**: `panel_e_sinkhorn.png` | **ΔmAP**: +0.002（边际）
 
@@ -130,12 +132,12 @@
 **解读**:
 - **Focal Loss** 公式 $\mathcal{L} = -\alpha(1-p)^\gamma \log(p)$，$\gamma$ 控制难样本（低 $p$）的权重放大程度
 - $\gamma=3$ 比 $\gamma=2$ 进一步压制易样本（高 $p$）的梯度贡献，使模型更关注难分类的染色体实例
-- **ΔmAP +0.004** 是所有边际改进中收益最大的——chromo 数据集存在类间相似度高（如近端着丝粒 vs 中着丝粒染色体）的问题，Focal $\gamma=3$ 有效缓解了难样本的分类错误
+- **ΔmAP +0.004** 是所有边际改进中收益最大的——Dataset 1存在类间相似度高（如近端着丝粒 vs 中着丝粒染色体）的问题，Focal $\gamma=3$ 有效缓解了难样本的分类错误
 - 箭头标注：在 $p=0.15$ 处，$\gamma=3$ 的损失约为 $\gamma=2$ 的 1.5 倍，梯度信号显著增强
 
 ---
 
-### (g) OT Flow Coupling (E4.2) — OT Flow 耦合有效
+### (g) OT Flow Coupling — OT Flow 耦合有效
 
 **文件**: `panel_g_ot_flow.png` | **ΔmAP**: +0.005
 
@@ -154,7 +156,7 @@
 - $\kappa(s) = 1 + \lambda \cdot \frac{s_{\max} - s}{s_{\max}}$：小目标（$s$ 小）的 $\kappa > 1$，噪声增长更快，迫使模型在更早时刻学习小目标的精细结构
 - **Sinkhorn OT 配对**: 同时使用 OT 耦合（逐 batch 传输方案），使训练轨迹与尺度调制协同
 - **ΔmAP +0.005**：OT Flow 在所有边际改进中收益最高，验证了"小目标需要更快噪声增长"的假设
-- 实验编号 E4.2：仅使用 OT Flow 耦合（非线性轨迹），不含 SCRF 的完整 scale-conditioned 机制
+- 仅使用 OT Flow 耦合（非线性轨迹），不含 ScaleConditionedRF 的完整 scale-conditioned 机制
 
 ---
 
@@ -171,13 +173,13 @@
 | (f) Focal γ=3 | panel_f_focal.png | panel_f_focal_zh.png | +0.004 |
 | (g) OT Flow | panel_g_ot_flow.png | panel_g_ot_flow_zh.png | +0.005 |
 
-> BoxRefineNet（原 Direction D）因 ΔmAP ≈ 0（持平 baseline）已从图中移除。
+> Box Refine Net 因 ΔmAP ≈ 0（持平 baseline）已从图中移除。
 
 ---
 
 ## Baseline vs SOTA 对比分析图
 
-除算法示意图外，本目录还包含多组定量对比图，覆盖 **chromo** 与 **24obj** 两个数据集，从召回率、准确率及混淆矩阵三个维度对比 baseline 与 SOTA。
+除算法示意图外，本目录还包含多组定量对比图，覆盖 **Dataset 1** 与 **Dataset 2** 两个数据集，从召回率、准确率及混淆矩阵三个维度对比 baseline 与 SOTA。
 
 - **数据源**: `experiments/analysis/baseline_vs_sota_results.json`（多数据集, 步数对齐 4-step）
 - **生成脚本**: `generate_comparison_figures.py`
@@ -189,22 +191,22 @@
 
 | 数据集 · 模型 | mAP | AP50 | AP75 | AP_s | AP_m | AP_l | AR@100 | Det P | Det R | F1 |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| chromo · DiffusionDet (n=3) | 0.728 | 0.922 | 0.818 | 0.479 | 0.723 | 0.645 | 0.787 | 0.947 | 0.944 | 0.946 |
-| chromo · SOTA (n=1) | 0.748 | 0.939 | 0.837 | 0.512 | 0.738 | 0.641 | 0.807 | 0.902 | 0.963 | 0.931 |
-| 24obj · DiffusionDet (n=1) | 0.803 | 0.970 | 0.936 | 0.423 | 0.800 | 0.814 | 0.848 | 0.957 | 0.977 | 0.967 |
-| 24obj · SOTA (n=1) | 0.852 | 0.985 | 0.966 | 0.405 | 0.848 | 0.906 | 0.896 | 0.983 | 0.991 | 0.987 |
+| Dataset 1 · DiffusionDet (n=3) | 0.728 | 0.922 | 0.818 | 0.479 | 0.723 | 0.645 | 0.787 | 0.947 | 0.944 | 0.946 |
+| Dataset 1 · SOTA (n=1) | 0.748 | 0.939 | 0.837 | 0.512 | 0.738 | 0.641 | 0.807 | 0.902 | 0.963 | 0.931 |
+| Dataset 2 · DiffusionDet (n=1) | 0.803 | 0.970 | 0.936 | 0.423 | 0.800 | 0.814 | 0.848 | 0.957 | 0.977 | 0.967 |
+| Dataset 2 · SOTA (n=1) | 0.852 | 0.985 | 0.966 | 0.405 | 0.848 | 0.906 | 0.896 | 0.983 | 0.991 | 0.987 |
 
-> 各数据集 mAP 最优以绿色加粗标注。chromo 最优为 SOTA (0.748)，相对 DiffusionDet baseline (0.728) 提升 +0.020；24obj 最优为 SOTA (0.852)，相对 DiffusionDet (0.803) 显著领先 +0.049。
+> 各数据集 mAP 最优以绿色加粗标注。Dataset 1 最优为 SOTA (0.748)，相对 DiffusionDet baseline (0.728) 提升 +0.020；Dataset 2 最优为 SOTA (0.852)，相对 DiffusionDet (0.803) 显著领先 +0.049。
 >
-> ⚠️ **暂时废弃**：上表及下文 "chromo 数据集" 章节中基于旧数据集 Chromosome20240904（mAP≈0.72-0.75）的结论已暂时废弃；24obj 行及下文 "24obj 数据集" 章节保留为现行结论。
+> ⚠️ **暂时废弃**：上表及下文 "Dataset 1" 章节中基于旧数据集 Chromosome20240904（mAP≈0.72-0.75）的结论已暂时废弃；Dataset 2 行及下文 "Dataset 2" 章节保留为现行结论。
 
 ---
 
-### chromo 数据集: DiffusionDet vs SOTA
+### Dataset 1: DiffusionDet vs SOTA
 
-> ⚠️ **暂时废弃**：以下结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），24obj 数据集上的对比见下文 "24obj 数据集: DiffusionDet vs SOTA" 章节。
+> ⚠️ **暂时废弃**：以下结论基于旧数据集 Chromosome20240904（mAP≈0.72-0.75），Dataset 2 上的对比见下文 "Dataset 2: DiffusionDet vs SOTA" 章节。
 
-chromo 数据集共 2 个模型对比：DiffusionDet baseline（3 seeds, mAP=0.728）、SOTA（1 seed, 即 RF+Heun+AdaLN+Sinkhorn Stochastic OT, 训练 best epoch 0.753, 实测推理 0.748）。直接对比 baseline → SOTA 的完整提升。
+Dataset 1 共 2 个模型对比：DiffusionDet baseline（3 seeds, mAP=0.728）、SOTA（1 seed, 即 +Stoch. Coupling, 训练 best epoch 0.753, 实测推理 0.748）。直接对比 baseline → SOTA 的完整提升。
 
 #### 数据汇总
 
@@ -274,9 +276,9 @@ chromo 数据集共 2 个模型对比：DiffusionDet baseline（3 seeds, mAP=0.7
 
 ---
 
-### 24obj 数据集: DiffusionDet vs SOTA
+### Dataset 2: DiffusionDet vs SOTA
 
-24obj 数据集共 2 个模型对比：DiffusionDet baseline（1 seed, mAP=0.803）、SOTA（1 seed, 即 RF+Heun+AdaLN+Sinkhorn Stochastic OT, mAP=0.852）。24obj 的 DiffusionDet baseline 与 chromo 不同（独立训练的 benchmark 配置），SOTA 权重路径见 `baseline_vs_sota.py`。
+Dataset 2 共 2 个模型对比：DiffusionDet baseline（1 seed, mAP=0.803）、SOTA（1 seed, 即 +Stoch. Coupling, mAP=0.852）。Dataset 2 的 DiffusionDet baseline 与 Dataset 1 不同（独立训练的 benchmark 配置），SOTA 权重路径见 `baseline_vs_sota.py`。
 
 #### 数据汇总
 
@@ -297,11 +299,11 @@ chromo 数据集共 2 个模型对比：DiffusionDet baseline（3 seeds, mAP=0.7
 | Det F1 | 0.967 | 0.987 | +0.021 |
 
 **关键结论**:
-- **SOTA 显著全面优于 DiffusionDet**：ΔmAP=+0.049，远大于 chromo 上的 +0.020
-- **大/中目标收益巨大**：ΔAP_l=+0.092, ΔAP_m=+0.048, ΔAR_l=+0.058——24obj 数据集目标尺度分布与 chromo 不同，SOTA 对大中目标的定位精度提升显著
-- **小目标反而退化**：ΔAP_s=-0.017, ΔAR_s=-0.053——这是 24obj 上唯一退化的维度，可能与 OT 耦合的尺度无关配对在小目标上的次优性有关
-- **检测 P/R/F1 全面提升**：与 chromo 上 Det Precision 下降不同，24obj SOTA 的 P/R 同步上升 (ΔF1=+0.021)，说明模型在 24obj 上的候选框质量整体更优
-- **跨数据集对比**：同一 SOTA 方法在 chromo 上 +0.020，在 24obj 上 +0.049——OT 耦合的收益与数据集的目标分布强相关，24obj 的更大尺度跨度使 OT 配对收益更明显
+- **SOTA 显著全面优于 DiffusionDet**：ΔmAP=+0.049，远大于 Dataset 1 上的 +0.020
+- **大/中目标收益巨大**：ΔAP_l=+0.092, ΔAP_m=+0.048, ΔAR_l=+0.058——Dataset 2 目标尺度分布与 Dataset 1 不同，SOTA 对大中目标的定位精度提升显著
+- **小目标反而退化**：ΔAP_s=-0.017, ΔAR_s=-0.053——这是 Dataset 2 上唯一退化的维度，可能与 OT 耦合的尺度无关配对在小目标上的次优性有关
+- **检测 P/R/F1 全面提升**：与 Dataset 1 上 Det Precision 下降不同，Dataset 2 SOTA 的 P/R 同步上升 (ΔF1=+0.021)，说明模型在 Dataset 2 上的候选框质量整体更优
+- **跨数据集对比**：同一 SOTA 方法在 Dataset 1 上 +0.020，在 Dataset 2 上 +0.049——OT 耦合的收益与数据集的目标分布强相关，Dataset 2 的更大尺度跨度使 OT 配对收益更明显
 
 #### 1. 每类 AP 柱状图
 
@@ -333,7 +335,7 @@ chromo 数据集共 2 个模型对比：DiffusionDet baseline（3 seeds, mAP=0.7
 **解读**:
 - **几乎全绿**：除 AP_s/AR_s 略红外，其余指标均为绿色正增长
 - **ΔAP_l=+0.092 是最大亮点**：大目标定位精度提升近 10 个百分点，是 mAP +0.049 的主要贡献
-- 检测 P/R/F1 同步上升 (ΔF1=+0.021)，无 chromo 上的 P/R 权衡问题
+- 检测 P/R/F1 同步上升 (ΔF1=+0.021)，无 Dataset 1 上的 P/R 权衡问题
 
 #### 4. 每类检测 P/R 柱状图
 
@@ -364,7 +366,7 @@ chromo 数据集共 2 个模型对比：DiffusionDet baseline（3 seeds, mAP=0.7
 
 ### Baseline vs SOTA 对比图
 
-#### chromo 数据集 (DiffusionDet vs SOTA)
+#### Dataset 1 (DiffusionDet vs SOTA)
 
 | 图表 | 英文 | 中文 | 说明 |
 |---|---|---|---|
@@ -373,7 +375,7 @@ chromo 数据集共 2 个模型对比：DiffusionDet baseline（3 seeds, mAP=0.7
 | 聚合 P/R | comparison_pr_table.png | _zh.png | DiffusionDet vs SOTA COCO AP/AR + P/R/F1 |
 | 每类 P/R | comparison_per_class_pr.png | _zh.png | DiffusionDet vs SOTA 每类 Precision/Recall |
 
-#### 24obj 数据集 (DiffusionDet vs SOTA)
+#### Dataset 2 (DiffusionDet vs SOTA)
 
 | 图表 | 英文 | 中文 | 说明 |
 |---|---|---|---|
@@ -386,6 +388,6 @@ chromo 数据集共 2 个模型对比：DiffusionDet baseline（3 seeds, mAP=0.7
 
 | 图表 | 英文 | 中文 | 说明 |
 |---|---|---|---|
-| 汇总表 | per_dataset_summary_table.png | _zh.png | chromo+24obj 全模型聚合指标 |
+| 汇总表 | per_dataset_summary_table.png | _zh.png | Dataset 1 + Dataset 2 全模型聚合指标 |
 
-> BoxRefineNet（原 Direction D）因 ΔmAP ≈ 0（持平 baseline）已从图中移除。
+> Box Refine Net 因 ΔmAP ≈ 0（持平 baseline）已从图中移除。

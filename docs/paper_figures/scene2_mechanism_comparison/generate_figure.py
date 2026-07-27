@@ -182,7 +182,7 @@ ax_table.axis('off')
 table_data = [
     ['Metric', 'Independent Diffusion', 'Pairwise-Coupling'],
     ['Order-Sensitivity', 'High', 'Low'],
-    ['Performance Gain', '+0.0%', '+2.1% (24obj mAP)'],
+    ['Performance Gain', '+0.0%', '+2.1% (Dataset 2 mAP)'],
     ['Chromosome Suitability', 'Not Suitable', 'Suitable'],
 ]
 

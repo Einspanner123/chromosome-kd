@@ -2,14 +2,15 @@
 Figure 6: Speed-Accuracy Trade-off (FPS vs mAP).
 
 Scatter plot with log-scale FPS axis. Color/marker encode method category
-(ours-Heun / ours-DPM++ / standard detector / diffusion baseline), following
+(ours-Heun / ours-DPM-Solver++ / standard detector / diffusion baseline), following
 the paper's "color = semantic category" convention shared with
 solver_ablation.py and per_class_ap.py.
 
-Method set = Table 10 (9 models): A1/A2/A3/Top-K x3 + Cascade R-CNN +
-YOLOX-S + DiffusionDet. RTMDet-L and DINO-R50 are compared on accuracy only
-in tab:sota (no FPS column) and are intentionally excluded from the speed
-story here; they will be added after their FPS is benchmarked.
+Method set = Table 10 (9 models): RF+Heun / +Stoch. Coupling / DPM-Solver++ /
+DPM-Solver++ +Top-K x3 + Cascade R-CNN + YOLOX-S + DiffusionDet. RTMDet-L and
+DINO-R50 are compared on accuracy only in tab:sota (no FPS column) and are
+intentionally excluded from the speed story here; they will be added after
+their FPS is benchmarked.
 
 Data sources (RTX A6000, 512x512, batch=1):
   - All 9 points: results/benchmark_fps_*.md (verified measurements).
@@ -30,7 +31,7 @@ from figure_style import *
 # =====================================================================
 # 4-category semantic palette (color = category, marker = category)
 #   - Ours-Heun   : blue   (C_HEUN,  matches solver_ablation.py)
-#   - Ours-DPM++  : green  (C_DPMPP)
+#   - Ours-DPM-Solver++ : green  (C_DPMPP)
 #   - Standard    : gray   (C_MIDGRAY)  -- Cascade / YOLOX
 #   - Diffusion   : red    (C_DDPM)     -- DiffusionDet baseline
 # =====================================================================
@@ -48,14 +49,16 @@ GROUP_STYLE = {
 
 # (name, fps, mAP, group, annotate?)
 # annotate=True -> label the point on the plot (key comparison points only;
-# A1/A2/TopK K=300/K=100 are identified by the legend rather than labelled).
+# RF+Heun / +Stoch. Coupling / Top-K K=300/K=100 are identified by the legend
+# rather than labelled). Method names follow the cumulative-ablation
+# convention of tab:main-ablation and tab:fps (no internal A0-A4 codenames).
 DATA = [
-    ("A1 Heun",          8.0,  0.856, "ours_heun",  False),
-    ("A2 +StochOT",      7.8,  0.858, "ours_heun",  False),
-    ("A3 DPM++",        13.3,  0.863, "ours_dpmpp", True),
-    ("A3 +IO3 K300",    14.0,  0.861, "ours_dpmpp", False),
-    ("A3 +IO3 K200",    14.2,  0.860, "ours_dpmpp", True),   # best speed-accuracy trade-off
-    ("A3 +IO3 K100",    14.3,  0.850, "ours_dpmpp", False),
+    ("RF+Heun",                   8.0,  0.856, "ours_heun",  False),
+    ("+Stoch. Coupling",          7.8,  0.858, "ours_heun",  False),
+    ("DPM-Solver++",             13.3,  0.863, "ours_dpmpp", True),
+    ("DPM-Solver++ +Top-K (K=300)", 14.0,  0.861, "ours_dpmpp", False),
+    ("DPM-Solver++ +Top-K (K=200)", 14.2,  0.860, "ours_dpmpp", True),   # best speed-accuracy trade-off
+    ("DPM-Solver++ +Top-K (K=100)", 14.3,  0.850, "ours_dpmpp", False),
     ("Cascade R-CNN",   48.4,  0.854, "standard",   True),
     ("YOLOX-S",         98.5,  0.796, "standard",   True),
     ("DiffusionDet",    41.0,  0.803, "diffbase",   True),
@@ -63,11 +66,11 @@ DATA = [
 
 # Label offsets in display points (xytext with textcoords='offset points').
 LABEL_OFFSET = {
-    "A3 DPM++":      (-8, 12),
-    "A3 +IO3 K200":  (10, 8),
-    "DiffusionDet":  (12, -14),
-    "Cascade R-CNN": (12, 2),
-    "YOLOX-S":       (-12, -10),
+    "DPM-Solver++":                  (-8, 12),
+    "DPM-Solver++ +Top-K (K=200)":   (10, 8),
+    "DiffusionDet":                  (12, -14),
+    "Cascade R-CNN":                 (12, 2),
+    "YOLOX-S":                       (-12, -10),
 }
 
 
@@ -98,7 +101,7 @@ def main() -> None:
     ax.xaxis.set_minor_formatter(plt.NullFormatter())
 
     ax.set_xlabel("FPS (RTX A6000, 512x512, batch=1)", fontsize=12)
-    ax.set_ylabel("mAP (24obj)", fontsize=12)
+    ax.set_ylabel("mAP (Dataset 2)", fontsize=12)
     ax.set_ylim(0.780, 0.875)
     ax.tick_params(labelsize=11)
     ax.set_axisbelow(True)
@@ -109,7 +112,7 @@ def main() -> None:
         Line2D([0], [0], marker="o", color="w", markerfacecolor=C_OURS_HEUN,
                markeredgecolor="black", markersize=10, label="Ours (Heun)"),
         Line2D([0], [0], marker="s", color="w", markerfacecolor=C_OURS_DPMPP,
-               markeredgecolor="black", markersize=10, label="Ours (DPM++)"),
+               markeredgecolor="black", markersize=10, label="Ours (DPM-Solver++)"),
         Line2D([0], [0], marker="^", color="w", markerfacecolor=C_STANDARD,
                markeredgecolor="black", markersize=10, label="Standard detectors"),
         Line2D([0], [0], marker="D", color="w", markerfacecolor=C_DIFFBASE,

@@ -1,7 +1,7 @@
 """
 Figure 2: Solver Disentanglement Ablation - seaborn barplot.
 
-Data (A1 checkpoint, 24obj val, seed 42):
+Data (RF+Heun checkpoint, Dataset 2 val, seed 42):
   Heun    4-step  0.856
   Euler   4-step  0.855
   DPM++   4-step  0.855
@@ -59,7 +59,7 @@ def main() -> None:
                 fontsize=9, weight="bold")
 
     ax.set_xlabel("")
-    ax.set_ylabel("mAP (24obj val)", fontsize=11)
+    ax.set_ylabel("mAP (Dataset 2 val)", fontsize=11)
     ax.set_ylim(0.848, 0.860)
     ax.yaxis.set_major_locator(plt.MultipleLocator(0.002))
     ax.set_axisbelow(True)
