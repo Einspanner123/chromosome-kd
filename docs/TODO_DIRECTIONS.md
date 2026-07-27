@@ -22,9 +22,9 @@
 
 | 方向 | 状态 | 优先级 | SwanLab Project |
 |------|------|--------|-----------------|
-| Few-Shot 跨数据集微调 | ⛔ 待启动 (6/7 源预训练就绪, FBM CrossAttn best 0.857@ep45 中断) | 高 | `few-shot-benchmark` |
+| Few-Shot 跨数据集微调 | ⛔ **探索性** (不在当前论文范围, 6/7 源预训练就绪, FBM CrossAttn best 0.857@ep45 中断) | ~~高~~ | `few-shot-benchmark` |
 | ReFlow 2-Rectification | 🔄 **重试中** (当前run失败 best 0.646@ep42, → [FALSIFIED §十四](file:///home/linkst/workspace/projects/chromosome-kd/docs/FALSIFIED_DIRECTIONS.md); 重试关键判据: mAP_75 是否仍崩塌) | **高** | `ldmdet-reflow` |
-| 跨数据集扩展 (OT Collapse 普遍性) | ⛔ 纯理论推导 | 中 (最高级目标) | — |
+| 跨数据集扩展 (OT Collapse 普遍性) | ⛔ **探索性** (纯理论, 不在当前论文范围) | ~~中~~ | — |
 | 速度引导自适应 Renewal | ⛔ 待系统评估 (代码就绪) | 中 | `ldmdet-mainline-ablation-24obj` |
 | Brenier 映射神经化 | ⛔ 未开展 (纯理论, TMI 投稿后) | 低 | — |
 | 级联头角色分化 | ⛔ 待启动 (零代码改动) | 中-高 | (待创建) |
