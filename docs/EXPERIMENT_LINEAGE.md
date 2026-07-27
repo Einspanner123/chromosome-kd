@@ -604,9 +604,9 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 
 ---
 
-## 八、R3: x0-prediction vs v-prediction 对照重训 (✓ seed 42 完成, 单 seed 初步支持 R3.2)
+## 八、x0/v Prediction 对照 — 预测参数化选择论证 (✓ 3-seed 完成, 支持 R3.2)
 
-> ✓ seed 42 已完成 (2026-07-25, 早停@ep64, best 0.855@ep34, Δ=-0.008 单 seed 支持 R3.2); seed 123/789 ⛔ 待补 (3-seed 完整验证)。详见 [TODO_DIRECTIONS.md §一](file:///home/linkst/workspace/projects/chromosome-kd/docs/TODO_DIRECTIONS.md)。
+> ✓ 3 seeds 全部完成 (2026-07-27 确认): v-prediction 3-seed 均值 0.857 ± 0.0015, vs +DPM-Solver++ baseline 0.859 ± 0.003, **平均 Δ = −0.002** (在 noise 范围内但方向一致, 支持 R3.2)。
 
 ### 核心贡献: 验证低维 + shifted schedule 下 x0-prediction 优势
 
@@ -1072,6 +1072,39 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
   -- 状态: 未叠加到 SOTA
   -- 本地: work_dirs/bottleneck/ablation/focal_gamma_3/20260628_013823/
   -- SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/ye6a2whory9y67tnvalg3
+
+### D1: RoI 空间编码消融 — 空间编码至关重要 (✓ 完成)
+
+- **实验**: RoI 7×7 空间特征 vs 空间抹平 (GlobalAvgPool → 1×1) 消融
+- **结果**: baseline mAP=0.863 → ablation mAP=0.009, **Δ = −0.854** (灾难性崩溃)
+- **结论**: 7×7 空间结构至关重要, DynamicConv 已有效提取空间编码 (非丢失)
+- **影响**: 直接支撑 M1 "应增强而非重建空间编码" 的设计决策
+- **数据源**: `work_dirs/diagnosis/d1_roi_ablation.json` + [EXPERIMENT_CATALOG.md §7.6](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_CATALOG.md)
+- **诊断脚本**: `experiments/analysis/d1_roi_ablation.py`
+
+### M1: 形态感知 RoI 编码器 — null result (设计问题确认, ✓ 完成)
+
+- **设计**: 零初始化残差分支 + 方向解耦卷积 (h_conv 臂长比 + v_conv 着丝粒)
+- **FP32 结果**: best mAP=0.862@ep19, **Δ = −0.001 vs A4 0.863** (统计上持平)
+- **BF16 结果**: mAP=0.818, Δ=-0.045 (虚假退化, BF16 误导, 排除)
+- **核心结论**: h_conv/v_conv 在 FP32 下仍均匀 → **设计问题而非精度问题**
+  - (1) 零初始化 fuse 梯度瓶颈 → h_conv/v_conv 梯度极弱
+  - (2) (7,1)+(1,7) 感受野与 7×7 RoI 同尺寸, 缺乏空间上下文
+  - (3) morph_emb 退化为常数偏置, 未学到方向性形态信息
+- **教训**: BF16 导致虚假 −0.045 退化, FP32 复现揭示真实情况; 零初始化 fuse 在低维检测空间存在梯度瓶颈
+- **M1-v2 改进方向**: 非零初始化 fuse + 显式形态先验注入 + 注意力替代方向卷积
+- **参数开销**: 262.8K/head × 6 = 1.58M (<总参数 0.5%)
+- **数据源**: `work_dirs/m1_morphology_aware_24obj_fp32/` + [EXPERIMENT_CATALOG.md §6.6 C22/C23](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_CATALOG.md)
+- **详细分析**: [STRUCTURAL_IMPROVEMENT_ANALYSIS.md §3.1.7](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/STRUCTURAL_IMPROVEMENT_ANALYSIS.md)
+
+### SC-RF: 自条件化 RF — 边际不采用 (✓ 完成)
+
+- **核心设想**: 把上一步预测作为条件输入 (借鉴自条件化扩散模型思想)
+- **结果**: best mAP=0.860@ep82, **Δ = −0.003 vs A4 0.863** (在 noise 范围内但无增益)
+- **结论**: 边际结果, 不采用。与 ScaleConditionedRF 证伪 (0.741 < 0.746) 形成对照 — SC-RF 至少无害, 但无增益说明自条件化在低维 RF 检测中价值有限
+- **风险已验证**: ScaleConditionedRF 的训练-推理不一致问题在 SC-RF 中未造成崩塌, 但也未带来改善
+- **数据源**: ross `/media/ross/8TB/linkst/chromo/chromosome-kd/work_dirs/sc_rf_24obj/`
+- **SwanLab**: `ldmdet-breakthrough`
 
 ### Box Refine Net
 
