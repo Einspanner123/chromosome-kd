@@ -65,7 +65,7 @@ TMI 投稿迁移策略头部
 
 自动化染色体核型分析——一项对遗传诊断至关重要但依赖人工的临床流程——需要一个既精确又足够快速的检测器来处理 24 类密集排列的细粒度目标。基于扩散的检测器概念上契合此任务，但继承 DDPM 的弯曲多步轨迹导致截断误差累积，且小临床数据集进一步使训练失稳。
 
-我们引入 *KaryoFlow*，一种基于 *Rectified Flow* (RF) 的扩散检测器，以确定性直线 ODE 路径取代 DDPM 弯曲轨迹。三项贡献针对此设置的具体困难。**贡献 1**：RF 范式本身带来 $94\%$ 的精度增益（超越 DiffusionDet $+0.060$ mAP，超越 Cascade R-CNN），solver×step 解耦消融量化此归因；我们进一步引入直线度指标 $\eta_{\mathrm{str}} := \lVert D_1\rVert / \lVert \hat{\mathbf{x}}_0\rVert$——从 DPM-Solver++ 的二阶校正项零开销读出——将"2 步收敛"从经验观察提升为可量化结论（$\eta_{\mathrm{str}}$ 沿 4 步单调下降 51%，3-seed 稳定）。**贡献 2**：我们形式化分析了低维（$\mathbb{R}^4$）检测空间中的 *OT Diversity Collapse*（$\Delta H \ge 0.999\,\log K$，经验紧致至 0.03%），并提出 *Stochastic Coupling*，在低数据情形下恢复耦合多样性并稳定训练（$+0.034$ mAP，$p<10^{-120}$）。**贡献 3**：DPM-Solver++ 配合 Top-$K$ 剪枝以 13.3 FPS 实现四步推理，相对 Heun 具有统计显著的精度优势（$+0.006$ mAP，$p<10^{-6}$）；我们形式化了 cascade head × solver step 的算子分裂——横向精化 × 纵向积分——解释 24 次前向与 4 NFE 框架的兼容性。
+我们引入 *KaryoFlow*，一种基于 *Rectified Flow* (RF) 的扩散检测器，以确定性直线 ODE 路径取代 DDPM 弯曲轨迹。三项贡献针对此设置的具体困难。**贡献 1**：RF 范式本身带来 $94\%$ 的精度增益（超越 DiffusionDet $+0.060$ mAP，超越 Cascade R-CNN），solver×step 解耦消融量化此归因；我们进一步引入直线度指标 $\eta_{\mathrm{str}} := \lVert D_1\rVert / \lVert \hat{\mathbf{x}}_0\rVert$——从 DPM-Solver++ 的二阶校正项零开销读出——将"2 步收敛"从经验观察提升为可量化结论（$\eta_{\mathrm{str}}$ 沿 4 步单调下降 51%，3-seed 稳定）。**贡献 2**：我们形式化分析了低维（$\mathbb{R}^4$）检测空间中的 *OT Diversity Collapse*（$\Delta H \ge 0.999\,\log K$，经验紧致至 0.03%），并基于 Sinkhorn transport 采样提出 *Stochastic Coupling*——在低数据条件下恢复耦合多样性（$+0.034$ mAP，$p<10^{-120}$），并在一般条件下降低 epoch 级振荡 $4.6\times$。**贡献 3**：DPM-Solver++ 配合 Top-$K$ 剪枝以 13.3 FPS 实现四步推理，相对 Euler 基线 NFE 减少 $4\times$ 同时精度 $+0.085$ mAP，相对 Heun NFE 减少 $1.71\times$ 且具有统计显著的精度优势（$+0.006$ mAP，$p<10^{-6}$）；我们形式化了 cascade head × solver step 的算子分裂——横向精化 × 纵向积分——解释 24 次前向与 4 NFE 框架的兼容性。
 
 所有声明经多 seed 实验、逐类 AP 分析和 SOTA 比较得到验证。
 
@@ -96,7 +96,7 @@ Rectified Flow (RF) 提供了一种有原则的补救：以从噪声到 GT 的�
 
 **动机实例：染色体核型分析。** 染色体核型分析——为遗传疾病诊断而对中期染色体进行的视觉分析——正是上述瓶颈的集中体现：每张图像约 46 条密集排列的染色体，跨越 24 个形态相似的类别，存在严重的类别不平衡（Y 染色体训练样本约 1,803 对比常染色体约 7,000）和频繁的相互重叠。这些需求映射到我们的三个要素：RF 提供低截断误差的直线轨迹；Stochastic Coupling 抵消低维空间中的 OT 多样性坍缩；DPM-Solver++ 配合 Top-$K$ 剪枝将轨迹转化为临床级延迟。实验在两个公开数据集（Chromosome20240904，1,540 张；24 Chromosomes Object，5,000 张）上经多 seed 验证。
 
-基于上述场景到方法的映射，我们做出三项贡献。**贡献 1**：KaryoFlow 检测器采用 RF 训练范式，在 24 Chromosomes Object 上相对 Euler 基线取得 $+0.082$ mAP，相对 DDPM-based DiffusionDet 取得 $+0.060$ mAP 并超越 Cascade R-CNN；solver×step 解耦消融将 $94\%$ 的增益归因于 RF 范式本身。我们进一步引入直线度指标 $\eta_{\mathrm{str}}$（命题 4），从 DPM-Solver++ 的二阶校正项零开销读出，将"2 步收敛"从经验观察提升为可量化结论。**贡献 2**：我们形式化分析了低维检测空间中的 OT Diversity Collapse（$\Delta H \ge 0.999\,\log K$，经验紧致至 0.03%），并提出 Stochastic Coupling 恢复耦合多样性——在低数据情形下带来 $+0.034$ mAP（$p<10^{-120}$），并普遍降低 epoch 级振荡 $4.6\times$。**贡献 3**：DPM-Solver++ 配合 Top-$K$ 剪枝以 13.3 FPS 实现四步推理，相对 Heun 具有统计显著的精度优势（$+0.006$ mAP，$p<10^{-6}$）；cascade head × solver step 的算子分裂形式化解释了 24 次前向与 4 NFE 框架的兼容性。
+基于上述场景到方法的映射，我们做出三项贡献。**贡献 1**：KaryoFlow 检测器采用 RF 训练范式，在 24 Chromosomes Object 上相对 Euler 基线取得 $+0.082$ mAP，相对 DDPM-based DiffusionDet 取得 $+0.060$ mAP 并超越 Cascade R-CNN；solver×step 解耦消融将 $94\%$ 的增益归因于 RF 范式本身。我们进一步引入直线度指标 $\eta_{\mathrm{str}}$（命题 4），从 DPM-Solver++ 的二阶校正项零开销读出，将"2 步收敛"从经验观察提升为可量化结论。**贡献 2**：我们形式化分析了低维检测空间中的 OT Diversity Collapse（$\Delta H \ge 0.999\,\log K$，经验紧致至 0.03%），并基于 Sinkhorn transport 采样提出 Stochastic Coupling 恢复耦合多样性——在低数据条件下带来 $+0.034$ mAP（$p<10^{-120}$），并在一般条件下降低 epoch 级振荡 $4.6\times$。**贡献 3**：DPM-Solver++ 配合 Top-$K$ 剪枝以 13.3 FPS 实现四步推理，相对 Euler 基线 NFE 减少 $4\times$ 同时精度 $+0.085$ mAP，相对 Heun NFE 减少 $1.71\times$ 且精度更优（$+0.006$ mAP，$p<10^{-6}$）；cascade head × solver step 的算子分裂形式化解释了 24 次前向与 4 NFE 框架的兼容性。
 
 ![**图 1**：KaryoFlow 总览——三项贡献的架构关系。(a) **Rectified Flow 范式**（贡献 1）：RF 以从噪声 $\mathbf{x}_1$ 到 GT 框 $\mathbf{x}_0$ 的直线 ODE 路径（橙色实线）取代弯曲的 DDPM 去噪轨迹（灰色虚线）；节点表示 4 个 solver 步；直线度指标 $\eta_{\mathrm{str}}$（命题 4）从 DPM-Solver++ 的二阶校正项 $\mathbf{D}_1$ 零开销读出，量化轨迹直线性。(b) **时间条件与架构**：AdaLN-Zero 以零初始化调制注入连续时间 $t$（使网络在 $t{=}0$ 时为恒等映射）；每个 solver step 内 $H=6$ 个 cascade head 顺序精化（算子分裂：横向精化 $\mathcal{B}_{t,k}$ × 纵向积分 $\mathcal{A}_t$，贡献 3）。(c) **OT Diversity Collapse 与 Stochastic Coupling**（贡献 2）：Hard OT（红色）将多样性坍缩至 $H(V|X_t)=0$（$\Delta H \ge 0.999\,\log K$）；Random pairing（橙色）保持完全多样性 $H(V|X_t)=\log K$；Stochastic Coupling（粉色）从 Sinkhorn transport 采样，在 hard OT 和 Random 之间插值（$0 < H(V|X_t) < \log K$，关于 $\epsilon$ 单调递增，命题 3）。](latex/figures/method_overview.png)
 
@@ -181,7 +181,7 @@ $$\log K \cdot (1 - P_{\text{err}}) - h(P_{\text{err}}) \;\le\; \Delta H \;\le\;
 
 **表 2**：按场景的 OT Diversity Collapse 严重性。OT 引发的多样性损失在检测中显著，在图像生成中可忽略。
 
-**Stochastic Coupling。** 不同于 argmax 分配，我们从 Sinkhorn transport 矩阵 $T_\epsilon$ 的行中采样耦合 (Cuturi, 2013)：
+**Stochastic Coupling。** Sinkhorn transport（Cuturi, 2013）本身是已知方法；我们的贡献在于识别其在低维检测场景中的关键作用，并从理论上保证采样策略的性质。不同于 argmax 分配，我们从 Sinkhorn transport 矩阵 $T_\epsilon$ 的行中采样耦合：
 $$\pi_{\text{stoch}}(i) \sim \operatorname{Categorical}\!\left( \frac{T_\epsilon(i,:)}{\sum_j T_\epsilon(i,j)} \right).$$
 关键性质是 $H_{\text{stoch}}(V|X_t; \epsilon)$ 随 $\epsilon$ 单调递增（命题 3，Appendix A.3，由包络定理证得），端点为 $\epsilon \to 0$（hard OT，$H \to 0$）与 $\epsilon \to \infty$（随机耦合，$H \to \log K$）。Stochastic Coupling 的训练稳定性与 mAP 影响的实验验证见 §4.4。
 
@@ -415,9 +415,9 @@ Table 10 和 Figure 6 报告了在 $512{\times}512$ 输入分辨率下的速度-
 
 RF 的直线 ODE 路径减少了少步推理中的截断误差，这对染色体检测尤为重要：高目标密度（每张图像约 46 个）会复合每框误差，小训练集（1,540–5,000 张图像）限制了模型学习复杂弯曲 DDPM 轨迹的能力，而 24 类细粒度任务受益于稳定的特征表示。Dataset 2 上 $+0.082$ mAP 的改善（$0.774 \to 0.856$）证实了 RF 在此情形下的有效性。
 
-### 5.2 Stochastic Coupling：依赖数据集的 mAP 增益加平滑性
+### 5.2 Stochastic Coupling：低数据条件下的 mAP 增益与普遍的平滑性
 
-Stochastic Coupling 的价值有两个不同的组成部分。在 Dataset 2（5000 张图像）上，mAP 增益可忽略（$+0.0001$，$p{=}0.80$，Table 8），其价值完全在于更平滑的收敛（$4.6\times$ epoch-std 减少，0.006 → 0.0013）。然而在较小的 Dataset 1（1540 张图像）上，相同比较揭示大且高度显著的 mAP 增益（$+0.034$，$p<10^{-120}$，Table 9），叠加于平滑性收益之上。这种数据集依赖性与理论一致：数据更多时，模型见到足够多样本来平均掉随机耦合噪声，从而削弱 OT 坍缩及 Stochastic Coupling 的边际收益。
+Stochastic Coupling 的价值有两个不同的组成部分，且高度依赖训练数据规模。**低数据条件下**（Dataset 1，1,540 张训练图像），Stochastic Coupling 带来大且高度显著的 mAP 增益（$+0.034$，$p<10^{-120}$，Table 9），叠加于平滑性收益之上——Hard OT 实际上 *比* Random *更差*（$-0.008$，$p<10^{-8}$），证实 OT 多样性坍缩在此低数据场景中是真实的训练病理。**数据充足时**（Dataset 2，5,000 张训练图像），mAP 增益可忽略（$+0.0001$，$p{=}0.80$，Table 8），其价值完全在于更平滑的收敛（$4.6\times$ epoch-std 减少，0.006 → 0.0013）。这种数据集依赖性与理论一致：数据更多时，模型见到足够多样本来平均掉随机耦合噪声，从而削弱 OT 坍缩及 Stochastic Coupling 的边际收益。因此，Stochastic Coupling 的精度贡献应被理解为**低数据条件下的关键增益**和**一般条件下的稳定性保障**。
 
 在两个数据集上，平滑性收益对 checkpoint 选择具有实际后果：在 Random coupling 下，checkpoint 选择可能落在高出趋势 0.006 的某个"幸运"epoch 上——这是一个可能无法泛化的假峰。Stochastic Coupling 的 0.0013 epoch std 使 checkpoint 选择远为可靠。seed 123 的结果（mAP 0.857 对 seed 42 的 0.863，$\Delta = -0.006$）证实 epoch 振荡直接影响 EarlyStopping 选择哪个 checkpoint。形式化的因果链（Stochastic Coupling → 通过更好的 checkpoint 选择实现更好的测试泛化）需要逐 epoch 测试评估，留作未来工作。
 
@@ -465,7 +465,7 @@ Top-$K$ 剪枝的有效性取决于每步 NFE：对 Heun（2 NFE/步），剪枝
 
 ## 6. 结论
 
-我们引入 *KaryoFlow*，一种将 Rectified Flow 引入临床细胞遗传学的染色体核型分析扩散检测器。RF 训练范式——以直线 ODE 路径取代弯曲 DDPM 轨迹——是精度增益的主导来源，在 Dataset 2 上相对 Euler 基线取得 $+0.082$ mAP，在 Dataset 1 上相对 DDPM 取得 $+0.017$ mAP，且我们的最佳变体以 $+0.060$ mAP 超越基于 DDPM 的 DiffusionDet 同时超越 Cascade R-CNN；solver×step 解耦消融实验将此增益的 $94\%$ 归因于 RF 范式本身。我们进一步引入直线度指标 $\eta_{\mathrm{str}}$（命题 4），从 DPM-Solver++ 的二阶校正项零开销读出，将"2 步收敛"从经验观察提升为可量化结论（$\eta_{\mathrm{str}}$ 沿 4 步单调下降 51%，3-seed 稳定），并为"何时需要 reflow"提供可操作判据。Stochastic Coupling 建立在我们对低维（$\mathbb{R}^4$）检测空间中 OT Diversity Collapse 的形式化分析之上，恢复耦合多样性并稳定训练：在低数据情形下它带来大且高度显著的 mAP 增益（$+0.034$，$p<10^{-120}$），而在较大数据上增益转为 $4.6\times$ 的运行内 epoch 级振荡减少，使 checkpoint 选择可靠。配合 Top-$K$ 剪枝的 DPM-Solver++ 以 13.3–14.2 FPS 实现四步推理，并相对 Heun 具有精度增益（$+0.006$ mAP，$p<10^{-6}$）；cascade head × solver step 的算子分裂形式化（横向精化 × 纵向积分）解释了 24 次前向与 4 NFE 框架的兼容性。
+我们引入 *KaryoFlow*，一种将 Rectified Flow 引入临床细胞遗传学的染色体核型分析扩散检测器。RF 训练范式——以直线 ODE 路径取代弯曲 DDPM 轨迹——是精度增益的主导来源，在 Dataset 2 上相对 Euler 基线取得 $+0.082$ mAP，在 Dataset 1 上相对 DDPM 取得 $+0.017$ mAP，且我们的最佳变体以 $+0.060$ mAP 超越基于 DDPM 的 DiffusionDet 同时超越 Cascade R-CNN；solver×step 解耦消融实验将此增益的 $94\%$ 归因于 RF 范式本身。我们进一步引入直线度指标 $\eta_{\mathrm{str}}$（命题 4），从 DPM-Solver++ 的二阶校正项零开销读出，将"2 步收敛"从经验观察提升为可量化结论（$\eta_{\mathrm{str}}$ 沿 4 步单调下降 51%，3-seed 稳定），并为"何时需要 reflow"提供可操作判据。Stochastic Coupling 建立在我们对低维（$\mathbb{R}^4$）检测空间中 OT Diversity Collapse 的形式化分析之上，基于 Sinkhorn transport 采样恢复耦合多样性并稳定训练：在低数据条件下它带来大且高度显著的 mAP 增益（$+0.034$，$p<10^{-120}$），而在较大数据上增益转为 $4.6\times$ 的运行内 epoch 级振荡减少，使 checkpoint 选择可靠。配合 Top-$K$ 剪枝的 DPM-Solver++ 以 13.3–14.2 FPS 实现四步推理，相对 Euler 基线 NFE 减少 $4\times$ 同时精度 $+0.085$ mAP，相对 Heun NFE 减少 $1.71\times$ 且精度更优（$+0.006$ mAP，$p<10^{-6}$）；cascade head × solver step 的算子分裂形式化（横向精化 × 纵向积分）解释了 24 次前向与 4 NFE 框架的兼容性。
 
 除染色体核型分析外，我们所形式化分析的 OT Diversity Collapse 现象对染色体并非特异——它在预测空间低维、每张图像目标密度高、训练语料小的情况下出现。这一画像在医学影像中反复出现：组织病理学中的细胞检测（每个 tile 多个核，$d=4$ bbox，小标注队列），乳腺 X 光和视网膜成像中的病灶检测（小目标，有限阳性案例），以及微生物菌落计数。在这些设置中，确定性 OT 耦合向 $\log K$ 坍缩，Stochastic Coupling 提供相同的双重收益——低数据情形下的精度、一般情形下的稳定性——正如我们在染色体上观察到的。理论通过 Table 2 提供 a-priori 诊断：任何 $d \ll 100$ 且 $K \gg 10$ 的任务是候选，严重性 $\Delta H/H$ 预测 Stochastic Coupling 是否会有帮助。在至少一个非染色体高 $K$ 低 $d$ 基准上的验证——细胞检测是最自然的下一步——将大幅强化普遍性 claim。
 
