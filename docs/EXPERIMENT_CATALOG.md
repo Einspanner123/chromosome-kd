@@ -36,7 +36,7 @@
 | `ldmdet-frontier-directions-24obj` | 5 | Dataset 2 | q1_occlusion (全部 CRASHED) |
 | `ldmdet-frontier-directions` | 7 | Dataset 2/Dataset 1 | h_velocity_loss / Cascade Head Count e2e / h_cfm_velocity 等 |
 | `setdiff-24obj` | 18 (3 RUNNING, 11 CRASHED) | Dataset 2 | SetDiff (Coupled State Diffusion) plan A/B (全部 mAP=0, 失败方向) |
-| `ldmdet-inference` | 108 | Dataset 2 | C 类推理任务 (已归档至 §七, 含 NFE/Top-K/solver 对比) |
+| `ldmdet-inference` | 112 | Dataset 2 | C 类推理任务 (已归档至 §七, 含 NFE/Top-K/solver 对比 + DDPM Euler 多步消融 §2.1.5) |
 | `ldmdet-inference-opt-24obj` | 4 | Dataset 2 | 推理优化实验 (inference_mode / cache 等, 均反向优化已回退) |
 | `ldmdet-sota-stack` | 3 | Dataset 1 | Dataset 1 SOTA 堆叠 (mAP=0.751, 低于 Dataset 2 SOTA, 不相关) |
 | `chromosome-kd-benchmark` | 7 | Dataset 1 | 早期基线对比 |
@@ -255,6 +255,26 @@
 > `experiments/runners/test.py experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_dpm_pp_24obj.py --checkpoint work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth --dataset val --sampling-steps 2 --solver-type heun --exp-name heun_2step`
 >
 > ⚠ 注意: 本表为 **同 checkpoint 切换 solver** 的对比 (DPM-Solver++ checkpoint + 不同推理 solver)。论文中 "+0.006 per-image mAP at matched 4-step" (Table 8/`tab:stat-tests`) 是 **不同 checkpoint** 的对比 (RF+Heun Heun-trained vs +DPM-Solver++ DPM-Solver++-trained), 两者不可混淆。在同 DPM-Solver++ checkpoint 上, Heun 4-step 聚合 mAP=0.864 略高于 DPM-Solver++ 4-step=0.863, 但 per-image paired 检验的结论以 RF+Heun vs +DPM-Solver++ checkpoint 对比为准。 <!-- verified: 2026-07-19 SwanLab + 本地日志 -->
+
+#### 2.1.5 DDPM 多步消融推理 (DiffusionDet checkpoint, 论文 Appendix G, 项目 `ldmdet-inference`)
+
+> 数据来源: 2026-07-28 在 DiffusionDet 训练的 checkpoint (`best_coco_bbox_mAP_epoch_26.pth`, seed 42, Dataset 2) 上, 以 Euler solver 运行 1/2/4/8 步推理。所有实验在 Dataset 2 val (500 images) 上评估, seed 42 固定初始噪声与 box_renewal 随机性。论文 Appendix G (Table G.1) 直接引用本表数据, 支撑 §4.2 "DDPM 步数对精度几乎无影响" 的声明。
+
+| 实验 | SwanLab run_id | exp_name | Solver | Steps | NFE | mAP | AP50 | AP75 | AP_S | AP_M | AP_L |
+|------|---------------|----------|--------|-------|-----|-----|------|------|------|------|------|
+| DDPM Euler 1-step | (ldmdet-inference) | `euler_1step` | Euler | 1 | 1 | 0.805 | 0.971 | 0.937 | 0.405 | 0.802 | 0.810 |
+| DDPM Euler 2-step | (ldmdet-inference) | `euler_2step` | Euler | 2 | 2 | 0.804 | 0.969 | 0.939 | 0.414 | 0.800 | 0.806 |
+| DDPM Euler 4-step | (ldmdet-inference) | `euler_4step` | Euler | 4 | 4 | 0.804 | 0.970 | 0.938 | 0.402 | 0.800 | 0.804 |
+| DDPM Euler 8-step | (ldmdet-inference) | `euler_8step` | Euler | 8 | 8 | 0.805 | 0.971 | 0.940 | 0.405 | 0.801 | 0.818 |
+
+> 配置: `experiments/configs/baselines/benchmark_24obj/diffusiondet_ddpm.py`
+> checkpoint: `work_dirs/baselines/diffusiondet_24obj/best_coco_bbox_mAP_epoch_26.pth`
+> 复现命令 (1-step 为例):
+> `python experiments/runners/test.py experiments/configs/baselines/benchmark_24obj/diffusiondet_ddpm.py --checkpoint work_dirs/baselines/diffusiondet_24obj/best_coco_bbox_mAP_epoch_26.pth --dataset val --sampling-steps 1 --solver-type euler --seed 42 --exp-name euler_1step`
+>
+> 结论: DDPM Euler 1→8 步 mAP 变化 <0.002, 所有精度指标均在噪声范围内波动; 对比 RF 范式切换的 +0.053 mAP 增益 (Table 5), DDPM 增加步数的收益可忽略, 证实范式切换是核心增益来源而非步数增加。
+>
+> 注: 1 步推理 mAP (0.805) 与 Table 5 中 DDPM baseline (0.803, 训练评估) 略有差异, 源于推理与训练评估的 maxDets 设置不同; 多步对比在相同推理设置下进行, 结论不受影响。 <!-- verified: 2026-07-28 ross server 推理日志 -->
 
 ### 2.2 Chromosome20240904 (Dataset 1) 数据集实验 — ⚠ 暂时废弃
 
@@ -674,9 +694,9 @@
 
 > **结论**: Focal Loss γ=3 堆叠 mAP=0.751, 与 Dataset 1 SOTA (0.749±0.004) 持平 (+0.002), 无显著增益。**不进入 Dataset 2 论文, 仅作为 §2.2.6 Dataset 1 历史实验数据源记录**。<!-- verified: 2026-07-19 SwanLab -->
 
-#### 3.6.11 ldmdet-inference 项目级别说明 (项目 `ldmdet-inference`, 108 个推理实验)
+#### 3.6.11 ldmdet-inference 项目级别说明 (项目 `ldmdet-inference`, 112 个推理实验)
 
-> 本项目共 108 个实验, 全部为推理/测试任务 (使用 `experiments/runners/test.py`), **不记录训练曲线**, 因此 SwanLab metrics 接口对 mAP 等指标返回 404 (详见访问问题备注)。所有结果已聚合至 §七 C 类推理任务归档。
+> 本项目共 112 个实验 (2026-07-28 新增 4 个 DDPM Euler 多步消融, 见 §2.1.5), 全部为推理/测试任务 (使用 `experiments/runners/test.py`), **不记录训练曲线**, 因此 SwanLab metrics 接口对 mAP 等指标返回 404 (详见访问问题备注)。所有结果已聚合至 §七 C 类推理任务归档。
 
 | 实验类型 | 数量 (估计) | 状态 | 说明 |
 |----------|------------|------|------|
@@ -690,6 +710,7 @@
 | a4_noise 推理 | ~13 | FINISHED/CRASHED | 未归档, 噪声鲁棒性测试 |
 | zero_shot +AdaLN-Zero/+DPM-Solver++ → AutoKary/Chromo | ~6 | FINISHED | §2.3.3, §1.4 |
 | dpm_solver_pp seed/solver 组合 | ~24 | FINISHED | NFE 对比, §七 |
+| DDPM Euler 多步消融 (1/2/4/8 step, DiffusionDet ckpt) | 4 | FINISHED | §2.1.5, 论文 Appendix G (2026-07-28 新增) |
 
 > **关键说明**:
 > 1. **本项目不进入 §3.5/§3.6 表格汇总**, 因所有指标已在 §七详尽记录。

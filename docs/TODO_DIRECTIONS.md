@@ -3,7 +3,7 @@
 > 本文档梳理 KaryoFlow (染色体检测论文, 目标 TMI 期刊) 所有进行中或待启动的研究方向。
 > 这些方向部分有代码就绪、配置就绪或实验已在运行, 部分仅有理论框架。
 > 每个方向附 **可靠数据源地址** (本地服务器路径 / SwanLab project / config 路径)。
-> 更新时间: 2026-07-28 (ReFlow 重试确认方法本质失败 → FALSIFIED §十四, 从本文档移除; 2026-07-27 校验+归档: R3 3-seed完成→LINEAGE §八, D3→LINEAGE §六, D1→LINEAGE §十五, M1→LINEAGE §十五, SC-RF→LINEAGE §十五; 全部代号替换为描述性名称; Few-Shot FBM CrossAttn 中断@ep59)
+> 更新时间: 2026-07-28 (R1/R2 评审循环完成, 4 方向通过(LVD-RF/TRIP/BEAR/ISLR-RF), 10 方向淘汰→FALSIFIED §十五~§二十二; ReFlow 重试确认方法本质失败 → FALSIFIED §十四, 从本文档移除; 2026-07-27 校验+归档: R3 3-seed完成→LINEAGE §八, D3→LINEAGE §六, D1→LINEAGE §十五, M1→LINEAGE §十五, SC-RF→LINEAGE §十五; 全部代号替换为描述性名称; Few-Shot FBM CrossAttn 中断@ep59)
 >
 > 📌 **关联文档**:
 > - [docs/EXPERIMENT_LINEAGE.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md) (主路线实验脉络, 已完成方向)
@@ -27,6 +27,10 @@
 | 速度引导自适应 Renewal | ⛔ 待系统评估 (代码就绪) | 中 | `ldmdet-mainline-ablation-24obj` |
 | Brenier 映射神经化 | ⛔ 未开展 (纯理论, TMI 投稿后) | 低 | — |
 | 级联头角色分化 | ⛔ 待启动 (零代码改动) | 中-高 | (待创建) |
+| LVD-RF (Lyapunov 速度方向正则) | ⛔ 待启动 (R2 通过, 7.5/10) | 高 (优先级 1) | (待创建) `ldmdet-mainline-ablation-24obj` |
+| TRIP (Tikhonov-Morozov 反问题正则) | ⛔ 待启动 (R2 通过, 7.5/10) | 高 (优先级 2) | (待创建) `ldmdet-mainline-ablation-24obj` |
+| BEAR (反向误差感知正则) | ⛔ 待启动 (R2 通过, 7.3/10) | 中 (优先级 3) | (待创建) `ldmdet-mainline-ablation-24obj` |
+| ISLR-RF (输入空间 Lipschitz 正则) | ⛔ 待启动 (R2 通过, 7.4/10) | 中 (优先级 4) | (待创建) `ldmdet-mainline-ablation-24obj` |
 
 ## 一、Few-Shot 跨数据集微调
 
@@ -236,6 +240,254 @@ M1 FP32 null result 已归档至 [LINEAGE §十五](file:///home/linkst/workspac
   - 注意力机制替代方向卷积 (self-attention 自然捕获空间关系)
 
 ---
+
+## 六、LVD-RF (Lyapunov Velocity Direction Regularization) — ⛔ 待启动 (优先级 1)
+
+> R2 评审通过 (A↔B 两轮交互), FINAL 整合文档: [FEASIBLE_LVD_RF.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/FEASIBLE_LVD_RF.md)
+> R2 评分: 7.5/10 (推荐, 有条件)
+
+### 核心目标
+
+通过在训练损失中增加**速度方向余弦正则项**, 约束速度场 $v_\theta$ 的方向一致性, 降低 $\eta_{\text{str}}$ (直线度诊断指标), 进而减少 DPM-Solver++ 截断误差。理论根基为 per-proposal 条件 Lyapunov 稳定性 (修订后), 并由 ProReflow (CVPR 2025) 的 "方向优于幅度" 实验结论支持。
+
+核心优势: **零额外前向** (训练开销 <2%), 工程可行性最高; 速度方向正则轴与 TFR (幅度) / ISLR (雅可比) 正交, 可独立贡献收益。是 4 个 R2 通过方向中**工程可行性最高**的一个, 适合作为首选改进方向。
+
+### 设计摘要
+
+- **核心改动**: 在训练损失中增加速度方向余弦正则项
+  $$L_{\text{lvd}} = \lambda \cdot \mathbb{E}\left[1 - \cos\left(v_\theta(x_t, t),\ v_\theta(x_t', t')\right)\right]$$
+  默认采用 $\sin^2$ 形式 (梯度强 2×, 缓解梯度消失): $L_{\text{lvd}} = \lambda \cdot \mathbb{E}[\sin^2\alpha]$
+- **理论支撑**:
+  - 定理 2.3' (条件 Lyapunov 稳定性): 在假设 (A1) $\|v_\theta\| \leq V_{\max}$, (A2) 幅度 Lipschitz $L_v^{\text{mag}}$, (A3) $\hat{x}_0$ 非退化下, $\eta_{\text{str}} = O(\sqrt{\epsilon})$
+  - ProReflow (CVPR 2025, arXiv:2503.04824) 实验确认 "方向优于幅度" (B 的 R1 对发表状态判断有误, WebSearch 三方证实: OpenReview + IEEE Xplore + 华东师大教师页面)
+- **与已有方向正交**: 速度方向正则轴独特, 与 TFR (幅度正则) / ISLR (雅可比正则) 正交, 可独立或叠加使用
+- **梯度消失缓解**: $\sin^2$ 默认 (cos_sim=0.99 时仍有 28% 梯度) + sqrt 自适应切换 fallback (cos_sim > 0.99 持续 1000 iter 触发)
+
+### 实验计划
+
+- **Phase 0 诊断** (0.5-1 天):
+  - 验证 $\eta_{\text{str}}$ 行为 (确认 baseline 直线度问题)
+  - 验证 ProReflow "方向优于幅度" 假设在检测场景的迁移性
+  - 实测 $\|v_\theta\|(t)$ 曲线, 验证假设 (A1)(A2) 是否成立 (Blocking: 若不成立需补充幅度正则)
+- **Phase 1 单 seed 验证** (3 天):
+  - $\sin^2$ 形式默认, $\lambda \in \{0.001, 0.003, 0.01, 0.03, 0.1\}$ 网格搜索
+  - 监控 cos_sim 分布, 若 cos_sim > 0.99 持续 1000 iter 触发自适应切换 sqrt 形式
+  - xyxy 有效性检查 (x2 > x1, y2 > y1), 无效框跳过
+- **Phase 2 3-seed 验证** (5 天 × 3 seeds):
+  - 3 seeds (42/123/789), 最优 $\lambda^*$ 重训
+  - 关键消融: LVD-2 (方向) vs TFR-bl (幅度) 对比, 验证方向正则跨域迁移性
+  - 3-way 对比: $\sin^2$ 全程 vs sqrt 全程 vs 自动切换
+
+### 预期增益
+
+- mAP: +0.003~0.008 (Dataset 2)
+- Y 染色体 AP: +0.005~0.015 (方向正则对稀有类更显著)
+- $\eta_{\text{str}}$: 条件性 $O(\sqrt{\epsilon})$ 下降 (依赖假设 A1/A2 成立)
+- 训练开销: **<2%** (零额外前向, 工程优势显著)
+
+### 风险与缓解
+
+| 风险 | 等级 | 缓解 |
+|------|------|------|
+| 条件性保证传递性 (A1/A2 不由 LVD-RF 保证) | 高 | Phase 1 实测 $\|v_\theta\|(t)$, 若不成立补充幅度正则 (与 TFR/VCR 叠加) |
+| 梯度消失 (cos_sim → 1 时) | 高 | $\sin^2$ 默认 (梯度 2×) + sqrt 自适应切换 fallback |
+| ProReflow 跨域迁移性未验证 (图像生成 → 检测) | 中 | Phase 2 LVD-2 vs TFR-bl 关键消融 |
+| per-proposal 独立性假设不完全成立 (共享 backbone) | 低 | 条件独立性仍支持分析, 重叠染色体干扰为二阶效应 |
+
+### SwanLab & 配置
+
+- SwanLab Project: (待创建) `ldmdet-mainline-ablation-24obj`
+- 配置: `experiments/configs/ldmdet/mainline_24obj/lvd_rf_24obj.py` (待创建)
+
+---
+
+## 七、TRIP (Tikhonov-Morozov 反问题正则化) — ⛔ 待启动 (优先级 2)
+
+> R2 评审通过 (A↔B 两轮交互), FINAL 整合文档: [FEASIBLE_TRIP.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/FEASIBLE_TRIP.md)
+> R2 评分: 7.5/10 (谨慎推荐)
+
+### 核心目标
+
+通过**替换回归目标** (而非加正则项), 将训练目标从 GT $x_0$ 改为贝叶斯 MAP 收缩解 $\tilde{x}_0(t)$, 显式建模 SNR 退化 (大 $t$ 段信号被噪声淹没)。理论框架为 "SNR 退化 + 贝叶斯 MAP", $\lambda = t^2$ 来自噪声方差/先验方差比 (Tarantola 2005 标准)。
+
+核心优势: **最独特** (目标替换而非加正则项, 与所有损失项方案代数正交); 贝叶斯 MAP 框架数学严格成立; $d=4$ + $K \approx 46$ + 24 类全匹配。**但**: 需 Phase 1 验证 baseline 是否已 MMSE 最优 (Blocking 前提); 新颖性较原 "不适定反问题 + Morozov" 框架下降 (与 label smoothing 概念相近)。
+
+### 设计摘要
+
+- **核心改动**: 替换回归目标
+  $$x_0 \to \tilde{x}_0(t) = (1 - s(t))\,x_0 + s(t)\,\mu_p$$
+  其中 $s_{\text{MAP}}(t) = \frac{t^2}{(1-t)^2 \sigma_p^2 + t^2} \in [0, 1]$ 为贝叶斯 MAP 收缩系数
+- **理论支撑**:
+  - 引理 2.2 (SNR 退化): $\text{SNR}(t) = (1-t)^2 \sigma_p^2 / t^2 \to 0$ as $t \to 1$
+  - 贝叶斯 MAP 解: $x_0^{\text{MAP}}(t) = [(1-t)^2 I + t^2 \Sigma_p^{-1}]^{-1}[(1-t) x_t + t^2 \Sigma_p^{-1} \mu_p]$
+  - $\lambda = t^2$ 是数学导出 (非超参), 来自噪声方差/先验方差比
+  - 期望形式边界: $s_{\text{MAP}}(0) = 0$ (目标=GT), $s_{\text{MAP}}(1) = 1$ (目标=$\mu_p$); 小 $t$ 段 $s \approx t^2/\sigma_p^2 = O(t^2)$ (比 Morozov 的 $O(t)$ 更快衰减, 对 mAP 末 step 精度更友好)
+- **与已有方向正交**: 目标替换 vs 损失项增加, 与 TFR/BEAR/LVD-RF/ISLR-RF 代数正交
+- **Morozov 备选**: 仅作经验调参旋钮 (可能在 小数据集 上更稳健, 但无理论保证), 主方案必须用 MAP ($\lambda = t^2$)
+
+### 实验计划
+
+- **Phase 0 诊断** (0.5-1 天):
+  - **E1.5 (Blocking)**: baseline MMSE 最优性验证 — 测量大 $t$ 段 ($t \in [0.7, 1.0]$) 网络输出是否 ≈ $\mu_p$ (MMSE 最优)。若已 MMSE 最优, TRIP 收益有限, 需重新定位或放弃
+  - E1.2: 验证 $\eta_{\text{str}}$ 在大 $t$ 段行为 (是否 "GT 记忆抖动"), 校准 $\eta_{\text{str}}$ 下降预期
+- **Phase 1 单 seed 验证** (3 天):
+  - 主方案 MAP ($\lambda = t^2$), 类条件先验 $\mu_p^c$ 估计
+  - 关键消融: 类条件 vs 全局先验 (验证类条件对 Y AP 的增益)
+  - 修正 (2.5) 符号 typo: $\|(1-t)(x-x_t)\|^2 \to \|(1-t)x - x_t\|^2$
+  - 向量化 `_compute_trip_target` (避免 `for b, c` Python 循环)
+- **Phase 2 3-seed 验证** (5 天 × 3 seeds):
+  - 3 seeds (42/123/789), 最优配置重训
+  - 关键消融: TRIP ($t$-自适应 $s(t)$) vs 固定 $\alpha$ label smoothing, 验证 $t$-自适应性收益
+  - MAP vs Morozov 对比 (E2.3)
+
+### 预期增益
+
+- mAP: +0.002~0.008 (Dataset 2, **需 Phase 1 E1.5 验证 baseline 非 MMSE 最优**)
+- Y 染色体 AP: +0.002~0.010
+- $\eta_{\text{str}}$: -10~25%
+- 训练开销: **~5%** (类条件先验估计, 无额外前向)
+
+### 风险与缓解
+
+| 风险 | 等级 | 缓解 |
+|------|------|------|
+| Baseline 已 MMSE 最优 → TRIP 收益有限 | 高 (Blocking) | Phase 1 E1.5 优先验证, 若成立需重新定位为 "训练稳定加速" |
+| 期望形式与 label smoothing 概念相近 (新颖性下降) | 中 | Phase 2 消融 TRIP vs 固定 $\alpha$ label smoothing, 量化 $t$-自适应性收益 |
+| 大 $t$ 段训练信号冲突 (类条件目标 vs 类无关输入) | 中 | 影响有限 (差异是 $\mu_p^c - \mu_p$ 类偏移, 损失中为常数项, 不影响梯度方向) |
+| Morozov 备选方案理论地位不清 | 低 | 明确 Morozov 仅作经验调参旋钮, 主方案必须用 MAP ($\lambda = t^2$) |
+
+### SwanLab & 配置
+
+- SwanLab Project: (待创建) `ldmdet-mainline-ablation-24obj`
+- 配置: `experiments/configs/ldmdet/mainline_24obj/trip_24obj.py` (待创建)
+
+---
+
+## 八、BEAR (Backward-Error-Aware Regularization) — ⛔ 待启动 (优先级 3)
+
+> R2 评审通过 (A↔B 两轮交互), FINAL 整合文档: [FEASIBLE_BEAR.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/FEASIBLE_BEAR.md)
+> R2 评分: 7.3/10 (谨慎推荐)
+
+### 核心目标
+
+通过在训练损失中增加**二阶均差正则项**, 显式惩罚 DPM-Solver++ 截断误差的二阶分量。理论根基为修正方程 (Modified Equation) 框架, 直接连接多步法反向误差分析 (BEA, Hairer & Wanner Ch. XV Theorem XV.3.1), 是 TFR (一阶均差正则) 的严格推广。
+
+核心优势: 叙事优雅 (TFR 严格推广, 修正方程框架直接连接 solver 截断误差); $\psi$ 闭式表达式数学验证正确; $\phi_2$ 映射修正完全正确。**但**: 训练开销 +60~70% (3 次前向); 与 EXER-RF 数学对象相同 (冗余性未根本解决); "TFR 严格推广" 叙事价值在联合使用时减弱 (退化为强制常数)。
+
+### 设计摘要
+
+- **核心改动**: 在训练损失中增加二阶均差正则项
+  $$L_{\text{bear}} = \lambda \cdot \mathbb{E}\left[|\psi(t)| \cdot \|D_2\|^2\right]$$
+  其中 $D_2$ 是三步二阶均差 (需 3 次前向: $v_\theta(x_{t_0}, t_0)$, $v_\theta(x_{t_1}, t_1)$, $v_\theta(x_{t_2}, t_2)$)
+- **权重 $\psi$ 闭式表达式** (R2 数学验证正确):
+  $$\psi = \frac{t_{n+1}^2 - t_n^2}{2} - 2t_n(t_{n+1} - t_n) + t_n^2 \ln\frac{t_{n+1}}{t_n}$$
+  (数值验证: $t_n=0.5, t_{n+1}=0.25$ 时 $\psi = -0.0170$, 与代码 `rectified_flow.py` L215-217 一致)
+- **理论支撑**:
+  - 修正方程框架: DPM-Solver++ 截断误差 $\propto \|D_2\|$
+  - 定理 2.1 (BEA, Hairer & Wanner Ch. XV): 多步法反向误差分析
+  - 假设 H1: 沿任意轨迹的 $D_2$ Lipschitz 性 (经验假设, 需 Phase 0 验证, 判据 $\rho > 0.7$)
+- **与 TFR 关系**: TFR 是 BEAR 的特例 (一阶 vs 二阶均差), 联合使用退化为强制 $\hat{x}_0$ 常数
+- **MEC-RF fallback**: 当 BEAR 3× 开销不可接受时, 使用 MEC-RF (1.3× JVP) 作为高效替代
+- **空间一致性**: 在 raw cxcywh 空间计算 $D_2$ (与 solver 的 `x0_history` 一致)
+
+### 实验计划
+
+- **Phase 0 诊断** (0.5-1 天):
+  - Lipschitz 假设 H1 验证: 测量 $\rho = \text{corr}(D_2^{\text{train}}, D_2^{\text{infer}})$, 判据 $\rho > 0.7$
+  - $\psi$ 闭式表达式数值验证 (与代码 `rectified_flow.py` L215-217 一致)
+  - $C_1 \approx 0.04$ 数值估计确认 ($C_2$ 仍依赖 Lipschitz 常数 $L$, 需诊断)
+- **Phase 1 单 seed 验证** (3 天):
+  - $\lambda \in \{0.001, 0.003, 0.01, 0.03, 0.1\}$ 网格搜索
+  - 在 raw cxcywh 空间计算 $D_2$ (与 solver 的 `x0_history` 一致)
+- **Phase 2 3-seed 验证** (5 天 × 3 seeds):
+  - 3 seeds (42/123/789), 最优 $\lambda^*$ 重训
+  - 关键消融: $|\psi|$ (时间步依赖) vs $\lambda_{\text{ext}}=7$ (常数, EXER-RF) vs 均匀权重
+  - BEAR vs MEC-RF (1.3× JVP fallback) 收益/开销权衡
+
+### 预期增益
+
+- mAP: +0.003~0.008 (Dataset 2)
+- $\eta_{\text{3rd}}$ (三阶直线度): 显著下降 (BEAR 主要跟踪 $\eta_{\text{3rd}}$)
+- 训练开销: **+60~70%** (3 次前向, 完整二阶导数)
+
+### 风险与缓解
+
+| 风险 | 等级 | 缓解 |
+|------|------|------|
+| 训练开销高 (+60~70%, 3 次前向) | 高 | MEC-RF fallback (1.3× JVP), 当 3× 开销不可接受时使用 |
+| 与 EXER-RF 数学对象相同 (冗余性) | 中 | Phase 2 消融 $|\psi|$ vs $\lambda_{\text{ext}}$ vs 均匀, 量化权重设计差异 |
+| TFR 严格推广叙事价值减弱 (联合使用退化为 TFR) | 中 | BEAR 独立价值在 "单独使用时比 TFR 更精细" |
+| 训练-推理轨迹一致性 gap | 中 | 假设 H1 (Lipschitz), Phase 0 验证 $\rho > 0.7$ |
+| $C_2$ 常数未显式 | 低 | Phase 0 诊断估计 |
+
+### SwanLab & 配置
+
+- SwanLab Project: (待创建) `ldmdet-mainline-ablation-24obj`
+- 配置: `experiments/configs/ldmdet/mainline_24obj/bear_24obj.py` (待创建)
+
+---
+
+## 九、ISLR-RF (Input-Space Lipschitz Regularization) — ⛔ 待启动 (优先级 4)
+
+> R2 评审通过 (A↔B 两轮交互), FINAL 整合文档: [FEASIBLE_ISLR_RF.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/FEASIBLE_ISLR_RF.md)
+> R2 评分: 7.4/10 (谨慎推荐)
+
+### 核心目标
+
+通过在训练损失中增加**输入雅可比 Frobenius 正则项**, 约束网络 $f$ 对输入 $x_t$ 的 Lipschitz 常数, 降低泛化误差。理论根基为 Sokolić (2017, IEEE TSP) 的 Rademacher 复杂度界 $\hat{\mathcal{R}}_n(\mathcal{F}) \leq O(B_x \sqrt{M}/\sqrt{n})$, 其中 $M = \mathbb{E}[\|J_f\|_F^2]$ (WebSearch 验证: Sokolić 真实存在, Wu & Li 2024 arXiv:2412.12449 明确建立 Jacobian 正则化与 Rademacher 复杂度的界)。
+
+核心优势: 理论核心正确 ($J_f \to 0$ 与理想 RF 一致); Sokolić Rademacher 界经验证正确; $d=4$ 甜区论证合理 (Finlay-Oberman 2019 ICLR 2020 工程先例)。**但**: 训练开销 +80~200% (4 VJP 二阶微分), 实施最难; 超参数 proliferation ($\lambda_0, p$ 两个超参); Rademacher 界线性收紧 (泛化 gap 改善 ~29% 而非 50%)。
+
+### 设计摘要
+
+- **核心改动**: 在训练损失中增加输入雅可比 Frobenius 正则项
+  $$L_{\text{islr}} = \lambda \cdot \mathbb{E}\left[t^p \cdot \|J_f\|_F^2\right]$$
+  其中 $J_f = \partial f_\theta(x_t, t) / \partial x_t$ 是网络对输入 $x_t$ 的雅可比, $t^p$ 为 $t$-dependent 加权 ($p=2$ 默认)
+- **理论支撑**:
+  - Sokolić (2017) Rademacher 复杂度界: $\hat{\mathcal{R}}_n(\mathcal{F}) \leq O(B_x \sqrt{M}/\sqrt{n})$, $M = \mathbb{E}[\|J_f\|_F^2]$ ($\sqrt{M}$ 正确, 因 Lipschitz 常数 $\leq \sqrt{M}$)
+  - 命题 1.8' (修正): 理想 $J_f$ 在 $t \approx 0$ 时为 $I$ (网络已知 GT), 在 $t \approx 1$ 时为 $0$ (网络从 $x_t$ 推断)
+  - $t$-dependent 加权: $\lambda(t) = \lambda_0 \cdot t^p$, $t$ 大 (噪声端) 强正则, $t$ 小 (数据端) 弱正则
+  - Grönwall 指数改善 ~31% (对应 seed std 下降 ~15%), $t \in [0.25, 1]$ 范围
+- **$K_{\text{islr}}=16$ 子采样**: 从 $K \approx 46$ 中子采样 16 个 proposals (比例 ~35%), 方差降低 $\sqrt{16} = 4\times$ (原 $\sqrt{46} \approx 6.8\times$ 削弱)
+- **Fallback**: Finlay-Oberman (2019, ICLR 2020) 或 Hutchinson 1-sample 估计 (方差 $O(1/d)$ 量级, 取决于 $J$ 的奇异值分布)
+
+### 实验计划
+
+- **Phase 0 诊断** (0.5-1 天):
+  - $K_{\text{islr}}=16$ 子采样微基准: 验证 4 VJP 开销 (+80~200%) 和方差降低 (4×)
+  - $t$-dependent 加权验证: 确认 $\lambda(t) = \lambda_0 t^p$ 在 $t \in [0.25, 1]$ 的作用范围 (注意 $t=0.25$ 时 $\lambda = 0.0625\lambda_0$, 几乎不正则)
+  - Grönwall 指数改善 ~31% 数值确认
+- **Phase 1 单 seed 验证** (3 天):
+  - 固定 $p=2$, 仅调 $\lambda_0 \in \{0.001, 0.003, 0.01, 0.03, 0.1\}$ (避免 2D 网格搜索)
+  - 监控 $\|J_f\|_F$ 分布, 验证过度正则化风险
+- **Phase 2 3-seed 验证** (5 天 × 3 seeds):
+  - 3 seeds (42/123/789), 最优 $\lambda_0^*$ 重训
+  - 在最优 $\lambda_0^*$ 附近做 $p$ 的一维消融 ($p \in \{1, 2, 4\}$)
+  - 关键消融: 4 VJP (全量) vs Hutchinson (1-sample) vs Finlay-Oberman fallback
+
+### 预期增益
+
+- mAP: +0.002~0.006 (Dataset 2)
+- seed std: -10~20% (Grönwall 指数改善 ~31%)
+- 训练开销: **+80~200%** (4 VJP + 额外反传, 实施最难)
+
+### 风险与缓解
+
+| 风险 | 等级 | 缓解 |
+|------|------|------|
+| 训练开销极高 (+80~200%, 4 VJP) | 高 | $K_{\text{islr}}=16$ 子采样 + Hutchinson fallback (1-sample, 方差 $O(1/d)$) |
+| 超参数 proliferation ($\lambda_0, p$ 两个超参) | 中 | Phase 1 固定 $p=2$ 仅调 $\lambda_0$; Phase 2 在最优 $\lambda_0^*$ 附近做 $p$ 一维消融 |
+| 过度正则化 ($J_f \to 0$ 在 $t \approx 0$ 不期望) | 中 | $t$-dependent 加权 $\lambda(t) = \lambda_0 t^p$, $t$ 小弱正则 |
+| Rademacher 界线性 vs Bartlett 平方 (收紧效应弱) | 低 | 诚实承认泛化 gap 改善 ~29% (非 50%), 小数据集收益论点削弱 |
+| $K_{\text{islr}}=16$ 削弱方差降低论证 (4× vs 6.8×) | 低 | 4× 方差降低仍有效, 更新 §4.2 论证 |
+
+### SwanLab & 配置
+
+- SwanLab Project: (待创建) `ldmdet-mainline-ablation-24obj`
+- 配置: `experiments/configs/ldmdet/mainline_24obj/islr_rf_24obj.py` (待创建)
+
+---
+
 ## 附: SwanLab Project 映射 (待做方向相关)
 
 | SwanLab Project | 方向 | 状态 | URL Pattern |
@@ -243,6 +495,10 @@ M1 FP32 null result 已归档至 [LINEAGE §十五](file:///home/linkst/workspac
 | `few-shot-benchmark` | Few-Shot 源预训练 | 🔄 1 中断 (best 0.857@ep45), 6 已完成 | `https://swanlab.cn/@einspanner/few-shot-benchmark/runs/<run_id>` |
 | `ldmdet-mainline-ablation-24obj` | 速度引导自适应 Renewal (a4_vgar) | ⛔ 待启动 | `https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/<run_id>` |
 | (待创建) | 级联头角色分化 | ⛔ 待启动 | 详见 [STRUCTURAL_IMPROVEMENT_ANALYSIS.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/STRUCTURAL_IMPROVEMENT_ANALYSIS.md) |
+| (待创建) `ldmdet-mainline-ablation-24obj` | LVD-RF (Lyapunov 速度方向正则, 优先级 1) | ⛔ 待启动 (R2 通过 7.5/10) | `https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/<run_id>` |
+| (待创建) `ldmdet-mainline-ablation-24obj` | TRIP (Tikhonov-Morozov 反问题正则, 优先级 2) | ⛔ 待启动 (R2 通过 7.5/10) | `https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/<run_id>` |
+| (待创建) `ldmdet-mainline-ablation-24obj` | BEAR (反向误差感知正则, 优先级 3) | ⛔ 待启动 (R2 通过 7.3/10) | `https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/<run_id>` |
+| (待创建) `ldmdet-mainline-ablation-24obj` | ISLR-RF (输入空间 Lipschitz 正则, 优先级 4) | ⛔ 待启动 (R2 通过 7.4/10) | `https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/<run_id>` |
 
 > SwanLab 用户名: `einspanner` (登录态见 `/home/linkst/.swanlab/.netrc`, api_key 已配置)
 > 目标微调 project (Few-Shot 14 个配置) 待 FBM CrossAttn 源预训练完成后配置
@@ -250,4 +506,5 @@ M1 FP32 null result 已归档至 [LINEAGE §十五](file:///home/linkst/workspac
 <!-- 文档结束。
      更新策略: 当方向状态变化 (如训练启动 / 完成 / 证伪), 更新对应章节的 ⛔/🔄/✓/🔴 标记和 SwanLab run_id。
      方向完成后: 有效→迁入 EXPERIMENT_LINEAGE.md; 证伪→迁入 FALSIFIED_DIRECTIONS.md; 本文档仅保留 🔄进行中 + ⛔待启动。
+     2026-07-28 更新: R1/R2 评审循环完成, 4 方向通过 (LVD-RF/TRIP/BEAR/ISLR-RF, R2 评分 7.3~7.5/10), 10 方向淘汰→FALSIFIED §十五~§二十二; 新增 §六~§九。
      2026-07-27 更新: 删除已归档方向 S1 (→LINEAGE §七), 方向 A (→LINEAGE §九), 方向 C (→LINEAGE §十一), 方向 D (→LINEAGE §十), Head Distillation (→LINEAGE §十五); ReFlow 重试确认方法本质失败 → FALSIFIED §十四。 -->

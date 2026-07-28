@@ -66,25 +66,35 @@ RF 以从噪声 $\mathbf{x}_1$ 到 GT $\mathbf{x}_0$ 的确定性直线 ODE 路�
 
 ### 范式贡献归因
 
-DDPM baseline→RF+Heun 累积 +0.082 mAP, 其中 solver×step 解耦消融证明:
-- **94% (+0.077 mAP) 归因于 RF 范式本身**
-- 6% (+0.005 mAP) 归因于 solver/步数选择 (Heun 4 步 vs Euler 1 步)
+DDPM baseline→RF+Heun 累积 +0.053 mAP (统一口径: DDPM baseline = DiffusionDet 0.803, 训练配置 AdamW/150ep), 其中 solver×step 解耦消融证明:
+- **91% (+0.048 mAP) 归因于 RF 范式本身**
+- 9% (+0.005 mAP) 归因于 solver/步数选择 (Heun 4 步 vs Euler 1 步)
 - AdaLN-Zero 单独贡献为 0 (Appendix B 零结果)
 - 偏移噪声调度 (shift=3.0) 单独贡献为 −0.001 (噪声范围)
+- ⚠ 历史口径 (2026-07-27 前): 旧 DDPM baseline (a0_baseline, SGD/12ep, 训练不足, mAP=0.774) → RF+Heun 累积 +0.082 mAP, 94% 归因于 RF; 2026-07-27 统一口径至 DiffusionDet (AdamW/150ep, mAP=0.803) 后, 累积增益 +0.053 mAP, 91% 归因于 RF, 结论方向不变 (RF 范式为核心增益来源)
 
 ### 实验列表
 
 #### 实验证明目的: RF 范式相对 DDPM 的精度优势 (主消融)
 
-- DDPM baseline (DDPM Euler 1-step)
+- DDPM baseline (DDPM Euler 1-step, a0_baseline)
   -- 数据集: Dataset 2
   -- 结果: mAP=0.774, AP50=0.968, AP75=0.916
+  -- ⚠ 训练配置: SGD/lr=0.02/12ep, 训练不足, 2026-07-27 已将论文 DDPM baseline 统一为 DiffusionDet (AdamW/150ep, mAP=0.803, 见下方对照)
   -- SwanLab: https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/a0_baseline
+
+- DDPM baseline (统一口径, DiffusionDet checkpoint)
+  -- 数据集: Dataset 2
+  -- 结果: mAP=0.803 (val) / 0.804 (test), AP50=0.970, AP75=0.936
+  -- 训练配置: AdamW/150ep, 与 RF+Heun 完全一致 (除 diffusion_type=ddpm)
+  -- 结构对比: 两个 subagent 确认 DiffusionDet 与 a0_baseline 结构相同, 性能差异 (0.774 vs 0.803) 完全由训练配置 (SGD/12ep vs AdamW/150ep) 导致, 非模型结构差异
+  -- SwanLab (project=chromosome-kd-benchmark-24obj): benchmark_diffusiondet
+  -- checkpoint: work_dirs/baselines/diffusiondet_24obj/best_coco_bbox_mAP_epoch_26.pth
 
 - KaryoFlow (RF+Heun)
   -- 数据集: Dataset 2
   -- 改动: diffusion_type=rectified_flow, solver=heun, rf_schedule=shifted, time_conditioning=adaln_zero
-  -- 结果: mAP=0.856, AP50=0.990, AP75=0.969 [+0.082 主贡献]
+  -- 结果: mAP=0.856, AP50=0.990, AP75=0.969 [+0.053 主贡献 (统一口径 DiffusionDet 0.803) / +0.082 (旧口径 a0_baseline 0.774)]
   -- SwanLab: https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/a1_rf_heun
 
 - +AdaLN-Zero
@@ -109,6 +119,22 @@ DDPM baseline→RF+Heun 累积 +0.082 mAP, 其中 solver×step 解耦消融证�
   -- DPM-Solver++ 1 步 (1 NFE): mAP=0.851
   -- 结论: 匹配步数下 solver 类型对 mAP 无影响; 步数 1→4 仅 +0.004; solver/步数联合仅贡献 6%
   -- SwanLab: https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/a1_rf_heun
+
+#### 实验证明目的: DDPM 多步消融 (Dataset 2, 论文 Appendix G)
+
+- DiffusionDet checkpoint (Dataset 2, best @ ep26, seed 42) 上 Euler 1/2/4/8 步推理
+  -- 配置: `experiments/configs/baselines/benchmark_24obj/diffusiondet_ddpm.py` + `--sampling-steps {1,2,4,8} --solver-type euler`
+  -- 命令: `python experiments/runners/test.py experiments/configs/baselines/benchmark_24obj/diffusiondet_ddpm.py --checkpoint work_dirs/baselines/diffusiondet_24obj/best_coco_bbox_mAP_epoch_26.pth --dataset val --sampling-steps {1,2,4,8} --solver-type euler --seed 42`
+  -- 结果 (验证集, seed 42):
+     | Steps | NFE | mAP   | AP50  | AP75  | AP_S  | AP_M  | AP_L  |
+     |-------|-----|-------|-------|-------|-------|-------|-------|
+     | 1     | 1   | 0.805 | 0.971 | 0.937 | 0.405 | 0.802 | 0.810 |
+     | 2     | 2   | 0.804 | 0.969 | 0.939 | 0.414 | 0.800 | 0.806 |
+     | 4     | 4   | 0.804 | 0.970 | 0.938 | 0.402 | 0.800 | 0.804 |
+     | 8     | 8   | 0.805 | 0.971 | 0.940 | 0.405 | 0.801 | 0.818 |
+  -- 结论: DDPM Euler 1→8 步 mAP 变化 <0.002, 所有精度指标 (AP50/AP75/AP_S/AP_M/AP_L) 均在噪声范围内波动; 对比 RF 范式切换带来的 +0.053 mAP 增益, DDPM 增加步数的收益可忽略, 证实 "DDPM 步数对精度几乎无影响, 范式切换才是核心增益来源"
+  -- 注: 1 步推理 mAP (0.805) 与 Table 5 中 DDPM baseline (0.803, 训练评估) 略有差异, 源于推理与训练评估的 maxDets 设置不同; 多步对比在相同推理设置下进行, 结论不受影响
+  -- 数据源: ross server 推理日志 (2026-07-28), project=ldmdet-inference, 实验名 `euler_{N}step`
 
 #### 实验证明目的: Dataset 1 低数据对照, RF vs DDPM
 
@@ -1208,7 +1234,7 @@ S1 的 H×S 理论说明 "仅改变 H 会破坏横向收敛性" (已证伪 N_cas
 
 | 创新点 | 核心贡献 | 与任务结合 | 关键数据 | 状态 |
 |--------|----------|------------|----------|------|
-| **RF (§一)** | 直线 ODE 路径取代 DDPM 弯曲随机轨迹 | 密集 proposals 误差复合 / 小训练集 / 24 类细粒度 | DDPM→RF+Heun +0.082 mAP, 94% 归因于 RF | ✅ 完成 |
+| **RF (§一)** | 直线 ODE 路径取代 DDPM 弯曲随机轨迹 | 密集 proposals 误差复合 / 小训练集 / 24 类细粒度 | DDPM→RF+Heun +0.053 mAP (统一口径), 91% 归因于 RF | ✅ 完成 |
 | **OT Collapse + Stoch. Coupling (§二)** | 低维 d=4 OT 坍缩形式化 + Stochastic Coupling 补救 | 低维触发 / 高 K 加剧 / 小训练集放大 | Dataset 1 +0.034 (p<10⁻¹²⁰), Dataset 2 +0.0001 (p=0.80) + 4.6× 平滑 | ✅ 完成 |
 | **DPM-Solver++ (§三)** | RF 适配 data-prediction + 修正 FlowDet 结论 | 临床交互式延迟 13.3-14.2 FPS / cascade head 占 90%+ | +0.006 mAP (p<10⁻⁶) + 1.71× NFE 加速 | ✅ 完成 |
 | **Top-K Pruning (§四)** | 500→K proposals 剪枝 + DPM-Solver++ 兼容 | K=200 最优 (46 染色体 + 重叠冗余) | K=200: 14.2 FPS, mAP 0.860 | ✅ 完成 |
@@ -1236,12 +1262,14 @@ S1 的 H×S 理论说明 "仅改变 H 会破坏横向收敛性" (已证伪 N_cas
 
 | 比较 | Δ mAP | p-value | n |
 |------|-------|---------|---|
-| RF vs DDPM (Dataset 2) | +0.082 | — | — |
+| RF vs DDPM (Dataset 2, 统一口径 DiffusionDet 0.803) | +0.053 | — | — |
+| RF vs DDPM (Dataset 2, 旧口径 a0_baseline 0.774) | +0.082 | — | — |
 | RF vs DDPM (Dataset 1) | +0.017 | — | — |
 | Stoch vs Random (Dataset 1) | +0.034 | <10⁻¹²⁰ | 1320 |
 | Hard OT vs Random (Dataset 1) | −0.008 | <10⁻⁸ | 1320 |
 | Stoch vs Random (Dataset 2) | +0.0001 | 0.80 (ns) | 500 |
 | DPM++ vs Heun (Dataset 2, 4 步) | +0.006 | <10⁻⁶ | 500 |
+| DDPM Euler 1→8 步 (Dataset 2, 论文 Appendix G) | <0.002 | — | — |
 
 ### 辅助评估实验索引 (论文数据点 ↔ LINEAGE 章节)
 
