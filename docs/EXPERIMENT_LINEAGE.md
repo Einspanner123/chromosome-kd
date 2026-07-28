@@ -1095,21 +1095,6 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 - **数据源**: [work_dirs/robustness_noise/zero_shot_results_chr20240904.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/robustness_noise/zero_shot_results_chr20240904.json)
 - **评估日志**: [work_dirs/robustness_noise/zero_shot_a4_chr20240904.log](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/robustness_noise/zero_shot_a4_chr20240904.log)
 
-### 14.3 跨域 Zero-shot: Dataset 2 → AutoKary (历史记录, 未进论文正文)
-
-- **方向**: Dataset 2 (5000 imgs, 训练域) → AutoKary (118 test imgs, 5198 anns)
-- **基础 checkpoint**: +DPM-Solver++ (DPM-Solver++ 4-step, seed 42, best@ep117)
-- **配置**: [experiments/configs/cross_domain/autokary/zero_shot_a4.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/configs/cross_domain/autokary/zero_shot_a4.py)
-- **整体结果**: mAP=0.030, AP50=0.041, AP75=0.037
-- **per-class 高亮**:
-  -- A1: AP50=0.961 (大染色体几乎完美迁移)
-  -- X: AP50=0.017 (性染色体部分迁移)
-  -- E18: AP50=0.006 (边际迁移)
-  -- 其余 21 类: AP50=0 (无迁移)
-- **结论**: AutoKary 域漂移过大, 整体迁移失败 (mAP 0.030); 仅 A1 完美迁移, 显示训练域与目标域分布严重不匹配
-- **数据源**: [work_dirs/robustness_noise/zero_shot_results.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/robustness_noise/zero_shot_results.json)
-- **注**: 反向 (AutoKary → Dataset 2) 未运行 (无 AutoKary 完整训练 checkpoint)
-
 ---
 
 ## 十五、边际有效方向 (历史记录)
@@ -1263,7 +1248,6 @@ S1 的 H×S 理论说明 "仅改变 H 会破坏横向收敛性" (已证伪 N_cas
 | `ldmdet-frontier-directions` | 6 | Dataset 2 前沿方向探索 | `https://swanlab.cn/@einspanner/ldmdet-frontier-directions/runs/<run_id>` |
 | `ldmdet-s1-cascade-decouple` | 2 已完成 + 1 进行中 | S1 cascade head × solver step 解耦消融 (s1_h3_s4 ✓ / s1_h3_s8 ✓ / s1_h6_s2 🔄) | `https://swanlab.cn/@einspanner/ldmdet-s1-cascade-decouple/runs/<run_id>` |
 | `ldmdet-r3-vpred` | 1 进行中 + 2 待启动 | R3 v-prediction 对照重训 (seed 42 🔄 / seed 123,789 ⛔) | `https://swanlab.cn/@einspanner/ldmdet-r3-vpred/runs/<run_id>` |
-| `few-shot-benchmark` | 3 | Dataset 2 few-shot 源预训练 | `https://swanlab.cn/@einspanner/few-shot-benchmark/runs/<run_id>` |
 | `nonlinear-3seed-repro` | 2 | 3-seed 复现 (Dataset 1) | `https://swanlab.cn/@einspanner/nonlinear-3seed-repro/runs/<run_id>` |
 | `chromosome-kd` | 21 | 早期 Dataset 1 数据集 | `https://swanlab.cn/@einspanner/chromosome-kd/runs/<run_id>` |
 | `ldmdet-inference` | 12 | DDIM 步数对齐 + DPM-Solver++ 步数消融 (Dataset 1) | `https://swanlab.cn/@einspanner/ldmdet-inference/runs/<run_id>` |
@@ -1327,4 +1311,4 @@ S1 的 H×S 理论说明 "仅改变 H 会破坏横向收敛性" (已证伪 N_cas
 | §4.8 / Table 11 | 标注噪声鲁棒性 (3×3 网格) | §十三 | work_dirs/robustness_noise/consolidated_results.json |
 | §5.6 / §7.3.5 | Dataset 1 per-class AP 增益 (Stoch Coupling) | §二 末段 | CATALOG §7.3.5 (Problem 3) |
 | §4.3.2 (引用, 不入正文) | SOTA per-image Wilcoxon (5 模型) | §一 末段 | CATALOG §7.4.6 (Problem 2B) |
-| 历史记录 (不入正文) | AutoKary 跨域 Zero-shot | §十四.3 | work_dirs/robustness_noise/zero_shot_results.json |
+
