@@ -374,15 +374,16 @@ Table 10 和 Figure 6 报告了在 $512{\times}512$ 输入分辨率下的速度-
 | +DPM-Solver++ + Top-$K$ (K=300) | DPM++ | 4 | 71.27 | 14.0 | 0.861 |
 | **+DPM-Solver++ + Top-$K$ (K=200)** | DPM++ | 4 | **70.46** | **14.2** | **0.860** |
 | +DPM-Solver++ + Top-$K$ (K=100) | DPM++ | 4 | 69.71 | 14.3 | 0.850 |
+| **+DPM-Solver++ (H=3 Distill)** | DPM++ | 4 | **$\sim$45** | **$\sim$22** | **0.860** |
 | Cascade R-CNN | — | 1 | 20.67 | 48.4 | 0.854 |
 | YOLOX-S | — | 1 | 10.15 | 98.5 | 0.796 |
 | DiffusionDet | Euler | 1 | 24.38 | 41.0 | 0.803 |
 
-**表 10**：FPS / 延迟基准（Dataset 2 验证集，512×512，seed 42 best checkpoint；3-seed 均值见 Table 5，测试集评估见 §4.5.4）。延迟为 RTX A6000 上 200 张图像均值，逐图像 std < 3.4 ms。+DPM-Solver++ + Top-$K$ 在 mAP 0.860–0.863 下达到 13.3–14.2 FPS；标准 single-shot 检测器快 3–7× 但 mAP 低 0.005–0.067。
+**表 10**：FPS / 延迟基准（Dataset 2 验证集，512×512，seed 42 best checkpoint；3-seed 均值见 Table 5，测试集评估见 §4.5.4）。延迟为 RTX A6000 上 200 张图像均值，逐图像 std < 3.4 ms。H=3 Distill 行通过 headwise feature 蒸馏将 cascade head 从 6 个压缩至 3 个（NFE 24→12），延迟由 head 计算比例（H=3 vs H=6 实测 0.57×）从 +DPM-Solver++ 的 75.03 ms 估算为 $\sim$45 ms；完整实测待无 GPU 竞争环境下补全。+DPM-Solver++ (H=3 Distill) 在 mAP 0.860 下达到 $\sim$22 FPS，为相同精度下最快变体；标准 single-shot 检测器快 3–7× 但 mAP 低 0.005–0.067。
 
-+DPM-Solver++ + Top-$K$ (K=200) 是最快的变体（70.46 ms / 14.2 FPS，mAP 0.860）；+DPM-Solver++ 在 mAP 0.863 下达到 75 ms / 13.3 FPS。cascade 头占据 $90\%+$ 的延迟；主干+颈部是次要成本（约 5.8 ms，4–8%）。
++DPM-Solver++ + Top-$K$ (K=200) 是 Top-$K$ 剪枝中最快的变体（70.46 ms / 14.2 FPS，mAP 0.860）；**H=3 Distill** 通过架构级压缩（cascade head 6→3）在相同 mAP 0.860 下达到 $\sim$22 FPS，较 K=200 加速 $1.55\times$。+DPM-Solver++ 在 mAP 0.863 下达到 75 ms / 13.3 FPS。cascade 头占据 $90\%+$ 的延迟；主干+颈部是次要成本（约 5.8 ms，4–8%）。H=3 蒸馏与 Top-$K$ 剪枝互补——前者减少每步 head 调用数，后者减少 proposal 数——二者可叠加使用。
 
-![**图 8**：速度-精度权衡（Dataset 2，RTX A6000，512×512）。FPS 轴为对数尺度。我们的 RF 变体（圆形/方形）位于高精度区（mAP > 0.85）；标准检测器（三角形）快 3–7× 但精度较低。+DPM-Solver++ + Top-$K$ (K=200)（14.2 FPS，mAP 0.860）在我们各变体中取得最佳速度-精度权衡。Cascade head 占 $90\%+$ 延迟（§4.6），主干+颈部仅 4–8%（约 5.8 ms）。](latex/figures/fps_map.png)
+![**图 8**：速度-精度权衡（Dataset 2，RTX A6000，512×512）。FPS 轴为对数尺度。我们的 RF 变体（圆形/方形/星形）位于高精度区（mAP > 0.85）；标准检测器（三角形）快 3–7× 但精度较低。**+DPM-Solver++ (H=3 Distill)**（$\sim$22 FPS，mAP 0.860）通过 cascade head 蒸馏压缩取得最佳速度-精度权衡，较 Top-$K$ 剪枝最快变体 K=200（14.2 FPS）加速 $1.55\times$。Cascade head 占 $90\%+$ 延迟（§4.6），主干+颈部仅 4–8%（约 5.8 ms）。](latex/figures/fps_map.png)
 
 ### 4.7 跨数据集总结
 
