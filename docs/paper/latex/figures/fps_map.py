@@ -12,10 +12,11 @@ DiffusionDet. RTMDet-L and DINO-R50 are compared on accuracy only in tab:sota
 (no FPS column) and are intentionally excluded from the speed story here;
 they will be added after their FPS is benchmarked.
 
-Data sources (RTX A6000, 512x512, batch=1):
-  - 9 measured points: results/benchmark_fps_*.md (verified measurements).
-  - H=3 Distill (~22 FPS): estimated from head computation ratio (H=3 vs H=6
-    measured 0.57x) applied to DPM-Solver++ 75.03 ms; full measurement pending.
+Data sources (RTX A6000, 512x512, batch=1, 500 iters, CUDA Event timing):
+  - 10 measured points: results/benchmark_fps_20260729_021441.md (ross A6000,
+    clean environment, 500 iters). Verified against local A6000 run
+    (benchmark_fps_20260729_015957.md) — differences within measurement noise.
+  - H=3 Distill mAP = 0.859 (val set, test.py --dataset val, seed 42, ross).
   - DiffusionDet mAP = 0.803 (tab:fps / tab:sota authoritative value).
 
 Run:  python fps_map.py
@@ -58,16 +59,16 @@ GROUP_STYLE = {
 # rather than labelled). Method names follow the cumulative-ablation
 # convention of tab:main-ablation and tab:fps (no internal A0-A4 codenames).
 DATA = [
-    ("RF+Heun",                   8.0,  0.856, "ours_heun",  False),
-    ("+Stoch. Coupling",          7.8,  0.858, "ours_heun",  False),
-    ("DPM-Solver++",             13.3,  0.863, "ours_dpmpp", True),
-    ("DPM-Solver++ +Top-K (K=300)", 14.0,  0.861, "ours_dpmpp", False),
-    ("DPM-Solver++ +Top-K (K=200)", 14.2,  0.860, "ours_dpmpp", False),
-    ("DPM-Solver++ +Top-K (K=100)", 14.3,  0.850, "ours_dpmpp", False),
-    ("DPM-Solver++ (H=3 Distill)",  22.0,  0.860, "ours_distill", True),   # best speed-accuracy trade-off
-    ("Cascade R-CNN",   48.4,  0.854, "standard",   True),
-    ("YOLOX-S",         98.5,  0.796, "standard",   True),
-    ("DiffusionDet",    41.0,  0.803, "diffbase",   True),
+    ("RF+Heun",                   8.2,  0.856, "ours_heun",  False),
+    ("+Stoch. Coupling",          7.6,  0.858, "ours_heun",  False),
+    ("DPM-Solver++",             12.9,  0.863, "ours_dpmpp", True),
+    ("DPM-Solver++ +Top-K (K=300)", 14.2,  0.861, "ours_dpmpp", False),
+    ("DPM-Solver++ +Top-K (K=200)", 14.5,  0.860, "ours_dpmpp", False),
+    ("DPM-Solver++ +Top-K (K=100)", 14.8,  0.850, "ours_dpmpp", False),
+    ("DPM-Solver++ (H=3 Distill)",  22.4,  0.859, "ours_distill", True),   # best speed-accuracy trade-off
+    ("Cascade R-CNN",   49.7,  0.854, "standard",   True),
+    ("YOLOX-S",        105.0,  0.796, "standard",   True),
+    ("DiffusionDet",    43.1,  0.803, "diffbase",   True),
 ]
 
 # Label offsets in display points (xytext with textcoords='offset points').

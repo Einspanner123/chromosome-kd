@@ -151,6 +151,7 @@ KNOWN_MAP = {
     'a4_io3_k300': 0.861,  # 2026-07-14 评估
     'a4_io3_k200': 0.860,  # 2026-07-14 评估
     'a4_io3_k100': 0.850,  # 2026-07-14 评估
+    'h3_distill': 0.859,   # 2026-07-29 ross A6000 val 评估 (test.py --dataset val, seed 42)
     # Baselines (SwanLab verified)
     'cascade_rcnn': 0.854,
     'yolox_s': 0.796,
