@@ -6,14 +6,16 @@ Scatter plot with log-scale FPS axis. Color/marker encode method category
 the paper's "color = semantic category" convention shared with
 solver_ablation.py and per_class_ap.py.
 
-Method set = Table 10 (9 models): RF+Heun / +Stoch. Coupling / DPM-Solver++ /
-DPM-Solver++ +Top-K x3 + Cascade R-CNN + YOLOX-S + DiffusionDet. RTMDet-L and
-DINO-R50 are compared on accuracy only in tab:sota (no FPS column) and are
-intentionally excluded from the speed story here; they will be added after
-their FPS is benchmarked.
+Method set = Table 10 (10 models): RF+Heun / +Stoch. Coupling / DPM-Solver++ /
+DPM-Solver++ +Top-K x3 / DPM-Solver++ (H=3 Distill) + Cascade R-CNN + YOLOX-S +
+DiffusionDet. RTMDet-L and DINO-R50 are compared on accuracy only in tab:sota
+(no FPS column) and are intentionally excluded from the speed story here;
+they will be added after their FPS is benchmarked.
 
 Data sources (RTX A6000, 512x512, batch=1):
-  - All 9 points: results/benchmark_fps_*.md (verified measurements).
+  - 9 measured points: results/benchmark_fps_*.md (verified measurements).
+  - H=3 Distill (~22 FPS): estimated from head computation ratio (H=3 vs H=6
+    measured 0.57x) applied to DPM-Solver++ 75.03 ms; full measurement pending.
   - DiffusionDet mAP = 0.803 (tab:fps / tab:sota authoritative value).
 
 Run:  python fps_map.py
@@ -29,22 +31,25 @@ from matplotlib.ticker import ScalarFormatter
 from figure_style import *
 
 # =====================================================================
-# 4-category semantic palette (color = category, marker = category)
+# 5-category semantic palette (color = category, marker = category)
 #   - Ours-Heun   : blue   (C_HEUN,  matches solver_ablation.py)
 #   - Ours-DPM-Solver++ : green  (C_DPMPP)
+#   - Ours-Distill: brown  (PAL[5])     -- H=3 head distillation
 #   - Standard    : gray   (C_MIDGRAY)  -- Cascade / YOLOX
 #   - Diffusion   : red    (C_DDPM)     -- DiffusionDet baseline
 # =====================================================================
 C_OURS_HEUN  = C_HEUN
 C_OURS_DPMPP = C_DPMPP
+C_OURS_DISTILL = PAL[5]   # brown — H=3 head distillation (architecture-level compression)
 C_STANDARD   = C_MIDGRAY
 C_DIFFBASE   = C_DDPM
 
 GROUP_STYLE = {
-    "ours_heun":  {"color": C_OURS_HEUN,  "marker": "o", "z": 6},
-    "ours_dpmpp": {"color": C_OURS_DPMPP, "marker": "s", "z": 6},
-    "standard":   {"color": C_STANDARD,   "marker": "^", "z": 5},
-    "diffbase":   {"color": C_DIFFBASE,   "marker": "D", "z": 5},
+    "ours_heun":    {"color": C_OURS_HEUN,    "marker": "o", "z": 6, "size": 150},
+    "ours_dpmpp":   {"color": C_OURS_DPMPP,   "marker": "s", "z": 6, "size": 150},
+    "ours_distill": {"color": C_OURS_DISTILL, "marker": "*", "z": 7, "size": 300},
+    "standard":     {"color": C_STANDARD,     "marker": "^", "z": 5, "size": 150},
+    "diffbase":     {"color": C_DIFFBASE,     "marker": "D", "z": 5, "size": 150},
 }
 
 # (name, fps, mAP, group, annotate?)
@@ -57,8 +62,9 @@ DATA = [
     ("+Stoch. Coupling",          7.8,  0.858, "ours_heun",  False),
     ("DPM-Solver++",             13.3,  0.863, "ours_dpmpp", True),
     ("DPM-Solver++ +Top-K (K=300)", 14.0,  0.861, "ours_dpmpp", False),
-    ("DPM-Solver++ +Top-K (K=200)", 14.2,  0.860, "ours_dpmpp", True),   # best speed-accuracy trade-off
+    ("DPM-Solver++ +Top-K (K=200)", 14.2,  0.860, "ours_dpmpp", False),
     ("DPM-Solver++ +Top-K (K=100)", 14.3,  0.850, "ours_dpmpp", False),
+    ("DPM-Solver++ (H=3 Distill)",  22.0,  0.860, "ours_distill", True),   # best speed-accuracy trade-off
     ("Cascade R-CNN",   48.4,  0.854, "standard",   True),
     ("YOLOX-S",         98.5,  0.796, "standard",   True),
     ("DiffusionDet",    41.0,  0.803, "diffbase",   True),
@@ -67,7 +73,7 @@ DATA = [
 # Label offsets in display points (xytext with textcoords='offset points').
 LABEL_OFFSET = {
     "DPM-Solver++":                  (-8, 12),
-    "DPM-Solver++ +Top-K (K=200)":   (10, 8),
+    "DPM-Solver++ (H=3 Distill)":    (10, 10),
     "DiffusionDet":                  (12, -14),
     "Cascade R-CNN":                 (12, 2),
     "YOLOX-S":                       (-12, -10),
@@ -79,7 +85,7 @@ def main() -> None:
 
     for name, fps, mAP, group, annotate in DATA:
         s = GROUP_STYLE[group]
-        ax.scatter(fps, mAP, s=150, color=s["color"], marker=s["marker"],
+        ax.scatter(fps, mAP, s=s["size"], color=s["color"], marker=s["marker"],
                    edgecolor="black", lw=0.8, zorder=s["z"])
 
         if not annotate:
@@ -113,6 +119,8 @@ def main() -> None:
                markeredgecolor="black", markersize=10, label="Ours (Heun)"),
         Line2D([0], [0], marker="s", color="w", markerfacecolor=C_OURS_DPMPP,
                markeredgecolor="black", markersize=10, label="Ours (DPM-Solver++)"),
+        Line2D([0], [0], marker="*", color="w", markerfacecolor=C_OURS_DISTILL,
+               markeredgecolor="black", markersize=14, label="Ours (H=3 Distill)"),
         Line2D([0], [0], marker="^", color="w", markerfacecolor=C_STANDARD,
                markeredgecolor="black", markersize=10, label="Standard detectors"),
         Line2D([0], [0], marker="D", color="w", markerfacecolor=C_DIFFBASE,
