@@ -57,6 +57,10 @@ class DiffusionSampler:
         adaptive_solver_mode: str = 'static',
         adaptive_num_3rd_steps: int = 2,
         adaptive_eta_3rd_threshold: float = 0.5,
+        # P0: 自适应阈值 box_renewal (移植自 DiffuDETR)
+        # 启用后, renewal 阈值随时间步递减: 早期高阈值(积极淘汰), 后期低阈值(保守保留)
+        adaptive_renewal_threshold: bool = False,
+        adaptive_renewal_scale: float = 0.9,
     ):
         self.diffusion_type = diffusion_type
         self.timesteps = timesteps
@@ -84,6 +88,11 @@ class DiffusionSampler:
         self.adaptive_solver_mode = adaptive_solver_mode
         self.adaptive_num_3rd_steps = adaptive_num_3rd_steps
         self.adaptive_eta_3rd_threshold = adaptive_eta_3rd_threshold
+        # P0: 自适应阈值 box_renewal
+        # threshold(t) = max(t_curr * scale, score_thr)
+        # t_curr=1.0(早期) → threshold≈0.9, t_curr=0.0(后期) → threshold=score_thr
+        self.adaptive_renewal_threshold = adaptive_renewal_threshold
+        self.adaptive_renewal_scale = adaptive_renewal_scale
 
     def build_time_pairs(
         self, device: torch.device
@@ -122,7 +131,7 @@ class DiffusionSampler:
         """构建 SHTS 时间步网格"""
         # 方向 D: dpm_solver_pp_adaptive 也按 3 阶准备网格 (允许最大阶次)
         # 方向 A: dpm_solver_pp_per_dim 按 2 阶准备网格
-        if self.solver_type in ('dpm_solver_pp', 'heun', 'dpm_solver_pp_per_dim'):
+        if self.solver_type in ('dpm_solver_pp', 'heun', 'dpm_solver_pp_per_dim', 'dpm_solver_pp_per_dim_w'):
             solver_order = 2
         elif self.solver_type in ('dpm_solver_pp_3', 'dpm_solver_pp_adaptive'):
             solver_order = 3
@@ -187,7 +196,43 @@ class DiffusionSampler:
             return RFDPMSolverPerDim(
                 num_steps=self.sampling_timesteps,
             )
+        # 方向 A Phase 2 扩展 (A.2): w,h 维度均用 1 阶, 仅 cx/cy 用 2 阶
+        # 基于 Phase 2 per-dim eta_str 诊断: w 维度 eta_str (0.5-1.0) 与 h (0.4-0.9) 接近
+        if self.solver_type == 'dpm_solver_pp_per_dim_w':
+            if self.rf_schedule == 'shts':
+                t_grid = self._build_shts_time_grid()
+                return RFDPMSolverPerDim(
+                    num_steps=self.sampling_timesteps,
+                    timesteps=t_grid,
+                    euler_dims=(2, 3),    # w, h 维度用 1 阶
+                    dpm_dims=(0, 1),      # cx, cy 维度用 2 阶
+                )
+            return RFDPMSolverPerDim(
+                num_steps=self.sampling_timesteps,
+                euler_dims=(2, 3),    # w, h 维度用 1 阶
+                dpm_dims=(0, 1),      # cx, cy 维度用 2 阶
+            )
         return None
+
+    def _compute_renewal_threshold(self, t_curr: Optional[float]) -> float:
+        """计算 box_renewal 的置信度阈值。
+
+        P0 自适应阈值 (移植自 DiffuDETR):
+        - 启用 adaptive_renewal_threshold 且 t_curr 可用时, 阈值随时间步递减:
+          threshold = max(t_curr * adaptive_renewal_scale, score_thr)
+        - t_curr=1.0 (早期, 纯噪声) → 高阈值 (积极淘汰低分框)
+        - t_curr=0.0 (后期, 接近真实) → score_thr (保守保留)
+        - 禁用或 t_curr 不可用时, 回退到固定 score_thr (向后兼容)
+
+        Args:
+            t_curr: 当前归一化时间步 [0, 1], None 表示不可用
+
+        Returns:
+            threshold: 置信度阈值
+        """
+        if self.adaptive_renewal_threshold and t_curr is not None:
+            return max(t_curr * self.adaptive_renewal_scale, self.score_thr)
+        return self.score_thr
 
     def apply_box_renewal(
         self,
@@ -203,6 +248,9 @@ class DiffusionSampler:
             x_renewed = alpha(t) * x0_pred + (1 - alpha(t)) * randn
         其中 alpha(t) 随时间步自适应 (早期更随机, 后期更确定)。
 
+        P0 自适应阈值: 当 adaptive_renewal_threshold=True 且 t_curr 可用时,
+        阈值随时间步递减 (早期高阈值积极淘汰, 后期低阈值保守保留)。
+
         Args:
             x_raw: [bs, N, 4] 扩散空间框
             cls_logits: [bs, N, num_classes] 分类 logits
@@ -212,6 +260,9 @@ class DiffusionSampler:
         bs, device = x_raw.shape[0], x_raw.device
         scores = torch.sigmoid(cls_logits).max(-1)[0]
         x_raw_new = x_raw.clone()
+
+        # P0: 计算自适应阈值
+        threshold = self._compute_renewal_threshold(t_curr)
 
         # 方向4: 计算时间自适应 alpha
         use_vgar = (
@@ -230,7 +281,7 @@ class DiffusionSampler:
             alpha = 0.0  # 纯随机 renewal (向后兼容)
 
         for i in range(bs):
-            keep = scores[i] > self.score_thr
+            keep = scores[i] > threshold
             if keep.sum() < self.min_keep:
                 _, topk_idx = scores[i].topk(
                     min(self.min_keep, scores.shape[1])
@@ -423,7 +474,12 @@ class DiffusionSampler:
         )
 
         if self.box_renewal:
-            x_raw_next = self.apply_box_renewal(x_raw_next, cls_logits)
+            # P0: DDIM 路径传递归一化 t_curr 用于自适应阈值
+            # t_curr 是整数索引 [0, timesteps-1], 归一化到 [0, 1]
+            t_curr_norm = t_curr / max(self.timesteps, 1)
+            x_raw_next = self.apply_box_renewal(
+                x_raw_next, cls_logits, t_curr=t_curr_norm
+            )
 
         return self.raw_to_xyxy(x_raw_next, img_metas), x_raw_next
 

@@ -12,4 +12,9 @@ from experiments.mmdet_bridge.hooks import (  # noqa: F401
     WeightSummaryHook,
 )
 from experiments.mmdet_bridge.registry import register_all  # noqa: F401
-from experiments.mmdet_bridge.setdiff_detector import SetDiffDetector  # noqa: F401
+
+# SetDiff detector — setdiff 包已归档, 跳过导入
+try:
+    from experiments.mmdet_bridge.setdiff_detector import SetDiffDetector  # noqa: F401
+except ImportError:
+    pass  # setdiff 已归档, 不影响主路线推理

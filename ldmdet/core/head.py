@@ -90,6 +90,10 @@ class DiffusionDetHead(nn.Module):
         use_time_reparam: bool = False,
         # 方向4: VGAR (Velocity-Guided Adaptive Renewal)
         velocity_guided_renewal: bool = False,
+        # P0: 自适应阈值 box_renewal (移植自 DiffuDETR)
+        # 启用后, renewal 阈值随时间步递减: 早期高阈值, 后期低阈值
+        adaptive_renewal_threshold: bool = False,
+        adaptive_renewal_scale: float = 0.9,
         # 方向 C: Step-aware embedding (DPM-Solver++ step 编号感知)
         # 让 cascade head 知道当前在 solver 的第几步 (0..num_solver_steps-1)
         # step_proj 零初始化, 确保加载预训练权重时行为不变 (step_emb≡0)
@@ -114,6 +118,27 @@ class DiffusionDetHead(nn.Module):
         # ReFlow per-dim 拉直维度选择 (标记用, 当前 criterion 仅实现 'all';
         # 'cxcy' per-dim 消融为可选未来扩展, 见方案 §1.4)
         reflow_dims: str = 'all',
+        # AAC: Anderson-Accelerated Cascade (中等激进方向)
+        # 详见 docs/research/proposals/AAC_DESIGN.md
+        # 将 6 级 cascade head 形式化为不动点迭代, 用有限内存 Anderson 加速 (m=2)
+        # 加速横向 (固定 t) 收敛, 与 DPM-Solver++ (纵向) 正交互补
+        use_aac: bool = False,
+        aac_mem_depth: int = 2,
+        aac_beta: float = 1.0,
+        aac_lambda: float = 1e-6,
+        aac_stop_grad_history: bool = True,
+        aac_gamma_norm_clip: float = 10.0,
+        # LVD-RF: Lyapunov Velocity Direction Regularization (保守方向)
+        # 详见 docs/research/proposals/FEASIBLE_LVD_RF.md
+        # 在训练损失中增加 Lyapunov 方向余弦正则项 (默认 sin² 形式),
+        # 利用 d=4 低维优势以零额外前向传播计算方向余弦,
+        # 通过 Lyapunov 稳定性条件约束速度场方向, 间接降低 η_str 并减少
+        # DPM-Solver++ 截断误差. 仅改训练, 推理零开销, NFE 保持 24 不变.
+        use_lvd: bool = False,
+        lvd_lambda: float = 0.1,
+        lvd_eps: float = 1e-6,                 # 数值稳定常数
+        lvd_t_threshold: float = 0.05,        # t 过小时跳过 (||x_t-x_0||→0 余弦不稳定)
+        lvd_form: str = 'sin2',                # R1 K3: 默认 sin² (梯度比 1-cos 强 2×)
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -214,6 +239,9 @@ class DiffusionDetHead(nn.Module):
             adaptive_solver_mode=adaptive_solver_mode,
             adaptive_num_3rd_steps=adaptive_num_3rd_steps,
             adaptive_eta_3rd_threshold=adaptive_eta_3rd_threshold,
+            # P0: 自适应阈值 box_renewal
+            adaptive_renewal_threshold=adaptive_renewal_threshold,
+            adaptive_renewal_scale=adaptive_renewal_scale,
         )
 
         self._init_weights(prior_prob)
@@ -342,6 +370,52 @@ class DiffusionDetHead(nn.Module):
                 "use_reflow_coupling=True 时必须指定 reflow_coupling_path "
                 "(指向 generate_reflow_couplings.py 生成的 coupling 文件)"
             )
+
+        # ============================================================
+        # AAC: Anderson-Accelerated Cascade
+        # ============================================================
+        # 将 6 级 cascade head 的顺序更新 (Picard / Anderson m=0)
+        # 替换为 Anderson 加速 (m=2), 利用历史残差加速横向收敛。
+        # 仅对 box 做混合 (cls_logits 不构成不动点), 末级 head 不混合。
+        # 历史在每个 forward() 开始时 reset (不跨 solver step 累积)。
+        # 详见 docs/research/proposals/AAC_DESIGN.md
+        self.use_aac = use_aac
+        if self.use_aac:
+            # AAC 与 CCBR 使用不同的前向路径 (_forward_at_t vs _forward_at_t_ccbr)
+            # 同时启用会导致 AAC 在 CCBR 路径下不生效, 这里告警而非禁止
+            if self.use_ccbr:
+                logger.warning(
+                    'use_aac=True 且 use_ccbr=True: CCBR 路径 (_forward_at_t_ccbr) '
+                    '未集成 AAC, AAC 仅在标准 forward/predict 路径生效。'
+                    '建议仅启用其一。'
+                )
+            from ldmdet.core.anderson_mixing import AndersonMixing
+            self.aac_mixer = AndersonMixing(
+                mem_depth=aac_mem_depth,
+                damping_beta=aac_beta,
+                reg_lambda=aac_lambda,
+                stop_grad_history=aac_stop_grad_history,
+                gamma_norm_clip=aac_gamma_norm_clip,
+            )
+
+        # ============================================================
+        # LVD-RF: Lyapunov Velocity Direction Regularization 状态
+        # ============================================================
+        # 仅训练时生效. 零额外前向传播: 复用训练步已有的 (x_t, x_hat_0, x_0)
+        # 计算 v_θ 与 (x_t - x_0) 的方向余弦, 约束方向对齐 (Lyapunov 稳定性)
+        # 详见 docs/research/proposals/FEASIBLE_LVD_RF.md §7
+        self.use_lvd = use_lvd
+        self.lvd_lambda = lvd_lambda
+        self.lvd_eps = lvd_eps
+        self.lvd_t_threshold = lvd_t_threshold
+        # lvd_form 运行时可被自适应切换 (sin2 → sqrt), 故存为可变属性
+        self.lvd_form = lvd_form
+        assert lvd_form in ('sin2', 'cos', 'sqrt'), (
+            f"lvd_form 必须是 'sin2' / 'cos' / 'sqrt', got {lvd_form}"
+        )
+        # 自适应切换计数器: cos_sim_mean > 0.99 持续 1000 iter 时切换 sin2 → sqrt
+        # (sin² 仍线性消失, sqrt 形式有非零梯度 0.5/sqrt(ε), 详见方案 §7.2 注 2.3)
+        self._cos_sim_high_count = 0
 
     def _init_weights(self, prior_prob):
         for head in self.head_series:
@@ -473,6 +547,10 @@ class DiffusionDetHead(nn.Module):
             else:
                 probe.record_inference_tensor_stats('cascade/step_emb', step_emb)
             time_emb = time_emb + step_emb
+        # AAC: 每个 forward() 调用 (= 一个 solver step 内的 cascade) 开始时重置历史
+        # AAC 历史不跨 solver step 累积, 与 DPM-Solver++ 的 x0_history 独立
+        if self.use_aac:
+            self.aac_mixer.reset()
         inter_cls_logits = []
         inter_pred_bboxes = []
         inter_curr_proposals = []
@@ -511,11 +589,23 @@ class DiffusionDetHead(nn.Module):
                 probe.record_inference_tensor_stats(f'cascade/head{i}/cls_logits', cls_logits)
                 probe.record_inference_tensor_stats(f'cascade/head{i}/pred_bboxes', pred_bboxes)
 
-            curr_bboxes = (
-                pred_bboxes.detach()
-                if self.cascade_detach
-                else pred_bboxes
-            )
+            # AAC: Anderson 加速 — 用历史残差混合, 加速下一步输入
+            # 仅对 box 做混合 (cls_logits 不构成不动点, 不混合)
+            # 末级 head (i == num_heads-1) 不混合: 输出直接作为 cascade 结果
+            if self.use_aac and i < len(self.head_series) - 1:
+                curr_bboxes = self.aac_mixer(
+                    x_curr=curr_bboxes,   # x_k (当前 head 的输入)
+                    g_x=pred_bboxes,      # G_k(x_k) (当前 head 的输出)
+                )
+                if self.cascade_detach:
+                    curr_bboxes = curr_bboxes.detach()
+            else:
+                # 末级 head 或未启用 AAC: 保持原逻辑
+                curr_bboxes = (
+                    pred_bboxes.detach()
+                    if self.cascade_detach
+                    else pred_bboxes
+                )
             prev_bboxes = pred_bboxes
             prev_logits = cls_logits
 
@@ -623,6 +713,19 @@ class DiffusionDetHead(nn.Module):
             box_targets = None
         losses = self.criterion(outputs, targets, t=t, box_targets=box_targets)
 
+        # LVD-RF 正则化 (零额外前向, 复用 x_boxes/x_starts/all_pred_bboxes)
+        # 详见 docs/research/proposals/FEASIBLE_LVD_RF.md §7.2
+        # 仅训练时生效; 推理路径 (predict) 不触及此分支
+        if self.use_lvd and self.training:
+            lvd_loss = self._compute_lvd_loss(
+                x_boxes=x_boxes,                    # x_t, list[bs] of [N, 4] raw cxcywh
+                x_starts=x_starts,                  # x_0 (GT), list[bs] of [N, 4] raw cxcywh
+                all_pred_bboxes=all_pred_bboxes,     # \hat{x}_0, [H, bs, N, 4] xyxy 像素
+                t=t,                                  # [bs] 扩散时间
+                img_metas=img_metas,
+            )
+            losses['loss_lvd'] = self.lvd_lambda * lvd_loss
+
         # 探针: 训练时 t 分布 + 损失分解
         probe.record_tensor_stats('train/t', t)
         for name, val in losses.items():
@@ -630,6 +733,144 @@ class DiffusionDetHead(nn.Module):
                 probe.record_scalar(f'train/loss/{name}', val.item())
 
         return losses
+
+    # ================================================================
+    # LVD-RF: Lyapunov Velocity Direction Regularization
+    # ================================================================
+
+    def _compute_lvd_loss(
+        self,
+        x_boxes: list,
+        x_starts: list,
+        all_pred_bboxes: torch.Tensor,
+        t: torch.Tensor,
+        img_metas,
+    ) -> torch.Tensor:
+        r"""LVD-RF: Lyapunov Velocity Direction Regularization.
+
+        L_LVD = E[sin²(α)] = E[1 - cos²(α)]   (默认 sin² 形式, R1 K3 修正)
+
+        由定理 2.4, 方向余弦尺度不变, 1/t 在分子分母抵消, 可直接用
+        (x_t - x_hat_0) 和 (x_t - x_0) 计算余弦, 无需显式除以 t (数值稳定).
+
+        空间一致性 (FEASIBLE_LVD_RF.md §3.2):
+          - x_boxes (x_t), x_starts (x_0): raw cxcywh [-snr_scale, snr_scale]
+          - all_pred_bboxes (x_hat_0): xyxy 像素 → 需转换到 raw cxcywh
+          转换链: xyxy 像素 → 归一化 xyxy [0,1] → 归一化 cxcywh [0,1]
+                  → raw cxcywh [-s, s]  (与 _sampler.raw_to_xyxy 互逆)
+
+        Args:
+            x_boxes: x_t, list[bs] of [N, 4] raw cxcywh
+            x_starts: x_0 (GT), list[bs] of [N, 4] raw cxcywh
+            all_pred_bboxes: x_hat_0, [num_heads, bs, N, 4] xyxy 像素
+            t: [bs] 扩散时间
+            img_metas: 图像元数据 (list[bs], 兼容 dict / ImageMeta)
+        Returns:
+            lvd_loss: 标量 (已对有效样本归一化)
+        """
+        bs = len(img_metas)
+        device = x_boxes[0].device
+
+        # 堆叠 list → tensor: [bs, N, 4]
+        x_t = torch.stack(x_boxes)             # [bs, N, 4] raw cxcywh
+        x_0 = torch.stack(x_starts)            # [bs, N, 4] raw cxcywh
+
+        # 取末级 cascade head 的预测 (与 TFR/VCR 一致, 仅正则末级)
+        # all_pred_bboxes: [num_heads, bs, N, 4] xyxy 像素
+        pred_xyxy_pixel = all_pred_bboxes[-1]  # [bs, N, 4] xyxy 像素
+
+        # 转换 \hat{x}_0 到 raw cxcywh (与 x_t, x_0 同空间)
+        # xyxy 像素 → 归一化 xyxy [0,1] → 归一化 cxcywh [0,1] → raw cxcywh [-s, s]
+        # 注: 使用 _get_img_shape 兼容 dict / ImageMeta 两种 img_metas 格式
+        scales = x_t.new_zeros(bs, 4)
+        for i in range(bs):
+            h, w = _get_img_shape(img_metas[i])[:2]
+            scales[i] = x_t.new_tensor([w, h, w, h])
+        # [bs, 1, 4] 广播除法 (clamp 防 0 尺寸图像)
+        norm_xyxy = pred_xyxy_pixel / scales.unsqueeze(1).clamp(min=1.0)
+        norm_cxcywh = bbox_xyxy_to_cxcywh(norm_xyxy)        # [bs, N, 4] in [0,1]
+        raw_cxcywh = (norm_cxcywh * 2 - 1) * self.snr_scale   # [bs, N, 4] in [-s, s]
+        x_hat_0 = raw_cxcywh
+
+        # 方向 1: 预测残差方向 (x_t - x_hat_0) ∝ v_θ (1/t 在余弦中抵消)
+        d_pred = x_t - x_hat_0  # [bs, N, 4]
+
+        # 方向 2: GT 锚定方向 (x_t - x_0) = t * (x_1 - x_0)
+        d_gt = x_t - x_0  # [bs, N, 4]
+
+        # 跳过 t 过小的样本 (||x_t - x_0|| = t * ||x_1 - x_0|| → 0, 余弦不稳定)
+        # t_mask: [bs] → [bs, 1] (广播到 [bs, N])
+        t_mask = (t >= self.lvd_t_threshold).float()  # [bs]
+        t_mask = t_mask.view(bs, 1)  # [bs, 1] → broadcast to [bs, N]
+
+        # 余弦相似度: cos(d_pred, d_gt) = (d_pred · d_gt) / (||d_pred|| ||d_gt||)
+        dot = (d_pred * d_gt).sum(dim=-1)                # [bs, N]
+        norm_pred = d_pred.norm(dim=-1).clamp(min=self.lvd_eps)  # [bs, N]
+        norm_gt = d_gt.norm(dim=-1).clamp(min=self.lvd_eps)      # [bs, N]
+        cos_sim = dot / (norm_pred * norm_gt)            # [bs, N]
+        # R1 R2: clamp 到 [-1, 1] 防止浮点误差导致 sin² = 1 - cos² 略为负
+        cos_sim = cos_sim.clamp(-1.0, 1.0)
+
+        # R1 S4: xyxy 有效性检查 (x2 > x1, y2 > y1), 对无效框跳过 LVD 计算
+        # 无效框 cos_sim 设为 1 (loss = 1 - 1² = 0, 不贡献)
+        valid_mask = (
+            (pred_xyxy_pixel[..., 2] > pred_xyxy_pixel[..., 0])
+            & (pred_xyxy_pixel[..., 3] > pred_xyxy_pixel[..., 1])
+        )  # [bs, N]
+        cos_sim = torch.where(valid_mask, cos_sim, torch.ones_like(cos_sim))
+
+        # R1 K3: 默认 sin² 形式 (梯度比 1-cos 强 2×, 缓解 cos_sim→1 梯度消失)
+        # t_mask 广播: [bs, 1] * [bs, N] → [bs, N]
+        if self.lvd_form == 'sin2':
+            lvd_per_elem = (1.0 - cos_sim ** 2) * t_mask  # sin²(α)
+        elif self.lvd_form == 'cos':
+            lvd_per_elem = (1.0 - cos_sim) * t_mask       # 1 - cos(α)
+        elif self.lvd_form == 'sqrt':
+            # sqrt(1 - cos + ε): cos_sim→1 时梯度 → 0.5/sqrt(ε) (有界非零)
+            lvd_per_elem = torch.sqrt(
+                (1.0 - cos_sim).clamp(min=self.lvd_eps)
+            ) * t_mask
+        else:
+            raise ValueError(f"Unknown lvd_form: {self.lvd_form}")
+
+        # 有效样本数: 同时考虑 t_mask (大 t) 和 valid_mask (有效 xyxy)
+        # R2 修正: 无效框 lvd=0 但原 n_valid 计入分母, 导致 loss 被低估
+        # t_mask [bs,1] 广播到 [bs,N], 与 valid_mask [bs,N] 相乘得有效 proposal 掩码
+        effective_mask = t_mask * valid_mask.float()  # [bs, N]
+        n_valid = effective_mask.sum().clamp(min=1.0)
+        lvd_loss = lvd_per_elem.sum() / n_valid
+
+        # 诊断: 训练时 cos_sim 分布 + 自适应切换逻辑 (R1 K3 修正)
+        with torch.no_grad():
+            probe.record_scalar('train/lvd_loss', lvd_loss.item())
+            probe.record_scalar('train/cos_sim_mean', cos_sim.mean().item())
+            probe.record_scalar('train/cos_sim_min', cos_sim.min().item())
+            probe.record_scalar(
+                'train/lvd_valid_ratio', t_mask.mean().item()
+            )
+            # 梯度健康度: 若 cos_sim_mean > 0.99 持续 1000 iter, 触发切换
+            if cos_sim.mean().item() > 0.99:
+                self._cos_sim_high_count += 1
+                if (
+                    self._cos_sim_high_count > 1000
+                    and self.lvd_form == 'sin2'
+                ):
+                    self.lvd_form = 'sqrt'  # 自动切换
+                    logger.info(
+                        'LVD-RF: cos_sim_mean > 0.99 持续 1000 iter, '
+                        '切换至 sqrt 形式 (避免梯度消失)'
+                    )
+            else:
+                self._cos_sim_high_count = 0
+            # per-dim 方向偏差 (各维度对余弦的贡献)
+            d_pred_normed = d_pred / norm_pred.unsqueeze(-1)
+            d_gt_normed = d_gt / norm_gt.unsqueeze(-1)
+            for i, name in enumerate(['cx', 'cy', 'w', 'h']):
+                probe.record_scalar(
+                    f'train/lvd_dir_{name}',
+                    (d_pred_normed[..., i] * d_gt_normed[..., i]).mean().item()
+                )
+        return lvd_loss
 
     # ================================================================
     # Head Distillation v2: 蒸馏训练损失

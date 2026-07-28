@@ -1,6 +1,8 @@
 """检测损失计算核心类"""
 
-from typing import Dict, List, Optional, Tuple
+import logging
+import os
+from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -10,7 +12,9 @@ from torchvision import ops
 
 from ldmdet.data.structures import InstanceData, ModelOutput
 from ldmdet.diagnostics.instrumentation import probe
-from ldmdet.utils.box_ops import bbox_xyxy_to_cxcywh
+from ldmdet.utils.box_ops import bbox_xyxy_to_cxcywh, bbox_cxcywh_to_xyxy
+
+logger = logging.getLogger(__name__)
 
 
 class DiffusionDetCriterion(nn.Module):
@@ -33,8 +37,17 @@ class DiffusionDetCriterion(nn.Module):
         # ReFlow (Standard MSE): box target 模式
         # 'gt' (默认): box target = GT bboxes (现有行为)
         # 'x0_pred': box target = x_0^pred (A4 推理预测, RF 拉直目标)
-        # 详见 REFLOW_HEAD_DISTILL_IMPL_PLAN.md §1.2 混合 target 设计
+        # 'trip': box target = Tikhonov/MAP 收缩估计 (TRIP, SNR 退化正则化)
+        # 详见 REFLOW_HEAD_DISTILL_IMPL_PLAN.md §1.2 / FEASIBLE_TRIP.md §7
         box_target_mode: str = 'gt',
+        # TRIP: 类条件先验 (Tikhonov/MAP 收缩目标)
+        # 可为 dict (已加载) 或 str (pickle 文件路径, 懒加载)
+        # 格式: {'mu': Tensor[num_classes, 4] (cxcywh, [0,1]),
+        #        'sigma_bar_sq': Tensor[num_classes] (各向同性平均方差)}
+        # 由 tools/estimate_class_priors.py 离线估计
+        class_priors: Optional[Union[str, Dict]] = None,
+        trip_lambda_mode: str = 'map',  # 'map' (λ=t², 主) / 'morozov' (备选)
+        trip_tau: float = 1.0,           # Morozov 偏差原理的 τ 参数
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -45,10 +58,173 @@ class DiffusionDetCriterion(nn.Module):
         self.deep_supervision = deep_supervision
         self.v_prediction = v_prediction
         self.v_prediction_t_eps = v_prediction_t_eps
-        assert box_target_mode in ('gt', 'x0_pred'), \
-            f"box_target_mode 必须是 'gt' 或 'x0_pred', got {box_target_mode}"
+        assert box_target_mode in ('gt', 'x0_pred', 'trip'), (
+            f"box_target_mode 必须是 'gt' / 'x0_pred' / 'trip', got {box_target_mode}"
+        )
         self.box_target_mode = box_target_mode
 
+        # TRIP: 类条件先验 (懒加载, 首次 _compute_trip_target 时载入)
+        # 详见 FEASIBLE_TRIP.md §7.2
+        self._class_priors_arg = class_priors  # 原始参数 (str 路径或 dict)
+        self._class_priors: Optional[Dict] = None  # 加载后的先验 (tensor 格式)
+        self.trip_lambda_mode = trip_lambda_mode
+        self.trip_tau = trip_tau
+        assert trip_lambda_mode in ('map', 'morozov'), (
+            f"trip_lambda_mode 必须是 'map' 或 'morozov', got {trip_lambda_mode}"
+        )
+        if box_target_mode == 'trip':
+            assert class_priors is not None, (
+                "box_target_mode='trip' 时必须提供 class_priors "
+                "(dict 或 pickle 文件路径)"
+            )
+
+    # ================================================================
+    # TRIP: Tikhonov/MAP 正则化回归目标
+    # ================================================================
+
+    def _load_class_priors(self) -> Dict:
+        """懒加载类条件先验 (首次 _compute_trip_target 调用时载入).
+
+        支持两种格式:
+          - dict: {'mu': Tensor[num_classes, 4], 'sigma_bar_sq': Tensor[num_classes]}
+          - str: pickle 文件路径, 加载后期望为上述 dict 格式
+
+        Returns:
+            priors: dict with 'mu' [num_classes, 4] 和 'sigma_bar_sq' [num_classes]
+        """
+        if self._class_priors is not None:
+            return self._class_priors
+
+        arg = self._class_priors_arg
+        if isinstance(arg, dict):
+            priors = arg
+        elif isinstance(arg, str):
+            if not os.path.isfile(arg):
+                raise FileNotFoundError(
+                    f"TRIP class_priors 文件不存在: {arg}. "
+                    f"请先运行 tools/estimate_class_priors.py 生成."
+                )
+            priors = torch.load(arg, map_location='cpu')
+            logger.info(f"TRIP: 类条件先验已从 {arg} 加载")
+        else:
+            raise TypeError(
+                f"class_priors 必须为 dict 或 str (文件路径), got {type(arg)}"
+            )
+
+        # 校验格式
+        assert 'mu' in priors, "class_priors 缺少 'mu' 键"
+        assert 'sigma_bar_sq' in priors, "class_priors 缺少 'sigma_bar_sq' 键"
+        mu = priors['mu']
+        sigma_bar_sq = priors['sigma_bar_sq']
+        assert mu.shape[0] == self.num_classes, (
+            f"mu 的 num_classes={mu.shape[0]} 与 criterion "
+            f"num_classes={self.num_classes} 不匹配"
+        )
+        assert sigma_bar_sq.shape[0] == self.num_classes, (
+            f"sigma_bar_sq 的 num_classes={sigma_bar_sq.shape[0]} 与 criterion "
+            f"num_classes={self.num_classes} 不匹配"
+        )
+        # 缓存 (转为 tensor, 后续 .to(device) 按需)
+        self._class_priors = priors
+        return priors
+
+    def _compute_trip_target(
+        self,
+        gt_xyxy: Tensor,
+        matched_gt_inds: Tensor,
+        fg_masks: Tensor,
+        gt_labels_padded: Tensor,
+        t: Tensor,
+    ) -> Tensor:
+        r"""TRIP: Tikhonov/MAP 正则化目标值.
+
+        将 GT 回归目标 x_0 替换为贝叶斯 MAP 收缩估计:
+          x_tilde^c(t) = (1-s(t)) * x_0 + s(t) * mu_p^c
+        其中 s(t) = (t²/σ_p²) / ((1-t)² + t²/σ_p²) ∈ [0,1] (MAP, λ=t²)
+
+        边界行为: s(0)≈0 (目标=x_0=GT, 零正则); s(1)≈1 (目标=mu_p, 完全收缩)
+        详见 FEASIBLE_TRIP.md §2.5 定理 2.8, §7.2 代码方案
+
+        Args:
+            gt_xyxy: GT bboxes padded [bs, max_gt, 4] (归一化 xyxy [0,1])
+            matched_gt_inds: 每个 proposal 匹配的 GT 索引 [bs, N]
+            fg_masks: 正样本掩码 [bs, N] (False=背景, 不参与 TRIP)
+            gt_labels_padded: GT 类标签 padded [bs, max_gt] (含背景填充)
+            t: 扩散时间 [bs] (RF 路径下范围 [0,1])
+        Returns:
+            trip_tgt_xyxy: TRIP 目标 [bs, N, 4] (归一化 xyxy [0,1], 与 src_boxes 同空间)
+        """
+        bs, N = matched_gt_inds.shape
+        device = gt_xyxy.device
+
+        # 1. Gather 每个 proposal 匹配的 GT (xyxy [0,1])
+        matched_gt_inds_clamped = matched_gt_inds.clamp(min=0)
+        tgt_gt_xyxy = torch.gather(
+            gt_xyxy, 1,
+            matched_gt_inds_clamped.unsqueeze(-1).expand(-1, -1, 4),
+        )  # [bs, N, 4]
+
+        # 2. 转换到 cxcywh [0,1] (TRIP 收缩在 cxcywh 空间, 与 L1 loss 一致)
+        tgt_gt_cxcywh = bbox_xyxy_to_cxcywh(tgt_gt_xyxy)  # [bs, N, 4]
+
+        # 3. Gather 每个 proposal 匹配的 GT 类标签
+        matched_gt_labels = torch.gather(
+            gt_labels_padded, 1, matched_gt_inds_clamped
+        )  # [bs, N]
+        # 背景位置 (fg=False) 的 label 可能是 num_classes (填充值),
+        # clamp 到有效类范围以避免索引越界 (后续用 fg_masks 屏蔽)
+        matched_gt_labels = matched_gt_labels.clamp(max=self.num_classes - 1)
+
+        # 4. 加载类条件先验
+        priors = self._load_class_priors()
+        mu_p = priors['mu'].to(device)             # [num_classes, 4]
+        sigma_bar_sq = priors['sigma_bar_sq'].to(device)  # [num_classes]
+
+        # 5. 向量化: 收集每个 proposal 对应类的先验 (R2 修正: 避免 for b,c 循环)
+        mu_p_per_prop = mu_p[matched_gt_labels]             # [bs, N, 4]
+        sigma_p_sq_per_prop = sigma_bar_sq[matched_gt_labels]  # [bs, N]
+
+        # 6. 计算收缩因子 s(t)
+        tb = t.view(bs, 1)  # [bs, 1] → broadcast to [bs, N]
+        if self.trip_lambda_mode == 'map':
+            # 贝叶斯 MAP: λ = t², γ = t² / σ_p²
+            gamma = (tb ** 2) / sigma_p_sq_per_prop.clamp(min=1e-8)  # [bs, N]
+        elif self.trip_lambda_mode == 'morozov':
+            # Morozov 自适应 (备选, 类比应用, 详见 FEASIBLE_TRIP.md §2.4)
+            gamma = (
+                tb * (tb + (tb ** 2 + sigma_p_sq_per_prop * (1 - tb) ** 2).sqrt())
+                / sigma_p_sq_per_prop.clamp(min=1e-8)
+            ) / self.trip_tau  # [bs, N]
+        else:
+            raise ValueError(f"Unknown trip_lambda_mode: {self.trip_lambda_mode}")
+
+        # s(t) = γ / ((1-t)² + γ) ∈ [0, 1]
+        s = gamma / ((1 - tb) ** 2 + gamma)  # [bs, N]
+        s = s.unsqueeze(-1)  # [bs, N, 1]
+
+        # 7. TRIP 目标: (1-s) * x_0 + s * μ_p^c (cxcywh 空间)
+        trip_tgt_cxcywh = (1 - s) * tgt_gt_cxcywh + s * mu_p_per_prop  # [bs, N, 4]
+
+        # 8. 转回 xyxy [0,1] (与 src_boxes 同空间, 供 L1 + GIoU loss 使用)
+        trip_tgt_xyxy = bbox_cxcywh_to_xyxy(trip_tgt_cxcywh)  # [bs, N, 4]
+
+        # 9. 背景位置: 用原 GT (不参与 TRIP, 后续 fg_masks 会屏蔽)
+        # (避免背景位置 TRIP 目标被 GIoU loss 误用; 实际 GIoU/L1 均用 fg_masks 屏蔽)
+        trip_tgt_xyxy = torch.where(
+            fg_masks.unsqueeze(-1), trip_tgt_xyxy, tgt_gt_xyxy
+        )
+
+        # 诊断: 收缩因子分布
+        with torch.no_grad():
+            probe.record_scalar('train/trip_s_mean', s.mean().item())
+            probe.record_scalar('train/trip_s_max', s.max().item())
+            probe.record_scalar('train/trip_s_min', s.min().item())
+            probe.record_scalar(
+                'train/trip_s_fg_mean',
+                s.squeeze(-1)[fg_masks].mean().item()
+                if fg_masks.any() else 0.0,
+            )
+        return trip_tgt_xyxy
 
     def forward(
         self,
@@ -175,9 +351,14 @@ class DiffusionDetCriterion(nn.Module):
             (head.loss() 中已将 raw cxcywh scaled 转换为归一化 xyxy,
              切勿直接传 raw 扩散空间的 coupling x0_pred)
 
-        ReFlow 混合 target (box_target_mode='x0_pred'):
-          - cls target 始终用 GT (matcher 基于 GT 分配正负样本)
-          - box target 切换为 x0_pred (per-proposal 或 per-GT 布局, 按形状自动分流)
+        三种 box_target_mode:
+          - 'gt' (默认): box target = GT bboxes (现有行为)
+          - 'x0_pred': box target = A4 预测 (x_0^pred), 仅当传入 box_targets 时生效;
+                       未传则安全降级到 GT (避免训练崩溃)
+          - 'trip': box target = Tikhonov/MAP 收缩估计 (TRIP, SNR 退化正则化)
+                    x_tilde(t) = (1-s(t)) * x_0 + s(t) * mu_p^c
+                    s(t) 由贝叶斯 MAP (λ=t²) 导出, 详见 FEASIBLE_TRIP.md §7
+        cls target 始终用 GT (matcher 基于 GT 分配正负样本, 不受 box_target_mode 影响)
         """
         src_boxes = outputs.pred_boxes  # [bs, num_queries, 4] 归一化 xyxy [0,1]
         bs = src_boxes.shape[0]
@@ -201,13 +382,18 @@ class DiffusionDetCriterion(nn.Module):
             if n > 0:
                 gt_bboxes_padded[i, :n] = t_data.bboxes
 
-        # ReFlow (Standard MSE): box target 来源选择
+        # box target 来源选择 (三种模式)
         # 'gt' (默认): box target = GT bboxes (现有行为)
         # 'x0_pred': box target = A4 预测 (x_0^pred), 仅当传入 box_targets 时生效;
         #            未传则安全降级到 GT (避免训练崩溃)
+        # 'trip': box target = Tikhonov/MAP 收缩估计 (SNR 退化正则化)
         # cls target 始终用 GT (matcher 基于 GT 分配正负样本, 不受此处影响)
         use_x0_pred = (
             self.box_target_mode == 'x0_pred' and box_targets is not None
+        )
+        use_trip = (
+            self.box_target_mode == 'trip'
+            and t is not None
         )
         if use_x0_pred:
             # REFLOW_HEAD_DISTILL_IMPL_PLAN.md §1.2: box target = x_0^pred (RF 拉直目标)
@@ -243,6 +429,24 @@ class DiffusionDetCriterion(nn.Module):
                     1,
                     matched_gt_inds_clamped.unsqueeze(-1).expand(-1, -1, 4),
                 )
+        elif use_trip:
+            # TRIP: box target = Tikhonov/MAP 收缩估计 (FEASIBLE_TRIP.md §7)
+            # 构建 padded GT labels (与 _loss_classification 一致)
+            gt_labels_padded = src_boxes.new_full(
+                (bs, max_gt), self.num_classes, dtype=torch.long
+            )
+            for i, t_data in enumerate(targets):
+                n = t_data.labels.shape[0]
+                if n > 0:
+                    gt_labels_padded[i, :n] = t_data.labels
+            # 计算 TRIP 收缩目标: (1-s(t))*x_0 + s(t)*mu_p^c
+            tgt_boxes = self._compute_trip_target(
+                gt_xyxy=gt_bboxes_padded,
+                matched_gt_inds=matched_gt_inds,
+                fg_masks=fg_masks,
+                gt_labels_padded=gt_labels_padded,
+                t=t,
+            )  # [bs, N, 4] 归一化 xyxy [0,1]
         else:
             # 'gt' 模式 或 'x0_pred' 未传 box_targets → 用 GT
             matched_gt_inds_clamped = matched_gt_inds.clamp(min=0)

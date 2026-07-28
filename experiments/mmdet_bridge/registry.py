@@ -41,9 +41,11 @@ MODELS.register_module(name='PurePyTorchIoUCost', module=IoUCost, force=True)
 
 from experiments.mmdet_bridge.transforms import CLAHE, SmallObjectCopyPaste  # noqa: F401
 
-# SetDiff 注册 — 仅注册需要从 config 构建的核心模块
-from setdiff.models.set_head import JointDiffusionHead  # noqa: E402
-
-MODELS.register_module(name='SetDiffJointDiffusionHead', module=JointDiffusionHead, force=True)
+# SetDiff 注册 — setdiff 包已在 mAP=0 失败后清理, 跳过注册
+try:
+    from setdiff.models.set_head import JointDiffusionHead  # noqa: E402
+    MODELS.register_module(name='SetDiffJointDiffusionHead', module=JointDiffusionHead, force=True)
+except ImportError:
+    pass  # setdiff 已归档, 不影响主路线推理
 
 register_all = lambda: None
