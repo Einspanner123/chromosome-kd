@@ -1006,6 +1006,7 @@ rf_heun_adaln.py (Dataset 1 RF+Heun+AdaLN 基线, bs=4)
 | D1-D5 结构诊断 | `experiments/analysis/structural_diagnosis.py` | `structural_diagnosis_v2.json` | 6 瓶颈假设: 2 推翻 (时间条件化/尺度类别), 4 部分支持/确认 | ✅ |
 | 方向 D solver 对比 | `experiments/analysis/direction_d_solver_comparison.py` | `direction_d_comparison.json` | 3 solver mAP 持平 0.863, 自适应加速 4.2% | ✅ |
 | 方向 A per-dim solver | `experiments/analysis/direction_a_per_dim_comparison.py` | `direction_a_per_dim_comparison.json` | ΔmAP=+0.001, Δlatency=-8.3ms (5.5% 加速) | ✅ |
+| 方向 A.2 per-dim-w (w,h=1阶) | `experiments/analysis/a2_ddpm_eta_str_comparison.py` | `a2_ddpm_eta_str_comparison.json` | ΔmAP=0.000, Δlatency=-4.7ms (5.0% 加速); DDPM-on-RF η_str 对比 framework mismatch, 不纳入论文 | ✅ |
 | **D1 RoI 空间消融** | `experiments/analysis/d1_roi_ablation.py` | `d1_roi_ablation.json` | baseline mAP=0.863 → ablation mAP=0.009 (**Δ=-0.854 灾难性崩溃**), 证实 7×7 空间编码至关重要 | ✅ |
 
 ### 6.6 2026-07-25 新增训练实验 (C22-C26)

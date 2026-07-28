@@ -753,6 +753,48 @@ R1 的 $\eta_{str}$ 是 4 维 (cxcywh) 的整体范数比, 但检测空间各维
 - 方向 A: per-dim $\eta_{str}$ 量化各维度曲率差异
 - 互补: R1 决定步数, 方向 A 决定 per-dim 阶数分配
 
+### Phase 3 (A.2): w,h 维度均降 1 阶 (✅ 已完成, 2026-07-28)
+
+> Phase 2 启示 "w 维度 eta_str (0.5-1.0) 与 h (0.4-0.9) 接近, w 维度也可降为 1 阶"。A.2 验证此假设: w,h 维度均用 1 阶 Euler, 仅 cx/cy 用 2 阶 DPM-Solver++。
+
+- **执行**: +DPM-Solver++ checkpoint 零成本推理 (无需重训), 2 个 solver × 500 张验证图
+- **实现**: [RFDPMSolverPerDim](file:///home/linkst/workspace/projects/chromosome-kd/ldmdet/diffusion/rectified_flow.py) (euler_dims=(2,3) 即 w,h, dpm_dims=(0,1) 即 cx,cy), 配置入口 [sampling.py:201-214](file:///home/linkst/workspace/projects/chromosome-kd/ldmdet/diffusion/sampling.py) `dpm_solver_pp_per_dim_w`
+- **评估脚本**: [experiments/analysis/a2_ddpm_eta_str_comparison.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/a2_ddpm_eta_str_comparison.py)
+- **结果数据**: [work_dirs/diagnosis/a2_ddpm_eta_str_comparison.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/a2_ddpm_eta_str_comparison.json)
+
+| Solver | mAP | AP50 | AP75 | AP_S | AP_M | AP_L | 延迟(ms) | FPS |
+|--------|------|------|------|------|------|------|---------|-----|
+| DPM-Solver++ 全 2 阶 (baseline) | 0.864 | 0.989 | 0.973 | 0.563 | 0.860 | 0.904 | 94.2 | 10.6 |
+| A.2 per-dim-w (w,h=1阶, cx/cy=2阶) | 0.864 | 0.989 | 0.974 | 0.560 | 0.860 | 0.902 | 89.5 | 11.2 |
+| **Δ** | **0.000** | — | — | — | — | — | **−4.7 (−5.0%)** | +5.3% |
+
+**per-dim η_str** (baseline 全 2 阶, 500 图诊断):
+
+| 维度 | cx | cy | w | h |
+|------|------|------|------|------|
+| η_str mean | 32.77 | 35.86 | 0.678 | 0.691 |
+
+### Phase 3 (A.2) 关键结论
+
+1. **mAP 持平 (ΔmAP = 0.000)**: w,h 维度均降为 1 阶不损失精度, 验证 Phase 2 启示
+   - w,h 维度 η_str (~0.68) 比 cx,cy (~34) 低约 50×, 1 阶 Euler 足够
+2. **延迟降低 5.0% (−4.7ms)**: w,h 维度省去 D1 校正, FPS 10.6→11.2
+3. **bbox 4 维耦合性未被破坏**: 位置 (cx,cy) 2 阶 + 尺度 (w,h) 1 阶, 物理相关性不受 solver 阶数分配影响
+4. **检测专用 solver 叙事强化**: 位置维度随 t 变化剧烈 (需 2 阶), 尺度维度变化平缓 (1 阶足够), 这是检测任务特有的结构性先验
+
+### DDPM vs RF η_str 对比 (⚠️ 方法论问题, 不纳入论文)
+
+> 实验试图对比 DDPM-trained vs RF-trained 模型的 η_str, 验证 "RF 降低速度场非线性"。但存在严重 framework mismatch, 结论不可靠。
+
+- **方法**: DDPM checkpoint (DiffusionDet, best@ep26, mAP=0.803) 以 `diffusion_type_override='rectified_flow'` 强制走 RF 路径 + DPM-Solver++ 4 步
+- **结果**: DDPM-on-RF mAP 暴跌至 0.725 (native 0.803), η_str=1.34 < RF 2.87
+- **问题**: DDPM 训练 (cosine noise schedule) + RF 推理 (线性 t∈[0,1] 路径) 是 train-test framework mismatch
+  - 低 η_str 不能解读为 "DDPM 轨迹更直", 更可能是模型在错误框架下速度场退化/平坦化 (欠拟合 → 近常数预测 → 低曲率)
+  - DDPM native 0.803 已收敛 (AdamW/150ep + EarlyStopping, best@ep26), 非欠训练问题
+- **结论**: 此对比无法支撑 "RF 降低速度场非线性" 叙事, 不写入论文
+- **正确方案 (若论文需要)**: 在 DDPM native 框架 (DDIM/DDPM solver) 下用二阶 solver 测量 η_str, 或放弃 DDPM 对照 (RF 的 η_str∈[0.7,1.5] 自证低曲率)
+- **教训**: 跨范式 η_str 对比必须控制 framework 一致性, 不能用 A 范式训练的 ckpt 强制走 B 范式推理路径
+
 ---
 
 ## 十、方向 D: 自适应阶次 DPM-Solver++ — 后期 step 降阶 (mAP 对比完成, 3 solver 持平)
@@ -1242,7 +1284,7 @@ S1 的 H×S 理论说明 "仅改变 H 会破坏横向收敛性" (已证伪 N_cas
 | **D3 Box Renewal (§六)** | 揭示 box_renewal 与多步法历史矛盾 + 化解 | box_renewal 检测特有 / 密集目标 renewal 比例高 | η_str 虚高 56-58% 但 mAP 仅 −0.0003 | ✅ 完成 |
 | **S1 Cascade × Solver (§七)** | cascade head 作为 implicit solver 算子分裂 | 解释 24 NFE 架构合理性, 预防"6 head 冗余"质疑 | s1_h3_s8 ✓ (0.859), s1_h6_s2 ⚠ 待确认 (上次 0.859 @ ep106), s1_h3_s4 ✓ | 🔄 部分完成 |
 | **R3 v-prediction 对照 (§八)** | 验证低维 + shifted schedule 下 x0-prediction 优势 | 预防"为何不用 v-prediction"质疑 (RF 原文偏好) | seed 42 ⚠ 待确认 (workstation 不可达), seed 123/789 ⛔ | 🔄 进行中 |
-| **方向 A per-dim η_str (§九)** | 检测空间 4 维 (cxcywh) 各维度曲率差异诊断 | h 维度曲率显著小于 cx,cy, 启示 per-dim solver | Phase 2: per-dim solver mAP=0.863 (持平+0.001), 加速 5.5% | ✓ 完成 |
+| **方向 A per-dim η_str (§九)** | 检测空间 4 维 (cxcywh) 各维度曲率差异诊断 | h 维度曲率显著小于 cx,cy, 启示 per-dim solver | Phase 2: per-dim (h=1阶) mAP=0.863 (+0.001), 加速 5.5%; Phase 3 (A.2): per-dim-w (w,h=1阶) mAP=0.864 (持平), 加速 5.0% | ✓ 完成 |
 | **方向 D 自适应阶次 (§十)** | 后期 step 降阶 (3→2 阶) 自适应 DPM-Solver++ | $\eta_{3rd}$ step1→2 降幅 59%, 后期可降阶 | 3 solver mAP 均为 0.863 (ΔmAP=0.000), 自适应 4.2% 加速 | ✓ 完成 |
 | **方向 C step-aware (§十一)** | cascade head 感知 solver step 编号 | 零初始化确保预训练兼容, 与 S1 算子分裂不冲突 | seed 42 🔄 ep86/150, best 0.857 (Δ=-0.006, 趋势负面) | 🔄 进行中 |
 
