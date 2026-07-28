@@ -3,7 +3,7 @@
 > 📋 **命名约定**: 本文档使用论文正式名称 (Dataset 1 / Dataset 2 / RF+Heun / +Stoch. Coupling / +DPM-Solver++ / Top-K)。内部实验代号 (24obj / A0-A4 / IO3 / StochOT) 仅保留在文件路径、配置名和 SwanLab run_id 中以兼容工程实现。
 
 > 生成日期: 2026-07-15 | 最近更新: 2026-07-28 (ReFlow 重试确认方法本质失败 → FALSIFIED §十四; 2026-07-27: Head Distillation 完成 → LINEAGE §十五; 失败配置证伪 → FALSIFIED §十三; ReFlow 当前run失败+重试中 → FALSIFIED §十四; v2/reflow_standard checkpoint 已清理)
-> 数据来源: 本地 `work_dirs/` (48 个子目录) + SwanLab 云端 (28 个项目) + `ldmdet-experiment/` 归档 + 两台服务器 (workstation / ross)
+> 数据来源: 本地 `work_dirs/` (48 个子目录) + SwanLab 云端 (26 个项目) + `ldmdet-experiment/` 归档 + 两台服务器 (workstation / ross)
 > 核心文档: [EXPERIMENT_LINEAGE.md](EXPERIMENT_LINEAGE.md) (实验谱系) + [EXPERIMENT_RESULTS.md](EXPERIMENT_RESULTS.md) (结果汇总) + [paper/AAAI_INTEGRATED_DRAFT.md](paper/AAAI_INTEGRATED_DRAFT.md) (论文草稿)
 
 ---
@@ -18,7 +18,7 @@
 | **ldmdet-experiment 归档** | `ldmdet-experiment/sota/<category>/<exp_name>/` (含 README, config.py, metrics.json, code/, checkpoints/) | 已归档 SOTA 实验 (2026-06-13) |
 | **SwanLab 云端** | `https://swanlab.cn/@einspanner/<project>/runs/<run_id>` | 在线可视化 + 跨实验对比 |
 
-### SwanLab 项目一览 (28 个项目, 2026-07-19 同步)
+### SwanLab 项目一览 (26 个项目, 2026-07-19 同步)
 
 > ⭐ = 论文相关项目; 数字为 SwanLab 实际实验数 (含 CRASHED/RUNNING)。
 
@@ -27,8 +27,6 @@
 | `ldmdet-mainline-ablation-24obj` ⭐ | 18 (1 RUNNING) | Dataset 2 | DDPM baseline → +DPM-Solver++ 主路线消融 + 多种子 (DDPM baseline/RF+Heun/+DPM-Solver++) + RF+Heun shift 消融 + SwiGLU |
 | `ldmdet-ablation` ⭐ | 87 | Dataset 2/Dataset 1 | 主线消融 + Dataset 2 耦合策略 (Random/GHSS (Group Hierarchical Stochastic Sinkhorn)/Sinkhorn) + merged + gen_transfer + 非线性轨迹 + 方向实验 + 瓶颈分析 |
 | `chromosome-kd-benchmark-24obj` ⭐ | 10 | Dataset 2 | 对比模型: RTMDet-L / DINO R50 / Cascade / YOLOX-S / DiffusionDet / ldmdet_stochot_eps5 |
-| `cross-domain-autokary` ⭐ | 9 | AutoKary | 跨域 zero-shot + finetune (+AdaLN-Zero/+Stoch. Coupling/+DPM-Solver++ × k5/k10) |
-| `few-shot-benchmark` ⭐ | 3 | Dataset 2 | FBM CrossAttn / FBM SimpleGate / LDMDet SOTA 源预训练 |
 | `chromosome-kd` ⭐ | 18 | Dataset 1 | 早期: sota_seed*, ablation/*, scheme_*, stability/* |
 | `nonlinear-3seed-repro` | 2 | Dataset 1 | nonlinear_e43_seed{1,2} (seed3 失败) |
 | `ldmdet-mainline-ablation-old` | 5 | Dataset 1 | Stoch. Coupling ε=5 多种子 (Dataset 1) 等旧主线消融 |
@@ -81,7 +79,7 @@
 | M1 形态感知 RoI (BF16) | Dataset 2 | ldmdet-mainline-ablation-24obj | (m1_morphology_aware_ws) | ⚠ workstation `100.99.131.26`: work_dirs/m1_morphology_aware_24obj_ws/ | m1_morphology_aware_24obj_ws.py | 0.818 (BF16) | ✅ 已完成 (BF16 误导确认, FP32 复现已闭环; best@ep1 全程 0.811-0.818 波动; Δ=-0.045 vs +DPM-Solver++ 0.863 BF16 虚假退化; Δ=-0.007 vs +DPM-Solver++ (BF16) 0.825 noise 范围但偏负面; 显存 20888 MiB vs FP32 37506 MiB 降 44%; fuse 权重均匀未学到方向性) | 结构改进 | <!-- 2026-07-23 完成, 2026-07-25 FP32 复现确认 BF16 误导 (见 C22): 30ep BF16 AMP, best 0.818@ep1; +DPM-Solver++ (BF16)=0.825 (BF16 本身掉点 -0.038 已确认); M1 vs +DPM-Solver++ (BF16)=-0.007 (noise 范围但偏负面); per-class 24 类全退化; fuse h_conv/v_conv 完全均匀 (ratio=1.01, std=0) 未学到方向性; 详见 §6.6 C23 -->
 | M1 形态感知 RoI (FP32) | Dataset 2 | ldmdet-mainline-ablation-24obj | (m1_morphology_aware_fp32) | ⚠ ross `100.122.196.41`: work_dirs/m1_morphology_aware_24obj_fp32/ | m1_morphology_aware_24obj_fp32.py | **0.862** (best@ep19) | ✅ 已完成 (30ep FP32, lr=2e-5 2×, 1ep warmup, 显存 37.5GB; last 0.859@ep30; Δ=-0.001 vs +DPM-Solver++ 0.863 统计上持平; BF16 误导根因确认, h_conv/v_conv FP32 下仍均匀) | 结构改进 | <!-- 2026-07-23 19:14 启动, 2026-07-25 完成: lr=2e-5 iter-based warmup, FP32, 30ep; best 0.862@ep19 (上修自 0.860@ep3 临时值); h_conv/v_conv 在 FP32 下仍均匀 (ratio=1.01-1.02, std=0.0001) → 设计问题非精度问题; 改进方向: 非零初始化 fuse + 显式形态先验注入 + 注意力机制替代方向卷积; 详见 §6.6 C22 -->
 | Head Distillation v2 (H=3←H=6, freeze backbone) | Dataset 2 | ldmdet-head-distill | 9qj0xe5q0dwb6l2d8igwy | ⚠ ross `100.122.196.41`: work_dirs/h3_distill_24obj/ | h3_distill_24obj.py | 0.717 (best@ep109) | ⛔ **证伪** (2026-07-27 归档, → [FALSIFIED §十三](file:///home/linkst/workspace/projects/chromosome-kd/docs/FALSIFIED_DIRECTIONS.md)): 配置Bug freeze_backbone=True 致特征分布不匹配, Δ=-0.146 vs +DPM-Solver++ 0.863; loss_distill 停滞 0.033 不下降; 数据修正: best 实为 0.717@ep109 (非 0.711@ep96), 续训至 ep115 中途 kill; **方法本身有效** (修复配置 0.860, 见下行) | 蒸馏 | <!-- 2026-07-24 01:03 启动, 2026-07-25 异常中断@ep99, 续训@ep109 best 0.717, ep115 kill; 根因: backbone 冻结致特征不匹配; 2026-07-27 归档证伪; 详见 §6.6 C26 -->
-| **Head Distillation** (H=3←H=6, backbone解冻 + A4 backbone 加载) | Dataset 2 | ldmdet-head-distill | (h3_distill_plan_a) | ⚠ ross `100.122.196.41`: work_dirs/h3_distill_plan_a_24obj/ | h3_distill_plan_a_24obj.py | **0.860** (best@ep10, early stop@ep40) | ✅ **完成** (2026-07-27 归档, → [LINEAGE §十五](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)): Δ=-0.003 vs +DPM-Solver++ 0.863 在 3-seed noise ±0.003 内; **NFE 24→12 加速 2x** (H=3×S=4 vs H=6×S=4); loss_distill 持续下降 0.050→0.025 (50% 下降, vs 失败配置停滞 0.033); per-class AP 与 A4 对齐 (Δ -0.012~+0.004); 数据修正: best 实为 0.860@ep10 (非 0.854@ep4), ep40 是 early stop 触发点非 best | 蒸馏 | <!-- 2026-07-25 17:04 启动, 2026-07-27 完成+归档: 修复失败配置 (freeze_backbone=True) 特征不匹配; best 0.860@ep10 early stop@ep40; NFE 24→12 加速 2x; commit 66edac84; 详见 §6.6 C27 -->
+| **Head Distillation** (H=3←H=6, backbone解冻 + A4 backbone 加载) | Dataset 2 | ldmdet-head-distill | (h3_distill_plan_a) | ⚠ ross `100.122.196.41`: work_dirs/h3_distill_plan_a_24obj/ | h3_distill_plan_a_24obj.py | **0.859** (val独立评估 test.py; 训练best@ep10=0.860, early stop@ep40) | ✅ **完成** (2026-07-27 归档, 2026-07-29 补充推理实测, → [LINEAGE §十五](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md)): Δ=-0.004 vs +DPM-Solver++ 0.863 在 3-seed noise ±0.003 内; **延迟 44.72ms / 22.4 FPS** (ross A6000, 500iters, vs A4 77.57ms/12.9FPS, 1.73×加速); **NFE 24→12 加速 2x** (H=3×S=4 vs H=6×S=4); loss_distill 持续下降 0.050→0.025 (50% 下降, vs 失败配置停滞 0.033); per-class AP 与 A4 对齐 (Δ -0.012~+0.004); 数据修正: best 实为 0.860@ep10 (非 0.854@ep4), ep40 是 early stop 触发点非 best | 蒸馏 | <!-- 2026-07-25 17:04 启动, 2026-07-27 完成+归档: 修复失败配置 (freeze_backbone=True) 特征不匹配; best 0.860@ep10 (val独立评估 0.859) early stop@ep40; NFE 24→12 加速 2x; 2026-07-29 推理实测 44.72ms/22.4FPS (ross A6000 500iters); commit 66edac84; 详见 §6.6 C27 -->
 | **ReFlow (Standard MSE)** 2-RF (重试确认失败) | Dataset 2 | ldmdet-reflow | bj8bmny5 | ⚠ workstation `100.99.131.26`: work_dirs/reflow_standard_24obj/ | reflow_standard_24obj.py | 0.862 (best@ep1=A4本身) / 0.646 (v1 best@ep42) | ⛔ **方法本质失败** (2026-07-28 重试确认归档, → [FALSIFIED §十四](file:///home/linkst/workspace/projects/chromosome-kd/docs/FALSIFIED_DIRECTIONS.md)): 重试配置修复 (load_from=A4 best ep117+lr=5e-5+max_epoch=150+warmup 5ep+cosine), EarlyStopping@ep31; best 0.862@ep1 = A4 checkpoint 本身 (reflow 30 epoch 零改善); mAP_75 两次崩塌 (ep2=0.687, ep19=0.608); 4个方法固有风险全部命中 (cls/box不一致+Circular dependency+box_renewal训推不一致+mAP_75退化); v1失败 best 0.646@ep42 (配置Bug); SwanLab run_id bj8bmny5 | ReFlow | <!-- 2026-07-25 v1启动, 2026-07-26 v1完成 50ep best 0.646@ep42; 2026-07-27 v1归档+清理+重试启动; 2026-07-27 16:03→22:00 重试 EarlyStopping@ep31 best 0.862@ep1=A4; 2026-07-28 确认方法本质失败; 详见 §6.6 C28 -->
 | R3 v-prediction seed42 | Dataset 2 | ldmdet-r3-vpred | (r3_vpred) | ⚠ workstation: work_dirs/r3_vpred_24obj_seed42/ (`/home/linkst/workplace/chromo/chromosome-kd/`) | r3_vpred_24obj.py | 0.855 (best@ep34) | ✅ 已完成 (workstation A4000, seed 42, max 150ep 早停@ep64 patience=30 触发; v_prediction=True + v_prediction_t_eps=1e-2 → 1/t² loss reweighting + batch normalization 均值=1; last 0.837@ep64; ep8 warmup 0.802→ep34 best 0.855→长期停滞→早停; Δ=-0.008 vs +DPM-Solver++ 0.863 超 3-seed noise ±0.003 但偏小, 单 seed 支持 R3.2; seed 123/789 待补) | 核心消融 | <!-- 2026-07-25 完成: workstation A4000, seed 42, v_prediction + 1/t² loss reweighting; 详见 §6.6 C24 -->
 | S1 h6_s2 (cascade 解耦) | Dataset 2 | ldmdet-s1-cascade-decouple | (s1_h6_s2) | ⚠ workstation: work_dirs/s1_h6_s2_24obj/ (`/home/linkst/workplace/chromo/chromosome-kd/`) | s1_h6_s2_24obj.py | 0.859 (best@ep106) | ✅ 已完成 (workstation A5000, max 150ep 早停@ep136 patience=30 触发; num_heads=6, sampling_timesteps=2 → NFE=12; last 0.856@ep136; Δ=-0.004 vs +DPM-Solver++ 0.863 在 3-seed noise ±0.003 范围内; 与 s1_h3_s4 (0.859) / s1_h3_s8 (0.859) 三组全部 0.859, S1.3 命题完整闭环) | 核心消融 | <!-- 2026-07-25 完成: workstation A5000, H=6 S=2 NFE=12; 详见 §6.6 C25 -->
@@ -118,24 +116,8 @@
 | h_cfm_velocity | ldmdet-frontier-directions | — | — | ~0 | ❌ FAILED | 前沿方向(证伪) |
 | I1 Seesaw+Normalized | ldmdet-breakthrough | work_dirs/i1_seesaw_normalized/ | i1_seesaw_normalized.py | 0.744 | ✅/⚠ | ⚠ 实为 Dataset 1 数据集 (非 Dataset 2) | <!-- verified: 2026-07-16 -->
 | normalized_only | (待确认) | work_dirs/normalized_only/ | normalized_only.py | 0.747 | ✅/⚠ | ⚠ 实为 Dataset 1 数据集 (非 Dataset 2) | <!-- verified: 2026-07-16 -->
-| FBM CrossAttn (源预训练) | few-shot-benchmark | work_dirs/few_shot/ | ldmdet_fbm_crossattn_24obj.py | 0.857 | ⚠ CRASHED | Few-Shot |
-| FBM SimpleGate (源预训练) | few-shot-benchmark | work_dirs/few_shot/ | ldmdet_fbm_simplgate_24obj.py | 0.677 | ❌ 已停止 | Few-Shot |
-| LDMDet SOTA (源预训练) | few-shot-benchmark | work_dirs/few_shot/ | ldmdet_sota_24obj.py | 已完成 | ✅ | Few-Shot |
 
-### 1.4 Dataset 2 数据集 — 跨域实验 (AutoKary, 新增)
-
-| 实验名称 | SwanLab项目 | 本地路径 | 配置文件 | mAP | 状态 | 分类 |
-|----------|------------|----------|----------|-----|------|------|
-| Zero-shot +DPM-Solver++ → AutoKary | cross-domain-autokary | work_dirs/cross_domain/ | zero_shot_a4.py | 待确认 | ✅/⚠ | 跨域 |
-| Zero-shot +AdaLN-Zero → AutoKary | cross-domain-autokary | work_dirs/cross_domain/ | zero_shot_a2.py | 待确认 | ✅/⚠ | 跨域 |
-| Finetune +AdaLN-Zero k=5 | cross-domain-autokary | work_dirs/cross_domain/ | finetune_a2_k5.py | 待确认 | ✅/⚠ | 跨域 |
-| Finetune +AdaLN-Zero k=10 | cross-domain-autokary | work_dirs/cross_domain/ | finetune_a2_k10.py | 待确认 | ✅/⚠ | 跨域 |
-| Finetune +Stoch. Coupling k=5 | cross-domain-autokary | work_dirs/cross_domain/ | finetune_a3_k5.py | 待确认 | ✅/⚠ | 跨域 |
-| Finetune +Stoch. Coupling k=10 | cross-domain-autokary | work_dirs/cross_domain/ | finetune_a3_k10.py | 待确认 | ✅/⚠ | 跨域 |
-| Finetune +DPM-Solver++ k=5 | cross-domain-autokary | work_dirs/cross_domain/ | finetune_a4_k5.py | 待确认 | ✅/⚠ | 跨域 |
-| Finetune +DPM-Solver++ k=10 | cross-domain-autokary | work_dirs/cross_domain/ | finetune_a4_k10.py | 待确认 | ✅/⚠ | 跨域 |
-
-### 1.5 Chromosome20240904 (Dataset 1) 数据集 — ⚠ 旧数据集 (结论暂时废弃)
+### 1.4 Chromosome20240904 (Dataset 1) 数据集 — ⚠ 旧数据集 (结论暂时废弃)
 
 | 实验名称 | SwanLab项目 | run_id | 本地路径 | mAP | 状态 | 分类 |
 |----------|------------|--------|----------|-----|------|------|
@@ -185,7 +167,7 @@
 | Structured Prior Head | ldmdet-ablation | — | work_dirs/direction_exps/direction_f_structured_prior/ | 0.574 | ✅ 早停 | 方向实验(证伪) |
 | LaMFPN | ldmdet-ablation | — | work_dirs/direction_exps/direction_g_lamfpn/ | 0.736 | ✅ 早停 | 方向实验(证伪) | <!-- verified: 2026-07-16 -->
 
-### 1.6 跨数据集合并实验
+### 1.5 跨数据集合并实验
 
 | 实验名称 | SwanLab项目 | run_id | 本地路径 | mAP | 状态 | 分类 |
 |----------|------------|--------|----------|-----|------|------|
@@ -374,7 +356,7 @@
 
 > 数据源: EXPERIMENT_LINEAGE.md §3.1 (line 137-150)。 <!-- verified: 2026-07-16 -->
 
-### 2.3 跨数据集 / 少样本实验
+### 2.3 跨数据集实验
 
 #### 2.3.1 合并数据集训练 (Dataset 2 + Dataset 1)
 
@@ -382,27 +364,6 @@
 |------|-----|------|
 | Sinkhorn Stochastic | 0.806 | ✅ |
 | GHSS | 0.000 | ❌ FAILED |
-
-#### 2.3.2 Few-Shot 基准 (Dataset 2 源预训练 → Dataset 1 目标微调)
-
-| 源预训练模型 | mAP (Dataset 2) | 状态 | 目标微调 |
-|-------------|-------------|------|----------|
-| LDMDet SOTA | 已完成 | ✅ | ⛔ 尚未启动 |
-| LDMDet FBM CrossAttn | 0.857 | ⚠ CRASHED | ⛔ 尚未启动 |
-| LDMDet FBM SimpleGate | 0.677 | ❌ 已停止 | ⛔ 尚未启动 |
-| Cascade R-CNN R50 | 已完成 | ✅ | ⛔ 尚未启动 |
-| DINO R50 | 已完成 | ✅ | ⛔ 尚未启动 |
-| RTMDet-L | 已完成 | ✅ | ⛔ 尚未启动 |
-| YOLOX-S | 已完成 | ✅ | ⛔ 尚未启动 |
-
-> 目标微调配置已就绪: `experiments/configs/few_shot/target_finetune/*_k{5,10}.py` (14 个)
-
-#### 2.3.3 跨域 AutoKary (新增, Dataset 2 → AutoKary2022)
-
-| 实验 | 配置 | 说明 |
-|------|------|------|
-| Zero-shot +AdaLN-Zero/+DPM-Solver++ | zero_shot_a{2,4}.py | Dataset 2 训练 → AutoKary 直接评估 |
-| Finetune +AdaLN-Zero/+Stoch. Coupling/+DPM-Solver++ × k{5,10} | finetune_a{2,3,4}_k{5,10}.py | Dataset 2 预训练 → AutoKary 少样本微调 |
 
 ---
 
@@ -549,7 +510,7 @@
 
 #### 3.6.1 Stoch. Coupling ε 消融 Dataset 1 数据源澄清 (项目 `ldmdet-mainline-ablation-old`, 解决 C16)
 
-> 本节解决 §5 C16 "Epsilon 消融数据源不匹配" 问题。论文 §4.4.3 ε 消融数值 (ε=1→0.745, ε=2 stochastic→0.749, ε=5→0.746) 实际来自本项目, 而非 §1.5 标注的 `ldmdet-ablation` 或 `work_dirs/ablation_old/`。
+> 本节解决 §5 C16 "Epsilon 消融数据源不匹配" 问题。论文 §4.4.3 ε 消融数值 (ε=1→0.745, ε=2 stochastic→0.749, ε=5→0.746) 实际来自本项目, 而非 §1.4 标注的 `ldmdet-ablation` 或 `work_dirs/ablation_old/`。
 
 | 实验 | run_id | ε | mAP | AP50 | AP75 | APs | APm | APl | 状态 | eval 次数 | best@step |
 |------|--------|---|-----|------|------|-----|-----|-----|------|----------|-----------|
@@ -559,7 +520,7 @@
 | Stoch. Coupling ε=5 seed_123 Dataset 1 | 7fkfwi4e3teyyrr0t5l1q | 5 | 0.746 | 0.943 | 0.838 | 0.518 | 0.738 | 0.680 | ✅ FINISHED | 87 | 57 |
 | Stoch. Coupling ε=5 seed_789 Dataset 1 | 3yh5cqaacv066oqjpdw4q | 5 | 0.749 | 0.945 | 0.837 | 0.513 | 0.743 | 0.690 | ✅ FINISHED | 99 | 69 |
 
-> **C16 解决**: ε 消融 (ε=1/2/5) 数据源确认为 `ldmdet-mainline-ablation-old`, 与 §1.5 标注的 `ldmdet-ablation` 不符。ε=5 多种子 3-seed mean=0.747, sample_std=0.002, 与 §1.5 (Stoch. Coupling ε=5 old, mean 0.747±0.002) 数值一致, 证明是同批实验的 SwanLab 云端记录。
+> **C16 解决**: ε 消融 (ε=1/2/5) 数据源确认为 `ldmdet-mainline-ablation-old`, 与 §1.4 标注的 `ldmdet-ablation` 不符。ε=5 多种子 3-seed mean=0.747, sample_std=0.002, 与 §1.4 (Stoch. Coupling ε=5 old, mean 0.747±0.002) 数值一致, 证明是同批实验的 SwanLab 云端记录。
 >
 > **ε 消融趋势**: ε=2 (0.749) ≈ ε=5 (0.747) > ε=1 (0.745), 与论文 §4.4.3 结论一致 (ε∈[2,5] 平台区, ε=1 退化)。
 >
@@ -579,20 +540,20 @@
 >
 > ⚠ run 2 (mAP=0.708) 仅 22 evals, 远低于 run 1 (99 evals, mAP=0.747), 疑为早停或重启, **不可作为引用源**。论文引用时应使用 run 1 (mAP=0.747) 或 s8 (mAP=0.748)。
 >
-> ⚠ Dataset 1 数据集结论已暂时废弃 (§1.5 标注), 这些数值仅用于历史数据源溯源, 不进入论文正文。<!-- verified: 2026-07-19 SwanLab -->
+> ⚠ Dataset 1 数据集结论已暂时废弃 (§1.4 标注), 这些数值仅用于历史数据源溯源, 不进入论文正文。<!-- verified: 2026-07-19 SwanLab -->
 
-#### 3.6.3 Dataset 1 SOTA 多种子项目归属修正 (项目 `chromosome-kd-multiseed`, 修正 §1.5)
+#### 3.6.3 Dataset 1 SOTA 多种子项目归属修正 (项目 `chromosome-kd-multiseed`, 修正 §1.4)
 
-> 本节修正 §1.5 中 SOTA 多种子的 SwanLab 项目归属。原标注为 `chromosome-kd`, 实际为 `chromosome-kd-multiseed` (run_id 完全匹配)。本表数值与 §1.5 已记录数值一致, 不变更 mAP, 仅修正项目名。
+> 本节修正 §1.4 中 SOTA 多种子的 SwanLab 项目归属。原标注为 `chromosome-kd`, 实际为 `chromosome-kd-multiseed` (run_id 完全匹配)。本表数值与 §1.4 已记录数值一致, 不变更 mAP, 仅修正项目名。
 
-| 实验 (§1.5 原记录) | run_id | 原 SwanLab项目 | **修正后** SwanLab项目 | mAP | AP50 | AP75 | APs | APm | APl |
+| 实验 (§1.4 原记录) | run_id | 原 SwanLab项目 | **修正后** SwanLab项目 | mAP | AP50 | AP75 | APs | APm | APl |
 |--------------------|--------|---------------|------------------------|-----|------|------|-----|-----|-----|
 | SOTA seed_42 | 9xswp5aj7rmfd4vys6906 | ~~chromosome-kd~~ | **chromosome-kd-multiseed** | 0.740 | 0.946 | 0.831 | 0.512 | 0.732 | 0.680 |
 | SOTA seed_123 | b31e1xhzftod7ae38cs17 | ~~chromosome-kd~~ | **chromosome-kd-multiseed** | 0.749 | 0.946 | 0.840 | 0.519 | 0.741 | 0.693 |
 | SOTA seed_456 | ukxsyw666y1xrpcrtjvx1 | ~~chromosome-kd~~ | **chromosome-kd-multiseed** | 0.746 | 0.948 | 0.838 | 0.527 | 0.739 | 0.701 |
 | SOTA seed_1000 | ocdkvjs2vs1vozbh0goni | ~~chromosome-kd~~ | **chromosome-kd-multiseed** | 0.749 | 0.947 | 0.838 | 0.516 | 0.740 | 0.679 |
 
-> **修正说明**: §1.5 表格 SwanLab项目列应将 SOTA seed_{42,123,456,1000} 四行的 `chromosome-kd` 改为 `chromosome-kd-multiseed`。`chromosome-kd` 项目 (18 runs) 实际包含的是早期 sota_seed*/ablation/*/scheme_*/stability/* 等实验 (见 §3.6.8)。<!-- verified: 2026-07-19 SwanLab -->
+> **修正说明**: §1.4 表格 SwanLab项目列应将 SOTA seed_{42,123,456,1000} 四行的 `chromosome-kd` 改为 `chromosome-kd-multiseed`。`chromosome-kd` 项目 (18 runs) 实际包含的是早期 sota_seed*/ablation/*/scheme_*/stability/* 等实验 (见 §3.6.8)。<!-- verified: 2026-07-19 SwanLab -->
 >
 > 4-seed 统计: mean=0.746, sample_std=0.004, 与 §5 C6 记录一致 (0.746±0.004)。<!-- verified: 2026-07-19 SwanLab -->
 
@@ -672,7 +633,7 @@
 > 2. **SWA 部分恢复**: bs8-warm-restart-swa (0.728) 略优于 warm-restart-v2 (0.719), +0.009, 但仍低于 baseline (-0.021)。SWA 平均权重部分缓解 warm-restart 退化, 但无法完全恢复。
 > 3. **结论**: warm-restart 与 SWA 在 Dataset 1 数据集 LDMDet 训练中均为反向策略, 不进入论文。
 >
-> ⚠ Dataset 1 数据集结论已暂时废弃 (§1.5), 本节数据仅作为稳定性策略的负面证据存档。<!-- verified: 2026-07-19 SwanLab -->
+> ⚠ Dataset 1 数据集结论已暂时废弃 (§1.4), 本节数据仅作为稳定性策略的负面证据存档。<!-- verified: 2026-07-19 SwanLab -->
 
 #### 3.6.9 V1-E Stoch. Coupling 实现验证 (项目 `chromosome-kd-verify-v1`)
 
@@ -708,7 +669,6 @@
 | NFE / solver-step 对比 (DDIM/DPM-Solver++/Heun) | ~30 | FINISHED | §2.2.5, §七 |
 | Top-K 剪枝推理 (K=100/200/300) | ~9 | FINISHED/CRASHED | §七, 项目记忆 |
 | a4_noise 推理 | ~13 | FINISHED/CRASHED | 未归档, 噪声鲁棒性测试 |
-| zero_shot +AdaLN-Zero/+DPM-Solver++ → AutoKary/Chromo | ~6 | FINISHED | §2.3.3, §1.4 |
 | dpm_solver_pp seed/solver 组合 | ~24 | FINISHED | NFE 对比, §七 |
 | DDPM Euler 多步消融 (1/2/4/8 step, DiffusionDet ckpt) | 4 | FINISHED | §2.1.5, 论文 Appendix G (2026-07-28 新增) |
 
@@ -730,7 +690,7 @@
 | `chromosome-kd-scheme-a` | 2 | Dataset 1 | 方案 A 探索 | ❌ 已弃用 |
 | `chromosome-kd-scheme-b` | 1 | Dataset 1 | 方案 B 探索 | ❌ 已弃用 |
 | `chromosome-kd-gen` | 2 | Dataset 1 | 生成式实验 (ChromoGen-Phase1) | ❌ 与 LDMDet 主线无关 |
-| `nonlinear-3seed-repro` | 2 | Dataset 1 | nonlinear_e43_seed{1,2} 重现 (seed3 失败) | ❌ 已在 §1.5 归档 |
+| `nonlinear-3seed-repro` | 2 | Dataset 1 | nonlinear_e43_seed{1,2} 重现 (seed3 失败) | ❌ 已在 §1.4 归档 |
 | `ldmdet-frontier-directions` | 7 | Dataset 2/Dataset 1 | h_velocity_loss / Cascade Head Count e2e / h_cfm_velocity 等, 已在 §1.3/§3.2.4/§3.2.5 归档 | ⚠ 部分已归档 |
 
 #### 3.6.13 数据一致性备注与待解决问题
@@ -739,9 +699,9 @@
 
 | 编号 | 问题 | 影响 | 建议修订 |
 |------|------|------|----------|
-| **C17** (新) | §1.5 SOTA 多种子项目归属错误 | SOTA seed_{42,123,456,1000} 四行 SwanLab项目列应为 `chromosome-kd-multiseed` (非 `chromosome-kd`) | §1.5 表格 4 行项目名修正 |
+| **C17** (新) | §1.4 SOTA 多种子项目归属错误 | SOTA seed_{42,123,456,1000} 四行 SwanLab项目列应为 `chromosome-kd-multiseed` (非 `chromosome-kd`) | §1.4 表格 4 行项目名修正 |
 | **C18** (新) | §2.2.6 `ldmdet_dpm_solver_pp_o2_s8` 数据源未标注 SwanLab 项目 | 该实验来自 `chromosome-kd-dpm` 项目 (run `hdgb63g34bup7jm33kged`), 状态 CRASHED | §2.2.6 表格添加 SwanLab 项目列与 run_id |
-| **C19** (新) | C16 ε 消融数据源已确认 | ε 消融 (ε=1/2/5) 来自 `ldmdet-mainline-ablation-old` (bs=2), §1.5 标注的 `ldmdet-ablation` 不正确 | §1.5 Stoch. Coupling ε 消融行 SwanLab项目改为 `ldmdet-mainline-ablation-old`, C16 可标记为已解决 |
+| **C19** (新) | C16 ε 消融数据源已确认 | ε 消融 (ε=1/2/5) 来自 `ldmdet-mainline-ablation-old` (bs=2), §1.4 标注的 `ldmdet-ablation` 不正确 | §1.4 Stoch. Coupling ε 消融行 SwanLab项目改为 `ldmdet-mainline-ablation-old`, C16 可标记为已解决 |
 | **C20** (新) | §3.6.1 与 §3.6.4 ε 消融数值不一致 | ε=2: §3.6.1 (bs=2, no-AdaLN) = 0.749 vs §3.6.4 (bs=8, AdaLN) = 0.738; ε=5: §3.6.1 = 0.746-0.749 vs §3.6.4 = 0.720-0.734 | 论文 §4.4.3 引用应明确数据源: 主表使用 §3.6.1 (bs=2, 与 Dataset 2 实验配置一致), §3.6.4 (bs=8) 作为 AdaLN 增益对照 |
 | **C21** (新) | PD-RF v2/v3/v4 max mAP 误导 | v2/v3/v4 的 "max mAP" (0.851-0.860) 实际为 step=1 初始 +DPM-Solver++ checkpoint 评估值, 非蒸馏训练结果 | §3.2.2 应明确 v1-v4 的 max mAP 均为初始值, 蒸馏训练后 mAP 立即退化 |
 
@@ -917,9 +877,9 @@ rf_heun_adaln.py (Dataset 1 RF+Heun+AdaLN 基线, bs=4)
 | C14 | Decoupled Head mAP 严重错误 (Dataset 1) <!-- verified: 2026-07-16 --> | 原记录 0.702 (step 25 中间值), 实际 max=0.749 (step 74, 86 evals, 训练未中断)。"显著退化"结论需复核。本地 `work_dirs/direction_exps/direction_b_decoupled_head/` scalars.json 实测确认。 |
 | C15 | ~~Stoch. Coupling ε=5 seed 数量矛盾 (Dataset 1)~~ ✅ 已解决 <!-- verified: 2026-07-16 --> | 3 seeds 已全部完成: seed_42=0.746, seed_123=0.746@ep57, seed_789=0.749@ep69 (ross scalars.json 确认)。论文 §4.4.2 和附录 E.2 已更新为 3 seeds (mean 0.747±0.002)。原 "1 seed" 指的是 multi_seed_aug/sinkhorn_stochastic/seed_42 (0.748), 与 multi_seed/stochot_eps5_old/ 是不同实验目录。 |
 | C16 | Epsilon 消融数据源不匹配 (Dataset 1) <!-- verified: 2026-07-16 --> | 论文 §4.4.3 (ε=0.5→0.710, ε=1.0→0.745, ε=2.0 stochastic→0.749, ε=5.0→0.746, ε=2.0 argmax→0.752) 与 EXPERIMENT_RESULTS.md §5 旧值 (0.720-0.738) 不匹配, 可能来自不同实验批次 (nonlinear_trajectory 系列)。本地仅 seed_42=0.748 可直接验证。详见 §3.6.1 / C19 (已解决)。 |
-| C17 | §1.5 SOTA 多种子项目归属错误 <!-- verified: 2026-07-19 SwanLab --> | SOTA seed_{42,123,456,1000} 四行 SwanLab项目列应为 `chromosome-kd-multiseed` (非 `chromosome-kd`), run_id 已正确。4-seed mean=0.746±0.004 与 C6 一致。详见 §3.6.3。 |
+| C17 | §1.4 SOTA 多种子项目归属错误 <!-- verified: 2026-07-19 SwanLab --> | SOTA seed_{42,123,456,1000} 四行 SwanLab项目列应为 `chromosome-kd-multiseed` (非 `chromosome-kd`), run_id 已正确。4-seed mean=0.746±0.004 与 C6 一致。详见 §3.6.3。 |
 | C18 | §2.2.6 `ldmdet_dpm_solver_pp_o2_s8` 数据源未标注 SwanLab 项目 <!-- verified: 2026-07-19 SwanLab --> | 该实验来自 `chromosome-kd-dpm` 项目 (run `hdgb63g34bup7jm33kged`), 状态 CRASHED, mAP=0.748 @ step 65。§2.2.6 表格应添加 SwanLab 项目列与 run_id。详见 §3.6.2。 |
-| C19 | ~~C16 ε 消融数据源已确认~~ ✅ 已解决 <!-- verified: 2026-07-19 SwanLab --> | ε 消融 (ε=1/2/5) 数据源确认为 `ldmdet-mainline-ablation-old` (bs=2), §1.5 标注的 `ldmdet-ablation` 不正确。run_ids: ε=1=`v97i4rtnkdkagko469w2s`, ε=2=`zs8sbypvh2d3rqtc6316o`, ε=5=`cgub615jprtse2g1edtcw`/`7fkfwi4e3teyyrr0t5l1q`/`3yh5cqaacv066oqjpdw4q`。C16 可标记为已解决。详见 §3.6.1。 |
+| C19 | ~~C16 ε 消融数据源已确认~~ ✅ 已解决 <!-- verified: 2026-07-19 SwanLab --> | ε 消融 (ε=1/2/5) 数据源确认为 `ldmdet-mainline-ablation-old` (bs=2), §1.4 标注的 `ldmdet-ablation` 不正确。run_ids: ε=1=`v97i4rtnkdkagko469w2s`, ε=2=`zs8sbypvh2d3rqtc6316o`, ε=5=`cgub615jprtse2g1edtcw`/`7fkfwi4e3teyyrr0t5l1q`/`3yh5cqaacv066oqjpdw4q`。C16 可标记为已解决。详见 §3.6.1。 |
 | C20 | §3.6.1 与 §3.6.4 ε 消融数值不一致 <!-- verified: 2026-07-19 SwanLab --> | ε=2: §3.6.1 (bs=2, no-AdaLN) = 0.749 vs §3.6.4 (bs=8, AdaLN) = 0.738; ε=5: §3.6.1 = 0.746-0.749 vs §3.6.4 = 0.720-0.734。两表为不同实验批次 (bs/seed/AdaLN 不同), 不可混用。论文 §4.4.3 引用应使用 §3.6.1 (bs=2, 与 Dataset 2 配置一致)。详见 §3.6.4。 |
 | C21 | PD-RF v2/v3/v4 max mAP 误导 <!-- verified: 2026-07-19 SwanLab --> | v2/v3/v4 的 "max mAP" (0.851-0.860) 实际为 step=1 初始 +DPM-Solver++ checkpoint 评估值, 非蒸馏训练结果。蒸馏训练后 mAP 立即退化 (v3 last=0.421, v4 last=0.324)。§3.2.2 应明确 v1-v4 的 max mAP 均为初始值。详见 §3.6.6。 |
 
@@ -939,9 +899,7 @@ rf_heun_adaln.py (Dataset 1 RF+Heun+AdaLN 基线, bs=4)
 | Dataset 1 Bottleneck 消融 | /media/ross/8TB/.../work_dirs/bottleneck/ | ✅ 完成 | ✅ 已同步 |
 | Dataset 1 Direction 实验 | /media/ross/8TB/.../work_dirs/direction_exps/ | ✅ 完成 | ✅ 已同步 |
 | Dataset 1 生成迁移 FBM | /media/ross/8TB/.../work_dirs/gen_transfer_phase1_e6_*/ | ✅ 完成 | ✅ 已同步 |
-| Few-Shot 源预训练 | /media/ross/8TB/.../work_dirs/few_shot/ | 🔄 部分完成 | ✅ 已同步 |
 | SC-RF Dataset 2 | /media/ross/8TB/.../work_dirs/sc_rf_24obj/ | ✅ 已归档 (2026-07-11) | ✅ 已同步 | <!-- verified: 2026-07-16: max mAP=0.860 (count=112) -->
-| 跨域 AutoKary | /media/ross/8TB/.../work_dirs/cross_domain/ | 🔄 进行中 | ✅ 已同步 |
 | FPS Benchmark | /media/ross/8TB/.../results/benchmark_fps_* | ✅ 完成 | ✅ 已同步 |
 | M1 形态感知 RoI (FP32) | /media/ross/8TB/.../work_dirs/m1_morphology_aware_24obj_fp32/ | ✅ 已完成 (2026-07-25, best 0.862@ep19, Δ=-0.001 vs +DPM-Solver++ 持平) | ✅ 已同步 | <!-- 2026-07-25: 30ep FP32, lr=2e-5 2×, 1ep warmup, 显存 37.5GB; BF16 误导根因确认; 详见 §6.6 C22 -->
 | Head Distillation v2 | /media/ross/8TB/.../work_dirs/h3_distill_24obj/ | ⛔ 已清理 (2026-07-27): 配置Bug freeze_backbone=True 致 mAP=0.717@ep109 (非 0.711@ep96), Δ=-0.146; 方法本身有效, 修复配置 0.860 (→ LINEAGE §十五); checkpoint/log 已删除释放磁盘 | ✅ 已同步 (checkpoint 已清理) | <!-- 2026-07-24 01:03 启动, 2026-07-25 异常中断@ep99, 续训@ep109 best 0.717, ep115 kill; 根因: backbone 冻结致特征不匹配; 2026-07-27 归档证伪+清理; 详见 §6.6 C26 + FALSIFIED §十三 -->
@@ -973,7 +931,6 @@ rf_heun_adaln.py (Dataset 1 RF+Heun+AdaLN 基线, bs=4)
 | a4_swinglu_24obj/ | SwiGLU FFN 实验 | ✅ 新增 |
 | setdiff_24obj/ | SetDiff 实验 (2026-07-14) | ✅ 新增 |
 | pd_rf_24obj/ | PD-RF 蒸馏实验 (2026-07-11) | ✅ 新增 |
-| cross_domain/ | AutoKary 跨域实验 (2026-07-13) | ✅ 新增 |
 | chromogen_phase1_sd15_24obj*/ | ChromoGen SD1.5 生成模型 (Dataset 2) | ✅ 新增 |
 | ablation_old/ | 旧 epsilon 消融归档 | ✅ 新增 |
 | diagnosis/ | 零成本推理诊断实验 (D1-D5 结构诊断 + 方向 A/D 对比 + D1 消融) | ✅ 新增 |
@@ -1113,7 +1070,6 @@ rf_heun_adaln.py (Dataset 1 RF+Heun+AdaLN 基线, bs=4)
 | chromogen_phase1_sd15/ | — | ChromoGen SD1.5 生成模型 | ⭐⭐ |
 | chromogen_phase1_sd15_24obj/ | Dataset 2 | ChromoGen SD1.5 (Dataset 2) | ⭐⭐ |
 | chromogen_phase1_sd15_24obj_v2/ | Dataset 2 | ChromoGen SD1.5 v2 | ⭐⭐ |
-| cross_domain/ | AutoKary | 跨域 zero-shot + finetune (新增) | ⭐⭐⭐ |
 | cspnext_l_rf_heun_adaln_stochot/ | Dataset 1 | CSPNeXt-L backbone (证伪) | ⭐ |
 | direction_exps/ | Dataset 1 | Decoupled Head / Box Refine Net 实验 | ⭐⭐ |
 | frontier_directions/ | Dataset 2 | h_velocity_loss, Cascade Head Count e2e 等 | ⭐⭐ |

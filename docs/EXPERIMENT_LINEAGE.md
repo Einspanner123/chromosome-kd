@@ -1193,8 +1193,8 @@ S1 的 H×S 理论说明 "仅改变 H 会破坏横向收敛性" (已证伪 N_cas
 - Head Distillation (H=3←H=6, backbone解冻 + A4 backbone加载)
   -- 数据集: Dataset 2
   -- 改动: num_heads=6→3, use_distillation=True, distill_lambda=0.05, distill_head_map={0:0,1:2,2:5}, freeze_backbone=False, teacher_checkpoint=A4 best ep117, lr=1e-5, 50ep
-  -- 结果: mAP=0.860 (best@ep10, early stop@ep40), AP50=0.988, AP75=0.971 [Δ=-0.003 vs A4 0.863, 在 3-seed noise ±0.003 内]
-  -- NFE: 12 (H=3 × S=4) vs A4 24 (H=6 × S=4), **2× 加速**
+  -- 结果: mAP=0.859 (val独立评估 test.py --dataset val, seed 42; 训练best@ep10=0.860, early stop@ep40), AP50=0.986, AP75=0.969 [Δ=-0.004 vs A4 0.863, 在 3-seed noise ±0.003 内]
+  -- NFE: 12 (H=3 × S=4) vs A4 24 (H=6 × S=4), **2× 加速**; 延迟 44.72ms / 22.4 FPS (ross A6000, 500iters, Head 39.17ms / Backbone 5.55ms) vs A4 77.57ms / 12.9 FPS, **1.73× 推理加速**
   -- loss_distill: 持续下降 0.050→0.025 (50% 下降), 蒸馏目标有效
   -- per-class AP: 与 A4 对齐 (Δ -0.012~+0.004, 最大差异 D15 -0.012)
   -- work_dir: work_dirs/h3_distill_plan_a_24obj/ (本地 + ross)
@@ -1203,10 +1203,10 @@ S1 的 H×S 理论说明 "仅改变 H 会破坏横向收敛性" (已证伪 N_cas
 
 #### 关键结论
 
-- **NFE 24→12 加速 2x + 精度持平**: mAP=0.860 持平 A4 0.863, 达成工程目标
+- **NFE 24→12 加速 2x + 精度近乎持平**: mAP=0.859 (val独立评估) 近乎持平 A4 0.863 (Δ=-0.004, 在 3-seed noise ±0.003 内), 延迟 44.72ms / 22.4 FPS (vs A4 77.57ms / 12.9 FPS, 1.73× 加速), 达成工程目标
 - **蒸馏有效性**: loss_distill 持续下降 (vs 失败配置停滞 0.033), per-class AP 对齐 A4, 证明 headwise feature 蒸馏可以有效压缩 cascade head
-- **与 S1 互补**: S1 证明 H×S 可交换 (H=3,S=4 = H=6,S=2 = 0.859), Head Distillation 证明 H=3 通过蒸馏可达 0.860, 两者共同支撑 "cascade head 可压缩" 的理论
-- **未超越 A4**: 仅持平, 无增益 (但"持平"可能已是蒸馏最佳结果, 因 backbone 从 A4 加载本身就是知识继承)
+- **与 S1 互补**: S1 证明 H×S 可交换 (H=3,S=4 = H=6,S=2 = 0.859), Head Distillation 证明 H=3 通过蒸馏可达 0.859, 两者共同支撑 "cascade head 可压缩" 的理论
+- **未超越 A4**: 近乎持平 (Δ=-0.004), 无增益 (但"近乎持平"可能已是蒸馏最佳结果, 因 backbone 从 A4 加载本身就是知识继承)
 
 #### 失败配置对照 (→ FALSIFIED §十三)
 

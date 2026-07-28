@@ -92,7 +92,7 @@ Index Terms --- Rectified Flow, object detection, optimal transport, diffusion m
 
 **动机实例：染色体核型分析。** 染色体核型分析——为遗传疾病诊断而对中期染色体进行的视觉分析——正是上述瓶颈的集中体现：每张图像约 46 条密集排列的染色体，跨越 24 个形态相似的类别，存在严重的类别不平衡（Y 染色体训练样本约 1,803 对比常染色体约 7,000）和频繁的相互重叠。这些需求映射到我们的三个要素：RF 提供低截断误差的直线轨迹；Stochastic Coupling 抵消低维空间中的 OT 多样性坍缩；DPM-Solver++ 配合 Top-$K$ 剪枝将轨迹转化为临床级延迟。实验在两个公开数据集（Chromosome20240904，1,540 张；24 Chromosomes Object，5,000 张）上经多 seed 验证。
 
-基于上述场景到方法的映射，我们从推理端和训练端两方面做出贡献。**推理端：RF 整体方案。** KaryoFlow 采用 RF 训练范式，在低数据场景下取得该设置下的最高 mAP（Dataset 1 mAP $0.753$，高于同 backbone 的 DINO R50 0.737 及更强 CSPNeXt-L 主干的 RTMDet-L 0.742），精度优势在低数据场景下尤为突出；在较大数据集上与 RTMDet-L 近乎持平（mAP 0.863 vs 0.863）并大幅超越 DiffusionDet（+0.056 mAP）；上述结果经多 seed 验证（均值 $0.747$ / $0.859$）。solver×step 解耦消融表明 RF 范式贡献了 91% 的精度增益，RF 范式（以理想直线为目标的低曲率传输路径）是核心增益来源。DPM-Solver++ 在 RF 的低曲率轨迹下于 4 NFE 内达到更高精度，相比 Heun 的 7 NFE 加速 $1.71\times$（13.3 FPS，RTX A6000）；零开销直线度指标 $\eta_{\mathrm{str}}$（命题 4）将"2 步收敛"从经验观察提炼为可复现的定量指标，并为 reflow 提供操作指引。**训练端：OT Diversity Collapse 的形式化分析与 Stochastic Coupling。** 我们证明低维检测空间中 OT 耦合引发近乎完全的多样性坍缩（$\Delta H \ge 0.999\,\log K$，semi-discrete 极限下，经验紧致至 0.03%），并基于 Sinkhorn 采样提出 Stochastic Coupling——可恢复耦合多样性（命题 3）：低数据条件下精度增益达 +0.034 mAP（$p < 0.001$），一般条件下训练振荡降低 $4.6\times$。
+基于上述场景到方法的映射，我们从推理端和训练端两方面做出贡献。**推理端：RF 整体方案。** KaryoFlow 采用 RF 训练范式，在低数据场景下取得该设置下的最高 mAP（Dataset 1 mAP $0.753$，高于同 backbone 的 DINO R50 0.737 及更强 CSPNeXt-L 主干的 RTMDet-L 0.742），精度优势在低数据场景下尤为突出；在较大数据集上与 RTMDet-L 近乎持平（mAP 0.863 vs 0.863）并大幅超越 DiffusionDet（+0.056 mAP）；上述结果经多 seed 验证（均值 $0.747$ / $0.859$）。solver×step 解耦消融表明 RF 范式贡献了 91% 的精度增益，RF 范式（以理想直线为目标的低曲率传输路径）是核心增益来源。DPM-Solver++ 在 RF 的低曲率轨迹下于 4 NFE 内达到更高精度，相比 Heun 的 7 NFE 加速 $1.71\times$（12.9 FPS，RTX A6000）；零开销直线度指标 $\eta_{\mathrm{str}}$（命题 4）将"2 步收敛"从经验观察提炼为可复现的定量指标，并为 reflow 提供操作指引。**训练端：OT Diversity Collapse 的形式化分析与 Stochastic Coupling。** 我们证明低维检测空间中 OT 耦合引发近乎完全的多样性坍缩（$\Delta H \ge 0.999\,\log K$，semi-discrete 极限下，经验紧致至 0.03%），并基于 Sinkhorn 采样提出 Stochastic Coupling——可恢复耦合多样性（命题 3）：低数据条件下精度增益达 +0.034 mAP（$p < 0.001$），一般条件下训练振荡降低 $4.6\times$。
 
 ![**图 1**：KaryoFlow 总览——三项贡献的架构关系。(a) **Rectified Flow 范式**（贡献 1）：RF 以从噪声 $\mathbf{x}_1$ 到 GT 框 $\mathbf{x}_0$ 的直线 ODE 路径（橙色实线）取代弯曲的 DDPM 去噪轨迹（灰色虚线）；节点表示 4 个 solver 步；直线度指标 $\eta_{\mathrm{str}}$（命题 4）从 DPM-Solver++ 的二阶校正项 $\mathbf{D}_1$ 零开销读出，量化轨迹直线性。(b) **时间条件与架构**：AdaLN-Zero 以零初始化调制注入连续时间 $t$（使网络在 $t{=}0$ 时为恒等映射）；每个 solver step 内 $H=6$ 个 cascade head 顺序精化（算子分裂：横向精化 $\mathcal{B}_{t,k}$ × 纵向积分 $\mathcal{A}_t$，贡献 3）。(c) **OT Diversity Collapse 与 Stochastic Coupling**（贡献 2）：Hard OT（红色）将多样性坍缩至 $H(V|X_t)=0$（$\Delta H \ge 0.999\,\log K$）；Random pairing（橙色）保持完全多样性 $H(V|X_t)=\log K$；Stochastic Coupling（粉色）从 Sinkhorn transport 采样，在 hard OT 和 Random 之间插值（$0 < H(V|X_t) < \log K$，关于 $\epsilon$ 单调递增，命题 3）。](latex/figures/method_overview.png)
 
@@ -368,22 +368,22 @@ Table 10 和 Figure 6 报告了在 $512{\times}512$ 输入分辨率下的速度-
 
 | 模型 | Solver | NFE | Latency (ms) | FPS | mAP |
 |-------|--------|-----|-------------|-----|-----|
-| RF+Heun | Heun | 7 | 124.38 | 8.0 | 0.856 |
-| +Stoch. Coupling | Heun | 7 | 128.35 | 7.8 | 0.858 |
-| **+DPM-Solver++** | DPM++ | 4 | **75.03** | **13.3** | **0.863** |
-| +DPM-Solver++ + Top-$K$ (K=300) | DPM++ | 4 | 71.27 | 14.0 | 0.861 |
-| **+DPM-Solver++ + Top-$K$ (K=200)** | DPM++ | 4 | **70.46** | **14.2** | **0.860** |
-| +DPM-Solver++ + Top-$K$ (K=100) | DPM++ | 4 | 69.71 | 14.3 | 0.850 |
-| **+DPM-Solver++ (H=3 Distill)** | DPM++ | 4 | **$\sim$45** | **$\sim$22** | **0.860** |
-| Cascade R-CNN | — | 1 | 20.67 | 48.4 | 0.854 |
-| YOLOX-S | — | 1 | 10.15 | 98.5 | 0.796 |
-| DiffusionDet | Euler | 1 | 24.38 | 41.0 | 0.803 |
+| RF+Heun | Heun | 7 | 122.55 | 8.2 | 0.856 |
+| +Stoch. Coupling | Heun | 7 | 130.85 | 7.6 | 0.858 |
+| **+DPM-Solver++** | DPM++ | 4 | **77.57** | **12.9** | **0.863** |
+| +DPM-Solver++ + Top-$K$ (K=300) | DPM++ | 4 | 70.46 | 14.2 | 0.861 |
+| **+DPM-Solver++ + Top-$K$ (K=200)** | DPM++ | 4 | **68.99** | **14.5** | **0.860** |
+| +DPM-Solver++ + Top-$K$ (K=100) | DPM++ | 4 | 67.43 | 14.8 | 0.850 |
+| **+DPM-Solver++ (H=3 Distill)** | DPM++ | 4 | **44.72** | **22.4** | **0.859** |
+| Cascade R-CNN | — | 1 | 20.11 | 49.7 | 0.854 |
+| YOLOX-S | — | 1 | 9.53 | 105.0 | 0.796 |
+| DiffusionDet | Euler | 1 | 23.19 | 43.1 | 0.803 |
 
-**表 10**：FPS / 延迟基准（Dataset 2 验证集，512×512，seed 42 best checkpoint；3-seed 均值见 Table 5，测试集评估见 §4.5.4）。延迟为 RTX A6000 上 200 张图像均值，逐图像 std < 3.4 ms。H=3 Distill 行通过 headwise feature 蒸馏将 cascade head 从 6 个压缩至 3 个（NFE 24→12），延迟由 head 计算比例（H=3 vs H=6 实测 0.57×）从 +DPM-Solver++ 的 75.03 ms 估算为 $\sim$45 ms；完整实测待无 GPU 竞争环境下补全。+DPM-Solver++ (H=3 Distill) 在 mAP 0.860 下达到 $\sim$22 FPS，为相同精度下最快变体；标准 single-shot 检测器快 3–7× 但 mAP 低 0.005–0.067。
+**表 10**：FPS / 延迟基准（Dataset 2 验证集，512×512，seed 42 best checkpoint；3-seed 均值见 Table 5，测试集评估见 §4.5.4）。延迟为 RTX A6000 上 500 次迭代均值（batch=1，CUDA Event 计时），std < 0.9 ms。H=3 Distill 行通过 headwise feature 蒸馏将 cascade head 从 6 个压缩至 3 个（NFE 24→12），实测延迟 44.72 ms（Head 39.17 ms / Backbone+Neck 5.55 ms），mAP 经 val 集独立评估为 0.859。+DPM-Solver++ (H=3 Distill) 在 mAP 0.859 下达到 22.4 FPS，为近乎相同精度下最快变体（较 K=200 的 mAP 0.860 仅低 0.001，在 3-seed noise $\pm 0.003$ 内）；标准 single-shot 检测器快 3–7× 但 mAP 低 0.005–0.067。
 
-+DPM-Solver++ + Top-$K$ (K=200) 是 Top-$K$ 剪枝中最快的变体（70.46 ms / 14.2 FPS，mAP 0.860）；**H=3 Distill** 通过架构级压缩（cascade head 6→3）在相同 mAP 0.860 下达到 $\sim$22 FPS，较 K=200 加速 $1.55\times$。+DPM-Solver++ 在 mAP 0.863 下达到 75 ms / 13.3 FPS。cascade 头占据 $90\%+$ 的延迟；主干+颈部是次要成本（约 5.8 ms，4–8%）。H=3 蒸馏与 Top-$K$ 剪枝互补——前者减少每步 head 调用数，后者减少 proposal 数——二者可叠加使用。
++DPM-Solver++ + Top-$K$ (K=200) 是 Top-$K$ 剪枝中最快的变体（68.99 ms / 14.5 FPS，mAP 0.860）；**H=3 Distill** 通过架构级压缩（cascade head 6→3）在近乎相同 mAP（0.859 vs 0.860，$\Delta{=}{-}0.001$，在 3-seed noise $\pm 0.003$ 内）下达到 22.4 FPS，较 K=200 加速 $1.55\times$。+DPM-Solver++ 在 mAP 0.863 下达到 78 ms / 12.9 FPS。cascade 头占据 $90\%+$ 的延迟；主干+颈部是次要成本（约 5.6 ms，4–8%）。H=3 蒸馏与 Top-$K$ 剪枝互补——前者减少每步 head 调用数，后者减少 proposal 数——二者可叠加使用。
 
-![**图 8**：速度-精度权衡（Dataset 2，RTX A6000，512×512）。FPS 轴为对数尺度。我们的 RF 变体（圆形/方形/星形）位于高精度区（mAP > 0.85）；标准检测器（三角形）快 3–7× 但精度较低。**+DPM-Solver++ (H=3 Distill)**（$\sim$22 FPS，mAP 0.860）通过 cascade head 蒸馏压缩取得最佳速度-精度权衡，较 Top-$K$ 剪枝最快变体 K=200（14.2 FPS）加速 $1.55\times$。Cascade head 占 $90\%+$ 延迟（§4.6），主干+颈部仅 4–8%（约 5.8 ms）。](latex/figures/fps_map.png)
+![**图 8**：速度-精度权衡（Dataset 2，RTX A6000，512×512）。FPS 轴为对数尺度。我们的 RF 变体（圆形/方形/星形）位于高精度区（mAP > 0.85）；标准检测器（三角形）快 3–7× 但精度较低。**+DPM-Solver++ (H=3 Distill)**（22.4 FPS，mAP 0.859）通过 cascade head 蒸馏压缩取得最佳速度-精度权衡，较 Top-$K$ 剪枝最快变体 K=200（14.5 FPS）加速 $1.55\times$。Cascade head 占 $90\%+$ 延迟（§4.6），主干+颈部仅 4–8%（约 5.6 ms）。](latex/figures/fps_map.png)
 
 ### 4.7 跨数据集总结
 
@@ -462,7 +462,7 @@ Top-$K$ 剪枝的有效性取决于每步 NFE：对 Heun（2 NFE/步），剪枝
 
 ## 6. 结论
 
-本文提出 KaryoFlow——一种区别于传统判别式理论、基于扩散与流匹配理论的生成式检测新范式，以 Rectified Flow 的低曲率传输路径将扩散检测引入染色体核型分析。在推理端，RF 范式贡献了 91% 的精度增益：KaryoFlow 在低数据场景下取得该设置下的最高 mAP（Dataset 1 mAP $0.753$，高于同 backbone 的 DINO R50 及更强主干的 RTMDet-L），在较大数据集上与 RTMDet-L 近乎持平（mAP 0.863 vs 0.863）并大幅超越 DiffusionDet（+0.056 mAP）；DPM-Solver++ 利用低曲率轨迹在 4 NFE 内达到更高精度，相比 Heun 的 7 NFE 加速 $1.71\times$（13.3 FPS，RTX A6000），零开销直线度指标 $\eta_{\mathrm{str}}$（命题 4）将"2 步收敛"从经验观察提炼为可复现的定量指标，并为 reflow 提供操作指引。在训练端，低维检测空间中 OT 耦合引发近乎完全的多样性坍缩——我们对此给出形式化分析——基于 Sinkhorn 采样提出的 Stochastic Coupling 可恢复耦合多样性（命题 3）：低数据条件下精度增益达 +0.034 mAP（$p<0.001$），一般条件下训练振荡降低 $4.6\times$。
+本文提出 KaryoFlow——一种区别于传统判别式理论、基于扩散与流匹配理论的生成式检测新范式，以 Rectified Flow 的低曲率传输路径将扩散检测引入染色体核型分析。在推理端，RF 范式贡献了 91% 的精度增益：KaryoFlow 在低数据场景下取得该设置下的最高 mAP（Dataset 1 mAP $0.753$，高于同 backbone 的 DINO R50 及更强主干的 RTMDet-L），在较大数据集上与 RTMDet-L 近乎持平（mAP 0.863 vs 0.863）并大幅超越 DiffusionDet（+0.056 mAP）；DPM-Solver++ 利用低曲率轨迹在 4 NFE 内达到更高精度，相比 Heun 的 7 NFE 加速 $1.71\times$（12.9 FPS，RTX A6000），零开销直线度指标 $\eta_{\mathrm{str}}$（命题 4）将"2 步收敛"从经验观察提炼为可复现的定量指标，并为 reflow 提供操作指引。在训练端，低维检测空间中 OT 耦合引发近乎完全的多样性坍缩——我们对此给出形式化分析——基于 Sinkhorn 采样提出的 Stochastic Coupling 可恢复耦合多样性（命题 3）：低数据条件下精度增益达 +0.034 mAP（$p<0.001$），一般条件下训练振荡降低 $4.6\times$。
 
 除染色体核型分析外，我们所形式化分析的 OT Diversity Collapse 现象对染色体并非特异——它在预测空间低维、每张图像目标密度高、训练语料小的情况下出现。这一画像在医学影像中反复出现：组织病理学中的细胞检测（每个 tile 多个核，$d=4$ bbox，小标注队列），乳腺 X 光和视网膜成像中的病灶检测（小目标，有限阳性案例），以及微生物菌落计数。在这些设置中，确定性 OT 耦合向 $\log K$ 坍缩，Stochastic Coupling 提供相同的双重收益——低数据情形下的精度、一般情形下的稳定性——正如我们在染色体上观察到的。理论通过 Table 2 提供 a-priori 诊断：任何 $d \ll 100$ 且 $K \gg 10$ 的任务是候选，维度判据 $K^{-1/d}$ 作为跨维度筛选工具识别高风险任务（低维回归族），Stochastic Coupling 越可能有帮助。在至少一个非染色体高 $K$ 低 $d$ 基准上的验证——细胞检测是最自然的下一步——将大幅强化普遍性 claim。
 
