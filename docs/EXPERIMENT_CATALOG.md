@@ -428,7 +428,7 @@
 | SC-RF Dataset 2 | sc_rf_24obj.py (备份) | work_dirs/sc_rf_24obj/ | ldmdet-breakthrough | 0.860 | ✅ 已归档 | <!-- verified: 2026-07-16: 本地 scalars.json max=0.860 (count=112, best@ep82); 2026-07-11 归档 -->
 | SC-RF Dataset 1 (SCRF 启用) | nonlinear_trajectory_e43_eps2.py | work_dirs/nonlinear_trajectory_e43_eps2_real/ | ldmdet-ablation | 0.741 | ⛔ 证伪 |
 
-> ⛔ Dataset 1 上 SCRF 真正启用后 0.741 < 0.746 baseline, 方向证伪。Dataset 2 上 SC-RF (0.860) **超越 +Stoch. Coupling (0.858) +0.002**, 但 vs +DPM-Solver++ (0.863) 仍为 -0.003 负增益, 自条件化在 4 维 bbox 信息瓶颈下无显著优势, 已于 2026-07-11 归档。详见 EXPERIMENT_LINEAGE.md §11。 <!-- verified: 2026-07-16 -->
+> ⛔ Dataset 1 上 SCRF 真正启用后 0.741 < 0.746 baseline, 方向证伪。Dataset 2 上 SC-RF (0.860) **超越 +Stoch. Coupling (0.858) +0.002**, 但 vs +DPM-Solver++ (0.863) 仍为 -0.003 负增益, 自条件化在 4 维 bbox 信息瓶颈下无显著优势, 已于 2026-07-11 归档。详见 FALSIFIED_DIRECTIONS.md §二十三。 <!-- verified: 2026-07-16 -->
 
 #### 3.2.4 CAT Loss 系列 / TRD / Velocity
 

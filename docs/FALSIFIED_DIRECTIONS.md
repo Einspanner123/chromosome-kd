@@ -1248,6 +1248,69 @@ MDC-RF 提出: 用连续介质力学物质导数 $D\hat{x}_0/Dt = \partial \hat{
 
 ---
 
+## 二十三、SC-RF (自条件化 RF, 边际不采用)
+
+### 核心设想
+
+把上一步预测作为条件输入 (借鉴自条件化扩散模型思想), 期望模型利用预测历史改善去噪精度。
+
+### 证伪证据
+
+#### 实验证明目的
+
+验证自条件化 RF 是否能超越 A4 baseline (0.863)。
+
+- SC-RF (自条件化 RF, Dataset 2)
+  -- 数据集: Dataset 2
+  -- 结果: best mAP=0.860@ep82, **Δ = −0.003 vs A4 0.863** (在 noise 范围内但无增益)
+  -- Early Stop @ ep112
+  -- 自条件化机制实现正确 (50% 激活、零初始化过渡、校正幅度增长均正常)
+  -- 数据源: ross `/media/ross/8TB/linkst/chromo/chromosome-kd/work_dirs/sc_rf_24obj/`
+  -- SwanLab: `ldmdet-breakthrough`
+  -- 详细设计与复盘: [SC-RF_Self-Conditioned_Rectified_Flow.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/SC-RF_Self-Conditioned_Rectified_Flow.md)
+
+### 失败原因分析
+
+1. **边际结果, 无增益**: 自条件化机制实现正确但未带来 mAP 改善, 说明自条件化在低维 (d=4) RF 检测中价值有限。
+2. **与 ScaleConditionedRF 形成对照**: ScaleConditionedRF (0.741 < 0.746, §一) 因训练-推理不一致而崩塌; SC-RF 至少无害 (未崩塌), 但也无增益, 证实自条件化本身非低维检测的关键瓶颈。
+
+---
+
+## 二十四、PD-RF (4→1 Progressive Distillation, 灾难性崩塌)
+
+### 核心设想
+
+将 A4 (4步 DPM-Solver++, mAP=0.862) 蒸馏到 1步 Euler, 期望 4× 推理加速 (4步→1步) 同时保持精度。采用直接 4→1 蒸馏 (非 Salimans 级联式渐进蒸馏)。
+
+### 证伪证据
+
+#### 实验证明目的
+
+验证 4→1 直接蒸馏是否能将 4步 DPM-Solver++ 压缩到 1步 Euler 同时保持精度 ≥ A4 baseline。
+
+- PD-RF v1-v4 (4→1 直接蒸馏, Dataset 2)
+  -- 数据集: Dataset 2
+  -- Teacher: A4 (4步 DPM-Solver++, mAP=0.862, 冻结)
+  -- Student: 1步 Euler
+  -- v1-v4 共 4 次迭代均失败
+  -- best mAP=0.851@ep1 (即 A4 初始化点, 训练零增益)
+  -- v4 最终 mAP 从 0.851 灾难性崩塌至 0.252@ep28, Early Stop @ ep31
+  -- 归档时间: 2026-07-11
+  -- 详细设计与复盘: [PD-RF_Progressive_Distillation.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/PD-RF_Progressive_Distillation.md)
+
+### 失败原因分析
+
+1. **1步 Euler 无法逼近 4步 DPM-Solver++ 预测**: teacher (4步 DPM++) 与 student (1步 Euler) 的预测 gap ~1.0, 蒸馏目标不可学, student 无法收敛。
+2. **蒸馏梯度与检测梯度严重冲突**: grad_norm 持续 150-200, 蒸馏损失 (MSE 拟合 teacher) 与检测损失 (分类+回归 GT) 梯度方向冲突, 导致训练崩塌。
+3. **直接 4→1 蒸馏跨度过大**: 不同于 Head Distillation (H=6→H=3, 同一 solver 内压缩, → LINEAGE §十五) 的成功, PD-RF 跨 solver (DPM++→Euler) 且跨步数 (4→1) 双重压缩, 蒸馏目标本身不可达。
+
+### 教训
+
+1. **蒸馏目标必须可达**: teacher 与 student 的预测 gap 过大时, 蒸馏目标不可学。后续蒸馏方向 (如 Head Distillation) 应先验证 teacher-student gap 在可学范围内。
+2. **跨 solver 蒸馏比同 solver 蒸馏困难**: Head Distillation (同 DPM++ solver, H 压缩) 成功, PD-RF (DPM++→Euler + 步数压缩) 失败, 证实 solver 跨越是蒸馏的主要难点。
+
+---
+
 ## 十二、证伪方向汇总与教训
 
 ### 证伪方向汇总表
@@ -1296,6 +1359,8 @@ MDC-RF 提出: 用连续介质力学物质导数 $D\hat{x}_0/Dt = \partial \hat{
 | MEC-RF (Modified-Equation Compensated RF) | — | — | — | — | ⛔ 冗余淘汰 (未实验, R2=6.5/10, 降为 BEAR fallback) |
 | EXER-RF (Extrapolation Error Regularization) | — | — | — | — | ⛔ 冗余淘汰 (未实验, R1=7.4/10, 与 BEAR k=2 正则同一对象) |
 | MDC-RF (Material Derivative Constraint) | — | — | — | — | ⛔ 冗余淘汰 (未实验, R1=7.0/10, 与 TFR 严格包含关系) |
+| SC-RF (自条件化 RF) | 0.860 | −0.003 | Dataset 2 | ldmdet-breakthrough | 🟠 边际不采用 (自条件化在低维 RF 检测中价值有限, §二十三) |
+| PD-RF (4→1 Progressive Distillation) | 0.851@ep1→0.252@ep28 | −0.011→−0.611 (崩塌) | Dataset 2 | — | ⛔ 灾难性崩塌 (1步 Euler 无法逼近 4步 DPM++, 蒸馏梯度冲突, §二十四) |
 
 ### 核心教训
 

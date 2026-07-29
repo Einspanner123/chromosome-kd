@@ -1325,15 +1325,6 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 - **数据源**: `work_dirs/m1_morphology_aware_24obj_fp32/` + [EXPERIMENT_CATALOG.md §6.6 C22/C23](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_CATALOG.md)
 - **详细分析**: [STRUCTURAL_IMPROVEMENT_ANALYSIS.md §3.1.7](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/STRUCTURAL_IMPROVEMENT_ANALYSIS.md)
 
-### SC-RF: 自条件化 RF — 边际不采用 (✓ 完成)
-
-- **核心设想**: 把上一步预测作为条件输入 (借鉴自条件化扩散模型思想)
-- **结果**: best mAP=0.860@ep82, **Δ = −0.003 vs A4 0.863** (在 noise 范围内但无增益)
-- **结论**: 边际结果, 不采用。与 ScaleConditionedRF 证伪 (0.741 < 0.746) 形成对照 — SC-RF 至少无害, 但无增益说明自条件化在低维 RF 检测中价值有限
-- **风险已验证**: ScaleConditionedRF 的训练-推理不一致问题在 SC-RF 中未造成崩塌, 但也未带来改善
-- **数据源**: ross `/media/ross/8TB/linkst/chromo/chromosome-kd/work_dirs/sc_rf_24obj/`
-- **SwanLab**: `ldmdet-breakthrough`
-
 ### Box Refine Net
 
 - Box Refine Net (Dataset 1, 1 seed)

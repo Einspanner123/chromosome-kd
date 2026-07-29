@@ -3,7 +3,7 @@
 > 本文档梳理 KaryoFlow (染色体检测论文, 目标 TMI 期刊) 所有进行中或待启动的研究方向。
 > 这些方向部分有代码就绪、配置就绪或实验已在运行, 部分仅有理论框架。
 > 每个方向附 **可靠数据源地址** (本地服务器路径 / SwanLab project / config 路径)。
-> 更新时间: 2026-07-28 (R1/R2 评审循环完成, 4 方向通过(LVD-RF/TRIP/BEAR/ISLR-RF), 10 方向淘汰→FALSIFIED §十五~§二十二; ReFlow 重试确认方法本质失败 → FALSIFIED §十四, 从本文档移除; 2026-07-27 校验+归档: R3 3-seed完成→LINEAGE §八, D3→LINEAGE §六, D1→LINEAGE §十五, M1→LINEAGE §十五, SC-RF→LINEAGE §十五; 全部代号替换为描述性名称; Few-Shot FBM CrossAttn 中断@ep59)
+> 更新时间: 2026-07-28 (R1/R2 评审循环完成, 4 方向通过(LVD-RF/TRIP/BEAR/ISLR-RF), 10 方向淘汰→FALSIFIED §十五~§二十二; ReFlow 重试确认方法本质失败 → FALSIFIED §十四, 从本文档移除; 2026-07-27 校验+归档: R3 3-seed完成→LINEAGE §八, D3→LINEAGE §六, D1→LINEAGE §十五, M1→LINEAGE §十五, SC-RF→FALSIFIED §二十三; 全部代号替换为描述性名称; Few-Shot FBM CrossAttn 中断@ep59)
 >
 > 📌 **关联文档**:
 > - [docs/EXPERIMENT_LINEAGE.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md) (主路线实验脉络, 已完成方向)
