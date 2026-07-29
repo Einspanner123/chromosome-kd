@@ -953,6 +953,9 @@ rf_heun_adaln.py (Dataset 1 RF+Heun+AdaLN 基线, bs=4)
 | YOLOX-S | — | 1 | 10.15 ± 0.41 | 98.5 | 0.796 | 0.795 |
 | DiffusionDet | Euler | 1 | 24.38 ± 1.09 | 41.0 | 0.803 | 0.804 |
 | RTMDet-L | — | — | 33.06 ± 0.80 | 30.3 | 0.863 | — |
+| DINO R50 | — | 1 | 32.73 ± 0.52 | 30.5 | 0.868 | — |
+
+> **2026-07-29 补充测量 (500 iters, 干净 A6000)**: DINO R50 与 RTMDet-L 重测（`results/benchmark_fps_20260729_103700.md` DINO, `benchmark_fps_20260729_103350.md` RTMDet-L）。RTMDet-L 500-iter 实测 32.82 ms / 30.5 FPS（与本表 300-iter 30.3 FPS 一致，在噪声内）。DINO R50 为首次注册测量（DETR-based，需 `batch_input_shape` metainfo）。论文 Table 10 / 图 8 采用 500-iter 口径（`benchmark_fps_20260729_021441.md`）。
 
 ### 6.5 零成本推理诊断实验 (work_dirs/diagnosis/)
 

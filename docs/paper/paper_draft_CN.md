@@ -378,12 +378,14 @@ Table 10 和 Figure 8 报告了在 $512{\times}512$ 输入分辨率下的速度-
 | Cascade R-CNN | — | 1 | 20.11 | 49.7 | 0.854 |
 | YOLOX-S | — | 1 | 9.53 | 105.0 | 0.796 |
 | DiffusionDet | Euler | 1 | 23.19 | 43.1 | 0.803 |
+| RTMDet-L | — | 1 | 32.82 | 30.5 | 0.863 |
+| DINO R50 | — | 1 | 32.73 | 30.5 | 0.868 |
 
-**表 10**：FPS / 延迟基准（Dataset 2 验证集，512×512，seed 42 best checkpoint；3-seed 均值见 Table 5，测试集评估见 §4.5.4）。延迟为 RTX A6000 上 500 次迭代均值（batch=1，CUDA Event 计时），std < 0.9 ms。H=3 Distill 行通过 headwise feature 蒸馏将 cascade head 从 6 个压缩至 3 个（NFE 24→12），实测延迟 44.72 ms（Head 39.17 ms / Backbone+Neck 5.55 ms），mAP 经 val 集独立评估为 0.859。+DPM-Solver++ (H=3 Distill) 在 mAP 0.859 下达到 22.4 FPS，为近乎相同精度下最快变体（较 K=200 的 mAP 0.860 仅低 0.001，在 3-seed noise $\pm 0.003$ 内）；标准 single-shot 检测器快 3–7× 但 mAP 低 0.005–0.067。
+**表 10**：FPS / 延迟基准（Dataset 2 验证集，512×512，seed 42 best checkpoint；3-seed 均值见 Table 5，测试集评估见 §4.5.4）。延迟为 RTX A6000 上 500 次迭代均值（batch=1，CUDA Event 计时），std < 0.9 ms。H=3 Distill 行通过 headwise feature 蒸馏将 cascade head 从 6 个压缩至 3 个（NFE 24→12），实测延迟 44.72 ms（Head 39.17 ms / Backbone+Neck 5.55 ms），mAP 经 val 集独立评估为 0.859。+DPM-Solver++ (H=3 Distill) 在 mAP 0.859 下达到 22.4 FPS，为近乎相同精度下最快变体（较 K=200 的 mAP 0.860 仅低 0.001，在 3-seed noise $\pm 0.003$ 内）。标准检测器中，Cascade R-CNN 与 YOLOX-S 较快（49.7/105.0 FPS）但 mAP 较低（0.854/0.796）；RTMDet-L 与 DINO R50 在 30.5 FPS 下达到 mAP 0.863/0.868，与 +DPM-Solver++（0.863）相当或略高，但差距在跨 seed 方差范围内（§4.5）。
 
 +DPM-Solver++ + Top-$K$ (K=200) 是 Top-$K$ 剪枝中最快的变体（68.99 ms / 14.5 FPS，mAP 0.860）；**H=3 Distill** 通过架构级压缩（cascade head 6→3）在近乎相同 mAP（0.859 vs 0.860，$\Delta{=}{-}0.001$，在 3-seed noise $\pm 0.003$ 内）下达到 22.4 FPS，较 K=200 加速 $1.54\times$。+DPM-Solver++ 在 mAP 0.863 下达到 77.57 ms / 12.9 FPS。在非蒸馏变体中，cascade 头占据 $90\%+$ 的延迟（如 +DPM-Solver++ 为 92.8%）；H=3 Distill 因 head 数量减半，head 占比降至 87.6%，主干+颈部相应升至 12.4%。H=3 蒸馏与 Top-$K$ 剪枝互补——前者减少每步 head 调用数，后者减少 proposal 数——二者可叠加使用。
 
-![**图 8**：速度-精度权衡（Dataset 2，RTX A6000，512×512）。FPS 轴为对数尺度。我们的 RF 变体（圆形/方形/星形）位于高精度区（mAP > 0.85）；标准检测器（三角形）快 3–7× 但精度较低。**+DPM-Solver++ (H=3 Distill)**（22.4 FPS，mAP 0.859）通过 cascade head 蒸馏压缩取得最佳速度-精度权衡，较 Top-$K$ 剪枝最快变体 K=200（14.5 FPS）加速 $1.54\times$。Cascade head 为主要延迟来源（非蒸馏变体中占 $90\%+$；§4.6）。](latex/figures/fps_map.png)
+![**图 8**：速度-精度权衡（RTX A6000，512×512，batch=1）。FPS 轴为对数尺度；颜色/标记编码方法类别（圆=Ours-Heun，方=Ours-DPM-Solver++，星=Ours-H=3 Distill，三角=标准检测器，菱=Diffusion baseline），图例置于右图左下角。**(a) Dataset 1（低数据，1,540 张）**：仅 KaryoFlow 变体与 DiffusionDet 有 mAP（标准检测器未在此数据集上评估）；Random 耦合点（0.713）低于 DDPM 基线（0.729），可视化 OT 多样性坍缩病理，而 Stochastic Coupling 在相同架构、相同速度下恢复至 0.747。**(b) Dataset 2（5,000 张）**：完整方法集含 DINO R50（30.5 FPS，0.868）与 RTMDet-L（30.5 FPS，0.863）；我们的 RF 变体位于高精度区（mAP > 0.85）。**+DPM-Solver++ (H=3 Distill)**（22.4 FPS，mAP 0.859）通过 cascade head 蒸馏压缩取得最佳速度-精度权衡，较 Top-$K$ 剪枝最快变体 K=200（14.5 FPS）加速 $1.54\times$。FPS 仅依赖架构与求解器（合成 512×512 输入），与数据集无关，故同一模型在两子图中 FPS 相同，仅 mAP 随数据集变化。](latex/figures/fps_map.png)
 
 ### 4.7 跨数据集总结
 
