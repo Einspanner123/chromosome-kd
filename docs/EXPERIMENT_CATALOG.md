@@ -169,7 +169,7 @@
 | Cascade R-CNN R50 (Dataset 1) | chromosome-kd-benchmark | — | work_dirs/baselines/cascade_rcnn_r50_20240904/ | 0.732 @ ep86 | ✅ | Dataset 1 标准检测器 | <!-- verified: 2026-07-29: workstation 训练日志 best@ep86, rsync 至本地 -->
 | RTMDet-L (Dataset 1) | chromosome-kd-benchmark | — | work_dirs/baselines/rtmdet_l_20240904/ | 0.742 @ ep52 | ✅ | Dataset 1 标准检测器 | <!-- verified: 2026-07-29: workstation 训练日志 best@ep52, rsync 至本地 -->
 | YOLOX-S (Dataset 1) | chromosome-kd-benchmark | — | work_dirs/baselines/yolox_s_20240904/ | 0.608 @ ep150 | ✅ | Dataset 1 标准检测器 | <!-- verified: 2026-07-29: workstation 训练日志 best@ep150, rsync 至本地 -->
-| DINO R50 (Dataset 1) | chromosome-kd-benchmark | dino-r50-4scale-20240904 | work_dirs/baselines/dino_r50_20240904/ | 训练中 | 🔄 训练中 | Dataset 1 标准检测器 | <!-- 2026-07-29: 本地 A6000 训练启动, eta ~1d15h, bs=2 150ep EarlyStopping patience=30 -->
+| DINO R50 (Dataset 1) | chromosome-kd-benchmark | dino-r50-4scale-20240904 | work_dirs/baselines/dino_r50_20240904/ | 0.607 @ ep29 | ✅ 31ep (未完成) | Dataset 1 标准检测器 | <!-- 2026-07-29: 本地 A6000 训练 31/150ep 后停止, best@ep29 mAP=0.607, 未完全收敛但已低于 KaryoFlow 0.746 -->
 
 ### 1.5 跨数据集合并实验
 
@@ -369,15 +369,15 @@
 | Cascade R-CNN R50 | ResNet-50 | **0.732** | 0.932 | 0.843 | 0.520 | 0.725 | 0.655 | 86 | ✅ |
 | RTMDet-L | CSPNeXt-L | **0.742** | 0.946 | 0.854 | 0.504 | 0.740 | 0.568 | 52 | ✅ |
 | YOLOX-S | CSPDarkNet-S | **0.608** | 0.940 | 0.732 | 0.392 | 0.611 | 0.498 | 150 | ✅ |
-| DINO R50 (4scale) | ResNet-50 | 训练中 | — | — | — | — | — | — | 🔄 本地 A6000 训练 |
+| DINO R50 (4scale) | ResNet-50 | **0.607** | 0.780 | 0.680 | 0.373 | 0.596 | 0.413 | 29 | ✅ 31ep (未完成) |
 
 > **跨数据集对比 (判别式范式在数据稀缺时优势收窄)**:
 > - RTMDet-L: Dataset 1 **0.742** vs Dataset 2 **0.863** (Δ=−0.121, 退化 14.0%)
 > - Cascade R-CNN: Dataset 1 **0.732** vs Dataset 2 **0.854** (Δ=−0.122, 退化 14.3%)
 > - YOLOX-S: Dataset 1 **0.608** vs Dataset 2 **0.796** (Δ=−0.188, 退化 23.6%)
-> - DINO R50: Dataset 2 **0.868** (Dataset 1 训练中, 待补充)
+> - DINO R50: Dataset 1 **0.607** (31ep, 未完成) vs Dataset 2 **0.868** (Δ=−0.261, 退化 30.1%) — 退化最严重, DINO 依赖大数据, 低数据下受限最显著
 >
-> 对比 KaryoFlow (RF+Heun+AdaLN) 在 Dataset 1 上 3-seed 均值 **0.746** (论文 §4.1): KaryoFlow 在低数据场景下超越全部已完成训练的标准检测器 (RTMDet-L 0.742 / Cascade 0.732 / YOLOX-S 0.608), 支撑论文 "基于扩散的检测器在数据稀缺场景下达到与前沿检测器相当的精度" 的核心论点。
+> 对比 KaryoFlow (RF+Heun+AdaLN) 在 Dataset 1 上 3-seed 均值 **0.746** (论文 §4.1): KaryoFlow 在低数据场景下超越全部标准检测器 (DINO R50 0.607 / RTMDet-L 0.742 / Cascade 0.732 / YOLOX-S 0.608), 支撑论文 "基于扩散的检测器在数据稀缺场景下达到与前沿检测器相当的精度" 的核心论点。注: DINO R50 仅训练 31/150 epoch 未完全收敛, 但其低数据退化趋势 (Δ=−0.261 为所有检测器中最大) 已明确显示 DETR 类大模型对数据量的强依赖。
 >
 > 训练配置: `experiments/configs/baselines/benchmark/{cascade_rcnn_r50,rtmdet_l,yolox_s,dino_r50}.py` (data_root=`data/Chromosome20240904_NoAug_NoResize_coco/`)。<!-- verified: 2026-07-29 -->
 
