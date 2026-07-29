@@ -1,0 +1,18 @@
+[
+  {
+    "total_ms": 32.81963558197022,
+    "std_ms": 0.5499608868237974,
+    "fps": 30.46956440154258,
+    "backbone_neck_ms": 12.854211458206176,
+    "head_ms": 19.96542412376404,
+    "name": "rtmdet_l",
+    "desc": "RTMDet-L (single-stage, mmdet) [mAP=0.863]",
+    "config": "experiments/configs/baselines/benchmark_24obj/rtmdet_l.py",
+    "checkpoint": "work_dirs/baselines/rtmdet_l_24obj/epoch_86.pth",
+    "img_size": 512,
+    "warmup": 10,
+    "iters": 500,
+    "gpu": "NVIDIA RTX A6000",
+    "known_mAP": 0.863
+  }
+]

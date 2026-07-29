@@ -135,7 +135,13 @@ MODEL_REGISTRY = {
     'rtmdet_l': {
         'config': 'experiments/configs/baselines/benchmark_24obj/rtmdet_l.py',
         'checkpoint': 'work_dirs/baselines/rtmdet_l_24obj/epoch_86.pth',
-        'desc': 'RTMDet-L (single-stage, mmdet) [mAP=0.869 > A4, excluded from paper]',
+        'desc': 'RTMDet-L (single-stage, mmdet) [mAP=0.863]',
+        'type': 'mmdet',
+    },
+    'dino_r50': {
+        'config': 'experiments/configs/baselines/benchmark_24obj/dino_r50.py',
+        'checkpoint': 'work_dirs/baselines/dino_r50_24obj/best_coco_bbox_mAP_epoch_102.pth',
+        'desc': 'DINO R50 (4scale, DETR-based, mmdet) [mAP=0.868]',
         'type': 'mmdet',
     },
 }
@@ -156,7 +162,8 @@ KNOWN_MAP = {
     'cascade_rcnn': 0.854,
     'yolox_s': 0.796,
     'diffusiondet': 0.787,
-    'rtmdet_l': 0.869,  # mAP > A4, 论文中排除
+    'rtmdet_l': 0.863,   # 2026-07-26 修订: ep85 best (旧值 0.869 为错误)
+    'dino_r50': 0.868,   # 2026-07-16 SwanLab 确认 (best@ep102)
 }
 
 
@@ -171,6 +178,10 @@ def create_dummy_data_samples(bs: int, img_size: int) -> List[DetDataSample]:
             'ori_shape': (img_size, img_size, 3),
             'scale_factor': (1.0, 1.0),
             'img_id': 0,
+            # DETR-based detectors (DINO/DETR) read batch_input_shape from
+            # metainfo to build the attention mask; data_preprocessor is set
+            # to None in this benchmark so we must provide it ourselves.
+            'batch_input_shape': (img_size, img_size),
         })
         samples.append(ds)
     return samples
