@@ -144,6 +144,26 @@ MODEL_REGISTRY = {
         'desc': 'DINO R50 (4scale, DETR-based, mmdet) [mAP=0.868]',
         'type': 'mmdet',
     },
+    # === Dataset 1 (Chromosome20240904) baselines — 低数据场景对比 ===
+    # 训练数据源自 workstation (2026-05-19/20), 2026-07-29 rsync 至本地用于 FPS 测试
+    'cascade_rcnn_20240904': {
+        'config': 'experiments/configs/baselines/benchmark/cascade_rcnn_r50.py',
+        'checkpoint': 'work_dirs/baselines/cascade_rcnn_r50_20240904/best_coco_bbox_mAP_epoch_86.pth',
+        'desc': 'Cascade R-CNN R50 (Dataset 1, low-data 1540 imgs) [mAP=0.732]',
+        'type': 'mmdet',
+    },
+    'rtmdet_l_20240904': {
+        'config': 'experiments/configs/baselines/benchmark/rtmdet_l.py',
+        'checkpoint': 'work_dirs/baselines/rtmdet_l_20240904/best_coco_bbox_mAP_epoch_52.pth',
+        'desc': 'RTMDet-L (Dataset 1, low-data 1540 imgs) [mAP=0.742]',
+        'type': 'mmdet',
+    },
+    'yolox_s_20240904': {
+        'config': 'experiments/configs/baselines/benchmark/yolox_s.py',
+        'checkpoint': 'work_dirs/baselines/yolox_s_20240904/best_coco_bbox_mAP_epoch_150.pth',
+        'desc': 'YOLOX-S (Dataset 1, low-data 1540 imgs) [mAP=0.608]',
+        'type': 'mmdet',
+    },
 }
 
 # 已知 mAP (val set, 来自 SwanLab 验证 2026-07-15)
@@ -164,6 +184,10 @@ KNOWN_MAP = {
     'diffusiondet': 0.787,
     'rtmdet_l': 0.863,   # 2026-07-26 修订: ep85 best (旧值 0.869 为错误)
     'dino_r50': 0.868,   # 2026-07-16 SwanLab 确认 (best@ep102)
+    # Dataset 1 (Chromosome20240904) baselines — 低数据场景 (2026-07-29 提取自 workstation 训练日志)
+    'cascade_rcnn_20240904': 0.732,  # best@ep86, workstation 2026-05-19
+    'rtmdet_l_20240904': 0.742,      # best@ep52, workstation 2026-05-20
+    'yolox_s_20240904': 0.608,       # best@ep150, workstation 2026-05-19
 }
 
 

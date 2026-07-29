@@ -219,8 +219,8 @@ visualizer = dict(
             type='SwanlabVisBackend',
             init_kwargs=dict(
                 project='chromosome-kd-benchmark',
-                experiment_name='dino-r50-4scale',
-                description='Benchmark: DINO R50 4-scale | bs=2, 150ep',
+                experiment_name='dino-r50-4scale-20240904',
+                description='Benchmark: DINO R50 4-scale | Dataset 1 (Chromosome20240904) | bs=2, 150ep',
             ),
         ),
     ],
