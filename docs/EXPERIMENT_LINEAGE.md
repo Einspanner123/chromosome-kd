@@ -568,7 +568,7 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 - **K=100 退化主因**: proposal 稀缺性。K=100 时 100 个 proposal 覆盖 46 GT + 重叠冗余, box_renewal 的"proposal 回收"机制 (重置死 proposal 为噪声, 给重新收敛机会) 价值凸显; K≥200 时冗余 proposal 弥补回收缺失。
 - **3-seed 稳定性**: K=100 3-seed Δ=−0.031±0.012 (seed42: −0.019, seed123: −0.043, seed789: −0.032), 退化稳定且显著, 远超 noise 阈值。单 seed 测量 (−0.016) 低估了实际退化。
 - **APs paradox**: K=100 renewal OFF 的小目标 APs 反升 (0.507 vs 0.464, +0.043), 因 renewal 重置为纯随机噪声偏向中大目标, 关闭后小目标定位不被破坏; 但中大目标 recall 下降更多 (n_matched −1.4%), 净效果为负。
-- **bottleneck 不矛盾**: FALSIFIED §十 no_box_renewal 是**训练消融** (Heun, Dataset 1, 训练+推理都 OFF, Δ=−0.016), 本实验是**推理切换** (DPM++, 训练 ON 推理 OFF)。两者 Δ 量级相似但机制不同 (训练 proposal 多样性丧失 vs 推理 proposal 回收能力丧失)。
+- **bottleneck 不矛盾**: FALSIFIED §十 no_box_renewal 的 -0.016 退化根因是 **early stopping 选择偏差** (box_renewal 不在 loss() 路径, 训练时不影响模型权重; 验证评估无 renewal → val mAP 波动 → 次优 checkpoint), 非 model 能力退化。本实验是**推理切换** (DPM++, 训练 ON 推理 OFF, 3-seed ΔmAP=−0.0003), 证实推理时关闭 renewal 在 K≥200 下安全。
 - **作为 DPM++ 适配改进**: 推理时关闭 renewal 使 D1 校正免受 renewal 噪声污染 (理论净化), 在推荐配置 K≥200 下不损失精度, 同时使 R1 诊断有效。K=100 作为边界条件讨论, 进一步证实 box_renewal 的核心价值是 proposal 回收而非 DPM++ 历史维护。
 
 ### 方案 A (per-proposal D1 掩码) 已实现 (2026-07-29)
