@@ -16,6 +16,7 @@ from ldmdet.data.structures import DetectionResult, ImageMeta
 from ldmdet.diffusion.noise_schedule import load_buffer
 from ldmdet.diffusion.rectified_flow import (
     RFDPMSolverAdaptive,
+    RFDPMSolverHybrid,
     RFDPMSolverMultistep,
     RFDPMSolverPerDim,
 )
@@ -61,6 +62,10 @@ class DiffusionSampler:
         # 启用后, renewal 阈值随时间步递减: 早期高阈值(积极淘汰), 后期低阈值(保守保留)
         adaptive_renewal_threshold: bool = False,
         adaptive_renewal_scale: float = 0.9,
+        # 分维度 D1 调制: cxcywh 空间中 [cx, cy, w, h] 的 D1 保留掩码
+        # True=保留 DPM++ D1 校正, False=置零退化为 Euler
+        # 典型值: [True, True, False, False] — cx/cy 保留二阶校正, w/h 退为一阶
+        dim_d1_mask: Optional[list[bool]] = None,
     ):
         self.diffusion_type = diffusion_type
         self.timesteps = timesteps
@@ -93,6 +98,11 @@ class DiffusionSampler:
         # t_curr=1.0(早期) → threshold≈0.9, t_curr=0.0(后期) → threshold=score_thr
         self.adaptive_renewal_threshold = adaptive_renewal_threshold
         self.adaptive_renewal_scale = adaptive_renewal_scale
+        # 分维度 D1 调制: 转为 tensor
+        if dim_d1_mask is not None:
+            self.dim_d1_mask = torch.tensor(dim_d1_mask, dtype=torch.float32)
+        else:
+            self.dim_d1_mask = None
 
     def build_time_pairs(
         self, device: torch.device
@@ -131,7 +141,7 @@ class DiffusionSampler:
         """构建 SHTS 时间步网格"""
         # 方向 D: dpm_solver_pp_adaptive 也按 3 阶准备网格 (允许最大阶次)
         # 方向 A: dpm_solver_pp_per_dim 按 2 阶准备网格
-        if self.solver_type in ('dpm_solver_pp', 'heun', 'dpm_solver_pp_per_dim', 'dpm_solver_pp_per_dim_w'):
+        if self.solver_type in ('dpm_solver_pp', 'heun', 'dpm_solver_pp_per_dim', 'dpm_solver_pp_per_dim_w', 'dpm_pp_heun_hybrid'):
             solver_order = 2
         elif self.solver_type in ('dpm_solver_pp_3', 'dpm_solver_pp_adaptive'):
             solver_order = 3
@@ -157,15 +167,20 @@ class DiffusionSampler:
         if self.solver_type in ('dpm_solver_pp', 'dpm_solver_pp_3'):
             solver_order = 3 if self.solver_type == 'dpm_solver_pp_3' else 2
             # SHTS: 生成非均匀网格传递给 DPM-Solver++
+            # 注意: dim_d1_mask 在 SHTS/非-SHTS 两个分支都要传递,
+            # 否则 SHTS 路径下分维度 D1 调制会静默失效 (2026-07-29 修复)
             if self.rf_schedule == 'shts':
                 t_grid = self._build_shts_time_grid()
                 return RFDPMSolverMultistep(
                     num_steps=self.sampling_timesteps,
                     solver_order=solver_order,
                     timesteps=t_grid,
+                    dim_d1_mask=self.dim_d1_mask,
                 )
             return RFDPMSolverMultistep(
-                num_steps=self.sampling_timesteps, solver_order=solver_order
+                num_steps=self.sampling_timesteps,
+                solver_order=solver_order,
+                dim_d1_mask=self.dim_d1_mask,
             )
         # 方向 D: 自适应阶次 solver (推理时改动, 无需重训练)
         if self.solver_type == 'dpm_solver_pp_adaptive':
@@ -211,6 +226,18 @@ class DiffusionSampler:
                 num_steps=self.sampling_timesteps,
                 euler_dims=(2, 3),    # w, h 维度用 1 阶
                 dpm_dims=(0, 1),      # cx, cy 维度用 2 阶
+            )
+        # 混合求解器: cx/cy 用 DPM-Solver++ 2阶 (x0 插值), w/h 用 Heun 2阶 (速度梯形)
+        # Heun 校正项需额外 NFE; model_fn 由 predict() 在 step 循环前注入
+        if self.solver_type == 'dpm_pp_heun_hybrid':
+            if self.rf_schedule == 'shts':
+                t_grid = self._build_shts_time_grid()
+                return RFDPMSolverHybrid(
+                    num_steps=self.sampling_timesteps,
+                    timesteps=t_grid,
+                )
+            return RFDPMSolverHybrid(
+                num_steps=self.sampling_timesteps,
             )
         return None
 

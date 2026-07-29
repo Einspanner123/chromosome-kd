@@ -122,9 +122,11 @@ class RFDPMSolverMultistep:
         num_steps: int = 6,
         solver_order: int = 2,
         timesteps: Optional[list[float]] = None,
+        dim_d1_mask: Optional[torch.Tensor] = None,
     ):
         self.num_steps = num_steps
         self.solver_order = solver_order
+        self.dim_d1_mask = dim_d1_mask  # [4] mask: True=保留 D1, False=置零
         if timesteps is not None:
             self.timesteps = timesteps
         else:
@@ -154,8 +156,19 @@ class RFDPMSolverMultistep:
         x0_pred: torch.Tensor,
         t_n: float,
         step_idx: int,
+        renewal_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        """单步积分 x(t_n) → x(t_{n+1})"""
+        """单步积分 x(t_n) → x(t_{n+1})
+
+        Args:
+            x: [bs, N, 4] 当前状态
+            x0_pred: [bs, N, 4] 当前步的 x0 预测
+            t_n: 当前时间步
+            step_idx: 步索引
+            renewal_mask: [bs, N] bool, True 表示该 proposal 在上一步被 box_renewal 重置
+                          对被 renewal 的 proposal 置零 D1 校正项 (路径 A),
+                          避免 renewal 噪声污染 x0_history 导致 D1 失效
+        """
         t_next = self.timesteps[step_idx + 1]
 
         self.x0_history.append(x0_pred)
@@ -173,6 +186,20 @@ class RFDPMSolverMultistep:
         x0_p = self.x0_history[-2]
         t_p = self.t_history[-2]
         D1 = (x0_n - x0_p) / (t_n - t_p)
+
+        # D3 化解路径 A: 对被 renewal 的 proposal 置零 D1 校正项
+        # renewal_mask=True 的 proposal 的 x0_history 跨越了 renewal 断点,
+        # D1 不再反映真实轨迹曲率而是 renewal 噪声, 必须屏蔽
+        if renewal_mask is not None:
+            # renewal_mask: [bs, N] → [bs, N, 1] for broadcast with [bs, N, 4]
+            D1 = D1 * (~renewal_mask).unsqueeze(-1).float()
+
+        # 分维度 D1 调制: 在 cxcywh 空间中, dim 0,1 (cx,cy) 曲率大,
+        # 保留 DPM++ D1 校正; dim 2,3 (w,h) 曲率小, 可选择性置零 D1
+        # 退化为 Euler 以避免可能的过冲
+        if self.dim_d1_mask is not None:
+            # dim_d1_mask: [4] bool/float, True=保留 D1, False=置零 D1
+            D1 = D1 * self.dim_d1_mask.to(D1.device)
 
         # R1 诊断: 记录 eta_str = ||D1|| / ||x0|| (batch 均值)
         # 理想 RF (直线 ODE, x0(t)=const) 下 D1=0, eta_str=0
@@ -472,3 +499,151 @@ class RFDPMSolverPerDim(RFDPMSolverMultistep):
         self.eta_3rd_history.append(0.0)
 
         return linear + correction * dim_mask
+
+
+class RFDPMSolverHybrid(RFDPMSolverMultistep):
+    """混合求解器: cx/cy 用 DPM-Solver++ 2阶, w/h 用 Heun 2阶。
+
+    动机 (2026-07-29 per-dim 实验):
+      dim_d1_mask=[1,1,0,0] 使 w/h 退化为 Euler 1阶 (仅 linear 项). 但 Heun 是
+      真正的 2阶求解器 (速度梯形), 机制不同于 DPM++ (x0 插值). 本类测试 w/h 用
+      Heun 2阶是否优于 Euler 1阶.
+
+    三种 2阶机制对比:
+      - DPM++ (x0 插值): linear + φ₁·D1, D1=(x0_n-x0_p)/(t_n-t_p), 1 NFE (复用历史)
+      - Heun  (速度梯形): x + (dt/2)(v_t+v_next), v=(x-x0)/t, 2 NFE (额外前向)
+      - Euler (1阶):     x + dt·v_t = linear, 1 NFE
+
+    对低曲率维度 (w/h eta_str≈0.3-0.9, 近直线), Euler≈Heun (恒定速度下梯形=前向).
+    本类实证验证这一理论推断。
+
+    NFE: 2×num_steps (Heun 校正项需额外前向), vs DPM++ 的 1×num_steps。
+
+    推理时改动, 不需重训练 (基于 A4 checkpoint 直接推理)。
+    """
+
+    def __init__(
+        self,
+        num_steps: int = 6,
+        timesteps: Optional[list[float]] = None,
+        dpm_dims: tuple = (0, 1),    # cx, cy 用 DPM-Solver++ 2阶
+        heun_dims: tuple = (2, 3),    # w, h 用 Heun 2阶
+    ):
+        super().__init__(
+            num_steps=num_steps,
+            solver_order=2,
+            timesteps=timesteps,
+        )
+        self.dpm_dims = tuple(dpm_dims)
+        self.heun_dims = tuple(heun_dims)
+        # model_fn 由 predict() 在 step 循环前注入 (闭包捕获 features/img_metas)
+        # 签名: model_fn(x_tmp, t_tmp) -> (x0_pred, None)
+        self.model_fn = None
+        # v_next 范数诊断 (实证 Heun 数值不稳定根因):
+        # v_next = (x_euler - x0_next) / t_next, t_next 小时分母小可能爆炸.
+        # 每步记录: (t_n, t_next, ||v_t||, ||v_next||, ratio=||v_next||/||v_t||)
+        self.v_next_diag_history: list[dict] = []
+
+    def step(
+        self,
+        x: torch.Tensor,
+        x0_pred: torch.Tensor,
+        t_n: float,
+        step_idx: int,
+        renewal_mask: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """混合单步积分: dpm_dims 用 DPM++ (linear+D1), heun_dims 用 Heun (梯形).
+
+        last step (t_next≈0) 时 Heun 的 v_next 不稳定 (除以 ~0), 全维度回退 linear。
+        """
+        t_next = self.timesteps[step_idx + 1]
+
+        # === 共享: x0 历史 (供 DPM++ D1 使用) ===
+        self.x0_history.append(x0_pred)
+        self.t_history.append(t_n)
+        if len(self.x0_history) > self.solver_order:
+            self.x0_history.pop(0)
+            self.t_history.pop(0)
+
+        # linear = RF Euler step (所有维度共用, 也是 Heun 的预测项)
+        linear = (t_next / t_n) * x + (1.0 - t_next / t_n) * x0_pred
+
+        # === DPM++ 部分 (dpm_dims): linear + φ₁·D1 ===
+        dpm_correction = torch.zeros_like(x)
+        if len(self.x0_history) >= 2:
+            x0_n = self.x0_history[-1]
+            x0_p = self.x0_history[-2]
+            t_p = self.t_history[-2]
+            D1 = (x0_n - x0_p) / (t_n - t_p)
+
+            if renewal_mask is not None:
+                D1 = D1 * (~renewal_mask).unsqueeze(-1).float()
+
+            if t_next > 1e-7:
+                phi1 = t_next * math.log(t_n / t_next) - t_n + t_next
+            else:
+                phi1 = -t_n
+            dpm_correction = phi1 * D1
+
+            # 诊断: eta_str (全维度, 显示曲率; dpm_dims 会应用, heun_dims 不会)
+            with torch.no_grad():
+                d1_norm = D1.norm(dim=-1)
+                x0_norm = x0_n.norm(dim=-1).clamp(min=1e-6)
+                eta_str = (d1_norm / x0_norm).mean().item()
+                self.eta_str_history.append(eta_str)
+                d1_abs = D1.abs()
+                x0_abs = x0_n.abs().clamp(min=1e-6)
+                eta_per_dim = (d1_abs / x0_abs).mean(dim=(0, 1)).tolist()
+                self.eta_str_per_dim_history.append(eta_per_dim)
+        else:
+            self.eta_str_history.append(0.0)
+            self.eta_str_per_dim_history.append([0.0] * x.shape[-1])
+
+        self.eta_3rd_history.append(0.0)
+
+        # === Heun 部分 (heun_dims): x + (dt/2)(v_t + v_next) ===
+        # 仅当 t_next 足够大且 model_fn 可用时才做梯形校正, 否则回退 linear
+        heun_result = linear
+        if t_next > 1e-7 and self.model_fn is not None:
+            v_t = (x - x0_pred) / max(t_n, 1e-5)       # [bs, N, 4]
+            dt = t_next - t_n
+            x_euler = x + dt * v_t                      # Euler 预测项
+            x0_next, _ = self.model_fn(x_euler, t_next) # 额外前向 (2nd NFE)
+            v_next = (x_euler - x0_next) / max(t_next, 1e-5)
+            heun_result = x + (dt / 2.0) * (v_t + v_next)
+
+            # v_next 范数诊断: 实证 Heun 数值不稳定根因
+            # v_next = (x_euler - x0_next) / t_next, t_next 小 → 分母小 → v_next 可能爆炸
+            with torch.no_grad():
+                # heun_dims 上的范数 (仅 w/h, 排除 dpm_dims 干扰)
+                vt_heun = v_t[..., self.heun_dims].norm(dim=-1)  # [bs, N]
+                vn_heun = v_next[..., self.heun_dims].norm(dim=-1)
+                ratio = (vn_heun / vt_heun.clamp(min=1e-8)).mean().item()
+                self.v_next_diag_history.append({
+                    'step_idx': step_idx,
+                    't_n': round(t_n, 6),
+                    't_next': round(t_next, 6),
+                    'v_t_norm': round(float(vt_heun.mean()), 6),
+                    'v_next_norm': round(float(vn_heun.mean()), 6),
+                    'ratio_v_next_over_v_t': round(ratio, 4),
+                })
+        else:
+            # t_next≈0, Heun 回退 linear (无 v_next 计算)
+            self.v_next_diag_history.append({
+                'step_idx': step_idx,
+                't_n': round(t_n, 6),
+                't_next': round(t_next, 6),
+                'v_t_norm': 0.0,
+                'v_next_norm': 0.0,
+                'ratio_v_next_over_v_t': 0.0,
+                'note': 't_next≈0, Heun 回退 linear',
+            })
+
+        # === 按维度合并 ===
+        result = linear.clone()
+        for d in self.dpm_dims:
+            result[..., d] = linear[..., d] + dpm_correction[..., d]
+        for d in self.heun_dims:
+            result[..., d] = heun_result[..., d]
+
+        return result

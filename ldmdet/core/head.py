@@ -1078,6 +1078,20 @@ class DiffusionDetHead(nn.Module):
             )
         if dpm_solver is not None:
             dpm_solver.reset()
+            # 混合求解器 (dpm_pp_heun_hybrid): 注入 model_fn 供 Heun 校正项额外前向.
+            # 闭包捕获 features/img_metas, 签名 model_fn(x, t) -> (x0_pred, None)
+            if self.solver_type == 'dpm_pp_heun_hybrid':
+                def _hybrid_model_fn(x_tmp, t_tmp):
+                    _, _, x0_tmp = self._forward_at_t(
+                        features, x_tmp, t_tmp, img_metas
+                    )
+                    return x0_tmp, None
+                dpm_solver.model_fn = _hybrid_model_fn
+
+        # D3 化解路径 A: 记录上一步被 box_renewal 重置的 proposal mask
+        # 在下一步 DPM-Solver++ step() 中传入, 对被 renewal 的 proposal
+        # 置零 D1 校正项, 避免 renewal 噪声污染 x0_history 导致 D1 失效
+        _renewal_mask: Optional[torch.Tensor] = None  # [bs, N] bool
 
         for step_idx, (t_curr, t_next) in enumerate(time_pairs):
             # 方向 C: 推理时按实际 solver step 设置 step_idx
@@ -1153,7 +1167,8 @@ class DiffusionDetHead(nn.Module):
                     break
             else:
                 if dpm_solver is not None:
-                    x_raw = dpm_solver.step(x_raw, x0_raw, t_curr, step_idx)
+                    x_raw = dpm_solver.step(x_raw, x0_raw, t_curr, step_idx,
+                                             renewal_mask=_renewal_mask)
                 elif self.solver_type == 'heun' and t_next > 0:
                     def model_fn(x_tmp, t_tmp):
                         _, _, x0_tmp = self._forward_at_t(
@@ -1178,6 +1193,11 @@ class DiffusionDetHead(nn.Module):
                         x0_pred=x0_raw,
                         t_curr=t_curr,
                     )
+                    # D3 化解路径 A: 记录被 renewal 的 proposal mask
+                    # 比较新旧 x_raw, 不一致的 proposal 即被 renewal
+                    _renewal_mask = ~torch.isclose(
+                        x_raw, x_raw_before, atol=1e-6
+                    ).all(dim=-1)  # [bs, N]
                     # 探针: box_renewal 统计 (重置率 + 置信度分布)
                     n_after = x_raw.shape[1]
                     if n_before > 0:
@@ -1582,6 +1602,11 @@ class DiffusionDetHead(nn.Module):
         if dpm_solver is not None:
             dpm_solver.reset()
 
+        # D3 化解路径 A: 记录上一步被 box_renewal 重置的 proposal mask
+        # 在下一步 DPM-Solver++ step() 中传入, 对被 renewal 的 proposal
+        # 置零 D1 校正项, 避免 renewal 噪声污染 x0_history 导致 D1 失效
+        _renewal_mask: Optional[torch.Tensor] = None  # [bs, N] bool
+
         for step_idx, (t_curr, t_next) in enumerate(time_pairs):
             # 方向 C: 推理时按实际 solver step 设置 step_idx
             # _forward_at_t 内部调用 self.forward, 会读取 _current_step_tensor
@@ -1609,7 +1634,8 @@ class DiffusionDetHead(nn.Module):
                     break
             else:
                 if dpm_solver is not None:
-                    x_raw = dpm_solver.step(x_raw, x0_raw, t_curr, step_idx)
+                    x_raw = dpm_solver.step(x_raw, x0_raw, t_curr, step_idx,
+                                             renewal_mask=_renewal_mask)
                 elif self.solver_type == 'heun' and t_next > 0:
                     def model_fn(x_tmp, t_tmp):
                         _, _, x0_tmp = self._forward_at_t(
@@ -1738,6 +1764,11 @@ class DiffusionDetHead(nn.Module):
         if dpm_solver is not None:
             dpm_solver.reset()
 
+        # D3 化解路径 A: 记录上一步被 box_renewal 重置的 proposal mask
+        # 在下一步 DPM-Solver++ step() 中传入, 对被 renewal 的 proposal
+        # 置零 D1 校正项, 避免 renewal 噪声污染 x0_history 导致 D1 失效
+        _renewal_mask: Optional[torch.Tensor] = None  # [bs, N] bool
+
         for step_idx, (t_curr, t_next) in enumerate(time_pairs):
             # 方向 C: 推理时按实际 solver step 设置 step_idx (CCBR 路径)
             if self.use_step_aware:
@@ -1771,7 +1802,8 @@ class DiffusionDetHead(nn.Module):
                     break
             else:
                 if dpm_solver is not None:
-                    x_raw = dpm_solver.step(x_raw, x0_raw, t_curr, step_idx)
+                    x_raw = dpm_solver.step(x_raw, x0_raw, t_curr, step_idx,
+                                             renewal_mask=_renewal_mask)
                 elif self.solver_type == 'heun' and t_next > 0:
                     def model_fn(x_tmp, t_tmp):
                         # Heun 第二阶也用 CCBR 前向
