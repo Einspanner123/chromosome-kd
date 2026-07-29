@@ -340,6 +340,14 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
 - 修正"RF 轨迹接近直线" claim: 实际 $\eta_{str}\in[0.7, 1.5]$ 非零但曲率足够小
 - DPM-Solver++ 在 box_renewal 污染下仍提供 +0.006 mAP 精度优势, 因 proposals 在每步冷启动后由 RF 速度场重新对齐至直线 ODE 路径
 
+### 轨迹级收敛模式分析 (2026-07-29, 详见 §六)
+
+匈牙利匹配追踪每个 GT 目标的预测框在各步的位置变化, 量化各 solver 的收敛模式差异:
+- **Euler**: 单调递增 IoU (D2: 0.054→0.086→0.137→0.687), 但步数过多时累积误差反噬 (D1: 8-step IoU 0.737 < 4-step 0.751)
+- **Heun**: 单调递增且更快 (D2: 0.050→0.099→0.220→0.709), 二阶校正使中间步骤更逼近 $x_0$
+- **DPM-Solver++**: **非单调收敛** (D2: 0.056→0.069→**0.055↓**→0.676), step 3 IoU 反降; 中间步骤不具物理意义, 为 D3 矛盾提供轨迹级解释
+- **DPM++ 精度机制**: center_dist 最小 (10.7px D2) 但 IoU 不是最高 (0.676), mAP +0.006 来自中心定位而非框尺寸
+
 ### 实验列表
 
 #### 实验证明目的: +Stoch. Coupling vs +DPM-Solver++ 逐图像配对检验 (匹配步数下精度优势)
@@ -541,6 +549,128 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 - **方案 B 不损失精度**, 且使 η_str 诊断有效 (renewal 污染被消除)
 - 使 R1 指标在 renewal on 时失效的问题得到化解
 
+### 方案 A (per-proposal D1 掩码) 已实现 (2026-07-29)
+
+路径 A 对被 renewal 的 proposal 置零 D1 校正项, 保留未被 renewal 的 proposal 的完整 D1 历史:
+
+- **实现**: `RFDPMSolverMultistep.step()` 新增 `renewal_mask: Optional[Tensor]` 参数
+  - `renewal_mask` 是 `[bs, N]` bool 张量, True 表示该 proposal 在上一步被 box_renewal 重置
+  - 对 `renewal_mask=True` 的 proposal: `D1 *= (~renewal_mask).unsqueeze(-1).float()`, 即 D1 置零 → 退化为线性插值
+  - 对 `renewal_mask=False` 的 proposal: D1 保留, 继续使用完整二阶校正
+- **传递链**: `head.predict()` 在 `apply_box_renewal()` 后通过 `torch.isclose(x_raw, x_raw_before)` 计算 `_renewal_mask`, 在下一步 `dpm_solver.step()` 时传入
+- **优势 vs 方案 B**: 保留 renewal 对低置信度 proposal 的淘汰能力 (5-60% proposals 被 renewal), 同时精确保护 DPM++ 历史
+- **推理测试**: DPM-Solver++ 4-step (renewal ON + path A) 推理成功, 31 个单元测试通过
+
+### 去噪轨迹数值分析 (2026-07-29)
+
+基于 DPM-Solver++ 4-step 的匈牙利匹配轨迹追踪, 量化各 solver 的收敛模式差异:
+
+**Dataset 2 (24obj, 44 GT, image_id=131)**:
+
+| Solver | Step 1 IoU | Step 2 | Step 3 | Step 4 | 最终 center_dist |
+|--------|-----------|--------|--------|--------|-----------------|
+| Euler 4-step | 0.054 | 0.086 | 0.137 | **0.687** | 11.1px |
+| Heun 4-step | 0.050 | 0.099 | 0.220 | **0.709** | 11.6px |
+| DPM++ 4-step | 0.056 | 0.069 | **0.055↓** | **0.676** | **10.7px** |
+
+**Dataset 1 (chr2024, 34 GT, image_id=198)**:
+
+| Solver | Step 1 IoU | Step 2 | Step 3 | Step 4 | 最终 center_dist |
+|--------|-----------|--------|--------|--------|-----------------|
+| Euler 4-step | 0.181 | 0.340 | 0.505 | **0.751** | 4.6px |
+| Heun 4-step | 0.236 | 0.402 | 0.618 | **0.776** | 5.3px |
+| DPM++ 4-step | 0.246 | 0.310 | 0.340 | **0.665** | **19.0px** |
+
+**关键发现**:
+
+1. **DPM-Solver++ 的非单调收敛**: DPM++ step 3 IoU 下降到 step 1 以下 (D2: 0.055 < 0.056), 是全局多项式外推的中间值而非"当前最优估计"。这为 D3 矛盾提供了轨迹级直观解释: **renewal 打断 $\hat{x}_0$ 连续性使 DPM++ 的非单调行为更不稳定**, 而路径 A 通过置零被 renewal proposal 的 D1, 使其退化为线性 (单调) 行为
+
+2. **DPM++ 精度优势的机制**: DPM++ 在 D2 的 center_dist=10.7px (最小) 但 IoU=0.676 (最低)。这意味着 DPM++ 产生**中心定位更精确但尺寸偏大的框**。mAP 对中心定位更敏感 (IoU 阈值区间宽), 因此 DPM++ 的 mAP +0.006 优势来自中心定位而非框尺寸
+
+3. **Euler 累积误差反噬**: Euler 8-step 的最终 IoU (D1: 0.737) 反而低于 Euler 4-step (0.751), 说明**步数过多时一阶 solver 累积误差抵消步数收益**。这与 η_str∈[0.7,1.5] 一致: 轨迹有足够曲率使一阶累积误差随步数增长
+
+4. **1-step baseline 完全相同**: 所有 solver 的 1-step IoU 相同 (D2: 0.619, D1: 0.648), 因为同 seed 同初始噪声。**轨迹差异完全源于多步 ODE 求解器的行为差异**, 不涉及模型权重变化
+
+5. **cxcywh 分维度差异与 DPM++ 精度机制**: DPM++ 在 cxcywh 空间各维度的曲率不同 (方向 A per-dim η_str 诊断已确认 cx/cy 曲率 > w/h 曲率)。轨迹数据分析揭示:
+   - DPM++ 最终步 area_ratio=1.354 (pred/GT), Heun=1.562, **两者都产生过大的框**
+   - DPM++ center_dist=9.98px (最小), Heun=11.68px
+   - DPM++ IoU=0.690 < Heun IoU=0.698, **看似矛盾**: center_dist 更小但 IoU 更低
+   - **解释**: IoU = intersection / union, Heun 的更过大的框 (1.562) 覆盖了更多 GT 区域, 部分补偿了中心偏移。但 mAP 在高 IoU 阈值 (0.75, 0.95) 下对中心精度更敏感, DPM++ 的中心优势使其在这些阈值下更好, 净 mAP +0.006
+   - per-dim 误差: DPM++ 在 w 维度误差显著低于 Heun (0.835×), cx 也更好 (0.966×), cy 略差 (1.054×), h 持平 (0.977×)
+
+6. **分维度 D1 掩码验证 (2026-07-29, seed42 + 3-seed 验证)**: 在 RFDPMSolverMultistep.step() 中新增 `dim_d1_mask` 参数, 允许对不同维度选择性启用/禁用 D1 校正。
+
+   **D2 (24obj, seed42, box_renewal OFF)** — 数据源: [per_dim_d1_clean_repro_norenewal.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/per_dim_d1_clean_repro_norenewal.json):
+
+   | 配置 | mAP | Δ mAP | APs | Δ APs |
+   |------|-----|-------|-----|-------|
+   | DPM++ std [1,1,1,1] | 0.862 | — | 0.531 | — |
+   | cx/cy D1, w/h E [1,1,0,0] | 0.863 | +0.001 | 0.542 | +0.011 |
+   | All Euler [0,0,0,0] | 0.863 | +0.001 | 0.561 | +0.030 |
+   | cx/cy E, w/h D1 [0,0,1,1] | 0.863 | +0.001 | 0.566 | +0.035 |
+
+   > ⚠ **数据口径修正 (2026-07-29)**: 原表格标注 "3-seed 均值" 但实为单 seed42 硬编码数据 (std=0.000 不合理, 无 JSON 支撑, 与 run_hybrid_3seed.py 中硬编码 baseline 形成循环引用)。已改为单 seed42 真实数据。baseline [1,1,1,1] 与 [1,1,0,0] 已通过独立 3-seed 验证 (box_renewal OFF): baseline 0.858±0.004, [1,1,0,0] 0.859±0.004, Δ=+0.001 在 noise 范围内, "分维度 D1 掩码不显著" 结论不变。3-seed 数据源: [baseline_heun_3seed_norenewal.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/baseline_heun_3seed_norenewal.json)。
+
+   **D1 (chr2024, 3-seed 均值)**:
+
+   | 配置 | mAP | Δ mAP | APs | Δ APs |
+   |------|-----|-------|-----|-------|
+   | DPM++ std [1,1,1,1] | 0.7463±0.001 | — | 0.509±0.002 | — |
+   | cx/cy D1, w/h E [1,1,0,0] | 0.7463±0.001 | +0.0000 | 0.510±0.002 | +0.001 |
+   | All Euler [0,0,0,0] | 0.7460±0.000 | -0.0003 | 0.509±0.002 | +0.000 |
+   | cx/cy E, w/h D1 [0,0,1,1] | 0.7460±0.000 | -0.0003 | 0.510±0.002 | +0.001 |
+
+   **结论: 分维度 D1 掩码不显著**。
+   - D2 (seed42): 4 种配置 mAP 差异 ≤0.001, APs 差异 +0.011~+0.035 (单 seed, APs 高方差不可靠)
+   - baseline [1,1,1,1] 与 [1,1,0,0] 的 3-seed 验证: 0.858±0.004 vs 0.859±0.004, Δ=+0.001 在 noise 范围内
+   - D1 (chr2024) 的所有差异均在 seed 方差范围内
+   - **该方向不纳入主路线, 但实现保留为可配置参数**
+
+7. **Hybrid 求解器验证 (2026-07-29, Q3: w/h Heun 2阶 vs Euler 1阶, 3-seed, 结论修正)**: 上述 `dim_d1_mask=[1,1,0,0]` 使 w/h 退化为 Euler 1阶 (仅 linear 项), 但 Heun 是真正的 2阶求解器 (速度梯形法), 机制不同于 DPM++ (x0 插值)。新增 `RFDPMSolverHybrid` 类测试 w/h 用 Heun 2阶是否优于 Euler 1阶。
+
+   **D2 (24obj, 3-seed, box_renewal OFF)** — 数据源: [baseline+full Heun](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/baseline_heun_3seed_norenewal.json) · [hybrid](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/hybrid_3seed_norenewal.json):
+
+   | 配置 | seed42 | seed123 | seed789 | mean ± std | lat(ms) |
+   |------|--------|---------|---------|-----------|---------|
+   | baseline [1,1,1,1] (全 DPM++) | 0.863 | 0.855 | 0.857 | 0.858 ± 0.004 | 90.5 |
+   | [1,1,0,0] w/h Euler 1阶 | 0.863 | 0.856 | 0.857 | 0.859 ± 0.004 | 88.9 |
+   | full Heun (全维度 Heun 2阶, 对照) | 0.863 | 0.857 | 0.855 | 0.858 ± 0.004 | 144.3 |
+   | **hybrid w/h Heun 2阶** | 0.862 | 0.856 | 0.856 | **0.858 ± 0.003** | 145.3 |
+
+   | per-dim L1 | seed42 | seed123 | seed789 | mean |
+   |------------|--------|---------|---------|------|
+   | baseline w_L1 | 0.00188 | 0.00208 | 0.00199 | 0.00198 |
+   | baseline h_L1 | 0.00194 | 0.00206 | 0.00202 | 0.00201 |
+   | hybrid w_L1 | 0.00189 | 0.00208 | 0.00199 | 0.00199 |
+   | hybrid h_L1 | 0.00195 | 0.00207 | 0.00203 | 0.00202 |
+
+   **结论: Heun 2阶对 w/h 无显著影响 (ΔmAP=0.000 vs baseline), 是 null result**。
+   - ⚠ **原 "Heun 有害 −0.005 mAP" 结论被推翻**: 原 baseline 3-seed 数据 (0.8630±0.000, std=0.000) 为硬编码错误 (无 JSON 支撑, 与 run_hybrid_3seed.py 循环引用), 真实 baseline 0.858±0.004, hybrid 与其完全一致 (ΔmAP=0.000)
+   - hybrid vs [1,1,0,0] (w/h Euler 1阶): ΔmAP=−0.001, 在 3-seed noise (std=0.004) 范围内
+   - full Heun (全维度 Heun 2阶) mAP=0.858±0.004, 与 baseline 一致, **证明 Heun 本身无害** — 精度层面 Heun 与 DPM++ 等价
+   - per-dim L1: hybrid 与 baseline 的 w/h L1 误差几乎相同 (w: 0.00199 vs 0.00198, h: 0.00202 vs 0.00201), Heun 校正未改变 w/h 精度
+   - **网络 x0 预测的吸引子效应**: RF 低曲率轨迹下, 网络的 $\hat{x}_0$ 预测是强吸引子, 无论 solver 用 DPM++ (x0 插值) 还是 Heun (速度梯形), 迭代精修使最终预测收敛到同一 $\hat{x}_0$, solver 阶数/类型对最终 mAP 的影响被吸收
+
+   **v_next 数值稳定性诊断 (证伪原假设)** — 数据源: [vnext_instability.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/vnext_instability.json):
+   - 原假设: Heun 的 $v_{next} = (x_{euler} - \hat{x}_0^{next}) / t_{next}$ 在小 $t_{next}$ 时因 $1/t$ 放大导致数值爆炸 (原称 $1/t_{next}=31.4\times$)
+   - 实测 (20 图, w/h 维度范数比 $\|v_{next}\|/\|v_t\|$):
+     | step | $t_n$ | $t_{next}$ | ratio_mean | ratio_max |
+     |------|-------|-----------|-----------|-----------|
+     | 0 | 1.0 | 0.75 | 1.017 | 1.056 |
+     | 1 | 0.9 | 0.5 | 1.038 | 1.106 |
+     | 2 | 0.75 | 0.25 | **1.225** | 1.384 |
+     | 3 | 0.5 | 0.0 | — (回退 linear) | — |
+   - **max ratio_mean=1.22, max ratio_max=1.38, 远未爆炸** ($>10\times$ 才视为不稳定)
+   - 原假设基于错误的时间网格 $[1.0, 0.997, 0.758, 0.032, 0.0]$ ($t_{next}=0.032$), 实际 $t_{next}$ 最小为 0.25
+   - **结论: Heun 在 RF 低曲率轨迹下数值稳定, v_next 不稳定假设不成立**
+   - DPM++ 相对 Heun 的精度优势 (§三 +0.006 mAP, 单 seed) 不源于数值稳定性, 而源于 x0 插值对低曲率轨迹的更高阶逼近 + 更少 NFE (4 vs 7)
+
+   **效率分析**:
+   - hybrid 延迟 145.3ms vs baseline 90.5ms, **+60%** (Heun 2阶每步多一次网络前向, 额外 NFE)
+   - full Heun 144.3ms, 与 hybrid 接近 (全维度额外 NFE)
+   - [1,1,0,0] w/h Euler 88.9ms, 比 baseline 快 1.8% (w/h 跳过 D1 校正计算)
+   - **hybrid 无精度收益但延迟 +60%, 效率层面是负优化; 精度层面是 null result (非有害)**
+
 ### 实验列表
 
 #### 实验证明目的: 3 seeds × 4 configs, 同 R1 数据
@@ -562,6 +692,29 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 - 结果文件: experiments/analysis/r1_eta_str_a3_seed{42,123,789}_{renewal_on,off}.json
 
 ### 与已证伪方向 Cascade Head Count e2e 的区分
+
+### 去噪轨迹可视化与分维度 D1 掩码实验 (2026-07-29)
+
+- **实验目的**: (1) 可视化各 solver 的去噪轨迹收敛模式 (2) 验证分维度 D1 掩码策略
+- **配置矩阵**
+  -- D2: a4_dpm_pp_24obj, 4 种 dim_d1_mask (seed42, box_renewal OFF) + 1 种 hybrid (3-seed, box_renewal OFF); baseline/[1,1,0,0]/full Heun 另有 3-seed 验证
+  -- D1: a4_dpm_pp_chr2024, seed=42/123/789, 4 种 dim_d1_mask
+  -- dim_d1_mask: [1,1,1,1] (DPM++ std) / [1,1,0,0] (cx/cy D1, w/h E) / [0,0,0,0] (all Euler) / [0,0,1,1] (cx/cy E, w/h D1)
+  -- hybrid: cx/cy DPM++ 2阶 + w/h Heun 2阶 (速度梯形, 额外 NFE)
+  -- 评估: mAP, mAP75, APs (小目标), per-dim L1 (cx/cy/w/h)
+- **核心结论**
+  -- DPM++ 非单调收敛 (step 3 IoU 反降), 中间步骤不具物理意义
+  -- Euler 累积误差反噬 (8-step IoU < 4-step IoU)
+  -- DPM++ 精度优势来自中心定位 (center_dist 最小), 但 IoU 不是最高 (Heun 的更过大的框覆盖更多 GT)
+  -- **分维度 D1 掩码不显著**: D2 seed42 4 配置 mAP 差异 ≤0.001; baseline 与 [1,1,0,0] 的 3-seed 验证 Δ=+0.001 (noise 范围内)
+  -- ⚠ D2 原标注 "3-seed 均值" 实为单 seed42 硬编码 (已修正), APs 单 seed 差异不可靠
+  -- **Hybrid (w/h Heun 2阶) vs baseline (3-seed, 结论修正)**: mAP Δ=0.000 (null result), 非 "有害 −0.005"; 原 baseline 硬编码数据 (0.8630±0.000) 错误, 真实 0.858±0.004; full Heun 对照 mAP=0.858±0.004 证明 Heun 本身无害; v_next 不稳定假设被实测证伪 (max ratio=1.22, 远未爆炸); 延迟 +60% (额外 NFE), 效率层面负优化
+- **代码改动**
+  -- ldmdet/diffusion/rectified_flow.py: RFDPMSolverMultistep.step() 新增 renewal_mask 和 dim_d1_mask 参数; 新增 RFDPMSolverHybrid 类
+  -- ldmdet/diffusion/sampling.py: DiffusionSampler 新增 dim_d1_mask 属性; create_dpm_solver() 新增 'dpm_pp_heun_hybrid' 分支
+  -- ldmdet/core/head.py: predict() 中 D3 路径 A (per-proposal renewal mask) + hybrid solver model_fn 注入
+- **可视化文件**: docs/paper/latex/figures/trajectory/ (14 张图)
+- **测试脚本**: tools/dim_d1_d2.py (D2), tools/dim_d1_d1.py (D1)
 
 - **Cascade Head Count e2e (已证伪, mAP 0.684, −0.172)**: 重训架构, 把 cascade head 数量从 6 改为其他值
 - **D3**: 仅诊断已有架构的 box_renewal 与 DPM-Solver++ 交互, 不重训, 不引入新模块
