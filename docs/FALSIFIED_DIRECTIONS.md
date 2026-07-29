@@ -487,7 +487,8 @@ FBM simple gate 源预训练, 期望在 Dataset 2 源预训练阶段验证 simpl
   -- work_dir: work_dirs/bottleneck/ablation/no_box_renewal/20260623_211757/
   -- SwanLab: ldmdet-ablation, run_id=52o1g5pq09eddplyzbl9q, URL: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/52o1g5pq09eddplyzbl9q
   -- best mAP=0.730 (Δ=−0.016, 消融)
-  -- 证实 box renewal 机制对性能有显著贡献, 不可移除
+  -- 证实 box renewal 机制在**训练时**对性能有显著贡献, 不可移除
+  -- ⚠ **混淆因素标注 (2026-07-30)**: 本实验为**训练消融** (box_renewal=False 贯穿训练, Heun solver, Dataset 1, K=500, 单 seed)。后续推理时切换实验 (DPM-Solver++, 训练 ON + 推理 OFF, 见 EXPERIMENT_LINEAGE §六 方案 B) 表明: 推理时关闭 renewal 在 K≥200 下不损失精度 (3-seed Δ=−0.0003), 仅 K=100 下有 −0.016 退化 (proposal 稀缺时回收机制价值凸显)。两者 Δ=−0.016 巧合相同但机制不同 (训练 proposal 多样性丧失 vs 推理 proposal 回收能力丧失)。
 
 - class_balanced_sampling (类别平衡采样) ⛔ FAILED
   -- config: experiments/configs/bottleneck/class_balanced_sampling.py
@@ -507,7 +508,7 @@ FBM simple gate 源预训练, 期望在 Dataset 2 源预训练阶段验证 simpl
 
 1. **损失权重调整方向错误**: high_cls_weight (0.739) 和 high_giou_weight (0.737) 均低于 baseline, 表明默认权重 (λ_cls=2.0, λ_giou=2.0) 已接近最优, 增大权重反而过拟合。
 2. **尺度感知损失设计不足**: scale_aware_loss (0.742) 试图引入尺度先验, 但与 ScaleConditionedRF (§一) 类似, 推理时尺度估计不可靠, 损失设计未解决该问题。
-3. **box renewal 不可移除**: no_box_renewal (0.730, Δ=−0.016) 证实 box renewal 是 LDMDet 的核心机制, 移除后低置信度 proposal 无法重置, 检测精度显著下降。该消融为正向贡献 (证明 box renewal 必要性), 但作为改进方向证伪。
+3. **box renewal 训练时不可移除, 推理时可在 K≥200 下安全关闭**: no_box_renewal 训练消融 (0.730, Δ=−0.016) 证实 box renewal 在**训练时**是核心机制, 训练时移除导致模型未学习 proposal 回收能力。但后续推理时切换实验 (EXPERIMENT_LINEAGE §六 方案 B, DPM-Solver++, 3-seed) 表明: **推理时关闭 renewal 在 K≥200 下不损失精度** (Δ=−0.0003), 使 η_str 诊断有效; 仅 K=100 (非推荐配置) 下有 −0.016 退化。该消融为正向贡献 (证明训练时 box renewal 必要性), 但作为改进方向证伪。
 4. **类别平衡采样内存溢出**: class_balanced_sampling 触发 SIGKILL, 可能是加权采样器在小批量 (bs=2) 下内存占用过高。Class-Balanced Sampling 的设想虽合理, 但实现层面不可行。
 5. **100 proposals 容量不足**: proposals_100 触发 SIGKILL, 可能是 proposal 数量减少后某些维度不匹配。即使能训练, Dataset 2 每张图约 46 个目标, 100 proposals 覆盖 46 + 重叠冗余时容量紧张 (与 Top-K K=100 掉点 −0.010 同源)。
 6. **架构天花板约 0.75**: 7 个消融均未超越 0.746, 证实 Dataset 1 上架构天花板约 0.75, 需换数据集 (Dataset 2) 或换范式 (RF + DPM-Solver++) 才能突破。
@@ -900,7 +901,7 @@ BDS-RF 提出: 对预测框 $\hat{x}_0$ 施加高斯扰动 $\delta$, 计算扰�
 
 - **错误描述**: KaryoFlow 的 box_renewal 机制使 proposal 位置每步大幅变化 (93-124 px/步, 见 §五 RoI Feature Cache)。BDS-RF 的扰动 $\delta$ 在归一化坐标 [0,1] 下, 相对于 box_renewal 的位移可能微不足道。
 - **错误依据**: FALSIFIED §五 RoI Feature Cache 证实 box 位移 93-124 px/步, 缓存命中率接近 0。若 $\delta$ 远小于 box_renewal 位移, BDS-RF 的正则化效果可能被淹没。
-- **为何不可修复**: box_renewal 是核心机制 (no_box_renewal 消融 Δ=−0.016, §十), 不可移除; BDS-RF 的扰动尺度无法与 box_renewal 的位移竞争。
+- **为何不可修复**: box_renewal 是训练核心机制 (no_box_renewal 训练消融 Δ=−0.016, §十; 推理时 K≥200 可安全关闭但 K=100 仍有 −0.016 退化, 见 LINEAGE §六); BDS-RF 的扰动尺度无法与 box_renewal 的位移竞争。
 
 ### 与已证伪方向的关系
 
@@ -1273,7 +1274,7 @@ MDC-RF 提出: 用连续介质力学物质导数 $D\hat{x}_0/Dt = \partial \hat{
 | relative_l1_loss | 0.740 | −0.006 | Dataset 1 | ldmdet-ablation | ⛔ 证伪 |
 | high_cls_weight | 0.739 | −0.007 | Dataset 1 | ldmdet-ablation | ⛔ 证伪 |
 | high_giou_weight | 0.737 | −0.009 | Dataset 1 | ldmdet-ablation | ⛔ 证伪 |
-| no_box_renewal | 0.730 | −0.016 | Dataset 1 | ldmdet-ablation | ⛔ 消融证伪 |
+| no_box_renewal | 0.730 | −0.016 | Dataset 1 | ldmdet-ablation | ⛔ 训练消融证伪 (⚠ 推理时切换 K≥200 安全, 见 LINEAGE §六) |
 | class_balanced_sampling | — | — | Dataset 1 | ldmdet-ablation | ⛔ SIGKILL |
 | proposals_100 | — | — | Dataset 1 | ldmdet-ablation | ⛔ SIGKILL |
 | multi_seed/rf_heun_adaln (无 aug) | 0.712 | −0.034 | Dataset 1 | chromosome-kd | ⛔ 简化非标准 |
@@ -1302,7 +1303,7 @@ MDC-RF 提出: 用连续介质力学物质导数 $D\hat{x}_0/Dt = \partial \hat{
 3. **生成模型特征与检测任务空间不兼容**: FBM §二 + scheme_a_dinov2_s §十一 + FBM SimpleGate §九, 三处独立证实生成模型 (ChromoGen UNet / DINOv2) 的特征服务于像素级任务, 与 bbox 级检测任务特征空间不兼容, 简单注入反而有害。
 4. **架构解耦方向边际收益不足**: Decoupled Head (数据更正: 真实 best 0.749, Δ=+0.003 在 noise 内, 原证伪结论存疑, 单 seed + 训练中断待 3-seed 复核) + Cascade Head Count E2E (−0.172 严重退化) + Head Early-Exit (退出率 0%), 后两者仍证实 cascade head 的共享特征路径和横向精化不可解耦; S1 理论分析 (theory_analysis_RF_DPM.md §2) 预测并解释了该现象。
 5. **Dataset 1 架构天花板约 0.75**: Bottleneck 系列 §十 + Architecture Decoupling series §六/七 + 早期失败 §十一, 均未超越 0.746 baseline, 证实 Dataset 1 上架构天花板约 0.75。突破需换数据集 (Dataset 2, +Stoch. Coupling=0.859) 或换范式 (RF + DPM-Solver++), 这正是论文最终选择。
-6. **box renewal 是核心机制**: no_box_renewal (−0.016) + RoI Feature Cache (box 位移 93-124 px/步) + D3 矛盾 (theory_analysis_RF_DPM.md §3), 三处独立触及 box renewal 机制。box renewal 虽污染 η_str 诊断, 但对最终精度贡献显著, 不可移除。
+6. **box renewal 是训练核心机制, 推理时可条件化移除**: (1) 训练消融 no_box_renewal (Dataset 1, Heun, −0.016) 证实训练时不可移除; (2) RoI Feature Cache 证伪 (box 位移 93-124 px/步) 证实 renewal 使 proposal 位置大幅变化; (3) D3 矛盾 (theory_analysis_RF_DPM.md §3) 证实 renewal 污染 η_str 诊断但不影响精度; (4) **推理时关闭 renewal 在 K≥200 下安全** (DPM-Solver++, 3-seed Δ=−0.0003, LINEAGE §六 方案 B), 使 η_str 诊断有效; K=100 推理关闭有 −0.016 退化 (proposal 稀缺时回收机制价值凸显), 与 bottleneck 训练消融量级相同但机制不同。
 7. **负面记录的价值**: 这些证伪方向证明最终设计 (RF + Heun/DPM-Solver++ + Stochastic Coupling + Top-K 剪枝 + 6 cascade head + box renewal) 的每个组件都经过充分验证, 排除了多个看似合理的替代方案, 支撑论文的方法选择合理性。
 8. **理论评审可发现致命错误, 避免无效实验** (§十五~§二十一, 2026-07-28): 7 个方向 (VLR/DSCR/BDS-RF/PDR/LDCR/PCR-Matcher/Traj-SAM) 在 R1 A↔B 理论评审阶段即被淘汰, 未经真实实验。理论评审发现的错误类型包括: (a) 正则化目标与理想解矛盾 (VLR: $J_{v_\theta} \to 0$ vs 理想 $-I/t \neq 0$); (b) 理论范畴错误 (DSCR: Dahlquist 用于非 ODE 数值方法); (c) 适用对象错误 (BDS-RF: McDiarmid 用于确定性预测; PDR: PAC-Bayes $n$ 混淆训练图像数与 proposal 数); (d) 渐近性不满足 (LDCR: $K=6$ 不满足大偏差 $K \to \infty$); (e) 条件数误用 (PCR-Matcher: Renegar 混淆 A 与 c); (f) 核心推导错误 (Traj-SAM: Cauchy-Schwarz 多一个平方)。**理论评审在实验前过滤了 7 个方向, 节省了大量计算资源**。
 9. **冗余性检查必须前置** (§二十二, 2026-07-28): MEC-RF/EXER-RF/MDC-RF 三个方向在 R1/R2 评审中才发现与已推荐方向 (BEAR/TFR) 高度冗余 — MEC-RF 是 BEAR 的子分量, EXER-RF (k=2) 与 BEAR 正则同一对象 $\|D_2\|^2$ 仅权重不同, MDC-RF 严格包含 TFR。后续方向设计时必须先绘制 "正则对象 vs 已有方向" 的覆盖图, 避免重复设计。

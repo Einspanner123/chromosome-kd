@@ -436,7 +436,7 @@ Top-$K$ 剪枝的有效性取决于每步 NFE：对 Heun（2 NFE/步），剪枝
 
 **K=100 精度退化归因的证伪。** 一个自然的猜测是 K=100 相对 K=200 的 mAP 退化（$-0.010$，Table 10）源于更激进的 box renewal 进一步破坏 DPM-Solver++ 多步历史。但实测 K=100 与 K=200 的 $\eta_{\mathrm{str}}$ 几乎相同（step2: 2.18 vs 2.24，step3: 1.54 vs 1.54），均呈 V-shape 且二阶校正量级一致——多步历史未被进一步破坏。因此 K=100 的精度退化主因是 proposal 数量不足（100 个框覆盖 ~46 条染色体 + 重叠冗余时容量紧张），而非 DPM-Solver++ 历史污染。
 
-**Box renewal 对 $\eta_{\mathrm{str}}$ 的整体影响（$\eta_{\mathrm{str}}$ 与 mAP 表观矛盾的化解）。** 关闭 box renewal 后 $\eta_{\mathrm{str}}$ 整体降至 baseline 的 44%（step1: 1.50 vs 3.43，step3: 0.70 vs 1.68；3-seed 均值），轨迹更接近理想 RF 直线，但 mAP 仅变化 $-0.0003 \pm 0.003$（噪声范围内）。这表明 box renewal 通过干扰 $\eta_{\mathrm{str}}$ 量化上"弯曲"了 RF 轨迹（形式化地，renewal 后 $D_1$ 期望范数由 renewal 噪声主导而非轨迹曲率，使 $\eta_{\mathrm{str}}$ 诊断失效——详见 arXiv companion），但该弯曲对最终 mAP 影响可忽略——DPM-Solver++ 的二阶校正即便在 renewal 干扰下仍提供 §4.5.3 中 $+0.006$ mAP 的精度优势，因 proposals 在每步冷启动后由 RF 速度场重新对齐至低曲率 ODE 路径。
+**Box renewal 对 $\eta_{\mathrm{str}}$ 的整体影响（$\eta_{\mathrm{str}}$ 与 mAP 表观矛盾的化解）。** 关闭 box renewal 后 $\eta_{\mathrm{str}}$ 整体降至 baseline 的 44%（step1: 1.50 vs 3.43，step3: 0.70 vs 1.68；3-seed 均值），轨迹更接近理想 RF 直线，但 mAP 仅变化 $-0.0003 \pm 0.003$（噪声范围内）。这表明 box renewal 通过干扰 $\eta_{\mathrm{str}}$ 量化上"弯曲"了 RF 轨迹（形式化地，renewal 后 $D_1$ 期望范数由 renewal 噪声主导而非轨迹曲率，使 $\eta_{\mathrm{str}}$ 诊断失效——详见 arXiv companion），但该弯曲对最终 mAP 影响可忽略——DPM-Solver++ 的二阶校正即便在 renewal 干扰下仍提供 §4.5.3 中 $+0.006$ mAP 的精度优势，因 proposals 在每步冷启动后由 RF 速度场重新对齐至低曲率 ODE 路径。需注意，box renewal 的推理时关闭仅在 $K \ge 200$（推荐配置）下安全：在 $K{=}100$（非推荐配置，已知有害）下，关闭 renewal 导致额外的 $-0.016$ mAP 退化，因 proposal 稀缺时 renewal 的"proposal 回收"机制（将远离任何 GT 的死 proposal 重置为噪声，给其重新收敛的机会）价值凸显。这一边界条件进一步证实 box renewal 的核心价值是 proposal 回收而非 DPM-Solver++ 历史维护。
 
 ### 5.5 理论适用性与局限
 

@@ -543,11 +543,31 @@ box_renewal 在每个 solver step 后将低置信度 proposals 重置为随机�
 
 K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 < 3%), 但 mAP 差 −0.010。**D3 假设被证伪**: K=100 掉点主因是 proposal 数量不足, 不是 DPM-Solver++ 历史破坏。
 
-### 方案 B (renewal off) 已验证
+### 方案 B (renewal off) 已验证 + K 值依赖性确认 (2026-07-30 补充)
 
+**基础验证 (A4 DPM-Solver++, Dataset 2 K=500, 3-seed)**:
 - 3 seed 平均 mAP 0.858 ± 0.003 (vs baseline 0.859 ± 0.004), Δ=−0.0003 (噪声范围)
 - **方案 B 不损失精度**, 且使 η_str 诊断有效 (renewal 污染被消除)
 - 使 R1 指标在 renewal on 时失效的问题得到化解
+
+**K 值依赖性验证 (2026-07-30, 全场景 renewal ON vs OFF 直接对比)**:
+
+数据源: [renewal_off_all_scenarios.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_all_scenarios.json) · [renewal_off_topk_verify.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_topk_verify.json)
+
+| 场景 | renewal ON | renewal OFF | ΔmAP | 判定 |
+|------|-----------|-------------|------|------|
+| Dataset 1 A4 (K=500) | 0.744 | 0.743 | −0.001 | ✓ 不影响 |
+| Dataset 2 K=500 | 0.864 | 0.862 | −0.002 | ✓ 不影响 |
+| Dataset 2 K=300 | 0.862 | 0.863 | +0.001 | ✓ 不影响 |
+| Dataset 2 K=200 | 0.862 | 0.862 | 0.000 | ✓ 不影响 |
+| **Dataset 2 K=100** | **0.851** | **0.835** | **−0.016** | **⚠ 有影响** |
+
+**结论: 推理时关闭 box_renewal 在 K≥200 (推荐配置) 下安全, K=100 (非推荐) 下有 −0.016 退化。**
+
+- **K=100 退化主因**: proposal 稀缺性。K=100 时 100 个 proposal 覆盖 46 GT + 重叠冗余, box_renewal 的"proposal 回收"机制 (重置死 proposal 为噪声, 给重新收敛机会) 价值凸显; K≥200 时冗余 proposal 弥补回收缺失。
+- **APs paradox**: K=100 renewal OFF 的小目标 APs 反升 (0.507 vs 0.464, +0.043), 因 renewal 重置为纯随机噪声偏向中大目标, 关闭后小目标定位不被破坏; 但中大目标 recall 下降更多 (n_matched −1.4%), 净效果为负。
+- **bottleneck 不矛盾**: FALSIFIED §十 no_box_renewal 是**训练消融** (Heun, Dataset 1, 训练+推理都 OFF, Δ=−0.016), 本实验是**推理切换** (DPM++, 训练 ON 推理 OFF)。两者 Δ=−0.016 巧合相同但机制不同 (训练 proposal 多样性丧失 vs 推理 proposal 回收能力丧失)。
+- **作为 DPM++ 适配改进**: 推理时关闭 renewal 使 D1 校正免受 renewal 噪声污染 (理论净化), 在推荐配置 K≥200 下不损失精度, 同时使 R1 诊断有效。K=100 作为边界条件讨论, 进一步证实 box_renewal 的核心价值是 proposal 回收而非 DPM++ 历史维护。
 
 ### 方案 A (per-proposal D1 掩码) 已实现 (2026-07-29)
 
@@ -1418,7 +1438,7 @@ S1 的 H×S 理论说明 "仅改变 H 会破坏横向收敛性" (已证伪 N_cas
 | **DPM-Solver++ (§三)** | RF 适配 data-prediction + 修正 FlowDet 结论 | 临床交互式延迟 13.3-14.2 FPS / cascade head 占 90%+ | +0.006 mAP (p<10⁻⁶) + 1.71× NFE 加速 | ✅ 完成 |
 | **Top-K Pruning (§四)** | 500→K proposals 剪枝 + DPM-Solver++ 兼容 | K=200 最优 (46 染色体 + 重叠冗余) | K=200: 14.2 FPS, mAP 0.860 | ✅ 完成 |
 | **R1 η_str (§五)** | 零开销直线度指标, 量化"2 步收敛" | 修正"RF 接近直线" claim (实际 η_str∈[0.7,1.5]) | 3 seeds 单调下降 3.43→2.45→1.68 | ✅ 完成 |
-| **D3 Box Renewal (§六)** | 揭示 box_renewal 与多步法历史矛盾 + 化解 | box_renewal 检测特有 / 密集目标 renewal 比例高 | η_str 虚高 56-58% 但 mAP 仅 −0.0003 | ✅ 完成 |
+| **D3 Box Renewal (§六)** | 揭示 box_renewal 与多步法历史矛盾 + 化解 | box_renewal 检测特有 / 密集目标 renewal 比例高 | η_str 虚高 56-58% 但 mAP 仅 −0.0003; K≥200 推理关闭安全, K=100 −0.016 | ✅ 完成 (含 K 值依赖性验证) |
 | **S1 Cascade × Solver (§七)** | cascade head 作为 implicit solver 算子分裂 | 解释 24 NFE 架构合理性, 预防"6 head 冗余"质疑 | s1_h3_s8 ✓ (0.859), s1_h6_s2 ⚠ 待确认 (上次 0.859 @ ep106), s1_h3_s4 ✓ | 🔄 部分完成 |
 | **R3 v-prediction 对照 (§八)** | 验证低维 + shifted schedule 下 x0-prediction 优势 | 预防"为何不用 v-prediction"质疑 (RF 原文偏好) | seed 42 ⚠ 待确认 (workstation 不可达), seed 123/789 ⛔ | 🔄 进行中 |
 | **方向 A per-dim η_str (§九)** | 检测空间 4 维 (cxcywh) 各维度曲率差异诊断 | h 维度曲率显著小于 cx,cy, 启示 per-dim solver | Phase 2: per-dim (h=1阶) mAP=0.863 (+0.001), 加速 5.5%; Phase 3 (A.2): per-dim-w (w,h=1阶) mAP=0.864 (持平), 加速 5.0% | ✓ 完成 |
