@@ -164,6 +164,12 @@ MODEL_REGISTRY = {
         'desc': 'YOLOX-S (Dataset 1, low-data 1540 imgs) [mAP=0.608]',
         'type': 'mmdet',
     },
+    'dino_r50_20240904': {
+        'config': 'experiments/configs/baselines/benchmark/dino_r50.py',
+        'checkpoint': 'work_dirs/baselines/dino_r50_20240904/epoch_31.pth',
+        'desc': 'DINO R50 (Dataset 1, low-data 1540 imgs, 31ep) [mAP=0.607]',
+        'type': 'mmdet',
+    },
 }
 
 # 已知 mAP (val set, 来自 SwanLab 验证 2026-07-15)
@@ -188,6 +194,7 @@ KNOWN_MAP = {
     'cascade_rcnn_20240904': 0.732,  # best@ep86, workstation 2026-05-19
     'rtmdet_l_20240904': 0.742,      # best@ep52, workstation 2026-05-20
     'yolox_s_20240904': 0.608,       # best@ep150, workstation 2026-05-19
+    'dino_r50_20240904': 0.607,      # best@ep29, local A6000 2026-07-29 (31ep, 未完成)
 }
 
 
