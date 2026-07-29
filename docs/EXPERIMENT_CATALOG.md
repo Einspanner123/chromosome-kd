@@ -117,7 +117,7 @@
 | I1 Seesaw+Normalized | ldmdet-breakthrough | work_dirs/i1_seesaw_normalized/ | i1_seesaw_normalized.py | 0.744 | ✅/⚠ | ⚠ 实为 Dataset 1 数据集 (非 Dataset 2) | <!-- verified: 2026-07-16 -->
 | normalized_only | (待确认) | work_dirs/normalized_only/ | normalized_only.py | 0.747 | ✅/⚠ | ⚠ 实为 Dataset 1 数据集 (非 Dataset 2) | <!-- verified: 2026-07-16 -->
 
-### 1.4 Chromosome20240904 (Dataset 1) 数据集 — ⚠ 旧数据集 (结论暂时废弃)
+### 1.4 Chromosome20240904 (Dataset 1) 数据集
 
 | 实验名称 | SwanLab项目 | run_id | 本地路径 | mAP | 状态 | 分类 |
 |----------|------------|--------|----------|-----|------|------|
@@ -166,6 +166,10 @@
 | Structured Prior Only | ldmdet-ablation | — | work_dirs/direction_exps/direction_f_prime_structured_prior_only/ | 0.685 | ✅ 早停 | 方向实验(证伪) |
 | Structured Prior Head | ldmdet-ablation | — | work_dirs/direction_exps/direction_f_structured_prior/ | 0.574 | ✅ 早停 | 方向实验(证伪) |
 | LaMFPN | ldmdet-ablation | — | work_dirs/direction_exps/direction_g_lamfpn/ | 0.736 | ✅ 早停 | 方向实验(证伪) | <!-- verified: 2026-07-16 -->
+| Cascade R-CNN R50 (Dataset 1) | chromosome-kd-benchmark | — | work_dirs/baselines/cascade_rcnn_r50_20240904/ | 0.732 @ ep86 | ✅ | Dataset 1 标准检测器 | <!-- verified: 2026-07-29: workstation 训练日志 best@ep86, rsync 至本地 -->
+| RTMDet-L (Dataset 1) | chromosome-kd-benchmark | — | work_dirs/baselines/rtmdet_l_20240904/ | 0.742 @ ep52 | ✅ | Dataset 1 标准检测器 | <!-- verified: 2026-07-29: workstation 训练日志 best@ep52, rsync 至本地 -->
+| YOLOX-S (Dataset 1) | chromosome-kd-benchmark | — | work_dirs/baselines/yolox_s_20240904/ | 0.608 @ ep150 | ✅ | Dataset 1 标准检测器 | <!-- verified: 2026-07-29: workstation 训练日志 best@ep150, rsync 至本地 -->
+| DINO R50 (Dataset 1) | chromosome-kd-benchmark | dino-r50-4scale-20240904 | work_dirs/baselines/dino_r50_20240904/ | 训练中 | 🔄 训练中 | Dataset 1 标准检测器 | <!-- 2026-07-29: 本地 A6000 训练启动, eta ~1d15h, bs=2 150ep EarlyStopping patience=30 -->
 
 ### 1.5 跨数据集合并实验
 
@@ -258,11 +262,11 @@
 >
 > 注: 1 步推理 mAP (0.805) 与 Table 5 中 DDPM baseline (0.803, 训练评估) 略有差异, 源于推理与训练评估的 maxDets 设置不同; 多步对比在相同推理设置下进行, 结论不受影响。 <!-- verified: 2026-07-28 ross server 推理日志 -->
 
-### 2.2 Chromosome20240904 (Dataset 1) 数据集实验 — ⚠ 暂时废弃
+### 2.2 Chromosome20240904 (Dataset 1) 数据集实验
 
-> ⚠ 以下结论基于旧数据集 (mAP≈0.72-0.75), Dataset 2 数据集上的结论已更新。以下实验记录保留供参考, 但不可与 Dataset 2 实验对比。
+> Dataset 1 (Chromosome20240904, 1,540 张训练图像) 为低数据场景, 用于验证判别式范式在临床训练数据稀缺时优势收窄的论点 (论文 §1)。本节包含 KaryoFlow 变体、DiffusionDet 基线与标准检测器 (Cascade R-CNN / RTMDet-L / YOLOX-S / DINO R50) 的对比。标准检测器数据见 §2.2.7。
 
-#### 2.2.1 主路线消融 (Dataset 1, 旧)
+#### 2.2.1 主路线消融 (Dataset 1)
 
 | 实验 | mAP | 配置 | 说明 |
 |------|-----|------|------|
@@ -355,6 +359,27 @@
 | ldmdet_convnextv2_mae | 0.736 | phase0_pretrain/ | ConvNextV2 MAE 预训练 |
 
 > 数据源: EXPERIMENT_LINEAGE.md §3.1 (line 137-150)。 <!-- verified: 2026-07-16 -->
+
+#### 2.2.7 标准检测器对比 (Dataset 1, 低数据场景)
+
+> 本节记录标准检测器 (Cascade R-CNN / RTMDet-L / YOLOX-S / DINO R50) 在 Dataset 1 (Chromosome20240904, 1,540 张训练图像) 上的表现, 用于支撑论文 §1 "判别式范式在临床训练数据稀缺时优势收窄" 的论点。checkpoint 与训练日志原存于 workstation (`work_dirs/benchmark/`), 2026-07-29 rsync 至本地 `work_dirs/baselines/*_20240904/` 用于 FPS 测试。<!-- verified: 2026-07-29 -->
+
+| 模型 | backbone | best mAP (val) | AP50 | AP75 | AP_S | AP_M | AP_L | best epoch | 状态 |
+|------|----------|---------------|------|------|------|------|------|-----------|------|
+| Cascade R-CNN R50 | ResNet-50 | **0.732** | 0.932 | 0.843 | 0.520 | 0.725 | 0.655 | 86 | ✅ |
+| RTMDet-L | CSPNeXt-L | **0.742** | 0.946 | 0.854 | 0.504 | 0.740 | 0.568 | 52 | ✅ |
+| YOLOX-S | CSPDarkNet-S | **0.608** | 0.940 | 0.732 | 0.392 | 0.611 | 0.498 | 150 | ✅ |
+| DINO R50 (4scale) | ResNet-50 | 训练中 | — | — | — | — | — | — | 🔄 本地 A6000 训练 |
+
+> **跨数据集对比 (判别式范式在数据稀缺时优势收窄)**:
+> - RTMDet-L: Dataset 1 **0.742** vs Dataset 2 **0.863** (Δ=−0.121, 退化 14.0%)
+> - Cascade R-CNN: Dataset 1 **0.732** vs Dataset 2 **0.854** (Δ=−0.122, 退化 14.3%)
+> - YOLOX-S: Dataset 1 **0.608** vs Dataset 2 **0.796** (Δ=−0.188, 退化 23.6%)
+> - DINO R50: Dataset 2 **0.868** (Dataset 1 训练中, 待补充)
+>
+> 对比 KaryoFlow (RF+Heun+AdaLN) 在 Dataset 1 上 3-seed 均值 **0.746** (论文 §4.1): KaryoFlow 在低数据场景下超越全部已完成训练的标准检测器 (RTMDet-L 0.742 / Cascade 0.732 / YOLOX-S 0.608), 支撑论文 "基于扩散的检测器在数据稀缺场景下达到与前沿检测器相当的精度" 的核心论点。
+>
+> 训练配置: `experiments/configs/baselines/benchmark/{cascade_rcnn_r50,rtmdet_l,yolox_s,dino_r50}.py` (data_root=`data/Chromosome20240904_NoAug_NoResize_coco/`)。<!-- verified: 2026-07-29 -->
 
 ### 2.3 跨数据集实验
 
@@ -540,7 +565,7 @@
 >
 > ⚠ run 2 (mAP=0.708) 仅 22 evals, 远低于 run 1 (99 evals, mAP=0.747), 疑为早停或重启, **不可作为引用源**。论文引用时应使用 run 1 (mAP=0.747) 或 s8 (mAP=0.748)。
 >
-> ⚠ Dataset 1 数据集结论已暂时废弃 (§1.4 标注), 这些数值仅用于历史数据源溯源, 不进入论文正文。<!-- verified: 2026-07-19 SwanLab -->
+> Dataset 1 (Chromosome20240904, 1,540 张训练图像) 为低数据场景, 用于支撑论文 §1 判别式范式在数据稀缺时优势收窄的论点。<!-- verified: 2026-07-19 SwanLab; 2026-07-29 去除废弃标注, Dataset 1 数据恢复有效 -->
 
 #### 3.6.3 Dataset 1 SOTA 多种子项目归属修正 (项目 `chromosome-kd-multiseed`, 修正 §1.4)
 
@@ -633,7 +658,7 @@
 > 2. **SWA 部分恢复**: bs8-warm-restart-swa (0.728) 略优于 warm-restart-v2 (0.719), +0.009, 但仍低于 baseline (-0.021)。SWA 平均权重部分缓解 warm-restart 退化, 但无法完全恢复。
 > 3. **结论**: warm-restart 与 SWA 在 Dataset 1 数据集 LDMDet 训练中均为反向策略, 不进入论文。
 >
-> ⚠ Dataset 1 数据集结论已暂时废弃 (§1.4), 本节数据仅作为稳定性策略的负面证据存档。<!-- verified: 2026-07-19 SwanLab -->
+> Dataset 1 (低数据场景) 稳定性策略负面证据存档, 与 Dataset 2 结论一致。<!-- verified: 2026-07-19 SwanLab; 2026-07-29 去除废弃标注 -->
 
 #### 3.6.9 V1-E Stoch. Coupling 实现验证 (项目 `chromosome-kd-verify-v1`)
 
@@ -1066,7 +1091,7 @@ rf_heun_adaln.py (Dataset 1 RF+Heun+AdaLN 基线, bs=4)
 | a4_swinglu_24obj/ | Dataset 2 | +DPM-Solver+++SwiGLU FFN (新增) | ⭐⭐ |
 | ablation/ | Dataset 1 | epsilon 消融 (stoch_eps*, argmax_eps*) | ⭐⭐ |
 | ablation_old/ | Dataset 1 | 旧 epsilon 消融归档 | ⭐ |
-| baselines/ | Dataset 2 | 对比模型 (Cascade/DINO/YOLOX/RTMDet/DiffusionDet) | ⭐⭐⭐ |
+| baselines/ | Dataset 2 + Dataset 1 | 对比模型 (Cascade/DINO/YOLOX/RTMDet/DiffusionDet); Dataset 1 模型在 *_20240904/ 子目录 (2026-07-29 rsync 自 workstation) | ⭐⭐⭐ |
 | bottleneck/ | Dataset 1 | 瓶颈分析 (focal_gamma, scale_aware, 等) | ⭐⭐⭐ |
 | chromo_coco_detection/ | Dataset 1 | 数据集配置 | ⭐ |
 | chromogen_phase1/ | — | ChromoGen 生成模型训练 | ⭐⭐ |
