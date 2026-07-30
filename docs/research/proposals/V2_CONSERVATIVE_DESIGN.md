@@ -44,7 +44,7 @@
 ### R2-I1: 代码草图添加 ReFlow 模式条件分支 (Important, R1 §3.1)
 
 - **位置**: §6.1 代码草图
-- **修正内容**: 在 TFR 代码草图中添加 `if self.use_reflow_coupling: ...` 条件分支, 说明 TFR 在 ReFlow 2-Rectification 模式下 (`x_starts` 为 A4 预测而非 GT) 的行为: 发出 warning 并建议初期仅在 `box_target_mode='gt'` 时启用
+- **修正内容**: 在 TFR 代码草图中添加 `if self.use_reflow_coupling: ...` 条件分支, 说明 TFR 在 ReFlow 2-Rectification 模式下 (`x_starts` 为 +DPM-Solver++ 预测而非 GT) 的行为: 发出 warning 并建议初期仅在 `box_target_mode='gt'` 时启用
 - **R1 对应**: §3.1 Issue #3
 
 ### R2-I2: 共享 backbone 开销估计改为 +50~70% (Important, R1 §3.2)
@@ -574,8 +574,8 @@ $$g_{\text{tfr}}(t, t') = 2 (\varepsilon(t) - \varepsilon(t')) \cdot (\nabla_\th
 | 维度 | ReFlow 2-Rectification | TFR (本方案) |
 |------|------------------------|--------------|
 | **修改对象** | 训练数据 (coupling 端点) | 训练损失 (新增正则项) |
-| **核心机制** | 用 A4 预测 $x_0^{\text{pred}}$ 替代 GT 作为轨迹端点, 实现 2nd rectification | 在 $\mathcal{L}_{\text{det}}$ 上加 $\lambda \mathcal{L}_{\text{tfr}}$, 约束 $\hat{x}_0$ 时间一致性 |
-| **box target** | $x_0^{\text{pred}}$ (A4 推理结果, 拉直目标) | GT (标准模式) 或 $x_0^{\text{pred}}$ (ReFlow 模式, 语义改变) |
+| **核心机制** | 用 +DPM-Solver++ 预测 $x_0^{\text{pred}}$ 替代 GT 作为轨迹端点, 实现 2nd rectification | 在 $\mathcal{L}_{\text{det}}$ 上加 $\lambda \mathcal{L}_{\text{tfr}}$, 约束 $\hat{x}_0$ 时间一致性 |
+| **box target** | $x_0^{\text{pred}}$ (+DPM-Solver++ 推理结果, 拉直目标) | GT (标准模式) 或 $x_0^{\text{pred}}$ (ReFlow 模式, 语义改变) |
 | **cls target** | GT (SimOTA 需真实标签分配正负样本) | GT (不变) |
 | **损失函数** | $\mathcal{L}_{\text{det}}$ (标准检测损失, 无 velocity loss) | $\mathcal{L}_{\text{det}} + \lambda \mathcal{L}_{\text{tfr}}$ |
 | **理论依据** | [Liu et al. 2022 §4](https://arxiv.org/abs/2209.03003) 2-Rectification ($\gamma_{2,T} \to 0$) | 变分正则化 + Poincaré + 定理 2.3 (A)⇒(D) 严格方向 |
@@ -585,8 +585,8 @@ $$g_{\text{tfr}}(t, t') = 2 (\varepsilon(t) - \varepsilon(t')) \cdot (\nabla_\th
 #### 4.6.2 直线化机制的本质差异
 
 **ReFlow 2-Rectification 的直线化机制** (数据层):
-- 1-RF (A4) 训练后, 轨迹仍非直线 ($\eta_{\text{str}} \in [0.7, 1.5]$), 但 A4 的预测 $x_0^{\text{pred}}$ 已接近 GT (A4 mAP=0.863)
-- 用 $(x_0^{\text{pred}}, x_1^{\text{noise}})$ 作为新 coupling 训练 2-RF, 新轨迹的端点配对更优 (因 $x_0^{\text{pred}}$ 与 $x_1$ 的 OT 配对在 A4 推理时已优化)
+- 1-RF (+DPM-Solver++) 训练后, 轨迹仍非直线 ($\eta_{\text{str}} \in [0.7, 1.5]$), 但 +DPM-Solver++ 的预测 $x_0^{\text{pred}}$ 已接近 GT (+DPM-Solver++ mAP=0.863)
+- 用 $(x_0^{\text{pred}}, x_1^{\text{noise}})$ 作为新 coupling 训练 2-RF, 新轨迹的端点配对更优 (因 $x_0^{\text{pred}}$ 与 $x_1$ 的 OT 配对在 +DPM-Solver++ 推理时已优化)
 - **关键**: 直线化通过 coupling 质量提升实现, 模型本身仍只优化 $\mathcal{L}_{\text{det}}$, 不显式约束 $\hat{x}_0$ 时间一致性
 - **理论保证**: [Liu et al. 2022 §4](https://arxiv.org/abs/2209.03003) 证明 2-Rectification 使 $\gamma_{2,T} \to 0$ (轨迹直度提升), 但依赖 1-RF 的预测质量
 
@@ -609,8 +609,8 @@ $$g_{\text{tfr}}(t, t') = 2 (\varepsilon(t) - \varepsilon(t')) \cdot (\nabla_\th
 #### 4.6.4 兼容性与叠加策略
 
 **TFR + ReFlow 叠加** (代码草图已处理, §6.1 改动 1 R2 修正):
-- 当 `use_reflow_coupling=True` 时, `x_starts` 为 A4 预测 (非 GT), TFR 约束的是 "网络对 A4 coupling 的时间一致性"
-- **语义改变**: TFR 不再约束 $\hat{x}_0$ 接近 GT, 而是约束 $\hat{x}_0$ 接近 $x_0^{\text{pred}}$ (A4 预测)。由命题 2.1, $\mathcal{L}_{\text{tfr}} \to 0$ 仅保证 $\hat{x}_0$ 退化为常数 $\bar{x}_0$, 但 $\bar{x}_0$ 是否接近 GT 取决于 ReFlow 的 coupling 质量 (A4 预测质量)
+- 当 `use_reflow_coupling=True` 时, `x_starts` 为 +DPM-Solver++ 预测 (非 GT), TFR 约束的是 "网络对 +DPM-Solver++ coupling 的时间一致性"
+- **语义改变**: TFR 不再约束 $\hat{x}_0$ 接近 GT, 而是约束 $\hat{x}_0$ 接近 $x_0^{\text{pred}}$ (+DPM-Solver++ 预测)。由命题 2.1, $\mathcal{L}_{\text{tfr}} \to 0$ 仅保证 $\hat{x}_0$ 退化为常数 $\bar{x}_0$, 但 $\bar{x}_0$ 是否接近 GT 取决于 ReFlow 的 coupling 质量 (+DPM-Solver++ 预测质量)
 - **叠加风险**: TFR + ReFlow 同时改变 coupling 与损失, 风险叠加 (mAP_75 崩塌 + 高频振荡 + 过度正则)
 
 **建议策略** (与 §6.1 R2 修正一致, 渐进式验证):
@@ -618,7 +618,7 @@ $$g_{\text{tfr}}(t, t') = 2 (\varepsilon(t) - \varepsilon(t')) \cdot (\nabla_\th
 2. **Phase 2 (ReFlow 独立验证)**: 仅启用 ReFlow 2-Rectification (`box_target_mode='x0_pred'`, `use_reflow_coupling=True`, `use_tfr=False`), 确认 mAP_75 不崩塌 (关键判据, [TODO_DIRECTIONS.md §二](file:///home/linkst/workspace/projects/chromosome-kd/docs/TODO_DIRECTIONS.md));
 3. **Phase 3 (可选叠加)**: 若 Phase 1 + Phase 2 均成功, 再叠加 TFR + ReFlow (`use_tfr=True`, `use_reflow_coupling=True`), 监控 $\eta_{\text{str}}$、mAP_75 与 $|\hat{x}_0|_{H^1}^2$ 经验值。
 
-> **与 VCR 的差异**: VCR §4.5 仅区分 SCoT/SC-Flow, 未区分 ReFlow 2-Rectification (VCR 设计于 ReFlow 重试之前)。TFR 的 R2 修正显式区分, 因 TFR 代码草图在 ReFlow 模式下语义改变 (约束 A4 coupling 的时间一致性, 非 GT coupling), 需 reviewer 理解两者不冲突但风险叠加。
+> **与 VCR 的差异**: VCR §4.5 仅区分 SCoT/SC-Flow, 未区分 ReFlow 2-Rectification (VCR 设计于 ReFlow 重试之前)。TFR 的 R2 修正显式区分, 因 TFR 代码草图在 ReFlow 模式下语义改变 (约束 +DPM-Solver++ coupling 的时间一致性, 非 GT coupling), 需 reviewer 理解两者不冲突但风险叠加。
 
 ---
 
@@ -678,21 +678,21 @@ $$g_{\text{tfr}}(t, t') = 2 (\varepsilon(t) - \varepsilon(t')) \cdot (\nabla_\th
 
 在现有 `loss()` 中, 采样 $t$ 后额外采样 $t'$, 对同一 $(x_0, x_1)$ coupling 构造 $x_{t'}$, 第二次前向计算 $\hat{x}_0(t')$, 计算 $\mathcal{L}_{\text{tfr}}$。
 
-> **R2 修正 (I1, Issue #3)**: 原稿代码草图未处理 ReFlow 模式 (`use_reflow_coupling=True`)。R2 在步骤 0 添加 ReFlow 模式条件分支: 当 `use_reflow_coupling=True` 时, `x_starts` 为 A4 预测 (非 GT), TFR 的语义改变 (约束 $\hat{x}_0$ 在 A4 coupling 上的时间一致性, 而非 GT coupling), 需发出 warning 并建议初期仅在 `box_target_mode='gt'` 时启用 TFR。
+> **R2 修正 (I1, Issue #3)**: 原稿代码草图未处理 ReFlow 模式 (`use_reflow_coupling=True`)。R2 在步骤 0 添加 ReFlow 模式条件分支: 当 `use_reflow_coupling=True` 时, `x_starts` 为 +DPM-Solver++ 预测 (非 GT), TFR 的语义改变 (约束 $\hat{x}_0$ 在 +DPM-Solver++ coupling 上的时间一致性, 而非 GT coupling), 需发出 warning 并建议初期仅在 `box_target_mode='gt'` 时启用 TFR。
 
 ```python
 # head.py loss() 内, 在 losses = self.criterion(...) 之后 (L684), return losses 之前 (L692):
 
 if self.use_tfr:
     # 0. R2 修正 (I1): ReFlow 模式条件分支
-    # ReFlow 模式 (use_reflow_coupling=True) 下, x_starts = x_0^pred (A4 预测, 非 GT),
-    # 此时 TFR 约束的是 "网络对 A4 coupling 的时间一致性", 语义不同于 GT coupling.
+    # ReFlow 模式 (use_reflow_coupling=True) 下, x_starts = x_0^pred (+DPM-Solver++ 预测, 非 GT),
+    # 此时 TFR 约束的是 "网络对 +DPM-Solver++ coupling 的时间一致性", 语义不同于 GT coupling.
     # 建议: 初期仅在 box_target_mode='gt' (即 use_reflow_coupling=False) 时启用 TFR,
     #       确认有效后再单独验证 TFR + ReFlow (box_target_mode='x0_pred') 的叠加.
     if self.use_reflow_coupling:
         logger.warning(
-            'TFR + ReFlow 模式 (use_reflow_coupling=True): x_starts 为 A4 预测, '
-            'TFR 语义改变 (约束 A4 coupling 的时间一致性, 非 GT coupling). '
+            'TFR + ReFlow 模式 (use_reflow_coupling=True): x_starts 为 +DPM-Solver++ 预测, '
+            'TFR 语义改变 (约束 +DPM-Solver++ coupling 的时间一致性, 非 GT coupling). '
             '建议初期仅在 box_target_mode=gt 时启用 TFR, 确认有效后再叠加 ReFlow. '
             '详见 V2_CONSERVATIVE_DESIGN.md §6.4 与 §4.6 (与 ReFlow 2-Rectification 区分).'
         )
@@ -704,7 +704,7 @@ if self.use_tfr:
     # 2. 复用现有 (x_0, x_1) coupling, 构造 x_{t'} (raw 扩散空间 cxcywh)
     # x_starts (list of [num_proposals, 4] raw):
     #   - use_reflow_coupling=False (gt 模式): x_starts = GT bboxes (raw cxcywh)
-    #   - use_reflow_coupling=True  (reflow 模式): x_starts = x_0^pred (A4 预测, raw cxcywh)
+    #   - use_reflow_coupling=True  (reflow 模式): x_starts = x_0^pred (+DPM-Solver++ 预测, raw cxcywh)
     # x_noises (list of [num_proposals, 4] raw): 噪声 (gt 模式在线生成, reflow 模式预存)
     # TFR 在两种模式下都构造 x_{t'} = (1-t') x_starts + t' x_noises, 语义随 x_starts 改变
     x_0_batch = torch.stack(x_starts)  # [bs, num_proposals, 4] raw (GT 或 x_0^pred)
@@ -1196,7 +1196,7 @@ $$\mathbb{E}_{\mathcal{D}}[\ell] \leq \frac{1}{n}\sum_{i=1}^n \ell(\hat{x}_0; x_
 2. **$\alpha$ 估计纯启发式**: TFR 对经验风险的影响率 $\alpha$ (§6.2.1) 仍为纯启发式, 需经验消融 (与 VCR 同, B3 #5 部分缓解)。
 3. **30~50% $\eta_{\text{str}}$ 下降数值**: 数值仍是经验估计, 非理论推导 (R2 修正仅强化 (A)⇒(D) 方向严格性, 未改变 30~50% 数值)。
 4. **高频振荡风险**: 谱偏置假设 (§5.7) 需 Phase 1 实验验证 $|\hat{x}_0|_{H^1}^2$ 经验值, R2 未提供理论保证。
-5. **TFR + ReFlow 叠加效果**: §4.6 提供 Phase 1/2/3 渐进策略, 但叠加效果 (TFR 约束 A4 coupling 时间一致性) 是否优于单独 TFR 或单独 ReFlow, 需实验验证。
+5. **TFR + ReFlow 叠加效果**: §4.6 提供 Phase 1/2/3 渐进策略, 但叠加效果 (TFR 约束 +DPM-Solver++ coupling 时间一致性) 是否优于单独 TFR 或单独 ReFlow, 需实验验证。
 
 ### 适合 Round 2 B 评估的焦点
 

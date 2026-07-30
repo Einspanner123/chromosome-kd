@@ -15,7 +15,7 @@
 
 ### 1.1 核心机制
 
-用已训练 A4 模型 (mAP=0.863) 对训练集推理, 生成新 coupling `(x_0^pred, x_1^noise)` 替代原始 `(x_0^GT, x_1^noise)`, 再用**标准检测损失** (无 velocity loss) 训练 2-RF, 拉直轨迹。
+用已训练 +DPM-Solver++ 模型 (mAP=0.863) 对训练集推理, 生成新 coupling `(x_0^pred, x_1^noise)` 替代原始 `(x_0^GT, x_1^noise)`, 再用**标准检测损失** (无 velocity loss) 训练 2-RF, 拉直轨迹。
 
 - 触发条件: η_str 实测 3.39~8.35 (远超阈值 0.1), 轨迹显著非直线
 - 与已证伪版本区别: 不加 velocity loss → 消除梯度冲突 (旧版 cos=−0.104)
@@ -30,8 +30,8 @@
 _build_training_targets (reflow 模式):
   gt_diffusion = (norm_gt * 2 - 1) * snr_scale       # GT 扩散空间 (用于 SimOTA 匹配)
   noise  = 预存 x_1^noise (从 coupling 文件加载, 固定)
-  x_start = 预存 x_0^pred (A4 推理结果, 轨迹端点)
-  matched_idx = 预存 OT 匹配 (沿用 A4 推理时的分配)
+  x_start = 预存 x_0^pred (+DPM-Solver++ 推理结果, 轨迹端点)
+  matched_idx = 预存 OT 匹配 (沿用 +DPM-Solver++ 推理时的分配)
   x_noisy, x_noise = rf.q_sample(x_start, noise, t)  # x_t = (1-t)·x_0^pred + t·noise
 
 loss (混合 target):
@@ -51,12 +51,12 @@ loss (混合 target):
 
 ```
 EMA teacher θ_teacher = α·θ_teacher + (1-α)·θ_student   (α=0.999)
-每 N epoch 用 EMA teacher 重新生成 coupling (而非固定用 A4)
+每 N epoch 用 EMA teacher 重新生成 coupling (而非固定用 +DPM-Solver++)
 ```
 
-- **Phase 1 (ep 0-10)**: 用 A4 原始 coupling (固定)
+- **Phase 1 (ep 0-10)**: 用 +DPM-Solver++ 原始 coupling (固定)
 - **Phase 2 (ep 10+)**: 每 5 epoch 用 EMA teacher 重新生成 coupling, 监控 `x0_drift_from_a4`
-- **早停信号**: 若 `self_pred_amplification` (EMA teacher 预测 vs A4 预测的偏差) 单调增长, 触发早停
+- **早停信号**: 若 `self_pred_amplification` (EMA teacher 预测 vs +DPM-Solver++ 预测的偏差) 单调增长, 触发早停
 
 ### 1.4 Per-dim Reflow (v2 新增, 可选)
 
@@ -72,7 +72,7 @@ EMA teacher θ_teacher = α·θ_teacher + (1-α)·θ_student   (α=0.999)
 ```python
 # 对每张训练图:
 #   1. 固定 seed 生成 x_raw_noise = randn(1, 500, 4)
-#   2. A4 推理 (DPM-Solver++ 4步), 关闭 box_renewal (保持 proposal 对应)
+#   2. +DPM-Solver++ 推理 (DPM-Solver++ 4步), 关闭 box_renewal (保持 proposal 对应)
 #   3. 保存 (x_raw_noise, x0_pred_raw, image_id, gt_bboxes, matched_idx)
 # 注意: matched_idx 需在推理时用 OT 重新计算 (与训练时 _couple_single_image 一致)
 # 输出: work_dirs/reflow_couplings/train_couplings.pt (K 组轮换保留 stochastic 性)
@@ -109,7 +109,7 @@ EMA teacher θ_teacher = α·θ_teacher + (1-α)·θ_student   (α=0.999)
 
 ### 1.8 成功判据
 
-1. mAP ≥ A4 baseline (0.863)
+1. mAP ≥ +DPM-Solver++ baseline (0.863)
 2. η_str 显著下降 (8.35 → < 3.0)
 3. 1-2 步推理 mAP 接近 4 步 (减少 NFE)
 4. **方向价值判据** (不仅看 mAP): `self_pred_amplification` 未单调增长 + `per_class_improved_count ≥ 12/24`
@@ -120,7 +120,7 @@ EMA teacher θ_teacher = α·θ_teacher + (1-α)·θ_student   (α=0.999)
 
 ### 2.1 核心机制
 
-Teacher (H=6, A4 冻结) 监督 Student (H=3) 的中间特征, headwise 蒸馏:
+Teacher (H=6, +DPM-Solver++ 冻结) 监督 Student (H=3) 的中间特征, headwise 蒸馏:
 ```
 L_total = L_det(student) + λ · L_distill
 L_distill = (1/3) Σ_k MSE(student_fc_feature_k, teacher_fc_feature_{map(k)}.detach())
@@ -133,7 +133,7 @@ L_distill = (1/3) Σ_k MSE(student_fc_feature_k, teacher_fc_feature_{map(k)}.det
 
 | # | v1 方案 | v2 修正 | 理由 |
 |---|---------|---------|------|
-| 1 | 未冻结 backbone | **冻结 Student backbone** (load A4, requires_grad=False) | 蒸馏聚焦 head, 减少 param 量, 避免 backbone 漂移破坏 Teacher 特征对齐 |
+| 1 | 未冻结 backbone | **冻结 Student backbone** (load +DPM-Solver++, requires_grad=False) | 蒸馏聚焦 head, 减少 param 量, 避免 backbone 漂移破坏 Teacher 特征对齐 |
 | 2 | 蒸馏 pred_bboxes (最终 box 输出) | **蒸馏 fc_feature** (box head 前的中间特征) | 特征比坐标更丰富; 避免 bbox 坐标空间 mismatch; 梯度更稳定 |
 | 3 | Student head 0/1/2 ← Teacher head 1/3/5 | **映射 {0→0, 1→2/3, 2→5}** | Student head 0 (输入端) ↔ Teacher head 0 (输入对齐); Student head 2 (主输出) ↔ Teacher head 5 (main 对齐) |
 | 4 | λ=0.1 起步 | **λ=0.05 起步** | 更保守, 降低初期梯度冲突风险 (PD-RF 教训) |
@@ -192,7 +192,7 @@ teacher_config = 'a4_dpm_pp_24obj.py'
 teacher_checkpoint = 'work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth'
 ```
 
-**Student head 初始化** (v2): 加载 A4 checkpoint, Student head 0/1/2 ← Teacher head 0/2/5 (与 distill_head_map 一致)。
+**Student head 初始化** (v2): 加载 +DPM-Solver++ checkpoint, Student head 0/1/2 ← Teacher head 0/2/5 (与 distill_head_map 一致)。
 
 ### 2.5 代码改动
 
@@ -222,7 +222,7 @@ teacher_checkpoint = 'work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth
 | 风险 | 严重度 | 缓解 |
 |------|--------|------|
 | 蒸馏梯度与检测梯度冲突 (PD-RF 教训) | **中** | 监控 `distill/grad_alignment` (P0); λ 从 0.05 保守起步; 必要时降 λ |
-| Teacher 预测非完美监督 | 中 | Teacher=A4 (mAP=0.863), 软特征仍优于随机初始化 |
+| Teacher 预测非完美监督 | 中 | Teacher=+DPM-Solver++ (mAP=0.863), 软特征仍优于随机初始化 |
 | λ 调参困难 | 低 | 并行 [0.05, 0.1, 0.2]; 监控 `loss_ratio` 自动调参 |
 | Student capacity 不足 | 低 | 不减每 head 参数量, 只减数量 |
 | backbone 冻结导致特征不适应 H=3 | 低 | S1 已证 H=3 S=8 持平, backbone 特征足够 |
@@ -230,7 +230,7 @@ teacher_checkpoint = 'work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth
 
 ### 2.8 成功判据
 
-1. mAP ≥ 0.84 (允许比 A4 0.863 小幅下降)
+1. mAP ≥ 0.84 (允许比 +DPM-Solver++ 0.863 小幅下降)
 2. 比 S1 直接训练 H=3 有显著提升
 3. NFE 24 → 12 (2× 加速)
 4. **方向价值判据**: `grad_alignment > 0` (无冲突) + `per_class_improved_count ≥ 10/24`
@@ -260,11 +260,11 @@ teacher_checkpoint = 'work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth
 
 | 指标 | 含义 | 实现 | 判读 |
 |------|------|------|------|
-| `reflow/x0_drift_from_a4` | EMA teacher 预测 vs A4 原始预测的 L2 距离 | 每 5ep 用 EMA teacher 推理训练集子集 (200 图), 对比 A4 coupling 文件 | 单调增长 = confirmation bias 加剧, 触发早停 |
-| `reflow/self_pred_amplification` | EMA teacher 预测与 A4 预测偏差的放大率 | `‖x0_ema - x0_a4‖ / ‖x0_a4 - GT‖` | >1 = 误差放大 (circular dependency), 立即停 |
+| `reflow/x0_drift_from_a4` | EMA teacher 预测 vs +DPM-Solver++ 原始预测的 L2 距离 | 每 5ep 用 EMA teacher 推理训练集子集 (200 图), 对比 +DPM-Solver++ coupling 文件 | 单调增长 = confirmation bias 加剧, 触发早停 |
+| `reflow/self_pred_amplification` | EMA teacher 预测与 +DPM-Solver++ 预测偏差的放大率 | `‖x0_ema - x0_a4‖ / ‖x0_a4 - GT‖` | >1 = 误差放大 (circular dependency), 立即停 |
 | `reflow/mAP_per_epoch_slope` | 最近 5 epoch mAP 线性回归斜率 | 从 SwanLab/coco/bbox_mAP 取最近 5 点最小二乘 | 斜率 < -0.001 = 退化趋势 |
-| `reflow/per_class_improved_count` | vs A4 baseline per-class AP 改善的类别数 | 每 5ep eval per-class AP, 对比 A4 baseline | < 8/24 改善 = 方向无价值 |
-| `reflow/per_class_degraded_count` | vs A4 baseline per-class AP 退化 (>0.005) 的类别数 | 同上 | > 8/24 退化 = 方向有害 |
+| `reflow/per_class_improved_count` | vs +DPM-Solver++ baseline per-class AP 改善的类别数 | 每 5ep eval per-class AP, 对比 +DPM-Solver++ baseline | < 8/24 改善 = 方向无价值 |
+| `reflow/per_class_degraded_count` | vs +DPM-Solver++ baseline per-class AP 退化 (>0.005) 的类别数 | 同上 | > 8/24 退化 = 方向有害 |
 
 #### P1 (重要)
 
@@ -272,7 +272,7 @@ teacher_checkpoint = 'work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth
 |------|------|------|------|
 | `reflow/eta_str_step{0,1,2}` | reflow 前后 η_str 对比 | 推理时 record_inference_eta_str (已有 probe) | 下降 = 拉直成功 (目标 < 3.0) |
 | `reflow/coupling_diversity` | K 组 coupling 间方差 | 训练开始时计算 K 组 x_0^pred 的方差 | 接近 0 = stochastic 性丢失 |
-| `reflow/train_loss_gap` | reflow loss vs A4 同期 loss | 从 SwanLab 取 A4 同 epoch loss 对比 | 偏离 > 50% = 分布偏移 |
+| `reflow/train_loss_gap` | reflow loss vs +DPM-Solver++ 同期 loss | 从 SwanLab 取 +DPM-Solver++ 同 epoch loss 对比 | 偏离 > 50% = 分布偏移 |
 | `reflow/box_target_gap` | x_0^pred 与 GT 的 box 差距 (正样本) | 训练时 L1(x_0^pred, GT) on positive samples | 跟踪混合 target 的合理性 |
 
 #### P2 (可选)
@@ -292,7 +292,7 @@ teacher_checkpoint = 'work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth
 | `distill/grad_alignment_head{k}` | 逐 head 的梯度对齐 | 同上, 分 head 统计 | 定位冲突来源 head |
 | `distill/head{k}_feat_gap` | Student head_k vs Teacher head_{map(k)} 的 fc_feature MSE | 训练时前向计算 | 下降 = Student 逼近 Teacher |
 | `distill/loss_ratio` | L_distill / L_det 比值 | 训练时记录 | 监控蒸馏 loss 占比; λ 调参依据 |
-| `distill/per_class_improved_count` | vs A4 baseline per-class AP 改善的类别数 | 每 5ep eval per-class AP | < 10/24 = 方向价值不足 |
+| `distill/per_class_improved_count` | vs +DPM-Solver++ baseline per-class AP 改善的类别数 | 每 5ep eval per-class AP | < 10/24 = 方向价值不足 |
 
 #### P1 (重要)
 
@@ -378,7 +378,7 @@ def compute_grad_alignment(student_outputs, teacher_features, GT, distill_loss_f
 
 | 步骤 | 内容 | 预计时间 |
 |------|------|---------|
-| 2.1 | 脚本: generate_reflow_couplings.py (A4 推理 + K=5 组) | 3h |
+| 2.1 | 脚本: generate_reflow_couplings.py (+DPM-Solver++ 推理 + K=5 组) | 3h |
 | 2.2 | 代码: head.py reflow 模式 + EMA teacher + 混合 target | 4h |
 | 2.3 | 代码: criterion.py box_target_mode 插桩 | 2h |
 | 2.4 | 代码: self_pred_amplification + x0_drift 插桩 | 2h |

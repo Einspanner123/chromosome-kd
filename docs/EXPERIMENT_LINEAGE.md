@@ -1,6 +1,6 @@
 # 实验脉络主路线文档 (按创新点主题组织)
 
-> 📋 **命名约定**: 本文档使用论文正式名称 (Dataset 1 / Dataset 2 / RF+Heun / +Stoch. Coupling / +DPM-Solver++ / Top-K)。内部实验代号 (24obj / A0-A4 / IO3 / StochOT) 仅保留在文件路径和 SwanLab run_id 中以兼容工程实现。仅 TODO_DIRECTIONS.md 保留内部代号用于研究规划。
+> 📋 **命名约定**: 本文档使用论文正式名称 (Dataset 1 / Dataset 2 / RF+Heun / +Stoch. Coupling / +DPM-Solver++ / Top-K)。内部实验代号 (24obj / A0-A4 / IO3 / StochOT) 仅保留在文件路径和 SwanLab run_id 中以兼容工程实现。
 
 > 本文档为 KaryoFlow (染色体检测论文, 目标 TMI 期刊) 的有效方向主路线梳理。
 > 按"创新点主题"组织实验脉络, 让审稿人快速识别 solid 的研究链条与创新性。
@@ -36,8 +36,8 @@
 - box_renewal 是检测特有操作 (图像生成无此机制)
 
 ### 数据特征
-- Dataset 2 (24 Chromosomes Object): 5000 张, mAP 量级 0.77-0.87
 - Dataset 1 (Chromosome20240904): 1540 张, mAP 量级 0.72-0.75, 低数据对照
+- Dataset 2 (24 Chromosomes Object): 5000 张, mAP 量级 0.77-0.87
 - 类别不平衡严重 (Y vs 常染色体 1:3.9)
 - 临床采集, 标注质量受观察者主观影响
 
@@ -461,7 +461,7 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
   -- D1 DPM++ (renewal ON, box_renewal 全场景验证 seed42): mAP=0.744, AP50=0.938, AP75=0.832, APs=0.506
   -- D1 DPM++ (renewal OFF, box_renewal 全场景验证 seed42): mAP=0.743, AP50=0.937, AP75=0.831, APs=0.498
   -- **D1 Δ(DPM++ − Heun) = −0.001 (seed42 同口径) / −0.001 (排除异常 seed789 的 3-seed 均值 0.747 vs Heun 3-seed 0.746±0.001)**: DPM++ 在 D1 上**无精度优势**, 与 D2 的 +0.006 (p<10⁻⁶) 形成对照
-  -- 数据源: [renewal_off_all_scenarios.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_all_scenarios.json) (Dataset1_A4, seed42 推理场景) · work_dirs/a4_dpm_pp_chr2024_seed{42,123,789}/ (3-seed 训练评估)
+  -- 数据源: [renewal_off_all_scenarios.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_all_scenarios.json) (Dataset1_+DPM-Solver++, seed42 推理场景) · work_dirs/a4_dpm_pp_chr2024_seed{42,123,789}/ (3-seed 训练评估)
   -- 注: seed42 训练评估 mAP (0.746) 与 box_renewal 全场景验证 mAP (0.744, renewal ON) 略有差异, 源于评估配置不同 (训练评估默认 renewal ON + 训练 sampling 配置 vs 推理场景独立评估); 不影响方向性结论
 
 | 数据集 | 规模 | Heun mAP | DPM++ mAP | Δ (DPM++−Heun) | 显著性 | NFE (Heun/DPM++) |
@@ -526,7 +526,7 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
 
 数据源: [d1_topk_validation.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/d1_topk_validation.json) · 脚本 [d1_topk_validation.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/d1_topk_validation.py)
 
-复用 D1 A4 DPM-Solver++ checkpoint (a4_dpm_pp_chr2024_seed42, best epoch 49), 在 D1 val (440 图) 上跑 8 场景 (K={500,300,200,100} × renewal {ON,OFF}):
+复用 D1 +DPM-Solver++ checkpoint (a4_dpm_pp_chr2024_seed42, best epoch 49), 在 D1 val (440 图) 上跑 8 场景 (K={500,300,200,100} × renewal {ON,OFF}):
 
 | 场景 | mAP (seed42) | Δvs K=500 ON | 判定 |
 |------|:---:|:---:|------|
@@ -603,7 +603,7 @@ DPM-Solver++ 二阶校正项 $D_1^{(n)} = (\hat{x}_0^{(n)} - \hat{x}_0^{(n-1)})/
 
 数据源: [renewal_on.json](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/r1_eta_str_d1_chr2024_seed42_renewal_on.json) · [renewal_off.json](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/r1_eta_str_d1_chr2024_seed42_renewal_off.json)
 
-复用 D1 A4 DPM-Solver++ checkpoint, 在 D1 val (440 图) 上测量 η_str (renewal ON + OFF):
+复用 D1 +DPM-Solver++ checkpoint, 在 D1 val (440 图) 上测量 η_str (renewal ON + OFF):
 
 | Config | Step1 η_str | Step2 | Step3 | mAP |
 |--------|:-----------:|:-----:|:-----:|:---:|
@@ -649,7 +649,7 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 
 ### 方案 B (renewal off) 已验证 + K 值依赖性确认 (2026-07-30 补充)
 
-**基础验证 (A4 DPM-Solver++, Dataset 2 K=500, 3-seed)**:
+**基础验证 (+DPM-Solver++, Dataset 2 K=500, 3-seed)**:
 - 3 seed 平均 mAP 0.858 ± 0.003 (vs baseline 0.859 ± 0.004), Δ=−0.0003 (噪声范围)
 - **方案 B 不损失精度**, 且使 η_str 诊断有效 (renewal 污染被消除)
 - 使 R1 指标在 renewal on 时失效的问题得到化解
@@ -660,7 +660,7 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 
 | 场景 | renewal ON | renewal OFF | ΔmAP | 判定 |
 |------|-----------|-------------|------|------|
-| Dataset 1 A4 (K=500) | 0.745 | 0.743 | −0.002 | ✓ 不影响 |
+| Dataset 1 +DPM-Solver++ (K=500) | 0.745 | 0.743 | −0.002 | ✓ 不影响 |
 | **Dataset 1 K=300 (seed42)** | **0.744** | **0.742** | **−0.002** | **✓ 不影响** |
 | **Dataset 1 K=200 (seed42)** | **0.742** | **0.739** | **−0.003** | **✓ 不影响** |
 | **Dataset 1 K=100 (seed42)** | **0.706** | **0.680** | **−0.026** | **⚠ 有影响** |
@@ -925,7 +925,7 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 
 - **形式化**: $\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{det}}(\text{student}) + \lambda \cdot \mathcal{L}_{\text{distill}}$, $\mathcal{L}_{\text{distill}} = \frac{1}{K}\sum_k \text{MSE}(\text{student\_fc}_k, \text{teacher\_fc}_{\text{map}(k)}.\text{detach}())$
 - **head 映射**: $\{0\to0, 1\to2, 2\to5\}$ (输入对齐 + 中间进度 + main 对齐)
-- **Teacher**: A4 DPM-Solver++ (H=6, mAP=0.863), 冻结, 仅 forward
+- **Teacher**: +DPM-Solver++ (H=6, mAP=0.863), 冻结, 仅 forward
 - **Student**: H=3, 从 Teacher head 0/2/5 初始化 (非随机)
 
 #### 与 S1 理论的联系
@@ -936,27 +936,27 @@ S1 的 H×S 理论说明 "仅改变 H 会破坏横向收敛性" (已证伪 N_cas
 
 ##### 实验证明目的: Head Distillation 实现 NFE 加速同时保持精度
 
-- Head Distillation (H=3←H=6, backbone解冻 + A4 backbone加载)
+- Head Distillation (H=3←H=6, backbone解冻 + +DPM-Solver++ backbone加载)
   -- 数据集: Dataset 2
-  -- 改动: num_heads=6→3, use_distillation=True, distill_lambda=0.05, distill_head_map={0:0,1:2,2:5}, freeze_backbone=False, teacher_checkpoint=A4 best ep117, lr=1e-5, 50ep
-  -- 结果: mAP=0.859 (val独立评估 test.py --dataset val, seed 42; 训练best@ep10=0.860, early stop@ep40), AP50=0.986, AP75=0.969 [Δ=-0.004 vs A4 0.863, 在 3-seed noise ±0.003 内]
-  -- NFE: 12 (H=3 × S=4) vs A4 24 (H=6 × S=4), **2× 加速**; 延迟 44.72ms / 22.4 FPS (ross A6000, 500iters, Head 39.17ms / Backbone 5.55ms) vs A4 77.57ms / 12.9 FPS, **1.73× 推理加速**
+  -- 改动: num_heads=6→3, use_distillation=True, distill_lambda=0.05, distill_head_map={0:0,1:2,2:5}, freeze_backbone=False, teacher_checkpoint=+DPM-Solver++ best ep117, lr=1e-5, 50ep
+  -- 结果: mAP=0.859 (val独立评估 test.py --dataset val, seed 42; 训练best@ep10=0.860, early stop@ep40), AP50=0.986, AP75=0.969 [Δ=-0.004 vs +DPM-Solver++ 0.863, 在 3-seed noise ±0.003 内]
+  -- NFE: 12 (H=3 × S=4) vs +DPM-Solver++ 24 (H=6 × S=4), **2× 加速**; 延迟 44.72ms / 22.4 FPS (ross A6000, 500iters, Head 39.17ms / Backbone 5.55ms) vs +DPM-Solver++ 77.57ms / 12.9 FPS, **1.73× 推理加速**
   -- loss_distill: 持续下降 0.050→0.025 (50% 下降), 蒸馏目标有效
-  -- per-class AP: 与 A4 对齐 (Δ -0.012~+0.004, 最大差异 D15 -0.012)
+  -- per-class AP: 与 +DPM-Solver++ 对齐 (Δ -0.012~+0.004, 最大差异 D15 -0.012)
   -- work_dir: work_dirs/h3_distill_plan_a_24obj/ (本地 + ross)
   -- SwanLab: ldmdet-head-distill / h3_distill_plan_a
   -- 配置: experiments/configs/ldmdet/directions/mainline_ablation_24obj/h3_distill_plan_a_24obj.py
 
 #### 关键结论
 
-- **NFE 24→12 加速 2x + 精度近乎持平**: mAP=0.859 (val独立评估) 近乎持平 A4 0.863 (Δ=-0.004, 在 3-seed noise ±0.003 内), 延迟 44.72ms / 22.4 FPS (vs A4 77.57ms / 12.9 FPS, 1.73× 加速), 达成工程目标
-- **蒸馏有效性**: loss_distill 持续下降 (vs 失败配置停滞 0.033), per-class AP 对齐 A4, 证明 headwise feature 蒸馏可以有效压缩 cascade head
+- **NFE 24→12 加速 2x + 精度近乎持平**: mAP=0.859 (val独立评估) 近乎持平 +DPM-Solver++ 0.863 (Δ=-0.004, 在 3-seed noise ±0.003 内), 延迟 44.72ms / 22.4 FPS (vs +DPM-Solver++ 77.57ms / 12.9 FPS, 1.73× 加速), 达成工程目标
+- **蒸馏有效性**: loss_distill 持续下降 (vs 失败配置停滞 0.033), per-class AP 对齐 +DPM-Solver++, 证明 headwise feature 蒸馏可以有效压缩 cascade head
 - **与 S1 互补**: S1 证明 H×S 可交换 (H=3,S=4 = H=6,S=2 = 0.859), Head Distillation 证明 H=3 通过蒸馏可达 0.859, 两者共同支撑 "cascade head 可压缩" 的理论
-- **未超越 A4**: 近乎持平 (Δ=-0.004), 无增益 (但"近乎持平"可能已是蒸馏最佳结果, 因 backbone 从 A4 加载本身就是知识继承)
+- **未超越 +DPM-Solver++**: 近乎持平 (Δ=-0.004), 无增益 (但"近乎持平"可能已是蒸馏最佳结果, 因 backbone 从 +DPM-Solver++ 加载本身就是知识继承)
 
 #### 失败配置对照 (→ FALSIFIED §十三)
 
-失败配置 (freeze_backbone=True) 是配置Bug: Student backbone 停 ImageNet, Teacher head 期望 A4 染色体特征 → 特征分布不匹配 → mAP=0.717 (Δ=-0.146)。修复后 0.860, 清晰隔离了"配置Bug" vs "方法局限"。
+失败配置 (freeze_backbone=True) 是配置Bug: Student backbone 停 ImageNet, Teacher head 期望 +DPM-Solver++ 染色体特征 → 特征分布不匹配 → mAP=0.717 (Δ=-0.146)。修复后 0.860, 清晰隔离了"配置Bug" vs "方法局限"。
 
 #### 可扩展性
 
@@ -987,7 +987,7 @@ S1 的 H×S 理论说明 "仅改变 H 会破坏横向收敛性" (已证伪 N_cas
 
 #### 实验证明目的: R3 v-prediction 3-seed 重训 (seed 42 完成, 123/789 待补)
 
-- seed 42 ✓ 已完成 (2026-07-25 确认, workstation A4000)
+- seed 42 ✓ 已完成 (2026-07-25 确认, workstation +DPM-Solver++000)
   -- 状态: 早停@ep64/150 (patience=30 触发), best mAP=0.855 @ ep34, last 0.837 @ ep64
   -- 训练曲线: ep8 warmup=0.802 → ep34 best=0.855 → 长期停滞 (ep34-ep64 未刷新) → 早停
   -- config: `experiments/configs/ldmdet/directions/mainline_ablation_24obj/r3_vpred_24obj.py`

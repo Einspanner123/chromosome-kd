@@ -3,16 +3,16 @@
 > **创建日期**: 2026-07-22
 > **更新日期**: 2026-07-22 (加入实测诊断数据)
 > **目标**: 从模型结构本身出发，通过插桩诊断识别瓶颈模块，提出符合染色体检测叙事的结构改进方案
-> **基线**: KaryoFlow A4 (RF + DPM-Solver++, mAP=0.864, 24obj, checkpoint best_epoch_117)
+> **基线**: KaryoFlow +DPM-Solver++ (RF, mAP=0.864, 24obj, checkpoint best_epoch_117)
 > **核心原则**: 改进必须 (1) 从模型结构出发而非推理优化, (2) 与染色体检测任务特性深度结合, (3) **用实测数据验证而非理论推断**
 >
 > **⚠️ 重要**: 本文档第一版 (2026-07-22 上午) 的瓶颈分析全部基于代码阅读和理论推断, 未经实验验证。
-> 用户指出这一问题后, 作者编写了 [structural_diagnosis.py](../../experiments/analysis/structural_diagnosis.py) 并在 A4 checkpoint 上跑了 500 张验证图的推理诊断。
+> 用户指出这一问题后, 作者编写了 [structural_diagnosis.py](../../experiments/analysis/structural_diagnosis.py) 并在 +DPM-Solver++ checkpoint 上跑了 500 张验证图的推理诊断。
 > **实测结果推翻了 6 个瓶颈假设中的 2 个**, 显著修正了改进方案的优先级。下方 §零·实测诊断结果 记录了真实数据。
 
 ---
 
-## 零、实测诊断结果 (500 张验证图, A4 checkpoint)
+## 零、实测诊断结果 (500 张验证图, +DPM-Solver++ checkpoint)
 
 > 数据来源: `experiments/analysis/structural_diagnosis.py` + `work_dirs/diagnosis/structural_diagnosis_v2.json`
 > 方法: PyTorch forward hooks 提取 6 级 cascade head 内部的真实激活值/权重
@@ -76,7 +76,7 @@ head5: |alpha|=0.669  std=0.862
 
 **解读**: AdaLN-Zero 的零初始化在训练中已被完全克服。alpha 值 0.47-0.81 且 std 0.6-1.0 说明时间条件化**是活跃且自适应的** — 模型学到了根据时间步 t 调整每层的调制强度。alpha 从 head0 到 head4 **递增** (0.47→0.81), 说明后级 cascade head 更依赖时间条件化 (因为后级处理更精细的框, 需要更准确的时间感知)。
 
-**A2 实验 (+0.000 mAP) 的真实原因**: 不是时间条件化无效, 而是 AdaLN-Zero 相对 scale_shift **无额外增益** — 两种时间条件化方式效果相当。这与"时间条件化形同虚设"是完全不同的结论。
+**+AdaLN-Zero 实验 (+0.000 mAP) 的真实原因**: 不是时间条件化无效, 而是 AdaLN-Zero 相对 scale_shift **无额外增益** — 两种时间条件化方式效果相当。这与"时间条件化形同虚设"是完全不同的结论。
 
 ### D3 实测: 级联头贡献度
 
@@ -237,7 +237,7 @@ criterion(outputs, targets, t):
     aux 损失: aux_0..aux_4 (前 5 级), 全部 weight=1.0 (无衰减!)
 ```
 
-### 0.4 Per-class AP 现状 (A3 checkpoint, 24obj 验证集)
+### 0.4 Per-class AP 现状 (+Stoch. Coupling checkpoint, 24obj 验证集)
 
 | 组 | 类别 | mAP | 趋势 |
 |----|------|-----|------|
@@ -289,7 +289,7 @@ scale, shift = scale_shift.chunk(2, dim=1)
 fc_feature = fc_feature * (scale + 1) + shift  # ← 唯一的时间注入点
 ```
 
-**问题**: time_emb (1024 维, 编码当前噪声水平 t) 只在 self_attn → DynamicConv → FFN **全部完成后**才调制特征。这意味着三个子层在**不知道当前噪声水平**的情况下处理特征。AdaLN-Zero (A2, +0.000 mAP) 尝试了逐层调制但零收益——但 A2 是**均匀地**对所有子层施加 AdaLN, 可能因调制过强反而干扰了已学好的特征。
+**问题**: time_emb (1024 维, 编码当前噪声水平 t) 只在 self_attn → DynamicConv → FFN **全部完成后**才调制特征。这意味着三个子层在**不知道当前噪声水平**的情况下处理特征。+AdaLN-Zero (+0.000 mAP) 尝试了逐层调制但零收益——但 +AdaLN-Zero 是**均匀地**对所有子层施加 AdaLN, 可能因调制过强反而干扰了已学好的特征。
 
 **染色体叙事**: RF 的速度场 $v = x_1 - x_0$ 恒定, 但沿轨迹的不同位置 $t$ 需要不同的处理策略:
 - 早期 (t→1): proposals 是纯噪声, 应侧重**粗定位** (regression)
@@ -480,7 +480,7 @@ probe.record_tensor_stats('single_head/attn_topk10_coverage', topk_cov)
 **对应瓶颈**: 1 (RoI 空间结构丢失)
 **对应已有方向**: 方向 C1 (已规划未实现)
 **染色体叙事强度**: ★★★★★
-**D1 消融验证**: ✅ 现有 7×7 + DynamicConv 空间编码至关重要 (抹平→mAP 0.009)。M1 的零初始化残差设计 (`roi_features + morph_emb`) 完美契合 D1 结论 — 初始状态不改变 A4 行为, 训练中逐步增强形态编码, 不破坏已验证有效的空间通路。
+**D1 消融验证**: ✅ 现有 7×7 + DynamicConv 空间编码至关重要 (抹平→mAP 0.009)。M1 的零初始化残差设计 (`roi_features + morph_emb`) 完美契合 D1 结论 — 初始状态不改变 +DPM-Solver++ 行为, 训练中逐步增强形态编码, 不破坏已验证有效的空间通路。
 
 #### 3.1.1 设计
 
@@ -537,7 +537,7 @@ if self.shape_attention is not None:
 
 #### 3.1.3 零初始化保证
 
-`fuse` 最后一层零初始化 → 初始 `morph_emb≡0` → `roi_features + 0 = roi_features` → 加载 A3 预训练权重时行为不变, 训练初期梯度通过残差路径流回, 逐步学到形态增强。
+`fuse` 最后一层零初始化 → 初始 `morph_emb≡0` → `roi_features + 0 = roi_features` → 加载 +Stoch. Coupling 预训练权重时行为不变, 训练初期梯度通过残差路径流回, 逐步学到形态增强。
 
 #### 3.1.4 预期收益
 
@@ -553,23 +553,23 @@ if self.shape_attention is not None:
 
 #### 3.1.6 BF16 实验结果与 fuse 权重分析 (2026-07-23)
 
-> ⚠ **BF16 条件下的初步结果**, 需 FP32 复现确认。BF16 本身导致 A4 掉点 -0.038, 是主要"退化"来源。
+> ⚠ **BF16 条件下的初步结果**, 需 FP32 复现确认。BF16 本身导致 +DPM-Solver++ 掉点 -0.038, 是主要"退化"来源。
 
-**实验设置**: workstation A5000 24GB, BF16 AMP (`amp_dtype='bfloat16'`), 从 A4 best checkpoint 微调 30 epoch, lr=1e-5, seed 42。
+**实验设置**: workstation A5000 24GB, BF16 AMP (`amp_dtype='bfloat16'`), 从 +DPM-Solver++ best checkpoint 微调 30 epoch, lr=1e-5, seed 42。
 **配置**: [m1_morphology_aware_24obj_ws.py](../../experiments/configs/ldmdet/directions/mainline_ablation_24obj/m1_morphology_aware_24obj_ws.py)
 
 **mAP 结果**:
 
 | 配置 | mAP | 说明 |
 |------|-----|------|
-| A4 (FP32) | 0.863 | 基线 (best@ep117) |
-| A4+BF16 | 0.825 | **BF16 掉点 -0.038** (零成本 eval 诊断) |
+| +DPM-Solver++ (FP32) | 0.863 | 基线 (best@ep117) |
+| +DPM-Solver++ (BF16) | 0.825 | **BF16 掉点 -0.038** (零成本 eval 诊断) |
 | M1+BF16 (best@ep1) | 0.818 | 全程 0.811-0.818 波动, 30 epoch 未改善 |
-| **M1 vs A4+BF16** | **-0.007** | noise 范围但偏负面 |
+| **M1 vs +DPM-Solver++ (BF16)** | **-0.007** | noise 范围但偏负面 |
 
-**Per-class AP 对比 (M1+BF16 ep1 vs A4+BF16, 均 BF16)**:
+**Per-class AP 对比 (M1+BF16 ep1 vs +DPM-Solver++ (BF16), 均 BF16)**:
 
-| 类别 | A4+BF16 | M1+BF16 | Δ | 说明 |
+| 类别 | +DPM-Solver++ (BF16) | M1+BF16 | Δ | 说明 |
 |------|---------|---------|------|------|
 | A1 | 0.890 | 0.887 | -0.003 | |
 | A2 | 0.884 | 0.884 | 0.000 | 唯一持平 |
@@ -620,18 +620,18 @@ head0: fuse_norm=0.2150  h_conv_norm=4.6536  v_conv_norm=4.6471  h/v=1.001
 
 #### 3.1.7 FP32 复现结果 (2026-07-24, ✅ 已完成)
 
-> **核心结论**: M1 FP32 mAP=0.862, 与 A4 (0.863) **统计上持平** (Δ=-0.001)。BF16 实验完全误导 — BF16 导致 -0.044 虚假退化。但 h_conv/v_conv 在 FP32 下**仍然均匀**, 确认是设计问题而非精度问题。
+> **核心结论**: M1 FP32 mAP=0.862, 与 +DPM-Solver++ (0.863) **统计上持平** (Δ=-0.001)。BF16 实验完全误导 — BF16 导致 -0.044 虚假退化。但 h_conv/v_conv 在 FP32 下**仍然均匀**, 确认是设计问题而非精度问题。
 
-**实验设置**: 本地 A6000 49GB, FP32 (无 amp_dtype), 从 A4 best checkpoint 微调 30 epoch, lr=2e-5 (2× BF16 实验), 1 epoch warmup, seed 42。
+**实验设置**: 本地 A6000 49GB, FP32 (无 amp_dtype), 从 +DPM-Solver++ best checkpoint 微调 30 epoch, lr=2e-5 (2× BF16 实验), 1 epoch warmup, seed 42。
 **配置**: [m1_morphology_aware_24obj_fp32.py](../../experiments/configs/ldmdet/directions/mainline_ablation_24obj/m1_morphology_aware_24obj_fp32.py)
 **显存**: 37487 MiB (FP32, A6000 49GB 可行)
 
 **mAP 结果**:
 
-| 配置 | mAP | Δ vs A4 | 说明 |
+| 配置 | mAP | Δ vs +DPM-Solver++ | 说明 |
 |------|-----|---------|------|
-| A4 (FP32) | 0.863 | — | 基线 |
-| A4+BF16 | 0.825 | -0.038 | BF16 本身掉点 |
+| +DPM-Solver++ (FP32) | 0.863 | — | 基线 |
+| +DPM-Solver++ (BF16) | 0.825 | -0.038 | BF16 本身掉点 |
 | M1 (BF16) | 0.818 | -0.045 | BF16 虚假退化 |
 | **M1 (FP32)** | **0.862** | **-0.001** | **统计上持平！BF16 误导** |
 
@@ -648,9 +648,9 @@ head0: fuse_norm=0.2150  h_conv_norm=4.6536  v_conv_norm=4.6471  h/v=1.001
 
 → **h_conv/v_conv 即使在 FP32 下仍然完全均匀** — 确认是**设计问题**, 不是精度问题。fuse 层学到的是常数偏置, 不是方向性形态编码。
 
-**Per-class AP (M1 FP32 best@ep19 vs A4 best@ep117)**:
+**Per-class AP (M1 FP32 best@ep19 vs +DPM-Solver++ best@ep117)**:
 
-| 类别 | A4 | M1 FP32 | Δ | 说明 |
+| 类别 | +DPM-Solver++ | M1 FP32 | Δ | 说明 |
 |------|-----|---------|------|------|
 | A1 | 0.911 | 0.909 | -0.002 | |
 | A2 | 0.910 | 0.909 | -0.001 | |
@@ -677,7 +677,7 @@ head0: fuse_norm=0.2150  h_conv_norm=4.6536  v_conv_norm=4.6471  h/v=1.001
 | X | 0.883 | 0.886 | **+0.003** | ✓ 性染色体改善 |
 | Y | 0.780 | 0.779 | -0.001 | |
 
-→ **4 类改善** (B4, C9, F19, X), **6 类持平**, **14 类轻微退化** (max -0.005)。比 BF16 (24 类全退化) 和方向 C (3 改善/20 退化) 显著更接近 A4。
+→ **4 类改善** (B4, C9, F19, X), **6 类持平**, **14 类轻微退化** (max -0.005)。比 BF16 (24 类全退化) 和方向 C (3 改善/20 退化) 显著更接近 +DPM-Solver++。
 
 **根因分析 (更新)**:
 1. **零初始化 fuse 的梯度瓶颈** (确认): FP32 下 fuse norm 增长更大 (0.36 vs 0.215), 但 h_conv/v_conv 仍均匀 → 梯度瓶颈是设计固有问题, 与精度无关
@@ -876,7 +876,7 @@ aux_weights = torch.linspace(0.2, 1.0, num_heads)  # [0.2, 0.36, 0.52, 0.68, 0.8
 #### 3.4.2 插桩验证
 
 - 诊断 3 (级联头贡献度): 用 `box_delta_vs_prev` 和 `cls_delta_vs_prev` 确定哪些头冗余
-- 方案 A 可零成本验证 (仅改损失权重, 复用 A3 checkpoint 微调 10 epoch)
+- 方案 A 可零成本验证 (仅改损失权重, 复用 +Stoch. Coupling checkpoint 微调 10 epoch)
 
 ---
 
@@ -909,7 +909,7 @@ class SpatialPriorRenewal(nn.Module):
 ### Phase 0: 插桩诊断 (零成本, 1 天) — ✅ 已完成
 
 1. **实现诊断 1-5 的 Probe 探针** (修改 single_head.py, head.py, criterion.py)
-2. **在 A4 checkpoint 上跑推理诊断** (无需重训练, 仅前向) — `experiments/analysis/structural_diagnosis.py`
+2. **在 +DPM-Solver++ checkpoint 上跑推理诊断** (无需重训练, 仅前向) — `experiments/analysis/structural_diagnosis.py`
 3. **收集诊断数据**, 确认瓶颈优先级:
    - ✅ 诊断 1: RoI 空间信息是否被浪费? → **D1 消融验证**: 空间信息至关重要 (Δ=-0.854), DynamicConv 有效提取
    - ✅ 诊断 2: 时间条件化是否有效? → **D2**: 活跃且自适应 (|α|=0.47-0.81), 非瓶颈
@@ -923,8 +923,8 @@ class SpatialPriorRenewal(nn.Module):
 > M1 必须作为**并行增强分支**接入, 不能破坏现有空间通路。
 
 1. ✅ 实现 `MorphologyAwareRoIEncoder` (填充 `shape_attention` hook), 作为**零初始化残差分支**叠加在 RoI 特征上 — `ldmdet/core/morphology_encoder.py`
-2. ✅ 单元测试: 零初始化恒等性 (确保初始状态不改变 A4 行为)、方向解耦正确性 — 15 测试全通过
-3. ⏳ 从 **A4 checkpoint** 微调 (~30 epoch, lr=1e-5, 零初始化保证快速收敛) — 配置 `m1_morphology_aware_24obj.py` 就绪
+2. ✅ 单元测试: 零初始化恒等性 (确保初始状态不改变 +DPM-Solver++ 行为)、方向解耦正确性 — 15 测试全通过
+3. ⏳ 从 **+DPM-Solver++ checkpoint** 微调 (~30 epoch, lr=1e-5, 零初始化保证快速收敛) — 配置 `m1_morphology_aware_24obj.py` 就绪
 4. ⏳ 消融: h_conv only / v_conv only / both
 5. ⏳ 重点观察 C 组和 G/Y 组 per-class AP 变化 (G21/Y 尺寸相近需形态区分)
 
@@ -932,27 +932,27 @@ class SpatialPriorRenewal(nn.Module):
 
 1. 实现 `ScaleClassCoupledHead` (替换 `_predict` 方法)
 2. 单元测试: 零初始化恒等性、尺寸嵌入正确性
-3. 从 A3 checkpoint 微调
+3. 从 +Stoch. Coupling checkpoint 微调
 4. 消融: 随机打乱 size_emb (验证尺寸先验贡献)
 5. 重点观察 G/Y 组 per-class AP 变化
 
 ### Phase 3: M4 级联头角色分化 (微调, 1-2 天)
 
 1. 方案 A (损失权重衰减): 零代码改动, 仅改 criterion 配置
-2. 从 A3 checkpoint 微调, 对比等权 vs 衰减
+2. 从 +Stoch. Coupling checkpoint 微调, 对比等权 vs 衰减
 3. 如有效, 尝试方案 B (特征传递) 或方案 C (结构分化)
 
 ### Phase 4: M3 重叠感知注意力 (重训练, 3-5 天)
 
 1. 仅在诊断 5 确认 self_attn 注意力发散后实施
 2. 实现 `OverlapAwareAttention` (稀疏 IoU 感知)
-3. 从 A3 checkpoint 微调
+3. 从 +Stoch. Coupling checkpoint 微调
 4. 重点观察高重叠图像的 AP 变化
 
 ### Phase 5: M1+M2 联合 (重训练, 3 天)
 
 1. 组合 M1 + M2 (两者正交, 可叠加)
-2. 从 A3 checkpoint 微调
+2. 从 +Stoch. Coupling checkpoint 微调
 3. 如有增益, 跑 3 seeds 确认稳定性
 
 ---

@@ -260,7 +260,7 @@ x_raw_new[~keep] = torch.randn_like(x_raw[~keep])  # 注入噪声 (t_next 时刻
 
 ### 4.3 与 SC-RF 的区别
 
-**已证伪结果**：SC-RF 自条件化，mAP=0.860 < A4 baseline 0.862，Delta=-0.002。
+**已证伪结果**：SC-RF 自条件化，mAP=0.860 < +DPM-Solver++ baseline 0.862，Delta=-0.002。
 
 **失败根因**：
 1. 训练时 $\hat{X}_0 = f_\theta(X_t)$ 是 $X_t$ 的确定函数，$I(X_0; \hat{X}_0 | X_t) = 0$，条件化不提供额外信息。

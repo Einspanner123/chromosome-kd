@@ -47,7 +47,7 @@ $$
 
 ### 1.3 预期收益汇总 (R2 确认)
 
-| 指标 | Baseline (Dataset 2, A4 DPM++) | LVD-RF 预期 | 改善 | 备注 |
+| 指标 | Baseline (Dataset 2, +DPM-Solver++) | LVD-RF 预期 | 改善 | 备注 |
 |------|-------------------------------|-----------|------|------|
 | mAP | 0.863 | 0.865 ~ 0.870 | $+0.002 \sim +0.007$ | $\eta_{\text{str}}$ 降低 → 截断误差降 → 4 步精度升 |
 | mAP$_{50}$ | 0.990 | 0.990 ~ 0.991 | $+0.000 \sim +0.001$ | 已饱和, 增量小 |
@@ -276,7 +276,7 @@ all_pred_bboxes (xyxy 像素)
 
 | 现有特性 | 兼容性 | 说明 |
 |----------|--------|------|
-| DPM-Solver++ (A4) | 完全兼容 | LVD-RF 仅改训练, 推理不变 |
+| DPM-Solver++ (+DPM-Solver++) | 完全兼容 | LVD-RF 仅改训练, 推理不变 |
 | Top-K pruning (IO3) | 完全兼容 | 正则化在 pruning 前 |
 | Stochastic Coupling | 完全兼容 | 正则化 per-proposal, 与 coupling 独立 |
 | v_prediction (R3) | 可共存 | LVD-RF 正则化方向, v_prediction 改损失加权, 正交 |
@@ -653,7 +653,7 @@ model = dict(
 
 **目标**: 验证 (A1)(A2) 假设 (定理 2.3' 的前提条件).
 
-**配置**: A4 baseline checkpoint, 推理时记录 $\|v_\theta\|(t)$ 曲线 (在 DPM-Solver++ 4 步采样过程中).
+**配置**: +DPM-Solver++ baseline checkpoint, 推理时记录 $\|v_\theta\|(t)$ 曲线 (在 DPM-Solver++ 4 步采样过程中).
 
 **监测指标**:
 - $\|v_\theta\|(t)$ 在 $t \in \{0.25, 0.5, 0.75, 1.0\}$ 的值;
@@ -668,7 +668,7 @@ model = dict(
 
 **目标**: 验证 LVD-RF 能否降低 $\eta_{\text{str}}$ 且不掉点.
 
-**配置**: A4 checkpoint + LVD-RF ($\lambda=0.1$, `lvd_form='sin2'`, `lvd_t_threshold=0.05`), 50 epochs (短训验证).
+**配置**: +DPM-Solver++ checkpoint + LVD-RF ($\lambda=0.1$, `lvd_form='sin2'`, `lvd_t_threshold=0.05`), 50 epochs (短训验证).
 
 **监测指标**:
 - `train/lvd_loss`, `train/cos_sim_mean`, `train/cos_sim_min` (LVD-RF 直接目标);
@@ -696,7 +696,7 @@ model = dict(
 | LVD-6 | 0.1 | sqrt 形式 | 单步 | 对照 (非零梯度) |
 | TFR-bl | 0.01 | 幅度 (var) | 随机 | TFR 对照 |
 | VCR-bl | 0.01 | 幅度 (vel L2) | 双步 | VCR 对照 |
-| baseline | 0 | — | — | A4 baseline |
+| baseline | 0 | — | — | +DPM-Solver++ baseline |
 
 **关键对比**:
 - LVD-2 vs TFR-bl: 方向 vs 幅度 (核心对比);

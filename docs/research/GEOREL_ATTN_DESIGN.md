@@ -2,7 +2,7 @@
 
 > **方向类别**: 中等激进 (部分重构 / 增强现有模块)
 > **目标**: 在 cascade head 的 self_attn 中注入 4D 相对几何偏置, 使提案间注意力感知染色体空间布局, 抑制重叠染色体框漂移, 同时兼容 SDPA 加速与 box_renewal 机制
-> **当前 SOTA 基线**: KaryoFlow A4 (RF + DPM-Solver++, mAP=0.863, 24obj, checkpoint best_epoch_117)
+> **当前 SOTA 基线**: KaryoFlow +DPM-Solver++ (RF, mAP=0.863, 24obj, checkpoint best_epoch_117)
 > **预期增益**: +0.005 ~ +0.015 mAP (主攻 G21/Y 等 mAP 瓶颈类别)
 > **文档状态**: 设计完成, 待 TDD 实施
 > **创建日期**: 2026-07-27
@@ -142,7 +142,7 @@ PyTorch `F.scaled_dot_product_attention` (SDPA) 不支持任意加性偏置 (仅
 
 ### 3.5 零初始化恒等性 (安全保障)
 
-为避免破坏 A4 checkpoint 的预训练表示, 所有新增参数零初始化:
+为避免破坏 +DPM-Solver++ checkpoint 的预训练表示, 所有新增参数零初始化:
 
 | 参数 | 初始化 | 训练后行为 |
 |------|--------|-----------|
@@ -152,7 +152,7 @@ PyTorch `F.scaled_dot_product_attention` (SDPA) 不支持任意加性偏置 (仅
 | `time_proj` 最后一层 weight | zeros | 初始 $\alpha=0$ |
 | `time_proj` 最后一层 bias | zeros | 同上 |
 
-**保证**: 训练步 0 时, GeoRelAttn 的 forward 输出**逐数值等于**标准 MHA 的 forward 输出。从 A4 checkpoint 微调时, 不会因为架构改变而破坏已有表示。此性质由单元测试 `test_zero_init_equivalent_to_mha` 强制保证 (见 §6.3)。
+**保证**: 训练步 0 时, GeoRelAttn 的 forward 输出**逐数值等于**标准 MHA 的 forward 输出。从 +DPM-Solver++ checkpoint 微调时, 不会因为架构改变而破坏已有表示。此性质由单元测试 `test_zero_init_equivalent_to_mha` 强制保证 (见 §6.3)。
 
 ### 3.6 与 box_renewal 的兼容性
 
@@ -403,10 +403,10 @@ else:
 ### 4.3 实验配置 `experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_geom_rel_attn_24obj.py`
 
 ```python
-"""GeoRelAttn 实验配置 (从 A4 checkpoint 微调).
+"""GeoRelAttn 实验配置 (从 +DPM-Solver++ checkpoint 微调).
 
-基线: A4 (RF + DPM-Solver++, mAP=0.863)
-策略: 从 A4 best checkpoint 加载, 仅微调新增的 geom_encoder + alpha + time_proj,
+基线: +DPM-Solver++ (RF, mAP=0.863)
+策略: 从 +DPM-Solver++ best checkpoint 加载, 仅微调新增的 geom_encoder + alpha + time_proj,
       backbone 和已有 self_attn 投影层保持低 lr 微调, 30 epoch 快速验证.
 """
 _base_ = ['./a4_dpm_pp_24obj.py']
@@ -423,12 +423,12 @@ model = dict(
     ),
 )
 
-# 从 A4 best checkpoint 加载 (新增参数随机/零初始化, 已有参数从 A4 加载)
+# 从 +DPM-Solver++ best checkpoint 加载 (新增参数随机/零初始化, 已有参数从 +DPM-Solver++ 加载)
 load_from = 'work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth'
 
 # 微调超参
 max_epochs = 30
-optim_wrapper = dict(optimizer=dict(lr=1e-5))  # 比 baseline 5e-5 低 5x, 保护 A4 表示
+optim_wrapper = dict(optimizer=dict(lr=1e-5))  # 比 baseline 5e-5 低 5x, 保护 +DPM-Solver++ 表示
 param_scheduler = [
     dict(type='LinearLR', start_factor=0.1, by_epoch=True, begin=0, end=3),  # warmup
     dict(type='CosineAnnealingLR', T_max=27, eta_min=1e-6, by_epoch=True, begin=3, end=30),
@@ -445,12 +445,12 @@ swanlab = dict(
 
 ## 5. 实验设计
 
-### 5.1 主实验: A4 + GeoRelAttn vs A4 baseline
+### 5.1 主实验: +DPM-Solver++ + GeoRelAttn vs +DPM-Solver++ baseline
 
 | 实验 | 配置 | 训练 | 数据集 | 预期 |
 |------|------|------|--------|------|
-| A4 baseline | a4_dpm_pp_24obj | 已完成 (150 ep) | 24obj | mAP=0.863 (3-seed 0.859±0.003) |
-| A4 + GeoRelAttn | a4_geom_rel_attn_24obj | 30 ep 微调 | 24obj | mAP 0.868-0.878 (+0.005~+0.015) |
+| +DPM-Solver++ baseline | a4_dpm_pp_24obj | 已完成 (150 ep) | 24obj | mAP=0.863 (3-seed 0.859±0.003) |
+| +DPM-Solver++ + GeoRelAttn | a4_geom_rel_attn_24obj | 30 ep 微调 | 24obj | mAP 0.868-0.878 (+0.005~+0.015) |
 
 **成功判据**:
 - ✅ mAP ≥ 0.868 (+0.005, 超出 3-seed noise ±0.003)
@@ -461,11 +461,11 @@ swanlab = dict(
 
 | Ablation | geom_encoder | alpha (time-aware) | 预期 |
 |----------|--------------|--------------------|---------|
-| A0: A4 baseline | ✗ | ✗ | 0.863 |
-| A1: +geom (固定 alpha=1) | ✓ | ✗ (固定 1) | 测试纯几何偏置效果, 验证 time-aware 必要性 |
-| A2: +alpha (随机 geom) | ✗ (随机) | ✓ | 测试 time-aware 调制本身的效果 |
-| A3: full GeoRelAttn | ✓ | ✓ | 完整设计 |
-| A4: full + 不归一化 bboxes | ✓ | ✓ | 用原始像素坐标 (非 [0,1] 归一化), 验证尺度不变性 |
+| +DPM-Solver++ baseline | ✗ | ✗ | 0.863 |
+| +geom (固定 alpha=1) | ✓ | ✗ (固定 1) | 测试纯几何偏置效果, 验证 time-aware 必要性 |
+| +alpha (随机 geom) | ✗ (随机) | ✓ | 测试 time-aware 调制本身的效果 |
+| full GeoRelAttn | ✓ | ✓ | 完整设计 |
+| full + 不归一化 bboxes | ✓ | ✓ | 用原始像素坐标 (非 [0,1] 归一化), 验证尺度不变性 |
 
 ### 5.3 Per-cascade-head 分析
 
@@ -481,17 +481,17 @@ swanlab = dict(
 
 | 配置 | 推理延迟 (ms/img) | 备注 |
 |------|------------------|------|
-| A4 baseline | 155.4 | 已测 |
-| A4 + GeoRelAttn (路径 A) | 预期 < 165 | head0-1 走 SDPA, head2-5 走显式 |
-| A4 + GeoRelAttn (路径 B 全显式) | 预期 170-180 | 全程显式, 放弃 SDPA |
+| +DPM-Solver++ baseline | 155.4 | 已测 |
+| +DPM-Solver++ + GeoRelAttn (路径 A) | 预期 < 165 | head0-1 走 SDPA, head2-5 走显式 |
+| +DPM-Solver++ + GeoRelAttn (路径 B 全显式) | 预期 170-180 | 全程显式, 放弃 SDPA |
 
 **判据**: 路径 A 延迟增加 ≤ 10ms (≤ 6.4%) 视为可接受。
 
 ### 5.5 3-seed 验证 (若 1-seed 成功)
 
-若 A4 + GeoRelAttn 1-seed mAP ≥ 0.868, 启动 3-seed 完整验证 (seed 42/789/123):
-- 3-seed 均值 ≥ 0.865 (vs A4 3-seed 0.859)
-- 3-seed std ≤ 0.003 (与 A4 相当)
+若 +DPM-Solver++ + GeoRelAttn 1-seed mAP ≥ 0.868, 启动 3-seed 完整验证 (seed 42/789/123):
+- 3-seed 均值 ≥ 0.865 (vs +DPM-Solver++ 3-seed 0.859)
+- 3-seed std ≤ 0.003 (与 +DPM-Solver++ 相当)
 
 ---
 
@@ -501,7 +501,7 @@ swanlab = dict(
 
 1. **Red**: 先写 `ldmdet/tests/test_geometric_relation_attention.py`, 全部失败
 2. **Green**: 实现 `ldmdet/core/geometric_relation_attention.py`, 测试全过
-3. **Refactor**: 集成到 `single_head.py`, 跑 A4 checkpoint 数值一致性验证
+3. **Refactor**: 集成到 `single_head.py`, 跑 +DPM-Solver++ checkpoint 数值一致性验证
 
 ### 6.2 实施步骤 (预估 2-3 天)
 
@@ -591,10 +591,10 @@ class TestGeometricRelationAttention:
 
 | 风险 | 概率 | 缓解 |
 |------|------|------|
-| 几何偏置在 head0 (噪声框) 反而有害 | 中 | time-aware alpha 在 t 大时压制为 0; §5.2 A1 ablation 验证 |
+| 几何偏置在 head0 (噪声框) 反而有害 | 中 | time-aware alpha 在 t 大时压制为 0; §5.2 '+geom (固定 alpha=1)' ablation 验证 |
 | geom_encoder 过拟合 (24 类小数据) | 低 | geom_hidden=64 限制容量; 30 epoch 微调; 3-seed 验证 |
 | SDPA 兼容路径延迟增加 > 10% | 低 | §5.4 latency 对比; 若超 10% 切回路径 B 全显式 |
-| A4 checkpoint 加载后新增参数破坏表示 | 低 | 零初始化恒等性 (§3.5) + 单元测试强制保证 |
+| +DPM-Solver++ checkpoint 加载后新增参数破坏表示 | 低 | 零初始化恒等性 (§3.5) + 单元测试强制保证 |
 | 与 box_renewal 冲突 (新框 phi 饱和) | 低 | log 变换压缩长尾; §6.3 test_box_renewal_compatibility 验证 |
 | G21/Y 提升不显著 (瓶颈在别处) | 中 | §5.3 per-head alpha 分析定位瓶颈; 若无效归档为 FALSIFIED |
 

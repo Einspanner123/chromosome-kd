@@ -162,7 +162,7 @@
 - config: `experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_vgar_24obj.py` (基于 `a4_dpm_pp_24obj.py`)
 - 改动: `velocity_guided_renewal=True`
 - SwanLab: `ldmdet-mainline-ablation-24obj` / `a4_vgar` (project 已配置)
-- 基线: A4 DPM-Solver++ (mAP=0.863)
+- 基线: +DPM-Solver++ (mAP=0.863)
 
 ### 与 Box Renewal × Solver 交互关系
 
@@ -175,7 +175,7 @@
 
 - 系统评估速度引导自适应 Renewal 对 $\eta_{\text{str}}$ 和 mAP 的影响
 - 与 Box Renewal × Solver 交互方案 A/B/C 对比, 验证速度引导自适应 Renewal 是否为更优修复方案
-- 3 seeds (42/123/789) 重训, 与 A4 baseline 对照
+- 3 seeds (42/123/789) 重训, 与 +DPM-Solver++ baseline 对照
 - 若速度引导自适应 Renewal 显著改善 $\eta_{\text{str}}$ 且 mAP 不退化, 可作为论文新方向纳入
 
 ## 四、Brenier 映射神经化 (突破方向, 纯理论)
@@ -228,11 +228,11 @@
 
 - 方案 A (损失权重衰减): 零代码改动, 仅改 criterion 配置
 - Box Renewal × Solver 诊断支持: head0 修正最大 (reg std 0.94), 后级递减, 等权 deep_supervision 可能非最优
-- 训练: 从 A4 checkpoint 微调, 对比等权 vs 衰减
+- 训练: 从 +DPM-Solver++ checkpoint 微调, 对比等权 vs 衰减
 
 ### 形态感知 RoI 编码器 v2 (M1-v2 改进方向, ⛔ 待启动)
 
-M1 FP32 null result 已归档至 [FALSIFIED §二十六](file:///home/linkst/workspace/projects/chromosome-kd/docs/FALSIFIED_DIRECTIONS.md) (best 0.862@ep19, Δ=-0.001 持平 A4, h_conv/v_conv 均匀 → 设计问题)。
+M1 FP32 null result 已归档至 [FALSIFIED §二十六](file:///home/linkst/workspace/projects/chromosome-kd/docs/FALSIFIED_DIRECTIONS.md) (best 0.862@ep19, Δ=-0.001 持平 +DPM-Solver++, h_conv/v_conv 均匀 → 设计问题)。
 
 - **M1-v2 改进方向**:
   - 非零初始化 fuse (如小常数初始化 0.01, 打破梯度瓶颈)

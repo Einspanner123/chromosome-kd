@@ -488,7 +488,7 @@ FBM simple gate 源预训练, 期望在 Dataset 2 源预训练阶段验证 simpl
   -- SwanLab: ldmdet-ablation, run_id=52o1g5pq09eddplyzbl9q, URL: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/52o1g5pq09eddplyzbl9q
   -- best mAP=0.730 (Δ=−0.016, 消融)
   -- ⚠ **结论修正 (2026-07-30)**: box_renewal 是原版 DiffusionDet 的**推理时**机制 (projects/DiffusionDet/diffusiondet/head.py), **不在 loss() 路径** (ldmdet/core/head.py:628 loss() vs :1186 predict())。训练时 box_renewal=True/False **不影响模型权重** (梯度完全由 loss() 决定), 只影响验证评估时 predict() 的 proposal 回收。
-  -- **-0.016 退化根因: early stopping 选择偏差**, 非 model 能力退化。box_renewal=False 时验证评估无 proposal 回收 → val mAP 波动更大 → early stopping 选择了次优 checkpoint (best@ep37, 仅训练 40 epoch)。反证: 推理切换实验 (Dataset 1 A4 K=500) 表明同一 baseline checkpoint 在 renewal OFF 下 mAP=0.743 (vs renewal ON 0.744, Δ=−0.001), 若 no_box_renewal 选择了同等质量 checkpoint, renewal OFF 应达 ~0.743 而非 0.730。
+  -- **-0.016 退化根因: early stopping 选择偏差**, 非 model 能力退化。box_renewal=False 时验证评估无 proposal 回收 → val mAP 波动更大 → early stopping 选择了次优 checkpoint (best@ep37, 仅训练 40 epoch)。反证: 推理切换实验 (Dataset 1 +DPM-Solver++ K=500) 表明同一 baseline checkpoint 在 renewal OFF 下 mAP=0.743 (vs renewal ON 0.744, Δ=−0.001), 若 no_box_renewal 选择了同等质量 checkpoint, renewal OFF 应达 ~0.743 而非 0.730。
   -- **可完全移除 (推荐配置 K≥200)**: 推理时关闭 renewal 已 3-seed 验证安全 (ΔmAP=−0.0003), DPM++ D1 校正自然连续 (无 renewal 噪声干扰), 不需要 D3 化解路径 A 的 per-proposal D1 掩码。
 
 - class_balanced_sampling (类别平衡采样) ⛔ FAILED
@@ -585,7 +585,7 @@ FBM simple gate 源预训练, 期望在 Dataset 2 源预训练阶段验证 simpl
 ## 十三、Head Distillation 失败配置 (配置Bug导致失败, 方法本身有效)
 
 > **失败性质**: ⛔ **训练配置问题** (非理论问题, 非方法局限)
-> **方法有效性**: ✅ 修复配置验证有效 (mAP=0.860 持平 A4 0.863, → [LINEAGE §七](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md) Head Distillation)
+> **方法有效性**: ✅ 修复配置验证有效 (mAP=0.860 持平 +DPM-Solver++ 0.863, → [LINEAGE §七](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md) Head Distillation)
 > **归档日期**: 2026-07-27
 
 ### 实验配置
@@ -593,42 +593,42 @@ FBM simple gate 源预训练, 期望在 Dataset 2 源预训练阶段验证 simpl
 | 参数 | 失败配置 | 修复配置 (成功) |
 |------|-----------|---------------|
 | `freeze_backbone` | **True** (Bug根因) | False |
-| backbone 初始化 | ImageNet 预训练 (未加载 A4) | **从 A4 checkpoint 加载** |
+| backbone 初始化 | ImageNet 预训练 (未加载 +DPM-Solver++) | **从 +DPM-Solver++ checkpoint 加载** |
 | lr | 5e-5 | 1e-5 |
 | max_epoch | 150 | 50 |
 | distill_lambda | 0.05 | 0.05 |
 | distill_head_map | {0:0, 1:2, 2:5} | 同上 |
-| teacher_checkpoint | A4 best ep117 | 同上 |
+| teacher_checkpoint | +DPM-Solver++ best ep117 | 同上 |
 
 ### 失败根因 (配置Bug)
 
-`freeze_backbone=True` 导致 Student backbone 参数冻结, 停在 ImageNet 预训练权重 (未加载 A4 染色体训练权重)。因果链:
+`freeze_backbone=True` 导致 Student backbone 参数冻结, 停在 ImageNet 预训练权重 (未加载 +DPM-Solver++ 染色体训练权重)。因果链:
 
 ```
 freeze_backbone=True
   → Student backbone 停在 ImageNet 特征分布
-  → Teacher head 权重来自 A4 (在染色体特征上学习), 期望接收 A4 风格特征
+  → Teacher head 权重来自 +DPM-Solver++ (在染色体特征上学习), 期望接收 +DPM-Solver++ 风格特征
   → Teacher forward 接收 Student 的 ImageNet 特征 → OOD 输入 → Teacher fc_feature 无意义
   → 蒸馏目标无效 → loss_distill 停滞在 0.033 不下降
-  → mAP 停滞在 0.717 (Δ=-0.146 vs A4 0.863)
+  → mAP 停滞在 0.717 (Δ=-0.146 vs +DPM-Solver++ 0.863)
 ```
 
 ### 训练数据证据
 
 | 指标 | 失败配置 (ep109 best) | 修复配置 (ep10 best) | 说明 |
 |------|----------------|-------------------|------|
-| best mAP | 0.717 | 0.860 | 修复配置 持平 A4 0.863 |
-| ep1 mAP | 0.000 | 0.798 | 修复配置 的 A4 backbone 加载成功 |
+| best mAP | 0.717 | 0.860 | 修复配置 持平 +DPM-Solver++ 0.863 |
+| ep1 mAP | 0.000 | 0.798 | 修复配置 的 +DPM-Solver++ backbone 加载成功 |
 | loss_distill (最终) | 0.0326 | 0.0250 | 修复配置 低 23.3%, 蒸馏目标有效 |
 | loss_distill 趋势 | ep80 后停滞 | 持续下降 50% | 失败配置蒸馏目标不可学 |
-| per-class AP | 全部劣化 (Δ -0.056~-0.289) | 与 A4 对齐 (Δ -0.012~+0.004) | 失败配置全面崩坏 |
+| per-class AP | 全部劣化 (Δ -0.056~-0.289) | 与 +DPM-Solver++ 对齐 (Δ -0.012~+0.004) | 失败配置全面崩坏 |
 
 ### 方法学判定
 
 - **失败配置是配置Bug, 不是理论问题**: 代码实现正确 (Teacher 构造/冻结/MSE 蒸馏/head 映射/梯度流全部正确, Subagent 3 代码审查确认)
-- **方法本身有效**: 修复配置 mAP=0.860 持平 A4 0.863 (Δ=-0.003 在 3-seed noise ±0.003 内)
+- **方法本身有效**: 修复配置 mAP=0.860 持平 +DPM-Solver++ 0.863 (Δ=-0.003 在 3-seed noise ±0.003 内)
 - **理论目标达成**: NFE 24→12 加速 2x + 精度持平
-- **未超越 A4**: 修复配置 仅持平, 无增益 (但"持平"可能已是蒸馏最佳结果, 因 backbone 从 A4 加载本身就是知识继承)
+- **未超越 +DPM-Solver++**: 修复配置 仅持平, 无增益 (但"持平"可能已是蒸馏最佳结果, 因 backbone 从 +DPM-Solver++ 加载本身就是知识继承)
 
 ### 复活因素 (已实现)
 
@@ -652,7 +652,7 @@ freeze_backbone=True
 
 | 参数 | 当前run (失败) | 重试配置 (计划) |
 |------|---------------|----------------|
-| `load_from` | **None** (Bug根因) | **A4 best ep117** |
+| `load_from` | **None** (Bug根因) | **+DPM-Solver++ best ep117** |
 | lr | 1e-5 | **5e-5** (对齐 baseline) |
 | max_epoch | 50 | **150** (对齐 baseline) |
 | box_target_mode | 'x0_pred' | 同上 |
@@ -663,7 +663,7 @@ freeze_backbone=True
 
 #### 主因: 3个配置handicaps (训练配置问题)
 
-1. **缺失 `load_from`**: 模型从零训练 (应从 A4 checkpoint 初始化)
+1. **缺失 `load_from`**: 模型从零训练 (应从 +DPM-Solver++ checkpoint 初始化)
 2. **lr=1e-5**: 比 baseline (5e-5) 低 5x
 3. **max_epoch=50**: 仅为 baseline (150) 的 1/3
 
@@ -673,14 +673,14 @@ freeze_backbone=True
 
 | 风险 | 描述 | 性质 |
 |------|------|------|
-| **cls/box 不一致** | OT 重算 matched_idx (noise↔GT) 但 box_target=x0_pred (A4 预测) → cls 说"GT_j"但 box 说"A4 预测的另一个框" | 方法设计问题 |
-| **Circular dependency** | 模型用 A4 自预测训练, 强化 A4 的系统误差 | 方法设计问题 |
+| **cls/box 不一致** | OT 重算 matched_idx (noise↔GT) 但 box_target=x0_pred (+DPM-Solver++ 预测) → cls 说"GT_j"但 box 说"+DPM-Solver++ 预测的另一个框" | 方法设计问题 |
+| **Circular dependency** | 模型用 +DPM-Solver++ 自预测训练, 强化 +DPM-Solver++ 的系统误差 | 方法设计问题 |
 | **box_renewal 训推不一致** | 生成关、eval 开 → proposal 分布偏移 | 方法设计问题 |
-| **mAP_75 崩塌** | 模型学习预测 A4 的 x0_pred, 而 A4 对噪声 proposal 的预测本身模糊 → 模型学到模糊定位 | 方法本质问题 |
+| **mAP_75 崩塌** | 模型学习预测 +DPM-Solver++ 的 x0_pred, 而 +DPM-Solver++ 对噪声 proposal 的预测本身模糊 → 模型学到模糊定位 | 方法本质问题 |
 
 ### 训练数据证据
 
-| 指标 | 当前run (ep42 best) | A4 baseline | 说明 |
+| 指标 | 当前run (ep42 best) | +DPM-Solver++ baseline | 说明 |
 |------|-------------------|-------------|------|
 | best mAP | 0.646 | 0.863 | Δ=-0.217 |
 | ep50 mAP | 0.542 (已回退) | — | best 后持续下降 |
@@ -694,20 +694,20 @@ freeze_backbone=True
 
 - **代码实现正确**: coupling 加载/q_sample 公式/空间转换/per-proposal 对齐全部正确 (Subagent 3 代码审查确认)
 - **v1 失败不可挽救**: best 0.646 已回退, lr 已衰减至 0, mAP_75 崩塌
-- **重试确认方法本质失败**: 配置 Bug 已修复 (load_from=A4 + lr=5e-5 + 150ep), 但 30 epoch 零改善, mAP_75 仍崩塌
-- **重试判据命中**: mAP_75 在 ep2=0.687, ep19=0.608 两次跌破 0.70; best 始终在 ep1 (=A4 checkpoint 本身)
+- **重试确认方法本质失败**: 配置 Bug 已修复 (load_from=+DPM-Solver++ + lr=5e-5 + 150ep), 但 30 epoch 零改善, mAP_75 仍崩塌
+- **重试判据命中**: mAP_75 在 ep2=0.687, ep19=0.608 两次跌破 0.70; best 始终在 ep1 (=+DPM-Solver++ checkpoint 本身)
 
 ### 重试实验结果 (2026-07-27 16:03 → 22:01, EarlyStopping @ ep31)
 
 > workstation `100.99.131.26`: work_dirs/reflow_standard_24obj/
 > SwanLab run_id: bj8bmny5 (本地 scalars.json 完整, project 'ldmdet-reflow' 上传异常 404)
-> 配置: load_from=A4 best ep117 + lr=5e-5 + max_epoch=150 + warmup 5ep + cosine
+> 配置: load_from=+DPM-Solver++ best ep117 + lr=5e-5 + max_epoch=150 + warmup 5ep + cosine
 
 #### 重试配置 vs v1 失败配置
 
 | 参数 | v1 (失败) | 重试 (确认失败) |
 |------|-----------|----------------|
-| `load_from` | **None** (Bug根因) | **A4 best ep117** ✅ 修复 |
+| `load_from` | **None** (Bug根因) | **+DPM-Solver++ best ep117** ✅ 修复 |
 | lr | 1e-5 | **5e-5** ✅ 修复 |
 | max_epoch | 50 | **150** ✅ 修复 |
 | EarlyStopping | 未配置 | patience=30 (ep31 触发) |
@@ -716,17 +716,17 @@ freeze_backbone=True
 
 | Epoch | mAP | mAP_50 | mAP_75 | 备注 |
 |-------|-----|--------|--------|------|
-| **1** | **0.862** | 0.989 | **0.970** | **best** = A4 checkpoint 本身, 非 reflow 贡献 |
+| **1** | **0.862** | 0.989 | **0.970** | **best** = +DPM-Solver++ checkpoint 本身, 非 reflow 贡献 |
 | 2 | 0.618 | 0.974 | 0.687 | ⚠ mAP 崩塌 -0.244, mAP_75 跌破 0.70 |
-| 11 | 0.812 | 0.986 | 0.946 | 重试阶段最高 mAP (仍 < A4 0.863) |
+| 11 | 0.812 | 0.986 | 0.946 | 重试阶段最高 mAP (仍 < +DPM-Solver++ 0.863) |
 | 19 | 0.586 | 0.937 | 0.608 | ⚠ mAP 最低, mAP_75 再次跌破 0.70 |
 | 31 | 0.794 | 0.983 | 0.917 | EarlyStopping 触发 (30 ep 零改善) |
 
 #### 重试统计
 
-| 指标 | v1 (失败) | 重试 (确认失败) | A4 baseline |
+| 指标 | v1 (失败) | 重试 (确认失败) | +DPM-Solver++ baseline |
 |------|-----------|----------------|-------------|
-| best mAP | 0.646 @ ep42 | **0.862 @ ep1** (= A4 本身) | 0.863 |
+| best mAP | 0.646 @ ep42 | **0.862 @ ep1** (= +DPM-Solver++ 本身) | 0.863 |
 | 重试阶段最高 mAP (ep2-31) | — | 0.812 @ ep11 (Δ=-0.051) | — |
 | 重试阶段最低 mAP (ep2-31) | — | 0.586 @ ep19 (Δ=-0.277) | — |
 | mAP_75 跌破 0.70 次数 | 持续 | **2 次** (ep2, ep19) | 0 次 |
@@ -738,12 +738,12 @@ freeze_backbone=True
 
 配置 Bug 修复后, 4 个方法固有风险依然全部命中 (与 v1 相同):
 
-1. **cls/box 不一致** (方法设计问题): OT 重算 matched_idx (noise↔GT) 但 box_target=x0_pred (A4 预测) → cls 说"GT_j"但 box 说"A4 预测的另一个框"
-2. **Circular dependency** (方法设计问题): 模型用 A4 自预测训练, 强化 A4 的系统误差 → 30 epoch 零改善 (best 始终 ep1)
+1. **cls/box 不一致** (方法设计问题): OT 重算 matched_idx (noise↔GT) 但 box_target=x0_pred (+DPM-Solver++ 预测) → cls 说"GT_j"但 box 说"+DPM-Solver++ 预测的另一个框"
+2. **Circular dependency** (方法设计问题): 模型用 +DPM-Solver++ 自预测训练, 强化 +DPM-Solver++ 的系统误差 → 30 epoch 零改善 (best 始终 ep1)
 3. **box_renewal 训推不一致** (方法设计问题): 生成关、eval 开 → proposal 分布偏移
-4. **mAP_75 退化** (方法本质问题): 模型学习预测 A4 的 x0_pred, 而 A4 对噪声 proposal 的预测本身模糊 → 模型学到模糊定位 (mAP_75 两次跌破 0.70)
+4. **mAP_75 退化** (方法本质问题): 模型学习预测 +DPM-Solver++ 的 x0_pred, 而 +DPM-Solver++ 对噪声 proposal 的预测本身模糊 → 模型学到模糊定位 (mAP_75 两次跌破 0.70)
 
-**关键证据**: best=0.862 @ ep1 是 A4 checkpoint 加载后的初始状态 (load_from=A4), reflow coupling 训练 30 个 epoch **零改善** — 证明 reflow 不仅没有拉直轨迹提升性能, 反而持续损害 A4 已学到的表示 (ep2 起 mAP 崩塌至 0.618).
+**关键证据**: best=0.862 @ ep1 是 +DPM-Solver++ checkpoint 加载后的初始状态 (load_from=+DPM-Solver++), reflow coupling 训练 30 个 epoch **零改善** — 证明 reflow 不仅没有拉直轨迹提升性能, 反而持续损害 +DPM-Solver++ 已学到的表示 (ep2 起 mAP 崩塌至 0.618).
 
 ### 数据修正
 
@@ -755,7 +755,7 @@ freeze_backbone=True
 1. **微调实验必须设置 load_from**: 从零训练 + 微调参数 (低 lr + 少 epoch) 是致命组合
 2. **mAP_75 是定位精度的关键指标**: mAP_50 持平但 mAP_75 崩塌说明方法损害精细定位
 3. **用户标准 "配置问题不能否定方法失败"**: 需从方法固有风险角度判定, 不能仅归咎于配置
-4. **重试隔离了"配置 Bug" vs "方法本质问题"** (2026-07-28 确认): 配置 Bug 修复后 (load_from+A4+lr=5e-5+150ep), 方法本质问题依然存在 — best 0.862@ep1 = A4 本身, 30 epoch 零改善, mAP_75 仍崩塌 (ep2=0.687, ep19=0.608). EarlyStopping @ ep31 自动终止. **ReFlow 2-Rectification (Standard MSE) 方向正式判定方法本质失败**
+4. **重试隔离了"配置 Bug" vs "方法本质问题"** (2026-07-28 确认): 配置 Bug 修复后 (load_from=+DPM-Solver++, lr=5e-5, 150ep), 方法本质问题依然存在 — best 0.862@ep1 = +DPM-Solver++ 本身, 30 epoch 零改善, mAP_75 仍崩塌 (ep2=0.687, ep19=0.608). EarlyStopping @ ep31 自动终止. **ReFlow 2-Rectification (Standard MSE) 方向正式判定方法本质失败**
 5. **best@ep1 = checkpoint 本身是微调失败的强信号**: 若 best 始终在 ep1 且后续零改善, 说明训练目标 (reflow coupling x0_pred) 不仅无益反而有害, 应立即检查 cls/box 一致性
 
 ---
@@ -1103,7 +1103,7 @@ Traj-SAM 提出: 将 SAM (Sharpness-Aware Minimization) 扩展到 RF 轨迹积�
 
 #### 缺陷 3 (严重): 训练时间翻倍
 
-- **错误描述**: SAM 的双 forward-backward 使训练时间 $\sim 2\times$。KaryoFlow 的 A4 训练 150 epoch, 单 seed 约 3-5 天 (A6000)。Traj-SAM 需 6-10 天单 seed, 3-seed 需 18-30 天。
+- **错误描述**: SAM 的双 forward-backward 使训练时间 $\sim 2\times$。KaryoFlow 的 +DPM-Solver++ 训练 150 epoch, 单 seed 约 3-5 天 (A6000)。Traj-SAM 需 6-10 天单 seed, 3-seed 需 18-30 天。
 - **错误依据**: SAM 的 $\epsilon^* = \rho \nabla L(\theta; B) / \|\nabla L(\theta; B)\|$ 需要第一次 forward-backward 计算梯度, 然后扰动参数 $\theta + \epsilon^*$, 再做第二次 forward-backward 评估扰动后损失并反传。双倍计算量是 SAM 的固有开销。
 - **为何不可修复**: 除非使用 subset SAM (如 25% 样本) 或仅在训练后期启用 SAM, 但前者降低 SAM 有效性, 后者增加调度复杂度。
 
@@ -1258,11 +1258,11 @@ MDC-RF 提出: 用连续介质力学物质导数 $D\hat{x}_0/Dt = \partial \hat{
 
 #### 实验证明目的
 
-验证自条件化 RF 是否能超越 A4 baseline (0.863)。
+验证自条件化 RF 是否能超越 +DPM-Solver++ baseline (0.863)。
 
 - SC-RF (自条件化 RF, Dataset 2)
   -- 数据集: Dataset 2
-  -- 结果: best mAP=0.860@ep82, **Δ = −0.003 vs A4 0.863** (在 noise 范围内但无增益)
+  -- 结果: best mAP=0.860@ep82, **Δ = −0.003 vs +DPM-Solver++ 0.863** (在 noise 范围内但无增益)
   -- Early Stop @ ep112
   -- 自条件化机制实现正确 (50% 激活、零初始化过渡、校正幅度增长均正常)
   -- 数据源: ross `/media/ross/8TB/linkst/chromo/chromosome-kd/work_dirs/sc_rf_24obj/`
@@ -1280,20 +1280,20 @@ MDC-RF 提出: 用连续介质力学物质导数 $D\hat{x}_0/Dt = \partial \hat{
 
 ### 核心设想
 
-将 A4 (4步 DPM-Solver++, mAP=0.862) 蒸馏到 1步 Euler, 期望 4× 推理加速 (4步→1步) 同时保持精度。采用直接 4→1 蒸馏 (非 Salimans 级联式渐进蒸馏)。
+将 +DPM-Solver++ (4步 DPM-Solver++, mAP=0.862) 蒸馏到 1步 Euler, 期望 4× 推理加速 (4步→1步) 同时保持精度。采用直接 4→1 蒸馏 (非 Salimans 级联式渐进蒸馏)。
 
 ### 证伪证据
 
 #### 实验证明目的
 
-验证 4→1 直接蒸馏是否能将 4步 DPM-Solver++ 压缩到 1步 Euler 同时保持精度 ≥ A4 baseline。
+验证 4→1 直接蒸馏是否能将 4步 DPM-Solver++ 压缩到 1步 Euler 同时保持精度 ≥ +DPM-Solver++ baseline。
 
 - PD-RF v1-v4 (4→1 直接蒸馏, Dataset 2)
   -- 数据集: Dataset 2
-  -- Teacher: A4 (4步 DPM-Solver++, mAP=0.862, 冻结)
+  -- Teacher: +DPM-Solver++ (4步 DPM-Solver++, mAP=0.862, 冻结)
   -- Student: 1步 Euler
   -- v1-v4 共 4 次迭代均失败
-  -- best mAP=0.851@ep1 (即 A4 初始化点, 训练零增益)
+  -- best mAP=0.851@ep1 (即 +DPM-Solver++ 初始化点, 训练零增益)
   -- v4 最终 mAP 从 0.851 灾难性崩塌至 0.252@ep28, Early Stop @ ep31
   -- 归档时间: 2026-07-11
   -- 详细设计与复盘: [PD-RF_Progressive_Distillation.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/PD-RF_Progressive_Distillation.md)
@@ -1358,11 +1358,11 @@ MDC-RF 提出: 用连续介质力学物质导数 $D\hat{x}_0/Dt = \partial \hat{
 
 #### 实验证明目的
 
-验证形态感知 RoI 编码器是否能超越 A4 baseline (0.863)。
+验证形态感知 RoI 编码器是否能超越 +DPM-Solver++ baseline (0.863)。
 
 - M1 (形态感知 RoI 编码器, Dataset 2)
   -- 数据集: Dataset 2
-  -- FP32 结果: best mAP=0.862@ep19, **Δ = −0.001 vs A4 0.863** (统计上持平, null result)
+  -- FP32 结果: best mAP=0.862@ep19, **Δ = −0.001 vs +DPM-Solver++ 0.863** (统计上持平, null result)
   -- BF16 结果: mAP=0.818, Δ=-0.045 (虚假退化, BF16 误导, 排除)
   -- 核心结论: h_conv/v_conv 在 FP32 下仍均匀 → **设计问题而非精度问题**
   -- 参数开销: 262.8K/head × 6 = 1.58M (<总参数 0.5%)
@@ -1449,7 +1449,7 @@ MDC-RF 提出: 用连续介质力学物质导数 $D\hat{x}_0/Dt = \partial \hat{
 | h_velocity_loss | — | — | Dataset 2 | ldmdet-frontier-directions | ⛔ CRASHED |
 | FBM SimpleGate | 0.677 | — | Dataset 2 | few-shot-benchmark | ⛔ 失败 |
 | Head Distillation 失败配置 (freeze_backbone=True) | 0.717 | −0.146 | Dataset 2 | ldmdet-head-distill | ⛔ 配置Bug (修复配置 0.860 有效, → LINEAGE) |
-| ReFlow Standard MSE (方法本质失败, 重试确认) | 0.862@ep1(=A4) / 0.646(v1) | −0.001 / −0.217 | Dataset 2 | ldmdet-reflow | ⛔ 方法本质失败 (重试确认) |
+| ReFlow Standard MSE (方法本质失败, 重试确认) | 0.862@ep1(=+DPM-Solver++) / 0.646(v1) | −0.001 / −0.217 | Dataset 2 | ldmdet-reflow | ⛔ 方法本质失败 (重试确认) |
 | scale_aware_loss | 0.742 | −0.004 | Dataset 1 | ldmdet-ablation | ⛔ 证伪 |
 | relative_l1_loss | 0.740 | −0.006 | Dataset 1 | ldmdet-ablation | ⛔ 证伪 |
 | high_cls_weight | 0.739 | −0.007 | Dataset 1 | ldmdet-ablation | ⛔ 证伪 |

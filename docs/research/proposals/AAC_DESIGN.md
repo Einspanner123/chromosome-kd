@@ -484,7 +484,7 @@ def forward(self, features, bboxes, t):
 ### 4.3 训练路径
 
 **Phase 1: 微调 (推荐)**
-- 从 A4 checkpoint (+DPM-Solver++, best ep117, mAP=0.863) 初始化
+- 从 +DPM-Solver++ checkpoint (+DPM-Solver++, best ep117, mAP=0.863) 初始化
 - 启用 AAC, `aac_beta=0.5` (阻尼), `aac_mem_depth=2`
 - lr=1e-5, max_epoch=50, 与 Head Distillation 修复配置对齐
 - 预期: AAC 在微调阶段学习 Anderson 系数的隐式尺度, 逐步从阻尼过渡到全幅
@@ -933,7 +933,7 @@ cascade head 单步 ~10-20 ms, AAC 开销 < 0.5%, 可忽略。
 
 ### 8.1 mAP 改进
 
-| 配置 | 预期 mAP | Δ vs A4 (0.863) | 依据 |
+| 配置 | 预期 mAP | Δ vs +DPM-Solver++ (0.863) | 依据 |
 |------|----------|-----------------|------|
 | AAC Phase 1 (微调) | 0.865~0.868 | +0.002~0.005 | Anderson 加速横向收敛, 接近 DINO 0.868 |
 | AAC Phase 2 (端到端) | 0.863~0.866 | +0.000~0.003 | 受天花板约束, 增益有限 |
@@ -986,9 +986,9 @@ cascade head 单步 ~10-20 ms, AAC 开销 < 0.5%, 可忽略。
 
 | 实验 | 配置 | 预期 | 算力 |
 |------|------|------|------|
-| AAC-m2-β0.5 微调 | A4 init, m=2, β=0.5, lr=1e-5, 50ep | mAP 0.865~0.868 | A5000, ~12h |
-| AAC-m1 消融 | A4 init, m=1, β=1.0, lr=1e-5, 50ep | mAP 0.864~0.866 (验证 AA(1) 割线阶) | A5000, ~12h |
-| AAC-m0 消融 (placebo) | A4 init, m=0 (即纯微调), lr=1e-5, 50ep | mAP 0.863 (baseline, 隔离微调效应) | A5000, ~12h |
+| AAC-m2-β0.5 微调 | +DPM-Solver++ init, m=2, β=0.5, lr=1e-5, 50ep | mAP 0.865~0.868 | A5000, ~12h |
+| AAC-m1 消融 | +DPM-Solver++ init, m=1, β=1.0, lr=1e-5, 50ep | mAP 0.864~0.866 (验证 AA(1) 割线阶) | A5000, ~12h |
+| AAC-m0 消融 (placebo) | +DPM-Solver++ init, m=0 (即纯微调), lr=1e-5, 50ep | mAP 0.863 (baseline, 隔离微调效应) | A5000, ~12h |
 
 **判据**: AAC-m2 vs AAC-m0 的 ΔmAP > 0.002 (超 noise), 则 Phase 2 启动。
 
@@ -996,7 +996,7 @@ cascade head 单步 ~10-20 ms, AAC 开销 < 0.5%, 可忽略。
 
 | 实验 | 配置 | 预期 |
 |------|------|------|
-| AAC 端到端 3-seed | A1 init, m=2, β=1.0, lr=5e-5, 150ep, seeds 42/123/789 | mAP 0.863~0.866 ± 0.003 |
+| AAC 端到端 3-seed | RF+Heun init, m=2, β=1.0, lr=5e-5, 150ep, seeds 42/123/789 | mAP 0.863~0.866 ± 0.003 |
 
 ### 10.3 诊断实验 (零成本, 推理时)
 

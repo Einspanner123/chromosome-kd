@@ -7,7 +7,7 @@
 >
 > **实验状态**: ❌ 已归档（2026-07-11，负增益证伪）
 > - Best mAP = 0.860（Epoch 82/150，Early Stop at Epoch 112）
-> - 相比 A4 baseline (0.862) **负增益 -0.002**，未达预期 +0.005~0.015
+> - 相比 +DPM-Solver++ baseline (0.862) **负增益 -0.002**，未达预期 +0.005~0.015
 > - 自条件化机制本身实现正确（50% 激活、零初始化过渡、校正幅度增长均正常）
 > - 详细复盘见 [第 8 节 实验结果与复盘](#8-实验结果与复盘)
 
@@ -294,14 +294,14 @@ model = dict(
 
 | 实验 | 配置 | 预期 mAP | 目的 |
 |---|---|---|---|
-| A4 baseline | RF+AdaLN+StochOT+DPM++ (无 SC) | 0.862 | 基线 |
-| **SC-RF** | A4 + self_conditioning | **0.867~0.877** | 验证自条件化增益 |
+| +DPM-Solver++ baseline | RF+AdaLN+StochOT+DPM++ (无 SC) | 0.862 | 基线 |
+| **SC-RF** | +DPM-Solver++ + self_conditioning | **0.867~0.877** | 验证自条件化增益 |
 
 ### 5.2 消融实验
 
 | 消融 | 目的 |
 |---|---|
-| SC-RF vs A4 (24obj) | 自条件化的增益 |
+| SC-RF vs +DPM-Solver++ (24obj) | 自条件化的增益 |
 | SC-RF prob=0.0/0.25/0.5/0.75/1.0 | 最优自条件化概率 |
 | SC-RF + Heun vs SC-RF + DPM++ | 自条件化与求解器的交互 |
 | SC-RF 1-step vs 4-step | 自条件化在少步采样中的效果 |
@@ -357,12 +357,12 @@ model = dict(
 
 | 实验 | 采样器 | 步数 | mAP | 与 SC-RF best 差距 |
 |------|--------|------|-----|-------------------|
-| A1 (baseline) | Euler | 1 步 | 0.856 | -0.004 |
+| RF+Heun (baseline) | Euler | 1 步 | 0.856 | -0.004 |
 | **SC-RF (best)** | **DPM-Solver++** | **4 步** | **0.860** | **0** |
 | 理论目标 | - | - | ≥0.861 | +0.001 |
-| A4 (直接基线) | DPM-Solver++ | 4 步 | 0.862 | +0.002 |
+| +DPM-Solver++ (直接基线) | DPM-Solver++ | 4 步 | 0.862 | +0.002 |
 
-**核心结论**: SC-RF 构建在 A4 之上（`_base_ = ['../mainline_ablation_24obj/a4_dpm_pp_24obj.py']`），使用相同采样器与步数。相比 A4 **负增益 -0.002**，未达到预期 +0.005~0.015 mAP。相比 A1（1 步 Euler）的 +0.004 增益主要来自采样器升级（Euler→DPM-Solver++），非自条件化贡献。
+**核心结论**: SC-RF 构建在 +DPM-Solver++ 之上（`_base_ = ['../mainline_ablation_24obj/a4_dpm_pp_24obj.py']`），使用相同采样器与步数。相比 +DPM-Solver++ **负增益 -0.002**，未达到预期 +0.005~0.015 mAP。相比 RF+Heun（1 步 Euler）的 +0.004 增益主要来自采样器升级（Euler→DPM-Solver++），非自条件化贡献。
 
 ### 8.3 mAP 趋势分析
 
@@ -412,7 +412,7 @@ model = dict(
    - 这与 [2.2 节](#22-动机分析-1条件化不增加熵)的信息论分析一致：训练时 $I(X_0; \hat{X}_0 | X_t) = 0$，推理时的跨时间步信息在 4 维空间中极为有限
 
 2. **强基线饱和**:
-   - A4（4 步 DPM-Solver++）已达 0.862，多步采样本身的迭代精炼已较充分
+   - +DPM-Solver++（4 步）已达 0.862，多步采样本身的迭代精炼已较充分
    - [2.6 节](#26-级联-head-与自条件化的交互)分析的 intra-step（级联 head）vs inter-step（SC-RF）互补性，在 6 个级联 head + 4 步 DPM-Solver++ 的强基线上冗余度高
    - 4 步采样已经提供了跨时间步的精炼，SC-RF 的额外跨步信息边际收益递减
 
@@ -434,12 +434,12 @@ model = dict(
 | 训练状态 | ✅ 已完成（Early Stop，112/150 epoch） |
 | 自条件化机制 | ✅ 完全正常（50% 激活、零初始化过渡、校正幅度增长） |
 | 性能目标达成 | ❌ 未达到目标（0.860 < 0.861） |
-| 相对 A4 增益 | ❌ 负增益（-0.002） |
-| 相对 A1 增益 | ⚠️ +0.004，但主要来自采样器升级，非自条件化贡献 |
+| 相对 +DPM-Solver++ 增益 | ❌ 负增益（-0.002） |
+| 相对 RF+Heun 增益 | ⚠️ +0.004，但主要来自采样器升级，非自条件化贡献 |
 
 **核心教训**:
 1. **图像生成→检测的迁移需谨慎评估信号维度差异**: 自条件化在图像生成中的成功依赖于高维 $\hat{x}_0$ 的丰富信息，检测 4 维 bbox 的信息量不足以支撑同等增益
-2. **强基线上的边际收益递减**: A4（4 步 DPM-Solver++ + 6 级联 head）已提供充分的迭代精炼，SC-RF 的跨步信息冗余
+2. **强基线上的边际收益递减**: +DPM-Solver++（4 步 + 6 级联 head）已提供充分的迭代精炼，SC-RF 的跨步信息冗余
 3. **机制正确 ≠ 性能提升**: 自条件化机制的所有技术指标均正常（激活率、零初始化、校正幅度增长），但仍未带来性能增益，说明问题在于任务本身的信息瓶颈而非实现
 
 ### 8.7 未探索的改进方向（仅供参考，不再实施）
@@ -447,24 +447,24 @@ model = dict(
 因方向已证伪归档，以下改进方向仅作记录，不再实施：
 
 1. **降低 self_conditioning_prob**: 50% 可能在强基线上引入过多训练/推理不一致，可尝试 0.2-0.3
-2. **结合 1 步 Euler 采样器**: SC-RF 理论优势在于迭代精炼，在 4 步 DPM-Solver++ 上优势被稀释，可尝试在 A1（1 步 Euler）基础上验证——但 1 步无"跨时间步"信息，自条件化退化为同时间步残差，理论上无增益（见 [2.2 节](#22-动机分析-1条件化不增加熵)）
+2. **结合 1 步 Euler 采样器**: SC-RF 理论优势在于迭代精炼，在 4 步 DPM-Solver++ 上优势被稀释，可尝试在 RF+Heun（1 步 Euler）基础上验证——但 1 步无"跨时间步"信息，自条件化退化为同时间步残差，理论上无增益（见 [2.2 节](#22-动机分析-1条件化不增加熵)）
 3. **扩展 x0_prev 维度**: 附加 cls_logits 或使用 MLP 投影增加信息量——但这改变了自条件化的简洁性，且收益不确定
 4. **延长训练**: 平台期明确，延长训练无收益
 
 ### 8.8 对 PD-RF 的影响
 
 原计划 [第 1 节](#1-问题动机)中"SC-RF 作为 teacher 提供更好的轨迹供 PD-RF 蒸馏"已不适用：
-- SC-RF (0.860) 低于 A4 (0.862)，作为 teacher 不会优于 A4
-- PD-RF 继续使用 A4 作为 teacher（见 [PD-RF 方案](./PD-RF_Progressive_Distillation.md)）
+- SC-RF (0.860) 低于 +DPM-Solver++ (0.862)，作为 teacher 不会优于 +DPM-Solver++
+- PD-RF 继续使用 +DPM-Solver++ 作为 teacher（见 [PD-RF 方案](./PD-RF_Progressive_Distillation.md)）
 
 ---
 
 ## 9. 归档记录
 
 - **归档日期**: 2026-07-11
-- **归档原因**: 负增益证伪（SC-RF best 0.860 < A4 baseline 0.862）
+- **归档原因**: 负增益证伪（SC-RF best 0.860 < +DPM-Solver++ baseline 0.862）
 - **实验代码**: `experiments/configs/ldmdet/directions/sc_rf/sc_rf_24obj.py`（保持不动，不再修改）
 - **Best checkpoint**: `work_dirs/sc_rf_24obj/best_coco_bbox_mAP_epoch_82.pth`（保留）
 - **训练日志**: `work_dirs/sc_rf_24obj/20260709_214943/20260709_214943.log`（保留）
 - **SwanLab**: 项目 'ldmdet-breakthrough', 实验 'sc_rf_24obj'（已停止）
-- **后续方向**: PD-RF 继续使用 A4 作为 teacher，不考虑 SC-RF 作为 teacher
+- **后续方向**: PD-RF 继续使用 +DPM-Solver++ 作为 teacher，不考虑 SC-RF 作为 teacher

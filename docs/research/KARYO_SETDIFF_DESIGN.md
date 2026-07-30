@@ -2,7 +2,7 @@
 
 > **方向类别**: 激进 (完全重构 self_attn 子模块 + 新增 count head 辅助监督)
 > **目标**: 用 Set Transformer 的 ISAB 模块替换标准 self_attn, 实现 proposal 集合的诱导点级上下文建模; 新增 PMA count head 作为辅助监督, 显式约束 proposal 集合的基数一致性
-> **当前 SOTA 基线**: KaryoFlow A4 (RF + DPM-Solver++, mAP=0.863, 24obj)
+> **当前 SOTA 基线**: KaryoFlow +DPM-Solver++ (RF, mAP=0.863, 24obj)
 > **预期增益**: +0.005 ~ +0.020 mAP (定位为辅助 ablation, 非主推)
 > **文档状态**: 设计完成, 待主推 GeoRelAttn 验证后再决定是否实施
 > **创建日期**: 2026-07-27
@@ -65,7 +65,7 @@ ISAB:             N proposals ↔ M inducing points  O(NM)
 | **作用位置** | 推理后处理 (B) + FPN 特征 (C) | cascade head 内部 self_attn 替换 |
 | **失败原因** | 计数约束与检测质量冲突 + 辅助损失干扰主任务 | 不适用 (方法学不同) |
 | **数据集** | Dataset 1 (1540 张, mAP≈0.75) | Dataset 2 (5000 张, mAP≈0.86) |
-| **基线** | rf_heun_adaln (0.746) | A4 DPM-Solver++ (0.863) |
+| **基线** | rf_heun_adaln (0.746) | +DPM-Solver++ (0.863) |
 
 **关键区分**: 方向二把计数作为**约束/条件**强加于检测, KaryoSetDiff 把集合结构作为**注意力归纳偏置**融入特征学习, 两者方法学本质不同。方向二的失败不构成 KaryoSetDiff 的反证。
 
@@ -189,7 +189,7 @@ $$\mathcal{L}_{count} = |\hat{c} - c_{gt}|_1$$
 
 ### 4.4 零初始化恒等性 (安全保障)
 
-为兼容 A4 checkpoint 微调, ISAB 的输出投影层零初始化, 保证训练步 0 时:
+为兼容 +DPM-Solver++ checkpoint 微调, ISAB 的输出投影层零初始化, 保证训练步 0 时:
 $$\text{ISAB}(X) \approx \text{MHA}(X) \text{ (在零初始化近似下)}$$
 
 具体:
@@ -197,7 +197,7 @@ $$\text{ISAB}(X) \approx \text{MHA}(X) \text{ (在零初始化近似下)}$$
 - PMA count head 的 MLP 最后一层零初始化 ($\hat{c}=0$ 初始)
 - $\lambda_{count}$ 从 0 渐进 ramp-up 到 0.1 (前 5 epoch 为 0)
 
-**注意**: 严格数值恒等性较难保证 (ISAB 有 inducing points 中介), 改为"零初始化下不破坏 A4 表示"的弱保证, 由单元测试 `test_zero_init_preserves_a4_representation` 验证 (前向输出 L2 距离 < 阈值)。
+**注意**: 严格数值恒等性较难保证 (ISAB 有 inducing points 中介), 改为"零初始化下不破坏 +DPM-Solver++ 表示"的弱保证, 由单元测试 `test_zero_init_preserves_a4_representation` 验证 (前向输出 L2 距离 < 阈值)。
 
 ### 4.5 与 box_renewal / DPM-Solver++ 的兼容性
 
@@ -420,20 +420,20 @@ swanlab = dict(
 
 | 实验 | 配置 | 训练 | 预期 |
 |------|------|------|------|
-| A4 baseline | a4_dpm_pp_24obj | 已完成 | mAP=0.863 |
-| A4 + ISAB only | a4_setdiff (无 count head) | 30 ep 微调 | mAP 0.865-0.875 |
-| A4 + ISAB + PMA count | a4_setdiff (含 count head) | 30 ep 微调 | mAP 0.868-0.880 |
+| +DPM-Solver++ baseline | a4_dpm_pp_24obj | 已完成 | mAP=0.863 |
+| +DPM-Solver++ + ISAB only | a4_setdiff (无 count head) | 30 ep 微调 | mAP 0.865-0.875 |
+| +DPM-Solver++ + ISAB + PMA count | a4_setdiff (含 count head) | 30 ep 微调 | mAP 0.868-0.880 |
 
 ### 6.2 Ablation
 
 | Ablation | ISAB | PMA count | num_inducing | 预期 |
 |----------|------|-----------|--------------|------|
-| A0: baseline | ✗ | ✗ | — | 0.863 |
-| A1: ISAB only | ✓ | ✗ | 32 | 测试纯集合上下文效果 |
-| A2: ISAB + count | ✓ | ✓ | 32 | 完整设计 |
-| A3: num_inducing=16 | ✓ | ✓ | 16 | 诱导点数量扫描 |
-| A4: num_inducing=64 | ✓ | ✓ | 64 | 同上 |
-| A5: count_loss_weight=0 | ✓ | ✓ (但权重 0) | 32 | count head 是否有害 (与方向二对比) |
+| baseline | ✗ | ✗ | — | 0.863 |
+| ISAB only | ✓ | ✗ | 32 | 测试纯集合上下文效果 |
+| ISAB + count | ✓ | ✓ | 32 | 完整设计 |
+| num_inducing=16 | ✓ | ✓ | 16 | 诱导点数量扫描 |
+| num_inducing=64 | ✓ | ✓ | 64 | 同上 |
+| count_loss_weight=0 | ✓ | ✓ (但权重 0) | 32 | count head 是否有害 (与方向二对比) |
 
 ### 6.3 与方向二的直接对比
 
@@ -442,18 +442,18 @@ swanlab = dict(
 | 实验 | count head 来源 | count head 权重 | mAP | 说明 |
 |------|----------------|----------------|-----|------|
 | 方向二 (已失败) | FPN 特征 (独立分支) | 1.0 | 0.726 (Dataset 1) | 计数约束干扰主任务 |
-| KaryoSetDiff A5 | ISAB inducing (共享) | 0.0 | 待测 | 权重 0, 等效无 count head |
-| KaryoSetDiff A2 | ISAB inducing (共享) | 0.1 | 待测 | 小权重 + 共享表示 |
+| KaryoSetDiff 'count_loss_weight=0' | ISAB inducing (共享) | 0.0 | 待测 | 权重 0, 等效无 count head |
+| KaryoSetDiff 'ISAB + count' | ISAB inducing (共享) | 0.1 | 待测 | 小权重 + 共享表示 |
 
-**判据**: 若 KaryoSetDiff A2 mAP ≥ A4 baseline, 且 A5 (权重 0) ≈ A2, 则 count head 无害且可能有益, 证明与方向二方法学不同。
+**判据**: 若 'ISAB + count' mAP ≥ +DPM-Solver++ baseline, 且 'count_loss_weight=0' (权重 0) ≈ 'ISAB + count', 则 count head 无害且可能有益, 证明与方向二方法学不同。
 
 ### 6.4 Latency 对比
 
 | 配置 | 推理延迟 (ms/img) | 加速比 |
 |------|------------------|--------|
-| A4 baseline (MHA) | 155.4 | 1.0x |
-| A4 + ISAB (M=32) | 预期 140-150 | 1.04-1.11x |
-| A4 + ISAB (M=64) | 预期 145-155 | 1.0-1.07x |
+| +DPM-Solver++ baseline (MHA) | 155.4 | 1.0x |
+| +DPM-Solver++ + ISAB (M=32) | 预期 140-150 | 1.04-1.11x |
+| +DPM-Solver++ + ISAB (M=64) | 预期 145-155 | 1.0-1.07x |
 
 **预期**: ISAB 应带来轻微加速 (O(N²) → O(NM)), 这是相对 GeoRelAttn (保留 O(N²)) 的一个优势。
 
@@ -502,9 +502,9 @@ class TestIntegrationWithCascadeHead:
 
 | 风险 | 概率 | 缓解 |
 |------|------|------|
-| ISAB 集合抽象损失细粒度信息 | 中 | num_inducing=32 足够大; Ablation A3/A4 扫描 |
+| ISAB 集合抽象损失细粒度信息 | 中 | num_inducing=32 足够大; Ablation num_inducing 扫描 |
 | count head 与方向二同样有害 | 低 | 共享表示 (非独立分支) + 小权重 0.1 + warmup; §6.3 直接对比 |
-| 零初始化弱恒等性破坏 A4 表示 | 中 | §4.4 弱保证 + 单元测试; 30 ep 微调可恢复 |
+| 零初始化弱恒等性破坏 +DPM-Solver++ 表示 | 中 | §4.4 弱保证 + 单元测试; 30 ep 微调可恢复 |
 | inducing points 在 24 类小数据上过拟合 | 中 | num_inducing 限制容量; 3-seed 验证 |
 | 与 GeoRelAttn 互斥, 实施机会成本 | 高 | 定位为 GeoRelAttn 的替代方案, 待主推验证后再决定 |
 

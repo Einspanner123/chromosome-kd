@@ -47,7 +47,7 @@ $$
 
 ### 1.2 预期收益汇总 (R2 确认)
 
-| 指标 | Baseline (Dataset 2, A4 DPM++) | TRIP 预期 | 改善 | 备注 |
+| 指标 | Baseline (Dataset 2, +DPM-Solver++) | TRIP 预期 | 改善 | 备注 |
 |------|-------------------------------|-----------|------|------|
 | mAP | 0.863 | 0.864 ~ 0.868 | $+0.001 \sim +0.005$ | SNR 退化段正则化 |
 | mAP$_{75}$ | 0.974 | 0.975 ~ 0.978 | $+0.001 \sim +0.004$ | 大 $t$ 段稳定性 → 末步精度 |
@@ -203,7 +203,7 @@ Sobolev 族约束**确定性映射 $f_\theta$ 的导数** (加损失项); TRIP �
 
 | 现有特性 | 兼容性 | 说明 |
 |----------|--------|------|
-| DPM-Solver++ (A4) | 完全兼容 | TRIP 仅改训练, 推理不变 |
+| DPM-Solver++ (+DPM-Solver++) | 完全兼容 | TRIP 仅改训练, 推理不变 |
 | Top-K pruning (IO3) | 完全兼容 | 正则化在 pruning 前 |
 | v_prediction (R3) | 可共存 | TRIP 改目标值, v_prediction 改损失加权, 正交 |
 | ReFlow coupling | 互斥 (单 mode) | TRIP 独立使用, TRIP-on-ReFlow 可选 |
@@ -441,7 +441,7 @@ model = dict(
 
 **目标**: 验证 TRIP 不掉点 + 验证 baseline 大 $t$ 段行为 (E1.5 Blocking).
 
-**配置**: A4 checkpoint + TRIP (MAP $\lambda=t^2$), 50 epochs.
+**配置**: +DPM-Solver++ checkpoint + TRIP (MAP $\lambda=t^2$), 50 epochs.
 
 **监测指标**:
 - `train/trip_s_mean`, `train/trip_s_per_class` (收缩因子分布);
@@ -464,7 +464,7 @@ model = dict(
 | TRIP-global | map | 全局 (非类条件) | 验证类条件收益 (E2.4) |
 | TRIP-iso | map | 各向同性 | 验证全协方差收益 |
 | TRIP-labelsmooth | 固定 $\alpha=0.1$ | 类条件 | R2 新增: 验证 $t$-自适应性收益 |
-| baseline | — | — | A4 baseline |
+| baseline | — | — | +DPM-Solver++ baseline |
 
 **关键对比**:
 - TRIP-MAP vs TRIP-Morozov: MAP vs Morozov (E2.3);

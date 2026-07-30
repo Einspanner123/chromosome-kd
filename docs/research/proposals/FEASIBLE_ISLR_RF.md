@@ -35,7 +35,7 @@ TFR/VCR 约束时间轴 $\partial \hat{x}_0/\partial t$; SDR-RF 约束散度 $\t
 
 ### 1.2 预期收益汇总 (R2 确认)
 
-| 指标 | Baseline (Dataset 2, A4 DPM++) | ISLR-RF 预期 | 改善 | 备注 |
+| 指标 | Baseline (Dataset 2, +DPM-Solver++) | ISLR-RF 预期 | 改善 | 备注 |
 |------|-------------------------------|-----------|------|------|
 | mAP | 0.863 | 0.864 ~ 0.868 | $+0.001 \sim +0.005$ | Rademacher 收紧 + ODE 适定性 (R1 反馈 1 下调) |
 | mAP$_{75}$ | 0.974 | 0.976 ~ 0.980 | $+0.002 \sim +0.006$ | Grönwall 改善有限 (R1 反馈 5 下调) |

@@ -3,7 +3,7 @@
 > 创建日期: 2026-07-10
 > 实验完成日期: 2026-07-12
 > 状态: **❌ 已废弃**（无显著改进，代码已清理）
-> 基线: A2 (RF+Heun+AdaLN, mAP=0.856) + A4 (DPM-Solver++, mAP=0.863)
+> 基线: +AdaLN-Zero (RF+Heun, mAP=0.856) + +DPM-Solver++ (mAP=0.863)
 > 数据集: 24obj (24_chromosomes_object)
 > 参数策略: B (D'=2/3·dim_feedforward, 参数量匹配)
 
@@ -64,13 +64,13 @@ self.act = nn.ReLU(inplace=True)
 
 前向传播（两条路径使用同一 FFN）：
 
-**AdaLN-Zero 路径**（A2+, line 297）：
+**AdaLN-Zero 路径**（从 +AdaLN-Zero 起, line 297）：
 ```python
 ffn_out = self.linear2(self.dropout(self.act(self.linear1(ffn_input))))
 obj_flat = obj_flat + alpha2 * ffn_out
 ```
 
-**Scale-Shift 路径**（A0/A1, line 312）：
+**Scale-Shift 路径**（DDPM baseline/RF+Heun, line 312）：
 ```python
 obj_shortcut = self.linear2(self.dropout(self.act(self.linear1(obj_features))))
 obj_features = obj_features + self.dropout3(obj_shortcut)
@@ -269,16 +269,16 @@ else:
 
 ## 5. 实验配置
 
-### 5.1 A2-swiglu 配置
+### 5.1 +AdaLN-Zero-SwiGLU 配置
 
 文件: `experiments/configs/ldmdet/directions/mainline_ablation_24obj/a2_swinglu_24obj.py`
 
 ```python
-"""24obj SwiGLU 实验: A2 + SwiGLU FFN (验证门控激活函数效果)
+"""24obj SwiGLU 实验: +AdaLN-Zero + SwiGLU FFN (验证门控激活函数效果)
 
-目的: 在 A2 (RF+Heun+AdaLN) 基础上将 FFN 激活函数从 ReLU 替换为 SwiGLU
+目的: 在 +AdaLN-Zero (RF+Heun) 基础上将 FFN 激活函数从 ReLU 替换为 SwiGLU
 参数策略: B (D'=2/3·dim_feedforward=1365, 参数量匹配)
-基线: A2 (mAP=0.856)
+基线: +AdaLN-Zero (mAP=0.856)
 
 SwanLab: 项目 'ldmdet-mainline-ablation-24obj', 实验 'a2_swinglu'
 """
@@ -300,7 +300,7 @@ vis_backends = [
         init_kwargs=dict(
             project='ldmdet-mainline-ablation-24obj',
             experiment_name='a2_swinglu',
-            description='24obj SwiGLU: A2 + SwiGLU FFN (D=1365, 参数匹配) | bs=8, 150ep',
+            description='24obj SwiGLU: +AdaLN-Zero + SwiGLU FFN (D=1365, 参数匹配) | bs=8, 150ep',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),
@@ -311,16 +311,16 @@ visualizer = dict(
 )
 ```
 
-### 5.2 A4-swiglu 配置
+### 5.2 +DPM-Solver++-SwiGLU 配置
 
 文件: `experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_swinglu_24obj.py`
 
 ```python
-"""24obj SwiGLU 实验: A4 + SwiGLU FFN (验证 SwiGLU 与 DPM-Solver++ 叠加效果)
+"""24obj SwiGLU 实验: +DPM-Solver++ + SwiGLU FFN (验证 SwiGLU 与 DPM-Solver++ 叠加效果)
 
-目的: 在 A4 (DPM-Solver++ SOTA) 基础上将 FFN 激活函数从 ReLU 替换为 SwiGLU
+目的: 在 +DPM-Solver++ (SOTA) 基础上将 FFN 激活函数从 ReLU 替换为 SwiGLU
 参数策略: B (D'=2/3·dim_feedforward=1365, 参数量匹配)
-基线: A4 (mAP=0.863)
+基线: +DPM-Solver++ (mAP=0.863)
 
 SwanLab: 项目 'ldmdet-mainline-ablation-24obj', 实验 'a4_swinglu'
 """
@@ -342,7 +342,7 @@ vis_backends = [
         init_kwargs=dict(
             project='ldmdet-mainline-ablation-24obj',
             experiment_name='a4_swinglu',
-            description='24obj SwiGLU: A4 + SwiGLU FFN (D=1365, 参数匹配) | bs=8, 150ep',
+            description='24obj SwiGLU: +DPM-Solver++ + SwiGLU FFN (D=1365, 参数匹配) | bs=8, 150ep',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),
@@ -357,10 +357,10 @@ visualizer = dict(
 
 | 实验 | 基线 | ffn_activation | D' | 预期 mAP | SwanLab experiment_name |
 |---|---|---|---|---|---|
-| A2-baseline | A2 | relu | 2048 | 0.856 (已知) | a2_rf_heun_adaln |
-| **A2-swiglu** | A2 | swiglu | 1365 | 0.854-0.861 | a2_swinglu |
-| A4-baseline | A4 | relu | 2048 | 0.863 (已知) | a4_dpm_pp |
-| **A4-swiglu** | A4 | swiglu | 1365 | 0.860-0.868 | a4_swinglu |
+| +AdaLN-Zero-baseline | +AdaLN-Zero | relu | 2048 | 0.856 (已知) | a2_rf_heun_adaln |
+| **+AdaLN-Zero-SwiGLU** | +AdaLN-Zero | swiglu | 1365 | 0.854-0.861 | a2_swinglu |
+| +DPM-Solver++-baseline | +DPM-Solver++ | relu | 2048 | 0.863 (已知) | a4_dpm_pp |
+| **+DPM-Solver++-SwiGLU** | +DPM-Solver++ | swiglu | 1365 | 0.860-0.868 | a4_swinglu |
 
 ---
 
@@ -518,16 +518,16 @@ bash train.sh experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_s
 
 | 实验 | SwanLab 链接 |
 |---|---|
-| A2-SwiGLU | https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/ooue3q2422mozagd3bjxx/chart |
-| A4-SwiGLU | https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/comza4feqdatcgbdus6gl/chart |
+| +AdaLN-Zero-SwiGLU | https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/ooue3q2422mozagd3bjxx/chart |
+| +DPM-Solver++-SwiGLU | https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/comza4feqdatcgbdus6gl/chart |
 
 ### 10.2 训练数据汇总
 
 两个实验均于 2026-07-12 02:49 启动训练（150 epoch, batch_size=2, lr=5e-5）。
 
-#### A2-SwiGLU（训练至 epoch 69 后手动终止）
+#### +AdaLN-Zero-SwiGLU（训练至 epoch 69 后手动终止）
 
-| 指标 | A2-SwiGLU | A2-baseline (ReLU) | Δ |
+| 指标 | +AdaLN-Zero-SwiGLU | +AdaLN-Zero-baseline (ReLU) | Δ |
 |---|---|---|---|
 | 最佳 mAP | **0.859** @ epoch 65 | **0.856** | +0.003 |
 | 最佳 mAP50 | 0.990 | 0.990 | 0.000 |
@@ -547,9 +547,9 @@ mAP 曲线（每 ~10 epoch 采样）:
 | 65 | **0.859** | 最佳 |
 | 69 | 0.859 | 持平 |
 
-#### A4-SwiGLU（训练至 epoch 66 后终止，连续 30 epoch 无改善）
+#### +DPM-Solver++-SwiGLU（训练至 epoch 66 后终止，连续 30 epoch 无改善）
 
-| 指标 | A4-SwiGLU | A4-baseline (ReLU) | Δ |
+| 指标 | +DPM-Solver++-SwiGLU | +DPM-Solver++-baseline (ReLU) | Δ |
 |---|---|---|---|
 | 最佳 mAP | **0.857** @ epoch 36 | **0.863** | **-0.006** |
 | 最佳 mAP50 | 0.990 | 0.990 | 0.000 |
@@ -576,9 +576,9 @@ the monitored metric did not improve in the last 30 records. best score: 0.857.
 
 ### 10.3 同 epoch 对比分析
 
-#### A2-SwiGLU vs A2-baseline
+#### +AdaLN-Zero-SwiGLU vs +AdaLN-Zero-baseline
 
-| step | A2-baseline (ReLU) | A2-SwiGLU | Δ |
+| step | +AdaLN-Zero-baseline (ReLU) | +AdaLN-Zero-SwiGLU | Δ |
 |---|---|---|---|
 | 6 | 0.666 | 0.769 | +0.103 |
 | 16 | 0.812 | 0.833 | +0.021 |
@@ -588,9 +588,9 @@ the monitored metric did not improve in the last 30 records. best score: 0.857.
 | 65 | — | **0.859** | — |
 | **最佳** | **0.856** | **0.859** | **+0.003** |
 
-#### A4-SwiGLU vs A4-baseline
+#### +DPM-Solver++-SwiGLU vs +DPM-Solver++-baseline
 
-| step | A4-baseline (ReLU) | A4-SwiGLU | Δ |
+| step | +DPM-Solver++-baseline (ReLU) | +DPM-Solver++-SwiGLU | Δ |
 |---|---|---|---|
 | 6 | 0.628 | 0.772 | +0.144 |
 | 16 | 0.817 | 0.824 | +0.007 |
@@ -606,11 +606,11 @@ the monitored metric did not improve in the last 30 records. best score: 0.857.
 
 核心发现：
 
-1. **A2-SwiGLU +0.003 在噪声范围内**：24obj 耦合策略的 seed 方差为 ±0.001，epoch 间波动 ±0.005-0.010。+0.003 的差异不具统计显著性，需多种子实验才能确认，但收益太小不值得进一步验证。
+1. **+AdaLN-Zero-SwiGLU +0.003 在噪声范围内**：24obj 耦合策略的 seed 方差为 ±0.001，epoch 间波动 ±0.005-0.010。+0.003 的差异不具统计显著性，需多种子实验才能确认，但收益太小不值得进一步验证。
 
-2. **A4-SwiGLU -0.006，明确负向**：早期峰值 0.857（step 36）是"虚假峰值"，之后连续 30 epoch 无改善并下滑到 0.843。SwiGLU + DPM-Solver++ 组合不如纯 ReLU FFN。**证伪了"SwiGLU 与 DPM-Solver++ 有正交互"的假说**。
+2. **+DPM-Solver++-SwiGLU -0.006，明确负向**：早期峰值 0.857（step 36）是"虚假峰值"，之后连续 30 epoch 无改善并下滑到 0.843。SwiGLU + DPM-Solver++ 组合不如纯 ReLU FFN。**证伪了"SwiGLU 与 DPM-Solver++ 有正交互"的假说**。
 
-3. **早期收敛加速是一致的**：两个实验在 step 6 都大幅领先（A2 +0.103, A4 +0.144），SwiGLU 的门控机制确实帮助模型更快学到有效特征。但这种早期优势**未能转化为最终性能提升**——随着训练进行，ReLU FFN 逐渐追平甚至反超。
+3. **早期收敛加速是一致的**：两个实验在 step 6 都大幅领先（+AdaLN-Zero +0.103, +DPM-Solver++ +0.144），SwiGLU 的门控机制确实帮助模型更快学到有效特征。但这种早期优势**未能转化为最终性能提升**——随着训练进行，ReLU FFN 逐渐追平甚至反超。
 
 4. **SwiGLU 的早期优势机制**：
    - Swish 的非单调性避免死神经元，训练初期保持梯度流

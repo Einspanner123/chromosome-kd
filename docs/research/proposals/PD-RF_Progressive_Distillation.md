@@ -2,13 +2,13 @@
 
 > **方向类型**: 效率方向（推理加速，可独立投稿）
 > **目标会议**: MICCAI 2026 / IEEE TMI
-> **预期效果**: 4-step (55ms) → 1-step (14ms) 推理加速，mAP ≥ A1 baseline + 0.005（≥0.861）
+> **预期效果**: 4-step (55ms) → 1-step (14ms) 推理加速，mAP ≥ RF+Heun baseline + 0.005（≥0.861）
 >
-> **Teacher 选择**: A4（4步 DPM-Solver++，mAP=0.862）
-> - 原 [SC-RF 方案](./SC-RF_Self-Conditioned_Rectified_Flow.md)计划作为 PD-RF 的 teacher，但 SC-RF 已于 2026-07-11 证伪归档（best mAP=0.860 < A4 0.862，负增益），故 PD-RF 继续使用 A4 作为 teacher
+> **Teacher 选择**: +DPM-Solver++（4步，mAP=0.862）
+> - 原 [SC-RF 方案](./SC-RF_Self-Conditioned_Rectified_Flow.md)计划作为 PD-RF 的 teacher，但 SC-RF 已于 2026-07-11 证伪归档（best mAP=0.860 < +DPM-Solver++ 0.862，负增益），故 PD-RF 继续使用 +DPM-Solver++ 作为 teacher
 >
 > **实验状态**: ❌ 已归档（2026-07-11，灾难性崩塌证伪）
-> - v1-v4 共 4 次迭代均失败，best mAP=0.851（Epoch 1，即 A4 初始化点，训练零增益）
+> - v1-v4 共 4 次迭代均失败，best mAP=0.851（Epoch 1，即 +DPM-Solver++ 初始化点，训练零增益）
 > - v4 最终 mAP 从 0.851 灾难性崩塌至 0.252（Epoch 28），Early Stop at Epoch 31
 > - 根本原因：1步 Euler 无法逼近 4步 DPM-Solver++ 预测（gap~1.0 不收敛）+ 蒸馏梯度与检测梯度严重冲突（grad_norm 持续 150-200）
 > - 详细复盘见 [第 8 节 实验结果与复盘](#8-实验结果与复盘)
@@ -24,9 +24,9 @@
 
 ### 1.1 当前局限性
 
-A4 配置使用 DPM-Solver++ 4步采样，单张推理 ~55ms。在临床核型分析中，一个病例包含数十张显微图像，累计推理时间影响工作流效率。
++DPM-Solver++ 配置使用 DPM-Solver++ 4步采样，单张推理 ~55ms。在临床核型分析中，一个病例包含数十张显微图像，累计推理时间影响工作流效率。
 
-当前 1步 Euler 采样（A1 baseline）的 mAP 为 0.856，比 4步 DPM-Solver++（0.862）低 0.006。这个差距源于 Euler 1步的截断误差。
+当前 1步 Euler 采样（RF+Heun baseline）的 mAP 为 0.856，比 4步 DPM-Solver++（0.862）低 0.006。这个差距源于 Euler 1步的截断误差。
 
 ### 1.2 核心洞察
 
@@ -57,7 +57,7 @@ RF 的核心性质是路径直化（path straightening）：训练良好的 RF �
 
 ### 2.1 设定
 
-- **教师模型** $\theta_T$: A4 配置，4步 DPM-Solver++，$x_0^T = \text{Solve}(\theta_T, x_1, N=4)$
+- **教师模型** $\theta_T$: +DPM-Solver++ 配置，4步 DPM-Solver++，$x_0^T = \text{Solve}(\theta_T, x_1, N=4)$
 - **学生模型** $\theta_S$: 1步前向，$x_0^S = f_{\theta_S}(x_1, t=0)$
 - **共享初始噪声**: $x_1 \sim \mathcal{N}(0, \sigma^2 I)$，教师和学生使用相同的 $x_1$
 - **共享耦合**: 同一 $x_1$ 对应同一 GT 分配，故 proposal $i$ 的输出可直接对比
@@ -252,7 +252,7 @@ sampling_timesteps = 1
 
 ### 3.3 教师模型加载与学生初始化
 
-**教师模型**从 A4 的最佳 checkpoint 加载，冻结参数：
+**教师模型**从 +DPM-Solver++ 的最佳 checkpoint 加载，冻结参数：
 
 ```python
 teacher_model = build_model(teacher_cfg)
@@ -262,15 +262,15 @@ for param in teacher_model.parameters():
     param.requires_grad = False
 ```
 
-**学生模型初始化策略**: 学生从 A4 checkpoint 初始化（而非从头训练），原因：
+**学生模型初始化策略**: 学生从 +DPM-Solver++ checkpoint 初始化（而非从头训练），原因：
 1. 学生与教师架构相同（仅 solver_type 和 sampling_timesteps 不同），可直接加载权重
-2. 从已收敛的 A4 初始化加速蒸馏收敛，学生只需学习"1步逼近4步"的调整
+2. 从已收敛的 +DPM-Solver++ 初始化加速蒸馏收敛，学生只需学习"1步逼近4步"的调整
 3. 避免从头训练的分类/回归基础能力重建，聚焦蒸馏目标
 
 ```python
-# 学生初始化: 加载 A4 权重, 仅 solver/sampling 参数不同
+# 学生初始化: 加载 +DPM-Solver++ 权重, 仅 solver/sampling 参数不同
 student_model = build_model(student_cfg)  # solver_type='euler', sampling_timesteps=1
-student_model.load_state_dict(load_checkpoint(teacher_ckpt))  # 从 A4 初始化
+student_model.load_state_dict(load_checkpoint(teacher_ckpt))  # 从 +DPM-Solver++ 初始化
 ```
 
 ### 3.4 监控指标（SwanLab 插桩）
@@ -360,7 +360,7 @@ def loss_with_distillation(self, features, img_metas, gt_bboxes, gt_labels):
 
 ```python
 # experiments/configs/ldmdet/directions/pd_rf/pd_rf_24obj.py
-# 基于 A4 DPM-Solver++ SOTA 配置 (24obj 数据集), 学生用 1步 Euler
+# 基于 +DPM-Solver++ SOTA 配置 (24obj 数据集), 学生用 1步 Euler
 _base_ = ['../mainline_ablation_24obj/a4_dpm_pp_24obj.py']
 model = dict(
     bbox_head=dict(
@@ -370,7 +370,7 @@ model = dict(
         distill_lambda=1.0,
     ),
 )
-# 教师配置与 checkpoint (A4 最佳模型)
+# 教师配置与 checkpoint (+DPM-Solver++ 最佳模型)
 teacher_config = 'experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_dpm_pp_24obj.py'
 teacher_checkpoint = 'work_dirs/a4_dpm_pp_24obj/best.pth'
 ```
@@ -383,11 +383,11 @@ teacher_checkpoint = 'work_dirs/a4_dpm_pp_24obj/best.pth'
 
 | 实验 | 配置 | 步数 | 推理时间 | 预期 mAP | 目的 |
 |---|---|---|---|---|---|
-| A4 teacher (24obj) | DPM-Solver++ | 4 | ~55ms | 0.862 | 教师基线（24obj 数据集 SOTA） |
-| A1 baseline (24obj) | Euler | 1 | ~14ms | 0.856 | 无蒸馏 1步基线 |
-| **PD-RF** (24obj) | Euler + distillation | 1 | ~14ms | **0.858~0.862** | 蒸馏 1步（目标: ≥ A1 baseline + 0.005，即 ≥0.861） |
+| +DPM-Solver++ teacher (24obj) | DPM-Solver++ | 4 | ~55ms | 0.862 | 教师基线（24obj 数据集 SOTA） |
+| RF+Heun baseline (24obj) | Euler | 1 | ~14ms | 0.856 | 无蒸馏 1步基线 |
+| **PD-RF** (24obj) | Euler + distillation | 1 | ~14ms | **0.858~0.862** | 蒸馏 1步（目标: ≥ RF+Heun baseline + 0.005，即 ≥0.861） |
 
-**注**: 所有实验使用 24obj 完整实例标注数据集。目标设定为 ≥ A1 baseline + 0.005（而非 ≥0.95×teacher），因后者已被 A1 baseline（0.856）满足，无区分度。
+**注**: 所有实验使用 24obj 完整实例标注数据集。目标设定为 ≥ RF+Heun baseline + 0.005（而非 ≥0.95×teacher），因后者已被 RF+Heun baseline（0.856）满足，无区分度。
 
 ### 5.2 消融实验
 
@@ -395,20 +395,20 @@ teacher_checkpoint = 'work_dirs/a4_dpm_pp_24obj/best.pth'
 |---|---|
 | PD-RF $\lambda$=0.0/0.5/1.0/2.0/5.0 | 最优蒸馏权重 |
 | PD-RF 1步 vs 2步 | 步数-质量权衡 |
-| ~~PD-RF from A4 vs from SC-RF~~ | ~~教师质量对蒸馏的影响~~（**已取消**: SC-RF 于 2026-07-11 证伪归档，best mAP=0.860 < A4 0.862，无作为 teacher 的价值） |
+| ~~PD-RF from +DPM-Solver++ vs from SC-RF~~ | ~~教师质量对蒸馏的影响~~（**已取消**: SC-RF 于 2026-07-11 证伪归档，best mAP=0.860 < +DPM-Solver++ 0.862，无作为 teacher 的价值） |
 
 ### 5.3 效率评估
 
 | 模型 | 步数 | 单图推理 | 50图/病例 | 加速比 |
 |---|---|---|---|---|
-| A4 | 4 | 55ms | 2.75s | 1.0× |
+| +DPM-Solver++ | 4 | 55ms | 2.75s | 1.0× |
 | PD-RF | 1 | 14ms | 0.70s | **3.9×** |
 
 ---
 
 ## 6. 预期贡献
 
-1. **方法**: 将直接知识蒸馏应用于检测 RF，实现 4→1 步推理加速（3.9×），mAP ≥ A1 baseline + 0.005
+1. **方法**: 将直接知识蒸馏应用于检测 RF，实现 4→1 步推理加速（3.9×），mAP ≥ RF+Heun baseline + 0.005
 2. **分析**: 从 RF 轨迹直化度（动机分析 1）和梯度结构差异（动机分析 2）双视角提供动机分析，并坦诚讨论：(a) 蒸馏损失与检测损失梯度结构的不同（MSE vs SimOTA 匹配+Focal+L1+GIoU）；(b) 蒸馏定位为 box 正则化信号而非梯度对齐优化；(c) 噪声共享、教师x0提取、box_renewal 等实现关键点
 3. **实践**: 共享噪声 + 教师冻结 + 学生有梯度前向 + stop-gradient + box_renewal关闭 的正确实现；10个单元测试覆盖关键行为（含噪声共享、梯度流、教师x0形状等核心测试）；$\lambda$ 消融实验确定最优蒸馏强度
 
@@ -420,7 +420,7 @@ teacher_checkpoint = 'work_dirs/a4_dpm_pp_24obj/best.pth'
 |---|---|---|---|
 | 1步质量差距大 | 中 | 高 | 可退至 2步蒸馏，仍比 4步快 2× |
 | 蒸馏训练不稳定/梯度冲突 | 中 | 中 | 蒸馏作为 box 正则化信号（见 2.3 动机分析 2），梯度结构差异已明确分析；通过 `pd_gradient_alignment` 监控梯度余弦相似度，若持续负值则降低 $\lambda$ |
-| 教师过拟合 | 低 | 低 | A4 使用 save_best 机制，取验证最优 checkpoint |
+| 教师过拟合 | 低 | 低 | +DPM-Solver++ 使用 save_best 机制，取验证最优 checkpoint |
 | 训练显存增加 | 中 | 中 | 教师无梯度，可用 inference_mode；学生前向共享特征；梯度对齐诊断指标需额外反向传播，建议每 N 步采样一次 |
 | no_grad 实现错误 | 低 | 高 | 单元测试 `test_distill_loss_gradient_flow` 验证学生参数 `.grad` 非空；`test_teacher_output_detached` 验证教师输出 detach |
 | 噪声未共享/proposal 对应断裂 | 中 | 高 | 单元测试 `test_shared_noise_proposal_correspondence` 验证共享 `x_raw`；伪代码显式生成 `x_raw_shared` 并传入教师和学生 |
@@ -435,7 +435,7 @@ teacher_checkpoint = 'work_dirs/a4_dpm_pp_24obj/best.pth'
 > **归档日期**: 2026-07-11
 > **实验配置**: `experiments/configs/ldmdet/directions/pd_rf/pd_rf_24obj.py`（v4 最终版）
 > **训练日志**: `work_dirs/pd_rf_24obj/train.log`
-> **Best checkpoint**: `work_dirs/pd_rf_24obj/best_coco_bbox_mAP_epoch_1.pth`（mAP=0.851，即 A4 初始化点）
+> **Best checkpoint**: `work_dirs/pd_rf_24obj/best_coco_bbox_mAP_epoch_1.pth`（mAP=0.851，即 +DPM-Solver++ 初始化点）
 
 ### 8.1 迭代历程总览
 
@@ -444,7 +444,7 @@ PD-RF 经历 v1-v4 共 4 次迭代，均告失败：
 | 版本 | 核心配置 | 结果 | 失败原因 |
 |------|---------|------|---------|
 | v1 | distill_lambda=1.0, cascade_detach=True, 学生从零初始化 | mAP=0 | cascade_detach 阻止蒸馏梯度到早期 head；学生从零学习初始蒸馏损失过大 |
-| v2 | + load_from A4, cascade_detach=False, + KL 分类蒸馏 | mAP 缓慢下降 | LR 调度器链式 bug（见下） |
+| v2 | + load_from +DPM-Solver++, cascade_detach=False, + KL 分类蒸馏 | mAP 缓慢下降 | LR 调度器链式 bug（见下） |
 | v3 | warmup 1 epoch, start_factor=0.1 | mAP 灾难性下降（0.851→0.421） | LR 调度器链式 bug + distill_lambda=1.0 蒸馏主导 |
 | v4 | lr=1e-05, 纯 CosineAnnealingLR, distill_lambda=0.1 | mAP 灾难性崩塌（0.851→0.252） | 1步无法逼近4步 + 梯度冲突（根本性问题） |
 
@@ -455,7 +455,7 @@ PD-RF 经历 v1-v4 共 4 次迭代，均告失败：
 | 训练时间 | 2026-07-11 13:05 → 22:12（约 9 小时） |
 | 完成 Epoch | 31 / 150（EarlyStoppingHook 触发） |
 | 早停原因 | "monitored metric did not improve in the last 30 records. best score: 0.851" |
-| Best mAP | **0.851**（Epoch 1，即 A4 初始化点） |
+| Best mAP | **0.851**（Epoch 1，即 +DPM-Solver++ 初始化点） |
 | 最低 mAP | **0.252**（Epoch 28，崩塌 70.4%） |
 | Last mAP | 0.324（Epoch 31） |
 | 目标 mAP | ≥0.861（未达标，差距 -0.010） |
@@ -463,7 +463,7 @@ PD-RF 经历 v1-v4 共 4 次迭代，均告失败：
 ### 8.3 v4 完整 mAP 趋势
 
 ```
-阶段1（Ep1-8 缓降）:  0.851 → 0.805  （蒸馏开始侵蚀 A4 初始化质量）
+阶段1（Ep1-8 缓降）:  0.851 → 0.805  （蒸馏开始侵蚀 +DPM-Solver++ 初始化质量）
 阶段2（Ep9-18 崩塌）: 0.805 → 0.294  （mAP 灾难性崩塌）
 阶段3（Ep19-31 震荡）: 0.252-0.467    （低位剧烈震荡，无法恢复）
 ```
@@ -521,18 +521,18 @@ PD-RF 经历 v1-v4 共 4 次迭代，均告失败：
 
 v3 中 `LinearLR(start_factor=0.1)` + `CosineAnnealingLR` 的链式调度存在 bug：LinearLR 将 lr 降至 5e-06，CosineAnnealingLR 错误地以此为基础 lr（而非 optimizer 的 5e-05），导致全程 lr 卡在 ~5e-06。
 
-v4 修复为纯 CosineAnnealingLR，但 lr=1e-05 对于已训练好的 A4 checkpoint 在蒸馏错误信号下仍足以破坏预训练权重。
+v4 修复为纯 CosineAnnealingLR，但 lr=1e-05 对于已训练好的 +DPM-Solver++ checkpoint 在蒸馏错误信号下仍足以破坏预训练权重。
 
 ### 8.6 v1-v4 迭代教训
 
 #### v1 教训：cascade_detach 阻止梯度传播
 - `cascade_detach=True` 导致级联 head 间输出被 detach，蒸馏梯度仅作用于末 head，Head 1-5 无蒸馏梯度
 - 学生从零初始化导致初始蒸馏损失过大
-- **修复(v2)**: `cascade_detach=False` + `load_from` A4 checkpoint + KL 分类蒸馏
+- **修复(v2)**: `cascade_detach=False` + `load_from` +DPM-Solver++ checkpoint + KL 分类蒸馏
 
 #### v2 教训：LR 调度器配置不当
 - 继承 base 配置的 5 epoch warmup（start_factor=0.001），Epoch 1 lr=5e-08，模型未训练
-- mAP=0.860 纯粹来自 A4 checkpoint 权重
+- mAP=0.860 纯粹来自 +DPM-Solver++ checkpoint 权重
 - **修复(v3)**: 缩短 warmup 到 1 epoch，start_factor=0.1
 
 #### v3 教训：LR 调度器链式 bug + 蒸馏损失过强
@@ -553,7 +553,7 @@ v4 修复为纯 CosineAnnealingLR，但 lr=1e-05 对于已训练好的 A4 checkp
 |---|---|---|---|---|
 | 1步质量差距大 | 中 | 高 | ✅ **命中（致命）** | gap~1.0 不收敛，1步无法逼近4步 |
 | 蒸馏训练不稳定/梯度冲突 | 中 | 中 | ✅ **命中（致命）** | grad_norm 150-200，梯度严重冲突 |
-| 教师过拟合 | 低 | 低 | ✅ 未命中 | A4 使用 save_best，教师质量可靠 |
+| 教师过拟合 | 低 | 低 | ✅ 未命中 | +DPM-Solver++ 使用 save_best，教师质量可靠 |
 | 训练显存增加 | 中 | 中 | ✅ 未命中 | 教师无梯度，显存可控 |
 | no_grad 实现错误 | 低 | 高 | ✅ 未命中 | 单元测试 26/26 通过 |
 | 噪声未共享/proposal 对应断裂 | 中 | 高 | ✅ 未命中 | 单元测试验证共享 x_raw |
@@ -589,7 +589,7 @@ v4 修复为纯 CosineAnnealingLR，但 lr=1e-05 对于已训练好的 A4 checkp
 2. **Feature-level 蒸馏**: 蒸馏中间特征而非 prediction-level MSE，可能更稳定。但需设计特征对齐方案
 3. **2步蒸馏**: 4步→2步（压缩比 2:1），可能更可行。虽加速比降至 2×，但质量更有保障
 4. **Consistency Model**: Song et al., 2023 的一致性模型，将多步采样蒸馏为单步生成，理论框架更完整
-5. **先验证基线**: 禁用蒸馏（distill_lambda=0），验证 1步 Euler 从 A4 初始化能否保持 mAP=0.851——若不能，说明 1步 Euler 本身就无法保持 A4 质量，蒸馏方向根本不可行
+5. **先验证基线**: 禁用蒸馏（distill_lambda=0），验证 1步 Euler 从 +DPM-Solver++ 初始化能否保持 mAP=0.851——若不能，说明 1步 Euler 本身就无法保持 +DPM-Solver++ 质量，蒸馏方向根本不可行
 
 ### 8.10 对其他方向的影响
 
@@ -602,11 +602,11 @@ v4 修复为纯 CosineAnnealingLR，但 lr=1e-05 对于已训练好的 A4 checkp
 ## 9. 归档记录
 
 - **归档日期**: 2026-07-11
-- **归档原因**: 灾难性崩塌证伪（v4 best mAP=0.851 < 目标 0.861，且 best 出现在 Epoch 1 即 A4 初始化点，训练零增益；mAP 从 0.851 崩塌至 0.252）
+- **归档原因**: 灾难性崩塌证伪（v4 best mAP=0.851 < 目标 0.861，且 best 出现在 Epoch 1 即 +DPM-Solver++ 初始化点，训练零增益；mAP 从 0.851 崩塌至 0.252）
 - **迭代次数**: 4 次（v1-v4）
 - **实验代码**: `experiments/configs/ldmdet/directions/pd_rf/pd_rf_24obj.py`（保持不动，不再修改）
 - **核心实现**: `ldmdet/core/head.py` 的 `loss_with_distillation` 等方法（单元测试 26/26 通过，实现正确）
-- **Best checkpoint**: `work_dirs/pd_rf_24obj/best_coco_bbox_mAP_epoch_1.pth`（mAP=0.851，即 A4 初始化点）
+- **Best checkpoint**: `work_dirs/pd_rf_24obj/best_coco_bbox_mAP_epoch_1.pth`（mAP=0.851，即 +DPM-Solver++ 初始化点）
 - **训练日志**: `work_dirs/pd_rf_24obj/train.log`（保留）
 - **SwanLab**: 项目 'ldmdet-breakthrough', 实验 'pd_rf_24obj_v4'（已停止）
 - **后续方向**: 直接 4→1 蒸馏在检测 RF 上证伪，若需推理加速需探索其他路径（渐进式蒸馏、Consistency Model 等）

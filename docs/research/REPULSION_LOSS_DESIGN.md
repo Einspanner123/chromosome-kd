@@ -2,7 +2,7 @@
 
 > **方向类别**: 保守 (根据已有研究进行可靠性改进, 不改架构, 仅新增损失项)
 > **目标**: 在标准检测损失 (cls + bbox + giou) 基础上新增排斥项, 抑制重叠染色体检测中的框漂移, 包含 RepGT (对非目标 GT 的 IoG 惩罚) 和 RepBox (对不同组 proposal 的重叠惩罚) 两项
-> **当前 SOTA 基线**: KaryoFlow A4 (RF + DPM-Solver++, mAP=0.863, 24obj)
+> **当前 SOTA 基线**: KaryoFlow +DPM-Solver++ (RF, mAP=0.863, 24obj)
 > **预期增益**: +0.003 ~ +0.010 mAP (主攻 mAP_75 精确定位, 因重叠是定位误差主因)
 > **文档状态**: 设计完成, 待触发实施
 > **创建日期**: 2026-07-27
@@ -40,7 +40,7 @@ $$\mathcal{L}_{giou} = 1 - \text{IoU} + \frac{|B_p \cup B_{gt} - B_p \cap B_{gt}
 
 ### 1.3 mAP_75 vs mAP_50 gap 暴露定位精度瓶颈
 
-从 [EXPERIMENT_LINEAGE.md §一](../EXPERIMENT_LINEAGE.md) 的 A4 baseline 数据:
+从 [EXPERIMENT_LINEAGE.md §一](../EXPERIMENT_LINEAGE.md) 的 +DPM-Solver++ baseline 数据:
 - mAP_50 = 0.990 (粗定位接近饱和)
 - mAP_75 = 0.974 (精确定位仍有 1.6% gap)
 - mAP_50 - mAP_75 = 0.016
@@ -461,8 +461,8 @@ swanlab = dict(
 
 | 实验 | 配置 | 训练 | 预期 |
 |------|------|------|------|
-| A4 baseline | a4_dpm_pp_24obj | 已完成 | mAP=0.863, mAP_75=0.974 |
-| A4 + Repulsion | a4_repulsion_loss | 30 ep 微调 | mAP 0.866-0.873, mAP_75 0.976-0.982 |
+| +DPM-Solver++ baseline | a4_dpm_pp_24obj | 已完成 | mAP=0.863, mAP_75=0.974 |
+| +DPM-Solver++ + Repulsion | a4_repulsion_loss | 30 ep 微调 | mAP 0.866-0.873, mAP_75 0.976-0.982 |
 
 **成功判据**:
 - ✅ mAP ≥ 0.866 (+0.003)
@@ -473,19 +473,19 @@ swanlab = dict(
 
 | Ablation | RepGT | RepBox | 类别感知 | 作用层级 | 预期 |
 |----------|-------|--------|---------|---------|------|
-| A0: baseline | ✗ | ✗ | — | — | 0.863 |
-| A1: +RepGT only | ✓ | ✗ | ✓ | head5 | 测试纯 RepGT |
-| A2: +RepBox only | ✗ | ✓ | — | head5 | 测试纯 RepBox |
-| A3: full (类别感知) | ✓ | ✓ | ✓ | head5 | 完整设计 |
-| A4: full (类别无关) | ✓ | ✓ | ✗ | head5 | 验证类别感知必要性 |
-| A5: full, 全 6 级 | ✓ | ✓ | ✓ | all | 验证作用层级选择 |
-| A6: full, 后 3 级 | ✓ | ✓ | ✓ | head3-5 | 折中方案 |
+| baseline | ✗ | ✗ | — | — | 0.863 |
+| +RepGT only | ✓ | ✗ | ✓ | head5 | 测试纯 RepGT |
+| +RepBox only | ✗ | ✓ | — | head5 | 测试纯 RepBox |
+| full (类别感知) | ✓ | ✓ | ✓ | head5 | 完整设计 |
+| full (类别无关) | ✓ | ✓ | ✗ | head5 | 验证类别感知必要性 |
+| full, 全 6 级 | ✓ | ✓ | ✓ | all | 验证作用层级选择 |
+| full, 后 3 级 | ✓ | ✓ | ✓ | head3-5 | 折中方案 |
 
 ### 5.3 重叠图 vs 非重叠图分组评估
 
 将验证集按"是否含 IoU>0.3 框对"分两组, 分别评估:
 
-| 图组 | 占比 | A4 mAP | A4+Rep mAP (预期) | Δ |
+| 图组 | 占比 | +DPM-Solver++ mAP | +DPM-Solver++ +Rep mAP (预期) | Δ |
 |------|------|--------|-------------------|---|
 | 重叠图 (IoU>0.3) | 44.6% | 待测 | 预期 +0.005~0.015 | 显著提升 |
 | 非重叠图 | 55.4% | 待测 | 预期 ±0.002 | 持平 (Repulsion 不应影响) |
@@ -494,7 +494,7 @@ swanlab = dict(
 
 ### 5.4 Per-class AP 分析 (重点观察 G21/Y)
 
-| 类别 | A4 AP (3-seed) | A4+Rep AP (预期) | 说明 |
+| 类别 | +DPM-Solver++ AP (3-seed) | +DPM-Solver++ +Rep AP (预期) | 说明 |
 |------|----------------|------------------|------|
 | G21 | 0.787 | 预期 +0.005~0.015 | G 组小目标, 重叠影响大 |
 | Y | 0.781 | 预期 +0.005~0.015 | 最小目标, 数据稀缺 |
@@ -504,7 +504,7 @@ swanlab = dict(
 ### 5.5 3-seed 验证
 
 若 1-seed 成功 (mAP ≥ 0.866), 启动 3-seed:
-- 3-seed 均值 ≥ 0.863 (vs A4 0.859)
+- 3-seed 均值 ≥ 0.863 (vs +DPM-Solver++ 0.859)
 - 3-seed std ≤ 0.003
 
 ---
@@ -544,8 +544,8 @@ class TestRepulsionLoss:
 
 | 风险 | 概率 | 缓解 |
 |------|------|------|
-| Repulsion 与 GIoU 冲突 (一个排斥一个吸引) | 中 | lambda_repGT/repBox=0.5 小权重; §5.2 A1/A2 分量消融验证 |
-| 类别感知权重需调参 | 低 | ISCN 分组是医学标准, 非任意超参; §5.2 A4 验证类别感知必要性 |
+| Repulsion 与 GIoU 冲突 (一个排斥一个吸引) | 中 | lambda_repGT/repBox=0.5 小权重; §5.2 '+RepGT only'/'+RepBox only' 分量消融验证 |
+| 类别感知权重需调参 | 低 | ISCN 分组是医学标准, 非任意超参; §5.2 'full (类别无关)' 验证类别感知必要性 |
 | RepBox O(N²) 计算慢 | 低 | §3.5 iou_threshold 预筛, 实际计算 ~6500 对 |
 | 与 box_renewal 冲突 | 低 | Repulsion 仅作用于训练 loss, 不影响推理 box_renewal |
 | 重叠图提升不显著 (瓶颈在别处) | 中 | §5.3 重叠/非重叠分组评估定位瓶颈; 若无效归档为 FALSIFIED |
