@@ -51,6 +51,9 @@ D2_DATA_ROOT = 'data/24_chromosomes_object/coco/'
 D1_TEST_ANN = D1_DATA_ROOT + 'test/_annotations.coco.json'
 D2_TEST_ANN = D2_DATA_ROOT + 'test/_annotations.coco.json'
 
+# 全局: 是否启用 per-class AP 评估
+CLASSWISE_MODE = False
+
 # D1 模型清单
 D1_MODELS = [
     # KaryoFlow RF+Heun 3 seeds
@@ -84,6 +87,11 @@ D1_MODELS = [
      'experiments/configs/ldmdet/a4_dpm_pp_chr2024.py',
      'work_dirs/a4_dpm_pp_chr2024_seed42/best_coco_bbox_mAP_epoch_49.pth',
      'chr2024'),
+    # KaryoFlow SOTA (StochOT eps5, 0.753 model)
+    ('D1 KaryoFlow StochOT eps5 (0.753)',
+     'experiments/configs/ldmdet/ldmdet_rf_heun_adaln_stochot_eps5.py',
+     'work_dirs/ablation_old/reproduce_0751_stochot_eps5_v2/best_coco_bbox_mAP_epoch_59.pth',
+     'chr2024'),
     # D1 SOTA baselines (支持 ross 和 workstation 两种路径)
     ('D1 Cascade R-CNN R50',
      'experiments/configs/baselines/benchmark/cascade_rcnn_r50.py',
@@ -100,9 +108,9 @@ D1_MODELS = [
      ['work_dirs/baselines/yolox_s_20240904/best_coco_bbox_mAP_epoch_150.pth',
       'work_dirs/benchmark/yolox_s/best_coco_bbox_mAP_epoch_150.pth'],
      'chr2024'),
-    ('D1 DINO R50 (训练中 Ep104)',
+    ('D1 DINO R50',
      'experiments/configs/baselines/benchmark/dino_r50.py',
-     'work_dirs/baselines/dino_r50_20240904/epoch_104.pth',
+     'work_dirs/baselines/dino_r50_20240904/epoch_107.pth',
      'chr2024'),
 ]
 
@@ -172,7 +180,7 @@ def run_test_eval(config_path, checkpoint, dataset, device='cuda:1',
         type='CocoMetric',
         ann_file=test_ann,
         metric='bbox',
-        classwise=False,
+        classwise=CLASSWISE_MODE,
         format_only=False,
     )
 
@@ -257,6 +265,16 @@ def run_test_eval(config_path, checkpoint, dataset, device='cuda:1',
         'AP_L': metrics.get('coco/bbox_mAP_l', 0.0),
     }
 
+    # 提取 per-class AP (当 classwise=True 时)
+    if CLASSWISE_MODE:
+        per_class = {}
+        for k, v in metrics.items():
+            # CocoMetric classwise 输出格式: coco/CLASS_precision (AP), coco/CLASS_recall
+            if '_precision' in k and 'coco/' in k:
+                cls_name = k.replace('coco/', '').replace('_precision', '')
+                per_class[cls_name] = v
+        result['per_class_AP'] = per_class
+
     print(f'\n  结果: mAP={result["mAP"]:.4f} AP50={result["AP50"]:.4f} '
           f'AP75={result["AP75"]:.4f} AP_S={result["AP_S"]:.4f} '
           f'AP_M={result["AP_M"]:.4f} AP_L={result["AP_L"]:.4f}')
@@ -286,8 +304,13 @@ def main():
     parser.add_argument('--batch', type=str, default=None,
                         choices=['d1', 'd2_missing', 'all'],
                         help='批量评估模式')
+    parser.add_argument('--classwise', action='store_true',
+                        help='启用 per-class AP 评估 (classwise=True)')
     args = parser.parse_args()
     device = f'cuda:{args.gpu}'
+
+    global CLASSWISE_MODE
+    CLASSWISE_MODE = args.classwise
 
     print('=' * 80)
     print('Test 集 per-size AP 评估')
