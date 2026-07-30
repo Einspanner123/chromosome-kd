@@ -516,9 +516,31 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
   -- mAP=0.852, Step1 η_str=1.20, Step2=2.18, Step3=1.54
   -- 模式: V 型, 与 K=200 几乎相同 (证伪 D3 对 K=100 掉点解释)
 
-#### 双数据集验证缺口
+#### Dataset 1 验证 (2026-07-30 补全, 闭合双数据集缺口)
 
-> ⚠ Top-K 仅在 Dataset 2 (K=100/200/300) 验证, **Dataset 1 未跑**。D1 仅 1540 张图 / ~46 GT, K 值最优解可能与 D2 不同 (D1 重叠冗余更少, K=100 可能已足够)。属推理时零成本实验 (复用 rf_heun_adaln D1 checkpoint), 可补。当前论文 Top-K 叙事仅基于 D2, 投稿前建议补 D1 K∈{100,200,300} 推理消融以闭合双数据集验证。
+数据源: [d1_topk_validation.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/d1_topk_validation.json) · 脚本 [d1_topk_validation.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/d1_topk_validation.py)
+
+复用 D1 A4 DPM-Solver++ checkpoint (a4_dpm_pp_chr2024_seed42, best epoch 49), 在 D1 val (440 图) 上跑 8 场景 (K={500,300,200,100} × renewal {ON,OFF}):
+
+| 场景 | mAP (seed42) | Δvs K=500 ON | 判定 |
+|------|:---:|:---:|------|
+| K=500 ON (baseline) | 0.745 | — | — |
+| K=300 ON | 0.744 | −0.001 | ✓ 噪声 |
+| K=200 ON | 0.742 | −0.003 | ✓ 噪声 |
+| K=100 ON | 0.706 | **−0.039** | ⚠ 掉点 |
+
+**D1 vs D2 跨数据集对比**:
+
+| K | D1 (seed42) | D2 (seed42) | D1 掉点 | D2 掉点 |
+|---|:---:|:---:|:---:|:---:|
+| 500 | 0.745 | 0.863 | — | — |
+| 200 | 0.742 | 0.860 | −0.003 | −0.003 |
+| 100 | 0.706 | 0.850 | **−0.039** | −0.013 |
+
+**关键发现 (证伪原预测)**:
+- ✅ **K≥200 在 D1 安全** (Δ≤−0.003, 噪声内), 与 D2 一致 → K=200 推荐配置跨数据集成立
+- ⚠️ **D1 K=100 掉点比 D2 更严重** (D1: −0.039 vs D2: −0.013 seed42 / −0.024 3-seed), **证伪原预测**"D1 重叠冗余更少, K=100 可能已足够"。实际相反: D1 小数据 (1540 图) 下模型更依赖 proposal 多样性, K=100 (100 proposals / ~46 GT ≈ 2× 冗余) 容量更紧张
+- 待补: D1 K=100 3-seed 验证 (当前仅 seed42)
 
 ---
 
@@ -571,9 +593,23 @@ DPM-Solver++ 二阶校正项 $D_1^{(n)} = (\hat{x}_0^{(n)} - \hat{x}_0^{(n-1)})/
 - **R1**: 仅观测 $\eta_{str}$, 不改变任何推理流程, 提供事后诊断
 - R1 不触发 Adaptive Step 的失败模式
 
-### 双数据集验证缺口
+### Dataset 1 验证 (2026-07-30 补全, 闭合双数据集缺口)
 
-> ⚠ R1 η_str 诊断仅在 Dataset 2 测量 (3 seeds × 4 configs), **Dataset 1 未跑**。预测: D1 小数据下 RF 轨迹更接近直线, η_str 应低于 D2 (与 §三 D1 DPM++ 无增益一致)。属推理时零成本诊断 (复用 r1_eta_str_measure.py + rf_heun_adaln D1 checkpoint), 可补。补 D1 η_str 可进一步佐证"小数据→低曲率→DPM++ 二阶校正无增益"的机制解释。
+数据源: [renewal_on.json](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/r1_eta_str_d1_chr2024_seed42_renewal_on.json) · [renewal_off.json](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/r1_eta_str_d1_chr2024_seed42_renewal_off.json)
+
+复用 D1 A4 DPM-Solver++ checkpoint, 在 D1 val (440 图) 上测量 η_str (renewal ON + OFF):
+
+| Config | Step1 η_str | Step2 | Step3 | mAP |
+|--------|:-----------:|:-----:|:-----:|:---:|
+| **D1 renewal ON** | 0.280 ± 0.058 | 0.145 ± 0.039 | 0.068 ± 0.022 | 0.746 |
+| **D1 renewal OFF** | 0.629 ± 0.080 | 0.371 ± 0.060 | 0.244 ± 0.045 | 0.743 |
+| D2 renewal ON (3-seed) | 3.43 ± 0.36 | 2.45 ± 0.24 | 1.68 ± 0.15 | 0.859 |
+| D2 renewal OFF (3-seed) | 1.50 ± 0.33 | 1.11 ± 0.19 | 0.70 ± 0.09 | 0.858 |
+
+**关键发现**:
+- ✅ **D1 η_str 远低于 D2** (renewal ON 仅为 D2 的 4-8%; renewal OFF 为 D2 的 35-42%), **完美印证 §五 预测**"小数据→低曲率→DPM++ 二阶校正无增益", 定量解释 §三 中 D1 DPM++ 无增益 (Δ=−0.001 vs D2 +0.006)
+- 🔬 **D3 矛盾在 D1 反向出现** (详见 §六): D2 renewal ON 虚高 η_str (3.43 vs OFF 1.50); D1 renewal ON 反而压低 η_str (0.280 vs OFF 0.629)。两数据集方向相反但均证明 renewal 污染 η_str, 强化"renewal OFF 是唯一有效诊断"结论
+- D1 η_str 单调递减 (0.280→0.145→0.068), 与 D2 baseline 模式一致 (非 Top-K 的 V 型)
 
 ---
 
@@ -585,7 +621,8 @@ box_renewal 在每个 solver step 后将低置信度 proposals 重置为随机�
 
 - **命题 D3.1**: 对被 renewal 的 proposal $i$, $D_{1,i}^{(n+1)}$ 期望范数远大于真实轨迹曲率
 - **推论 D3.2**: box_renewal 后 $\eta_{str}$ 不再反映直线度, 而是被 renewal 噪声主导
-- **实测**: renewal on 使 $\eta_{str}$ 虚高 56-58% (ratio off/on = 0.42-0.44), 但 mAP 仅 −0.0003 (噪声范围)
+- **实测 (Dataset 2)**: renewal on 使 $\eta_{str}$ 虚高 56-58% (ratio off/on = 0.42-0.44), 但 mAP 仅 −0.0003 (噪声范围)
+- **实测 (Dataset 1, 2026-07-30 补)**: renewal on 反而**压低** $\eta_{str}$ (ON step1=0.280 vs OFF=0.629, ratio off/on=2.25), 方向与 D2 相反。机制: D1 小数据下低质量 proposal 更多, renewal_mask 将其排除出 η_str 计算人为压低; 无 renewal 时这些 proposal 贡献高 $D_1$。**两数据集方向相反但均证明 renewal 污染 η_str**, 强化"renewal OFF 是唯一有效诊断"结论 (详见 §五 D1 验证)
 
 ### 与染色体检测任务特性的结合
 
@@ -613,18 +650,21 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 
 **K 值依赖性验证 (2026-07-30, 全场景 renewal ON vs OFF 直接对比)**:
 
-数据源: [renewal_off_all_scenarios.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_all_scenarios.json) · [renewal_off_topk_verify.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_topk_verify.json) · [renewal_off_k100_3seed_k150.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_k100_3seed_k150.json)
+数据源: [renewal_off_all_scenarios.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_all_scenarios.json) · [renewal_off_topk_verify.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_topk_verify.json) · [renewal_off_k100_3seed_k150.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_k100_3seed_k150.json) · [d1_topk_validation.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/d1_topk_validation.json) (D1 全 K 矩阵)
 
 | 场景 | renewal ON | renewal OFF | ΔmAP | 判定 |
 |------|-----------|-------------|------|------|
-| Dataset 1 A4 (K=500) | 0.744 | 0.743 | −0.001 | ✓ 不影响 |
+| Dataset 1 A4 (K=500) | 0.745 | 0.743 | −0.002 | ✓ 不影响 |
+| **Dataset 1 K=300 (seed42)** | **0.744** | **0.742** | **−0.002** | **✓ 不影响** |
+| **Dataset 1 K=200 (seed42)** | **0.742** | **0.739** | **−0.003** | **✓ 不影响** |
+| **Dataset 1 K=100 (seed42)** | **0.706** | **0.680** | **−0.026** | **⚠ 有影响** |
 | Dataset 2 K=500 | 0.864 | 0.862 | −0.002 | ✓ 不影响 |
 | Dataset 2 K=300 | 0.862 | 0.863 | +0.001 | ✓ 不影响 |
 | Dataset 2 K=200 | 0.862 | 0.862 | 0.000 | ✓ 不影响 |
 | Dataset 2 K=150 (seed42) | 0.861 | 0.859 | −0.002 | ⚠ 边界 |
 | **Dataset 2 K=100 (3-seed)** | **0.839±0.012** | **0.808±0.023** | **−0.031±0.012** | **⚠ 有影响** |
 
-**结论: 推理时关闭 box_renewal 在 K≥200 (推荐配置) 下安全, K=150 为边界, K=100 (非推荐) 下有 −0.031±0.012 退化 (3-seed 确认)。**
+**结论: 推理时关闭 box_renewal 在 K≥200 (推荐配置) 下安全 (D1/D2 双数据集确认), K=150 为边界, K=100 (非推荐) 下有退化 (D2: −0.031±0.012 3-seed; D1: −0.026 seed42, 待 3-seed)。**
 
 - **K=100 退化主因**: proposal 稀缺性。K=100 时 100 个 proposal 覆盖 46 GT + 重叠冗余, box_renewal 的"proposal 回收"机制 (重置死 proposal 为噪声, 给重新收敛机会) 价值凸显; K≥200 时冗余 proposal 弥补回收缺失。
 - **3-seed 稳定性**: K=100 3-seed Δ=−0.031±0.012 (seed42: −0.019, seed123: −0.043, seed789: −0.032), 退化稳定且显著, 远超 noise 阈值。单 seed 测量 (−0.016) 低估了实际退化。
@@ -1393,9 +1433,9 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 | RF 范式 (§一) | ✓ 0.856 (3-seed) | ✓ 0.746 (3-seed) vs DDPM 0.729 | ✅ 完成 | — |
 | OT Collapse + Stoch. Coupling (§二) | ✓ +0.0001 (ns) + 4.6× 平滑 | ✓ +0.034 (p<10⁻¹²⁰) | ✅ 完成 | — |
 | DPM-Solver++ (§三) | ✓ +0.006 (p<10⁻⁶) | ✓ −0.001 (持平, 单 seed) | ✅ 完成 (方向性一致) | 可补 3-seed |
-| Top-K Pruning (§四) | ✓ K=100/200/300 | ⛔ 未跑 | ⚠ 缺口 | 推理零成本 |
-| R1 η_str (§五) | ✓ 3-seed × 4 config | ⛔ 未跑 | ⚠ 缺口 | 推理零成本 |
-| D3 Box Renewal (§六) | ✓ K 值依赖 3-seed | ✓ A4 K=500 单 seed + 轨迹 | ✅ 完成 (部分单 seed) | — |
+| Top-K Pruning (§四) | ✓ K=100/200/300 | ✓ K=100/200/300 (seed42) | ✅ 完成 (D1 K=100 待 3-seed) | 可补 3-seed |
+| R1 η_str (§五) | ✓ 3-seed × 4 config | ✓ renewal ON/OFF (seed42) | ✅ 完成 | 可补 3-seed |
+| D3 Box Renewal (§六) | ✓ K 值依赖 3-seed | ✓ 全 K 矩阵 (seed42) + η_str 反向发现 | ✅ 完成 (D1 K=100 待 3-seed) | 可补 3-seed |
 | S1 Cascade × Solver (§七) | ✓ 3 组重训 | ⛔ 未跑 | ⚠ 缺口 | 重训 ~12h/组 |
 | Head Distillation (§七) | ✓ 0.859 | ⛔ 未跑 | ⚠ 缺口 | 重训 (双网络) |
 | R3 v-prediction (§八) | ⚠ 单 seed 0.855 | ⛔ 未跑 | ⚠ 缺口 (D2 亦未完成) | 重训 |
@@ -1403,7 +1443,7 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 | 方向 D 自适应阶次 (§十) | ✓ 3 solver 持平 | ⛔ 未跑 | ⚠ 缺口 | 推理零成本 |
 
 **双数据集验证优先级** (投稿前补全建议):
-1. **高优先 (推理零成本, 闭合主贡献)**: §四 Top-K D1 + §五 R1 η_str D1 — 复用 rf_heun_adaln D1 checkpoint, 单脚本可跑
+1. ~~**高优先 (推理零成本, 闭合主贡献)**: §四 Top-K D1 + §五 R1 η_str D1~~ — ✅ 已完成 (2026-07-30). D1 K=100 掉点比 D2 更严重 (证伪原预测); D1 η_str 仅为 D2 4-8% (印证低曲率). 待补: D1 K=100 3-seed
 2. **中优先 (重训, 验证架构泛化)**: §七 S1 h3_s4 D1 单配置 (~12h) — 验证 H×S 可交换性跨数据集
 3. **低优先 (null result 深化)**: §九 方向A D1 + §十 方向D D1 — 推理零成本, 但属 null result 章节非主贡献
 4. **待 GPU 空闲**: §八 R3 D2 seed 123/789 + D1 — 需重训, 当前仅单 seed 初步
