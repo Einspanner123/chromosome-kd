@@ -100,9 +100,9 @@ D1_MODELS = [
      ['work_dirs/baselines/yolox_s_20240904/best_coco_bbox_mAP_epoch_150.pth',
       'work_dirs/benchmark/yolox_s/best_coco_bbox_mAP_epoch_150.pth'],
      'chr2024'),
-    ('D1 DINO R50 (训练中 Ep95)',
+    ('D1 DINO R50 (训练中 Ep101)',
      'experiments/configs/baselines/benchmark/dino_r50.py',
-     'work_dirs/baselines/dino_r50_20240904/epoch_95.pth',
+     'work_dirs/baselines/dino_r50_20240904/epoch_101.pth',
      'chr2024'),
 ]
 
