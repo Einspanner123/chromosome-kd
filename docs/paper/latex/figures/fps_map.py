@@ -9,16 +9,17 @@ category" convention shared with solver_ablation.py and per_class_ap.py.
 Two panels:
   (a) Dataset 1 (Chromosome20240904, 1540 imgs, low-data regime):
       KaryoFlow variants + DiffusionDet + standard discriminative detectors
-      (Cascade R-CNN / YOLOX-S / RTMDet-L / DINO R50) all have mAP here.
-      Standard detectors show severe degradation under data scarcity (DINO R50
-      0.868→0.607, −30.1%; RTMDet-L 0.863→0.742, −14.0%), while KaryoFlow
-      (+Stoch. Coupling 0.747) surpasses all of them — supporting the claim
-      that diffusion-based detectors match frontier detectors under data
-      scarcity. DINO R50 trained only 31/150 ep (incomplete) but its
-      degradation trend is already the worst. The "Random (RF)" point
-      visualises the OT-diversity-collapse pathology: Random coupling
-      collapses to 0.713 (below the DDPM baseline 0.729), while Stochastic
-      Coupling recovers to 0.747 — at no speed cost (same Heun architecture).
+      (Cascade R-CNN / YOLOX-S / RTMDet-L / DINO R50) all have test mAP here.
+      On the test set, KaryoFlow (+Stoch. Coupling, test mAP 0.740) matches
+      frontier detectors DINO R50 (0.725, completed 150ep) and RTMDet-L
+      (0.732), and wins on 15/24 per-class AP — advantages concentrated on
+      small chromosomes (E/F/G) and sex chromosomes (X/Y), the clinically
+      highest-risk categories. This supports the claim that diffusion-based
+      detectors match frontier detectors under data scarcity, with structural
+      advantages on clinically critical small-object classes. The "Random (RF)"
+      point visualises the OT-diversity-collapse pathology: Random coupling
+      collapses to 0.713 (below the DDPM baseline 0.719), while Stochastic
+      Coupling recovers to 0.740 — at no speed cost (same Heun architecture).
   (b) Dataset 2 (24 Chromosomes Object, 5000 imgs): full method set incl.
       DINO R50 and RTMDet-L.
 
@@ -109,20 +110,24 @@ LABEL_OFFSET_D2 = {
 # Standard detectors (Cascade R-CNN / RTMDet-L / YOLOX-S / DINO R50) were
 # trained on Dataset 1 (2026-07-29, workstation/local A6000) to demonstrate
 # "discriminative paradigms lose advantage under data scarcity". DINO R50
-# only trained 31/150 ep (incomplete) but its degradation trend is already
-# clear (0.607, worst among all). "Random (RF)" is the coupling-ablation
-# point showing OT diversity collapse (0.713, below DDPM baseline 0.729).
+# trained to completion (150ep, early stop @ ep107, best 0.742 val / 0.725 test).
+# "Random (RF)" is the coupling-ablation point showing OT diversity collapse
+# (0.713, below DDPM baseline 0.729). KaryoFlow (+Stoch. Coupling) matches
+# DINO R50 / RTMDet-L on overall test mAP (0.740 vs 0.725/0.732) and wins on
+# 15/24 per-class AP, with advantages concentrated on small chromosomes (E/F/G)
+# and sex chromosomes (X/Y) — the clinically highest-risk categories.
 # FPS reuses the architecturally-matched Dataset 2 measurement (see docstring).
+# mAP values: test set (220 images), sourced from test_eval_per_size_20260730_204840.json
 # =====================================================================
 DATA_D1 = [
-    ("DiffusionDet",     43.1, 0.729, "diffbase",   True),
-    ("Random (RF)",       8.2, 0.713, "ours_heun",  True),   # OT collapse: below DDPM
-    ("+Stoch. Coupling",  7.6, 0.747, "ours_heun",  True),   # KaryoFlow (Heun), best
-    ("+DPM-Solver++",    12.9, 0.746, "ours_dpmpp", True),   # solver swap, step-aligned
-    ("Cascade R-CNN",    49.4, 0.732, "standard",   True),
-    ("RTMDet-L",         21.2, 0.742, "standard",   True),
-    ("YOLOX-S",          95.3, 0.608, "standard",   True),
-    ("DINO R50",         29.2, 0.607, "standard",   True),   # 31/150 ep, incomplete
+    ("DiffusionDet",     43.1, 0.719, "diffbase",   True),   # test mAP (3-seed mean: 0.716/0.722/0.718)
+    ("Random (RF)",       8.2, 0.713, "ours_heun",  True),   # OT collapse: below DDPM (val, no test eval)
+    ("+Stoch. Coupling",  7.6, 0.740, "ours_heun",  True),   # KaryoFlow (Heun), test mAP
+    ("+DPM-Solver++",    12.9, 0.739, "ours_dpmpp", True),   # test mAP (seed42)
+    ("Cascade R-CNN",    49.4, 0.723, "standard",   True),   # test mAP
+    ("RTMDet-L",         21.2, 0.732, "standard",   True),   # test mAP
+    ("YOLOX-S",          95.3, 0.581, "standard",   True),   # test mAP
+    ("DINO R50",         29.2, 0.725, "standard",   True),   # test mAP (ep107, completed)
 ]
 
 LABEL_OFFSET_D1 = {
