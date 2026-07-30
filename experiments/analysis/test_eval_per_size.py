@@ -100,9 +100,9 @@ D1_MODELS = [
      ['work_dirs/baselines/yolox_s_20240904/best_coco_bbox_mAP_epoch_150.pth',
       'work_dirs/benchmark/yolox_s/best_coco_bbox_mAP_epoch_150.pth'],
      'chr2024'),
-    ('D1 DINO R50 (训练中 Ep101)',
+    ('D1 DINO R50 (训练中 Ep104)',
      'experiments/configs/baselines/benchmark/dino_r50.py',
-     'work_dirs/baselines/dino_r50_20240904/epoch_101.pth',
+     'work_dirs/baselines/dino_r50_20240904/epoch_104.pth',
      'chr2024'),
 ]
 
@@ -333,10 +333,22 @@ def main():
         if ckpt_path is None or not os.path.exists(ckpt_path):
             print(f'\n[跳过] {label}: checkpoint 不存在')
             continue
+        # 文件完整性检查: 小于 10MB 视为传输不完整
+        ckpt_size = os.path.getsize(ckpt_path)
+        if ckpt_size < 10 * 1024 * 1024:
+            print(f'\n[跳过] {label}: checkpoint 不完整 ({ckpt_size} bytes)')
+            continue
 
-        result = run_test_eval(config_path, ckpt_path, dataset, device, label)
-        if result:
-            all_results.append(result)
+        try:
+            result = run_test_eval(config_path, ckpt_path, dataset, device, label)
+            if result:
+                all_results.append(result)
+        except Exception as e:
+            print(f'\n[错误] {label}: {e}')
+            import traceback
+            traceback.print_exc()
+            torch.cuda.empty_cache()
+            continue
 
     # ===== 汇总表 =====
     print('\n' + '=' * 80)

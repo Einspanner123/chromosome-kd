@@ -1072,9 +1072,9 @@ class DiffusionDetHead(nn.Module):
         # create_dpm_solver() 仅对 euler/heun 返回 None (合法), 其他 solver_type
         # 必须返回有效实例, 否则下方 if-elif-else 会静默走 Euler 分支.
         if dpm_solver is None:
-            assert self.solver_type in ('euler', 'heun'), (
+            assert self.solver_type in ('euler', 'heun', 'ddim'), (
                 f"solver_type='{self.solver_type}' 不被 create_dpm_solver() 支持, "
-                f"且不属于 euler/heun. 请检查配置或扩展 create_dpm_solver()."
+                f"且不属于 euler/heun/ddim. 请检查配置或扩展 create_dpm_solver()."
             )
         if dpm_solver is not None:
             dpm_solver.reset()
@@ -1595,9 +1595,9 @@ class DiffusionDetHead(nn.Module):
         # create_dpm_solver() 仅对 euler/heun 返回 None (合法), 其他 solver_type
         # 必须返回有效实例, 否则下方 if-elif-else 会静默走 Euler 分支.
         if dpm_solver is None:
-            assert self.solver_type in ('euler', 'heun'), (
+            assert self.solver_type in ('euler', 'heun', 'ddim'), (
                 f"solver_type='{self.solver_type}' 不被 create_dpm_solver() 支持, "
-                f"且不属于 euler/heun. 请检查配置或扩展 create_dpm_solver()."
+                f"且不属于 euler/heun/ddim. 请检查配置或扩展 create_dpm_solver()."
             )
         if dpm_solver is not None:
             dpm_solver.reset()
@@ -1757,9 +1757,9 @@ class DiffusionDetHead(nn.Module):
         # create_dpm_solver() 仅对 euler/heun 返回 None (合法), 其他 solver_type
         # 必须返回有效实例, 否则下方 if-elif-else 会静默走 Euler 分支.
         if dpm_solver is None:
-            assert self.solver_type in ('euler', 'heun'), (
+            assert self.solver_type in ('euler', 'heun', 'ddim'), (
                 f"solver_type='{self.solver_type}' 不被 create_dpm_solver() 支持, "
-                f"且不属于 euler/heun. 请检查配置或扩展 create_dpm_solver()."
+                f"且不属于 euler/heun/ddim. 请检查配置或扩展 create_dpm_solver()."
             )
         if dpm_solver is not None:
             dpm_solver.reset()
