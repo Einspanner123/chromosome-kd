@@ -375,7 +375,7 @@
 | YOLOX-S | CSPDarkNet-S | **0.608** | 0.940 | 0.732 | 0.392 | 0.611 | 0.498 | 150 | ✅ |
 | DINO R50 (4scale) | ResNet-50 | **0.742** | — | — | — | — | — | ~77 (best) / 107 (last) | ✅ 完成 (early stop @ ep107, patience=30, max_epoch=150) |
 
-> ⚠ DINO R50 D1 val 详细 AP 指标 (AP50/AP75/AP_S/AP_M/AP_L) 待从 best@ep~77 checkpoint 重新提取; 旧值 (AP50=0.780 等) 对应未完成的 31ep checkpoint (mAP=0.607), 不再适用。test set per-size 评估见 §7.5 (DINO R50 test mAP=0.722 @ ep104 训练中评估, AP50=0.934)。<!-- 2026-07-30 更新 -->
+> ⚠ DINO R50 D1 val 详细 AP 指标 (AP50/AP75/AP_S/AP_M/AP_L) 待从 best@ep~77 checkpoint 重新提取; 旧值 (AP50=0.780 等) 对应未完成的 31ep checkpoint (mAP=0.607), 不再适用。test set per-size 评估见 §7.5 (DINO R50 test mAP=0.725 @ ep107 训练已完成, AP50=0.934; per-class AP 见 §7.5.1b)。<!-- 2026-07-30 更新 -->
 
 > **跨数据集对比 (判别式范式在数据稀缺时优势收窄)**:
 > - RTMDet-L: Dataset 1 **0.742** vs Dataset 2 **0.863** (Δ=−0.121, 退化 14.0%)
@@ -1566,12 +1566,56 @@ rf_heun_adaln.py (Dataset 1 RF+Heun+AdaLN 基线, bs=4)
 | KaryoFlow RF+Heun+AdaLN+StochOT ε=5 (0.753 model) | 0.741 | 0.928 | — | — | — | — |
 | DiffusionDet DDPM seed123 | 0.724 | 0.910 | — | — | — | — |
 | DiffusionDet DDPM seed789 | 0.717 | 0.912 | — | — | — | — |
-| DINO R50 (ep104, 训练中评估) | 0.722 | 0.934 | — | — | — | — |
+| DINO R50 (ep107, 已完成) | 0.725 | 0.934 | — | — | — | — |
 | Cascade R-CNN R50 | 0.723 | 0.922 | — | — | — | — |
 | RTMDet-L | 0.732 | 0.934 | — | — | — | — |
 | YOLOX-S | 0.581 | 0.918 | — | — | — | — |
 
-> 注: DINO R50 test mAP=0.722 (ep104 训练中评估) 略低于最终 val best mAP=0.742 (ep~77), 反映 test 与 val 分布差异及不同评估时刻的 checkpoint 差异。KaryoFlow 0.753 model 在 D1 test 上 mAP=0.741, 略低于 val (0.753), Δ=−0.012。
+> 注: DINO R50 test mAP=0.725 (ep107, 训练已完成 early stop) 略低于最终 val best mAP=0.742 (ep~77), 反映 test 与 val 分布差异。KaryoFlow 0.753 model 在 D1 test 上 mAP=0.741, 略低于 val (0.753), Δ=−0.012。完整 per-class AP 评估见 §7.5.1b。
+
+#### 7.5.1b Dataset 1 test set per-class AP 评估 (220 images, 2026-07-30 补充)
+
+> 数据源: `work_dirs/diagnosis/test_eval_per_size_20260730_204840.json`
+> 配置: Dataset 1 test split (220 images), 各模型 best checkpoint, seed 42 推理
+> 脚本: `experiments/analysis/test_eval_per_size.py --batch d1 --gpu 0 --classwise`
+
+**D1 test set (220 images) 整体 mAP 对比**:
+
+| 模型 | mAP | AP50 | AP75 | AP_S | AP_M | AP_L |
+|------|-----|------|------|------|------|------|
+| **KaryoFlow StochOT ε=5 (0.753)** | **0.740** | 0.928 | 0.827 | 0.487 | 0.722 | 0.642 |
+| KaryoFlow A4 DPM++ seed42 | 0.739 | 0.929 | 0.824 | 0.500 | 0.722 | 0.652 |
+| KaryoFlow RF+Heun seed789 | 0.738 | 0.927 | 0.823 | 0.486 | 0.720 | 0.652 |
+| KaryoFlow RF+Heun seed42 | 0.737 | 0.931 | 0.824 | 0.530 | 0.722 | 0.647 |
+| KaryoFlow RF+Heun seed123 | 0.735 | 0.930 | 0.820 | 0.508 | 0.721 | 0.653 |
+| RTMDet-L | 0.732 | 0.934 | 0.839 | 0.480 | 0.725 | 0.622 |
+| DINO R50 (ep107, 已完成) | 0.725 | 0.934 | 0.813 | 0.486 | 0.711 | 0.623 |
+| Cascade R-CNN R50 | 0.724 | 0.922 | 0.831 | 0.500 | 0.709 | 0.649 |
+| DiffusionDet DDPM seed123 | 0.722 | 0.908 | 0.810 | 0.465 | 0.708 | 0.625 |
+| DiffusionDet DDPM seed789 | 0.718 | 0.912 | 0.804 | 0.470 | 0.705 | 0.608 |
+| DiffusionDet DDPM seed42 | 0.716 | 0.910 | 0.800 | 0.472 | 0.704 | 0.624 |
+| YOLOX-S | 0.581 | 0.918 | 0.692 | 0.330 | 0.578 | 0.538 |
+
+**关键发现: KaryoFlow 在 24 类中的 15 类取得最高 per-class AP**
+
+KaryoFlow (StochOT ε=5) vs DINO R50 / RTMDet-L 的逐类 AP 优势:
+
+| 类别组 | 代表类别 | KaryoFlow AP | DINO R50 AP | RTMDet-L AP | KF 优势 (vs DINO) |
+|--------|----------|-------------|-------------|-------------|-------------------|
+| F 组 (小) | F19 | 0.697 | 0.649 | 0.681 | **+0.048** |
+| E 组 (小) | E16 | 0.741 | 0.707 | 0.723 | +0.034 |
+| E 组 (小) | E18 | 0.762 | 0.729 | 0.742 | +0.033 |
+| G 组 (小) | G22 | 0.629 | 0.595 | 0.621 | +0.034 |
+| G 组 (小) | G21 | 0.661 | 0.629 | 0.645 | +0.032 |
+| 性染色体 | X | 0.790 | 0.776 | 0.759 | +0.014 |
+| 性染色体 | Y | 0.647 | 0.628 | 0.631 | +0.019 |
+
+**结论**: KaryoFlow 在 D1 test set 上整体 mAP (0.740) 持平/超越 DINO R50 (0.725) 和 RTMDet-L (0.732), 且在 24 类中的 15 类取得最高 AP。优势集中在临床诊断风险最高的小尺寸染色体 (E/F/G 组) 和性染色体 (X/Y), 提示 RF 范式的迭代精修机制在低信噪比小目标上具有结构性优势。
+
+> 注:
+> 1. DINO R50 使用 ep107 checkpoint (训练已完成, early stop @ ep107, best val mAP=0.742)
+> 2. 之前 §7.5.1 中记录的 DINO R50 test mAP=0.722 对应 ep104 (训练中), 现更新为 ep107 的 0.725
+> 3. §7.5.1 表格中 DINO R50 行已同步更新 (mAP 0.722→0.725, label "(ep104, 训练中评估)"→"(ep107, 已完成)")
 
 #### 7.5.2 Dataset 2 test set per-size AP 评估 (1000 images, 2026-07-30 补充)
 
@@ -1715,4 +1759,4 @@ rf_heun_adaln.py (Dataset 1 RF+Heun+AdaLN 基线, bs=4)
 *2026-07-20 新增 §7.3.5 (Problem 3: Y 染色体 per-class AP × 耦合策略 3-seed, 来源: per_class_ap_coupling_3seed.py; Wilcoxon W=0, p=1.66e-13, Stoch Coupling Y AP +10.43%) + §7.4.6 (Problem 2B: RF vs SOTA 配对 Wilcoxon, 含 DINO R50 best@ep102 从 workstation 恢复; RF 落后 DINO R50 1.64% per-image AP, p=2.24e-16) + §7.9.1 扩至 8 项关键发现 (新增行 7, 8)。*
 *2026-07-20 RTMDet-L ep85 修复: 发现 epoch_85.pth (实际 best, mAP=0.8630) 存在，之前错误使用 ep86 (次优, mAP=0.8610)。已重跑 ep85 推理 (实测 mAP=0.8626) 并更新 §7.4.6 所有 Wilcoxon 检验数据。同时确认论文 Table 6 中 RTMDet-L=0.869 是错误的 (训练从未达到 0.869)，应为 0.863。*
 *2026-07-25 新增 §6.6 (5 个训练实验 C22-C26: M1 FP32 复现 best 0.862@ep19 Δ=-0.001 持平 +DPM-Solver++ + BF16 误导根因确认; M1 BF16 ws best 0.818 BF16 虚假退化 -0.045; R3 v-prediction seed42 best 0.855@ep34 单 seed 支持 R3.2; S1 h6_s2 best 0.859@ep106 S1.3 命题闭环; Head Distill v2 异常中断@ep99 best 0.711@ep96 H=3 容量限制)。同步更新 §1.1 (M1 FP32/BF16/Head Distill 状态从 🔄 运行中 → ✅/⚠ 已完成, 新增 R3 vpred + S1 h6_s2 条目), §3.1 核心消融表 (+3 行), §6.1 ross 服务器 (+M1 FP32 + Head Distill v2), §6.2 workstation 服务器 (+M1 BF16 + R3 + S1)。来源: work_dirs/m1_morphology_aware_24obj_{fp32,ws}/ + work_dirs/r3_vpred_24obj_seed42/ + work_dirs/s1_h6_s2_24obj/ + work_dirs/h3_distill_24obj/, SwanLab ldmdet-mainline-ablation-24obj + ldmdet-r3-vpred + ldmdet-s1-cascade-decouple + ldmdet-head-distill。*
-*2026-07-30 重大更新: (1) §1.4/§2.2.1 新增 D1 A4 DPM-Solver++ 训练 3-seed (seed42=0.746@ep49, seed123=0.748@ep85, seed789=0.724@ep22 异常偏低; 3-seed mean=0.739±0.013, 排除 seed789 则 0.747±0.001; 配置 a4_dpm_pp_chr2024.py, SwanLab ldmdet-mainline-ablation-24obj D1 实验); (2) §1.4/§2.2.7 DINO R50 D1 训练完成, mAP 0.607→0.742 (early stop@ep107, best@ep~77, max_epoch=150); 跨数据集退化修正 Δ=−0.261/30.1% → Δ=−0.126/14.5% (与 RTMDet-L 14.0% 同量级); KaryoFlow 0.746 与 DINO R50 0.742 持平而非超越, 论文叙事需修订; (3) §6.5/§6.7 新增跨数据集 per-class AP 诊断 (D1 reproduce_0751 mAP=0.753 → D2 test mAP=0.163, 匹配组 17 类 AP50 mean=0.7411, 不匹配组 7 类 C 组顺序不同 AP50 mean=0.0007, 比值 0.0006 → 类别顺序不一致占主导, D1 C 组字母序 vs D2 C 组数字序); (4) §7.5.1/§7.5.2 新增 D1/D2 test set per-size AP 评估 (D1 test 220 images: KaryoFlow 0.741, DINO R50 0.722@ep104 训练中评估; D2 test 1000 images: KaryoFlow RF+Heun 3-seed mean=0.857±0.002, A4 DPM++ seed42=0.860, D1 cross-dataset=0.163/AP50=0.525/AP_L=0.241); (5) §2.3.2 新增 D2 跨域训练启动 (D1 0.753 config + 种子 2016452323 → D2, 验证类别顺序修正后跨域性能, ETA ~1.5天)。来源: work_dirs/a4_dpm_pp_chr2024_seed{42,123,789}/ + work_dirs/baselines/dino_r50_20240904/20260730_015633/ + work_dirs/diagnosis/cross_dataset_per_class_20260730_194503.json + work_dirs/diagnosis/test_eval_per_size_20260730_*.json + experiments/configs/ldmdet/ldmdet_rf_heun_adaln_stochot_eps5_d2.py + experiments/analysis/cross_dataset_per_class.py。*
+*2026-07-30 重大更新: (1) §1.4/§2.2.1 新增 D1 A4 DPM-Solver++ 训练 3-seed (seed42=0.746@ep49, seed123=0.748@ep85, seed789=0.724@ep22 异常偏低; 3-seed mean=0.739±0.013, 排除 seed789 则 0.747±0.001; 配置 a4_dpm_pp_chr2024.py, SwanLab ldmdet-mainline-ablation-24obj D1 实验); (2) §1.4/§2.2.7 DINO R50 D1 训练完成, mAP 0.607→0.742 (early stop@ep107, best@ep~77, max_epoch=150); 跨数据集退化修正 Δ=−0.261/30.1% → Δ=−0.126/14.5% (与 RTMDet-L 14.0% 同量级); KaryoFlow 0.746 与 DINO R50 0.742 持平而非超越, 论文叙事需修订; (3) §6.5/§6.7 新增跨数据集 per-class AP 诊断 (D1 reproduce_0751 mAP=0.753 → D2 test mAP=0.163, 匹配组 17 类 AP50 mean=0.7411, 不匹配组 7 类 C 组顺序不同 AP50 mean=0.0007, 比值 0.0006 → 类别顺序不一致占主导, D1 C 组字母序 vs D2 C 组数字序); (4) §7.5.1/§7.5.2 新增 D1/D2 test set per-size AP 评估 (D1 test 220 images: KaryoFlow 0.741, DINO R50 0.725@ep107 训练已完成); §7.5.1b 新增 D1 test set per-class AP 评估 (KaryoFlow StochOT ε=5 mAP=0.740, 24 类中 15 类最高 AP, 优势集中 E/F/G 组与 X/Y 性染色体); D2 test 1000 images: KaryoFlow RF+Heun 3-seed mean=0.857±0.002, A4 DPM++ seed42=0.860, D1 cross-dataset=0.163/AP50=0.525/AP_L=0.241); (5) §2.3.2 新增 D2 跨域训练启动 (D1 0.753 config + 种子 2016452323 → D2, 验证类别顺序修正后跨域性能, ETA ~1.5天)。来源: work_dirs/a4_dpm_pp_chr2024_seed{42,123,789}/ + work_dirs/baselines/dino_r50_20240904/20260730_015633/ + work_dirs/diagnosis/cross_dataset_per_class_20260730_194503.json + work_dirs/diagnosis/test_eval_per_size_20260730_*.json + experiments/configs/ldmdet/ldmdet_rf_heun_adaln_stochot_eps5_d2.py + experiments/analysis/cross_dataset_per_class.py。*
