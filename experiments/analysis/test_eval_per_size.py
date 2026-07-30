@@ -205,16 +205,16 @@ def run_test_eval(config_path, checkpoint, dataset, device='cuda:1',
     model = init_detector(cfg, checkpoint, device=device)
     model.eval()
 
-    dataset = DATASETS.build(cfg.test_dataloader.dataset)
+    eval_dataset = DATASETS.build(cfg.test_dataloader.dataset)
     evaluator = METRICS.build(cfg.test_evaluator)
-    evaluator.dataset_meta = dataset.metainfo
+    evaluator.dataset_meta = eval_dataset.metainfo
 
     num_samples = 0
-    n_imgs = len(dataset)
+    n_imgs = len(eval_dataset)
 
     with torch.no_grad():
         for i in range(n_imgs):
-            data = dataset[i]
+            data = eval_dataset[i]
             data['inputs'] = data['inputs'].unsqueeze(0).to(device)
             if not isinstance(data['data_samples'], list):
                 data['data_samples'] = [data['data_samples']]
