@@ -1,7 +1,7 @@
-"""24obj A1 RF+Heun shifted schedule 参数扫描: shift=2.0
+"""24obj RF+Heun shifted schedule 参数扫描: shift=2.0
 
 目的: 验证 shift=3.0 是否为最优值
-对照: shift=1 (unshifted) / shift=2 (本实验) / shift=3 (A1, 0.856) / shift=5
+对照: shift=1 (unshifted) / shift=2 (本实验) / shift=3 (RF+Heun, 0.856) / shift=5
 公式: times = s * times / (1 + (s - 1) * times), s=rf_shift
 
 SwanLab: 项目 'ldmdet-mainline-ablation-24obj', 实验 'a1_rf_heun_shift2'
@@ -37,7 +37,7 @@ vis_backends = [
         init_kwargs=dict(
             project='ldmdet-mainline-ablation-24obj',
             experiment_name='a1_rf_heun_shift2',
-            description='24obj A1 RF+Heun shift=2.0 | bs=8, 150ep',
+            description='24obj RF+Heun shift=2.0 | bs=8, 150ep',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

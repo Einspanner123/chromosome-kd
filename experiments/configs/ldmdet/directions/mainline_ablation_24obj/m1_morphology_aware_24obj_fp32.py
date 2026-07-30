@@ -1,8 +1,8 @@
 """24obj M1 (FP32 复现): 形态感知 RoI 编码器 — 移除 BF16 混淆 + 加速 fuse 学习
 
 BF16 实验结论 (workstation A5000):
-  - M1+BF16 = 0.818 vs A4+BF16 = 0.825 (Δ=-0.007, noise 范围负面)
-  - BF16 本身掉点 -0.038 (A4 FP32 0.863 → BF16 0.825)
+  - M1+BF16 = 0.818 vs +DPM-Solver+++BF16 = 0.825 (Δ=-0.007, noise 范围负面)
+  - BF16 本身掉点 -0.038 (+DPM-Solver++ FP32 0.863 → BF16 0.825)
   - fuse 权重均匀 (h_conv/v_conv ratio=1.01, std=0.0000) — 未学到方向性
 
 FP32 复现目的:
@@ -10,7 +10,7 @@ FP32 复现目的:
   2. lr 从 1e-5 → 2e-5 (2×), warmup 3ep → 1ep, 让 fuse 更快学习
   3. 若 FP32 下 h_conv/v_conv 仍均匀, 确认是设计问题而非精度/lr 问题
 
-对照基准: A4 (FP32, mAP=0.863)
+对照基准: +DPM-Solver++ (FP32, mAP=0.863)
 显存: FP32 峰值 ~37.5GB (A6000 49GB 可行, A5000 24GB 不可行)
 
 SwanLab: 项目 'ldmdet-mainline-ablation-24obj', 实验 'm1_morphology_aware_fp32'

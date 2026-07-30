@@ -1,11 +1,11 @@
-"""24obj 主路线消融实验 A3: 完整 SOTA (RF+Heun+AdaLN+StochOT eps5)
+"""24obj 主路线消融实验 +Stoch. Coupling: 完整 SOTA (RF+Heun+AdaLN+StochOT eps5)
 
-目的: 在 A2 基础上添加 StochasticOT eps=5, 构成完整主路线 SOTA
+目的: 在 +AdaLN-Zero 基础上添加 StochasticOT eps=5, 构成完整主路线 SOTA
 组件:
   + coupling='ot_flow', epsilon=5.0, num_iters=20, coupling_mode='multinomial'
 
 对照:
-  - A2 (无 StochOT) → 验证 StochOT 的增益
+  - +AdaLN-Zero (无 StochOT) → 验证 StochOT 的增益
   - benchmark_24obj/ldmdet_rf_heun_adaln_stochot_eps5.py (同配置, 无 classwise)
 
 SwanLab: 项目 'ldmdet-mainline-ablation-24obj', 实验 'a3_full_sota'
@@ -64,7 +64,7 @@ vis_backends = [
         init_kwargs=dict(
             project='ldmdet-mainline-ablation-24obj',
             experiment_name='a3_full_sota',
-            description='24obj 主路线消融 A3: 完整SOTA (RF+Heun+AdaLN+StochOT eps5) | bs=8, 150ep',
+            description='24obj 主路线消融 +Stoch. Coupling: 完整SOTA (RF+Heun+AdaLN+StochOT eps5) | bs=8, 150ep',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

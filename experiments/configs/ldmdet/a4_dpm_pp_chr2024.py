@@ -1,4 +1,4 @@
-"""Dataset 1 (Chromosome20240904) 主路线消融 A4: DPM-Solver++
+"""Dataset 1 (Chromosome20240904) 主路线消融 +DPM-Solver++
 
 目的: 在 Dataset 1 上补全主消融链第 4 环, 将 Heun 替换为 DPM-Solver++
 组件:
@@ -7,7 +7,7 @@
   - RF + AdaLN + StochOT eps5 保持不变 (继承自 ldmdet_rf_heun_adaln_stochot_eps5)
 
 对照: Dataset 1 RF+Heun+AdaLN+Stoch (3-seed 0.747) → 验证 DPM-Solver++ vs Heun
-关联: Dataset 2 A4 (a4_dpm_pp_24obj.py, 3-seed 0.859, seed42 best 0.863)
+关联: Dataset 2 +DPM-Solver++ (a4_dpm_pp_24obj.py, 3-seed 0.859, seed42 best 0.863)
 
 SwanLab: 项目 'ldmdet-ablation' (default_runtime 默认), 实验 'a4_dpm_pp_chr2024_seed{seed}'
          (train.py 自动生成 experiment_name = config_name + '_seed' + seed)

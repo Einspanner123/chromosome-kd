@@ -4,8 +4,8 @@
 用 D1 训练的模型在 D2 test 上评估 per-class AP,
 判断跨域检测失效是类别顺序不一致占主导还是数据集跨域占主导。
 
-D1 类别顺序: A1 A2 A3 B4 B5 [C10 C11 C12 C6 C7 C8 C9] D13... (index 5-11 为 C 组, 与 D2 不一致)
-D2 类别顺序: A1 A2 A3 B4 B5 [C6  C7  C8  C9 C10 C11 C12] D13... (index 5-11 为 C 组, 数字序)
+D1 类别顺序: RF+Heun +AdaLN-Zero +Stoch. Coupling B4 B5 [C10 C11 C12 C6 C7 C8 C9] D13... (index 5-11 为 C 组, 与 D2 不一致)
+D2 类别顺序: RF+Heun +AdaLN-Zero +Stoch. Coupling B4 B5 [C6  C7  C8  C9 C10 C11 C12] D13... (index 5-11 为 C 组, 数字序)
 
 matched indices (0-4, 12-23): 两数据集类别相同
 mismatched indices (5-11): C 组类别顺序不同

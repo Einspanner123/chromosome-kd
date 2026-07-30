@@ -32,7 +32,7 @@ from experiments.analysis.per_dim_d1_clean_repro import run_config
 # 配置
 # ============================================================
 
-# 3-seed checkpoints (Dataset 2, A4 DPM-Solver++)
+# 3-seed checkpoints (Dataset 2, +DPM-Solver++)
 SEEDS = {
     42: os.path.join(
         _PROJECT_ROOT,

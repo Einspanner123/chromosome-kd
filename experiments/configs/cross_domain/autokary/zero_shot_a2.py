@@ -1,4 +1,4 @@
-"""跨域 Zero-shot 评估: LDMDet A2 (RF+Heun+AdaLN) on AutoKary
+"""跨域 Zero-shot 评估: LDMDet +AdaLN-Zero (RF+Heun+AdaLN) on AutoKary
 
 源域: 24obj (mAP=0.856)
 目标域: AutoKary test set (无微调)
@@ -45,7 +45,7 @@ vis_backends = [
         init_kwargs=dict(
             project='cross-domain-autokary',
             experiment_name='zero_shot_a2',
-            description='Zero-shot: LDMDet A2 (24obj-trained) on AutoKary test',
+            description='Zero-shot: LDMDet +AdaLN-Zero (24obj-trained) on AutoKary test',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

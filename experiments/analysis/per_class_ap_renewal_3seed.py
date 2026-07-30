@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Per-class AP analysis: box_renewal ON vs OFF × 3 seeds (Dataset 2 / 24obj).
 
-Runs inference on A3 (a4_dpm_pp_24obj) checkpoints with box_renewal toggled
+Runs inference on +Stoch. Coupling (a4_dpm_pp_24obj) checkpoints with box_renewal toggled
 on/off and produces:
   - per-class AP @ IoU=0.5:0.95 (and AP@0.5, AP@0.75) for each (condition, seed)
   - mean ± std per condition across 3 seeds
   - paired Wilcoxon signed-rank tests on per-class AP
   - JSON dump with raw + aggregate results
-  - focus on small classes (Y, G22, F19, F20) vs large classes (A1, A2, A3)
+  - focus on small classes (Y, G22, F19, F20) vs large classes (RF+Heun, +AdaLN-Zero, +Stoch. Coupling)
 
 Background:
   - D3 log-based analysis (r1_eta_str_a3_seed{42,123,789}{,_noRenewal}.log)
@@ -15,7 +15,7 @@ Background:
     mean Δ=-0.0024 vs large classes +0.0008. This script re-runs inference
     with strict COCO AP@0.5:0.95 (not the mmengine classwise metric) to
     verify whether box_renewal significantly affects small-class AP.
-  - A3 checkpoints (a4_dpm_pp_24obj, DPM-Solver++ 4-step) are the same
+  - +Stoch. Coupling checkpoints (a4_dpm_pp_24obj, DPM-Solver++ 4-step) are the same
     checkpoints used in the D3 log analysis.
   - seed 42 checkpoint lives in work_dirs/a4_dpm_pp_24obj/ (not multi_seed/).
 
@@ -112,7 +112,7 @@ CONDITIONS = [
 
 SEEDS = [42, 123, 789]
 
-# A3 (a4_dpm_pp_24obj) checkpoint + config paths per seed.
+# +Stoch. Coupling (a4_dpm_pp_24obj) checkpoint + config paths per seed.
 # seed 42 lives in work_dirs/a4_dpm_pp_24obj/ (not multi_seed/);
 # seeds 123/789 live in work_dirs/multi_seed/a4_dpm_pp_24obj/seed_{N}/.
 A3_PATHS = {
@@ -153,7 +153,7 @@ def _resolve(path: str | Path) -> Path:
 def _load_config_safe(config_path: Path) -> Config:
     """Load config with custom_imports handling.
 
-    A3 multi_seed configs already use 'experiments.mmdet_bridge.*' imports
+    +Stoch. Coupling multi_seed configs already use 'experiments.mmdet_bridge.*' imports
     (verified 2026-07-20), so no string replace is needed. We still go through
     a temp file to allow optional future overrides without mutating source.
     """
@@ -395,7 +395,7 @@ def main():
             if seed not in args.seeds:
                 continue
             if seed not in A3_PATHS:
-                print(f'[MISS] {cond_name} seed{seed}: no A3 checkpoint path configured')
+                print(f'[MISS] {cond_name} seed{seed}: no +Stoch. Coupling checkpoint path configured')
                 continue
             config_rel, ckpt_rel = A3_PATHS[seed]
             config_path = _resolve(config_rel)
@@ -658,7 +658,7 @@ def main():
                '**' if p < 0.01 else
                '*' if p < 0.05 else
                'n.s.')
-        print(f'  Large classes (A1/A2/A3):      Δ mean={mean_delta:+.4f}  W={stat:.1f}  p={p:.4e}  {sig}')
+        print(f'  Large classes (RF+Heun/+AdaLN-Zero/+Stoch. Coupling):      Δ mean={mean_delta:+.4f}  W={stat:.1f}  p={p:.4e}  {sig}')
     print()
 
     # ---- Save final JSON ----
@@ -677,7 +677,7 @@ def main():
         'note': (
             'box_renewal is an inference-time mechanism (head.py line 708). '
             'Setting box_renewal=False returns raw sampler output without '
-            'refinement. Both conditions use the SAME A3 checkpoints; only the '
+            'refinement. Both conditions use the SAME +Stoch. Coupling checkpoints; only the '
             'inference config differs.'
         ),
         'results': {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# 等待 DINO R50 训练完成 (PID 3096621) 后自动启动 D1 A4 seed789 训练
+# 等待 DINO R50 训练完成 (PID 3096621) 后自动启动 D1 +DPM-Solver++ seed789 训练
 # 在 ross A6000 上运行, 预计 DINO R50 早停后 ~5h 完成 seed789
 #
 # 用法: nohup bash experiments/runners/wait_and_start_seed789.sh > /tmp/wait_seed789.log 2>&1 &
@@ -38,7 +38,7 @@ if [ "$GPU0_USED" -gt 1000 ]; then
     sleep 60
 fi
 
-echo "[$(date)] 启动 D1 A4 seed${SEED} 训练..."
+echo "[$(date)] 启动 D1 +DPM-Solver++ seed${SEED} 训练..."
 echo "[$(date)] Config: $CONFIG"
 echo "[$(date)] Python: $PYTHON"
 

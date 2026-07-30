@@ -1,9 +1,9 @@
-"""A4 + IO3 推理评估 — K=300 (在 A4 DPM-Solver++ checkpoint 上直接评估, 不训练)
+"""+DPM-Solver++ + IO3 推理评估 — K=300 (在 +DPM-Solver++ checkpoint 上直接评估, 不训练)
 
-目的: 测试 A4 (DPM-Solver++) 叠加 Top-K 剪枝 K=300 的 mAP 与速度
+目的: 测试 +DPM-Solver++ (DPM-Solver++) 叠加 Top-K 剪枝 K=300 的 mAP 与速度
 方法: 加载 a4_dpm_pp checkpoint, 推理时启用 topk_pruning K=300
-理论: A4 每步 1 次模型调用 (vs Heun 2 次), 叠加 K=300 后续步 Self-Attn 加速 2.8x
-预期: mAP 下降 <0.003, 延迟显著低于 A4 单独 (75ms)
+理论: +DPM-Solver++ 每步 1 次模型调用 (vs Heun 2 次), 叠加 K=300 后续步 Self-Attn 加速 2.8x
+预期: mAP 下降 <0.003, 延迟显著低于 +DPM-Solver++ 单独 (75ms)
 
 组合卖点: 精度+速度双收益的进一步加速
 """
@@ -28,7 +28,7 @@ test_evaluator = dict(
     _delete_=True,
 )
 
-# IO3: Top-K 剪枝 K=300 (在 A4 DPM-Solver++ 基础上)
+# IO3: Top-K 剪枝 K=300 (在 +DPM-Solver++ 基础上)
 model = dict(
     bbox_head=dict(
         topk_pruning_enabled=True,

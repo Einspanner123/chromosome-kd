@@ -18,12 +18,12 @@
   - vs scale_aware_loss: LVD-RF 不引入尺度先验, 训推一致
 
 训练:
-  - 从 A4 best checkpoint 微调 (load_from)
+  - 从 +DPM-Solver++ best checkpoint 微调 (load_from)
   - 50 epoch, lr=1e-5 (与 AAC 微调配置对齐)
   - 5 epoch linear warmup + cosine annealing
-  - mmengine load_from 默认 strict=False: A4 权重加载, LVD 无新参数 (纯损失项)
+  - mmengine load_from 默认 strict=False: +DPM-Solver++ 权重加载, LVD 无新参数 (纯损失项)
 
-对照: A4 (DPM-Solver++, 无方向正则) → 验证 Lyapunov 方向约束效果
+对照: +DPM-Solver++ (DPM-Solver++, 无方向正则) → 验证 Lyapunov 方向约束效果
 预期 (R2 确认): mAP +0.002~+0.007; mAP_75 +0.001~+0.004; Y AP +0.002~+0.010
 判据 (Phase 1): cos_sim_mean > 0.90 且 η_str 较 baseline 下降 > 20% 且 val/mAP ≥ 0.863
 
@@ -44,8 +44,8 @@ model = dict(
     ),
 )
 
-# === 从 A4 checkpoint 微调 ===
-# LVD-RF 无新可学习参数 (纯损失项), load_from 直接加载 A4 全部权重
+# === 从 +DPM-Solver++ checkpoint 微调 ===
+# LVD-RF 无新可学习参数 (纯损失项), load_from 直接加载 +DPM-Solver++ 全部权重
 load_from = 'work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth'
 
 # === 微调训练计划 (50 epoch, lr=1e-5) ===
@@ -80,7 +80,7 @@ vis_backends = [
         init_kwargs=dict(
             project='ldmdet-mainline-ablation-24obj',
             experiment_name='lvd_rf_sin2',
-            description='24obj LVD-RF Phase 1: Lyapunov Velocity Direction Regularization (sin², λ=0.1) | 从 A4 微调 50ep | bs=2, lr=1e-5',
+            description='24obj LVD-RF Phase 1: Lyapunov Velocity Direction Regularization (sin², λ=0.1) | 从 +DPM-Solver++ 微调 50ep | bs=2, lr=1e-5',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

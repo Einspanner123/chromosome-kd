@@ -1,4 +1,4 @@
-"""A4 + IO3 推理评估 — K=150 (边界探索, 在 A4 DPM-Solver++ checkpoint 上直接评估)
+"""+DPM-Solver++ + IO3 推理评估 — K=150 (边界探索, 在 +DPM-Solver++ checkpoint 上直接评估)
 
 目的: 探索 renewal OFF 开始退化的 K 阈值 (100 < K_threshold < 200)
 方法: 加载 a4_dpm_pp checkpoint, 推理时启用 topk_pruning K=150

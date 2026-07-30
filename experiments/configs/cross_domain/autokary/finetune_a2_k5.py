@@ -1,11 +1,11 @@
-"""跨域 Few-shot 微调: LDMDet A2 (RF+Heun+AdaLN, Random coupling) on AutoKary k=5
+"""跨域 Few-shot 微调: LDMDet +AdaLN-Zero (RF+Heun+AdaLN, Random coupling) on AutoKary k=5
 
 源域: 24obj (mAP=0.856)
 目标域: AutoKary k=5 (5 images, 228 anns, 24 classes)
 checkpoint: work_dirs/a2_rf_heun_adaln_24obj/best_coco_bbox_mAP_epoch_82.pth
 
 理论对比:
-  - A2 (Random+AdaLN) vs A3 (StochOT+AdaLN): 验证 StochOT 在少样本下的效果
+  - +AdaLN-Zero (Random+AdaLN) vs +Stoch. Coupling (StochOT+AdaLN): 验证 StochOT 在少样本下的效果
   - AdaLN-Zero 零初始化保护预训练特征 → 理论预测少样本下应有优势
 
 Usage:
@@ -94,7 +94,7 @@ vis_backends = [
         init_kwargs=dict(
             project='cross-domain-autokary',
             experiment_name='finetune_a2_k5',
-            description='Few-shot k=5: LDMDet A2 (Random+AdaLN) 24obj→AutoKary | lr=5e-6, 50ep',
+            description='Few-shot k=5: LDMDet +AdaLN-Zero (Random+AdaLN) 24obj→AutoKary | lr=5e-6, 50ep',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

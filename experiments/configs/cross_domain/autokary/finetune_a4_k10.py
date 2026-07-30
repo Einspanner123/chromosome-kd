@@ -1,4 +1,4 @@
-"""跨域 Few-shot 微调: LDMDet A4 (RF+DPM++AdaLN+StochOT) on AutoKary k=10
+"""跨域 Few-shot 微调: LDMDet +DPM-Solver++ (RF+DPM++AdaLN+StochOT) on AutoKary k=10
 
 源域: 24obj
 目标域: AutoKary k=10 (10 images, 455 anns, 24 classes)
@@ -89,7 +89,7 @@ vis_backends = [
         init_kwargs=dict(
             project='cross-domain-autokary',
             experiment_name='finetune_a4_k10',
-            description='Few-shot k=10: LDMDet A4 (StochOT+DPM++) 24obj→AutoKary | lr=5e-6, 50ep',
+            description='Few-shot k=10: LDMDet +DPM-Solver++ (StochOT+DPM++) 24obj→AutoKary | lr=5e-6, 50ep',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

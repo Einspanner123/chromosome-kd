@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """D1 消融实验: RoI 空间信息贡献度验证 (零成本推理)
 
-在 A4 checkpoint 上对比:
+在 +DPM-Solver++ checkpoint 上对比:
   1. Baseline: RoIAlign 7×7 原始空间特征 (有空间信息)
   2. Ablation: RoIAlign 7×7 → 空间平均池化 → 广播回 7×7 (抹平空间信息)
 

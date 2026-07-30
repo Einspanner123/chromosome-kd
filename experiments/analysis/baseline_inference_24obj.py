@@ -10,7 +10,7 @@ Background:
   - The user's paper_draft_CN.md §1.2 originally claimed "RF vs DINO R50/
     RTMDet-L on small-object AP_S paired Wilcoxon test showed no significant
     difference (Table 8)". This is a FACTUAL ERROR — Table 8 only covers
-    RF's own variants (A3 vs A2, etc.), not cross-method comparisons.
+    RF's own variants (e.g. +Stoch. Coupling vs +AdaLN-Zero), not cross-method comparisons.
   - To rectify this, we re-run RTMDet-L and Cascade R-CNN on Dataset 2 val
     (500 imgs) and produce per-image AP for paired tests.
   - DINO R50 checkpoint has been LOST (only metrics.json remains in

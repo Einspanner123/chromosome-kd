@@ -6,9 +6,9 @@
   eta_str 大表示学习轨迹非直线, DPM-Solver++ 二阶校正生效
 
 实验目的:
-  1. 验证 A3 (DPM-Solver++) 在 4 步推理下的 eta_str 分布
+  1. 验证 +Stoch. Coupling (DPM-Solver++) 在 4 步推理下的 eta_str 分布
   2. 验证 "2 步收敛" 的定量解释: 是否 eta_str^(2) 已接近 0
-  3. 比较 A1 (Heun) 和 A3 (DPM-Solver++) 的 eta_str (前者不通过 DPM 框架)
+  3. 比较 RF+Heun (Heun) 和 +Stoch. Coupling (DPM-Solver++) 的 eta_str (前者不通过 DPM 框架)
   4. 比较 box_renewal on/off 下的 eta_str (验证 D3 矛盾: renewal 是否污染 eta_str)
 
 Usage:

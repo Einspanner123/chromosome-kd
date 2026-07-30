@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
-"""Per-class AP analysis: RF+Heun (A1) vs DDPM (A0) × seeds (Dataset 2 / 24obj).
+"""Per-class AP analysis: RF+Heun (RF+Heun) vs DDPM (DDPM baseline) × seeds (Dataset 2 / 24obj).
 
-Runs inference on A0 (DDPM baseline) and A1 (RF+Heun) checkpoints and produces:
+Runs inference on DDPM baseline (DDPM baseline) and RF+Heun (RF+Heun) checkpoints and produces:
   - per-class AP @ IoU=0.5:0.95 (and AP@0.5, AP@0.75) for each (method, seed)
   - mean ± std per method across seeds
   - paired Wilcoxon signed-rank tests on per-class AP
   - JSON dump with raw + aggregate results
-  - focus on small classes (Y, G22, F19, F20) vs large classes (A1, A2, A3)
+  - focus on small classes (Y, G22, F19, F20) vs large classes (RF+Heun, +AdaLN-Zero, +Stoch. Coupling)
 
 Background:
-  - A0/A1 training-log analysis showed A1 (RF+Heun) significantly outperforms
-    A0 (DDPM): bbox_mAP Δ=+0.091, bbox_mAP_75 Δ=+0.052 (2 seeds: 123, 789).
+  - DDPM baseline / RF+Heun training-log analysis showed RF+Heun significantly outperforms
+    DDPM baseline: bbox_mAP Δ=+0.091, bbox_mAP_75 Δ=+0.052 (2 seeds: 123, 789).
     Small classes (Y/G22/F19/F20) had mean Δ=+0.071 vs large classes
-    (A1/A2/A3) +0.056. This script re-runs inference with strict COCO
+    (RF+Heun/+AdaLN-Zero/+Stoch. Coupling) +0.056. This script re-runs inference with strict COCO
     AP@0.5:0.95 to verify the per-class improvement pattern.
-  - seed 42 A0/A1 checkpoints are on the ross server and may not be locally
+  - seed 42 DDPM baseline / RF+Heun checkpoints are on the ross server and may not be locally
     available; default seeds are [123, 789]. Pass --seeds 42 123 789 to
     include seed 42 if checkpoints have been synced.
-  - A0 (a0_baseline_24obj): DDPM 1-step Euler, no RF, no AdaLN, no StochOT.
-  - A1 (a1_rf_heun_24obj): +RF +Heun 4-step, no AdaLN, no StochOT.
+  - DDPM baseline (a0_baseline_24obj): DDPM 1-step Euler, no RF, no AdaLN, no StochOT.
+  - RF+Heun (a1_rf_heun_24obj): +RF +Heun 4-step, no AdaLN, no StochOT.
 
 Inference-side note:
   - No special config modification is needed. Each method loads its own
@@ -104,15 +104,15 @@ LARGE_CLASSES = ['A1', 'A2', 'A3']
 
 # 2 methods: (display_name, method_key)
 METHODS = [
-    ('A0 (DDPM)', 'a0'),
-    ('A1 (RF+Heun)', 'a1'),
+    ('DDPM baseline (DDPM)', 'a0'),
+    ('RF+Heun (RF+Heun)', 'a1'),
 ]
 
-# Default seeds: seed 42 A0/A1 checkpoints are on ross server.
+# Default seeds: seed 42 DDPM baseline/RF+Heun checkpoints are on ross server.
 # Locally available: seeds 123, 789.
 DEFAULT_SEEDS = [123, 789]
 
-# A0 (DDPM baseline) checkpoint + config paths per seed.
+# DDPM baseline (DDPM baseline) checkpoint + config paths per seed.
 A0_PATHS = {
     123: (
         'work_dirs/multi_seed/a0_baseline_24obj_multiseed_20260718_003700/seed_123/a0_baseline_24obj_multiseed.py',
@@ -129,7 +129,7 @@ A0_PATHS = {
     # ),
 }
 
-# A1 (RF+Heun) checkpoint + config paths per seed.
+# RF+Heun (RF+Heun) checkpoint + config paths per seed.
 A1_PATHS = {
     123: (
         'work_dirs/multi_seed/a1_rf_heun_24obj_multiseed_20260718_044730/seed_123/a1_rf_heun_24obj_multiseed.py',
@@ -171,7 +171,7 @@ def _resolve(path: str | Path) -> Path:
 def _load_config_safe(config_path: Path) -> Config:
     """Load config with custom_imports handling.
 
-    A0/A1 multi_seed configs already use 'experiments.mmdet_bridge.*' imports
+    DDPM baseline/RF+Heun multi_seed configs already use 'experiments.mmdet_bridge.*' imports
     (verified 2026-07-20), so no string replace is needed. We still go through
     a temp file to allow optional future overrides without mutating source.
     """
@@ -356,7 +356,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--methods', nargs='+',
-        default=['A0 (DDPM)', 'A1 (RF+Heun)'],
+        default=['DDPM baseline (DDPM)', 'RF+Heun (RF+Heun)'],
         help='Subset of methods to run (default: both)')
     parser.add_argument(
         '--seeds', nargs='+', type=int, default=DEFAULT_SEEDS,
@@ -373,7 +373,7 @@ def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     print('=' * 100)
-    print('Per-Class AP Analysis: RF+Heun (A1) vs DDPM (A0) × Seeds (Dataset 2 / 24obj)')
+    print('Per-Class AP Analysis: RF+Heun (RF+Heun) vs DDPM (DDPM baseline) × Seeds (Dataset 2 / 24obj)')
     print('=' * 100)
     print(f'Device: {DEVICE}')
     print(f'Annotation: {ANN_FILE}')
@@ -489,7 +489,7 @@ def main():
     header = f'{"Class":>5} {"Group":<14}'
     for m in method_order:
         header += f' {m:>26} mean±std'
-    header += f' {"Δ(A1-A0)":>14}'
+    header += f' {"Δ(RF+Heun-DDPM baseline)":>14}'
     print(header)
     print('-' * 110)
 
@@ -518,7 +518,7 @@ def main():
             else:
                 row += f' {"N/A":>22}'
         if len(means) == 2:
-            delta = means['A1 (RF+Heun)'] - means['A0 (DDPM)']
+            delta = means['RF+Heun (RF+Heun)'] - means['DDPM baseline (DDPM)']
             row += f' {delta:>+14.4f}'
             delta_per_class[cls_name] = delta
         print(row)
@@ -544,14 +544,14 @@ def main():
             else:
                 row += f' {"N/A":>22}'
         if len(means) == 2:
-            delta = means['A1 (RF+Heun)'] - means['A0 (DDPM)']
+            delta = means['RF+Heun (RF+Heun)'] - means['DDPM baseline (DDPM)']
             row += f' {delta:>+14.4f}'
         print(row)
     print()
 
     # ---- Small vs large class focus ----
     print('=' * 110)
-    print('SMALL vs LARGE CLASS ANALYSIS (Δ = A1 (RF+Heun) - A0 (DDPM))')
+    print('SMALL vs LARGE CLASS ANALYSIS (Δ = RF+Heun (RF+Heun) - DDPM baseline (DDPM))')
     print('=' * 110)
     print(f'{"Group":<12} {"Classes":<28} {"Mean Δ":>10} {"Min Δ":>10} {"Max Δ":>10}')
     print('-' * 80)
@@ -569,7 +569,7 @@ def main():
     header = f'{"Class":>5} {"Group":<14}'
     for m in method_order:
         header += f' {m:>26} mean±std'
-    header += f' {"Δ(A1-A0)":>14}'
+    header += f' {"Δ(RF+Heun-DDPM baseline)":>14}'
     print(header)
     print('-' * 110)
     for cls_name in CLASS_NAMES:
@@ -590,21 +590,21 @@ def main():
             else:
                 row += f' {"N/A":>22}'
         if len(means) == 2:
-            delta = means['A1 (RF+Heun)'] - means['A0 (DDPM)']
+            delta = means['RF+Heun (RF+Heun)'] - means['DDPM baseline (DDPM)']
             row += f' {delta:>+14.4f}'
         print(row)
     print()
 
-    # ---- Paired Wilcoxon test: A1 vs A0 ----
+    # ---- Paired Wilcoxon test: RF+Heun vs DDPM baseline ----
     print('=' * 110)
-    print('Paired Wilcoxon Signed-Rank Test: A1 (RF+Heun) vs A0 (DDPM)')
+    print('Paired Wilcoxon Signed-Rank Test: RF+Heun (RF+Heun) vs DDPM baseline (DDPM)')
     print('(paired by seed × class; n = n_seeds × 24)')
     print('=' * 110)
     a1_vals = []
     a0_vals = []
     for seed in args.seeds:
-        a1_key = ('A1 (RF+Heun)', seed)
-        a0_key = ('A0 (DDPM)', seed)
+        a1_key = ('RF+Heun (RF+Heun)', seed)
+        a0_key = ('DDPM baseline (DDPM)', seed)
         if a1_key in results and a0_key in results:
             a1_ap = results[a1_key]['per_class_ap']
             a0_ap = results[a0_key]['per_class_ap']
@@ -624,8 +624,8 @@ def main():
     a1_small = []
     a0_small = []
     for seed in args.seeds:
-        a1_key = ('A1 (RF+Heun)', seed)
-        a0_key = ('A0 (DDPM)', seed)
+        a1_key = ('RF+Heun (RF+Heun)', seed)
+        a0_key = ('DDPM baseline (DDPM)', seed)
         if a1_key in results and a0_key in results:
             a1_ap = results[a1_key]['per_class_ap']
             a0_ap = results[a0_key]['per_class_ap']
@@ -645,8 +645,8 @@ def main():
     a1_large = []
     a0_large = []
     for seed in args.seeds:
-        a1_key = ('A1 (RF+Heun)', seed)
-        a0_key = ('A0 (DDPM)', seed)
+        a1_key = ('RF+Heun (RF+Heun)', seed)
+        a0_key = ('DDPM baseline (DDPM)', seed)
         if a1_key in results and a0_key in results:
             a1_ap = results[a1_key]['per_class_ap']
             a0_ap = results[a0_key]['per_class_ap']
@@ -660,13 +660,13 @@ def main():
                '**' if p < 0.01 else
                '*' if p < 0.05 else
                'n.s.')
-        print(f'  Large classes (A1/A2/A3):      Δ mean={mean_delta:+.4f}  W={stat:.1f}  p={p:.4e}  {sig}')
+        print(f'  Large classes (RF+Heun/+AdaLN-Zero/+Stoch. Coupling):      Δ mean={mean_delta:+.4f}  W={stat:.1f}  p={p:.4e}  {sig}')
     print()
 
     # ---- Save final JSON ----
     output_data = {
         'experiment': 'rf_vs_ddpm_per_class_ap_3seed',
-        'description': 'Per-class AP for A1 (RF+Heun) vs A0 (DDPM) × seeds on Dataset 2 (24obj)',
+        'description': 'Per-class AP for RF+Heun (RF+Heun) vs DDPM baseline (DDPM) × seeds on Dataset 2 (24obj)',
         'ann_file': ANN_FILE,
         'dataset': '24_chromosomes_object (valid)',
         'class_names': CLASS_NAMES,
@@ -680,11 +680,11 @@ def main():
             'a1': {str(k): {'config': v[0], 'checkpoint': v[1]} for k, v in A1_PATHS.items()},
         },
         'note': (
-            'A0 (a0_baseline_24obj): DDPM 1-step Euler, no RF, no AdaLN, no StochOT. '
-            'A1 (a1_rf_heun_24obj): +RF +Heun 4-step, no AdaLN, no StochOT. '
+            'DDPM baseline (a0_baseline_24obj): DDPM 1-step Euler, no RF, no AdaLN, no StochOT. '
+            'RF+Heun (a1_rf_heun_24obj): +RF +Heun 4-step, no AdaLN, no StochOT. '
             'No special config modification is needed; each method loads its own '
             'config which already specifies the correct sampler and timesteps. '
-            'seed 42 A0/A1 checkpoints are on ross server; default seeds [123, 789].'
+            'seed 42 DDPM baseline/RF+Heun checkpoints are on ross server; default seeds [123, 789].'
         ),
         'results': {
             f'{m}__seed{seed}': {

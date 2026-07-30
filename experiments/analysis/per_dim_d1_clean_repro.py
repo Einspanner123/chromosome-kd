@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """per-dim D1 掩码干净重评 (2026-07-29)
 
-在 A4 checkpoint 上, 通过 dim_d1_mask 机制 (基类 RFDPMSolverMultistep,
+在 +DPM-Solver++ checkpoint 上, 通过 dim_d1_mask 机制 (基类 RFDPMSolverMultistep,
 兼容 renewal_mask) 测试 4 种配置, 干净回答两个问题:
 
   Q1: DPM-Solver++ 是否更适合中心 (cx/cy) 预测?
@@ -24,7 +24,7 @@
 
 与旧实验 (§九 RFDPMSolverPerDim / §六 缺失脚本) 的区别:
   - 使用基类 dim_d1_mask 路径, 与 renewal_mask (Path A) 兼容, 不崩溃
-  - box_renewal 保持 ON (与 A4 baseline 一致, 无混淆)
+  - box_renewal 保持 ON (与 +DPM-Solver++ baseline 一致, 无混淆)
   - 新增 per-dim L1 误差 (旧实验仅 mAP, 无法回答 Q1)
 
 Usage:
@@ -363,7 +363,7 @@ def main():
     print(f'Ann: {args.ann}')
     print(f'Device: {device}')
     print(f'时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
-    print(f'box_renewal: {"ON (A4 default)" if box_renewal else "OFF (干净隔离 D1 效果)"}')
+    print(f'box_renewal: {"ON (+DPM-Solver++ default)" if box_renewal else "OFF (干净隔离 D1 效果)"}')
     print()
 
     all_results = []

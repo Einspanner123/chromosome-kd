@@ -3,7 +3,7 @@
 
 确认去掉 box_renewal 在 Top-K 场景也不影响精度。
 
-测试矩阵 (seed42, A4 checkpoint, box_renewal OFF):
+测试矩阵 (seed42, +DPM-Solver++ checkpoint, box_renewal OFF):
   1. K=500 (no pruning)  — 对照 (已有 renewal ON=0.864, OFF=0.863)
   2. K=200              — 新数据 (renewal ON=0.862)
   3. K=300              — 新数据 (renewal ON=0.862)
@@ -29,7 +29,7 @@ if _PROJECT_ROOT not in sys.path:
 from experiments.analysis.per_dim_d1_clean_repro import run_config
 
 # 配置路径
-CONFIG_A4 = os.path.join(
+CONFIG_DPMPP = os.path.join(
     _PROJECT_ROOT,
     'experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_dpm_pp_24obj.py',
 )
@@ -74,7 +74,7 @@ def main():
     print()
 
     configs = [
-        ('K=500', CONFIG_A4),
+        ('K=500', CONFIG_DPMPP),
         ('K=200', CONFIG_K200),
         ('K=300', CONFIG_K300),
     ]

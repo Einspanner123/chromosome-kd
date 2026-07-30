@@ -13,7 +13,7 @@
     python experiments/analysis/test_eval_per_size.py \
         --config experiments/configs/ldmdet/a4_dpm_pp_chr2024.py \
         --checkpoint work_dirs/a4_dpm_pp_chr2024_seed42/best_coco_bbox_mAP_epoch_49.pth \
-        --dataset chr2024 --gpu 1 --label "D1 A4 DPM++ seed42"
+        --dataset chr2024 --gpu 1 --label "D1 KaryoFlow +DPM-Solver++ seed42"
 
     # 评估所有 D1 模型
     python experiments/analysis/test_eval_per_size.py --batch d1 --gpu 1
@@ -82,8 +82,8 @@ D1_MODELS = [
      'work_dirs/multi_seed_aug/ddpm/seed_42/diffusiondet_ddpm.py',
      'work_dirs/multi_seed_aug/ddpm/seed_789/best_coco_bbox_mAP_epoch_87.pth',
      'chr2024'),
-    # A4 DPM++ D1 seed42
-    ('D1 KaryoFlow A4 DPM++ seed42',
+    # +DPM-Solver++ D1 seed42
+    ('D1 KaryoFlow +DPM-Solver++ seed42',
      'experiments/configs/ldmdet/a4_dpm_pp_chr2024.py',
      'work_dirs/a4_dpm_pp_chr2024_seed42/best_coco_bbox_mAP_epoch_49.pth',
      'chr2024'),

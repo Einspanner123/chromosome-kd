@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """方向 A Phase 2: per-dim solver 对比实验 (零成本推理)
 
-在 A4 checkpoint 上对比 2 个 solver 的 mAP 和延迟:
-  1. dpm_solver_pp            (2 阶, A4 baseline, 全维度 2 阶)
+在 +DPM-Solver++ checkpoint 上对比 2 个 solver 的 mAP 和延迟:
+  1. dpm_solver_pp            (2 阶, +DPM-Solver++ baseline, 全维度 2 阶)
   2. dpm_solver_pp_per_dim    (per-dim: h=1阶 Euler, cx/cy/w=2阶 DPM-Solver++)
 
 无需重训练, 仅推理时修改 solver_type.
@@ -190,9 +190,9 @@ def main():
     parser = argparse.ArgumentParser(description='方向 A Phase 2: per-dim solver 对比')
     parser.add_argument(
         '--config', required=True,
-        help='A4 配置文件',
+        help='+DPM-Solver++ 配置文件',
     )
-    parser.add_argument('--checkpoint', required=True, help='A4 checkpoint')
+    parser.add_argument('--checkpoint', required=True, help='+DPM-Solver++ checkpoint')
     parser.add_argument('--ann', required=True, help='COCO 标注文件')
     parser.add_argument('--gpu', type=int, default=0, help='GPU ID')
     parser.add_argument(
@@ -210,7 +210,7 @@ def main():
 
     # 2 个 solver 配置
     solvers = [
-        {'solver_type': 'dpm_solver_pp', 'label': 'DPM-Solver++ 2阶 (A4 baseline, 全维度2阶)'},
+        {'solver_type': 'dpm_solver_pp', 'label': 'DPM-Solver++ 2阶 (+DPM-Solver++ baseline, 全维度2阶)'},
         {'solver_type': 'dpm_solver_pp_per_dim', 'label': 'Per-dim (h=1阶, cxcy/w=2阶)'},
     ]
 

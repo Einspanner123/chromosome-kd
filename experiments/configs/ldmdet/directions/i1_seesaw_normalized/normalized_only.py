@@ -3,8 +3,8 @@
 目的: 隔离 NormalizedClassifier 的单独效果
 背景: i1_seesaw_normalized (SeesawLoss+NormalizedClassifier) 未达预期 (+0.005~0.010),
       最佳 mAP=0.7440 vs SOTA 3seed 平均 0.7450 (-0.0010)
-诊断: 数据集不平衡比仅 4.69:1 (A1=3253 vs Y=693), SeesawLoss 过度保护,
-      22 个均衡类间互相衰减梯度, 损害类间区分 (如 A1/A2/A3 同字母组细分)
+诊断: 数据集不平衡比仅 4.69:1 (RF+Heun=3253 vs Y=693), SeesawLoss 过度保护,
+      22 个均衡类间互相衰减梯度, 损害类间区分 (如 RF+Heun/+AdaLN-Zero/+Stoch. Coupling 同字母组细分)
 方案: 移除 SeesawLoss, 改回 FocalLoss, 只保留 NormalizedClassifier
 预期: 验证 NormalizedClassifier 单独效果 (+0.003~0.008 mAP)
 

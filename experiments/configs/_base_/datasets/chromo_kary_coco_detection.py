@@ -7,7 +7,7 @@ Anns:     48063 amodal bboxes + polygon segmentations
 Classes:  24 (category id 1-24; id 0 is a Roboflow supercat placeholder with 0 anns)
 
 Category id -> biological name correspondence (same as 24obj):
-    1=A1, 2=A2, 3=A3, 4=B4, 5=B5,
+    1=RF+Heun, 2=+AdaLN-Zero, 3=+Stoch. Coupling, 4=B4, 5=B5,
     6=C6, 7=C7, 8=C8, 9=C9, 10=C10, 11=C11, 12=C12,
     13=D13, 14=D14, 15=D15,
     16=E16, 17=E17, 18=E18,

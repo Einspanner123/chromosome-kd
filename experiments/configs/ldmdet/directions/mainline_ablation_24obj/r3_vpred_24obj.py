@@ -2,10 +2,10 @@
 
 理论依据: theory_analysis_RF_DPM.md §4 (R3)
 目的: 验证 v-prediction 在低维 RF + shifted schedule 下劣于 x0-prediction
-设置: 在 A4 baseline (DPM-Solver++ + RF + AdaLN + StochOT eps5) 基础上,
+设置: 在 +DPM-Solver++ baseline (DPM-Solver++ + RF + AdaLN + StochOT eps5) 基础上,
       在 criterion 中启用 v_prediction=True (1/t² 损失重加权)
-对照: A4 baseline (x0-prediction) → 验证命题 R3.2 (shifted schedule 下 x0-prediction 更优)
-预期: v-prediction mAP 低于 A4 (理论 doc §4.3 预测 t→0 时梯度放大 1/t² 加剧方差)
+对照: +DPM-Solver++ baseline (x0-prediction) → 验证命题 R3.2 (shifted schedule 下 x0-prediction 更优)
+预期: v-prediction mAP 低于 +DPM-Solver++ (理论 doc §4.3 预测 t→0 时梯度放大 1/t² 加剧方差)
 
 实现说明:
   - 不修改网络输出语义 (仍输出 x0_pred), 通过 1/t² 损失加权模拟 v-prediction 梯度动态

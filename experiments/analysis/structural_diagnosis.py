@@ -1,4 +1,4 @@
-"""结构诊断: 从 A3 checkpoint 提取真实内部数据验证瓶颈假设
+"""结构诊断: 从 +Stoch. Coupling checkpoint 提取真实内部数据验证瓶颈假设
 
 目的: 用实际推理数据 (而非代码推断) 验证 STRUCTURAL_IMPROVEMENT_ANALYSIS.md 中的 6 个瓶颈假设
 

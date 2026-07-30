@@ -52,7 +52,7 @@ D1_ANN = os.path.join(
 
 
 def find_d1_checkpoint(seed):
-    """根据 seed 自动查找 D1 A4 checkpoint.
+    """根据 seed 自动查找 D1 +DPM-Solver++ checkpoint.
 
     优先查找 best_coco_bbox_mAP_*.pth, 回退到 epoch_50.pth.
     """
@@ -83,8 +83,8 @@ D2_REF = {
 
 # D1 参考数据 (LINEAGE §三, seed42, renewal ON)
 D1_REF = {
-    'K=500_ON': {'mAP': 0.744, 'source': 'renewal_off_all_scenarios.json Dataset1_A4 ON'},
-    'K=500_OFF': {'mAP': 0.743, 'source': 'renewal_off_all_scenarios.json Dataset1_A4 OFF'},
+    'K=500_ON': {'mAP': 0.744, 'source': 'renewal_off_all_scenarios.json Dataset1 (+DPM-Solver++) ON'},
+    'K=500_OFF': {'mAP': 0.743, 'source': 'renewal_off_all_scenarios.json Dataset1 (+DPM-Solver++) OFF'},
 }
 
 

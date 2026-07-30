@@ -1,14 +1,14 @@
-"""Head Distillation 方案A: 解冻 backbone + 从 A4 加载 backbone/neck 权重
+"""Head Distillation 方案A: 解冻 backbone + 从 +DPM-Solver++ 加载 backbone/neck 权重
 
 目的: 修复 v2 (freeze_backbone=True) 训练不理想 (best mAP 0.711, 远低于判据 0.84) 的问题
 
 根因诊断 (2026-07-25):
   v2 冻结 Student backbone 在 ImageNet 预训练状态, 而 Teacher head 权重是在
-  A4 (染色体训练) backbone 特征上学习的 → 特征分布不匹配, 模型学习缓慢
+  +DPM-Solver++ (染色体训练) backbone 特征上学习的 → 特征分布不匹配, 模型学习缓慢
 
 方案A 修正:
   1. freeze_backbone=False — 解冻 backbone, 允许其适应 H=3 蒸馏任务
-  2. 从 A4 checkpoint 加载 backbone/neck 权重 (通过 detector.init_weights,
+  2. 从 +DPM-Solver++ checkpoint 加载 backbone/neck 权重 (通过 detector.init_weights,
      **不用 load_from** — load_from 会覆盖 init_student_from_teacher 的 head 映射)
   3. lr 5e-5 → 1e-5 (微调场景, 起点 ~最优)
   4. max_epoch 150 → 50 (微调收敛快)
@@ -21,8 +21,8 @@
   - coupling_mode='argmax' (确定性, 保证 proposal 对齐)
   - aux 权重 0.5
 
-Teacher: A4 DPM-Solver++ (mAP=0.863, H=6), 冻结, 仅 forward
-Student: H=3, 从 Teacher head 0/2/5 初始化 + backbone/neck 从 A4 加载
+Teacher: +DPM-Solver++ (mAP=0.863, H=6), 冻结, 仅 forward
+Student: H=3, 从 Teacher head 0/2/5 初始化 + backbone/neck 从 +DPM-Solver++ 加载
 
 SwanLab: 项目 'ldmdet-head-distill', 实验 'h3_distill_plan_a'
 work_dir: work_dirs/h3_distill_plan_a_24obj/ (新目录, 不覆盖 v2)
@@ -42,12 +42,12 @@ model = dict(
             coupling_mode='argmax',     # v2: 确定性 coupling
         ),
     ),
-    # Teacher: A4 checkpoint (detector.__init__ 构建 Teacher, init_weights 加载 backbone)
+    # Teacher: +DPM-Solver++ checkpoint (detector.__init__ 构建 Teacher, init_weights 加载 backbone)
     teacher_checkpoint='work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth',
 )
 
 # ⚠ 方案A 不使用 load_from — 会在 init_weights 后覆盖全部 state_dict,
-#   破坏 init_student_from_teacher 的 head 映射 (A4 head 1/2 错误覆盖 Student head 1/2)
+#   破坏 init_student_from_teacher 的 head 映射 (+DPM-Solver++ head 1/2 错误覆盖 Student head 1/2)
 #   backbone/neck 由 detector.init_weights._load_backbone_from_checkpoint 加载
 
 # === 微调训练计划 (50 epoch, lr=1e-5) ===
@@ -85,7 +85,7 @@ vis_backends = [
         init_kwargs=dict(
             project='ldmdet-head-distill',
             experiment_name='h3_distill_plan_a',
-            description='Head Distillation 方案A: H=3 蒸馏 A4, 解冻 backbone + 从 A4 加载 backbone/neck | lr=1e-5, 50ep, bs=2',
+            description='Head Distillation 方案A: H=3 蒸馏 +DPM-Solver++, 解冻 backbone + 从 +DPM-Solver++ 加载 backbone/neck | lr=1e-5, 50ep, bs=2',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

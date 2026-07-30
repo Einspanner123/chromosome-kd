@@ -20,14 +20,14 @@
 与已证伪方向的严格区分 (§5):
   - vs SeesawLoss/CBS: TRIP 由类几何统计驱动 (非类频率)
   - vs scale_aware_loss: TRIP 不引入尺度先验, 收缩因子由 MAP 导出
-  - vs ReFlow: TRIP 独立 (互斥 mode), 不依赖 A4 推理 coupling
+  - vs ReFlow: TRIP 独立 (互斥 mode), 不依赖 +DPM-Solver++ 推理 coupling
 
 训练:
-  - 从 A4 best checkpoint 微调 (load_from)
+  - 从 +DPM-Solver++ best checkpoint 微调 (load_from)
   - 50 epoch, lr=1e-5 (与 AAC/LVD 微调配置对齐)
   - 5 epoch linear warmup + cosine annealing
 
-对照: A4 (DPM-Solver++, 无目标收缩) → 验证 SNR 退化段正则化效果
+对照: +DPM-Solver++ (DPM-Solver++, 无目标收缩) → 验证 SNR 退化段正则化效果
 预期 (R2 确认): mAP +0.001~+0.005; Y AP +0.002~+0.010; η_str 下降 10~25%
 判据 (Phase 1): val/mAP ≥ 0.863 (不掉点) + trip_s_fg_mean 合理分布
 
@@ -49,8 +49,8 @@ model = dict(
     ),
 )
 
-# === 从 A4 checkpoint 微调 ===
-# TRIP 无新可学习参数 (仅改 target), load_from 直接加载 A4 全部权重
+# === 从 +DPM-Solver++ checkpoint 微调 ===
+# TRIP 无新可学习参数 (仅改 target), load_from 直接加载 +DPM-Solver++ 全部权重
 load_from = 'work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth'
 
 # === 微调训练计划 (50 epoch, lr=1e-5) ===
@@ -85,7 +85,7 @@ vis_backends = [
         init_kwargs=dict(
             project='ldmdet-mainline-ablation-24obj',
             experiment_name='trip_map',
-            description='24obj TRIP Phase 1: Tikhonov/MAP 收缩目标 (λ=t², 类条件先验) | 从 A4 微调 50ep | bs=2, lr=1e-5',
+            description='24obj TRIP Phase 1: Tikhonov/MAP 收缩目标 (λ=t², 类条件先验) | 从 +DPM-Solver++ 微调 50ep | bs=2, lr=1e-5',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

@@ -12,7 +12,7 @@ Two panels:
       (Cascade R-CNN / YOLOX-S / RTMDet-L / DINO R50) all have test mAP here.
       On the test set, KaryoFlow (+Stoch. Coupling, test mAP 0.740) matches
       frontier detectors DINO R50 (0.725, completed 150ep) and RTMDet-L
-      (0.732), and wins on 15/24 per-class AP — advantages concentrated on
+      (0.732), and outperforms both standard detectors on 15/24 per-class AP — advantages concentrated on
       small chromosomes (E/F/G) and sex chromosomes (X/Y), the clinically
       highest-risk categories. This supports the claim that diffusion-based
       detectors match frontier detectors under data scarcity, with structural
@@ -114,7 +114,7 @@ LABEL_OFFSET_D2 = {
 # "Random (RF)" is the coupling-ablation point showing OT diversity collapse
 # (0.713, below DDPM baseline 0.729). KaryoFlow (+Stoch. Coupling) matches
 # DINO R50 / RTMDet-L on overall test mAP (0.740 vs 0.725/0.732) and wins on
-# 15/24 per-class AP, with advantages concentrated on small chromosomes (E/F/G)
+# 15/24 per-class AP (outperforms both DINO R50 and RTMDet-L), with advantages concentrated on small chromosomes (E/F/G)
 # and sex chromosomes (X/Y) — the clinically highest-risk categories.
 # FPS reuses the architecturally-matched Dataset 2 measurement (see docstring).
 # mAP values: test set (220 images), sourced from test_eval_per_size_20260730_204840.json

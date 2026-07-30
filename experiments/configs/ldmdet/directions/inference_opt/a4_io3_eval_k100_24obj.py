@@ -1,9 +1,9 @@
-"""A4 + IO3 推理评估 — K=100 (在 A4 DPM-Solver++ checkpoint 上直接评估, 不训练)
+"""+DPM-Solver++ + IO3 推理评估 — K=100 (在 +DPM-Solver++ checkpoint 上直接评估, 不训练)
 
-目的: 探索 A4 (DPM-Solver++) 叠加激进 Top-K 剪枝 K=100 的边界
+目的: 探索 +DPM-Solver++ (DPM-Solver++) 叠加激进 Top-K 剪枝 K=100 的边界
 方法: 加载 a4_dpm_pp checkpoint, 推理时启用 topk_pruning K=100
-理论: A4 每步 1 次模型调用, 叠加 K=100 后续步 Self-Attn 加速 25x
-风险: A3+K100 训练时 mAP=0.823 (-0.035), 但 A4 基线更高 (0.863), 推理评估可能不同
+理论: +DPM-Solver++ 每步 1 次模型调用, 叠加 K=100 后续步 Self-Attn 加速 25x
+风险: +Stoch. Coupling+K100 训练时 mAP=0.823 (-0.035), 但 +DPM-Solver++ 基线更高 (0.863), 推理评估可能不同
 
 组合卖点: 极限速度探索, 验证 DPM-Solver++ 对剪枝的鲁棒性
 """
@@ -28,7 +28,7 @@ test_evaluator = dict(
     _delete_=True,
 )
 
-# IO3: Top-K 剪枝 K=100 (在 A4 DPM-Solver++ 基础上, 激进探索)
+# IO3: Top-K 剪枝 K=100 (在 +DPM-Solver++ 基础上, 激进探索)
 model = dict(
     bbox_head=dict(
         topk_pruning_enabled=True,

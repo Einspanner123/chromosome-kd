@@ -1,7 +1,7 @@
 """诊断 H3 Distill: 直接测试 init_student_from_teacher + init_weights 覆盖
 
 绕过完整 model 构建 (避免 DetDataPreprocessor 注册问题),
-直接构建 Student/Teacher head, 手动加载 A4 checkpoint, 验证:
+直接构建 Student/Teacher head, 手动加载 +DPM-Solver++ checkpoint, 验证:
 1. init_student_from_teacher 是否把 Teacher head 权重复制到 Student
 2. mmengine init_weights 是否会覆盖 (Student head 是 nn.Module, 应该不会)
 """
@@ -40,7 +40,7 @@ def main():
             num_classes=24,
             feat_channels=256,
             num_cls_convs=1,
-            num_reg_convs=3,  # 与 A4 配置一致 (ldmdet_baseline.py)
+            num_reg_convs=3,  # 与 +DPM-Solver++ 配置一致 (ldmdet_baseline.py)
             use_focal_loss=True,
             use_normalized_classifier=False,
             time_conditioning='adaln_zero',
@@ -70,8 +70,8 @@ def main():
     print(f'  Student head_series 数量: {len(student.head_series)}')
     print(f'  Teacher head_series 数量: {len(teacher.head_series)}')
 
-    # 2. 加载 A4 checkpoint 到 Teacher
-    print(f'\n[2] 加载 A4 checkpoint 到 Teacher: {args.teacher_ckpt}')
+    # 2. 加载 +DPM-Solver++ checkpoint 到 Teacher
+    print(f'\n[2] 加载 +DPM-Solver++ checkpoint 到 Teacher: {args.teacher_ckpt}')
     if not os.path.exists(args.teacher_ckpt):
         print(f'  ✗ 文件不存在!')
         return

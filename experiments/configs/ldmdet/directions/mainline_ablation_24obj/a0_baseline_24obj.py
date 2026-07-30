@@ -1,4 +1,4 @@
-"""24obj 主路线消融实验 A0: Baseline (纯 DiffusionDet, 无 RF)
+"""24obj 主路线消融实验 DDPM baseline: Baseline (纯 DiffusionDet, 无 RF)
 
 目的: 在 24obj 完整实例标注数据集上建立基线
 背景: original 数据集使用 visible-only 标注 (48% 图片框数>46),
@@ -12,9 +12,9 @@
   - 默认 coupling (random)
 
 对照:
-  - A1: +RF+Heun (验证 RF+Heun 效果)
-  - A2: +RF+Heun+AdaLN (验证 AdaLN 效果)
-  - A3: +RF+Heun+AdaLN+StochOT eps5 (完整 SOTA)
+  - RF+Heun: +RF+Heun (验证 RF+Heun 效果)
+  - +AdaLN-Zero: +RF+Heun+AdaLN (验证 AdaLN 效果)
+  - +Stoch. Coupling: +RF+Heun+AdaLN+StochOT eps5 (完整 SOTA)
 
 SwanLab: 项目 'ldmdet-mainline-ablation-24obj', 实验 'a0_baseline'
 """
@@ -78,7 +78,7 @@ vis_backends = [
         init_kwargs=dict(
             project='ldmdet-mainline-ablation-24obj',
             experiment_name='a0_baseline',
-            description='24obj 主路线消融 A0: Baseline (无RF, Euler 1步) | bs=4, 150ep',
+            description='24obj 主路线消融 DDPM baseline: Baseline (无RF, Euler 1步) | bs=4, 150ep',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

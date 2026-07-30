@@ -1,6 +1,6 @@
-"""24obj 主路线消融实验 A1: +RF+Heun (验证 RF+Heun 效果)
+"""24obj 主路线消融实验 RF+Heun: +RF+Heun (验证 RF+Heun 效果)
 
-目的: 在 A0 baseline 基础上添加 Rectified Flow + Heun 采样器
+目的: 在 DDPM baseline baseline 基础上添加 Rectified Flow + Heun 采样器
 组件:
   + diffusion_type='rectified_flow'
   + solver_type='heun', sampling_timesteps=4
@@ -8,7 +8,7 @@
   - 无 AdaLN (默认 time_conditioning)
   - 无 StochOT (默认 random coupling)
 
-对照: A0 baseline (无 RF) → 验证 RF+Heun 的增益
+对照: DDPM baseline baseline (无 RF) → 验证 RF+Heun 的增益
 
 SwanLab: 项目 'ldmdet-mainline-ablation-24obj', 实验 'a1_rf_heun'
 """
@@ -65,7 +65,7 @@ vis_backends = [
         init_kwargs=dict(
             project='ldmdet-mainline-ablation-24obj',
             experiment_name='a1_rf_heun',
-            description='24obj 主路线消融 A1: +RF+Heun (shifted, 4步) | bs=8, 150ep',
+            description='24obj 主路线消融 RF+Heun: +RF+Heun (shifted, 4步) | bs=8, 150ep',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

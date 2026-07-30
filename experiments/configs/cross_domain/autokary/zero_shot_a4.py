@@ -1,4 +1,4 @@
-"""跨域 Zero-shot 评估: LDMDet A4 (DPM-Solver++) on AutoKary
+"""跨域 Zero-shot 评估: LDMDet +DPM-Solver++ (DPM-Solver++) on AutoKary
 
 源域: 24obj (mAP=0.863)
 目标域: AutoKary test set (无微调)
@@ -46,7 +46,7 @@ vis_backends = [
         init_kwargs=dict(
             project='cross-domain-autokary',
             experiment_name='zero_shot_a4',
-            description='Zero-shot: LDMDet A4 (24obj-trained) on AutoKary test',
+            description='Zero-shot: LDMDet +DPM-Solver++ (24obj-trained) on AutoKary test',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

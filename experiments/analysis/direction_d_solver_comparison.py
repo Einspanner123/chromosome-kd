@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """方向 D: DPM-Solver++ 阶次对比实验 (零成本推理)
 
-在 A4 checkpoint 上对比 3 个 solver 的 mAP 和延迟:
-  1. dpm_solver_pp     (2 阶, A4 baseline)
+在 +DPM-Solver++ checkpoint 上对比 3 个 solver 的 mAP 和延迟:
+  1. dpm_solver_pp     (2 阶, +DPM-Solver++ baseline)
   2. dpm_solver_pp_3   (3 阶, 全程 3 阶)
   3. dpm_solver_pp_adaptive (自适应: 前 2 步 3 阶 + 后 2 步 2 阶)
 
@@ -191,9 +191,9 @@ def main():
     parser = argparse.ArgumentParser(description='方向 D: DPM-Solver++ 阶次对比')
     parser.add_argument(
         '--config', required=True,
-        help='A4 配置文件',
+        help='+DPM-Solver++ 配置文件',
     )
-    parser.add_argument('--checkpoint', required=True, help='A4 checkpoint')
+    parser.add_argument('--checkpoint', required=True, help='+DPM-Solver++ checkpoint')
     parser.add_argument('--ann', required=True, help='COCO 标注文件')
     parser.add_argument('--gpu', type=int, default=0, help='GPU ID')
     parser.add_argument(
@@ -211,7 +211,7 @@ def main():
 
     # 3 个 solver 配置
     solvers = [
-        {'solver_type': 'dpm_solver_pp', 'label': 'DPM-Solver++ 2阶 (A4 baseline)'},
+        {'solver_type': 'dpm_solver_pp', 'label': 'DPM-Solver++ 2阶 (+DPM-Solver++ baseline)'},
         {'solver_type': 'dpm_solver_pp_3', 'label': 'DPM-Solver++ 3阶 (全程3阶)'},
         {
             'solver_type': 'dpm_solver_pp_adaptive',

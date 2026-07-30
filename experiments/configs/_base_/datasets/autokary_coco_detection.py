@@ -3,7 +3,7 @@
 跨域评估目标数据集:
   - 源域: 24_chromosomes_object (24obj)
   - 目标域: AutoKary2022 (autokary)
-  - 类别: 24 类染色体 (A1-Y), 与 24obj 相同的 category id 映射
+  - 类别: 24 类染色体 (RF+Heun-Y), 与 24obj 相同的 category id 映射
   - 分辨率: 2048x1408
   - 标注: amodal (one bbox per chromosome)
 """

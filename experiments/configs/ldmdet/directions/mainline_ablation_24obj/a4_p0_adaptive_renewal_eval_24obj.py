@@ -1,6 +1,6 @@
-"""A4 + P0 自适应阈值 box_renewal 评估配置
+"""+DPM-Solver++ + P0 自适应阈值 box_renewal 评估配置
 
-用途: 在 A4 DPM-Solver++ checkpoint 上验证 P0 自适应阈值效果
+用途: 在 +DPM-Solver++ checkpoint 上验证 P0 自适应阈值效果
 基础: a4_dpm_pp_24obj.py, 仅添加 adaptive_renewal_threshold=True
 对比: 与 a4_dpm_pp_24obj.py (固定阈值 score_thr=0.05) 对比
 

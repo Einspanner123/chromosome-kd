@@ -8,7 +8,7 @@
           对比: 固定 3 阶 vs 固定 2 阶的 mAP 差异
 
 输入:
-  - A4 checkpoint (work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth)
+  - +DPM-Solver++ checkpoint (work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth)
   - 24obj val set (data/24_chromosomes_object/coco/valid/)
 
 输出:

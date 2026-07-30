@@ -1,4 +1,4 @@
-"""跨域 Zero-shot 评估: LDMDet A4 (DPM-Solver++) on Chromosome20240904 (Dataset 1).
+"""跨域 Zero-shot 评估: LDMDet +DPM-Solver++ (DPM-Solver++) on Chromosome20240904 (Dataset 1).
 
 源域: Dataset 2 = 24 Chromosomes Object (mAP=0.863)
 目标域: Dataset 1 = Chromosome20240904 test set (220 imgs, 10262 instances, 无微调)
@@ -50,7 +50,7 @@ vis_backends = [
         init_kwargs=dict(
             project='cross-domain-chr20240904',
             experiment_name='zero_shot_a4',
-            description='Zero-shot: LDMDet A4 (24obj-trained) on Chromosome20240904 test (Dataset 1)',
+            description='Zero-shot: LDMDet +DPM-Solver++ (24obj-trained) on Chromosome20240904 test (Dataset 1)',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

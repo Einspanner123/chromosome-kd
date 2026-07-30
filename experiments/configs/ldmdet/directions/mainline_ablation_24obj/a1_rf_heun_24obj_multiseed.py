@@ -1,6 +1,6 @@
-"""24obj A1 RF+Heun 多种子训练配置 (统计显著性补充实验)
+"""24obj RF+Heun 多种子训练配置 (统计显著性补充实验)
 
-用途: A1 RF+Heun 多种子实验 (seed 123, 789), 用于 A0→A1 主对比的统计显著性分析
+用途: RF+Heun 多种子实验 (seed 123, 789), 用于 DDPM baseline→RF+Heun 主对比的统计显著性分析
 基础: a1_rf_heun_24obj.py, 移除 experiment_name 以便 train.py 自动添加 _seed{N} 后缀
 注意: seed 42 已有结果 (a1_rf_heun_24obj, mAP=0.856), 此配置用于补充 seed 123/789
 
@@ -29,7 +29,7 @@ vis_backends = [
         type='SwanlabVisBackend',
         init_kwargs=dict(
             project='ldmdet-mainline-ablation-24obj',
-            description='24obj A1 RF+Heun 多种子 | bs=8, 150ep',
+            description='24obj RF+Heun 多种子 | bs=8, 150ep',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

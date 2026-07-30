@@ -1,7 +1,7 @@
-"""A4 DPM-Solver++ 在旧数据集 Chromosome20240904 test set 上的评估配置
+"""+DPM-Solver++ 在旧数据集 Chromosome20240904 test set 上的评估配置
 
 用途: test set 评估 (220张测试图)
-注意: A4 checkpoint 在 24obj 上训练, 此配置用于跨数据集 test 评估
+注意: +DPM-Solver++ checkpoint 在 24obj 上训练, 此配置用于跨数据集 test 评估
       如需旧数据集上训练的 checkpoint 评估, 请使用对应的旧数据集 checkpoint
 """
 _base_ = ['./a4_dpm_pp_24obj.py']

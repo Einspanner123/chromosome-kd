@@ -9,7 +9,7 @@ box_renewal × RF 速度场耦合:
     alpha(t) = 0.2 + 0.6 * sigmoid(5 * (0.5 - t))
     x_renewed = alpha(t) * x0_pred + (1 - alpha(t)) * randn
 
-基线: A4 DPM-Solver++ (mAP=0.863)
+基线: +DPM-Solver++ (mAP=0.863)
 
 SwanLab: 项目 'ldmdet-mainline-ablation-24obj', 实验 'a4_vgar'
 """
@@ -32,7 +32,7 @@ vis_backends = [
         init_kwargs=dict(
             project='ldmdet-mainline-ablation-24obj',
             experiment_name='a4_vgar',
-            description='24obj 方向4: VGAR 速度场引导 renewal (vs A4 纯随机) | bs=8, 150ep',
+            description='24obj 方向4: VGAR 速度场引导 renewal (vs +DPM-Solver++ 纯随机) | bs=8, 150ep',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

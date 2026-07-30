@@ -1,15 +1,15 @@
 """24obj 方向 D 对照: DPM-Solver++ 3 阶 (全程 3 阶)
 
-目的: 与 A4 (2 阶) / A7 (自适应) 对比, 验证 3 阶是否带来精度增益
+目的: 与 +DPM-Solver++ (2 阶) / 自适应阶次 DPM-Solver++ 对比, 验证 3 阶是否带来精度增益
 组件:
   + solver_type='dpm_solver_pp_3' (RFDPMSolverMultistep, solver_order=3)
-  + sampling_timesteps=4 (与 A4 一致)
+  + sampling_timesteps=4 (与 +DPM-Solver++ 一致)
 
-无需重训练: 基于 A4 checkpoint 直接推理
+无需重训练: 基于 +DPM-Solver++ checkpoint 直接推理
 
 对照:
-  - A4 (DPM-Solver++ 2阶 4步)
-  - A7 (自适应: 前2步3阶 + 后2步2阶)
+  - +DPM-Solver++ (DPM-Solver++ 2阶 4步)
+  - 自适应阶次 DPM-Solver++ (前2步3阶 + 后2步2阶)
 
 SwanLab: 项目 'ldmdet-inference', 实验 'a5_dpm_pp_3'
 """

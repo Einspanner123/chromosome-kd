@@ -1,14 +1,14 @@
-"""ReFlow (Standard MSE): 基于 A4 预测耦合的 2-Rectification (重试配置 v2)
+"""ReFlow (Standard MSE): 基于 +DPM-Solver++ 预测耦合的 2-Rectification (重试配置 v2)
 
 核心机制 (REFLOW_HEAD_DISTILL_IMPL_PLAN.md §1):
-  用已训练 A4 (mAP=0.863) 对训练集推理, 生成新 coupling (x_0^pred, x_1^noise)
+  用已训练 +DPM-Solver++ (mAP=0.863) 对训练集推理, 生成新 coupling (x_0^pred, x_1^noise)
   替代 (x_0^GT, x_1^noise), 再用标准检测损失 (cls=GT, box=x_0^pred) 训练 2-RF 拉直轨迹。
   - 触发条件: η_str 实测 3.39~8.35 (远超阈值 0.1), 轨迹显著非直线
   - 与已证伪 velocity-loss ReFlow 区别: 不加 velocity loss → 消除梯度冲突 (旧版 cos=−0.104)
 
 混合 target 设计 (§1.2):
   - cls_target = GT              (SimOTA 用 GT 分配正负样本, x_0^pred cls 不可靠)
-  - box_target = x_0^pred        (正样本 box 回归到 A4 预测, RF 拉直目标, per-proposal)
+  - box_target = x_0^pred        (正样本 box 回归到 +DPM-Solver++ 预测, RF 拉直目标, per-proposal)
   - 正样本筛选仍用 GT (matcher 基于 GT)
 
 前置步骤 (必须先运行, coupling 文件已生成):
@@ -20,7 +20,7 @@
 配置要点 (2026-07-27 重试, 修复 v1 配置Bug):
   - use_reflow_coupling=True + reflow_coupling_path 指向生成的 coupling 文件
   - criterion.box_target_mode='x0_pred' (box target 改为 x_0^pred, cls 始终 GT)
-  - load_from=A4 best (v1 缺失致从零训练, 欠训练)
+  - load_from=+DPM-Solver++ best (v1 缺失致从零训练, 欠训练)
   - lr=5e-5 (v1 用 1e-5 过小, 5x 提升)
   - max_epoch=150 (v1 用 50ep 过短, 3x 延长)
   - warmup 5ep + cosine 150ep
@@ -41,7 +41,7 @@ work_dir: work_dirs/reflow_standard_24obj/
 """
 _base_ = ['./a4_dpm_pp_24obj.py']
 
-# === 从 A4 checkpoint 加载 (v1 缺失致从零训练, 欠训练) ===
+# === 从 +DPM-Solver++ checkpoint 加载 (v1 缺失致从零训练, 欠训练) ===
 load_from = 'work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth'
 
 # === ReFlow: 预存 coupling + 混合 target ===
@@ -91,7 +91,7 @@ vis_backends = [
         init_kwargs=dict(
             project='ldmdet-reflow',
             experiment_name='reflow_standard',
-            description='ReFlow (Standard MSE) 重试: A4 预测耦合 2-RF 拉直 | cls=GT, box=x0_pred | load_from=A4, lr=5e-5, 150ep, bs=2',
+            description='ReFlow (Standard MSE) 重试: +DPM-Solver++ 预测耦合 2-RF 拉直 | cls=GT, box=x0_pred | load_from=+DPM-Solver++, lr=5e-5, 150ep, bs=2',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

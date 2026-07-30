@@ -19,12 +19,12 @@
   - vs d=4 维度退化: 全局 γ 跨 N=500 proposal, 系统矩阵 [2000, 2] 满秩
 
 训练:
-  - 从 A4 best checkpoint 微调 (load_from)
+  - 从 +DPM-Solver++ best checkpoint 微调 (load_from)
   - 50 epoch, lr=1e-5 (与 Head Distillation 微调配置对齐)
   - 5 epoch linear warmup + cosine annealing
-  - mmengine load_from 默认 strict=False: A4 权重加载, AAC 无新参数 (纯算法)
+  - mmengine load_from 默认 strict=False: +DPM-Solver++ 权重加载, AAC 无新参数 (纯算法)
 
-对照: A4 (DPM-Solver++, 无 Anderson 加速) → 验证 AAC 的横向收敛加速效果
+对照: +DPM-Solver++ (DPM-Solver++, 无 Anderson 加速) → 验证 AAC 的横向收敛加速效果
 
 预期: mAP 0.865~0.868 (Δ=+0.002~0.005, 接近 DINO 0.868)
 判据: AAC-m2 vs AAC-m0 的 ΔmAP > 0.002 (超 noise), 则 Phase 2 启动
@@ -46,8 +46,8 @@ model = dict(
     ),
 )
 
-# === 从 A4 checkpoint 微调 ===
-# AAC 无新可学习参数 (纯算法模块), load_from 直接加载 A4 全部权重
+# === 从 +DPM-Solver++ checkpoint 微调 ===
+# AAC 无新可学习参数 (纯算法模块), load_from 直接加载 +DPM-Solver++ 全部权重
 load_from = 'work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth'
 
 # === 微调训练计划 (50 epoch, lr=1e-5) ===
@@ -82,7 +82,7 @@ vis_backends = [
         init_kwargs=dict(
             project='ldmdet-mainline-ablation-24obj',
             experiment_name='aac_m2_beta05',
-            description='24obj AAC Phase 1: Anderson-Accelerated Cascade (m=2, β=0.5) | 从 A4 微调 50ep | bs=2, lr=1e-5',
+            description='24obj AAC Phase 1: Anderson-Accelerated Cascade (m=2, β=0.5) | 从 +DPM-Solver++ 微调 50ep | bs=2, lr=1e-5',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

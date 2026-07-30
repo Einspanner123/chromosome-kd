@@ -50,7 +50,7 @@ from experiments.analysis.instrumentation import (
     HeadOutputAnalyzer,
 )
 
-# 染色体分组映射 (24 类: A1-3, B4-5, C6-12, D13-15, E16-18, F19-20, G21-22, X, Y)
+# 染色体分组映射 (24 类: RF+Heun-3, B4-5, C6-12, D13-15, E16-18, F19-20, G21-22, X, Y)
 CHROMOSOME_GROUPS = {
     0: [0, 1, 2],                  # A 组
     1: [3, 4],                      # B 组

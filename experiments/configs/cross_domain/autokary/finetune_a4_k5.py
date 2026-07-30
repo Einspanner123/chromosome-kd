@@ -1,11 +1,11 @@
-"""跨域 Few-shot 微调: LDMDet A4 (RF+DPM++AdaLN+StochOT) on AutoKary k=5
+"""跨域 Few-shot 微调: LDMDet +DPM-Solver++ (RF+DPM++AdaLN+StochOT) on AutoKary k=5
 
 源域: 24obj
 目标域: AutoKary k=5 (5 images, 228 anns, 24 classes)
 checkpoint: work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_*.pth
 
 理论对比:
-  - A4 (StochOT+DPM++) vs A2 (Random+AdaLN): 验证 StochOT+DPM++ 在少样本下的效果
+  - +DPM-Solver++ (StochOT+DPM++) vs +AdaLN-Zero (Random+AdaLN): 验证 StochOT+DPM++ 在少样本下的效果
   - DPM-Solver++ 高阶采样 → 理论预测少样本下稳定性应有优势
 
 Usage:
@@ -93,7 +93,7 @@ vis_backends = [
         init_kwargs=dict(
             project='cross-domain-autokary',
             experiment_name='finetune_a4_k5',
-            description='Few-shot k=5: LDMDet A4 (StochOT+DPM++) 24obj→AutoKary | lr=5e-6, 50ep',
+            description='Few-shot k=5: LDMDet +DPM-Solver++ (StochOT+DPM++) 24obj→AutoKary | lr=5e-6, 50ep',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

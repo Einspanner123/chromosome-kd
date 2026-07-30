@@ -1,11 +1,11 @@
-"""24obj 主路线消融实验 A2: +RF+Heun+AdaLN (验证 AdaLN-Zero 效果)
+"""24obj 主路线消融实验 +AdaLN-Zero: +RF+Heun+AdaLN (验证 AdaLN-Zero 效果)
 
-目的: 在 A1 基础上添加 AdaLN-Zero 时间条件
+目的: 在 RF+Heun 基础上添加 AdaLN-Zero 时间条件
 组件:
   + time_conditioning='adaln_zero' (AdaLN-Zero 时间条件)
   - 无 StochOT (默认 random coupling)
 
-对照: A1 (无 AdaLN) → 验证 AdaLN-Zero 的增益
+对照: RF+Heun (无 AdaLN) → 验证 AdaLN-Zero 的增益
 
 SwanLab: 项目 'ldmdet-mainline-ablation-24obj', 实验 'a2_rf_heun_adaln'
 """
@@ -71,7 +71,7 @@ vis_backends = [
         init_kwargs=dict(
             project='ldmdet-mainline-ablation-24obj',
             experiment_name='a2_rf_heun_adaln',
-            description='24obj 主路线消融 A2: +RF+Heun+AdaLN-Zero | bs=8, 150ep',
+            description='24obj 主路线消融 +AdaLN-Zero: +RF+Heun+AdaLN-Zero | bs=8, 150ep',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

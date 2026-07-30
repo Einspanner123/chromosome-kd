@@ -1,4 +1,4 @@
-"""A4 DPM-Solver++ 在 24obj test set 上的评估配置
+"""+DPM-Solver++ 在 24obj test set 上的评估配置
 
 用途: test set 评估 (1000张测试图)
 继承: a4_dpm_pp_24obj.py (仅覆盖 test_dataloader/test_evaluator 指向 test 目录)

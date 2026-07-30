@@ -1,6 +1,6 @@
 """Head Distillation v2: 少 Head (H=3) 蒸馏多 Head (H=6)
 
-目的: 通过 headwise feature 蒸馏, 将 A4 Teacher (H=6) 的知识压缩到
+目的: 通过 headwise feature 蒸馏, 将 +DPM-Solver++ Teacher (H=6) 的知识压缩到
       Student (H=3), 实现 NFE 24→12 (2× 加速) 同时保持精度
 
 机制:
@@ -15,7 +15,7 @@ v2 六项修正 (见 docs/research/proposals/REFLOW_HEAD_DISTILL_IMPL_PLAN.md §
   5. coupling_mode='argmax' (确定性, 保证 proposal 对齐)
   6. distill 仅作用于 main head, aux 权重降至 0.5
 
-Teacher: A4 DPM-Solver++ (mAP=0.863, H=6), 冻结, 仅 forward
+Teacher: +DPM-Solver++ (mAP=0.863, H=6), 冻结, 仅 forward
 Student: H=3, 从 Teacher head 0/2/5 初始化 (非随机)
 
 SwanLab: 项目 'ldmdet-head-distill', 实验 'h3_distill'
@@ -35,7 +35,7 @@ model = dict(
             coupling_mode='argmax',     # v2: 确定性 coupling
         ),
     ),
-    # Teacher: A4 checkpoint (auto-construct teacher config from student)
+    # Teacher: +DPM-Solver++ checkpoint (auto-construct teacher config from student)
     teacher_checkpoint='work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth',
 )
 
@@ -48,7 +48,7 @@ vis_backends = [
         init_kwargs=dict(
             project='ldmdet-head-distill',
             experiment_name='h3_distill',
-            description='Head Distillation v2: H=3 Student 蒸馏 H=6 Teacher (A4) | λ=0.05, freeze backbone | bs=2, 150ep',
+            description='Head Distillation v2: H=3 Student 蒸馏 H=6 Teacher (+DPM-Solver++) | λ=0.05, freeze backbone | bs=2, 150ep',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

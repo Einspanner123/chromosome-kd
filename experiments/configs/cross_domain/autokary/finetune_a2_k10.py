@@ -1,4 +1,4 @@
-"""跨域 Few-shot 微调: LDMDet A2 (RF+Heun+AdaLN, Random coupling) on AutoKary k=10
+"""跨域 Few-shot 微调: LDMDet +AdaLN-Zero (RF+Heun+AdaLN, Random coupling) on AutoKary k=10
 
 源域: 24obj (mAP=0.856)
 目标域: AutoKary k=10 (10 images, 455 anns, 24 classes)
@@ -89,7 +89,7 @@ vis_backends = [
         init_kwargs=dict(
             project='cross-domain-autokary',
             experiment_name='finetune_a2_k10',
-            description='Few-shot k=10: LDMDet A2 (Random+AdaLN) 24obj→AutoKary | lr=5e-6, 50ep',
+            description='Few-shot k=10: LDMDet +AdaLN-Zero (Random+AdaLN) 24obj→AutoKary | lr=5e-6, 50ep',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

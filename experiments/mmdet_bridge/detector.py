@@ -41,7 +41,7 @@ class LDMDetDetector(BaseDetector):
     backbone/neck 通过 mmdet 构建，bbox_head 通过 ldmdet 纯 PyTorch 构建。
 
     Head Distillation v2: 可选 teacher_config/teacher_checkpoint 参数,
-    构建 Teacher (H=6, A4 冻结) 并注入 bbox_head, 同时冻结 backbone/neck。
+    构建 Teacher (H=6, +DPM-Solver++ 冻结) 并注入 bbox_head, 同时冻结 backbone/neck。
     """
 
     def __init__(
@@ -71,7 +71,7 @@ class LDMDetDetector(BaseDetector):
 
         # Head Distillation v2: 冻结 backbone + neck
         # v2 修正 #1: 蒸馏聚焦 head, 减少 param 量, 避免 backbone 漂移
-        # 方案A: freeze_backbone=False 时不冻结, backbone 从 A4 加载并微调
+        # 方案A: freeze_backbone=False 时不冻结, backbone 从 +DPM-Solver++ 加载并微调
         if self.bbox_head.freeze_backbone:
             self._freeze_backbone()
 
@@ -211,14 +211,14 @@ class LDMDetDetector(BaseDetector):
         Args:
             student_cfg: Student bbox_head 配置 (用于 auto-construct)
             teacher_config: Teacher bbox_head 配置; None 时自动从 student 配置构建
-            teacher_checkpoint: Teacher checkpoint 路径 (A4 完整 detector checkpoint)
+            teacher_checkpoint: Teacher checkpoint 路径 (+DPM-Solver++ 完整 detector checkpoint)
 
         Returns:
             Teacher DiffusionDetHead 实例 (已加载权重, eval 模式)
         """
         if teacher_config is None:
-            # Auto-construct: Teacher = A4 架构 (H=6, 无蒸馏)
-            # Student 继承自 A4, deepcopy 后恢复 num_heads=6 即得 A4 配置
+            # Auto-construct: Teacher = +DPM-Solver++ 架构 (H=6, 无蒸馏)
+            # Student 继承自 +DPM-Solver++, deepcopy 后恢复 num_heads=6 即得 +DPM-Solver++ 配置
             teacher_config = copy.deepcopy(student_cfg)
             teacher_config['num_heads'] = 6
             teacher_config['use_distillation'] = False
@@ -306,7 +306,7 @@ class LDMDetDetector(BaseDetector):
         return self
 
     def init_weights(self):
-        """重写 init_weights: 方案A — 从 A4 checkpoint 加载 backbone/neck 权重
+        """重写 init_weights: 方案A — 从 +DPM-Solver++ checkpoint 加载 backbone/neck 权重
 
         时序 (mmengine Runner):
           1. __init__: 构建 backbone/neck/head + 注入 Teacher + init_student_from_teacher
@@ -314,17 +314,17 @@ class LDMDetDetector(BaseDetector):
           2. init_weights (本方法):
              a. super().init_weights(): 加载 ImageNet 预训练 backbone (init_cfg),
                 不触及 bbox_head (无 init_cfg) → head 映射权重保留
-             b. _load_backbone_from_checkpoint: 用 A4 的 backbone/neck 覆盖 ImageNet
+             b. _load_backbone_from_checkpoint: 用 +DPM-Solver++ 的 backbone/neck 覆盖 ImageNet
                 权重, 使 Student 特征空间与 Teacher head 对齐 (修复 root cause)
           3. load_from (若设置): 会覆盖全部 state_dict — 方案A **不使用 load_from**,
-             避免破坏 head 映射 (A4 head 1/2 会错误覆盖 Student head 1/2)
+             避免破坏 head 映射 (+DPM-Solver++ head 1/2 会错误覆盖 Student head 1/2)
 
         root cause: v2 freeze_backbone=True 使 Student backbone 停在 ImageNet,
-        而 Teacher head 在 A4 (染色体训练) 特征上学习 → 特征分布不匹配, mAP 0.711。
-        方案A: 加载 A4 backbone + 解冻, Student/Teacher 共享 A4 特征空间。
+        而 Teacher head 在 +DPM-Solver++ (染色体训练) 特征上学习 → 特征分布不匹配, mAP 0.711。
+        方案A: 加载 +DPM-Solver++ backbone + 解冻, Student/Teacher 共享 +DPM-Solver++ 特征空间。
         """
         super().init_weights()
-        # 方案A: 蒸馏模式 + 未冻结 backbone + 有 teacher_checkpoint 时, 加载 A4 backbone/neck
+        # 方案A: 蒸馏模式 + 未冻结 backbone + 有 teacher_checkpoint 时, 加载 +DPM-Solver++ backbone/neck
         if (self.bbox_head.use_distillation
                 and not self.bbox_head.freeze_backbone
                 and self._teacher_checkpoint is not None):
@@ -338,7 +338,7 @@ class LDMDetDetector(BaseDetector):
         (head 映射权重由 __init__ 的 init_student_from_teacher 设置, 必须保留)。
 
         Args:
-            checkpoint_path: A4 完整 detector checkpoint 路径
+            checkpoint_path: +DPM-Solver++ 完整 detector checkpoint 路径
                 (含 backbone.* + neck.* + bbox_head.* 全部状态)
         """
         checkpoint = torch.load(checkpoint_path, map_location='cpu')

@@ -68,7 +68,7 @@ K100_ANN = os.path.join(
 
 # 历史参考 (renewal ON)
 REF = {
-    'Dataset1_A4': {'mAP': 0.746, 'source': '训练日志 epoch 49 seed42'},
+    'Dataset1 (+DPM-Solver++)': {'mAP': 0.746, 'source': '训练日志 epoch 49 seed42'},
     'Dataset2_K100': {'mAP': 0.852, 'source': 'LINEAGE seed42 (3-seed mean 0.850±0.003)'},
 }
 
@@ -88,7 +88,7 @@ def main():
     print()
 
     scenarios = [
-        ('Dataset1_A4', DATASET1_CONFIG, DATASET1_CKPT, DATASET1_ANN),
+        ('Dataset1 (+DPM-Solver++)', DATASET1_CONFIG, DATASET1_CKPT, DATASET1_ANN),
         ('Dataset2_K100', K100_CONFIG, K100_CKPT, K100_ANN),
     ]
 

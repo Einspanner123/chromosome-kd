@@ -1,4 +1,4 @@
-"""Robustness 实验 §4.8: 在扰动 (噪声) 标注上评估 A4 (DPM-Solver++) checkpoint
+"""Robustness 实验 §4.8: 在扰动 (噪声) 标注上评估 +DPM-Solver++ (DPM-Solver++) checkpoint
 
 源域 / 训练域: Dataset 2 (24obj, 5000 imgs, 24 classes)
 测试集: Dataset 2 test (1000 imgs, 45980 anns), 但 ann_file 替换为
@@ -22,7 +22,7 @@ Usage:
         --dataset test --seed 42
 
 checkpoint: work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth
-            (A4 = A3 + IO3; DPM-Solver++ 4-step; mAP=0.863 on clean test)
+            (+DPM-Solver++ = +Stoch. Coupling + IO3; DPM-Solver++ 4-step; mAP=0.863 on clean test)
 """
 import os
 
@@ -47,7 +47,7 @@ _noise_ann = os.path.abspath(_noise_ann)
 _data_root = 'data/24_chromosomes_object/coco/'
 
 # 显式覆盖 test_dataloader 与 test_evaluator
-# (A3 base config 中 test_dataloader = val_dataloader, 故需重建)
+# (+Stoch. Coupling base config 中 test_dataloader = val_dataloader, 故需重建)
 test_dataloader = dict(
     dataset=dict(
         data_root=_data_root,
@@ -70,7 +70,7 @@ vis_backends = [
         init_kwargs=dict(
             project='ldmdet-robustness-noise',
             experiment_name=f'a4_noise_{_noise_tag}',
-            description=f'Robustness §4.8: A4 on noisy 24obj test ({_noise_tag})',
+            description=f'Robustness §4.8: +DPM-Solver++ on noisy 24obj test ({_noise_tag})',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

@@ -1,9 +1,9 @@
-"""生成 ReFlow coupling 文件: 用 A4 对训练集推理, 保存 (x_0^pred, x_1^noise)
+"""生成 ReFlow coupling 文件: 用 +DPM-Solver++ 对训练集推理, 保存 (x_0^pred, x_1^noise)
 
 REFLOW_HEAD_DISTILL_IMPL_PLAN.md §1.5:
   对每张训练图:
     1. 固定 seed 生成 x_raw_noise = randn(1, num_proposals, 4)  (x_1^noise)
-    2. A4 推理 (DPM-Solver++ 4步), 关闭 box_renewal/ensemble/pruning (保持 proposal 对应)
+    2. +DPM-Solver++ 推理 (DPM-Solver++ 4步), 关闭 box_renewal/ensemble/pruning (保持 proposal 对应)
     3. 保存 {img_id: {'noise': x_1, 'x0_pred': x_0^pred}}  (raw/扩散空间, [num_proposals, 4])
   matched_idx 不存储 — 训练时在线重算 (基于 GT, 与 criterion target 一致, §1.5 v2 简化)
 
@@ -57,9 +57,9 @@ def set_seed(seed: int):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='生成 ReFlow coupling (A4 推理)')
-    parser.add_argument('config', help='A4 config 文件路径')
-    parser.add_argument('--checkpoint', required=True, help='A4 checkpoint 路径')
+    parser = argparse.ArgumentParser(description='生成 ReFlow coupling (+DPM-Solver++ 推理)')
+    parser.add_argument('config', help='+DPM-Solver++ config 文件路径')
+    parser.add_argument('--checkpoint', required=True, help='+DPM-Solver++ checkpoint 路径')
     parser.add_argument('--output', default='work_dirs/reflow_couplings/train_couplings.pt',
                         help='输出 coupling 文件路径 (K=1) 或前缀 (K>1, _group{k}.pt)')
     parser.add_argument('--gpu-id', type=int, default=0)
@@ -81,7 +81,7 @@ def main():
     # test_evaluator 不参与 (我们手动迭代, 不调用 runner.test())
     # 但 Runner.from_cfg 要求 test_evaluator 存在, 沿用 base 配置即可
 
-    # Runner.from_cfg 要求 work_dir 存在; 若 A4 config 未定义则给临时目录
+    # Runner.from_cfg 要求 work_dir 存在; 若 +DPM-Solver++ config 未定义则给临时目录
     # (coupling 生成不需要 work_dir, 仅满足 Runner 构建要求)
     if 'work_dir' not in cfg:
         cfg.work_dir = 'work_dirs/reflow_couplings_temp'
