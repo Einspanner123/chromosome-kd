@@ -585,7 +585,7 @@ FBM simple gate 源预训练, 期望在 Dataset 2 源预训练阶段验证 simpl
 ## 十三、Head Distillation 失败配置 (配置Bug导致失败, 方法本身有效)
 
 > **失败性质**: ⛔ **训练配置问题** (非理论问题, 非方法局限)
-> **方法有效性**: ✅ 修复配置验证有效 (mAP=0.860 持平 A4 0.863, → [LINEAGE §十五](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md))
+> **方法有效性**: ✅ 修复配置验证有效 (mAP=0.860 持平 A4 0.863, → [LINEAGE §七](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md) Head Distillation)
 > **归档日期**: 2026-07-27
 
 ### 实验配置
@@ -902,7 +902,7 @@ BDS-RF 提出: 对预测框 $\hat{x}_0$ 施加高斯扰动 $\delta$, 计算扰�
 
 - **错误描述**: KaryoFlow 的 box_renewal 机制使 proposal 位置每步大幅变化 (93-124 px/步, 见 §五 RoI Feature Cache)。BDS-RF 的扰动 $\delta$ 在归一化坐标 [0,1] 下, 相对于 box_renewal 的位移可能微不足道。
 - **错误依据**: FALSIFIED §五 RoI Feature Cache 证实 box 位移 93-124 px/步, 缓存命中率接近 0。若 $\delta$ 远小于 box_renewal 位移, BDS-RF 的正则化效果可能被淹没。
-- **为何不可修复**: box_renewal 是训练核心机制 (no_box_renewal 训练消融 Δ=−0.016, §十; 推理时 K≥200 可安全关闭但 K=100 仍有 −0.016 退化, 见 LINEAGE §六); BDS-RF 的扰动尺度无法与 box_renewal 的位移竞争。
+- **为何不可修复**: box_renewal 是训练核心机制 (no_box_renewal 训练消融 Δ=−0.016, §十; 推理时 K≥200 可安全关闭但 K=100 仍有 −0.031±0.012 退化 (3-seed), 见 LINEAGE §六); BDS-RF 的扰动尺度无法与 box_renewal 的位移竞争。
 
 ### 与已证伪方向的关系
 
@@ -1302,12 +1302,128 @@ MDC-RF 提出: 用连续介质力学物质导数 $D\hat{x}_0/Dt = \partial \hat{
 
 1. **1步 Euler 无法逼近 4步 DPM-Solver++ 预测**: teacher (4步 DPM++) 与 student (1步 Euler) 的预测 gap ~1.0, 蒸馏目标不可学, student 无法收敛。
 2. **蒸馏梯度与检测梯度严重冲突**: grad_norm 持续 150-200, 蒸馏损失 (MSE 拟合 teacher) 与检测损失 (分类+回归 GT) 梯度方向冲突, 导致训练崩塌。
-3. **直接 4→1 蒸馏跨度过大**: 不同于 Head Distillation (H=6→H=3, 同一 solver 内压缩, → LINEAGE §十五) 的成功, PD-RF 跨 solver (DPM++→Euler) 且跨步数 (4→1) 双重压缩, 蒸馏目标本身不可达。
+3. **直接 4→1 蒸馏跨度过大**: 不同于 Head Distillation (H=6→H=3, 同一 solver 内压缩, → LINEAGE §七) 的成功, PD-RF 跨 solver (DPM++→Euler) 且跨步数 (4→1) 双重压缩, 蒸馏目标本身不可达。
 
 ### 教训
 
 1. **蒸馏目标必须可达**: teacher 与 student 的预测 gap 过大时, 蒸馏目标不可学。后续蒸馏方向 (如 Head Distillation) 应先验证 teacher-student gap 在可学范围内。
 2. **跨 solver 蒸馏比同 solver 蒸馏困难**: Head Distillation (同 DPM++ solver, H 压缩) 成功, PD-RF (DPM++→Euler + 步数压缩) 失败, 证实 solver 跨越是蒸馏的主要难点。
+
+---
+
+## 二十五、方向 C: step-aware embedding (边际不采用, 非负面但无增益)
+
+### 核心设想
+
+让 cascade head 感知 DPM-Solver++ step 编号 (step_mlp + step_proj 零初始化), 期望模型利用 step 信息提升每步精化的针对性。零初始化确保预训练兼容 (训练初期 step_proj 输出为 0, 可在 +DPM-Solver++ checkpoint 上继续训练而非重训)。
+
+### 证伪证据
+
+#### 实验证明目的
+
+验证 step-aware embedding 是否能超越 +DPM-Solver++ baseline (0.863)。
+
+- 方向 C (step-aware embedding, Dataset 2, seed 42)
+  -- 数据集: Dataset 2
+  -- 结果: best mAP=0.859@ep118, **Δ = −0.004 vs +DPM-Solver++ 0.863** (在 3-seed std 0.003 范围内, 统计上无法区分)
+  -- 早停: patience=30 触发 @ep148/150
+  -- 插桩分析 (ep146 + best ep118):
+     --- step_proj 权重活跃 (norm=5.420, 有方向性 std=0.005), 与 M1 fuse 退化 (norm=0.215, uniform) 本质不同
+     --- loss 仍在下降 (ep140: 1.670 → ep147: 1.654), 但 mAP 已收敛 (loss-mAP 分离)
+     --- Per-class AP: 3 类改善 (A1 +0.002, C12 +0.003, Y +0.003), 1 类持平, 20 类轻微退化
+  -- work_dir: `work_dirs/a6_step_aware_24obj_seed42/`
+  -- SwanLab: `ldmdet-mainline-ablation-24obj` (experiment_name=`a6_step_aware`)
+  -- 配置: `experiments/configs/ldmdet/directions/mainline_ablation_24obj/a6_step_aware_24obj.py`
+
+### 失败原因分析
+
+1. **mAP 无增益**: 虽然插桩指标显示"非负面" (step_proj 活跃、loss 仍降、3 类改善含 Y 染色体), 但 mAP 统计上无法区分于 baseline, 无正向贡献。
+2. **loss-mAP 分离**: loss 持续下降但 mAP 已平台化, 说明 step embedding 学到的信息未被转化为检测精度提升。
+3. **"非负面"不等于"有正向意义"**: 零初始化保证了不崩塌 (与 M1 形成对照), 但也限制了增益空间 — step 信息可能已被 cascade head 的隐式 step 感知 (通过 x_t 统计特性变化) 所捕获。
+
+### 教训
+
+1. **插桩健康 ≠ mAP 增益**: 方向 C 的插桩指标全部健康 (权重活跃、loss 下降、per-class 改善), 但 mAP 无增益。后续方向不能仅凭插桩指标判断方向价值, 必须以 mAP 为最终判据。
+2. **零初始化是把双刃剑**: 保证预训练兼容和不崩塌, 但也可能使新模块的增益被"零初始化过渡期"稀释。
+
+---
+
+## 二十六、M1: 形态感知 RoI 编码器 (null result, 设计问题确认)
+
+### 核心设想
+
+在 RoI 特征上添加零初始化残差分支 + 方向解耦卷积 (h_conv 臂长比 + v_conv 着丝粒), 期望模型学到染色体方向性形态信息。
+
+### 证伪证据
+
+#### 实验证明目的
+
+验证形态感知 RoI 编码器是否能超越 A4 baseline (0.863)。
+
+- M1 (形态感知 RoI 编码器, Dataset 2)
+  -- 数据集: Dataset 2
+  -- FP32 结果: best mAP=0.862@ep19, **Δ = −0.001 vs A4 0.863** (统计上持平, null result)
+  -- BF16 结果: mAP=0.818, Δ=-0.045 (虚假退化, BF16 误导, 排除)
+  -- 核心结论: h_conv/v_conv 在 FP32 下仍均匀 → **设计问题而非精度问题**
+  -- 参数开销: 262.8K/head × 6 = 1.58M (<总参数 0.5%)
+  -- work_dir: `work_dirs/m1_morphology_aware_24obj_fp32/`
+  -- 详细分析: [STRUCTURAL_IMPROVEMENT_ANALYSIS.md §3.1.7](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/STRUCTURAL_IMPROVEMENT_ANALYSIS.md)
+
+### 失败原因分析
+
+1. **零初始化 fuse 梯度瓶颈**: h_conv/v_conv 梯度极弱, 无法学到方向性形态信息 (与方向 C step_proj 活跃形成对照)。
+2. **感受野与 RoI 同尺寸**: (7,1)+(1,7) 感受野与 7×7 RoI 同尺寸, 缺乏空间上下文, 无法捕获超出单格的形态模式。
+3. **morph_emb 退化为常数偏置**: 未学到方向性形态信息, 仅作为常数偏置。
+4. **D1 消融对照证实空间编码已被 DynamicConv 有效提取**: D1 RoI 空间编码消融 (mAP→0.009, Δ=-0.854) 证实 7×7 空间结构至关重要, DynamicConv 已有效提取空间编码, M1 试图"增强"已充分提取的特征, 增益空间有限。
+
+### 教训
+
+1. **BF16 导致虚假退化**: FP32 复现揭示 M1 真实表现为 null result (Δ=-0.001), BF16 的 -0.045 退化是数值精度误导。后续实验必须用 FP32 评估。
+2. **零初始化 fuse 在低维检测空间存在梯度瓶颈**: 与方向 C (step_proj 零初始化但活跃) 的差异在于, M1 的 fuse 连接方式导致梯度无法有效回传到方向卷积分支。
+
+---
+
+## 二十七、Box Refine Net (持平)
+
+### 核心设想
+
+添加显式 box refine 网络, 在 solver 迭代外额外精化 proposal 位置, 期望提升定位精度。
+
+### 证伪证据
+
+- Box Refine Net (Dataset 1, 1 seed)
+  -- 数据集: Dataset 1
+  -- 结果: mAP=0.747 [+0.001 vs 0.746 baseline, 持平]
+  -- 状态: early stop @ epoch 85, best @ epoch 55
+  -- 本地: work_dirs/direction_exps/direction_d_box_refine/20260629_091843/
+  -- SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/fnoz9x82aor1utsuo0jtl
+
+### 失败原因分析
+
+1. **RF 范式下 solver 迭代已隐式完成 box 精化**: RF 的 4 步 solver 迭代本身就是 box 位置的逐步精化, 额外的显式 refine net 冗余。
+2. **仅在 Dataset 1 验证**: Dataset 1 架构天花板约 0.75, 增益空间有限; 未在 Dataset 2 验证。
+
+---
+
+## 二十八、Bottleneck: Focal γ=3 (边际, 未叠加 SOTA)
+
+### 核心设想
+
+将 Focal Loss 的 γ 参数从默认值调整为 3, 增强难样本权重, 期望改善小尺寸/罕见类别染色体检测。
+
+### 证伪证据
+
+- Focal Loss γ=3 (Dataset 1, 1 seed)
+  -- 数据集: Dataset 1
+  -- 结果: mAP=0.750 [+0.004 vs 0.746 baseline, 边际]
+  -- 状态: 未叠加到 SOTA
+  -- 本地: work_dirs/bottleneck/ablation/focal_gamma_3/20260628_013823/
+  -- SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/ye6a2whory9y67tnvalg3
+
+### 失败原因分析
+
+1. **边际增益, 非 RF/扩散范式核心改进**: +0.004 mAP 增益属于损失函数调参, 非 RF/扩散范式贡献, 未叠加到 SOTA。
+2. **仅在 Dataset 1 验证**: 未在 Dataset 2 验证; Dataset 1 的 +0.004 在种子方差范围内不可靠。
 
 ---
 
@@ -1361,6 +1477,10 @@ MDC-RF 提出: 用连续介质力学物质导数 $D\hat{x}_0/Dt = \partial \hat{
 | MDC-RF (Material Derivative Constraint) | — | — | — | — | ⛔ 冗余淘汰 (未实验, R1=7.0/10, 与 TFR 严格包含关系) |
 | SC-RF (自条件化 RF) | 0.860 | −0.003 | Dataset 2 | ldmdet-breakthrough | 🟠 边际不采用 (自条件化在低维 RF 检测中价值有限, §二十三) |
 | PD-RF (4→1 Progressive Distillation) | 0.851@ep1→0.252@ep28 | −0.011→−0.611 (崩塌) | Dataset 2 | — | ⛔ 灾难性崩塌 (1步 Euler 无法逼近 4步 DPM++, 蒸馏梯度冲突, §二十四) |
+| 方向 C (step-aware embedding) | 0.859 | −0.004 (noise内) | Dataset 2 | ldmdet-mainline-ablation-24obj | 🟠 边际不采用 (非负面但无增益, 插桩健康但mAP持平, §二十五) |
+| M1 (形态感知 RoI 编码器) | 0.862 (FP32) | −0.001 (null) | Dataset 2 | — | ⛔ null result (设计问题: 零初始化梯度瓶颈+感受野不足, §二十六) |
+| Box Refine Net | 0.747 | +0.001 (持平) | Dataset 1 | ldmdet-ablation | ⛔ 持平 (solver 迭代已隐式完成精化, §二十七) |
+| Bottleneck Focal γ=3 | 0.750 | +0.004 (边际) | Dataset 1 | ldmdet-ablation | ⛔ 边际未叠加 (损失调参非范式贡献, §二十八) |
 
 ### 核心教训
 
@@ -1377,4 +1497,4 @@ MDC-RF 提出: 用连续介质力学物质导数 $D\hat{x}_0/Dt = \partial \hat{
 
 ---
 
-<!-- 文档结束。本文档对应论文 Appendix B "被证伪的方向", 与 docs/EXPERIMENT_LINEAGE.md §十一 ScaleConditionedRF 证伪记录、docs/paper/theory_analysis_RF_DPM.md §1.6/§2.5/§4 理论分析交叉引用。 -->
+<!-- 文档结束。本文档对应论文 Appendix B "被证伪的方向", 与 docs/EXPERIMENT_LINEAGE.md 主路线文档、docs/paper/theory_analysis_RF_DPM.md §1.6/§2.5/§4 理论分析交叉引用 (ScaleConditionedRF 证伪记录见本文档 §一)。 -->

@@ -3,7 +3,7 @@
 > 本文档梳理 KaryoFlow (染色体检测论文, 目标 TMI 期刊) 所有进行中或待启动的研究方向。
 > 这些方向部分有代码就绪、配置就绪或实验已在运行, 部分仅有理论框架。
 > 每个方向附 **可靠数据源地址** (本地服务器路径 / SwanLab project / config 路径)。
-> 更新时间: 2026-07-28 (R1/R2 评审循环完成, 4 方向通过(LVD-RF/TRIP/BEAR/ISLR-RF), 10 方向淘汰→FALSIFIED §十五~§二十二; ReFlow 重试确认方法本质失败 → FALSIFIED §十四, 从本文档移除; 2026-07-27 校验+归档: R3 3-seed完成→LINEAGE §八, D3→LINEAGE §六, D1→LINEAGE §十五, M1→LINEAGE §十五, SC-RF→FALSIFIED §二十三; 全部代号替换为描述性名称; Few-Shot FBM CrossAttn 中断@ep59)
+> 更新时间: 2026-07-30 (LINEAGE 重新梳理: 修复 R3 状态矛盾—实际仅 seed42 完成, 非 3-seed; 修复 §六 D1 dim_d1_mask 伪造数据; 重编号消除 §十一 断层, 原 §十五~§十七→§十四~§十六; Head Distillation 交叉引用修正 →LINEAGE §七。原 2026-07-28: R1/R2 评审循环完成, 4 方向通过(LVD-RF/TRIP/BEAR/ISLR-RF), 10 方向淘汰→FALSIFIED §十五~§二十二; ReFlow 重试确认方法本质失败 → FALSIFIED §十四, 从本文档移除; 2026-07-27 校验+归档: D3→LINEAGE §六, D1→LINEAGE §十四, M1→FALSIFIED §二十六, SC-RF→FALSIFIED §二十三; 全部代号替换为描述性名称; Few-Shot FBM CrossAttn 中断@ep59)
 >
 > 📌 **关联文档**:
 > - [docs/EXPERIMENT_LINEAGE.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md) (主路线实验脉络, 已完成方向)
@@ -211,8 +211,8 @@
 | doubao 方向 | 核心建议 | 当前论文对应方向 | 当前状态 |
 |------------|---------|----------------|---------|
 | A. 检测专用 RF-DPM 联合推导 | per-dim solver | per-dim η_str 诊断 | ✓ 完成 (→ LINEAGE §九) |
-| B. 速度感知网络结构 | 直接预测 v 而非 x0 | x0/v Prediction 对照 | ✓ 3-seed 完成 (→ LINEAGE §八) |
-| C. 时间条件深度融合 | step-aware embedding | step-aware embedding | ✓ 完成 (→ LINEAGE §十一) |
+| B. 速度感知网络结构 | 直接预测 v 而非 x0 | x0/v Prediction 对照 | ⚠ 单 seed 初步 (→ LINEAGE §八, seed 123/789 待补) |
+| C. 时间条件深度融合 | step-aware embedding | step-aware embedding | ✓ 完成 (→ FALSIFIED §二十五) |
 | D. 自适应阶次 DPM-Solver++ | t 大用低阶, t 小用高阶 | 自适应阶次 DPM-Solver++ | ✓ 完成 (→ LINEAGE §十) |
 | E. Brenier 映射神经化 | ICNN 参数化 Brenier 势 | Brenier 映射神经化 (本节) | ⛔ 未开展 |
 
@@ -232,7 +232,7 @@
 
 ### 形态感知 RoI 编码器 v2 (M1-v2 改进方向, ⛔ 待启动)
 
-M1 FP32 null result 已归档至 [LINEAGE §十五](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_LINEAGE.md) (best 0.862@ep19, Δ=-0.001 持平 A4, h_conv/v_conv 均匀 → 设计问题)。
+M1 FP32 null result 已归档至 [FALSIFIED §二十六](file:///home/linkst/workspace/projects/chromosome-kd/docs/FALSIFIED_DIRECTIONS.md) (best 0.862@ep19, Δ=-0.001 持平 A4, h_conv/v_conv 均匀 → 设计问题)。
 
 - **M1-v2 改进方向**:
   - 非零初始化 fuse (如小常数初始化 0.01, 打破梯度瓶颈)
@@ -507,4 +507,4 @@ M1 FP32 null result 已归档至 [LINEAGE §十五](file:///home/linkst/workspac
      更新策略: 当方向状态变化 (如训练启动 / 完成 / 证伪), 更新对应章节的 ⛔/🔄/✓/🔴 标记和 SwanLab run_id。
      方向完成后: 有效→迁入 EXPERIMENT_LINEAGE.md; 证伪→迁入 FALSIFIED_DIRECTIONS.md; 本文档仅保留 🔄进行中 + ⛔待启动。
      2026-07-28 更新: R1/R2 评审循环完成, 4 方向通过 (LVD-RF/TRIP/BEAR/ISLR-RF, R2 评分 7.3~7.5/10), 10 方向淘汰→FALSIFIED §十五~§二十二; 新增 §六~§九。
-     2026-07-27 更新: 删除已归档方向 S1 (→LINEAGE §七), 方向 A (→LINEAGE §九), 方向 C (→LINEAGE §十一), 方向 D (→LINEAGE §十), Head Distillation (→LINEAGE §十五); ReFlow 重试确认方法本质失败 → FALSIFIED §十四。 -->
+     2026-07-27 更新: 删除已归档方向 S1 (→LINEAGE §七), 方向 A (→LINEAGE §九), 方向 C (→FALSIFIED §二十五), 方向 D (→LINEAGE §十), Head Distillation (→LINEAGE §七); ReFlow 重试确认方法本质失败 → FALSIFIED §十四。 -->
