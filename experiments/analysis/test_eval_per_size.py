@@ -84,18 +84,21 @@ D1_MODELS = [
      'experiments/configs/ldmdet/a4_dpm_pp_chr2024.py',
      'work_dirs/a4_dpm_pp_chr2024_seed42/best_coco_bbox_mAP_epoch_49.pth',
      'chr2024'),
-    # D1 SOTA baselines
+    # D1 SOTA baselines (支持 ross 和 workstation 两种路径)
     ('D1 Cascade R-CNN R50',
      'experiments/configs/baselines/benchmark/cascade_rcnn_r50.py',
-     'work_dirs/benchmark/cascade_rcnn_r50/best_coco_bbox_mAP_epoch_86.pth',
+     ['work_dirs/baselines/cascade_rcnn_r50_20240904/best_coco_bbox_mAP_epoch_86.pth',
+      'work_dirs/benchmark/cascade_rcnn_r50/best_coco_bbox_mAP_epoch_86.pth'],
      'chr2024'),
     ('D1 RTMDet-L',
      'experiments/configs/baselines/benchmark/rtmdet_l.py',
-     'work_dirs/benchmark/rtmdet_l/best_coco_bbox_mAP_epoch_52.pth',
+     ['work_dirs/baselines/rtmdet_l_20240904/best_coco_bbox_mAP_epoch_52.pth',
+      'work_dirs/benchmark/rtmdet_l/best_coco_bbox_mAP_epoch_52.pth'],
      'chr2024'),
     ('D1 YOLOX-S',
      'experiments/configs/baselines/benchmark/yolox_s.py',
-     'work_dirs/benchmark/yolox_s/best_coco_bbox_mAP_epoch_150.pth',
+     ['work_dirs/baselines/yolox_s_20240904/best_coco_bbox_mAP_epoch_150.pth',
+      'work_dirs/benchmark/yolox_s/best_coco_bbox_mAP_epoch_150.pth'],
      'chr2024'),
     ('D1 DINO R50 (训练中 Ep95)',
      'experiments/configs/baselines/benchmark/dino_r50.py',
@@ -312,13 +315,23 @@ def main():
     all_results = []
     for label, config, ckpt, dataset in models:
         config_path = os.path.join(_PROJECT_ROOT, config) if not os.path.isabs(config) else config
-        ckpt_path = os.path.join(_PROJECT_ROOT, ckpt) if not os.path.isabs(ckpt) else ckpt
+
+        # 支持 checkpoint 路径为列表 (多候选路径, 自动选择第一个存在的)
+        if isinstance(ckpt, list):
+            ckpt_path = None
+            for c in ckpt:
+                c_full = os.path.join(_PROJECT_ROOT, c) if not os.path.isabs(c) else c
+                if os.path.exists(c_full):
+                    ckpt_path = c_full
+                    break
+        else:
+            ckpt_path = os.path.join(_PROJECT_ROOT, ckpt) if not os.path.isabs(ckpt) else ckpt
 
         if not os.path.exists(config_path):
             print(f'\n[跳过] {label}: config 不存在 ({config_path})')
             continue
-        if not os.path.exists(ckpt_path):
-            print(f'\n[跳过] {label}: checkpoint 不存在 ({ckpt_path})')
+        if ckpt_path is None or not os.path.exists(ckpt_path):
+            print(f'\n[跳过] {label}: checkpoint 不存在')
             continue
 
         result = run_test_eval(config_path, ckpt_path, dataset, device, label)
