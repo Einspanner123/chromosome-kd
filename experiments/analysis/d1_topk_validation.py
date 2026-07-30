@@ -15,8 +15,11 @@
 关联 config: experiments/configs/ldmdet/a4_dpm_pp_chr2024.py
 
 Usage:
-    python experiments/analysis/d1_topk_validation.py --gpu 0
-    python experiments/analysis/d1_topk_validation.py --gpu 0 --max-imgs 50  # 快速测试
+    python experiments/analysis/d1_topk_validation.py --gpu 0 --seed 42
+    python experiments/analysis/d1_topk_validation.py --gpu 0 --seed 123
+    python experiments/analysis/d1_topk_validation.py --gpu 0 --seed 789
+    python experiments/analysis/d1_topk_validation.py --gpu 0 --seed 42 --max-imgs 50  # 快速测试
+    python experiments/analysis/d1_topk_validation.py --gpu 0 --checkpoint /path/to/ckpt.pth  # 自定义 checkpoint
 """
 from __future__ import annotations
 
@@ -42,14 +45,33 @@ if _PROJECT_ROOT not in sys.path:
 D1_CONFIG = os.path.join(
     _PROJECT_ROOT, 'experiments/configs/ldmdet/a4_dpm_pp_chr2024.py',
 )
-D1_CKPT = os.path.join(
-    _PROJECT_ROOT,
-    'work_dirs/a4_dpm_pp_chr2024_seed42/best_coco_bbox_mAP_epoch_49.pth',
-)
 D1_ANN = os.path.join(
     _PROJECT_ROOT,
     'data/Chromosome20240904_NoAug_NoResize_coco/valid/_annotations.coco.json',
 )
+
+
+def find_d1_checkpoint(seed):
+    """根据 seed 自动查找 D1 A4 checkpoint.
+
+    优先查找 best_coco_bbox_mAP_*.pth, 回退到 epoch_50.pth.
+    """
+    seed_dir = os.path.join(
+        _PROJECT_ROOT, f'work_dirs/a4_dpm_pp_chr2024_seed{seed}',
+    )
+    if not os.path.isdir(seed_dir):
+        return None
+    # 优先 best checkpoint
+    bests = sorted([f for f in os.listdir(seed_dir)
+                    if f.startswith('best_coco_bbox_mAP_') and f.endswith('.pth')])
+    if bests:
+        return os.path.join(seed_dir, bests[0])
+    # 回退到最后一个 epoch checkpoint
+    epochs = sorted([f for f in os.listdir(seed_dir)
+                     if f.startswith('epoch_') and f.endswith('.pth')])
+    if epochs:
+        return os.path.join(seed_dir, epochs[-1])
+    return None
 
 # D2 参考数据 (LINEAGE §四, seed42)
 D2_REF = {
@@ -178,28 +200,39 @@ def main():
         description='Dataset 1 Top-K Pruning 验证 (闭合 §四 双数据集缺口)',
     )
     parser.add_argument('--gpu', type=int, default=0)
+    parser.add_argument('--seed', type=int, default=42,
+                        help='随机种子 (42/123/789), 用于自动查找 checkpoint')
+    parser.add_argument('--checkpoint', type=str, default=None,
+                        help='手动指定 checkpoint 路径 (覆盖 --seed 自动查找)')
     parser.add_argument('--max-imgs', type=int, default=None,
                         help='限制评估图像数 (调试用, None=全量)')
     args = parser.parse_args()
     device = f'cuda:{args.gpu}'
 
-    print('=' * 80)
-    print('Dataset 1 Top-K Proposal Pruning 验证')
-    print('=' * 80)
-    print(f'时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
-    print(f'Device: {device}')
-    print(f'Config: {D1_CONFIG}')
-    print(f'Checkpoint: {D1_CKPT}')
-    print(f'Annotation: {D1_ANN}')
-    print(f'Max imgs: {args.max_imgs or "全量"}')
-    print()
-
-    if not os.path.exists(D1_CKPT):
-        print(f'[错误] checkpoint 不存在: {D1_CKPT}')
+    # 确定 checkpoint
+    if args.checkpoint is not None:
+        d1_ckpt = args.checkpoint
+    else:
+        d1_ckpt = find_d1_checkpoint(args.seed)
+    if d1_ckpt is None or not os.path.exists(d1_ckpt):
+        print(f'[错误] checkpoint 不存在: seed={args.seed}, '
+              f'查找路径=work_dirs/a4_dpm_pp_chr2024_seed{args.seed}/')
         sys.exit(1)
     if not os.path.exists(D1_ANN):
         print(f'[错误] annotation 不存在: {D1_ANN}')
         sys.exit(1)
+
+    print('=' * 80)
+    print(f'Dataset 1 Top-K Proposal Pruning 验证 (seed {args.seed})')
+    print('=' * 80)
+    print(f'时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+    print(f'Device: {device}')
+    print(f'Seed: {args.seed}')
+    print(f'Config: {D1_CONFIG}')
+    print(f'Checkpoint: {d1_ckpt}')
+    print(f'Annotation: {D1_ANN}')
+    print(f'Max imgs: {args.max_imgs or "全量"}')
+    print()
 
     # 实验矩阵: K × renewal on/off (完整 8 场景)
     # 同时闭合 §四 (Top-K mAP) + §六 (box_renewal K 值依赖性) 双数据集缺口
@@ -226,7 +259,7 @@ def main():
         print(f'{"=" * 80}')
 
         r = run_topk_eval(
-            D1_CONFIG, D1_CKPT, D1_ANN,
+            D1_CONFIG, d1_ckpt, D1_ANN,
             topk_k=topk_k, box_renewal=renewal_on,
             device=device, max_imgs=args.max_imgs,
         )
@@ -256,7 +289,7 @@ def main():
 
     # ===================== 汇总表 =====================
     print('\n' + '=' * 80)
-    print('汇总: Dataset 1 Top-K Pruning (DPM-Solver++ 4-step, seed42)')
+    print(f'汇总: Dataset 1 Top-K Pruning (DPM-Solver++ 4-step, seed{args.seed})')
     print('=' * 80)
     print(f'{"场景":<28} {"mAP":>8} {"AP50":>8} {"AP75":>8} {"APs":>8} '
           f'{"lat(ms)":>8} {"ΔvsK500":>8}')
@@ -282,12 +315,13 @@ def main():
     # 保存结果
     out_path = os.path.join(
         _PROJECT_ROOT, 'work_dirs', 'diagnosis',
-        'd1_topk_validation.json',
+        f'd1_topk_validation_seed{args.seed}.json',
     )
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     output = {
         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        'checkpoint': D1_CKPT,
+        'seed': args.seed,
+        'checkpoint': d1_ckpt,
         'config': D1_CONFIG,
         'annotation': D1_ANN,
         'max_imgs': args.max_imgs,
