@@ -306,12 +306,18 @@ class RFDPMSolverAdaptive(RFDPMSolverMultistep):
         x0_pred: torch.Tensor,
         t_n: float,
         step_idx: int,
+        renewal_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """自适应阶次单步积分。
 
         关键差异 vs 基类 step():
           - static 模式: step_idx < num_3rd_steps 时计算并应用 D2, 否则跳过 D2 计算
           - eta_threshold 模式: 始终计算 D2, 但仅在 ||D2||/||x0|| > threshold 时应用
+
+        Args:
+            renewal_mask: [bs, N] bool, True 表示该 proposal 在上一步被 box_renewal
+                          重置, 对其置零 D1 校正项 (路径 A), 避免 renewal 噪声污染
+                          x0_history 导致 D1 失效 (与基类 RFDPMSolverMultistep 一致)
         """
         t_next = self.timesteps[step_idx + 1]
 
@@ -331,6 +337,11 @@ class RFDPMSolverAdaptive(RFDPMSolverMultistep):
         x0_p = self.x0_history[-2]
         t_p = self.t_history[-2]
         D1 = (x0_n - x0_p) / (t_n - t_p)
+
+        # D3 化解路径 A: 对被 renewal 的 proposal 置零 D1 校正项 (与基类一致)
+        if renewal_mask is not None:
+            # renewal_mask: [bs, N] → [bs, N, 1] for broadcast with [bs, N, 4]
+            D1 = D1 * (~renewal_mask).unsqueeze(-1).float()
 
         with torch.no_grad():
             d1_norm = D1.norm(dim=-1)
@@ -441,11 +452,17 @@ class RFDPMSolverPerDim(RFDPMSolverMultistep):
         x0_pred: torch.Tensor,
         t_n: float,
         step_idx: int,
+        renewal_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """per-dim 阶数分配单步积分。
 
         linear 项对所有维度应用 (1 阶 Euler);
         correction = phi1 * D1 仅对 dpm_dims 维度应用 (2 阶 DPM-Solver++)。
+
+        Args:
+            renewal_mask: [bs, N] bool, True 表示该 proposal 在上一步被 box_renewal
+                          重置, 对其置零 D1 校正项 (路径 A), 避免 renewal 噪声污染
+                          x0_history 导致 D1 失效 (与基类 RFDPMSolverMultistep 一致)
         """
         t_next = self.timesteps[step_idx + 1]
 
@@ -468,6 +485,11 @@ class RFDPMSolverPerDim(RFDPMSolverMultistep):
         x0_p = self.x0_history[-2]
         t_p = self.t_history[-2]
         D1 = (x0_n - x0_p) / (t_n - t_p)
+
+        # D3 化解路径 A: 对被 renewal 的 proposal 置零 D1 校正项 (与基类一致)
+        if renewal_mask is not None:
+            # renewal_mask: [bs, N] → [bs, N, 1] for broadcast with [bs, N, 4]
+            D1 = D1 * (~renewal_mask).unsqueeze(-1).float()
 
         # 诊断 (与基类一致)
         with torch.no_grad():
