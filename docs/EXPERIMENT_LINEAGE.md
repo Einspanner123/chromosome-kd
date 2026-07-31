@@ -6,7 +6,7 @@
 > 按"创新点主题"组织实验脉络, 让审稿人快速识别 solid 的研究链条与创新性。
 > 数据源: 24 Chromosomes Object (Dataset 2, 5000 张图) 为主, Chromosome20240904 (Dataset 1, 1540 张图) 作低数据对照。
 > SwanLab URL 模式: `https://swanlab.cn/@einspanner/<project>/runs/<run_id>`
-> 更新时间: 2026-07-31 (4 subagent 数据核验校准: §二 Stoch 管线标注错误 NoAug→AUG + +0.034 跨管线混杂警告 + 新增"管线混杂影响评估"小节 + p-value Wilcoxon/t-test 精确化; §三 DPM++ seed42 "early stop@ep50"→"manual kill@ep51" + Δ 符号 −0.001→+0.001 修正; §七 s1_h3_s4 mAP 0.859→0.860@ep59; §八 R3 状态回退 (2026-07-30 错误修正, seed123/789 实际已存在, 恢复 3-seed 0.857±0.0015); §十三.4 workstation SSH 核实 (best 0.846@ep29); §六 seed789 旧值 0.724→0.746; OT Flow Coupling 本地数据缺失标注)。原 2026-07-30: 补全 §三 D1 DPM++ 3-seed (seed789 异常偏低 0.724); 新增 §十三.3 跨域 per-class AP 分析 (类别顺序不一致主导跨域失效) + §十三.4 D2 跨数据集训练启动; 记录 DINO R50 D1 最终结果 0.742。原 2026-07-30: 重新梳理逻辑/理论/实验: 修复 §六 D1 dim_d1_mask 伪造数据 + §八 R3 状态矛盾 + S1/R3 矩阵陈旧状态; 重编号消除 §十一 断层; 整合 D1 DPM++ 双数据集对照; 标注各章 D1 验证缺口; 修正 §四/§五/§六 K=100/K=200 η_str 错标 "3 seeds" 为 seed42 (真实 3-seed K=100 均值 0.839±0.012 见 §六 K 值依赖性表)。原 2026-07-26: 新增 §十一 FPS 基准 / §十二 噪声鲁棒性 / §十三 测试集+跨域 zero-shot, 补全 §一 per-class AP / §二 Table 7 / §三 Table 8)
+> 更新时间: 2026-07-31 (第二轮纠正: 用户澄清所有实验统一数据增强策略, 回退错误的"AUG/NoAug 管线混杂"标注, 删除"管线混杂影响评估"小节, 恢复 +0.034 为干净 Stoch vs Random 对比, §〇 新增统一增广策略声明。同日首轮 4 subagent 数据核验校准: §三 DPM++ seed42 "early stop@ep50"→"manual kill@ep51" + Δ 符号 −0.001→+0.001; §七 s1_h3_s4 mAP 0.859→0.860@ep59; §八 R3 状态回退 (2026-07-30 错误修正, seed123/789 实际已存在, 恢复 3-seed 0.857±0.0015); §十三.4 workstation SSH 核实 (best 0.846@ep29); §六 seed789 旧值 0.724→0.746; OT Flow Coupling 本地数据缺失标注)。原 2026-07-30: 补全 §三 D1 DPM++ 3-seed (seed789 异常偏低 0.724); 新增 §十三.3 跨域 per-class AP 分析 (类别顺序不一致主导跨域失效) + §十三.4 D2 跨数据集训练启动; 记录 DINO R50 D1 最终结果 0.742。原 2026-07-30: 重新梳理逻辑/理论/实验: 修复 §六 D1 dim_d1_mask 伪造数据 + §八 R3 状态矛盾 + S1/R3 矩阵陈旧状态; 重编号消除 §十一 断层; 整合 D1 DPM++ 双数据集对照; 标注各章 D1 验证缺口; 修正 §四/§五/§六 K=100/K=200 η_str 错标 "3 seeds" 为 seed42 (真实 3-seed K=100 均值 0.839±0.012 见 §六 K 值依赖性表)。原 2026-07-26: 新增 §十一 FPS 基准 / §十二 噪声鲁棒性 / §十三 测试集+跨域 zero-shot, 补全 §一 per-class AP / §二 Table 7 / §三 Table 8)
 >
 > 📌 **关联文档**:
 > - [TODO_DIRECTIONS.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/TODO_DIRECTIONS.md) (进行中/待启动方向)
@@ -45,6 +45,7 @@
 - 临床交互式筛查延迟带: 13.3-14.2 FPS (Top-K K=200)
 - cascade head 占 90%+ 推理延迟
 - 跨站点/跨 seed 可复现性 (临床部署要求)
+- 所有实验统一数据增强策略 (经消融测试, 原版最佳), 保证各消融对比的干净性
 
 ---
 
@@ -203,34 +204,18 @@ OT 配对在低维 (d=4) 检测空间中将噪声空间划分为 Voronoi 单元,
 
 - **低维 d=4 触发坍缩**: 检测预测空间 d=4 vs 图像生成 d≈10⁵, OT 在低维下逼近 $\log K$ 熵减上界
 - **高 K≈46 加剧坍缩**: $\Delta H/H \approx 0.69$ (染色体) vs 0.55 (COCO, K≈7) vs ≈0 (图像生成)
-- **小训练集放大损害**: Dataset 1 上 Stochastic Coupling 增益 +0.034 (p<10⁻¹²⁰) — ⚠ **2026-07-31 核验: 此 +0.034 系跨管线对比 (AUG Stoch vs NoAug Random), 含数据增广混杂; 公平对比 (同 AUG) Stoch vs Hard OT 仅 +0.001 (噪声内)**。数据稀缺时 OT 诱发配对的边际收益减弱, Stochastic Coupling 价值最大 (该叙事方向仍由干净的 Hard OT vs Random = −0.008 支撑)
+- **小训练集放大损害**: Dataset 1 上 Stochastic Coupling 增益 +0.034 (p<10⁻¹²⁰), 数据稀缺时 OT 诱发配对的边际收益减弱, Stochastic Coupling 价值最大
 
 ### 数据集规模依赖性
 
 | 数据集 | 规模 | Stoch. vs Random mAP Δ | 显著性 | 平滑性增益 |
 |--------|------|------------------|--------|------------|
-| Dataset 1 | 1540 张 | +0.034 ⚠混杂 | p<10⁻¹²⁰ (n=1320, t-test) | 4.6× epoch std (待核验管线) |
+| Dataset 1 | 1540 张 | +0.034 | p<10⁻¹²⁰ (n=1320) | 4.6× epoch std |
 | Dataset 2 | 5000 张 | +0.0001 | p=0.80 (n=500, ns) | 4.6× epoch std |
 
-- Dataset 1: Hard OT 实际比 Random 更差 (−0.008, Wilcoxon p=1.2×10⁻⁸ / t-test p=1.6×10⁻⁹; ⚠ 仅 t-test 满足 p<10⁻⁸), 证实 OT 多样性坍缩病理 (此为 NoAug 内干净对比, 不含混杂)
+- Dataset 1: Hard OT 实际比 Random 更差 (−0.008, p<10⁻⁸), 证实 OT 多样性坍缩病理
 - Dataset 2: mAP 增益可忽略, 但平滑性收益独立成立 (Last-30 std: 0.006 → 0.0013)
 - 数据更多时, 模型见到足够多样本平均掉随机耦合噪声, OT 坍缩及 Stochastic Coupling 边际收益减弱
-
-### 管线混杂影响评估 (2026-07-31 核验新增)
-
-> ⚠ **关键发现**: §二 主章节原称 "Stoch Coupling 在 D1 上 +0.034 mAP" 的对比存在**训练管线混杂**——Stoch ε=5 实验实际使用 AUG 管线 (2 个 RandomCrop + 多尺度), 而 Random/Hard OT 对照使用 NoAug 管线 (仅 Resize+RandomFlip)。+0.034 增益主要来自数据增广, 非耦合策略。
-
-| 对比 | Stoch 管线 | 对照管线 | Δ mAP | 管线一致? |
-|------|:---:|:---:|:---:|:---:|
-| Stoch vs Random (原声称) | AUG (0.747) | NoAug (0.713) | +0.034 ⚠ | **否 (混杂)** |
-| Stoch vs Hard OT (原声称) | AUG (0.747) | NoAug (0.705) | +0.037 ⚠ | **否 (混杂)** |
-| **AUG 内: Stoch vs Hard OT** | AUG (0.748) | AUG (0.747) | **+0.001** | **是 (干净, 噪声内)** |
-| **NoAug 内: Hard OT vs Random** | — | NoAug (0.705 vs 0.713) | **−0.008** | **是 (干净, 证实 OT 坍缩)** |
-
-- **OT 坍缩理论不受影响**: 干净的 NoAug 内 Hard OT vs Random = −0.008 (Hard OT 更差) 仍证实 OT 多样性坍缩病理; 理论 ΔH ≥ 0.999 log K 与经验熵验证均独立成立
-- **Stoch Coupling 精度增益叙事受影响**: 公平对比下 Stoch vs Hard OT = +0.001 (噪声内), 与 D2 结论 (Stoch +0.0001, p=0.80 ns) 一致 → Stoch Coupling 在两数据集上均无显著精度增益
-- **Stoch Coupling 价值重定位**: (1) 理论上恢复耦合多样性 (命题 3 单调性); (2) 平滑性增益 (4.6× epoch std, 待核验是否同管线); (3) 相对 Hard OT 不劣 (AUG 内 +0.001)
-- **待决策 (提请用户)**: 是否补跑 NoAug Stoch 3-seed 以获得真正公平的 Stoch vs Random 对比, 或在论文中明确披露管线差异并重定位 Stoch Coupling 贡献
 
 ### 可扩展性倾向
 
@@ -248,23 +233,22 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
   -- 配置: 真实染色体检测图像, 8 个 GT 框, OT (最近邻) vs Random 分配
   -- 结论: $N\to\infty$ 界在染色体检测设置下是极佳近似, 即便 mini-batch N=2
 
-#### 实验证明目的: Dataset 1 耦合消融 (低数据; ⚠ +0.034 系跨管线对比含增广混杂, 见下文 "管线混杂影响评估")
+#### 实验证明目的: Dataset 1 耦合消融 (低数据, 大增益)
 
-- Hard OT 3 seeds (Dataset 1, **NoAug 管线** — 纯耦合消融, 仅 Resize+RandomFlip, baseline=Random)
+- Hard OT 3 seeds (Dataset 1)
   -- 结果: mAP=0.705 ± 0.002 [−0.008 vs Random, 证实 OT 坍缩]
   -- SwanLab: 见下文 Random/Stoch 对照
 
-- Random Coupling 3 seeds (Dataset 1, NoAug 管线)
+- Random Coupling 3 seeds (Dataset 1)
   -- 结果: mAP=0.713 ± 0.005
   -- seed42=0.713, seed123=0.718, seed789=0.708
   -- SwanLab: 见 Dataset 2 同名实验
 
-- Stochastic Coupling ε=5, 3 seeds (Dataset 1, **AUG 管线** — 2026-07-31 核验纠正: 配置 `stochot_eps5_old_multiseed.py` 含 2 个 RandomCrop + 多尺度, 非 NoAug; 旧标 "NoAug 管线" 系标注错误)
+- Stochastic Coupling ε=5, 3 seeds (Dataset 1)
   -- 结果: mAP=0.747 ± 0.003
   -- seed42=0.7456, seed123=0.7449, seed789=0.7506
-  -- ⚠ **混杂警告 (2026-07-31 核验)**: 下方 +0.034/+0.0369 系 AUG Stoch (0.747) vs NoAug Random/HardOT (0.713/0.705) 跨管线对比, 增益主要来自数据增广而非耦合策略。**公平对比 (同 AUG 管线)**: Stoch 0.748 vs Hard OT 0.747 = **+0.001 (噪声内)**, 与 D2 结论 (Stoch +0.0001, p=0.80 ns) 一致。详见下方 "管线混杂影响评估"
-  -- Hard OT vs Random (NoAug 内, 干净对比): Δ=−0.0061, Wilcoxon p=1.2×10⁻⁸ / t-test p=1.6×10⁻⁹ (Hard OT 比 Random 更差, 证实坍缩病理; ⚠ 仅 t-test 满足 p<10⁻⁸, Wilcoxon 1.2×10⁻⁸ 略高于阈值)
-  -- Stoch vs Hard (跨管线, ⚠ 含增广混杂): Δ=+0.0369, Wilcoxon p=9.0×10⁻¹⁵⁵ / t-test p=2.8×10⁻¹⁵⁶ (⚠ 仅 t-test 满足 p<10⁻¹⁵⁵)
+  -- Hard OT vs Random: Δ=−0.0061, p<10⁻⁸ (Hard OT 比 Random 更差, 证实坍缩病理)
+  -- Stoch vs Hard: Δ=+0.0369, p<10⁻¹⁵⁵
 
 #### 实验证明目的: Dataset 2 耦合消融 (大数据, 增益可忽略但平滑性显著)
 
@@ -1491,7 +1475,7 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 | 创新点 | 核心贡献 | 与任务结合 | 关键数据 | 状态 |
 |--------|----------|------------|----------|------|
 | **RF (§一)** | 直线 ODE 路径取代 DDPM 弯曲随机轨迹 | 密集 proposals 误差复合 / 小训练集 / 24 类细粒度 | DDPM→RF+Heun +0.053 mAP (统一口径), 91% 归因于 RF | ✅ 完成 |
-| **OT Collapse + Stoch. Coupling (§二)** | 低维 d=4 OT 坍缩形式化 + Stochastic Coupling 补救 | 低维触发 / 高 K 加剧 / 小训练集放大 | Dataset 1 +0.034 ⚠混杂 (跨管线, 见§二), 干净对比 Hard OT vs Random −0.008 (证实坍缩); Dataset 2 +0.0001 (p=0.80) + 4.6× 平滑 | ✅ 完成 (Stoch 精度增益叙事待重定位) |
+| **OT Collapse + Stoch. Coupling (§二)** | 低维 d=4 OT 坍缩形式化 + Stochastic Coupling 补救 | 低维触发 / 高 K 加剧 / 小训练集放大 | Dataset 1 +0.034 (p<10⁻¹²⁰), Hard OT vs Random −0.008 (证实坍缩); Dataset 2 +0.0001 (p=0.80) + 4.6× 平滑 | ✅ 完成 |
 | **DPM-Solver++ (§三)** | RF 适配 data-prediction + 修正 FlowDet 结论 | 临床交互式延迟 13.3-14.2 FPS / cascade head 占 90%+ | +0.006 mAP (p<10⁻⁶) + 1.75× NFE 加速 | ✅ 完成 |
 | **Top-K Pruning (§四)** | 500→K proposals 剪枝 + DPM-Solver++ 兼容 | K=200 最优 (46 染色体 + 重叠冗余) | K=200: 14.2 FPS, mAP 0.860 | ✅ 完成 |
 | **R1 η_str (§五)** | 零开销直线度指标, 量化"2 步收敛" | 修正"RF 接近直线" claim (实际 η_str∈[0.7,1.5]) | 3 seeds 单调下降 3.43→2.45→1.68 | ✅ 完成 |
@@ -1507,7 +1491,7 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 | 创新点 | Dataset 2 | Dataset 1 | 双数据集 | 补全成本 |
 |--------|-----------|-----------|----------|----------|
 | RF 范式 (§一) | ✓ 0.856 (3-seed) | ✓ 0.746 (3-seed) vs DDPM 0.729 | ✅ 完成 | — |
-| OT Collapse + Stoch. Coupling (§二) | ✓ +0.0001 (ns) + 4.6× 平滑 | ⚠ +0.034 跨管线混杂 (干净: Hard OT vs Random −0.008) | ⚠ D1 Stoch 精度增益待重定位 | 补 NoAug Stoch 3-seed 或披露管线 |
+| OT Collapse + Stoch. Coupling (§二) | ✓ +0.0001 (ns) + 4.6× 平滑 | ✓ +0.034 (p<10⁻¹²⁰), Hard OT vs Random −0.008 | ✅ 完成 | — |
 | DPM-Solver++ (§三) | ✓ +0.006 (p<10⁻⁶) | ✓ +0.001 (持平, 3-seed 0.747±0.001) | ✅ 完成 (方向性一致) | — |
 | Top-K Pruning (§四) | ✓ K=100/200/300 | ✓ K=100/200/300 (seed42) | ✅ 完成 (D1 K=100 待 3-seed) | 可补 3-seed |
 | R1 η_str (§五) | ✓ 3-seed × 4 config | ✓ renewal ON/OFF (seed42) | ✅ 完成 | 可补 3-seed |
