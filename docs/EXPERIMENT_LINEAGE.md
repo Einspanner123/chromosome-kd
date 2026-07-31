@@ -6,7 +6,7 @@
 > 按"创新点主题"组织实验脉络, 让审稿人快速识别 solid 的研究链条与创新性。
 > 数据源: 24 Chromosomes Object (Dataset 2, 5000 张图) 为主, Chromosome20240904 (Dataset 1, 1540 张图) 作低数据对照。
 > SwanLab URL 模式: `https://swanlab.cn/@einspanner/<project>/runs/<run_id>`
-> 更新时间: 2026-07-31 (第三轮: (C) 全文 D1/D2/D3 方向代号替换为全称 Dataset 1/Dataset 2/Box Renewal × DPM++ 交互, 保留 $D_1$ 数学符号与 dim_d1_mask 代码变量; (A1) §三 "匹配 NFE" 修正为"匹配步数"同 checkpoint 对比 (DPM++ 4步 0.863 vs Heun 4步 0.864, Δ=−0.001); (B5) §三 +0.006 口径澄清: per-image Wilcoxon 跨 checkpoint delta (非 aggregate mAP 差, 非同 checkpoint solver 切换), §一 solver×step 标注 SwanLab-only 数据缺口; (B3) §四 K=100 3-seed 掉点 −0.024→−0.020 (修正口径: K=100 3-seed 0.839 − K=500 3-seed 0.859); (B4) 0.859±0.004 (renewal ON) vs 0.858±0.003 (renewal OFF) 双口径确认; (A2) §一 aggregate mAP 术语释义补充。第二轮纠正: 用户澄清所有实验统一数据增强策略, 回退错误的"AUG/NoAug 管线混杂"标注, 删除"管线混杂影响评估"小节, 恢复 +0.034 为干净 Stoch vs Random 对比, §〇 新增统一增广策略声明。同日首轮 4 subagent 数据核验校准: §三 DPM++ seed42 "early stop@ep50"→"manual kill@ep51" + Δ 符号 −0.001→+0.001; §七 s1_h3_s4 mAP 0.859→0.860@ep59; §八 v-prediction 对照状态回退 (2026-07-30 错误修正, seed123/789 实际已存在, 恢复 3-seed 0.857±0.0015); §十三.4 workstation SSH 核实 (best 0.846@ep29); §六 seed789 旧值 0.724→0.746; OT Flow Coupling 本地数据缺失标注)。原 2026-07-30: 补全 §三 Dataset 1 DPM++ 3-seed (seed789 异常偏低 0.724); 新增 §十三.3 跨域 per-class AP 分析 (类别顺序不一致主导跨域失效) + §十三.4 Dataset 2 跨数据集训练启动; 记录 DINO R50 Dataset 1 最终结果 0.742。原 2026-07-30: 重新梳理逻辑/理论/实验: 修复 §六 Dataset 1 dim_d1_mask 伪造数据 + §八 v-prediction 对照状态矛盾 + Cascade × Solver/v-prediction 矩阵陈旧状态; 重编号消除 §十一 断层; 整合 Dataset 1 DPM++ 双数据集对照; 标注各章 Dataset 1 验证缺口; 修正 §四/§五/§六 K=100/K=200 η_str 错标 "3 seeds" 为 seed42 (真实 3-seed K=100 均值 0.839±0.012 见 §六 K 值依赖性表)。原 2026-07-26: 新增 §十一 FPS 基准 / §十二 噪声鲁棒性 / §十三 测试集+跨域 zero-shot, 补全 §一 per-class AP / §二 Table 7 / §三 Table 8)
+> 更新时间: 2026-07-31 (第五轮: DINO R50 / RTMDet-L Dataset 2 test mAP 补跑完成—DINO R50 test=0.865 (best@ep102), RTMDet-L test=0.862 (best@ep85), 均在 ross A6000 上评估; §十三.1/§十三.5/§十六 全部 "未评估" 标注替换为实际 test mAP, 跨数据集退化对比更新为 test-vs-test 口径。第四轮: R1/R3/S1 方向代号全称化 (52处); val/test 口径全标注; 测试表补全。第三轮: (C) 全文 D1/D2/D3 方向代号替换为全称 Dataset 1/Dataset 2/Box Renewal × DPM++ 交互, 保留 $D_1$ 数学符号与 dim_d1_mask 代码变量; (A1) §三 "匹配 NFE" 修正为"匹配步数"同 checkpoint 对比 (DPM++ 4步 0.863 vs Heun 4步 0.864, Δ=−0.001); (B5) §三 +0.006 口径澄清: per-image Wilcoxon 跨 checkpoint delta (非 aggregate mAP 差, 非同 checkpoint solver 切换), §一 solver×step 标注 SwanLab-only 数据缺口; (B3) §四 K=100 3-seed 掉点 −0.024→−0.020 (修正口径: K=100 3-seed 0.839 − K=500 3-seed 0.859); (B4) 0.859±0.004 (renewal ON) vs 0.858±0.003 (renewal OFF) 双口径确认; (A2) §一 aggregate mAP 术语释义补充。第二轮纠正: 用户澄清所有实验统一数据增强策略, 回退错误的"AUG/NoAug 管线混杂"标注, 删除"管线混杂影响评估"小节, 恢复 +0.034 为干净 Stoch vs Random 对比, §〇 新增统一增广策略声明。同日首轮 4 subagent 数据核验校准: §三 DPM++ seed42 "early stop@ep50"→"manual kill@ep51" + Δ 符号 −0.001→+0.001; §七 s1_h3_s4 mAP 0.859→0.860@ep59; §八 v-prediction 对照状态回退 (2026-07-30 错误修正, seed123/789 实际已存在, 恢复 3-seed 0.857±0.0015); §十三.4 workstation SSH 核实 (best 0.846@ep29); §六 seed789 旧值 0.724→0.746; OT Flow Coupling 本地数据缺失标注)。原 2026-07-30: 补全 §三 Dataset 1 DPM++ 3-seed (seed789 异常偏低 0.724); 新增 §十三.3 跨域 per-class AP 分析 (类别顺序不一致主导跨域失效) + §十三.4 Dataset 2 跨数据集训练启动; 记录 DINO R50 Dataset 1 最终结果 0.742。原 2026-07-30: 重新梳理逻辑/理论/实验: 修复 §六 Dataset 1 dim_d1_mask 伪造数据 + §八 v-prediction 对照状态矛盾 + Cascade × Solver/v-prediction 矩阵陈旧状态; 重编号消除 §十一 断层; 整合 Dataset 1 DPM++ 双数据集对照; 标注各章 Dataset 1 验证缺口; 修正 §四/§五/§六 K=100/K=200 η_str 错标 "3 seeds" 为 seed42 (真实 3-seed K=100 均值 0.839±0.012 见 §六 K 值依赖性表)。原 2026-07-26: 新增 §十一 FPS 基准 / §十二 噪声鲁棒性 / §十三 测试集+跨域 zero-shot, 补全 §一 per-class AP / §二 Table 7 / §三 Table 8)
 >
 > 📌 **关联文档**:
 > - [TODO_DIRECTIONS.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/TODO_DIRECTIONS.md) (进行中/待启动方向)
@@ -160,7 +160,7 @@ DDPM baseline→RF+Heun 累积 +0.053 mAP (统一口径: DDPM baseline = Diffusi
 #### 实验证明目的: vs SOTA 检测器 (DINO/RTMDet-L/Cascade)
 
 - KaryoFlow (+DPM-Solver++) 3-seed 均值
-  -- mAP=0.859 (val, 3-seed; test=0.859 seed42 见 §十三.1), 落后 DINO R50 (0.868 val, 单 seed; test 未评估) 仅 0.009, 落后 RTMDet-L (0.863 val, 单 seed; test 未评估) 0.004
+  -- mAP=0.859 (val, 3-seed; test=0.859 seed42 见 §十三.1), 落后 DINO R50 (0.868 val / 0.865 test, 单 seed) 0.009 val / 0.006 test, 落后 RTMDet-L (0.863 val / 0.862 test, 单 seed) 0.004 val / 0.003 test
   -- 超越 Cascade R-CNN (0.854 val / 0.853 test), YOLOX-S (0.796 val / 0.795 test), DiffusionDet (0.803 val / 0.804 test)
   -- 相对 DiffusionDet seed42 best: +0.060 mAP (val), 3-seed 均值: +0.056 (val)
   -- SwanLab: https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/a4_dpm_pp
@@ -1369,10 +1369,10 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 | Cascade R-CNN | 0.854 | 0.853 | −0.001 | 稳定 |
 | YOLOX-S | 0.796 | 0.795 | −0.001 | 稳定 |
 | DiffusionDet | 0.803 | 0.804 | +0.001 | 稳定 |
-| DINO R50 | 0.868 | ⚠ **未评估** | — | SOTA 对比; test_eval 批次未含此模型, 需补跑 |
-| RTMDet-L | 0.863 | ⚠ **未评估** | — | SOTA 对比; test_eval 批次未含此模型, 需补跑 |
+| DINO R50 | 0.868 | **0.865** | −0.003 | 稳定; test eval 2026-07-31 补跑 (best@ep102, ross A6000) |
+| RTMDet-L | 0.863 | **0.862** | −0.001 | 稳定; test eval 2026-07-31 补跑 (best@ep85, ross A6000) |
 
-> ⚠ **DINO R50 / RTMDet-L Dataset 2 test 评估缺口 (2026-07-31 核实)**: `results/run_test_eval_batch.sh` 仅含 9 个模型 (6 ldmdet 变体 + Cascade + YOLOX + DiffusionDet), 未包含 DINO R50 / RTMDet-L。三服务器 (本地/workstation/ross) 均无 D2 test_eval 配置或日志。论文 SOTA 比较表 (Table 6) 当前用 val mAP, 若论文统一采用 test mAP 需补跑这两个模型的 D2 test 评估。
+> ✓ **DINO R50 / RTMDet-L Dataset 2 test 评估已补跑 (2026-07-31, ross A6000)**: DINO R50 test=0.865 (best@ep102), RTMDet-L test=0.862 (best@ep85)。配置: `dino_r50_test_eval.py` / `rtmdet_l_test_eval.py`。SwanLab: `ldmdet-inference` project, exp=`dino_r50_test_eval` / `rtmdet_l_test_eval`。
 
 #### Dataset 1 test 评估表 (220 图, 2026-07-30, 论文 §4.5.4 补充)
 
@@ -1486,9 +1486,9 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 
 - **之前 (未完成)**: DINO R50 0.607 @ ep29 (31/150ep, val, 未完全收敛)
 - **跨数据集退化对比 (test 口径, 论文采用)**:
-  - DINO R50 Dataset 1 test 0.725 vs Dataset 2 val 0.868 (test 未评估), Δ=−0.143 (**退化 16.5%**, test vs val 跨 split 对比仅供参考)
-  - RTMDet-L Dataset 1 test 0.732 vs Dataset 2 val 0.863 (test 未评估), Δ=−0.131 (退化 15.2%)
-  - 注: Dataset 2 的 DINO R50 / RTMDet-L **test 未评估** (仅 val), 严格 test-vs-test 跨数据集退化对比需补跑 Dataset 2 test 评估
+  - DINO R50 Dataset 1 test 0.725 vs Dataset 2 test 0.865, Δ=−0.140 (**退化 16.2%**)
+  - RTMDet-L Dataset 1 test 0.732 vs Dataset 2 test 0.862, Δ=−0.130 (退化 15.1%)
+  - 注: Dataset 2 的 DINO R50 (test=0.865) / RTMDet-L (test=0.862) test 已于 2026-07-31 补跑, 跨数据集退化对比已更新为 test-vs-test 口径
 - **跨数据集退化对比 (val 口径, 文档历史参照)**:
   - DINO R50 Dataset 1 val 0.742 vs Dataset 2 val 0.868, Δ=−0.126 (退化 14.5%)
   - RTMDet-L Dataset 1 val 0.742 vs Dataset 2 val 0.863, Δ=−0.121 (退化 14.0%)
@@ -1573,15 +1573,15 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 
 | 方法 | Backbone | mAP (val) | mAP (test) | FPS | 备注 |
 |------|----------|:---------:|:----------:|-----|------|
-| DINO R50 | ResNet-50 | 0.868 | ⚠ 未评估 | 30.5 | 多尺度可变形注意力 (单 seed); test 需补跑 |
-| RTMDet-L | CSPNeXt-L | 0.863 | ⚠ 未评估 | — | 更强主干 (单 seed); test 需补跑 |
+| DINO R50 | ResNet-50 | 0.868 | **0.865** | 30.5 | 多尺度可变形注意力 (单 seed) |
+| RTMDet-L | CSPNeXt-L | 0.863 | **0.862** | — | 更强主干 (单 seed) |
 | **KaryoFlow (+DPM-Solver++)** | ResNet-50 | **0.859** | **0.859** | **13.3** | RF + DPM-Solver++ (val 3-seed mean = test seed42) |
 | KaryoFlow (+DPM-Solver++) + Top-K (K=200) | ResNet-50 | 0.860 | 0.859 | **14.2** | 最佳速度-精度权衡 (test 上与 +DPM-Solver++ 持平) |
 | Cascade R-CNN | ResNet-50 | 0.854 | 0.853 | 48.4 | — |
 | DiffusionDet | ResNet-50 | 0.803 | 0.804 | 41.0 | DDPM 基线 (ep26 checkpoint) |
 | YOLOX-S | CSPDarkNet-S | 0.796 | 0.795 | 98.5 | — |
 
-> ⚠ **test 口径缺口**: DINO R50 / RTMDet-L 在 Dataset 2 上仅 val 评估, test 未评估 (见 §十三.1)。论文 SOTA 比较若统一用 test mAP, 需补跑这两个模型; 若沿用 val mAP, 需在论文中说明口径。
+> ✓ **test 口径已闭合 (2026-07-31)**: DINO R50 test=0.865 (Δ=−0.003), RTMDet-L test=0.862 (Δ=−0.001), 均与 val 差距 ≤0.003。论文 SOTA 比较可统一用 test mAP。KaryoFlow (+DPM-Solver++) test=0.859 落后 DINO R50 test 0.006, 落后 RTMDet-L test 0.003。
 
 ### 关键统计显著性
 
