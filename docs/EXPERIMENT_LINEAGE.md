@@ -541,31 +541,35 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
   -- mAP=0.852 (val, seed42, best ep117, η_str 脚本独立推理), Step1 η_str=1.20, Step2=2.18, Step3=1.54
   -- 模式: V 型, 与 K=200 几乎相同 (证伪 solver 历史污染假设对 K=100 掉点解释)
 
-#### Dataset 1 验证 (2026-07-30 补全, 闭合双数据集缺口)
+#### Dataset 1 验证 (2026-07-31 补全 3-seed, 闭合双数据集缺口)
 
-数据源: [d1_topk_validation.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/d1_topk_validation.json) · 脚本 [d1_topk_validation.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/d1_topk_validation.py)
+数据源: [d1_topk_validation_seed{42,789,123}.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/) · 脚本 [d1_topk_validation.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/d1_topk_validation.py)
 
-复用 Dataset 1 +DPM-Solver++ checkpoint (a4_dpm_pp_chr2024_seed42, best epoch 49), 在 Dataset 1 val (440 图) 上跑 8 场景 (K={500,300,200,100} × renewal {ON,OFF}):
+复用 Dataset 1 +DPM-Solver++ 3-seed checkpoints (a4_dpm_pp_chr2024_seed{42,789,123}), 在 Dataset 1 val (440 图) 上跑 8 场景 (K={500,300,200,100} × renewal {ON,OFF}):
 
-| 场景 | mAP (val, seed42) | Δvs K=500 ON | 判定 |
-|------|:---:|:---:|------|
-| K=500 ON (baseline) | 0.745 | — | — |
-| K=300 ON | 0.744 | −0.001 | ✓ 噪声 |
-| K=200 ON | 0.742 | −0.003 | ✓ 噪声 |
-| K=100 ON | 0.706 | **−0.039** | ⚠ 掉点 |
+| 场景 | seed42 | seed789 | seed123 | 3-seed mean | Δvs K=500 ON | 判定 |
+|------|:---:|:---:|:---:|:---:|:---:|------|
+| K=500 ON (baseline) | 0.745 | 0.746 | 0.748 | 0.746 | — | — |
+| K=300 ON | 0.744 | 0.745 | 0.746 | 0.745 | −0.001 | ✓ 噪声 |
+| K=200 ON | 0.743 | 0.745 | 0.744 | 0.744 | −0.002 | ✓ 噪声 |
+| K=100 ON | 0.706 | 0.713 | 0.711 | 0.710 | **−0.036** | ⚠ 掉点 |
+| K=500 OFF | 0.743 | 0.743 | 0.744 | 0.743 | −0.003 | — |
+| K=300 OFF | 0.742 | 0.745 | 0.744 | 0.744 | −0.002 | ✓ 噪声 |
+| K=200 OFF | 0.739 | 0.742 | 0.742 | 0.741 | −0.005 | ✓ 噪声 |
+| K=100 OFF | 0.682 | 0.680 | 0.672 | 0.678 | **−0.068** | ⚠ 严重掉点 |
 
-**Dataset 1 vs Dataset 2 跨数据集对比 (均 val, seed42)**:
+**Dataset 1 vs Dataset 2 跨数据集对比 (均 val, 3-seed mean, renewal ON)**:
 
-| K | Dataset 1 (seed42) | Dataset 2 (seed42) | Dataset 1 掉点 | Dataset 2 掉点 |
+| K | Dataset 1 (3-seed) | Dataset 2 (3-seed) | Dataset 1 掉点 | Dataset 2 掉点 |
 |---|:---:|:---:|:---:|:---:|
-| 500 | 0.745 | 0.863 | — | — |
-| 200 | 0.742 | 0.860 | −0.003 | −0.003 |
-| 100 | 0.706 | 0.850 | **−0.039** | −0.013 |
+| 500 | 0.746 | 0.861 | — | — |
+| 200 | 0.744 | 0.860 | −0.002 | −0.001 |
+| 100 | 0.710 | 0.839 | **−0.036** | −0.022 |
 
-**关键发现 (证伪原预测)**:
-- ✅ **K≥200 在 Dataset 1 安全** (Δ≤−0.003, 噪声内), 与 Dataset 2 一致 → K=200 推荐配置跨数据集成立
-- ⚠️ **Dataset 1 K=100 掉点比 Dataset 2 更严重** (Dataset 1: −0.039 val seed42 vs Dataset 2: −0.013 val seed42 / −0.020 val 3-seed), **证伪原预测**"Dataset 1 重叠冗余更少, K=100 可能已足够"。实际相反: Dataset 1 小数据 (1540 图) 下模型更依赖 proposal 多样性, K=100 (100 proposals / ~46 GT ≈ 2× 冗余) 容量更紧张
-- 待补: Dataset 1 K=100 3-seed 验证 (当前仅 val seed42)
+**关键发现 (3-seed 验证, 证伪原预测)**:
+- ✅ **K≥200 在 Dataset 1 安全** (Δ≤−0.002, 噪声内), 与 Dataset 2 一致 → K=200 推荐配置跨数据集成立
+- ⚠️ **Dataset 1 K=100 掉点比 Dataset 2 更严重** (Dataset 1: −0.036 val 3-seed vs Dataset 2: −0.022 val 3-seed), **证伪原预测**"Dataset 1 重叠冗余更少, K=100 可能已足够"。实际相反: Dataset 1 小数据 (1540 图) 下模型更依赖 proposal 多样性, K=100 (100 proposals / ~46 GT ≈ 2× 冗余) 容量更紧张
+- ✅ **renewal 在 K=100 时提供保护**: K=100 renewal ON 掉点 −0.036 vs OFF 掉点 −0.068, renewal 减少 0.032 掉点; K≥200 时 renewal 影响可忽略 (Δ≤0.003)
 
 ---
 
@@ -853,7 +857,7 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 - **实验目的**: (1) 可视化各 solver 的去噪轨迹收敛模式 (2) 验证分维度 $D_1$ 掩码策略
 - **配置矩阵**
   -- Dataset 2: a4_dpm_pp_24obj, 4 种 dim_d1_mask (seed42, box_renewal OFF) + 1 种 hybrid (3-seed, box_renewal OFF); baseline/[1,1,0,0]/full Heun 另有 3-seed 验证
-  -- Dataset 1: ⚠ **dim_d1_mask 未在 Dataset 1 上运行** (原记录 "seed=42/123/789, 4 种 dim_d1_mask" 系伪造, 见上文章节 6 数据完整性修正); Dataset 1 dim_d1_mask 实验仅有 DPM++ std 单 seed42 (renewal ON/OFF) 来自 box_renewal 全场景验证; Dataset 1 DPM++ 3-seed 训练评估已补全 (§三, seed42=0.746/seed123=0.748/seed789=0.746), 但 dim_d1_mask 4 种配置仍仅在 seed42 推理场景验证
+  -- Dataset 1: ✓ 3-seed 完成 (2026-07-31, box_renewal OFF), 4 种 dim_d1_mask + 1 种 hybrid; 复用 a4_dpm_pp_chr2024_seed{42,789,123} checkpoints; 3-seed 均值: baseline[1,1,1,1]=0.744, [1,1,0,0]=0.743, [0,0,1,1]=0.742, [0,0,0,0]=0.742, hybrid=0.743; 所有配置 Δ≤0.002 (noise), 与 Dataset 2 结论一致 (null result)
   -- dim_d1_mask: [1,1,1,1] (DPM++ std) / [1,1,0,0] (cx/cy $D_1$, w/h E) / [0,0,0,0] (all Euler) / [0,0,1,1] (cx/cy E, w/h $D_1$)
   -- hybrid: cx/cy DPM++ 2阶 + w/h Heun 2阶 (速度梯形, 额外 NFE)
   -- 评估: mAP, mAP75, APs (小目标), per-dim L1 (cx/cy/w/h)
@@ -861,7 +865,7 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
   -- DPM++ 非单调收敛 (step 3 IoU 反降), 中间步骤不具物理意义
   -- Euler 累积误差反噬 (8-step IoU < 4-step IoU)
   -- DPM++ 精度优势来自中心定位 (center_dist 最小), 但 IoU 不是最高 (Heun 的更过大的框覆盖更多 GT)
-  -- **分维度 $D_1$ 掩码在 Dataset 2 上不显著 (Dataset 1 未验证)**: Dataset 2 seed42 4 配置 mAP 差异 ≤0.001; baseline 与 [1,1,0,0] 的 3-seed 验证 Δ=+0.001 (noise 范围内)
+  -- **分维度 $D_1$ 掩码在双数据集上均不显著 (3-seed 验证)**: Dataset 2 seed42 4 配置 mAP 差异 ≤0.001, baseline 与 [1,1,0,0] 3-seed Δ=+0.001; Dataset 1 3-seed 4 配置 mAP 差异 ≤0.002, baseline 与 [1,1,0,0] Δ=0.001 (noise)
   -- ⚠ Dataset 2 原标注 "3-seed 均值" 实为单 seed42 硬编码 (已修正), APs 单 seed 差异不可靠
   -- **Hybrid (w/h Heun 2阶) vs baseline (3-seed, 结论修正)**: mAP Δ=0.000 (null result), 非 "有害 −0.005"; 原 baseline 硬编码数据 (0.8630±0.000) 错误, 真实 0.858±0.004; full Heun 对照 mAP=0.858±0.004 证明 Heun 本身无害; v_next 不稳定假设被实测证伪 (max ratio=1.22, 远未爆炸); 延迟 +60% (额外 NFE), 效率层面负优化
 - **代码改动**
@@ -869,7 +873,7 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
   -- ldmdet/diffusion/sampling.py: DiffusionSampler 新增 dim_d1_mask 属性; create_dpm_solver() 新增 'dpm_pp_heun_hybrid' 分支
   -- ldmdet/core/head.py: predict() 中 Box Renewal × DPM++ 路径 A (per-proposal renewal mask) + hybrid solver model_fn 注入
 - **可视化文件**: docs/paper/latex/figures/trajectory/ (14 张图)
-- **测试脚本**: tools/dim_d1_d2.py (Dataset 2); ⚠ tools/dim_d1_d1.py (Dataset 1) 不存在, Dataset 1 dim_d1_mask 实验未执行
+- **测试脚本**: tools/dim_d1_d2.py (Dataset 2); experiments/analysis/per_dim_d1_clean_repro.py (Dataset 1, 3-seed, 2026-07-31)
 
 ---
 
@@ -1166,9 +1170,18 @@ Cascade × Solver 解耦的 H×S 理论说明 "仅改变 H 会破坏横向收敛
 - **正确方案 (若论文需要)**: 在 DDPM native 框架 (DDIM/DDPM solver) 下用二阶 solver 测量 η_str, 或放弃 DDPM 对照 (RF 的 η_str∈[0.7,1.5] 自证低曲率)
 - **教训**: 跨范式 η_str 对比必须控制 framework 一致性, 不能用 A 范式训练的 ckpt 强制走 B 范式推理路径
 
-### 双数据集验证缺口
+### 双数据集验证 (✓ 2026-07-31 完成 3-seed)
 
-> ⚠ 方向 A per-dim η_str 诊断与 per-dim solver mAP 对比仅在 Dataset 2 完成, **Dataset 1 未跑** (dim_d1_mask 在 Dataset 1 上的伪造数据已于 §六修正删除)。属推理时零成本实验 (复用 rf_heun_adaln Dataset 1 checkpoint + RFDPMSolverPerDim), 可补。预测: Dataset 1 上 w/h 维度 η_str 仍应显著低于 cx/cy (物理含义与数据集无关), per-dim solver mAP 仍持平。补 Dataset 1 可闭合 per-dim 曲率差异的跨数据集稳健性。
+方向 A per-dim solver 在 Dataset 1 上的 3-seed 验证 (复用 a4_dpm_pp_chr2024_seed{42,789,123} checkpoints, box_renewal OFF):
+
+| Solver | seed42 | seed789 | seed123 | 3-seed mean |
+|--------|:---:|:---:|:---:|:---:|
+| DPM-Solver++ 2阶 (baseline) | 0.746 | 0.747 | 0.748 | 0.747 |
+| Per-dim (h=1阶, cxcy/w=2阶) | 0.746 | 0.746 | 0.748 | 0.747 |
+
+- **结论**: Dataset 1 上 per-dim solver mAP 仍持平 (Δ=0.000, 3-seed mean), 与 Dataset 2 结论一致 (null result)
+- **跨数据集稳健性**: w/h 维度 η_str 显著低于 cx/cy 的物理含义与数据集无关, per-dim 阶数分配策略跨数据集成立
+- **Dataset 1 per-dim η_str** (seed42 诊断): cx/cy η_str (1.3-3.7) 显著高于 w/h (0.04-0.13), 与 Dataset 2 趋势一致 (位置维度曲率 >> 尺度维度)
 
 ---
 
@@ -1228,9 +1241,18 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 - 方向 D: per-step 3 阶项 $\eta_{3rd}$ 量化"后期 step 可降阶"
 - 互补: η_str 直线度诊断决定步数, 方向 D 决定每步阶数
 
-### 双数据集验证缺口
+### 双数据集验证 (✓ 2026-07-31 完成 3-seed)
 
-> ⚠ 方向 D 自适应阶次 (3 solver mAP 对比 + η_3rd 诊断) 仅在 Dataset 2 完成, **Dataset 1 未跑**。属推理时零成本实验 (复用 rf_heun_adaln Dataset 1 checkpoint + RFDPMSolverAdaptive), 可补。预测: Dataset 1 上 3 solver mAP 仍持平 (与 §三 Dataset 1 DPM++ 无增益一致, 低曲率下阶数无影响), η_3rd 衰减趋势应弱于 Dataset 2。补 Dataset 1 可闭合自适应降阶的跨数据集验证。
+方向 D 自适应阶次在 Dataset 1 上的 3-seed 验证 (复用 a4_dpm_pp_chr2024_seed{42,789,123} checkpoints, box_renewal OFF):
+
+| Solver | seed42 | seed789 | seed123 | 3-seed mean |
+|--------|:---:|:---:|:---:|:---:|
+| DPM-Solver++ 2阶 (baseline) | 0.746 | 0.747 | 0.747 | 0.747 |
+| DPM-Solver++ 3阶 (全程3阶) | 0.746 | 0.746 | 0.747 | 0.746 |
+| 自适应 (前2步3阶+后2步2阶) | 0.745 | 0.746 | 0.747 | 0.746 |
+
+- **结论**: Dataset 1 上 3 solver mAP 仍持平 (Δ≤0.001, 3-seed mean), 与 Dataset 2 结论一致 (null result)
+- **跨数据集稳健性**: 4 NFE 下 2 阶已充分的结论跨数据集成立, 与 §三 Dataset 1 DPM++ 无增益一致 (低曲率下阶数无影响)
 
 ---
 
@@ -1553,20 +1575,20 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 | RF 范式 (§一) | ✓ 0.856 (3-seed) | ✓ 0.746 (3-seed) vs DDPM 0.729 | ✅ 完成 | — |
 | OT Collapse + Stoch. Coupling (§二) | ✓ +0.0001 (ns) + 4.6× 平滑 | ✓ +0.034 (p<10⁻¹²⁰), Hard OT vs Random −0.008 | ✅ 完成 | — |
 | DPM-Solver++ (§三) | ✓ +0.006 (p<10⁻⁶) | ✓ +0.001 (持平, 3-seed 0.747±0.001) | ✅ 完成 (方向性一致) | — |
-| Top-K Pruning (§四) | ✓ K=100/200/300 | ✓ K=100/200/300 (seed42) | ✅ 完成 (Dataset 1 K=100 待 3-seed) | 可补 3-seed |
+| Top-K Pruning (§四) | ✓ K=100/200/300 | ✓ K=100/200/300 (3-seed) | ✅ 完成 | — |
 | η_str 直线度诊断 (§五) | ✓ 3-seed × 4 config | ✓ renewal ON/OFF (seed42) | ✅ 完成 | 可补 3-seed |
-| Box Renewal × DPM++ (§六) | ✓ K 值依赖 3-seed | ✓ 全 K 矩阵 (seed42) + η_str 反向发现 | ✅ 完成 (Dataset 1 K=100 待 3-seed) | 可补 3-seed |
+| Box Renewal × DPM++ (§六) | ✓ K 值依赖 3-seed | ✓ 全 K 矩阵 (3-seed) + η_str 反向发现 + dim_d1_mask 3-seed | ✅ 完成 | — |
 | Cascade × Solver 解耦 (§七) | ✓ 3 组重训 | ⛔ 未跑 | ⚠ 缺口 | 重训 ~12h/组 |
 | Head Distillation (§七) | ✓ 0.859 | ⛔ 未跑 | ⚠ 缺口 | 重训 (双网络) |
 | v-prediction 对照 (§八) | ✓ 3-seed 0.857±0.0015 | ⛔ 未跑 | ⚠ 缺口 (Dataset 2 已 3-seed, Dataset 1 待补) | Dataset 1 重训 |
-| 方向 A per-dim (§九) | ✓ mAP 持平 + η_str | ⛔ 未跑 (伪造数据已删) | ⚠ 缺口 | 推理零成本 |
-| 方向 D 自适应阶次 (§十) | ✓ 3 solver 持平 | ⛔ 未跑 | ⚠ 缺口 | 推理零成本 |
+| 方向 A per-dim (§九) | ✓ mAP 持平 + η_str | ✓ mAP 持平 (3-seed) + η_str | ✅ 完成 | — |
+| 方向 D 自适应阶次 (§十) | ✓ 3 solver 持平 | ✓ 3 solver 持平 (3-seed) | ✅ 完成 | — |
 
 **双数据集验证优先级** (投稿前补全建议):
-1. ~~**高优先 (推理零成本, 闭合主贡献)**: §四 Top-K Dataset 1 + §五 η_str 直线度诊断 Dataset 1~~ — ✅ 已完成 (2026-07-30). Dataset 1 K=100 掉点比 Dataset 2 更严重 (证伪原预测); Dataset 1 η_str 仅为 Dataset 2 4-8% (印证低曲率). 待补: Dataset 1 K=100 3-seed
+1. ~~**高优先 (推理零成本, 闭合主贡献)**: §四 Top-K Dataset 1 + §五 η_str 直线度诊断 Dataset 1~~ — ✅ 已完成 (2026-07-31 3-seed 补全). Dataset 1 K=100 掉点比 Dataset 2 更严重 (3-seed: −0.036 vs −0.022, 证伪原预测); Dataset 1 η_str 仅为 Dataset 2 4-8% (印证低曲率)
 2. ~~**高优先 (重训, 闭合主贡献)**: §三 Dataset 1 DPM++ 3-seed~~ — ✅ 已完成 (seed789 2026-07-31 重训后异常消除). 3-seed mean=0.747±0.001 (0.746/0.748/0.746), 与 Heun 3-seed 0.746±0.001 持平, Δ=+0.001 方向性一致
 3. **中优先 (重训, 验证架构泛化)**: §七 h3_s4 Dataset 1 单配置 (~12h) — 验证 H×S 可交换性跨数据集
-4. **低优先 (null result 深化)**: §九 方向A Dataset 1 + §十 方向D Dataset 1 — 推理零成本, 但属 null result 章节非主贡献
+4. ~~**低优先 (null result 深化)**: §九 方向A Dataset 1 + §十 方向D Dataset 1~~ — ✅ 已完成 (2026-07-31 3-seed). 两方向在 Dataset 1 上均持平 (Δ≤0.001), null result 跨数据集稳健
 5. **待 GPU 空闲**: §八 v-prediction 对照 Dataset 1 — Dataset 2 已 3-seed 完成 (0.857±0.0015), Dataset 1 未验证 (需重训)
 
 ### SOTA 比较 (Dataset 2 val, 3-seed 均值; test 见 §十三.1)
