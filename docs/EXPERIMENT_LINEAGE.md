@@ -344,7 +344,7 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
   -- 改动: coupling=ot_flow, lambda_mod=0.0 (关闭尺度条件)
   -- 本地: work_dirs/nonlinear_trajectory_e42/
   -- SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/wcp34v3t
-  -- ⚠ 2026-07-31 核验: 本地 work_dirs/nonlinear_trajectory_e42/ 为空 (无 checkpoint/日志/配置), SwanLab run_id wcp34v3t 本地 vis_data 无缓存, 无法独立验证 (仅 CATALOG 记录). 实验可能运行于远程后本地数据被清理; 建议从 ross 恢复或在文档标注本地数据缺失
+  -- ⚠ 2026-07-31 核验 (subagent 三服务器分布检查修正): 本地 work_dirs/nonlinear_trajectory_e42/ 为空, **ross 上该目录亦不存在** (原标注"建议从 ross 恢复"有误). checkpoint 实际仅在 **workstation** 上 (`/home/linkst/workplace/chromo/chromosome-kd/work_dirs/nonlinear_trajectory_e42/`, 含 `best_coco_bbox_mAP_epoch_65.pth` + `best_coco_bbox_mAP_epoch_81.pth` + `train.log` + 配置). 2026-07-31 已启动串行同步脚本将 workstation 独有 checkpoint 备份至 ross
 
 
 ## 三、DPM-Solver++ — 推理加速 + 匹配步数精度优势贡献
