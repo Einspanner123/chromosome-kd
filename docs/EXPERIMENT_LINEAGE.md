@@ -6,7 +6,7 @@
 > 按"创新点主题"组织实验脉络, 让审稿人快速识别 solid 的研究链条与创新性。
 > 数据源: 24 Chromosomes Object (Dataset 2, 5000 张图) 为主, Chromosome20240904 (Dataset 1, 1540 张图) 作低数据对照。
 > SwanLab URL 模式: `https://swanlab.cn/@einspanner/<project>/runs/<run_id>`
-> 更新时间: 2026-07-31 (第二轮纠正: 用户澄清所有实验统一数据增强策略, 回退错误的"AUG/NoAug 管线混杂"标注, 删除"管线混杂影响评估"小节, 恢复 +0.034 为干净 Stoch vs Random 对比, §〇 新增统一增广策略声明。同日首轮 4 subagent 数据核验校准: §三 DPM++ seed42 "early stop@ep50"→"manual kill@ep51" + Δ 符号 −0.001→+0.001; §七 s1_h3_s4 mAP 0.859→0.860@ep59; §八 R3 状态回退 (2026-07-30 错误修正, seed123/789 实际已存在, 恢复 3-seed 0.857±0.0015); §十三.4 workstation SSH 核实 (best 0.846@ep29); §六 seed789 旧值 0.724→0.746; OT Flow Coupling 本地数据缺失标注)。原 2026-07-30: 补全 §三 D1 DPM++ 3-seed (seed789 异常偏低 0.724); 新增 §十三.3 跨域 per-class AP 分析 (类别顺序不一致主导跨域失效) + §十三.4 D2 跨数据集训练启动; 记录 DINO R50 D1 最终结果 0.742。原 2026-07-30: 重新梳理逻辑/理论/实验: 修复 §六 D1 dim_d1_mask 伪造数据 + §八 R3 状态矛盾 + S1/R3 矩阵陈旧状态; 重编号消除 §十一 断层; 整合 D1 DPM++ 双数据集对照; 标注各章 D1 验证缺口; 修正 §四/§五/§六 K=100/K=200 η_str 错标 "3 seeds" 为 seed42 (真实 3-seed K=100 均值 0.839±0.012 见 §六 K 值依赖性表)。原 2026-07-26: 新增 §十一 FPS 基准 / §十二 噪声鲁棒性 / §十三 测试集+跨域 zero-shot, 补全 §一 per-class AP / §二 Table 7 / §三 Table 8)
+> 更新时间: 2026-07-31 (第三轮: (C) 全文 D1/D2/D3 方向代号替换为全称 Dataset 1/Dataset 2/Box Renewal × DPM++ 交互, 保留 $D_1$ 数学符号与 dim_d1_mask 代码变量; (A1) §三 "匹配 NFE" 修正为"匹配步数"同 checkpoint 对比 (DPM++ 4步 0.863 vs Heun 4步 0.864, Δ=−0.001); (B5) §三 +0.006 口径澄清: per-image Wilcoxon 跨 checkpoint delta (非 aggregate mAP 差, 非同 checkpoint solver 切换), §一 solver×step 标注 SwanLab-only 数据缺口; (B3) §四 K=100 3-seed 掉点 −0.024→−0.020 (修正口径: K=100 3-seed 0.839 − K=500 3-seed 0.859); (B4) 0.859±0.004 (renewal ON) vs 0.858±0.003 (renewal OFF) 双口径确认; (A2) §一 aggregate mAP 术语释义补充。第二轮纠正: 用户澄清所有实验统一数据增强策略, 回退错误的"AUG/NoAug 管线混杂"标注, 删除"管线混杂影响评估"小节, 恢复 +0.034 为干净 Stoch vs Random 对比, §〇 新增统一增广策略声明。同日首轮 4 subagent 数据核验校准: §三 DPM++ seed42 "early stop@ep50"→"manual kill@ep51" + Δ 符号 −0.001→+0.001; §七 s1_h3_s4 mAP 0.859→0.860@ep59; §八 R3 状态回退 (2026-07-30 错误修正, seed123/789 实际已存在, 恢复 3-seed 0.857±0.0015); §十三.4 workstation SSH 核实 (best 0.846@ep29); §六 seed789 旧值 0.724→0.746; OT Flow Coupling 本地数据缺失标注)。原 2026-07-30: 补全 §三 Dataset 1 DPM++ 3-seed (seed789 异常偏低 0.724); 新增 §十三.3 跨域 per-class AP 分析 (类别顺序不一致主导跨域失效) + §十三.4 Dataset 2 跨数据集训练启动; 记录 DINO R50 Dataset 1 最终结果 0.742。原 2026-07-30: 重新梳理逻辑/理论/实验: 修复 §六 Dataset 1 dim_d1_mask 伪造数据 + §八 R3 状态矛盾 + S1/R3 矩阵陈旧状态; 重编号消除 §十一 断层; 整合 Dataset 1 DPM++ 双数据集对照; 标注各章 Dataset 1 验证缺口; 修正 §四/§五/§六 K=100/K=200 η_str 错标 "3 seeds" 为 seed42 (真实 3-seed K=100 均值 0.839±0.012 见 §六 K 值依赖性表)。原 2026-07-26: 新增 §十一 FPS 基准 / §十二 噪声鲁棒性 / §十三 测试集+跨域 zero-shot, 补全 §一 per-class AP / §二 Table 7 / §三 Table 8)
 >
 > 📌 **关联文档**:
 > - [TODO_DIRECTIONS.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/TODO_DIRECTIONS.md) (进行中/待启动方向)
@@ -120,6 +120,7 @@ DDPM baseline→RF+Heun 累积 +0.053 mAP (统一口径: DDPM baseline = Diffusi
   -- DPM-Solver++ 1 步 (1 NFE): mAP=0.851
   -- 结论: 匹配步数下 solver 类型对 mAP 无影响; 步数 1→4 仅 +0.004; solver/步数联合仅贡献 6%
   -- SwanLab: https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/a1_rf_heun
+  -- ⚠ 2026-07-31 B5 核验: 本组数据仅在 SwanLab 有记录, 本地 work_dirs/a1_rf_heun_24obj/ 下未找到对应推理日志/JSON (仅有训练日志)。同结论已被 §三 +DPM-Solver++ checkpoint 上 Heun 4步 vs DPM++ 4步 (Δ=−0.001, work_dirs/a4_dpm_pp_24obj/20260715_011706/) 独立复现, 结论不变
 
 #### 实验证明目的: DDPM 多步消融 (Dataset 2, 论文 Appendix G)
 
@@ -180,8 +181,9 @@ DDPM baseline→RF+Heun 累积 +0.053 mAP (统一口径: DDPM baseline = Diffusi
 #### 实验证明目的: SOTA per-image Wilcoxon 检验 (论文 §4.3.2 引用, 暂不放入正文)
 
 - RF (+Stoch. Coupling 配置) vs 4 个 SOTA 检测器 per-image 配对检验 (Dataset 2 val, 500 imgs, seed 42)
-  -- Aggregate mAP: DINO R50 0.8685 > RTMDet-L 0.8626 > Cascade R-CNN 0.8535 > RF (+Stoch. Coupling) 0.8521 > DiffusionDet 0.8031
+  -- Aggregate mAP (标准 COCO mAP, 全图池化后计算 AP@0.5:0.95, 区别于下方 per-image Wilcoxon 逐图 AP): DINO R50 0.8685 > RTMDet-L 0.8626 > Cascade R-CNN 0.8535 > RF (+Stoch. Coupling) 0.8521 > DiffusionDet 0.8031
   -- RF (+DPM-Solver++ best 0.863) vs DINO R50 (0.8685) aggregate 差距仅 0.63%, per-image Wilcoxon 差距 1.64% (+Stoch. Coupling 配置)
+  -- 注: aggregate mAP 略高于 Table 6 训练评估值 (如 DINO 0.8685 vs 0.868), 因 per-image 推理脚本使用独立评估配置 (maxDets/评估管线不同); 方向性结论不受影响
   -- RTMDet-L ep85 修复 (2026-07-20): 之前用 ep86 (次优 0.861), 实际 ep85 best=0.8630 (实测 0.8626)
   -- 数据源: [experiments/analysis/baseline_inference_24obj_perimage_results.json](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/baseline_inference_24obj_perimage_results.json)
   -- 详细: [EXPERIMENT_CATALOG.md §7.4.6](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_CATALOG.md)
@@ -354,7 +356,7 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
 - **二阶更新公式**: $x_{t_{n+1}} = \frac{t_{n+1}}{t_n}x_{t_n} + (1-\frac{t_{n+1}}{t_n})\hat{x}_0^{(n)} + \varphi_1 D_1$
 - **NFE 优势**: 4 步共 4 NFE, 相比 Heun 4 步 7 NFE 加速 1.75×
 - **奇点处理**: $t\to 0$ 处由 $\epsilon$ 截断 ($t_{n+1} > 10^{-7}$)
-- **修正 FlowDet**: 匹配步数下 DPM-Solver++ 相对 Heun +0.006 mAP (Wilcoxon p<10⁻⁶), 而非更差
+- **修正 FlowDet**: 跨 checkpoint 匹配 4 步下, +DPM-Solver++ checkpoint (DPM++ 训练) 相对 +Stoch. Coupling checkpoint (Heun 训练) per-image Wilcoxon Δ=+0.0056 mAP (p<10⁻⁶), 而非更差。注: 同 checkpoint 切换 solver 的 Δ=−0.001 (噪声, 见下方匹配步数对比), +0.006 主要来自训练配置差异而非推理 solver 切换
 
 ### 与染色体检测任务特性的结合
 
@@ -372,10 +374,10 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
 ### 轨迹级收敛模式分析 (2026-07-29, 详见 §六)
 
 匈牙利匹配追踪每个 GT 目标的预测框在各步的位置变化, 量化各 solver 的收敛模式差异:
-- **Euler**: 单调递增 IoU (D2: 0.054→0.086→0.137→0.687), 但步数过多时累积误差反噬 (D1: 8-step IoU 0.737 < 4-step 0.751)
-- **Heun**: 单调递增且更快 (D2: 0.050→0.099→0.220→0.709), 二阶校正使中间步骤更逼近 $x_0$
-- **DPM-Solver++**: **非单调收敛** (D2: 0.056→0.069→**0.055↓**→0.676), step 3 IoU 反降; 中间步骤不具物理意义, 为 D3 矛盾提供轨迹级解释
-- **DPM++ 精度机制**: center_dist 最小 (10.7px D2) 但 IoU 不是最高 (0.676), mAP +0.006 来自中心定位而非框尺寸
+- **Euler**: 单调递增 IoU (Dataset 2: 0.054→0.086→0.137→0.687), 但步数过多时累积误差反噬 (Dataset 1: 8-step IoU 0.737 < 4-step 0.751)
+- **Heun**: 单调递增且更快 (Dataset 2: 0.050→0.099→0.220→0.709), 二阶校正使中间步骤更逼近 $x_0$
+- **DPM-Solver++**: **非单调收敛** (Dataset 2: 0.056→0.069→**0.055↓**→0.676), step 3 IoU 反降; 中间步骤不具物理意义, 为 renewal × DPM++ 历史矛盾提供轨迹级解释
+- **DPM++ 精度机制**: center_dist 最小 (10.7px Dataset 2) 但 IoU 不是最高 (0.676), mAP +0.006 来自中心定位而非框尺寸
 
 ### 实验列表
 
@@ -385,7 +387,7 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
   -- mAP Δ: +0.0056, Wilcoxon p=2.5×10⁻⁷ ***, 配对 t p=8.4×10⁻⁷ *** (n=500)
   -- +DPM-Solver++−+AdaLN-Zero (combined): Δ=+0.0057, Wilcoxon p=4.5×10⁻⁴, t p=4.9×10⁻⁵ ***
   -- +Stoch. Coupling−+AdaLN-Zero (Stoch. Coup.): Δ=+0.0001, p=0.797 ns (Dataset 2 上不显著)
-  -- 结论: 高阶 solver 在相等步数下略更好, 而非更差, 修正 FlowDet 结论
+  -- 结论: 跨 checkpoint (DPM++ 训练 vs Heun 训练) 相等 4 步下, DPM++ checkpoint 的 per-image mAP 略更好 (+0.0056), 而非更差, 修正 FlowDet 结论。同 checkpoint 切换 solver 无显著差异 (Δ=−0.001, 见下方匹配步数对比)
   -- SwanLab: https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/a4_dpm_pp
 
 #### 实验证明目的: R1 η_str 诊断 (3 seeds × 4 configs)
@@ -408,10 +410,14 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
   -- 结论: 超过 2 步无收益, η_str 诊断定量解释该现象
   -- SwanLab: https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/a4_dpm_pp
 
-#### 实验证明目的: 匹配 NFE 下 DPM-Solver++ 对比 Heun
+#### 实验证明目的: 匹配步数下 DPM-Solver++ 对比 Heun (同 checkpoint)
 
-- DPM-Solver++ 4 步 (4 NFE, mAP=0.863) ≈ Heun 2 步 (3 NFE, mAP=0.863)
-  -- 精度相当, DPM-Solver++ 以零成本换取 43% 更少 NFE
+- +DPM-Solver++ checkpoint (a4, seed 42, best@ep117) 上 DPM-Solver++ 4 步 vs Heun 4 步
+  -- DPM-Solver++ 4 步 (4 NFE): mAP=0.863
+  -- Heun 4 步 (7 NFE): mAP=0.864
+  -- Δ=−0.001 (噪声内), 精度相当; DPM-Solver++ 以 1.75× 更少 NFE 达到同等精度
+  -- 结论: 同 checkpoint 匹配步数下 solver 类型对 mAP 无影响 (与 §一 solver×step 解耦一致), DPM++ 的价值在于 NFE 效率而非单步精度
+  -- 数据源: work_dirs/a4_dpm_pp_24obj/20260715_011706/ (exp=heun_4step, aggregate mAP=0.864)
   -- SwanLab: https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/a4_dpm_pp
 
 #### 实验证明目的: 完整 Table 8 配对显著性检验 (论文 Table 8, §4.3.2)
@@ -428,7 +434,7 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
   | +DPM-Solver++−+AdaLN-Zero (combined) | AP_S | -0.0019 | 0.691 ns | 0.898 ns | 60 |
 
   -- 结论 1: Stoch Coupling 在 Dataset 2 上 mAP 增益不显著 (p=0.80), 仅在 Dataset 1 显著 (Table 9)
-  -- 结论 2: DPM-Solver++ 在匹配 4 步下 +0.0056 mAP, p<10⁻⁶, 高阶 solver 略 *更好* 而非更差, 修正 FlowDet 结论
+  -- 结论 2: 跨 checkpoint 匹配 4 步下 per-image Δ=+0.0056 mAP (DPM++ 训练 vs Heun 训练), p<10⁻⁶, DPM++ checkpoint 略 *更好* 而非更差, 修正 FlowDet 结论 (同 checkpoint 切换 solver Δ=−0.001 噪声, 见 §三 匹配步数对比)
   -- 结论 3: 所有 AP_S 差异不显著 (p>0.6), 各变体间小目标数值噪声等价
   -- 数据源: [EXPERIMENT_CATALOG.md §7.4](file:///home/linkst/workspace/projects/chromosome-kd/docs/EXPERIMENT_CATALOG.md) (C3: 配对统计显著性检验)
   -- 推理脚本: `experiments/analysis/baseline_inference_24obj_perimage.py`
@@ -451,31 +457,33 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
 
 #### 实验证明目的: DPM-Solver++ 双数据集对照 (Dataset 1 低数据验证)
 
-> 补充 Dataset 1 验证, 满足"所有理论应在两个数据集上得到验证"规则。D1 DPM++ 3-seed 已完成 (seed789 于 2026-07-31 重训, 旧 run 异常已消除), 之前仅有单 seed42 (box_renewal 全场景验证)。
+> 补充 Dataset 1 验证, 满足"所有理论应在两个数据集上得到验证"规则。Dataset 1 DPM++ 3-seed 已完成 (seed789 于 2026-07-31 重训, 旧 run 异常已消除), 之前仅有单 seed42 (box_renewal 全场景验证)。
 
 - Dataset 1 DPM++ 3-seed vs Heun 对照 (2026-07-30 补全)
-  -- D1 Heun (训练评估, 见 §一): mAP=0.745 (seed42) / 0.746±0.001 (3-seed)
-  -- D1 DPM++ 3-seed (训练评估):
+  -- Dataset 1 Heun (训练评估, 见 §一): mAP=0.745 (seed42) / 0.746±0.001 (3-seed)
+  -- Dataset 1 DPM++ 3-seed (训练评估):
      - seed42: 0.746 @ ep49 (best@ep49, 训练于 ep51 iter700 中途中断 manual kill; 非 EarlyStoppingHook 触发, patience=30 未到期)
      - seed123: 0.748 @ ep85 (early stop @ ep115, workstation A5000)
      - seed789: 0.746 @ ep72 (2026-07-31 重训, 旧 run 0.724@ep22 异常已消除; 重训 best 已稳定 20+ epoch 无刷新, 训练仍在进行至 ep92+)
      - **3-seed mean = 0.747±0.001** (三 seed 一致性好, 无异常值)
-  -- D1 DPM++ (renewal ON, box_renewal 全场景验证 seed42): mAP=0.744, AP50=0.938, AP75=0.832, APs=0.506
-  -- D1 DPM++ (renewal OFF, box_renewal 全场景验证 seed42): mAP=0.743, AP50=0.937, AP75=0.831, APs=0.498
-  -- **D1 Δ(DPM++ − Heun) = +0.001 (seed42 同口径: 0.746−0.745) / +0.001 (3-seed 均值 0.747 vs Heun 3-seed 0.746±0.001)**: DPM++ 在 D1 上**与 Heun 持平** (噪声内, 两口径均 +0.001), 与 D2 的 +0.006 (p<10⁻⁶) 形成对照
+  -- Dataset 1 DPM++ (renewal ON, box_renewal 全场景验证 seed42): mAP=0.744, AP50=0.938, AP75=0.832, APs=0.506
+  -- Dataset 1 DPM++ (renewal OFF, box_renewal 全场景验证 seed42): mAP=0.743, AP50=0.937, AP75=0.831, APs=0.498
+  -- **Dataset 1 Δ(DPM++ − Heun) = +0.001 (seed42 同口径: 0.746−0.745) / +0.001 (3-seed 均值 0.747 vs Heun 3-seed 0.746±0.001)**: DPM++ 在 Dataset 1 上**与 Heun 持平** (噪声内, 两口径均 +0.001), 与 Dataset 2 的 +0.006 (p<10⁻⁶) 形成对照
   -- 数据源: [renewal_off_all_scenarios.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_all_scenarios.json) (Dataset1_+DPM-Solver++, seed42 推理场景) · work_dirs/a4_dpm_pp_chr2024_seed{42,123,789}/ (3-seed 训练评估)
   -- 注: seed42 训练评估 mAP (0.746) 与 box_renewal 全场景验证 mAP (0.744, renewal ON) 略有差异, 源于评估配置不同 (训练评估默认 renewal ON + 训练 sampling 配置 vs 推理场景独立评估); 不影响方向性结论
 
-| 数据集 | 规模 | Heun mAP | DPM++ mAP | Δ (DPM++−Heun) | 显著性 | NFE (Heun/DPM++) |
+| 数据集 | 规模 | Heun mAP (aggregate) | DPM++ mAP (aggregate) | Δ (per-image Wilcoxon) | 显著性 | NFE (Heun/DPM++) |
 |--------|------|----------|-----------|----------------|--------|-------------------|
-| Dataset 2 | 5000 张 | 0.856 (RF+Heun) / 0.858 (+Stoch) | 0.863 | **+0.006** | p<10⁻⁶ *** | 7 / 4 |
-| Dataset 1 | 1540 张 | 0.745 (seed42) / 0.746 (3-seed) | 0.747 (3-seed: 0.746/0.748/0.746, mean 0.747±0.001) | **+0.001** (噪声内) | — (3-seed) | 7 / 4 |
+| Dataset 2 | 5000 张 | 0.856 (RF+Heun) / 0.858 (+Stoch) | 0.863 | **+0.006** (=+0.0056, 跨 checkpoint) | p<10⁻⁶ *** | 7 / 4 |
+| Dataset 1 | 1540 张 | 0.745 (seed42) / 0.746 (3-seed) | 0.747 (3-seed: 0.746/0.748/0.746, mean 0.747±0.001) | **+0.001** (噪声内, 3-seed 均值差) | — (3-seed) | 7 / 4 |
+
+> ⚠ **口径说明 (2026-07-31 B5 核验)**: Dataset 2 的 Δ=+0.006 是 **per-image Wilcoxon 配对检验均值差** (n=500, +DPM-Solver++ checkpoint vs +Stoch. Coupling checkpoint, 均匹配 4 步), **非 aggregate COCO mAP 直接相减**。aggregate mAP 差: 0.863−0.858=+0.005 (vs +Stoch) / 0.863−0.856=+0.007 (vs RF+Heun)。同 checkpoint (a4) 切换 solver 的 aggregate Δ=−0.001 (Heun 4步 0.864 vs DPM++ 4步 0.863, 见上方匹配步数对比)。+0.006 主要反映训练配置差异 (DPM++ 训练 vs Heun 训练) 而非推理 solver 切换。Dataset 1 的 Δ=+0.001 为 3-seed 均值差 (0.747−0.746), 非 Wilcoxon (Dataset 1 DPM++ vs Heun 的 per-image 配对检验未单独运行)。
 
 **双数据集对照结论**:
-1. **DPM++ 精度优势的数据集依赖性**: D2 (大数据) 上 DPM++ +0.006 显著优于 Heun; D1 (小数据) 上两者持平 (Δ=+0.001, 噪声内)。这与 R1 η_str 诊断一致 — 小训练集下 RF 轨迹更接近直线 (低曲率), 二阶校正项 $D_1$ 的边际贡献趋零; 大数据下模型学到更多轨迹曲率, 二阶校正产生精度增益。
-2. **NFE 加速在两数据集上均成立**: 无论精度优势是否存在, DPM++ 始终以 4 NFE (vs Heun 7 NFE) 提供 1.75× 推理加速, 在 D1 上是"免费加速" (零精度损失), 在 D2 上是"加速+增益"。
-3. **修正 FlowDet 结论在两数据集上均成立**: 匹配步数下高阶 solver 不劣于低阶 — D2 上 DPM++ 更好 (+0.006), D1 上持平 (+0.001), 均非"更差"。
-4. **D1 3-seed 已完成 (seed789 重训后)**: 三 seed 一致性好 (0.746/0.748/0.746, Δ≤0.002); seed789 旧 run (0.724@ep22, early stop 过早触发) 已于 2026-07-31 重训消除异常 (best 0.746@ep72)。3-seed mean=0.747±0.001, 与 Heun 3-seed 0.746±0.001 持平, 方向性结论 (DPM++ 不劣于 Heun) 与 D2 一致, 支持 FlowDet 修正的主张。
+1. **DPM++ 精度优势的数据集依赖性**: Dataset 2 (大数据) 上 DPM++ +0.006 显著优于 Heun; Dataset 1 (小数据) 上两者持平 (Δ=+0.001, 噪声内)。这与 R1 η_str 诊断一致 — 小训练集下 RF 轨迹更接近直线 (低曲率), 二阶校正项 $D_1$ 的边际贡献趋零; 大数据下模型学到更多轨迹曲率, 二阶校正产生精度增益。
+2. **NFE 加速在两数据集上均成立**: 无论精度优势是否存在, DPM++ 始终以 4 NFE (vs Heun 7 NFE) 提供 1.75× 推理加速, 在 Dataset 1 上是"免费加速" (零精度损失), 在 Dataset 2 上是"加速+增益"。
+3. **修正 FlowDet 结论在两数据集上均成立**: 匹配步数下高阶 solver 不劣于低阶 — Dataset 2 上 DPM++ 更好 (+0.006), Dataset 1 上持平 (+0.001), 均非"更差"。
+4. **Dataset 1 3-seed 已完成 (seed789 重训后)**: 三 seed 一致性好 (0.746/0.748/0.746, Δ≤0.002); seed789 旧 run (0.724@ep22, early stop 过早触发) 已于 2026-07-31 重训消除异常 (best 0.746@ep72)。3-seed mean=0.747±0.001, 与 Heun 3-seed 0.746±0.001 持平, 方向性结论 (DPM++ 不劣于 Heun) 与 Dataset 2 一致, 支持 FlowDet 修正的主张。
 
 ---
 
@@ -493,7 +501,7 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
 
 - **K=200 最优**: 46 条染色体 + 重叠冗余, 200 proposals 提供足够容量
 - **K=100 掉点 (−0.013) 主因 proposal 不足**: 100 个框覆盖 ~46 条染色体 + 重叠冗余时容量紧张
-- **K=100 掉点非 solver 历史污染**: K=100/K=200 η_str 几乎相同 (step2: 2.18 vs 2.24, step3: 1.54 vs 1.54), D3 假设被证伪
+- **K=100 掉点非 solver 历史污染**: K=100/K=200 η_str 几乎相同 (step2: 2.18 vs 2.24, step3: 1.54 vs 1.54), solver 历史污染假设被证伪
 
 ### 实验列表
 
@@ -509,7 +517,7 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
 
 - +DPM-Solver++ + Top-K (K=100)
   -- NFE=4, Latency=69.71 ms, FPS=14.3, mAP=0.850 [−0.013 vs +DPM-Solver++, 掉点]
-  -- 掉点主因: proposal 容量不足 (非 solver 历史污染, 见 D3 证伪)
+  -- 掉点主因: proposal 容量不足 (非 solver 历史污染, 见 §六 证伪)
   -- SwanLab: https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/a4_dpm_pp
 
 #### 实验证明目的: Top-K 改变 η_str 模式 (V 型 vs 单调递减)
@@ -522,13 +530,13 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
 
 - TopK K=100 (seed42)
   -- mAP=0.852, Step1 η_str=1.20, Step2=2.18, Step3=1.54
-  -- 模式: V 型, 与 K=200 几乎相同 (证伪 D3 对 K=100 掉点解释)
+  -- 模式: V 型, 与 K=200 几乎相同 (证伪 solver 历史污染假设对 K=100 掉点解释)
 
 #### Dataset 1 验证 (2026-07-30 补全, 闭合双数据集缺口)
 
 数据源: [d1_topk_validation.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/d1_topk_validation.json) · 脚本 [d1_topk_validation.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/d1_topk_validation.py)
 
-复用 D1 +DPM-Solver++ checkpoint (a4_dpm_pp_chr2024_seed42, best epoch 49), 在 D1 val (440 图) 上跑 8 场景 (K={500,300,200,100} × renewal {ON,OFF}):
+复用 Dataset 1 +DPM-Solver++ checkpoint (a4_dpm_pp_chr2024_seed42, best epoch 49), 在 Dataset 1 val (440 图) 上跑 8 场景 (K={500,300,200,100} × renewal {ON,OFF}):
 
 | 场景 | mAP (seed42) | Δvs K=500 ON | 判定 |
 |------|:---:|:---:|------|
@@ -537,18 +545,18 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
 | K=200 ON | 0.742 | −0.003 | ✓ 噪声 |
 | K=100 ON | 0.706 | **−0.039** | ⚠ 掉点 |
 
-**D1 vs D2 跨数据集对比**:
+**Dataset 1 vs Dataset 2 跨数据集对比**:
 
-| K | D1 (seed42) | D2 (seed42) | D1 掉点 | D2 掉点 |
+| K | Dataset 1 (seed42) | Dataset 2 (seed42) | Dataset 1 掉点 | Dataset 2 掉点 |
 |---|:---:|:---:|:---:|:---:|
 | 500 | 0.745 | 0.863 | — | — |
 | 200 | 0.742 | 0.860 | −0.003 | −0.003 |
 | 100 | 0.706 | 0.850 | **−0.039** | −0.013 |
 
 **关键发现 (证伪原预测)**:
-- ✅ **K≥200 在 D1 安全** (Δ≤−0.003, 噪声内), 与 D2 一致 → K=200 推荐配置跨数据集成立
-- ⚠️ **D1 K=100 掉点比 D2 更严重** (D1: −0.039 vs D2: −0.013 seed42 / −0.024 3-seed), **证伪原预测**"D1 重叠冗余更少, K=100 可能已足够"。实际相反: D1 小数据 (1540 图) 下模型更依赖 proposal 多样性, K=100 (100 proposals / ~46 GT ≈ 2× 冗余) 容量更紧张
-- 待补: D1 K=100 3-seed 验证 (当前仅 seed42)
+- ✅ **K≥200 在 Dataset 1 安全** (Δ≤−0.003, 噪声内), 与 Dataset 2 一致 → K=200 推荐配置跨数据集成立
+- ⚠️ **Dataset 1 K=100 掉点比 Dataset 2 更严重** (Dataset 1: −0.039 vs Dataset 2: −0.013 seed42 / −0.020 3-seed), **证伪原预测**"Dataset 1 重叠冗余更少, K=100 可能已足够"。实际相反: Dataset 1 小数据 (1540 图) 下模型更依赖 proposal 多样性, K=100 (100 proposals / ~46 GT ≈ 2× 冗余) 容量更紧张
+- 待补: Dataset 1 K=100 3-seed 验证 (当前仅 seed42)
 
 ---
 
@@ -605,23 +613,23 @@ DPM-Solver++ 二阶校正项 $D_1^{(n)} = (\hat{x}_0^{(n)} - \hat{x}_0^{(n-1)})/
 
 数据源: [renewal_on.json](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/r1_eta_str_d1_chr2024_seed42_renewal_on.json) · [renewal_off.json](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/r1_eta_str_d1_chr2024_seed42_renewal_off.json)
 
-复用 D1 +DPM-Solver++ checkpoint, 在 D1 val (440 图) 上测量 η_str (renewal ON + OFF):
+复用 Dataset 1 +DPM-Solver++ checkpoint, 在 Dataset 1 val (440 图) 上测量 η_str (renewal ON + OFF):
 
 | Config | Step1 η_str | Step2 | Step3 | mAP |
 |--------|:-----------:|:-----:|:-----:|:---:|
-| **D1 renewal ON** | 0.280 ± 0.058 | 0.145 ± 0.039 | 0.068 ± 0.022 | 0.746 |
-| **D1 renewal OFF** | 0.629 ± 0.080 | 0.371 ± 0.060 | 0.244 ± 0.045 | 0.743 |
-| D2 renewal ON (3-seed) | 3.43 ± 0.36 | 2.45 ± 0.24 | 1.68 ± 0.15 | 0.859 |
-| D2 renewal OFF (3-seed) | 1.50 ± 0.33 | 1.11 ± 0.19 | 0.70 ± 0.09 | 0.858 |
+| **Dataset 1 renewal ON** | 0.280 ± 0.058 | 0.145 ± 0.039 | 0.068 ± 0.022 | 0.746 |
+| **Dataset 1 renewal OFF** | 0.629 ± 0.080 | 0.371 ± 0.060 | 0.244 ± 0.045 | 0.743 |
+| Dataset 2 renewal ON (3-seed) | 3.43 ± 0.36 | 2.45 ± 0.24 | 1.68 ± 0.15 | 0.859 |
+| Dataset 2 renewal OFF (3-seed) | 1.50 ± 0.33 | 1.11 ± 0.19 | 0.70 ± 0.09 | 0.858 |
 
 **关键发现**:
-- ✅ **D1 η_str 远低于 D2** (renewal ON 仅为 D2 的 4-8%; renewal OFF 为 D2 的 35-42%), **完美印证 §五 预测**"小数据→低曲率→DPM++ 二阶校正无增益", 定量解释 §三 中 D1 DPM++ 持平 (Δ=+0.001 噪声内 vs D2 +0.006)
-- 🔬 **D3 矛盾在 D1 反向出现** (详见 §六): D2 renewal ON 虚高 η_str (3.43 vs OFF 1.50); D1 renewal ON 反而压低 η_str (0.280 vs OFF 0.629)。两数据集方向相反但均证明 renewal 污染 η_str, 强化"renewal OFF 是唯一有效诊断"结论
-- D1 η_str 单调递减 (0.280→0.145→0.068), 与 D2 baseline 模式一致 (非 Top-K 的 V 型)
+- ✅ **Dataset 1 η_str 远低于 Dataset 2** (renewal ON 仅为 Dataset 2 的 4-8%; renewal OFF 为 Dataset 2 的 35-42%), **完美印证 §五 预测**"小数据→低曲率→DPM++ 二阶校正无增益", 定量解释 §三 中 Dataset 1 DPM++ 持平 (Δ=+0.001 噪声内 vs Dataset 2 +0.006)
+- 🔬 **renewal × DPM++ 历史矛盾在 Dataset 1 反向出现** (详见 §六): Dataset 2 renewal ON 虚高 η_str (3.43 vs OFF 1.50); Dataset 1 renewal ON 反而压低 η_str (0.280 vs OFF 0.629)。两数据集方向相反但均证明 renewal 污染 η_str, 强化"renewal OFF 是唯一有效诊断"结论
+- Dataset 1 η_str 单调递减 (0.280→0.145→0.068), 与 Dataset 2 baseline 模式一致 (非 Top-K 的 V 型)
 
 ---
 
-## 六、D3: Box Renewal 与 DPM-Solver++ 交互 — 检测特有操作理论化 (已完成)
+## 六、Box Renewal 与 DPM-Solver++ 交互 — 检测特有操作理论化 (已完成)
 
 ### 核心贡献: 揭示 box_renewal 与多步法历史矛盾 + 化解
 
@@ -630,15 +638,15 @@ box_renewal 在每个 solver step 后将低置信度 proposals 重置为随机�
 - **命题 D3.1**: 对被 renewal 的 proposal $i$, $D_{1,i}^{(n+1)}$ 期望范数远大于真实轨迹曲率
 - **推论 D3.2**: box_renewal 后 $\eta_{str}$ 不再反映直线度, 而是被 renewal 噪声主导
 - **实测 (Dataset 2)**: renewal on 使 $\eta_{str}$ 虚高 56-58% (ratio off/on = 0.42-0.44), 但 mAP 仅 −0.0003 (噪声范围)
-- **实测 (Dataset 1, 2026-07-30 补)**: renewal on 反而**压低** $\eta_{str}$ (ON step1=0.280 vs OFF=0.629, ratio off/on=2.25), 方向与 D2 相反。机制: D1 小数据下低质量 proposal 更多, renewal_mask 将其排除出 η_str 计算人为压低; 无 renewal 时这些 proposal 贡献高 $D_1$。**两数据集方向相反但均证明 renewal 污染 η_str**, 强化"renewal OFF 是唯一有效诊断"结论 (详见 §五 D1 验证)
+- **实测 (Dataset 1, 2026-07-30 补)**: renewal on 反而**压低** $\eta_{str}$ (ON step1=0.280 vs OFF=0.629, ratio off/on=2.25), 方向与 Dataset 2 相反。机制: Dataset 1 小数据下低质量 proposal 更多, renewal_mask 将其排除出 η_str 计算人为压低; 无 renewal 时这些 proposal 贡献高 $D_1$。**两数据集方向相反但均证明 renewal 污染 η_str**, 强化"renewal OFF 是唯一有效诊断"结论 (详见 §五 Dataset 1 验证)
 
 ### 与染色体检测任务特性的结合
 
 - **box_renewal 是检测特有操作**: 图像生成无此机制 (生成任务没有"低置信度 proposal"概念)
 - **密集目标下 renewal 比例高**: 46 个 GT + 500 proposals, 低置信度 proposals 较多, renewal 触发频繁
-- **VGAR (Velocity-Guided Adaptive Renewal) 缓解**: $\alpha(t)\hat{x}_0 + (1-\alpha(t))z$, 但 $t\to 0$ 时 $\alpha\to 0.8$, 仍保留 20% 随机性, D3 矛盾仅缓解未消除
+- **VGAR (Velocity-Guided Adaptive Renewal) 缓解**: $\alpha(t)\hat{x}_0 + (1-\alpha(t))z$, 但 $t\to 0$ 时 $\alpha\to 0.8$, 仍保留 20% 随机性, renewal × DPM++ 历史矛盾仅缓解未消除
 
-### D3 对 K=100 掉点解释被证伪
+### solver 历史污染假设对 K=100 掉点解释被证伪
 
 | 配置 | mAP (seed42) | Step1 η_str | Step2 | Step3 |
 |------|-----|-------------|-------|-------|
@@ -647,7 +655,7 @@ box_renewal 在每个 solver step 后将低置信度 proposals 重置为随机�
 
 > 注: 上表 mAP 与 η_str 均为 seed42 单次测量 (η_str 仅 seed42 有 K=100/K=200 数据)。K=100 的 3-seed 均值 0.839±0.012 见下方 K 值依赖性表; η_str 结论 (K=100 与 K=200 几乎相同) 不受 seed 数量影响, 因两者同 seed42 同口径对比。
 
-K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 < 3%), 但 mAP 差 −0.010 (seed42 口径)。**D3 假设被证伪**: K=100 掉点主因是 proposal 数量不足, 不是 DPM-Solver++ 历史破坏。
+K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 < 3%), 但 mAP 差 −0.010 (seed42 口径)。**solver 历史污染假设被证伪**: K=100 掉点主因是 proposal 数量不足, 不是 DPM-Solver++ 历史破坏。
 
 ### 方案 B (renewal off) 已验证 + K 值依赖性确认 (2026-07-30 补充)
 
@@ -658,7 +666,7 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 
 **K 值依赖性验证 (2026-07-30, 全场景 renewal ON vs OFF 直接对比)**:
 
-数据源: [renewal_off_all_scenarios.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_all_scenarios.json) · [renewal_off_topk_verify.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_topk_verify.json) · [renewal_off_k100_3seed_k150.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_k100_3seed_k150.json) · [d1_topk_validation.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/d1_topk_validation.json) (D1 全 K 矩阵)
+数据源: [renewal_off_all_scenarios.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_all_scenarios.json) · [renewal_off_topk_verify.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_topk_verify.json) · [renewal_off_k100_3seed_k150.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_k100_3seed_k150.json) · [d1_topk_validation.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/d1_topk_validation.json) (Dataset 1 全 K 矩阵)
 
 | 场景 | renewal ON | renewal OFF | ΔmAP | 判定 |
 |------|-----------|-------------|------|------|
@@ -672,22 +680,22 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 | Dataset 2 K=150 (seed42) | 0.861 | 0.859 | −0.002 | ⚠ 边界 |
 | **Dataset 2 K=100 (3-seed)** | **0.839±0.012** | **0.808±0.023** | **−0.031±0.012** | **⚠ 有影响** |
 
-**结论: 推理时关闭 box_renewal 在 K≥200 (推荐配置) 下安全 (D1/D2 双数据集确认), K=150 为边界, K=100 (非推荐) 下有退化 (D2: −0.031±0.012 3-seed; D1: −0.026 seed42, 待 3-seed)。**
+**结论: 推理时关闭 box_renewal 在 K≥200 (推荐配置) 下安全 (Dataset 1/Dataset 2 双数据集确认), K=150 为边界, K=100 (非推荐) 下有退化 (Dataset 2: −0.031±0.012 3-seed; Dataset 1: −0.026 seed42, 待 3-seed)。**
 
 - **K=100 退化主因**: proposal 稀缺性。K=100 时 100 个 proposal 覆盖 46 GT + 重叠冗余, box_renewal 的"proposal 回收"机制 (重置死 proposal 为噪声, 给重新收敛机会) 价值凸显; K≥200 时冗余 proposal 弥补回收缺失。
 - **3-seed 稳定性**: K=100 3-seed Δ=−0.031±0.012 (seed42: −0.019, seed123: −0.043, seed789: −0.032), 退化稳定且显著, 远超 noise 阈值。单 seed 测量 (−0.016) 低估了实际退化。
 - **APs paradox**: K=100 renewal OFF 的小目标 APs 反升 (0.507 vs 0.464, +0.043), 因 renewal 重置为纯随机噪声偏向中大目标, 关闭后小目标定位不被破坏; 但中大目标 recall 下降更多 (n_matched −1.4%), 净效果为负。
 - **bottleneck 不矛盾**: FALSIFIED §十 no_box_renewal 的 -0.016 退化根因是 **early stopping 选择偏差** (box_renewal 不在 loss() 路径, 训练时不影响模型权重; 验证评估无 renewal → val mAP 波动 → 次优 checkpoint), 非 model 能力退化。本实验是**推理切换** (DPM++, 训练 ON 推理 OFF, 3-seed ΔmAP=−0.0003), 证实推理时关闭 renewal 在 K≥200 下安全。
-- **作为 DPM++ 适配改进**: 推理时关闭 renewal 使 D1 校正免受 renewal 噪声污染 (理论净化), 在推荐配置 K≥200 下不损失精度, 同时使 R1 诊断有效。K=100 作为边界条件讨论, 进一步证实 box_renewal 的核心价值是 proposal 回收而非 DPM++ 历史维护。
+- **作为 DPM++ 适配改进**: 推理时关闭 renewal 使 $D_1$ 校正免受 renewal 噪声污染 (理论净化), 在推荐配置 K≥200 下不损失精度, 同时使 R1 诊断有效。K=100 作为边界条件讨论, 进一步证实 box_renewal 的核心价值是 proposal 回收而非 DPM++ 历史维护。
 
-### 方案 A (per-proposal D1 掩码) 已实现 (2026-07-29)
+### 方案 A (per-proposal $D_1$ 掩码) 已实现 (2026-07-29)
 
-路径 A 对被 renewal 的 proposal 置零 D1 校正项, 保留未被 renewal 的 proposal 的完整 D1 历史:
+路径 A 对被 renewal 的 proposal 置零 $D_1$ 校正项, 保留未被 renewal 的 proposal 的完整 $D_1$ 历史:
 
 - **实现**: `RFDPMSolverMultistep.step()` 新增 `renewal_mask: Optional[Tensor]` 参数
   - `renewal_mask` 是 `[bs, N]` bool 张量, True 表示该 proposal 在上一步被 box_renewal 重置
-  - 对 `renewal_mask=True` 的 proposal: `D1 *= (~renewal_mask).unsqueeze(-1).float()`, 即 D1 置零 → 退化为线性插值
-  - 对 `renewal_mask=False` 的 proposal: D1 保留, 继续使用完整二阶校正
+  - 对 `renewal_mask=True` 的 proposal: `D1 *= (~renewal_mask).unsqueeze(-1).float()`, 即 $D_1$ 置零 → 退化为线性插值
+  - 对 `renewal_mask=False` 的 proposal: $D_1$ 保留, 继续使用完整二阶校正
 - **传递链**: `head.predict()` 在 `apply_box_renewal()` 后通过 `torch.isclose(x_raw, x_raw_before)` 计算 `_renewal_mask`, 在下一步 `dpm_solver.step()` 时传入
 - **优势 vs 方案 B**: 保留 renewal 对低置信度 proposal 的淘汰能力 (5-60% proposals 被 renewal), 同时精确保护 DPM++ 历史
 - **推理测试**: DPM-Solver++ 4-step (renewal ON + path A) 推理成功, 31 个单元测试通过
@@ -714,13 +722,13 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 
 **关键发现**:
 
-1. **DPM-Solver++ 的非单调收敛**: DPM++ step 3 IoU 下降到 step 1 以下 (D2: 0.055 < 0.056), 是全局多项式外推的中间值而非"当前最优估计"。这为 D3 矛盾提供了轨迹级直观解释: **renewal 打断 $\hat{x}_0$ 连续性使 DPM++ 的非单调行为更不稳定**, 而路径 A 通过置零被 renewal proposal 的 D1, 使其退化为线性 (单调) 行为
+1. **DPM-Solver++ 的非单调收敛**: DPM++ step 3 IoU 下降到 step 1 以下 (Dataset 2: 0.055 < 0.056), 是全局多项式外推的中间值而非"当前最优估计"。这为 renewal × DPM++ 历史矛盾提供了轨迹级直观解释: **renewal 打断 $\hat{x}_0$ 连续性使 DPM++ 的非单调行为更不稳定**, 而路径 A 通过置零被 renewal proposal 的 $D_1$, 使其退化为线性 (单调) 行为
 
-2. **DPM++ 精度优势的机制**: DPM++ 在 D2 的 center_dist=10.7px (最小) 但 IoU=0.676 (最低)。这意味着 DPM++ 产生**中心定位更精确但尺寸偏大的框**。mAP 对中心定位更敏感 (IoU 阈值区间宽), 因此 DPM++ 的 mAP +0.006 优势来自中心定位而非框尺寸
+2. **DPM++ 精度优势的机制**: DPM++ 在 Dataset 2 的 center_dist=10.7px (最小) 但 IoU=0.676 (最低)。这意味着 DPM++ 产生**中心定位更精确但尺寸偏大的框**。mAP 对中心定位更敏感 (IoU 阈值区间宽), 因此 DPM++ 的 mAP +0.006 优势来自中心定位而非框尺寸
 
-3. **Euler 累积误差反噬**: Euler 8-step 的最终 IoU (D1: 0.737) 反而低于 Euler 4-step (0.751), 说明**步数过多时一阶 solver 累积误差抵消步数收益**。这与 η_str∈[0.7,1.5] 一致: 轨迹有足够曲率使一阶累积误差随步数增长
+3. **Euler 累积误差反噬**: Euler 8-step 的最终 IoU (Dataset 1: 0.737) 反而低于 Euler 4-step (0.751), 说明**步数过多时一阶 solver 累积误差抵消步数收益**。这与 η_str∈[0.7,1.5] 一致: 轨迹有足够曲率使一阶累积误差随步数增长
 
-4. **1-step baseline 完全相同**: 所有 solver 的 1-step IoU 相同 (D2: 0.619, D1: 0.648), 因为同 seed 同初始噪声。**轨迹差异完全源于多步 ODE 求解器的行为差异**, 不涉及模型权重变化
+4. **1-step baseline 完全相同**: 所有 solver 的 1-step IoU 相同 (Dataset 2: 0.619, Dataset 1: 0.648), 因为同 seed 同初始噪声。**轨迹差异完全源于多步 ODE 求解器的行为差异**, 不涉及模型权重变化
 
 5. **cxcywh 分维度差异与 DPM++ 精度机制**: DPM++ 在 cxcywh 空间各维度的曲率不同 (方向 A per-dim η_str 诊断已确认 cx/cy 曲率 > w/h 曲率)。轨迹数据分析揭示:
    - DPM++ 最终步 area_ratio=1.354 (pred/GT), Heun=1.562, **两者都产生过大的框**
@@ -729,40 +737,40 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
    - **解释**: IoU = intersection / union, Heun 的更过大的框 (1.562) 覆盖了更多 GT 区域, 部分补偿了中心偏移。但 mAP 在高 IoU 阈值 (0.75, 0.95) 下对中心精度更敏感, DPM++ 的中心优势使其在这些阈值下更好, 净 mAP +0.006
    - per-dim 误差: DPM++ 在 w 维度误差显著低于 Heun (0.835×), cx 也更好 (0.966×), cy 略差 (1.054×), h 持平 (0.977×)
 
-6. **分维度 D1 掩码验证 (2026-07-29, seed42 + 3-seed 验证)**: 在 RFDPMSolverMultistep.step() 中新增 `dim_d1_mask` 参数, 允许对不同维度选择性启用/禁用 D1 校正。
+6. **分维度 $D_1$ 掩码验证 (2026-07-29, seed42 + 3-seed 验证)**: 在 RFDPMSolverMultistep.step() 中新增 `dim_d1_mask` 参数, 允许对不同维度选择性启用/禁用 $D_1$ 校正。
 
-   **D2 (24obj, seed42, box_renewal OFF)** — 数据源: [per_dim_d1_clean_repro_norenewal.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/per_dim_d1_clean_repro_norenewal.json):
+   **Dataset 2 (24obj, seed42, box_renewal OFF)** — 数据源: [per_dim_d1_clean_repro_norenewal.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/per_dim_d1_clean_repro_norenewal.json):
 
    | 配置 | mAP | Δ mAP | APs | Δ APs |
    |------|-----|-------|-----|-------|
    | DPM++ std [1,1,1,1] | 0.862 | — | 0.531 | — |
-   | cx/cy D1, w/h E [1,1,0,0] | 0.863 | +0.001 | 0.542 | +0.011 |
+   | cx/cy $D_1$, w/h E [1,1,0,0] | 0.863 | +0.001 | 0.542 | +0.011 |
    | All Euler [0,0,0,0] | 0.863 | +0.001 | 0.561 | +0.030 |
-   | cx/cy E, w/h D1 [0,0,1,1] | 0.863 | +0.001 | 0.566 | +0.035 |
+   | cx/cy E, w/h $D_1$ [0,0,1,1] | 0.863 | +0.001 | 0.566 | +0.035 |
 
-   > ⚠ **数据口径修正 (2026-07-29)**: 原表格标注 "3-seed 均值" 但实为单 seed42 硬编码数据 (std=0.000 不合理, 无 JSON 支撑, 与 run_hybrid_3seed.py 中硬编码 baseline 形成循环引用)。已改为单 seed42 真实数据。baseline [1,1,1,1] 与 [1,1,0,0] 已通过独立 3-seed 验证 (box_renewal OFF): baseline 0.858±0.004, [1,1,0,0] 0.859±0.004, Δ=+0.001 在 noise 范围内, "分维度 D1 掩码不显著" 结论不变。3-seed 数据源: [baseline_heun_3seed_norenewal.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/baseline_heun_3seed_norenewal.json)。
+   > ⚠ **数据口径修正 (2026-07-29)**: 原表格标注 "3-seed 均值" 但实为单 seed42 硬编码数据 (std=0.000 不合理, 无 JSON 支撑, 与 run_hybrid_3seed.py 中硬编码 baseline 形成循环引用)。已改为单 seed42 真实数据。baseline [1,1,1,1] 与 [1,1,0,0] 已通过独立 3-seed 验证 (box_renewal OFF): baseline 0.858±0.004, [1,1,0,0] 0.859±0.004, Δ=+0.001 在 noise 范围内, "分维度 $D_1$ 掩码不显著" 结论不变。3-seed 数据源: [baseline_heun_3seed_norenewal.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/baseline_heun_3seed_norenewal.json)。
 
-   **D1 (chr2024, 单 seed42, dim_d1_mask 未在 D1 上运行)**:
+   **Dataset 1 (chr2024, 单 seed42, dim_d1_mask 未在 Dataset 1 上运行)**:
 
-   > ⚠ **数据完整性修正 (2026-07-30)**: 原表格标注 "D1 (chr2024, 3-seed 均值)" 含 0.7463/0.7460 等数值, 经核查**无任何数据源支撑** — 无对应 JSON 结果文件, 引用的 `tools/dim_d1_d1.py` 脚本不存在, `multi_seed/` 下无 D1 DPM++ 3-seed 运行。该表为**硬编码伪造**, 已删除。D1 上 dim_d1_mask 实验仅有的真实 DPM++ 数据来自 box_renewal 全场景验证 (单 seed42); D1 DPM++ 3-seed 训练评估数据已补全 (见 §三 双数据集对照, seed42=0.746/seed123=0.748/seed789=0.746 重训后), 但 dim_d1_mask 的 4 种配置仍仅在 seed42 推理场景验证:
+   > ⚠ **数据完整性修正 (2026-07-30)**: 原表格标注 "Dataset 1 (chr2024, 3-seed 均值)" 含 0.7463/0.7460 等数值, 经核查**无任何数据源支撑** — 无对应 JSON 结果文件, 引用的 `tools/dim_d1_d1.py` 脚本不存在, `multi_seed/` 下无 Dataset 1 DPM++ 3-seed 运行。该表为**硬编码伪造**, 已删除。Dataset 1 上 dim_d1_mask 实验仅有的真实 DPM++ 数据来自 box_renewal 全场景验证 (单 seed42); Dataset 1 DPM++ 3-seed 训练评估数据已补全 (见 §三 双数据集对照, seed42=0.746/seed123=0.748/seed789=0.746 重训后), 但 dim_d1_mask 的 4 种配置仍仅在 seed42 推理场景验证:
 
    | 配置 | mAP | AP50 | AP75 | APs | 数据源 |
    |------|-----|------|------|-----|--------|
-   | D1 DPM++ std [1,1,1,1] (renewal ON) | 0.744 | 0.938 | 0.832 | 0.506 | renewal_off_all_scenarios.json |
-   | D1 DPM++ std [1,1,1,1] (renewal OFF) | 0.743 | 0.937 | 0.831 | 0.498 | renewal_off_all_scenarios.json |
+   | Dataset 1 DPM++ std [1,1,1,1] (renewal ON) | 0.744 | 0.938 | 0.832 | 0.506 | renewal_off_all_scenarios.json |
+   | Dataset 1 DPM++ std [1,1,1,1] (renewal OFF) | 0.743 | 0.937 | 0.831 | 0.498 | renewal_off_all_scenarios.json |
 
-   - dim_d1_mask 的 4 种配置 ([1,1,0,0]/[0,0,0,0]/[0,0,1,1]) **未在 D1 上运行**, 无法验证 per-dim D1 掩码在 D1 的效果
-   - D1 DPM++ baseline (renewal ON, seed42 推理场景) 0.744 vs Heun baseline 0.746 (§一 rf_heun_adaln 3-seed) → **D1 上 DPM++ 反而 Δ=−0.002** (推理场景口径); D1 DPM++ 3-seed 训练评估 0.747±0.001 (seed789 重训后异常已消除) vs Heun 3-seed 0.746 → Δ=+0.001 (噪声内), 方向性结论不变 (DPM++ 不劣于 Heun, 与 D2 Δ=+0.006 方向一致但增益消失, 详见 §三 双数据集对照)
+   - dim_d1_mask 的 4 种配置 ([1,1,0,0]/[0,0,0,0]/[0,0,1,1]) **未在 Dataset 1 上运行**, 无法验证 per-dim $D_1$ 掩码在 Dataset 1 的效果
+   - Dataset 1 DPM++ baseline (renewal ON, seed42 推理场景) 0.744 vs Heun baseline 0.746 (§一 rf_heun_adaln 3-seed) → **Dataset 1 上 DPM++ 反而 Δ=−0.002** (推理场景口径); Dataset 1 DPM++ 3-seed 训练评估 0.747±0.001 (seed789 重训后异常已消除) vs Heun 3-seed 0.746 → Δ=+0.001 (噪声内), 方向性结论不变 (DPM++ 不劣于 Heun, 与 Dataset 2 Δ=+0.006 方向一致但增益消失, 详见 §三 双数据集对照)
 
-   **结论: 分维度 D1 掩码在 D2 上不显著 (D1 未验证)**。
-   - D2 (seed42): 4 种配置 mAP 差异 ≤0.001, APs 差异 +0.011~+0.035 (单 seed, APs 高方差不可靠)
-   - D2 baseline [1,1,1,1] 与 [1,1,0,0] 的 3-seed 验证: 0.858±0.004 vs 0.859±0.004, Δ=+0.001 在 noise 范围内
-   - **D1 缺口**: dim_d1_mask 未在 D1 验证, 属双数据集验证缺口 (推理时零成本可补)
+   **结论: 分维度 $D_1$ 掩码在 Dataset 2 上不显著 (Dataset 1 未验证)**。
+   - Dataset 2 (seed42): 4 种配置 mAP 差异 ≤0.001, APs 差异 +0.011~+0.035 (单 seed, APs 高方差不可靠)
+   - Dataset 2 baseline [1,1,1,1] 与 [1,1,0,0] 的 3-seed 验证: 0.858±0.004 vs 0.859±0.004, Δ=+0.001 在 noise 范围内
+   - **Dataset 1 缺口**: dim_d1_mask 未在 Dataset 1 验证, 属双数据集验证缺口 (推理时零成本可补)
    - **该方向不纳入主路线, 但实现保留为可配置参数**
 
 7. **Hybrid 求解器验证 (2026-07-29, Q3: w/h Heun 2阶 vs Euler 1阶, 3-seed, 结论修正)**: 上述 `dim_d1_mask=[1,1,0,0]` 使 w/h 退化为 Euler 1阶 (仅 linear 项), 但 Heun 是真正的 2阶求解器 (速度梯形法), 机制不同于 DPM++ (x0 插值)。新增 `RFDPMSolverHybrid` 类测试 w/h 用 Heun 2阶是否优于 Euler 1阶。
 
-   **D2 (24obj, 3-seed, box_renewal OFF)** — 数据源: [baseline+full Heun](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/baseline_heun_3seed_norenewal.json) · [hybrid](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/hybrid_3seed_norenewal.json):
+   **Dataset 2 (24obj, 3-seed, box_renewal OFF)** — 数据源: [baseline+full Heun](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/baseline_heun_3seed_norenewal.json) · [hybrid](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/hybrid_3seed_norenewal.json):
 
    | 配置 | seed42 | seed123 | seed789 | mean ± std | lat(ms) |
    |------|--------|---------|---------|-----------|---------|
@@ -802,7 +810,7 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
    **效率分析**:
    - hybrid 延迟 145.3ms vs baseline 90.5ms, **+60%** (Heun 2阶每步多一次网络前向, 额外 NFE)
    - full Heun 144.3ms, 与 hybrid 接近 (全维度额外 NFE)
-   - [1,1,0,0] w/h Euler 88.9ms, 比 baseline 快 1.8% (w/h 跳过 D1 校正计算)
+   - [1,1,0,0] w/h Euler 88.9ms, 比 baseline 快 1.8% (w/h 跳过 $D_1$ 校正计算)
    - **hybrid 无精度收益但延迟 +60%, 效率层面是负优化; 精度层面是 null result (非有害)**
 
 ### 实验列表
@@ -816,8 +824,8 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
   -- Config 4: TopK K=100 (renewal on + reset), mAP=0.852 (seed42; 3-seed 均值 0.839±0.012 见 K 值依赖性表)
 
 - 核心结论
-  -- D3 矛盾被证实: renewal 使 η_str 虚高 56-58%, 但 mAP 仅 −0.0003
-  -- D3 对 K=100 掉点解释被证伪: K=100/K=200 η_str 几乎相同
+  -- renewal × DPM++ 历史矛盾被证实: renewal 使 η_str 虚高 56-58%, 但 mAP 仅 −0.0003
+  -- solver 历史污染假设对 K=100 掉点解释被证伪: K=100/K=200 η_str 几乎相同
   -- Top-K reset 改变 η_str 模式: 单调递减 → V 型
   -- 方案 B 可行: mAP 不损失, η_str 诊断有效
 
@@ -828,31 +836,31 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 ### 与已证伪方向 Cascade Head Count e2e 的区分
 
 - **Cascade Head Count e2e (已证伪, mAP 0.684, −0.172)**: 重训架构, 把 cascade head 数量从 6 改为其他值
-- **D3**: 仅诊断已有架构的 box_renewal 与 DPM-Solver++ 交互, 不重训, 不引入新模块
-- D3 是诊断非新模块, 不重复 e2e 失败模式
+- **Box Renewal × DPM++ 交互**: 仅诊断已有架构的 box_renewal 与 DPM-Solver++ 交互, 不重训, 不引入新模块
+- 该方向是诊断非新模块, 不重复 e2e 失败模式
 
-### 去噪轨迹可视化与分维度 D1 掩码实验 (2026-07-29)
+### 去噪轨迹可视化与分维度 $D_1$ 掩码实验 (2026-07-29)
 
-- **实验目的**: (1) 可视化各 solver 的去噪轨迹收敛模式 (2) 验证分维度 D1 掩码策略
+- **实验目的**: (1) 可视化各 solver 的去噪轨迹收敛模式 (2) 验证分维度 $D_1$ 掩码策略
 - **配置矩阵**
-  -- D2: a4_dpm_pp_24obj, 4 种 dim_d1_mask (seed42, box_renewal OFF) + 1 种 hybrid (3-seed, box_renewal OFF); baseline/[1,1,0,0]/full Heun 另有 3-seed 验证
-  -- D1: ⚠ **dim_d1_mask 未在 D1 上运行** (原记录 "seed=42/123/789, 4 种 dim_d1_mask" 系伪造, 见上文章节 6 数据完整性修正); D1 dim_d1_mask 实验仅有 DPM++ std 单 seed42 (renewal ON/OFF) 来自 box_renewal 全场景验证; D1 DPM++ 3-seed 训练评估已补全 (§三, seed42=0.746/seed123=0.748/seed789=0.746), 但 dim_d1_mask 4 种配置仍仅在 seed42 推理场景验证
-  -- dim_d1_mask: [1,1,1,1] (DPM++ std) / [1,1,0,0] (cx/cy D1, w/h E) / [0,0,0,0] (all Euler) / [0,0,1,1] (cx/cy E, w/h D1)
+  -- Dataset 2: a4_dpm_pp_24obj, 4 种 dim_d1_mask (seed42, box_renewal OFF) + 1 种 hybrid (3-seed, box_renewal OFF); baseline/[1,1,0,0]/full Heun 另有 3-seed 验证
+  -- Dataset 1: ⚠ **dim_d1_mask 未在 Dataset 1 上运行** (原记录 "seed=42/123/789, 4 种 dim_d1_mask" 系伪造, 见上文章节 6 数据完整性修正); Dataset 1 dim_d1_mask 实验仅有 DPM++ std 单 seed42 (renewal ON/OFF) 来自 box_renewal 全场景验证; Dataset 1 DPM++ 3-seed 训练评估已补全 (§三, seed42=0.746/seed123=0.748/seed789=0.746), 但 dim_d1_mask 4 种配置仍仅在 seed42 推理场景验证
+  -- dim_d1_mask: [1,1,1,1] (DPM++ std) / [1,1,0,0] (cx/cy $D_1$, w/h E) / [0,0,0,0] (all Euler) / [0,0,1,1] (cx/cy E, w/h $D_1$)
   -- hybrid: cx/cy DPM++ 2阶 + w/h Heun 2阶 (速度梯形, 额外 NFE)
   -- 评估: mAP, mAP75, APs (小目标), per-dim L1 (cx/cy/w/h)
 - **核心结论**
   -- DPM++ 非单调收敛 (step 3 IoU 反降), 中间步骤不具物理意义
   -- Euler 累积误差反噬 (8-step IoU < 4-step IoU)
   -- DPM++ 精度优势来自中心定位 (center_dist 最小), 但 IoU 不是最高 (Heun 的更过大的框覆盖更多 GT)
-  -- **分维度 D1 掩码在 D2 上不显著 (D1 未验证)**: D2 seed42 4 配置 mAP 差异 ≤0.001; baseline 与 [1,1,0,0] 的 3-seed 验证 Δ=+0.001 (noise 范围内)
-  -- ⚠ D2 原标注 "3-seed 均值" 实为单 seed42 硬编码 (已修正), APs 单 seed 差异不可靠
+  -- **分维度 $D_1$ 掩码在 Dataset 2 上不显著 (Dataset 1 未验证)**: Dataset 2 seed42 4 配置 mAP 差异 ≤0.001; baseline 与 [1,1,0,0] 的 3-seed 验证 Δ=+0.001 (noise 范围内)
+  -- ⚠ Dataset 2 原标注 "3-seed 均值" 实为单 seed42 硬编码 (已修正), APs 单 seed 差异不可靠
   -- **Hybrid (w/h Heun 2阶) vs baseline (3-seed, 结论修正)**: mAP Δ=0.000 (null result), 非 "有害 −0.005"; 原 baseline 硬编码数据 (0.8630±0.000) 错误, 真实 0.858±0.004; full Heun 对照 mAP=0.858±0.004 证明 Heun 本身无害; v_next 不稳定假设被实测证伪 (max ratio=1.22, 远未爆炸); 延迟 +60% (额外 NFE), 效率层面负优化
 - **代码改动**
   -- ldmdet/diffusion/rectified_flow.py: RFDPMSolverMultistep.step() 新增 renewal_mask 和 dim_d1_mask 参数; 新增 RFDPMSolverHybrid 类
   -- ldmdet/diffusion/sampling.py: DiffusionSampler 新增 dim_d1_mask 属性; create_dpm_solver() 新增 'dpm_pp_heun_hybrid' 分支
-  -- ldmdet/core/head.py: predict() 中 D3 路径 A (per-proposal renewal mask) + hybrid solver model_fn 注入
+  -- ldmdet/core/head.py: predict() 中 Box Renewal × DPM++ 路径 A (per-proposal renewal mask) + hybrid solver model_fn 注入
 - **可视化文件**: docs/paper/latex/figures/trajectory/ (14 张图)
-- **测试脚本**: tools/dim_d1_d2.py (D2); ⚠ tools/dim_d1_d1.py (D1) 不存在, D1 dim_d1_mask 实验未执行
+- **测试脚本**: tools/dim_d1_d2.py (Dataset 2); ⚠ tools/dim_d1_d1.py (Dataset 1) 不存在, Dataset 1 dim_d1_mask 实验未执行
 
 ---
 
@@ -946,7 +954,7 @@ S1 的 H×S 理论说明 "仅改变 H 会破坏横向收敛性" (已证伪 N_cas
   -- 结果: mAP=0.859 (val独立评估 test.py --dataset val, seed 42; 训练best@ep10=0.860, early stop@ep40), AP50=0.986, AP75=0.969 [Δ=-0.004 vs +DPM-Solver++ 0.863, 在 3-seed noise ±0.003 内]
   -- NFE: 12 (H=3 × S=4) vs +DPM-Solver++ 24 (H=6 × S=4), **2× 加速**; 延迟 44.72ms / 22.4 FPS (ross A6000, 500iters, Head 39.17ms / Backbone 5.55ms) vs +DPM-Solver++ 77.57ms / 12.9 FPS, **1.73× 推理加速**
   -- loss_distill: 持续下降 0.050→0.025 (50% 下降), 蒸馏目标有效
-  -- per-class AP: 与 +DPM-Solver++ 对齐 (Δ -0.012~+0.004, 最大差异 D15 -0.012)
+  -- per-class AP: 与 +DPM-Solver++ 对齐 (Δ -0.012~+0.004, 最大差异 Dataset 15 -0.012)
   -- work_dir: work_dirs/h3_distill_plan_a_24obj/ (本地 + ross)
   -- SwanLab: ldmdet-head-distill / h3_distill_plan_a
   -- 配置: experiments/configs/ldmdet/directions/mainline_ablation_24obj/h3_distill_plan_a_24obj.py
@@ -970,7 +978,7 @@ S1 的 H×S 理论说明 "仅改变 H 会破坏横向收敛性" (已证伪 N_cas
 
 ### 双数据集验证缺口 (S1 + Head Distillation)
 
-> ⚠ S1 三组重训 (h3_s4/h6_s2/h3_s8) 与 Head Distillation 均仅在 Dataset 2 完成, **Dataset 1 未跑**。两者均需端到端重训 (S1 需 3 组重训, Head Distillation 需 Teacher/Student 双网络训练), 在 D1 1540 张图上算力成本较高。S1 的 H×S 可交换性命题在 D1 上预测仍成立 (架构层面与数据集无关), 但 D1 低数据下 H=3 是否仍能收敛至 0.746 量级需实验确认。**建议**: 投稿前至少补 S1 h3_s4 单配置 D1 重训 (~12h) 以验证可交换性的跨数据集稳健性; Head Distillation D1 可作为 future work。
+> ⚠ S1 三组重训 (h3_s4/h6_s2/h3_s8) 与 Head Distillation 均仅在 Dataset 2 完成, **Dataset 1 未跑**。两者均需端到端重训 (S1 需 3 组重训, Head Distillation 需 Teacher/Student 双网络训练), 在 Dataset 1 1540 张图上算力成本较高。S1 的 H×S 可交换性命题在 Dataset 1 上预测仍成立 (架构层面与数据集无关), 但 Dataset 1 低数据下 H=3 是否仍能收敛至 0.746 量级需实验确认。**建议**: 投稿前至少补 S1 h3_s4 单配置 Dataset 1 重训 (~12h) 以验证可交换性的跨数据集稳健性; Head Distillation Dataset 1 可作为 future work。
 
 ---
 
@@ -1089,7 +1097,7 @@ R1 的 $\eta_{str}$ 是 4 维 (cxcywh) 的整体范数比, 但检测空间各维
 
 1. **mAP 持平 (ΔmAP = +0.001)**: per-dim solver (h=1阶) 与全 2 阶 baseline mAP 持平, 证明 h 维度降为 1 阶不损失精度
    - bbox 4 维度耦合性未被破坏 (位置 cx,cy 与尺度 w,h 的物理相关性不受 solver 阶数分配影响)
-2. **延迟略低 (−8.3ms, ~5.5% 加速)**: h 维度省去 D1 校正计算, 但加速幅度有限 (因单步开销主要在 cascade head H=6)
+2. **延迟略低 (−8.3ms, ~5.5% 加速)**: h 维度省去 $D_1$ 校正计算, 但加速幅度有限 (因单步开销主要在 cascade head H=6)
 3. **per-dim eta_str 修正 Phase 1 结论**: Phase 2 全量诊断显示 **w 维度 eta_str (0.5-1.0) 与 h (0.4-0.9) 接近**, 而非 Phase 1 (50 图) 所述"与 cx/cy 接近"
    - 即 w,h 维度曲率均显著小于 cx,cy (10-33), Phase 1 对 w 维度的判断需修正
    - 启示: w 维度也可降为 1 阶 (未来 实验 A.2 可验证)
@@ -1132,7 +1140,7 @@ R1 的 $\eta_{str}$ 是 4 维 (cxcywh) 的整体范数比, 但检测空间各维
 
 1. **mAP 持平 (ΔmAP = 0.000)**: w,h 维度均降为 1 阶不损失精度, 验证 Phase 2 启示
    - w,h 维度 η_str (~0.68) 比 cx,cy (~34) 低约 50×, 1 阶 Euler 足够
-2. **延迟降低 5.0% (−4.7ms)**: w,h 维度省去 D1 校正, FPS 10.6→11.2
+2. **延迟降低 5.0% (−4.7ms)**: w,h 维度省去 $D_1$ 校正, FPS 10.6→11.2
 3. **bbox 4 维耦合性未被破坏**: 位置 (cx,cy) 2 阶 + 尺度 (w,h) 1 阶, 物理相关性不受 solver 阶数分配影响
 4. **检测专用 solver 叙事强化**: 位置维度随 t 变化剧烈 (需 2 阶), 尺度维度变化平缓 (1 阶足够), 这是检测任务特有的结构性先验
 
@@ -1151,7 +1159,7 @@ R1 的 $\eta_{str}$ 是 4 维 (cxcywh) 的整体范数比, 但检测空间各维
 
 ### 双数据集验证缺口
 
-> ⚠ 方向 A per-dim η_str 诊断与 per-dim solver mAP 对比仅在 Dataset 2 完成, **Dataset 1 未跑** (dim_d1_mask 在 D1 上的伪造数据已于 §六修正删除)。属推理时零成本实验 (复用 rf_heun_adaln D1 checkpoint + RFDPMSolverPerDim), 可补。预测: D1 上 w/h 维度 η_str 仍应显著低于 cx/cy (物理含义与数据集无关), per-dim solver mAP 仍持平。补 D1 可闭合 per-dim 曲率差异的跨数据集稳健性。
+> ⚠ 方向 A per-dim η_str 诊断与 per-dim solver mAP 对比仅在 Dataset 2 完成, **Dataset 1 未跑** (dim_d1_mask 在 Dataset 1 上的伪造数据已于 §六修正删除)。属推理时零成本实验 (复用 rf_heun_adaln Dataset 1 checkpoint + RFDPMSolverPerDim), 可补。预测: Dataset 1 上 w/h 维度 η_str 仍应显著低于 cx/cy (物理含义与数据集无关), per-dim solver mAP 仍持平。补 Dataset 1 可闭合 per-dim 曲率差异的跨数据集稳健性。
 
 ---
 
@@ -1213,7 +1221,7 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 
 ### 双数据集验证缺口
 
-> ⚠ 方向 D 自适应阶次 (3 solver mAP 对比 + η_3rd 诊断) 仅在 Dataset 2 完成, **Dataset 1 未跑**。属推理时零成本实验 (复用 rf_heun_adaln D1 checkpoint + RFDPMSolverAdaptive), 可补。预测: D1 上 3 solver mAP 仍持平 (与 §三 D1 DPM++ 无增益一致, 低曲率下阶数无影响), η_3rd 衰减趋势应弱于 D2。补 D1 可闭合自适应降阶的跨数据集验证。
+> ⚠ 方向 D 自适应阶次 (3 solver mAP 对比 + η_3rd 诊断) 仅在 Dataset 2 完成, **Dataset 1 未跑**。属推理时零成本实验 (复用 rf_heun_adaln Dataset 1 checkpoint + RFDPMSolverAdaptive), 可补。预测: Dataset 1 上 3 solver mAP 仍持平 (与 §三 Dataset 1 DPM++ 无增益一致, 低曲率下阶数无影响), η_3rd 衰减趋势应弱于 Dataset 2。补 Dataset 1 可闭合自适应降阶的跨数据集验证。
 
 ---
 
@@ -1383,7 +1391,7 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 - **整体结果**: mAP=0.157, AP50=0.513, AP75=0.039
 - **per-class 高亮**:
   -- A1/A2/A3/B4/B5 (大类): AP50 ≈ 0.87-0.93 (大染色体迁移良好)
-  -- D13-D15, E16-E18 (中类): AP50 ≈ 0.73-0.86 (中尺寸迁移良好)
+  -- Dataset 13-Dataset 15, E16-E18 (中类): AP50 ≈ 0.73-0.86 (中尺寸迁移良好)
   -- F19/F20: AP50 ≈ 0.58 (小染色体部分迁移)
   -- C6-C12 (C 组): AP50 ≈ 0-0.017 (C 组形态相似, 跨域失效)
   -- G21/G22: AP50 ≈ 0.23-0.46 (小染色体困难)
@@ -1392,56 +1400,56 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 - **数据源**: [work_dirs/robustness_noise/zero_shot_results_chr20240904.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/robustness_noise/zero_shot_results_chr20240904.json)
 - **评估日志**: [work_dirs/robustness_noise/zero_shot_a4_chr20240904.log](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/robustness_noise/zero_shot_a4_chr20240904.log)
 
-### 13.3 跨域检测失效主因分析 (2026-07-30, D1→D2 per-class AP)
+### 13.3 跨域检测失效主因分析 (2026-07-30, Dataset 1→Dataset 2 per-class AP)
 
-> §13.2 中 D2→D1 zero-shot 跨域 mAP=0.157, C 组 (C6-C12) 完全失效。本节反向验证 (D1→D2) 并定量分析失效主因: **类别顺序不一致占主导, 非数据集域差异**。
+> §13.2 中 Dataset 2→Dataset 1 zero-shot 跨域 mAP=0.157, C 组 (C6-C12) 完全失效。本节反向验证 (Dataset 1→Dataset 2) 并定量分析失效主因: **类别顺序不一致占主导, 非数据集域差异**。
 
-- **实验**: D1 训练模型 (reproduce_0751_stochot_eps5_v2, D1 mAP=0.753, RF+Heun+AdaLN+StochOT ε=5) 在 D2 test 上 per-class AP 评估
-- **整体结果**: mAP=0.163 (跨域失效, 与 §13.2 D2→D1 mAP=0.157 量级一致)
+- **实验**: Dataset 1 训练模型 (reproduce_0751_stochot_eps5_v2, Dataset 1 mAP=0.753, RF+Heun+AdaLN+StochOT ε=5) 在 Dataset 2 test 上 per-class AP 评估
+- **整体结果**: mAP=0.163 (跨域失效, 与 §13.2 Dataset 2→Dataset 1 mAP=0.157 量级一致)
 - **关键发现**: 按类别名是否匹配分两组分析
 
 | 组别 | 类别数 | index | AP mean | AP50 mean |
 |------|:------:|-------|:-------:|:---------:|
-| 匹配组 (类别名相同) | 17 | 0-4, 12-23 (A1-B5, D13-Y) | 0.230 | **0.741** |
+| 匹配组 (类别名相同) | 17 | 0-4, 12-23 (A1-B5, Dataset 13-Y) | 0.230 | **0.741** |
 | 不匹配组 (C 组顺序不一致) | 7 | 5-11 (C6-C12) | **0.000** | **0.001** |
 
-- **根因分析**: Dataset 1 的 C 组 (C6-C12) 按字母序排列, Dataset 2 的 C 组按数字序排列, 导致 index 5-11 的类别标签错位 (D1 C10↔D2 C6, D1 C11↔D2 C7, ..., D1 C9↔D2 C12)。模型预测的类别 index 在跨域评估时与 D2 的类别 index 不对齐, 使 C 组 7 类 AP≈0
+- **根因分析**: Dataset 1 的 C 组 (C6-C12) 按字母序排列, Dataset 2 的 C 组按数字序排列, 导致 index 5-11 的类别标签错位 (Dataset 1 C10↔Dataset 2 C6, Dataset 1 C11↔Dataset 2 C7, ..., Dataset 1 C9↔Dataset 2 C12)。模型预测的类别 index 在跨域评估时与 Dataset 2 的类别 index 不对齐, 使 C 组 7 类 AP≈0
 - **结论**:
   1. **类别顺序不一致占主导**: 不匹配组 (7 类) AP≈0 完全失效, 匹配组 (17 类) AP50=0.741 证明模型检测能力可跨域迁移
-  2. **非数据集域差异**: 匹配组 AP50=0.741 (D1→D2) 与 §13.2 D2→D1 的 14/24 类 AP50>0.5 一致, 表明跨域检测能力本身良好, 仅类别标签对齐失败
-  3. **§13.2 C 组失效重新解读**: §13.2 中 D2→D1 的 C 组 AP50≈0-0.017 同样源于类别顺序不一致 (D2 数字序 → D1 字母序), 非单纯形态相似性导致
+  2. **非数据集域差异**: 匹配组 AP50=0.741 (Dataset 1→Dataset 2) 与 §13.2 Dataset 2→Dataset 1 的 14/24 类 AP50>0.5 一致, 表明跨域检测能力本身良好, 仅类别标签对齐失败
+  3. **§13.2 C 组失效重新解读**: §13.2 中 Dataset 2→Dataset 1 的 C 组 AP50≈0-0.017 同样源于类别顺序不一致 (Dataset 2 数字序 → Dataset 1 字母序), 非单纯形态相似性导致
 - **数据源**: [work_dirs/diagnosis/cross_dataset_per_class_20260730_194503.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/cross_dataset_per_class_20260730_194503.json)
 - **脚本**: [experiments/analysis/cross_dataset_per_class.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/cross_dataset_per_class.py)
 
-### 13.4 D2 跨数据集训练启动 (2026-07-30, 🔄 运行中)
+### 13.4 Dataset 2 跨数据集训练启动 (2026-07-30, 🔄 运行中)
 
-> 基于 §13.3 发现 (类别顺序不一致主导跨域失效), 启动 D1 配置在 D2 上的训练, 目的是对齐类别顺序后验证跨域性能, 排除类别顺序干扰。
+> 基于 §13.3 发现 (类别顺序不一致主导跨域失效), 启动 Dataset 1 配置在 Dataset 2 上的训练, 目的是对齐类别顺序后验证跨域性能, 排除类别顺序干扰。
 
-- **目的**: 用 D1 对应配置 (RF+Heun+AdaLN+StochOT ε=5) 和种子 (2016452323) 在 D2 上训练, 使两数据集类别顺序一致后评估跨域 zero-shot 性能
+- **目的**: 用 Dataset 1 对应配置 (RF+Heun+AdaLN+StochOT ε=5) 和种子 (2016452323) 在 Dataset 2 上训练, 使两数据集类别顺序一致后评估跨域 zero-shot 性能
 - **配置**: [experiments/configs/ldmdet/ldmdet_rf_heun_adaln_stochot_eps5_d2.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/configs/ldmdet/ldmdet_rf_heun_adaln_stochot_eps5_d2.py)
 - **状态**: 🔄 运行中 (workstation A5000, tailscale IP `100.99.131.26`, 项目路径 `/home/linkst/workplace/chromo/chromosome-kd/`)
 - **✅ SSH 核实 (2026-07-31 02:25)**: 训练健康运行中, 当前 Epoch 30 (验证阶段), best mAP **0.846 @ ep29** (step=29), last-10 epoch 趋势 0.841→0.836→0.828→0.829→0.841→0.832→0.840→0.833→0.843→0.846 仍在缓慢改善, ETA ~20h (≈ep50 完成予定); work_dir=`work_dirs/cross_dataset/d2_0753_stochot_eps5_seed2016452323/20260730_194001`; GPU A5000 72% util 5961MiB
-- **注**: 此 0.846 为 D2 域内训练 mAP (D1 配置/类序训练于 D2), 与主路线 RF+Stoch. Coupling (~0.858) 量级一致, 跨域 zero-shot 评估待训练完成后进行
-- **预期**: 训练完成后, 用 D1 训练模型 (reproduce_0751_stochot_eps5_v2) 在 D2 test 上重新评估跨域 per-class AP, 对比 §13.3 (类别顺序未对齐) 的 mAP=0.163, 验证类别顺序对齐后跨域性能提升幅度
+- **注**: 此 0.846 为 Dataset 2 域内训练 mAP (Dataset 1 配置/类序训练于 Dataset 2), 与主路线 RF+Stoch. Coupling (~0.858) 量级一致, 跨域 zero-shot 评估待训练完成后进行
+- **预期**: 训练完成后, 用 Dataset 1 训练模型 (reproduce_0751_stochot_eps5_v2) 在 Dataset 2 test 上重新评估跨域 per-class AP, 对比 §13.3 (类别顺序未对齐) 的 mAP=0.163, 验证类别顺序对齐后跨域性能提升幅度
 
 ### 13.5 DINO R50 Dataset 1 最终结果 (2026-07-30 补)
 
-> 之前 DINO R50 D1 仅训练 31/150 epoch (best@ep29, mAP=0.607, 未完成)。现训练已完成, 记录最终结果作为跨数据集 SOTA 退化对比的修正基准。
+> 之前 DINO R50 Dataset 1 仅训练 31/150 epoch (best@ep29, mAP=0.607, 未完成)。现训练已完成, 记录最终结果作为跨数据集 SOTA 退化对比的修正基准。
 
 - **DINO R50 Dataset 1**: mAP=0.742 (early stop @ ep107, best@ep~77)
 - **之前 (未完成)**: 0.607 @ ep29 (31/150ep, 未完全收敛)
 - **跨数据集退化对比 (修正)**:
-  - DINO R50 D1 0.742 vs D2 0.868, Δ=−0.126 (**退化 14.5%**)
+  - DINO R50 Dataset 1 0.742 vs Dataset 2 0.868, Δ=−0.126 (**退化 14.5%**)
   - 之前基于 0.607 计算的 "退化 30.1%" 需修正为 14.5%
-  - RTMDet-L D1 0.742 vs D2 0.863, Δ=−0.121 (退化 14.0%) — 退化幅度与 DINO R50 接近
-- **注**: 此结果修正了论文草稿 (paper_draft_CN.md §8 Figure 8 caption) 中 "DINO R50 0.868→0.607, 退化 30.1%" 的过时数据, 论文图 fps_map.py 中 DINO R50 D1 坐标需同步更新为 0.742
+  - RTMDet-L Dataset 1 0.742 vs Dataset 2 0.863, Δ=−0.121 (退化 14.0%) — 退化幅度与 DINO R50 接近
+- **注**: 此结果修正了论文草稿 (paper_draft_CN.md §8 Figure 8 caption) 中 "DINO R50 0.868→0.607, 退化 30.1%" 的过时数据, 论文图 fps_map.py 中 DINO R50 Dataset 1 坐标需同步更新为 0.742
 
 ---
 
 ## 十四、Dataset 1 早期探索与消融论证
 
 > 本节保留 Dataset 1 早期探索中有设计论证价值的消融实验。其他 Dataset 1 边际实验 (Hard OT/Sinkhorn/OT Flow Coupling) 已合并到 §二 (佐证 OT 坍缩理论), 无正向意义的方向 (M1/Box Refine Net/Focal γ=3) 已移至 FALSIFIED §二十六~§二十八。
-### D1: RoI 空间编码消融 — 空间编码至关重要 (✓ 完成)
+### Dataset 1: RoI 空间编码消融 — 空间编码至关重要 (✓ 完成)
 
 - **实验**: RoI 7×7 空间特征 vs 空间抹平 (GlobalAvgPool → 1×1) 消融
 - **结果**: baseline mAP=0.863 → ablation mAP=0.009, **Δ = −0.854** (灾难性崩溃)
@@ -1479,7 +1487,7 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 | **DPM-Solver++ (§三)** | RF 适配 data-prediction + 修正 FlowDet 结论 | 临床交互式延迟 13.3-14.2 FPS / cascade head 占 90%+ | +0.006 mAP (p<10⁻⁶) + 1.75× NFE 加速 | ✅ 完成 |
 | **Top-K Pruning (§四)** | 500→K proposals 剪枝 + DPM-Solver++ 兼容 | K=200 最优 (46 染色体 + 重叠冗余) | K=200: 14.2 FPS, mAP 0.860 | ✅ 完成 |
 | **R1 η_str (§五)** | 零开销直线度指标, 量化"2 步收敛" | 修正"RF 接近直线" claim (实际 η_str∈[0.7,1.5]) | 3 seeds 单调下降 3.43→2.45→1.68 | ✅ 完成 |
-| **D3 Box Renewal (§六)** | 揭示 box_renewal 与多步法历史矛盾 + 化解 | box_renewal 检测特有 / 密集目标 renewal 比例高 | η_str 虚高 56-58% 但 mAP 仅 −0.0003; K≥200 推理关闭安全, K=100 −0.031±0.012 (3-seed) | ✅ 完成 (含 K 值依赖性验证) |
+| **Box Renewal × DPM++ (§六)** | 揭示 box_renewal 与多步法历史矛盾 + 化解 | box_renewal 检测特有 / 密集目标 renewal 比例高 | η_str 虚高 56-58% 但 mAP 仅 −0.0003; K≥200 推理关闭安全, K=100 −0.031±0.012 (3-seed) | ✅ 完成 (含 K 值依赖性验证) |
 | **S1 Cascade × Solver (§七)** | cascade head 作为 implicit solver 算子分裂 | 解释 24 NFE 架构合理性, 预防"6 head 冗余"质疑 | s1_h3_s4 ✓ (0.860@ep59), s1_h6_s2 ✓ (0.859@ep106), s1_h3_s8 ✓ (0.859@ep64) — 三组全部完成 (均在 baseline noise ±0.003 内) | ✅ 完成 |
 | **Head Distillation (§七)** | headwise feature 蒸馏 H=6→H=3, S1 理论成功应用 | NFE 24→12 (2×加速), cascade head 可压缩性验证 | mAP=0.859 (Δ=-0.004, noise内), 1.73× 推理加速 (44.72ms/22.4FPS) | ✓ 完成 |
 | **R3 v-prediction 对照 (§八)** | 验证低维 + shifted schedule 下 x0-prediction 优势 | 预防"为何不用 v-prediction"质疑 (RF 原文偏好) | 3-seed ✓ 均值 0.857±0.0015 (seed42=0.855/123=0.858/789=0.857), Δ=−0.002 vs baseline 0.859 | ✅ 完成 (3-seed) |
@@ -1493,21 +1501,21 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 | RF 范式 (§一) | ✓ 0.856 (3-seed) | ✓ 0.746 (3-seed) vs DDPM 0.729 | ✅ 完成 | — |
 | OT Collapse + Stoch. Coupling (§二) | ✓ +0.0001 (ns) + 4.6× 平滑 | ✓ +0.034 (p<10⁻¹²⁰), Hard OT vs Random −0.008 | ✅ 完成 | — |
 | DPM-Solver++ (§三) | ✓ +0.006 (p<10⁻⁶) | ✓ +0.001 (持平, 3-seed 0.747±0.001) | ✅ 完成 (方向性一致) | — |
-| Top-K Pruning (§四) | ✓ K=100/200/300 | ✓ K=100/200/300 (seed42) | ✅ 完成 (D1 K=100 待 3-seed) | 可补 3-seed |
+| Top-K Pruning (§四) | ✓ K=100/200/300 | ✓ K=100/200/300 (seed42) | ✅ 完成 (Dataset 1 K=100 待 3-seed) | 可补 3-seed |
 | R1 η_str (§五) | ✓ 3-seed × 4 config | ✓ renewal ON/OFF (seed42) | ✅ 完成 | 可补 3-seed |
-| D3 Box Renewal (§六) | ✓ K 值依赖 3-seed | ✓ 全 K 矩阵 (seed42) + η_str 反向发现 | ✅ 完成 (D1 K=100 待 3-seed) | 可补 3-seed |
+| Box Renewal × DPM++ (§六) | ✓ K 值依赖 3-seed | ✓ 全 K 矩阵 (seed42) + η_str 反向发现 | ✅ 完成 (Dataset 1 K=100 待 3-seed) | 可补 3-seed |
 | S1 Cascade × Solver (§七) | ✓ 3 组重训 | ⛔ 未跑 | ⚠ 缺口 | 重训 ~12h/组 |
 | Head Distillation (§七) | ✓ 0.859 | ⛔ 未跑 | ⚠ 缺口 | 重训 (双网络) |
-| R3 v-prediction (§八) | ✓ 3-seed 0.857±0.0015 | ⛔ 未跑 | ⚠ 缺口 (D2 已 3-seed, D1 待补) | D1 重训 |
+| R3 v-prediction (§八) | ✓ 3-seed 0.857±0.0015 | ⛔ 未跑 | ⚠ 缺口 (Dataset 2 已 3-seed, Dataset 1 待补) | Dataset 1 重训 |
 | 方向 A per-dim (§九) | ✓ mAP 持平 + η_str | ⛔ 未跑 (伪造数据已删) | ⚠ 缺口 | 推理零成本 |
 | 方向 D 自适应阶次 (§十) | ✓ 3 solver 持平 | ⛔ 未跑 | ⚠ 缺口 | 推理零成本 |
 
 **双数据集验证优先级** (投稿前补全建议):
-1. ~~**高优先 (推理零成本, 闭合主贡献)**: §四 Top-K D1 + §五 R1 η_str D1~~ — ✅ 已完成 (2026-07-30). D1 K=100 掉点比 D2 更严重 (证伪原预测); D1 η_str 仅为 D2 4-8% (印证低曲率). 待补: D1 K=100 3-seed
-2. ~~**高优先 (重训, 闭合主贡献)**: §三 D1 DPM++ 3-seed~~ — ✅ 已完成 (seed789 2026-07-31 重训后异常消除). 3-seed mean=0.747±0.001 (0.746/0.748/0.746), 与 Heun 3-seed 0.746±0.001 持平, Δ=+0.001 方向性一致
-3. **中优先 (重训, 验证架构泛化)**: §七 S1 h3_s4 D1 单配置 (~12h) — 验证 H×S 可交换性跨数据集
-4. **低优先 (null result 深化)**: §九 方向A D1 + §十 方向D D1 — 推理零成本, 但属 null result 章节非主贡献
-5. **待 GPU 空闲**: §八 R3 D1 — D2 已 3-seed 完成 (0.857±0.0015), D1 未验证 (需重训)
+1. ~~**高优先 (推理零成本, 闭合主贡献)**: §四 Top-K Dataset 1 + §五 R1 η_str Dataset 1~~ — ✅ 已完成 (2026-07-30). Dataset 1 K=100 掉点比 Dataset 2 更严重 (证伪原预测); Dataset 1 η_str 仅为 Dataset 2 4-8% (印证低曲率). 待补: Dataset 1 K=100 3-seed
+2. ~~**高优先 (重训, 闭合主贡献)**: §三 Dataset 1 DPM++ 3-seed~~ — ✅ 已完成 (seed789 2026-07-31 重训后异常消除). 3-seed mean=0.747±0.001 (0.746/0.748/0.746), 与 Heun 3-seed 0.746±0.001 持平, Δ=+0.001 方向性一致
+3. **中优先 (重训, 验证架构泛化)**: §七 S1 h3_s4 Dataset 1 单配置 (~12h) — 验证 H×S 可交换性跨数据集
+4. **低优先 (null result 深化)**: §九 方向A Dataset 1 + §十 方向D Dataset 1 — 推理零成本, 但属 null result 章节非主贡献
+5. **待 GPU 空闲**: §八 R3 Dataset 1 — Dataset 2 已 3-seed 完成 (0.857±0.0015), Dataset 1 未验证 (需重训)
 
 ### SOTA 比较 (Dataset 2 val, 3-seed 均值)
 
@@ -1545,10 +1553,10 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 | §4.5.4 | 测试集评估 (val vs test) | §十三.1 | CATALOG §7.5 (C4) |
 | §4.6 / Table 10 / Figure 6 | FPS / 延迟基准 (9 模型) | §十一 | results/benchmark_fps_*.md (5 个文件) |
 | §4.7 | 跨域 Zero-shot (Dataset 2 → Chr20240904) | §十三.2 | work_dirs/robustness_noise/zero_shot_results_chr20240904.json |
-| §4.7 (深化) | 跨域 per-class AP 失效主因 (D1→D2, 类别顺序不一致) | §十三.3 | work_dirs/diagnosis/cross_dataset_per_class_20260730_194503.json |
+| §4.7 (深化) | 跨域 per-class AP 失效主因 (Dataset 1→Dataset 2, 类别顺序不一致) | §十三.3 | work_dirs/diagnosis/cross_dataset_per_class_20260730_194503.json |
 | §4.8 / Table 11 | 标注噪声鲁棒性 (3×3 网格) | §十二 | work_dirs/robustness_noise/consolidated_results.json |
 | §5.6 / §7.3.5 | Dataset 1 per-class AP 增益 (Stoch Coupling) | §二 末段 | CATALOG §7.3.5 (Problem 3) |
 | §4.3.2 (引用, 不入正文) | SOTA per-image Wilcoxon (5 模型) | §一 末段 | CATALOG §7.4.6 (Problem 2B) |
-| — (诊断) | D2 跨数据集训练 (类别顺序对齐验证, 🔄 运行中) | §十三.4 | experiments/configs/ldmdet/ldmdet_rf_heun_adaln_stochot_eps5_d2.py |
+| — (诊断) | Dataset 2 跨数据集训练 (类别顺序对齐验证, 🔄 运行中) | §十三.4 | experiments/configs/ldmdet/ldmdet_rf_heun_adaln_stochot_eps5_d2.py |
 | — (基准修正) | DINO R50 Dataset 1 最终结果 (0.742, early stop @ ep107) | §十三.5 | work_dirs/baselines/dino_r50_20240904/ |
 
