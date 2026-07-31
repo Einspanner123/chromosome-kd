@@ -490,7 +490,7 @@ def forward(self, features, bboxes, t):
 - 预期: AAC 在微调阶段学习 Anderson 系数的隐式尺度, 逐步从阻尼过渡到全幅
 
 **Phase 2: 端到端重训 (若 Phase 1 显示增益)**
-- 从 RF+Heun 阶段 (A1) 重训, AAC 贯穿整个训练
+- 从 RF+Heun 阶段重训, AAC 贯穿整个训练
 - `aac_beta=1.0` (全幅), `aac_mem_depth=2`
 - lr=5e-5, max_epoch=150, 与 baseline 对齐
 - 3-seed 验证 (42, 123, 789)
@@ -996,7 +996,7 @@ cascade head 单步 ~10-20 ms, AAC 开销 < 0.5%, 可忽略。
 
 | 实验 | 配置 | 预期 |
 |------|------|------|
-| AAC 端到端 3-seed | RF+Heun init, m=2, β=1.0, lr=5e-5, 150ep, seeds 42/123/789 | mAP 0.863~0.866 ± 0.003 |
+| AAC 端到端 3-seed | A1 init, m=2, β=1.0, lr=5e-5, 150ep, seeds 42/123/789 | mAP 0.863~0.866 ± 0.003 |
 
 ### 10.3 诊断实验 (零成本, 推理时)
 
