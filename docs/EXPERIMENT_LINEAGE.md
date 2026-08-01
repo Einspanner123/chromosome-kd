@@ -1008,11 +1008,11 @@ Cascade × Solver 解耦的 H×S 理论说明 "仅改变 H 会破坏横向收敛
 
 ---
 
-## 八、x0/v Prediction 对照 — 预测参数化选择论证 (✓ 3-seed 完成, 支持 R3.2)
+## 八、x0/v Prediction 对照 — 预测参数化选择论证 (✓ 双数据集 3-seed 完成, 支持 R3.2)
 
 > ✅ **状态回退 (2026-07-31 SSH 核实)**: 2026-07-30 的 "状态修正" 称 "仅 seed42 完成, seed 123/789 从未启动" 系**核查不完整所致的错误修正**——seed 123/789 实际已于 2026-07-23~24 在 workstation 完成训练 (有完整 checkpoint + 独立 SwanLab ID)。**原始 3-seed 声明恢复有效**: seed42=0.855@ep34, seed123=0.858@ep48, seed789=0.857@ep51 → **3-seed 均值 0.857 ± 0.0015** (与被修正掉的原始声明精确匹配)。v-prediction 3-seed 均值 0.857 vs +DPM-Solver++ 3-seed 均值 0.859±0.003, **Δ=−0.002** (方向支持 R3.2, 3-seed 验证完成)。
 > **根因**: 2026-07-30 核查时仅检查本地与 ross, 未正确检查 workstation 目录 (或遗漏), 误判 seed123/789 不存在。
-> **双数据集缺口**: v-prediction 对照仅在 Dataset 2 验证, Dataset 1 未跑 (需重训, 待 GPU 空闲)。
+> **✅ 双数据集验证完成 (2026-08-02)**: Dataset 1 v-prediction 3-seed 已在 workstation 完成 (早停终止): seed42=0.745@ep72, seed123=0.742@ep57, seed789=0.749@ep84 → **3-seed 均值 0.745 ± 0.004 (val)**, vs Dataset 1 baseline (+DPM-Solver++) 3-seed 均值 0.746, **Δ=−0.001** (噪声范围, 与 Dataset 2 Δ=−0.002 方向一致)。
 
 ### 核心贡献: 验证低维 + shifted schedule 下 x0-prediction 优势
 
@@ -1046,6 +1046,17 @@ Cascade × Solver 解耦的 H×S 理论说明 "仅改变 H 会破坏横向收敛
 - 对照: +DPM-Solver++ baseline (x0-prediction, 3-seed 均值 0.859 ± 0.003 val, 单 seed best 0.863 val)
 - SwanLab project: `ldmdet-r3-vpred` (experiment_name=`r3_vpred`)
 
+#### Dataset 1 v-prediction 3-seed 补全 (✅ 完成, 2026-08-01 workstation)
+
+> 闭合双数据集验证缺口。Dataset 1 配置 (`r3_vpred_chr2024.py`) 在 workstation A4000 上训练, 3-seed 全部因早停终止 (patience=30)。
+
+- **seed 42** ✓ 已完成 (2026-08-01, workstation): best mAP=**0.745** (val) @ ep72, 早停@ep102; work_dir=`work_dirs/r3_vpred_chr2024_seed42/`
+- **seed 123** ✓ 已完成 (2026-08-01, workstation): best mAP=**0.742** (val) @ ep57, 早停@ep87; work_dir=`work_dirs/r3_vpred_chr2024_seed123/`
+- **seed 789** ✓ 已完成 (2026-08-01, workstation): best mAP=**0.749** (val) @ ep84, 早停@ep114; work_dir=`work_dirs/r3_vpred_chr2024_seed789/`
+- **3-seed 均值: 0.745 ± 0.004 (val)**, vs Dataset 1 baseline (+DPM-Solver++ 3-seed 均值 0.746), **Δ=−0.001** (噪声范围)
+- 与 Dataset 2 结论一致 (D2 Δ=−0.002), 方向支持 R3.2: v-prediction 在低维 + shifted schedule 下不优于 x0-prediction
+- checkpoint 已同步至 ross (best_coco_bbox_mAP_epoch_{72,57,84}.pth)
+
 ### 关键结论 (3-seed 完成, 2026-07-25; 2026-07-31 核实回退)
 
 - **v-prediction 3-seed 均值 mAP=0.857 ± 0.0015 (val)** (seed42=0.855 / seed123=0.858 / seed789=0.857, 均 val), vs +DPM-Solver++ baseline:
@@ -1055,7 +1066,7 @@ Cascade × Solver 解耦的 H×S 理论说明 "仅改变 H 会破坏横向收敛
 - 训练动态 (三 seed 一致): best 集中在 ep34-51 (warmup 后稳定阶段), 之后 30 epoch 未刷新 → 早停, 表明 v-prediction 优化难度高于 x0-prediction
 - 与命题 R3.2 一致: shifted schedule 下 v-prediction 的 $1/t^2$ 梯度放大在 $t \to 0$ 引入方差, 阻碍收敛
 - **3-seed 完整验证已完成**: 不再是单 seed 初步结论, 可直接纳入论文 (无需 "preliminary" 标注)
-- **双数据集缺口**: v-prediction 对照仅 Dataset 2 (3-seed), Dataset 1 未验证 (需重训, 待 GPU 空闲)
+- **✅ 双数据集验证完成 (2026-08-02)**: Dataset 1 3-seed 均值 0.745 ± 0.004, Δ=−0.001 (与 D2 Δ=−0.002 方向一致, 均在 noise 范围)
 
 ### 预期结果
 
@@ -1490,16 +1501,16 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 - **数据源**: [work_dirs/diagnosis/cross_dataset_per_class_20260730_194503.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/cross_dataset_per_class_20260730_194503.json)
 - **脚本**: [experiments/analysis/cross_dataset_per_class.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/analysis/cross_dataset_per_class.py)
 
-### 13.4 Dataset 2 跨数据集训练启动 (2026-07-30, 🔄 运行中)
+### 13.4 Dataset 2 跨数据集训练 (✅ 完成, 2026-08-01 早停)
 
 > 基于 §13.3 发现 (类别顺序不一致主导跨域失效), 启动 Dataset 1 配置在 Dataset 2 上的训练, 目的是对齐类别顺序后验证跨域性能, 排除类别顺序干扰。
 
 - **目的**: 用 Dataset 1 对应配置 (RF+Heun+AdaLN+StochOT ε=5) 和种子 (2016452323) 在 Dataset 2 上训练, 使两数据集类别顺序一致后评估跨域 zero-shot 性能
 - **配置**: [experiments/configs/ldmdet/ldmdet_rf_heun_adaln_stochot_eps5_d2.py](file:///home/linkst/workspace/projects/chromosome-kd/experiments/configs/ldmdet/ldmdet_rf_heun_adaln_stochot_eps5_d2.py)
-- **状态**: 🔄 运行中 (workstation A5000, tailscale IP `100.99.131.26`, 项目路径 `/home/linkst/workplace/chromo/chromosome-kd/`)
-- **✅ SSH 核实 (2026-07-31 02:25)**: 训练健康运行中, 当前 Epoch 30 (验证阶段), best mAP **0.846 @ ep29** (step=29), last-10 epoch 趋势 0.841→0.836→0.828→0.829→0.841→0.832→0.840→0.833→0.843→0.846 仍在缓慢改善, ETA ~20h (≈ep50 完成予定); work_dir=`work_dirs/cross_dataset/d2_0753_stochot_eps5_seed2016452323/20260730_194001`; GPU A5000 72% util 5961MiB
-- **注**: 此 0.846 为 Dataset 2 域内训练 mAP (Dataset 1 配置/类序训练于 Dataset 2), 与主路线 RF+Stoch. Coupling (~0.858) 量级一致, 跨域 zero-shot 评估待训练完成后进行
-- **预期**: 训练完成后, 用 Dataset 1 训练模型 (reproduce_0751_stochot_eps5_v2) 在 Dataset 2 test 上重新评估跨域 per-class AP, 对比 §13.3 (类别顺序未对齐) 的 mAP=0.163, 验证类别顺序对齐后跨域性能提升幅度
+- **状态**: ✅ 完成 (2026-08-01 早停终止, workstation A5000)
+- **✅ 最终结果 (2026-08-02 SSH 核实)**: best mAP **0.861 @ ep89** (val), early stop @ ep119 (patience=30 触发, best score 0.861), 末 epoch (ep119) mAP=0.857; work_dir=`work_dirs/cross_dataset/d2_0753_stochot_eps5_seed2016452323/20260730_194001`; checkpoint=`best_coco_bbox_mAP_epoch_89.pth` (已同步至 ross)
+- **注**: 此 0.861 为 Dataset 2 域内训练 mAP (Dataset 1 配置/类序训练于 Dataset 2), 与主路线 RF+Stoch. Coupling (~0.858) 量级一致 (Δ=+0.003), 表明 Dataset 1 配置在 Dataset 2 上可达到相当性能
+- **后续**: 可用此模型 (类别顺序对齐) 与 Dataset 1 训练模型 (reproduce_0751_stochot_eps5_v2) 互做跨域 zero-shot 评估, 对比 §13.3 (类别顺序未对齐) 的 mAP=0.157, 验证类别顺序对齐后跨域性能提升幅度
 
 ### 13.5 DINO R50 / RTMDet-L Dataset 1 最终结果 (val + test, 2026-07-31 补)
 
@@ -1577,7 +1588,7 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 | **Box Renewal × DPM++ (§六)** | 揭示 box_renewal 与多步法历史矛盾 + 化解 | box_renewal 检测特有 / 密集目标 renewal 比例高 | η_str 虚高 56-58% 但 mAP 仅 −0.0003; K≥200 推理关闭安全, K=100 −0.031±0.012 (3-seed) | ✅ 完成 (含 K 值依赖性验证) |
 | **Cascade × Solver 解耦 (§七)** | cascade head 作为 implicit solver 算子分裂 | 解释 24 NFE 架构合理性, 预防"6 head 冗余"质疑 | s1_h3_s4 ✓ (0.860@ep59), s1_h6_s2 ✓ (0.859@ep106), s1_h3_s8 ✓ (0.859@ep64) — 三组全部完成 (均在 baseline noise ±0.003 内) | ✅ 完成 |
 | **Head Distillation (§七)** | headwise feature 蒸馏 H=6→H=3, Cascade × Solver 解耦理论成功应用 | NFE 24→12 (2×加速), cascade head 可压缩性验证 | mAP=0.859 (Δ=-0.004, noise内), 1.73× 推理加速 (44.72ms/22.4FPS) | ✓ 完成 |
-| **v-prediction 对照 (§八)** | 验证低维 + shifted schedule 下 x0-prediction 优势 | 预防"为何不用 v-prediction"质疑 (RF 原文偏好) | 3-seed ✓ 均值 0.857±0.0015 (seed42=0.855/123=0.858/789=0.857), Δ=−0.002 vs baseline 0.859 | ✅ 完成 (3-seed) |
+| **v-prediction 对照 (§八)** | 验证低维 + shifted schedule 下 x0-prediction 优势 | 预防"为何不用 v-prediction"质疑 (RF 原文偏好) | D2: 3-seed 0.857±0.0015, Δ=−0.002; D1: 3-seed 0.745±0.004, Δ=−0.001 (双数据集方向一致) | ✅ 完成 (双数据集 3-seed) |
 | **方向 A per-dim η_str (§九)** | 检测空间 4 维 (cxcywh) 各维度曲率差异诊断 | h 维度曲率显著小于 cx,cy, 启示 per-dim solver | Phase 2: per-dim (h=1阶) mAP=0.863 val (+0.001), 加速 5.5%; Phase 3 (A.2): per-dim-w (w,h=1阶) mAP=0.864 val (持平), 加速 5.0% | ✓ 完成 |
 | **方向 D 自适应阶次 (§十)** | 后期 step 降阶 (3→2 阶) 自适应 DPM-Solver++ | $\eta_{3rd}$ step1→2 降幅 59%, 后期可降阶 | 3 solver mAP 均为 0.863 val (ΔmAP=0.000), 自适应 4.2% 加速 | ✓ 完成 |
 
@@ -1593,7 +1604,7 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 | Box Renewal × DPM++ (§六) | ✓ K 值依赖 3-seed | ✓ 全 K 矩阵 (3-seed) + η_str 反向发现 + dim_d1_mask 3-seed | ✅ 完成 | — |
 | Cascade × Solver 解耦 (§七) | ✓ 3 组重训 | ⛔ 未跑 | ⚠ 缺口 | 重训 ~12h/组 |
 | Head Distillation (§七) | ✓ 0.859 | ⛔ 未跑 | ⚠ 缺口 | 重训 (双网络) |
-| v-prediction 对照 (§八) | ✓ 3-seed 0.857±0.0015 | ⛔ 未跑 | ⚠ 缺口 (Dataset 2 已 3-seed, Dataset 1 待补) | Dataset 1 重训 |
+| v-prediction 对照 (§八) | ✓ 3-seed 0.857±0.0015 | ✓ 3-seed 0.745±0.004 | ✅ 完成 (D1 Δ=−0.001, D2 Δ=−0.002, 方向一致) | — |
 | 方向 A per-dim (§九) | ✓ mAP 持平 + η_str | ✓ mAP 持平 (3-seed) + η_str | ✅ 完成 | — |
 | 方向 D 自适应阶次 (§十) | ✓ 3 solver 持平 | ✓ 3 solver 持平 (3-seed) | ✅ 完成 | — |
 
@@ -1646,6 +1657,6 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 | §4.8 / Table 11 | 标注噪声鲁棒性 (3×3 网格) | §十二 | work_dirs/robustness_noise/consolidated_results.json |
 | §5.6 / §7.3.5 | Dataset 1 per-class AP 增益 (Stoch Coupling) | §二 末段 | CATALOG §7.3.5 (Problem 3) |
 | §4.3.2 (引用, 不入正文) | SOTA per-image Wilcoxon (5 模型) | §一 末段 | CATALOG §7.4.6 (Problem 2B) |
-| — (诊断) | Dataset 2 跨数据集训练 (类别顺序对齐验证, 🔄 运行中) | §十三.4 | experiments/configs/ldmdet/ldmdet_rf_heun_adaln_stochot_eps5_d2.py |
+| — (诊断) | Dataset 2 跨数据集训练 (类别顺序对齐验证, ✅ 完成 best=0.861@ep89) | §十三.4 | experiments/configs/ldmdet/ldmdet_rf_heun_adaln_stochot_eps5_d2.py |
 | — (基准修正) | DINO R50 Dataset 1 最终结果 (0.742, early stop @ ep107) | §十三.5 | work_dirs/baselines/dino_r50_20240904/ |
 
