@@ -1004,7 +1004,9 @@ Cascade × Solver 解耦的 H×S 理论说明 "仅改变 H 会破坏横向收敛
 
 ### 双数据集验证缺口 (Cascade × Solver 解耦 + Head Distillation)
 
-> ⚠ Cascade × Solver 解耦三组重训 (h3_s4/h6_s2/h3_s8) 与 Head Distillation 均仅在 Dataset 2 完成, **Dataset 1 未跑**。两者均需端到端重训 (Cascade × Solver 解耦需 3 组重训, Head Distillation 需 Teacher/Student 双网络训练), 在 Dataset 1 1540 张图上算力成本较高。Cascade × Solver 解耦的 H×S 可交换性命题在 Dataset 1 上预测仍成立 (架构层面与数据集无关), 但 Dataset 1 低数据下 H=3 是否仍能收敛至 0.746 量级需实验确认。**建议**: 投稿前至少补 h3_s4 单配置 Dataset 1 重训 (~12h) 以验证可交换性的跨数据集稳健性; Head Distillation Dataset 1 可作为 future work。
+> ⚠ Cascade × Solver 解耦三组重训 (h3_s4/h6_s2/h3_s8) 与 Head Distillation 均仅在 Dataset 2 完成。两者均需端到端重训 (Cascade × Solver 解耦需 3 组重训, Head Distillation 需 Teacher/Student 双网络训练), 在 Dataset 1 1540 张图上算力成本较高。Cascade × Solver 解耦的 H×S 可交换性命题在 Dataset 1 上预测仍成立 (架构层面与数据集无关), 但 Dataset 1 低数据下 H=3 是否仍能收敛至 0.746 量级需实验确认。
+>
+> 🔄 **Dataset 1 补全进展 (2026-08-02)**: h3_s4 单配置 Dataset 1 重训已启动 (workstation A4000, seed42): `work_dirs/s1_h3_s4_chr2024_seed42/`, 当前 ep68/150, **best mAP=0.755 @ ep55 (val)**, eta ~4h。best@ep55 已超 Dataset 1 baseline (RF+Heun 3-seed 0.746 / +DPM-Solver++ 3-seed 0.747) +0.008, 但训练仍在进行 (ep66=0.721 / ep67=0.707 有波动), 最终 best 待早停或 150ep 后确认。h6_s2/h3_s8 Dataset 1 暂不补; Head Distillation Dataset 1 可作为 future work。
 
 ---
 
@@ -1602,8 +1604,8 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 | Top-K Pruning (§四) | ✓ K=100/200/300 | ✓ K=100/200/300 (3-seed) | ✅ 完成 | — |
 | η_str 直线度诊断 (§五) | ✓ 3-seed × 4 config | ✓ renewal ON/OFF (seed42) | ✅ 完成 | 可补 3-seed |
 | Box Renewal × DPM++ (§六) | ✓ K 值依赖 3-seed | ✓ 全 K 矩阵 (3-seed) + η_str 反向发现 + dim_d1_mask 3-seed | ✅ 完成 | — |
-| Cascade × Solver 解耦 (§七) | ✓ 3 组重训 | ⛔ 未跑 | ⚠ 缺口 | 重训 ~12h/组 |
-| Head Distillation (§七) | ✓ 0.859 | ⛔ 未跑 | ⚠ 缺口 | 重训 (双网络) |
+| Cascade × Solver 解耦 (§七) | ✓ 3 组重训 | 🔄 h3_s4 seed42 运行中 (ep68/150, best@ep55=0.755) | 进行中 | h6_s2/h3_s8 暂不补 |
+| Head Distillation (§七) | ✓ 0.859 | ⛔ 未跑 | ⚠ 缺口 | future work |
 | v-prediction 对照 (§八) | ✓ 3-seed 0.857±0.0015 | ✓ 3-seed 0.745±0.004 | ✅ 完成 (D1 Δ=−0.001, D2 Δ=−0.002, 方向一致) | — |
 | 方向 A per-dim (§九) | ✓ mAP 持平 + η_str | ✓ mAP 持平 (3-seed) + η_str | ✅ 完成 | — |
 | 方向 D 自适应阶次 (§十) | ✓ 3 solver 持平 | ✓ 3 solver 持平 (3-seed) | ✅ 完成 | — |
@@ -1611,9 +1613,9 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 **双数据集验证优先级** (投稿前补全建议):
 1. ~~**高优先 (推理零成本, 闭合主贡献)**: §四 Top-K Dataset 1 + §五 η_str 直线度诊断 Dataset 1~~ — ✅ 已完成 (2026-07-31 3-seed 补全). Dataset 1 K=100 掉点比 Dataset 2 更严重 (3-seed: −0.036 vs −0.022, 证伪原预测); Dataset 1 η_str 仅为 Dataset 2 4-8% (印证低曲率)
 2. ~~**高优先 (重训, 闭合主贡献)**: §三 Dataset 1 DPM++ 3-seed~~ — ✅ 已完成 (seed789 2026-07-31 重训后异常消除). 3-seed mean=0.747±0.001 (0.746/0.748/0.746), 与 Heun 3-seed 0.746±0.001 持平, Δ=+0.001 方向性一致
-3. **中优先 (重训, 验证架构泛化)**: §七 h3_s4 Dataset 1 单配置 (~12h) — 验证 H×S 可交换性跨数据集
+3. ~~**中优先 (重训, 验证架构泛化)**: §七 h3_s4 Dataset 1 单配置 (~12h)~~ — 🔄 运行中 (2026-08-02, workstation A4000, seed42, ep68/150, best@ep55=0.755, eta ~4h). 验证 H×S 可交换性跨数据集稳健性
 4. ~~**低优先 (null result 深化)**: §九 方向A Dataset 1 + §十 方向D Dataset 1~~ — ✅ 已完成 (2026-07-31 3-seed). 两方向在 Dataset 1 上均持平 (Δ≤0.001), null result 跨数据集稳健
-5. **待 GPU 空闲**: §八 v-prediction 对照 Dataset 1 — Dataset 2 已 3-seed 完成 (0.857±0.0015), Dataset 1 未验证 (需重训)
+5. ~~**待 GPU 空闲**: §八 v-prediction 对照 Dataset 1~~ — ✅ 已完成 (2026-08-02). Dataset 1 3-seed 0.745±0.004, vs Dataset 1 baseline 0.746, Δ=−0.001 (噪声范围, 与 Dataset 2 Δ=−0.002 方向一致)
 
 ### SOTA 比较 (Dataset 2 val, 3-seed 均值; test 见 §十三.1)
 
