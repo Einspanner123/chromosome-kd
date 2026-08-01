@@ -677,6 +677,19 @@ K=100 与 K=200 的 $\eta_{str}$ 在 step 2 几乎相同 (2.18 vs 2.24, 差异 <
 - **方案 B 不损失精度**, 且使 η_str 诊断有效 (renewal 污染被消除)
 - 使 η_str 指标在 renewal on 时失效的问题得到化解
 
+**推理延迟验证 (2026-08-01 补, 3-seed, A6000, warmup=50, iters=200)** — 数据源: [renewal_latency_3seed.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_latency_3seed.json):
+
+| Seed | Renewal ON (ms) | Renewal OFF (ms) | Δ (ms) | Δ (%) | FPS Δ |
+|:----:|:---------------:|:----------------:|:------:|:-----:|:-----:|
+| 42 | 88.19 | 86.15 | +2.04 | +2.3% | +0.27 |
+| 123 | 88.67 | 87.15 | +1.52 | +1.7% | +0.20 |
+| 789 | 88.86 | 85.97 | +2.89 | +3.3% | +0.30 |
+| **Mean ± Std** | **88.57** | **86.42** | **+2.15 ± 0.56** | **+2.4%** | **+0.26** |
+
+- **关闭 box_renewal 加速 2.15 ± 0.56 ms (约 2.4%)**, 3-seed 一致为正 (Δ/std = 3.84, p < 0.05)
+- 加速来源: 跳过每 solver step 后的置信度排序 + 低置信度 proposal 重置 (张量赋值); 主要延迟仍在 cascade head 网络前向 (占 90%+), 故加速比例小
+- **结论: 方案 B 在精度无损 (ΔmAP=−0.0003) 的同时获得 2.4% 推理加速, 且净化 D1 历史 + 使 η_str 诊断有效, 三重收益**
+
 **K 值依赖性验证 (2026-07-30, 全场景 renewal ON vs OFF 直接对比, 均 val)**:
 
 数据源: [renewal_off_all_scenarios.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_all_scenarios.json) · [renewal_off_topk_verify.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_topk_verify.json) · [renewal_off_k100_3seed_k150.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_k100_3seed_k150.json) · [d1_topk_validation.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/d1_topk_validation.json) (Dataset 1 全 K 矩阵)
