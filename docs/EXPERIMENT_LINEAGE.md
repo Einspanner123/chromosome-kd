@@ -118,7 +118,7 @@ DDPM baseline→RF+Heun 累积 +0.053 mAP (统一口径: DDPM baseline = Diffusi
   -- DPM-Solver++ 4 步 (4 NFE): mAP=0.855 (val)
   -- Euler 1 步 (1 NFE): mAP=0.851 (val)
   -- DPM-Solver++ 1 步 (1 NFE): mAP=0.851 (val)
-  -- 结论: 匹配步数下 solver 类型对 mAP 无影响; 步数 1→4 仅 +0.004; solver/步数联合仅贡献 6%
+  -- 结论: 匹配步数下 solver 类型对 mAP 无影响; 步数 1→4 仅 +0.004; solver/步数联合贡献 9% (新口径 +0.053 mAP; 旧口径 +0.082 mAP 下为 6%, 见 §一 范式贡献归因)
   -- SwanLab: https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/a1_rf_heun
   -- ⚠ 2026-07-31 B5 核验: 本组数据仅在 SwanLab 有记录, 本地 work_dirs/a1_rf_heun_24obj/ 下未找到对应推理日志/JSON (仅有训练日志)。同结论已被 §三 +DPM-Solver++ checkpoint 上 Heun 4步 vs DPM++ 4步 (Δ=−0.001, work_dirs/a4_dpm_pp_24obj/20260715_011706/) 独立复现, 结论不变
 
@@ -239,7 +239,7 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
 
 - Hard OT 3 seeds (Dataset 1 **无aug 简化设置**)
   -- 结果: mAP=0.705 ± 0.002 (val, 3-seed, NoAug_NoResize) [−0.008 vs Random (无aug), 证实 OT 坍缩]
-  -- ⚠ **实验设置 (2026-08-02 核查澄清)**: 此 3-seed 实验使用 `Chromosome20240904_NoAug_NoResize_coco` (无数据增强 + 无 resize, 见 FALSIFIED §二十六 "简化非标准"). **标准增强下** Hard OT=0.747 (2-seed, +0.001 vs baseline, 见 §二 Dataset 1 早期验证), OT 坍缩效应被数据增强掩盖. Dataset 2 (标准增强) 仍显示坍缩 (0.854 vs 0.860, Δ=−0.006). 论文 OT 坍缩论证主要依赖 Dataset 2 + 理论分析, Dataset 1 无aug 实验作为补充佐证
+  -- ⚠ **实验设置 (2026-08-02 核查澄清)**: 此 3-seed 实验使用 `Chromosome20240904_NoAug_NoResize_coco` (无数据增强 + 无 resize, 见 FALSIFIED §十一 "早期失败/调试实验"). **标准增强下** Hard OT=0.747 (2-seed, +0.001 vs baseline, 见 §二 Dataset 1 早期验证), OT 坍缩效应被数据增强掩盖. **Dataset 2 Hard OT 实验未运行** (配置 `experiments/configs/multiset/chromo_24obj_hard_ot.py` 存在但无 work_dir/训练记录), OT 坍缩在 Dataset 2 上未直接实验验证; 仅 Stoch vs Random +0.0001 (ns, Dataset 2) 作为间接佐证 (Stoch Coupling 在大 K 数据集上增益消失, 与坍缩理论预测方向一致). 论文 OT 坍缩论证主要依赖 Dataset 1 无aug实验 (Δ=−0.008, p<10⁻⁸) + 理论分析 (命题 1-2), Dataset 2 间接佐证
   -- 目录: `work_dirs/multi_seed/hard_ot/seed_{42,123,789}/` (与 `multi_seed_aug/` 区分)
   -- SwanLab: 见下文 Random/Stoch 对照
 
@@ -323,7 +323,7 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
 
 ### Dataset 1 早期验证 (OT 坍缩理论佐证)
 
-> 以下 Dataset 1 实验佐证 §二 OT Diversity Collapse 理论。⚠ **(2026-08-02 核查澄清)**: OT 坍缩在 Dataset 1 上**仅在无aug简化设置下出现** (Hard OT=0.705 vs Random=0.713, Δ=−0.008, p<10⁻⁸); 标准增强下 Hard OT=0.747 (2-seed, Δ=+0.001 vs baseline), 坍缩被数据增强掩盖。Dataset 2 (标准增强) 仍显示坍缩 (Δ=−0.006)。按"所有理论在两个数据集上验证"规则, Dataset 1 无aug实验 + Dataset 2 标准增强实验共同作为 §二 理论的双数据集验证, 论文叙事需明确区分实验设置。
+> 以下 Dataset 1 实验佐证 §二 OT Diversity Collapse 理论。⚠ **(2026-08-02 核查澄清)**: OT 坍缩在 Dataset 1 上**仅在无aug简化设置下出现** (Hard OT=0.705 vs Random=0.713, Δ=−0.008, p<10⁻⁸); 标准增强下 Hard OT=0.747 (2-seed, Δ=+0.001 vs baseline), 坍缩被数据增强掩盖。**Dataset 2 Hard OT 实验未运行**, OT 坍缩在 Dataset 2 上未直接验证; 仅 Stoch vs Random +0.0001 (ns) 作为间接佐证 (Stoch Coupling 在大 K 数据集上增益消失, 与坍缩理论预测一致)。按"所有理论在两个数据集上验证"规则, §二 理论的双数据集验证存在缺口: Dataset 1 无aug实验为直接证据, Dataset 2 仅有间接佐证, 论文叙事需明确标注并考虑补跑 Dataset 2 Hard OT。
 ### Hard OT Coupling
 
 - Hard OT Coupling (Dataset 1 **标准增强**, 2 seeds)
@@ -332,7 +332,7 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
   -- SwanLab (project=ldmdet-ablation):
      - hard_ot_seed42: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/h8fizm7lmc9v5xzxi8ufj
      - hard_ot_seed123: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/kka4nra9qk3wanx7i9og1
-  -- ⚠ **与无aug实验的关系 (2026-08-02 核查澄清)**: 无aug 简化设置下 Hard OT=0.705 (3-seed, Δ=−0.008 vs Random, 见 §二 耦合消融), 显示 OT 坍缩; 标准增强下 Hard OT=0.747 (2-seed, Δ=+0.001), 坍缩被增强掩盖. Dataset 2 (标准增强) 仍显示坍缩 (Δ=−0.006). 原标注 "Dataset 1 上 Hard OT 比 Random 更差 (−0.008)" 系混淆无aug与有aug实验, 已修正
+  -- ⚠ **与无aug实验的关系 (2026-08-02 核查澄清)**: 无aug 简化设置下 Hard OT=0.705 (3-seed, Δ=−0.008 vs Random, 见 §二 耦合消融), 显示 OT 坍缩; 标准增强下 Hard OT=0.747 (2-seed, Δ=+0.001), 坍缩被增强掩盖. **Dataset 2 Hard OT 实验未运行** (仅配置存在, 无训练记录), OT 坍缩在 Dataset 2 上未直接验证. 原标注 "Dataset 1 上 Hard OT 比 Random 更差 (−0.008)" 系混淆无aug与有aug实验, 已修正
 ### Sinkhorn Stochastic OT
 
 - Sinkhorn Stochastic OT (Dataset 1, 1 seed)
@@ -1436,8 +1436,8 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 | KaryoFlow +DPM-Solver++ (seed42) | 0.746 | 0.739 | −0.007 | val best@ep49 |
 | KaryoFlow +Stoch. Coupling (seed42) | 0.753 | 0.740 | −0.013 | val best@ep59 (reproduce_0751_stochot_eps5_v2) |
 | DiffusionDet DDPM (seed42) | 0.726 | 0.716 | −0.010 | val best@ep79 |
-| DiffusionDet DDPM (seed123) | 0.727 | 0.722 | — | val best@ep66 |
-| DiffusionDet DDPM (seed789) | 0.733 | 0.718 | — | val best@ep87 |
+| DiffusionDet DDPM (seed123) | 0.733 | 0.722 | — | val best@ep66 |
+| DiffusionDet DDPM (seed789) | 0.727 | 0.718 | — | val best@ep87 |
 | DINO R50 | 0.742 | 0.725 | −0.017 | val best@ep77; test 用 ep107 checkpoint (非 best) |
 | RTMDet-L | 0.742 | 0.732 | −0.010 | val best@ep52; test 用 best ep52 checkpoint |
 | Cascade R-CNN | — | 0.724 | — | val best@ep86 |
@@ -1585,14 +1585,14 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 | 创新点 | 核心贡献 | 与任务结合 | 关键数据 | 状态 |
 |--------|----------|------------|----------|------|
 | **RF (§一)** | 直线 ODE 路径取代 DDPM 弯曲随机轨迹 | 密集 proposals 误差复合 / 小训练集 / 24 类细粒度 | DDPM→RF+Heun +0.053 mAP (统一口径), 91% 归因于 RF | ✅ 完成 |
-| **OT Collapse + Stoch. Coupling (§二)** | 低维 d=4 OT 坍缩形式化 + Stochastic Coupling 补救 | 低维触发 / 高 K 加剧 / 小训练集放大 | Dataset 1 +0.034 (p<10⁻¹²⁰), Hard OT vs Random −0.008 (证实坍缩); Dataset 2 +0.0001 (p=0.80) + 4.6× 平滑 | ✅ 完成 |
+| **OT Collapse + Stoch. Coupling (§二)** | 低维 d=4 OT 坍缩形式化 + Stochastic Coupling 补救 | 低维触发 / 高 K 加剧 / 小训练集放大 | Dataset 1 +0.034 (p<10⁻¹²⁰), Hard OT vs Random −0.008 (无aug, 直接证据); Dataset 2 Stoch vs Random +0.0001 (ns) + 4.6× 平滑 (间接佐证, Hard OT 未运行) | ⚠ D2 Hard OT 缺口 |
 | **DPM-Solver++ (§三)** | RF 适配 data-prediction + 修正 FlowDet 结论 | 临床交互式延迟 13.3-14.2 FPS / cascade head 占 90%+ | +0.006 mAP (p<10⁻⁶) + 1.75× NFE 加速 | ✅ 完成 |
 | **Top-K Pruning (§四)** | 500→K proposals 剪枝 + DPM-Solver++ 兼容 | K=200 最优 (46 染色体 + 重叠冗余) | K=200: 14.2 FPS, mAP 0.860 | ✅ 完成 |
 | **η_str 直线度诊断 (§五)** | 零开销直线度指标, 量化"2 步收敛" | 修正"RF 接近直线" claim (实际 η_str∈[0.7,1.5]) | 3 seeds 单调下降 3.43→2.45→1.68 | ✅ 完成 |
 | **Box Renewal × DPM++ (§六)** | 揭示 box_renewal 与多步法历史矛盾 + 化解 | box_renewal 检测特有 / 密集目标 renewal 比例高 | η_str 虚高 56-58% 但 mAP 仅 −0.0003; K≥200 推理关闭安全, K=100 −0.031±0.012 (3-seed) | ✅ 完成 (含 K 值依赖性验证) |
 | **Cascade × Solver 解耦 (§七)** | cascade head 作为 implicit solver 算子分裂 | 解释 24 NFE 架构合理性, 预防"6 head 冗余"质疑 | s1_h3_s4 ✓ (0.860@ep59), s1_h6_s2 ✓ (0.859@ep106), s1_h3_s8 ✓ (0.859@ep64) — 三组全部完成 (均在 baseline noise ±0.003 内) | ✅ 完成 |
 | **Head Distillation (§七)** | headwise feature 蒸馏 H=6→H=3, Cascade × Solver 解耦理论成功应用 | NFE 24→12 (2×加速), cascade head 可压缩性验证 | mAP=0.859 (Δ=-0.004, noise内), 1.73× 推理加速 (44.72ms/22.4FPS) | ✓ 完成 |
-| **v-prediction 对照 (§八)** | 验证低维 + shifted schedule 下 x0-prediction 优势 | 预防"为何不用 v-prediction"质疑 (RF 原文偏好) | D2: 3-seed 0.857±0.0015, Δ=−0.002; D1: 3-seed 0.745±0.004, Δ=−0.001 (双数据集方向一致) | ✅ 完成 (双数据集 3-seed) |
+| **v-prediction 对照 (§八)** | 验证低维 + shifted schedule 下 x0-prediction 优势 | 预防"为何不用 v-prediction"质疑 (RF 原文偏好) | D2: 3-seed 0.857±0.0015, Δ=−0.002; D1: 3-seed 0.745±0.004, Δ=−0.002 (双数据集方向一致, baseline=+DPM-Solver++ 3-seed mean 0.747/0.859) | ✅ 完成 (双数据集 3-seed) |
 | **方向 A per-dim η_str (§九)** | 检测空间 4 维 (cxcywh) 各维度曲率差异诊断 | h 维度曲率显著小于 cx,cy, 启示 per-dim solver | Phase 2: per-dim (h=1阶) mAP=0.863 val (+0.001), 加速 5.5%; Phase 3 (A.2): per-dim-w (w,h=1阶) mAP=0.864 val (持平), 加速 5.0% | ✓ 完成 |
 | **方向 D 自适应阶次 (§十)** | 后期 step 降阶 (3→2 阶) 自适应 DPM-Solver++ | $\eta_{3rd}$ step1→2 降幅 59%, 后期可降阶 | 3 solver mAP 均为 0.863 val (ΔmAP=0.000), 自适应 4.2% 加速 | ✓ 完成 |
 
@@ -1601,14 +1601,14 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 | 创新点 | Dataset 2 | Dataset 1 | 双数据集 | 补全成本 |
 |--------|-----------|-----------|----------|----------|
 | RF 范式 (§一) | ✓ 0.856 (3-seed) | ✓ 0.746 (3-seed) vs DDPM 0.729 | ✅ 完成 | — |
-| OT Collapse + Stoch. Coupling (§二) | ✓ +0.0001 (ns) + 4.6× 平滑 | ✓ +0.034 (p<10⁻¹²⁰), Hard OT vs Random −0.008 | ✅ 完成 | — |
+| OT Collapse + Stoch. Coupling (§二) | ⚠ Stoch vs Random +0.0001 (ns) + 4.6× 平滑 (间接佐证); Hard OT 未运行 | ✓ +0.034 (p<10⁻¹²⁰), Hard OT vs Random −0.008 (无aug, 直接证据) | ⚠ D2 Hard OT 缺口 | 可补 D2 Hard OT 3-seed |
 | DPM-Solver++ (§三) | ✓ +0.006 (p<10⁻⁶) | ✓ +0.001 (持平, 3-seed 0.747±0.001) | ✅ 完成 (方向性一致) | — |
 | Top-K Pruning (§四) | ✓ K=100/200/300 | ✓ K=100/200/300 (3-seed) | ✅ 完成 | — |
 | η_str 直线度诊断 (§五) | ✓ 3-seed × 4 config | ✓ renewal ON/OFF (seed42) | ✅ 完成 | 可补 3-seed |
 | Box Renewal × DPM++ (§六) | ✓ K 值依赖 3-seed | ✓ 全 K 矩阵 (3-seed) + η_str 反向发现 + dim_d1_mask 3-seed | ✅ 完成 | — |
 | Cascade × Solver 解耦 (§七) | ✓ 3 组重训 | 🔄 h3_s4 seed42 运行中 (ep68/150, best@ep55=0.755) | 进行中 | h6_s2/h3_s8 暂不补 |
 | Head Distillation (§七) | ✓ 0.859 | ⛔ 未跑 | ⚠ 缺口 | future work |
-| v-prediction 对照 (§八) | ✓ 3-seed 0.857±0.0015 | ✓ 3-seed 0.745±0.004 | ✅ 完成 (D1 Δ=−0.001, D2 Δ=−0.002, 方向一致) | — |
+| v-prediction 对照 (§八) | ✓ 3-seed 0.857±0.0015 | ✓ 3-seed 0.745±0.004 | ✅ 完成 (D1 Δ=−0.002, D2 Δ=−0.002, 方向一致) | — |
 | 方向 A per-dim (§九) | ✓ mAP 持平 + η_str | ✓ mAP 持平 (3-seed) + η_str | ✅ 完成 | — |
 | 方向 D 自适应阶次 (§十) | ✓ 3 solver 持平 | ✓ 3 solver 持平 (3-seed) | ✅ 完成 | — |
 
@@ -1617,7 +1617,7 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 2. ~~**高优先 (重训, 闭合主贡献)**: §三 Dataset 1 DPM++ 3-seed~~ — ✅ 已完成 (seed789 2026-07-31 重训后异常消除). 3-seed mean=0.747±0.001 (0.746/0.748/0.746), 与 Heun 3-seed 0.746±0.001 持平, Δ=+0.001 方向性一致
 3. ~~**中优先 (重训, 验证架构泛化)**: §七 h3_s4 Dataset 1 单配置 (~12h)~~ — 🔄 运行中 (2026-08-02, workstation A4000, seed42, ep68/150, best@ep55=0.755, eta ~4h). 验证 H×S 可交换性跨数据集稳健性
 4. ~~**低优先 (null result 深化)**: §九 方向A Dataset 1 + §十 方向D Dataset 1~~ — ✅ 已完成 (2026-07-31 3-seed). 两方向在 Dataset 1 上均持平 (Δ≤0.001), null result 跨数据集稳健
-5. ~~**待 GPU 空闲**: §八 v-prediction 对照 Dataset 1~~ — ✅ 已完成 (2026-08-02). Dataset 1 3-seed 0.745±0.004, vs Dataset 1 baseline 0.746, Δ=−0.001 (噪声范围, 与 Dataset 2 Δ=−0.002 方向一致)
+5. ~~**待 GPU 空闲**: §八 v-prediction 对照 Dataset 1~~ — ✅ 已完成 (2026-08-02). Dataset 1 3-seed 0.745±0.004, vs Dataset 1 baseline 0.747 (+DPM-Solver++ 3-seed mean), Δ=−0.002 (噪声范围, 与 Dataset 2 Δ=−0.002 方向一致)
 
 ### SOTA 比较 (Dataset 2 val, 3-seed 均值; test 见 §十三.1)
 
