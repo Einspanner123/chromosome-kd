@@ -108,6 +108,7 @@ DDPM baseline→RF+Heun 累积 +0.053 mAP (统一口径: DDPM baseline = Diffusi
 
 - +DPM-Solver++ 替换 Heun
   -- 结果: mAP=0.863 (val, seed42; test=0.859 见 §十三.1), AP50=0.990, AP75=0.974 [+0.005 推理加速且精度提升]
+  -- ⚠ **口径澄清 (2026-08-02)**: +0.005 为**跨 checkpoint 训练差异** (+DPM-Solver++ 训练 vs +Stoch. Coupling Heun 训练, aggregate mAP 0.863−0.858=+0.005 / Wilcoxon +0.006); 同 checkpoint 切换 solver 的 Δ=−0.001 (噪声, 见 §三 匹配步数对比). "+0.005 精度提升" 非来自推理时 solver 切换, 而是训练配置差异
   -- SwanLab: https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/a4_dpm_pp
 
 #### 实验证明目的: solver×step 解耦, 隔离 RF 范式贡献
@@ -590,6 +591,7 @@ DPM-Solver++ 二阶校正项 $D_1^{(n)} = (\hat{x}_0^{(n)} - \hat{x}_0^{(n-1)})/
 - **修正"RF 轨迹接近直线" claim**: 实际 $\eta_{str}\in[0.7, 1.5]$ 非零但曲率足够小, 使 DPM-Solver++ 校正项对 mAP 的边际贡献 < 0.001
 - **区分"RF 训练成功"与"RF 训练失败但被 solver 步数补偿"**: $\eta_{str}$ 提供机制级判据
 - **何时需要 reflow (2-RectFlow)**: 若训练后 $\bar{\eta}_{str} > 0.1$ 持续, reflow 可能进一步拉直轨迹; 若 $< 0.01$, reflow 收益有限
+  -- ⚠ **注 (2026-08-02)**: ReFlow Standard MSE 已实验证伪, 见 FALSIFIED §十四; 失败根因为 cls/box 不一致 + circular dependency (非轨迹曲率本身不可拉直). 上述条件式判据仍成立, 但 reflow 的工程实现需解决 cls/box 对齐问题
 
 ### 实验列表
 
