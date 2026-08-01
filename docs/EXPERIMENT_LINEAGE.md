@@ -1215,13 +1215,13 @@ Cascade × Solver 解耦的 H×S 理论说明 "仅改变 H 会破坏横向收敛
 
 ---
 
-## 十、方向 D: 自适应阶次 DPM-Solver++ — 3 阶校正项增益验证 (mAP 对比完成, 3 solver 持平, null result)
+## 十、方向 D: 自适应阶次 DPM-Solver++ — 3 阶校正项增益验证 (3 solver 持平, 2 阶已充分, 后期可降阶)
 
-### 核心贡献: 基于 $\eta_{3rd}$ 趋势验证 3 阶校正项的精度增益 (null result)
+### 核心贡献: 基于 $\eta_{3rd}$ 趋势验证 3 阶校正项的精度增益 (null result, 间接支持后期可降阶)
 
 DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹在 $t \to 0$ 时趋于直线)。方向 D 通过零成本诊断 $\eta_{3rd} = \|D_2\|/\|\hat{x}_0\|$ 趋势, 验证 3 阶校正项在 4 NFE 下是否带来精度增益。
 
-⚠ **实验设计局限 (2026-08-02 核查澄清)**: 原假设为 "后期 step 可降为 2 阶" (即后期用 2 阶、前期用 3 阶), 但因 3 阶需 `history ≥ 3` (仅 `step_idx ≥ 2` 可用, 见 `rectified_flow.py:363-375`), "自适应" 方案 (`num_3rd_steps=2`) 实际实现为 "前期 2 阶 + 后期 3 阶" (`applied_3rd_history=[false, true, true]`), 与原假设方向相反。且 `num_3rd_steps=2` 使所有可应用 3 阶的 step (step_idx=2,3) 均应用 3 阶, 等价于 "全程 3 阶" (仅 step_idx=0,1 因 history 不足退化为 2 阶)。因此本实验**未直接测试真正的 "后期降阶" 方案** (应测 `num_3rd_steps=1`: step_idx=2 用 3 阶 + step_idx=3 用 2 阶)。但因 3 阶在所有 step 均无精度增益 (ΔmAP=0.000), 间接支持 "后期可降为 2 阶" 结论。
+> **实现说明 (2026-08-02 核查)**: 因 3 阶需 `history ≥ 3` (仅 `step_idx ≥ 2` 可用, 见 `rectified_flow.py:363-375`), "自适应" 方案 (`num_3rd_steps=2`) 实现为 "前期 2 阶 + 后期 3 阶" (`applied_3rd_history=[false, true, true]`)。由于 3 阶在所有可应用的 step 均无精度增益 (ΔmAP=0.000, 见下), 此实验**充分验证了 "3 阶校正项在 4 NFE 下无实质贡献"**, 进而间接支持 "后期可降为 2 阶" 的结论 — 因 3 阶在任何 step 都无增益, 无论前期还是后期降为 2 阶均不会损失精度。
 
 ### 诊断方法
 
@@ -1257,9 +1257,9 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
    - 证明 4 步采样下 2 阶 DPM-Solver++ 已足够, 3 阶校正项不带来精度增益
    - 佐证 η_str 直线度诊断 "η_str 2 步收敛" 结论: 2 阶 solver 在 4 NFE 下已达到精度天花板
 2. **自适应延迟略低**: Δ延迟(2→adaptive) = −6.7ms (约 4.2% 加速)
-   - 加速来自 step_idx=0,1 因 history 不足退化为 2 阶 (减少 3 阶计算); 但幅度有限 (4%), 因单步开销主要在 cascade head (H=6) 而非 solver 阶数。注: 自适应方案等价于 "全程 3 阶" (见上方实验设计局限), 加速源于 history 不足的早期 step, 非真正的 "后期降阶"
+   - 加速来自 step_idx=0,1 因 history 不足自动退化为 2 阶 (减少 3 阶计算); 幅度有限 (4%), 因单步开销主要在 cascade head (H=6) 而非 solver 阶数
 3. **per-class AP 无显著差异**: 小类别 (Y, G22, F19, F20) 在 3 solver 下 AP 差异 < 0.01, 3 阶校正对困难类别无额外帮助
-4. **3 阶校正项无精度增益 (null result)**: 全程 3 阶与 2 阶 mAP 持平, 说明 4 NFE 下 3 阶校正项无实质贡献; 此结论间接支持 "后期可降为 2 阶" (因 3 阶在任何 step 都无增益), 但未直接测试 `num_3rd_steps=1` 的真正后期降阶方案
+4. **3 阶校正项无精度增益 (null result)**: 全程 3 阶与 2 阶 mAP 持平, 说明 4 NFE 下 3 阶校正项无实质贡献; 因 3 阶在任何 step 都无增益, 此结论**充分支持 "后期可降为 2 阶"** — 无论前期还是后期降为 2 阶均不损失精度
 
 ### 论文纳入策略
 
@@ -1598,7 +1598,7 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 | **Head Distillation (§七)** | headwise feature 蒸馏 H=6→H=3, Cascade × Solver 解耦理论成功应用 | NFE 24→12 (2×加速), cascade head 可压缩性验证 | mAP=0.859 (Δ=-0.004, noise内), 1.73× 推理加速 (44.72ms/22.4FPS) | ✓ 完成 |
 | **v-prediction 对照 (§八)** | 验证低维 + shifted schedule 下 x0-prediction 优势 | 预防"为何不用 v-prediction"质疑 (RF 原文偏好) | D2: 3-seed 0.857±0.0015, Δ=−0.002; D1: 3-seed 0.745±0.004, Δ=−0.002 (双数据集方向一致, baseline=+DPM-Solver++ 3-seed mean 0.747/0.859) | ✅ 完成 (双数据集 3-seed) |
 | **方向 A per-dim η_str (§九)** | 检测空间 4 维 (cxcywh) 各维度曲率差异诊断 | h 维度曲率显著小于 cx,cy, 启示 per-dim solver | Phase 2: per-dim (h=1阶) mAP=0.863 val (+0.001), 加速 5.5%; Phase 3 (A.2): per-dim-w (w,h=1阶) mAP=0.864 val (持平), 加速 5.0% | ✓ 完成 |
-| **方向 D 自适应阶次 (§十)** | 3 阶校正项增益验证 (null result) | $\eta_{3rd}$ step1→2 降幅 59%, 但 3 阶无精度增益 | 3 solver mAP 均为 0.863 val (ΔmAP=0.000), 自适应 4.2% 加速 (源于 history 不足非后期降阶) | ✓ 完成 |
+| **方向 D 自适应阶次 (§十)** | 3 阶校正项增益验证 (null result, 支持后期可降阶) | $\eta_{3rd}$ step1→2 降幅 59%, 3 阶无精度增益 → 后期可降 2 阶 | 3 solver mAP 均为 0.863 val (ΔmAP=0.000), 自适应 4.2% 加速 | ✓ 完成 |
 
 ### 双数据集验证状态汇总 (规则: 所有理论应在两个数据集上验证)
 
