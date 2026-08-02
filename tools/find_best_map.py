@@ -28,16 +28,29 @@ from pathlib import Path
 
 
 def find_best_ckpt(work_dir: str) -> tuple[int | None, str | None]:
-    """从 best_coco_bbox_mAP_epoch_*.pth 文件名提取 best epoch。"""
+    """从 best_coco_bbox_mAP_epoch_*.pth 文件名提取 best epoch。
+
+    若存在多个 best ckpt (如 max_keep_ckpts>1 或旧 best 未被覆盖),
+    取 epoch 最大的 (最新 best, 对应最高 mAP, 因 save_best 单调递增)。
+    """
     pattern = os.path.join(work_dir, 'best_coco_bbox_mAP_epoch_*.pth')
     ckpts = glob.glob(pattern)
     if not ckpts:
         return None, None
-    ckpt = ckpts[0]  # 只取第一个（通常只有一个）
-    m = re.search(r'best_coco_bbox_mAP_epoch_(\d+)\.pth', os.path.basename(ckpt))
-    if m:
-        return int(m.group(1)), ckpt
-    return None, ckpt
+    # 解析所有 ckpt 的 epoch, 取最大
+    best_ckpt = None
+    best_epoch = -1
+    for ckpt in ckpts:
+        m = re.search(r'best_coco_bbox_mAP_epoch_(\d+)\.pth', os.path.basename(ckpt))
+        if m:
+            ep = int(m.group(1))
+            if ep > best_epoch:
+                best_epoch = ep
+                best_ckpt = ckpt
+    if best_ckpt is not None:
+        return best_epoch, best_ckpt
+    # 无法解析 epoch, 返回第一个
+    return None, ckpts[0]
 
 
 def find_log_files(work_dir: str) -> list[str]:
