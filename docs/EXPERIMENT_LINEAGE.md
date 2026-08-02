@@ -467,7 +467,7 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
   -- Dataset 1 DPM++ 3-seed (训练评估, val):
      - seed42: 0.746 @ ep49 (val, best@ep49, 训练于 ep51 iter700 中途中断 manual kill; 非 EarlyStoppingHook 触发, patience=30 未到期; test=0.739 见 §十三.1)
      - seed123: 0.748 @ ep85 (val, early stop @ ep115, workstation A5000)
-     - seed789: 0.746 @ ep72 (val, 2026-07-31 重训, 旧 run 0.724@ep22 异常已消除; 重训 best 已稳定 20+ epoch 无刷新, 训练仍在进行至 ep92+)
+     - seed789: 0.746 @ ep72 (val, 2026-07-31 重训, 旧 run 0.724@ep22 异常已消除; 早停@ep102, patience=30 触发, best 0.746 稳定 30 epoch 无刷新)
      - **3-seed mean = 0.747±0.001 (val)** (三 seed 一致性好, 无异常值)
   -- Dataset 1 DPM++ (renewal ON, box_renewal 全场景验证 seed42): mAP=0.744 (val, seed42 独立推理), AP50=0.938, AP75=0.832, APs=0.506
   -- Dataset 1 DPM++ (renewal OFF, box_renewal 全场景验证 seed42): mAP=0.743 (val, seed42 独立推理), AP50=0.937, AP75=0.831, APs=0.498
@@ -1010,7 +1010,8 @@ Cascade × Solver 解耦的 H×S 理论说明 "仅改变 H 会破坏横向收敛
 
 > ⚠ Cascade × Solver 解耦三组重训 (h3_s4/h6_s2/h3_s8) 与 Head Distillation 均仅在 Dataset 2 完成。两者均需端到端重训 (Cascade × Solver 解耦需 3 组重训, Head Distillation 需 Teacher/Student 双网络训练), 在 Dataset 1 1540 张图上算力成本较高。Cascade × Solver 解耦的 H×S 可交换性命题在 Dataset 1 上预测仍成立 (架构层面与数据集无关), 但 Dataset 1 低数据下 H=3 是否仍能收敛至 0.746 量级需实验确认。
 >
-> 🔄 **Dataset 1 补全进展 (2026-08-02)**: h3_s4 单配置 Dataset 1 重训已启动 (workstation A4000, seed42): `work_dirs/s1_h3_s4_chr2024_seed42/`, 当前 ep68/150, **best mAP=0.755 @ ep55 (val)**, eta ~4h。best@ep55 已超 Dataset 1 baseline (RF+Heun 3-seed 0.746 / +DPM-Solver++ 3-seed 0.747) +0.008, 但训练仍在进行 (ep66=0.721 / ep67=0.707 有波动), 最终 best 待早停或 150ep 后确认。h6_s2/h3_s8 Dataset 1 暂不补; Head Distillation Dataset 1 可作为 future work。
+> ✅ **Dataset 1 补全完成 (2026-08-02)**: h3_s4 单配置 Dataset 1 重训已完成 (workstation A4000, seed42): `work_dirs/s1_h3_s4_chr2024_seed42/`, **best mAP=0.746 @ ep75 (val), 早停@ep105 (patience=30 触发)**。best@ep75 与 Dataset 1 baseline (RF+Heun 3-seed 0.746 / +DPM-Solver++ 3-seed 0.747) **持平** (Δ=0.000 / −0.001), 验证 H×S 可交换性在 Dataset 1 上成立 (h3_s4 不劣于 baseline), 与 Dataset 2 三组均在 baseline noise ±0.003 内一致。h6_s2/h3_s8 Dataset 1 暂不补; Head Distillation Dataset 1 可作为 future work。
+> **(2026-08-02 核查澄清)**: 此前文档曾标注 "best mAP=0.755 @ ep55, 运行中 ep68/150" 系读取了中间 epoch 的错误快照, 实际 best checkpoint 为 `best_coco_bbox_mAP_epoch_75.pth` (mAP=0.746), 已通过日志 `the monitored metric did not improve in the last 30 records. best score: 0.746` 与 checkpoint 文件名交叉确认。
 
 ---
 
@@ -1610,7 +1611,7 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 | Top-K Pruning (§四) | ✓ K=100/200/300 | ✓ K=100/200/300 (3-seed) | ✅ 完成 | — |
 | η_str 直线度诊断 (§五) | ✓ 3-seed × 4 config | ✓ renewal ON/OFF (seed42) | ✅ 完成 | 可补 3-seed |
 | Box Renewal × DPM++ (§六) | ✓ K 值依赖 3-seed | ✓ 全 K 矩阵 (3-seed) + η_str 反向发现 + dim_d1_mask 3-seed | ✅ 完成 | — |
-| Cascade × Solver 解耦 (§七) | ✓ 3 组重训 | 🔄 h3_s4 seed42 运行中 (ep68/150, best@ep55=0.755) | 进行中 | h6_s2/h3_s8 暂不补 |
+| Cascade × Solver 解耦 (§七) | ✓ 3 组重训 | ✅ h3_s4 seed42 完成 (best@ep75=0.746, 早停@ep105, 与 baseline 持平) | ✅ 完成 (h3_s4 单配置) | h6_s2/h3_s8 暂不补 |
 | Head Distillation (§七) | ✓ 0.859 | ⛔ 未跑 | ⚠ 缺口 | future work |
 | v-prediction 对照 (§八) | ✓ 3-seed 0.857±0.0015 | ✓ 3-seed 0.745±0.004 | ✅ 完成 (D1 Δ=−0.002, D2 Δ=−0.002, 方向一致) | — |
 | 方向 A per-dim (§九) | ✓ mAP 持平 + η_str | ✓ mAP 持平 (3-seed) + η_str | ✅ 完成 | — |
@@ -1619,7 +1620,7 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 **双数据集验证优先级** (投稿前补全建议):
 1. ~~**高优先 (推理零成本, 闭合主贡献)**: §四 Top-K Dataset 1 + §五 η_str 直线度诊断 Dataset 1~~ — ✅ 已完成 (2026-07-31 3-seed 补全). Dataset 1 K=100 掉点比 Dataset 2 更严重 (3-seed: −0.036 vs −0.022, 证伪原预测); Dataset 1 η_str 仅为 Dataset 2 4-8% (印证低曲率)
 2. ~~**高优先 (重训, 闭合主贡献)**: §三 Dataset 1 DPM++ 3-seed~~ — ✅ 已完成 (seed789 2026-07-31 重训后异常消除). 3-seed mean=0.747±0.001 (0.746/0.748/0.746), 与 Heun 3-seed 0.746±0.001 持平, Δ=+0.001 方向性一致
-3. ~~**中优先 (重训, 验证架构泛化)**: §七 h3_s4 Dataset 1 单配置 (~12h)~~ — 🔄 运行中 (2026-08-02, workstation A4000, seed42, ep68/150, best@ep55=0.755, eta ~4h). 验证 H×S 可交换性跨数据集稳健性
+3. ~~**中优先 (重训, 验证架构泛化)**: §七 h3_s4 Dataset 1 单配置 (~12h)~~ — ✅ 已完成 (2026-08-02, workstation A4000, seed42, best@ep75=0.746, 早停@ep105). 与 Dataset 1 baseline 持平 (Δ=0.000 vs RF+Heun 0.746), 验证 H×S 可交换性跨数据集稳健性
 4. ~~**低优先 (null result 深化)**: §九 方向A Dataset 1 + §十 方向D Dataset 1~~ — ✅ 已完成 (2026-07-31 3-seed). 两方向在 Dataset 1 上均持平 (Δ≤0.001), null result 跨数据集稳健
 5. ~~**待 GPU 空闲**: §八 v-prediction 对照 Dataset 1~~ — ✅ 已完成 (2026-08-02). Dataset 1 3-seed 0.745±0.004, vs Dataset 1 baseline 0.747 (+DPM-Solver++ 3-seed mean), Δ=−0.002 (噪声范围, 与 Dataset 2 Δ=−0.002 方向一致)
 
