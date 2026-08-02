@@ -143,7 +143,8 @@ DDPM baseline→RF+Heun 累积 +0.053 mAP (统一口径: DDPM baseline = Diffusi
 
 - rf_heun_adaln 3 seeds (Dataset 1)
   -- 结果: mAP=0.746 ± 0.001 (val, 3-seed; test: 0.737±0.002 见 §十三.1) [+0.017 vs DDPM 0.729 ± 0.003 (val, 3-seed)]
-  -- seed42=0.7450, seed789=0.7470, seed123=0.7470
+  -- seed42=0.7450 @ ep102, seed123=0.7470 @ ep101, seed789=0.7470 @ ep75
+  -- 数据源: work_dirs/multi_seed_aug/rf_heun_adaln/seed_{42,123,789}/ (有aug; find_best_map.py 核查 2026-08-03)
   -- SwanLab (project=ldmdet-ablation):
      - rf_heun_adaln_seed42: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/4xhp5ffymboa05hyn245u
      - rf_heun_adaln_seed789: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/ww6nlti3ufdkm4htjg5pw
@@ -162,6 +163,8 @@ DDPM baseline→RF+Heun 累积 +0.053 mAP (统一口径: DDPM baseline = Diffusi
 
 - KaryoFlow (+DPM-Solver++) 3-seed 均值
   -- mAP=0.859 (val, 3-seed; test=0.859 seed42 见 §十三.1), 落后 DINO R50 (0.868 val / 0.865 test, 单 seed) 0.009 val / 0.006 test, 落后 RTMDet-L (0.863 val / 0.862 test, 单 seed) 0.004 val / 0.003 test
+  -- seed42=0.8630 @ ep117, seed123=0.8570 @ ep62, seed789=0.8560 @ ep72 → 3-seed mean=0.859 ± 0.004 (val, 训练评估 renewal ON)
+  -- 数据源: work_dirs/a4_dpm_pp_24obj/ (seed42) + work_dirs/multi_seed/a4_dpm_pp_24obj/seed_{123,789}/ (find_best_map.py 核查 2026-08-03)
   -- 超越 Cascade R-CNN (0.854 val / 0.853 test), YOLOX-S (0.796 val / 0.795 test), DiffusionDet (0.803 val / 0.804 test)
   -- 相对 DiffusionDet seed42 best: +0.060 mAP (val), 3-seed 均值: +0.056 (val)
   -- SwanLab: https://swanlab.cn/@einspanner/ldmdet-mainline-ablation-24obj/runs/a4_dpm_pp
@@ -244,14 +247,16 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
   -- 目录: `work_dirs/multi_seed/hard_ot/seed_{42,123,789}/` (与 `multi_seed_aug/` 区分)
   -- SwanLab: 见下文 Random/Stoch 对照
 
-- Random Coupling 3 seeds (Dataset 1)
+- Random Coupling 3 seeds (Dataset 1, 无aug NoResize 简化设置)
   -- 结果: mAP=0.713 ± 0.005 (val, 3-seed)
-  -- seed42=0.713, seed123=0.718, seed789=0.708
+  -- seed42=0.7120 @ ep47, seed123=0.7180 @ ep47, seed789=0.7080 @ ep25
+  -- 数据源: work_dirs/multi_seed/rf_heun_adaln/seed_{42,123,789}/ (无aug; find_best_map.py 核查 2026-08-03)
   -- SwanLab: 见 Dataset 2 同名实验
 
 - Stochastic Coupling ε=5, 3 seeds (Dataset 1)
-  -- 结果: mAP=0.747 ± 0.003 (val, 3-seed; test: seed42=0.740 见 §十三.1)
-  -- seed42=0.7456, seed123=0.7449, seed789=0.7506
+  -- 结果: mAP=0.747 ± 0.002 (val, 3-seed; test: seed42=0.740 见 §十三.1)
+  -- seed42=0.7460 @ ep60, seed123=0.7460 @ ep57, seed789=0.7490 @ ep69
+  -- 数据源: work_dirs/multi_seed/stochot_eps5_old/seed_{42,123,789}/ (无aug, NoResize; find_best_map.py 核查 2026-08-03)
   -- Hard OT vs Random: Δ=−0.0061, p<10⁻⁸ (Hard OT 比 Random 更差, 证实坍缩病理)
   -- Stoch vs Hard: Δ=+0.0369, p<10⁻¹⁵⁵
 
@@ -259,6 +264,7 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
 
 - Random Coupling 3 seeds (Dataset 2, project=ldmdet-ablation)
   -- 平均: mAP=0.860 ± 0.001 (val, 3-seed)
+  -- 数据源: work_dirs/24obj_ablation/random/seed_{42,123,789}/ (find_best_map.py 核查 2026-08-03)
   -- seed42: mAP=0.859 (val, best @ 59)
      - SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/p5xqii8mcqmbhuo5lhlff
   -- seed789: mAP=0.860 (val, best @ 82)
@@ -268,10 +274,12 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
 
 - Sinkhorn Stochastic OT 1 seed (Dataset 2, project=ldmdet-ablation)
   -- 结果: mAP=0.856 (val, seed42, best @ 53) [对应 +Stoch. Coupling 配置]
+  -- 数据源: work_dirs/24obj_ablation/sinkhorn/seed_42/ (find_best_map.py 核查 2026-08-03)
   -- SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/o96m1eqz4l12qjeyys1cs
 
 - GHSS Coupling 3 seeds (Dataset 2, project=ldmdet-ablation)
   -- 平均: mAP=0.858 ± 0.001 (val, 3-seed)
+  -- 数据源: work_dirs/24obj_ablation/ghss/seed_{42,123,789}/ (find_best_map.py 核查 2026-08-03)
   -- seed42: mAP=0.857 (val, best @ 83)
      - SwanLab: https://swanlab.cn/@einspanner/ldmdet-ablation/runs/k84cq9oftbp2nld88a85t
   -- seed789: mAP=0.859 (val, best @ 75)
@@ -473,7 +481,7 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
   -- Dataset 1 DPM++ (renewal OFF, box_renewal 全场景验证 seed42): mAP=0.743 (val, seed42 独立推理), AP50=0.937, AP75=0.831, APs=0.498
   -- **Dataset 1 Δ(DPM++ − Heun) = +0.001 (val, seed42 同口径: 0.746−0.745) / +0.001 (val, 3-seed 均值 0.747 vs Heun 3-seed 0.746±0.001)**: DPM++ 在 Dataset 1 上**与 Heun 持平** (噪声内, 两口径均 +0.001), 与 Dataset 2 的 +0.006 (val, p<10⁻⁶) 形成对照
   -- 数据源: [renewal_off_all_scenarios.json](file:///home/linkst/workspace/projects/chromosome-kd/work_dirs/diagnosis/renewal_off_all_scenarios.json) (Dataset1_+DPM-Solver++, seed42 推理场景) · work_dirs/a4_dpm_pp_chr2024_seed{42,123,789}/ (3-seed 训练评估)
-  -- 注: seed42 训练评估 mAP (0.746 val) 与 box_renewal 全场景验证 mAP (0.744 val, renewal ON) 略有差异, 源于评估配置不同 (训练评估默认 renewal ON + 训练 sampling 配置 vs 推理场景独立评估); 不影响方向性结论
+  -- 注: seed42 K=500 renewal ON 存在三个评估口径 (同一 best@ep49 checkpoint, 评估配置不同导致 0.001-0.002 浮动): 训练评估 mAP=0.746 (val, 训练 log) / d1_topk_validation mAP=0.745 (val, §六 K 值依赖性表) / renewal_off_all_scenarios mAP=0.744 (val, §六 box_renewal 全场景验证); 三者均在 0.744-0.746 噪声范围内, 不影响方向性结论
 
 | 数据集 | 规模 | Heun mAP (aggregate, val) | DPM++ mAP (aggregate, val) | Δ (per-image Wilcoxon, val) | 显著性 | NFE (Heun/DPM++) |
 |--------|------|----------|-----------|----------------|--------|-------------------|
@@ -565,13 +573,13 @@ Table 2 a-priori 诊断: 任何 $d \ll 100$ 且 $K \gg 10$ 的任务都是 Stoch
 
 | K | Dataset 1 (3-seed) | Dataset 2 (3-seed) | Dataset 1 掉点 | Dataset 2 掉点 |
 |---|:---:|:---:|:---:|:---:|
-| 500 | 0.746 | 0.861 | — | — |
+| 500 | 0.746 | 0.859 | — | — |
 | 200 | 0.744 | 0.860 | −0.002 | −0.001 |
-| 100 | 0.710 | 0.839 | **−0.036** | −0.022 |
+| 100 | 0.710 | 0.839 | **−0.036** | −0.020 |
 
 **关键发现 (3-seed 验证, 证伪原预测)**:
 - ✅ **K≥200 在 Dataset 1 安全** (Δ≤−0.002, 噪声内), 与 Dataset 2 一致 → K=200 推荐配置跨数据集成立
-- ⚠️ **Dataset 1 K=100 掉点比 Dataset 2 更严重** (Dataset 1: −0.036 val 3-seed vs Dataset 2: −0.022 val 3-seed), **证伪原预测**"Dataset 1 重叠冗余更少, K=100 可能已足够"。实际相反: Dataset 1 小数据 (1540 图) 下模型更依赖 proposal 多样性, K=100 (100 proposals / ~46 GT ≈ 2× 冗余) 容量更紧张
+- ⚠️ **Dataset 1 K=100 掉点比 Dataset 2 更严重** (Dataset 1: −0.036 val 3-seed vs Dataset 2: −0.020 val 3-seed), **证伪原预测**"Dataset 1 重叠冗余更少, K=100 可能已足够"。实际相反: Dataset 1 小数据 (1540 图) 下模型更依赖 proposal 多样性, K=100 (100 proposals / ~46 GT ≈ 2× 冗余) 容量更紧张
 - ✅ **renewal 在 K=100 时提供保护**: K=100 renewal ON 掉点 −0.036 vs OFF 掉点 −0.068, renewal 减少 0.032 掉点; K≥200 时 renewal 影响可忽略 (Δ≤0.003)
 
 ---
@@ -1618,7 +1626,7 @@ DPM-Solver++ 3 阶校正项 $D_2$ 在后期 step 应小于早期 (因 RF 轨迹�
 | 方向 D 自适应阶次 (§十) | ✓ 3 solver 持平 | ✓ 3 solver 持平 (3-seed) | ✅ 完成 | — |
 
 **双数据集验证优先级** (投稿前补全建议):
-1. ~~**高优先 (推理零成本, 闭合主贡献)**: §四 Top-K Dataset 1 + §五 η_str 直线度诊断 Dataset 1~~ — ✅ 已完成 (2026-07-31 3-seed 补全). Dataset 1 K=100 掉点比 Dataset 2 更严重 (3-seed: −0.036 vs −0.022, 证伪原预测); Dataset 1 η_str 仅为 Dataset 2 4-8% (印证低曲率)
+1. ~~**高优先 (推理零成本, 闭合主贡献)**: §四 Top-K Dataset 1 + §五 η_str 直线度诊断 Dataset 1~~ — ✅ 已完成 (2026-07-31 3-seed 补全). Dataset 1 K=100 掉点比 Dataset 2 更严重 (3-seed: −0.036 vs −0.020, 证伪原预测); Dataset 1 η_str 仅为 Dataset 2 4-8% (印证低曲率)
 2. ~~**高优先 (重训, 闭合主贡献)**: §三 Dataset 1 DPM++ 3-seed~~ — ✅ 已完成 (seed789 2026-07-31 重训后异常消除). 3-seed mean=0.747±0.001 (0.746/0.748/0.746), 与 Heun 3-seed 0.746±0.001 持平, Δ=+0.001 方向性一致
 3. ~~**中优先 (重训, 验证架构泛化)**: §七 h3_s4 Dataset 1 单配置 (~12h)~~ — ✅ 已完成 (2026-08-02, workstation A4000, seed42, best@ep75=0.746, 早停@ep105). 与 Dataset 1 baseline 持平 (Δ=0.000 vs RF+Heun 0.746), 验证 H×S 可交换性跨数据集稳健性
 4. ~~**低优先 (null result 深化)**: §九 方向A Dataset 1 + §十 方向D Dataset 1~~ — ✅ 已完成 (2026-07-31 3-seed). 两方向在 Dataset 1 上均持平 (Δ≤0.001), null result 跨数据集稳健
