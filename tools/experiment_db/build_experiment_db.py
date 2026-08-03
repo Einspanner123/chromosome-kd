@@ -326,6 +326,110 @@ def extract_metrics_from_scalars(scalars_path):
     }
 
 
+def find_log_files(work_dir):
+    """查找训练日志文件 (train.log + timestamp 子目录下的 .log)."""
+    logs = []
+    train_log = os.path.join(work_dir, 'train.log')
+    if os.path.isfile(train_log):
+        logs.append(train_log)
+    for item in os.listdir(work_dir):
+        subdir = os.path.join(work_dir, item)
+        if os.path.isdir(subdir) and re.match(r'\d{8}_\d{6}', item):
+            for f in os.listdir(subdir):
+                if f.endswith('.log') and f.startswith(item):
+                    logs.append(os.path.join(subdir, f))
+    return logs
+
+
+def extract_metrics_from_logs(work_dir, best_epoch_ckpt=None):
+    """从训练日志提取 mAP 指标 (scalars.json 不可用时的 fallback).
+
+    提取策略:
+      1. "best score: X.XXX" 行 → best mAP
+      2. best checkpoint epoch 的 "Epoch(val) [N]" 行 → val mAP at best epoch
+      3. 所有 "Epoch(val)" 行 → per-epoch mAP 列表
+
+    Returns:
+        dict (同 extract_metrics_from_scalars 格式) 或 None
+    """
+    log_files = find_log_files(work_dir)
+    if not log_files:
+        return None
+
+    per_epoch_mAP = []
+    per_epoch_detail = []
+    best_score_from_log = None
+
+    for log_path in log_files:
+        try:
+            with open(log_path, encoding='utf-8', errors='ignore') as f:
+                for line in f:
+                    # 提取 "best score: X.XXX"
+                    if 'best score:' in line:
+                        m = re.search(r'best score:\s*([\d.]+)', line)
+                        if m:
+                            best_score_from_log = float(m.group(1))
+
+                    # 提取 "Epoch(val) [N][... coco/bbox_mAP: X.XXX"
+                    if 'Epoch(val)' in line and 'coco/bbox_mAP:' in line:
+                        ep_m = re.search(r'Epoch\(val\)\s*\[(\d+)\]', line)
+                        map_m = re.search(r'coco/bbox_mAP:\s*([\d.]+)', line)
+                        ap50_m = re.search(r'coco/bbox_mAP_50:\s*([\d.]+)', line)
+                        ap75_m = re.search(r'coco/bbox_mAP_75:\s*([\d.]+)', line)
+                        aps_m = re.search(r'coco/bbox_mAP_s:\s*([\d.]+)', line)
+                        apm_m = re.search(r'coco/bbox_mAP_m:\s*([\d.]+)', line)
+                        apl_m = re.search(r'coco/bbox_mAP_l:\s*([\d.]+)', line)
+
+                        if ep_m and map_m:
+                            ep = int(ep_m.group(1))
+                            mAP = float(map_m.group(1))
+                            if mAP > 0:  # 跳过初始 0 值
+                                per_epoch_mAP.append(mAP)
+                                per_epoch_detail.append({
+                                    'mAP': mAP,
+                                    'AP50': float(ap50_m.group(1)) if ap50_m else None,
+                                    'AP75': float(ap75_m.group(1)) if ap75_m else None,
+                                    'AP_small': float(aps_m.group(1)) if aps_m else None,
+                                    'AP_medium': float(apm_m.group(1)) if apm_m else None,
+                                    'AP_large': float(apl_m.group(1)) if apl_m else None,
+                                    'epoch': ep,
+                                    'step': None,
+                                })
+        except Exception:
+            continue
+
+    if not per_epoch_mAP and best_score_from_log is None:
+        return None
+
+    # 确定最佳 mAP
+    if per_epoch_mAP:
+        best_idx = max(range(len(per_epoch_mAP)), key=lambda i: per_epoch_mAP[i])
+        best_mAP = per_epoch_mAP[best_idx]
+        best_epoch = per_epoch_detail[best_idx].get('epoch', best_epoch_ckpt)
+    else:
+        # 仅有 best score 行, 无逐 epoch 数据
+        best_mAP = best_score_from_log
+        best_epoch = best_epoch_ckpt
+
+    # 如果 best_score_from_log 存在且与 per-epoch max 不同, 优先 best_score (更准确)
+    if best_score_from_log is not None and per_epoch_mAP:
+        if abs(best_score_from_log - best_mAP) > 0.0005:
+            best_mAP = best_score_from_log  # best score 行更可靠
+            # 找到最接近的 epoch
+            for d in per_epoch_detail:
+                if abs(d['mAP'] - best_score_from_log) < 0.001:
+                    best_epoch = d.get('epoch', best_epoch_ckpt)
+                    break
+
+    return {
+        'per_epoch_mAP': per_epoch_mAP,
+        'per_epoch_detail': per_epoch_detail,
+        'best_mAP': best_mAP,
+        'best_epoch': best_epoch,
+        'total_epochs': len(per_epoch_mAP),
+    }
+
+
 def compute_stability(per_epoch_mAP):
     """计算训练稳定性指标.
 
@@ -622,12 +726,16 @@ def process_experiment(conn, exp_dir, server='unknown', verbose=False):
             aug_info = cfg_info['_aug_info']
             del cfg_info['_aug_info']
 
-    # 2. 提取指标
+    # 2. 提取指标 (优先 scalars.json, fallback 到 log 文件)
     scalars_path = find_scalars_json(abs_work_dir)
     metrics = extract_metrics_from_scalars(scalars_path)
 
     # 3. 提取 best checkpoint
     best_epoch_ckpt, best_ckpt_path = find_best_ckpt(work_dir)
+
+    # 2b. 若 scalars.json 不可用, 从 log 文件提取 (fallback)
+    if metrics is None:
+        metrics = extract_metrics_from_logs(abs_work_dir, best_epoch_ckpt)
 
     # 4. 确定状态
     status = 'unknown'
@@ -638,6 +746,9 @@ def process_experiment(conn, exp_dir, server='unknown', verbose=False):
             status = 'completed'
         else:
             status = 'running'
+    elif best_ckpt_path:
+        # 有 best checkpoint 但无 metrics → 仍标记为 completed
+        status = 'completed'
 
     # 5. 提取 seed
     seed = extract_seed_from_path(work_dir)
