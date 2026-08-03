@@ -163,3 +163,6 @@ chromosome-kd
 
 # Temporary copy scripts
 tmp_copy_*.sh
+
+# Experiment database (generated artifact, rebuilt from local work_dirs)
+tools/experiment_db/experiments.db
