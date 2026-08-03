@@ -194,8 +194,8 @@ val_evaluator = dict(
 )
 # test_evaluator = val_evaluator
 
-# inference on test dataset and
-# format the output results for submission.
+# inference on test dataset and compute mAP.
+# 注: ann_file 使用相对路径 (相对 data_root), 否则 mmdet 会再次拼接 data_root 导致路径重复。
 test_dataloader = dict(
     batch_size=1,
     num_workers=2,
@@ -206,7 +206,7 @@ test_dataloader = dict(
         type=dataset_type,
         data_root=data_root,
         metainfo=METAINFO,
-        ann_file=data_root + 'test/_annotations.coco.json',
+        ann_file='test/_annotations.coco.json',
         data_prefix=dict(img='test/'),
         test_mode=True,
         pipeline=test_pipeline,
@@ -215,7 +215,7 @@ test_dataloader = dict(
 test_evaluator = dict(
     type='CocoMetric',
     metric='bbox',
-    format_only=True,
+    format_only=False,
     ann_file=data_root + 'test/_annotations.coco.json',
     outfile_prefix='./work_dirs/chromo_coco_detection/test',
 )
