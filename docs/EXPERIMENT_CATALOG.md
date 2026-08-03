@@ -55,8 +55,8 @@
 
 | 服务器 | GPU | 用途 | 本地同步状态 |
 |--------|-----|------|-------------|
-| **ross** (8TB) | — | 主力训练服务器, `work_dirs/` 完整数据 + scalars.json | 部分同步到本地 (DDPM baseline–+DPM-Solver++, 部分消融) |
-| **workstation** (A5000/A4000) | A5000 24GB | 并行多种子 / 消融 | 多种子实验已完成 (+DPM-Solver++ 3-seed, Stoch. Coupling ε=2/5); D1 +DPM-Solver++ seed_123 完成 (2026-07-30); D2 跨域训练运行中 (2026-07-30 启动, ETA ~1.5天); checkpoint 待 SCP |
+| **ross** (8TB) | — | 主力训练服务器, `work_dirs/` 完整数据 + scalars.json | 部分同步到本地 (DDPM baseline–+DPM-Solver++, 部分消融); D1 Hard OT seed_789 标准增强补齐 运行中 (2026-08-03 启动, ep90, best 0.748@ep80, ETA ~1.5h) |
+| **workstation** (A5000/A4000) | A5000 24GB | 并行多种子 / 消融 | 多种子实验已完成 (+DPM-Solver++ 3-seed, Stoch. Coupling ε=2/5); D1 +DPM-Solver++ seed_123 完成 (2026-07-30); D2 跨域训练完成 (2026-07-31, best 0.861@ep89); D2 Hard OT seed_42 完成 (2026-08-03, best 0.860@ep89, early stop@ep119); D2 Hard OT seed_123 运行中 (ep83, best 0.861@ep59, ETA ~1.5h); checkpoint 待 SCP |
 | **本地** `/home/linkst/workspace/chromosome-kd/` | — | 开发 + 分析 + FPS benchmark | 50 个 work_dirs 子目录 (含最近实验) |
 
 > ⚠ 本地 `work_dirs/` 为 ross 服务器的子集同步。完整训练日志 (含所有 epoch 的 scalars.json) 在 ross 服务器 `/media/ross/8TB/linkst/chromo/chromosome-kd/work_dirs/`。
@@ -129,6 +129,7 @@
 | RF+Heun+AdaLN seed_123 | ldmdet-ablation | dimdbu8fk0re4satbzpgs | work_dirs/multi_seed_aug/rf_heun_adaln/seed_123/ | 0.747 | ✅ | Dataset 1 基线 |
 | Hard OT seed_42 | ldmdet-ablation | h8fizm7lmc9v5xzxi8ufj | work_dirs/multi_seed_aug/hard_ot/seed_42/ | 0.747 | ✅ | Dataset 1 耦合 |
 | Hard OT seed_123 | ldmdet-ablation | kka4nra9qk3wanx7i9og1 | work_dirs/multi_seed_aug/hard_ot/seed_123/ | 0.747 | ✅ | Dataset 1 耦合 |
+| Hard OT seed_789 (标准增强补齐) | ldmdet-ablation | — | work_dirs/multi_seed_aug/hard_ot/seed_789/ | 0.748 @ ep80 | 🔄 运行中 (ep90, ETA ~1.5h) | Dataset 1 耦合 (3-seed 补齐: seed42/123=0.747, seed789 进行中) | <!-- 2026-08-03 新增: ross A6000, 配置 hard_ot.py, 标准增强, 补齐 D1 Hard OT 3-seed -->
 | Sinkhorn Stoch seed_42 | ldmdet-ablation | 9ca697vnm1l3koccbenif | work_dirs/multi_seed_aug/sinkhorn_stochastic/seed_42/ | 0.748 | ✅ | Dataset 1 耦合 |
 | Stoch. Coupling ε=5 seed_42 (old) | ldmdet-ablation | — | work_dirs/multi_seed/stochot_eps5_old/seed_42/ | 0.746 | ✅ | Dataset 1 耦合 (3-seed: 0.747±0.002) | <!-- verified: 2026-07-16 -->
 | Stoch. Coupling ε=5 seed_123 (old) | ldmdet-ablation | — | work_dirs/multi_seed/stochot_eps5_old/seed_123/ | 0.746 @ ep57 | ✅ | Dataset 1 耦合 | <!-- verified: 2026-07-16 -->
@@ -277,7 +278,7 @@
 | RF+Heun+AdaLN (3 seeds) | 0.746±0.001 | rf_heun_adaln.py | +0.017 主要贡献 |
 | +DPM-Solver++ (推理) | 0.746±0.001 | +test --solver-type dpm_solver_pp | 持平 Heun (步数对齐) |
 | **+DPM-Solver++ (trained, 3 seeds)** | 0.747±0.001 | a4_dpm_pp_chr2024.py | 持平 RF+Heun+AdaLN (训练侧 solver 切换; seed789 重训修正完成 0.746@ep72, 旧 run 0.724@ep22 异常偏低已废弃) | <!-- 2026-07-30→07-31: seed42=0.746@ep49, seed123=0.748@ep85, seed789=0.746@ep72 (重训修正, 旧 run 0.724@ep22 异常偏低); 3-seed mean 0.747±0.001; work_dirs/a4_dpm_pp_chr2024_seed{42,123,789}/; SwanLab ldmdet-mainline-ablation-24obj (D1 实验) -->
-| +Hard OT (2 seeds) | 0.747±0.000 | hard_ot.py | +0.001 边际 |
+| +Hard OT (2 seeds, seed_789 进行中) | 0.747±0.000 | hard_ot.py | +0.001 边际; seed_789 标准增强补齐运行中 (best 0.748@ep80, ross A6000) |
 | +Sinkhorn Stochastic (1 seed) | 0.748 | sinkhorn_stochastic.py | +0.002 边际 |
 | SOTA (4 seeds) | 0.746±0.004 | sota_seed*.py | 高方差 (seed_123 取最终运行, 排除中断值 0.727) | <!-- verified: 2026-07-16: 4 seeds [0.740, 0.749, 0.746, 0.749], sample_std=0.0042; pop_std=0.0037 -->
 
@@ -396,18 +397,18 @@
 | Sinkhorn Stochastic | 0.806 | ✅ |
 | GHSS | 0.000 | ❌ FAILED |
 
-#### 2.3.2 D2 跨域训练 (D1 配置 → D2 数据集, 2026-07-30 启动)
+#### 2.3.2 D2 跨域训练 (D1 配置 → D2 数据集, 2026-07-30 启动 → 2026-07-31 完成)
 
 > **目的**: 用 D1 历史 SOTA 配置 (RF+Heun+AdaLN+StochOT ε=5, D1 mAP=0.753) 和相同种子 (2016452323, 从 D1 0.753 checkpoint 元数据中提取) 在 D2 上训练, 用于对照 §6.7 跨数据集 per-class AP 诊断 (D1 模型在 D2 test 上 mAP=0.163, 失效根因为类别顺序不一致)。本实验验证: 若采用 D2 的类别顺序 (C 组数字序 C6→C12), 同一配置在 D2 上能否达到 D2 SOTA (0.859±0.003) 量级, 以区分 "类别顺序问题" vs "真实跨域泛化能力"。
 
 | 配置 | work_dir | 服务器 | 种子 | 状态 | 说明 |
 |------|----------|--------|------|------|------|
-| `experiments/configs/ldmdet/ldmdet_rf_heun_adaln_stochot_eps5_d2.py` | `work_dirs/cross_dataset/d2_0753_stochot_eps5_seed2016452323` | workstation A5000 | 2016452323 | ⚠ 无法验证 (workstation 主机名不可解析, 2026-07-30 23:25 检查时 SSH 失败; 本地无对应 work_dir) | D1 0.753 config + seed → D2 训练; 验证类别顺序修正后跨域性能; 待 SSH 恢复后核实进度 |
+| `experiments/configs/ldmdet/ldmdet_rf_heun_adaln_stochot_eps5_d2.py` | `work_dirs/cross_dataset/d2_0753_stochot_eps5_seed2016452323` | workstation A5000 | 2016452323 | ✅ **完成** (best **0.861 @ ep89**, early stop @ ep119, patience=30) | D1 0.753 config + seed → D2 训练; **类别顺序修正后跨域性能达 D2 SOTA 量级 (0.861 vs 0.859±0.003)**, 确认 §6.7 跨域失效根因为类别顺序 (非配置/种子问题) |
 
 > **种子来源**: 2016452323 从 D1 0.753 checkpoint (`reproduce_0751_stochot_eps5_v2`) 元数据中提取, 确保与 D1 训练完全对齐。
-> **预期**: 若 D2 训练达到 0.85+ 量级, 则证明 §6.7 跨域失效确为类别顺序问题 (非配置/种子问题); 若显著低于 0.85, 则需进一步排查配置差异 (bs / lr / rf_shift 等)。
-> **待补充**: 训练完成后, 在 D2 test 上评估 per-size AP 并与 §7.5.2 中 "D1 model cross-dataset (reproduce_0751)" (mAP=0.163) 对照, 验证 D1→D2 方向的跨域泛化。
-<!-- 2026-07-30 新增: D2 跨域训练启动, 配置 ldmdet_rf_heun_adaln_stochot_eps5_d2.py, 种子 2016452323 来自 D1 0.753 checkpoint 元数据 -->
+> **结论**: D2 训练达到 **0.861**, 与 D2 SOTA (0.859±0.003) 同量级, 证明 §6.7 跨域失效确为类别顺序问题 (非配置/种子问题)。D1 配置本身具备跨域泛化能力, 只需对齐类别顺序。
+> **待补充**: 在 D2 test 上评估 per-size AP 并与 §7.5.2 中 "D1 model cross-dataset (reproduce_0751)" (mAP=0.163) 对照, 验证 D1→D2 方向的跨域泛化。
+<!-- 2026-07-30 新增: D2 跨域训练启动, 配置 ldmdet_rf_heun_adaln_stochot_eps5_d2.py, 种子 2016452323 来自 D1 0.753 checkpoint 元数据; 2026-07-31 完成 best 0.861@ep89 early stop@ep119; 2026-08-03 数据库校准确认 mAP=0.861 -->
 
 ---
 
@@ -965,7 +966,9 @@ rf_heun_adaln.py (Dataset 1 RF+Heun+AdaLN 基线, bs=4)
 | R3 v-prediction seed42 | ✅ 已完成 (2026-07-25, best 0.855@ep34, 早停@ep64) | v_prediction + 1/t² loss reweighting; Δ=-0.008 vs +DPM-Solver++ 0.863 超 3-seed noise ±0.003 但偏小, 单 seed 支持 R3.2; seed 123/789 待补 | <!-- 2026-07-25: workstation A4000; 详见 §6.6 C24 -->
 | S1 h6_s2 (cascade 解耦) | ✅ 已完成 (2026-07-25, best 0.859@ep106, 早停@ep136) | num_heads=6, sampling_timesteps=2 (NFE=12); Δ=-0.004 vs +DPM-Solver++ 在 3-seed noise ±0.003 范围内; 与 s1_h3_s4/s1_h3_s8 三组全部 0.859, S1.3 命题完整闭环 | <!-- 2026-07-25: workstation A5000; 详见 §6.6 C25 -->
 | D1 +DPM-Solver++ (trained) seed_123 | ✅ 已完成 (2026-07-30, best 0.748@ep85, early stop@ep115, patience=30) | +DPM-Solver++ 在 D1 上训练; 配置 a4_dpm_pp_chr2024.py; 3-seed mean=0.747±0.001 (seed789 重训修正后, 2026-07-31) | <!-- 2026-07-30 新增: workstation A5000; 2026-07-31 更新 3-seed mean (seed789 重训完成 0.746@ep72); 详见 §1.4/§2.2.1 -->
-| D2 跨域训练 (D1 0.753 config → D2) | 🔄 运行中 (Epoch 1, ETA ~1.5天) | 配置 ldmdet_rf_heun_adaln_stochot_eps5_d2.py; 种子 2016452323 (D1 0.753 checkpoint 元数据); work_dir work_dirs/cross_dataset/d2_0753_stochot_eps5_seed2016452323; 验证类别顺序修正后跨域性能 (对照 §6.7 诊断) | <!-- 2026-07-30 新增: workstation A5000; 详见 §2.3.2 -->
+| D2 跨域训练 (D1 0.753 config → D2) | ✅ 完成 (2026-07-31, best 0.861@ep89, early stop@ep119) | 配置 ldmdet_rf_heun_adaln_stochot_eps5_d2.py; 种子 2016452323 (D1 0.753 checkpoint 元数据); 类别顺序修正后达 D2 SOTA 量级, 确认跨域失效根因为类别顺序 | <!-- 2026-07-30 新增, 2026-07-31 完成; workstation A5000; 详见 §2.3.2 -->
+| D2 Hard OT seed_42 | ✅ 完成 (2026-08-03, best 0.860@ep89, early stop@ep119, patience=30) | 配置 chromo_24obj_hard_ot.py; D2 Hard OT 3-seed 补齐; workstation A5000 GPU1 | <!-- 2026-08-03 完成: best@ep89 val=0.860, ep119 val=0.859 触发早停 -->
+| D2 Hard OT seed_123 | 🔄 运行中 (ep83, best 0.861@ep59, val@ep83=0.850, ETA ~1.5h) | 配置 chromo_24obj_hard_ot.py; D2 Hard OT 3-seed 补齐; workstation A5000 GPU1, 2026-08-02 启动; best@ep59 val=0.861, patience=30 → 预计 ep89 早停 | <!-- 2026-08-03 更新: ep83, best 0.861@ep59 -->
 
 > ✅ 所有多种子补充实验已完成。workstation 上的 checkpoint (+DPM-Solver++ seed_123/789, Stoch. Coupling ε=2) 待 SCP 到 ross (workstation 连接问题搁置)。
 > ✅ 2026-07-25 新增 3 个实验完成: M1 BF16 ws (BF16 误导确认), R3 v-prediction seed42 (单 seed 初步), S1 h6_s2 (S1.3 闭环)。详见 §6.6 C23-C25。
@@ -980,7 +983,7 @@ rf_heun_adaln.py (Dataset 1 RF+Heun+AdaLN 基线, bs=4)
 | a2_swinglu_24obj/ | SwiGLU FFN 实验 (2026-07-12) | ✅ 新增 |
 | a4_dpm_pp_chr2024_seed{42,123,789}/ | D1 +DPM-Solver++ 训练 3-seed (2026-07-30) | ✅ 新增 |
 | a4_swinglu_24obj/ | SwiGLU FFN 实验 | ✅ 新增 |
-| cross_dataset/ | D2 跨域训练 (D1 0.753 config + 种子 2016452323, 2026-07-30 启动) | ✅ 新增 |
+| cross_dataset/ | D2 跨域训练 (D1 0.753 config + 种子 2016452323, 2026-07-30 启动 → 2026-07-31 完成 best 0.861@ep89) | ✅ 完成 |
 | setdiff_24obj/ | SetDiff 实验 (2026-07-14) | ✅ 新增 |
 | pd_rf_24obj/ | PD-RF 蒸馏实验 (2026-07-11) | ✅ 新增 |
 | chromogen_phase1_sd15_24obj*/ | ChromoGen SD1.5 生成模型 (Dataset 2) | ✅ 新增 |
@@ -1178,7 +1181,7 @@ rf_heun_adaln.py (Dataset 1 RF+Heun+AdaLN 基线, bs=4)
 | chromogen_phase1_sd15/ | — | ChromoGen SD1.5 生成模型 | ⭐⭐ |
 | chromogen_phase1_sd15_24obj/ | Dataset 2 | ChromoGen SD1.5 (Dataset 2) | ⭐⭐ |
 | chromogen_phase1_sd15_24obj_v2/ | Dataset 2 | ChromoGen SD1.5 v2 | ⭐⭐ |
-| cross_dataset/ | Dataset 2 (D1 config) | D2 跨域训练 (D1 0.753 config + 种子 2016452323, 2026-07-30 启动, 运行中) | ⭐⭐ |
+| cross_dataset/ | Dataset 2 (D1 config) | D2 跨域训练 (D1 0.753 config + 种子 2016452323, 2026-07-31 完成 best 0.861@ep89, 达 D2 SOTA 量级) | ⭐⭐ |
 | cspnext_l_rf_heun_adaln_stochot/ | Dataset 1 | CSPNeXt-L backbone (证伪) | ⭐ |
 | direction_exps/ | Dataset 1 | Decoupled Head / Box Refine Net 实验 | ⭐⭐ |
 | frontier_directions/ | Dataset 2 | h_velocity_loss, Cascade Head Count e2e 等 | ⭐⭐ |
