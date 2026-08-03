@@ -278,7 +278,7 @@
 | RF+Heun+AdaLN (3 seeds) | 0.746±0.001 | rf_heun_adaln.py | +0.017 主要贡献 |
 | +DPM-Solver++ (推理) | 0.746±0.001 | +test --solver-type dpm_solver_pp | 持平 Heun (步数对齐) |
 | **+DPM-Solver++ (trained, 3 seeds)** | 0.747±0.001 | a4_dpm_pp_chr2024.py | 持平 RF+Heun+AdaLN (训练侧 solver 切换; seed789 重训修正完成 0.746@ep72, 旧 run 0.724@ep22 异常偏低已废弃) | <!-- 2026-07-30→07-31: seed42=0.746@ep49, seed123=0.748@ep85, seed789=0.746@ep72 (重训修正, 旧 run 0.724@ep22 异常偏低); 3-seed mean 0.747±0.001; work_dirs/a4_dpm_pp_chr2024_seed{42,123,789}/; SwanLab ldmdet-mainline-ablation-24obj (D1 实验) -->
-| +Hard OT (3 seeds) | 0.748±0.001 | hard_ot.py | +0.002 边际; seed_789 标准增强补齐完成 (0.749@ep101, early stop@ep131); 3-seed: 0.747/0.747/0.749 | <!-- 2026-08-03: 3-seed 凑齐 -->
+| +Hard OT (3 seeds) | 0.748±0.001 | hard_ot.py | +0.002 边际; seed_789 标准增强补齐完成 (0.749@ep101, early stop@ep131); 3-seed val: 0.747/0.747/0.749; **test mAP=0.737±0.002** (42/123/789=0.738/0.735/0.739, 2026-08-04 补齐) | <!-- 2026-08-03: 3-seed 凑齐; 2026-08-04: test mAP 补齐 -->
 | +Sinkhorn Stochastic (1 seed) | 0.748 | sinkhorn_stochastic.py | +0.002 边际 |
 | SOTA (4 seeds) | 0.746±0.004 | sota_seed*.py | 高方差 (seed_123 取最终运行, 排除中断值 0.727) | <!-- verified: 2026-07-16: 4 seeds [0.740, 0.749, 0.746, 0.749], sample_std=0.0042; pop_std=0.0037 -->
 
@@ -1610,6 +1610,9 @@ rf_heun_adaln.py (Dataset 1 RF+Heun+AdaLN 基线, bs=4)
 | KaryoFlow RF+Heun seed789 | 0.738 | 0.927 | 0.823 | 0.486 | 0.720 | 0.652 |
 | KaryoFlow RF+Heun seed42 | 0.737 | 0.931 | 0.824 | 0.530 | 0.722 | 0.647 |
 | KaryoFlow RF+Heun seed123 | 0.735 | 0.930 | 0.820 | 0.508 | 0.721 | 0.653 |
+| KaryoFlow Hard OT seed789 | 0.739 | 0.929 | 0.823 | 0.518 | 0.725 | 0.651 |
+| KaryoFlow Hard OT seed42 | 0.738 | 0.926 | 0.820 | 0.488 | 0.722 | 0.642 |
+| KaryoFlow Hard OT seed123 | 0.735 | 0.924 | 0.813 | 0.470 | 0.720 | 0.654 |
 | RTMDet-L | 0.732 | 0.934 | 0.839 | 0.480 | 0.725 | 0.622 |
 | DINO R50 (ep107, 已完成) | 0.725 | 0.934 | 0.813 | 0.486 | 0.711 | 0.623 |
 | Cascade R-CNN R50 | 0.724 | 0.922 | 0.831 | 0.500 | 0.709 | 0.649 |
@@ -1640,6 +1643,7 @@ KaryoFlow (StochOT ε=5) vs DINO R50 / RTMDet-L 的逐类 AP 优势:
 > 1. DINO R50 使用 ep107 checkpoint (训练已完成, early stop @ ep107, best val mAP=0.742)
 > 2. 之前 §7.5.1 中记录的 DINO R50 test mAP=0.722 对应 ep104 (训练中), 现更新为 ep107 的 0.725
 > 3. §7.5.1 表格中 DINO R50 行已同步更新 (mAP 0.722→0.725, label "(ep104, 训练中评估)"→"(ep107, 已完成)")
+> 4. **Hard OT 耦合 3-seed test mAP=0.737±0.002** (42/123/789=0.738/0.735/0.739, 2026-08-04 补齐), 与 Random (RF+Heun) 3-seed test mAP=0.737 (42/123/789=0.737/0.735/0.738) **完全持平** (Δ≤0.001), 与 val 结论一致: 标准增强下 Hard OT vs Random 耦合策略无显著差异, OT 坍缩效应被标准增强掩盖。per-image AP 已 dump 至 `work_dirs/multi_seed_aug/hard_ot/seed_*/per_image_ap_test.json` (220 records each)。
 
 #### 7.5.2 Dataset 2 test set per-size AP 评估 (1000 images, 2026-07-30 补充)
 
