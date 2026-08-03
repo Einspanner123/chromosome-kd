@@ -2,7 +2,7 @@
 
 > 📋 **命名约定**: 本文档使用论文正式名称 (Dataset 1 / Dataset 2 / RF+Heun / +Stoch. Coupling / +DPM-Solver++ / Top-K)。内部实验代号 (24obj / A0-A4 / IO3 / StochOT) 仅保留在文件路径、配置名和 SwanLab run_id 中以兼容工程实现。
 
-> 生成日期: 2026-07-15 | 最近更新: 2026-07-30 (D1 +DPM-Solver++ 3-seed 完成 §1.4/§2.2.1; DINO R50 D1 训练完成 0.607→0.742 §1.4/§2.2.7; 跨数据集 per-class AP 诊断 §6.5; test set per-size AP 评估 §7.5; D2 跨域训练启动 §2.3.2; 2026-07-28: ReFlow 重试确认方法本质失败 → FALSIFIED §十四; 2026-07-27: Head Distillation 完成 → LINEAGE §七; 失败配置证伪 → FALSIFIED §十三; v2/reflow_standard checkpoint 已清理)
+> 生成日期: 2026-07-15 | 最近更新: 2026-07-31 (D1 +DPM-Solver++ seed789 重训完成 0.746@ep72, 3-seed mean 0.739±0.013→0.747±0.001 §1.4/§2.2.1; 数据库实验校准); 2026-07-30 (D1 +DPM-Solver++ 3-seed 完成 §1.4/§2.2.1; DINO R50 D1 训练完成 0.607→0.742 §1.4/§2.2.7; 跨数据集 per-class AP 诊断 §6.5; test set per-size AP 评估 §7.5; D2 跨域训练启动 §2.3.2; 2026-07-28: ReFlow 重试确认方法本质失败 → FALSIFIED §十四; 2026-07-27: Head Distillation 完成 → LINEAGE §七; 失败配置证伪 → FALSIFIED §十三; v2/reflow_standard checkpoint 已清理)
 > 数据来源: 本地 `work_dirs/` (50 个子目录) + SwanLab 云端 (26 个项目) + `ldmdet-experiment/` 归档 + 两台服务器 (workstation / ross)
 > 核心文档: [EXPERIMENT_LINEAGE.md](EXPERIMENT_LINEAGE.md) (实验谱系) + [EXPERIMENT_RESULTS.md](EXPERIMENT_RESULTS.md) (结果汇总) + [paper/AAAI_INTEGRATED_DRAFT.md](paper/AAAI_INTEGRATED_DRAFT.md) (论文草稿)
 
@@ -133,9 +133,9 @@
 | Stoch. Coupling ε=5 seed_42 (old) | ldmdet-ablation | — | work_dirs/multi_seed/stochot_eps5_old/seed_42/ | 0.746 | ✅ | Dataset 1 耦合 (3-seed: 0.747±0.002) | <!-- verified: 2026-07-16 -->
 | Stoch. Coupling ε=5 seed_123 (old) | ldmdet-ablation | — | work_dirs/multi_seed/stochot_eps5_old/seed_123/ | 0.746 @ ep57 | ✅ | Dataset 1 耦合 | <!-- verified: 2026-07-16 -->
 | Stoch. Coupling ε=5 seed_789 (old) | ldmdet-ablation | — | work_dirs/multi_seed/stochot_eps5_old/seed_789/ | 0.749 @ ep69 | ✅ | Dataset 1 耦合 | <!-- verified: 2026-07-16: scalars.json confirmed -->
-| **+DPM-Solver++ (trained) seed_42** | ldmdet-mainline-ablation-24obj (注: D1 实验) | — | work_dirs/a4_dpm_pp_chr2024_seed42/ | 0.746 @ ep49 | ✅ 完成 (early stop @ ep50, patience=30) | Dataset 1 主路线 (3-seed: 0.739±0.013) | <!-- 2026-07-30 新增: +DPM-Solver++ 在 D1 上训练, seed42 best@ep49, 配置 a4_dpm_pp_chr2024.py, ross A6000 -->
+| **+DPM-Solver++ (trained) seed_42** | ldmdet-mainline-ablation-24obj (注: D1 实验) | — | work_dirs/a4_dpm_pp_chr2024_seed42/ | 0.746 @ ep49 | ✅ 完成 (early stop @ ep50, patience=30) | Dataset 1 主路线 (3-seed: 0.747±0.001) | <!-- 2026-07-30 新增: +DPM-Solver++ 在 D1 上训练, seed42 best@ep49, 配置 a4_dpm_pp_chr2024.py, ross A6000; 2026-07-31 更新 3-seed mean (seed789 重训完成 0.746@ep72) -->
 | **+DPM-Solver++ (trained) seed_123** | ldmdet-mainline-ablation-24obj (注: D1 实验) | — | work_dirs/a4_dpm_pp_chr2024_seed123/ | 0.748 @ ep85 | ✅ 完成 (early stop @ ep115, patience=30) | Dataset 1 主路线 | <!-- 2026-07-30 新增: +DPM-Solver++ 在 D1 上训练, seed123 best@ep85, 配置 a4_dpm_pp_chr2024.py, workstation A5000 -->
-| **+DPM-Solver++ (trained) seed_789** | ldmdet-mainline-ablation-24obj (注: D1 实验) | — | work_dirs/a4_dpm_pp_chr2024_seed789/ | 🔄 重训中: best **0.745 @ ep55** (ep61, ETA ~6h) | 🔄 运行中 (本地 A6000 GPU0, 2026-07-30 17:34 启动重训; 旧 run 0.724@ep22 early stop@ep26 异常偏低, 重训已超越旧 best) | Dataset 1 主路线 (重训修正中) | <!-- 2026-07-30 重训: 旧 run 0.724@ep22 异常偏低已确认, 2026-07-30 17:34 本地重训, best 0.745@ep55 (接近 seed42=0.746/seed123=0.748); 3-seed mean 待重训完成后更新 (预估 ~0.746±0.002) -->
+| **+DPM-Solver++ (trained) seed_789** | ldmdet-mainline-ablation-24obj (注: D1 实验) | — | work_dirs/a4_dpm_pp_chr2024_seed789/ | 0.746 @ ep72 | ✅ 完成 (early stop @ ep102, patience=30; 重训修正: 旧 run 0.724@ep22 异常偏低已确认, 2026-07-30 17:34 本地重训 → 2026-07-31 03:13 完成, best 0.746@ep72 接近 seed42=0.746/seed123=0.748) | Dataset 1 主路线 (3-seed: 0.747±0.001) | <!-- 2026-07-30 重训→2026-07-31 03:13 完成: 旧 run 0.724@ep22 异常偏低已确认, 重训 best 0.746@ep72 early stop@ep102; 3-seed mean 0.747±0.001 (seed42=0.746/seed123=0.748/seed789=0.746) -->
 | Stoch. Coupling ε=2 seed_42 (old) | ldmdet-ablation | — | work_dirs/ablation_old/stochot_eps2/ | 0.749 @ ep75 | ✅ | ε 消融 | <!-- verified: 2026-07-16 -->
 | SOTA seed_42 | chromosome-kd | 9xswp5aj7rmfd4vys6906 | work_dirs/sota_seed42/ | 0.740 | ✅ | Dataset 1 SOTA |
 | SOTA seed_123 | chromosome-kd | b31e1xhzftod7ae38cs17 | work_dirs/sota_seed123/ | 0.749 | ✅ | Dataset 1 SOTA |
@@ -171,7 +171,7 @@
 | LaMFPN | ldmdet-ablation | — | work_dirs/direction_exps/direction_g_lamfpn/ | 0.736 | ✅ 早停 | 方向实验(证伪) | <!-- verified: 2026-07-16 -->
 | Cascade R-CNN R50 (Dataset 1) | chromosome-kd-benchmark | — | work_dirs/baselines/cascade_rcnn_r50_20240904/ | 0.732 @ ep86 | ✅ | Dataset 1 标准检测器 | <!-- verified: 2026-07-29: workstation 训练日志 best@ep86, rsync 至本地 -->
 | RTMDet-L (Dataset 1) | chromosome-kd-benchmark | — | work_dirs/baselines/rtmdet_l_20240904/ | 0.742 @ ep52 | ✅ | Dataset 1 标准检测器 | <!-- verified: 2026-07-29: workstation 训练日志 best@ep52, rsync 至本地 -->
-| YOLOX-S (Dataset 1) | chromosome-kd-benchmark | — | work_dirs/baselines/yolox_s_20240904/ | 0.608 @ ep150 | ✅ | Dataset 1 标准检测器 | <!-- verified: 2026-07-29: workstation 训练日志 best@ep150, rsync 至本地 -->
+| YOLOX-S (Dataset 1) | chromosome-kd-benchmark | — | work_dirs/baselines/yolox_s_20240904/ | 0.589 @ ep150 | ✅ | Dataset 1 标准检测器 | <!-- 2026-07-31 数据库校准修正: 原值 0.608 来自首次训练 (20260519), best checkpoint 时间戳 (May 20 12:44) 对应第二次训练 (20260520) 的 0.589; 两次同 seed (1769925607) 训练结果不同 (CUDA 非确定性), 以当前 best checkpoint 为准 -->
 | DINO R50 (Dataset 1) | chromosome-kd-benchmark | dino-r50-4scale-20240904 | work_dirs/baselines/dino_r50_20240904/ | 0.742 @ ep~77 | ✅ 完成 (early stop @ ep107, best@ep~77, max_epoch=150) | Dataset 1 标准检测器 | <!-- 2026-07-30: 训练完成, early stop patience=30 触发; best mAP=0.742; 之前 2026-07-29 标注 0.607@ep29 为 31ep 未完成时的中间值; 配置 work_dirs/baselines/dino_r50_20240904/dino_r50.py; 训练日志 work_dirs/baselines/dino_r50_20240904/20260730_015633/20260730_015633.log; ross A6000 -->
 
 ### 1.5 跨数据集合并实验
@@ -276,7 +276,7 @@
 | DDPM baseline (3 seeds) | 0.729±0.003 | diffusiondet_ddpm.py | 根基线 |
 | RF+Heun+AdaLN (3 seeds) | 0.746±0.001 | rf_heun_adaln.py | +0.017 主要贡献 |
 | +DPM-Solver++ (推理) | 0.746±0.001 | +test --solver-type dpm_solver_pp | 持平 Heun (步数对齐) |
-| **+DPM-Solver++ (trained, 3 seeds)** | 🔄 重训中: seed789 重训 best **0.745@ep55** (旧值 0.724@ep22 异常偏低); 完成后预估 3-seed mean ~0.746±0.002 | a4_dpm_pp_chr2024.py | 持平 RF+Heun+AdaLN (训练侧 solver 切换, seed789 重训修正中) | <!-- 2026-07-30: seed42=0.746@ep49, seed123=0.748@ep85, seed789 重训中 best 0.745@ep55 (旧 run 0.724@ep22 异常偏低); work_dirs/a4_dpm_pp_chr2024_seed{42,123,789}/; SwanLab ldmdet-mainline-ablation-24obj (D1 实验) -->
+| **+DPM-Solver++ (trained, 3 seeds)** | 0.747±0.001 | a4_dpm_pp_chr2024.py | 持平 RF+Heun+AdaLN (训练侧 solver 切换; seed789 重训修正完成 0.746@ep72, 旧 run 0.724@ep22 异常偏低已废弃) | <!-- 2026-07-30→07-31: seed42=0.746@ep49, seed123=0.748@ep85, seed789=0.746@ep72 (重训修正, 旧 run 0.724@ep22 异常偏低); 3-seed mean 0.747±0.001; work_dirs/a4_dpm_pp_chr2024_seed{42,123,789}/; SwanLab ldmdet-mainline-ablation-24obj (D1 实验) -->
 | +Hard OT (2 seeds) | 0.747±0.000 | hard_ot.py | +0.001 边际 |
 | +Sinkhorn Stochastic (1 seed) | 0.748 | sinkhorn_stochastic.py | +0.002 边际 |
 | SOTA (4 seeds) | 0.746±0.004 | sota_seed*.py | 高方差 (seed_123 取最终运行, 排除中断值 0.727) | <!-- verified: 2026-07-16: 4 seeds [0.740, 0.749, 0.746, 0.749], sample_std=0.0042; pop_std=0.0037 -->
@@ -372,7 +372,7 @@
 |------|----------|---------------|------|------|------|------|------|-----------|------|
 | Cascade R-CNN R50 | ResNet-50 | **0.732** | 0.932 | 0.843 | 0.520 | 0.725 | 0.655 | 86 | ✅ |
 | RTMDet-L | CSPNeXt-L | **0.742** | 0.946 | 0.854 | 0.504 | 0.740 | 0.568 | 52 | ✅ |
-| YOLOX-S | CSPDarkNet-S | **0.608** | 0.940 | 0.732 | 0.392 | 0.611 | 0.498 | 150 | ✅ |
+| YOLOX-S | CSPDarkNet-S | **0.589** | 0.924 | 0.704 | 0.359 | 0.587 | 0.487 | 150 | ✅ |
 | DINO R50 (4scale) | ResNet-50 | **0.742** | — | — | — | — | — | ~77 (best) / 107 (last) | ✅ 完成 (early stop @ ep107, patience=30, max_epoch=150) |
 
 > ⚠ DINO R50 D1 val 详细 AP 指标 (AP50/AP75/AP_S/AP_M/AP_L) 待从 best@ep~77 checkpoint 重新提取; 旧值 (AP50=0.780 等) 对应未完成的 31ep checkpoint (mAP=0.607), 不再适用。test set per-size 评估见 §7.5 (DINO R50 test mAP=0.725 @ ep107 训练已完成, AP50=0.934; per-class AP 见 §7.5.1b)。<!-- 2026-07-30 更新 -->
@@ -380,10 +380,10 @@
 > **跨数据集对比 (判别式范式在数据稀缺时优势收窄)**:
 > - RTMDet-L: Dataset 1 **0.742** vs Dataset 2 **0.863** (Δ=−0.121, 退化 14.0%)
 > - Cascade R-CNN: Dataset 1 **0.732** vs Dataset 2 **0.854** (Δ=−0.122, 退化 14.3%)
-> - YOLOX-S: Dataset 1 **0.608** vs Dataset 2 **0.796** (Δ=−0.188, 退化 23.6%)
-> - DINO R50: Dataset 1 **0.742** (✅ 完成) vs Dataset 2 **0.868** (Δ=−0.126, 退化 14.5%) — 退化幅度与 RTMDet-L/Cascade R-CNN 相当, 不再是退化最严重者 (YOLOX-S 23.6% 退化最显著); 之前标注的 Δ=−0.261/退化 30.1% 基于 31ep 未完成的 0.607, 已修正
+> - YOLOX-S: Dataset 1 **0.589** vs Dataset 2 **0.796** (Δ=−0.207, 退化 26.0%)
+> - DINO R50: Dataset 1 **0.742** (✅ 完成) vs Dataset 2 **0.868** (Δ=−0.126, 退化 14.5%) — 退化幅度与 RTMDet-L/Cascade R-CNN 相当, 不再是退化最严重者 (YOLOX-S 26.0% 退化最显著); 之前标注的 Δ=−0.261/退化 30.1% 基于 31ep 未完成的 0.607, 已修正
 >
-> 对比 KaryoFlow (RF+Heun+AdaLN) 在 Dataset 1 上 3-seed 均值 **0.746** (论文 §4.1): KaryoFlow 在低数据场景下超越 Cascade R-CNN (0.732) / YOLOX-S (0.608), 与 RTMDet-L (0.742) / DINO R50 (0.742) 持平 (Δ=+0.004, 在 noise 范围内), 支撑论文 "基于扩散的检测器在数据稀缺场景下达到与前沿检测器相当的精度" 的核心论点。注: DINO R50 已完成 150ep 训练 (early stop @ ep107), 0.742 为完全收敛后的最终 best, 不再是未完成中间值; DETR 类大模型对数据量依赖的论点需修订 (DINO R50 D1→D2 退化 14.5%, 与 RTMDet-L 14.0% 同量级)。
+> 对比 KaryoFlow (RF+Heun+AdaLN) 在 Dataset 1 上 3-seed 均值 **0.746** (论文 §4.1): KaryoFlow 在低数据场景下超越 Cascade R-CNN (0.732) / YOLOX-S (0.589), 与 RTMDet-L (0.742) / DINO R50 (0.742) 持平 (Δ=+0.004, 在 noise 范围内), 支撑论文 "基于扩散的检测器在数据稀缺场景下达到与前沿检测器相当的精度" 的核心论点。注: DINO R50 已完成 150ep 训练 (early stop @ ep107), 0.742 为完全收敛后的最终 best, 不再是未完成中间值; DETR 类大模型对数据量依赖的论点需修订 (DINO R50 D1→D2 退化 14.5%, 与 RTMDet-L 14.0% 同量级)。
 >
 > 训练配置: `experiments/configs/baselines/benchmark/{cascade_rcnn_r50,rtmdet_l,yolox_s,dino_r50}.py` (data_root=`data/Chromosome20240904_NoAug_NoResize_coco/`)。<!-- verified: 2026-07-29; 2026-07-30 DINO R50 完成训练, mAP 0.607→0.742 -->
 
@@ -948,7 +948,7 @@ rf_heun_adaln.py (Dataset 1 RF+Heun+AdaLN 基线, bs=4)
 | M1 形态感知 RoI (FP32) | /media/ross/8TB/.../work_dirs/m1_morphology_aware_24obj_fp32/ | ✅ 已完成 (2026-07-25, best 0.862@ep19, Δ=-0.001 vs +DPM-Solver++ 持平) | ✅ 已同步 | <!-- 2026-07-25: 30ep FP32, lr=2e-5 2×, 1ep warmup, 显存 37.5GB; BF16 误导根因确认; 详见 §6.6 C22 -->
 | Head Distillation v2 | /media/ross/8TB/.../work_dirs/h3_distill_24obj/ | ⛔ 已清理 (2026-07-27): 配置Bug freeze_backbone=True 致 mAP=0.717@ep109 (非 0.711@ep96), Δ=-0.146; 方法本身有效, 修复配置 0.860 (→ LINEAGE §七); checkpoint/log 已删除释放磁盘 | ✅ 已同步 (checkpoint 已清理) | <!-- 2026-07-24 01:03 启动, 2026-07-25 异常中断@ep99, 续训@ep109 best 0.717, ep115 kill; 根因: backbone 冻结致特征不匹配; 2026-07-27 归档证伪+清理; 详见 §6.6 C26 + FALSIFIED §十三 -->
 | D1 +DPM-Solver++ (trained) seed_42 | /media/ross/8TB/.../work_dirs/a4_dpm_pp_chr2024_seed42/ | ✅ 已完成 (2026-07-30, best 0.746@ep49, early stop@ep50, patience=30) | ✅ 已同步 | <!-- 2026-07-30 新增: +DPM-Solver++ 在 D1 上训练, 配置 a4_dpm_pp_chr2024.py; 详见 §1.4/§2.2.1 -->
-| D1 +DPM-Solver++ (trained) seed_789 | /media/ross/8TB/.../work_dirs/a4_dpm_pp_chr2024_seed789/ | ✅ 已完成 (2026-07-30, best 0.724@ep22 异常偏低, early stop@ep26, patience=30) | ✅ 已同步 | <!-- 2026-07-30 新增: seed789 低异常值, 3-seed mean=0.739±0.013 (排除则 0.747±0.001) -->
+| D1 +DPM-Solver++ (trained) seed_789 | /media/ross/8TB/.../work_dirs/a4_dpm_pp_chr2024_seed789/ | ✅ 已完成 (重训修正: 2026-07-31 best 0.746@ep72, early stop@ep102, patience=30; 旧 run 0.724@ep22 异常偏低已废弃) | ✅ 已同步 (本地重训) | <!-- 2026-07-30 旧 run 0.724@ep22 异常偏低; 2026-07-30 17:34 本地重训→2026-07-31 03:13 完成 best 0.746@ep72; 3-seed mean=0.747±0.001 -->
 | DINO R50 D1 训练 (4scale) | /media/ross/8TB/.../work_dirs/baselines/dino_r50_20240904/ | ✅ 已完成 (2026-07-30, best 0.742@ep~77, early stop@ep107, max_epoch=150) | ✅ 已同步 (本地含 20260730_015633 训练日志) | <!-- 2026-07-30 新增: 训练完成, 之前 31ep 未完成 mAP=0.607 已修正; 详见 §1.4/§2.2.7 -->
 
 ### 6.2 workstation 服务器 (A5000/A4000, 并行多种子)
@@ -964,7 +964,7 @@ rf_heun_adaln.py (Dataset 1 RF+Heun+AdaLN 基线, bs=4)
 | M1 形态感知 RoI (BF16) | ✅ 已完成 (2026-07-23, best 0.818@ep1) | BF16 误导确认 (Δ=-0.045 vs +DPM-Solver++ 0.863 虚假退化; Δ=-0.007 vs +DPM-Solver+++BF16 0.825 noise 范围但偏负面); 显存 20888 MiB vs FP32 37506 MiB 降 44%; FP32 复现已闭环 (见 §6.6 C22/C23) | <!-- 2026-07-25: 详见 §6.6 C23 -->
 | R3 v-prediction seed42 | ✅ 已完成 (2026-07-25, best 0.855@ep34, 早停@ep64) | v_prediction + 1/t² loss reweighting; Δ=-0.008 vs +DPM-Solver++ 0.863 超 3-seed noise ±0.003 但偏小, 单 seed 支持 R3.2; seed 123/789 待补 | <!-- 2026-07-25: workstation A4000; 详见 §6.6 C24 -->
 | S1 h6_s2 (cascade 解耦) | ✅ 已完成 (2026-07-25, best 0.859@ep106, 早停@ep136) | num_heads=6, sampling_timesteps=2 (NFE=12); Δ=-0.004 vs +DPM-Solver++ 在 3-seed noise ±0.003 范围内; 与 s1_h3_s4/s1_h3_s8 三组全部 0.859, S1.3 命题完整闭环 | <!-- 2026-07-25: workstation A5000; 详见 §6.6 C25 -->
-| D1 +DPM-Solver++ (trained) seed_123 | ✅ 已完成 (2026-07-30, best 0.748@ep85, early stop@ep115, patience=30) | +DPM-Solver++ 在 D1 上训练; 配置 a4_dpm_pp_chr2024.py; 3-seed mean=0.739±0.013 (排除 seed789 低异常值则 0.747±0.001) | <!-- 2026-07-30 新增: workstation A5000; 详见 §1.4/§2.2.1 -->
+| D1 +DPM-Solver++ (trained) seed_123 | ✅ 已完成 (2026-07-30, best 0.748@ep85, early stop@ep115, patience=30) | +DPM-Solver++ 在 D1 上训练; 配置 a4_dpm_pp_chr2024.py; 3-seed mean=0.747±0.001 (seed789 重训修正后, 2026-07-31) | <!-- 2026-07-30 新增: workstation A5000; 2026-07-31 更新 3-seed mean (seed789 重训完成 0.746@ep72); 详见 §1.4/§2.2.1 -->
 | D2 跨域训练 (D1 0.753 config → D2) | 🔄 运行中 (Epoch 1, ETA ~1.5天) | 配置 ldmdet_rf_heun_adaln_stochot_eps5_d2.py; 种子 2016452323 (D1 0.753 checkpoint 元数据); work_dir work_dirs/cross_dataset/d2_0753_stochot_eps5_seed2016452323; 验证类别顺序修正后跨域性能 (对照 §6.7 诊断) | <!-- 2026-07-30 新增: workstation A5000; 详见 §2.3.2 -->
 
 > ✅ 所有多种子补充实验已完成。workstation 上的 checkpoint (+DPM-Solver++ seed_123/789, Stoch. Coupling ε=2) 待 SCP 到 ross (workstation 连接问题搁置)。
@@ -1167,7 +1167,7 @@ rf_heun_adaln.py (Dataset 1 RF+Heun+AdaLN 基线, bs=4)
 | a2_swinglu_24obj/ | Dataset 2 | +AdaLN-Zero +SwiGLU FFN (新增) | ⭐⭐ |
 | a3_full_sota_24obj/ | Dataset 2 | +Stoch. Coupling eps5 | ⭐⭐⭐ |
 | a4_dpm_pp_24obj/ | Dataset 2 | +DPM-Solver++ (本文 SOTA) | ⭐⭐⭐ |
-| a4_dpm_pp_chr2024_seed{42,123,789}/ | Dataset 1 | +DPM-Solver++ 在 D1 上训练 3-seed (2026-07-30 新增; best 0.746/0.748/0.724, mean 0.739±0.013) | ⭐⭐ |
+| a4_dpm_pp_chr2024_seed{42,123,789}/ | Dataset 1 | +DPM-Solver++ 在 D1 上训练 3-seed (2026-07-30 新增, 2026-07-31 seed789 重训修正; best 0.746/0.748/0.746, mean 0.747±0.001) | ⭐⭐ |
 | a4_swinglu_24obj/ | Dataset 2 | +DPM-Solver+++SwiGLU FFN (新增) | ⭐⭐ |
 | ablation/ | Dataset 1 | epsilon 消融 (stoch_eps*, argmax_eps*) | ⭐⭐ |
 | ablation_old/ | Dataset 1 | 旧 epsilon 消融归档 | ⭐ |
@@ -1764,7 +1764,7 @@ KaryoFlow (StochOT ε=5) vs DINO R50 / RTMDet-L 的逐类 AP 优势:
 | 6 | Y AP 跨种子 mean 0.771±0.006 | C6 | 仅报告 seed 42 单值 0.779 | 报告 mean ± std: 0.771 ± 0.006 |
 | 7 | Stoch Coupling 显著提升 Y 染色体 AP (+10.43%) | §7.3.5 (Problem 3) | "Stoch Coupling 缓解 Y 染色体训练不稳定性" | 改为 "显著提升 Y 染色体检测精度 (Y AP +10.4%, Wilcoxon W=0, p=1.66e-13)"；避免使用 "稳定性" (within-strategy std 实际更大) |
 | 8 | RF 落后 DINO R50 仅 0.63% (aggregate mAP, +DPM-Solver++ best) | §7.4.6 (Problem 2B) | "competitive with SOTA" (笼统) | "RF 拉近了与最前沿检测器 (DINO R50) 的差距，aggregate mAP 仅差 0.63% (0.863 vs 0.8685)；与 Cascade R-CNN 性能相当，显著优于 DiffusionDet (+0.060 mAP)"；per-image Wilcoxon (+Stoch. Coupling 配置, 1.64%) 放入草稿补充材料 |
-| 9 | DINO R50 D1 训练完成 mAP 0.607→0.742; 跨数据集退化 Δ=−0.126/14.5% (修正原 Δ=−0.261/30.1%) | §1.4/§2.2.7 (2026-07-30) | "DINO R50 在低数据场景退化最严重 (30.1%)" + "KaryoFlow 超越全部标准检测器" | 修订为: DINO R50 D1→D2 退化 14.5%, 与 RTMDet-L (14.0%) 同量级, 不再是退化最显著者 (YOLOX-S 23.6% 退化最显著); KaryoFlow (0.746) 与 DINO R50 (0.742) / RTMDet-L (0.742) 在低数据场景持平 (Δ=+0.004, noise 范围内), 超越 Cascade R-CNN (0.732) / YOLOX-S (0.608); DETR 类大模型对数据量强依赖的论点需修订 |
+| 9 | DINO R50 D1 训练完成 mAP 0.607→0.742; 跨数据集退化 Δ=−0.126/14.5% (修正原 Δ=−0.261/30.1%) | §1.4/§2.2.7 (2026-07-30) | "DINO R50 在低数据场景退化最严重 (30.1%)" + "KaryoFlow 超越全部标准检测器" | 修订为: DINO R50 D1→D2 退化 14.5%, 与 RTMDet-L (14.0%) 同量级, 不再是退化最显著者 (YOLOX-S 26.0% 退化最显著); KaryoFlow (0.746) 与 DINO R50 (0.742) / RTMDet-L (0.742) 在低数据场景持平 (Δ=+0.004, noise 范围内), 超越 Cascade R-CNN (0.732) / YOLOX-S (0.589); DETR 类大模型对数据量强依赖的论点需修订 |
 
 #### 7.9.2 20 项论文修订清单
 
@@ -1781,3 +1781,4 @@ KaryoFlow (StochOT ε=5) vs DINO R50 / RTMDet-L 的逐类 AP 优势:
 *2026-07-25 新增 §6.6 (5 个训练实验 C22-C26: M1 FP32 复现 best 0.862@ep19 Δ=-0.001 持平 +DPM-Solver++ + BF16 误导根因确认; M1 BF16 ws best 0.818 BF16 虚假退化 -0.045; R3 v-prediction seed42 best 0.855@ep34 单 seed 支持 R3.2; S1 h6_s2 best 0.859@ep106 S1.3 命题闭环; Head Distill v2 异常中断@ep99 best 0.711@ep96 H=3 容量限制)。同步更新 §1.1 (M1 FP32/BF16/Head Distill 状态从 🔄 运行中 → ✅/⚠ 已完成, 新增 R3 vpred + S1 h6_s2 条目), §3.1 核心消融表 (+3 行), §6.1 ross 服务器 (+M1 FP32 + Head Distill v2), §6.2 workstation 服务器 (+M1 BF16 + R3 + S1)。来源: work_dirs/m1_morphology_aware_24obj_{fp32,ws}/ + work_dirs/r3_vpred_24obj_seed42/ + work_dirs/s1_h6_s2_24obj/ + work_dirs/h3_distill_24obj/, SwanLab ldmdet-mainline-ablation-24obj + ldmdet-r3-vpred + ldmdet-s1-cascade-decouple + ldmdet-head-distill。*
 *2026-07-30 重大更新: (1) §1.4/§2.2.1 新增 D1 +DPM-Solver++ 训练 3-seed (seed42=0.746@ep49, seed123=0.748@ep85, seed789=0.724@ep22 异常偏低; 3-seed mean=0.739±0.013, 排除 seed789 则 0.747±0.001; 配置 a4_dpm_pp_chr2024.py, SwanLab ldmdet-mainline-ablation-24obj D1 实验); (2) §1.4/§2.2.7 DINO R50 D1 训练完成, mAP 0.607→0.742 (early stop@ep107, best@ep~77, max_epoch=150); 跨数据集退化修正 Δ=−0.261/30.1% → Δ=−0.126/14.5% (与 RTMDet-L 14.0% 同量级); KaryoFlow 0.746 与 DINO R50 0.742 持平而非超越, 论文叙事需修订; (3) §6.5/§6.7 新增跨数据集 per-class AP 诊断 (D1 reproduce_0751 mAP=0.753 → D2 test mAP=0.163, 匹配组 17 类 AP50 mean=0.7411, 不匹配组 7 类 C 组顺序不同 AP50 mean=0.0007, 比值 0.0006 → 类别顺序不一致占主导, D1 C 组字母序 vs D2 C 组数字序); (4) §7.5.1/§7.5.2 新增 D1/D2 test set per-size AP 评估 (D1 test 220 images: KaryoFlow 0.741, DINO R50 0.725@ep107 训练已完成); §7.5.1b 新增 D1 test set per-class AP 评估 (KaryoFlow StochOT ε=5 mAP=0.740, 24 类中 15 类最高 AP, 优势集中 E/F/G 组与 X/Y 性染色体); D2 test 1000 images: KaryoFlow RF+Heun 3-seed mean=0.857±0.002, +DPM-Solver++ seed42=0.860, D1 cross-dataset=0.163/AP50=0.525/AP_L=0.241); (5) §2.3.2 新增 D2 跨域训练启动 (D1 0.753 config + 种子 2016452323 → D2, 验证类别顺序修正后跨域性能, ETA ~1.5天)。来源: work_dirs/a4_dpm_pp_chr2024_seed{42,123,789}/ + work_dirs/baselines/dino_r50_20240904/20260730_015633/ + work_dirs/diagnosis/cross_dataset_per_class_20260730_194503.json + work_dirs/diagnosis/test_eval_per_size_20260730_*.json + experiments/configs/ldmdet/ldmdet_rf_heun_adaln_stochot_eps5_d2.py + experiments/analysis/cross_dataset_per_class.py。*
 *2026-07-30 整理补充 (analysis 目录审计): (1) §6.5 诊断表从 6 行扩充至 24 行, 补充全部未记录的诊断实验 JSON (per_dim_d1_clean_repro, hybrid_3seed/hybrid_only/baseline_heun_3seed, renewal_off_{topk_verify,all_scenarios,k100_3seed_k150}, d1_topk_validation, vnext_instability, r1_eta_str_a3 3-seed+renewal_off+topk, r1_eta_str_d1_chr2024, dpm_pp_{2nd,3rd,adaptive}, baseline_inference_24obj_results, baseline_vs_sota_results, d1_topk_validation_seed42); (2) §1.4/§2.2.1 D1 +DPM-Solver++ seed789 标注为 🔄 重训中 (旧 0.724@ep22 异常偏低, 重训 best 0.745@ep55 接近 seed42/123); (3) §2.3.2 D2 跨域训练状态改为 ⚠ 无法验证 (workstation SSH 不可达); (4) §7.5.1b per-class AP "15/24" 口径修正: 原文"取得最高 per-class AP"歧义, 修正为"同时优于 DINO R50 和 RTMDet-L 两台标准检测器" (验证: vs both=15/24, vs DINO only=21/24, vs RTMDet only=18/24, vs all 12 models=10/24); (5) 清理 16 个中间 test_eval_per_size 小文件 + 1 个 .old 备份。同步修正 paper_draft_CN.md §4.3/Figure 8 标题 + fps_map.py docstring 的同一口径。*
+*2026-07-31 数据校准 (数据库实验校准): D1 +DPM-Solver++ seed789 重训完成 — best 0.746@ep72 (early stop@ep102, patience=30), 旧 run 0.724@ep22 异常偏低已废弃; 3-seed mean 从 0.739±0.013 修正为 0.747±0.001 (seed42=0.746/seed123=0.748/seed789=0.746)。更新位置: §1.4 L136/L138, §2.2.1 L279, §6.1 L951, §6.2 L967, §6.4 L1170。校准工具: tools/experiment_db/calibrate_docs.py (SQLite 实验数据库)。注: 校准脚本报告的 L88 (Random seed_123) 与 L405 (cross_dataset d2_0753) 为误报 — L88 的 0.814 为首跑中断值 (实际 best 0.860@ep115), L405 的 "D1" 指源配置非数据集 (实验实为 D2)。*
