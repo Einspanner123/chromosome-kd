@@ -969,7 +969,7 @@ rf_heun_adaln.py (Dataset 1 RF+Heun+AdaLN 基线, bs=4)
 | D2 跨域训练 (D1 0.753 config → D2) | ✅ 完成 (2026-07-31, best 0.861@ep89, early stop@ep119) | 配置 ldmdet_rf_heun_adaln_stochot_eps5_d2.py; 种子 2016452323 (D1 0.753 checkpoint 元数据); 类别顺序修正后达 D2 SOTA 量级, 确认跨域失效根因为类别顺序 | <!-- 2026-07-30 新增, 2026-07-31 完成; workstation A5000; 详见 §2.3.2 -->
 | D2 Hard OT seed_42 | ✅ 完成 (best 0.860@ep89, early stop@ep119, patience=30) | 配置 chromo_24obj_hard_ot.py; D2 Hard OT 3-seed 补齐; workstation A5000 GPU1 | <!-- 2026-08-03 完成: best@ep89 val=0.860, ep119 val=0.859 触发早停 -->
 | D2 Hard OT seed_123 | ✅ 完成 (best 0.861@ep59, early stop@ep89, 2026-08-03 21:11) | 配置 chromo_24obj_hard_ot.py; D2 Hard OT 3-seed 补齐; workstation A5000 GPU1, 2026-08-02 启动; SwanLab run lvyjfwah | <!-- 2026-08-03 21:11 完成: best@ep59 val=0.861, ep89 触发早停 -->
-| D2 Hard OT seed_789 | ✅ 完成 (best 0.861@ep98, early stop@ep128, 2026-08-04 18:07) | 配置 chromo_24obj_hard_ot.py; D2 Hard OT 3-seed 补齐完成; workstation A5000 GPU0; **3-seed: 0.860/0.861/0.861 → 0.861±0.001** | <!-- 2026-08-03 21:11 启动, 2026-08-04 18:07 完成: best@ep98 val=0.861, ep128 早停; 3-seed 凑齐 -->
+| D2 Hard OT seed_789 | ✅ 完成 (best 0.861@ep98, early stop@ep128, 2026-08-04 18:07) | 配置 chromo_24obj_hard_ot.py; D2 Hard OT 3-seed 补齐完成; workstation A5000 GPU0; **3-seed val: 0.860/0.861/0.861 → 0.861±0.001; test mAP=0.862±0.001** (0.863/0.862/0.861, 2026-08-04 补齐) | <!-- 2026-08-03 21:11 启动, 2026-08-04 18:07 完成: best@ep98 val=0.861, ep128 早停; 3-seed 凑齐; 2026-08-04 test mAP 补齐 -->
 
 > ✅ 所有多种子补充实验已完成。workstation 上的 checkpoint (+DPM-Solver++ seed_123/789, Stoch. Coupling ε=2) 待 SCP 到 ross (workstation 连接问题搁置)。
 > ✅ 2026-07-25 新增 3 个实验完成: M1 BF16 ws (BF16 误导确认), R3 v-prediction seed42 (单 seed 初步), S1 h6_s2 (S1.3 闭环)。详见 §6.6 C23-C25。
@@ -1556,6 +1556,7 @@ rf_heun_adaln.py (Dataset 1 RF+Heun+AdaLN 基线, bs=4)
 |------|:---------:|:--------:|:----------:|------|
 | RF+Heun | 0.856 | 0.857 | +0.001 | 稳定 |
 | +Stoch. Coupling | 0.858 | 0.858 |  0.000 | 稳定 |
+| Hard OT (3-seed) | 0.860 | 0.863 | +0.003 | 3-seed test=0.862±0.001 (0.863/0.862/0.861); val 3-seed=0.861±0.001; 标准增强下与 Random/StochOT 无显著差异 (Δ≤0.005), 与 D1 结论一致 |
 | **+DPM-Solver++** | **0.863** | **0.859** | **−0.004** | 唯一显著下降 |
 | +DPM-Solver++ +Top-K (K=300) | 0.861 | 0.860 | −0.001 | 稳定; test 上反超 +DPM-Solver++ |
 | +DPM-Solver++ +Top-K (K=200) | 0.860 | 0.859 | −0.001 | 稳定; test 上与 +DPM-Solver++ 持平 |
