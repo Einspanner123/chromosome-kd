@@ -56,7 +56,7 @@
 | 服务器 | GPU | 用途 | 本地同步状态 |
 |--------|-----|------|-------------|
 | **ross** (8TB) | — | 主力训练服务器, `work_dirs/` 完整数据 + scalars.json | 部分同步到本地 (DDPM baseline–+DPM-Solver++, 部分消融); D1 Hard OT seed_789 标准增强补齐 ✅ 完成 (best 0.749@ep101, early stop@ep131, 2026-08-03 23:07); GPU 空闲 |
-| **workstation** (A5000/A4000) | A5000 24GB | 并行多种子 / 消融 | 多种子实验已完成 (+DPM-Solver++ 3-seed, Stoch. Coupling ε=2/5); D1 +DPM-Solver++ seed_123 完成 (2026-07-30); D2 跨域训练完成 (2026-07-31, best 0.861@ep89); D2 Hard OT seed_42 完成 (best 0.860@ep89, early stop@ep119); D2 Hard OT seed_123 完成 (best 0.861@ep59, early stop@ep89, 2026-08-03 21:11); D2 Hard OT seed_789 运行中 (GPU0, ep20, best 0.841@ep20, ETA ~12h); GPU1 空闲; checkpoint 待 SCP |
+| **workstation** (A5000/A4000) | A5000 24GB | 并行多种子 / 消融 | 多种子实验已完成 (+DPM-Solver++ 3-seed, Stoch. Coupling ε=2/5); D1 +DPM-Solver++ seed_123 完成 (2026-07-30); D2 跨域训练完成 (2026-07-31, best 0.861@ep89); D2 Hard OT seed_42 完成 (best 0.860@ep89, early stop@ep119); D2 Hard OT seed_123 完成 (best 0.861@ep59, early stop@ep89, 2026-08-03 21:11); D2 Hard OT seed_789 运行中 (GPU0, ep80, best 0.860@ep79, ETA ~5h); GPU1 空闲; checkpoint 待 SCP |
 | **本地** `/home/linkst/workspace/chromosome-kd/` | — | 开发 + 分析 + FPS benchmark | 50 个 work_dirs 子目录 (含最近实验) |
 
 > ⚠ 本地 `work_dirs/` 为 ross 服务器的子集同步。完整训练日志 (含所有 epoch 的 scalars.json) 在 ross 服务器 `/media/ross/8TB/linkst/chromo/chromosome-kd/work_dirs/`。
@@ -969,7 +969,7 @@ rf_heun_adaln.py (Dataset 1 RF+Heun+AdaLN 基线, bs=4)
 | D2 跨域训练 (D1 0.753 config → D2) | ✅ 完成 (2026-07-31, best 0.861@ep89, early stop@ep119) | 配置 ldmdet_rf_heun_adaln_stochot_eps5_d2.py; 种子 2016452323 (D1 0.753 checkpoint 元数据); 类别顺序修正后达 D2 SOTA 量级, 确认跨域失效根因为类别顺序 | <!-- 2026-07-30 新增, 2026-07-31 完成; workstation A5000; 详见 §2.3.2 -->
 | D2 Hard OT seed_42 | ✅ 完成 (best 0.860@ep89, early stop@ep119, patience=30) | 配置 chromo_24obj_hard_ot.py; D2 Hard OT 3-seed 补齐; workstation A5000 GPU1 | <!-- 2026-08-03 完成: best@ep89 val=0.860, ep119 val=0.859 触发早停 -->
 | D2 Hard OT seed_123 | ✅ 完成 (best 0.861@ep59, early stop@ep89, 2026-08-03 21:11) | 配置 chromo_24obj_hard_ot.py; D2 Hard OT 3-seed 补齐; workstation A5000 GPU1, 2026-08-02 启动; SwanLab run lvyjfwah | <!-- 2026-08-03 21:11 完成: best@ep59 val=0.861, ep89 触发早停 -->
-| D2 Hard OT seed_789 | 🔄 运行中 (ep20, 2026-08-03 21:11 启动, best 0.841@ep20, ETA ~12h) | 配置 chromo_24obj_hard_ot.py; D2 Hard OT 3-seed 补齐最后一种子; workstation A5000 GPU0; 参考 seed_42/123 best@ep89/ep59 | <!-- 2026-08-03 21:11 启动, 2026-08-04 00:32 更新: ep20 best 0.841 仍在上升 -->
+| D2 Hard OT seed_789 | 🔄 运行中 (ep80, 2026-08-03 21:11 启动, best 0.860@ep79, ETA ~5h) | 配置 chromo_24obj_hard_ot.py; D2 Hard OT 3-seed 补齐最后一种子; workstation A5000 GPU0; best 已追平 seed_42 (0.860) / seed_123 (0.861) | <!-- 2026-08-03 21:11 启动, 2026-08-04 10:17 更新: ep80 best 0.860@ep79 (ep20→79 从 0.841→0.860) -->
 
 > ✅ 所有多种子补充实验已完成。workstation 上的 checkpoint (+DPM-Solver++ seed_123/789, Stoch. Coupling ε=2) 待 SCP 到 ross (workstation 连接问题搁置)。
 > ✅ 2026-07-25 新增 3 个实验完成: M1 BF16 ws (BF16 误导确认), R3 v-prediction seed42 (单 seed 初步), S1 h6_s2 (S1.3 闭环)。详见 §6.6 C23-C25。
