@@ -138,6 +138,7 @@ class DiffusionDetHead(nn.Module):
         lvd_lambda: float = 0.1,
         lvd_eps: float = 1e-6,                 # 数值稳定常数
         lvd_t_threshold: float = 0.05,        # t 过小时跳过 (||x_t-x_0||→0 余弦不稳定)
+        lvd_space: str = 'raw_cxcywh',        # 计算空间 (方案 §3.2: 唯一支持 raw_cxcywh)
         lvd_form: str = 'sin2',                # R1 K3: 默认 sin² (梯度比 1-cos 强 2×)
     ):
         super().__init__()
@@ -408,6 +409,14 @@ class DiffusionDetHead(nn.Module):
         self.lvd_lambda = lvd_lambda
         self.lvd_eps = lvd_eps
         self.lvd_t_threshold = lvd_t_threshold
+        # lvd_space: LVD-RF 方向余弦计算空间 (方案 §3.2).
+        # 当前唯一支持 'raw_cxcywh' (与 x_t, x_0 同空间, 需将 xyxy 像素预测
+        # 转换至此空间). 非该值直接报错退出 (方案约束: 不做自动降级).
+        self.lvd_space = lvd_space
+        assert lvd_space == 'raw_cxcywh', (
+            f"lvd_space 当前仅支持 'raw_cxcywh' (方案 §3.2 唯一计算空间), "
+            f"got {lvd_space!r}"
+        )
         # lvd_form 运行时可被自适应切换 (sin2 → sqrt), 故存为可变属性
         self.lvd_form = lvd_form
         assert lvd_form in ('sin2', 'cos', 'sqrt'), (
@@ -841,15 +850,27 @@ class DiffusionDetHead(nn.Module):
         lvd_loss = lvd_per_elem.sum() / n_valid
 
         # 诊断: 训练时 cos_sim 分布 + 自适应切换逻辑 (R1 K3 修正)
+        # 诊断/切换仅在有效样本 (effective_mask = t_mask * valid_mask) 上统计,
+        # 与 loss 归一化保持一致:
+        #   - 无效框 cos_sim 被置 1.0 (loss 占位符, 非真实对齐度量)
+        #   - 小 t 样本 ||x_t-x_0||=t·||x_1-x_0||→0, cos_sim 为数值噪声
+        #   二者混入全量均值会虚高 cos_sim_mean, 训练早期无效框占比高时可
+        #   误触发 sin2→sqrt 切换 (审计问题 2+4).
         with torch.no_grad():
+            n_eff = effective_mask.sum().clamp(min=1.0)
+            cos_sim_mean = (cos_sim * effective_mask).sum() / n_eff
+            # cos_sim_min: 非有效样本填 1.0 (cos 上界), 不影响有效样本最小值
+            cos_sim_min = torch.where(
+                effective_mask.bool(), cos_sim, torch.ones_like(cos_sim)
+            ).min()
             probe.record_scalar('train/lvd_loss', lvd_loss.item())
-            probe.record_scalar('train/cos_sim_mean', cos_sim.mean().item())
-            probe.record_scalar('train/cos_sim_min', cos_sim.min().item())
+            probe.record_scalar('train/cos_sim_mean', cos_sim_mean.item())
+            probe.record_scalar('train/cos_sim_min', cos_sim_min.item())
             probe.record_scalar(
                 'train/lvd_valid_ratio', t_mask.mean().item()
             )
             # 梯度健康度: 若 cos_sim_mean > 0.99 持续 1000 iter, 触发切换
-            if cos_sim.mean().item() > 0.99:
+            if cos_sim_mean.item() > 0.99:
                 self._cos_sim_high_count += 1
                 if (
                     self._cos_sim_high_count > 1000
@@ -862,13 +883,51 @@ class DiffusionDetHead(nn.Module):
                     )
             else:
                 self._cos_sim_high_count = 0
-            # per-dim 方向偏差 (各维度对余弦的贡献)
+            # per-dim 方向偏差 (各维度对余弦的贡献, 仅有效样本)
             d_pred_normed = d_pred / norm_pred.unsqueeze(-1)
             d_gt_normed = d_gt / norm_gt.unsqueeze(-1)
+            per_dim_contrib = d_pred_normed * d_gt_normed  # [bs, N, 4]
+            per_dim_mean = (
+                (per_dim_contrib * effective_mask.unsqueeze(-1))
+                .sum(dim=(0, 1)) / n_eff
+            )
             for i, name in enumerate(['cx', 'cy', 'w', 'h']):
                 probe.record_scalar(
-                    f'train/lvd_dir_{name}',
-                    (d_pred_normed[..., i] * d_gt_normed[..., i]).mean().item()
+                    f'train/lvd_dir_{name}', per_dim_mean[i].item()
+                )
+            # LVD 损失对 cos_sim 的解析梯度量级 (监测 sqrt 切换后梯度放大,
+            # 审计问题 3: cos→1 时 sqrt 梯度 → 0.5/√ε = 500, ×λ → 50)
+            #   sin2:  d(1-cos²)/d(cos) = -2·cos        → |grad| = 2|cos|
+            #   cos:   d(1-cos)/d(cos)   = -1            → |grad| = 1
+            #   sqrt:  d(√((1-cos)∧ε))/d(cos):
+            #          1-cos > ε 时 = -0.5/√(1-cos); 1-cos ≤ ε 时 = 0 (clamp 死区)
+            uncos = 1.0 - cos_sim
+            if self.lvd_form == 'sin2':
+                grad_abs = 2.0 * cos_sim.abs()
+            elif self.lvd_form == 'cos':
+                grad_abs = torch.ones_like(cos_sim)
+            else:  # sqrt
+                in_bounds = (uncos > self.lvd_eps).float()
+                grad_abs = (
+                    0.5 / torch.sqrt(uncos.clamp(min=self.lvd_eps)) * in_bounds
+                )
+            grad_eff = grad_abs * effective_mask  # 非有效样本置 0
+            probe.record_scalar(
+                'train/lvd_grad_mean',
+                (grad_eff.sum() / n_eff * self.lvd_lambda).item(),
+            )
+            probe.record_scalar(
+                'train/lvd_grad_max',
+                (grad_eff.max() * self.lvd_lambda).item(),
+            )
+            # sqrt 死区占比: 有效样本中 1-cos ≤ ε (梯度归 0) 的比例
+            if self.lvd_form == 'sqrt':
+                deadzone_ratio = (
+                    ((uncos <= self.lvd_eps).float() * effective_mask)
+                    .sum() / n_eff
+                ).item()
+                probe.record_scalar(
+                    'train/lvd_grad_deadzone_ratio', deadzone_ratio
                 )
         return lvd_loss
 
