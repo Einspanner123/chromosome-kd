@@ -720,7 +720,7 @@ PCSE 的增益上限受限于:
 
 ### 8.1 CFM 失败原因复盘
 
-阅读 [方向H文档](方向H_FlowMatching检测.md) 可知, CFM (方向 H) 失败的核心原因:
+阅读 [方向H文档](../archived/FlowMatching检测.md) 可知, CFM (方向 H) 失败的核心原因:
 
 1. **改变训练目标**: CFM 要求模型预测速度 $v$ 而非 $x_0$, 需修改 loss 和 head 输出语义
 2. **权重过保守**: `velocity_loss_weight=0.1`, velocity loss 仅占总 loss < 3%, 不足以改变训练动态
@@ -800,7 +800,7 @@ PCSE 的增益上限受限于:
 ### 9.5 项目内相关方向
 - [方向K: 核型结构化生成](方向K_核型结构化生成.md) — 训练期注入核型约束 (GNN)
 - [方向O3: PKEC 概率核型熵冷却](方向O3_PKEC_概率核型熵冷却.md) — 推理期梯度引导
-- [方向H: Flow Matching 检测 (已证伪)](方向H_FlowMatching检测.md) — CFM 失败教训
+- [方向H: Flow Matching 检测 (已证伪)](../archived/FlowMatching检测.md) — CFM 失败教训
 
 ---
 

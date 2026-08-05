@@ -887,7 +887,7 @@ class TestBPCVF:
 
 ### 10.5 项目内文档
 
-- [方向 H: FlowMatching 检测](方向H_FlowMatching检测.md) — CFM 证伪记录
+- [方向 H: FlowMatching 检测](../archived/FlowMatching检测.md) — CFM 证伪记录
 - [方向 K: 核型结构化生成](方向K_核型结构化生成.md) — GNN 核型建模
 - [方向间关系与纠正说明](方向间关系与纠正说明.md) — 方向间依赖与冲突
 - [THEORY_FRAMEWORK.md](../theory/THEORY_FRAMEWORK.md) Appendix C — KCEC 理论框架

@@ -1132,8 +1132,8 @@ Phase 1 建议单独验证 MPI, 确认收益后再探索与 PCSE 的组合。
 ### 9.5 项目内相关方向
 - [方向 R: PCSE 配对一致性随机集成评分](方向R_PCSE_配对一致性随机集成评分.md) — 推理期多种子采样 + 核型评分选择
 - [方向 I: Consistency Model 检测](方向I_ConsistencyModel检测.md) — 单步生成, 消除多步累积误差
-- [方向 H: Flow Matching 检测 (已证伪)](方向H_FlowMatching检测.md) — CFM 失败教训
-- [方向 N: 端到端可微 Cascade (已证伪)](方向N_端到端可微Cascade.md) — 去 detach 失败教训
+- [方向 H: Flow Matching 检测 (已证伪)](../archived/FlowMatching检测.md) — CFM 失败教训
+- [方向 N: 端到端可微 Cascade (已证伪)](../archived/端到端可微Cascade.md) — 去 detach 失败教训
 - [方向 P: HCTS 层级粗到细时间步调度](方向P_HCTS_层级粗到细时间步调度.md) — 时间步调度优化
 
 ---

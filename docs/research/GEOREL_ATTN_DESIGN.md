@@ -46,8 +46,8 @@
 |---------|---------------------|
 | [FALSIFIED §六 Decoupled Head](../FALSIFIED_DIRECTIONS.md) | **正交** — Decoupled Head 解耦 cls/reg 路径, GeoRelAttn 增强 self_attn 内部, 不改 cls/reg 分支 |
 | [FALSIFIED §一 ScaleConditionedRF](../FALSIFIED_DIRECTIONS.md) | **正交** — SCRF 修改噪声调度, GeoRelAttn 修改注意力, 不动 RF 路径 |
-| [breakthrough_directions/方向C_形态感知分类](./breakthrough_directions/方向C_形态感知分类.md) | **互补** — 方向C 在 RoI 内部做形态注意力, GeoRelAttn 在提案间做几何注意力, 两者作用层次不同 |
-| [breakthrough_directions/方向B_解耦分类定位](./breakthrough_directions/方向B_解耦分类定位.md) | **正交** — 方向B 解耦分支, GeoRelAttn 增强共享路径上的注意力 |
+| [archived/形态感知分类](./archived/形态感知分类.md) | **互补** — 方向C 在 RoI 内部做形态注意力, GeoRelAttn 在提案间做几何注意力, 两者作用层次不同 |
+| [archived/解耦分类定位](./archived/解耦分类定位.md) | **正交** — 方向B 解耦分支, GeoRelAttn 增强共享路径上的注意力 |
 | [TODO §四 速度引导自适应 Renewal](../TODO_DIRECTIONS.md) | **正交** — VGAR 修改 box_renewal, GeoRelAttn 修改 self_attn, 可叠加 |
 | [TODO §一 级联头角色分化](../TODO_DIRECTIONS.md) | **互补** — 角色分化调整 deep_supervision 权重, GeoRelAttn 增强单头内部, 可叠加 |
 

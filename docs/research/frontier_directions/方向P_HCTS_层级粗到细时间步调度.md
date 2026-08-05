@@ -93,7 +93,7 @@ DDPM 中不同频率的 SNR 衰减速率不同（高频先丢失、后恢复）�
 
 $$H(Y) = \log_2 24 \approx 4.58 \text{ bits}$$
 
-分解为组 + 组内（见 [方向五文档](../breakthrough_directions/方向五_组条件化分层分类.md)）：
+分解为组 + 组内（见 [方向五文档](../archived/组条件化分层分类.md)）：
 
 $$H(Y) = H(G) + H(Y|G) \approx 3.00 + 1.74 = 4.74 \text{ bits}$$
 
@@ -503,7 +503,7 @@ HCTS 的设计保证了**向后兼容**：
 
 **风险描述**：组级分类头 `group_head` 与主分类头 `cls_head` 共享 `fc_feature`。高噪声时段，`group_head` 的梯度回传可能干扰 `cls_head` 的权重，导致低噪声时段的 24 类分类性能下降。
 
-这与方向五（E5.1）观察到的问题类似——辅助损失在后期过拟合，`loss_hier` 回升与 mAP 下降同步（见 [方向五实验记录](../breakthrough_directions/方向五_组条件化分层分类.md#74-现象分析)）。
+这与方向五（E5.1）观察到的问题类似——辅助损失在后期过拟合，`loss_hier` 回升与 mAP 下降同步（见 [方向五实验记录](../archived/组条件化分层分类.md#74-现象分析)）。
 
 **缓解方案**：
 1. **梯度分离**：`group_head` 的梯度不回传到共享特征（`fc_feature.detach()`），仅更新 `group_head` 自身权重。但这会削弱组级监督对共享特征的正面影响。

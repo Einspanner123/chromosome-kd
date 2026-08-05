@@ -1123,7 +1123,7 @@ $$\mathbb{E}_{\mathcal{D}}[\ell] \leq \frac{1}{n}\sum_{i=1}^n \ell(\hat{x}_0; x_
 - **[PUBLICATION_EVALUATION.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/PUBLICATION_EVALUATION.md)**: Prop D.1 梯度冲突 cos=-0.104, TFR 通过"共享最小值" (推论 2.4) 规避;
 - **[VCR_DESIGN.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/VCR_DESIGN.md)**: GLM-5.1 VCR 设计, TFR 的前置工作, TFR 在 VCR 基础上结构性消除 B3 评估问题;
 - **[VCR_REVIEW_R1.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/VCR_REVIEW_R1.md)**: GLM-5.2 对 VCR 的 B3 评估报告, TFR 的设计直接针对 B3 的 6 个问题;
-- **[SC-RF_Self-Conditioned_Rectified_Flow.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/SC-RF_Self-Conditioned_Rectified_Flow.md)**: SC-RF 改前向传播, TFR 改训练 loss, 互补不冲突;
+- **[SC-RF_Self-Conditioned_Rectified_Flow.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/archived/SC-RF_Self-Conditioned_Rectified_Flow.md)**: SC-RF 改前向传播, TFR 改训练 loss, 互补不冲突;
 - **[REFLOW_HEAD_DISTILL_IMPL_PLAN.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/REFLOW_HEAD_DISTILL_IMPL_PLAN.md)**: Head Distillation + ReFlow, TFR 可作为 ReFlow 之外的替代训练改进。
 
 ---

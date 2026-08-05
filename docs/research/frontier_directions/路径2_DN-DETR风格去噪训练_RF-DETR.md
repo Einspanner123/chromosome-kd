@@ -270,7 +270,7 @@ $$
 
 ### 4.1 与 CFM (方向 H, mAP=0.823) 的区别
 
-**CFM 失败原因** (见 [方向H_FlowMatching检测.md](方向H_FlowMatching检测.md)):
+**CFM 失败原因** (见 [方向H_FlowMatching检测.md](../archived/FlowMatching检测.md)):
 - 级联架构下 Head 1-5 输入 ≈ $x_0$ (因为前一个 head 已重建), 丢失 $\epsilon$ 信息
 - 速度损失 $L_v = \|v_{pred} - (\epsilon - x_0)\|^2$ 收敛到 $\text{Var}(\epsilon) = 4$ (因 snr_scale=2), 注入梯度噪声
 - 速度预测在级联架构下不可学
@@ -314,7 +314,7 @@ $$
 
 ### 4.5 与端到端可微 Cascade (方向 N, mAP=0.684) 的区别
 
-**端到端可微 Cascade 失败原因** (见 [方向N_端到端可微Cascade.md](方向N_端到端可微Cascade.md)):
+**端到端可微 Cascade 失败原因** (见 [端到端可微Cascade.md](../archived/端到端可微Cascade.md)):
 - 去 detach 后 6 stage 链式梯度导致训练严重不稳定, mAP 震荡 0.35~0.68
 - 级联结构对梯度截断有强依赖
 

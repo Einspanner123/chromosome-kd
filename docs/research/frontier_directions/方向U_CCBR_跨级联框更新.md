@@ -550,7 +550,7 @@ CCBR 是**纯推理期优化**, 改动集中在 `DiffusionSampler` 和 `predict`
 
 ### 4.1 方向 N (端到端可微 Cascade) 失败复盘
 
-阅读 [方向N文档](方向N_端到端可微Cascade.md) 可知, 方向 N 的核心改动是:
+阅读 [方向N文档](../archived/端到端可微Cascade.md) 可知, 方向 N 的核心改动是:
 
 ```python
 # 方向 N: 去掉 detach
@@ -1024,10 +1024,10 @@ CCBR:  时间步间 box_renewal (保留) + 级联间 box_renewal (新增, 用融
 - Gal & Ghahramani. "Dropout as a Bayesian Approximation." ICML, 2016. — MC Dropout, 随机性利用
 
 ### 9.5 项目内相关方向
-- [方向 N: 端到端可微 Cascade (已证伪)](方向N_端到端可微Cascade.md) — 去 detach 失败教训, CCBR 的核心对比
+- [方向 N: 端到端可微 Cascade (已证伪)](../archived/端到端可微Cascade.md) — 去 detach 失败教训, CCBR 的核心对比
 - [方向 R: PCSE 配对一致性随机集成评分](方向R_PCSE_配对一致性随机集成评分.md) — 推理期优化, 可与 CCBR 组合
 - [方向 J: 确定性 Cascade 精化](方向J_确定性Cascade精化.md) — CCBR 的长期演进方向
-- [方向 H: Flow Matching 检测 (已证伪)](方向H_FlowMatching检测.md) — CFM 失败教训
+- [方向 H: Flow Matching 检测 (已证伪)](../archived/FlowMatching检测.md) — CFM 失败教训
 - [方向 S: BPCVF 框对一致性速度流](方向S_BPCVF_框对一致性速度流.md) — 速度场结构化, 与 CCBR 正交
 
 ---

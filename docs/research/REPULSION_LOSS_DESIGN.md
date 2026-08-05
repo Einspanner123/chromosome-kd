@@ -18,7 +18,7 @@
 
 ### 1.1 实测: 97.8% 图含框重叠
 
-来自 [breakthrough_directions/方向C_形态感知分类.md §1.2](./breakthrough_directions/方向C_形态感知分类.md) 的数据集统计:
+来自 [breakthrough_directions/方向C_形态感知分类.md §1.2](./archived/形态感知分类.md) 的数据集统计:
 
 | 指标 | train split | 含义 |
 |------|------------|------|
@@ -67,7 +67,7 @@ $$\mathcal{L}_{giou} = 1 - \text{IoU} + \frac{|B_p \cup B_{gt} - B_p \cap B_{gt}
 | [FALSIFIED §一 ScaleConditionedRF](../FALSIFIED_DIRECTIONS.md) | **正交** — SCRF 改噪声调度, Repulsion 改损失 |
 | [FALSIFIED §十 scale_aware_loss 等](../FALSIFIED_DIRECTIONS.md) | **本质不同** — 见 §1.4 |
 | [FALSIFIED §六 Decoupled Head](../FALSIFIED_DIRECTIONS.md) | **正交** — Decoupled Head 解耦 cls/reg 路径, Repulsion 是新增损失项 |
-| [breakthrough_directions/方向C_形态感知分类](./breakthrough_directions/方向C_形态感知分类.md) | **互补** — 方向C 改 RoI 内部特征, Repulsion 改损失, 可叠加 |
+| [archived/形态感知分类](./archived/形态感知分类.md) | **互补** — 方向C 改 RoI 内部特征, Repulsion 改损失, 可叠加 |
 | [GeoRelAttn (方向 2)](./GEOREL_ATTN_DESIGN.md) | **互补** — GeoRelAttn 改 self_attn, Repulsion 改损失, 可叠加 |
 | [KaryoSetDiff (方向 1)](./KARYO_SETDIFF_DESIGN.md) | **互补** — KaryoSetDiff 改 self_attn, Repulsion 改损失, 可叠加 |
 
@@ -586,5 +586,5 @@ Repulsion Loss 对应论文 §4.4 "损失改进" 的一个子方向, 叙事要�
 - **Repulsion Loss**: Wang et al., "Repulsion Loss: Detecting Pedestrians in a Crowd", CVPR 2018, [arxiv 1803.06657](https://arxiv.org/abs/1803.06657)
 - **ATSS**: Zhang et al., "Bridging the Gap Between Anchor-based and Anchor-free Detection via Adaptive Training Sample Selection", CVPR 2020, [arxiv 1912.04260](https://arxiv.org/abs/1912.04260)
 - **GFL**: Li et al., "Generalized Focal Loss: Learning Qualified and Distributed Bounding Boxes for Dense Object Detection", NeurIPS 2020, [arxiv 2006.04388](https://arxiv.org/abs/2006.04388)
-- **数据集重叠统计**: [breakthrough_directions/方向C_形态感知分类.md §1.2](./breakthrough_directions/方向C_形态感知分类.md)
+- **数据集重叠统计**: [breakthrough_directions/方向C_形态感知分类.md §1.2](./archived/形态感知分类.md)
 - **已证伪损失方向**: [FALSIFIED_DIRECTIONS.md §十](../FALSIFIED_DIRECTIONS.md)

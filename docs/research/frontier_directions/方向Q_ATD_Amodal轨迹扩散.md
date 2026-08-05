@@ -808,7 +808,7 @@ $$\Delta mAP_{total} \approx +0.015 \sim +0.025$$
 
 ### 8.2 与 ScaleConditionedRF (mAP=0.741) 的对比
 
-**ScaleConditionedRF 失败原因** (方向四, [方向四_流匹配的非线性轨迹.md](../breakthrough_directions/方向四_流匹配的非线性轨迹.md)):
+**ScaleConditionedRF 失败原因** (方向四, [方向四_流匹配的非线性轨迹.md](../archived/流匹配的非线性轨迹.md)):
 > 尺度条件化噪声调度将直线路径改为非线性路径, 速度从常数变为 t 的函数, 导致:
 > 1. 采样需数值积分, 累积误差增大
 > 2. 4维检测空间 (d=4) 中, 尺度条件化的信息增益被 OT Diversity Collapse 抵消

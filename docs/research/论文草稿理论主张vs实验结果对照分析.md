@@ -410,7 +410,7 @@
 | 论文草稿 (英文) | [draft.md](../paper/draft.md) |
 | SOTA 对比报告 | [对比分析_两个相近SOTA_OT耦合实现.md](对比分析_两个相近SOTA_OT耦合实现.md) |
 | SOTA 分析文档 | [PAPER_RESULTS.md](../PAPER_RESULTS.md) |
-| 方向四研究文档 | [方向四_流匹配的非线性轨迹.md](breakthrough_directions/方向四_流匹配的非线性轨迹.md) |
+| 方向四研究文档 | [流匹配的非线性轨迹.md](./archived/流匹配的非线性轨迹.md) |
 | SOTA metrics | [metrics.json](../../ldmdet-experiment/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/metrics.json) |
 | E4.3 eps2 训练日志 | [train.log](../../work_dirs/nonlinear_trajectory_e43_eps2/train.log) |
 | Scale-Conditioned RF | [scale_conditioned_rf.py](../../ldmdet/diffusion/scale_conditioned_rf.py) |

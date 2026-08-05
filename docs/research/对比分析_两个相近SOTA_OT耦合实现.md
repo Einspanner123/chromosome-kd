@@ -386,7 +386,7 @@ def compute_t_eff(self, t, scales):
 - s = s_max (大目标): κ=1, t_eff = t, 退化为标准线性 RF
 - s → 0 (小目标): κ→1.5, t_eff = t^(2/3), 噪声衰减更慢
 
-**消融结论** (来自 [方向四文档 §9](breakthrough_directions/方向四_流匹配的非线性轨迹.md)):
+**消融结论** (来自 [方向四文档 §9](./archived/流匹配的非线性轨迹.md)):
 - E4.1 (仅尺度条件化, 无 OT Flow): mAP=0.743, **比 baseline 低 0.010**
 - E4.2 (仅 OT Flow, 无尺度条件化): mAP=0.751
 - E4.3 (联合): mAP=0.752
@@ -625,7 +625,7 @@ $$
 | E4.3 eps2 配置 | [nonlinear_trajectory_e43_eps2.py](../../experiments/configs/ldmdet/directions/nonlinear_trajectory/nonlinear_trajectory_e43_eps2.py) | L13-L21 |
 | SOTA 训练曲线 | [metrics.json](../../ldmdet-experiment/sota/phase5_stochastic_ot/reproduce_0751_stochot_eps5_v2/metrics.json) | — |
 | E4.3 eps2 训练日志 | [train.log](../../work_dirs/nonlinear_trajectory_e43_eps2/train.log) | — |
-| 方向四研究文档 | [方向四_流匹配的非线性轨迹.md](breakthrough_directions/方向四_流匹配的非线性轨迹.md) | — |
+| 方向四研究文档 | [方向四_流匹配的非线性轨迹.md](./archived/流匹配的非线性轨迹.md) | — |
 
 ## 附录 B: 完整 ε 扫描数据
 

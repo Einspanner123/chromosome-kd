@@ -9,7 +9,7 @@
 >
 > **⚠️ 重要声明**: 本方向经历了从 **KaryoLatent (潜在向量压缩)** 到 **KaryoSetDiff (保留 per-proposal 扩散)** 的降级。原 KaryoLatent 设计存在 5 处致命问题 (见 §2), 已废弃。本文档记录最终 KaryoSetDiff 设计。
 >
-> **⚠️ 与已失败方向区分**: 本方向**不是** [breakthrough_directions/方向二_计数先验约束的扩散生成](./breakthrough_directions/方向二_计数先验约束的扩散生成.md) 的复活。方向二的核心是"计数约束推理 (路径 B) + 计数分支辅助监督 (路径 C)", 在 Dataset 1 上已失败 (mAP=0.726 vs 0.753)。KaryoSetDiff 的核心是 **ISAB 集合级上下文建模**, PMA count head 仅是 ISAB 的副产品辅助监督, 两者方法学本质不同 (见 §1.4)。
+> **⚠️ 与已失败方向区分**: 本方向**不是** [archived/计数先验约束的扩散生成](./archived/计数先验约束的扩散生成.md) 的复活。方向二的核心是"计数约束推理 (路径 B) + 计数分支辅助监督 (路径 C)", 在 Dataset 1 上已失败 (mAP=0.726 vs 0.753)。KaryoSetDiff 的核心是 **ISAB 集合级上下文建模**, PMA count head 仅是 ISAB 的副产品辅助监督, 两者方法学本质不同 (见 §1.4)。
 
 ---
 
@@ -545,4 +545,4 @@ class TestIntegrationWithCascadeHead:
 - **LayoutFlow**: "LayoutFlow: Rectified Flow for Layout Generation", ECCV 2024, [arxiv 2407.18041](https://arxiv.org/abs/2407.18041)
 - **LDM**: Rombach et al., "High-Resolution Image Synthesis with Latent Diffusion Models", CVPR 2022, [arxiv 2112.10752](https://arxiv.org/abs/2112.10752)
 - **结构诊断数据**: [STRUCTURAL_IMPROVEMENT_ANALYSIS.md §零·D5](./STRUCTURAL_IMPROVEMENT_ANALYSIS.md)
-- **已失败方向二**: [breakthrough_directions/方向二_计数先验约束的扩散生成](./breakthrough_directions/方向二_计数先验约束的扩散生成.md)
+- **已失败方向二**: [archived/计数先验约束的扩散生成](./archived/计数先验约束的扩散生成.md)

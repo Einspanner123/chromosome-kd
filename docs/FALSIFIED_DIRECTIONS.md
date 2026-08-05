@@ -1267,7 +1267,7 @@ MDC-RF 提出: 用连续介质力学物质导数 $D\hat{x}_0/Dt = \partial \hat{
   -- 自条件化机制实现正确 (50% 激活、零初始化过渡、校正幅度增长均正常)
   -- 数据源: ross `/media/ross/8TB/linkst/chromo/chromosome-kd/work_dirs/sc_rf_24obj/`
   -- SwanLab: `ldmdet-breakthrough`
-  -- 详细设计与复盘: [SC-RF_Self-Conditioned_Rectified_Flow.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/SC-RF_Self-Conditioned_Rectified_Flow.md)
+  -- 详细设计与复盘: [SC-RF_Self-Conditioned_Rectified_Flow.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/archived/SC-RF_Self-Conditioned_Rectified_Flow.md)
 
 ### 失败原因分析
 
@@ -1296,7 +1296,7 @@ MDC-RF 提出: 用连续介质力学物质导数 $D\hat{x}_0/Dt = \partial \hat{
   -- best mAP=0.851@ep1 (即 +DPM-Solver++ 初始化点, 训练零增益)
   -- v4 最终 mAP 从 0.851 灾难性崩塌至 0.252@ep28, Early Stop @ ep31
   -- 归档时间: 2026-07-11
-  -- 详细设计与复盘: [PD-RF_Progressive_Distillation.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/PD-RF_Progressive_Distillation.md)
+  -- 详细设计与复盘: [PD-RF_Progressive_Distillation.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/archived/PD-RF_Progressive_Distillation.md)
 
 ### 失败原因分析
 

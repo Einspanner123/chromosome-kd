@@ -1028,7 +1028,7 @@ $$\|g_{\text{vcr}}\| \leq 2 \left\| \frac{\varepsilon(t)}{t} - \frac{\varepsilon
 - **[FALSIFIED_DIRECTIONS.md §十四](file:///home/linkst/workspace/projects/chromosome-kd/docs/FALSIFIED_DIRECTIONS.md)**: ReFlow Standard MSE 配置Bug+方法风险, VCR 不引入新 target, 不触发 cls/box 不一致;
 - **[FALSIFIED_DIRECTIONS.md §五](file:///home/linkst/workspace/projects/chromosome-kd/docs/FALSIFIED_DIRECTIONS.md)**: 推理时优化方向证伪, VCR 是训练时改动, 不触发"早期 x0_pred 不稳定"失败模式;
 - **[PUBLICATION_EVALUATION.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/PUBLICATION_EVALUATION.md)**: Prop D.1 梯度冲突 cos=-0.104, VCR 通过"共享最小值子空间"规避;
-- **[SC-RF_Self-Conditioned_Rectified_Flow.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/SC-RF_Self-Conditioned_Rectified_Flow.md)**: SC-RF 改前向传播, VCR 改训练 loss, 互补不冲突;
+- **[SC-RF_Self-Conditioned_Rectified_Flow.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/archived/SC-RF_Self-Conditioned_Rectified_Flow.md)**: SC-RF 改前向传播, VCR 改训练 loss, 互补不冲突;
 - **[REFLOW_HEAD_DISTILL_IMPL_PLAN.md](file:///home/linkst/workspace/projects/chromosome-kd/docs/research/proposals/REFLOW_HEAD_DISTILL_IMPL_PLAN.md)**: Head Distillation + ReFlow, VCR 可作为 ReFlow 之外的替代训练改进。
 
 ---
