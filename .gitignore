@@ -142,10 +142,12 @@ experiments/analysis/*_run*.log
 
 # Nested git repos / external experiment trackers
 ldmdet-experiments/
+ldmdet-experiment/
 
 # External figure generation tools (nested git repos / local tools)
 figure-generator/
 skills/CCF-Figure/
+skills/GPT-Image2-Skill/.git/
 docs/paper/latex/figures/PlotNeuralNet/
 
 # Credentials
