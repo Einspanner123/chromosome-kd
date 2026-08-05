@@ -40,6 +40,7 @@ model = dict(
         lvd_lambda=0.1,             # 默认正则化系数 (经验初值, 需消融)
         lvd_eps=1e-6,               # 数值稳定常数
         lvd_t_threshold=0.05,      # t < 0.05 跳过 (||x_t-x_0||→0 余弦不稳定)
+        lvd_space='raw_cxcywh',    # 方案 §3.2: 唯一计算空间 (xyxy 像素 → raw cxcywh)
         lvd_form='sin2',           # R1 K3: 默认 sin² (梯度比 1-cos 强 2×)
     ),
 )
