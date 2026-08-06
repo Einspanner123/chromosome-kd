@@ -187,7 +187,12 @@ class AndersonMixing(nn.Module):
             m_k, device=gram.device, dtype=gram.dtype
         )
         rhs = Delta_F @ f_flat.unsqueeze(-1)  # [m_k, 1]
-        gamma = torch.linalg.solve(gram, rhs)  # [m_k, 1]
+
+        # Mixed precision: torch.linalg.solve 的 CUDA LU 分解不支持 BFloat16,
+        # 强制 fp32 求解 (2×2 矩阵开销可忽略), 结果转回原始 dtype 保持梯度链
+        with torch.amp.autocast('cuda', enabled=False):
+            gamma = torch.linalg.solve(gram.float(), rhs.float())  # [m_k, 1]
+        gamma = gamma.to(Delta_F.dtype)
 
         # γ 范数裁剪 (防止爆炸, Henderson-Varadhan 2019 风险缓解)
         # 缩放因子用 .detach() 避免反传通过裁剪操作
