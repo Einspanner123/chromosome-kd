@@ -94,11 +94,6 @@ class DiffusionDetHead(nn.Module):
         # 启用后, renewal 阈值随时间步递减: 早期高阈值, 后期低阈值
         adaptive_renewal_threshold: bool = False,
         adaptive_renewal_scale: float = 0.9,
-        # 方向 C: Step-aware embedding (DPM-Solver++ step 编号感知)
-        # 让 cascade head 知道当前在 solver 的第几步 (0..num_solver_steps-1)
-        # step_proj 零初始化, 确保加载预训练权重时行为不变 (step_emb≡0)
-        use_step_aware: bool = False,
-        num_solver_steps: int = 4,
         # 方向 D: 自适应阶次 DPM-Solver++ (推理时改动, 无需重训练)
         # 仅当 solver_type='dpm_solver_pp_adaptive' 时生效
         adaptive_solver_mode: str = 'static',
@@ -118,16 +113,6 @@ class DiffusionDetHead(nn.Module):
         # ReFlow per-dim 拉直维度选择 (标记用, 当前 criterion 仅实现 'all';
         # 'cxcy' per-dim 消融为可选未来扩展, 见方案 §1.4)
         reflow_dims: str = 'all',
-        # AAC: Anderson-Accelerated Cascade (中等激进方向)
-        # 详见 docs/research/proposals/AAC_DESIGN.md
-        # 将 6 级 cascade head 形式化为不动点迭代, 用有限内存 Anderson 加速 (m=2)
-        # 加速横向 (固定 t) 收敛, 与 DPM-Solver++ (纵向) 正交互补
-        use_aac: bool = False,
-        aac_mem_depth: int = 2,
-        aac_beta: float = 1.0,
-        aac_lambda: float = 1e-6,
-        aac_stop_grad_history: bool = True,
-        aac_gamma_norm_clip: float = 10.0,
         # LVD-RF: Lyapunov Velocity Direction Regularization (保守方向)
         # 详见 docs/research/proposals/FEASIBLE_LVD_RF.md
         # 在训练损失中增加 Lyapunov 方向余弦正则项 (默认 sin² 形式),
@@ -298,44 +283,6 @@ class DiffusionDetHead(nn.Module):
             )
 
         # ============================================================
-        # 方向 C: Step-aware embedding (DPM-Solver++ step 编号感知)
-        # ============================================================
-        # 让 cascade head 知道当前在 DPM-Solver++ 的第几步.
-        # 设计:
-        #   - step_idx (int ∈ [0, num_solver_steps-1]) → SinusoidalPositionEmbeddings
-        #   - step_mlp: 4 层 MLP (与 time_mlp 同结构), 输出 feat_channels*4
-        #   - step_proj: Linear(feat_channels*4, feat_channels*4), 零初始化
-        #   - time_emb_final = time_emb + step_proj(step_mlp(step_idx))
-        #
-        # 零初始化保证:
-        #   - 加载预训练权重 (无 step_mlp/step_proj 参数) 时, step_proj.weight=0, bias=0
-        #     → step_emb≡0 → time_emb_final = time_emb → 与未启用 step-aware 行为完全一致
-        #   - 训练初期梯度通过 step_proj 流回 step_mlp, 逐步学到 step-conditional 行为
-        #
-        # 训练时: loss() 随机采样 step_idx (与 t 独立), 让模型见到所有 step 模式
-        # 推理时: predict() 在每个 solver step 前 set_step_idx(step_idx)
-        self.use_step_aware = use_step_aware
-        self.num_solver_steps = num_solver_steps
-        if self.use_step_aware:
-            self.step_mlp = nn.Sequential(
-                SinusoidalPositionEmbeddings(feat_channels),
-                nn.Linear(feat_channels, feat_channels * 4),
-                nn.SiLU(),
-                nn.Linear(feat_channels * 4, feat_channels * 4),
-            )
-            self.step_proj = nn.Linear(
-                feat_channels * 4, feat_channels * 4
-            )
-            # 零初始化 step_proj: 确保 step_emb≡0 at init, 不破坏预训练
-            nn.init.zeros_(self.step_proj.weight)
-            nn.init.zeros_(self.step_proj.bias)
-        # 当前 step_idx 状态 (训练时 loss() 随机采样, 推理时 predict() 按 solver step 设置)
-        # None 表示未设置 (forward 时回退到 zeros_like(t), 即 step_idx=0)
-        # 注意: 不用 buffer, 因为训练时是 [bs] 张量, 推理时是 [bs] 张量, 形状不固定
-        # 调用方 (loss/predict) 负责在 forward 前设置, 避免跨 batch 残留
-        self._current_step_tensor: Optional[torch.Tensor] = None
-
-        # ============================================================
         # Head Distillation v2: 少 Head (H=3) 蒸馏多 Head (H=6)
         # ============================================================
         # Teacher (H=6, A4 冻结) 监督 Student (H=3) 的 fc_feature
@@ -370,33 +317,6 @@ class DiffusionDetHead(nn.Module):
             assert self.reflow_coupling_path is not None, (
                 "use_reflow_coupling=True 时必须指定 reflow_coupling_path "
                 "(指向 generate_reflow_couplings.py 生成的 coupling 文件)"
-            )
-
-        # ============================================================
-        # AAC: Anderson-Accelerated Cascade
-        # ============================================================
-        # 将 6 级 cascade head 的顺序更新 (Picard / Anderson m=0)
-        # 替换为 Anderson 加速 (m=2), 利用历史残差加速横向收敛。
-        # 仅对 box 做混合 (cls_logits 不构成不动点), 末级 head 不混合。
-        # 历史在每个 forward() 开始时 reset (不跨 solver step 累积)。
-        # 详见 docs/research/proposals/AAC_DESIGN.md
-        self.use_aac = use_aac
-        if self.use_aac:
-            # AAC 与 CCBR 使用不同的前向路径 (_forward_at_t vs _forward_at_t_ccbr)
-            # 同时启用会导致 AAC 在 CCBR 路径下不生效, 这里告警而非禁止
-            if self.use_ccbr:
-                logger.warning(
-                    'use_aac=True 且 use_ccbr=True: CCBR 路径 (_forward_at_t_ccbr) '
-                    '未集成 AAC, AAC 仅在标准 forward/predict 路径生效。'
-                    '建议仅启用其一。'
-                )
-            from ldmdet.core.anderson_mixing import AndersonMixing
-            self.aac_mixer = AndersonMixing(
-                mem_depth=aac_mem_depth,
-                damping_beta=aac_beta,
-                reg_lambda=aac_lambda,
-                stop_grad_history=aac_stop_grad_history,
-                gamma_norm_clip=aac_gamma_norm_clip,
             )
 
         # ============================================================
@@ -538,28 +458,6 @@ class DiffusionDetHead(nn.Module):
             probe.record_tensor_stats('cascade/time_emb', time_emb)
         else:
             probe.record_inference_tensor_stats('cascade/time_emb', time_emb)
-        # 方向 C: 加入 step-aware embedding (零初始化时不影响)
-        # _current_step_tensor 由 loss()/predict() 在 forward 前设置;
-        # None 时回退到 zeros (step_idx=0), 保证未启用场景行为不变
-        if self.use_step_aware:
-            if self._current_step_tensor is None:
-                step = torch.zeros_like(t)
-            else:
-                step = self._current_step_tensor
-                # 形状对齐: 标量或 [1] 广播到 [bs]
-                if step.shape[0] != t.shape[0]:
-                    step = step.expand(t.shape[0])
-            step_emb = self.step_proj(self.step_mlp(step))
-            # 探针: step_emb 激活统计 (仅 use_step_aware 时有意义)
-            if self.training:
-                probe.record_tensor_stats('cascade/step_emb', step_emb)
-            else:
-                probe.record_inference_tensor_stats('cascade/step_emb', step_emb)
-            time_emb = time_emb + step_emb
-        # AAC: 每个 forward() 调用 (= 一个 solver step 内的 cascade) 开始时重置历史
-        # AAC 历史不跨 solver step 累积, 与 DPM-Solver++ 的 x0_history 独立
-        if self.use_aac:
-            self.aac_mixer.reset()
         inter_cls_logits = []
         inter_pred_bboxes = []
         inter_curr_proposals = []
@@ -598,23 +496,12 @@ class DiffusionDetHead(nn.Module):
                 probe.record_inference_tensor_stats(f'cascade/head{i}/cls_logits', cls_logits)
                 probe.record_inference_tensor_stats(f'cascade/head{i}/pred_bboxes', pred_bboxes)
 
-            # AAC: Anderson 加速 — 用历史残差混合, 加速下一步输入
-            # 仅对 box 做混合 (cls_logits 不构成不动点, 不混合)
-            # 末级 head (i == num_heads-1) 不混合: 输出直接作为 cascade 结果
-            if self.use_aac and i < len(self.head_series) - 1:
-                curr_bboxes = self.aac_mixer(
-                    x_curr=curr_bboxes,   # x_k (当前 head 的输入)
-                    g_x=pred_bboxes,      # G_k(x_k) (当前 head 的输出)
-                )
-                if self.cascade_detach:
-                    curr_bboxes = curr_bboxes.detach()
-            else:
-                # 末级 head 或未启用 AAC: 保持原逻辑
-                curr_bboxes = (
-                    pred_bboxes.detach()
-                    if self.cascade_detach
-                    else pred_bboxes
-                )
+            # 级联: 将当前 head 输出作为下一 head 的输入
+            curr_bboxes = (
+                pred_bboxes.detach()
+                if self.cascade_detach
+                else pred_bboxes
+            )
             prev_bboxes = pred_bboxes
             prev_logits = cls_logits
 
@@ -668,16 +555,6 @@ class DiffusionDetHead(nn.Module):
 
         t_input = t if self.diffusion_type == 'ddpm' else t * self.timesteps
 
-        # 方向 C: 训练时随机采样 step_idx (与 t 独立), 让模型学到 step-conditional 行为
-        # 推理时 predict() 会按实际 solver step 设置, 训练时随机覆盖所有可能
-        if self.use_step_aware:
-            self._current_step_tensor = torch.randint(
-                0, self.num_solver_steps, (bs,), device=device,
-                dtype=torch.float32,
-            )
-        else:
-            self._current_step_tensor = None
-
         # 模型前向：若启用 AMP，在 autocast 下执行（线性层/attention 用半精度加速）
         if self.amp_dtype is not None:
             with torch.cuda.amp.autocast(dtype=self.amp_dtype):
@@ -691,9 +568,6 @@ class DiffusionDetHead(nn.Module):
             all_cls_logits, all_pred_bboxes, all_curr_proposals = self(
                 features, curr_bboxes, t_input
             )
-
-        # 方向 C: forward 后立即清空, 避免跨 batch 残留 (val/test 走 predict 路径)
-        self._current_step_tensor = None
 
         norm_pred_bboxes = self._normalize_pred_bboxes(
             all_pred_bboxes, img_metas
@@ -973,23 +847,6 @@ class DiffusionDetHead(nn.Module):
         curr_bboxes = self._sampler.raw_to_xyxy(x_noisy_batch, img_metas)
         t_input = t if self.diffusion_type == 'ddpm' else t * self.timesteps
 
-        # 方向 C: Student step-aware — 共享 step_idx 给 Teacher
-        # (若 step_idx 不一致, Student/Teacher 的 step_emb 不同, 破坏蒸馏对齐)
-        if self.use_step_aware:
-            shared_step = torch.randint(
-                0, self.num_solver_steps, (bs,), device=device,
-                dtype=torch.float32,
-            )
-            self._current_step_tensor = shared_step
-            teacher = self._teacher
-            if hasattr(teacher, '_current_step_tensor'):
-                teacher._current_step_tensor = shared_step
-        else:
-            self._current_step_tensor = None
-            teacher = self._teacher
-            if hasattr(teacher, '_current_step_tensor'):
-                teacher._current_step_tensor = None
-
         # Student forward (收集 fc_features)
         if self.amp_dtype is not None:
             with torch.cuda.amp.autocast(dtype=self.amp_dtype):
@@ -1003,7 +860,6 @@ class DiffusionDetHead(nn.Module):
             s_cls, s_bbox, s_fc_feats = self(
                 features, curr_bboxes, t_input
             )
-        self._current_step_tensor = None
 
         # Teacher forward (no_grad, 收集 fc_features)
         # AMP: Teacher forward 也用半精度, 与 Student 保持一致
@@ -1153,13 +1009,6 @@ class DiffusionDetHead(nn.Module):
         _renewal_mask: Optional[torch.Tensor] = None  # [bs, N] bool
 
         for step_idx, (t_curr, t_next) in enumerate(time_pairs):
-            # 方向 C: 推理时按实际 solver step 设置 step_idx
-            # _forward_at_t 内部调用 self.forward, 会读取 _current_step_tensor
-            if self.use_step_aware:
-                self._current_step_tensor = torch.full(
-                    (bs,), float(step_idx), device=device,
-                    dtype=torch.float32,
-                )
             cls_logits, pred_bboxes, x0_raw = self._forward_at_t(
                 features, x_raw, t_curr, img_metas
             )
@@ -1345,9 +1194,6 @@ class DiffusionDetHead(nn.Module):
             probe.record_inference_scalar(
                 f'inference/applied_3rd/step{i}', float(applied)
             )
-
-        # 方向 C: 清理 step_idx 状态, 避免跨调用残留
-        self._current_step_tensor = None
 
         # 探针: 推理结束, flush 推理缓冲区到 SwanLab
         probe.on_inference_end()
@@ -1550,17 +1396,6 @@ class DiffusionDetHead(nn.Module):
         curr_bboxes = self._sampler.raw_to_xyxy(x_raw, img_metas)
         t_input = torch.full((bs,), t * self.timesteps, device=device)
         time_emb = self.time_mlp(t_input)
-        # 方向 C: CCBR 路径也需要注入 step_emb (与 forward 路径一致)
-        # _current_step_tensor 由 predict/_predict_ccbr 在外层循环设置
-        if self.use_step_aware:
-            if self._current_step_tensor is None:
-                step = torch.zeros_like(t_input)
-            else:
-                step = self._current_step_tensor
-                if step.shape[0] != t_input.shape[0]:
-                    step = step.expand(t_input.shape[0])
-            step_emb = self.step_proj(self.step_mlp(step))
-            time_emb = time_emb + step_emb
 
         inter_cls_logits = []
         curr_proposals = None
@@ -1667,13 +1502,6 @@ class DiffusionDetHead(nn.Module):
         _renewal_mask: Optional[torch.Tensor] = None  # [bs, N] bool
 
         for step_idx, (t_curr, t_next) in enumerate(time_pairs):
-            # 方向 C: 推理时按实际 solver step 设置 step_idx
-            # _forward_at_t 内部调用 self.forward, 会读取 _current_step_tensor
-            if self.use_step_aware:
-                self._current_step_tensor = torch.full(
-                    (bs,), float(step_idx), device=device,
-                    dtype=torch.float32,
-                )
             cls_logits, pred_bboxes, x0_raw = self._forward_at_t(
                 features, x_raw, t_curr, img_metas
             )
@@ -1720,9 +1548,6 @@ class DiffusionDetHead(nn.Module):
         results = self._sampler.post_process(
             ensemble_results, img_metas, rescale
         )
-
-        # 方向 C: 清理 step_idx 状态 (避免跨调用残留)
-        self._current_step_tensor = None
 
         return results[0]
 
@@ -1785,9 +1610,6 @@ class DiffusionDetHead(nn.Module):
         except Exception as e:
             logger.warning(f'[SwanLab] PCSE metrics log failed: {e}')
 
-        # 方向 C: 清理 step_idx 状态 (PCSE 提前 return, 跳过 predict 末尾清理)
-        self._current_step_tensor = None
-
         return [best_hyp]
 
     # ================================================================
@@ -1829,12 +1651,6 @@ class DiffusionDetHead(nn.Module):
         _renewal_mask: Optional[torch.Tensor] = None  # [bs, N] bool
 
         for step_idx, (t_curr, t_next) in enumerate(time_pairs):
-            # 方向 C: 推理时按实际 solver step 设置 step_idx (CCBR 路径)
-            if self.use_step_aware:
-                self._current_step_tensor = torch.full(
-                    (bs,), float(step_idx), device=device,
-                    dtype=torch.float32,
-                )
             # CCBR 前向 (带级联间 renewal)
             cls_logits, pred_bboxes, x0_raw, _ = self._forward_at_t_ccbr(
                 features, x_raw, t_curr, img_metas, prev_head6_scores
@@ -1890,9 +1706,6 @@ class DiffusionDetHead(nn.Module):
         results = self._sampler.post_process(
             ensemble_results, img_metas, rescale
         )
-
-        # 方向 C: 清理 step_idx 状态 (CCBR 提前 return, 跳过 predict 末尾清理)
-        self._current_step_tensor = None
 
         if return_trajectory:
             return results, trajectory
