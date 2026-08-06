@@ -43,7 +43,6 @@ class _MockBBoxHead(nn.Module):
     def __init__(self):
         super().__init__()
         self.time_mlp = nn.Sequential(nn.Linear(8, 16), nn.ReLU(), nn.Linear(16, 8))
-        self.step_mlp = nn.Sequential(nn.Linear(8, 8))
         self.head_series = nn.ModuleList([
             nn.Linear(8, 8) for _ in range(3)
         ])
@@ -52,7 +51,6 @@ class _MockBBoxHead(nn.Module):
         for h in self.head_series:
             x = h(x)
         x = self.time_mlp(x)
-        x = self.step_mlp(x)
         return x
 
 
@@ -525,8 +523,8 @@ class TestGradHooks:
         probe.enable()
         model = _MockModel()
         probe.register_grad_hooks(model)
-        # 应注册: backbone + neck + time_mlp + step_mlp + 3 cascade heads = 7
-        assert len(probe._grad_hooks) == 7
+        # 应注册: backbone + neck + time_mlp + 3 cascade heads = 6
+        assert len(probe._grad_hooks) == 6
 
     def test_register_without_bbox_head(self):
         """缺少 bbox_head 的模型应只注册 backbone/neck."""

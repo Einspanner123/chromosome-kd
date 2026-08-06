@@ -7,6 +7,5 @@ from ldmdet.criterion.losses import (  # noqa: F401
     FocalLoss,
     GIoULoss,
     L1Loss,
-    SeesawLoss,
 )
 from ldmdet.criterion.matcher import DiffusionDetMatcher  # noqa: F401

@@ -37,7 +37,7 @@ _base_ = ['./a4_dpm_pp_24obj.py']
 model = dict(
     bbox_head=dict(
         use_lvd=True,
-        lvd_lambda=1.0,             # R2 调参: λ=0.1 时 cos_sim 停滞 0.70, 增大 10× 力度重试
+        lvd_lambda=3.0,             # R3 调参: λ=1.0 时 cos_sim 升至 0.82 η_str 降 30%, 再增 3× 力度冲 0.90
         lvd_eps=1e-6,               # 数值稳定常数
         lvd_t_threshold=0.05,      # t < 0.05 跳过 (||x_t-x_0||→0 余弦不稳定)
         lvd_space='raw_cxcywh',    # 方案 §3.2: 唯一计算空间 (xyxy 像素 → raw cxcywh)
@@ -80,8 +80,8 @@ vis_backends = [
         type='SwanlabVisBackend',
         init_kwargs=dict(
             project='ldmdet-mainline-ablation-24obj',
-            experiment_name='lvd_rf_sin2_lam1',
-            description='24obj LVD-RF Phase 1 (λ=1.0 重试): LVD sin² λ=1.0 | 从 +DPM-Solver++ 微调 50ep | bs=2, lr=1e-5 | λ=0.1 时 cos_sim 停滞 0.70, 增大 10× 力度重试',
+            experiment_name='lvd_rf_sin2_lam3',
+            description='24obj LVD-RF Phase 1 (λ=3.0 重试): LVD sin² λ=3.0 | 从 +DPM-Solver++ 微调 50ep | bs=2, lr=1e-5 | λ=1.0 时 cos_sim 升至 0.82 η_str 降 30%, 再增 3× 力度冲 0.90',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),

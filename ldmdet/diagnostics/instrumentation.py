@@ -320,7 +320,6 @@ class _Probe:
             ('backbone', getattr(model, 'backbone', None)),
             ('neck', getattr(model, 'neck', None)),
             ('time_mlp', getattr(getattr(model, 'bbox_head', None), 'time_mlp', None)),
-            ('step_mlp', getattr(getattr(model, 'bbox_head', None), 'step_mlp', None)),
         ]
 
         # cascade head 逐个注册

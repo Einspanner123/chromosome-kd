@@ -22,7 +22,7 @@ Probe 运行时探针 (enable_probe=True 时启用, 每 100 步训练 + 每次�
 - criterion/{l1_per_elem,giou_per_elem,box_diff}: box 损失分布 (标量+直方图)
 - coupling/{mean_entropy,normalized_entropy,cost_matrix,transport_matrix}: OT 耦合熵
 - rf/{x_t,velocity,x_start,x_noise}: RF 前向加噪路径统计
-- grads/{backbone,neck,cascade_head_{i},time_mlp,step_mlp}/{norm,mean,std,max}: per-module 梯度
+- grads/{backbone,neck,cascade_head_{i},time_mlp}/{norm,mean,std,max}: per-module 梯度
 - train/{t,loss/{name}}: 训练时 t 分布 + 损失分解
 - hist/{key}: 直方图 (SwanLab Histogram, 分布可视化)
 

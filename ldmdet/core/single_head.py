@@ -82,7 +82,6 @@ class SingleDiffusionDetHead(nn.Module):
         time_conditioning='scale_shift',
         use_sdpa=True,
         attn_half=False,
-        shape_attention=None,
         use_normalized_classifier=False,
         classifier_temperature=20.0,
         occlusion_prob=0.0,
@@ -91,7 +90,6 @@ class SingleDiffusionDetHead(nn.Module):
         super().__init__()
         self.feat_channels = feat_channels
         self.time_conditioning = time_conditioning
-        self.shape_attention = shape_attention
         # use_sdpa: True = 使用 SDPA, False = 使用 nn.MultiheadAttention
         # attn_half: True = attention 核心用 FP16 加速, False = 保持原始精度
         self.use_sdpa = use_sdpa and _SDPA_AVAILABLE
@@ -272,10 +270,6 @@ class SingleDiffusionDetHead(nn.Module):
         # 遮挡施加在输入端, 损失仍对完整 GT 计算, 强制模型学习 amodal 补全
         if self.occlusion_prob > 0:
             roi_features = self._apply_occlusion(roi_features)
-
-        # 方向 C1: 在 RoI 特征上应用局部形状注意力 (可选)
-        if self.shape_attention is not None:
-            roi_features = self.shape_attention(roi_features)
 
         if proposals is None:
             proposals = (

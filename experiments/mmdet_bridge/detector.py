@@ -26,7 +26,6 @@ from ldmdet.criterion import (
     GIoULoss,
     IoUCost,
     L1Loss,
-    SeesawLoss,
 )
 from ldmdet.data.structures import ImageMeta
 
@@ -105,20 +104,11 @@ class LDMDetDetector(BaseDetector):
         else:
             coupling = build_coupling('random')
 
-        # 2. 构建 single_head (支持 ShapeAttention 局部形状注意力)
+        # 2. 构建 single_head
         sh_cfg = cfg.pop('single_head')
         sh_cfg.pop('type', None)
 
-        # 方向 C1 / M1: 可选的局部形状注意力 / 形态感知 RoI 编码器
-        # 通过 MODELS 注册表构建, 支持任何已注册模块 (如 MorphologyAwareRoIEncoder)
-        shape_attention = None
-        if 'shape_attention' in sh_cfg:
-            sa_cfg = sh_cfg.pop('shape_attention')
-            shape_attention = MODELS.build(sa_cfg)
-
-        single_head = SingleDiffusionDetHead(
-            shape_attention=shape_attention, **sh_cfg
-        )
+        single_head = SingleDiffusionDetHead(**sh_cfg)
 
         # 3. 构建 roi_extractor
         re_cfg = cfg.pop('roi_extractor', {})
@@ -168,7 +158,6 @@ class LDMDetDetector(BaseDetector):
         loss_cls_type = loss_cls_cfg.pop('type').replace('PurePyTorch', '')
         loss_cls_map = {
             'FocalLoss': FocalLoss,
-            'SeesawLoss': SeesawLoss,
         }
         loss_cls = loss_cls_map[loss_cls_type](**loss_cls_cfg)
 
