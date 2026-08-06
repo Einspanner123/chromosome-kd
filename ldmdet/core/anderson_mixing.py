@@ -181,18 +181,21 @@ class AndersonMixing(nn.Module):
         Returns:
             gamma: [m_k, 1] Anderson 系数 (已裁剪)
         """
-        # Gram 矩阵: ΔF ΔF^T [m_k, m_k] (小矩阵, m_k ≤ 2, 求解代价可忽略)
-        gram = Delta_F @ Delta_F.t()
-        gram = gram + self.lam * torch.eye(
-            m_k, device=gram.device, dtype=gram.dtype
-        )
-        rhs = Delta_F @ f_flat.unsqueeze(-1)  # [m_k, 1]
-
-        # Mixed precision: torch.linalg.solve 的 CUDA LU 分解不支持 BFloat16,
-        # 强制 fp32 求解 (2×2 矩阵开销可忽略), 结果转回原始 dtype 保持梯度链
+        # Mixed precision: bf16 下 Gram 矩阵构造 + Tikhonov 正则化 + solve 全部
+        # 在 fp32 执行。原因: (1) torch.linalg.solve 的 CUDA LU 不支持 BFloat16;
+        # (2) bf16 精度 (~7 bit mantissa) 下 λ=1e-6 的 Tikhonov 项被舍入为零,
+        # 导致 Gram 矩阵奇异。fp32 构造保证 λ 有效, 2×2 矩阵开销可忽略。
         with torch.amp.autocast('cuda', enabled=False):
-            gamma = torch.linalg.solve(gram.float(), rhs.float())  # [m_k, 1]
-        gamma = gamma.to(Delta_F.dtype)
+            Delta_F_f32 = Delta_F.float()
+            f_flat_f32 = f_flat.float()
+            # Gram 矩阵: ΔF ΔF^T [m_k, m_k] + Tikhonov 正则化
+            gram = Delta_F_f32 @ Delta_F_f32.t()
+            gram = gram + self.lam * torch.eye(
+                m_k, device=gram.device, dtype=gram.dtype
+            )
+            rhs = Delta_F_f32 @ f_flat_f32.unsqueeze(-1)  # [m_k, 1]
+            gamma = torch.linalg.solve(gram, rhs)  # [m_k, 1]
+        gamma = gamma.to(Delta_F.dtype)  # 转回原始 dtype 保持梯度链
 
         # γ 范数裁剪 (防止爆炸, Henderson-Varadhan 2019 风险缓解)
         # 缩放因子用 .detach() 避免反传通过裁剪操作
