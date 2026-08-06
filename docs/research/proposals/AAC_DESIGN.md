@@ -107,6 +107,8 @@ $$x_{k+1}^{\text{acc}} = x_k - B_{k+1}^{-1} f_k = x_k + f_k - \Delta G_k \gamma^
 
 **【GLM-5.2 注: 列式 vs 行式约定】**: 上述算法采用**列式 (column-form) 约定**: $\Delta F_k \in \mathbb{R}^{n \times m_k}$, 每列为一个历史残差差分; Gram 矩阵为 $\Delta F_k^\top \Delta F_k \in \mathbb{R}^{m_k \times m_k}$。实际实现 (§4.1) 采用**行式 (row-form) 约定**: $\Delta F_k \in \mathbb{R}^{m_k \times D}$ (D = bs·N·d), 每行为一个历史残差差分 (全局展平); Gram 矩阵为 $\Delta F_k \Delta F_k^\top \in \mathbb{R}^{m_k \times m_k}$。两种约定数学等价 (行式 = 列式的转置), 但行式在 PyTorch 实现中更自然 (避免显式构造 $D \times m_k$ 大矩阵, 直接用 $m_k \times D$ 小矩阵)。读者应注意本文档数学公式用列式, 代码注释用行式, 两者通过转置对应。
 
+**【GLM-5.2 注: 连续差分 vs 非连续差分基】**: 上述步骤 (b) 的 $\Delta F_k$ 采用**连续差分 (consecutive) 约定**: 每列为相邻两步的残差差分 $f_{j+1} - f_j$。实际实现 (§4.1) 采用**非连续差分 (non-consecutive) 约定**: 以当前 $f_k$ 为基准, 各行 (行式) 为 $f_k - f_{k-i}$ ($i = 1, \ldots, m_k$), 即对 $m=2$ 有 $\Delta F_k^{\text{code}} = [f_k - f_{k-1},\; f_k - f_{k-2}]^{\top}$ (行式)。两者通过可逆线性变换关联: 非连续差分可表示为连续差分的累加和 $f_k - f_{k-i} = \sum_{j=k-i}^{k-1} (f_{j+1} - f_j)$, 故 $\text{colspan}(\Delta F_k^{\text{code}}) \subseteq \text{colspan}(\Delta F_k^{\text{std}})$; 反之连续差分亦可由非连续差分线性表示 (如 $f_{k-1} - f_{k-2} = (f_k - f_{k-2}) - (f_k - f_{k-1})$), 故 $\text{colspan}$ 相等。由 Anderson 更新在可逆列变换下不变 ($\gamma$ 自适应基选择, $(\Delta X + \Delta F)\gamma$ 投影到同一子空间), **两者给出完全相同的 $x_{k+1}$**。非连续差分在实现上更简洁 (统一以 $f_{\text{curr}}$ 为基准, 无需显式构造连续差分), 等价性已由单元测试 `test_nonconsecutive_equivalent_to_consecutive_basis` 严格验证 (变换矩阵 $T = \begin{pmatrix} 1 & 1 \\ 0 & 1 \end{pmatrix}$, $\det(T) = 1$)。
+
 ### 1.5 type-I vs type-II: 非对称 Jacobian 下的选择
 
 Walker-Ni (2011) 定义两种 Anderson 变体, 对应两种多割线 quasi-Newton:
@@ -866,6 +868,10 @@ $$\nabla_\theta^{\text{phantom}} \mathcal{L} = \frac{\partial \mathcal{L}}{\part
 **梯度路径**: loss → pred_bboxes_k → AAC mixer → (当前 $f_k = g(x_k) - x_k$) → head_k 参数 $\theta_k$。
 
 **内存**: $O(H)$, 与原 cascade 一致 (每个 head 独立反传, 不跨 head 展开计算图)。
+
+**【GLM-5.2 注: $\partial x_{k+1}/\partial f_k$ 的全导数解读与 $\gamma$ 的梯度路径】**: 上述公式中 $\frac{\partial x_{k+1}}{\partial f_k}$ 应理解为**全导数** (含 $\gamma^{(k)}$ 对 $f_k$ 的依赖), 而非仅直接路径的偏导数 (hold $\gamma$ constant)。在实现中, `stop_grad_history=True` 仅对历史项 $f_{k-1}, x_{k-1}, \ldots$ 执行 `.detach()`, 当前残差 $f_k$ 的梯度完整保留——包括通过 Anderson 求解路径 $x_{k+1} \to \gamma \to \Delta F \to f_k$ 的梯度。具体而言, `gram = ΔF @ ΔF^T` 与 `rhs = ΔF @ f_flat` 均含 $f_k$ ($\Delta F$ 的每行含 $f_k - f_{k-i}$, $f_{\text{flat}} = f_k$), 而 `torch.linalg.solve` 可微, 故 $\partial \gamma / \partial f_k \neq 0$。这与 "仅当前残差 $f_k$ 参与反传" 的文字描述一致: $f_k$ 通过所有路径参与反传, 仅历史被切断。
+
+形式公式中被忽略的项 $\frac{\partial x_{k+1}}{\partial \gamma^{(k)}} \cdot \frac{\partial \gamma^{(k)}}{\partial (\text{history})} \cdot \frac{\partial (\text{history})}{\partial \theta}$ 特指**历史梯度路径** ($\partial \gamma / \partial (\text{history}) = 0$, 因历史已 detach), 而非 $\gamma$ 对 $f_k$ 的梯度路径。若需实现 "最小 Phantom" (仅保留直接路径 $\partial x_{k+1}/\partial f_k = \beta \cdot I$, 切断 $\gamma$ 路径), 需额外对 $\gamma$ 执行 `.detach()`; 但本方案**未采用此策略**, 因为保留 $\gamma$ 对 $f_k$ 的梯度为 Anderson 系数的自适应提供了额外训练信号, 且 `torch.linalg.solve` 在 $2 \times 2$ 系统上的梯度稳定——由 Tikhonov $\lambda = 10^{-6}$ 保证 Gram 矩阵条件数有界, $\gamma$ 范数裁剪 (上界 $10.0$) 限制梯度幅度, 加之 `cascade_detach=True` 时 $x_k$ 已 detach 使 $\Delta X$ 完全无梯度, 进一步收敛了 correction 路径的梯度来源。
 
 #### 7.2.3 Phantom Gradient 的偏差估计
 
