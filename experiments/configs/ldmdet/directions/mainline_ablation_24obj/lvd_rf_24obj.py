@@ -37,7 +37,7 @@ _base_ = ['./a4_dpm_pp_24obj.py']
 model = dict(
     bbox_head=dict(
         use_lvd=True,
-        lvd_lambda=0.1,             # 默认正则化系数 (经验初值, 需消融)
+        lvd_lambda=1.0,             # R2 调参: λ=0.1 时 cos_sim 停滞 0.70, 增大 10× 力度重试
         lvd_eps=1e-6,               # 数值稳定常数
         lvd_t_threshold=0.05,      # t < 0.05 跳过 (||x_t-x_0||→0 余弦不稳定)
         lvd_space='raw_cxcywh',    # 方案 §3.2: 唯一计算空间 (xyxy 像素 → raw cxcywh)
@@ -80,8 +80,8 @@ vis_backends = [
         type='SwanlabVisBackend',
         init_kwargs=dict(
             project='ldmdet-mainline-ablation-24obj',
-            experiment_name='lvd_rf_sin2',
-            description='24obj LVD-RF Phase 1: Lyapunov Velocity Direction Regularization (sin², λ=0.1) | 从 +DPM-Solver++ 微调 50ep | bs=2, lr=1e-5',
+            experiment_name='lvd_rf_sin2_lam1',
+            description='24obj LVD-RF Phase 1 (λ=1.0 重试): LVD sin² λ=1.0 | 从 +DPM-Solver++ 微调 50ep | bs=2, lr=1e-5 | λ=0.1 时 cos_sim 停滞 0.70, 增大 10× 力度重试',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),
@@ -90,3 +90,33 @@ vis_backends = [
 visualizer = dict(
     type='DetLocalVisualizer', vis_backends=vis_backends, name='visualizer'
 )
+
+# === 诊断 Hook: 启用 Probe 采集 LVD 方向余弦 / 梯度健康度 ===
+# TrainingDiagnosticsHook 在 before_run 调用 probe.enable(), 使 head.py 中
+# probe.record_scalar('train/lvd_*') 生效; 数据经 swanlab.log 写入 SwanLab
+# (不经过 mmengine scalars.json). 关闭权重/梯度/激活统计 (非 LVD-RF 评估核心),
+# 仅保留 probe 采集, 最小化训练开销.
+# 注意: custom_hooks 为 list, 子配置覆盖父配置, 故需重新声明全部 3 个 hook.
+custom_hooks = [
+    dict(
+        type='EarlyStoppingHook',
+        priority=50,
+        patience=30,
+        min_delta=0.001,
+        monitor='coco/bbox_mAP',
+        rule='greater',
+    ),
+    dict(type='CopyProjectHook', priority='VERY_LOW'),
+    dict(
+        type='TrainingDiagnosticsHook',
+        enable_probe=True,
+        probe_train_interval=100,
+        probe_inference=True,
+        log_weights=False,
+        log_grads=False,
+        log_activations=False,
+        log_numerical_health=False,
+        log_loss_breakdown=False,
+        priority='LOW',
+    ),
+]
