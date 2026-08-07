@@ -72,6 +72,7 @@ def _make_criterion(
     class_priors=None,
     trip_lambda_mode='map',
     trip_tau=1.0,
+    snr_scale=1.0,
 ):
     """构建 DiffusionDetCriterion (可选 TRIP 模式)"""
     if class_priors is None and box_target_mode == 'trip':
@@ -88,6 +89,7 @@ def _make_criterion(
         class_priors=class_priors,
         trip_lambda_mode=trip_lambda_mode,
         trip_tau=trip_tau,
+        snr_scale=snr_scale,
     )
 
 
@@ -183,6 +185,16 @@ class TestTRIPParameters:
         """'gt' 模式不要求 class_priors (默认 None)"""
         criterion = _make_criterion(box_target_mode='gt')
         assert criterion._class_priors_arg is None
+
+    def test_snr_scale_default(self):
+        """snr_scale 默认 1.0 (向后兼容)"""
+        criterion = _make_criterion(box_target_mode='trip')
+        assert criterion.snr_scale == 1.0
+
+    def test_snr_scale_set(self):
+        """snr_scale 可显式设置 (如 2.0, 匹配实际训练配置)"""
+        criterion = _make_criterion(box_target_mode='trip', snr_scale=2.0)
+        assert criterion.snr_scale == 2.0
 
 
 # ============================================================
@@ -414,6 +426,89 @@ class TestTRIPTargetMath:
                         f"Background [{b},{n}] should equal GT, got "
                         f"{trip_tgt[b, n]} vs {gt_gathered[b, n]}"
                     )
+
+    def test_snr_scale_reduces_s_at_medium_t(self):
+        """snr_scale=2.0 使 s(t) 在中 t 段显著低于 snr_scale=1.0
+
+        空间一致性: σ_p²_norm (归一化空间) 经 4·snr_scale² 缩放为 σ_p²_raw (raw 空间),
+        使 s(t) 在相同 t 下更保守 (crossover 右移). 这是修复训练崩溃的关键.
+        """
+        # 用固定 σ_p² 和 μ_p 避免类间差异干扰
+        num_classes = 4
+        priors = {
+            'mu': torch.tensor([
+                [0.5, 0.5, 0.15, 0.15]] * num_classes
+            ),
+            'sigma_bar_sq': torch.full((num_classes,), 0.025),  # 归一化空间
+        }
+        crit_noscale = _make_criterion(
+            box_target_mode='trip', num_classes=num_classes,
+            class_priors=priors, snr_scale=1.0,  # σ²_raw = 4·1²·0.025 = 0.1
+        )
+        crit_scale2 = _make_criterion(
+            box_target_mode='trip', num_classes=num_classes,
+            class_priors=priors, snr_scale=2.0,  # σ²_raw = 4·4·0.025 = 0.4
+        )
+        gt_xyxy, mgt, fg, labels, _ = self._make_trip_inputs(num_classes=num_classes)
+        t = torch.full((2,), 0.3, dtype=torch.float32)  # 中 t 段
+
+        trip_noscale = crit_noscale._compute_trip_target(
+            gt_xyxy, mgt, fg, labels, t
+        )
+        trip_scale2 = crit_scale2._compute_trip_target(
+            gt_xyxy, mgt, fg, labels, t
+        )
+        mgt_clamped = mgt.clamp(min=0)
+        gt_gathered = torch.gather(
+            gt_xyxy, 1, mgt_clamped.unsqueeze(-1).expand(-1, -1, 4)
+        )
+        # snr_scale=2.0 → σ_p²_raw 更大 → s(t) 更小 → trip_tgt 更接近 GT
+        diff_noscale = (trip_noscale - gt_gathered).abs().mean()
+        diff_scale2 = (trip_scale2 - gt_gathered).abs().mean()
+        assert diff_scale2 < diff_noscale, (
+            f"snr_scale=2.0 should give smaller |trip-gt| (more conservative s), "
+            f"got scale2={diff_scale2:.4f} >= noscale={diff_noscale:.4f}"
+        )
+
+    def test_snr_scale_2_matches_raw_space_formula(self):
+        """snr_scale=2.0 时 s(t) 等价于直接用 σ_p²_raw=0.4 计算
+
+        验证: priors σ²_norm=0.025, snr_scale=2.0 → σ²_raw=4·4·0.025=0.4
+        等价于 priors σ²=0.4, snr_scale=1.0 (无额外缩放, 仅 4× 中心化缩放)
+        """
+        num_classes = 4
+        # 方式 A: σ²_norm=0.025, snr_scale=2.0 → σ²_raw=0.4
+        priors_norm = {
+            'mu': torch.tensor([[0.5, 0.5, 0.15, 0.15]] * num_classes),
+            'sigma_bar_sq': torch.full((num_classes,), 0.025),
+        }
+        crit_A = _make_criterion(
+            box_target_mode='trip', num_classes=num_classes,
+            class_priors=priors_norm, snr_scale=2.0,
+        )
+        # 方式 B: σ²=0.4 (= 4·2²·0.025, 已在 raw 空间), snr_scale=1.0
+        # 但 snr_scale=1.0 仍会乘 4·1²=4, 所以要用 σ²=0.1 (=0.4/4)
+        # 不对 — snr_scale=1.0 时 σ²_raw = 4·1²·σ²_input, 要让 σ²_raw=0.4
+        # 需要 σ²_input = 0.4/4 = 0.1
+        priors_raw = {
+            'mu': torch.tensor([[0.5, 0.5, 0.15, 0.15]] * num_classes),
+            'sigma_bar_sq': torch.full((num_classes,), 0.1),  # 0.4/4
+        }
+        crit_B = _make_criterion(
+            box_target_mode='trip', num_classes=num_classes,
+            class_priors=priors_raw, snr_scale=1.0,
+        )
+        gt_xyxy, mgt, fg, labels, _ = self._make_trip_inputs(num_classes=num_classes)
+        t = torch.full((2,), 0.5, dtype=torch.float32)
+
+        trip_A = crit_A._compute_trip_target(gt_xyxy, mgt, fg, labels, t)
+        trip_B = crit_B._compute_trip_target(gt_xyxy, mgt, fg, labels, t)
+        # 两者应数值一致 (σ²_raw 相同 = 0.4)
+        assert torch.allclose(trip_A, trip_B, atol=1e-6), (
+            f"snr_scale=2.0 with σ²_norm=0.025 should match snr_scale=1.0 "
+            f"with σ²=0.1 (both → σ²_raw=0.4), got max diff="
+            f"{(trip_A - trip_B).abs().max():.8f}"
+        )
 
     def test_map_vs_morozov_both_compute(self):
         """map 和 morozov 两种 lambda 模式都能正常计算"""

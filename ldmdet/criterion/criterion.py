@@ -43,11 +43,17 @@ class DiffusionDetCriterion(nn.Module):
         # TRIP: 类条件先验 (Tikhonov/MAP 收缩目标)
         # 可为 dict (已加载) 或 str (pickle 文件路径, 懒加载)
         # 格式: {'mu': Tensor[num_classes, 4] (cxcywh, [0,1]),
-        #        'sigma_bar_sq': Tensor[num_classes] (各向同性平均方差)}
+        #        'sigma_bar_sq': Tensor[num_classes] (各向同性平均方差, 归一化空间)}
         # 由 tools/estimate_class_priors.py 离线估计
         class_priors: Optional[Union[str, Dict]] = None,
         trip_lambda_mode: str = 'map',  # 'map' (λ=t², 主) / 'morozov' (备选)
         trip_tau: float = 1.0,           # Morozov 偏差原理的 τ 参数
+        # TRIP 空间一致性: snr_scale 用于将 σ_p² 从归一化 [0,1] 空间转换到
+        # raw 扩散空间 [-snr_scale, snr_scale] (与噪声 ε~N(0,I) 同空间).
+        # 转换公式: σ_p²_raw = 4·snr_scale²·σ_p²_norm
+        # (因 raw = (norm*2-1)*snr_scale → Var(raw) = 4·snr_scale²·Var(norm))
+        # 若不设置 (默认 1.0), σ_p² 不做转换 — 仅当 priors 已在 raw 空间时正确.
+        snr_scale: float = 1.0,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -69,6 +75,7 @@ class DiffusionDetCriterion(nn.Module):
         self._class_priors: Optional[Dict] = None  # 加载后的先验 (tensor 格式)
         self.trip_lambda_mode = trip_lambda_mode
         self.trip_tau = trip_tau
+        self.snr_scale = snr_scale
         assert trip_lambda_mode in ('map', 'morozov'), (
             f"trip_lambda_mode 必须是 'map' 或 'morozov', got {trip_lambda_mode}"
         )
@@ -176,9 +183,17 @@ class DiffusionDetCriterion(nn.Module):
         matched_gt_labels = matched_gt_labels.clamp(max=self.num_classes - 1)
 
         # 4. 加载类条件先验
+        # priors 中 mu 在归一化 [0,1] cxcywh 空间 (用于下方凸组合, 与 tgt_gt_cxcywh 同空间);
+        # sigma_bar_sq 也在归一化空间, 但 MAP 公式 s(t) = (t²/σ_p²)/((1-t)²+t²/σ_p²) 要求
+        # σ_p² 与噪声 ε~N(0,I) 同空间 (raw 扩散空间 [-snr_scale, snr_scale]).
+        # 转换: σ_p²_raw = 4·snr_scale²·σ_p²_norm
+        # (因 raw = (norm*2-1)*snr_scale → Var(raw) = 4·snr_scale²·Var(norm))
+        # 不转换会使 s(t) 激进 4·snr_scale² 倍 (snr_scale=2 时 16×), 导致训练崩溃.
         priors = self._load_class_priors()
-        mu_p = priors['mu'].to(device)             # [num_classes, 4]
-        sigma_bar_sq = priors['sigma_bar_sq'].to(device)  # [num_classes]
+        mu_p = priors['mu'].to(device)             # [num_classes, 4] (归一化空间, 用于凸组合)
+        sigma_bar_sq_norm = priors['sigma_bar_sq'].to(device)  # [num_classes] (归一化空间)
+        # 空间转换: 归一化 → raw (与噪声同空间, 供 s(t) 使用)
+        sigma_bar_sq = sigma_bar_sq_norm * (4.0 * self.snr_scale ** 2)  # [num_classes]
 
         # 5. 向量化: 收集每个 proposal 对应类的先验 (R2 修正: 避免 for b,c 循环)
         mu_p_per_prop = mu_p[matched_gt_labels]             # [bs, N, 4]

@@ -393,6 +393,45 @@ model = dict(
 | 显存开销 | ~5 MB (先验统计 + 中间张量) |
 | 向后兼容 | 是 (`box_target_mode='gt'` 完全回退) |
 
+### 7.5 空间一致性修复 (实现 BUG 修正, 2026-08-07)
+
+**问题**: 首次 TRIP Phase 1 训练 (snr_scale 未传入 criterion) 发生灾难性崩溃: Epoch 1 mAP=0.483, Epoch 2-16 mAP→0.002. 根因是 **σ_p² 空间尺度不匹配**:
+
+1. `estimate_class_priors.py` 在**归一化 [0,1] cxcywh 空间**计算 σ̄ₚ²^c ≈ 0.025 (μₚ^c ≈ (0.5, 0.5, 0.1, 0.1));
+2. 扩散前向 `x_t = (1-t)·x_0_raw + t·ε` 在 **raw 空间** `[-snr_scale, snr_scale]` 进行 (`head.py:675`: `raw = (norm·2-1)·snr_scale`), 噪声 ε~N(0, I) 为单位方差;
+3. MAP 公式 $s(t) = (t^2/\sigma_p^2) / ((1-t)^2 + t^2/\sigma_p^2)$ 中 $\sigma_p^2$ **必须与噪声同空间** (raw 空间), 正确值 $\sigma_{p,\text{raw}}^2 = 4 \cdot \text{snr\_scale}^2 \cdot \sigma_{p,\text{norm}}^2$;
+4. 使用归一化空间 $\sigma_{p,\text{norm}}^2 = 0.025$ (而非 raw 空间 0.4) 使 $s(t)$ **激进 $4 \cdot \text{snr\_scale}^2 = 16$ 倍**:
+
+| $t$ | $s(t)$ 错误 ($\sigma^2=0.025$) | $s(t)$ 正确 ($\sigma^2=0.4$) | 倍率 |
+|-----|------|------|------|
+| 0.1 | 0.331 (33% μ_p) | 0.030 (3% μ p) | 11.0× |
+| 0.2 | 0.714 (71% μ p) | 0.135 (14% μ p) | 5.3× |
+| 0.3 | 0.880 (88% μ p) | 0.315 (31% μ p) | 2.8× |
+| 0.5 | 0.976 | 0.714 | 1.4× |
+
+交叉点 ($s=0.5$) 从 $t=0.137$ (错误) 右移至 $t=0.387$ (正确). shifted schedule (rf_shift=3.0) 使 $t$ 偏向高值 (中位数 $t\approx 0.75$), 进一步放大了错误 $s(t)$ 的影响.
+
+**修复**: criterion `__init__` 新增 `snr_scale` 参数; `_compute_trip_target` 中将 $\sigma_p^2$ 从归一化空间转换到 raw 空间:
+
+$$\sigma_{p,\text{raw}}^2 = 4 \cdot \text{snr\_scale}^2 \cdot \sigma_{p,\text{norm}}^2$$
+
+转换推导: `raw = (norm·2-1)·snr_scale` → $\text{Var}(\text{raw}) = \text{snr\_scale}^2 \cdot 4 \cdot \text{Var}(\text{norm})$.
+
+凸组合 $\tilde{x}_0 = (1-s) \cdot x_0 + s \cdot \mu_p$ 仍在**归一化空间**计算 (因 $x_0$, $\mu_p$ 均为归一化值, $s$ 为标量), 仅 $s(t)$ 公式中的 $\sigma_p^2$ 需转换. 这是尺度不变性: $s(t)$ 在归一化空间和 raw 空间中值相同, 只要 $\sigma_p^2$ 与噪声方差同空间.
+
+**配置更新** (`trip_24obj.py`):
+
+```python
+criterion=dict(
+    box_target_mode='trip',
+    class_priors='data/class_priors_24obj.pkl',
+    trip_lambda_mode='map',
+    snr_scale=2.0,  # 空间一致性: σ²_norm → σ²_raw = 4·4·0.025 = 0.4
+)
+```
+
+**验证**: 修复后 $s(t)$ 在低-$t$ 段 ($t<0.3$) 目标 $\geq 68\%$ 为 GT (定位信号保留), 高-$t$ 段 ($t>0.7$) 目标 $\geq 93\%$ 为 $\mu_p$ (MMSE 一致). 首次训练 loss_bbox 从 2.05 降至 1.80, 不再崩溃.
+
 ---
 
 ## 8. 预期收益分析

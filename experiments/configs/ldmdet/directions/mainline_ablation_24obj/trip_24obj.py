@@ -42,9 +42,13 @@ model = dict(
     bbox_head=dict(
         criterion=dict(
             box_target_mode='trip',               # box target = MAP 收缩估计
-            class_priors='data/class_priors_24obj.pkl',  # 离线估
+            class_priors='data/class_priors_24obj.pkl',  # 离线估 (归一化空间)
             trip_lambda_mode='map',               # R1 反馈 2: 'map' (λ=t², 主) / 'morozov' (备选)
             trip_tau=1.0,                         # Morozov 偏差原理 τ (仅 morozov 模式生效)
+            # 空间一致性修复: σ_p² 从归一化 [0,1] 转换到 raw [-snr_scale, snr_scale] 空间
+            # (priors 文件存归一化空间 σ²≈0.025, MAP 公式需 raw 空间 σ²≈0.4)
+            # 不设置会使 s(t) 激进 16×, 导致训练崩溃 (mAP→0.002)
+            snr_scale=2.0,                        # 与 bbox_head.snr_scale 一致
         ),
     ),
 )
@@ -84,8 +88,8 @@ vis_backends = [
         type='SwanlabVisBackend',
         init_kwargs=dict(
             project='ldmdet-mainline-ablation-24obj',
-            experiment_name='trip_map',
-            description='24obj TRIP Phase 1: Tikhonov/MAP 收缩目标 (λ=t², 类条件先验) | 从 +DPM-Solver++ 微调 50ep | bs=2, lr=1e-5',
+            experiment_name='trip_map_v2',
+            description='24obj TRIP Phase 1 (修复 σ_p² 空间尺度): Tikhonov/MAP 收缩目标 (λ=t², 类条件先验, snr_scale=2.0) | 从 +DPM-Solver++ 微调 50ep | bs=2, lr=1e-5',
             api_key='Huzvq1fnDeqOwgQo2AMAI',
             resume='allow',
         ),
