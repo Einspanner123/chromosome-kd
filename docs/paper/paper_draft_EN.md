@@ -1,4 +1,13 @@
-# Rectified Flow for Chromosome Detection: Stable Coupling and Few-Step Inference
+# Rectified Flow for Chromosome Detection: Few-Step Solving and Localization-Quality Calibration
+
+> **Evidence correction (2026-08-09).** The core contributions are now RF,
+> RF-adapted DPM-Solver++, and Localization-Quality Calibrated Ranking (LQCR).
+> Earlier Stochastic Coupling accuracy claims ($+0.034$, $p<10^{-120}$) were
+> confounded by different augmentation pipelines and are invalid. The reported
+> 4.6x smoothness ratio is a single-seed, autocorrelated epoch statistic and is
+> exploratory rather than a core method benefit. The authoritative evidence map
+> is `docs/research/论文创新点重构_RF_DPM_Quality_20260809.md`; legacy passages
+> below that still center Stochastic Coupling must not be cited without revision.
 
 > 📋 **Naming Convention**: This document uses formal paper names (Dataset 1 / Dataset 2 / DDPM baseline / RF+Heun / +Stoch. Coupling / +DPM-Solver++). Internal experiment codenames (24obj / A0-A3 / StochOT) are retained only in file paths, config names, and log filenames for engineering compatibility.
 
@@ -49,8 +58,8 @@ DRAFT STATUS:
 -->
 
 > **TMI Positioning Note (per ChatGPT analysis + user review 2026-07-19):**
-> The paper's novelty is ML theory (RF paradigm, OT Diversity Collapse, Stochastic
-> Coupling, solver disentanglement), NOT biological insight. However, the paper
+> The paper's novelty is the RF detection formulation, RF-adapted DPM-Solver++,
+> and LQCR; OT coupling is retained as a negative/auxiliary analysis. However, the paper
 > must STILL LEAD FROM THE APPLICATION (chromosome karyotyping) — the algorithmic
 > novelty serves the clinical task, not vice versa. Balance: application context
 > opens the Abstract/Intro, algorithmic contributions follow as the solution.
@@ -64,11 +73,9 @@ DRAFT STATUS:
     Narrative direction (user feedback 2026-07-19): lead with "diffusion-based detector introduced
     into chromosome imaging"; theory serves the task, not vice versa. -->
 
-Chromosome karyotyping --- the microscopic inspection of metaphase chromosomes for genetic diagnosis --- remains a slow, labor-intensive, and observer-dependent cornerstone of clinical cytogenetics. Each metaphase cell contains roughly forty-six densely packed chromosomes across twenty-four morphologically similar classes; automating this analysis requires a detector accurate and fast enough for routine clinical deployment. Conventional anchor-based detectors plateau on fine-grained intra-group discrimination, while diffusion-based detectors inherit the slow many-step inference and trajectory truncation errors of their image-generation ancestors, and small clinical datasets further destabilize training.
+Chromosome karyotyping remains a labor-intensive component of clinical cytogenetics, and its limited training data challenge both localization accuracy and deployment efficiency. We introduce *KaryoFlow-LQCR*, a diffusion-based detector that optimizes three distinct stages. Rectified Flow (RF) replaces curved DDPM denoising trajectories with low-curvature box ODE paths and is the dominant accuracy source. An RF-adapted data-prediction form of DPM-Solver++ reduces four-step inference from seven Heun network evaluations to four. Localization-Quality Calibrated Ranking (LQCR) predicts box quality from the last proposal feature and applies $s=pq^2$ only to final detection ranking, leaving classes, coordinates, solver dynamics, and box renewal unchanged.
 
-We introduce *KaryoFlow*, a diffusion-based detector for chromosome karyotyping built on *Rectified Flow* (RF), which replaces the curved stochastic trajectories of DDPM with deterministic straight-line ODE paths. Three contributions target the specific difficulties of chromosome imaging. The RF paradigm itself accounts for most of the accuracy gain, exceeding DiffusionDet by $+0.060$ mAP and exceeding Cascade R-CNN, with a controlled ablation attributing $94\%$ of the gain to RF rather than to solver or step-count choices. We further formally analyze an *OT Diversity Collapse* that arises in the low-dimensional ($\mathbb{R}^4$) detection space and propose *Stochastic Coupling* via Sinkhorn transport, which restores coupling diversity and stabilizes training in the low-data regime. DPM-Solver++ with Top-$K$ proposal pruning delivers four-step inference at clinical-grade latency, with a statistically significant precision advantage over Heun ($+0.006$ mAP, $p<10^{-6}$).
-
-All claims are validated on two public chromosome datasets with multi-seed experiments, per-class AP analysis, and SOTA comparison, supporting diffusion-based detection as a practical paradigm for fine-grained medical imaging.
+On Dataset 2, RF improves over DDPM by approximately $+0.053$ mAP. Strict final-only LQCR further improves mAP from $0.86301$ to $0.87044$ ($+0.00743$), with AP90/AP95 gains of $+0.03041/+0.03251$. On Dataset 1, the seed-42 training validation improves from $0.746$ to $0.751$, pending a unified evaluation on the ross RTX A6000. These results support a three-stage view of generative detection error: trajectory modeling, numerical integration, and localization-aware ranking.
 
 <!-- [MAIN PAPER] IEEEkeywords placeholder — to be finalized:
 Index Terms --- Rectified Flow, object detection, optimal transport, diffusion models, medical image analysis, chromosome karyotyping
@@ -102,9 +109,9 @@ Building on the scenario-to-method mapping above, we make three contributions, e
 
 The first difficulty is the accuracy ceiling of existing detectors on fine-grained 24-class chromosome imagery, where anchor-based designs struggle with dense packing and intra-group morphological similarity. Our *KaryoFlow* detector addresses this by adopting the RF training paradigm, achieving $+0.082$ mAP over the Euler baseline on 24 Chromosomes Object and $+0.017$ over DDPM on the original dataset. In comparison with SOTA detectors (experimental data in Section 4.3), KaryoFlow as a diffusion-based detector approaches the transformer-based SOTA DINO R50 (47M parameters): the aggregate mAP gap is only about $0.63\%$ ($0.863$ vs $0.868$), exceeding Cascade R-CNN, and significantly superior to the DDPM-based DiffusionDet ($+0.060$ mAP at seed 42 best, $+0.056$ at the 3-seed mean). Although DINO R50 remains statistically significantly better under per-image paired Wilcoxon test, RF as a diffusion-based method has substantially narrowed the gap with transformer-based SOTA. Detailed statistical tests are in the supplementary material (not yet incorporated in the main text). Because the DDPM baseline→RF+Heun comparison changes several variables at once (DDPM→RF, Euler→Heun, 1→4 steps), we further conduct a solver×step disentanglement ablation that attributes $94\%$ of the gain to the RF paradigm and only $6\%$ to solver and step-count choices; AdaLN-Zero contributes null individually (Appendix B). The practical implication is that the accuracy gain comes from the paradigm itself rather than from solver tuning, which matters for clinical deployment where reproducibility across sites and seeds is essential.
 
-The second difficulty is a training pathology induced by optimal-transport (OT) coupling in the low-dimensional detection space. When the prediction dimension is $d=4$ and each image contains $K \approx 46$ ground-truth boxes, deterministic OT assignment collapses coupling diversity toward zero — a failure mode we formally analyze as *OT Diversity Collapse* (upper bound $\Delta H \le \log K$, matched lower bound via Fano's inequality, empirically tight to within $0.03\%$) — and this collapse degrades training, especially when data are scarce. We propose *Stochastic Coupling*, which samples assignments from the Sinkhorn transport matrix rather than taking an argmax, restoring coupling diversity and stabilizing training. The remedy is most effective exactly where clinical data are scarcest: on the smaller Dataset 1 it yields a large, highly significant mAP gain ($+0.034$, $p<10^{-120}$) that diminishes with dataset size, and on both datasets it reduces within-run epoch-level mAP oscillation by $4.6\times$, making checkpoint selection reliable for EarlyStopping-based training.
+The second accuracy difficulty is score--localization misalignment. For IoU threshold $\tau$, the true-positive posterior factors as $P(C{=}1\mid F)P(U\ge\tau\mid C{=}1,F)$. LQCR predicts a continuous quality proxy $q\approx E[U\mid F]$ and ranks final detections by $pq^2$. A strict final-only implementation isolates this mechanism from RF trajectories and proposal renewal. The earlier OT Diversity Collapse analysis remains mathematically useful, but standardized-augmentation experiments show no significant mAP difference among Random, Hard OT, and Stochastic Coupling; Stochastic Coupling is therefore not an accuracy contribution.
 
-The third difficulty is inference latency: the curved, many-step trajectories of DDPM-based detectors are incompatible with interactive clinical screening, while naive few-step DDPM suffers from truncation error. We deploy DPM-Solver++ for four-step RF inference, achieving $1.71\times$ speedup over Heun while preserving accuracy ($0.859 \pm 0.003$ mAP over three seeds), and combine it with Top-$K$ proposal pruning to reach 13.3–14.2 FPS. A controlled, per-image paired ablation reveals that DPM-Solver++ yields a statistically significant precision advantage over Heun at matched step count ($+0.006$ per-image mAP, Wilcoxon $p<10^{-6}$, Table 8), refining FlowDet's conclusion that higher-order solvers perform worse in detection: at matched steps the higher-order solver is slightly *better*, not worse, while also being faster in NFE.
+The third difficulty is inference latency. We adapt DPM-Solver++ to four-step RF inference, reducing NFE from Heun's seven to four. Its defensible contribution is matched accuracy at lower computation: same-checkpoint aggregate mAP differences are within approximately $\pm0.001$, whereas a cross-checkpoint per-image analysis reported $+0.006$ and must not be presented as the same causal comparison.
 
 To clarify our novelty relative to the closest prior work: relative to FlowDet (CFM with mini-batch OT, which reports that higher-order solvers perform worse), our novelty lies in (i) the formal analysis of *why* mini-batch OT becomes a liability in low-dimensional structured prediction (Section 3.3), and (ii) a solver×step disentanglement showing that, at matched step count, the higher-order DPM-Solver++ *improves* over Heun while being $1.71\times$ faster in NFE. Relative to DeFloMat (RF for medical detection, treating coupling as an implementation detail), we provide the formal analysis of coupling design as a training pathology and the Stochastic Coupling remedy. Unlike OT-CFM and multisample flow matching (high-dimensional image generation, $d \sim 10^5$), our setting is low-dimensional ($d=4$) with $K \approx 46$, where OT collapse is severe ($\Delta H/H \approx 0.69$). AdaLN-Zero (Dhariwal & Nichol, 2021) is reused as a standard implementation detail (Appendix B); DPM-Solver++ is adopted off-the-shelf, our contribution being the controlled disentanglement analysis with per-image paired statistical tests.
 
@@ -191,7 +198,23 @@ where the upper bound is Proposition 1 (under OT $V$ can be recovered from $X_t$
 $$\pi_{\text{stoch}}(i) \sim \operatorname{Categorical}\!\left( \frac{T_\epsilon(i,:)}{\sum_j T_\epsilon(i,j)} \right).$$
 The key property is that $H_{\text{stoch}}(V|X_t; \epsilon)$ increases monotonically with $\epsilon$ (Proposition 3, Appendix A.3, proved via the envelope theorem), with endpoints $\epsilon \to 0$ (hard OT, $H \to 0$) and $\epsilon \to \infty$ (random coupling, $H \to \log K$). Experimental validation of the training stability and mAP impact of Stochastic Coupling is in §4.4.
 
-### 3.4 Top-$K$ Proposal Pruning
+### 3.4 Localization-Quality Calibrated Ranking
+
+For prediction $j$ and IoU threshold $\tau$, define
+$Z_{j,\tau}=\mathbf{1}[C_j=1,U_j\ge\tau]$. The probability-ranking principle
+orders detections by
+$P(Z_{j,\tau}=1\mid F_j)=P(C_j=1\mid F_j)P(U_j\ge\tau\mid C_j=1,F_j)$.
+LQCR predicts $q_j\approx E[U_j\mid C_j=1,F_j]$ from the last proposal feature
+and uses $s_j=p_jq_j^2$ as a low-cost cross-threshold surrogate. Under a
+one-parameter stochastically ordered conditional IoU family, this preserves the
+ranking of threshold-exceedance probabilities; it is not a universal theorem
+for arbitrary IoU distributions.
+
+The strict final-only implementation keeps raw class scores for the solver,
+renewal, Top-$K$, and early stopping, and applies calibration only to emitted
+detections. It therefore isolates ranking from trajectory and coordinate changes.
+
+### 3.5 Top-$K$ Proposal Pruning
 
 At inference time, all 500 proposals pass through the 4-step cascade head, and the cascade head accounts for 90%+ of the latency (§4.6). After step 0, we prune proposals from 500 to $K$ based on confidence scores; only the top-$K$ proposals proceed through steps 1–3, reducing the computation of the subsequent 3 steps by a factor of $500/K$.
 
@@ -226,7 +249,7 @@ All experiments in this paper are validated with at least 3 random seeds (42, 12
 
 ### 4.2 Main Results: RF vs DDPM
 
-Table 5 reports a cumulative ablation: DDPM baseline (Euler 1-step), RF+Heun is KaryoFlow, +Stoch. Coupling adds Stochastic Coupling, +DPM-Solver++ swaps to DPM-Solver++. AdaLN-Zero is used throughout but contributes null individually (Appendix B). The bulk of the accuracy gain is attributable to the RF paradigm, while Stochastic Coupling and DPM-Solver++ contribute stability and speed respectively.
+Table 5 retains the legacy cumulative ablation to separate DDPM-to-RF and solver effects; the Stochastic Coupling row is not a new accuracy contribution. The complete method is redefined as RF + DPM-Solver++ + LQCR.
 
 | Experiment | Solver | Steps | NFE | mAP | AP50 | AP75 | AP$_S$ | AP$_M$ | AP$_L$ |
 |-----------|--------|-------|-----|-----|------|------|--------|--------|--------|
@@ -237,7 +260,7 @@ Table 5 reports a cumulative ablation: DDPM baseline (Euler 1-step), RF+Heun is 
 
 **Table 5**: Main ablation (independent inference; DDPM baseline–+Stoch. Coupling use seed 42, +DPM-Solver++ reports the 3-seed mean). *Question:* how much of the DDPM baseline→RF+Heun accuracy gain is attributable to the RF paradigm versus the joint change of solver and step count? *Conclusion:* the RF training paradigm accounts for $+0.077$ mAP (94% of the $+0.082$ gap), while solver and step-count configuration contribute only $+0.005$ (6%); Stochastic Coupling and DPM-Solver++ further contribute stability and inference speed respectively. Cross-seed std is reported in the text (+DPM-Solver++ mAP $0.859 \pm 0.003$, AP$_S$ $0.516 \pm 0.012$ over three seeds). NFE = total network forward evaluations per image.
 
-The RF paradigm accounts for $+0.077$ mAP (94% of the $+0.082$ gap), while solver/step configuration adds only $+0.005$ (6%). On Dataset 2, Stochastic Coupling contributes no measurable mAP gain ($+0.0001$, Wilcoxon $p{=}0.80$) but $4.6\times$ smoother convergence; on the smaller Dataset 1, however, the same Stochastic Coupling vs Random comparison yields a large, highly significant gain ($+0.034$, $p<10^{-120}$; Table 9) — the benefit is real in low-data regimes and diminishes with dataset size. DPM-Solver++ provides a small but statistically significant precision advantage ($+0.006$ per-image mAP, Wilcoxon $p{<}10^{-6}$, paired $t$ $p{<}10^{-6}$; see Table 8) and is $1.71\times$ faster.
+The RF formulation accounts for the dominant DDPM-to-RF gain. Under standardized augmentation, Stochastic Coupling has no significant mAP advantage on either dataset; the historical $+0.034$ result is augmentation-confounded. Its 4.6x within-run smoothness ratio is exploratory because it uses one autocorrelated epoch sequence. DPM-Solver++ primarily reduces NFE (7 to 4); same-checkpoint aggregate accuracy is noise-equivalent, while the $+0.006$ per-image result comes from a different cross-checkpoint comparison.
 
 The cross-dataset RF vs DDPM comparison further confirms the paradigm's advantage: RF with 4-step inference vs DDPM's 1-step inference outperforms DDPM on both datasets — +0.082 mAP on the larger Dataset 2, +0.017 mAP on the smaller Dataset 1 (0.746 vs 0.729, lower variance ±0.001 vs ±0.004). DDPM gains only +0.044 from 1→8 steps (0.628 → 0.672), far less than the RF paradigm's gain.
 
@@ -274,7 +297,7 @@ Finally, AP50 is near-saturated across all classes (>0.988, and 0.972 for the Y)
 
 #### 4.3.2 Statistical Significance of the Ablation Gains
 
-Table 8 reports per-image paired significance tests (Wilcoxon signed-rank and paired $t$-test) over the 500 validation images for the three pairwise comparisons underlying the main ablation. Two conclusions stand out. First, on Dataset 2, Stochastic Coupling (+Stoch. Coupling vs RF+Heun) yields no significant mAP change ($p{=}0.80$) — but this is *dataset-specific*: the same comparison on the smaller Dataset 1 reveals a large, highly significant gain ($+0.034$, $p<10^{-120}$; Table 9), so Stochastic Coupling's accuracy contribution is real in low-data regimes and diminishes with dataset size. Second, DPM-Solver++ at matched 4-step (+DPM-Solver++ vs +Stoch. Coupling) produces a small but highly significant mAP improvement ($+0.006$, $p<10^{-6}$ on both tests) — i.e., the higher-order solver is *slightly better*, not worse, than Heun at equal step count. On AP$_S$, none of the pairwise differences reach significance ($p>0.6$ on all tests), so the small-object numbers in Tables 5 and 6 should be read as noise-equivalent across our own variants; the same caveat applies to cross-method AP$_S$ comparisons.
+Table 8 reports a legacy cross-checkpoint per-image comparison. Stochastic Coupling has no significant Dataset-2 change, and the Dataset-1 claim is superseded because it mixed augmentation pipelines. The DPM-Solver++ $+0.006$ result is statistically significant for those checkpoints, but same-checkpoint aggregate switching is within approximately $\pm0.001$; these are different estimands and must not be merged.
 
 | Comparison | Metric | $\Delta$ | Wilc. $p$ | $t$ $p$ | $n$ |
 |------------|--------|----------|-----------|---------|-----|
@@ -285,7 +308,7 @@ Table 8 reports per-image paired significance tests (Wilcoxon signed-rank and pa
 | +DPM-Solver++−+Stoch. Coupling (DPM++) | AP$_S$ | $-0.0031$ | $0.855$ ns | $0.855$ ns | 60 |
 | +DPM-Solver++−RF+Heun (combined) | AP$_S$ | $-0.0019$ | $0.691$ ns | $0.898$ ns | 60 |
 
-**Table 8**: Per-image paired significance tests on Dataset 2 validation ($n{=}500$ images; AP$_S$ uses the 60 images containing small objects). $\Delta$ is the mean per-image difference of the second model minus the first. Wilc. = Wilcoxon signed-rank; $t$ = paired Student's $t$-test. *** denotes $p<0.001$; ns = not significant ($p>0.05$). *Question:* are the +Stoch. Coupling−RF+Heun (Stochastic Coupling) and +DPM-Solver++−+Stoch. Coupling (DPM-Solver++) gains statistically significant at the per-image level on Dataset 2, and does the small-object regime (AP$_S$) admit the same conclusions? *Conclusion:* Stochastic Coupling yields no significant mAP change on the larger Dataset 2 ($p{=}0.80$; its accuracy benefit is confined to the low-data Dataset 1, see Table 9), whereas DPM-Solver++ at matched 4-step produces a small but highly significant mAP improvement ($+0.006$, $p<10^{-6}$) — the higher-order solver is slightly *better*, not worse, than Heun at equal step count; none of the pairwise AP$_S$ differences reach significance, so small-object numbers across our own variants are noise-equivalent.
+**Table 8**: Legacy cross-checkpoint per-image tests on Dataset 2. Stochastic Coupling is null; the DPM-Solver++ result applies only to the listed checkpoints and does not replace the same-checkpoint solver ablation.
 
 | Comparison | Metric | $\Delta$ | Wilc. $p$ | $t$ $p$ | $n$ |
 |------------|--------|----------|-----------|---------|-----|
@@ -304,11 +327,22 @@ Figure 7 visualizes the detection results of each model on 9 representative case
 
 ![**Figure 7**: Qualitative detection comparison (Dataset 2 validation set, 9 representative cases). Each column is a 3×3 detection grid for one model; from left to right: Ground Truth, KaryoFlow (+DPM-Solver++), DiffusionDet, RTMDet-L, DINO R50. Cases cover Y chromosome (1, 3), F/G-group small chromosomes (2, 7), D-group (4), X chromosome (5), A-group large chromosomes (6, 8), and E16 (9). Box colors are per-model, in-box labels are predicted classes.](latex/figures/qual_mosaic.png)
 
+#### 4.3.4 Localization-Quality Ranking
+
+The A4 diagnosis yields AP50/AP75 of $0.9889/0.9717$ but AP90/AP95 of only
+$0.6914/0.2167$. Re-ranking fixed boxes and classes with true same-class IoU
+provides a $+0.0369$ mAP oracle. Learned strict final-only LQCR reaches
+$0.87044$ versus $0.86301$ for A4 ($+0.00743$), with AP90/AP95 gains of
+$+0.03041/+0.03251$ and nearly unchanged AP50. Feeding the same quality scores
+back into solver/renewal adds only $+0.00008$ mAP, so more than 99% of the total
+gain is explained by final ranking. Dataset-1 seed-42 training validation reaches
+$0.751$ versus its paired A4 value of $0.746$, pending unified ross evaluation.
+
 ### 4.4 Coupling Ablation
 
 #### 4.4.1 Dataset 1, Multi-seed
 
-On Dataset 1 (Table C.2), Stochastic Coupling yields a large and highly significant mAP gain over Random coupling ($+0.034$, $0.747$ vs $0.713$; pooled Wilcoxon $p<10^{-120}$, $n{=}1320$; Table 9), and over Hard OT ($+0.042$, $p<10^{-150}$). Hard OT is *worse* than Random ($-0.008$, $p<10^{-8}$), confirming the diversity-collapse pathology predicted by Section 3.3: deterministic OT assignment collapses $H(V|X_t)\to 0$ and degrades training. The gain is dataset-dependent, however: on the larger Dataset 2 (5000 images, 24 classes), the same Stochastic Coupling vs Random comparison shrinks to $+0.0001$ ($p{=}0.80$, not significant; Table 8). We hypothesize that with more data the marginal benefit of OT-induced pairing diminishes, as the model sees enough samples to average out the random-coupling noise — an empirical signature of the low-data regime where Stochastic Coupling (which also delivers $4.6\times$ smoother convergence, Table 7) is most effective.
+Under standardized augmentation, Dataset 1 shows no significant difference among Stochastic, Random, and Hard-OT coupling (approximately $0.747/0.746/0.748$ over three seeds). Dataset 2 likewise shows no significant gain. The former $+0.034$ pooled comparison mixed standard augmentation for Stochastic Coupling with simple augmentation for Random coupling and is superseded. Thus the entropy-collapse analysis does not establish an accuracy loss under the actual training pipeline.
 
 #### 4.4.2 Multi-dimensional Stability Comparison (Dataset 2)
 
@@ -324,7 +358,7 @@ Table 7 reports five additional stability metrics. Stochastic Coupling achieves 
 | Total training epochs | 92 | 144 | — |
 | Training failure rate (9 runs) | 0/9 | 0/9 | — |
 
-**Table 7**: Multi-dimensional stability comparison (Dataset 2, single seed). Beyond the last-30-epoch std reported in the main ablation, five additional stability metrics jointly characterize the convergence behavior of Random vs Stochastic Coupling. CV = std/mean. *Question:* does Stochastic Coupling improve training reliability only in the narrow sense of epoch-std, or does the stability advantage extend to multiple practically meaningful metrics such as checkpoint-selection robustness, convergence range, and training-failure rate? *Conclusion:* Stochastic Coupling wins on every measured axis: $4.6\times$ lower epoch std, $4.4\times$ lower coefficient of variation, $4.6\times$ narrower mAP range, and crucially $30/30$ epochs within $1\%$ of the best mAP versus $13/30$ for Random — making late-stage checkpoint selection far more reliable for EarlyStopping-based training in small-data regimes, with zero training failures in $9$ runs for both configurations.
+**Table 7**: Exploratory single-seed curve statistics. The 4.6x ratio compares autocorrelated epochs within one run; it has no multi-seed confidence interval and does not establish improved checkpoint selection or test generalization.
 
 Figure 4 visualizes the per-epoch mAP curve, directly illustrating the 4.6× smoothness gain: Random coupling exhibits epoch-level oscillation, while Stochastic Coupling converges smoothly.
 
@@ -388,7 +422,7 @@ Table 10 and Figure 6 report the speed-accuracy trade-off at $512{\times}512$ in
 
 ### 4.7 Cross-Dataset Summary
 
-Across both datasets, RF outperforms DDPM ($+0.017$ mAP on Dataset 1, $+0.060$ over DiffusionDet on Dataset 2), DPM-Solver++ matches Heun at lower NFE and is more accurate at matched step count ($+0.006$ mAP, Wilcoxon $p<10^{-6}$), and Stochastic Coupling's mAP gain is dataset-dependent: large and highly significant on the smaller Dataset 1 ($+0.034$ over Random, $p<10^{-120}$; Hard OT is *worse* than Random, $-0.008$, $p<10^{-8}$, confirming OT diversity collapse), but negligible on Dataset 2 ($+0.0001$, $p{=}0.80$). The $4.6\times$ convergence-smoothness benefit holds on both.
+Across both datasets, RF is the dominant accuracy source and DPM-Solver++ matches Heun at lower NFE. Stochastic Coupling has no significant standardized-augmentation mAP gain and is not a core improvement. LQCR is the independent post-RF accuracy contribution: $+0.00743$ mAP on Dataset 2 under strict final-only isolation and a preliminary $+0.005$ on Dataset 1 seed 42.
 
 ### 4.8 Robustness
 
@@ -436,9 +470,9 @@ features do not collapse under annotation corruption.
 
 RF's straight-line ODE paths reduce truncation error in few-step inference, which is especially valuable for chromosome detection: the high object density (~46 per image) compounds per-box errors, the small training sets (1,540–5,000 images) limit the model's ability to learn complex curved DDPM trajectories, and the 24-class fine-grained task benefits from stable feature representations. The +0.082 mAP improvement ($0.774 \to 0.856$) on Dataset 2 confirms RF's effectiveness in this regime.
 
-### 5.2 Stochastic Coupling: Dataset-Dependent mAP Gain Plus Smoothness
+### 5.2 Stochastic Coupling: Null Accuracy Result and Exploratory Smoothness
 
-Stochastic Coupling's value has two distinct components. On Dataset 2 (5000 images), the mAP gain is negligible ($+0.0001$, $p{=}0.80$, Table 8) and its value is entirely smoother convergence ($4.6\times$ epoch-std reduction, $0.006 \to 0.0013$). On the smaller Dataset 1 (1540 images), however, the same comparison reveals a large, highly significant mAP gain ($+0.034$, $p<10^{-120}$, Table 9) on top of the smoothness benefit. This dataset-dependence is consistent with the theory: with more data, the model sees enough samples to average out random-coupling noise, attenuating OT collapse and the marginal benefit of Stochastic Coupling.
+With standardized augmentation, Stochastic Coupling has no significant mAP advantage on either dataset. The former Dataset-1 gain was confounded by augmentation. A single-seed curve shows a last-30-epoch std ratio of 4.6x, but autocorrelated epochs are not independent replications and no multi-seed test-generalization link has been established. We therefore retain Stochastic Coupling as a coupling analysis and an unconfirmed stabilization candidate, not as a core contribution.
 
 On both datasets, the smoothness benefit has practical consequences for checkpoint selection: with Random coupling, checkpoint selection may land on a "lucky" epoch 0.006 above the trend — a false peak that may not generalize. Stochastic Coupling's 0.0013 epoch std makes checkpoint selection far more reliable. The seed 123 result (mAP 0.857 vs seed 42's 0.863, $\Delta = -0.006$) confirms that epoch oscillation directly impacts which checkpoint EarlyStopping selects. A formal causal link (Stochastic Coupling → better test generalization via better checkpoint selection) requires per-epoch test evaluation, left as future work.
 
@@ -458,11 +492,11 @@ The theory does not transfer to high-dimensional generation ($d \sim 10^5$, wher
 
 ## 6. Conclusion
 
-We introduced *KaryoFlow*, a diffusion-based detector for chromosome karyotyping that brings Rectified Flow into clinical cytogenetics. The RF training paradigm --- straight-line ODE paths replacing curved DDPM trajectories --- is the main accuracy source, yielding $+0.082$ mAP over the Euler baseline on Dataset 2 and $+0.017$ mAP over DDPM on Dataset 1, and our best variant surpasses the DDPM-based DiffusionDet by $+0.060$ mAP while exceeding Cascade R-CNN; a solver$\times$step disentanglement attributes $94\%$ of this gain to the RF paradigm itself. Stochastic Coupling, grounded in our characterization of OT Diversity Collapse in the low-dimensional ($\mathbb{R}^4$) detection space, restores coupling diversity and stabilizes training: in low-data regimes it yields a large, highly significant mAP gain ($+0.034$, $p<10^{-120}$), while on larger data the gain shifts to a $4.6\times$ reduction of within-run epoch-level oscillation that makes checkpoint selection reliable. DPM-Solver++ with Top-$K$ pruning delivers four-step inference at 13.3--14.2 FPS with a precision gain over Heun ($+0.006$ mAP, $p<10^{-6}$), placing the detector in the interactive-screening latency band. Standard one-shot detectors remain 3--7$\times$ faster, so our method trades latency for accuracy and is positioned for interactive clinical screening rather than maximal throughput.
+We introduced *KaryoFlow-LQCR* and separated its contributions across trajectory modeling, numerical integration, and ranking. RF is the dominant accuracy source, improving over DDPM by approximately $+0.017/+0.053$ mAP on Datasets 1/2. RF-adapted DPM-Solver++ reduces four-step inference from seven Heun evaluations to four, with its main contribution being efficiency at matched accuracy. LQCR provides the new independent accuracy gain: under strict final-only isolation it improves Dataset-2 mAP from $0.86301$ to $0.87044$ and AP90/AP95 by $+0.03041/+0.03251$. Dataset-1 seed-42 training validation improves from $0.746$ to $0.751$, while full paired-seed evaluation is ongoing.
 
 Beyond chromosome karyotyping, the OT Diversity Collapse phenomenon we characterize is not specific to chromosomes --- it arises whenever the prediction space is low-dimensional, the target density per image is high, and the training corpus is small. This profile recurs across medical imaging: cell detection in histopathology (many nuclei per tile, $d=4$ bounding boxes, small annotated cohorts), lesion detection in mammography and retinal imaging (small targets, limited positive cases), and microbiological colony counting. In each of these settings, deterministic OT coupling collapses toward $\log K$ and Stochastic Coupling offers the same dual benefit --- accuracy in low-data regimes, stability in general --- that we observed on chromosomes. The theory provides an a-priori diagnostic via Table 2: any task with $d \ll 100$ and $K \gg 10$ is a candidate, and the severity $\Delta H/H$ predicts whether Stochastic Coupling will help. Validation on at least one non-chromosome high-$K$ low-$d$ benchmark --- cell detection being the most natural next step --- would substantially strengthen the generality claim.
 
-We acknowledge three limitations. First, the empirical validation is confined to chromosome data; validating on COCO or cell-detection benchmarks would test the generality of the OT collapse prediction. Second, Stochastic Coupling's mAP gain is dataset-dependent (large on Dataset 1, negligible on Dataset 2), so its accuracy contribution cannot be taken for granted on larger benchmarks --- though the $4.6\times$ stability benefit holds independently. Third, the theoretical analysis assumes well-separated targets; densely overlapping scenes would require extending the finite-$N$ analysis. Addressing these limitations is a natural direction for future work.
+We acknowledge four limitations. First, LQCR has not yet been validated on a general benchmark such as COCO. Second, $pq^2$ is a Bayes-consistent surrogate under a monotone one-parameter localization-quality family, not a theorem that maximizes COCO AP for arbitrary IoU distributions. Third, the Stochastic Coupling smoothness ratio is based on one autocorrelated epoch sequence and is exploratory. Fourth, all final latency and hardware-sensitive comparisons must remain on the same ross RTX A6000 environment.
 
 ## Appendix
 
