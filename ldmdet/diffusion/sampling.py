@@ -13,6 +13,7 @@ from torch import Tensor
 from torchvision.ops import batched_nms
 
 from ldmdet.data.structures import DetectionResult, ImageMeta
+from ldmdet.diffusion.box_chart import ValidBoxChart
 from ldmdet.diffusion.noise_schedule import load_buffer
 from ldmdet.diffusion.rectified_flow import (
     RFDPMSolverAdaptive,
@@ -66,6 +67,8 @@ class DiffusionSampler:
         # True=保留 DPM++ D1 校正, False=置零退化为 Euler
         # 典型值: [True, True, False, False] — cx/cy 保留二阶校正, w/h 退为一阶
         dim_d1_mask: Optional[list[bool]] = None,
+        # BoxChart-RF: optional valid-box chart used as the RF state space.
+        box_chart: Optional[ValidBoxChart] = None,
     ):
         self.diffusion_type = diffusion_type
         self.timesteps = timesteps
@@ -76,6 +79,7 @@ class DiffusionSampler:
         self.rf_power = rf_power
         self.rf_shift = rf_shift
         self.snr_scale = snr_scale
+        self.box_chart = box_chart
         self.box_renewal = box_renewal
         self.use_ensemble = use_ensemble
         self.use_nms = use_nms
@@ -439,22 +443,30 @@ class DiffusionSampler:
             h, w = _get_img_shape(meta)[:2]
             scale = x0.new_tensor([w, h, w, h])
             x0[i] /= scale
-        x0 = bbox_xyxy_to_cxcywh(x0)
-        x0 = (x0 * 2 - 1) * self.snr_scale
-        return x0
+        return self.normalized_xyxy_to_raw(x0)
+
+    def normalized_xyxy_to_raw(self, bboxes: Tensor) -> Tensor:
+        """Normalized xyxy boxes → configured RF state coordinates."""
+        if self.box_chart is not None:
+            return self.box_chart.encode(bboxes)
+        cxcywh = bbox_xyxy_to_cxcywh(bboxes)
+        return (cxcywh * 2 - 1) * self.snr_scale
+
+    def raw_to_normalized_xyxy(self, raw_bboxes: Tensor) -> Tensor:
+        """Configured RF state coordinates → normalized valid xyxy boxes."""
+        if self.box_chart is not None:
+            return self.box_chart.decode(raw_bboxes)
+        cxcywh = (
+            raw_bboxes.clamp(-self.snr_scale, self.snr_scale)
+            / self.snr_scale + 1
+        ) / 2
+        return bbox_cxcywh_to_xyxy(cxcywh)
 
     def raw_to_xyxy(
         self, raw_bboxes: Tensor, img_metas: List[ImageMeta]
     ) -> Tensor:
         """扩散空间 raw → 图像空间 xyxy"""
-        bboxes = (
-            (
-                raw_bboxes.clamp(-self.snr_scale, self.snr_scale)
-                / self.snr_scale
-            )
-            + 1
-        ) / 2
-        bboxes = bbox_cxcywh_to_xyxy(bboxes)
+        bboxes = self.raw_to_normalized_xyxy(raw_bboxes)
         for i, meta in enumerate(img_metas):
             h, w = _get_img_shape(meta)[:2]
             scale = bboxes.new_tensor([w, h, w, h])

@@ -10,6 +10,8 @@
 
 > **⚠️ 更新 (2026-07-07)**: 原 IO1-IO5 方向已通过 [benchmark_inference.py](../../../experiments/analysis/benchmark_inference.py) 实测验证，多数被证伪。新方案见 [实证优化方案.md](./实证优化方案.md)。
 
+> **更新 (2026-08-08)**：已实现 [GACS：几何感知级联停止](./方向GACS_几何感知级联停止.md)。GACS 使用同一次 NFE 内末两级 cascade 的 BoxChart 几何残差、分类残差和置信度门控，在当前 1/2 步配置上约 33% 图像提前退出，mAP 无可测损失。它不同于下方已证伪的旧 IO1 相邻 solver 步判据；实验不支持 GACS 提升 mAP。
+
 ---
 
 > ⚠️ **暂时废弃**：以下瓶颈实测数据（335 ms/图、RoIAlign 52.2%、DynamicConv 37.5%、single_head_mean_ms=6.7662 等）基于旧数据集 Chromosome20240904 的 checkpoint（`work_dirs/reproduce_0751_stochot_eps5_v2/best_coco_bbox_mAP_epoch_59.pth`，mAP≈0.753），24obj 数据集上的推理优化结论待验证。
@@ -63,6 +65,7 @@ backbone+FPN (1次, 26ms)
 | **IO3** Top-K 框剪枝 | N: 500→100 | **验证成功, 推荐K=300** | K=300 加速 1.34x, mAP Δ=-0.001；无需重训 | [IO3](./方向IO3_TopK框剪枝.md) |
 | **IO4** 级联头提前退出 | 跳过收敛的后续头 | **证伪** | 所有阈值退出率均为 0%，级联头是主动精炼设计而非冗余 | [IO4](../archived/级联头提前退出.md) |
 | **IO5** 跨步 RoI 特征缓存 | 复用 RoI 特征 | **证伪** | 框位移 93-124 px/步, RoI 特征剧变 | [IO5](../archived/跨步RoI特征缓存.md) |
+| **GACS** 几何感知级联停止 | 同一 NFE 内 head 5→6 一致性选择精确 1/2 步 | **验证成功（无损加速）** | 约 33% 早退，平均 1.66–1.67 步；三 seed mAP 持平 | [GACS](./方向GACS_几何感知级联停止.md) |
 
 ### 已实现方向
 

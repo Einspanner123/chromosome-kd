@@ -19,6 +19,7 @@ from ldmdet.data.structures import (
     ModelOutput,
 )
 from ldmdet.diagnostics.instrumentation import probe
+from ldmdet.diffusion.box_chart import ValidBoxChart
 from ldmdet.diffusion.embeddings import SinusoidalPositionEmbeddings
 from ldmdet.diffusion.noise_schedule import cosine_noise_schedule
 from ldmdet.diffusion.rectified_flow import RectifiedFlow
@@ -39,6 +40,10 @@ class DiffusionDetHead(nn.Module):
         num_heads: int = 6,
         prior_prob: float = 0.01,
         snr_scale: float = 2.0,
+        box_parameterization: str = 'linear_cxcywh',
+        box_chart_eps: float = 1e-6,
+        box_chart_mean: Optional[list] = None,
+        box_chart_covariance: Optional[list] = None,
         timesteps: int = 1000,
         sampling_timesteps: int = 1,
         solver_type: str = 'euler',
@@ -99,6 +104,16 @@ class DiffusionDetHead(nn.Module):
         adaptive_solver_mode: str = 'static',
         adaptive_num_3rd_steps: int = 2,
         adaptive_eta_3rd_threshold: float = 0.5,
+        # GACS: geometry-aware adaptive stopping (1/2-step inference).
+        # The last two cascade stages provide a zero-extra-NFE posterior
+        # consistency residual after the first solver evaluation.
+        adaptive_stopping: bool = False,
+        adaptive_stop_min_steps: int = 1,
+        adaptive_stop_geo_threshold: float = 0.05,
+        adaptive_stop_cls_threshold: float = 0.01,
+        adaptive_stop_score_threshold: float = 0.5,
+        adaptive_stop_min_box_scale: float = 0.0,
+        adaptive_stop_topk: int = 100,
         # Head Distillation v2: 少 Head (H=3) 蒸馏多 Head (H=6)
         # 详见 docs/research/proposals/REFLOW_HEAD_DISTILL_IMPL_PLAN.md §2
         use_distillation: bool = False,
@@ -132,6 +147,7 @@ class DiffusionDetHead(nn.Module):
         self.num_proposals = num_proposals
         self.num_heads = num_heads
         self.snr_scale = snr_scale
+        self.box_parameterization = box_parameterization
         self.diffusion_type = diffusion_type
         self.deep_supervision = deep_supervision
         self.cascade_detach = cascade_detach
@@ -145,6 +161,52 @@ class DiffusionDetHead(nn.Module):
         self.box_renewal = box_renewal
         self.use_ensemble = use_ensemble
         self.solver_type = solver_type
+        self.adaptive_stopping = adaptive_stopping
+        self.adaptive_stop_min_steps = int(adaptive_stop_min_steps)
+        self.adaptive_stop_geo_threshold = float(adaptive_stop_geo_threshold)
+        self.adaptive_stop_cls_threshold = float(adaptive_stop_cls_threshold)
+        self.adaptive_stop_score_threshold = float(adaptive_stop_score_threshold)
+        self.adaptive_stop_min_box_scale = float(adaptive_stop_min_box_scale)
+        self.adaptive_stop_topk = int(adaptive_stop_topk)
+        self._adaptive_stop_stats = None
+        self._last_cascade_consistency = None
+
+        if adaptive_stopping:
+            if sampling_timesteps != 2:
+                raise ValueError(
+                    'adaptive_stopping currently requires sampling_timesteps=2 '
+                    'so exits are exactly the validated 1/2-step schedules')
+            if num_heads < 2:
+                raise ValueError('adaptive_stopping requires at least two cascade heads')
+            if not (1 <= adaptive_stop_min_steps <= sampling_timesteps):
+                raise ValueError('adaptive_stop_min_steps must be in [1, 2]')
+            if adaptive_stop_topk <= 0:
+                raise ValueError('adaptive_stop_topk must be positive')
+
+        if box_parameterization not in ('linear_cxcywh', 'gap_ilr'):
+            raise ValueError(
+                'box_parameterization must be linear_cxcywh or gap_ilr, '
+                f'got {box_parameterization!r}')
+        if box_parameterization == 'gap_ilr':
+            if diffusion_type != 'rectified_flow':
+                raise ValueError('gap_ilr is currently implemented for RF only')
+            if box_chart_mean is None or box_chart_covariance is None:
+                raise ValueError(
+                    'gap_ilr requires box_chart_mean and box_chart_covariance')
+            if use_reflow_coupling:
+                raise ValueError('existing ReFlow couplings use linear_cxcywh coordinates')
+            if use_lvd:
+                raise ValueError('LVD raw_cxcywh loss is incompatible with gap_ilr')
+            if solver_type in ('dpm_solver_pp_per_dim', 'dpm_solver_pp_per_dim_w'):
+                raise ValueError('per-dimension cxcywh solvers are incompatible with gap_ilr')
+            self.box_chart = ValidBoxChart(
+                eps=box_chart_eps,
+                mean=torch.as_tensor(box_chart_mean, dtype=torch.float64),
+                covariance=torch.as_tensor(
+                    box_chart_covariance, dtype=torch.float64),
+            )
+        else:
+            self.box_chart = None
 
         self.loss_aux = loss_aux
 
@@ -228,6 +290,7 @@ class DiffusionDetHead(nn.Module):
             # P0: 自适应阈值 box_renewal
             adaptive_renewal_threshold=adaptive_renewal_threshold,
             adaptive_renewal_scale=adaptive_renewal_scale,
+            box_chart=self.box_chart,
         )
 
         self._init_weights(prior_prob)
@@ -451,7 +514,7 @@ class DiffusionDetHead(nn.Module):
     # 前向传播
     # ================================================================
 
-    def forward(self, features, bboxes, t):
+    def forward(self, features, bboxes, t, img_metas=None):
         time_emb = self.time_mlp(t)
         # 探针: time_emb 激活统计 (训练时每 100 步, 推理时每次)
         if self.training:
@@ -534,6 +597,8 @@ class DiffusionDetHead(nn.Module):
             )
         device = features[0].device
         bs = len(img_metas)
+        self._adaptive_stop_stats = None
+        self._last_cascade_consistency = None
 
         targets = self._normalize_targets(gt_bboxes, gt_labels, img_metas, bs)
         t = self._sample_t(bs, device)
@@ -559,14 +624,14 @@ class DiffusionDetHead(nn.Module):
         if self.amp_dtype is not None:
             with torch.cuda.amp.autocast(dtype=self.amp_dtype):
                 all_cls_logits, all_pred_bboxes, all_curr_proposals = self(
-                    features, curr_bboxes, t_input
+                    features, curr_bboxes, t_input, img_metas
                 )
             # autocast 输出可能为半精度，criterion 需 FP32（如 cdist 不支持 BF16）
             all_cls_logits = all_cls_logits.float()
             all_pred_bboxes = all_pred_bboxes.float()
         else:
             all_cls_logits, all_pred_bboxes, all_curr_proposals = self(
-                features, curr_bboxes, t_input
+                features, curr_bboxes, t_input, img_metas
             )
 
         norm_pred_bboxes = self._normalize_pred_bboxes(
@@ -587,11 +652,7 @@ class DiffusionDetHead(nn.Module):
         # (与 _sampler.raw_to_xyxy 的前两步一致, 但不乘 img_scale 以保持归一化)
         if self.use_reflow_coupling:
             raw_x_starts = torch.stack(x_starts)  # [bs, num_proposals, 4] raw cxcywh
-            norm_cxcywh = (
-                raw_x_starts.clamp(-self.snr_scale, self.snr_scale)
-                / self.snr_scale + 1
-            ) / 2  # → [0, 1]
-            box_targets = bbox_cxcywh_to_xyxy(norm_cxcywh)  # → normalized xyxy [0,1]
+            box_targets = self._sampler.raw_to_normalized_xyxy(raw_x_starts)
         else:
             box_targets = None
         losses = self.criterion(outputs, targets, t=t, box_targets=box_targets)
@@ -851,14 +912,14 @@ class DiffusionDetHead(nn.Module):
         if self.amp_dtype is not None:
             with torch.cuda.amp.autocast(dtype=self.amp_dtype):
                 s_cls, s_bbox, s_fc_feats = self(
-                    features, curr_bboxes, t_input
+                    features, curr_bboxes, t_input, img_metas
                 )
             s_cls = s_cls.float()
             s_bbox = s_bbox.float()
             s_fc_feats = [f.float() for f in s_fc_feats]
         else:
             s_cls, s_bbox, s_fc_feats = self(
-                features, curr_bboxes, t_input
+                features, curr_bboxes, t_input, img_metas
             )
 
         # Teacher forward (no_grad, 收集 fc_features)
@@ -867,12 +928,12 @@ class DiffusionDetHead(nn.Module):
             if self.amp_dtype is not None:
                 with torch.cuda.amp.autocast(dtype=self.amp_dtype):
                     t_cls, t_bbox, t_fc_feats = teacher(
-                        features, curr_bboxes, t_input
+                        features, curr_bboxes, t_input, img_metas
                     )
                 t_fc_feats = [f.float() for f in t_fc_feats]
             else:
                 t_cls, t_bbox, t_fc_feats = teacher(
-                    features, curr_bboxes, t_input
+                    features, curr_bboxes, t_input, img_metas
                 )
 
         # 检测损失 L_det
@@ -1007,8 +1068,12 @@ class DiffusionDetHead(nn.Module):
         # 在下一步 DPM-Solver++ step() 中传入, 对被 renewal 的 proposal
         # 置零 D1 校正项, 避免 renewal 噪声污染 x0_history 导致 D1 失效
         _renewal_mask: Optional[torch.Tensor] = None  # [bs, N] bool
+        adaptive_gate_metrics = None
+        adaptive_stopped = False
+        actual_steps = 0
 
         for step_idx, (t_curr, t_next) in enumerate(time_pairs):
+            actual_steps = step_idx + 1
             cls_logits, pred_bboxes, x0_raw = self._forward_at_t(
                 features, x_raw, t_curr, img_metas
             )
@@ -1056,10 +1121,27 @@ class DiffusionDetHead(nn.Module):
                 trajectory.append((cls_logits.detach(), pred_bboxes.detach()))
             if self.use_ensemble:
                 ensemble_results.append((cls_logits, pred_bboxes))
+            else:
+                # Non-ensemble inference must return the latest solver result.
+                # The previous ``if not ensemble_results`` implementation kept
+                # step 0 forever, silently making later NFEs ineffective.
+                ensemble_results[:] = [(cls_logits, pred_bboxes)]
 
-            # Always keep last result for non-ensemble (DDPM single-step)
-            if not ensemble_results:
-                ensemble_results.append((cls_logits, pred_bboxes))
+            # GACS early exit.  With sampling_timesteps=2 this check after the
+            # first evaluation chooses exactly between the established 1-step
+            # and 2-step schedules.  Batch inference exits only when every
+            # image passes; per-image asynchronous stepping is intentionally
+            # avoided to preserve tensor shapes and solver history.
+            if (
+                self.adaptive_stopping
+                and actual_steps >= self.adaptive_stop_min_steps
+                and actual_steps < len(time_pairs)
+            ):
+                adaptive_gate_metrics = self._last_cascade_consistency
+                stop_mask = self._adaptive_stop_mask(adaptive_gate_metrics)
+                if bool(stop_mask.all()):
+                    adaptive_stopped = True
+                    break
 
             if self.diffusion_type == 'ddpm':
                 curr_bboxes_xyxy, x_raw = self._sampler.ddim_step(
@@ -1124,6 +1206,17 @@ class DiffusionDetHead(nn.Module):
                 )
                 if t_next <= 0:
                     break
+
+        if self.adaptive_stopping:
+            metrics = adaptive_gate_metrics or self._last_cascade_consistency
+            self._adaptive_stop_stats = {
+                'actual_steps': actual_steps,
+                'stopped_early': adaptive_stopped,
+                'geo_residual': metrics['geo_residual'].detach().cpu().tolist(),
+                'cls_residual': metrics['cls_residual'].detach().cpu().tolist(),
+                'mean_topk_score': metrics['mean_topk_score'].detach().cpu().tolist(),
+                'lower_box_scale': metrics['lower_box_scale'].detach().cpu().tolist(),
+            }
 
         results = self._sampler.post_process(
             ensemble_results, img_metas, rescale
@@ -1273,8 +1366,8 @@ class DiffusionDetHead(nn.Module):
                     )
                 else:
                     # matched_idx 在线重算: OT couple (noise, GT) 仅供 cls 分配
-                    norm_gt_cxcywh = bbox_xyxy_to_cxcywh(targets[i].bboxes)
-                    gt_diffusion = (norm_gt_cxcywh * 2 - 1) * self.snr_scale
+                    gt_diffusion = self._sampler.normalized_xyxy_to_raw(
+                        targets[i].bboxes)
                     _, matched_idx = self._couple_single_image(
                         noise, gt_diffusion, targets[i].labels, device
                     )
@@ -1302,8 +1395,8 @@ class DiffusionDetHead(nn.Module):
                     )
                 )
                 continue
-            norm_gt_cxcywh = bbox_xyxy_to_cxcywh(targets[i].bboxes)
-            gt_diffusion = (norm_gt_cxcywh * 2 - 1) * self.snr_scale
+            gt_diffusion = self._sampler.normalized_xyxy_to_raw(
+                targets[i].bboxes)
             if external_noise is not None:
                 noise = external_noise[i]
             else:
@@ -1348,6 +1441,69 @@ class DiffusionDetHead(nn.Module):
         x_noisy, _ = self.rf.q_sample(x_start, x_noise=noise, t=t)
         return x_noisy, noise
 
+    def _cascade_consistency_metrics(
+        self, cls_logits_seq, pred_bboxes_seq, img_metas
+    ):
+        """Return per-image posterior residuals of the final cascade update.
+
+        Proposal indices are preserved across cascade stages.  Localization
+        consistency is measured in the detector's RF coordinates (BoxChart
+        coordinates for gap_ilr), while classification consistency is the
+        change in the final winning-class sigmoid score.  Both are evaluated
+        only on the final stage's top-scoring proposals.
+        """
+        cls_prev, cls_last = cls_logits_seq[-2], cls_logits_seq[-1]
+        boxes_prev, boxes_last = pred_bboxes_seq[-2], pred_bboxes_seq[-1]
+        z_prev = self._sampler.xyxy_to_raw(boxes_prev, img_metas)
+        z_last = self._sampler.xyxy_to_raw(boxes_last, img_metas)
+
+        probs_prev = cls_prev.sigmoid()
+        probs_last = cls_last.sigmoid()
+        scores, labels = probs_last.max(dim=-1)
+        k = min(self.adaptive_stop_topk, scores.shape[1])
+        top_scores, top_indices = scores.topk(k, dim=1)
+
+        gather4 = top_indices.unsqueeze(-1).expand(-1, -1, 4)
+        z_delta = (z_last.gather(1, gather4) - z_prev.gather(1, gather4))
+        geo = z_delta.square().mean(dim=-1).sqrt().mean(dim=-1)
+
+        winning_labels = labels.gather(1, top_indices)
+        last_winning = probs_last.gather(1, top_indices.unsqueeze(-1).expand(
+            -1, -1, probs_last.shape[-1]
+        )).gather(2, winning_labels.unsqueeze(-1)).squeeze(-1)
+        prev_winning = probs_prev.gather(1, top_indices.unsqueeze(-1).expand(
+            -1, -1, probs_prev.shape[-1]
+        )).gather(2, winning_labels.unsqueeze(-1)).squeeze(-1)
+        cls = (last_winning - prev_winning).abs().mean(dim=-1)
+
+        scales = boxes_last.new_empty(boxes_last.shape[0], 4)
+        for i, meta in enumerate(img_metas):
+            h, w = _get_img_shape(meta)[:2]
+            scales[i] = boxes_last.new_tensor([w, h, w, h])
+        normalized = boxes_last / scales.unsqueeze(1)
+        top_boxes = normalized.gather(1, gather4)
+        wh = (top_boxes[..., 2:] - top_boxes[..., :2]).clamp_min(0)
+        # Lower-decile scale is robust to a few degenerate false proposals,
+        # while retaining images whose confident proposal set contains small
+        # targets for the second solver evaluation.
+        lower_box_scale = torch.quantile(
+            (wh[..., 0] * wh[..., 1]).sqrt(), 0.1, dim=1)
+
+        return {
+            'geo_residual': geo,
+            'cls_residual': cls,
+            'mean_topk_score': top_scores.mean(dim=-1),
+            'lower_box_scale': lower_box_scale,
+        }
+
+    def _adaptive_stop_mask(self, metrics):
+        return (
+            (metrics['geo_residual'] <= self.adaptive_stop_geo_threshold)
+            & (metrics['cls_residual'] <= self.adaptive_stop_cls_threshold)
+            & (metrics['mean_topk_score'] >= self.adaptive_stop_score_threshold)
+            & (metrics['lower_box_scale'] >= self.adaptive_stop_min_box_scale)
+        )
+
     def _forward_at_t(self, features, x_raw, t, img_metas):
         bs, device = x_raw.shape[0], x_raw.device
         curr_bboxes = self._sampler.raw_to_xyxy(x_raw, img_metas)
@@ -1357,14 +1513,17 @@ class DiffusionDetHead(nn.Module):
         if self.amp_dtype is not None:
             with torch.cuda.amp.autocast(dtype=self.amp_dtype):
                 cls_logits_seq, pred_bboxes_seq, _ = self(
-                    features, curr_bboxes, t_input
+                    features, curr_bboxes, t_input, img_metas
                 )
             cls_logits_seq = cls_logits_seq.float()
             pred_bboxes_seq = pred_bboxes_seq.float()
         else:
             cls_logits_seq, pred_bboxes_seq, _ = self(
-                features, curr_bboxes, t_input
+                features, curr_bboxes, t_input, img_metas
             )
+        if self.adaptive_stopping:
+            self._last_cascade_consistency = self._cascade_consistency_metrics(
+                cls_logits_seq, pred_bboxes_seq, img_metas)
         cls_logits_last = cls_logits_seq[-1]
         pred_bboxes_last = pred_bboxes_seq[-1]
         x0 = self._sampler.xyxy_to_raw(pred_bboxes_last, img_metas)
