@@ -97,6 +97,20 @@ seed42 输出目录为 `work_dirs/capr_quality_only_24obj/`。89 项相关测试
 2-iter 冒烟中 `loss_quality=0.885/0.992`、显存约 1.8–2.0 GB，完成反传与
 checkpoint 保存。正式训练于 2026-08-08 启动。
 
+训练已完成：最佳 epoch2 的 solver-coupled mAP 为 0.87052，相对 A4 的
+0.86301 提升 0.00751；AP90/AP95 分别提升 0.02969/0.03490。随后用完全相同
+权重完成严格 final-only 消融（提交 `7f0c4d9e`）：mAP 为 0.87044，相对 A4
+提升 0.00743，而 solver/renewal 反馈在 final-only 之上仅增加 0.00008。
+因此 CAPR-C2 的主机制已收敛为**仅最终输出的定位质量排序**；轨迹反馈不再作为
+通用增益的必要组成。完整来源见：
+
+- `work_dirs/diagnosis/precision_bottleneck_capr_quality_final_only_epoch2_seed42.json`
+- `work_dirs/diagnosis/precision_bottleneck_capr_quality_epoch2_seed42.json`
+- `docs/research/精度瓶颈Phase0诊断_20260808.md`
+
+尺度分解显示轨迹反馈相对 final-only 对 APs 为 +0.02966、对 APl 为 −0.00567。
+这提示后续若研究小目标，应使用尺度条件门控，而不是对全部 proposal 统一反馈。
+
 ### 3.2 接入位置
 
 - `ldmdet/core/single_head.py`
