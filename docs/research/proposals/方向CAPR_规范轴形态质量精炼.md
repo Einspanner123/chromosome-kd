@@ -91,6 +91,12 @@ $$s=p_c\,q^\beta.$$
 入口 detach backbone/neck 特征，只训练末级 quality MLP；因此不需要用另一个
 continuation run 估计旧模型权重漂移。
 
+实现记录：主体提交 `fd315c97`，隔离训练修正 `593fa2f2`；配置为
+`experiments/configs/ldmdet/directions/capr/capr_quality_only_24obj.py`，正式
+seed42 输出目录为 `work_dirs/capr_quality_only_24obj/`。89 项相关测试通过；
+2-iter 冒烟中 `loss_quality=0.885/0.992`、显存约 1.8–2.0 GB，完成反传与
+checkpoint 保存。正式训练于 2026-08-08 启动。
+
 ### 3.2 接入位置
 
 - `ldmdet/core/single_head.py`
