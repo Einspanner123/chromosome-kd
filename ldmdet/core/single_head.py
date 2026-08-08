@@ -84,6 +84,8 @@ class SingleDiffusionDetHead(nn.Module):
         attn_half=False,
         use_normalized_classifier=False,
         classifier_temperature=20.0,
+        predict_iou_quality=False,
+        quality_hidden=128,
     ):
         super().__init__()
         self.feat_channels = feat_channels
@@ -93,6 +95,7 @@ class SingleDiffusionDetHead(nn.Module):
         self.use_sdpa = use_sdpa and _SDPA_AVAILABLE
         self.attn_half = attn_half
         self.use_normalized_classifier = use_normalized_classifier
+        self.predict_iou_quality = predict_iou_quality
 
         self.self_attn = nn.MultiheadAttention(
             feat_channels, num_heads, dropout=dropout
@@ -140,6 +143,20 @@ class SingleDiffusionDetHead(nn.Module):
             temperature=classifier_temperature,
         )
         self.reg_head = self._build_reg_head(feat_channels, num_reg_convs)
+        if predict_iou_quality:
+            self.quality_head = nn.Sequential(
+                nn.Linear(feat_channels, quality_hidden, bias=False),
+                nn.LayerNorm(quality_hidden),
+                nn.ReLU(inplace=True),
+                nn.Linear(quality_hidden, 1),
+            )
+            # Start close to identity after score fusion (q ~= 0.9), while a
+            # small non-zero weight lets gradients reach proposal features on
+            # the first update.
+            nn.init.normal_(self.quality_head[-1].weight, std=1e-3)
+            nn.init.constant_(self.quality_head[-1].bias, math.log(9.0))
+        else:
+            self.quality_head = None
 
         self.scale_clamp = scale_clamp
         self.bbox_weights = bbox_weights
@@ -288,11 +305,15 @@ class SingleDiffusionDetHead(nn.Module):
     def _predict(self, fc_feature, bboxes, bs, num_boxes):
         class_logits = self.cls_head(fc_feature)
         pred_bboxes = self._predict_bboxes(fc_feature, bboxes)
-        return (
+        result = (
             class_logits.view(bs, num_boxes, -1),
             pred_bboxes.view(bs, num_boxes, -1),
             fc_feature.view(1, bs * num_boxes, self.feat_channels),
         )
+        if self.quality_head is None:
+            return result
+        quality_logits = self.quality_head(fc_feature)
+        return result + (quality_logits.view(bs, num_boxes, 1),)
 
     def _forward_adaln_zero(
         self, proposals, roi_features, time_emb, bs, num_boxes

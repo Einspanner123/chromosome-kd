@@ -3,6 +3,13 @@
 > Canonical-Axis Profile and Quality Refinement（CAPR）
 > 目标：形成独立于 RF/solver/GACS 的检测头结构创新，优先提升高 IoU、小而细长、相似类别目标；先在 Dataset 2 建立机制，再在 Dataset 1 验证低数据泛化。
 
+> **2026-08-08 Phase-0 更新**：完整诊断表明分类 oracle 仅 +0.0043，
+> 定位 oracle +0.1278；真实同类 IoU 仅重排分数时，$p q^2$ oracle
+> 为 0.8999（相对 A4 0.8630 为 +0.0369）。step1→4 的末级 mAP
+> 仅 +0.0009，而同一步 head1→6 为 +0.2769。故实施顺序调整为：先做
+> 末级 quality-only C2；canonical-axis profile 暂缓，坐标精炼作为 C2
+> 证伪后的备选。证据和口径见 `docs/research/精度瓶颈Phase0诊断_20260808.md`。
+
 ## 1. 为什么不继续原 M1
 
 已有 M1 `MorphologyAwareRoIEncoder` 使用覆盖完整 7×7 RoI 的 `(7,1)`/`(1,7)` 方向卷积，并通过零初始化 `fuse` 残差接入。FP32 结果为 0.862，相对 +DPM++ 0.863 为 −0.001；方向卷积沿空间维度的能量比仅 1.01–1.02，最终退化成近似常数偏置。
@@ -77,7 +84,9 @@ $$s=p_c\,q^\beta.$$
 6. `LayerNorm → Linear` 生成形态残差；输出层用正常初始化，外部 LayerScale `γ=1e-3`，使行为近似恒等但首步梯度不被截断；
 7. quality head 读取 `[proposal_feature, e_shape]`，预测 IoU quality。
 
-首版只接入最后两个 cascade heads，前四头保持原模型，控制延迟和优化扰动。
+原计划首版接入最后两个 cascade heads。Phase-0 后的 C2 quality-only 实现进一步
+收缩到**仅第 6 级头**：前五级不构建 quality 参数，保证新增损失和推理重排均可
+单独归因；profile/坐标精炼若进入后续实验，再考虑第 5–6 级。
 
 ### 3.2 接入位置
 

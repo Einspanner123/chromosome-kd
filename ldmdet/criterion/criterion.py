@@ -28,6 +28,9 @@ class DiffusionDetCriterion(nn.Module):
         loss_bbox: nn.Module,
         loss_giou: nn.Module,
         deep_supervision: bool = True,
+        quality_loss_weight: float = 0.25,
+        quality_focal_alpha: float = 0.75,
+        quality_focal_gamma: float = 2.0,
         # R3: v-prediction 等价的损失重加权
         # 理论 (theory_analysis_RF_DPM.md §4.3): L_v = (1/t²) L_x0 (L2 squared 下)
         # L1 loss 下严格等价应为 1/t, 这里用 1/t² 匹配理论 doc 的梯度放大 claim
@@ -61,6 +64,9 @@ class DiffusionDetCriterion(nn.Module):
         self.loss_cls = loss_cls
         self.loss_bbox = loss_bbox
         self.loss_giou = loss_giou
+        self.quality_loss_weight = quality_loss_weight
+        self.quality_focal_alpha = quality_focal_alpha
+        self.quality_focal_gamma = quality_focal_gamma
         self.deep_supervision = deep_supervision
         self.v_prediction = v_prediction
         self.v_prediction_t_eps = v_prediction_t_eps
@@ -295,11 +301,65 @@ class DiffusionDetCriterion(nn.Module):
         probe.record_scalar('criterion/loss_bbox', loss_bbox.item())
         probe.record_scalar('criterion/loss_giou', loss_giou.item())
 
-        return {
+        losses = {
             'loss_cls': loss_cls,
             'loss_bbox': loss_bbox,
             'loss_giou': loss_giou,
         }
+        if outputs.pred_quality is not None:
+            losses['loss_quality'] = self._loss_quality(
+                outputs, targets, indices)
+            probe.record_scalar(
+                'criterion/loss_quality', losses['loss_quality'].item())
+        return losses
+
+    def _loss_quality(self, outputs, targets, indices) -> Tensor:
+        """Varifocal-style continuous IoU quality supervision.
+
+        Hungarian positives receive their detached aligned IoU as target;
+        unmatched proposals receive zero. Geometry gradients therefore remain
+        exclusively in the existing box loss, while the new branch learns the
+        ranking statistic required by COCO AP at strict IoU thresholds.
+        """
+        logits = outputs.pred_quality.squeeze(-1)
+        boxes = outputs.pred_boxes.detach()
+        bs, num_queries = logits.shape
+        targets_iou = logits.new_zeros(bs, num_queries)
+        fg_masks = torch.stack([idx[0] for idx in indices])
+        matched_gt_inds = torch.stack([idx[1] for idx in indices]).clamp(min=0)
+
+        max_gt = max(target.bboxes.shape[0] for target in targets)
+        if max_gt > 0:
+            gt_padded = boxes.new_zeros(bs, max_gt, 4)
+            for batch_index, target in enumerate(targets):
+                count = target.bboxes.shape[0]
+                if count:
+                    gt_padded[batch_index, :count] = target.bboxes
+            matched = torch.gather(
+                gt_padded, 1,
+                matched_gt_inds.unsqueeze(-1).expand(-1, -1, 4))
+            lt = torch.maximum(boxes[..., :2], matched[..., :2])
+            rb = torch.minimum(boxes[..., 2:], matched[..., 2:])
+            wh = (rb - lt).clamp(min=0)
+            intersection = wh[..., 0] * wh[..., 1]
+            box_wh = (boxes[..., 2:] - boxes[..., :2]).clamp(min=0)
+            gt_wh = (matched[..., 2:] - matched[..., :2]).clamp(min=0)
+            union = (box_wh[..., 0] * box_wh[..., 1]
+                     + gt_wh[..., 0] * gt_wh[..., 1] - intersection)
+            aligned_iou = intersection / union.clamp(min=1e-7)
+            targets_iou[fg_masks] = aligned_iou[fg_masks].clamp(0, 1)
+
+        probability = logits.sigmoid()
+        positive_weight = targets_iou
+        negative_weight = (
+            self.quality_focal_alpha
+            * probability.pow(self.quality_focal_gamma))
+        focal_weight = torch.where(
+            fg_masks, positive_weight, negative_weight).detach()
+        loss = F.binary_cross_entropy_with_logits(
+            logits, targets_iou, reduction='none') * focal_weight
+        num_pos = fg_masks.sum().clamp(min=1)
+        return self.quality_loss_weight * loss.sum() / num_pos
 
     def _loss_classification(self, outputs, targets, indices) -> Tensor:
         src_logits = outputs.pred_logits  # [bs, num_queries, num_classes+1]

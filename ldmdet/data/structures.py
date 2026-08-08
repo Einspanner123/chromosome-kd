@@ -32,12 +32,14 @@ class ModelOutput:
         pred_logits: [B, N, C] 分类 logits
         pred_boxes: [B, N, 4] 预测框 (xyxy)
         pred_count: [B, 1] 可选全局计数
+        pred_quality: [B, N, 1] 可选 IoU quality logits
         aux_outputs: 深度监督的辅助输出
     """
 
     pred_logits: Tensor
     pred_boxes: Tensor
     pred_count: Optional[Tensor] = None
+    pred_quality: Optional[Tensor] = None
     aux_outputs: Optional[List['ModelOutput']] = None
 
 

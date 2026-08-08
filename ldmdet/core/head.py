@@ -29,6 +29,15 @@ from ldmdet.utils.box_ops import bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh
 logger = logging.getLogger(__name__)
 
 
+def calibrate_class_logits(cls_logits, quality_logits, beta=2.0):
+    """Fuse class probability and IoU quality, returning stable logits."""
+    probability = cls_logits.sigmoid()
+    quality = quality_logits.sigmoid()
+    calibrated = probability * quality.pow(beta)
+    calibrated = calibrated.clamp(min=1e-6, max=1.0 - 1e-6)
+    return torch.logit(calibrated)
+
+
 class DiffusionDetHead(nn.Module):
     """扩散检测头。支持 DDPM 和 Rectified Flow，Euler/Heun/DPM-Solver++。"""
 
@@ -114,6 +123,9 @@ class DiffusionDetHead(nn.Module):
         adaptive_stop_score_threshold: float = 0.5,
         adaptive_stop_min_box_scale: float = 0.0,
         adaptive_stop_topk: int = 100,
+        # IQC: IoU Quality Calibration. The single head predicts q(IoU), and
+        # inference ranks detections by p(class) * q ** beta.
+        quality_score_beta: float = 2.0,
         # Head Distillation v2: 少 Head (H=3) 蒸馏多 Head (H=6)
         # 详见 docs/research/proposals/REFLOW_HEAD_DISTILL_IMPL_PLAN.md §2
         use_distillation: bool = False,
@@ -170,6 +182,10 @@ class DiffusionDetHead(nn.Module):
         self.adaptive_stop_topk = int(adaptive_stop_topk)
         self._adaptive_stop_stats = None
         self._last_cascade_consistency = None
+        self.quality_score_beta = float(quality_score_beta)
+        self._last_quality_logits = None
+        if self.quality_score_beta < 0:
+            raise ValueError('quality_score_beta must be non-negative')
 
         if adaptive_stopping:
             if sampling_timesteps != 2:
@@ -240,6 +256,13 @@ class DiffusionDetHead(nn.Module):
         self.head_series = nn.ModuleList(
             [copy.deepcopy(single_head) for _ in range(num_heads)]
         )
+        # C2 is deliberately a last-stage-only intervention. Removing the
+        # cloned quality modules from earlier cascade heads also avoids unused
+        # parameters under DistributedDataParallel.
+        if getattr(single_head, 'quality_head', None) is not None:
+            for head in self.head_series[:-1]:
+                head.quality_head = None
+                head.predict_iou_quality = False
         self.roi_extractor = roi_extractor
         self.criterion = criterion
         self.pre_noise_layer = pre_noise_layer
@@ -524,6 +547,7 @@ class DiffusionDetHead(nn.Module):
         inter_cls_logits = []
         inter_pred_bboxes = []
         inter_curr_proposals = []
+        last_quality_logits = None
         curr_bboxes = bboxes
         curr_proposals = None
         prev_bboxes = None
@@ -544,7 +568,8 @@ class DiffusionDetHead(nn.Module):
                 self.roi_extractor, time_emb_i,
             )
             if len(result) == 4:
-                cls_logits, pred_bboxes, curr_proposals, _ = result
+                cls_logits, pred_bboxes, curr_proposals, quality_logits = result
+                last_quality_logits = quality_logits
             else:
                 cls_logits, pred_bboxes, curr_proposals = result
             inter_cls_logits.append(cls_logits)
@@ -567,6 +592,8 @@ class DiffusionDetHead(nn.Module):
             )
             prev_bboxes = pred_bboxes
             prev_logits = cls_logits
+
+        self._last_quality_logits = last_quality_logits
 
         if self.deep_supervision:
             return (
@@ -638,6 +665,10 @@ class DiffusionDetHead(nn.Module):
             all_pred_bboxes, img_metas
         )
         outputs = self._build_outputs(all_cls_logits, norm_pred_bboxes)
+        if self._last_quality_logits is not None:
+            # C2 isolates the final cascade stage. Auxiliary heads retain the
+            # original losses so the experiment has a single causal change.
+            outputs.pred_quality = self._last_quality_logits.float()
         # 方向三: 传 t 给 criterion (若 criterion 不支持 t 则被忽略, 向后兼容)
         # t 是 [bs] 的扩散时间, 用于 SNR 感知匹配和损失加权
         # ReFlow: 传 per-proposal x_0^pred 作为 box target
@@ -1526,6 +1557,12 @@ class DiffusionDetHead(nn.Module):
                 cls_logits_seq, pred_bboxes_seq, img_metas)
         cls_logits_last = cls_logits_seq[-1]
         pred_bboxes_last = pred_bboxes_seq[-1]
+        if self._last_quality_logits is not None:
+            cls_logits_last = calibrate_class_logits(
+                cls_logits_last,
+                self._last_quality_logits.float(),
+                self.quality_score_beta,
+            )
         x0 = self._sampler.xyxy_to_raw(pred_bboxes_last, img_metas)
 
         return cls_logits_last, pred_bboxes_last, x0
