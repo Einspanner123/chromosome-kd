@@ -1,6 +1,6 @@
 """CAPR-C2 final-only quality calibration on Dataset 1, A4 seed 42."""
 
-_base_ = ['../../../a4_dpm_pp_chr2024.py']
+_base_ = ['../../a4_dpm_pp_chr2024.py']
 
 model = dict(
     bbox_head=dict(
