@@ -88,7 +88,7 @@ $$\Delta_{\mathrm{LQCR}}
 | Dataset 2，quality/data seed123 | 0.863 基座 | best 0.871 | 约 **+0.008** | 同一冻结 A4 的条件复现 |
 | Dataset 2，quality/data seed789 | 0.863 基座 | best 0.871 | 约 **+0.008** | 同一冻结 A4 的条件复现 |
 | Dataset 1，A4 seed42 | 0.746 | 0.751 | **+0.005** | workstation 训练完成；待 ross 统一复评 |
-| Dataset 1，A4 seed123 | 0.748 | 当前 best 0.753 | **+0.005** | 独立基座；训练进行中 |
+| Dataset 1，A4 seed123 | 0.748 | 0.753 | **+0.005** | 独立基座；12 epochs 完成 |
 
 Dataset 2 seed42 的细粒度变化为 AP90 **+0.03041**、AP95 **+0.03251**，而 AP50
 基本不变，符合“改进排序与高 IoU 定位可信度、而非发现更多物体”的机制预期。真实
