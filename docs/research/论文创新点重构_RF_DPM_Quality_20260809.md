@@ -88,6 +88,7 @@ $$\Delta_{\mathrm{LQCR}}
 | Dataset 2，quality/data seed123 | 0.863 基座 | best 0.871 | 约 **+0.008** | 同一冻结 A4 的条件复现 |
 | Dataset 2，quality/data seed789 | 0.863 基座 | best 0.871 | 约 **+0.008** | 同一冻结 A4 的条件复现 |
 | Dataset 1，A4 seed42 | 0.746 | 0.751 | **+0.005** | workstation 训练完成；待 ross 统一复评 |
+| Dataset 1，A4 seed123 | 0.748 | 当前 best 0.753 | **+0.005** | 独立基座；训练进行中 |
 
 Dataset 2 seed42 的细粒度变化为 AP90 **+0.03041**、AP95 **+0.03251**，而 AP50
 基本不变，符合“改进排序与高 IoU 定位可信度、而非发现更多物体”的机制预期。真实
@@ -154,7 +155,8 @@ $$\text{KaryoFlow-LQCR}=\text{RF detector}+\text{DPM-Solver++}+\text{LQCR}.$$
 
 现阶段 Dataset 1 的 +0.005 需标注为“训练验证结果，ross 统一复评中”；Dataset 2
 seed123/789 是同一冻结 A4 基座上的 quality-head 条件复现，不能写成完整模型独立
-三种子。待 Dataset 1 seed123/789 完成并在 ross paired evaluation 后，才能报告完整
+三种子。Dataset 1 seed123 当前也得到 +0.005 的独立基座早期结果；待 seed123/789
+完成并在 ross paired evaluation 后，才能报告完整
 三种子均值、标准差和显著性。
 
 ## 5. 数据与代码来源
