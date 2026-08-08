@@ -83,3 +83,27 @@ def test_quality_only_mode_requires_enabled_quality_head():
         assert 'predict_iou_quality=True' in str(error)
     else:
         raise AssertionError('quality-only mode accepted a missing quality head')
+
+
+def test_quality_calibration_mode_is_validated():
+    try:
+        DiffusionDetHead(
+            num_classes=3, feat_channels=16, num_proposals=3, num_heads=2,
+            single_head=make_single_head(True), roi_extractor=None,
+            criterion=None, quality_calibration_mode='unknown')
+    except ValueError as error:
+        assert 'solver_coupled or final_only' in str(error)
+    else:
+        raise AssertionError('invalid calibration mode was accepted')
+
+
+def test_final_only_ranking_does_not_overwrite_internal_logits():
+    head = DiffusionDetHead(
+        num_classes=3, feat_channels=16, num_proposals=3, num_heads=2,
+        single_head=make_single_head(True), roi_extractor=None,
+        criterion=None, quality_calibration_mode='final_only')
+    internal = torch.tensor([[[0.0, 1.0, -1.0]]])
+    head._last_quality_logits = torch.zeros(1, 1, 1)
+    ranked = head._quality_ranking_logits(internal)
+    assert torch.allclose(ranked.sigmoid(), internal.sigmoid() * 0.25, atol=1e-6)
+    assert torch.equal(internal, torch.tensor([[[0.0, 1.0, -1.0]]]))

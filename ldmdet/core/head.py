@@ -126,6 +126,7 @@ class DiffusionDetHead(nn.Module):
         # IQC: IoU Quality Calibration. The single head predicts q(IoU), and
         # inference ranks detections by p(class) * q ** beta.
         quality_score_beta: float = 2.0,
+        quality_calibration_mode: str = 'solver_coupled',
         quality_only_training: bool = False,
         # Head Distillation v2: 少 Head (H=3) 蒸馏多 Head (H=6)
         # 详见 docs/research/proposals/REFLOW_HEAD_DISTILL_IMPL_PLAN.md §2
@@ -184,10 +185,14 @@ class DiffusionDetHead(nn.Module):
         self._adaptive_stop_stats = None
         self._last_cascade_consistency = None
         self.quality_score_beta = float(quality_score_beta)
+        self.quality_calibration_mode = quality_calibration_mode
         self.quality_only_training = bool(quality_only_training)
         self._last_quality_logits = None
         if self.quality_score_beta < 0:
             raise ValueError('quality_score_beta must be non-negative')
+        if self.quality_calibration_mode not in ('solver_coupled', 'final_only'):
+            raise ValueError(
+                'quality_calibration_mode must be solver_coupled or final_only')
 
         if adaptive_stopping:
             if sampling_timesteps != 2:
@@ -1125,6 +1130,11 @@ class DiffusionDetHead(nn.Module):
             cls_logits, pred_bboxes, x0_raw = self._forward_at_t(
                 features, x_raw, t_curr, img_metas
             )
+            output_logits = (
+                self._quality_ranking_logits(cls_logits)
+                if self.quality_calibration_mode == 'final_only'
+                else cls_logits
+            )
             # ReFlow coupling 生成: 跟踪每步 x0, 循环结束后保留最后一步
             x0_final = x0_raw
 
@@ -1148,12 +1158,15 @@ class DiffusionDetHead(nn.Module):
                 and step_idx == self.topk_pruning_step
                 and x_raw.shape[1] > self.topk_k
             ):
-                x_raw, cls_logits, pred_bboxes, x0_raw, _ = (
+                x_raw, cls_logits, pred_bboxes, x0_raw, topk_indices = (
                     self._sampler.apply_topk_pruning(
                         x_raw, cls_logits, pred_bboxes, x0_raw,
                         k=self.topk_k,
                     )
                 )
+                output_logits = output_logits.gather(
+                    1, topk_indices.unsqueeze(-1).expand(
+                        -1, -1, output_logits.shape[-1]))
                 # 剪枝后 DPM-Solver history 维度不匹配, 必须重置
                 if dpm_solver is not None:
                     dpm_solver.reset()
@@ -1168,12 +1181,12 @@ class DiffusionDetHead(nn.Module):
             if return_trajectory:
                 trajectory.append((cls_logits.detach(), pred_bboxes.detach()))
             if self.use_ensemble:
-                ensemble_results.append((cls_logits, pred_bboxes))
+                ensemble_results.append((output_logits, pred_bboxes))
             else:
                 # Non-ensemble inference must return the latest solver result.
                 # The previous ``if not ensemble_results`` implementation kept
                 # step 0 forever, silently making later NFEs ineffective.
-                ensemble_results[:] = [(cls_logits, pred_bboxes)]
+                ensemble_results[:] = [(output_logits, pred_bboxes)]
 
             # GACS early exit.  With sampling_timesteps=2 this check after the
             # first evaluation chooses exactly between the established 1-step
@@ -1574,7 +1587,10 @@ class DiffusionDetHead(nn.Module):
                 cls_logits_seq, pred_bboxes_seq, img_metas)
         cls_logits_last = cls_logits_seq[-1]
         pred_bboxes_last = pred_bboxes_seq[-1]
-        if self._last_quality_logits is not None:
+        if (
+            self._last_quality_logits is not None
+            and self.quality_calibration_mode == 'solver_coupled'
+        ):
             cls_logits_last = calibrate_class_logits(
                 cls_logits_last,
                 self._last_quality_logits.float(),
@@ -1583,6 +1599,20 @@ class DiffusionDetHead(nn.Module):
         x0 = self._sampler.xyxy_to_raw(pred_bboxes_last, img_metas)
 
         return cls_logits_last, pred_bboxes_last, x0
+
+    def _quality_ranking_logits(self, cls_logits):
+        """Apply quality only to emitted detection scores.
+
+        In ``final_only`` mode the caller keeps ``cls_logits`` for Top-K,
+        renewal, DDIM and GACS, and uses this result only in post-processing.
+        """
+        if self._last_quality_logits is None:
+            return cls_logits
+        return calibrate_class_logits(
+            cls_logits,
+            self._last_quality_logits.float(),
+            self.quality_score_beta,
+        )
 
     # ================================================================
     # CCBR: 跨级联框更新 — 前向方法
@@ -1718,12 +1748,17 @@ class DiffusionDetHead(nn.Module):
             cls_logits, pred_bboxes, x0_raw = self._forward_at_t(
                 features, x_raw, t_curr, img_metas
             )
+            output_logits = (
+                self._quality_ranking_logits(cls_logits)
+                if self.quality_calibration_mode == 'final_only'
+                else cls_logits
+            )
 
             if use_ensemble:
-                ensemble_results.append((cls_logits, pred_bboxes))
+                ensemble_results.append((output_logits, pred_bboxes))
 
             if not ensemble_results:
-                ensemble_results.append((cls_logits, pred_bboxes))
+                ensemble_results.append((output_logits, pred_bboxes))
 
             if self.diffusion_type == 'ddpm':
                 curr_bboxes_xyxy, x_raw = self._sampler.ddim_step(

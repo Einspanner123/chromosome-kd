@@ -12,6 +12,7 @@ _base_ = [
 model = dict(
     bbox_head=dict(
         quality_score_beta=2.0,
+        quality_calibration_mode='solver_coupled',
         quality_only_training=True,
         single_head=dict(
             predict_iou_quality=True,
