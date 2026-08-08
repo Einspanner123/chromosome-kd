@@ -87,6 +87,9 @@ $$s=p_c\,q^\beta.$$
 原计划首版接入最后两个 cascade heads。Phase-0 后的 C2 quality-only 实现进一步
 收缩到**仅第 6 级头**：前五级不构建 quality 参数，保证新增损失和推理重排均可
 单独归因；profile/坐标精炼若进入后续实验，再考虑第 5–6 级。
+正式 C2 设置 `quality_only_training=True`，冻结 A4 已有参数并在 bbox head
+入口 detach backbone/neck 特征，只训练末级 quality MLP；因此不需要用另一个
+continuation run 估计旧模型权重漂移。
 
 ### 3.2 接入位置
 

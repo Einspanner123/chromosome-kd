@@ -1,6 +1,7 @@
 import torch
 
 from ldmdet.core.head import calibrate_class_logits
+from ldmdet.core.head import DiffusionDetHead
 from ldmdet.core.single_head import SingleDiffusionDetHead
 from ldmdet.criterion.criterion import DiffusionDetCriterion
 from ldmdet.data.structures import InstanceData, ModelOutput
@@ -70,3 +71,15 @@ def test_varifocal_quality_loss_is_finite_and_backpropagates():
     assert torch.isfinite(loss) and loss > 0
     loss.backward()
     assert quality.grad is not None and quality.grad.abs().sum() > 0
+
+
+def test_quality_only_mode_requires_enabled_quality_head():
+    try:
+        DiffusionDetHead(
+            num_classes=3, feat_channels=16, num_proposals=3, num_heads=2,
+            single_head=make_single_head(False), roi_extractor=None,
+            criterion=None, quality_only_training=True)
+    except ValueError as error:
+        assert 'predict_iou_quality=True' in str(error)
+    else:
+        raise AssertionError('quality-only mode accepted a missing quality head')

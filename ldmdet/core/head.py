@@ -126,6 +126,7 @@ class DiffusionDetHead(nn.Module):
         # IQC: IoU Quality Calibration. The single head predicts q(IoU), and
         # inference ranks detections by p(class) * q ** beta.
         quality_score_beta: float = 2.0,
+        quality_only_training: bool = False,
         # Head Distillation v2: 少 Head (H=3) 蒸馏多 Head (H=6)
         # 详见 docs/research/proposals/REFLOW_HEAD_DISTILL_IMPL_PLAN.md §2
         use_distillation: bool = False,
@@ -183,6 +184,7 @@ class DiffusionDetHead(nn.Module):
         self._adaptive_stop_stats = None
         self._last_cascade_consistency = None
         self.quality_score_beta = float(quality_score_beta)
+        self.quality_only_training = bool(quality_only_training)
         self._last_quality_logits = None
         if self.quality_score_beta < 0:
             raise ValueError('quality_score_beta must be non-negative')
@@ -317,6 +319,16 @@ class DiffusionDetHead(nn.Module):
         )
 
         self._init_weights(prior_prob)
+
+        if self.quality_only_training:
+            quality_head = getattr(self.head_series[-1], 'quality_head', None)
+            if quality_head is None:
+                raise ValueError(
+                    'quality_only_training requires predict_iou_quality=True')
+            for parameter in self.parameters():
+                parameter.requires_grad_(False)
+            for parameter in quality_head.parameters():
+                parameter.requires_grad_(True)
 
         # AMP: 仅模型前向使用半精度，criterion 始终 FP32
         # 推荐值: torch.bfloat16 (同动态范围，无需 GradScaler)
@@ -622,6 +634,11 @@ class DiffusionDetHead(nn.Module):
                 'use_distillation=True 但 Teacher 未注入, 回退到普通 loss(). '
                 '请检查 detector 是否正确构建了 Teacher.'
             )
+        if self.quality_only_training:
+            # The detector may still build backbone/neck features normally,
+            # but detaching here makes C2 a strict ranking-only intervention:
+            # no existing representation, classifier, or regressor can drift.
+            features = tuple(feature.detach() for feature in features)
         device = features[0].device
         bs = len(img_metas)
         self._adaptive_stop_stats = None

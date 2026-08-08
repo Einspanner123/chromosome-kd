@@ -12,6 +12,7 @@ _base_ = [
 model = dict(
     bbox_head=dict(
         quality_score_beta=2.0,
+        quality_only_training=True,
         single_head=dict(
             predict_iou_quality=True,
             quality_hidden=128,
@@ -35,6 +36,16 @@ param_scheduler = [
         type='CosineAnnealingLR', by_epoch=True, begin=0, end=12,
         T_max=12, eta_min=1e-6),
 ]
-optim_wrapper = dict(optimizer=dict(lr=2.5e-5))
+# Only the last quality head has requires_grad=True; a higher LR is therefore
+# safe and makes the 12-epoch mechanism test converge without altering A4.
+optim_wrapper = dict(optimizer=dict(lr=1e-3))
+
+visualizer = dict(
+    type='DetLocalVisualizer', name='visualizer',
+    vis_backends=[
+        dict(type='LocalVisBackend'),
+        dict(type='TensorboardVisBackend'),
+    ],
+)
 
 work_dir = 'work_dirs/capr_quality_only_24obj'
