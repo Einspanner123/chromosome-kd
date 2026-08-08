@@ -89,6 +89,7 @@ $$\Delta_{\mathrm{LQCR}}
 | Dataset 2，quality/data seed789 | 0.863 基座 | best 0.871 | 约 **+0.008** | 同一冻结 A4 的条件复现 |
 | Dataset 1，A4 seed42 | 0.746 | 0.751 | **+0.005** | workstation 训练完成；待 ross 统一复评 |
 | Dataset 1，A4 seed123 | 0.748 | 0.753 | **+0.005** | 独立基座；12 epochs 完成 |
+| Dataset 1，A4 seed789 | 0.747 | 0.751 | **+0.004**（当前） | ross A6000 训练中；epoch1--2 均为 0.751 |
 
 Dataset 2 seed42 的细粒度变化为 AP90 **+0.03041**、AP95 **+0.03251**，而 AP50
 基本不变，符合“改进排序与高 IoU 定位可信度、而非发现更多物体”的机制预期。真实
@@ -153,10 +154,10 @@ Stochastic Coupling 移至耦合分析/附录，不再出现在模型定义
 
 $$\text{KaryoFlow-LQCR}=\text{RF detector}+\text{DPM-Solver++}+\text{LQCR}.$$
 
-现阶段 Dataset 1 的 +0.005 需标注为“训练验证结果，ross 统一复评中”；Dataset 2
+现阶段 Dataset 1 的 +0.004--0.005 需标注为“训练验证结果，ross 统一复评中”；Dataset 2
 seed123/789 是同一冻结 A4 基座上的 quality-head 条件复现，不能写成完整模型独立
-三种子。Dataset 1 seed123 当前也得到 +0.005 的独立基座早期结果；待 seed123/789
-完成并在 ross paired evaluation 后，才能报告完整
+三种子。Dataset 1 seed42/123 已完成并分别得到 +0.005/+0.005；seed789 的前两轮
+均为 0.751，对配对基座暂为 +0.004。待 seed789 完成并在 ross paired evaluation 后，才能报告完整
 三种子均值、标准差和显著性。
 
 ## 5. 数据与代码来源
@@ -169,6 +170,8 @@ seed123/789 是同一冻结 A4 基座上的 quality-head 条件复现，不能�
 - Dataset 2 seed123：`work_dirs/capr_quality_final_only_24obj_seed123/`
 - Dataset 2 seed789：`work_dirs/capr_quality_final_only_24obj_seed789/`（workstation）
 - Dataset 1 seed42：`work_dirs/capr_quality_final_only_chr2024_seed42/`（workstation）
+- Dataset 1 seed123：`work_dirs/capr_quality_final_only_chr2024_seed123/`（workstation）
+- Dataset 1 seed789：`work_dirs/capr_quality_final_only_chr2024_seed789/`（ross，训练中）
 - 实现：`ldmdet/core/head.py`、`ldmdet/core/single_head.py`、
   `ldmdet/criterion/criterion.py`
 - 配置：`experiments/configs/ldmdet/directions/capr/`
