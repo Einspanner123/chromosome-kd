@@ -53,6 +53,12 @@ class LDMDetDetector(BaseDetector):
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
         self.bbox_head = self._build_head(bbox_head)
+        if self.bbox_head.quality_only_training:
+            for parameter in self.backbone.parameters():
+                parameter.requires_grad_(False)
+            if self.neck is not None:
+                for parameter in self.neck.parameters():
+                    parameter.requires_grad_(False)
 
     def _build_head(self, cfg: ConfigType) -> DiffusionDetHead:
         """从配置构建 ldmdet DiffusionDetHead"""
