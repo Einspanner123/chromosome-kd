@@ -392,6 +392,53 @@ class TestDiffusionDetCriterion:
         for key, val in losses.items():
             assert torch.isfinite(val), f"{key} is not finite"
 
+    def test_localization_utility_is_terminal_only_and_metric_ordered(self):
+        matcher = DiffusionDetMatcher(
+            cost_class=2.0, cost_bbox=5.0, cost_giou=2.0, candidate_topk=1,
+        )
+        criterion = DiffusionDetCriterion(
+            num_classes=24,
+            matcher=matcher,
+            loss_cls=FocalLoss(loss_weight=2.0),
+            loss_bbox=L1Loss(loss_weight=5.0),
+            loss_giou=GIoULoss(loss_weight=2.0),
+            deep_supervision=True,
+            localization_utility_loss_weight=0.5,
+            localization_utility_temperature=0.025,
+        )
+        targets = [InstanceData(
+            bboxes=torch.tensor([[0.0, 0.0, 1.0, 1.0]]),
+            labels=torch.tensor([0]),
+            img_shape=(32, 32),
+        )]
+        indices = [(torch.tensor([True]), torch.tensor([0]))]
+        high_iou = ModelOutput(
+            pred_logits=torch.zeros(1, 1, 24),
+            pred_boxes=torch.tensor(
+                [[[0.0, 0.0, 0.9, 1.0]]], requires_grad=True),
+        )
+        low_iou = ModelOutput(
+            pred_logits=torch.zeros(1, 1, 24),
+            pred_boxes=torch.tensor([[[0.0, 0.0, 0.6, 1.0]]]),
+        )
+        high_loss = criterion._loss_localization_utility(
+            high_iou, targets, indices)
+        low_loss = criterion._loss_localization_utility(
+            low_iou, targets, indices)
+        assert high_loss < low_loss
+        high_loss.backward()
+        assert high_iou.pred_boxes.grad is not None
+        assert torch.isfinite(high_iou.pred_boxes.grad).all()
+        assert high_iou.pred_boxes.grad.abs().sum() > 0
+
+        high_iou.pred_boxes.grad = None
+        high_iou.aux_outputs = [low_iou]
+        losses = criterion(high_iou, targets)
+        assert 'loss_localization_utility' in losses
+        assert not any(
+            key.startswith('aux_') and 'localization_utility' in key
+            for key in losses)
+
     def test_iou_survival_loss_supervises_all_thresholds(self, criterion):
         criterion.quality_thresholds = (0.50, 0.75, 0.95)
         targets = [InstanceData(

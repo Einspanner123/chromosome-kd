@@ -56,6 +56,7 @@ class LDMDetDetector(BaseDetector):
         if (
             self.bbox_head.quality_only_training
             or self.bbox_head.mass_only_training
+            or self.bbox_head.terminal_reg_only_training
         ):
             for parameter in self.backbone.parameters():
                 parameter.requires_grad_(False)

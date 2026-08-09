@@ -102,6 +102,7 @@ class DiffusionDetHead(nn.Module):
         quality_only_training: bool = False,
         mass_score_power: float = 1.0,
         mass_only_training: bool = False,
+        terminal_reg_only_training: bool = False,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -129,6 +130,7 @@ class DiffusionDetHead(nn.Module):
         self._last_quality_logits = None
         self.mass_score_power = float(mass_score_power)
         self.mass_only_training = bool(mass_only_training)
+        self.terminal_reg_only_training = bool(terminal_reg_only_training)
         self._last_mass_logits = None
         if self.quality_score_beta < 0:
             raise ValueError('quality_score_beta must be non-negative')
@@ -137,9 +139,15 @@ class DiffusionDetHead(nn.Module):
                 'quality_calibration_mode must be solver_coupled or final_only')
         if self.mass_score_power < 0:
             raise ValueError('mass_score_power must be non-negative')
-        if self.quality_only_training and self.mass_only_training:
+        exclusive_training_modes = sum((
+            self.quality_only_training,
+            self.mass_only_training,
+            self.terminal_reg_only_training,
+        ))
+        if exclusive_training_modes > 1:
             raise ValueError(
-                'quality_only_training and mass_only_training are mutually exclusive')
+                'quality_only_training, mass_only_training, and '
+                'terminal_reg_only_training are mutually exclusive')
 
         if box_parameterization not in ('linear_cxcywh', 'gap_ilr'):
             raise ValueError(
@@ -250,6 +258,11 @@ class DiffusionDetHead(nn.Module):
                 parameter.requires_grad_(False)
             for parameter in mass_head.parameters():
                 parameter.requires_grad_(True)
+        if self.terminal_reg_only_training:
+            for parameter in self.parameters():
+                parameter.requires_grad_(False)
+            for parameter in self.head_series[-1].reg_head.parameters():
+                parameter.requires_grad_(True)
 
         # AMP: 仅模型前向使用半精度，criterion 始终 FP32
         # 推荐值: torch.bfloat16 (同动态范围，无需 GradScaler)
@@ -349,10 +362,10 @@ class DiffusionDetHead(nn.Module):
     # ================================================================
 
     def loss(self, features, img_metas, gt_bboxes, gt_labels, x_raw_shared=None):
-        if self.quality_only_training or self.mass_only_training:
-            # The detector may still build backbone/neck features normally,
-            # but detaching here makes C2 a strict ranking-only intervention:
-            # no existing representation, classifier, or regressor can drift.
+        if (self.quality_only_training or self.mass_only_training
+                or self.terminal_reg_only_training):
+            # The detector may still build frozen backbone/neck features, but
+            # detaching here keeps branch-only gates causally isolated.
             features = tuple(feature.detach() for feature in features)
         device = features[0].device
         bs = len(img_metas)
