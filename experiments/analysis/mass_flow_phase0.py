@@ -30,6 +30,11 @@ def parse_args():
     parser.add_argument('--score-threshold', type=float, default=0.05)
     parser.add_argument('--match-iou', type=float, default=0.5)
     parser.add_argument('--nms-iou', type=float, default=0.5)
+    parser.add_argument(
+        '--apply-ranking-gates',
+        action='store_true',
+        help='Apply final-only quality/mass gates to the emitted scores.',
+    )
     parser.add_argument('--output', required=True)
     return parser.parse_args()
 
@@ -65,7 +70,15 @@ def main():
         )
 
         num_gt = int(gt_boxes.shape[0])
+        final_step_index = len(trajectory) - 1
         for step_index, (class_logits, boxes) in enumerate(trajectory):
+            if args.apply_ranking_gates and step_index == final_step_index:
+                class_logits = model.bbox_head._quality_ranking_logits(
+                    class_logits
+                )
+                class_logits = model.bbox_head._mass_ranking_logits(
+                    class_logits
+                )
             probabilities = class_logits[0].sigmoid()
             scores, labels = probabilities.max(dim=-1)
             step = per_step[step_index]
@@ -77,6 +90,9 @@ def main():
                 )
 
         class_logits, boxes = trajectory[-1]
+        if args.apply_ranking_gates:
+            class_logits = model.bbox_head._quality_ranking_logits(class_logits)
+            class_logits = model.bbox_head._mass_ranking_logits(class_logits)
         boxes = boxes[0]
         probabilities = class_logits[0].sigmoid()
         scores, labels = probabilities.max(dim=-1)
@@ -133,6 +149,7 @@ def main():
         'score_threshold': args.score_threshold,
         'match_iou': args.match_iou,
         'nms_iou': args.nms_iou,
+        'apply_ranking_gates': args.apply_ranking_gates,
         'per_step': {
             str(index): summarize(records)
             for index, records in sorted(per_step.items())
