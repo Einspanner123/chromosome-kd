@@ -1,6 +1,6 @@
 # D-LQCR：分布式定位质量排序
 
-> 状态：Dataset 1 seed42 门控完成，seed123 独立复现进行中（2026-08-09）
+> 状态：Dataset 1 seed42/seed123 独立复现完成（2026-08-09）
 > 基座：RF + DPM-Solver++，冻结 A4 seed42；仅训练末级质量头  
 > 代码提交：`28119f61`；严格冻结修复：`25d369b1`
 
@@ -60,8 +60,12 @@ $y_k=\mathbb 1[U\ge\tau_k]$；未匹配 proposal 的所有标签为零。几何 
 - 阈值标签与损失：`ldmdet/criterion/criterion.py`
 - Dataset 1 seed42 配置：
   `experiments/configs/ldmdet/directions/capr/dlqcr_iou_survival_chr2024_seed42.py`
+- Dataset 1 seed123 配置：
+  `experiments/configs/ldmdet/directions/capr/dlqcr_iou_survival_chr2024_seed123.py`
 - 实验目录：`work_dirs/dlqcr_iou_survival_chr2024_seed42/`
 - 日志：`work_dirs/dlqcr_iou_survival_chr2024_seed42/train.log`
+- seed123 实验目录：`work_dirs/dlqcr_iou_survival_chr2024_seed123/`
+- seed123 日志：`work_dirs/dlqcr_iou_survival_chr2024_seed123/train.log`
 
 配置保持 `quality_calibration_mode='final_only'` 和
 `quality_only_training=True`。backbone、neck、前五级 cascade、分类头、回归头、RF、
@@ -74,6 +78,9 @@ DPM-Solver++、renewal 与最终框坐标全部冻结；模型仅有末级质量
 | A4 seed42 | 0.746 | — | -0.005 | 固定基座 |
 | 标量 LQCR seed42 best | 0.751 | +0.005 | — | 已完成 |
 | D-LQCR seed42 epoch 3 best | 0.752 | +0.006 | +0.001 | 弱信号 |
+| A4 seed123 | 0.748 | — | -0.005 | 独立基座 |
+| 标量 LQCR seed123 best | 0.753 | +0.005 | — | 已完成 |
+| D-LQCR seed123 epoch 1/10 best | 0.754 | +0.006 | +0.001 | 同向复现 |
 
 门槛在查看后续结果前固定如下：
 
@@ -88,5 +95,15 @@ epoch 3 首次达到 best mAP 0.752，epoch 8/11/12 再次达到 0.752。best ch
 AP50/AP75/APs/APm/APl 为 0.941/0.838/0.511/0.743/0.613。
 
 该结果超过 A4 0.006，但仅比标量 LQCR 高 0.001，按预注册规则属于弱信号，不构成
-新的主线贡献。下一步仅允许在独立 A4 seed123 基座复现一次；若不能保持相对标量
-LQCR 的同向提升，则停止 D-LQCR，不再调阈值、融合指数或学习率追逐验证集。
+新的主线贡献。因此按原定规则只进行一次独立 A4 seed123 基座复现，不调阈值、
+融合指数或学习率追逐验证集。
+
+seed123 同样完成 12 epoch，best mAP 0.754 出现在 epoch 1 和 epoch 10；
+epoch 1 的 AP50/AP75/APs/APm/APl 为
+0.944/0.843/0.534/0.744/0.666。best checkpoint 来源为
+`work_dirs/dlqcr_iou_survival_chr2024_seed123/best_coco_bbox_mAP_epoch_1.pth`。
+
+两个独立基座的结果完全同向：D-LQCR 均相对 A4 提升 0.006，均相对标量
+LQCR 提升 0.001。因此，“分布生存函数比 IoU 条件均值略有优势”获得了可复现的
+实验支持，但效应量只有 0.001 mAP，未达到预注册的强通过门槛。D-LQCR 定位为
+LQCR 的理论化增强与稳健消融，不单独作为论文主创新；到此停止继续调参。
