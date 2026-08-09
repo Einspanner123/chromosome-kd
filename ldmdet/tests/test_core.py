@@ -5,7 +5,11 @@ import pytest
 from ldmdet.core.dynamic_conv import DynamicConv
 from ldmdet.core.roi_extractor import SingleRoIExtractor
 from ldmdet.core.single_head import SingleDiffusionDetHead
-from ldmdet.core.head import DiffusionDetHead, calibrate_class_logits
+from ldmdet.core.head import (
+    DiffusionDetHead,
+    calibrate_class_logits,
+    calibrate_mass_logits,
+)
 from ldmdet.criterion.criterion import DiffusionDetCriterion
 from ldmdet.criterion.matcher import DiffusionDetMatcher
 from ldmdet.criterion.losses import FocalLoss, L1Loss, GIoULoss
@@ -204,6 +208,34 @@ class TestSingleDiffusionDetHead:
         expected_quality = quality_logits.sigmoid().mean(-1, keepdim=True)
         assert torch.allclose(
             calibrated, class_logits.sigmoid() * expected_quality, atol=1e-6
+        )
+
+    def test_set_mass_head_and_fusion(self):
+        head = SingleDiffusionDetHead(
+            num_classes=24,
+            feat_channels=64,
+            dim_feedforward=128,
+            num_cls_convs=1,
+            num_reg_convs=1,
+            num_heads=4,
+            pooler_resolution=7,
+            dynamic_dim=32,
+            dynamic_num=2,
+            predict_set_mass=True,
+        )
+        features, bboxes, time_emb, pooler = self._make_inputs()
+        outputs = head(features, bboxes, None, pooler, time_emb)
+        assert outputs[-1].shape == (2, 10, 1)
+
+        class_logits = torch.tensor([[[0.0, 1.0]]])
+        mass_logits = torch.tensor([[[0.5]]])
+        calibrated = calibrate_mass_logits(
+            class_logits, mass_logits
+        ).sigmoid()
+        assert torch.allclose(
+            calibrated,
+            class_logits.sigmoid() * mass_logits.sigmoid(),
+            atol=1e-6,
         )
 
 

@@ -415,6 +415,27 @@ class TestDiffusionDetCriterion:
             criterion._loss_quality(bad, targets, indices)
         )
 
+    def test_set_mass_target_conserves_one_unit_per_gt(self, criterion):
+        indices = [(
+            torch.tensor([True, True, False]),
+            torch.tensor([0, 0, 0]),
+        )]
+        common = dict(
+            pred_logits=torch.zeros(1, 3, 24),
+            pred_boxes=torch.zeros(1, 3, 4),
+        )
+        conserved = ModelOutput(
+            **common,
+            pred_mass=torch.tensor([[[0.0], [0.0], [-10.0]]]),
+        )
+        excessive = ModelOutput(
+            **common,
+            pred_mass=torch.tensor([[[4.0], [4.0], [-10.0]]]),
+        )
+        conserved_losses = criterion._loss_set_mass(conserved, indices)
+        excessive_losses = criterion._loss_set_mass(excessive, indices)
+        assert conserved_losses[1] < excessive_losses[1]
+
 
 class TestIoUCostPlain:
     """测试 IoUCost 的 iou_mode='iou' (非 giou)"""

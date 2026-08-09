@@ -71,6 +71,9 @@ class SingleDiffusionDetHead(nn.Module):
         predict_iou_quality=False,
         quality_hidden=128,
         quality_thresholds=None,
+        predict_set_mass=False,
+        mass_hidden=128,
+        mass_prior_prob=0.1,
     ):
         super().__init__()
         self.feat_channels = feat_channels
@@ -80,6 +83,7 @@ class SingleDiffusionDetHead(nn.Module):
         self.use_sdpa = use_sdpa and _SDPA_AVAILABLE
         self.attn_half = attn_half
         self.predict_iou_quality = predict_iou_quality
+        self.predict_set_mass = predict_set_mass
         self.quality_thresholds = (
             tuple(float(value) for value in quality_thresholds)
             if quality_thresholds is not None else None
@@ -161,6 +165,22 @@ class SingleDiffusionDetHead(nn.Module):
             len(self.quality_thresholds)
             if self.quality_thresholds is not None else 1
         )
+        if predict_set_mass:
+            if not 0.0 < mass_prior_prob < 1.0:
+                raise ValueError('mass_prior_prob must lie in (0, 1)')
+            self.mass_head = nn.Sequential(
+                nn.Linear(feat_channels, mass_hidden, bias=False),
+                nn.LayerNorm(mass_hidden),
+                nn.ReLU(inplace=True),
+                nn.Linear(mass_hidden, 1),
+            )
+            nn.init.normal_(self.mass_head[-1].weight, std=1e-3)
+            nn.init.constant_(
+                self.mass_head[-1].bias,
+                math.log(mass_prior_prob / (1.0 - mass_prior_prob)),
+            )
+        else:
+            self.mass_head = None
 
         self.scale_clamp = scale_clamp
         self.bbox_weights = bbox_weights
@@ -305,10 +325,15 @@ class SingleDiffusionDetHead(nn.Module):
             pred_bboxes.view(bs, num_boxes, -1),
             fc_feature.view(1, bs * num_boxes, self.feat_channels),
         )
-        if self.quality_head is None:
-            return result
-        quality_logits = self.quality_head(fc_feature)
-        return result + (quality_logits.view(bs, num_boxes, self.quality_dim),)
+        if self.quality_head is not None:
+            quality_logits = self.quality_head(fc_feature)
+            result += (
+                quality_logits.view(bs, num_boxes, self.quality_dim),
+            )
+        if self.mass_head is not None:
+            mass_logits = self.mass_head(fc_feature)
+            result += (mass_logits.view(bs, num_boxes, 1),)
+        return result
 
     def _forward_adaln_zero(
         self, proposals, roi_features, time_emb, bs, num_boxes

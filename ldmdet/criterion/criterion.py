@@ -27,6 +27,8 @@ class DiffusionDetCriterion(nn.Module):
         quality_loss_weight: float = 0.25,
         quality_focal_alpha: float = 0.75,
         quality_focal_gamma: float = 2.0,
+        mass_loss_weight: float = 0.25,
+        mass_conservation_weight: float = 0.01,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -38,6 +40,8 @@ class DiffusionDetCriterion(nn.Module):
         self.quality_focal_alpha = quality_focal_alpha
         self.quality_focal_gamma = quality_focal_gamma
         self.quality_thresholds = None
+        self.mass_loss_weight = mass_loss_weight
+        self.mass_conservation_weight = mass_conservation_weight
         self.deep_supervision = deep_supervision
 
     def forward(
@@ -93,7 +97,42 @@ class DiffusionDetCriterion(nn.Module):
                 outputs, targets, indices)
             probe.record_scalar(
                 'criterion/loss_quality', losses['loss_quality'].item())
+        if outputs.pred_mass is not None:
+            mass_loss, conservation_loss = self._loss_set_mass(
+                outputs, indices
+            )
+            losses['loss_mass'] = mass_loss
+            losses['loss_mass_conservation'] = conservation_loss
+            probe.record_scalar('criterion/loss_mass', mass_loss.item())
+            probe.record_scalar(
+                'criterion/loss_mass_conservation', conservation_loss.item()
+            )
         return losses
+
+    def _loss_set_mass(self, outputs, indices):
+        """Supervise one unit of total proposal mass per covered GT."""
+        logits = outputs.pred_mass.squeeze(-1)
+        bs, num_queries = logits.shape
+        fg_masks = torch.stack([index[0] for index in indices])
+        matched_gt_inds = torch.stack([index[1] for index in indices])
+        counts = logits.new_zeros(bs, num_queries)
+        valid_indices = matched_gt_inds.clamp(min=0, max=num_queries - 1)
+        counts.scatter_add_(1, valid_indices, fg_masks.to(logits.dtype))
+        matched_counts = torch.gather(counts, 1, valid_indices).clamp(min=1.0)
+        targets_mass = fg_masks.to(logits.dtype) / matched_counts
+
+        pointwise = F.binary_cross_entropy_with_logits(
+            logits, targets_mass, reduction='mean'
+        )
+        predicted_total = logits.sigmoid().sum(dim=1)
+        target_total = (counts > 0).sum(dim=1).to(logits.dtype).clamp(min=1.0)
+        conservation = (
+            (predicted_total - target_total).square() / target_total
+        ).mean()
+        return (
+            self.mass_loss_weight * pointwise,
+            self.mass_conservation_weight * conservation,
+        )
 
     def _loss_quality(self, outputs, targets, indices) -> Tensor:
         """Varifocal-style continuous IoU quality supervision.
