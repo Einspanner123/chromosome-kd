@@ -42,11 +42,12 @@ IoU=0.90 下，重叠目标 recall 为 0.48080，小目标 recall 为 0.42512；
 - 只对主输出/最后一级级联头添加 CALU；所有 auxiliary head 不添加。
 - 快速门控只解冻最后一级 `reg_head`，骨干、颈部、分类器和前五级回归头冻结。
 - 固定温度 `s=0.025`、权重 `0.5`、学习率 `1e-4`，从 A4 seed42 最佳 checkpoint 续训 12 epoch，不做超参数搜索。
+- 必须同时运行 matched continuation control：相同 checkpoint、冻结范围、学习率和 epoch，仅令 CALU 权重为 0。A4000 上以 batch size 1、梯度累积 2 保持有效 batch size 2。CALU 的判断基准是该控制，而不只是原 A4。
 - 推理图完全不变，因此理论上无速度开销。
 - 第一门槛：完整验证 mAP 超过配对 A4 的 0.746，且 AP90/AP95 不以 AP50/AP75 的明显退化换取。
 - 若通过，必须进行相同 seed 的完整重训；断点续训只能作为因果门控，不能作为论文最终结果。
 
-配置：`experiments/configs/ldmdet/directions/capr/calu_terminal_reg_chr2024_seed42.py`。
+配置：`experiments/configs/ldmdet/directions/capr/calu_terminal_reg_chr2024_seed42.py`；控制配置：`experiments/configs/ldmdet/directions/capr/terminal_reg_control_chr2024_seed42.py`。
 
 ## 5. 论文定位
 
