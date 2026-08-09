@@ -52,3 +52,17 @@ IoU=0.90 下，重叠目标 recall 为 0.48080，小目标 recall 为 0.42512；
 ## 5. 论文定位
 
 CALU 本身是损失层创新，理论贡献强于“直接使用 RF/DPM-Solver++”，但单独仍不足以自动构成顶会级主创新。其价值在于把扩散检测器的终点回归与 COCO 的离散 IoU 效用直接连接，并且可无推理开销地迁移到通用集合检测器。只有在完整重训、多 seed、Dataset1/Dataset2 与 mini-COCO 上稳定成立，且高 IoU、小目标/拥挤分层增益一致时，才适合作为独立主创新点。
+
+## 6. 实验结果与决策（2026-08-09）
+
+两条 12 epoch 门控均从 Dataset1 A4 seed42 的 `best_coco_bbox_mAP_epoch_49.pth` 初始化，只更新最后一级 `reg_head`。CALU 最佳为 epoch 6，matched continuation control 最佳为 epoch 2。随后在同一张 workstation A5000、固定推理 seed=42 下顺序复评三者：
+
+| 模型 | mAP | AP50 | AP75 | AP-S | AP-M | AP-L |
+|---|---:|---:|---:|---:|---:|---:|
+| 原 A4 | **0.746** | 0.940 | **0.833** | **0.511** | **0.738** | 0.646 |
+| 纯续训控制 | 0.733 | 0.940 | 0.830 | 0.496 | 0.726 | 0.646 |
+| CALU | 0.736 | 0.940 | 0.829 | 0.496 | 0.729 | **0.652** |
+
+CALU 相对续训控制仅 `+0.003 mAP`，但 AP75 `-0.001`、AP-S `+0.000`；相对原 A4 则 `-0.010 mAP`、`-0.004 AP75`、`-0.015 AP-S`。弱增益不在预期的高 IoU/小目标分层上，而且无法恢复原 checkpoint。
+
+**决策：证伪并停止。** 不做完整重训、多 seed、Dataset2 或 mini-COCO。训练来源：`work_dirs/calu_terminal_reg_chr2024_seed42/` 与 `work_dirs/terminal_reg_control_chr2024_seed42/`；固定复评日志分别为其中的 `reval_a5000_seed42.log`，A4 对照为 `work_dirs/a4_dpm_pp_chr2024_seed42/reval_a5000_seed42.log`。
