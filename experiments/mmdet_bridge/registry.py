@@ -1,7 +1,6 @@
 """集中注册所有 ldmdet 模块到 mmdet MODELS 注册表 (force=True 覆盖旧注册)"""
 
 from mmdet.registry import MODELS
-from mmengine.registry import OPTIMIZERS, OPTIM_WRAPPER_CONSTRUCTORS
 
 from ldmdet.core import (
     DiffusionDetHead, DynamicConv, NormalizedLinear,
@@ -14,15 +13,6 @@ from ldmdet.criterion import (
 
 # 触发 TrainingDiagnosticsHook 注册到 HOOKS
 from ldmdet.diagnostics import hooks as _diag_hooks  # noqa: F401
-
-# Muon 混合优化器和构造器
-from ldmdet.optim.hybrid_optimizer import MuonHybrid
-from ldmdet.optim.constructor import MuonHybridConstructor
-
-OPTIMIZERS.register_module(name='MuonHybrid', module=MuonHybrid, force=True)
-OPTIM_WRAPPER_CONSTRUCTORS.register_module(
-    name='MuonHybridConstructor', module=MuonHybridConstructor, force=True
-)
 
 MODELS.register_module(name='PurePyTorchDiffusionDetHead', module=DiffusionDetHead, force=True)
 MODELS.register_module(name='PurePyTorchSingleDiffusionDetHead', module=SingleDiffusionDetHead, force=True)
@@ -38,12 +28,5 @@ MODELS.register_module(name='PurePyTorchBBoxL1Cost', module=BBoxL1Cost, force=Tr
 MODELS.register_module(name='PurePyTorchIoUCost', module=IoUCost, force=True)
 
 from experiments.mmdet_bridge.transforms import CLAHE, SmallObjectCopyPaste  # noqa: F401
-
-# SetDiff 注册 — setdiff 包已在 mAP=0 失败后清理, 跳过注册
-try:
-    from setdiff.models.set_head import JointDiffusionHead  # noqa: E402
-    MODELS.register_module(name='SetDiffJointDiffusionHead', module=JointDiffusionHead, force=True)
-except ImportError:
-    pass  # setdiff 已归档, 不影响主路线推理
 
 register_all = lambda: None
