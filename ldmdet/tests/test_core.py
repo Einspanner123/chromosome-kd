@@ -5,7 +5,7 @@ import pytest
 from ldmdet.core.dynamic_conv import DynamicConv
 from ldmdet.core.roi_extractor import SingleRoIExtractor
 from ldmdet.core.single_head import SingleDiffusionDetHead
-from ldmdet.core.head import DiffusionDetHead
+from ldmdet.core.head import DiffusionDetHead, calibrate_class_logits
 from ldmdet.criterion.criterion import DiffusionDetCriterion
 from ldmdet.criterion.matcher import DiffusionDetMatcher
 from ldmdet.criterion.losses import FocalLoss, L1Loss, GIoULoss
@@ -172,6 +172,39 @@ class TestSingleDiffusionDetHead:
         for p in single_head.parameters():
             if p.requires_grad:
                 assert p.grad is not None
+
+    def test_monotone_iou_survival_quality(self):
+        thresholds = (0.50, 0.75, 0.95)
+        head = SingleDiffusionDetHead(
+            num_classes=24,
+            feat_channels=64,
+            dim_feedforward=128,
+            num_cls_convs=1,
+            num_reg_convs=1,
+            num_heads=4,
+            pooler_resolution=7,
+            dynamic_dim=32,
+            dynamic_num=2,
+            predict_iou_quality=True,
+            quality_thresholds=thresholds,
+        )
+        features, bboxes, time_emb, pooler = self._make_inputs()
+        quality_logits = head(
+            features, bboxes, None, pooler, time_emb
+        )[-1]
+        assert quality_logits.shape == (2, 10, len(thresholds))
+        assert torch.all(quality_logits[..., 1:] <= quality_logits[..., :-1])
+
+    def test_distributional_quality_fusion_uses_mean_survival(self):
+        class_logits = torch.tensor([[[0.0, 1.0]]])
+        quality_logits = torch.tensor([[[0.0, 1.0, 2.0]]])
+        calibrated = calibrate_class_logits(
+            class_logits, quality_logits, beta=1.0
+        ).sigmoid()
+        expected_quality = quality_logits.sigmoid().mean(-1, keepdim=True)
+        assert torch.allclose(
+            calibrated, class_logits.sigmoid() * expected_quality, atol=1e-6
+        )
 
 
 class TestDiffusionDetHead:

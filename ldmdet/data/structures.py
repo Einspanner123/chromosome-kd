@@ -32,7 +32,7 @@ class ModelOutput:
         pred_logits: [B, N, C] 分类 logits
         pred_boxes: [B, N, 4] 预测框 (xyxy)
         pred_count: [B, 1] 可选全局计数
-        pred_quality: [B, N, 1] 可选 IoU quality logits
+        pred_quality: [B, N, K] 可选 IoU quality logits；K=1 为标量 LQCR
         aux_outputs: 深度监督的辅助输出
     """
 

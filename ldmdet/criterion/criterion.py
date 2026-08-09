@@ -37,6 +37,7 @@ class DiffusionDetCriterion(nn.Module):
         self.quality_loss_weight = quality_loss_weight
         self.quality_focal_alpha = quality_focal_alpha
         self.quality_focal_gamma = quality_focal_gamma
+        self.quality_thresholds = None
         self.deep_supervision = deep_supervision
 
     def forward(
@@ -102,10 +103,12 @@ class DiffusionDetCriterion(nn.Module):
         exclusively in the existing box loss, while the new branch learns the
         ranking statistic required by COCO AP at strict IoU thresholds.
         """
-        logits = outputs.pred_quality.squeeze(-1)
+        logits = outputs.pred_quality
+        if logits.ndim == 2:
+            logits = logits.unsqueeze(-1)
         boxes = outputs.pred_boxes.detach()
-        bs, num_queries = logits.shape
-        targets_iou = logits.new_zeros(bs, num_queries)
+        bs, num_queries, quality_dim = logits.shape
+        aligned_iou = logits.new_zeros(bs, num_queries)
         fg_masks = torch.stack([idx[0] for idx in indices])
         matched_gt_inds = torch.stack([idx[1] for idx in indices]).clamp(min=0)
 
@@ -127,19 +130,35 @@ class DiffusionDetCriterion(nn.Module):
             gt_wh = (matched[..., 2:] - matched[..., :2]).clamp(min=0)
             union = (box_wh[..., 0] * box_wh[..., 1]
                      + gt_wh[..., 0] * gt_wh[..., 1] - intersection)
-            aligned_iou = intersection / union.clamp(min=1e-7)
-            targets_iou[fg_masks] = aligned_iou[fg_masks].clamp(0, 1)
+            matched_iou = intersection / union.clamp(min=1e-7)
+            aligned_iou[fg_masks] = matched_iou[fg_masks].clamp(0, 1)
+
+        if quality_dim == 1:
+            quality_targets = aligned_iou.unsqueeze(-1)
+            positive_weight = quality_targets
+        else:
+            if (self.quality_thresholds is None
+                    or len(self.quality_thresholds) != quality_dim):
+                raise ValueError(
+                    'quality logits and quality_thresholds must have equal length')
+            thresholds = logits.new_tensor(self.quality_thresholds)
+            quality_targets = (
+                aligned_iou.unsqueeze(-1) >= thresholds
+            ).to(logits.dtype)
+            quality_targets = quality_targets * fg_masks.unsqueeze(-1)
+            # Every threshold of a matched proposal is supervised, including
+            # the zero labels above its actual IoU.
+            positive_weight = torch.ones_like(quality_targets)
 
         probability = logits.sigmoid()
-        positive_weight = targets_iou
         negative_weight = (
             self.quality_focal_alpha
             * probability.pow(self.quality_focal_gamma))
         focal_weight = torch.where(
-            fg_masks, positive_weight, negative_weight).detach()
+            fg_masks.unsqueeze(-1), positive_weight, negative_weight).detach()
         loss = F.binary_cross_entropy_with_logits(
-            logits, targets_iou, reduction='none') * focal_weight
-        num_pos = fg_masks.sum().clamp(min=1)
+            logits, quality_targets, reduction='none') * focal_weight
+        num_pos = fg_masks.sum().clamp(min=1) * quality_dim
         return self.quality_loss_weight * loss.sum() / num_pos
 
     def _loss_classification(self, outputs, targets, indices) -> Tensor:

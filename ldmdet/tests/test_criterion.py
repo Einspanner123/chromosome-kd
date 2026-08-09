@@ -392,6 +392,29 @@ class TestDiffusionDetCriterion:
         for key, val in losses.items():
             assert torch.isfinite(val), f"{key} is not finite"
 
+    def test_iou_survival_loss_supervises_all_thresholds(self, criterion):
+        criterion.quality_thresholds = (0.50, 0.75, 0.95)
+        targets = [InstanceData(
+            bboxes=torch.tensor([[0.0, 0.0, 1.0, 1.0]]),
+            labels=torch.tensor([0]),
+            img_shape=(32, 32),
+        )]
+        indices = [(torch.tensor([True]), torch.tensor([0]))]
+        pred_boxes = torch.tensor([[[0.0, 0.0, 0.6, 1.0]]])
+        common = dict(
+            pred_logits=torch.zeros(1, 1, 24),
+            pred_boxes=pred_boxes,
+        )
+        good = ModelOutput(
+            **common, pred_quality=torch.tensor([[[10.0, -10.0, -10.0]]])
+        )
+        bad = ModelOutput(
+            **common, pred_quality=torch.tensor([[[-10.0, 10.0, 10.0]]])
+        )
+        assert criterion._loss_quality(good, targets, indices) < (
+            criterion._loss_quality(bad, targets, indices)
+        )
+
 
 class TestIoUCostPlain:
     """测试 IoUCost 的 iou_mode='iou' (非 giou)"""

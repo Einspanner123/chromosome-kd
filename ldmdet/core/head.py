@@ -33,6 +33,10 @@ def calibrate_class_logits(cls_logits, quality_logits, beta=2.0):
     """Fuse class probability and IoU quality, returning stable logits."""
     probability = cls_logits.sigmoid()
     quality = quality_logits.sigmoid()
+    if quality.shape[-1] > 1:
+        # Mean survival probability estimates the expected true-positive
+        # probability under a uniformly sampled COCO IoU threshold.
+        quality = quality.mean(dim=-1, keepdim=True)
     calibrated = probability * quality.pow(beta)
     calibrated = calibrated.clamp(min=1e-6, max=1.0 - 1e-6)
     return torch.logit(calibrated)
@@ -171,6 +175,9 @@ class DiffusionDetHead(nn.Module):
                 head.predict_iou_quality = False
         self.roi_extractor = roi_extractor
         self.criterion = criterion
+        if self.criterion is not None:
+            self.criterion.quality_thresholds = getattr(
+                self.head_series[-1], 'quality_thresholds', None)
         self.pre_noise_layer = pre_noise_layer
 
         # 耦合策略
