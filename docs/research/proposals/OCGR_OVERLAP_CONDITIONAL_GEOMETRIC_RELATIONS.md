@@ -102,4 +102,15 @@ g_ij = [
 
 ## 6. 当前状态
 
-Phase-0 已完成，模块、配置和测试已实现。下一步是 Dataset1 seed 42 完整训练。训练结果必须追加到本文，并记录 checkpoint、日志和评估输出的精确来源目录。
+Phase-0 已完成，模块、配置和测试已实现。Dataset1 seed 42 完整训练已于 2026-08-09 23:35（Asia/Shanghai）在 workstation 的 A5000 GPU0 从头启动：
+
+- PID：`2339090`
+- 代码提交：workstation `b96e83bfd`，代码树与 ross `5e081b34` 完全相同（tree `62610a5acfef54a51b22e2d6b684e6718d0bdcb5`）
+- 主日志：`/home/linkst/workplace/chromo/chromosome-kd/work_dirs/ocgr_chr2024_seed42/launch.log`
+- 源码备份：`/home/linkst/workplace/chromo/chromosome-kd/work_dirs/ocgr_chr2024_seed42/20260809_233554/`
+- SwanLab run：`https://swanlab.cn/@einspanner/ldmdet-ablation/runs/8ertj8vz`
+- 首 50 iterations：loss 42.0760，有限梯度，约 1.11 s/iter，峰值显存 19,766 MiB
+- 首 100 iterations：loss 38.2890，约 0.77 s/iter，显存 11,905 MiB
+- 预计单 epoch 约 12--16 分钟；150 epoch 上限约 30--40 小时，EarlyStoppingHook 可能提前结束
+
+首次验证 mAP 出现后，应在此追加 epoch 级轨迹；训练结束后记录 best checkpoint 和 COCO 完整指标，严格执行第 5 节的停止/推进规则。
