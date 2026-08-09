@@ -349,7 +349,7 @@ class DiffusionDetHead(nn.Module):
             # C2 isolates the final cascade stage. Auxiliary heads retain the
             # original losses so the experiment has a single causal change.
             outputs.pred_quality = self._last_quality_logits.float()
-        losses = self.criterion(outputs, targets, t=t, box_targets=None)
+        losses = self.criterion(outputs, targets, t=t)
 
         # 探针: 训练时 t 分布 + 损失分解
         probe.record_tensor_stats('train/t', t)

@@ -3,7 +3,7 @@
 from mmdet.registry import MODELS
 
 from ldmdet.core import (
-    DiffusionDetHead, DynamicConv, NormalizedLinear,
+    DiffusionDetHead, DynamicConv,
     SingleDiffusionDetHead, SingleRoIExtractor,
 )
 from ldmdet.criterion import (
@@ -22,7 +22,6 @@ MODELS.register_module(name='PurePyTorchDiffusionDetMatcher', module=DiffusionDe
 MODELS.register_module(name='PurePyTorchFocalLoss', module=FocalLoss, force=True)
 MODELS.register_module(name='PurePyTorchL1Loss', module=L1Loss, force=True)
 MODELS.register_module(name='PurePyTorchGIoULoss', module=GIoULoss, force=True)
-MODELS.register_module(name='PurePyTorchNormalizedLinear', module=NormalizedLinear, force=True)
 MODELS.register_module(name='PurePyTorchFocalLossCost', module=FocalLossCost, force=True)
 MODELS.register_module(name='PurePyTorchBBoxL1Cost', module=BBoxL1Cost, force=True)
 MODELS.register_module(name='PurePyTorchIoUCost', module=IoUCost, force=True)
