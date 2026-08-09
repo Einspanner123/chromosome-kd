@@ -5,7 +5,7 @@ import torch
 import pytest
 from ldmdet.diffusion.embeddings import SinusoidalPositionEmbeddings
 from ldmdet.diffusion.noise_schedule import cosine_noise_schedule, load_buffer
-from ldmdet.diffusion.rectified_flow import RectifiedFlow, RFDPMSolverMultistep, RFDPMSolverPerDim
+from ldmdet.diffusion.rectified_flow import RectifiedFlow, RFDPMSolverMultistep
 from ldmdet.diffusion.sampling import DiffusionSampler
 from ldmdet.data.structures import ImageMeta
 
@@ -202,130 +202,6 @@ class TestRFDPMSolverMultistep:
         assert len(solver.x0_history) == 0
 
 
-class TestRFDPMSolverPerDim:
-    """方向 A Phase 2: per-dim 阶数分配 DPM-Solver++"""
-
-    def test_init_default_dims(self):
-        """默认: h (index 3) 用 1 阶, cx/cy/w (index 0,1,2) 用 2 阶."""
-        solver = RFDPMSolverPerDim(num_steps=4)
-        assert solver.euler_dims == (3,)
-        assert solver.dpm_dims == (0, 1, 2)
-        assert solver.solver_order == 2
-
-    def test_init_custom_dims(self):
-        solver = RFDPMSolverPerDim(
-            num_steps=4, euler_dims=(2, 3), dpm_dims=(0, 1)
-        )
-        assert solver.euler_dims == (2, 3)
-        assert solver.dpm_dims == (0, 1)
-
-    def test_step_output_shape(self):
-        solver = RFDPMSolverPerDim(num_steps=4)
-        x = torch.randn(2, 100, 4)
-        x0_pred = torch.randn_like(x)
-        x_next = solver.step(x, x0_pred, t_n=1.0, step_idx=0)
-        assert x_next.shape == x.shape
-
-    def test_first_step_linear_only(self):
-        """step_idx=0 (历史不足 2) 时所有维度退化为 linear (1 阶)."""
-        solver = RFDPMSolverPerDim(num_steps=4)
-        x = torch.randn(2, 10, 4)
-        x0_pred = torch.randn_like(x)
-        x_next = solver.step(x, x0_pred, t_n=1.0, step_idx=0)
-        # linear = (t_next/t_n)*x + (1 - t_next/t_n)*x0_pred
-        t_next = solver.timesteps[1]
-        expected = (t_next / 1.0) * x + (1.0 - t_next / 1.0) * x0_pred
-        assert torch.allclose(x_next, expected, atol=1e-6)
-
-    def test_h_dim_uses_euler(self):
-        """h 维度 (index 3) 在 step_idx>=1 时仅用 linear (无 correction)."""
-        solver = RFDPMSolverPerDim(num_steps=4)
-        x = torch.randn(2, 10, 4)
-        x0_pred = torch.randn_like(x)
-        # step 0: 填充历史
-        solver.step(x, x0_pred, t_n=1.0, step_idx=0)
-        # step 1: 有历史, 应对 dpm_dims 应用 correction, euler_dims 不应用
-        x0_pred_2 = torch.randn_like(x)
-        x_next = solver.step(x, x0_pred_2, t_n=solver.timesteps[1], step_idx=1)
-
-        # 计算 linear (所有维度)
-        t_n = solver.timesteps[1]
-        t_next = solver.timesteps[2]
-        linear = (t_next / t_n) * x + (1.0 - t_next / t_n) * x0_pred_2
-        # h 维度 (index 3) 应等于 linear (无 correction)
-        assert torch.allclose(x_next[..., 3], linear[..., 3], atol=1e-6)
-
-    def test_cxcy_dims_use_dpm(self):
-        """cx/cy/w 维度 (index 0,1,2) 在 step_idx>=1 时应用 correction (2 阶)."""
-        solver = RFDPMSolverPerDim(num_steps=4)
-        x = torch.randn(2, 10, 4)
-        x0_pred = torch.randn_like(x)
-        solver.step(x, x0_pred, t_n=1.0, step_idx=0)
-        x0_pred_2 = torch.randn_like(x)
-        x_next = solver.step(x, x0_pred_2, t_n=solver.timesteps[1], step_idx=1)
-
-        # 计算 linear + correction (DPM-Solver++ 2 阶)
-        t_n = solver.timesteps[1]
-        t_next = solver.timesteps[2]
-        linear = (t_next / t_n) * x + (1.0 - t_next / t_n) * x0_pred_2
-        D1 = (x0_pred_2 - x0_pred) / (t_n - 1.0)
-        phi1 = t_next * math.log(t_n / t_next) - t_n + t_next
-        correction = phi1 * D1
-        expected_dpm = linear + correction
-
-        # cx/cy/w 维度 (index 0,1,2) 应等于 linear + correction
-        for d in (0, 1, 2):
-            assert torch.allclose(x_next[..., d], expected_dpm[..., d], atol=1e-6)
-
-    def test_all_dpm_equals_base_solver(self):
-        """当 euler_dims=() (所有维度用 2 阶) 时, 应等价于基类 RFDPMSolverMultistep."""
-        solver_per = RFDPMSolverPerDim(num_steps=4, euler_dims=(), dpm_dims=(0, 1, 2, 3))
-        solver_base = RFDPMSolverMultistep(num_steps=4, solver_order=2)
-        x = torch.randn(2, 10, 4)
-        x0_1 = torch.randn_like(x)
-        x0_2 = torch.randn_like(x)
-        # step 0
-        out_per_0 = solver_per.step(x, x0_1, t_n=1.0, step_idx=0)
-        out_base_0 = solver_base.step(x, x0_1, t_n=1.0, step_idx=0)
-        assert torch.allclose(out_per_0, out_base_0, atol=1e-6)
-        # step 1
-        out_per_1 = solver_per.step(x, x0_2, t_n=solver_per.timesteps[1], step_idx=1)
-        out_base_1 = solver_base.step(x, x0_2, t_n=solver_base.timesteps[1], step_idx=1)
-        assert torch.allclose(out_per_1, out_base_1, atol=1e-6)
-
-    def test_all_euler_equals_linear(self):
-        """当 dpm_dims=() (所有维度用 1 阶) 时, 应等于纯 linear (Euler)."""
-        solver = RFDPMSolverPerDim(num_steps=4, euler_dims=(0, 1, 2, 3), dpm_dims=())
-        x = torch.randn(2, 10, 4)
-        x0_1 = torch.randn_like(x)
-        x0_2 = torch.randn_like(x)
-        solver.step(x, x0_1, t_n=1.0, step_idx=0)
-        x_next = solver.step(x, x0_2, t_n=solver.timesteps[1], step_idx=1)
-        t_n = solver.timesteps[1]
-        t_next = solver.timesteps[2]
-        expected = (t_next / t_n) * x + (1.0 - t_next / t_n) * x0_2
-        assert torch.allclose(x_next, expected, atol=1e-6)
-
-    def test_reset(self):
-        solver = RFDPMSolverPerDim(num_steps=4)
-        x = torch.randn(2, 10, 4)
-        x0_pred = torch.randn_like(x)
-        solver.step(x, x0_pred, t_n=1.0, step_idx=0)
-        assert len(solver.x0_history) > 0
-        solver.reset()
-        assert len(solver.x0_history) == 0
-
-    def test_eta_str_history_populated(self):
-        """step_idx>=1 应记录 eta_str 和 per_dim 诊断."""
-        solver = RFDPMSolverPerDim(num_steps=4)
-        x = torch.randn(2, 10, 4)
-        x0_pred = torch.randn_like(x)
-        solver.step(x, x0_pred, t_n=1.0, step_idx=0)
-        assert len(solver.eta_str_history) == 1  # step 0 记录 0.0
-        solver.step(x, x0_pred, t_n=solver.timesteps[1], step_idx=1)
-        assert len(solver.eta_str_history) == 2
-        assert len(solver.eta_str_per_dim_history) == 2
-        assert len(solver.eta_str_per_dim_history[-1]) == 4  # 4 个维度
 
 
 class TestDiffusionSampler:

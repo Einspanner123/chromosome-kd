@@ -105,13 +105,6 @@ MODEL_REGISTRY = {
         'desc': 'A4+IO3: DPM-Solver++ + Top-K pruning K=100 (aggressive)',
         'type': 'ldmdet',
     },
-    # H3 Head Distillation (H=3 distilled from H=6, NFE 24→12, 2x speedup)
-    'h3_distill': {
-        'config': 'experiments/configs/ldmdet/directions/mainline_ablation_24obj/h3_distill_plan_a_24obj.py',
-        'checkpoint': 'work_dirs/h3_distill_plan_a_24obj/best_coco_bbox_mAP_epoch_10.pth',
-        'desc': 'H3 Distill: DPM-Solver++ H=3 (distilled from H=6, NFE 24→12)',
-        'type': 'ldmdet',
-    },
     # Baselines (mAP < A4=0.863, 用于论文 SOTA 对比)
     'cascade_rcnn': {
         'config': 'experiments/configs/baselines/benchmark_24obj/cascade_rcnn_r50.py',
