@@ -103,6 +103,7 @@ class DiffusionDetHead(nn.Module):
         mass_score_power: float = 1.0,
         mass_only_training: bool = False,
         terminal_reg_only_training: bool = False,
+        geometric_relation_start_head: int = 3,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -131,6 +132,10 @@ class DiffusionDetHead(nn.Module):
         self.mass_score_power = float(mass_score_power)
         self.mass_only_training = bool(mass_only_training)
         self.terminal_reg_only_training = bool(terminal_reg_only_training)
+        if not 0 <= geometric_relation_start_head <= num_heads:
+            raise ValueError(
+                'geometric_relation_start_head must lie in [0, num_heads]')
+        self.geometric_relation_start_head = int(geometric_relation_start_head)
         self._last_mass_logits = None
         if self.quality_score_beta < 0:
             raise ValueError('quality_score_beta must be non-negative')
@@ -192,6 +197,9 @@ class DiffusionDetHead(nn.Module):
         self.head_series = nn.ModuleList(
             [copy.deepcopy(single_head) for _ in range(num_heads)]
         )
+        if getattr(single_head, 'geometric_relation_attn', None) is not None:
+            for head in self.head_series[:self.geometric_relation_start_head]:
+                head.geometric_relation_attn = None
         # C2 is deliberately a last-stage-only intervention. Removing the
         # cloned quality modules from earlier cascade heads also avoids unused
         # parameters under DistributedDataParallel.

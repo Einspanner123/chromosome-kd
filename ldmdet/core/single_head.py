@@ -10,6 +10,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from ldmdet.core.dynamic_conv import DynamicConv
+from ldmdet.core.geometric_relation_attention import (
+    OverlapConditionalGeometryBias,
+)
 from ldmdet.utils.box_ops import bbox2roi
 
 # 检测 SDPA (PyTorch 2.0+) 是否可用，用于高效 Flash Attention 后端
@@ -74,6 +77,9 @@ class SingleDiffusionDetHead(nn.Module):
         predict_set_mass=False,
         mass_hidden=128,
         mass_prior_prob=0.1,
+        geometric_relation_attention=False,
+        geometric_relation_hidden=32,
+        geometric_relation_proximity_radius=3.0,
     ):
         super().__init__()
         self.feat_channels = feat_channels
@@ -84,6 +90,14 @@ class SingleDiffusionDetHead(nn.Module):
         self.attn_half = attn_half
         self.predict_iou_quality = predict_iou_quality
         self.predict_set_mass = predict_set_mass
+        self.geometric_relation_attn = (
+            OverlapConditionalGeometryBias(
+                num_heads=num_heads,
+                hidden_channels=geometric_relation_hidden,
+                proximity_radius=geometric_relation_proximity_radius,
+            )
+            if geometric_relation_attention else None
+        )
         self.quality_thresholds = (
             tuple(float(value) for value in quality_thresholds)
             if quality_thresholds is not None else None
@@ -187,7 +201,7 @@ class SingleDiffusionDetHead(nn.Module):
         self.num_heads = num_heads
         self.head_dim = feat_channels // num_heads
 
-    def _sdpa_self_attn(self, x_seq_bs_dim):
+    def _sdpa_self_attn(self, x_seq_bs_dim, attn_bias=None):
         """使用 SDPA 的高效 self-attention。
 
         输入/输出格式与 nn.MultiheadAttention 一致: [seq_len, bs, dim]。
@@ -223,7 +237,10 @@ class SingleDiffusionDetHead(nn.Module):
             k = k.to(torch.float16)
             v = v.to(torch.float16)
 
-        out = F.scaled_dot_product_attention(q, k, v, dropout_p=0.0)
+        if attn_bias is not None:
+            attn_bias = attn_bias.to(dtype=q.dtype, device=q.device)
+        out = F.scaled_dot_product_attention(
+            q, k, v, attn_mask=attn_bias, dropout_p=0.0)
 
         if out.dtype != input_dtype:
             out = out.to(input_dtype)
@@ -236,15 +253,19 @@ class SingleDiffusionDetHead(nn.Module):
         out_flat = F.linear(out_flat, attn.out_proj.weight, attn.out_proj.bias)
         return out_flat.reshape(seq_len, bs, dim)
 
-    def _self_attn(self, q, k=None, v=None):
+    def _self_attn(self, q, k=None, v=None, attn_bias=None):
         """统一的 self-attention 接口。"""
         if k is None:
             k = q
         if v is None:
             v = q
         if self.use_sdpa and q is k is v:
-            return self._sdpa_self_attn(q), None
-        return self.self_attn(q, k, v)
+            return self._sdpa_self_attn(q, attn_bias=attn_bias), None
+        attn_mask = None
+        if attn_bias is not None:
+            attn_mask = attn_bias.flatten(0, 1).to(
+                dtype=q.dtype, device=q.device)
+        return self.self_attn(q, k, v, attn_mask=attn_mask)
 
     @staticmethod
     def _build_cls_head(
@@ -289,6 +310,10 @@ class SingleDiffusionDetHead(nn.Module):
         bs, num_boxes = bboxes.shape[:2]
         rois = bbox2roi([bboxes[i] for i in range(bs)])
         roi_features = pooler(features, rois)
+        attn_bias = (
+            self.geometric_relation_attn(bboxes)
+            if self.geometric_relation_attn is not None else None
+        )
 
         if proposals is None:
             proposals = (
@@ -302,19 +327,19 @@ class SingleDiffusionDetHead(nn.Module):
         ).permute(2, 0, 1)
 
         fc_feature = self._conditioned_forward(
-            proposals, roi_features, time_emb, bs, num_boxes
+            proposals, roi_features, time_emb, bs, num_boxes, attn_bias
         )
         return self._predict(fc_feature, bboxes, bs, num_boxes)
 
     def _conditioned_forward(
-        self, proposals, roi_features, time_emb, bs, num_boxes
+        self, proposals, roi_features, time_emb, bs, num_boxes, attn_bias=None
     ):
         if self.time_conditioning == 'adaln_zero':
             return self._forward_adaln_zero(
-                proposals, roi_features, time_emb, bs, num_boxes
+                proposals, roi_features, time_emb, bs, num_boxes, attn_bias
             )
         return self._forward_scale_shift(
-            proposals, roi_features, time_emb, bs, num_boxes
+            proposals, roi_features, time_emb, bs, num_boxes, attn_bias
         )
 
     def _predict(self, fc_feature, bboxes, bs, num_boxes):
@@ -336,7 +361,7 @@ class SingleDiffusionDetHead(nn.Module):
         return result
 
     def _forward_adaln_zero(
-        self, proposals, roi_features, time_emb, bs, num_boxes
+        self, proposals, roi_features, time_emb, bs, num_boxes, attn_bias=None
     ):
         proposals = proposals.view(bs, num_boxes, self.feat_channels).permute(
             1, 0, 2
@@ -353,7 +378,7 @@ class SingleDiffusionDetHead(nn.Module):
             + beta1
         )
         q_modulated = q_modulated.view(num_boxes, bs, self.feat_channels)
-        attn_out, _ = self._self_attn(q_modulated)
+        attn_out, _ = self._self_attn(q_modulated, attn_bias=attn_bias)
         attn_out_flat = attn_out.reshape(num_boxes * bs, self.feat_channels)
         proposals_flat = proposals_flat + alpha1 * attn_out_flat
 
@@ -374,12 +399,12 @@ class SingleDiffusionDetHead(nn.Module):
         return obj_flat
 
     def _forward_scale_shift(
-        self, proposals, roi_features, time_emb, bs, num_boxes
+        self, proposals, roi_features, time_emb, bs, num_boxes, attn_bias=None
     ):
         proposals = proposals.view(bs, num_boxes, self.feat_channels).permute(
             1, 0, 2
         )
-        attn_shortcut, _ = self._self_attn(proposals)
+        attn_shortcut, _ = self._self_attn(proposals, attn_bias=attn_bias)
         proposals = proposals + self.dropout1(attn_shortcut)
         proposals = self.norm1(proposals)
 
