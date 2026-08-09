@@ -1,6 +1,6 @@
 # MASF：质量感知集合流（Mass-Aware Set Flow）
 
-> 状态：Phase-0 结构诊断通过；进入最小机制实现  
+> 状态：Phase-1A 均匀质量目标已证伪；Phase-1A2 组内择优目标实现中
 > 优先数据：Chromosome20240904 / Dataset 1  
 > 诊断基座：A4 RF + DPM-Solver++ seed42
 
@@ -121,3 +121,66 @@ $$
 3. 若 mAP 不提升但重复率明显下降，只能作为效率/校准支线，不作为精度创新；
 4. 若两项均未达到，停止 MASF，不通过调整 NMS 阈值追逐结果；
 5. Phase-1B 通过后再做 seed123 和 mini-COCO，不提前占用通用检测资源。
+
+## 5. Phase-1A 完整负结果
+
+实验配置：
+`experiments/configs/ldmdet/directions/capr/masf_mass_final_only_chr2024_seed42.py`。
+实验目录：`work_dirs/masf_mass_final_only_chr2024_seed42/`；日志：
+`work_dirs/masf_mass_final_only_chr2024_seed42/train.log`。
+
+| 设置 | mAP | AP50 | AP75 | APs | APm | APl |
+|---|---:|---:|---:|---:|---:|---:|
+| A4 seed42 | 0.746 | — | — | — | — | — |
+| MASF 均匀质量 best（epoch 1） | 0.733 | 0.936 | 0.820 | 0.500 | 0.725 | 0.639 |
+| MASF 均匀质量 epoch 12 | 0.716 | 0.927 | 0.797 | 0.481 | 0.709 | 0.645 |
+
+best mAP 相对 A4 下降 0.013，且后续轮次未回升。修正诊断脚本使其实际应用
+final-only mass ranking gate 后，100 图结果来源为
+`work_dirs/diagnosis/mass_flow_phase1a_uniform_gated_chr2024_seed42.json`：
+
+| 指标 | A4 | MASF 均匀质量 | 变化 |
+|---|---:|---:|---:|
+| NMS 删除率 | 79.64% | 71.73% | -7.91 个百分点 |
+| 每 GT 额外重复数 | 5.06 | 2.47 | -2.59 |
+| GT 覆盖率 | 95.33% | 93.56% | -1.77 个百分点 |
+
+该分支确实消除了部分重复质量，但未达到预注册的 NMS 删除率下降 10 个百分点，
+同时损害覆盖率和全部尺度的 AP。因此 Phase-1A 在精度与去重两个门槛上均失败。
+
+失败原因可由目标函数直接解释：$1/|I_g|$ 赋予同一 GT 的所有重复 proposal 相同
+目标，只规定“整组总量为 1”，没有规定“应由哪个 proposal 保留这一单位质量”。
+它因而学会同时压低整组重复框，而不是提高定位最准的框的组内排名。
+
+## 6. Phase-1A2：COCO 效用约束的质量择优
+
+对 proposal $i$ 定义与 COCO AP 阈值一致的定位效用
+
+$$
+u_i=\frac1{10}\sum_{k=1}^{10}\mathbf 1[\operatorname{IoU}_i\ge\tau_k],
+\qquad \tau_k\in\{0.50,0.55,\ldots,0.95\}.
+$$
+
+在每个 GT 的质量单纯形
+$\Delta_g=\{m_i\ge0,\sum_{i\in I_g}m_i=1\}$ 上求解熵正则化效用最大化：
+
+$$
+\max_{m\in\Delta_g}\left[\sum_{i\in I_g}m_i u_i
++T\left(-\sum_{i\in I_g}m_i\log m_i\right)\right].
+$$
+
+对拉格朗日函数求导并使导数为零，得到唯一解
+
+$$
+m_i^*=\frac{\exp(u_i/T)}{\sum_{j\in I_g}\exp(u_j/T)}.
+$$
+
+这个目标对每个 GT 仍严格守恒，但将更多质量分给能在更多 COCO IoU 阈值上成为
+真阳性的 proposal。原均匀目标是 $T\to\infty$ 的极限；$T\to0$ 则趋近组内硬选择。
+
+Phase-1A2 在查看结果前固定 $T=0.1$，只运行 Dataset 1 seed42，不搜索温度、
+loss weight 或融合指数。门槛仍为相对 A4 mAP 至少 +0.002，且 NMS 删除率至少
+下降 10 个百分点。若仍失败，停止 MASF，不进入 solver 耦合。
+
+实现配置：
+`experiments/configs/ldmdet/directions/capr/masf_quality_mass_final_only_chr2024_seed42.py`。

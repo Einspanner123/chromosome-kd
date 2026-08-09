@@ -420,6 +420,11 @@ class TestDiffusionDetCriterion:
             torch.tensor([True, True, False]),
             torch.tensor([0, 0, 0]),
         )]
+        targets = [InstanceData(
+            bboxes=torch.tensor([[0.0, 0.0, 1.0, 1.0]]),
+            labels=torch.tensor([0]),
+            img_shape=(32, 32),
+        )]
         common = dict(
             pred_logits=torch.zeros(1, 3, 24),
             pred_boxes=torch.zeros(1, 3, 4),
@@ -432,9 +437,41 @@ class TestDiffusionDetCriterion:
             **common,
             pred_mass=torch.tensor([[[4.0], [4.0], [-10.0]]]),
         )
-        conserved_losses = criterion._loss_set_mass(conserved, indices)
-        excessive_losses = criterion._loss_set_mass(excessive, indices)
+        conserved_losses = criterion._loss_set_mass(
+            conserved, targets, indices
+        )
+        excessive_losses = criterion._loss_set_mass(
+            excessive, targets, indices
+        )
         assert conserved_losses[1] < excessive_losses[1]
+
+    def test_quality_weighted_mass_prefers_best_duplicate(self, criterion):
+        criterion.mass_target_mode = 'coco_utility_softmax'
+        criterion.mass_target_temperature = 0.1
+        indices = [(
+            torch.tensor([True, True, False]),
+            torch.tensor([0, 0, 0]),
+        )]
+        targets = [InstanceData(
+            bboxes=torch.tensor([[0.0, 0.0, 1.0, 1.0]]),
+            labels=torch.tensor([0]),
+            img_shape=(32, 32),
+        )]
+        outputs = ModelOutput(
+            pred_logits=torch.zeros(1, 3, 24),
+            pred_boxes=torch.tensor([[[0.0, 0.0, 1.0, 1.0],
+                                      [0.0, 0.0, 0.4, 1.0],
+                                      [0.0, 0.0, 0.0, 0.0]]]),
+            pred_mass=torch.zeros(1, 3, 1),
+        )
+        mass_targets, _ = criterion._set_mass_targets(
+            outputs, targets, indices
+        )
+        assert mass_targets[0, 0] > mass_targets[0, 1]
+        assert torch.allclose(
+            mass_targets[0, :2].sum(), torch.tensor(1.0)
+        )
+        assert mass_targets[0, 2] == 0
 
 
 class TestIoUCostPlain:

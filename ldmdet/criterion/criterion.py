@@ -29,6 +29,8 @@ class DiffusionDetCriterion(nn.Module):
         quality_focal_gamma: float = 2.0,
         mass_loss_weight: float = 0.25,
         mass_conservation_weight: float = 0.01,
+        mass_target_mode: str = 'uniform',
+        mass_target_temperature: float = 0.1,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -42,6 +44,12 @@ class DiffusionDetCriterion(nn.Module):
         self.quality_thresholds = None
         self.mass_loss_weight = mass_loss_weight
         self.mass_conservation_weight = mass_conservation_weight
+        if mass_target_mode not in {'uniform', 'coco_utility_softmax'}:
+            raise ValueError(f'Unsupported mass_target_mode: {mass_target_mode}')
+        if mass_target_temperature <= 0:
+            raise ValueError('mass_target_temperature must be positive')
+        self.mass_target_mode = mass_target_mode
+        self.mass_target_temperature = mass_target_temperature
         self.deep_supervision = deep_supervision
 
     def forward(
@@ -99,7 +107,7 @@ class DiffusionDetCriterion(nn.Module):
                 'criterion/loss_quality', losses['loss_quality'].item())
         if outputs.pred_mass is not None:
             mass_loss, conservation_loss = self._loss_set_mass(
-                outputs, indices
+                outputs, targets, indices
             )
             losses['loss_mass'] = mass_loss
             losses['loss_mass_conservation'] = conservation_loss
@@ -109,8 +117,8 @@ class DiffusionDetCriterion(nn.Module):
             )
         return losses
 
-    def _loss_set_mass(self, outputs, indices):
-        """Supervise one unit of total proposal mass per covered GT."""
+    def _set_mass_targets(self, outputs, targets, indices):
+        """Allocate one mass unit within every covered GT proposal group."""
         logits = outputs.pred_mass.squeeze(-1)
         bs, num_queries = logits.shape
         fg_masks = torch.stack([index[0] for index in indices])
@@ -120,6 +128,51 @@ class DiffusionDetCriterion(nn.Module):
         counts.scatter_add_(1, valid_indices, fg_masks.to(logits.dtype))
         matched_counts = torch.gather(counts, 1, valid_indices).clamp(min=1.0)
         targets_mass = fg_masks.to(logits.dtype) / matched_counts
+
+        if self.mass_target_mode == 'coco_utility_softmax':
+            boxes = outputs.pred_boxes.detach()
+            thresholds = logits.new_tensor(
+                [0.50, 0.55, 0.60, 0.65, 0.70,
+                 0.75, 0.80, 0.85, 0.90, 0.95]
+            )
+            for batch_index, target in enumerate(targets):
+                foreground = fg_masks[batch_index]
+                if not foreground.any() or target.bboxes.numel() == 0:
+                    continue
+                gt_indices = valid_indices[batch_index].clamp(
+                    max=target.bboxes.shape[0] - 1
+                )
+                matched_boxes = target.bboxes[gt_indices]
+                pred_boxes = boxes[batch_index]
+                lt = torch.maximum(pred_boxes[:, :2], matched_boxes[:, :2])
+                rb = torch.minimum(pred_boxes[:, 2:], matched_boxes[:, 2:])
+                wh = (rb - lt).clamp(min=0)
+                intersection = wh[:, 0] * wh[:, 1]
+                pred_area = (
+                    (pred_boxes[:, 2] - pred_boxes[:, 0]).clamp(min=0)
+                    * (pred_boxes[:, 3] - pred_boxes[:, 1]).clamp(min=0)
+                )
+                gt_area = (
+                    (matched_boxes[:, 2] - matched_boxes[:, 0]).clamp(min=0)
+                    * (matched_boxes[:, 3] - matched_boxes[:, 1]).clamp(min=0)
+                )
+                iou = intersection / (pred_area + gt_area - intersection).clamp(
+                    min=1e-6
+                )
+                utility = (iou[:, None] >= thresholds).to(logits.dtype).mean(1)
+                for gt_index in gt_indices[foreground].unique():
+                    group = foreground & (gt_indices == gt_index)
+                    targets_mass[batch_index, group] = torch.softmax(
+                        utility[group] / self.mass_target_temperature, dim=0
+                    )
+        return targets_mass, counts
+
+    def _loss_set_mass(self, outputs, targets, indices):
+        """Supervise conserved proposal mass and duplicate-aware allocation."""
+        logits = outputs.pred_mass.squeeze(-1)
+        targets_mass, counts = self._set_mass_targets(
+            outputs, targets, indices
+        )
 
         pointwise = F.binary_cross_entropy_with_logits(
             logits, targets_mass, reduction='mean'
