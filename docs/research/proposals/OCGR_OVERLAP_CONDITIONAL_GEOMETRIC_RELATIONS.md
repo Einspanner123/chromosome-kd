@@ -133,7 +133,7 @@ Dataset1 seed 42 完整训练于 2026-08-09 23:35（Asia/Shanghai）在 workstat
 
 历史 StochOT+Heun 单 seed 训练期最佳同为 0.753，其固定 seed 复评为 0.748。因此 OCGR 尚未在训练期峰值上超过历史最高，但固定协议下高 0.004；这一差异仍需多训练 seed 验证，不能作为最终统计结论。
 
-### 6.3 多训练 seed
+### 6.3 多次独立训练（seed 标注勘误）
 
 固定复评通过后，于 2026-08-10 并行启动相同配置、从头训练：
 
@@ -142,6 +142,38 @@ Dataset1 seed 42 完整训练于 2026-08-09 23:35（Asia/Shanghai）在 workstat
 | 123 | workstation A5000 | 2346590 | `work_dirs/ocgr_chr2024_seed123/` | `https://swanlab.cn/@einspanner/ldmdet-ablation/runs/4hw0hq9k` |
 | 789 | ross A6000 | 29931 | `work_dirs/ocgr_chr2024_seed789/` | `https://swanlab.cn/@einspanner/ldmdet-ablation/runs/58xerlifsjodgb9e7fq3p` |
 
-两者使用相同代码树、batch、优化器和训练配置；seed 789 使用 A6000 是因为 A4000 仅 16 GiB，而相同配置峰值显存超过 19 GiB。最终 seed 123/789 checkpoint 均须回到 workstation A5000，以固定推理 seed 复评后再与 A4 同 seed 配对比较。
+两者使用相同代码树、batch、优化器和训练配置；seed 789 使用 A6000 是因为 A4000 仅 16 GiB，而相同配置峰值显存超过 19 GiB。
 
-首次验证 mAP 出现后，应在此追加 epoch 级轨迹；训练结束后记录 best checkpoint 和 COCO 完整指标，严格执行第 5 节的停止/推进规则。
+2026-08-10 检查原始日志和训练入口后发现：`experiments/runners/train.py --seed` 仅设置环境变量 `RANDOM_SEED`，而 OCGR 配置没有读取该变量，也没有设置 `cfg.randomness`。MMEngine 因而为每次运行自动生成了随机种子。标称 seed 与实际种子如下：
+
+| 运行标签 | 实际 MMEngine seed | 当前/最终最佳 mAP | 最佳 epoch | 状态 |
+|---|---:|---:|---:|---|
+| OCGR seed42 | 1394207492 | 0.753 | 65 | epoch95 正常早停 |
+| OCGR seed123 | 709504471 | 0.746 | 44 | epoch74 正常早停 |
+| OCGR seed789 | 379150778 | 0.744 | 39 | 2026-08-10 约 15:40 时仍在训练 |
+| A4 seed42 | 1008752745 | 0.746 | 49 | 已完成 |
+| A4 seed123 | 1177340171 | 0.748 | 85 | 已完成 |
+| A4 seed789 | 969476333 | 0.746 | 72 | 已完成 |
+
+因此，这六次训练仍可视为独立随机重复，但不是预先指定的 42/123/789，也不能进行“同 seed 配对比较”。此前把 A4 seed789 记为 0.724 并据此计算 OCGR `+0.020` 是错误口径；原始训练日志与 `best_coco_bbox_mAP_epoch_72.pth` 对应的训练最佳值为 0.746。后续固定 A5000 复评仍可用于独立重复的组间比较，但论文级 paired-seed 证据必须在修复 seed 传递后重新训练。
+
+### 6.4 后期 mAP 波动诊断
+
+从三次 A4 和三次 OCGR 原始日志逐 epoch 提取验证指标，定义 epoch >= 30 为训练后期。OCGR seed789 的统计截至 epoch61，其余运行使用完整日志：
+
+| 组别 | 三运行训练最佳均值 | 后期 mAP 均值 | 后期标准差均值 | 相邻 epoch 绝对变化均值 |
+|---|---:|---:|---:|---:|
+| A4 | 0.7467 | 0.7202 | 0.0154 | 0.0144 |
+| OCGR | 0.7477 | 0.7172 | 0.0188 | 0.0192 |
+
+OCGR 的后期 mAP 标准差比 A4 高约 22%，相邻 epoch 跳动高约 33%。单运行峰谷差为 0.082--0.098；训练最佳均值只高 0.001，而后期均值反低约 0.003，说明单 epoch 最大值存在明显的多次验证取最大值偏差。
+
+波动并非来自 AP50：OCGR/A4 的 AP50 后期标准差分别为 0.0029/0.0033；主要差异位于 AP75（0.0128/0.0095）、AP-S（0.0228/0.0203）和 AP-M（0.0164/0.0139）。这支持“高 IoU 终点定位不稳”而不是“是否找到目标不稳”。源码同时确认，每次推理都会在 `ldmdet/core/head.py` 用 `torch.randn` 生成 500 个初始 proposals，box renewal 也会重新采样噪声；当前逐 epoch 验证没有固定其 RNG。因此观测波动由随机推理噪声和权重/定位面真实漂移共同组成，现有数据尚不能分离二者。
+
+决策与下一步：
+
+1. 允许当前实际 seed 379150778 的 OCGR 训练自然结束，但按实际 seed 重新标记，不再报告错误的 paired delta。
+2. 在任何新完整训练前修复 `--seed -> cfg.randomness.seed`，并增加自动测试保证日志实际 seed 等于命令行 seed。
+3. 验证阶段固定初始 proposals 与 renewal RNG；候选 checkpoint 另外用 3--5 个固定 inference seeds 报告均值和标准差。
+4. EarlyStopping 不再监控随机单 epoch 最大值，改用固定验证协议下的 3-epoch EMA，或多 inference-seed 均值。
+5. 先完成现有 OCGR checkpoint 的统一 A5000 固定复评作方向判断；若仍有正向信号，再以真实 42/123/789 对 A4/OCGR 进行共享 seed 的论文级重训。
