@@ -79,10 +79,18 @@ predicts localization quality and re-ranks emitted detections by $s=pq^2$
 without changing classes, coordinates, proposal renewal, or solver dynamics.
 On the 24 Chromosomes Object validation set, a strict fixed-checkpoint
 final-only ablation improves mAP from $0.86301$ to $0.87044$ and improves
-AP90/AP95 by $0.03041/0.03251$. Same-hardware RTX A6000 measurements give
-$12.9$ FPS for four-NFE DPM-Solver++ and $14.5$ FPS with Top-$K$ ($K=200$).
+AP90/AP95 by $0.03041/0.03251$. We further expose a detection-specific
+inconsistency between multistep history and proposal renewal: disabling renewal
+preserves proposal identity and changes three-seed mAP by only $-0.0003$ on
+Dataset~2 and $-0.0030$ on the distribution-shifted Dataset~1 at $K=500$,
+while reducing latency by $2.43\%$. Cascade-head distillation compresses six
+heads to three (24 to 12 cascade-head evaluations, solver NFE unchanged) for a
+$1.73\times$ speedup with $-0.004$ mAP. A frozen conditional-step policy gives
+$13.79\%$ lower latency at $-0.0007$ mAP relative to fixed two-step inference.
 Controlled coupling experiments show no reliable accuracy benefit for
-Stochastic Coupling, which is retained only as a documented negative result.
+Stochastic Coupling. All empirical claims are limited to two chromosome
+datasets; detector-generic implications follow from stated proposal-ranking
+and multistep-state assumptions rather than unperformed COCO experiments.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -230,6 +238,24 @@ making the measured gain causally attributable to ranking. On Dataset~2 it
 adds $0.00743$ mAP and improves AP90/AP95 by $0.03041/0.03251$ on the fixed
 seed-42 A4 basis. Its formulation is detector-generic; broader COCO validation
 and clean paired multi-seed replication remain required for a universal claim.
+
+Beyond the accuracy head, we contribute an evidence-backed inference analysis.
+DPM-Solver++ uses a finite-difference correction between adjacent predictions;
+renewing a proposal between those predictions changes its identity, so the
+history term is no longer a derivative estimate along one trajectory. Removing
+renewal restores the mathematical premise of the multistep update. At the
+retained proposal count this is effectively accuracy-neutral on both datasets
+and removes $2.43\%$ latency, while the observed failure at $K=100$ explicitly
+bounds the claim. Head distillation and geometry-aware conditional stepping
+then expose two orthogonal efficiency axes---cascade depth and per-image solver
+steps---with measured $1.73\times$ and $13.79\%$ speed benefits, respectively.
+
+Our third methodological result concerns prediction parameterization. Although
+$x_0$- and velocity-prediction are information-equivalent, their squared losses
+differ by $t^{-2}$. Direct data prediction avoids this low-$t$ amplification
+under the shifted schedule and is $+0.002$ mAP better than velocity prediction
+on each dataset's three-seed validation mean. This is a small but replicated
+optimization result, not a claim that data prediction is universally superior.
 
 Finally, standardized multi-seed experiments falsify the earlier hypothesis
 that Stochastic Coupling is an accuracy contribution. Random, Hard-OT, and
@@ -425,6 +451,20 @@ initial noise) is a fixed sample and is \emph{not} interpolated; its
 contribution is carried implicitly by $\mathbf{x}_{t_n}$.
 \emph{Cost}: 1 NFE per step. At 4 steps this yields 4 NFE (vs Heun's 7).
 
+\paragraph{Why direct data prediction is numerically preferable here}
+For the path in~\eqref{eq:rf-path},
+$\mathbf{x}_0=\mathbf{x}_t-t\mathbf{v}$. Hence the two parameterizations carry
+the same information, but their pointwise squared errors satisfy
+\begin{equation}\label{eq:x0-v-weight}
+ \mathcal{L}_{v}(t)=t^{-2}\mathcal{L}_{x_0}(t).
+\end{equation}
+With the shifted schedule, velocity regression therefore amplifies gradient
+noise as $t\rightarrow0$, where accurate terminal boxes matter most. Direct
+$x_0$ prediction removes this avoidable conditioning factor. The predicted
+$+0.002$ validation advantage is reproduced by three seeds on each dataset;
+test differences remain within noise, so the result supports stable
+optimization rather than universal statistical dominance.
+
 \paragraph{Solver type is \mAP{}-neutral on RF+Heun}
 Evaluating the RF+Heun checkpoint across all solver$\times$step combinations
 (Table~\ref{tab:solver-ablation}), solver
@@ -476,6 +516,46 @@ reported $+0.006$ paired difference compared checkpoints trained under
 different configurations and cannot be attributed to the inference solver
 alone. We therefore claim matched accuracy at lower NFE, not a solver-induced
 accuracy improvement.
+
+\subsection{History-Consistent and Compressed Inference}
+\label{sec:method-engineering}
+
+\paragraph{Proposal identity is a premise of multistep history}
+Let $r_i^n=1$ indicate that proposal row $i$ is renewed after step $n$.
+Equation~\eqref{eq:dpmpp} assumes that
+$\mathbf{x}_{0,i}^{(n)}$ and $\mathbf{x}_{0,i}^{(n-1)}$ describe the same
+proposal trajectory. If $r_i^n=1$, the former is evaluated from a newly drawn
+state while the latter belongs to the discarded state. Consequently
+\begin{equation}
+ \mathbf{D}_{1,i}=
+ \frac{\mathbf{x}_{0,i}^{(n)}-\mathbf{x}_{0,i}^{(n-1)}}{t_n-t_{n-1}}
+\end{equation}
+is a secant between different identities and cannot approximate
+$d\mathbf{x}_{0,i}/dt$ along either trajectory. This is not a chromosome-
+specific argument: it applies to any multistep proposal solver that replaces
+rows without resetting row-wise history. We therefore disable box renewal
+after confirming that proposal redundancy is sufficient in the retained
+$K\geq200$ regime. The $K=100$ counterexample, where mAP drops by $0.0313$,
+shows the exact boundary: solver consistency does not compensate for an
+insufficient proposal pool.
+
+\paragraph{Cascade-head distillation}
+Solver NFE counts network calls, whereas each call evaluates $H$ cascade heads.
+We distill a six-head teacher into a three-head student using head mapping
+$\{0\!\to\!0,1\!\to\!2,2\!\to\!5\}$ and feature/prediction supervision. At
+four solver steps this reduces cascade-head evaluations (CHE) from 24 to 12,
+while NFE remains four. This distinction corrects the earlier, inaccurate
+``24 to 12 NFE'' description. The compressed model reaches $0.859$ versus
+$0.863$ and reduces RTX A6000 latency from $77.57$ to $44.72$ ms.
+
+\paragraph{Conditional computation}
+Geometry-aware adaptive conditional stepping (GACS) freezes convergence and
+confidence thresholds on seed~42, then chooses one or two steps per image.
+It is an optional speed policy rather than the accuracy model: on Dataset~1 it
+uses $1.6136$ mean steps, exits early on $38.64\%$ of images, and reduces
+latency by $13.79\%$ at $-0.0007$ mAP versus fixed two-step inference. Its mAP
+remains below the four-step reference, so we do not call it lossless relative
+to the production setting.
 
 \subsection{Localization-Quality Calibrated Ranking}\label{sec:method-lqcr}
 
@@ -820,6 +900,34 @@ claim. LQCR then improves mAP by $0.00743$ without changing the checkpoint,
 boxes, classes, renewal decisions, or trajectory. Its largest gains occur at
 strict IoU thresholds (AP90/AP95 $+0.03041/+0.03251$), consistent with the
 localization-aware ranking mechanism rather than a coordinate change.
+
+\begin{table*}[t]
+  \centering
+  \footnotesize
+  \caption{Controlled independent and engineering interventions. Means use
+  three seeds unless marked seed~42. CHE denotes cascade-head evaluations and
+  is distinct from solver NFE. Every row is stored with source path, protocol,
+  and paper-eligibility status in \texttt{tools/experiment\_db/experiments.db}.}
+  \label{tab:engineering-evidence}
+  \begin{tabular}{p{2.3cm}p{2.5cm}p{2.0cm}p{2.4cm}p{4.2cm}}
+    \toprule
+    Intervention & Controlled comparison & Accuracy effect & Efficiency effect & Interpretation / boundary \\
+    \midrule
+    LQCR & D2, fixed checkpoint, seed~42 & $+0.00743$ mAP & negligible & Final ranking only; D1 clean replication pending \\
+    Renewal off & D2 / D1, $K=500$ & $-0.0003/-0.0030$ & $-2.43\%$ latency & Restores DPM++ history identity; fails at $K=100$ ($-0.0313$) \\
+    Head distillation & D2, H6 teacher vs H3 student & $-0.004$ mAP & $1.73\times$; CHE $24\to12$ & NFE remains four; D1 H3S4 is architecture-only control \\
+    GACS & D1, adaptive vs fixed two-step & $-0.0007$ mAP & $-13.79\%$ latency & Not lossless versus four-step reference ($0.747$) \\
+    $x_0$ prediction & D1 / D2, 3-seed vs velocity & $+0.002/+0.002$ mAP & no added cost & Matches $t^{-2}$ conditioning analysis; test difference is noise-scale \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+These interventions were not selected from isolated best checkpoints. Renewal,
+parameterization, and coupling conclusions use multi-seed controls; LQCR uses
+a deliberately fixed checkpoint and final-only causal boundary; GACS freezes
+thresholds before cross-seed evaluation; and latency is measured on one RTX
+A6000. Failed and null directions remain in the same database, preventing
+selective omission from being mistaken for a complete search history.
 
 \paragraph{Dataset~1: RF vs DDPM}
 On Dataset~1 (3 seeds), RF outperforms DDPM by
@@ -1168,6 +1276,12 @@ $14.5$ FPS at \mAP{} $0.860$; DPM-Solver++ achieves $77.57$\,ms / $12.9$ FPS
 at \mAP{} $0.863$. The cascade head dominates $90\%+$ of latency; the
 backbone+neck is a minor cost ($\sim 5.8$\,ms, 4--8\%).
 
+The engineering audit separates three counts that are often conflated:
+DPM-Solver++ reduces solver NFE ($7\to4$), head distillation reduces CHE
+($24\to12$ at four NFE), and GACS reduces mean per-image steps
+($2\to1.6136$). Renewal removal does not change any count; it makes multistep
+history coherent and eliminates proposal replacement overhead.
+
 \subsection{Robustness}\label{sec:exp-robust}
 We report one inference-only robustness probe (SIER: Evaluation breadth).
 It reuses the DPM-Solver++ checkpoint (4-step + Top-$K$ pruning) on
@@ -1216,16 +1330,26 @@ contribution: under strict final-only isolation, localization-quality ranking
 improves Dataset~2 mAP by $0.00743$ and AP90/AP95 by
 $0.03041/0.03251$ without changing boxes, classes, or trajectories.
 Same-hardware measurements reach $12.9$ FPS with DPM-Solver++ and $14.5$ FPS
-with Top-$K$ ($K=200$).
+with Top-$K$ ($K=200$). The completed engineering analysis supplies additional
+independent value: history-consistent inference removes $2.43\%$ latency with
+negligible high-$K$ accuracy change across both datasets; head distillation
+gives a $1.73\times$ speedup at $-0.004$ mAP; and optional conditional stepping
+reduces two-step latency by $13.79\%$ at $-0.0007$ mAP. Direct $x_0$ prediction
+also matches the theoretical avoidance of $t^{-2}$ gradient amplification and
+beats velocity prediction by $0.002$ validation mAP on both datasets.
 
 The evidence audit also changes what we do \emph{not} claim. Standardized
 multi-seed experiments do not support Stochastic Coupling as an accuracy or
 stability contribution, and same-checkpoint tests do not support an intrinsic
-DPM-Solver++ precision gain. The remaining limitations are that LQCR still
-requires replication on clean paired multi-seed bases and a general benchmark
-such as mini-COCO, the current evidence uses chromosome datasets and a
-ResNet-50 backbone, and $pq^2$ is a monotone surrogate under an ordered
-conditional-IoU assumption rather than a universal COCO-AP optimum.
+DPM-Solver++ precision gain. The empirical scope is two chromosome datasets
+with substantially different distributions and a ResNet-50 backbone. The
+renewal, ranking, and parameterization analyses are detector-generic at the
+level of their stated mathematical assumptions, but this is theoretical
+transferability, not empirical COCO evidence. Resource limits precluded a
+complete COCO study; mini-COCO is the next external validation. LQCR also
+requires clean paired multi-seed replication, and $pq^2$ remains a monotone
+surrogate under an ordered conditional-IoU assumption rather than a universal
+COCO-AP optimum.
 
 % ============================================================
 \appendices

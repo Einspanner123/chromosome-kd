@@ -90,6 +90,90 @@ CREATE TABLE IF NOT EXISTS stability (
     FOREIGN KEY (experiment_id) REFERENCES experiment(experiment_id)
 );
 
+-- ─── 可追溯证据层 ─────────────────────────────────────────
+-- 原始 experiment/evaluation 表用于自动扫描；以下表只保存经过协议核对、
+-- 可追溯到具体文件的受控结果。论文数字应优先从 controlled_result 读取。
+CREATE TABLE IF NOT EXISTS evidence_artifact (
+    artifact_id TEXT PRIMARY KEY,
+    server TEXT NOT NULL,
+    path TEXT NOT NULL,
+    sha256 TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    generated_at TEXT,
+    status TEXT NOT NULL DEFAULT 'verified',
+    notes TEXT
+);
+
+CREATE TABLE IF NOT EXISTS controlled_result (
+    result_id TEXT PRIMARY KEY,
+    family TEXT NOT NULL,
+    variant TEXT NOT NULL,
+    dataset TEXT NOT NULL,
+    split TEXT NOT NULL,
+    seed TEXT NOT NULL,                    -- integer seed or 'mean(...)'
+    metric TEXT NOT NULL,
+    value REAL NOT NULL,
+    unit TEXT NOT NULL DEFAULT 'absolute',
+    baseline_result_id TEXT,
+    delta REAL,
+    protocol_json TEXT NOT NULL,
+    artifact_id TEXT NOT NULL,
+    evidence_level TEXT NOT NULL,          -- controlled|diagnostic|running_snapshot
+    paper_eligible BOOLEAN NOT NULL DEFAULT 0,
+    notes TEXT,
+    FOREIGN KEY (baseline_result_id) REFERENCES controlled_result(result_id),
+    FOREIGN KEY (artifact_id) REFERENCES evidence_artifact(artifact_id)
+);
+
+CREATE TABLE IF NOT EXISTS finding (
+    finding_id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    finding_type TEXT NOT NULL,             -- positive|negative|engineering|limitation
+    claim TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    generality_basis TEXT NOT NULL,
+    status TEXT NOT NULL,                   -- supported|falsified|provisional|pending
+    caveat TEXT NOT NULL,
+    primary_metric TEXT,
+    benefit TEXT,
+    evidence_json TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS finding_evidence (
+    finding_id TEXT NOT NULL,
+    result_id TEXT NOT NULL,
+    PRIMARY KEY (finding_id, result_id),
+    FOREIGN KEY (finding_id) REFERENCES finding(finding_id),
+    FOREIGN KEY (result_id) REFERENCES controlled_result(result_id)
+);
+
+CREATE TABLE IF NOT EXISTS theory_statement (
+    theory_id TEXT PRIMARY KEY,
+    statement TEXT NOT NULL,
+    assumptions TEXT NOT NULL,
+    derivation TEXT NOT NULL,
+    predicted_effect TEXT NOT NULL,
+    empirical_status TEXT NOT NULL,
+    source_doc TEXT NOT NULL
+);
+
+-- 物理运行粒度使用 server:work_dir，避免两台服务器相同 work_dir 冲突。
+CREATE TABLE IF NOT EXISTS run_snapshot (
+    run_uid TEXT PRIMARY KEY,
+    server TEXT NOT NULL,
+    work_dir TEXT NOT NULL,
+    seed INTEGER,
+    status TEXT NOT NULL,
+    current_epoch INTEGER,
+    max_epochs INTEGER,
+    best_val_mAP REAL,
+    best_val_epoch INTEGER,
+    observed_at TEXT NOT NULL,
+    source_path TEXT,
+    notes TEXT,
+    UNIQUE(server, work_dir, observed_at)
+);
+
 -- ─── 索引 ──────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_config_dataset ON config(dataset);
 CREATE INDEX IF NOT EXISTS idx_config_coupling ON config(coupling_type);
@@ -99,3 +183,9 @@ CREATE INDEX IF NOT EXISTS idx_experiment_server ON experiment(server);
 CREATE INDEX IF NOT EXISTS idx_experiment_seed ON experiment(seed);
 CREATE INDEX IF NOT EXISTS idx_eval_experiment ON evaluation(experiment_id);
 CREATE INDEX IF NOT EXISTS idx_eval_split ON evaluation(split);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_eval_identity
+    ON evaluation(experiment_id, split, source, IFNULL(epoch, -1), IFNULL(checkpoint_path, ''));
+CREATE INDEX IF NOT EXISTS idx_result_family ON controlled_result(family);
+CREATE INDEX IF NOT EXISTS idx_result_dataset ON controlled_result(dataset);
+CREATE INDEX IF NOT EXISTS idx_result_paper ON controlled_result(paper_eligible);
+CREATE INDEX IF NOT EXISTS idx_snapshot_server ON run_snapshot(server);

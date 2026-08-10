@@ -17,6 +17,7 @@ import os
 import re
 import sqlite3
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 # 确保项目根目录在 Python path 中
@@ -139,8 +140,14 @@ def parse_dumped_config(config_path):
     Returns:
         dict or None: 配置信息
     """
-    from mmengine.config import Config
     import tempfile
+
+    try:
+        from mmengine.config import Config
+    except ImportError:
+        # Metric/run ingestion remains useful on lightweight maintenance hosts.
+        # Existing parsed config rows are preserved by upsert_experiment.
+        return None
 
     try:
         cfg = Config.fromfile(config_path)
@@ -571,7 +578,24 @@ def init_db(db_path):
     """初始化数据库, 执行 schema.sql."""
     schema_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'schema.sql')
     conn = sqlite3.connect(db_path)
+    # Older databases may contain duplicate evaluation rows from repeated scans.
+    # Deduplicate before creating the new unique identity index in schema.sql.
+    conn.execute('''CREATE TABLE IF NOT EXISTS evaluation (
+        eval_id INTEGER PRIMARY KEY AUTOINCREMENT, experiment_id TEXT NOT NULL,
+        split TEXT NOT NULL, mAP REAL, AP50 REAL, AP75 REAL, AP_small REAL,
+        AP_medium REAL, AP_large REAL, epoch INTEGER, checkpoint_path TEXT,
+        evaluated_at TEXT, source TEXT)''')
+    conn.execute('''DELETE FROM evaluation WHERE eval_id NOT IN (
+        SELECT MAX(eval_id) FROM evaluation
+        GROUP BY experiment_id, split, source, IFNULL(epoch, -1),
+                 IFNULL(checkpoint_path, ''))''')
     conn.executescript(open(schema_path).read())
+    # Historical databases may contain config paths whose config row was never
+    # imported. Null the broken reference while retaining the path in the run
+    # directory itself; this restores FK integrity without inventing metadata.
+    conn.execute('''UPDATE experiment SET config_path=NULL
+        WHERE config_path IS NOT NULL
+          AND config_path NOT IN (SELECT config_path FROM config)''')
     conn.commit()
     return conn
 
@@ -630,14 +654,30 @@ def upsert_config(conn, cfg_info):
 
 
 def upsert_experiment(conn, exp_info):
-    """插入或更新实验."""
+    """插入或更新实验，同时保留轻量扫描无法重建的已有字段."""
     conn.execute('''
-        INSERT OR REPLACE INTO experiment
+        INSERT INTO experiment
             (experiment_id, name, work_dir, server, config_path,
              swanlab_project, swanlab_run_id, seed, status,
              best_val_mAP, best_val_epoch, best_checkpoint,
              training_start, training_end, notes)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(experiment_id) DO UPDATE SET
+            name=excluded.name,
+            work_dir=excluded.work_dir,
+            server=excluded.server,
+            config_path=COALESCE(excluded.config_path, experiment.config_path),
+            swanlab_project=COALESCE(excluded.swanlab_project, experiment.swanlab_project),
+            swanlab_run_id=COALESCE(excluded.swanlab_run_id, experiment.swanlab_run_id),
+            seed=COALESCE(excluded.seed, experiment.seed),
+            status=CASE WHEN excluded.status='unknown' THEN experiment.status
+                        ELSE excluded.status END,
+            best_val_mAP=COALESCE(excluded.best_val_mAP, experiment.best_val_mAP),
+            best_val_epoch=COALESCE(excluded.best_val_epoch, experiment.best_val_epoch),
+            best_checkpoint=COALESCE(excluded.best_checkpoint, experiment.best_checkpoint),
+            training_start=COALESCE(excluded.training_start, experiment.training_start),
+            training_end=COALESCE(excluded.training_end, experiment.training_end),
+            notes=CASE WHEN excluded.notes='' THEN experiment.notes ELSE excluded.notes END
     ''', (
         exp_info['experiment_id'],
         exp_info.get('name', ''),
@@ -658,9 +698,9 @@ def upsert_experiment(conn, exp_info):
 
 
 def insert_evaluation(conn, experiment_id, split, metrics, source='training_log'):
-    """插入评估结果."""
+    """幂等写入评估结果；重复扫描不会制造重复行."""
     conn.execute('''
-        INSERT INTO evaluation
+        INSERT OR REPLACE INTO evaluation
             (experiment_id, split, mAP, AP50, AP75, AP_small, AP_medium, AP_large,
              epoch, checkpoint_path, evaluated_at, source)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -708,9 +748,52 @@ def extract_seed_from_path(work_dir):
     return None
 
 
-def process_experiment(conn, exp_dir, server='unknown', verbose=False):
+def infer_run_status(abs_work_dir, metrics, cfg_info, best_ckpt_path):
+    """Infer completion without treating a best checkpoint as a completion flag.
+
+    A best checkpoint is normally written early in training. Completion requires
+    reaching max_epochs or an explicit terminal marker. A recently updated,
+    incomplete log is classified as running.
+    """
+    total_epochs = metrics.get('total_epochs', 0) if metrics else 0
+    max_epochs = cfg_info.get('max_epochs') if cfg_info else None
+    if max_epochs and total_epochs >= max_epochs:
+        return 'completed'
+
+    terminal_patterns = (
+        'Training completed', 'training completed', 'EarlyStopping',
+        'early stopping', 'Run finished', 'run finished')
+    log_files = glob.glob(os.path.join(abs_work_dir, '*.log'))
+    latest_mtime = 0.0
+    for log_path in log_files:
+        try:
+            latest_mtime = max(latest_mtime, os.path.getmtime(log_path))
+            with open(log_path, 'rb') as f:
+                f.seek(max(0, os.path.getsize(log_path) - 65536))
+                tail = f.read().decode('utf-8', errors='ignore')
+            if any(marker in tail for marker in terminal_patterns):
+                return 'completed'
+        except OSError:
+            pass
+
+    if metrics:
+        # A log updated in the last six hours is unambiguously active. Older
+        # incomplete runs remain 'unknown' rather than being falsely completed.
+        now = datetime.now(timezone.utc).timestamp()
+        if latest_mtime and now - latest_mtime < 6 * 3600:
+            return 'running'
+        # Without a max-epoch signal, an old log does not prove either
+        # completion or activity. Returning unknown lets the upsert preserve
+        # the previously audited status.
+        return 'unknown'
+    return 'unknown' if best_ckpt_path else 'unknown'
+
+
+def process_experiment(conn, exp_dir, server='unknown', verbose=False,
+                       namespace_server=False):
     """处理单个实验目录."""
     work_dir = exp_dir['work_dir']
+    experiment_id = f'{server}:{work_dir}' if namespace_server else work_dir
     abs_work_dir = os.path.join(_PROJECT_ROOT, work_dir)
 
     if verbose:
@@ -738,17 +821,7 @@ def process_experiment(conn, exp_dir, server='unknown', verbose=False):
         metrics = extract_metrics_from_logs(abs_work_dir, best_epoch_ckpt)
 
     # 4. 确定状态
-    status = 'unknown'
-    if metrics:
-        if cfg_info and cfg_info.get('max_epochs') and metrics['total_epochs'] >= cfg_info['max_epochs']:
-            status = 'completed'
-        elif best_ckpt_path:
-            status = 'completed'
-        else:
-            status = 'running'
-    elif best_ckpt_path:
-        # 有 best checkpoint 但无 metrics → 仍标记为 completed
-        status = 'completed'
+    status = infer_run_status(abs_work_dir, metrics, cfg_info, best_ckpt_path)
 
     # 5. 提取 seed
     seed = extract_seed_from_path(work_dir)
@@ -761,7 +834,7 @@ def process_experiment(conn, exp_dir, server='unknown', verbose=False):
         upsert_config(conn, cfg_info)
 
     exp_info = {
-        'experiment_id': work_dir,
+        'experiment_id': experiment_id,
         'name': os.path.basename(work_dir),
         'work_dir': work_dir,
         'server': server,
@@ -778,7 +851,7 @@ def process_experiment(conn, exp_dir, server='unknown', verbose=False):
     if metrics and metrics.get('per_epoch_detail'):
         best_detail = metrics['per_epoch_detail'][max(range(len(metrics['per_epoch_detail'])),
                                                       key=lambda i: metrics['per_epoch_detail'][i]['mAP'])]
-        insert_evaluation(conn, work_dir, 'val', {
+        insert_evaluation(conn, experiment_id, 'val', {
             'mAP': best_detail['mAP'],
             'AP50': best_detail.get('AP50'),
             'AP75': best_detail.get('AP75'),
@@ -793,7 +866,7 @@ def process_experiment(conn, exp_dir, server='unknown', verbose=False):
     if metrics and len(metrics['per_epoch_mAP']) >= 2:
         stability = compute_stability(metrics['per_epoch_mAP'])
         if stability:
-            upsert_stability(conn, work_dir, stability)
+            upsert_stability(conn, experiment_id, stability)
 
     if verbose:
         aug_name = aug_info.get('pipeline_name', 'unknown')
@@ -817,6 +890,8 @@ def main():
                         help='详细输出')
     parser.add_argument('--dry-run', action='store_true',
                         help='只扫描不写入数据库')
+    parser.add_argument('--namespace-server', action='store_true',
+                        help='实验 ID 使用 server:work_dir，合并多服务器物理运行时启用')
     args = parser.parse_args()
 
     work_dirs_root = os.path.join(_PROJECT_ROOT, args.work_dirs)
@@ -842,7 +917,8 @@ def main():
     failed = 0
     for exp in experiments:
         try:
-            process_experiment(conn, exp, server=args.server, verbose=args.verbose)
+            process_experiment(conn, exp, server=args.server, verbose=args.verbose,
+                               namespace_server=args.namespace_server)
             success += 1
         except Exception as e:
             print(f'  [ERROR] 处理 {exp["work_dir"]} 失败: {e}')
