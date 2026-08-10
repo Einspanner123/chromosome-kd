@@ -177,3 +177,25 @@ OCGR 的后期 mAP 标准差比 A4 高约 22%，相邻 epoch 跳动高约 33%。
 3. 验证阶段固定初始 proposals 与 renewal RNG；候选 checkpoint 另外用 3--5 个固定 inference seeds 报告均值和标准差。
 4. EarlyStopping 不再监控随机单 epoch 最大值，改用固定验证协议下的 3-epoch EMA，或多 inference-seed 均值。
 5. 先完成现有 OCGR checkpoint 的统一 A5000 固定复评作方向判断；若仍有正向信号，再以真实 42/123/789 对 A4/OCGR 进行共享 seed 的论文级重训。
+
+### 6.5 随机性修复与端到端验证
+
+2026-08-10 完成训练/验证随机性修复：
+
+- `experiments/runners/train.py` 不再写入未被消费的 `RANDOM_SEED` 环境变量；配置加载后、`Runner.from_cfg` 前将 `--seed` 写入 `cfg.randomness.seed`，同时保留配置已有的 `deterministic` 与 `diff_rank_seed` 策略。
+- 新增 `experiments/runners/reproducibility.py::FixedValidationSeedHook`。每次验证前保存 Python、NumPy、PyTorch CPU/CUDA RNG 状态和 CuDNN deterministic/benchmark 状态，随后固定 `--val-seed`（默认 42）、设置 CuDNN deterministic=True/benchmark=False；验证结束后完整恢复训练 RNG 与 CuDNN 状态。因此逐 epoch 验证可比较，同时不会消费或重置后续训练随机流。
+- PyTorch/MMEngine 与 Hook 在设置 `CUDA_VISIBLE_DEVICES` 后延迟导入，保持原 `--gpu-id` 行为。
+- 代码提交：`2ef735d3`（训练 seed 与验证 RNG）、`45a8d3d9`（CuDNN 确定性补充）。
+
+新增 `tests/unit/test_train_reproducibility.py`，覆盖配置 seed 覆盖/补全、非法 seed、固定验证 RNG 重放、训练 RNG 恢复、CuDNN 状态恢复和 Hook 调用平衡，共 7 passed。
+
+随后在 workstation A5000 使用 OCGR 实际 seed 709504471 的 epoch44 最佳 checkpoint，配置训练 seed=123、验证 seed=42，连续执行两次完整 440 图 `runner.val()`。运行环境明确记录 `numpy_random_seed: 123`、`seed: 123`；两次完整 COCO 汇总逐项完全一致：
+
+| 验证 | mAP | AP50 | AP75 | AP-S | AP-M | AP-L |
+|---|---:|---:|---:|---:|---:|---:|
+| 第一次 | 0.746 | 0.935 | 0.834 | 0.499 | 0.736 | 0.570 |
+| 第二次 | 0.746 | 0.935 | 0.834 | 0.499 | 0.736 | 0.570 |
+
+验证脚本输出 `FIXED_VALIDATION_REPRODUCIBLE`；全部逐类别数值也相同，无大目标样本类别的 `NaN` 按缺失值等价处理。该修复只作用于新启动的训练；已经运行中的实际 seed 379150778 进程在启动时已加载旧入口，不会被磁盘代码更新改变，其历史轨迹仍按旧随机验证协议解释。
+
+当前未把 3-epoch EMA 写入 EarlyStopping/CheckpointHook：固定验证 RNG 是不改变指标定义的可复现性修复，而 EMA 会改变 checkpoint 选择目标，属于需要预注册和重新训练验证的实验协议。后续先用修复后的真实 seed 训练观察权重本身的残余波动，再决定是否引入 EMA 或 checkpoint averaging。
