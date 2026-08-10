@@ -100,17 +100,48 @@ g_ij = [
 - 若最佳 mAP 不高于 0.746：停止 OCGR，不做超参数搜索。
 - 若通过：先在 workstation A5000 固定 seed 复评，再到 ross A6000 做统一速度/显存测试；随后补 seed 123/789，最后才考虑 mini-COCO。
 
-## 6. 当前状态
+## 6. Dataset1 实验结果与当前状态
 
-Phase-0 已完成，模块、配置和测试已实现。Dataset1 seed 42 完整训练已于 2026-08-09 23:35（Asia/Shanghai）在 workstation 的 A5000 GPU0 从头启动：
+### 6.1 Seed 42 完整训练
+
+Dataset1 seed 42 完整训练于 2026-08-09 23:35（Asia/Shanghai）在 workstation A5000 GPU0 从头启动，并于 2026-08-10 在 epoch 95 由 EarlyStoppingHook 正常结束。最佳 checkpoint 出现在 epoch 65：
 
 - PID：`2339090`
 - 代码提交：workstation `b96e83bfd`，代码树与 ross `5e081b34` 完全相同（tree `62610a5acfef54a51b22e2d6b684e6718d0bdcb5`）
 - 主日志：`/home/linkst/workplace/chromo/chromosome-kd/work_dirs/ocgr_chr2024_seed42/launch.log`
 - 源码备份：`/home/linkst/workplace/chromo/chromosome-kd/work_dirs/ocgr_chr2024_seed42/20260809_233554/`
 - SwanLab run：`https://swanlab.cn/@einspanner/ldmdet-ablation/runs/8ertj8vz`
-- 首 50 iterations：loss 42.0760，有限梯度，约 1.11 s/iter，峰值显存 19,766 MiB
-- 首 100 iterations：loss 38.2890，约 0.77 s/iter，显存 11,905 MiB
-- 预计单 epoch 约 12--16 分钟；150 epoch 上限约 30--40 小时，EarlyStoppingHook 可能提前结束
+- 训练期最佳指标：mAP 0.753，AP50 0.942，AP75 0.841，AP-S 0.523，AP-M 0.743，AP-L 0.634
+- 最佳 checkpoint：`work_dirs/ocgr_chr2024_seed42/best_coco_bbox_mAP_epoch_65.pth`
+- checkpoint SHA256：`875d749553c0984d5f443d2b46ce02fa9cc84ee6efc399aabb32fe99f634db03`
+
+训练期最佳值相对固定复评 A4 的 mAP 为 +0.007，但训练期间进行了 95 次随机验证，不能直接排除最佳 epoch 选择偏差。
+
+### 6.2 A5000 固定 seed 42 独立复评
+
+2026-08-10 使用与 A4 完全相同的 `experiments/runners/test.py`、Dataset1 val、4-step DPM-Solver++、推理 seed 42 和 workstation A5000 独立复评：
+
+| 模型 | mAP | AP50 | AP75 | AP-S | AP-M | AP-L |
+|---|---:|---:|---:|---:|---:|---:|
+| A4 seed42 固定复评 | 0.746 | 0.940 | 0.833 | 0.511 | 0.738 | 0.646 |
+| OCGR seed42 固定复评 | **0.752** | **0.941** | **0.839** | **0.522** | **0.742** | 0.630 |
+| OCGR - A4 | **+0.006** | +0.001 | **+0.006** | **+0.011** | +0.004 | -0.016 |
+
+- OCGR 复评日志：`work_dirs/ocgr_chr2024_seed42/reval_a5000_seed42.log`
+- SwanLab：`https://swanlab.cn/@einspanner/ldmdet-inference/runs/bxzebb18`
+- 结论：通过 mAP >= 0.749 和 AP75 不下降的预注册门槛；AP-L 退化是后续必须报告和诊断的边界。
+
+历史 StochOT+Heun 单 seed 训练期最佳同为 0.753，其固定 seed 复评为 0.748。因此 OCGR 尚未在训练期峰值上超过历史最高，但固定协议下高 0.004；这一差异仍需多训练 seed 验证，不能作为最终统计结论。
+
+### 6.3 多训练 seed
+
+固定复评通过后，于 2026-08-10 并行启动相同配置、从头训练：
+
+| Seed | 服务器/GPU | PID | 输出目录 | SwanLab |
+|---:|---|---:|---|---|
+| 123 | workstation A5000 | 2346590 | `work_dirs/ocgr_chr2024_seed123/` | `https://swanlab.cn/@einspanner/ldmdet-ablation/runs/4hw0hq9k` |
+| 789 | ross A6000 | 29931 | `work_dirs/ocgr_chr2024_seed789/` | `https://swanlab.cn/@einspanner/ldmdet-ablation/runs/58xerlifsjodgb9e7fq3p` |
+
+两者使用相同代码树、batch、优化器和训练配置；seed 789 使用 A6000 是因为 A4000 仅 16 GiB，而相同配置峰值显存超过 19 GiB。最终 seed 123/789 checkpoint 均须回到 workstation A5000，以固定推理 seed 复评后再与 A4 同 seed 配对比较。
 
 首次验证 mAP 出现后，应在此追加 epoch 级轨迹；训练结束后记录 best checkpoint 和 COCO 完整指标，严格执行第 5 节的停止/推进规则。
