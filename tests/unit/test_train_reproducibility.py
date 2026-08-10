@@ -68,19 +68,31 @@ def test_validation_seed_replays_identical_inference_rng():
 
 def test_validation_rng_scope_restores_training_streams():
     hook = FixedValidationSeedHook(42)
+    original_deterministic = torch.backends.cudnn.deterministic
+    original_benchmark = torch.backends.cudnn.benchmark
 
-    _seed_cpu_rngs(7)
-    expected = _draw_rng_values()
+    try:
+        torch.backends.cudnn.deterministic = False
+        torch.backends.cudnn.benchmark = True
+        _seed_cpu_rngs(7)
+        expected = _draw_rng_values()
 
-    _seed_cpu_rngs(7)
-    hook.before_val(None)
-    _draw_rng_values()
-    hook.after_val(None)
-    actual = _draw_rng_values()
+        _seed_cpu_rngs(7)
+        hook.before_val(None)
+        assert torch.backends.cudnn.deterministic is True
+        assert torch.backends.cudnn.benchmark is False
+        _draw_rng_values()
+        hook.after_val(None)
+        actual = _draw_rng_values()
 
-    assert actual[0] == expected[0]
-    assert actual[1] == expected[1]
-    torch.testing.assert_close(actual[2], expected[2], rtol=0, atol=0)
+        assert actual[0] == expected[0]
+        assert actual[1] == expected[1]
+        torch.testing.assert_close(actual[2], expected[2], rtol=0, atol=0)
+        assert torch.backends.cudnn.deterministic is False
+        assert torch.backends.cudnn.benchmark is True
+    finally:
+        torch.backends.cudnn.deterministic = original_deterministic
+        torch.backends.cudnn.benchmark = original_benchmark
 
 
 def test_validation_rng_scope_rejects_unbalanced_calls():

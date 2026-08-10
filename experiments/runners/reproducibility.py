@@ -66,8 +66,12 @@ class FixedValidationSeedHook(Hook):
                 if torch.cuda.is_available()
                 else None
             ),
+            'cudnn_deterministic': torch.backends.cudnn.deterministic,
+            'cudnn_benchmark': torch.backends.cudnn.benchmark,
         }
         self._seed_all(self.seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
     def after_val(self, runner) -> None:
         if self._saved_state is None:
@@ -77,4 +81,7 @@ class FixedValidationSeedHook(Hook):
         torch.set_rng_state(self._saved_state['torch'])
         if self._saved_state['cuda'] is not None:
             torch.cuda.set_rng_state_all(self._saved_state['cuda'])
+        torch.backends.cudnn.deterministic = self._saved_state[
+            'cudnn_deterministic']
+        torch.backends.cudnn.benchmark = self._saved_state['cudnn_benchmark']
         self._saved_state = None
