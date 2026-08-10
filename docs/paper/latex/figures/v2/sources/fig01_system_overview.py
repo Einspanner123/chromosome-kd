@@ -1,8 +1,8 @@
 """Figure 1: generation--interaction--decision overview.
 
-This is a conceptual diagram.  It contains no empirical metric and does not
-claim that RF or DPM-Solver++ are original algorithms.  The last-three-head
-OCGR block remains provisional until corrected paired-seed experiments pass.
+This is a conceptual diagram. It contains no empirical metric, does not claim
+that RF or DPM-Solver++ are original algorithms, and includes only components
+retained in the evidence-supported model definition.
 """
 
 from __future__ import annotations
@@ -18,8 +18,6 @@ from figure_style_v2 import (
     C_LQCR,
     C_LQCR_LIGHT,
     C_MUTED,
-    C_OCGR,
-    C_OCGR_LIGHT,
     C_OUTPUT,
     C_RF,
     C_RF_LIGHT,
@@ -102,7 +100,7 @@ def panel_interaction(ax: plt.Axes) -> None:
 
     ax.text(0.04, 0.86, "coarse localization", color=C_MUTED,
             fontsize=6.7, ha="left")
-    ax.text(0.58, 0.86, "late relation refinement", color=C_OCGR,
+    ax.text(0.58, 0.86, "late proposal refinement", color=C_RF,
             fontsize=6.7, ha="left", weight="bold")
 
     head_y, head_w, head_h = 0.54, 0.115, 0.20
@@ -112,48 +110,34 @@ def panel_interaction(ax: plt.Axes) -> None:
         rounded_box(
             ax, (x, head_y), head_w, head_h,
             "" if late else f"H{idx + 1}",
-            facecolor=C_OCGR_LIGHT if late else C_LIGHT,
-            edgecolor=C_OCGR if late else C_LINE,
-            textcolor=C_OCGR if late else C_FOUNDATION,
+            facecolor=C_RF_LIGHT if late else C_LIGHT,
+            edgecolor=C_RF if late else C_LINE,
+            textcolor=C_RF if late else C_FOUNDATION,
             fontsize=7.0, weight="bold" if late else "normal",
         )
         if late:
             ax.text(x + head_w / 2, head_y + 0.155, f"H{idx + 1}",
-                    ha="center", va="center", color=C_OCGR,
+                    ha="center", va="center", color=C_RF,
                     fontsize=6.6, weight="bold", zorder=6)
         if idx < 5:
             arrow(ax, (x + head_w + 0.012, head_y + head_h / 2),
                   (xs[idx + 1] - 0.012, head_y + head_h / 2),
                   color=C_LINE, linewidth=0.75)
 
-    # Two overlapping proposal icons make the late-stage relation purpose
-    # understandable without embedding a paragraph inside the figure.
+    # Proposal icons indicate repeated box refinement without introducing an
+    # unvalidated auxiliary module into the final method diagram.
     for center_x in xs[3:]:
         ax.add_patch(Rectangle((center_x + 0.025, 0.575), 0.042, 0.044,
-                               fill=False, edgecolor=C_OCGR, linewidth=0.65,
+                               fill=False, edgecolor=C_RF, linewidth=0.65,
                                zorder=5))
         ax.add_patch(Rectangle((center_x + 0.046, 0.590), 0.042, 0.044,
-                               fill=False, edgecolor=C_OCGR, linewidth=0.65,
+                               fill=False, edgecolor=C_RF, linewidth=0.65,
                                zorder=5))
 
-    rounded_box(
-        ax, (0.54, 0.25), 0.41, 0.13,
-        "OCGR  ·  geometry bias",
-        facecolor="white", edgecolor=C_OCGR, textcolor=C_OCGR,
-        fontsize=6.3, weight="bold", linestyle=(0, (3, 2)),
-    )
-    for x in xs[3:]:
-        arrow(ax, (x + head_w / 2, 0.54),
-              (x + head_w / 2, 0.40), color=C_OCGR, linewidth=0.65)
-
-    rounded_box(ax, (0.04, 0.06), 0.39, 0.12,
+    rounded_box(ax, (0.04, 0.06), 0.91, 0.12,
                 "appearance + RoI features",
                 facecolor="white", edgecolor=C_FOUNDATION,
                 textcolor=C_FOUNDATION, fontsize=6.7)
-    rounded_box(ax, (0.54, 0.06), 0.41, 0.12,
-                "zero-init relation bias",
-                facecolor=C_OCGR_LIGHT, edgecolor=C_OCGR,
-                textcolor=C_OCGR, fontsize=6.7)
 
 
 def score_bar(ax: plt.Axes, y: float, label: str, value: float,

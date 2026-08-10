@@ -1,5 +1,5 @@
 % ============================================================
-%  Rectified Flow for Chromosome Detection: Stable Coupling and Few-Step Inference
+%  KaryoFlow-LQCR: Localization-Quality Ranking for Rectified-Flow Chromosome Detection
 %  IEEE Transactions on Medical Imaging (TMI) submission -- IEEEtran class.
 %  Compile with:  pdflatex main && bibtex main && pdflatex main && pdflatex main
 % ============================================================
@@ -42,8 +42,8 @@
 \DeclareMathOperator*{\argmin}{arg\,min}
 
 % ---------- Title block (single-blind: keep author info, no biography) ----------
-\title{Rectified Flow for Chromosome Detection:\\
-       Stable Coupling and Few-Step Inference}
+\title{KaryoFlow-LQCR: Localization-Quality Ranking\\
+       for Rectified-Flow Chromosome Detection}
 \author{Author~Name,~\IEEEmembership{Member,~IEEE}%
         and~Co-Author~Name,~\IEEEmembership{Senior~Member,~IEEE}%
 \thanks{Manuscript received [date]; revised [date]. (Corresponding author: Author~Name.)}%
@@ -68,25 +68,25 @@ Anchor-based detectors plateau in fine-grained intra-group
 discrimination, while diffusion-based detectors inherit the slow many-step
 inference and trajectory truncation errors of their image-generation
 ancestors, and small clinical datasets further destabilize training.
-We present \emph{KaryoFlow}, a diffusion-based detector for chromosome
-karyotyping built on \emph{Rectified Flow} (RF), which replaces the curved
-stochastic trajectories of DDPM with deterministic straight-line ODE paths.
-The RF paradigm itself accounts for most of the accuracy gain, exceeding
-DiffusionDet by $+0.060$ \mAP{} and exceeding Cascade R-CNN, with a
-controlled ablation attributing $94\%$ of the gain to RF rather than to
-solver or step-count choices. We further formally analyze an \emph{OT
-Diversity Collapse} that arises in the low-dimensional ($\R^4$) detection
-space and propose \emph{Stochastic Coupling} via Sinkhorn transport, which
-restores coupling diversity and stabilizes training in the low-data
-regime. DPM-Solver++ with Top-$K$ proposal pruning delivers four-step
-inference at clinical-grade latency, with a statistically significant
-precision advantage over Heun ($+0.006$ \mAP{}, $p<10^{-6}$).
-All claims are validated on two public chromosome datasets with multi-seed
-experiments, per-class AP analysis, and SOTA comparison.
+We present \emph{KaryoFlow-LQCR}, a diffusion-based chromosome detector
+organized into generation, interaction, and decision stages. Rectified Flow
+(RF) provides the adopted box-generation foundation and is the dominant
+accuracy source; an RF-adapted data-prediction form of DPM-Solver++ reduces
+four-step inference from seven to four network evaluations while matching
+Heun accuracy on the same checkpoint. Our independent contribution is
+Localization-Quality Calibrated Ranking (LQCR): a final proposal feature
+predicts localization quality and re-ranks emitted detections by $s=pq^2$
+without changing classes, coordinates, proposal renewal, or solver dynamics.
+On the 24 Chromosomes Object validation set, a strict fixed-checkpoint
+final-only ablation improves mAP from $0.86301$ to $0.87044$ and improves
+AP90/AP95 by $0.03041/0.03251$. Same-hardware RTX A6000 measurements give
+$12.9$ FPS for four-NFE DPM-Solver++ and $14.5$ FPS with Top-$K$ ($K=200$).
+Controlled coupling experiments show no reliable accuracy benefit for
+Stochastic Coupling, which is retained only as a documented negative result.
 \end{abstract}
 
 \begin{IEEEkeywords}
-Rectified Flow, object detection, optimal transport, diffusion models, medical image analysis, chromosome karyotyping
+Rectified Flow, object detection, localization quality, diffusion models, medical image analysis, chromosome karyotyping
 \end{IEEEkeywords}
 
 % ============================================================
@@ -116,6 +116,7 @@ replacing the curved stochastic DDPM trajectory with a deterministic
 straight-line ODE path from noise to ground truth, enabling few-step
 inference with low truncation error; errors accumulate across proposals
 when per-image object density is high ($\sim 46$ boxes). Applying RF to
+\iffalse
 detection raises three questions: how should noise samples be coupled to
 ground-truth boxes when the prediction space is low-dimensional and the
 target count per image is large? Which ODE solver delivers the best
@@ -198,6 +199,44 @@ where OT collapse is severe ($\Delta H/H \approx 0.69$). AdaLN-Zero~\cite{dhariw
 is reused as a standard implementation detail (Appendix~\ref{app:proofs});
 DPM-Solver++ is adopted off-the-shelf, our contribution being the controlled
 disentanglement analysis with per-image paired statistical tests.
+\fi
+
+detection raises three separable questions: how accurately can the box path be
+learned, how cheaply can it be integrated, and how should fixed detections be
+ranked when class confidence is misaligned with localization quality? These
+correspond to the generation, numerical-integration, and decision stages in
+Figure~\ref{fig:method_overview}.
+
+Our first contribution is an evidence-controlled RF detection formulation.
+RF is adopted from prior generative modeling, but we isolate its role in the
+four-dimensional box space and show that it accounts for the dominant gain
+over the DDPM detector on both chromosome datasets. This establishes a strong
+generative detection foundation without claiming RF itself as a new algorithm.
+
+Our second contribution is the RF data-prediction adaptation of
+DPM-Solver++~\cite{lu2022dpmpp}. DPM-Solver++ is also adopted, while the
+detection-specific derivation and implementation reduce four-step inference
+from seven Heun evaluations to four. Same-checkpoint evaluation shows matched
+accuracy ($-0.001$ aggregate mAP), so its defensible contribution is efficiency
+rather than an intrinsic precision gain.
+
+Our main independent accuracy contribution is Localization-Quality Calibrated
+Ranking (LQCR). The probability-ranking principle factors the true-positive
+posterior into class correctness and localization survival. LQCR predicts a
+continuous localization-quality proxy from the last proposal feature and uses
+$s=pq^2$ only for final output ranking. The strict final-only implementation
+keeps solver states, renewal, Top-$K$, boxes, and predicted classes unchanged,
+making the measured gain causally attributable to ranking. On Dataset~2 it
+adds $0.00743$ mAP and improves AP90/AP95 by $0.03041/0.03251$ on the fixed
+seed-42 A4 basis. Its formulation is detector-generic; broader COCO validation
+and clean paired multi-seed replication remain required for a universal claim.
+
+Finally, standardized multi-seed experiments falsify the earlier hypothesis
+that Stochastic Coupling is an accuracy contribution. Random, Hard-OT, and
+Sinkhorn-sampled coupling are statistically indistinguishable within the
+controlled pipeline. We report this negative result and use Random coupling in
+the clean mainline, preventing an unsupported OT narrative from inflating the
+method definition.
 
 Figure~\ref{fig:method_overview} summarizes the framework.
 
@@ -206,17 +245,18 @@ Figure~\ref{fig:method_overview} summarizes the framework.
   \includegraphics[width=\textwidth]{figures/v2/generated/fig01_system_overview.pdf}
   \caption{Revised KaryoFlow framework organized as generation--interaction--decision.
   (a) An RF box path and RF-adapted DPM-Solver++ form the adopted few-step
-  generation foundation. (b) Six cascade heads refine the proposal set; OCGR
-  injects a zero-initialized relative-geometry bias only into the last three
-  heads. (c) LQCR is causally isolated from the solver and uses predicted
+  generation foundation. (b) Six cascade heads refine the proposal set using
+  shared appearance and RoI features. (c) LQCR is causally isolated from the
+  solver and uses predicted
   localization quality only for final output ranking. RF and DPM-Solver++ are
-  adopted components; OCGR and LQCR are the investigated task-specific modules.}
+  adopted components; LQCR is the retained task-specific contribution.}
   \label{fig:method_overview}
 \end{figure*}
 
 % ============================================================
 \section{Related Work}\label{sec:related}
 
+\iffalse
 \paragraph{Diffusion-based object detection}
 Diffusion-based detectors reformulate detection as iterative denoising from
 noisy boxes to GT boxes. \emph{DiffusionDet}~\cite{chen2023diffusiondet} relies on DDPM, whose curved
@@ -269,6 +309,28 @@ apply subclass-conditioned flow matching to medical image augmentation. On
 the TMI venue specifically, Yang et al.~\cite{yang2025dgddm} and Shen
 et al.~\cite{shen2025ladine} demonstrate diffusion models for cross-domain
 medical image segmentation and robust classification, respectively.
+\fi
+
+\paragraph{Diffusion and flow-based object detection}
+DiffusionDet~\cite{chen2023diffusiondet} formulates detection as iterative
+box denoising. FlowDet~\cite{baty2025flowdet} and
+DeFloMat~\cite{deflomat2025} replace DDPM-style dynamics with conditional
+flow matching or RF, but do not isolate localization-aware final ranking.
+Our use of RF follows this literature; the new component is a causally
+isolated quality-ranking head that changes only the ordering of emitted
+detections. DiffuBox~\cite{chen2024diffubox} addresses 3D refinement and is
+architecturally distinct from the 2D noise-box setting considered here.
+
+\paragraph{Rectified Flow, numerical solvers, and quality ranking}
+RF~\cite{liu2023rectified} and Flow Matching~\cite{lipman2023flow} provide the
+adopted continuous-time generation framework. DPM-Solver++~\cite{lu2022dpmpp}
+provides the adopted multistep integration principle; our method adapts its
+data-prediction update to the RF box path. Unlike coupling-based flow-matching
+methods such as OT-CFM~\cite{tong2023conditional}, LQCR targets the downstream
+probability-ranking problem after coordinates have already been generated.
+This separation is important because the standardized coupling experiments
+in our setting are null, whereas the final-ranking intervention produces a
+controlled high-IoU AP gain.
 
 \paragraph{Chromosome detection}
 Automated chromosome detection has been studied for decades, originally
@@ -366,23 +428,21 @@ contribution is carried implicitly by $\mathbf{x}_{t_n}$.
 
 \paragraph{Solver type is \mAP{}-neutral on RF+Heun}
 Evaluating the RF+Heun checkpoint across all solver$\times$step combinations
-(Table~\ref{tab:solver-ablation}, Figure~\ref{fig:solver-ablation}), solver
+(Table~\ref{tab:solver-ablation}), solver
 type has \emph{no effect on \mAP{}} at matched steps (Euler = DPM-Solver++ at
 both 4-step and 1-step). Step count has marginal effect ($+0.004$ from 1 to 4
 steps). Heun's $+0.001$ over Euler 4-step costs $1.75\times$ NFE (7 vs 4),
-not cost-effective. On the full model (DPM-Solver++ vs +Stoch.~Coupling),
-DPM-Solver++ is slightly but significantly \emph{more} accurate than Heun at
-matched 4-step ($+0.006$ per-image \mAP{}, Wilcoxon $p<10^{-6}$;
-Table~\ref{tab:stat-tests}), so its advantage is both computational and
-statistical.
+not cost-effective. A second same-checkpoint check on the A4 model gives
+$0.863$ for four-step DPM-Solver++ and $0.864$ for four-step Heun
+($\Delta=-0.001$). The solver is therefore an efficiency component rather
+than an accuracy component.
 
 \begin{table}[t]
   \centering
   \small
   \caption{Solver$\times$step disentanglement ablation on the RF+Heun
   checkpoint (Dataset~2 val, seed 42). Solver type is \mAP{}-neutral at
-  matched steps; the joint solver/step configuration accounts for $+0.005$
-  \mAP{} ($6\%$) of the $+0.082$ gap, leaving $94\%$ attributable to RF.}
+  matched steps, while increasing one to four steps adds only $0.004$ mAP.}
   \label{tab:solver-ablation}
   \begin{tabular}{lcrr}
     \toprule
@@ -397,6 +457,7 @@ statistical.
   \end{tabular}
 \end{table}
 
+\iffalse
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]{figures/solver_ablation.pdf}
@@ -406,14 +467,16 @@ statistical.
   $+0.077$ \mAP{} ($94\%$) is attributable to the RF training paradigm.}
   \label{fig:solver-ablation}
 \end{figure}
+\fi
 
 \paragraph{Conclusion}
-DPM-Solver++'s advantage combines NFE reduction with a precision gain:
-$1.71\times$ NFE speedup, plus a statistically significant
-\mAP{} improvement over Heun at matched 4-step ($+0.006$ per-image \mAP{},
-Wilcoxon $p<10^{-6}$; Table~\ref{tab:stat-tests}). The higher-order solver is
-slightly \emph{better} than Heun at equal step count, refining
-FlowDet's conclusion that higher-order solvers perform worse in detection.
+DPM-Solver++ is an efficiency component. On the same A4 checkpoint at four
+steps, DPM-Solver++ and Heun differ by only $-0.001$ aggregate mAP, while
+DPM-Solver++ uses four rather than seven network evaluations. The previously
+reported $+0.006$ paired difference compared checkpoints trained under
+different configurations and cannot be attributed to the inference solver
+alone. We therefore claim matched accuracy at lower NFE, not a solver-induced
+accuracy improvement.
 
 \subsection{Localization-Quality Calibrated Ranking}\label{sec:method-lqcr}
 
@@ -453,7 +516,8 @@ boundary, and fixed-seed controlled effect.
   \label{fig:lqcr-principle}
 \end{figure*}
 
-\subsection{OT Diversity Collapse and Stochastic Coupling}\label{sec:method-ot}
+\iffalse
+\subsection{OT Diversity Collapse and Stochastic Coupling}\label{sec:method-ot-legacy}
 
 \paragraph{Voronoi partitioning by OT}
 \begin{lemma}[OT $\to$ Voronoi]\label{lem:voronoi}
@@ -622,6 +686,19 @@ While the \mAP{} improvement is marginal ($+0.002$ on 24 Chromosomes Object), it
   \label{fig:training-stability}
 \end{figure}
 
+\fi
+
+\subsection{Coupling Audit}\label{sec:method-ot}
+
+We evaluated Random, Hard-OT, and Sinkhorn-sampled coupling under the same
+augmentation and evaluation protocol. Although deterministic assignment can
+reduce pairing diversity in the four-dimensional box space, the controlled
+multi-seed experiments do not show a reliable mAP advantage for stochastic
+coupling on either chromosome dataset. Coupling is therefore treated as an
+auxiliary design choice and negative-result analysis, not as a component of
+the final method or an accuracy contribution. The complete model uses Random
+coupling to remove this confound.
+
 \subsection{Top-$K$ Proposal Pruning}\label{sec:method-topk}
 After step 0 of inference, we prune proposals from 500 to $K$ based on
 confidence scores; only the top-$K$ proposals proceed through steps 1--3.
@@ -682,9 +759,12 @@ $\text{maxDets}{=}100$).
 \paragraph{Statistical considerations}
 Cross-seed experiments (3 seeds: 42, 123, 789) are available for Dataset~1.
 For Dataset~2, the DPM-Solver++ variant has 3 seeds (mean $0.859 \pm 0.003$),
-confirming the $+0.002$ aggregate \mAP{} gap is within cross-seed variance,
-though per-image paired tests (Table~\ref{tab:stat-tests}) reveal a
-statistically significant $+0.006$ advantage.
+which sets the scale for interpreting small differences. A previously
+reported paired $+0.006$ solver difference compared independently trained
+checkpoints and is not a solver-causal result; the same-checkpoint comparison
+is neutral. LQCR is instead evaluated by a fixed-checkpoint, final-only
+intervention, so its ranking effect is isolated from training and trajectory
+changes.
 
 \subsection{Precision Bottleneck Diagnosis}\label{sec:exp-bottleneck}
 
@@ -712,22 +792,20 @@ current precision bottleneck.
 
 \paragraph{Dataset~2 ablation}
 Table~\ref{tab:main-ablation} reports a cumulative ablation on the Dataset~2
-validation set: the DDPM Euler baseline, RF+Heun (KaryoFlow), adds Stochastic
-Coupling, then swaps to DPM-Solver++. AdaLN-Zero is used throughout
-but contributes null individually (Appendix~\ref{app:proofs}). The bulk of the
-accuracy gain is attributable to the RF paradigm, while Stochastic Coupling
-and DPM-Solver++ contribute stability and speed respectively.
+validation set. The historical DDPM and RF+Heun rows establish the adopted
+generation foundation. The same seed-42 A4 checkpoint then isolates the
+four-NFE DPM-Solver++ operating point and the final-only LQCR intervention.
+AdaLN-Zero is used throughout but contributes null individually
+(Appendix~\ref{app:proofs}).
 
 \begin{table*}[t]
   \centering
   \small
-  \caption{Main ablation on Dataset~2 (independent inference, seed~42 for
-  the first three rows; 3-seed mean for DPM-Solver++, std in text). NFE =
-  total network forward evaluations per image. ``Last-30 std'' is within-run
-  epoch \mAP{} std. RF dominates the baseline$\to$RF+Heun gain ($+0.077$,
-  $94\%$); solver/step adds only $+0.005$ ($6\%$); Stoch.\ Coupling
-  stabilizes without changing \mAP{}; DPM-Solver++ matches Heun at
-  $1.71\times$ fewer NFE.}
+  \caption{Evidence-controlled ablation on Dataset~2 validation. Historical
+  DDPM and RF+Heun results establish the RF foundation. The final two rows
+  use the same seed-42 A4 checkpoint: DPM-Solver++ defines the four-NFE
+  operating point, and LQCR changes only final ranking scores. NFE is the
+  number of network evaluations per image.}
   \label{tab:main-ablation}
   \begin{tabular}{llcrrrrrrr}
     \toprule
@@ -735,25 +813,19 @@ and DPM-Solver++ contribute stability and speed respectively.
     \midrule
     DDPM baseline (Euler 1-step)  & Euler   & 1 & 1 & 0.774 & 0.968 & 0.916 & 0.317 & 0.773 & 0.775 \\
     \textbf{RF+Heun (KaryoFlow)}   & Heun    & 4 & 7 & \textbf{0.856} & 0.989 & 0.969 & 0.502 & 0.853 & 0.867 \\
-    +Stoch.~Coupling ($\epsilon{=}5$)  & Heun    & 4 & 7 & 0.858 & 0.989 & 0.971 & 0.523 & 0.854 & 0.864 \\
-    \textbf{DPM-Solver++}    & DPM++   & 4 & 4 & \textbf{0.859} & 0.988 & 0.968 & 0.516 & 0.856 & 0.890 \\
+    DPM-Solver++ (A4, seed 42) & DPM++ & 4 & 4 & 0.86301 & 0.98887 & 0.97171 & 0.53150 & 0.85941 & 0.89213 \\
+    \textbf{+LQCR (final-only)} & DPM++ & 4 & 4 & \textbf{0.87044} & 0.98876 & 0.97224 & 0.53040 & 0.86660 & 0.91420 \\
     \bottomrule
   \end{tabular}
 \end{table*}
 
-The RF paradigm accounts for $+0.077$ \mAP{} ($94\%$ of the $+0.082$ gap),
-while solver/step configuration adds only $+0.005$ ($6\%$). The DPM-Solver++
-row reports the 3-seed mean; cross-seed std is $\pm 0.003$ for \mAP{} and
-$\pm 0.012$ for AP$_S$, well below the inter-method gaps of interest. On
-Dataset~2, Stochastic Coupling contributes no measurable \mAP{} gain
-($+0.0001$, Wilcoxon $p{=}0.80$) but $4.6\times$ smoother convergence; on
-the smaller Dataset~1, however, the same Stochastic Coupling vs Random comparison
-yields a significant gain ($+0.034$, $p<10^{-120}$;
-Table~\ref{tab:stat-tests-coupling}) --- the benefit is real in low-data
-regimes and diminishes with dataset size. DPM-Solver++ improves precision
-at matched 4-step over Heun
-(Table~\ref{tab:stat-tests}, see Section~\ref{sec:exp-solver})
-and is $1.71\times$ faster.
+RF supplies the dominant historical improvement over the DDPM baseline.
+DPM-Solver++ retains accuracy while reducing Heun's seven evaluations to
+four; same-checkpoint solver tests do not support an additional precision
+claim. LQCR then improves mAP by $0.00743$ without changing the checkpoint,
+boxes, classes, renewal decisions, or trajectory. Its largest gains occur at
+strict IoU thresholds (AP90/AP95 $+0.03041/+0.03251$), consistent with the
+localization-aware ranking mechanism rather than a coordinate change.
 
 \paragraph{Dataset~1: RF vs DDPM}
 On Dataset~1 (3 seeds), RF outperforms DDPM by
@@ -782,9 +854,8 @@ simpler backbone than RTMDet-L or DINO R50.
   \caption{SOTA comparison on Dataset~2 (independent inference; DPM-Solver++
   reports 3-seed mean). RTMDet-L uses a stronger CSPNeXt-L backbone; DINO
   R50 uses multi-scale deformable attention. Our method is competitive with
-  RTMDet-L on overall \mAP{} while offering $1.71\times$ fewer NFE; AP$_S$
-  differences among top methods are not statistically significant
-  (Table~\ref{tab:stat-tests}). The $+0.060$ \mAP{} gain over DiffusionDet
+  RTMDet-L on overall \mAP{} while offering $1.71\times$ fewer NFE. The
+  $+0.060$ \mAP{} gain over DiffusionDet
   reported in the text uses the seed~42 best checkpoint (\mAP{} $0.863$);
   the 3-seed mean ($0.859$) yields $+0.056$. RTMDet-L and DINO R50 values
   are taken from complete training logs (best checkpoint at epoch~85 and
@@ -797,8 +868,7 @@ simpler backbone than RTMDet-L or DINO R50.
     DINO R50               & ResNet-50     & \textbf{0.868} & 0.992 & 0.979 & 0.553 \\
     RTMDet-L               & CSPNeXt-L     & 0.863          & 0.992 & 0.976 & 0.540 \\
     \textbf{Ours (DPM-Solver++)} & ResNet-50   & 0.859          & 0.988 & 0.968 & 0.516 \\
-    Ours (Heun+Stoch.~Coupling) & ResNet-50    & 0.858          & 0.989 & 0.971 & 0.523 \\
-    Ours (Random)          & ResNet-50     & 0.856          & 0.989 & 0.969 & 0.502 \\
+    Ours (RF+Heun)         & ResNet-50     & 0.856          & 0.989 & 0.969 & 0.502 \\
     Cascade R-CNN          & ResNet-50     & 0.854          & 0.987 & 0.972 & 0.525 \\
     YOLOX-S                & CSPDarkNet-S  & 0.796          & 0.987 & 0.944 & 0.452 \\
     DiffusionDet           & ResNet-50     & 0.803          & 0.970 & 0.928 & 0.500 \\
@@ -808,11 +878,10 @@ simpler backbone than RTMDet-L or DINO R50.
 
 \paragraph{Small-object performance}
 On small objects, our detector (AP$_S{=}0.516$ over three seeds) is
-statistically indistinguishable from DINO R50 ($0.553$) and RTMDet-L
-($0.540$): a per-image paired Wilcoxon test across the $60$ small-object
-images finds no significant difference among the top methods
-(Table~\ref{tab:stat-tests}). We therefore do not claim a small-object
-\emph{advantage}; rather, a single-shot RF detector with a plain ResNet-50
+close to DINO R50 ($0.553$) and RTMDet-L ($0.540$), but the validation split
+contains only $60$ images with small objects and the point estimates are
+high-variance. We therefore do not claim a small-object \emph{advantage};
+rather, a single-shot RF detector with a plain ResNet-50
 backbone is \emph{competitive} on the small-object regime most relevant for
 chromosome analysis, without the multi-scale deformable attention of DINO or
 the heavier CSPNeXt-L backbone of RTMDet-L. On the smaller Dataset~1
@@ -820,6 +889,7 @@ the heavier CSPNeXt-L backbone of RTMDet-L. On the smaller Dataset~1
 RTMDet-L ($0.742$) and DINO R50 ($0.737$), suggesting the diffusion paradigm
 is competitive in low-data small-target regimes.
 
+\iffalse
 \paragraph{Per-class AP analysis}
 Figure~\ref{fig:per-class} reports per-class AP for all 24 classes (DPM-Solver++
 checkpoint, seed~42). First,
@@ -861,7 +931,17 @@ reliable per-class detection.
   the hardest class due to data scarcity and biological variability.}
   \label{fig:per-class}
 \end{figure}
+\fi
 
+\paragraph{Class- and scale-resolved analysis}
+The reliable diagnostic exports show that residual high-IoU errors are
+concentrated in small chromosomes and locally overlapping instances
+(Figure~\ref{fig:precision-bottleneck}). We do not retain the legacy per-class
+plot because its category ordering mixed display labels from different dataset
+exports. A corrected per-class figure will be generated only from the final
+paired clean checkpoints.
+
+\iffalse
 \paragraph{Statistical significance of the ablation gains}
 Table~\ref{tab:stat-tests} reports per-image paired significance tests
 (Wilcoxon and paired $t$-test) over the $500$ validation images. Two
@@ -933,6 +1013,18 @@ On AP$_S$, none of the pairwise differences reach significance
   \end{tabular}
 \end{table}
 
+\fi
+
+\paragraph{Causal interpretation of controlled comparisons}
+The same-checkpoint solver comparison is accuracy-neutral, and standardized
+multi-seed coupling experiments do not establish an accuracy contribution.
+The retained positive intervention is LQCR: enabling its score only at the
+final output changes mAP from $0.86301$ to $0.87044$ on exactly the same
+checkpoint and detections before ranking. This paired construction isolates
+decision-stage calibration from generation, interaction, and numerical
+integration effects. Clean paired multi-seed estimates are reserved for the
+final statistical table once all scheduled runs complete.
+
 \subsubsection{Qualitative Comparison}\label{sec:exp-qual}
 Figure~\ref{fig:qual-mosaic} compares three localization-sensitive validation
 cases: a rare Y chromosome, adjacent small G-group chromosomes, and a locally
@@ -953,7 +1045,8 @@ therefore rely on the complete-set metrics rather than selected images.
   \label{fig:qual-mosaic}
 \end{figure*}
 
-\subsection{Coupling Ablation}\label{sec:exp-coupling}
+\iffalse
+\subsection{Coupling Ablation}\label{sec:exp-coupling-legacy}
 
 \paragraph{Dataset~1, multi-seed}
 On Dataset~1, Stochastic Coupling yields a highly significant \mAP{}
@@ -1007,6 +1100,18 @@ setting); $\epsilon \ge 1$ saturates with diminishing returns, supporting
 Stochastic Coupling as a necessary OT regularizer rather than a precision
 booster.
 
+\fi
+
+\subsection{Controlled Coupling Result}\label{sec:exp-coupling}
+
+With standardized augmentation, the three coupling strategies are equivalent
+within cross-seed variation on both datasets. On Dataset~1, their three-seed
+means lie within approximately $0.002$ mAP; on Dataset~2, the stochastic-minus-
+random difference is also non-significant. Earlier larger gains pooled
+incompatible experimental lineages and are superseded. We retain this result
+to document the falsified direction, while excluding Stochastic Coupling from
+the model definition and contribution list.
+
 \subsection{Solver Analysis}\label{sec:exp-solver}
 
 \paragraph{DPM-Solver++ step ablation}
@@ -1016,10 +1121,10 @@ beyond 2 steps confirms RF trajectories are near-straight.
 \paragraph{DPM-Solver++ vs Heun at matched NFE}
 At similar NFE, DPM-Solver++ 4-step (4 NFE, $0.863$) $\approx$ Heun 2-step
 (3 NFE, $0.863$) --- equal accuracy, so DPM-Solver++ achieves $43\%$ fewer NFE
-at no cost. At matched \emph{step count} (4 vs 4), DPM-Solver++ is
-\emph{more} accurate than Heun
-($+0.006$ per-image \mAP{}, Wilcoxon $p<10^{-6}$; Table~\ref{tab:stat-tests}),
-indicating the advantage is not purely computational.
+at no cost. At matched \emph{step count} on the same A4 checkpoint,
+DPM-Solver++ gives $0.863$ and Heun gives $0.864$ ($\Delta=-0.001$), which
+is practically neutral. We therefore attribute no accuracy gain to the
+off-the-shelf solver; its value is the lower evaluation count and latency.
 
 \paragraph{Test set evaluation}
 On the Dataset~2 test set, DPM-Solver++ achieves \mAP{} $0.859$ (vs val
@@ -1027,9 +1132,8 @@ $0.863$ for seed~42, $\Delta = -0.004$), confirming that the aggregate
 accuracy generalizes well. The AP$_S$ point estimate, however, swings from
 $0.499$ (val) to $0.577$ (test) for the same checkpoint, indicating that
 AP$_S$ on this 24-class benchmark is high-variance (only $60$ val images
-contain small objects) and should be interpreted alongside the per-image
-significance tests in Table~\ref{tab:stat-tests} rather than as a point
-estimate.
+contain small objects) and should be interpreted with confidence intervals
+from the final clean paired runs rather than as a point estimate.
 
 \subsection{FPS / Latency Benchmark}\label{sec:exp-fps}
 
@@ -1050,6 +1154,7 @@ single-shot detectors (Cascade R-CNN, YOLOX-S) trade accuracy for speed.
   detectors (Cascade R-CNN, YOLOX-S) are faster at
   lower accuracy.}
   \label{tab:fps}
+  \resizebox{\columnwidth}{!}{%
   \begin{tabular}{llrrrr}
     \toprule
     Model & Solver & NFE & Latency (ms) & FPS & mAP \\
@@ -1064,7 +1169,7 @@ single-shot detectors (Cascade R-CNN, YOLOX-S) trade accuracy for speed.
     YOLOX-S           & --- & 1 & 9.53 & 105.0 & 0.796 \\
     DiffusionDet      & Euler & 1 & 23.19 & 43.1 & 0.787 \\
     \bottomrule
-  \end{tabular}
+  \end{tabular}}
 \end{table}
 
 \begin{figure*}[t]
@@ -1129,42 +1234,48 @@ the model retains a $3{\times}$ margin over the $1/24$ random-class baseline.
 
 % ============================================================
 \section{Conclusion}\label{sec:conclusion}
-We presented \emph{KaryoFlow}, a diffusion-based detector for chromosome
-karyotyping that brings Rectified Flow into clinical cytogenetics. The RF
-paradigm --- straight-line ODE paths replacing curved DDPM trajectories ---
-is the main accuracy source ($+0.060$ \mAP{} over DiffusionDet,
-exceeding Cascade R-CNN; $94\%$ of the gain attributed to RF itself).
-Stochastic Coupling, grounded in our OT Diversity Collapse characterization
-in the low-dimensional ($\R^4$) detection space, restores coupling
-diversity and stabilizes training: significant \mAP{} gains in low-data regimes
-($+0.034$, $p<10^{-120}$) and a $4.6\times$ epoch-oscillation reduction on
-larger data. DPM-Solver++ with Top-$K$ pruning delivers four-step inference
-at $13.3$--$14.2$ FPS with a precision gain over
-Heun ($+0.006$ \mAP{}, $p<10^{-6}$), enabling interactive clinical screening.
+We presented \emph{KaryoFlow-LQCR} and separated generative detection into
+generation, integration, and final decision. RF is the adopted accuracy
+foundation, while RF-adapted DPM-Solver++ matches Heun accuracy with four
+rather than seven network evaluations. LQCR is the independent task-specific
+contribution: under strict final-only isolation, localization-quality ranking
+improves Dataset~2 mAP by $0.00743$ and AP90/AP95 by
+$0.03041/0.03251$ without changing boxes, classes, or trajectories.
+Same-hardware measurements reach $12.9$ FPS with DPM-Solver++ and $14.5$ FPS
+with Top-$K$ ($K=200$).
 
-The OT Diversity Collapse is not chromosome-specific --- it arises whenever
-$d \ll 100$, $K \gg 10$, and the training corpus is small
-(Table~\ref{tab:ot-severity}), recurring in cell, lesion, and colony
-detection. Limitations: validation is confined to chromosome data;
-Stochastic Coupling's \mAP{} gain is dataset-dependent (the stability
-benefit holds independently); the theory assumes well-separated targets.
+The evidence audit also changes what we do \emph{not} claim. Standardized
+multi-seed experiments do not support Stochastic Coupling as an accuracy or
+stability contribution, and same-checkpoint tests do not support an intrinsic
+DPM-Solver++ precision gain. The remaining limitations are that LQCR still
+requires replication on clean paired multi-seed bases and a general benchmark
+such as mini-COCO, the current evidence uses chromosome datasets and a
+ResNet-50 backbone, and $pq^2$ is a monotone surrogate under an ordered
+conditional-IoU assumption rather than a universal COCO-AP optimum.
 
 % ============================================================
 \appendices
 
 % ============================================================
 \section{Proofs and Additional Ablations}\label{app:proofs}
-Full proofs in the arXiv companion. Prop.~\ref{prop:ot-gap}: OT makes $V$
-deterministic (Lemma~\ref{lem:voronoi}), $H_{\text{OT}}=0$. Prop.~\ref{prop:ot-lower}
-(Fano): $P_{\mathrm{err}} \le \binom{K}{2}\Phi(-d_{\min}/(2\sigma_t))$, so
-$\Delta H \to \log K$ as $\sigma_t/d_{\min}\to 0$. Prop.~\ref{prop:monotone}:
-Sinkhorn $\mathcal{V}(\epsilon)$ concave $\Rightarrow$ $dH/d\epsilon \ge 0$.
-AdaLN-Zero and shifted schedule both null ($\Delta$\mAP{}$=0.000$, $-0.001$);
-Y chromosome hardest ($\mathrm{AP}{=}0.779$, $\sim$1{,}803 vs $\sim$7{,}000
-samples per autosome). Datasets: Dataset~1~\cite{rst_dataset},
-Dataset~2~\cite{tseng2023dataset,lu2022cil54816}; code released upon publication.
+For LQCR, Equation~\eqref{eq:lqcr-factorization} follows directly from the
+chain rule of conditional probability. If the family
+$P(U\mid C{=}1,F;\eta)$ is first-order stochastically ordered by scalar
+$\eta$, then both $\mathbb{E}[U\mid C{=}1,F]$ and
+$P(U\geq\tau\mid C{=}1,F)$ are non-decreasing in $\eta$ for every $\tau$.
+Thus a calibrated estimate $q$ of conditional mean IoU is a consistent
+ordering proxy for each threshold-survival term. The exponent in $pq^2$ is a
+calibration choice and does not alter this monotonicity argument; it is not a
+proof of optimal COCO AP under arbitrary conditional IoU distributions.
+
+All empirical figures load checkpoint-linked JSON exports. Hardware-sensitive
+latency uses one RTX A6000 at $512\times512$, batch size one, with CUDA-event
+timing. Dataset~1 diagnostics use the explicitly identified 100-image subset;
+Dataset~2 diagnostics use all 500 validation images. Datasets are
+Dataset~1~\cite{rst_dataset} and Dataset~2~\cite{tseng2023dataset,lu2022cil54816}.
 
 % ============================================================
+\IEEEtriggeratref{16}
 \bibliographystyle{IEEEtran}
 \bibliography{references}
 
