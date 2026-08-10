@@ -107,10 +107,10 @@ classes (A1--Y), with severe class imbalance, fine-grained intra-group
 similarity, and frequent overlaps. Automating this process requires a
 detector that is both accurate and fast enough for clinical deployment, yet
 the main families of methods developed over the past decade each leave
-specific limitations. Anchor-based detectors (Cascade R-CNN,
-YOLOX-S) reach high throughput but plateau in fine-grained
+specific limitations. Anchor-based detectors (Cascade R-CNN~\cite{cai2018cascade},
+YOLOX-S~\cite{ge2021yolox}) reach high throughput but plateau in fine-grained
 24-class discrimination that distinguishes the acrocentric C-group
-chromosomes from one another. Transformer detectors (DINO) lift accuracy
+chromosomes from one another. Transformer detectors (DINO~\cite{zhang2023dino}) lift accuracy
 but rely on multi-scale deformable attention and heavier backbones,
 which is less suitable when clinical data are scarce. Diffusion-based detectors
 (DiffusionDet) reformulate detection as iterative denoising from noisy
@@ -345,6 +345,13 @@ Our use of RF follows this literature; the new component is a causally
 isolated quality-ranking head that changes only the ordering of emitted
 detections. DiffuBox~\cite{chen2024diffubox} addresses 3D refinement and is
 architecturally distinct from the 2D noise-box setting considered here.
+In medical imaging, diffusion models have primarily been developed for image
+generation, robustness, or segmentation rather than box-set prediction;
+recent TMI examples include frequency-controlled score-based synthesis,
+domain-generalized segmentation, and latent-guided robust classification
+\cite{tivnan2025fourierdiffusion,yang2025dgddm,shen2025ladine}. These works
+establish the relevance of diffusion modeling to medical images but do not
+address few-step proposal dynamics or detection-score calibration.
 
 \paragraph{Rectified Flow, numerical solvers, and quality ranking}
 RF~\cite{liu2023rectified} and Flow Matching~\cite{lipman2023flow} provide the
@@ -353,24 +360,58 @@ provides the adopted multistep integration principle; our method adapts its
 data-prediction update to the RF box path. Unlike coupling-based flow-matching
 methods such as OT-CFM~\cite{tong2023conditional}, LQCR targets the downstream
 probability-ranking problem after coordinates have already been generated.
+Localization-aware scoring itself has strong precedent: IoU-Net predicts
+localization confidence for proposal selection~\cite{jiang2018iounet}, while
+GFL and VarifocalNet unify class confidence with localization quality in dense
+detectors~\cite{li2020gfl,zhang2021vfnet}. LQCR differs in causal scope: it is
+a final-only intervention on a generative proposal detector, leaving solver
+history, coordinates, classes, and proposal survival unchanged. This focus on
+score reliability is also consistent with TMI evidence that medical networks
+can remain poorly calibrated despite strong task accuracy~\cite{mehrtash2020calibration}.
 This separation is important because the standardized coupling experiments
 in our setting are null, whereas the final-ranking intervention produces a
 controlled high-IoU AP gain.
+
+\paragraph{Medical object detection and domain shift}
+TMI studies demonstrate that medical detection must contend simultaneously
+with sparse labels, small lesions, cross-device shift, and structured false
+positives. End-to-end microscopy cell localization was formulated as sparse
+point detection~\cite{xue2019microscopy}; dense-boundary cell segmentation and
+domain-adapted microscopy further illustrate the difficulty of clustered,
+cross-domain cellular imagery~\cite{loewke2018cellseg,mukherjee2023amoeboid}.
+PtbNet targets few-shot and small
+pulmonary lesions~\cite{yang2024ptbnet}; and universal CT lesion detection
+learns from heterogeneous, partially labeled datasets~\cite{yan2021universal}.
+GraphSKT explicitly transfers relational structure across detection domains
+\cite{chen2023graphskt}, whereas ipsilateral refinement and weakly supervised
+fundus detection exploit task-specific context or incomplete supervision
+\cite{ren2023ipsilateral,wang2019weaklesion}; imbalanced polyp detection shows
+the related importance of hard-negative structure~\cite{bae2015polyp}. More broadly, stacked
+transformations improve robustness to unseen medical domains
+\cite{zhang2020bigaug}. These studies motivate our evaluation on two staining
+and acquisition distributions, but also reinforce that two chromosome cohorts
+cannot substitute for external COCO validation.
 
 \paragraph{Chromosome detection}
 Automated chromosome detection has been studied for decades, originally
 through classical image-processing pipelines (thresholding, morphology,
 watershed) that require per-cohort parameter tuning and break down under
 staining variation, overlaps, and banding-pattern noise. Modern
-learning-based approaches adopt general-purpose detectors: YOLO and
-Faster R-CNN~\cite{ren2015faster} variants reach high throughput but
+learning-based approaches adopt general-purpose detectors: YOLO,
+Faster R-CNN~\cite{ren2015faster}, Cascade R-CNN~\cite{cai2018cascade}, and
+real-time RTMDet~\cite{lyu2022rtmdet} variants reach high throughput but
 plateau in the fine-grained 24-class discrimination that clinical
 karyotyping demands, because anchor priors and dense prediction heads are
 not tailored to the morphologically similar intra-group chromosomes
-(C6--C12, F-group) that dominate residual errors. Transformer detectors
-such as DINO improve accuracy but rely on multi-scale deformable attention
+(C6--C12, F-group) that dominate residual errors. Transformer detectors such
+as Deformable DETR and DINO~\cite{zhu2021deformabledetr,zhang2023dino}
+improve accuracy but rely on multi-scale deformable attention
 and heavier backbones, which is less suitable when clinical training data are scarce
-($1{,}540$--$5{,}000$ images per cohort). ChromosomeNet~\cite{kuo2024chromosomenet}
+($1{,}540$--$5{,}000$ images per cohort). Earlier TMI systems span
+case-aware type/polarity classification (Varifocal-Net), region-based
+chromosome enumeration (DeepACEv2), and generative chromosome straightening
+\cite{qin2019varifocalchromosome,xiao2020deepacev2,li2024mcvae}.
+ChromosomeNet~\cite{kuo2024chromosomenet}
 uses the same Taichung dataset as our 24 Chromosomes Object benchmark but
 releases no code or pretrained models; recent CNN classifiers focus on
 the downstream classification step assuming boxes are already given,
