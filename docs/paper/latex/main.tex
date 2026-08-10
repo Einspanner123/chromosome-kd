@@ -203,13 +203,14 @@ Figure~\ref{fig:method_overview} summarizes the framework.
 
 \begin{figure*}[t]
   \centering
-  \input{figures/tikz_figures/method_overview.tex}
-  \caption{KaryoFlow overview. (a) RF replaces the curved DDPM trajectory
-  with a straight-line ODE path from noise $x_1$ to GT box $x_0$; nodes =
-  $4$ solver steps. (b) Time conditioning via AdaLN-Zero zero-initialized
-  modulation (identity at $t{=}0$). (c) Coupling: Random pairing (orange)
-  keeps full diversity $H(V \mid X_t){=}\log K$; Sinkhorn-based Stochastic
-  OT (pink) interpolates between hard OT and Random ($0 < H < \log K$).}
+  \includegraphics[width=\textwidth]{figures/v2/generated/fig01_system_overview.pdf}
+  \caption{Revised KaryoFlow framework organized as generation--interaction--decision.
+  (a) An RF box path and RF-adapted DPM-Solver++ form the adopted few-step
+  generation foundation. (b) Six cascade heads refine the proposal set; OCGR
+  injects a zero-initialized relative-geometry bias only into the last three
+  heads. (c) LQCR is causally isolated from the solver and uses predicted
+  localization quality only for final output ranking. RF and DPM-Solver++ are
+  adopted components; OCGR and LQCR are the investigated task-specific modules.}
   \label{fig:method_overview}
 \end{figure*}
 
@@ -413,6 +414,44 @@ $1.71\times$ NFE speedup, plus a statistically significant
 Wilcoxon $p<10^{-6}$; Table~\ref{tab:stat-tests}). The higher-order solver is
 slightly \emph{better} than Heun at equal step count, refining
 FlowDet's conclusion that higher-order solvers perform worse in detection.
+
+\subsection{Localization-Quality Calibrated Ranking}\label{sec:method-lqcr}
+
+For prediction feature $F$, class-correctness event $C$, localization IoU $U$,
+and evaluation threshold $\tau$, the true-positive posterior factorizes exactly:
+\begin{equation}
+ P(C{=}1,U{\geq}\tau\mid F)
+ =P(C{=}1\mid F)P(U{\geq}\tau\mid C{=}1,F).
+ \label{eq:lqcr-factorization}
+\end{equation}
+The probability-ranking principle therefore favors ordering detections by the
+joint class--localization posterior, rather than class confidence alone. LQCR
+predicts $q\approx\mathbb{E}[U\mid C{=}1,F]$ from the final proposal feature and
+uses $s=pq^2$ as a low-cost cross-threshold surrogate. If the conditional IoU
+distributions form a one-parameter stochastically ordered family, $q$ preserves
+the ordering of all threshold-survival probabilities; this is a Bayes-consistent
+ranking surrogate under that assumption, not a universal theorem that maximizes
+COCO AP for arbitrary IoU distributions.
+
+Our strict final-only implementation keeps raw class scores in the solver,
+proposal renewal, Top-$K$ pruning, and early stopping. Calibration is applied
+only when emitting detections, so boxes, predicted classes, and RF trajectories
+remain fixed. Figure~\ref{fig:lqcr-principle} summarizes the principle, causal
+boundary, and fixed-seed controlled effect.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/v2/generated/fig02_lqcr_principle.pdf}
+  \caption{Localization-Quality Calibrated Ranking (LQCR). (a) The exact
+  true-positive posterior factorization motivates localization-aware ranking;
+  $pq^2$ is a monotone low-cost surrogate under the stated ordering assumption.
+  (b) Strict final-only inference prevents the quality score from changing the
+  solver, renewal, Top-$K$, boxes, or classes. (c) On the Dataset~2 seed-42 A4
+  basis, final-only LQCR improves mAP by $0.00743$, concentrated at AP90/AP95,
+  while AP50 is unchanged. Values are loaded from the checkpoint-linked
+  diagnostic exports rather than embedded in the plotting code.}
+  \label{fig:lqcr-principle}
+\end{figure*}
 
 \subsection{OT Diversity Collapse and Stochastic Coupling}\label{sec:method-ot}
 
@@ -646,6 +685,28 @@ For Dataset~2, the DPM-Solver++ variant has 3 seeds (mean $0.859 \pm 0.003$),
 confirming the $+0.002$ aggregate \mAP{} gap is within cross-seed variance,
 though per-image paired tests (Table~\ref{tab:stat-tests}) reveal a
 statistically significant $+0.006$ advantage.
+
+\subsection{Precision Bottleneck Diagnosis}\label{sec:exp-bottleneck}
+
+Figure~\ref{fig:precision-bottleneck} separates classification, ranking, and
+coordinate headroom before proposing further modules. Perfect-class oracles add
+little compared with perfect-coordinate oracles, and AP degrades rapidly at
+strict IoU thresholds. At IoU $0.90$, small and overlapping chromosomes show the
+largest recall deficits. These observations identify localization accuracy and
+localization-aware ordering---rather than class recognition alone---as the
+current precision bottleneck.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/v2/generated/fig04_precision_bottleneck.pdf}
+  \caption{Precision bottleneck diagnosis. (a) Oracle mAP headroom for perfect
+  classes, ground-truth-IoU ranking, and perfect coordinates. Ground-truth-IoU
+  ranking is a diagnostic upper bound, not a trained LQCR result. (b) AP versus
+  IoU threshold. (c) Detection recall at IoU $0.90$ by scale and overlap
+  condition. Dataset~1 uses a seed-42 100-image diagnostic subset; Dataset~2
+  uses the seed-42 500-image validation export.}
+  \label{fig:precision-bottleneck}
+\end{figure*}
 
 \subsection{Main Results: RF vs DDPM}\label{sec:exp-rf-vs-ddpm}
 
