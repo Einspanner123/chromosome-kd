@@ -43,3 +43,11 @@ model unless a predeclared paired multi-seed gate is passed.
 Figures 1, 2, 4, 6, and 7 are generated as PDF/SVG/PNG and compiled in the
 paper. Figures 3 and 5 are deliberately blocked on the running clean Dataset 1
 baselines and their paired final-only LQCR exports.
+
+The clean baselines use `work_dirs/paired_clean/a4_random_chr2024_seed{seed}`.
+Each is followed automatically by
+`experiments/runners/run_lqcr_after_clean_baseline.py`, which selects the
+retained best-mAP checkpoint, records its SHA256, and launches
+`capr_quality_final_only_paired_clean_chr2024.py` on the same training GPU.
+The resulting lineage file is stored beside each LQCR run. Hardware-sensitive
+final evaluation remains reserved for the ross RTX A6000.
