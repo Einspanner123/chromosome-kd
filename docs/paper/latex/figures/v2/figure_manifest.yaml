@@ -17,15 +17,54 @@ figures:
       - generated/fig01_system_overview.png
     kind: conceptual
     empirical_data: none
-    status: provisional_structure
+    status: confirmed_structure
     evidence_boundary:
       rf_dpmpp: adopted_foundation
       lqcr: original_confirmed_on_historical_bases_pending_clean_baseline
-      ocgr: original_candidate_pending_corrected_paired_seeds
+      cascade_interaction: retained_baseline_structure
     forbidden_claims:
       - rf_or_dpmpp_invented_here
       - stochot_accuracy_or_stability_gain
-      - ocgr_statistically_confirmed
+      - any_unvalidated_candidate_is_part_of_the_final_model
+
+  fig03_lqcr_clean_replication:
+    source: sources/fig03_lqcr_clean_replication.py
+    outputs:
+      - generated/fig03_lqcr_clean_replication.svg
+      - generated/fig03_lqcr_clean_replication.pdf
+      - generated/fig03_lqcr_clean_replication.png
+    kind: empirical_paired_multiseed
+    empirical_data:
+      - data/source_lqcr_clean_multiseed.json
+    status: blocked_on_running_clean_baselines
+    evidence_boundary:
+      datasets: [Dataset_1]
+      seeds: [42, 123, 789]
+      intervention: fixed_checkpoint_final_only
+      reporting: paired_seed_effect_with_interval
+    forbidden_claims:
+      - mix_historical_and_clean_checkpoints
+      - compare_independently_trained_models_as_lqcr_causal_effect
+      - report_mean_without_seed_level_points
+
+  fig05_lqcr_stratified_effect:
+    source: sources/fig05_lqcr_stratified_effect.py
+    outputs:
+      - generated/fig05_lqcr_stratified_effect.svg
+      - generated/fig05_lqcr_stratified_effect.pdf
+      - generated/fig05_lqcr_stratified_effect.png
+    kind: empirical_stratified_paired
+    empirical_data:
+      - data/source_lqcr_stratified_clean.json
+    status: blocked_on_clean_paired_exports
+    evidence_boundary:
+      strata: [small, medium, large, isolated, near, overlap]
+      intervention: same_boxes_classes_coordinates
+      primary_question: where_localization_quality_ranking_helps
+    forbidden_claims:
+      - infer_small_or_overlap_advantage_from_selected_images
+      - use_ground_truth_iou_oracle_as_lqcr_result
+      - pool_nonpaired_checkpoints
 
   fig02_lqcr_principle:
     source: sources/fig02_lqcr_principle.py

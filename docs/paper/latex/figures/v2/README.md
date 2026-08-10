@@ -24,3 +24,7 @@ Empirical values must be loaded from files under `data/` or from a documented
 experiment export.  Do not hard-code display-only metrics, ratios, p-values,
 or confidence intervals in plotting scripts.
 
+`fig03_lqcr_clean_replication.py` and `fig05_lqcr_stratified_effect.py` are
+evidence-gated builders. They intentionally fail until their clean paired JSON
+exports exist and pass provenance checks; they are therefore listed as pending
+rather than executed by `build_all.py`.
