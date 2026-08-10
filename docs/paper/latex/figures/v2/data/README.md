@@ -17,3 +17,7 @@ Current auditable source exports:
 
 The `quality_beta_*` entries use ground-truth IoU for oracle re-ranking. They
 are diagnostic upper bounds, not trained LQCR outputs.
+
+- `source_fps_a6000_karyoflow.json` and `source_fps_a6000_dino.json` retain
+  the same-hardware RTX A6000 CUDA-event benchmark records (512 x 512,
+  batch 1, 10 warmup, 500 measured iterations).

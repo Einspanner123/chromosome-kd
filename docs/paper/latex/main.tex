@@ -172,7 +172,7 @@ trajectories of DDPM-based detectors are incompatible with interactive
 clinical screening. We deploy DPM-Solver++~\cite{lu2022dpmpp} for
 four-step RF inference ($1.71\times$ speedup over Heun, \mAP{} $0.859 \pm
 0.003$ over three seeds), combined with Top-$K$ pruning to reach
-13.3--14.2~FPS. A per-image paired ablation reveals DPM-Solver++ yields a
+12.9--14.5~FPS in the retained operating range. A per-image paired ablation reveals DPM-Solver++ yields a
 statistically significant precision advantage over Heun at
 matched step count ($+0.006$ per-image \mAP{}, Wilcoxon $p<10^{-6}$,
 Table~\ref{tab:stat-tests}), refining FlowDet's~\cite{baty2025flowdet}
@@ -934,21 +934,22 @@ On AP$_S$, none of the pairwise differences reach significance
 \end{table}
 
 \subsubsection{Qualitative Comparison}\label{sec:exp-qual}
-Figure~\ref{fig:qual-mosaic} visualizes detection results on $9$
-representative cases spanning the full difficulty spectrum (A-group to
-F/G-group and Y). KaryoFlow matches DINO R50 and RTMDet-L on large/medium
-chromosomes; on small chromosomes and Y, all methods degrade but KaryoFlow's
-miss rate is lower than DiffusionDet's, consistent with the per-class AP
-analysis above.
+Figure~\ref{fig:qual-mosaic} compares three localization-sensitive validation
+cases: a rare Y chromosome, adjacent small G-group chromosomes, and a locally
+overlapped D-group chromosome. The selected examples show broadly similar
+localization among KaryoFlow, DiffusionDet, and DINO R50; quantitative claims
+therefore rely on the complete-set metrics rather than selected images.
 
 \begin{figure*}[t]
   \centering
-  \includegraphics[width=\textwidth]{figures/qual_mosaic.png}
-  \caption{Qualitative detection comparison (Dataset~2 val, $9$ representative
-  cases). Each column: $3{\times}3$ grid for one model (left to right: GT,
-  KaryoFlow, DiffusionDet, RTMDet-L, DINO R50). Cases cover Y ($1$, $3$),
-  F/G-group ($2$, $7$), D-group ($4$), X ($5$), A-group ($6$, $8$), E16 ($9$).
-  Box colors per-model; in-box labels are predicted classes.}
+  \includegraphics[width=\textwidth]{figures/v2/generated/fig07_qualitative.pdf}
+  \caption{Local difficult-case comparison on Dataset~2 validation images
+  1, 2, and 4. Columns show ground truth, KaryoFlow, DiffusionDet, and DINO R50;
+  rows focus on Y, F/G-group, and D-group target categories. Predictions use a
+  score threshold of $0.30$. Only the row's target category group is overlaid
+  to keep localization readable; microscopy crops are raster, while boxes,
+  labels, and layout remain vector-editable. These selected cases are
+  illustrative rather than an accuracy estimator.}
   \label{fig:qual-mosaic}
 \end{figure*}
 
@@ -1042,44 +1043,45 @@ single-shot detectors (Cascade R-CNN, YOLOX-S) trade accuracy for speed.
   \footnotesize
   \setlength{\tabcolsep}{3pt}
   \caption{FPS / latency benchmark (Dataset~2, 512$\times$512, seed~42).
-  Latency is mean over $200$ images on an RTX A6000 (std $\le 3.4$\,ms,
-  omitted). DPM-Solver++ +Top-$K$ (K=200) reaches $14.2$ FPS / $70.5$\,ms
+  Latency uses CUDA-event timing over $500$ iterations after $10$ warmup
+  iterations on one RTX A6000. DPM-Solver++ +Top-$K$ (K=200) reaches
+  $14.5$ FPS / $69.0$\,ms
   at \mAP{} $0.860$, within the interactive-screening band; single-shot
-  detectors (Cascade R-CNN, YOLOX-S) are $3.6$--$7.4\times$ faster at
+  detectors (Cascade R-CNN, YOLOX-S) are faster at
   lower accuracy.}
   \label{tab:fps}
   \begin{tabular}{llrrrr}
     \toprule
     Model & Solver & NFE & Latency (ms) & FPS & mAP \\
     \midrule
-    RF+Heun        & Heun  & 7 & 124.38 & 8.0 & 0.856 \\
-    +Stoch.~Coupling   & Heun  & 7 & 128.35 & 7.8 & 0.858 \\
-    \textbf{DPM-Solver++} & DPM++ & 4 & \textbf{75.03} & \textbf{13.3} & \textbf{0.863} \\
-    DPM-Solver++ +Top-$K$ (K=300)    & DPM++ & 4 & 71.27 & 14.0 & 0.861 \\
-    \textbf{DPM-Solver++ +Top-$K$ (K=200)} & DPM++ & 4 & \textbf{70.46} & \textbf{14.2} & \textbf{0.860} \\
-    DPM-Solver++ +Top-$K$ (K=100)    & DPM++ & 4 & 69.71 & 14.3 & 0.850 \\
+    RF+Heun        & Heun  & 7 & 122.55 & 8.2 & 0.856 \\
+    \textbf{DPM-Solver++} & DPM++ & 4 & \textbf{77.57} & \textbf{12.9} & \textbf{0.863} \\
+    DPM-Solver++ +Top-$K$ (K=300)    & DPM++ & 4 & 70.46 & 14.2 & 0.861 \\
+    \textbf{DPM-Solver++ +Top-$K$ (K=200)} & DPM++ & 4 & \textbf{68.99} & \textbf{14.5} & \textbf{0.860} \\
+    DPM-Solver++ +Top-$K$ (K=100)    & DPM++ & 4 & 67.43 & 14.8 & 0.850 \\
     \midrule
-    Cascade R-CNN     & --- & 1 & 20.67 & 48.4 & 0.854 \\
-    YOLOX-S           & --- & 1 & 10.15 & 98.5 & 0.796 \\
-    DiffusionDet      & Euler & 1 & 24.38 & 41.0 & 0.803 \\
+    Cascade R-CNN     & --- & 1 & 20.11 & 49.7 & 0.854 \\
+    YOLOX-S           & --- & 1 & 9.53 & 105.0 & 0.796 \\
+    DiffusionDet      & Euler & 1 & 23.19 & 43.1 & 0.787 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-\begin{figure}[t]
+\begin{figure*}[t]
   \centering
-  \includegraphics[width=\columnwidth]{figures/fps_map.pdf}
-  \caption{Speed-accuracy trade-off (Dataset~2, RTX A6000, $512{\times}512$).
-  Log-scale FPS axis. Our RF variants (circle/square) occupy the
-  high-accuracy region (\mAP{} $> 0.85$); single-shot detectors (triangle)
-  trade accuracy for speed. DPM-Solver++ +Top-$K$ (K=200) ($14.2$ FPS,
-  \mAP{} $0.860$) achieves the best speed-accuracy trade-off among our
-  variants.}
+  \includegraphics[width=\textwidth]{figures/v2/generated/fig06_efficiency.pdf}
+  \caption{Same-hardware efficiency analysis on Dataset~2. (a) Replacing
+  seven-NFE Heun with four-NFE DPM-Solver++ removes most iterative-head
+  latency; Top-$K$ pruning provides a smaller additional reduction. (b)
+  Checkpoint-paired validation mAP versus FPS on the same RTX A6000 at
+  $512{\times}512$, batch size one, using $10$ warmup and $500$ measured
+  iterations. The connected points are a controlled Top-$K$ inference sweep
+  from one A4 checkpoint; other models are independent baselines.}
   \label{fig:fps-map}
-\end{figure}
+\end{figure*}
 
-DPM-Solver++ +Top-$K$ (K=200) is the fastest variant ($70.46$\,ms /
-$14.2$ FPS, \mAP{} $0.860$); DPM-Solver++ achieves $75$\,ms / $13.3$ FPS
+DPM-Solver++ +Top-$K$ (K=200) reaches $68.99$\,ms /
+$14.5$ FPS at \mAP{} $0.860$; DPM-Solver++ achieves $77.57$\,ms / $12.9$ FPS
 at \mAP{} $0.863$. The cascade head dominates $90\%+$ of latency; the
 backbone+neck is a minor cost ($\sim 5.8$\,ms, 4--8\%).
 

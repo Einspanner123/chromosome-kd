@@ -1,0 +1,18 @@
+[
+  {
+    "total_ms": 32.73351159667969,
+    "std_ms": 0.5205901178069305,
+    "fps": 30.549731795394496,
+    "backbone_neck_ms": 4.949802309989929,
+    "head_ms": 27.783709286689763,
+    "name": "dino_r50",
+    "desc": "DINO R50 (4scale, DETR-based, mmdet) [mAP=0.868]",
+    "config": "experiments/configs/baselines/benchmark_24obj/dino_r50.py",
+    "checkpoint": "work_dirs/baselines/dino_r50_24obj/best_coco_bbox_mAP_epoch_102.pth",
+    "img_size": 512,
+    "warmup": 10,
+    "iters": 500,
+    "gpu": "NVIDIA RTX A6000",
+    "known_mAP": 0.868
+  }
+]

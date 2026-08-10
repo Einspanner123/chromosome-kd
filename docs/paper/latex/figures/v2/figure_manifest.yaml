@@ -65,3 +65,49 @@ figures:
     forbidden_claims:
       - oracle_gain_is_achieved_model_gain
       - dataset1_100_image_result_is_full_test_result
+
+  fig06_efficiency:
+    source: sources/fig06_efficiency.py
+    outputs:
+      - generated/fig06_efficiency.svg
+      - generated/fig06_efficiency.pdf
+      - generated/fig06_efficiency.png
+    kind: empirical_efficiency
+    empirical_data:
+      - data/source_fps_a6000_karyoflow.json
+      - data/source_fps_a6000_dino.json
+    status: confirmed_same_hardware
+    evidence_boundary:
+      gpu: NVIDIA_RTX_A6000
+      image_size: 512x512
+      batch_size: 1
+      warmup: 10
+      iterations: 500
+      map_split: validation
+    forbidden_claims:
+      - compare_latency_measured_on_different_gpus
+      - topk_curve_is_independent_training
+      - standard_detectors_are_slower_than_karyoflow
+
+  fig07_qualitative:
+    source: sources/fig07_qualitative.py
+    outputs:
+      - generated/fig07_qualitative.svg
+      - generated/fig07_qualitative.pdf
+      - generated/fig07_qualitative.png
+    kind: qualitative_hybrid_vector
+    empirical_data:
+      - ../../../../../data/24_chromosomes_object/coco/valid/_annotations.coco.json
+      - ../../../../../experiments/analysis/baseline_vs_sota_cache/24obj_SOTA_seed42_preds.json
+      - ../../../../../experiments/analysis/baseline_vs_sota_cache/24obj_DiffusionDet_seed42_preds.json
+      - ../../../../../experiments/analysis/baseline_inference_24obj_cache/DINO_R50_seed42_preds.json
+    status: confirmed_visual_examples
+    evidence_boundary:
+      dataset: Dataset_2_validation
+      image_ids: [1, 2, 4]
+      prediction_threshold: 0.30
+      vector_elements: boxes_labels_titles
+      raster_elements: microscopy_crops
+    forbidden_claims:
+      - selected_examples_are_an_unbiased_accuracy_estimator
+      - omitted_predictions_equal_false_negatives_without_matching

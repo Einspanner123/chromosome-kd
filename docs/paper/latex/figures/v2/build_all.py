@@ -14,6 +14,8 @@ FIGURE_SCRIPTS = [
     SOURCES / "fig01_system_overview.py",
     SOURCES / "fig02_lqcr_principle.py",
     SOURCES / "fig04_precision_bottleneck.py",
+    SOURCES / "fig06_efficiency.py",
+    SOURCES / "fig07_qualitative.py",
 ]
 
 
