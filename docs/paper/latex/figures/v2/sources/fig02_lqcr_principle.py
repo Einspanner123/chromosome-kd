@@ -1,4 +1,4 @@
-"""Figure 2: LQCR theory, causal boundary, and measured effect."""
+"""Figure 2: localization-aware ranking as an effect-first empirical figure."""
 
 from __future__ import annotations
 
@@ -10,8 +10,7 @@ import numpy as np
 
 from figure_style_v2 import (
     C_FOUNDATION, C_LIGHT, C_LINE, C_LQCR, C_LQCR_LIGHT, C_MUTED,
-    C_RF, C_TEXT, arrow, configure_style, panel_title, rounded_box,
-    save_vector_figure,
+    C_TEXT, configure_style, panel_title, save_vector_figure,
 )
 
 DATA = Path(__file__).resolve().parent.parent / "data"
@@ -22,104 +21,108 @@ def load(name: str) -> dict:
         return json.load(stream)
 
 
-def clean(ax: plt.Axes) -> None:
-    ax.set_xlim(0, 1); ax.set_ylim(0, 1)
-    ax.set_xticks([]); ax.set_yticks([])
-    for spine in ax.spines.values():
-        spine.set_visible(False)
+def ap_series(record: dict) -> tuple[np.ndarray, np.ndarray]:
+    values = record["baseline"]["AP_by_iou"]
+    thresholds = np.array(sorted(float(key) for key in values))
+    return thresholds, np.array([values[f"{value:.2f}"] for value in thresholds])
 
 
-def panel_principle(ax: plt.Axes) -> None:
-    clean(ax); panel_title(ax, "a", "Probability-ranking principle")
-    rounded_box(ax, (0.04, 0.69), 0.28, 0.13, "class posterior\n$p=P(C=1\\mid F)$",
-                facecolor=C_LIGHT, edgecolor=C_FOUNDATION,
-                textcolor=C_FOUNDATION, fontsize=6.5)
-    rounded_box(ax, (0.38, 0.69), 0.54, 0.13,
-                "localization survival\n$q_\\tau=P(U\\geq\\tau\\mid C=1,F)$",
-                facecolor=C_LQCR_LIGHT, edgecolor=C_LQCR,
-                textcolor=C_LQCR, fontsize=6.4)
-    ax.text(0.35, 0.755, r"$\times$", fontsize=11, ha="center", va="center")
-    arrow(ax, (0.50, 0.66), (0.50, 0.56), color=C_LQCR)
-    rounded_box(ax, (0.15, 0.39), 0.70, 0.14,
-                r"$P(C=1, U\geq\tau\mid F)=p\,q_\tau$",
-                facecolor="white", edgecolor=C_LQCR,
-                textcolor=C_TEXT, fontsize=7.3, weight="bold")
-    ax.text(0.50, 0.28, "COCO averages multiple IoU thresholds",
-            ha="center", va="center", fontsize=6.4, color=C_MUTED)
-    rounded_box(ax, (0.05, 0.08), 0.90, 0.12, r"low-cost surrogate:  $s=p\,q^2$",
-                facecolor=C_LQCR_LIGHT, edgecolor=C_LQCR,
-                textcolor=C_LQCR, fontsize=6.5, weight="bold")
-
-
-def panel_isolation(ax: plt.Axes) -> None:
-    clean(ax); panel_title(ax, "b", "Strict final-only causal isolation")
-    rounded_box(ax, (0.04, 0.68), 0.28, 0.13, "RF solver",
-                facecolor="white", edgecolor=C_RF, textcolor=C_RF,
-                fontsize=6.8, weight="bold")
-    rounded_box(ax, (0.38, 0.68), 0.28, 0.13, "box renewal",
-                facecolor="white", edgecolor=C_FOUNDATION,
-                textcolor=C_FOUNDATION, fontsize=6.8)
-    rounded_box(ax, (0.72, 0.68), 0.24, 0.13, "Top-K",
-                facecolor="white", edgecolor=C_FOUNDATION,
-                textcolor=C_FOUNDATION, fontsize=6.8)
-    arrow(ax, (0.32, 0.745), (0.38, 0.745), color=C_LINE)
-    arrow(ax, (0.66, 0.745), (0.72, 0.745), color=C_LINE)
-    ax.text(0.50, 0.58, "raw class score only", ha="center",
-            fontsize=6.5, color=C_MUTED)
-    rounded_box(ax, (0.03, 0.34), 0.41, 0.13, "last proposal feature",
-                facecolor=C_LIGHT, edgecolor=C_FOUNDATION,
-                textcolor=C_FOUNDATION, fontsize=6.1)
-    rounded_box(ax, (0.55, 0.34), 0.40, 0.13, r"quality head  $q$",
-                facecolor=C_LQCR_LIGHT, edgecolor=C_LQCR,
-                textcolor=C_LQCR, fontsize=6.7, weight="bold")
-    arrow(ax, (0.44, 0.405), (0.55, 0.405), color=C_LQCR)
-    arrow(ax, (0.75, 0.33), (0.75, 0.22), color=C_LQCR)
-    rounded_box(ax, (0.18, 0.05), 0.77, 0.14,
-                r"emitted detections ranked by $p q^2$",
-                facecolor="white", edgecolor=C_LQCR,
-                textcolor=C_LQCR, fontsize=6.0, weight="bold")
-    ax.text(0.03, 0.25, "boxes and classes remain fixed", ha="left",
-            va="center", fontsize=5.9, color=C_MUTED)
-
-
-def panel_effect(ax: plt.Axes, base: dict, lqcr: dict) -> None:
-    panel_title(ax, "c", "Measured ranking gain (Dataset 2)")
-    thresholds = np.array([0.50, 0.75, 0.85, 0.90, 0.95])
-    base_ap = base["baseline"]["AP_by_iou"]
-    lqcr_ap = lqcr["baseline"]["AP_by_iou"]
-    delta = np.array([lqcr_ap[f"{t:.2f}"] - base_ap[f"{t:.2f}"] for t in thresholds])
-    ax.axhline(0, color=C_LINE, linewidth=0.7)
-    ax.plot(thresholds, 100 * delta, color=C_LQCR, marker="o",
-            markersize=3.8, linewidth=1.4)
-    ax.fill_between(thresholds, 0, 100 * delta, color=C_LQCR_LIGHT, alpha=0.9)
-    for x, y in zip(thresholds, 100 * delta):
-        ax.text(x, y + (0.18 if y >= 0 else -0.22), f"{y:+.2f}",
-                ha="center", va="bottom" if y >= 0 else "top",
-                fontsize=6.0, color=C_LQCR)
-    map_delta = 100 * (lqcr["baseline"]["mAP"] - base["baseline"]["mAP"])
-    ax.text(0.03, 0.92, f"mAP  {map_delta:+.2f} points", transform=ax.transAxes,
-            fontsize=6.8, weight="bold", color=C_LQCR)
-    ax.text(0.03, 0.84, "same boxes/classes; ranking only", transform=ax.transAxes,
-            fontsize=6.1, color=C_MUTED)
-    ax.set_xlabel("IoU threshold"); ax.set_ylabel(r"$\Delta$AP (points)")
-    ax.set_xticks(thresholds, [f"{t:.2f}" for t in thresholds])
-    ax.set_ylim(-0.7, max(3.8, 100 * delta.max() + 0.6))
-    ax.grid(axis="y", color=C_LIGHT, linewidth=0.7)
+def panel_curves(ax: plt.Axes, base: dict, lqcr: dict) -> None:
+    panel_title(ax, "a", "Where the ranking gain appears")
+    thresholds, base_ap = ap_series(base)
+    _, lqcr_ap = ap_series(lqcr)
+    ax.axvspan(0.85, 0.955, color=C_LQCR_LIGHT, alpha=0.72, lw=0)
+    ax.plot(thresholds, base_ap, color=C_FOUNDATION, lw=1.45,
+            marker="o", ms=2.8, label="class score  $p$")
+    ax.plot(thresholds, lqcr_ap, color=C_LQCR, lw=1.65,
+            marker="o", ms=2.8, label="quality-aware  $p q^2$")
+    ax.text(0.902, 0.36, "strict localization", color=C_LQCR,
+            fontsize=6.0, ha="center")
+    ax.annotate("+3.25 AP", xy=(0.95, lqcr_ap[-1]), xytext=(0.912, 0.41),
+                fontsize=6.3, color=C_LQCR, ha="center",
+                arrowprops=dict(arrowstyle="-", color=C_LQCR, lw=0.8))
+    ax.set_xlim(0.49, 0.96); ax.set_ylim(0.15, 1.02)
+    ax.set_xticks([0.50, 0.60, 0.70, 0.80, 0.90, 0.95])
+    ax.set_xlabel("evaluation IoU threshold")
+    ax.set_ylabel("AP")
+    ax.grid(axis="y", color=C_LIGHT, lw=0.65)
     ax.spines[["top", "right"]].set_visible(False)
-    ax.tick_params(labelsize=6.3)
+    ax.legend(frameon=False, fontsize=6.1, loc="lower left")
+    ax.tick_params(labelsize=6.2)
+
+
+def panel_delta(ax: plt.Axes, base: dict, lqcr: dict) -> None:
+    panel_title(ax, "b", "Fixed-box effect across thresholds")
+    thresholds, base_ap = ap_series(base)
+    _, lqcr_ap = ap_series(lqcr)
+    delta = 100 * (lqcr_ap - base_ap)
+    colors = [C_LQCR if value > 0 else C_MUTED for value in delta]
+    ax.axhline(0, color=C_LINE, lw=0.8)
+    ax.vlines(thresholds, 0, delta, colors=colors, lw=1.5)
+    ax.scatter(thresholds, delta, c=colors, s=18, zorder=3,
+               edgecolors="white", linewidths=0.35)
+    for x, y in zip(thresholds, delta):
+        if x in (0.50, 0.75, 0.85, 0.90, 0.95):
+            ax.text(x, y + (0.16 if y >= 0 else -0.18), f"{y:+.2f}",
+                    ha="center", va="bottom" if y >= 0 else "top",
+                    fontsize=5.7, color=C_LQCR if y > 0 else C_MUTED)
+    map_delta = 100 * (lqcr["baseline"]["mAP"] - base["baseline"]["mAP"])
+    ax.text(0.03, 0.88, f"mAP  +{map_delta:.2f} points", transform=ax.transAxes,
+            color=C_LQCR, fontsize=7.0, weight="bold")
+    ax.text(0.03, 0.79, "same checkpoint, boxes and classes", transform=ax.transAxes,
+            color=C_MUTED, fontsize=5.9)
+    ax.set_xlim(0.49, 0.96); ax.set_ylim(-0.45, max(3.75, delta.max() + 0.42))
+    ax.set_xticks([0.50, 0.60, 0.70, 0.80, 0.90, 0.95])
+    ax.set_xlabel("evaluation IoU threshold")
+    ax.set_ylabel(r"$\Delta$AP (points)")
+    ax.grid(axis="y", color=C_LIGHT, lw=0.65)
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.tick_params(labelsize=6.2)
+
+
+def panel_checksum(ax: plt.Axes) -> None:
+    panel_title(ax, "c", "Causal checksum")
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
+    rows = [
+        ("RF trajectory", "unchanged"),
+        ("proposal renewal", "unchanged"),
+        ("box coordinates", "unchanged"),
+        ("predicted classes", "unchanged"),
+        ("final ordering", r"$p \rightarrow p q^2$"),
+    ]
+    y_values = np.linspace(0.75, 0.27, len(rows))
+    ax.text(0.06, 0.88, "intervention audit", fontsize=6.1,
+            color=C_MUTED, weight="bold")
+    for idx, ((name, state), y) in enumerate(zip(rows, y_values)):
+        changed = idx == len(rows) - 1
+        color = C_LQCR if changed else C_FOUNDATION
+        ax.plot([0.07, 0.10], [y, y], color=color, lw=2.6,
+                solid_capstyle="round")
+        ax.text(0.14, y, name, va="center", fontsize=6.4,
+                color=C_TEXT, weight="bold" if changed else "normal")
+        ax.text(0.93, y, state, va="center", ha="right", fontsize=6.3,
+                color=color, weight="bold" if changed else "normal")
+        if idx < len(rows) - 1:
+            ax.plot([0.07, 0.93], [y - 0.058, y - 0.058], color=C_LIGHT, lw=0.55)
+    ax.text(0.50, 0.09,
+            r"$P(C{=}1,U{\geq}\tau\mid F)=p\,q_\tau$"
+            "   $\Rightarrow$   cross-threshold surrogate $s=pq^2$",
+            ha="center", va="center", fontsize=6.5, color=C_LQCR,
+            bbox=dict(boxstyle="round,pad=0.35", fc=C_LQCR_LIGHT,
+                      ec="none", alpha=0.88))
 
 
 def main() -> None:
     configure_style()
     base = load("source_precision_a4_seed42.json")
     lqcr = load("source_lqcr_final_only_seed42.json")
-    fig = plt.figure(figsize=(7.2, 2.75), facecolor="white")
-    gs = fig.add_gridspec(1, 3, width_ratios=(1.05, 1.12, 1.0),
-                          left=0.025, right=0.985, bottom=0.17, top=0.90,
-                          wspace=0.22)
-    axes = [fig.add_subplot(gs[0, i]) for i in range(3)]
-    panel_principle(axes[0]); panel_isolation(axes[1])
-    panel_effect(axes[2], base, lqcr)
+    fig = plt.figure(figsize=(7.2, 2.55), facecolor="white")
+    gs = fig.add_gridspec(1, 3, width_ratios=(1.15, 1.05, 0.95),
+                          left=0.055, right=0.985, bottom=0.20, top=0.90,
+                          wspace=0.28)
+    panel_curves(fig.add_subplot(gs[0, 0]), base, lqcr)
+    panel_delta(fig.add_subplot(gs[0, 1]), base, lqcr)
+    panel_checksum(fig.add_subplot(gs[0, 2]))
     save_vector_figure(fig, "fig02_lqcr_principle")
 
 

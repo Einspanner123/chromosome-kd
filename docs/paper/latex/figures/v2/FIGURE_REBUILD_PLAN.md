@@ -2,16 +2,19 @@
 
 ## Narrative order
 
-The paper uses a generation--interaction--decision narrative. Rectified Flow
-and DPM-Solver++ are adopted foundations, not claimed inventions. The retained
-independent contribution is LQCR at the final decision stage. Stochastic
-Coupling is a controlled negative result, and OCGR remains outside the final
-model unless a predeclared paired multi-seed gate is passed.
+The paper uses an effect-first visual narrative: microscopy inputs, predicted
+outputs, trajectories, and measured effects take visual priority over module
+boxes. Rectified Flow and DPM-Solver++ are adopted foundations, not claimed
+inventions. The retained independent contribution is LQCR at the final decision
+stage. Stochastic Coupling is a controlled negative result, and OCGR remains
+outside the final model unless a predeclared paired multi-seed gate is passed.
 
-1. **System overview (`fig01`)**: define the three stages and clearly separate
-   adopted components from LQCR. No provisional module may appear as final.
-2. **LQCR principle (`fig02`)**: connect the exact posterior factorization to
-   strict final-only causal isolation and the fixed-checkpoint Dataset 2 gain.
+1. **System overview (`fig01`)**: combine flow-matching supervision and the
+   forward detector in one view, anchored by a real metaphase input, an actual
+   dense crop, and real final predictions. Intermediate RF states are explicitly
+   schematic visualizations of the prescribed path, not captured activations.
+2. **LQCR principle (`fig02`)**: lead with AP-vs-IoU curves and the measured
+   fixed-box gain, then close with a compact causal checksum and factorization.
 3. **Clean paired replication (`fig03`, pending)**: show every Dataset 1 seed,
    paired LQCR effect, mean effect, and uncertainty. This replaces legacy
    cross-lineage significance plots.

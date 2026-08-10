@@ -1,5 +1,5 @@
 % ============================================================
-%  KaryoFlow-LQCR: Localization-Quality Ranking for Rectified-Flow Chromosome Detection
+%  KaryoFlow: Few-Step Rectified-Flow Detection for Chromosome Karyotyping
 %  IEEE Transactions on Medical Imaging (TMI) submission -- IEEEtran class.
 %  Compile with:  pdflatex main && bibtex main && pdflatex main && pdflatex main
 % ============================================================
@@ -42,10 +42,10 @@
 \DeclareMathOperator*{\argmin}{arg\,min}
 
 % ---------- Title block (single-blind: keep author info, no biography) ----------
-\title{KaryoFlow-LQCR: Localization-Quality Ranking\\
-       for Rectified-Flow Chromosome Detection}
-\author{Author~Name,~\IEEEmembership{Member,~IEEE}%
-        and~Co-Author~Name,~\IEEEmembership{Senior~Member,~IEEE}%
+\title{KaryoFlow: Few-Step Rectified-Flow Detection\\
+       for Chromosome Karyotyping}
+\author{Author~Name,~\IEEEmembership{Member,~IEEE},~and~
+        Co-Author~Name,~\IEEEmembership{Senior~Member,~IEEE}%
 \thanks{Manuscript received [date]; revised [date]. (Corresponding author: Author~Name.)}%
 \thanks{The authors are with [Affiliation], [City], [Country] (e-mail: author@example.com).}%
 \thanks{Code and models: \protect\url{https://github.com/[placeholder]}}}
@@ -68,7 +68,7 @@ Anchor-based detectors plateau in fine-grained intra-group
 discrimination, while diffusion-based detectors inherit the slow many-step
 inference and trajectory truncation errors of their image-generation
 ancestors, and small clinical datasets further destabilize training.
-We present \emph{KaryoFlow-LQCR}, a diffusion-based chromosome detector
+We present \emph{KaryoFlow}, a diffusion-based chromosome detector
 organized into generation, interaction, and decision stages. Rectified Flow
 (RF) provides the adopted box-generation foundation and is the dominant
 accuracy source; an RF-adapted data-prediction form of DPM-Solver++ reduces
@@ -243,13 +243,12 @@ Figure~\ref{fig:method_overview} summarizes the framework.
 \begin{figure*}[t]
   \centering
   \includegraphics[width=\textwidth]{figures/v2/generated/fig01_system_overview.pdf}
-  \caption{Revised KaryoFlow framework organized as generation--interaction--decision.
-  (a) An RF box path and RF-adapted DPM-Solver++ form the adopted few-step
-  generation foundation. (b) Six cascade heads refine the proposal set using
-  shared appearance and RoI features. (c) LQCR is causally isolated from the
-  solver and uses predicted
-  localization quality only for final output ranking. RF and DPM-Solver++ are
-  adopted components; LQCR is the retained task-specific contribution.}
+  \caption{KaryoFlow from image to detections. A real metaphase image and its
+  dense crop illustrate the feature pyramid, the rectified box path, four-NFE
+  DPM-Solver++ integration, and the final ranked detections. The endpoints and
+  output boxes are empirical; intermediate boxes visualize the prescribed
+  linear RF path rather than recorded hidden activations. Vector overlays remain
+  editable while the microscopy panels retain the source pixels.}
   \label{fig:method_overview}
 \end{figure*}
 
@@ -505,14 +504,12 @@ boundary, and fixed-seed controlled effect.
 \begin{figure*}[t]
   \centering
   \includegraphics[width=\textwidth]{figures/v2/generated/fig02_lqcr_principle.pdf}
-  \caption{Localization-Quality Calibrated Ranking (LQCR). (a) The exact
-  true-positive posterior factorization motivates localization-aware ranking;
-  $pq^2$ is a monotone low-cost surrogate under the stated ordering assumption.
-  (b) Strict final-only inference prevents the quality score from changing the
-  solver, renewal, Top-$K$, boxes, or classes. (c) On the Dataset~2 seed-42 A4
-  basis, final-only LQCR improves mAP by $0.00743$, concentrated at AP90/AP95,
-  while AP50 is unchanged. Values are loaded from the checkpoint-linked
-  diagnostic exports rather than embedded in the plotting code.}
+  \caption{Effect and causal scope of localization-quality ranking. (a,b) On
+  the fixed Dataset~2 seed-42 A4 checkpoint, the gain is concentrated at strict
+  IoU thresholds (AP90/AP95 $+3.04/+3.25$ points), while AP50 is unchanged.
+  (c) The intervention changes only final ordering from $p$ to $pq^2$; the RF
+  trajectory, renewal, coordinates, and classes are fixed. Values are loaded
+  from checkpoint-linked exports.}
   \label{fig:lqcr-principle}
 \end{figure*}
 
@@ -801,11 +798,8 @@ AdaLN-Zero is used throughout but contributes null individually
 \begin{table*}[t]
   \centering
   \small
-  \caption{Evidence-controlled ablation on Dataset~2 validation. Historical
-  DDPM and RF+Heun results establish the RF foundation. The final two rows
-  use the same seed-42 A4 checkpoint: DPM-Solver++ defines the four-NFE
-  operating point, and LQCR changes only final ranking scores. NFE is the
-  number of network evaluations per image.}
+  \caption{Evidence-controlled ablation on Dataset~2 validation. The final two
+  rows share the seed-42 A4 checkpoint; LQCR changes only output ranking.}
   \label{tab:main-ablation}
   \begin{tabular}{llcrrrrrrr}
     \toprule
@@ -813,8 +807,8 @@ AdaLN-Zero is used throughout but contributes null individually
     \midrule
     DDPM baseline (Euler 1-step)  & Euler   & 1 & 1 & 0.774 & 0.968 & 0.916 & 0.317 & 0.773 & 0.775 \\
     \textbf{RF+Heun (KaryoFlow)}   & Heun    & 4 & 7 & \textbf{0.856} & 0.989 & 0.969 & 0.502 & 0.853 & 0.867 \\
-    DPM-Solver++ (A4, seed 42) & DPM++ & 4 & 4 & 0.86301 & 0.98887 & 0.97171 & 0.53150 & 0.85941 & 0.89213 \\
-    \textbf{+LQCR (final-only)} & DPM++ & 4 & 4 & \textbf{0.87044} & 0.98876 & 0.97224 & 0.53040 & 0.86660 & 0.91420 \\
+    DPM-Solver++ (A4, seed 42) & DPM++ & 4 & 4 & 0.863 & 0.989 & 0.972 & 0.531 & 0.859 & 0.892 \\
+    \textbf{+LQCR (final-only)} & DPM++ & 4 & 4 & \textbf{0.870} & 0.989 & 0.972 & 0.530 & 0.867 & 0.914 \\
     \bottomrule
   \end{tabular}
 \end{table*}
@@ -834,6 +828,15 @@ $+0.017$ \mAP{} ($0.746$ vs $0.729$, lower variance $\pm 0.001$ vs $\pm
 1$\to$8 steps ($0.628 \to 0.672$), whereas the RF paradigm yields $+0.082$
 \mAP{} on Dataset~2.
 
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/v2/generated/fig06_efficiency.pdf}
+  \caption{Same-hardware efficiency on Dataset~2. (a) Latency decomposition.
+  (b) Validation mAP versus FPS on one RTX A6000; connected points form a
+  checkpoint-paired Top-$K$ sweep, whereas other detectors are independent.}
+  \label{fig:fps-map}
+\end{figure*}
+
 \subsection{SOTA Comparison}\label{sec:exp-sota}
 
 Table~\ref{tab:sota} compares our RF-based detector against standard and
@@ -851,15 +854,8 @@ simpler backbone than RTMDet-L or DINO R50.
   \centering
   \footnotesize
   \setlength{\tabcolsep}{3pt}
-  \caption{SOTA comparison on Dataset~2 (independent inference; DPM-Solver++
-  reports 3-seed mean). RTMDet-L uses a stronger CSPNeXt-L backbone; DINO
-  R50 uses multi-scale deformable attention. Our method is competitive with
-  RTMDet-L on overall \mAP{} while offering $1.71\times$ fewer NFE. The
-  $+0.060$ \mAP{} gain over DiffusionDet
-  reported in the text uses the seed~42 best checkpoint (\mAP{} $0.863$);
-  the 3-seed mean ($0.859$) yields $+0.056$. RTMDet-L and DINO R50 values
-  are taken from complete training logs (best checkpoint at epoch~85 and
-  final crashed-state checkpoint respectively).}
+  \caption{Detector comparison on Dataset~2. KaryoFlow results report the
+  three-seed mean; all methods use independently trained checkpoints.}
   \label{tab:sota}
   \begin{tabular}{@{}lrrrrr@{}}
     \toprule
@@ -1146,13 +1142,8 @@ single-shot detectors (Cascade R-CNN, YOLOX-S) trade accuracy for speed.
   \centering
   \footnotesize
   \setlength{\tabcolsep}{3pt}
-  \caption{FPS / latency benchmark (Dataset~2, 512$\times$512, seed~42).
-  Latency uses CUDA-event timing over $500$ iterations after $10$ warmup
-  iterations on one RTX A6000. DPM-Solver++ +Top-$K$ (K=200) reaches
-  $14.5$ FPS / $69.0$\,ms
-  at \mAP{} $0.860$, within the interactive-screening band; single-shot
-  detectors (Cascade R-CNN, YOLOX-S) are faster at
-  lower accuracy.}
+  \caption{Same-hardware latency benchmark on Dataset~2 at $512\times512$
+  resolution (RTX A6000, batch size 1, 500 timed iterations).}
   \label{tab:fps}
   \resizebox{\columnwidth}{!}{%
   \begin{tabular}{llrrrr}
@@ -1171,19 +1162,6 @@ single-shot detectors (Cascade R-CNN, YOLOX-S) trade accuracy for speed.
     \bottomrule
   \end{tabular}}
 \end{table}
-
-\begin{figure*}[t]
-  \centering
-  \includegraphics[width=\textwidth]{figures/v2/generated/fig06_efficiency.pdf}
-  \caption{Same-hardware efficiency analysis on Dataset~2. (a) Replacing
-  seven-NFE Heun with four-NFE DPM-Solver++ removes most iterative-head
-  latency; Top-$K$ pruning provides a smaller additional reduction. (b)
-  Checkpoint-paired validation mAP versus FPS on the same RTX A6000 at
-  $512{\times}512$, batch size one, using $10$ warmup and $500$ measured
-  iterations. The connected points are a controlled Top-$K$ inference sweep
-  from one A4 checkpoint; other models are independent baselines.}
-  \label{fig:fps-map}
-\end{figure*}
 
 DPM-Solver++ +Top-$K$ (K=200) reaches $68.99$\,ms /
 $14.5$ FPS at \mAP{} $0.860$; DPM-Solver++ achieves $77.57$\,ms / $12.9$ FPS
@@ -1207,12 +1185,8 @@ Table~\ref{tab:robust-noise} reports \mAP{} degradation.
   \centering
   \scriptsize
   \setlength{\tabcolsep}{4pt}
-  \caption{Annotation-noise robustness (Dataset~2 test, DPM-Solver++,
-  seed~42, $1000$ images). Rows: GT bbox jitter $\sigma_{\text{bbox}}$ (px);
-  columns: class-flip rate $p$; cells: \mAP{}@$[0.50{:}0.95]$. Clean
-  baseline: $0.859$. The model stays above the $1/24{\approx}0.042$ chance
-  level even at the heaviest perturbation ($\sigma{=}10$, $p{=}20\%$:
-  \mAP{}$=0.129$).}
+  \caption{Annotation-noise robustness on the Dataset~2 test set. Cells report
+  mAP for box jitter (rows, pixels) and class-flip rate (columns).}
   \label{tab:robust-noise}
   \begin{tabular}{lcccc}
     \toprule
@@ -1234,7 +1208,7 @@ the model retains a $3{\times}$ margin over the $1/24$ random-class baseline.
 
 % ============================================================
 \section{Conclusion}\label{sec:conclusion}
-We presented \emph{KaryoFlow-LQCR} and separated generative detection into
+We presented \emph{KaryoFlow} and separated generative detection into
 generation, integration, and final decision. RF is the adopted accuracy
 foundation, while RF-adapted DPM-Solver++ matches Heun accuracy with four
 rather than seven network evaluations. LQCR is the independent task-specific
@@ -1275,7 +1249,6 @@ Dataset~2 diagnostics use all 500 validation images. Datasets are
 Dataset~1~\cite{rst_dataset} and Dataset~2~\cite{tseng2023dataset,lu2022cil54816}.
 
 % ============================================================
-\IEEEtriggeratref{16}
 \bibliographystyle{IEEEtran}
 \bibliography{references}
 

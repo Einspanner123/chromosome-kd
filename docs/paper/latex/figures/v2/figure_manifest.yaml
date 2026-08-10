@@ -15,17 +15,22 @@ figures:
       - generated/fig01_system_overview.svg
       - generated/fig01_system_overview.pdf
       - generated/fig01_system_overview.png
-    kind: conceptual
-    empirical_data: none
-    status: confirmed_structure
+    kind: conceptual_empirical_hybrid
+    empirical_data:
+      - ../../../../../data/24_chromosomes_object/coco/valid/_annotations.coco.json
+      - ../../../../../experiments/analysis/baseline_vs_sota_cache/24obj_SOTA_seed42_preds.json
+    status: confirmed_input_output_with_schematic_path
     evidence_boundary:
       rf_dpmpp: adopted_foundation
       lqcr: original_confirmed_on_historical_bases_pending_clean_baseline
       cascade_interaction: retained_baseline_structure
+      actual_elements: input_microscopy_and_final_predictions
+      schematic_elements: intermediate_linear_rf_states_and_feature_pyramid
     forbidden_claims:
       - rf_or_dpmpp_invented_here
       - stochot_accuracy_or_stability_gain
       - any_unvalidated_candidate_is_part_of_the_final_model
+      - intermediate_states_are_recorded_model_activations
 
   fig03_lqcr_clean_replication:
     source: sources/fig03_lqcr_clean_replication.py

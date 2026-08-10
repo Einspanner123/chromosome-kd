@@ -31,6 +31,11 @@ C.~Lu, Y.~Zhou, F.~Bao, J.~Chen, C.~Li, and J.~Zhu, ``{DPM-Solver++}: Fast
   solver for guided sampling of diffusion probabilistic models,'' \emph{Machine
   Intelligence Research}, 2025.
 
+\bibitem{chen2023diffusiondet}
+S.~Chen, P.~Sun, Y.~Song, and P.~Luo, ``{DiffusionDet}: Diffusion model for
+  object detection,'' in \emph{Proc. IEEE/CVF Int. Conf. Comput. Vis. (ICCV)},
+  2023, pp. 1980--1989.
+
 \bibitem{baty2025flowdet}
 \BIBentryALTinterwordspacing
 E.~Baty, C.~P. Bridges, and S.~Hadfield, ``{FlowDet}: Unifying object detection
@@ -46,26 +51,6 @@ H.~Lee, C.~Lee, N.~Seo, J.~S. Lim, and H.~Hong, ``{DeFloMat}: Detection with
   \url{https://arxiv.org/abs/2512.22406}
 \BIBentrySTDinterwordspacing
 
-\bibitem{tong2023conditional}
-A.~Tong, K.~Fatras, N.~Malkin, G.~Huguet, Y.~Zhang, J.~Rector-Brooks, G.~Wolf,
-  and Y.~Bengio, ``Conditional flow matching: Simulation-free dynamic optimal
-  transport,'' in \emph{Int. Conf. Learn. Represent. (ICLR)}, 2023.
-
-\bibitem{pooladian2023multisample}
-A.-A. Pooladian, H.~Ben-Hamu, C.~Domingo-Enrich, B.~Amos, Y.~Lipman, and
-  R.~T.~Q. Chen, ``Multisample flow matching: Straightening flows with
-  minibatch couplings,'' in \emph{Proc. Int. Conf. Mach. Learn. (ICML)}, 2023,
-  pp. 28\,100--28\,127.
-
-\bibitem{dhariwal2021diffusion}
-P.~Dhariwal and A.~Nichol, ``Diffusion models beat {GANs} on image synthesis,''
-  in \emph{Adv. Neural Inf. Process. Syst. (NeurIPS)}, 2021.
-
-\bibitem{chen2023diffusiondet}
-S.~Chen, P.~Sun, Y.~Song, and P.~Luo, ``{DiffusionDet}: Diffusion model for
-  object detection,'' in \emph{Proc. IEEE/CVF Int. Conf. Comput. Vis. (ICCV)},
-  2023, pp. 1980--1989.
-
 \bibitem{chen2024diffubox}
 X.~Chen, Z.~Liu, K.~Z. Luo, S.~Datta, A.~Polavaram, Y.~Wang \emph{et~al.},
   ``{DiffuBox}: Refining {3D} object detection with point diffusion,'' in
@@ -76,35 +61,10 @@ Y.~Lipman, R.~T.~Q. Chen, H.~Ben-Hamu, M.~Nickel, and M.~Le, ``Flow matching
   for generative modeling,'' in \emph{Int. Conf. Learn. Represent. (ICLR)},
   2023.
 
-\bibitem{cheng2025curse}
-H.~K. Cheng and A.~Schwing, ``The curse of conditions: Analyzing and improving
-  optimal transport for conditional flow-based generation,'' in \emph{Proc.
-  IEEE/CVF Int. Conf. Comput. Vis. (ICCV)}, 2025, pp. 15\,875--15\,884.
-
-\bibitem{jones2026flowmatching}
-\BIBentryALTinterwordspacing
-C.~Jones, E.~Noutahi, J.~Hartford, and C.~Eastwood, ``Elucidating the design
-  space of flow matching for cellular microscopy,'' arXiv:2603.26790, 2026.
-  [Online]. Available: \url{https://arxiv.org/abs/2603.26790}
-\BIBentrySTDinterwordspacing
-
-\bibitem{nutzel2026flowmatching}
-\BIBentryALTinterwordspacing
-F.~N{\"u}tzel, M.~Dombrowski, and B.~Kainz, ``Flow matching with optimized
-  subclass priors for medical image augmentation,'' arXiv:2605.16469, 2026.
-  [Online]. Available: \url{https://arxiv.org/abs/2605.16469}
-\BIBentrySTDinterwordspacing
-
-\bibitem{yang2025dgddm}
-H.~Yang, W.~Hua, Z.~Xu, and J.~Sun, ``Domain-generalized discrete diffusion
-  model for cross-domain medical image segmentation,'' \emph{IEEE Transactions
-  on Medical Imaging}, vol.~44, no.~11, pp. 4131--4142, 2025.
-
-\bibitem{shen2025ladine}
-X.~Shen, H.~Huang, B.~Nichyporuk, and T.~Arbel, ``Improving robustness and
-  reliability in medical image classification with latent-guided diffusion and
-  nested-ensembles,'' \emph{IEEE Transactions on Medical Imaging}, vol.~44,
-  no.~12, pp. 4890--4902, 2025.
+\bibitem{tong2023conditional}
+A.~Tong, K.~Fatras, N.~Malkin, G.~Huguet, Y.~Zhang, J.~Rector-Brooks, G.~Wolf,
+  and Y.~Bengio, ``Conditional flow matching: Simulation-free dynamic optimal
+  transport,'' in \emph{Int. Conf. Learn. Represent. (ICLR)}, 2023.
 
 \bibitem{ren2015faster}
 S.~Ren, K.~He, R.~Girshick, and J.~Sun, ``Faster {R-CNN}: Towards real-time
@@ -126,13 +86,9 @@ Y.~Zhang, H.~Chen, C.~Yang, Y.~Chu, S.~Chen, J.~Wu, J.~Hu, N.~Li, J.~Su,
   \url{https://arxiv.org/abs/2604.00854}
 \BIBentrySTDinterwordspacing
 
-\bibitem{santambrogio2015optimal}
-F.~Santambrogio, \emph{Optimal Transport for Applied Mathematicians}.\hskip 1em
-  plus 0.5em minus 0.4em\relax New York: Birkh\"{a}user, 2015.
-
-\bibitem{cuturi2013sinkhorn}
-M.~Cuturi, ``Sinkhorn distances: Lightspeed computation of optimal transport,''
-  in \emph{Adv. Neural Inf. Process. Syst. (NeurIPS)}, 2013, pp. 2292--2300.
+\bibitem{dhariwal2021diffusion}
+P.~Dhariwal and A.~Nichol, ``Diffusion models beat {GANs} on image synthesis,''
+  in \emph{Adv. Neural Inf. Process. Syst. (NeurIPS)}, 2021.
 
 \bibitem{rst_dataset}
 \BIBentryALTinterwordspacing
