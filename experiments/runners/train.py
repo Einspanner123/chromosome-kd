@@ -126,21 +126,27 @@ def main():
     parser.add_argument('config', help='Config file path')
     parser.add_argument('--work-dir', default=None, help='Work directory')
     parser.add_argument('--seed', type=int, default=None, help='Random seed')
+    parser.add_argument(
+        '--val-seed', type=int, default=42,
+        help='Fixed inference seed used for every validation epoch (default: 42)')
     parser.add_argument('--resume', action='store_true', help='Resume from checkpoint and continue SwanLab logging')
     parser.add_argument('--gpu-id', type=int, default=0, help='GPU ID')
     args = parser.parse_args()
 
-    # 设置环境
-    if args.seed is not None:
-        os.environ['RANDOM_SEED'] = str(args.seed)
-
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu_id)
 
-    # 使用 mmengine 的 runner
+    # Delay torch/mmengine imports until after CUDA_VISIBLE_DEVICES is set.
     from mmengine.runner import Runner
     from mmengine.config import Config
+    from experiments.runners.reproducibility import (
+        FixedValidationSeedHook,
+        apply_training_seed,
+    )
 
     cfg = Config.fromfile(args.config)
+
+    # ``Runner.from_cfg`` consumes cfg.randomness; apply CLI override first.
+    apply_training_seed(cfg, args.seed)
 
     # Override work_dir
     if args.work_dir:
@@ -173,6 +179,12 @@ def main():
     _patch_swanlab_save_id(cfg.work_dir)
 
     runner = Runner.from_cfg(cfg)
+    runner.register_hook(
+        FixedValidationSeedHook(args.val_seed), priority='VERY_HIGH')
+    runner.logger.info(
+        '[reproducibility] training_seed=%s, validation_seed=%s, '
+        'validation_rng_restored=True',
+        cfg.get('randomness', {}).get('seed'), args.val_seed)
     runner.train()
 
 
