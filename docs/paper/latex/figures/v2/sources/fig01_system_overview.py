@@ -199,72 +199,70 @@ def architecture_panel(fig: plt.Figure, rect: tuple[float, float, float, float])
     ax.text(0.0, 1.02, "Image-conditioned detector evaluation at time t",
             ha="left", va="bottom", fontsize=6.7, weight="bold", color=C_TEXT)
 
-    rounded(ax, (0.00, 0.46), (0.12, 0.22), "FPN\nP2-P5", fc=C_RF_LIGHT,
+    rounded(ax, (0.01, 0.48), (0.095, 0.18), "FPN\nP2-P5", fc=C_RF_LIGHT,
             ec=C_RF, color=C_RF, size=5.5, weight="bold")
-    rounded(ax, (0.00, 0.13), (0.12, 0.20), "boxes\n$x_t$", fc="white",
+    rounded(ax, (0.01, 0.16), (0.095, 0.17), "boxes\n$x_t$", fc="white",
             ec=C_FOUNDATION, color=C_FOUNDATION, size=5.5, weight="bold")
-    rounded(ax, (0.16, 0.30), (0.13, 0.24), "RoIAlign\n$7\\times7$", fc=C_LIGHT,
+    rounded(ax, (0.145, 0.34), (0.105, 0.19), "RoIAlign\n$7\\times7$", fc=C_LIGHT,
             ec=C_LINE, size=5.5, weight="bold")
-    ax.annotate("", xy=(0.16, 0.45), xytext=(0.12, 0.56),
+    ax.annotate("", xy=(0.145, 0.45), xytext=(0.105, 0.57),
                 arrowprops=dict(arrowstyle="-|>", color=C_FOUNDATION, lw=0.65,
                                 mutation_scale=6))
-    ax.annotate("", xy=(0.16, 0.36), xytext=(0.12, 0.23),
+    ax.annotate("", xy=(0.145, 0.38), xytext=(0.105, 0.245),
                 arrowprops=dict(arrowstyle="-|>", color=C_FOUNDATION, lw=0.65,
                                 mutation_scale=6))
 
     # One actual cascade head: self-attention, DynamicConv and FFN.
-    ax.add_patch(FancyBboxPatch((0.33, 0.20), 0.39, 0.54,
+    ax.add_patch(FancyBboxPatch((0.295, 0.22), 0.405, 0.50,
                  boxstyle="round,pad=0.012,rounding_size=0.02",
                  facecolor="#F8FAFC", edgecolor=C_RF, linewidth=0.9))
-    ax.text(0.345, 0.69, "single cascade head  (repeated $H=6$)",
+    ax.text(0.312, 0.675, "single cascade head  (repeated $H=6$)",
             fontsize=5.6, color=C_RF, weight="bold", va="center")
     stages = [
-        (0.35, "multi-head\nself-attention"),
-        (0.475, "DynamicConv\nproposal-RoI interaction"),
-        (0.615, "feed-forward\nnetwork"),
+        (0.315, "multi-head\nself-attention"),
+        (0.438, "DynamicConv\nproposal-RoI interaction"),
+        (0.580, "feed-forward\nnetwork"),
     ]
-    widths = [0.105, 0.125, 0.085]
+    widths = [0.100, 0.120, 0.090]
     for (x, label), width in zip(stages, widths):
-        rounded(ax, (x, 0.34), (width, 0.22), label, fc="white", ec=C_LINE,
+        rounded(ax, (x, 0.36), (width, 0.18), label, fc="white", ec=C_LINE,
                 size=4.8)
-    for start, end in ((0.455, 0.475), (0.600, 0.615)):
+    for start, end in ((0.415, 0.438), (0.558, 0.580)):
         ax.annotate("", xy=(end, 0.45), xytext=(start, 0.45),
                     arrowprops=dict(arrowstyle="-|>", color=C_FOUNDATION,
                                     lw=0.6, mutation_scale=5))
 
-    rounded(ax, (0.43, 0.045), (0.18, 0.14), "time embedding $t$\nAdaLN-Zero",
+    rounded(ax, (0.415, 0.055), (0.17, 0.13), "time embedding $t$\nAdaLN-Zero",
             fc="#F3EEF8", ec=C_OUTPUT, color=C_OUTPUT, size=4.9, weight="bold")
-    for target in (0.405, 0.655):
-        ax.annotate("", xy=(target, 0.34), xytext=(0.52, 0.185),
+    for target in (0.365, 0.625):
+        ax.annotate("", xy=(target, 0.36), xytext=(0.50, 0.185),
                     arrowprops=dict(arrowstyle="-|>", color=C_OUTPUT,
                                     lw=0.65, mutation_scale=5))
 
-    ax.annotate("", xy=(0.33, 0.45), xytext=(0.29, 0.42),
+    ax.annotate("", xy=(0.295, 0.45), xytext=(0.25, 0.435),
                 arrowprops=dict(arrowstyle="-|>", color=C_FOUNDATION, lw=0.7,
                                 mutation_scale=6))
-    rounded(ax, (0.76, 0.52), (0.12, 0.18), "class logits\n$p$", fc="white",
+    rounded(ax, (0.755, 0.55), (0.125, 0.15), "class logits\n$p$", fc="white",
             ec=C_FOUNDATION, color=C_FOUNDATION, size=5.2, weight="bold")
-    rounded(ax, (0.76, 0.27), (0.12, 0.18), "target box\n$\\hat{x}_0$", fc=C_RF_LIGHT,
+    rounded(ax, (0.755, 0.31), (0.125, 0.15), "target box\n$\\hat{x}_0$", fc=C_RF_LIGHT,
             ec=C_RF, color=C_RF, size=5.2, weight="bold")
-    ax.annotate("", xy=(0.76, 0.61), xytext=(0.72, 0.50),
-                arrowprops=dict(arrowstyle="-|>", color=C_FOUNDATION, lw=0.65,
-                                mutation_scale=5))
-    ax.annotate("", xy=(0.76, 0.36), xytext=(0.72, 0.42),
-                arrowprops=dict(arrowstyle="-|>", color=C_RF, lw=0.65,
-                                mutation_scale=5))
-
-    rounded(ax, (0.76, 0.05), (0.12, 0.15), "quality $q$\nfinal head only",
+    rounded(ax, (0.755, 0.075), (0.125, 0.14), "quality $q$\nfinal head only",
             fc=C_LQCR_LIGHT, ec=C_LQCR, color=C_LQCR, size=4.8, weight="bold")
-    ax.plot([0.70, 0.74, 0.74, 0.76], [0.34, 0.34, 0.125, 0.125],
-            color=C_LQCR, lw=0.65)
-    ax.text(0.925, 0.51, "solver update", ha="center", fontsize=4.8,
+    # All prediction branches share the same straight-arrow grammar.
+    for target_y, color in ((0.625, C_FOUNDATION), (0.385, C_RF),
+                            (0.145, C_LQCR)):
+        ax.annotate("", xy=(0.755, target_y), xytext=(0.70, 0.45),
+                    arrowprops=dict(arrowstyle="-|>", color=color, lw=0.65,
+                                    mutation_scale=5,
+                                    connectionstyle="arc3,rad=0"))
+    ax.text(0.942, 0.57, "solver update", ha="center", fontsize=4.8,
             color=C_RF, weight="bold")
-    ax.text(0.925, 0.39, r"$x_t \,\leftarrow\, \hat{x}_0$ history",
+    ax.text(0.942, 0.47, r"$x_t \,\leftarrow\, \hat{x}_0$ history",
             ha="center", fontsize=5.0, color=C_RF)
-    ax.plot([0.88, 0.97], [0.31, 0.31], color=C_LIGHT, lw=0.6)
-    ax.text(0.925, 0.20, "final output", ha="center", fontsize=4.8,
+    ax.plot([0.895, 0.99], [0.34, 0.34], color=C_LIGHT, lw=0.6)
+    ax.text(0.942, 0.25, "final output", ha="center", fontsize=4.8,
             color=C_LQCR, weight="bold")
-    ax.text(0.925, 0.10, r"rank by $p q^2$", ha="center", fontsize=5.7,
+    ax.text(0.942, 0.15, r"rank by $p q^2$", ha="center", fontsize=5.7,
             color=C_LQCR, weight="bold")
 
 
@@ -315,8 +313,14 @@ def main() -> None:
         fig.text(x+0.052, 0.545, state_label, ha="center", va="top",
                  fontsize=5.3, color=color, weight="bold" if time_value == 0 else "normal")
 
-    coordinate_path(fig, (0.022, 0.075, 0.275, 0.32), noise_boxes[0],
-                    final_boxes[0], crop)
+    crop_center = np.array([(crop[0] + crop[2]) / 2,
+                            (crop[1] + crop[3]) / 2])
+    final_centers = np.array([[box[0] + box[2] / 2,
+                               box[1] + box[3] / 2] for box in final_boxes])
+    trajectory_index = int(np.argmin(np.linalg.norm(final_centers - crop_center,
+                                                     axis=1)))
+    coordinate_path(fig, (0.022, 0.075, 0.275, 0.32),
+                    noise_boxes[trajectory_index], final_boxes[trajectory_index], crop)
     architecture_panel(fig, (0.325, 0.065, 0.655, 0.335))
     save_vector_figure(fig, "fig01_system_overview")
 
