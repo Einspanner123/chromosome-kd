@@ -58,7 +58,7 @@ MODEL_REGISTRY = {
     # LDMDet 主路线消融 (A0 checkpoint 不存在,已移除)
     'a1': {
         'config': 'experiments/configs/ldmdet/directions/mainline_ablation_24obj/a1_rf_heun_24obj.py',
-        'checkpoint': 'work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_77.pth',
+        'checkpoint': 'work_dirs/a1_rf_heun_24obj/best_coco_bbox_mAP_epoch_62.pth',
         'desc': 'A1: RF + Heun (4 steps)',
         'type': 'ldmdet',
     },
@@ -70,8 +70,14 @@ MODEL_REGISTRY = {
     },
     'a4': {
         'config': 'experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_dpm_pp_24obj.py',
-        'checkpoint': 'work_dirs/a4_dpm_pp_24obj/epoch_147.pth',
+        'checkpoint': 'work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth',
         'desc': 'A4: DPM-Solver++ (4 steps)',
+        'type': 'ldmdet',
+    },
+    'h3_distill': {
+        'config': 'work_dirs/h3_distill_plan_a_24obj/h3_distill_plan_a_24obj.py',
+        'checkpoint': 'work_dirs/h3_distill_plan_a_24obj/best_coco_bbox_mAP_epoch_10.pth',
+        'desc': 'H3 distilled DPM-Solver++ (4 steps, 12 CHE)',
         'type': 'ldmdet',
     },
     'io3_k300': {
@@ -89,19 +95,19 @@ MODEL_REGISTRY = {
     # A4 + IO3 组合 (DPM-Solver++ + Top-K 剪枝, 使用 A4 checkpoint)
     'a4_io3_k300': {
         'config': 'experiments/configs/ldmdet/directions/inference_opt/a4_io3_eval_k300_24obj.py',
-        'checkpoint': 'work_dirs/a4_dpm_pp_24obj/epoch_147.pth',
+        'checkpoint': 'work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth',
         'desc': 'A4+IO3: DPM-Solver++ + Top-K pruning K=300',
         'type': 'ldmdet',
     },
     'a4_io3_k200': {
         'config': 'experiments/configs/ldmdet/directions/inference_opt/a4_io3_eval_k200_24obj.py',
-        'checkpoint': 'work_dirs/a4_dpm_pp_24obj/epoch_147.pth',
+        'checkpoint': 'work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth',
         'desc': 'A4+IO3: DPM-Solver++ + Top-K pruning K=200',
         'type': 'ldmdet',
     },
     'a4_io3_k100': {
         'config': 'experiments/configs/ldmdet/directions/inference_opt/a4_io3_eval_k100_24obj.py',
-        'checkpoint': 'work_dirs/a4_dpm_pp_24obj/epoch_147.pth',
+        'checkpoint': 'work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth',
         'desc': 'A4+IO3: DPM-Solver++ + Top-K pruning K=100 (aggressive)',
         'type': 'ldmdet',
     },
@@ -170,19 +176,19 @@ KNOWN_MAP = {
     # A0 (0.774) checkpoint 不存在,无法 benchmark
     'a1': 0.856,
     'a3': 0.858,
-    'a4': 0.863,
+    'a4': 0.860,
     'io3_k300': 0.857,
     'io3_k200': 0.856,
-    'a4_io3_k300': 0.861,  # 2026-07-14 评估
+    'a4_io3_k300': 0.860,  # 2026-08-11 unified re-evaluation
     'a4_io3_k200': 0.860,  # 2026-07-14 评估
-    'a4_io3_k100': 0.850,  # 2026-07-14 评估
+    'a4_io3_k100': 0.851,  # 2026-08-11 unified re-evaluation
     'h3_distill': 0.859,   # 2026-07-29 ross A6000 val 评估 (test.py --dataset val, seed 42)
     # Baselines (SwanLab verified)
     'cascade_rcnn': 0.854,
-    'yolox_s': 0.796,
-    'diffusiondet': 0.787,
-    'rtmdet_l': 0.863,   # 2026-07-26 修订: ep85 best (旧值 0.869 为错误)
-    'dino_r50': 0.868,   # 2026-07-16 SwanLab 确认 (best@ep102)
+    'yolox_s': 0.803,
+    'diffusiondet': 0.805,
+    'rtmdet_l': 0.861,
+    'dino_r50': 0.869,
     # Dataset 1 (Chromosome20240904) baselines — 低数据场景 (2026-07-29 提取自 workstation 训练日志)
     'cascade_rcnn_20240904': 0.732,  # best@ep86, workstation 2026-05-19
     'rtmdet_l_20240904': 0.742,      # best@ep52, workstation 2026-05-20
@@ -237,6 +243,15 @@ def build_and_load_model(config_path: str, checkpoint_path: str, device: torch.d
     # 移除 init_cfg (避免尝试加载预训练权重)
     if 'init_cfg' in model_cfg:
         model_cfg['init_cfg'] = None
+    # Flattened distillation work-dir configs retain teacher-only constructor
+    # fields that are not needed (and may no longer be accepted) at inference.
+    # Keep the student's architectural fields, notably num_heads=3, unchanged.
+    model_cfg.pop('teacher_checkpoint', None)
+    bbox_head_cfg = model_cfg.get('bbox_head')
+    if bbox_head_cfg is not None:
+        bbox_head_cfg.pop('use_distillation', None)
+        bbox_head_cfg.pop('distill_head_map', None)
+        bbox_head_cfg.pop('distill_lambda', None)
     # 关闭 data_preprocessor: 避免 mmengine MODELS 找不到 DetDataPreprocessor
     # (DetDataPreprocessor 注册在 mmdet 子 registry, 父 registry 无法访问)。
     # benchmark 使用合成 tensor 输入, predict() 不调用 data_preprocessor,

@@ -55,18 +55,19 @@ def panel_delta(ax: plt.Axes, base: dict, lqcr: dict) -> None:
     thresholds, base_ap = ap_series(base)
     _, lqcr_ap = ap_series(lqcr)
     delta = 100 * (lqcr_ap - base_ap)
-    # Differences below 0.05 point are below the plotted two-decimal precision.
-    # Place them on the zero axis while retaining their exact exported values
-    # in the caption and source JSON.
-    display_delta = np.where(np.abs(delta) < 0.05, 0.0, delta)
-    colors = [C_LQCR if value > 0 else C_MUTED for value in display_delta]
-    ax.vlines(thresholds, 0, display_delta, colors=colors, lw=1.5)
-    ax.scatter(thresholds, display_delta, c=colors, s=18, zorder=3,
+    # This panel visualizes positive ranking gains.  Preserve every positive
+    # exported delta, however small; omit non-positive values rather than
+    # drawing zero-valued markers along the axis.
+    positive = delta > 0
+    shown_x = thresholds[positive]
+    shown_delta = delta[positive]
+    ax.vlines(shown_x, 0, shown_delta, colors=C_LQCR, lw=1.5)
+    ax.scatter(shown_x, shown_delta, c=C_LQCR, s=18, zorder=3,
                edgecolors="white", linewidths=0.35)
-    for x, y in zip(thresholds, display_delta):
+    for x, y in zip(shown_x, shown_delta):
         # Do not over-emphasize sub-0.05-point numerical differences.  Their
         # markers remain visible and the exact exports remain the data source.
-        if x in (0.75, 0.85, 0.90, 0.95) and abs(y) >= 0.05:
+        if x in (0.75, 0.85, 0.90, 0.95):
             ax.text(x, y + (0.16 if y >= 0 else -0.18), f"{y:+.2f}",
                     ha="center", va="bottom" if y >= 0 else "top",
                     fontsize=5.7, color=C_LQCR if y > 0 else C_MUTED)

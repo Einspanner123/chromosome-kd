@@ -50,7 +50,7 @@ def panel_latency(ax: plt.Axes, rows: dict[str, dict]) -> None:
 def panel_frontier(ax: plt.Axes, rows: dict[str, dict]) -> None:
     panel_title(ax, "b", "Speed--accuracy trade-off")
     ours = ["a4", "a4_io3_k300", "a4_io3_k200", "a4_io3_k100"]
-    standards = ["cascade_rcnn", "yolox_s", "dino_r50"]
+    standards = ["cascade_rcnn", "yolox_s", "dino_r50", "rtmdet_l"]
     diffusion = ["diffusiondet"]
 
     for names, color, marker, label in [
@@ -72,12 +72,14 @@ def panel_frontier(ax: plt.Axes, rows: dict[str, dict]) -> None:
         "a4": "K=500", "a4_io3_k300": "K=300", "a4_io3_k200": "K=200",
         "a4_io3_k100": "K=100", "cascade_rcnn": "Cascade R-CNN",
         "yolox_s": "YOLOX-S", "dino_r50": "DINO R50",
+        "rtmdet_l": "RTMDet-L",
         "diffusiondet": "DiffusionDet",
     }
     offsets = {
         "a4": (-10, 8), "a4_io3_k300": (4, 8), "a4_io3_k200": (5, -10),
         "a4_io3_k100": (5, -11), "cascade_rcnn": (4, -10),
-        "yolox_s": (-23, 7), "dino_r50": (4, 7), "diffusiondet": (4, 7),
+        "yolox_s": (-23, 7), "dino_r50": (4, 7),
+        "rtmdet_l": (4, -10), "diffusiondet": (4, 7),
     }
     for name in ours + standards + diffusion:
         ax.annotate(short[name], (rows[name]["fps"], rows[name]["known_mAP"]),
@@ -87,7 +89,7 @@ def panel_frontier(ax: plt.Axes, rows: dict[str, dict]) -> None:
     ax.set_xlim(10, 120)
     ax.set_xticks([10, 20, 50, 100], ["10", "20", "50", "100"])
     ax.set_ylim(0.780, 0.875)
-    ax.set_xlabel("FPS (RTX A6000, 512 x 512, batch 1)")
+    ax.set_xlabel("model-forward FPS (RTX A6000, 512 x 512, batch 1)")
     ax.set_ylabel("validation mAP")
     ax.grid(color=C_LIGHT, linewidth=0.7, which="both")
     ax.legend(frameon=False, fontsize=6.1, loc="lower left")

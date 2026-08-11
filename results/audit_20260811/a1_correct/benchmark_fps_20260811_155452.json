@@ -1,0 +1,23 @@
+[
+  {
+    "total_ms": 120.34073802185058,
+    "std_ms": 1.3088424113738515,
+    "fps": 8.309737969351886,
+    "backbone_neck_ms": 5.617590712547302,
+    "head_ms": 114.72314730930329,
+    "name": "a1",
+    "desc": "A1: RF + Heun (4 steps)",
+    "config": "experiments/configs/ldmdet/directions/mainline_ablation_24obj/a1_rf_heun_24obj.py",
+    "checkpoint": "work_dirs/a1_rf_heun_24obj/best_coco_bbox_mAP_epoch_62.pth",
+    "img_size": 512,
+    "warmup": 10,
+    "iters": 500,
+    "gpu": "NVIDIA RTX A6000",
+    "known_mAP": 0.856,
+    "solver_type": "heun",
+    "sampling_timesteps": "unknown",
+    "num_proposals": 500,
+    "topk_pruning": false,
+    "topk_k": 100
+  }
+]

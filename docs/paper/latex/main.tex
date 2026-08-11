@@ -79,7 +79,7 @@ mean average precision from $0.8630$ to $0.8704$; average precision at $90\%$
 and $95\%$ intersection-over-union thresholds increases by $0.0304$ and
 $0.0325$, respectively, while candidate coordinates, class logits, and
 trajectories remain fixed before post-processing. Head distillation further
-reduces latency from $77.57$ to $44.72$ milliseconds at a $0.0040$ precision
+reduces latency from $75.20$ to $44.10$ milliseconds at a $0.0040$ precision
 cost. These results show that aligning trajectory learning, proposal identity,
 and localization-aware ranking enables accurate and efficient generative
 detection for dense chromosome analysis.
@@ -403,7 +403,7 @@ $\{0\!\to\!0,1\!\to\!2,2\!\to\!5\}$ and feature/prediction supervision. At
 four solver steps this reduces cascade-head evaluations (CHE) from 24 to 12,
 while NFE remains four; the reduction is therefore 24-to-12 CHE, not NFE.
 The compressed model reaches $0.859$ versus
-$0.863$ and reduces RTX A6000 latency from $77.57$ to $44.72$ ms.
+$0.8630$ and reduces RTX A6000 latency from $75.20$ to $44.10$ ms.
 
 \paragraph{Conditional computation}
 Geometry-aware adaptive conditional stepping (GACS) freezes convergence and
@@ -499,8 +499,7 @@ boundary, and fixed-seed controlled effect.
   \includegraphics[width=\textwidth]{figures/v2/generated/fig02_lqcr_principle.pdf}
   \caption{Effect and causal scope of localization-quality ranking. (a,b) On
   the fixed Dataset~2 seed-42 RF-DPM++ checkpoint, the gain is concentrated at strict
-  IoU thresholds (AP90/AP95 $+3.04/+3.25$ points), while AP50 is essentially
-  unchanged ($-0.01$ points).
+  IoU thresholds (AP90/AP95 $+3.04/+3.25$ points), while AP50 is unchanged.
   (c) The intervention changes only final ordering from $p$ to $pq^2$; the RF
   trajectory, renewal, candidate coordinates, and class logits are fixed.
   Score-dependent post-processing may select a different final subset. Values are loaded
@@ -543,7 +542,10 @@ referred to as Dataset~1 and Dataset~2. Dataset~1 is Chromosome20240904
 $5{,}000$ images. Their training splits contain $1{,}540$ and $3{,}500$
 images, respectively. Both have a median of $46$ annotated instances per
 image, but their median relative box areas differ substantially
-($0.37\%$ versus $0.84\%$). Moreover, $98.8\%$ and $100\%$ of training images
+($0.3672\%$ versus $0.8439\%$). Under the COCO absolute-area definition,
+$23.0329\%$ of Dataset~1 instances are small, compared with only $0.3748\%$
+in Dataset~2; correspondingly, $99.8052\%$ and $11.2000\%$ of training images
+contain at least one small instance. Moreover, $98.7662\%$ and $100.0000\%$ of training images
 contain at least one ground-truth box pair with IoU above $0.1$. These
 statistics quantify the small, crowded regime and the scale shift used for
 cross-dataset replication. Both datasets use image-level random splitting.
@@ -572,18 +574,20 @@ additional human-subject data.
   \centering
   \small
   \caption{Training-set properties that motivate the detector design. Relative
-  area is box area divided by image area; overlap denotes an image containing
-  at least one pair of ground-truth boxes with IoU $>0.1$.}
+  area is box area divided by image area; small follows the COCO absolute-area
+  threshold ($<32^2$ pixels); overlap denotes an image containing at least one
+  pair of ground-truth boxes with IoU $>0.1$.}
   \label{tab:dataset-properties}
   \setlength{\tabcolsep}{3pt}
-  \begin{tabular}{lrrrr}
+  \resizebox{\columnwidth}{!}{%
+  \begin{tabular}{lrrrrr}
     \toprule
-    Dataset & Mean $n$ & Median $n$ & Med. rel. area & Overlap \\
+    Dataset & Median $n$ & Med. rel. area & Small inst. & Images w/ small & Overlap \\
     \midrule
-    Dataset 1 & 46.77 & 46 & 0.37\% & 98.8\% \\
-    Dataset 2 & 45.97 & 46 & 0.84\% & 100.0\% \\
+    Dataset 1 & 46 & 0.3672\% & 23.0329\% & 99.8052\% & 98.7662\% \\
+    Dataset 2 & 46 & 0.8439\% & 0.3748\%  & 11.2000\% & 100.0000\% \\
     \bottomrule
-  \end{tabular}
+  \end{tabular}}
 \end{table}
 
 \paragraph{Architecture and training}
@@ -706,7 +710,7 @@ localization-aware ranking mechanism rather than a coordinate change.
     \midrule
     LQCR & D2, fixed checkpoint, seed~42 & $+0.0074$ mAP & negligible & Final ranking only; candidate states fixed before post-processing \\
     Renewal off & D2 / D1, $K=500$ & $-0.0003/-0.0030$ & $-2.43\%$ latency & Restores DPM++ history identity; fails at $K=100$ ($-0.0313$) \\
-    Head distillation & D2, H6 teacher vs H3 student & $-0.004$ mAP & $1.73\times$; CHE $24\to12$ & NFE remains four; D1 H3S4 is architecture-only control \\
+    Head distillation & D2, H6 teacher vs H3 student & $-0.0040$ mAP & $1.71\times$; CHE $24\to12$ & NFE remains four; D1 H3S4 is architecture-only control \\
     GACS & D1, adaptive vs fixed two-step & $-0.0007$ mAP & $-13.79\%$ latency & Not lossless versus four-step reference ($0.747$) \\
     $x_0$ prediction & D1 / D2, 3-seed vs velocity & $+0.002/+0.002$ mAP & no added cost & Matches $t^{-2}$ conditioning analysis; test difference is noise-scale \\
     \bottomrule
@@ -744,9 +748,9 @@ the same high-accuracy group as the stronger CSPNeXt-L
 RTMDet~\cite{lyu2022rtmdet} and multi-scale DINO R50~\cite{zhang2023dino},
 while exceeding Cascade R-CNN, YOLOX-S~\cite{ge2021yolox}, and the DDPM-based
 DiffusionDet~\cite{chen2023diffusiondet}. The largest controlled benchmark separation is from
-DiffusionDet: $+0.060$ \mAP{} for the seed-42 checkpoint and $+0.056$ for the
+DiffusionDet: $+0.059$ \mAP{} for the seed-42 checkpoint and $+0.054$ for the
 KaryoFlow three-seed mean. Relative to RTMDet-L and DINO R50, the remaining
-gaps are $0.004$ and $0.009$ \mAP{}, respectively. KaryoFlow simultaneously
+gaps are $0.002$ and $0.010$ \mAP{}, respectively. KaryoFlow simultaneously
 uses $1.71\times$ fewer network evaluations than RF+Heun, showing that
 generative box prediction can be accurate without retaining a many-step
 diffusion sampler.
@@ -762,29 +766,31 @@ diffusion sampler.
     \toprule
     Method & Backbone & mAP & AP50 & AP75 & AP$_S$ \\
     \midrule
-    DINO R50               & ResNet-50     & \textbf{0.8680} & 0.9920 & 0.9790 & 0.5530 \\
-    RTMDet-L               & CSPNeXt-L     & 0.8630          & 0.9920 & 0.9760 & 0.5400 \\
+    DINO R50               & ResNet-50     & \textbf{0.8690} & 0.9910 & 0.9770 & 0.5530 \\
+    RTMDet-L               & CSPNeXt-L     & 0.8610          & 0.9910 & 0.9720 & 0.5220 \\
     \textbf{Ours (DPM-Solver++)} & ResNet-50   & 0.8590          & 0.9880 & 0.9680 & 0.5160 \\
     Ours (RF+Heun)         & ResNet-50     & 0.8560          & 0.9890 & 0.9690 & 0.5020 \\
-    Cascade R-CNN          & ResNet-50     & 0.8540          & 0.9870 & 0.9720 & 0.5250 \\
-    YOLOX-S                & CSPDarkNet-S  & 0.7960          & 0.9870 & 0.9440 & 0.4520 \\
-    DiffusionDet           & ResNet-50     & 0.8030          & 0.9700 & 0.9280 & 0.5000 \\
+    Cascade R-CNN          & ResNet-50     & 0.8540          & 0.9860 & 0.9660 & 0.4140 \\
+    YOLOX-S                & CSPDarkNet-S  & 0.8030          & 0.9860 & 0.9460 & 0.4410 \\
+    DiffusionDet           & ResNet-50     & 0.8050          & 0.9710 & 0.9370 & 0.4030 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 \paragraph{Small-object performance}
 On small objects, our detector (AP$_S{=}0.516$ over three seeds) is
-close to DINO R50 ($0.553$) and RTMDet-L ($0.540$), but the validation split
+close to DINO R50 ($0.553$) and RTMDet-L ($0.522$), but the validation split
 contains only $60$ images with small objects and the point estimates are
 high-variance. We therefore do not claim a small-object \emph{advantage};
 rather, a single-shot RF detector with a plain ResNet-50
 backbone is \emph{competitive} on the small-object regime most relevant for
 chromosome analysis, without the multi-scale deformable attention of DINO or
-the heavier CSPNeXt-L backbone of RTMDet-L. On the smaller Dataset~1 training
-split ($1{,}540$ images), the KaryoFlow three-seed mean is $0.747$ \mAP{}
-(best checkpoint $0.753$), compared with $0.742$ for both RTMDet-L and DINO
-R50. This second cohort supports competitiveness under limited data, while the
+the heavier CSPNeXt-L backbone of RTMDet-L. On the Dataset~1 held-out test
+split, the clean random-coupling KaryoFlow runs reach
+$0.7413\pm0.0032$ \mAP{} and $0.5090\pm0.0096$ AP$_S$ over three training
+seeds. The corresponding single-seed RTMDet-L and DINO R50 results are
+$0.7320/0.4800$ and $0.7250/0.4860$ (mAP/AP$_S$), respectively. This
+small-heavy cohort supports competitiveness under limited data, while the
 larger Dataset~2 comparison shows that the advantage is not universal across
 all detector families.
 
@@ -840,10 +846,11 @@ the five raw diagnostic exports are checksum-linked in the evidence registry.
 \subsubsection{Scale-Resolved Cross-Dataset Comparison}\label{sec:exp-qual}
 Figure~\ref{fig:qual-mosaic} replaces selected visual cases with complete-set
 evidence. Dataset~1 has a substantially smaller relative-box distribution than
-Dataset~2 (median $0.37\%$ versus $0.84\%$). On the Dataset~1 test split,
-KaryoFlow reaches AP$_S=0.5300$, exceeding the strongest listed comparator by
-$0.0300$. On Dataset~2 validation, however, its three-seed AP$_S=0.5160$ is
-competitive but below DINO R50 ($0.5530$) and RTMDet-L ($0.5400$). The result
+Dataset~2 (median $0.3672\%$ versus $0.8439\%$). On the Dataset~1 test split,
+the clean KaryoFlow three-seed mean reaches AP$_S=0.5090$, exceeding the
+strongest listed comparator by $0.0090$. On Dataset~2 validation, however, its
+three-seed AP$_S=0.5160$ is
+competitive but below DINO R50 ($0.5530$) and RTMDet-L ($0.5220$). The result
 therefore supports scale-dependent small-object competitiveness rather than a
 universal advantage. Because COCO's small-area threshold is absolute, raw
 AP$_S$ levels are interpreted only within each dataset; the relative-area CDF
@@ -855,10 +862,12 @@ is used to characterize the cross-dataset scale shift.
   \caption{Object-scale shift and small-object detection across two chromosome
   cohorts. (a) Empirical CDF of relative ground-truth box area using all
   training annotations. Dataset~1 boxes are markedly smaller than Dataset~2
-  boxes. (b) Dataset~1 test AP$_S$ on 220 images using seed-42 best checkpoints;
-  KaryoFlow leads the strongest listed comparator by $0.0300$. (c) Dataset~2
+  boxes. (b) Dataset~1 test AP$_S$ on 220 images; KaryoFlow is the clean
+  random-coupling three-seed mean and leads the strongest listed comparator by
+  $0.0090$. (c) Dataset~2
   validation AP$_S$ on 500 images; KaryoFlow is the three-seed mean and the
-  other detectors are seed-42 checkpoints. It is competitive but does not lead
+  other detectors use the unified checkpoint-linked re-evaluation. It is
+  competitive but does not lead
   DINO R50 or RTMDet-L. AP$_S$ is interpreted within, not across, datasets.}
   \label{fig:qual-mosaic}
 \end{figure*}
@@ -901,7 +910,11 @@ AP$_S$ point estimate.
 \subsection{FPS / Latency Benchmark}\label{sec:exp-fps}
 
 Table~\ref{tab:fps} and Figure~\ref{fig:fps-map} report the speed-accuracy
-trade-off at $512{\times}512$ input resolution. DPM-Solver++
+trade-off at $512{\times}512$ input resolution. Latency is CUDA-event
+model-forward time and excludes image decoding, host preprocessing, and
+visualization. Every ordinate is tied to the checkpoint named by the latency
+record; the four Top-$K$ points share the same best epoch-117 A4 checkpoint.
+DPM-Solver++
 with Top-$K$ pruning reaches a latency compatible with interactive use, while
 single-shot detectors (Cascade R-CNN, YOLOX-S) trade accuracy for speed.
 
@@ -909,31 +922,39 @@ single-shot detectors (Cascade R-CNN, YOLOX-S) trade accuracy for speed.
   \centering
   \footnotesize
   \setlength{\tabcolsep}{3pt}
-  \caption{Same-hardware latency benchmark on Dataset~2 at $512\times512$
-  resolution (RTX A6000, batch size 1, 500 timed iterations).}
+  \caption{Same-hardware model-forward latency benchmark on Dataset~2 at
+  $512\times512$ resolution (RTX A6000, batch size 1, 10 warm-up and 500
+  timed CUDA-event iterations). Accuracy is re-evaluated on validation with
+  the speed-linked checkpoint.}
   \label{tab:fps}
   \resizebox{\columnwidth}{!}{%
   \begin{tabular}{llrrrr}
     \toprule
     Model & Solver & NFE & Latency (ms) & FPS & mAP \\
     \midrule
-    RF+Heun        & Heun  & 7 & 122.55 & 8.2 & 0.856 \\
-    \textbf{DPM-Solver++} & DPM++ & 4 & \textbf{77.57} & \textbf{12.9} & \textbf{0.863} \\
-    DPM-Solver++ +Top-$K$ (K=300)    & DPM++ & 4 & 70.46 & 14.2 & 0.861 \\
-    \textbf{DPM-Solver++ +Top-$K$ (K=200)} & DPM++ & 4 & \textbf{68.99} & \textbf{14.5} & \textbf{0.860} \\
-    DPM-Solver++ +Top-$K$ (K=100)    & DPM++ & 4 & 67.43 & 14.8 & 0.850 \\
+    RF+Heun        & Heun  & 7 & 120.34 & 8.3 & 0.8560 \\
+    \textbf{DPM-Solver++} & DPM++ & 4 & \textbf{75.20} & \textbf{13.3} & \textbf{0.8640} \\
+    DPM-Solver++ +Top-$K$ (K=300)    & DPM++ & 4 & 70.84 & 14.1 & 0.8620 \\
+    \textbf{DPM-Solver++ +Top-$K$ (K=200)} & DPM++ & 4 & \textbf{70.57} & \textbf{14.2} & \textbf{0.8620} \\
+    DPM-Solver++ +Top-$K$ (K=100)    & DPM++ & 4 & 68.90 & 14.5 & 0.8520 \\
     \midrule
-    Cascade R-CNN     & --- & 1 & 20.11 & 49.7 & 0.854 \\
-    YOLOX-S           & --- & 1 & 9.53 & 105.0 & 0.796 \\
-    DiffusionDet      & Euler & 1 & 23.19 & 43.1 & 0.787 \\
+    DINO R50          & --- & 1 & 34.33 & 29.1 & 0.8690 \\
+    RTMDet-L          & --- & 1 & 33.83 & 29.6 & 0.8610 \\
+    Cascade R-CNN     & --- & 1 & 20.76 & 48.2 & 0.8540 \\
+    DiffusionDet      & Euler & 1 & 24.09 & 41.5 & 0.8050 \\
+    YOLOX-S           & --- & 1 & 10.04 & 99.7 & 0.8030 \\
     \bottomrule
   \end{tabular}}
 \end{table}
 
-DPM-Solver++ +Top-$K$ (K=200) reaches $68.99$\,ms /
-$14.5$ FPS at \mAP{} $0.860$; DPM-Solver++ achieves $77.57$\,ms / $12.9$ FPS
-at \mAP{} $0.863$. The cascade head dominates $90\%+$ of latency; the
-backbone+neck is a minor cost ($\sim 5.8$\,ms, 4--8\%).
+DPM-Solver++ +Top-$K$ (K=200) reaches $70.57$\,ms /
+$14.2$ FPS at \mAP{} $0.8620$; DPM-Solver++ achieves $75.20$\,ms / $13.3$ FPS
+at \mAP{} $0.8640$. The cascade head dominates $90\%+$ of latency; the
+backbone+neck is a minor cost ($\sim 5.6$\,ms). These speed-linked
+re-evaluations differ by at most $0.0030$ from the canonical training-time
+point estimates in Tables~\ref{tab:main-ablation} and~\ref{tab:sota}, which is
+consistent with random proposal initialization. The RF+Heun row uses the same
+Dataset~2 A1 checkpoint for both axes.
 
 The engineering audit separates three counts that are often conflated:
 DPM-Solver++ reduces solver NFE ($7\to4$), head distillation reduces CHE
@@ -967,8 +988,8 @@ The efficiency results reveal complementary deployment controls rather than a
 single opaque speedup. DPM-Solver++ reduces solver evaluations, distillation
 reduces cascade-head evaluations, Top-$K$ reduces proposals after the first
 step, and GACS reduces mean per-image steps. This decomposition enables an
-accuracy-oriented setting ($0.863$ mAP, $77.57$ ms) or a compressed setting
-($0.859$ mAP, $44.72$ ms) without changing the central trajectory--ranking
+accuracy-oriented setting ($0.8640$ mAP, $75.20$ ms) or a compressed setting
+($0.8590$ mAP, $44.10$ ms) without changing the central trajectory--ranking
 formulation.
 
 The study has three boundaries. First, both cohorts are public chromosome

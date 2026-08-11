@@ -36,4 +36,10 @@ val_evaluator = dict(
     classwise=True,
     format_only=False,
 )
-test_evaluator = val_evaluator
+test_evaluator = dict(
+    type='CocoMetric',
+    ann_file=data_root + 'test/_annotations.coco.json',
+    metric='bbox',
+    classwise=True,
+    format_only=False,
+)

@@ -48,13 +48,16 @@ def draw_metric_panel(ax: plt.Axes, records: list[dict], title: str,
     upper = max(values) + 0.025
 
     ax.axvspan(lower, upper, color=C_LIGHT, alpha=0.45, zorder=0)
-    for yi, value, method in zip(y, values, methods):
+    for yi, value, method, record in zip(y, values, methods, records):
         ours = method.startswith("KaryoFlow")
         color = C_RF if ours else C_FOUNDATION
         ax.plot([lower, value], [yi, yi], color=color, linewidth=2.4 if ours else 1.4,
                 alpha=0.95 if ours else 0.65, zorder=2)
         ax.scatter(value, yi, s=34 if ours else 24, color=color,
                    edgecolor="white", linewidth=0.6, zorder=3)
+        if "std" in record:
+            ax.errorbar(value, yi, xerr=float(record["std"]), fmt="none",
+                        ecolor=color, elinewidth=1.0, capsize=2.2, zorder=2)
         ax.text(value + 0.004, yi, f"{value:.3f}", va="center", ha="left",
                 fontsize=6.4, color=color, weight="bold" if ours else "normal")
 
@@ -108,11 +111,11 @@ def main() -> None:
 
     draw_metric_panel(
         axes[1], evidence["dataset_1_test"], "Small-heavy Dataset 1", "b",
-        "220 test images; seed 42 checkpoints.\nKaryoFlow leads the best comparator by +0.030 $AP_S$.",
+        "220 test images; KaryoFlow is 0.509 ± 0.010 over 3 seeds.\nIt leads the best comparator by +0.009 $AP_S$.",
     )
     draw_metric_panel(
         axes[2], evidence["dataset_2_validation"], "Larger-scale Dataset 2", "c",
-        "500 validation images. KaryoFlow is a 3-seed mean;\ncomparators are seed 42. No small-object advantage claimed.",
+        "500 validation images. KaryoFlow is a 3-seed mean;\ncomparators use unified re-evaluation. No universal advantage.",
     )
 
     save_vector_figure(fig, "fig07_qualitative")

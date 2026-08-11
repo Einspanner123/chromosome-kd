@@ -1,0 +1,23 @@
+[
+  {
+    "total_ms": 44.09585214996338,
+    "std_ms": 0.5406041652351169,
+    "fps": 22.677869941126207,
+    "backbone_neck_ms": 5.561818040847778,
+    "head_ms": 38.5340341091156,
+    "name": "h3_distill",
+    "desc": "H3 distilled DPM-Solver++ (4 steps, 12 CHE)",
+    "config": "work_dirs/h3_distill_plan_a_24obj/h3_distill_plan_a_24obj.py",
+    "checkpoint": "work_dirs/h3_distill_plan_a_24obj/best_coco_bbox_mAP_epoch_10.pth",
+    "img_size": 512,
+    "warmup": 10,
+    "iters": 500,
+    "gpu": "NVIDIA RTX A6000",
+    "known_mAP": 0.859,
+    "solver_type": "dpm_solver_pp",
+    "sampling_timesteps": "unknown",
+    "num_proposals": 500,
+    "topk_pruning": false,
+    "topk_k": 100
+  }
+]

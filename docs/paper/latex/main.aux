@@ -108,7 +108,7 @@
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0a}Datasets}{5}{}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces Datasets used in this paper. Dataset~1 is Chromosome20240904 (RST); Dataset~2 is the 24 Chromosomes Object dataset.}}{5}{}\protected@file@percent }
 \newlabel{tab:datasets}{{II}{5}{}{}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Training-set properties that motivate the detector design. Relative area is box area divided by image area; overlap denotes an image containing at least one pair of ground-truth boxes with IoU $>0.1$.}}{5}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Training-set properties that motivate the detector design. Relative area is box area divided by image area; small follows the COCO absolute-area threshold ($<32^2$ pixels); overlap denotes an image containing at least one pair of ground-truth boxes with IoU $>0.1$.}}{5}{}\protected@file@percent }
 \newlabel{tab:dataset-properties}{{III}{5}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0b}Architecture and training}{5}{}\protected@file@percent }
 \citation{lyu2022rtmdet}
@@ -152,16 +152,14 @@
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-F}0c}Test set evaluation}{8}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-G}}FPS / Latency Benchmark}{8}{}\protected@file@percent }
 \newlabel{sec:exp-fps}{{\mbox  {IV-G}}{8}{}{}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Object-scale shift and small-object detection across two chromosome cohorts. (a) Empirical CDF of relative ground-truth box area using all training annotations. Dataset~1 boxes are markedly smaller than Dataset~2 boxes. (b) Dataset~1 test AP$_S$ on 220 images using seed-42 best checkpoints; KaryoFlow leads the strongest listed comparator by $0.0300$. (c) Dataset~2 validation AP$_S$ on 500 images; KaryoFlow is the three-seed mean and the other detectors are seed-42 checkpoints. It is competitive but does not lead DINO R50 or RTMDet-L. AP$_S$ is interpreted within, not across, datasets.}}{9}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Object-scale shift and small-object detection across two chromosome cohorts. (a) Empirical CDF of relative ground-truth box area using all training annotations. Dataset~1 boxes are markedly smaller than Dataset~2 boxes. (b) Dataset~1 test AP$_S$ on 220 images; KaryoFlow is the clean random-coupling three-seed mean and leads the strongest listed comparator by $0.0090$. (c) Dataset~2 validation AP$_S$ on 500 images; KaryoFlow is the three-seed mean and the other detectors use the unified checkpoint-linked re-evaluation. It is competitive but does not lead DINO R50 or RTMDet-L. AP$_S$ is interpreted within, not across, datasets.}}{9}{}\protected@file@percent }
 \newlabel{fig:qual-mosaic}{{5}{9}{}{}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {VIII}{\ignorespaces Same-hardware latency benchmark on Dataset~2 at $512\times 512$ resolution (RTX A6000, batch size 1, 500 timed iterations).}}{9}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {VIII}{\ignorespaces Same-hardware model-forward latency benchmark on Dataset~2 at $512\times 512$ resolution (RTX A6000, batch size 1, 10 warm-up and 500 timed CUDA-event iterations). Accuracy is re-evaluated on validation with the speed-linked checkpoint.}}{9}{}\protected@file@percent }
 \newlabel{tab:fps}{{VIII}{9}{}{}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-H}}Sensitivity to Annotation Precision}{9}{}\protected@file@percent }
 \newlabel{sec:exp-robust}{{\mbox  {IV-H}}{9}{}{}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {V}Discussion}{9}{}\protected@file@percent }
 \newlabel{sec:discussion}{{V}{9}{}{}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {VI}Conclusion}{9}{}\protected@file@percent }
-\newlabel{sec:conclusion}{{VI}{9}{}{}{}}
 \bibstyle{IEEEtran}
 \bibdata{references}
 \bibcite{cai2018cascade}{1}
@@ -198,6 +196,9 @@
 \bibcite{jiang2018iounet}{32}
 \bibcite{li2020gfl}{33}
 \bibcite{zhang2021vfnet}{34}
+\@writefile{toc}{\contentsline {section}{\numberline {VI}Conclusion}{10}{}\protected@file@percent }
+\newlabel{sec:conclusion}{{VI}{10}{}{}{}}
+\@writefile{toc}{\contentsline {section}{References}{10}{}\protected@file@percent }
 \bibcite{mehrtash2020calibration}{35}
 \bibcite{dhariwal2021diffusion}{36}
 \bibcite{tong2023conditional}{37}
@@ -206,7 +207,6 @@
 \bibcite{cheng2025curse}{40}
 \bibcite{rst_dataset}{41}
 \bibcite{tseng2023dataset}{42}
-\@writefile{toc}{\contentsline {section}{References}{10}{}\protected@file@percent }
 \bibcite{lu2022cil54816}{43}
 \bibcite{he2016resnet}{44}
 \bibcite{lin2017fpn}{45}

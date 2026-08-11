@@ -17,6 +17,10 @@ def test_clean_a4_uses_only_random_coupling():
     assert coupling == {'type': 'random'}
     assert cfg.model.bbox_head.solver_type == 'dpm_solver_pp'
     assert cfg.model.bbox_head.sampling_timesteps == 4
+    assert cfg.val_evaluator.ann_file.endswith(
+        'valid/_annotations.coco.json')
+    assert cfg.test_evaluator.ann_file.endswith(
+        'test/_annotations.coco.json')
 
 
 def test_ocgr_clean_config_keeps_random_coupling():

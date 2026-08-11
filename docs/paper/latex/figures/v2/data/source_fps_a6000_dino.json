@@ -1,18 +1,17 @@
 [
   {
-    "total_ms": 32.73351159667969,
-    "std_ms": 0.5205901178069305,
-    "fps": 30.549731795394496,
-    "backbone_neck_ms": 4.949802309989929,
-    "head_ms": 27.783709286689763,
     "name": "dino_r50",
-    "desc": "DINO R50 (4scale, DETR-based, mmdet) [mAP=0.868]",
+    "desc": "DINO R50 (4-scale)",
+    "total_ms": 34.334319122314454,
+    "std_ms": 1.072602238534835,
+    "fps": 29.125377335649073,
+    "backbone_neck_ms": 5.253236164093018,
+    "head_ms": 29.081082958221437,
+    "known_mAP": 0.8690,
     "config": "experiments/configs/baselines/benchmark_24obj/dino_r50.py",
     "checkpoint": "work_dirs/baselines/dino_r50_24obj/best_coco_bbox_mAP_epoch_102.pth",
-    "img_size": 512,
-    "warmup": 10,
-    "iters": 500,
-    "gpu": "NVIDIA RTX A6000",
-    "known_mAP": 0.868
+    "latency_source": "results/audit_20260811/benchmark_fps_20260811_151423.json",
+    "accuracy_source": "results/audit_20260811/val_recheck/dino_r50.log",
+    "protocol": "Dataset 2 val; RTX A6000; 512x512; batch 1; warmup 10; 500 CUDA-event model-forward iterations"
   }
 ]
