@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unified, resumable Dataset-2 test evaluation with immutable evidence.
+"""Unified, resumable chromosome test evaluation with immutable evidence.
 
 The run identity covers the resolved configuration, checkpoint, test annotation,
 inference code, seed, and evaluator protocol. A completed run is reused only
@@ -29,13 +29,56 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 DB_PATH = ROOT / "tools/experiment_db/experiments.db"
-RESULT_ROOT = ROOT / "results/d2_test_unified"
-ANN_PATH = ROOT / "data/24_chromosomes_object/coco/test/_annotations.coco.json"
-DATA_ROOT = "data/24_chromosomes_object/coco/"
+RESULT_ROOT: Path
+ANN_PATH: Path
+DATA_ROOT: str
+DATASET_ID: str
+EXPECTED_IMAGES: int
+EXPECTED_CATEGORIES: int
+FAMILY: str
+ARTIFACT_PREFIX: str
 SEED = 42
-PROTOCOL_VERSION = "d2-test-coco-v1"
+PROTOCOL_VERSION: str
 
-MODELS = {
+MODEL_SETS = {
+    "d1": {
+        "karyoflow": {
+            "label": "KaryoFlow",
+            "config": "work_dirs/paired_clean/a4_random_chr2024_seed42/a4_clean_test.py",
+            "checkpoint": "work_dirs/paired_clean/a4_random_chr2024_seed42/best_coco_bbox_mAP_epoch_62.pth",
+        },
+        "karyoflow_lqcr": {
+            "label": "KaryoFlow+LQCR",
+            "config": "work_dirs/paired_clean/lqcr_final_only_chr2024_seed42/capr_quality_final_only_paired_clean_chr2024.py",
+            "checkpoint": "work_dirs/paired_clean/lqcr_final_only_chr2024_seed42/best_coco_bbox_mAP_epoch_5.pth",
+        },
+        "dino_r50": {
+            "label": "DINO R50",
+            "config": "experiments/configs/baselines/benchmark/dino_r50.py",
+            "checkpoint": "work_dirs/baselines/dino_r50_20240904/epoch_107.pth",
+        },
+        "rtmdet_l": {
+            "label": "RTMDet-L",
+            "config": "experiments/configs/baselines/benchmark/rtmdet_l.py",
+            "checkpoint": "work_dirs/baselines/rtmdet_l_20240904/best_coco_bbox_mAP_epoch_52.pth",
+        },
+        "cascade_rcnn": {
+            "label": "Cascade R-CNN",
+            "config": "experiments/configs/baselines/benchmark/cascade_rcnn_r50.py",
+            "checkpoint": "work_dirs/baselines/cascade_rcnn_r50_20240904/best_coco_bbox_mAP_epoch_86.pth",
+        },
+        "diffusiondet": {
+            "label": "DiffusionDet",
+            "config": "experiments/configs/baselines/diffusiondet_ddpm.py",
+            "checkpoint": "work_dirs/multi_seed_aug/ddpm/seed_42/best_coco_bbox_mAP_epoch_79.pth",
+        },
+        "yolox_s": {
+            "label": "YOLOX-S",
+            "config": "experiments/configs/baselines/benchmark/yolox_s.py",
+            "checkpoint": "work_dirs/baselines/yolox_s_20240904/best_coco_bbox_mAP_epoch_150.pth",
+        },
+    },
+    "d2": {
     "karyoflow": {
         "label": "KaryoFlow",
         "config": "experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_dpm_pp_24obj.py",
@@ -71,7 +114,31 @@ MODELS = {
         "config": "experiments/configs/baselines/benchmark_24obj/yolox_s.py",
         "checkpoint": "work_dirs/baselines/yolox_s/best_coco_bbox_mAP_epoch_200.pth",
     },
+    },
 }
+
+MODELS: dict = {}
+
+
+def configure_dataset(dataset: str) -> None:
+    global RESULT_ROOT, ANN_PATH, DATA_ROOT, DATASET_ID
+    global EXPECTED_IMAGES, EXPECTED_CATEGORIES, FAMILY
+    global ARTIFACT_PREFIX, PROTOCOL_VERSION, MODELS
+    if dataset == "d1":
+        DATASET_ID = "D1"
+        DATA_ROOT = "data/Chromosome20240904_NoAug_NoResize_coco/"
+        EXPECTED_IMAGES = 220
+    else:
+        DATASET_ID = "D2"
+        DATA_ROOT = "data/24_chromosomes_object/coco/"
+        EXPECTED_IMAGES = 1000
+    EXPECTED_CATEGORIES = 24
+    RESULT_ROOT = ROOT / f"results/{dataset}_test_unified"
+    ANN_PATH = ROOT / DATA_ROOT / "test/_annotations.coco.json"
+    FAMILY = f"sota_{dataset}_test"
+    ARTIFACT_PREFIX = f"{dataset}-test"
+    PROTOCOL_VERSION = f"{dataset}-test-coco-v1"
+    MODELS = MODEL_SETS[dataset]
 
 METRIC_KEYS = {
     "mAP": "coco/bbox_mAP",
@@ -162,7 +229,7 @@ def resolved_config(model: dict, prediction_prefix: str):
             hook for hook in cfg.custom_hooks
             if not (isinstance(hook, dict) and hook.get("type") == "EMAHook")
         ]
-    cfg.work_dir = "__D2_TEST_EVIDENCE_DIR__"
+    cfg.work_dir = f"__{DATASET_ID}_TEST_EVIDENCE_DIR__"
     return cfg
 
 
@@ -170,14 +237,19 @@ def load_annotation_profile() -> dict:
     source = json.loads(ANN_PATH.read_text(encoding="utf-8"))
     image_ids = [int(row["id"]) for row in source["images"]]
     category_ids = [int(row["id"]) for row in source["categories"]]
-    if len(image_ids) != 1000 or len(set(image_ids)) != 1000:
-        raise RuntimeError(f"Dataset 2 test must contain 1000 unique images, found {len(set(image_ids))}")
-    if len(category_ids) != 24 or len(set(category_ids)) != 24:
-        raise RuntimeError(f"Dataset 2 test must contain 24 unique categories, found {len(set(category_ids))}")
+    if len(image_ids) != EXPECTED_IMAGES or len(set(image_ids)) != EXPECTED_IMAGES:
+        raise RuntimeError(
+            f"{DATASET_ID} test must contain {EXPECTED_IMAGES} unique images, "
+            f"found {len(set(image_ids))}")
+    if len(category_ids) != EXPECTED_CATEGORIES or len(set(category_ids)) != EXPECTED_CATEGORIES:
+        raise RuntimeError(
+            f"{DATASET_ID} test must contain {EXPECTED_CATEGORIES} unique categories, "
+            f"found {len(set(category_ids))}")
     missing = [row.get("file_name", "") for row in source["images"]
                if not (ANN_PATH.parent / row.get("file_name", "")).is_file()]
     if missing:
-        raise RuntimeError(f"Dataset 2 test has {len(missing)} missing images; first={missing[0]!r}")
+        raise RuntimeError(
+            f"{DATASET_ID} test has {len(missing)} missing images; first={missing[0]!r}")
     return {
         "annotation": str(ANN_PATH.relative_to(ROOT)),
         "annotation_sha256": sha256_file(ANN_PATH),
@@ -197,7 +269,7 @@ def protocol_for(name: str, model: dict, cfg_text: str, profile: dict,
         "version": PROTOCOL_VERSION,
         "model_id": name,
         "model_label": model["label"],
-        "dataset": "D2",
+        "dataset": DATASET_ID,
         "split": "test",
         "seed": SEED,
         "images": profile["images"],
@@ -271,7 +343,8 @@ def recompute_metrics(prediction_path: Path, profile: dict) -> tuple[dict, dict]
 
 def validate_metrics(framework: dict, exact: dict, log_text: str, profile: dict) -> None:
     if f"[{profile['images']}/{profile['images']}]" not in log_text:
-        raise RuntimeError("framework log does not confirm evaluation of all 1000 test images")
+        raise RuntimeError(
+            f"framework log does not confirm evaluation of all {profile['images']} test images")
     for metric in METRIC_KEYS:
         value = exact[metric]
         if not math.isfinite(value) or not 0.0 <= value <= 1.0:
@@ -299,13 +372,14 @@ def register_database(summary_path: Path, summary: dict) -> str:
     artifact_sha = sha256_file(summary_path)
     short_key = summary["protocol_hash"][:12]
     model_id = summary["protocol"]["model_id"]
-    artifact_id = f"d2-test-{model_id}-{short_key}"
+    artifact_id = f"{ARTIFACT_PREFIX}-{model_id}-{short_key}"
     relative_path = str(summary_path.relative_to(ROOT))
     timestamp = summary["completed_at"]
     protocol_json = json.dumps(summary["protocol"], sort_keys=True)
 
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    backup = DB_PATH.with_name(f"experiments.db.bak_before_d2test_{dt.datetime.now():%Y%m%d}")
+    backup = DB_PATH.with_name(
+        f"experiments.db.bak_before_{DATASET_ID.lower()}test_{dt.datetime.now():%Y%m%d}")
     if not backup.exists():
         shutil.copy2(DB_PATH, backup)
 
@@ -321,29 +395,32 @@ def register_database(summary_path: Path, summary: dict) -> str:
         conn.execute(
             """INSERT OR IGNORE INTO evidence_artifact
                (artifact_id, server, path, sha256, kind, generated_at, status, notes)
-               VALUES (?, 'ross', ?, ?, 'unified_d2_test_evaluation', ?, 'verified', ?)""",
+               VALUES (?, 'ross', ?, ?, 'unified_test_evaluation', ?, 'verified', ?)""",
             (artifact_id, relative_path, artifact_sha, timestamp,
              "Exact COCO recomputation cross-checked against MMDetection output."),
         )
         for metric, value in summary["metrics_exact"].items():
-            result_id = f"d2-test-{model_id}-{metric.lower()}-{short_key}"
+            result_id = f"{ARTIFACT_PREFIX}-{model_id}-{metric.lower()}-{short_key}"
             row = conn.execute(
                 "SELECT value, protocol_json, artifact_id FROM controlled_result WHERE result_id=?",
                 (result_id,),
             ).fetchone()
-            expected = (value, protocol_json, artifact_id)
-            if row and row != expected:
+            # A completed family aggregate intentionally repoints the row from
+            # this per-run artifact to the immutable aggregate. Reuse remains
+            # valid when the numerical value and full protocol are identical.
+            if row and row[:2] != (value, protocol_json):
                 raise RuntimeError(f"controlled-result collision for {result_id}")
             conn.execute(
                 """INSERT OR IGNORE INTO controlled_result
                    (result_id, family, variant, dataset, split, seed, metric, value,
                     unit, baseline_result_id, delta, protocol_json, artifact_id,
                     evidence_level, paper_eligible, notes)
-                   VALUES (?, 'sota_d2_test', ?, 'D2', 'test', ?, ?, ?, 'absolute',
+                   VALUES (?, ?, ?, ?, 'test', ?, ?, ?, 'absolute',
                            NULL, NULL, ?, ?, 'controlled', 1, ?)""",
-                (result_id, summary["protocol"]["model_label"], str(SEED), metric,
+                (result_id, FAMILY, summary["protocol"]["model_label"], DATASET_ID,
+                 str(SEED), metric,
                  value, protocol_json, artifact_id,
-                 "Unified 1000-image Dataset 2 test evaluation."),
+                 f"Unified {EXPECTED_IMAGES}-image {DATASET_ID} test evaluation."),
             )
         conn.commit()
     except Exception:
@@ -376,7 +453,7 @@ def finalize_aggregate(summaries: list[dict], profile: dict) -> tuple[Path, str]
         })
     records.sort(key=lambda row: row["model_id"])
     aggregate = {
-        "description": "Unified Dataset 2 test evaluation for Table VI detectors",
+        "description": f"Unified {DATASET_ID} test evaluation for Table VI detectors",
         "status": "verified",
         "protocol_version": PROTOCOL_VERSION,
         "completed_at": max(row["completed_at"] for row in summaries),
@@ -385,7 +462,8 @@ def finalize_aggregate(summaries: list[dict], profile: dict) -> tuple[Path, str]
             if key not in {"image_ids", "category_ids"}
         },
         "quality_controls": [
-            "1000 unique test image IDs and 24 category IDs verified",
+            f"{EXPECTED_IMAGES} unique test image IDs and "
+            f"{EXPECTED_CATEGORIES} category IDs verified",
             "COCO maxDets explicitly fixed to [1, 10, 100]",
             "persisted predictions independently recomputed with pycocotools",
             "framework and independent metrics agree after framework rounding",
@@ -396,13 +474,14 @@ def finalize_aggregate(summaries: list[dict], profile: dict) -> tuple[Path, str]
     payload = (json.dumps(aggregate, indent=2, sort_keys=True) + "\n").encode("utf-8")
     aggregate_sha = hashlib.sha256(payload).hexdigest()
     relative_path = Path(
-        f"tools/experiment_db/evidence_sources/d2_test_unified_{aggregate_sha[:12]}.json"
+        f"tools/experiment_db/evidence_sources/{DATASET_ID.lower()}_test_unified_"
+        f"{aggregate_sha[:12]}.json"
     )
     aggregate_path = ROOT / relative_path
     if aggregate_path.exists() and aggregate_path.read_bytes() != payload:
         raise RuntimeError(f"immutable aggregate collision: {aggregate_path}")
     aggregate_path.write_bytes(payload)
-    artifact_id = f"d2-test-unified-{aggregate_sha[:12]}"
+    artifact_id = f"{ARTIFACT_PREFIX}-unified-{aggregate_sha[:12]}"
 
     conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA foreign_keys=ON")
@@ -417,22 +496,23 @@ def finalize_aggregate(summaries: list[dict], profile: dict) -> tuple[Path, str]
         conn.execute(
             """INSERT OR IGNORE INTO evidence_artifact
                (artifact_id, server, path, sha256, kind, generated_at, status, notes)
-               VALUES (?, 'ross', ?, ?, 'unified_d2_test_aggregate', ?, 'verified', ?)""",
+               VALUES (?, 'ross', ?, ?, 'unified_test_aggregate', ?, 'verified', ?)""",
             (artifact_id, str(relative_path), aggregate_sha, aggregate["completed_at"],
-             "Immutable compact evidence; raw predictions remain under results/d2_test_unified."),
+             f"Immutable compact evidence; raw predictions remain under "
+             f"results/{DATASET_ID.lower()}_test_unified/"),
         )
         result_ids = []
         for row in records:
             short_key = row["protocol_hash"][:12]
             result_ids.extend(
-                f"d2-test-{row['model_id']}-{metric.lower()}-{short_key}"
+                f"{ARTIFACT_PREFIX}-{row['model_id']}-{metric.lower()}-{short_key}"
                 for metric in METRIC_KEYS
             )
         cursor = conn.execute(
             f"""UPDATE controlled_result SET artifact_id=?
-                WHERE family='sota_d2_test'
+                WHERE family=?
                   AND result_id IN ({','.join('?' for _ in result_ids)})""",
-            (artifact_id, *result_ids),
+            (artifact_id, FAMILY, *result_ids),
         )
         expected_rows = len(records) * len(METRIC_KEYS)
         if cursor.rowcount != expected_rows:
@@ -488,7 +568,7 @@ def run_model(name: str, model: dict, profile: dict, code_sha: str,
         "--dataset", "test",
         "--gpu-id", str(gpu_id),
         "--seed", str(SEED),
-        "--exp-name", f"d2_test_{name}_{protocol_hash[:12]}",
+        "--exp-name", f"{DATASET_ID.lower()}_test_{name}_{protocol_hash[:12]}",
     ]
     env = os.environ.copy()
     env.update({
@@ -550,29 +630,40 @@ def run_model(name: str, model: dict, profile: dict, code_sha: str,
 
 def main() -> None:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset", choices=["d1", "d2"], default="d2")
     parser.add_argument("--gpu-id", type=int, default=0)
-    parser.add_argument("--models", nargs="*", choices=sorted(MODELS), default=list(MODELS))
+    parser.add_argument("--models", nargs="*", default=None)
     parser.add_argument("--plan", action="store_true")
     args = parser.parse_args()
+
+    configure_dataset(args.dataset)
+    selected_models = args.models if args.models is not None else list(MODELS)
+    unknown = sorted(set(selected_models) - set(MODELS))
+    if unknown:
+        parser.error(
+            f"unknown models for {args.dataset}: {unknown}; "
+            f"choose from {sorted(MODELS)}")
 
     os.chdir(ROOT)
     profile = load_annotation_profile()
     code_sha = code_fingerprint()
     print(
-        f"Dataset 2 test: images={profile['images']} annotations={profile['annotations']} "
+        f"{DATASET_ID} test: images={profile['images']} "
+        f"annotations={profile['annotations']} "
         f"categories={profile['categories']} annotation_sha={profile['annotation_sha256']}"
     )
     print(f"Inference code fingerprint: {code_sha}")
 
     summaries = []
-    for name in args.models:
+    for name in selected_models:
         summaries.append(run_model(name, MODELS[name], profile, code_sha, args.gpu_id, args.plan))
 
     if not args.plan:
         completed = [row for row in summaries if row.get("status") == "verified"]
-        if len(completed) != len(args.models):
-            raise RuntimeError(f"only {len(completed)}/{len(args.models)} models verified")
-        print("\nUnified Dataset 2 test results:")
+        if len(completed) != len(selected_models):
+            raise RuntimeError(
+                f"only {len(completed)}/{len(selected_models)} models verified")
+        print(f"\nUnified {DATASET_ID} test results:")
         for row in completed:
             metrics = row["metrics_exact"]
             print(

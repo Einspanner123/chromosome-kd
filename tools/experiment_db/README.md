@@ -33,13 +33,14 @@ physical runs use `server:work_dir` and cannot overwrite the ross row; volatile
 progress observations may additionally use `run_snapshot`. The curated
 `evidence_manifest.json` contains paper results and original source addresses.
 
-## Unified Dataset 2 test evaluation
+## Unified held-out test evaluation
 
-Use the resumable evaluator for checkpoint-linked comparisons on the 1,000-image
-Dataset 2 test split:
+Use the resumable evaluator for checkpoint-linked comparisons on either held-out
+test split (Dataset 1: 220 images; Dataset 2: 1,000 images):
 
 ```bash
-python tools/experiment_db/d2_test_unified.py --gpu-id 0
+python tools/experiment_db/d2_test_unified.py --dataset d1 --gpu-id 0
+python tools/experiment_db/d2_test_unified.py --dataset d2 --gpu-id 0
 ```
 
 The evaluator explicitly fixes COCO `maxDets` to `(1, 10, 100)`, persists raw
@@ -47,9 +48,15 @@ predictions, independently recomputes metrics with `pycocotools`, and registers
 results only when the framework and independent values agree. Its run key covers
 the resolved config, checkpoint, annotation, inference code, seed, and protocol.
 A rerun verifies stored hashes and reuses matching evidence without invoking the
-GPU. Large predictions remain under `results/d2_test_unified/`; the immutable,
+GPU. Large predictions remain under `results/d1_test_unified/` or
+`results/d2_test_unified/`; the immutable,
 Git-sized aggregate in `evidence_sources/` and `experiments.db` are the canonical
 record.
+
+Accuracy evaluations may use checkpoints trained or evaluated on different GPU
+models, provided that the random seed and full evaluation protocol are recorded.
+Hardware consistency is required only for latency, throughput, memory, and other
+efficiency comparisons; those measurements use the designated Ross GPU.
 
 ## Claim policy
 
