@@ -176,10 +176,10 @@ def coordinate_path(fig: plt.Figure, rect: tuple[float, float, float, float],
                     color=C_LIGHT, lw=0.45)
         ax.add_patch(Rectangle((left+nx*tile_w, tile_y+(1-ny-nh)*tile_h),
                                nw*tile_w, nh*tile_h, fill=False,
-                               edgecolor=color, lw=1.25,
+                               edgecolor=color, lw=0.82,
                                linestyle=(0, (2, 1.5)) if t == 1 else "-"))
         ax.plot(left+(nx+nw/2)*tile_w, tile_y+(1-ny-nh/2)*tile_h,
-                marker="o", ms=2.3, color=color)
+                marker="o", ms=1.65, color=color)
         ax.text(left+tile_w/2, 0.86, f"t={t:.2f}", ha="center", va="center",
                 fontsize=5.4, color=color, weight="bold" if t == 0 else "normal")
         ax.text(left+tile_w/2, 0.23,
@@ -317,8 +317,15 @@ def main() -> None:
                             (crop[1] + crop[3]) / 2])
     final_centers = np.array([[box[0] + box[2] / 2,
                                box[1] + box[3] / 2] for box in final_boxes])
-    trajectory_index = int(np.argmin(np.linalg.norm(final_centers - crop_center,
-                                                     axis=1)))
+    noise_centers = np.array([[box[0] + box[2] / 2,
+                               box[1] + box[3] / 2] for box in noise_boxes])
+    # Keep the explanatory trajectory spatially central, then prefer the
+    # candidate with the clearest center displacement among the four nearest.
+    center_distance = np.linalg.norm(final_centers - crop_center, axis=1)
+    central_candidates = np.argsort(center_distance)[:4]
+    displacement = np.linalg.norm(final_centers - noise_centers, axis=1)
+    trajectory_index = int(central_candidates[
+        np.argmax(displacement[central_candidates])])
     coordinate_path(fig, (0.022, 0.075, 0.275, 0.32),
                     noise_boxes[trajectory_index], final_boxes[trajectory_index], crop)
     architecture_panel(fig, (0.325, 0.065, 0.655, 0.335))
