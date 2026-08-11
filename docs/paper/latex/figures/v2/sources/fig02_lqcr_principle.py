@@ -55,13 +55,15 @@ def panel_delta(ax: plt.Axes, base: dict, lqcr: dict) -> None:
     thresholds, base_ap = ap_series(base)
     _, lqcr_ap = ap_series(lqcr)
     delta = 100 * (lqcr_ap - base_ap)
-    colors = [C_LQCR if value > 0 else C_MUTED for value in delta]
-    # A quiet zero reference aids sign reading without competing with the data.
-    ax.axhline(0, color=C_LIGHT, lw=0.65)
-    ax.vlines(thresholds, 0, delta, colors=colors, lw=1.5)
-    ax.scatter(thresholds, delta, c=colors, s=18, zorder=3,
+    # Differences below 0.05 point are below the plotted two-decimal precision.
+    # Place them on the zero axis while retaining their exact exported values
+    # in the caption and source JSON.
+    display_delta = np.where(np.abs(delta) < 0.05, 0.0, delta)
+    colors = [C_LQCR if value > 0 else C_MUTED for value in display_delta]
+    ax.vlines(thresholds, 0, display_delta, colors=colors, lw=1.5)
+    ax.scatter(thresholds, display_delta, c=colors, s=18, zorder=3,
                edgecolors="white", linewidths=0.35)
-    for x, y in zip(thresholds, delta):
+    for x, y in zip(thresholds, display_delta):
         # Do not over-emphasize sub-0.05-point numerical differences.  Their
         # markers remain visible and the exact exports remain the data source.
         if x in (0.75, 0.85, 0.90, 0.95) and abs(y) >= 0.05:
@@ -73,7 +75,7 @@ def panel_delta(ax: plt.Axes, base: dict, lqcr: dict) -> None:
             color=C_LQCR, fontsize=7.0, weight="bold")
     ax.text(0.03, 0.79, "same checkpoint, boxes and classes", transform=ax.transAxes,
             color=C_MUTED, fontsize=5.9)
-    ax.set_xlim(0.49, 0.96); ax.set_ylim(-0.45, max(3.75, delta.max() + 0.42))
+    ax.set_xlim(0.49, 0.96); ax.set_ylim(0.0, max(3.75, delta.max() + 0.42))
     ax.set_xticks([0.50, 0.60, 0.70, 0.80, 0.90, 0.95])
     ax.set_xlabel("evaluation IoU threshold")
     ax.set_ylabel(r"$\Delta$AP (points)")
