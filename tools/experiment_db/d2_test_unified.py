@@ -206,6 +206,15 @@ def resolved_config(model: dict, prediction_prefix: str):
     from mmengine.config import Config
 
     cfg = Config.fromfile(str(ROOT / model["config"]))
+
+    def merge_override(target: object, updates: dict) -> None:
+        for key, value in updates.items():
+            if isinstance(value, dict):
+                merge_override(target[key], value)
+            else:
+                target[key] = value
+
+    merge_override(cfg, model.get("overrides", {}))
     patch_dataset(cfg.test_dataloader.get("dataset", {}))
     cfg.test_dataloader["batch_size"] = 1
     cfg.test_dataloader["drop_last"] = False

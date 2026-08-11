@@ -173,6 +173,67 @@ def main():
             except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
                 errors.append(
                     f'{artifact_id}: malformed unified test evidence ({exc})')
+        elif kind == 'inference_ablation_test_aggregate':
+            try:
+                source = json.load(open(abs_path))
+                results = source['results']
+                groups = source['groups']
+                expected_counts = {
+                    'solver': 12,
+                    'topk_renewal': 10,
+                    'lqcr_beta': 5,
+                }
+                if source.get('status') != 'verified':
+                    errors.append(f'{artifact_id}: ablation aggregate is not verified')
+                for group in groups:
+                    actual = sum(row['group'] == group for row in results)
+                    if actual != expected_counts[group]:
+                        errors.append(
+                            f'{artifact_id}: {group} expected '
+                            f'{expected_counts[group]} variants, got {actual}')
+                dataset = source['dataset']
+                if (dataset['images'], dataset['categories']) != (1000, 24):
+                    errors.append(f'{artifact_id}: invalid D2 ablation dataset shape')
+                for row in results:
+                    protocol = row['protocol']
+                    shape = (protocol['dataset'], protocol['split'],
+                             protocol['images'], protocol['categories'],
+                             protocol['max_dets'])
+                    if shape != ('D2', 'test', 1000, 24, 100):
+                        errors.append(
+                            f"{artifact_id}: invalid protocol for {row['model_id']}")
+                    summary_path = os.path.join(ROOT, row['source_summary'])
+                    if not os.path.isfile(summary_path):
+                        errors.append(
+                            f"{artifact_id}: missing summary for {row['model_id']}")
+                    else:
+                        digest = hashlib.sha256()
+                        with open(summary_path, 'rb') as handle:
+                            for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+                                digest.update(chunk)
+                        if digest.hexdigest() != row['source_summary_sha256']:
+                            errors.append(
+                                f"{artifact_id}: summary hash mismatch for "
+                                f"{row['model_id']}")
+                    family = f"{row['group']}_d2_test"
+                    for metric, value in row['metrics'].items():
+                        if not isinstance(value, (int, float)) or not 0 <= value <= 1:
+                            errors.append(
+                                f"{artifact_id}: invalid {row['model_id']} "
+                                f"{metric}={value}")
+                        db_row = conn.execute('''SELECT value
+                            FROM controlled_result
+                            WHERE family=? AND variant=? AND metric=?
+                              AND artifact_id=?''',
+                            (family, row['model_label'], metric,
+                             artifact_id)).fetchone()
+                        if db_row is None or abs(db_row[0] - value) > 1e-12:
+                            errors.append(
+                                f"{artifact_id}: DB mismatch for "
+                                f"{row['model_id']} {metric}")
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                errors.append(
+                    f'{artifact_id}: malformed inference ablation evidence ({exc})')
 
     orphan = conn.execute('''SELECT COUNT(*) FROM finding_evidence fe
         LEFT JOIN controlled_result r ON fe.result_id=r.result_id
