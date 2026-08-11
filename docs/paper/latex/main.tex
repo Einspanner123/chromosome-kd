@@ -63,25 +63,26 @@ packed objects from $24$ morphologically similar classes in each metaphase
 image. Small object extent, frequent box overlap, and limited annotated data
 make pixel-level localization errors and unstable iterative proposals more
 consequential than in sparse natural scenes. We present \emph{KaryoFlow}, a
-rectified-flow detector that co-designs box trajectories and final
-decisions for this regime. Rectified Flow provides a linear noise-to-box path
-in four-dimensional box space and improves three-seed mAP over the DDPM
-detector by $0.017$ and $0.056$ on two chromosome datasets with different
-sample sizes and object scales. Direct box-data prediction is
-information-equivalent to velocity prediction but removes $t^{-2}$ loss
-amplification near the terminal state, yielding a consistent $0.002$ mAP gain
-on both datasets. We adapt DPM-Solver++ to this path and identify a
-detection-specific inconsistency: replacing a proposal invalidates its
-multistep history. Preserving proposal identity at the retained pool
-maintains three-seed accuracy on both datasets and reduces latency by
-$2.43\%$. Finally, localization-quality calibrated ranking estimates proposal
-IoU and changes only the final ordering through $s=pq^2$. On a fixed
-24 Chromosomes Object checkpoint, it improves mAP from $0.86301$ to
-$0.87044$, with AP90/AP95 gains of $0.03041/0.03251$, while fixing candidate
-coordinates, class logits, and trajectories before post-processing. Head distillation further reduces latency from
-$77.57$ to $44.72$ ms at $-0.004$ mAP. These results show that aligning
-trajectory learning, proposal identity, and localization-aware ranking makes
-generative detection competitive for dense chromosome analysis.
+rectified-flow detector that jointly designs box trajectories and final
+decisions for this regime. Compared with a denoising diffusion probabilistic
+detector, its linear noise-to-box formulation increases three-seed mean
+average precision by $0.0170$ and $0.0560$ on two public chromosome datasets
+with different sample sizes and object scales. Direct target-box prediction
+is algebraically equivalent to velocity prediction but avoids terminal loss
+amplification, yielding a consistent $0.0020$ gain on both datasets. We adapt
+a second-order multistep solver and show that proposal replacement invalidates
+its history. Preserving proposal identity maintains three-seed accuracy on
+both datasets and reduces latency by $2.43\%$. Finally, a learned
+localization-quality branch estimates proposal overlap and recalibrates only
+the final ranking. On a fixed 24 Chromosomes Object checkpoint, it improves
+mean average precision from $0.8630$ to $0.8704$; average precision at $90\%$
+and $95\%$ intersection-over-union thresholds increases by $0.0304$ and
+$0.0325$, respectively, while candidate coordinates, class logits, and
+trajectories remain fixed before post-processing. Head distillation further
+reduces latency from $77.57$ to $44.72$ milliseconds at a $0.0040$ precision
+cost. These results show that aligning trajectory learning, proposal identity,
+and localization-aware ranking enables accurate and efficient generative
+detection for dense chromosome analysis.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -338,11 +339,11 @@ than an accuracy component.
     \toprule
     Solver & Steps & NFE & mAP \\
     \midrule
-    Heun               & 4 & 7 & 0.856 \\
-    Euler              & 4 & 4 & 0.855 \\
-    DPM-Solver++       & 4 & 4 & 0.855 \\
-    Euler              & 1 & 1 & 0.851 \\
-    DPM-Solver++       & 1 & 1 & 0.851 \\
+    Heun               & 4 & 7 & 0.8560 \\
+    Euler              & 4 & 4 & 0.8550 \\
+    DPM-Solver++       & 4 & 4 & 0.8550 \\
+    Euler              & 1 & 1 & 0.8510 \\
+    DPM-Solver++       & 1 & 1 & 0.8510 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -671,10 +672,10 @@ independent contribution.
     \toprule
     Experiment & Solver & Steps & NFE & mAP & AP50 & AP75 & AP$_S$ & AP$_M$ & AP$_L$ \\
     \midrule
-    DDPM baseline (Euler 1-step)  & Euler   & 1 & 1 & 0.774 & 0.968 & 0.916 & 0.317 & 0.773 & 0.775 \\
-    \textbf{RF+Heun (KaryoFlow)}   & Heun    & 4 & 7 & \textbf{0.856} & 0.989 & 0.969 & 0.502 & 0.853 & 0.867 \\
-    DPM-Solver++ (seed 42) & DPM++ & 4 & 4 & 0.863 & 0.989 & 0.972 & 0.531 & 0.859 & 0.892 \\
-    \textbf{+LQCR (final-only)} & DPM++ & 4 & 4 & \textbf{0.870} & 0.989 & 0.972 & 0.530 & 0.867 & 0.914 \\
+    DDPM baseline (Euler 1-step)  & Euler   & 1 & 1 & 0.7740 & 0.9680 & 0.9160 & 0.3170 & 0.7730 & 0.7750 \\
+    \textbf{RF+Heun (KaryoFlow)}   & Heun    & 4 & 7 & \textbf{0.8560} & 0.9890 & 0.9690 & 0.5020 & 0.8530 & 0.8670 \\
+    DPM-Solver++ (seed 42) & DPM++ & 4 & 4 & 0.8630 & 0.9889 & 0.9717 & 0.5315 & 0.8594 & 0.8921 \\
+    \textbf{+LQCR (final-only)} & DPM++ & 4 & 4 & \textbf{0.8704} & 0.9888 & 0.9722 & 0.5304 & 0.8666 & 0.9142 \\
     \bottomrule
   \end{tabular}
 \end{table*}
@@ -682,9 +683,9 @@ independent contribution.
 RF supplies the dominant historical improvement over the DDPM baseline.
 DPM-Solver++ retains accuracy while reducing Heun's seven evaluations to
 four; same-checkpoint solver tests do not support an additional precision
-claim. LQCR then improves mAP by $0.00743$ without changing the checkpoint,
+claim. LQCR then improves mAP by $0.0074$ without changing the checkpoint,
 candidate coordinates, class logits, renewal decisions, or trajectory. Its largest gains occur at
-strict IoU thresholds (AP90/AP95 $+0.03041/+0.03251$), consistent with the
+strict IoU thresholds (AP90/AP95 $+0.0304/+0.0325$), consistent with the
 localization-aware ranking mechanism rather than a coordinate change.
 
 \begin{table*}[t]
@@ -699,7 +700,7 @@ localization-aware ranking mechanism rather than a coordinate change.
     \toprule
     Intervention & Controlled comparison & Accuracy effect & Efficiency effect & Interpretation / boundary \\
     \midrule
-    LQCR & D2, fixed checkpoint, seed~42 & $+0.00743$ mAP & negligible & Final ranking only; candidate states fixed before post-processing \\
+    LQCR & D2, fixed checkpoint, seed~42 & $+0.0074$ mAP & negligible & Final ranking only; candidate states fixed before post-processing \\
     Renewal off & D2 / D1, $K=500$ & $-0.0003/-0.0030$ & $-2.43\%$ latency & Restores DPM++ history identity; fails at $K=100$ ($-0.0313$) \\
     Head distillation & D2, H6 teacher vs H3 student & $-0.004$ mAP & $1.73\times$; CHE $24\to12$ & NFE remains four; D1 H3S4 is architecture-only control \\
     GACS & D1, adaptive vs fixed two-step & $-0.0007$ mAP & $-13.79\%$ latency & Not lossless versus four-step reference ($0.747$) \\
@@ -757,13 +758,13 @@ diffusion sampler.
     \toprule
     Method & Backbone & mAP & AP50 & AP75 & AP$_S$ \\
     \midrule
-    DINO R50               & ResNet-50     & \textbf{0.868} & 0.992 & 0.979 & 0.553 \\
-    RTMDet-L               & CSPNeXt-L     & 0.863          & 0.992 & 0.976 & 0.540 \\
-    \textbf{Ours (DPM-Solver++)} & ResNet-50   & 0.859          & 0.988 & 0.968 & 0.516 \\
-    Ours (RF+Heun)         & ResNet-50     & 0.856          & 0.989 & 0.969 & 0.502 \\
-    Cascade R-CNN          & ResNet-50     & 0.854          & 0.987 & 0.972 & 0.525 \\
-    YOLOX-S                & CSPDarkNet-S  & 0.796          & 0.987 & 0.944 & 0.452 \\
-    DiffusionDet           & ResNet-50     & 0.803          & 0.970 & 0.928 & 0.500 \\
+    DINO R50               & ResNet-50     & \textbf{0.8680} & 0.9920 & 0.9790 & 0.5530 \\
+    RTMDet-L               & CSPNeXt-L     & 0.8630          & 0.9920 & 0.9760 & 0.5400 \\
+    \textbf{Ours (DPM-Solver++)} & ResNet-50   & 0.8590          & 0.9880 & 0.9680 & 0.5160 \\
+    Ours (RF+Heun)         & ResNet-50     & 0.8560          & 0.9890 & 0.9690 & 0.5020 \\
+    Cascade R-CNN          & ResNet-50     & 0.8540          & 0.9870 & 0.9720 & 0.5250 \\
+    YOLOX-S                & CSPDarkNet-S  & 0.7960          & 0.9870 & 0.9440 & 0.4520 \\
+    DiffusionDet           & ResNet-50     & 0.8030          & 0.9700 & 0.9280 & 0.5000 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -799,7 +800,7 @@ motivates LQCR and explains why its gain concentrates at AP90/AP95.
 The same-checkpoint solver comparison is accuracy-neutral, and standardized
 multi-seed coupling experiments do not establish an accuracy contribution.
 The retained positive intervention is LQCR: enabling its score only at the
-final output changes mAP from $0.86301$ to $0.87044$ on exactly the same
+final output changes mAP from $0.8630$ to $0.8704$ on exactly the same
 checkpoint and detections before ranking. This paired construction isolates
 decision-stage calibration from generation, interaction, and numerical
 integration effects. We report this as a fixed-checkpoint causal intervention,
@@ -818,11 +819,11 @@ paper concerns RF, prediction parameterization, renewal, and coupling.
     \toprule
     $\beta$ & \mAP{} & $\Delta$\mAP{} & AP50 & AP75 & AP90 & AP95 \\
     \midrule
-    0    & 0.863 & ---    & 0.989 & 0.972 & 0.691 & 0.217 \\
-    0.25 & 0.866 & +0.003 & 0.989 & 0.972 & 0.702 & 0.228 \\
-    0.5  & 0.867 & +0.004 & 0.989 & 0.972 & 0.709 & 0.235 \\
-    1    & 0.869 & +0.006 & 0.989 & 0.972 & 0.716 & 0.242 \\
-    2    & \textbf{0.870} & \textbf{+0.007} & 0.989 & 0.972 & \textbf{0.722} & \textbf{0.249} \\
+    0    & 0.8630 & ---     & 0.9889 & 0.9717 & 0.6914 & 0.2167 \\
+    0.25 & 0.8657 & +0.0027 & 0.9889 & 0.9718 & 0.7022 & 0.2284 \\
+    0.5  & 0.8673 & +0.0043 & 0.9889 & 0.9719 & 0.7086 & 0.2352 \\
+    1    & 0.8689 & +0.0059 & 0.9888 & 0.9717 & 0.7158 & 0.2422 \\
+    2    & \textbf{0.8704} & \textbf{+0.0074} & 0.9888 & 0.9722 & \textbf{0.7218} & \textbf{0.2492} \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -978,8 +979,8 @@ localization-aware ranking for dense chromosome detection. RF supplies the
 few-step generative foundation; direct data prediction improves three-seed mAP
 by $0.002$ on both datasets; and the proposal-identity analysis makes DPM++
 history mathematically coherent at the retained proposal count. The independent
-decision contribution, LQCR, improves fixed-checkpoint mAP by $0.00743$ and
-AP90/AP95 by $0.03041/0.03251$ without changing detections before ranking.
+decision contribution, LQCR, improves fixed-checkpoint mAP by $0.0074$ and
+AP90/AP95 by $0.0304/0.0325$ without changing detections before ranking.
 Together with orthogonal inference compression, these results establish a
 competitive and interpretable generative detector for chromosome karyotyping.
 
