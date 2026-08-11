@@ -1,0 +1,73 @@
+{
+  "artifact_sha256": {
+    "evaluation.log": "4f3cbd2b1c77232d1d7113465ca882e540ebd085de6b3365a41e9f434cadc2f6",
+    "predictions.bbox.json": "9f25ff8fe21f2c0204b511bf8dc616485fde06eea8e626c76646e8a3fd97a595",
+    "resolved_test_config.py": "c3abd5cfb8fd07548f860c132ac8b9485f052678efdec6e726571ff0cd652c8b"
+  },
+  "command": [
+    "/home/linkst/miniconda3/envs/chromo-new/bin/python",
+    "experiments/runners/test.py",
+    "results/d2_test_inference_ablations/solver/dpm_solver_pp_3/77d2752edea385ac966cc429a7ecd6f00b540aa393591103bfb731a83d9c4b31/resolved_test_config.py",
+    "--checkpoint",
+    "work_dirs/a1_rf_heun_24obj/best_coco_bbox_mAP_epoch_62.pth",
+    "--dataset",
+    "test",
+    "--gpu-id",
+    "0",
+    "--seed",
+    "42",
+    "--exp-name",
+    "d2_test_dpm_solver_pp_3_77d2752edea3"
+  ],
+  "completed_at": "2026-08-11T17:57:41.782384+00:00",
+  "coverage": {
+    "images_with_predictions": 1000,
+    "prediction_rows": 349645,
+    "test_images": 1000,
+    "unknown_category_ids": 0,
+    "unknown_image_ids": 0
+  },
+  "elapsed_seconds": 118.76682376861572,
+  "metrics_exact": {
+    "AP50": 0.9877760408281295,
+    "AP75": 0.9689514932147524,
+    "AP_L": 0.8512749836743649,
+    "AP_M": 0.8546983530991857,
+    "AP_S": 0.5754845467747898,
+    "mAP": 0.8571874098180363
+  },
+  "metrics_framework": {
+    "AP50": 0.988,
+    "AP75": 0.969,
+    "AP_L": 0.851,
+    "AP_M": 0.855,
+    "AP_S": 0.575,
+    "mAP": 0.857
+  },
+  "protocol": {
+    "annotation_path": "data/24_chromosomes_object/coco/test/_annotations.coco.json",
+    "annotation_sha256": "110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495",
+    "annotations": 45980,
+    "categories": 24,
+    "checkpoint_path": "work_dirs/a1_rf_heun_24obj/best_coco_bbox_mAP_epoch_62.pth",
+    "checkpoint_sha256": "0c408205bd360e2baf71ee9789b531f585aa4a0516f23c91890983a778d4fe9d",
+    "config_path": "experiments/configs/ldmdet/directions/mainline_ablation_24obj/a1_rf_heun_24obj.py",
+    "config_source_sha256": "be724da3b053cb9c35a58dcebd41e791c3023b7a6870b790772b7febc9960da9",
+    "dataset": "D2",
+    "deterministic_seed": true,
+    "evaluator": "COCO bbox",
+    "images": 1000,
+    "inference_code_sha256": "134108fcaf8517f490feb8a74583d74e5269c999def42de899a86be23bcb4072",
+    "max_dets": 100,
+    "model_id": "dpm_solver_pp_3",
+    "model_label": "Dpm Solver Pp / 3 step",
+    "resolved_config_sha256": "61bcfb22ca838279542c05284de54d44d329e541b85347f7ec0eed97bc48ff08",
+    "seed": 42,
+    "split": "test",
+    "test_batch_size": 1,
+    "version": "d2-test-solver-v1"
+  },
+  "protocol_hash": "77d2752edea385ac966cc429a7ecd6f00b540aa393591103bfb731a83d9c4b31",
+  "started_at": "2026-08-11T17:55:30.727126+00:00",
+  "status": "verified"
+}

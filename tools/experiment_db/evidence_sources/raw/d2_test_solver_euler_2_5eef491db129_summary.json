@@ -1,0 +1,73 @@
+{
+  "artifact_sha256": {
+    "evaluation.log": "40feca1b40a6529982c5d53c772611b36dac4a373bdc404613678eeda1a0add8",
+    "predictions.bbox.json": "b64d7db48a2457cee8de4cb261b2ef02ca90913d172ec85cafb2e4f775740467",
+    "resolved_test_config.py": "75569ea69f8de6850a6f816440f2f8102ee8992af6852e71d8b21564938917b7"
+  },
+  "command": [
+    "/home/linkst/miniconda3/envs/chromo-new/bin/python",
+    "experiments/runners/test.py",
+    "results/d2_test_inference_ablations/solver/euler_2/5eef491db129e079c47c30800caaee9de8292c881832d339468cb6d6a56e51f4/resolved_test_config.py",
+    "--checkpoint",
+    "work_dirs/a1_rf_heun_24obj/best_coco_bbox_mAP_epoch_62.pth",
+    "--dataset",
+    "test",
+    "--gpu-id",
+    "0",
+    "--seed",
+    "42",
+    "--exp-name",
+    "d2_test_euler_2_5eef491db129"
+  ],
+  "completed_at": "2026-08-11T17:37:30.710530+00:00",
+  "coverage": {
+    "images_with_predictions": 1000,
+    "prediction_rows": 251286,
+    "test_images": 1000,
+    "unknown_category_ids": 0,
+    "unknown_image_ids": 0
+  },
+  "elapsed_seconds": 92.65117454528809,
+  "metrics_exact": {
+    "AP50": 0.9876268461405183,
+    "AP75": 0.967619498689688,
+    "AP_L": 0.8541813107629738,
+    "AP_M": 0.852479969973996,
+    "AP_S": 0.5811545473866775,
+    "mAP": 0.8553128919847327
+  },
+  "metrics_framework": {
+    "AP50": 0.988,
+    "AP75": 0.968,
+    "AP_L": 0.854,
+    "AP_M": 0.852,
+    "AP_S": 0.581,
+    "mAP": 0.855
+  },
+  "protocol": {
+    "annotation_path": "data/24_chromosomes_object/coco/test/_annotations.coco.json",
+    "annotation_sha256": "110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495",
+    "annotations": 45980,
+    "categories": 24,
+    "checkpoint_path": "work_dirs/a1_rf_heun_24obj/best_coco_bbox_mAP_epoch_62.pth",
+    "checkpoint_sha256": "0c408205bd360e2baf71ee9789b531f585aa4a0516f23c91890983a778d4fe9d",
+    "config_path": "experiments/configs/ldmdet/directions/mainline_ablation_24obj/a1_rf_heun_24obj.py",
+    "config_source_sha256": "be724da3b053cb9c35a58dcebd41e791c3023b7a6870b790772b7febc9960da9",
+    "dataset": "D2",
+    "deterministic_seed": true,
+    "evaluator": "COCO bbox",
+    "images": 1000,
+    "inference_code_sha256": "134108fcaf8517f490feb8a74583d74e5269c999def42de899a86be23bcb4072",
+    "max_dets": 100,
+    "model_id": "euler_2",
+    "model_label": "Euler / 2 step",
+    "resolved_config_sha256": "a28ef0d8674a6222e2f8f4dacb213222113d89c1bb0357c24c11e891100879fa",
+    "seed": 42,
+    "split": "test",
+    "test_batch_size": 1,
+    "version": "d2-test-solver-v1"
+  },
+  "protocol_hash": "5eef491db129e079c47c30800caaee9de8292c881832d339468cb6d6a56e51f4",
+  "started_at": "2026-08-11T17:35:48.040409+00:00",
+  "status": "verified"
+}

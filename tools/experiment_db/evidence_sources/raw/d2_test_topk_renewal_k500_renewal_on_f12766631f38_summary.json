@@ -1,0 +1,73 @@
+{
+  "artifact_sha256": {
+    "evaluation.log": "1222b228ad09fd973972f0db7824f2803976e8176029ad5e2a17d4aedf7ad814",
+    "predictions.bbox.json": "49727df6eafcfb56731f359148aa6823220fd100870b0ab25493842219ef7527",
+    "resolved_test_config.py": "6c3299ef31949702f634354d7cb5ce03fa9dc0ede3ecbb3a0d6308fe4d3d57b7"
+  },
+  "command": [
+    "/home/linkst/miniconda3/envs/chromo-new/bin/python",
+    "experiments/runners/test.py",
+    "results/d2_test_inference_ablations/topk_renewal/k500_renewal_on/f12766631f384a444e0c752b08f2fee3c075b733ad6e3091c0e39e974cf43728/resolved_test_config.py",
+    "--checkpoint",
+    "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
+    "--dataset",
+    "test",
+    "--gpu-id",
+    "1",
+    "--seed",
+    "42",
+    "--exp-name",
+    "d2_test_k500_renewal_on_f12766631f38"
+  ],
+  "completed_at": "2026-08-11T17:38:17.825738+00:00",
+  "coverage": {
+    "images_with_predictions": 1000,
+    "prediction_rows": 395631,
+    "test_images": 1000,
+    "unknown_category_ids": 0,
+    "unknown_image_ids": 0
+  },
+  "elapsed_seconds": 184.77332973480225,
+  "metrics_exact": {
+    "AP50": 0.9882092626008928,
+    "AP75": 0.970523942723845,
+    "AP_L": 0.8879557350400031,
+    "AP_M": 0.8568939253093085,
+    "AP_S": 0.5766618461672848,
+    "mAP": 0.8594982940585988
+  },
+  "metrics_framework": {
+    "AP50": 0.988,
+    "AP75": 0.971,
+    "AP_L": 0.888,
+    "AP_M": 0.857,
+    "AP_S": 0.577,
+    "mAP": 0.859
+  },
+  "protocol": {
+    "annotation_path": "data/24_chromosomes_object/coco/test/_annotations.coco.json",
+    "annotation_sha256": "110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495",
+    "annotations": 45980,
+    "categories": 24,
+    "checkpoint_path": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
+    "checkpoint_sha256": "efdbb05f2265d5e45c8c078b4ce43a5298517cdfd18f805b59a2d7e9a36e676a",
+    "config_path": "experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_dpm_pp_24obj.py",
+    "config_source_sha256": "b7cd990cbe6a5ac942b9e664ce266d8c58a0899e666d91bccc19a4fdecaeeb73",
+    "dataset": "D2",
+    "deterministic_seed": true,
+    "evaluator": "COCO bbox",
+    "images": 1000,
+    "inference_code_sha256": "134108fcaf8517f490feb8a74583d74e5269c999def42de899a86be23bcb4072",
+    "max_dets": 100,
+    "model_id": "k500_renewal_on",
+    "model_label": "K=500, renewal on",
+    "resolved_config_sha256": "f54e4df52191e287c799a8346d0a06ac0ce3a3bf6e50718a33b0d244b17b47d5",
+    "seed": 42,
+    "split": "test",
+    "test_batch_size": 1,
+    "version": "d2-test-topk-renewal-v1"
+  },
+  "protocol_hash": "f12766631f384a444e0c752b08f2fee3c075b733ad6e3091c0e39e974cf43728",
+  "started_at": "2026-08-11T17:34:59.228801+00:00",
+  "status": "verified"
+}
