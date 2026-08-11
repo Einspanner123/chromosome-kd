@@ -142,7 +142,7 @@
 \@writefile{lot}{\contentsline {table}{\numberline {VII}{\ignorespaces Learned-quality exponent sweep on Dataset~2 validation (seed 42). The $\beta =0$ row disables quality ranking. These are learned-$q$ results, not ground-truth-IoU oracle rankings; all rows use the same single-image precision-diagnostic protocol.}}{8}{}\protected@file@percent }
 \newlabel{tab:lqcr-beta}{{VII}{8}{}{}{}}
 \newlabel{sec:exp-qual}{{\mbox  {IV-D}1}{8}{}{}{}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {IV-D}1}Qualitative Comparison}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {IV-D}1}Scale-Resolved Cross-Dataset Comparison}{8}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-E}}Controlled Coupling Result}{8}{}\protected@file@percent }
 \newlabel{sec:exp-coupling}{{\mbox  {IV-E}}{8}{}{}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-F}}Solver Analysis}{8}{}\protected@file@percent }
@@ -152,7 +152,7 @@
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-F}0c}Test set evaluation}{8}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-G}}FPS / Latency Benchmark}{8}{}\protected@file@percent }
 \newlabel{sec:exp-fps}{{\mbox  {IV-G}}{8}{}{}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Local difficult-case comparison on Dataset~2 validation images 1, 2, and 4. Columns show ground truth, KaryoFlow, DiffusionDet, and DINO R50; rows focus on Y, F/G-group, and D-group target categories. Predictions use a score threshold of $0.30$. Only the row's target category group is overlaid to keep localization readable; microscopy crops are raster, while boxes, labels, and layout remain vector-editable. These selected cases are illustrative rather than an accuracy estimator.}}{9}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Object-scale shift and small-object detection across two chromosome cohorts. (a) Empirical CDF of relative ground-truth box area using all training annotations. Dataset~1 boxes are markedly smaller than Dataset~2 boxes. (b) Dataset~1 test AP$_S$ on 220 images using seed-42 best checkpoints; KaryoFlow leads the strongest listed comparator by $0.0300$. (c) Dataset~2 validation AP$_S$ on 500 images; KaryoFlow is the three-seed mean and the other detectors are seed-42 checkpoints. It is competitive but does not lead DINO R50 or RTMDet-L. AP$_S$ is interpreted within, not across, datasets.}}{9}{}\protected@file@percent }
 \newlabel{fig:qual-mosaic}{{5}{9}{}{}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {VIII}{\ignorespaces Same-hardware latency benchmark on Dataset~2 at $512\times 512$ resolution (RTX A6000, batch size 1, 500 timed iterations).}}{9}{}\protected@file@percent }
 \newlabel{tab:fps}{{VIII}{9}{}{}{}}
@@ -160,6 +160,8 @@
 \newlabel{sec:exp-robust}{{\mbox  {IV-H}}{9}{}{}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {V}Discussion}{9}{}\protected@file@percent }
 \newlabel{sec:discussion}{{V}{9}{}{}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {VI}Conclusion}{9}{}\protected@file@percent }
+\newlabel{sec:conclusion}{{VI}{9}{}{}{}}
 \bibstyle{IEEEtran}
 \bibdata{references}
 \bibcite{cai2018cascade}{1}
@@ -196,9 +198,6 @@
 \bibcite{jiang2018iounet}{32}
 \bibcite{li2020gfl}{33}
 \bibcite{zhang2021vfnet}{34}
-\@writefile{toc}{\contentsline {section}{\numberline {VI}Conclusion}{10}{}\protected@file@percent }
-\newlabel{sec:conclusion}{{VI}{10}{}{}{}}
-\@writefile{toc}{\contentsline {section}{References}{10}{}\protected@file@percent }
 \bibcite{mehrtash2020calibration}{35}
 \bibcite{dhariwal2021diffusion}{36}
 \bibcite{tong2023conditional}{37}
@@ -207,6 +206,7 @@
 \bibcite{cheng2025curse}{40}
 \bibcite{rst_dataset}{41}
 \bibcite{tseng2023dataset}{42}
+\@writefile{toc}{\contentsline {section}{References}{10}{}\protected@file@percent }
 \bibcite{lu2022cil54816}{43}
 \bibcite{he2016resnet}{44}
 \bibcite{lin2017fpn}{45}

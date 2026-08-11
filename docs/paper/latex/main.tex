@@ -836,23 +836,29 @@ new easy true positives. AP90 and AP95 rise at every point in the sweep,
 matching the threshold-factorization prediction. Full-precision values and
 the five raw diagnostic exports are checksum-linked in the evidence registry.
 
-\subsubsection{Qualitative Comparison}\label{sec:exp-qual}
-Figure~\ref{fig:qual-mosaic} compares three localization-sensitive validation
-cases: a rare Y chromosome, adjacent small G-group chromosomes, and a locally
-overlapped D-group chromosome. The selected examples show broadly similar
-localization among KaryoFlow, DiffusionDet, and DINO R50; quantitative claims
-therefore rely on the complete-set metrics rather than selected images.
+\subsubsection{Scale-Resolved Cross-Dataset Comparison}\label{sec:exp-qual}
+Figure~\ref{fig:qual-mosaic} replaces selected visual cases with complete-set
+evidence. Dataset~1 has a substantially smaller relative-box distribution than
+Dataset~2 (median $0.37\%$ versus $0.84\%$). On the Dataset~1 test split,
+KaryoFlow reaches AP$_S=0.5300$, exceeding the strongest listed comparator by
+$0.0300$. On Dataset~2 validation, however, its three-seed AP$_S=0.5160$ is
+competitive but below DINO R50 ($0.5530$) and RTMDet-L ($0.5400$). The result
+therefore supports scale-dependent small-object competitiveness rather than a
+universal advantage. Because COCO's small-area threshold is absolute, raw
+AP$_S$ levels are interpreted only within each dataset; the relative-area CDF
+is used to characterize the cross-dataset scale shift.
 
 \begin{figure*}[t]
   \centering
   \includegraphics[width=\textwidth]{figures/v2/generated/fig07_qualitative.pdf}
-  \caption{Local difficult-case comparison on Dataset~2 validation images
-  1, 2, and 4. Columns show ground truth, KaryoFlow, DiffusionDet, and DINO R50;
-  rows focus on Y, F/G-group, and D-group target categories. Predictions use a
-  score threshold of $0.30$. Only the row's target category group is overlaid
-  to keep localization readable; microscopy crops are raster, while boxes,
-  labels, and layout remain vector-editable. These selected cases are
-  illustrative rather than an accuracy estimator.}
+  \caption{Object-scale shift and small-object detection across two chromosome
+  cohorts. (a) Empirical CDF of relative ground-truth box area using all
+  training annotations. Dataset~1 boxes are markedly smaller than Dataset~2
+  boxes. (b) Dataset~1 test AP$_S$ on 220 images using seed-42 best checkpoints;
+  KaryoFlow leads the strongest listed comparator by $0.0300$. (c) Dataset~2
+  validation AP$_S$ on 500 images; KaryoFlow is the three-seed mean and the
+  other detectors are seed-42 checkpoints. It is competitive but does not lead
+  DINO R50 or RTMDet-L. AP$_S$ is interpreted within, not across, datasets.}
   \label{fig:qual-mosaic}
 \end{figure*}
 

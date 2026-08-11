@@ -1,4 +1,9 @@
-"""Figure 7: compact difficult-case comparison with vector annotations."""
+"""Figure 7: cross-dataset scale shift and small-object performance.
+
+The former selected-case mosaic was not an accuracy estimator.  This rebuild
+uses all training annotations for the scale distribution and complete-split
+COCO AP_S exports for within-dataset detector comparisons.
+"""
 
 from __future__ import annotations
 
@@ -6,136 +11,109 @@ import json
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
-from PIL import Image
+import numpy as np
 
 from figure_style_v2 import (
-    C_FOUNDATION, C_LQCR, C_OUTPUT, C_RF, C_TEXT, configure_style,
-    save_vector_figure,
+    C_FOUNDATION, C_LIGHT, C_LINE, C_MUTED, C_RF, C_RF_LIGHT, C_TEXT,
+    configure_style, panel_title, save_vector_figure,
 )
 
+
 ROOT = Path(__file__).resolve().parents[6]
-ANN_FILE = ROOT / "data/24_chromosomes_object/coco/valid/_annotations.coco.json"
-IMAGE_DIR = ROOT / "data/24_chromosomes_object/JEPG"
-SOTA_DIR = ROOT / "experiments/analysis/baseline_vs_sota_cache"
-BASELINE_DIR = ROOT / "experiments/analysis/baseline_inference_24obj_cache"
-
-CAT = {1:"A1", 2:"A2", 3:"A3", 4:"B4", 5:"B5", 6:"C6", 7:"C7",
-       8:"C8", 9:"C9", 10:"C10", 11:"C11", 12:"C12", 13:"D13",
-       14:"D14", 15:"D15", 16:"E16", 17:"E17", 18:"E18", 19:"F19",
-       20:"F20", 21:"G21", 22:"G22", 23:"X", 24:"Y"}
-
-MODELS = [
-    ("gt", "Ground truth", C_FOUNDATION),
-    ("ours", "KaryoFlow", C_RF),
-    ("diffusiondet", "DiffusionDet", C_OUTPUT),
-    ("dino", "DINO R50", C_LQCR),
-]
-
-CASES = [
-    (1, [24], "rare / small Y"),
-    (2, [19, 20, 21, 22], "F--G small target"),
-    (4, [13, 14], "D-group local overlap"),
-]
+DATA_FILE = Path(__file__).resolve().parents[1] / "data" / "source_small_object_cross_dataset.json"
+ANNOTATIONS = {
+    "Dataset 1": ROOT / "data/Chromosome20240904_NoAug_NoResize_coco/train/_annotations.coco.json",
+    "Dataset 2": ROOT / "data/24_chromosomes_object/coco/train/_annotations.coco.json",
+}
 
 
-def group_predictions(path: Path, dict_key: str | None = None) -> dict[int, list[dict]]:
+def relative_areas(path: Path) -> np.ndarray:
     with path.open(encoding="utf-8") as stream:
-        data = json.load(stream)
-    if dict_key is not None:
-        data = data[dict_key]
-    grouped: dict[int, list[dict]] = {}
-    for pred in data:
-        grouped.setdefault(int(pred["image_id"]), []).append(pred)
-    return grouped
+        coco = json.load(stream)
+    images = {int(item["id"]): item for item in coco["images"]}
+    values = []
+    for ann in coco["annotations"]:
+        image = images[int(ann["image_id"])]
+        _, _, width, height = ann["bbox"]
+        values.append(100.0 * width * height / (image["width"] * image["height"]))
+    return np.asarray(values, dtype=float)
 
 
-def crop_from_targets(annotations: list[dict], width: int, height: int,
-                      target_categories: list[int]) -> tuple[int, int, int, int]:
-    targets = [ann for ann in annotations if ann["category_id"] in target_categories]
-    if not targets:
-        return 0, 0, width, height
-    # Anchor each row on one hard instance.  Using the union of all instances
-    # from a chromosome group can span the whole metaphase image and makes the
-    # comparison unreadable.  The smallest target is the most demanding local
-    # case; a 3.4x square neighborhood retains nearby overlap context.
-    anchor = min(targets, key=lambda ann: ann["bbox"][2] * ann["bbox"][3])
-    x, y, w, h = anchor["bbox"]
-    side = max(w, h) * 3.4
-    cx, cy = x + w / 2, y + h / 2
-    return (max(0, int(cx - side / 2)), max(0, int(cy - side / 2)),
-            min(width, int(cx + side / 2)), min(height, int(cy + side / 2)))
+def draw_metric_panel(ax: plt.Axes, records: list[dict], title: str,
+                      panel: str, note: str) -> None:
+    methods = [item["method"] for item in records]
+    values = np.asarray([item["AP_S"] for item in records], dtype=float)
+    y = np.arange(len(records))[::-1]
+    lower = min(values) - 0.035
+    upper = max(values) + 0.025
 
+    ax.axvspan(lower, upper, color=C_LIGHT, alpha=0.45, zorder=0)
+    for yi, value, method in zip(y, values, methods):
+        ours = method.startswith("KaryoFlow")
+        color = C_RF if ours else C_FOUNDATION
+        ax.plot([lower, value], [yi, yi], color=color, linewidth=2.4 if ours else 1.4,
+                alpha=0.95 if ours else 0.65, zorder=2)
+        ax.scatter(value, yi, s=34 if ours else 24, color=color,
+                   edgecolor="white", linewidth=0.6, zorder=3)
+        ax.text(value + 0.004, yi, f"{value:.3f}", va="center", ha="left",
+                fontsize=6.4, color=color, weight="bold" if ours else "normal")
 
-def center_inside(bbox: list[float], crop: tuple[int, int, int, int]) -> bool:
-    x, y, w, h = bbox; x1, y1, x2, y2 = crop
-    return x1 <= x + w / 2 <= x2 and y1 <= y + h / 2 <= y2
-
-
-def draw_box(ax: plt.Axes, bbox: list[float], crop: tuple[int, int, int, int],
-             color: str, label: str) -> None:
-    x, y, w, h = bbox; x1, y1, x2, y2 = crop
-    sx, sy = 1 / (x2 - x1), 1 / (y2 - y1)
-    rx, ry, rw, rh = (x - x1) * sx, (y - y1) * sy, w * sx, h * sy
-    ax.add_patch(Rectangle((rx, ry), rw, rh, transform=ax.transAxes,
-                           fill=False, edgecolor=color, linewidth=0.9, zorder=5))
-    ax.text(rx, max(0.01, ry - 0.01), label, transform=ax.transAxes,
-            ha="left", va="bottom", fontsize=5.1, color="white", zorder=6,
-            bbox={"facecolor": color, "edgecolor": "none", "pad": 0.65})
+    ax.set_yticks(y, [m.replace("KaryoFlow ", "KaryoFlow\n") for m in methods])
+    ax.set_xlim(lower, upper + 0.018)
+    ax.set_xlabel(r"COCO $AP_S$")
+    ax.grid(axis="x", color=C_LINE, linewidth=0.45, alpha=0.45)
+    ax.tick_params(axis="y", length=0, labelsize=6.4)
+    ax.tick_params(axis="x", labelsize=6.2)
+    ax.spines[["top", "right", "left"]].set_visible(False)
+    panel_title(ax, panel, title)
+    ax.text(0.0, -0.36, note, transform=ax.transAxes, ha="left", va="top",
+            fontsize=5.9, color=C_MUTED)
 
 
 def main() -> None:
     configure_style()
-    with ANN_FILE.open(encoding="utf-8") as stream:
-        coco = json.load(stream)
-    images = {int(item["id"]): item for item in coco["images"]}
-    gt: dict[int, list[dict]] = {}
-    for ann in coco["annotations"]:
-        gt.setdefault(int(ann["image_id"]), []).append(ann)
-    predictions = {
-        "ours": group_predictions(SOTA_DIR / "24obj_SOTA_seed42_preds.json"),
-        "diffusiondet": group_predictions(SOTA_DIR / "24obj_DiffusionDet_seed42_preds.json"),
-        "dino": group_predictions(BASELINE_DIR / "DINO_R50_seed42_preds.json"),
-    }
+    with DATA_FILE.open(encoding="utf-8") as stream:
+        evidence = json.load(stream)
 
-    fig, axes = plt.subplots(len(CASES), len(MODELS), figsize=(7.2, 4.15),
-                             facecolor="white")
-    fig.subplots_adjust(left=0.11, right=0.99, bottom=0.025, top=0.90,
-                        wspace=0.035, hspace=0.07)
+    areas = {name: relative_areas(path) for name, path in ANNOTATIONS.items()}
+    fig, axes = plt.subplots(1, 3, figsize=(7.2, 2.70),
+                             gridspec_kw={"width_ratios": [1.16, 1.0, 1.0]})
+    fig.subplots_adjust(left=0.075, right=0.995, bottom=0.34, top=0.86, wspace=0.39)
 
-    for row, (image_id, target_cats, row_name) in enumerate(CASES):
-        info = images[image_id]
-        image_path = IMAGE_DIR / info["file_name"]
-        image = Image.open(image_path).convert("RGB")
-        crop = crop_from_targets(gt.get(image_id, []), image.width, image.height, target_cats)
-        cropped = image.crop(crop)
+    ax = axes[0]
+    colors = {"Dataset 1": C_RF, "Dataset 2": C_FOUNDATION}
+    for name in ("Dataset 1", "Dataset 2"):
+        vals = np.sort(areas[name])
+        y = np.arange(1, len(vals) + 1) / len(vals)
+        ax.plot(vals, y, color=colors[name], linewidth=1.8, label=name)
+        median = float(np.median(vals))
+        ax.scatter([median], [0.5], s=28, color=colors[name], edgecolor="white",
+                   linewidth=0.6, zorder=4)
+        ax.text(median, 0.44 if name == "Dataset 1" else 0.56,
+                f"median {median:.2f}%", color=colors[name], fontsize=6.2,
+                ha="center", va="center", weight="bold")
+    ax.set_xscale("log")
+    ax.set_xlim(0.045, 6.0)
+    ax.set_ylim(0, 1.01)
+    ax.set_xlabel("Relative box area (%) - log scale")
+    ax.set_ylabel("Empirical CDF")
+    ax.grid(color=C_LINE, linewidth=0.45, alpha=0.45)
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.legend(loc="lower right", frameon=False, fontsize=6.5)
+    panel_title(ax, "a", "A 2.3x object-scale shift")
+    ax.text(0.0, -0.36,
+            f"All training boxes: D1 n={len(areas['Dataset 1']):,}; "
+            f"D2 n={len(areas['Dataset 2']):,}",
+            transform=ax.transAxes, ha="left", va="top", fontsize=5.9, color=C_MUTED)
 
-        for col, (model, title, color) in enumerate(MODELS):
-            ax = axes[row, col]
-            ax.imshow(cropped, extent=(0, 1, 1, 0), interpolation="lanczos")
-            ax.set_xlim(0, 1); ax.set_ylim(1, 0); ax.set_aspect("equal")
-            ax.set_xticks([]); ax.set_yticks([])
-            for spine in ax.spines.values():
-                spine.set_edgecolor("white"); spine.set_linewidth(1.0)
-            if row == 0:
-                ax.set_title(title, fontsize=7.2, weight="bold", color=color, pad=4)
-            if col == 0:
-                ax.text(-0.10, 0.50, row_name, transform=ax.transAxes,
-                        rotation=90, ha="center", va="center", fontsize=6.2,
-                        weight="bold", color=C_TEXT)
-
-            items = gt.get(image_id, []) if model == "gt" else predictions[model].get(image_id, [])
-            # Show only the row's target chromosome group.  This is a local
-            # localization comparison, not a full-image false-positive audit;
-            # rendering every neighboring category obscures the hard instance.
-            visible = [item for item in items
-                       if int(item["category_id"]) in target_cats
-                       and center_inside(item["bbox"], crop)]
-            if model != "gt":
-                visible = [item for item in visible if float(item.get("score", 1.0)) >= 0.30]
-                visible.sort(key=lambda item: float(item.get("score", 1.0)), reverse=True)
-            for item in visible[:8]:
-                draw_box(ax, item["bbox"], crop, color, CAT.get(int(item["category_id"]), "?"))
+    draw_metric_panel(
+        axes[1], evidence["dataset_1_test"], "Small-heavy Dataset 1", "b",
+        "220 test images; seed 42 checkpoints.\nKaryoFlow leads the best comparator by +0.030 $AP_S$.",
+    )
+    draw_metric_panel(
+        axes[2], evidence["dataset_2_validation"], "Larger-scale Dataset 2", "c",
+        "500 validation images. KaryoFlow is a 3-seed mean;\ncomparators are seed 42. No small-object advantage claimed.",
+    )
 
     save_vector_figure(fig, "fig07_qualitative")
 

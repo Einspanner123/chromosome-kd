@@ -1,0 +1,28 @@
+{
+  "description": "Cross-dataset object-scale distribution and within-dataset COCO AP_S comparison",
+  "dataset_1_test": [
+    {"method": "KaryoFlow RF+Heun", "AP_S": 0.5300},
+    {"method": "Cascade R-CNN", "AP_S": 0.5000},
+    {"method": "DINO R50", "AP_S": 0.4860},
+    {"method": "RTMDet-L", "AP_S": 0.4800},
+    {"method": "DiffusionDet", "AP_S": 0.4720},
+    {"method": "YOLOX-S", "AP_S": 0.3300}
+  ],
+  "dataset_2_validation": [
+    {"method": "KaryoFlow DPM++", "AP_S": 0.5160},
+    {"method": "DINO R50", "AP_S": 0.5530},
+    {"method": "RTMDet-L", "AP_S": 0.5400},
+    {"method": "Cascade R-CNN", "AP_S": 0.5250},
+    {"method": "DiffusionDet", "AP_S": 0.5000},
+    {"method": "YOLOX-S", "AP_S": 0.4520}
+  ],
+  "provenance": {
+    "scale_distribution_dataset_1": "data/Chromosome20240904_NoAug_NoResize_coco/train/_annotations.coco.json",
+    "scale_distribution_dataset_2": "data/24_chromosomes_object/coco/train/_annotations.coco.json",
+    "dataset_1_metrics": "work_dirs/diagnosis/test_eval_per_size_20260730_204840.json",
+    "dataset_1_protocol": "test split, 220 images, seed 42 best checkpoints",
+    "dataset_2_metrics": "docs/paper/latex/main.tex Table VI; checkpoint-linked training evaluation logs",
+    "dataset_2_protocol": "validation split, 500 images; KaryoFlow three-seed mean, other detectors seed 42"
+  },
+  "evidence_boundary": "AP_S values are compared only within each dataset. Dataset 1 and Dataset 2 use different splits and seed aggregation, so raw cross-dataset AP_S levels are not interpreted as a paired difference."
+}
