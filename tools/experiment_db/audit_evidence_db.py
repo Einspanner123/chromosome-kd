@@ -108,6 +108,66 @@ def main():
                             f"{dataset['dataset']}")
             except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
                 errors.append(f'{artifact_id}: malformed dataset audit ({exc})')
+        elif kind == 'unified_d2_test_aggregate':
+            try:
+                source = json.load(open(abs_path))
+                results = source['results']
+                dataset = source['dataset']
+                if source.get('status') != 'verified':
+                    errors.append(f'{artifact_id}: aggregate is not verified')
+                if len(results) != 7 or len({row['model_id'] for row in results}) != 7:
+                    errors.append(f'{artifact_id}: expected seven unique models')
+                if (dataset['images'], dataset['categories']) != (1000, 24):
+                    errors.append(f'{artifact_id}: unexpected Dataset 2 test shape')
+                annotation = os.path.join(ROOT, dataset['annotation'])
+                if not os.path.isfile(annotation):
+                    errors.append(f'{artifact_id}: missing test annotation')
+                else:
+                    annotation_digest = hashlib.sha256()
+                    with open(annotation, 'rb') as handle:
+                        for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+                            annotation_digest.update(chunk)
+                    if annotation_digest.hexdigest() != dataset['annotation_sha256']:
+                        errors.append(f'{artifact_id}: test annotation SHA-256 mismatch')
+                for row in results:
+                    protocol = row['protocol']
+                    shape = (protocol['dataset'], protocol['split'],
+                             protocol['images'], protocol['categories'],
+                             protocol['max_dets'])
+                    if shape != ('D2', 'test', 1000, 24, 100):
+                        errors.append(
+                            f"{artifact_id}: invalid protocol for {row['model_id']}")
+                    for metric, value in row['metrics'].items():
+                        if not isinstance(value, (int, float)) or not 0 <= value <= 1:
+                            errors.append(
+                                f"{artifact_id}: invalid {row['model_id']} "
+                                f"{metric}={value}")
+                    summary_path = os.path.join(ROOT, row['source_summary'])
+                    if not os.path.isfile(summary_path):
+                        errors.append(
+                            f"{artifact_id}: missing summary for {row['model_id']}")
+                    else:
+                        summary_digest = hashlib.sha256()
+                        with open(summary_path, 'rb') as handle:
+                            for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+                                summary_digest.update(chunk)
+                        if summary_digest.hexdigest() != row['source_summary_sha256']:
+                            errors.append(
+                                f"{artifact_id}: summary hash mismatch for "
+                                f"{row['model_id']}")
+                    for metric, value in row['metrics'].items():
+                        db_row = conn.execute('''SELECT r.value
+                            FROM controlled_result r
+                            WHERE r.family='sota_d2_test' AND r.variant=?
+                              AND r.metric=? AND r.artifact_id=?''',
+                            (row['model_label'], metric, artifact_id)).fetchone()
+                        if db_row is None or abs(db_row[0] - value) > 1e-12:
+                            errors.append(
+                                f"{artifact_id}: DB mismatch for "
+                                f"{row['model_id']} {metric}")
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                errors.append(
+                    f'{artifact_id}: malformed unified D2 test evidence ({exc})')
 
     orphan = conn.execute('''SELECT COUNT(*) FROM finding_evidence fe
         LEFT JOIN controlled_result r ON fe.result_id=r.result_id

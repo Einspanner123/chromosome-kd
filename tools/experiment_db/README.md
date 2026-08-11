@@ -33,6 +33,24 @@ physical runs use `server:work_dir` and cannot overwrite the ross row; volatile
 progress observations may additionally use `run_snapshot`. The curated
 `evidence_manifest.json` contains paper results and original source addresses.
 
+## Unified Dataset 2 test evaluation
+
+Use the resumable evaluator for checkpoint-linked comparisons on the 1,000-image
+Dataset 2 test split:
+
+```bash
+python tools/experiment_db/d2_test_unified.py --gpu-id 0
+```
+
+The evaluator explicitly fixes COCO `maxDets` to `(1, 10, 100)`, persists raw
+predictions, independently recomputes metrics with `pycocotools`, and registers
+results only when the framework and independent values agree. Its run key covers
+the resolved config, checkpoint, annotation, inference code, seed, and protocol.
+A rerun verifies stored hashes and reuses matching evidence without invoking the
+GPU. Large predictions remain under `results/d2_test_unified/`; the immutable,
+Git-sized aggregate in `evidence_sources/` and `experiments.db` are the canonical
+record.
+
 ## Claim policy
 
 - “Validated on both datasets” requires controlled rows for D1 and D2.
