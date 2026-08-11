@@ -80,44 +80,50 @@ def panel_delta(ax: plt.Axes, base: dict, lqcr: dict) -> None:
 
 
 def panel_checksum(ax: plt.Axes) -> None:
-    panel_title(ax, "c", "Controlled intervention")
+    """State the intervention as an aligned operator comparison.
+
+    A compact mathematical contrast is more falsifiable than a pipeline-style
+    checklist: it separates held-fixed detector variables from the intervened
+    score and from the downstream ordering that is allowed to change.
+    """
+    panel_title(ax, "c", "Output-only ranking intervention")
     ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
-    rows = [
-        ("RF trajectory", "fixed"),
-        ("proposal survival", "fixed"),
-        ("box coordinates", "fixed"),
-        ("class logits", "fixed"),
-    ]
-    y_values = np.linspace(0.77, 0.47, len(rows))
-    ax.text(0.06, 0.89, "BEFORE FINAL RANKING", fontsize=5.8,
-            color=C_MUTED, weight="bold")
-    for idx, ((name, state), y) in enumerate(zip(rows, y_values)):
-        ax.plot([0.07, 0.10], [y, y], color=C_FOUNDATION, lw=2.6,
-                solid_capstyle="round")
-        ax.text(0.14, y, name, va="center", fontsize=6.4,
-                color=C_TEXT)
-        ax.text(0.93, y, state, va="center", ha="right", fontsize=6.3,
-                color=C_FOUNDATION, weight="bold")
-        ax.plot([0.07, 0.93], [y - 0.048, y - 0.048], color=C_LIGHT, lw=0.55)
 
-    # The intervention is a single decision-stage change, not a new trajectory.
-    ax.text(0.06, 0.35, "ONLY CHANGED AT OUTPUT", fontsize=5.8,
+    # Shared detector output (not two independently generated proposal sets).
+    ax.text(0.04, 0.855, "HELD FIXED", fontsize=5.7, color=C_MUTED,
+            weight="bold")
+    ax.text(0.04, 0.765,
+            r"$\mathcal{C}=\{(b_i,p_i,q_i)\}_{i=1}^{N}$",
+            fontsize=8.0, color=C_TEXT, va="center")
+    ax.text(0.04, 0.675,
+            r"$x_{0:T},\; b_i,\; p_i$ identical",
+            fontsize=6.3, color=C_FOUNDATION, va="center")
+    ax.plot([0.04, 0.96], [0.605, 0.605], color=C_LINE, lw=0.75)
+
+    # Aligned counterfactual score definitions.  The central vertical rule is
+    # deliberately table-like rather than a decorative flow arrow.
+    ax.text(0.04, 0.525, "RANKING OPERATOR", fontsize=5.7, color=C_MUTED,
+            weight="bold")
+    ax.text(0.30, 0.425, "baseline", ha="center", fontsize=6.1,
+            color=C_FOUNDATION, weight="bold")
+    ax.text(0.75, 0.425, "LQCR", ha="center", fontsize=6.1,
             color=C_LQCR, weight="bold")
-    ax.text(0.07, 0.245, "ranking score", va="center", fontsize=6.5,
-            color=C_TEXT, weight="bold")
-    ax.text(0.53, 0.245, r"$p$", va="center", ha="center",
-            fontsize=8.0, color=C_FOUNDATION)
-    ax.annotate("", xy=(0.75, 0.245), xytext=(0.61, 0.245),
-                arrowprops=dict(arrowstyle="-|>", color=C_LQCR,
-                                lw=1.0, mutation_scale=8))
-    ax.text(0.91, 0.245, r"$p q^2$", va="center", ha="right",
-            fontsize=8.0, color=C_LQCR, weight="bold")
+    ax.plot([0.515, 0.515], [0.235, 0.465], color=C_LIGHT, lw=0.8)
+    ax.text(0.30, 0.325, r"$s_i=p_i$", ha="center", fontsize=8.2,
+            color=C_FOUNDATION)
+    ax.text(0.75, 0.325, r"$s_i=p_iq_i^2$", ha="center", fontsize=8.2,
+            color=C_LQCR, weight="bold")
+    ax.text(0.30, 0.225, r"$\pi_0=\operatorname{argsort}_i\,p_i$",
+            ha="center", fontsize=6.7, color=C_TEXT)
+    ax.text(0.75, 0.225, r"$\pi_1=\operatorname{argsort}_i\,p_iq_i^2$",
+            ha="center", fontsize=6.7, color=C_TEXT)
 
-    ax.text(0.50, 0.085,
-            "590 shared tensors identical  |  5 quality-head tensors added",
-            ha="center", va="center", fontsize=5.8, color=C_MUTED,
-            bbox=dict(boxstyle="round,pad=0.30", fc=C_LIGHT,
-                      ec="none", alpha=1.0))
+    ax.plot([0.04, 0.96], [0.155, 0.155], color=C_LINE, lw=0.75)
+    ax.text(0.04, 0.095, "CONSEQUENCE", fontsize=5.7, color=C_MUTED,
+            weight="bold", va="center")
+    ax.text(0.96, 0.035,
+            r"different $\pi$ may change the retained subset",
+            fontsize=6.15, color=C_TEXT, ha="right", va="center")
 
 
 def main() -> None:
