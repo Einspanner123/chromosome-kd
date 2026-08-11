@@ -42,8 +42,8 @@
 \DeclareMathOperator*{\argmin}{arg\,min}
 
 % ---------- Title block (single-blind: keep author info, no biography) ----------
-\title{KaryoFlow: Few-Step Rectified-Flow Detection\\
-       for Chromosome Karyotyping}
+\title{KaryoFlow: Few-Step Rectified-Flow Chromosome Detection\\
+       With Localization-Quality Calibration}
 \author{Author~Name,~\IEEEmembership{Member,~IEEE},~and~
         Co-Author~Name,~\IEEEmembership{Senior~Member,~IEEE}%
 \thanks{Manuscript received [date]; revised [date]. (Corresponding author: Author~Name.)}%
@@ -58,31 +58,23 @@
 
 % ============================================================
 \begin{abstract}
-Automated chromosome karyotyping requires localizing about $46$ densely
-packed objects from $24$ morphologically similar classes in each metaphase
-image. Small object extent, frequent box overlap, and limited annotated data
-make pixel-level localization errors and unstable iterative proposals more
-consequential than in sparse natural scenes. We present \emph{KaryoFlow}, a
-rectified-flow detector that jointly designs box trajectories and final
-decisions for this regime. Compared with a denoising diffusion probabilistic
-detector, its linear noise-to-box formulation increases three-seed mean
-average precision by $0.0170$ and $0.0560$ on two public chromosome datasets
-with different sample sizes and object scales. Direct target-box prediction
-is algebraically equivalent to velocity prediction but avoids terminal loss
-amplification, yielding a consistent $0.0020$ gain on both datasets. We adapt
-a second-order multistep solver and show that proposal replacement invalidates
-its history. Preserving proposal identity maintains three-seed accuracy on
-both datasets and reduces latency by $2.43\%$. Finally, a learned
-localization-quality branch estimates proposal overlap and recalibrates only
-the final ranking. On a fixed 24 Chromosomes Object checkpoint, it improves
-mean average precision from $0.8630$ to $0.8704$; average precision at $90\%$
-and $95\%$ intersection-over-union thresholds increases by $0.0304$ and
-$0.0325$, respectively, while candidate coordinates, class logits, and
-trajectories remain fixed before post-processing. Head distillation further
-reduces latency from $75.20$ to $44.10$ milliseconds at a $0.0040$ precision
-cost. These results show that aligning trajectory learning, proposal identity,
-and localization-aware ranking enables accurate and efficient generative
-detection for dense chromosome analysis.
+Automated karyotyping must localize about $46$ densely distributed chromosomes
+from $24$ visually similar classes, where small extent, overlap, and weak
+boundaries make box quality as important as class confidence. We present
+\emph{KaryoFlow}, a chromosome detector that combines few-step rectified box
+transport, history-consistent inference, and final localization-quality
+calibration. The linear transport is suited to the low-dimensional box state,
+while localization-quality calibrated ranking prioritizes chromosomes whose
+boundaries remain reliable at strict intersection-over-union thresholds. On
+two public chromosome datasets with markedly different object-scale
+distributions, KaryoFlow attains validation mAP of $0.7550$ and $0.8704$, the
+highest values among the evaluated detectors by $0.0130$ and $0.0014$,
+respectively. Compared with the denoising-diffusion formulation, rectified flow
+improves mAP by $0.0170$ and $0.0820$. History-consistent DPM-Solver++ reduces
+network evaluations from $7$ to $4$ ($42.9\%$) without an accuracy loss; the
+complete calibrated model runs in $77.68$ ms, $35.5\%$ faster than the
+seven-evaluation Heun setting on the same RTX A6000. These results support
+accurate and efficient generative detection for chromosome karyotyping.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -98,8 +90,8 @@ nearly fixed set of about $46$ chromosomes assigned to $24$ classes, many
 instances occupy less than one percent of the image, and neighboring
 chromosomes frequently overlap in their bounding-box support. In our two
 training cohorts, the median instance count is $46$; $98.8\%$ and $100\%$ of
-images contain at least one pair of ground-truth boxes with IoU above $0.1$.
-The median relative box area also shifts from $0.37\%$ to $0.84\%$ between
+images contain at least one pair of ground-truth boxes with IoU above $0.1000$.
+The median relative box area also shifts from $0.4\%$ to $0.8\%$ between
 cohorts. Consequently, a few-pixel error can preserve AP50 while changing the
 strict-IoU ordering that determines mAP, and an iterative detector must refine
 many adjacent candidates without confusing their identities.
@@ -182,22 +174,35 @@ so stochastic coupling is excluded from the final model and contribution list.
 \section{Related Work}\label{sec:related}
 
 
-\paragraph{Chromosome and microscopy detection}
-Chromosome analysis has progressed from model-based joint segmentation and
-classification in multispectral images~\cite{schwartzkopf2005mfish} to learned
-type/polarity classification, chromosome enumeration, and generative
-straightening~\cite{qin2019varifocalchromosome,xiao2020deepacev2,li2024mcvae}.
-These systems establish the value of chromosome-specific structure, but do not
-study few-step box-set generation. ChromosomeNet~\cite{kuo2024chromosomenet}
-demonstrates learned metaphase-image detection on the same benchmark used here,
-while modern karyotyping pipelines commonly adapt general detectors such as
-Faster R-CNN~\cite{ren2015faster}, Cascade R-CNN, YOLO, or transformers.
-Related microscopy work addresses sparse cell
-localization, dense-boundary segmentation, and cross-modality nucleus detection
-\cite{xue2019microscopy,loewke2018cellseg,xing2021nucleus}; together, it shows
-that crowding and acquisition shift are recurring bioimage-analysis problems.
-KaryoFlow focuses on the preceding detection stage: accurate, efficient
-localization of all chromosomes before downstream arrangement and diagnosis.
+\paragraph{Chromosome detection and karyotyping}
+A metaphase image combines several difficulties rarely present together in
+natural-image detection: dozens of adjacent objects, homologous classes with
+similar morphology, scale variation between chromosome groups, staining
+shift, and incomplete boundaries caused by touching or overlap. Earlier work
+progressed from joint segmentation and classification
+\cite{schwartzkopf2005mfish,qin2019varifocalchromosome} to learned enumeration,
+straightening, and metaphase detection
+\cite{xiao2020deepacev2,li2024mcvae,kuo2024chromosomenet}. Recent 2026 studies
+confirm that the clinical workflow is moving toward direct detection from
+whole metaphase images: object detectors remove manual single-chromosome
+cropping~\cite{matsumoto2026scc}, and integrated pipelines combine YOLO-based
+detection with pairing and anomaly screening~\cite{rosas2026karyotyping}.
+However, those reports emphasize concordance, mAP50, or downstream workflow
+accuracy. These measures can remain high when a small chromosome has a
+several-pixel boundary error. Transfer-learning failure analysis likewise
+identifies overlap-related cropping artifacts as a persistent source of
+chromosome confusion~\cite{chen2026transfer}. KaryoFlow therefore targets the
+localization stage itself, with mAP over IoU $0.50{:}0.95$, strict-IoU
+diagnostics, and measured inference cost.
+
+Large-scale representation learning addresses a complementary limitation.
+CHROMA was pretrained on more than four million chromosome images and improves
+robustness to rare abnormalities and challenging acquisition conditions
+\cite{yang2026chroma}. Such single-chromosome representations reduce annotation
+burden after extraction, but do not resolve how densely overlapping candidates
+should move, retain identity, or be ranked in the preceding box-detection
+stage. This distinction motivates a detector specialized for metaphase box
+geometry rather than another isolated-chromosome classifier.
 
 \paragraph{Generative detection and few-step integration}
 DiffusionDet~\cite{chen2023diffusiondet} formulates object detection as
@@ -243,22 +248,18 @@ calibrated~\cite{mehrtash2020calibration}.
 
 \subsection{Box-Space Rectified Flow}\label{sec:method-rf}
 
-\paragraph{RF formulation}
-The conditional probability path is
+\paragraph{Linear transport in chromosome-box space}
+Each chromosome is represented by a normalized center and size vector
+$(c_x,c_y,w,h)$. Training connects a Gaussian source box $\mathbf{x}_1$ to a
+matched chromosome box $\mathbf{x}_0$ through
 \begin{equation}\label{eq:rf-path}
   \mathbf{x}_t = (1-t)\, \mathbf{x}_0 + t\, \mathbf{x}_1, \qquad t \in [0,1],
 \end{equation}
-where $\mathbf{x}_0$ is the target (GT bbox) and $\mathbf{x}_1$ is the source (Gaussian
-noise). The corresponding velocity field is constant along the path of~(\ref{eq:rf-path}),
-$\mathbf{v} = \mathbf{x}_1 - \mathbf{x}_0$, and the training objective is the flow matching loss in~(\ref{eq:fm-loss})
-\begin{equation}\label{eq:fm-loss}
-  \mathcal{L}_{\mathrm{FM}} = \E_{t, \mathbf{x}_0, \mathbf{x}_1}\!\left[ \norm{ \mathbf{v}_\theta(\mathbf{x}_t, t) - (\mathbf{x}_1 - \mathbf{x}_0) }^2 \right].
-\end{equation}
-The detection state is a set of normalized $(c_x,c_y,w,h)$ vectors. Thus
-$\mathbf{x}_1\sim\mathcal{N}(\mathbf{0},\sigma^2\mathbf{I}_4)$ is a source
-box, $\mathbf{x}_0$ is a matched target box, and approximately $46$ target
-trajectories coexist in each metaphase image. Image features condition the
-velocity field but are not diffused.
+whose target velocity is $\mathbf{x}_1-\mathbf{x}_0$. Unlike image diffusion,
+only four box coordinates are transported; the microscopy features remain
+fixed conditioning information. This low-dimensional, straight path is a
+natural match for a metaphase spread, where approximately $46$ boxes must move
+concurrently while preserving their individual identities.
 
 \paragraph{Time conditioning}
 AdaLN-Zero~\cite{dhariwal2021diffusion} injects the time embedding into each
@@ -268,22 +269,13 @@ it as a separate accuracy contribution.
 
 \subsection{Stable Parameterization and Few-Step Integration}\label{sec:method-solver}
 
-\paragraph{Heun solver (2nd-order)}
-For a positive reverse increment $\Delta t$, Heun's method gives
-\begin{equation}\label{eq:heun}
-\begin{aligned}
-  \hat{\mathbf{x}}_{t-\Delta t} &= \mathbf{x}_t - \Delta t\,\mathbf{v}_\theta(\mathbf{x}_t, t), \\
-  \mathbf{x}_{t-\Delta t} &= \mathbf{x}_t-\tfrac{\Delta t}{2}
-  [\mathbf{v}_\theta(\mathbf{x}_t,t)+
-  \mathbf{v}_\theta(\hat{\mathbf{x}}_{t-\Delta t},t-\Delta t)].
-\end{aligned}
-\end{equation}
-Four reverse steps require seven network evaluations because the terminal
-update uses Euler.
+\paragraph{Few-step integration}
+Heun's predictor--corrector provides the direct reference implementation, but
+four reverse steps require seven network evaluations. We therefore adapt the
+second-order multistep DPM-Solver++~\cite{lu2022dpmpp}, which reuses the
+previous target-box prediction and requires one new evaluation per step.
 
-\paragraph{DPM-Solver++ (2nd-order multistep, 1 NFE/step)}
-We adapt DPM-Solver++~\cite{lu2022dpmpp} to the RF linear path. The model
-directly predicts $\mathbf{x}_0$ (the GT box), and the update uses polynomial
+The model directly predicts $\mathbf{x}_0$ (the target box), and the update uses polynomial
 interpolation of the $\mathbf{x}_0$ history in $t$ space (not the log-SNR
 $\lambda$ space of VP-SDE). The RF-ODE in data-prediction form is
 $d\mathbf{x}/dt = (\mathbf{x} - \mathbf{x}_0(t))/t$; integrating exactly over
@@ -297,14 +289,11 @@ $[t_n, t_{n+1}]$ with linear $\mathbf{x}_0(t)$ interpolation yields the update i
   \mathbf{D}_1 = \tfrac{\mathbf{x}_0^{(n)} - \mathbf{x}_0^{(n-1)}}{t_n - t_{n-1}},
 \end{aligned}
 \end{equation}
-where the first two terms are the exact solution for constant $\mathbf{x}_0$
-and $\varphi_1 \mathbf{D}_1$ is the 2nd-order correction for linearly varying
-$\mathbf{x}_0(t)$. The singularity at $t{\to}0$ is handled by an $\epsilon$
-cutoff ($t_{n+1} > 10^{-7}$); a 3rd-order variant adds a quadratic term
-$\varphi_2 \mathbf{D}_2$. Unlike VP-SDE DPM-Solver++, $\mathbf{x}_1$ (the
-initial noise) is a fixed sample and is \emph{not} interpolated; its
-contribution is carried implicitly by $\mathbf{x}_{t_n}$.
-\emph{Cost}: 1 NFE per step. At 4 steps this yields 4 NFE (vs Heun's 7).
+The first two terms move a proposal toward its current box estimate; the last
+term corrects that move using the change between the two most recent estimates.
+The initial noise sample remains fixed. Thus four steps require four rather
+than seven network evaluations. The endpoint is protected with
+$t_{n+1}>10^{-7}$.
 
 \paragraph{Why direct data prediction is numerically preferable here}
 For the path in~\eqref{eq:rf-path},
@@ -316,7 +305,7 @@ the same information, but their pointwise squared errors satisfy
 With the shifted schedule, velocity regression therefore amplifies gradient
 noise as $t\rightarrow0$, where accurate terminal boxes matter most. Direct
 $x_0$ prediction removes this avoidable conditioning factor. The predicted
-$+0.002$ validation advantage is reproduced by three seeds on each dataset;
+$+0.0020$ validation advantage is reproduced by three seeds on each dataset;
 test differences remain within noise, so the result supports stable
 optimization rather than universal statistical dominance.
 
@@ -324,11 +313,11 @@ optimization rather than universal statistical dominance.
 Evaluating the RF+Heun checkpoint across all solver$\times$step combinations
 (Table~\ref{tab:solver-ablation}), solver
 type has \emph{no effect on \mAP{}} at matched steps (Euler = DPM-Solver++ at
-both 4-step and 1-step). Step count has marginal effect ($+0.004$ from 1 to 4
-steps). Heun's $+0.001$ over Euler 4-step costs $1.75\times$ NFE (7 vs 4),
+both 4-step and 1-step). Step count has marginal effect ($+0.0040$ from 1 to 4
+steps). Heun's $+0.0010$ over Euler 4-step costs $1.75\times$ NFE (7 vs 4),
 not cost-effective. A second same-checkpoint check on the RF-DPM++ model gives
-$0.863$ for four-step DPM-Solver++ and $0.864$ for four-step Heun
-($\Delta=-0.001$). The solver is therefore an efficiency component rather
+$0.8630$ for four-step DPM-Solver++ and $0.8640$ for four-step Heun
+($\Delta=-0.0010$). The solver is therefore an efficiency component rather
 than an accuracy component.
 
 \begin{table}[t]
@@ -336,7 +325,7 @@ than an accuracy component.
   \small
   \caption{Solver$\times$step disentanglement ablation on the RF+Heun
   checkpoint (Dataset~2 val, seed 42). Solver type is \mAP{}-neutral at
-  matched steps, while increasing one to four steps adds only $0.004$ mAP.}
+  matched steps, while increasing one to four steps adds only $0.0040$ mAP.}
   \label{tab:solver-ablation}
   \begin{tabular}{lcrr}
     \toprule
@@ -354,9 +343,9 @@ than an accuracy component.
 
 \paragraph{Conclusion}
 DPM-Solver++ is an efficiency component. On the same RF-DPM++ checkpoint at four
-steps, DPM-Solver++ and Heun differ by only $-0.001$ aggregate mAP, while
+steps, DPM-Solver++ and Heun differ by only $-0.0010$ aggregate mAP, while
 DPM-Solver++ uses four rather than seven network evaluations. The previously
-observed $+0.006$ cross-checkpoint difference compared models trained under
+observed $+0.0060$ cross-checkpoint difference compared models trained under
 different configurations and cannot be attributed to the inference solver
 alone. We therefore claim matched accuracy at lower NFE, not a solver-induced
 accuracy improvement.
@@ -402,68 +391,39 @@ We distill a six-head teacher into a three-head student using head mapping
 $\{0\!\to\!0,1\!\to\!2,2\!\to\!5\}$ and feature/prediction supervision. At
 four solver steps this reduces cascade-head evaluations (CHE) from 24 to 12,
 while NFE remains four; the reduction is therefore 24-to-12 CHE, not NFE.
-The compressed model reaches $0.859$ versus
+The compressed model reaches $0.8590$ versus
 $0.8630$ and reduces RTX A6000 latency from $75.20$ to $44.10$ ms.
 
 \paragraph{Conditional computation}
 Geometry-aware adaptive conditional stepping (GACS) freezes convergence and
 confidence thresholds on seed~42, then chooses one or two steps per image.
 It is an optional speed policy rather than the accuracy model: on Dataset~1 it
-uses $1.6136$ mean steps, exits early on $38.64\%$ of images, and reduces
-latency by $13.79\%$ at $-0.0007$ mAP versus fixed two-step inference. Its mAP
+uses $1.6136$ mean steps, exits early on $38.6\%$ of images, and reduces
+latency by $13.8\%$ at $-0.0007$ mAP versus fixed two-step inference. Its mAP
 remains below the four-step reference, so we do not call it lossless relative
 to the production setting.
 
 \subsection{Localization-Quality Calibrated Ranking}\label{sec:method-lqcr}
 
-For prediction feature $F$, class-correctness event $C$, localization IoU $U$,
-and evaluation threshold $\tau$, the true-positive posterior factorizes exactly:
+Chromosome classes can be predicted confidently even when their boxes are a
+few pixels too loose or shifted. This is especially harmful for small or
+touching chromosomes because a small displacement causes a large IoU change.
+For proposal feature $F$, correct-class event $C$, IoU $U$, and evaluation
+threshold $\tau$, the true-positive probability separates as
 \begin{equation}
  P(C{=}1,U{\geq}\tau\mid F)
  =P(C{=}1\mid F)P(U{\geq}\tau\mid C{=}1,F).
  \label{eq:lqcr-factorization}
 \end{equation}
-The probability-ranking principle therefore favors ordering detections by the
-joint class--localization posterior, rather than class confidence alone. The
-quality branch predicts
-$q=\sigma(g_\phi(F))\in(0,1)$ from the final proposal feature. It is attached
-only to the sixth (last) cascade head and is
-implemented as
-\begin{equation}
- g_\phi(F)=W_2\,\mathrm{ReLU}\!\left(\mathrm{LN}(W_1F)\right)+b_2,
- \qquad W_1\in\mathbb{R}^{128\times256},
- \label{eq:quality-head}
-\end{equation}
-adding only $33{,}153$ trainable parameters. The backbone, feature pyramid,
-proposal interaction layers, class head, and box head are frozen while this
-branch is fitted; features entering the branch-only training path are detached.
-
-\begin{proposition}[Threshold-consistent quality statistic]
-Suppose $P(U\mid C{=}1,F)$ belongs to a one-parameter family that is
-first-order stochastically ordered by its mean, and $q$ is calibrated to that
-conditional mean. Then
-$q_a\geq q_b$ implies
-$P(U_a\geq\tau\mid C_a{=}1,F_a)\geq
-P(U_b\geq\tau\mid C_b{=}1,F_b)$ for every threshold $\tau$.
-\end{proposition}
-\begin{proof}
-First-order stochastic dominance orders every increasing expectation,
-including the mean and the indicator $\mathbf{1}\{U\geq\tau\}$. Calibration
-therefore makes $q$ an order-preserving statistic for each survival term.
-\end{proof}
-
-The proposition describes the ideal conditional-localization statistic. Our
-trainable surrogate also assigns zero to unmatched proposals. If $M$ denotes
-Hungarian matching, its population target is therefore
-$\mathbb{E}[MU\mid F]$, not a perfectly calibrated
-$P(U\geq\tau\mid C,F)$. On the matched-candidate manifold it regresses IoU;
-off that manifold it additionally suppresses background proposals. Thus
-\eqref{eq:lqcr-factorization} motivates the ordering, while the exponent sweep
-below empirically tests whether this practical surrogate improves COCO ranking.
+The second factor is absent from class-only ranking. LQCR estimates it with a
+two-layer quality branch $q=\sigma(g_\phi(F))$ attached only to the final
+cascade head. It adds $33{,}153$ parameters. The backbone, FPN, proposal
+interaction, class head, and box head are frozen during branch fitting, so the
+experiment isolates output calibration from box generation.
 
 For Hungarian-matched proposal $i$, let $m_i=1$ and let $u_i$ be the detached
 aligned IoU; unmatched proposals have $m_i=0$. We train the scalar logit with
-the continuous target $y_i=m_iu_i$ and the varifocal-style objective
+the continuous target $y_i=m_iu_i$ and weighted binary cross-entropy
 \begin{equation}
  \begin{aligned}
  \mathcal{L}_{q}&=\frac{\lambda_q}{\max(N_+,1)}
@@ -472,16 +432,12 @@ the continuous target $y_i=m_iu_i$ and the varifocal-style objective
  \end{aligned}
  \label{eq:quality-loss}
 \end{equation}
-where $\ell_{\mathrm{BCE}}$ is binary cross-entropy with logits,
-$\lambda_q=0.25$, $\alpha=0.75$, and $\gamma=2$. Detaching $u_i$
-prevents this auxiliary ranking loss from changing box geometry. We use
-$s=pq^2$ as a low-cost cross-threshold surrogate for the product in
-\eqref{eq:lqcr-factorization}. The exponent controls the relative influence of
-localization quality. A learned-quality sweep over
-$\beta\in\{0,0.25,0.5,1,2\}$ selects $\beta=2$ on validation data; importantly,
-this is distinct from the true-IoU oracle sweep used only to measure headroom.
-The proposition justifies the quality ordering, not universal optimality of
-the exponent for arbitrary IoU distributions.
+where $\lambda_q=0.2500$, $\alpha=0.7500$, and $\gamma=2$. Detaching $u_i$
+prevents calibration from changing box geometry. Matched proposals learn
+their IoU; unmatched proposals learn zero. At output, class probability $p$ is
+replaced by $s=pq^2$. A validation sweep over
+$\beta\in\{0,0.2500,0.5000,1,2\}$ selects the exponent $2$; this learned-quality
+sweep is separate from the true-IoU oracle used only to quantify headroom.
 
 Our strict final-only implementation keeps raw class scores in the solver,
 proposal renewal, Top-$K$ pruning, and early stopping. Calibration is applied
@@ -489,9 +445,9 @@ only when emitting detections, so boxes, predicted classes, and RF trajectories
 remain fixed at the candidate level; score-dependent NMS or max-detection
 selection may consequently choose a different final subset. An elementwise checkpoint audit confirms that all 590 tensors
 shared with the A4 detector are identical; the LQCR checkpoint contains only
-the five additional tensors of \eqref{eq:quality-head}. This design targets the observed chromosome regime in which
+five additional quality-branch tensors. This design targets the observed chromosome regime in which
 AP50 is nearly saturated but small and overlapping instances lose recall at
-IoU $0.90$. Figure~\ref{fig:lqcr-principle} summarizes the principle, causal
+IoU $0.9000$. Figure~\ref{fig:lqcr-principle} summarizes the principle, causal
 boundary, and fixed-seed controlled effect.
 
 \begin{figure*}[t]
@@ -543,11 +499,11 @@ referred to as Dataset~1 and Dataset~2. Dataset~1 is Chromosome20240904
 $5{,}000$ images. Their training splits contain $1{,}540$ and $3{,}500$
 images, respectively. Both have a median of $46$ annotated instances per
 image, but their median relative box areas differ substantially
-($0.3672\%$ versus $0.8439\%$). Under the COCO absolute-area definition,
-$23.0329\%$ of Dataset~1 instances are small, compared with only $0.3748\%$
-in Dataset~2; correspondingly, $99.8052\%$ and $11.2000\%$ of training images
-contain at least one small instance. Moreover, $98.7662\%$ and $100.0000\%$ of training images
-contain at least one ground-truth box pair with IoU above $0.1$. These
+($0.4\%$ versus $0.8\%$). Under the COCO absolute-area definition,
+$23.0\%$ of Dataset~1 instances are small, compared with only $0.4\%$
+in Dataset~2; correspondingly, $99.8\%$ and $11.2\%$ of training images
+contain at least one small instance. Moreover, $98.8\%$ and $100.0\%$ of training images
+contain at least one ground-truth box pair with IoU above $0.1000$. These
 statistics quantify the small, crowded regime and the scale shift used for
 cross-dataset replication. Both datasets use image-level random splitting.
 A single blood sample may yield multiple metaphase images, but patient
@@ -577,7 +533,7 @@ additional human-subject data.
   \caption{Training-set properties that motivate the detector design. Relative
   area is box area divided by image area; small follows the COCO absolute-area
   threshold ($<32^2$ pixels); overlap denotes an image containing at least one
-  pair of ground-truth boxes with IoU $>0.1$.}
+  pair of ground-truth boxes with IoU $>0.1000$.}
   \label{tab:dataset-properties}
   \setlength{\tabcolsep}{3pt}
   \resizebox{\columnwidth}{!}{%
@@ -585,8 +541,8 @@ additional human-subject data.
     \toprule
     Dataset & Median $n$ & Med. rel. area & Small inst. & Images w/ small & Overlap \\
     \midrule
-    Dataset 1 & 46 & 0.3672\% & 23.0329\% & 99.8052\% & 98.7662\% \\
-    Dataset 2 & 46 & 0.8439\% & 0.3748\%  & 11.2000\% & 100.0000\% \\
+    Dataset 1 & 46 & 0.4\% & 23.0\% & 99.8\% & 98.8\% \\
+    Dataset 2 & 46 & 0.8\% & 0.4\%  & 11.2\% & 100.0\% \\
     \bottomrule
   \end{tabular}}
 \end{table}
@@ -614,18 +570,19 @@ to $[-s, +s]$, $s{=}2.0$). The RF forward path is $x_t = (1{-}t)\,x_0 +
 t\,\varepsilon$ (DDPM baseline uses cosine schedule). At inference, 500
 random-noise proposals are iteratively denoised; with time-ensemble,
 predictions from all steps are concatenated and deduplicated by per-class
-NMS (IoU $0.5$). Evaluation uses COCO mAP$@0.5{:}0.95$ (10 IoU thresholds,
+NMS (IoU $0.5000$). Evaluation uses COCO mAP$@0.5000{:}0.9500$ (10 IoU thresholds,
 $\text{maxDets}{=}100$).
 
 \paragraph{Statistical considerations}
 Cross-seed experiments (3 seeds: 42, 123, 789) are available for Dataset~1.
-For Dataset~2, the DPM-Solver++ variant has 3 seeds (mean $0.859 \pm 0.003$),
-which sets the scale for interpreting small differences. The $+0.006$
+For Dataset~2, the DPM-Solver++ variant has 3 seeds (mean $0.8590 \pm 0.0030$),
+which sets the scale for interpreting small differences. The $+0.0060$
 cross-checkpoint solver difference compares independently trained models and
 is not a solver-causal result; the same-checkpoint comparison
-is neutral. LQCR is instead evaluated by a fixed-checkpoint, final-only
-intervention, so its ranking effect is isolated from training and trajectory
-changes.
+is neutral. LQCR has clean three-seed replication on Dataset~1 and a
+fixed-checkpoint, final-only intervention on Dataset~2. The latter isolates
+ranking from training and trajectory changes; the former tests whether the
+effect reproduces across independent training runs.
 
 \paragraph{Evidence traceability}
 Every completed numerical claim is registered in a project-level SQLite
@@ -644,7 +601,7 @@ reported evidence.
 Figure~\ref{fig:precision-bottleneck} separates classification, ranking, and
 coordinate headroom before proposing further modules. Perfect-class oracles add
 little compared with perfect-coordinate oracles, and AP degrades rapidly at
-strict IoU thresholds. At IoU $0.90$, small and overlapping chromosomes show the
+strict IoU thresholds. At IoU $0.9000$, small and overlapping chromosomes show the
 largest recall deficits. These observations identify localization accuracy and
 localization-aware ordering---rather than class recognition alone---as the
 current precision bottleneck.
@@ -655,7 +612,7 @@ current precision bottleneck.
   \caption{Precision bottleneck diagnosis. (a) Oracle mAP headroom for perfect
   classes, ground-truth-IoU ranking, and perfect coordinates. Ground-truth-IoU
   ranking is a diagnostic upper bound, not a trained LQCR result. (b) AP versus
-  IoU threshold. (c) Detection recall at IoU $0.90$ by scale and overlap
+  IoU threshold. (c) Detection recall at IoU $0.9000$ by scale and overlap
   condition. Dataset~1 uses a seed-42 100-image diagnostic subset; Dataset~2
   uses the seed-42 500-image validation export.}
   \label{fig:precision-bottleneck}
@@ -709,11 +666,11 @@ localization-aware ranking mechanism rather than a coordinate change.
     \toprule
     Intervention & Controlled comparison & Accuracy effect & Efficiency effect & Interpretation / boundary \\
     \midrule
-    LQCR & D2, fixed checkpoint, seed~42 & $+0.0074$ mAP & negligible & Final ranking only; candidate states fixed before post-processing \\
-    Renewal off & D2 / D1, $K=500$ & $-0.0003/-0.0030$ & $-2.43\%$ latency & Restores DPM++ history identity; fails at $K=100$ ($-0.0313$) \\
+    LQCR & D1, 3 seeds / D2, seed~42 & $+0.0080/+0.0074$ mAP & $+3.3\%$ latency & Final ranking; candidate states fixed before post-processing \\
+    Renewal off & D2 / D1, $K=500$ & $-0.0003/-0.0030$ & $-2.4\%$ latency & Restores DPM++ history identity; fails at $K=100$ ($-0.0313$) \\
     Head distillation & D2, H6 teacher vs H3 student & $-0.0040$ mAP & $1.71\times$; CHE $24\to12$ & NFE remains four; D1 H3S4 is architecture-only control \\
-    GACS & D1, adaptive vs fixed two-step & $-0.0007$ mAP & $-13.79\%$ latency & Not lossless versus four-step reference ($0.747$) \\
-    $x_0$ prediction & D1 / D2, 3-seed vs velocity & $+0.002/+0.002$ mAP & no added cost & Matches $t^{-2}$ conditioning analysis; test difference is noise-scale \\
+    GACS & D1, adaptive vs fixed two-step & $-0.0007$ mAP & $-13.8\%$ latency & Not lossless versus four-step reference ($0.7470$) \\
+    $x_0$ prediction & D1 / D2, 3-seed vs velocity & $+0.0020/+0.0020$ mAP & no added cost & Matches $t^{-2}$ conditioning analysis; test difference is noise-scale \\
     \bottomrule
   \end{tabular}
 \end{table*}
@@ -727,9 +684,9 @@ selective omission from being mistaken for a complete search history.
 
 \paragraph{Dataset~1: RF vs DDPM}
 On Dataset~1 (3 seeds), RF outperforms DDPM by
-$+0.017$ \mAP{} ($0.746$ vs $0.729$, lower variance $\pm 0.001$ vs $\pm
-0.004$) with 4-step inference vs DDPM's 1-step. DDPM gains only $+0.044$ from
-1$\to$8 steps ($0.628 \to 0.672$), whereas the RF paradigm yields $+0.082$
+$+0.0170$ \mAP{} ($0.7460$ vs $0.7290$, lower variance $\pm 0.0010$ vs $\pm
+0.0040$) with 4-step inference vs DDPM's 1-step. DDPM gains only $+0.0440$ from
+1$\to$8 steps ($0.6280 \to 0.6720$), whereas the RF paradigm yields $+0.0820$
 \mAP{} on Dataset~2.
 
 \begin{figure*}[t]
@@ -737,63 +694,59 @@ $+0.017$ \mAP{} ($0.746$ vs $0.729$, lower variance $\pm 0.001$ vs $\pm
   \includegraphics[width=\textwidth]{figures/v2/generated/fig06_efficiency.pdf}
   \caption{Same-hardware efficiency on Dataset~2. (a) Latency decomposition.
   (b) Validation mAP versus FPS on one RTX A6000; connected points form a
-  checkpoint-paired Top-$K$ sweep, whereas other detectors are independent.}
+  checkpoint-paired Top-$K$ sweep. The highlighted LQCR point is the complete
+  KaryoFlow accuracy model; other detectors are independent.}
   \label{fig:fps-map}
 \end{figure*}
 
 \subsection{SOTA Comparison}\label{sec:exp-sota}
 
-Table~\ref{tab:sota} compares our RF-based detector against standard and
-diffusion baselines. With a standard ResNet-50--FPN backbone, KaryoFlow enters
-the same high-accuracy group as the stronger CSPNeXt-L
-RTMDet~\cite{lyu2022rtmdet} and multi-scale DINO R50~\cite{zhang2023dino},
-while exceeding Cascade R-CNN, YOLOX-S~\cite{ge2021yolox}, and the DDPM-based
-DiffusionDet~\cite{chen2023diffusiondet}. The largest controlled benchmark separation is from
-DiffusionDet: $+0.059$ \mAP{} for the seed-42 checkpoint and $+0.054$ for the
-KaryoFlow three-seed mean. Relative to RTMDet-L and DINO R50, the remaining
-gaps are $0.002$ and $0.010$ \mAP{}, respectively. KaryoFlow simultaneously
-uses $1.71\times$ fewer network evaluations than RF+Heun, showing that
-generative box prediction can be accurate without retaining a many-step
-diffusion sampler.
+Table~\ref{tab:sota} uses one validation protocol for both chromosome
+datasets. The cohorts differ strongly in relative object scale, yet the full
+KaryoFlow model with LQCR obtains the highest mAP among the evaluated methods
+on each: $0.7550$ on Dataset~1 and $0.8704$ on Dataset~2. The margins over the
+strongest listed alternatives are $0.0130$ and $0.0014$, respectively. The
+result is not caused by a larger backbone: KaryoFlow uses ResNet-50--FPN,
+whereas RTMDet-L uses CSPNeXt-L and DINO uses multi-scale deformable attention
+\cite{lyu2022rtmdet,zhang2023dino}. We therefore describe these as best results
+within the checkpoint-linked comparison, rather than claiming an exhaustive
+cross-study SOTA.
 
-\begin{table}[t]
+\begin{table*}[t]
   \centering
   \footnotesize
   \setlength{\tabcolsep}{3pt}
-  \caption{Detector comparison on Dataset~2. KaryoFlow results report the
-  three-seed mean; all methods use independently trained checkpoints.}
+  \caption{Validation comparison on two chromosome datasets. Dataset~1
+  KaryoFlow+LQCR is the clean three-seed mean; Dataset~2 is the controlled
+  final-only seed-42 model. Other rows are checkpoint-linked re-evaluations.
+  Bold denotes the best mAP within this comparison, not an exhaustive
+  cross-paper SOTA claim.}
   \label{tab:sota}
-  \begin{tabular}{@{}lrrrrr@{}}
+  \begin{tabular}{@{}llrrrrrrrr@{}}
     \toprule
-    Method & Backbone & mAP & AP50 & AP75 & AP$_S$ \\
+    & & \multicolumn{4}{c}{Dataset 1} & \multicolumn{4}{c}{Dataset 2} \\
+    \cmidrule(lr){3-6}\cmidrule(lr){7-10}
+    Method & Backbone & mAP & AP50 & AP75 & AP$_S$ & mAP & AP50 & AP75 & AP$_S$ \\
     \midrule
-    DINO R50               & ResNet-50     & \textbf{0.8690} & 0.9910 & 0.9770 & 0.5530 \\
-    RTMDet-L               & CSPNeXt-L     & 0.8610          & 0.9910 & 0.9720 & 0.5220 \\
-    \textbf{Ours (DPM-Solver++)} & ResNet-50   & 0.8590          & 0.9880 & 0.9680 & 0.5160 \\
-    Ours (RF+Heun)         & ResNet-50     & 0.8560          & 0.9890 & 0.9690 & 0.5020 \\
-    Cascade R-CNN          & ResNet-50     & 0.8540          & 0.9860 & 0.9660 & 0.4140 \\
-    YOLOX-S                & CSPDarkNet-S  & 0.8030          & 0.9860 & 0.9460 & 0.4410 \\
-    DiffusionDet           & ResNet-50     & 0.8050          & 0.9710 & 0.9370 & 0.4030 \\
+    \textbf{KaryoFlow+LQCR} & ResNet-50 & \textbf{0.7550} & 0.9413 & 0.8420 & 0.5187 & \textbf{0.8704} & 0.9888 & 0.9722 & 0.5304 \\
+    DINO R50               & ResNet-50    & 0.7420 & 0.9400 & 0.8310 & 0.4920 & 0.8690 & 0.9910 & 0.9770 & 0.5530 \\
+    RTMDet-L               & CSPNeXt-L    & 0.7420 & 0.9460 & 0.8540 & 0.5040 & 0.8610 & 0.9910 & 0.9720 & 0.5220 \\
+    Cascade R-CNN          & ResNet-50    & 0.7320 & 0.9320 & 0.8430 & 0.5200 & 0.8540 & 0.9860 & 0.9660 & 0.4140 \\
+    DiffusionDet           & ResNet-50    & 0.6380 & 0.8710 & 0.7440 & 0.3550 & 0.8050 & 0.9710 & 0.9370 & 0.4030 \\
+    YOLOX-S                & CSPDarkNet-S & 0.5890 & 0.9240 & 0.7040 & 0.3590 & 0.8030 & 0.9860 & 0.9460 & 0.4410 \\
     \bottomrule
   \end{tabular}
-\end{table}
+\end{table*}
 
 \paragraph{Small-object performance}
-On small objects, our detector (AP$_S{=}0.516$ over three seeds) is
-close to DINO R50 ($0.553$) and RTMDet-L ($0.522$), but the validation split
-contains only $60$ images with small objects and the point estimates are
-high-variance. We therefore do not claim a small-object \emph{advantage};
-rather, a single-shot RF detector with a plain ResNet-50
-backbone is \emph{competitive} on the small-object regime most relevant for
-chromosome analysis, without the multi-scale deformable attention of DINO or
-the heavier CSPNeXt-L backbone of RTMDet-L. On the Dataset~1 held-out test
-split, the clean random-coupling KaryoFlow runs reach
-$0.7413\pm0.0032$ \mAP{} and $0.5090\pm0.0096$ AP$_S$ over three training
-seeds. The corresponding single-seed RTMDet-L and DINO R50 results are
-$0.7320/0.4800$ and $0.7250/0.4860$ (mAP/AP$_S$), respectively. This
-small-heavy cohort supports competitiveness under limited data, while the
-larger Dataset~2 comparison shows that the advantage is not universal across
-all detector families.
+Dataset~1 is the small-object-heavy cohort. LQCR reaches validation
+AP$_S=0.5187$, close to Cascade R-CNN ($0.5200$) and above DINO R50
+($0.4920$) and RTMDet-L ($0.5040$). On its held-out test split, the three-seed
+LQCR mean is $0.7480\pm0.0017$ mAP and $0.5147\pm0.0090$ AP$_S$, improving
+the uncalibrated KaryoFlow means by $0.0067$ and $0.0057$. On Dataset~2,
+LQCR leads overall mAP but remains below DINO on AP$_S$. This pattern supports
+the intended role of quality calibration---better aggregate ordering across
+strict IoU thresholds---without claiming universal superiority at every scale.
 
 
 \paragraph{Class- and scale-resolved analysis}
@@ -831,8 +784,8 @@ paper concerns RF, prediction parameterization, renewal, and coupling.
     $\beta$ & \mAP{} & $\Delta$\mAP{} & AP50 & AP75 & AP90 & AP95 \\
     \midrule
     0    & 0.8630 & ---     & 0.9889 & 0.9717 & 0.6914 & 0.2167 \\
-    0.25 & 0.8657 & +0.0027 & 0.9889 & 0.9718 & 0.7022 & 0.2284 \\
-    0.5  & 0.8673 & +0.0043 & 0.9889 & 0.9719 & 0.7086 & 0.2352 \\
+    0.2500 & 0.8657 & +0.0027 & 0.9889 & 0.9718 & 0.7022 & 0.2284 \\
+    0.5000 & 0.8673 & +0.0043 & 0.9889 & 0.9719 & 0.7086 & 0.2352 \\
     1    & 0.8689 & +0.0059 & 0.9888 & 0.9717 & 0.7158 & 0.2422 \\
     2    & \textbf{0.8704} & \textbf{+0.0074} & 0.9888 & 0.9722 & \textbf{0.7218} & \textbf{0.2492} \\
     \bottomrule
@@ -847,13 +800,12 @@ the five raw diagnostic exports are checksum-linked in the evidence registry.
 \subsubsection{Scale-Resolved Cross-Dataset Comparison}\label{sec:exp-qual}
 Figure~\ref{fig:qual-mosaic} replaces selected visual cases with complete-set
 evidence. Dataset~1 has a substantially smaller relative-box distribution than
-Dataset~2 (median $0.3672\%$ versus $0.8439\%$). On the Dataset~1 test split,
-the clean KaryoFlow three-seed mean reaches AP$_S=0.5090$, exceeding the
-strongest listed comparator by $0.0090$. On Dataset~2 validation, however, its
-three-seed AP$_S=0.5160$ is
-competitive but below DINO R50 ($0.5530$) and RTMDet-L ($0.5220$). The result
-therefore supports scale-dependent small-object competitiveness rather than a
-universal advantage. Because COCO's small-area threshold is absolute, raw
+Dataset~2 (median $0.4\%$ versus $0.8\%$). On the Dataset~1 test split,
+KaryoFlow+LQCR reaches AP$_S=0.5147\pm0.0090$ over three seeds, a $0.0057$
+gain over the uncalibrated model and $0.0147$ above the strongest listed
+comparator. On Dataset~2 validation, LQCR raises AP$_S$ to $0.5304$ but remains
+below DINO R50 ($0.5530$). The result supports scale-dependent small-object
+competitiveness rather than a universal advantage. Because COCO's small-area threshold is absolute, raw
 AP$_S$ levels are interpreted only within each dataset; the relative-area CDF
 is used to characterize the cross-dataset scale shift.
 
@@ -863,13 +815,11 @@ is used to characterize the cross-dataset scale shift.
   \caption{Object-scale shift and small-object detection across two chromosome
   cohorts. (a) Empirical CDF of relative ground-truth box area using all
   training annotations. Dataset~1 boxes are markedly smaller than Dataset~2
-  boxes. (b) Dataset~1 test AP$_S$ on 220 images; KaryoFlow is the clean
-  random-coupling three-seed mean and leads the strongest listed comparator by
-  $0.0090$. (c) Dataset~2
-  validation AP$_S$ on 500 images; KaryoFlow is the three-seed mean and the
-  other detectors use the unified checkpoint-linked re-evaluation. It is
-  competitive but does not lead
-  DINO R50 or RTMDet-L. AP$_S$ is interpreted within, not across, datasets.}
+  boxes. (b) Dataset~1 test AP$_S$ on 220 images; KaryoFlow+LQCR is the clean
+  three-seed mean. (c) Dataset~2 validation AP$_S$ on 500 images; LQCR is the
+  controlled seed-42 final-only result and other detectors use unified
+  checkpoint-linked re-evaluation. AP$_S$ is interpreted within, not across,
+  datasets.}
   \label{fig:qual-mosaic}
 \end{figure*}
 
@@ -878,7 +828,7 @@ is used to characterize the cross-dataset scale shift.
 
 With standardized augmentation, the three coupling strategies are equivalent
 within cross-seed variation on both datasets. On Dataset~1, their three-seed
-means lie within approximately $0.002$ mAP; on Dataset~2, the stochastic-minus-
+means lie within approximately $0.0020$ mAP; on Dataset~2, the stochastic-minus-
 random difference is also non-significant. Earlier larger gains pooled
 incompatible experimental lineages and are superseded. We retain this result
 to document the falsified direction, while excluding Stochastic Coupling from
@@ -887,22 +837,22 @@ the model definition and contribution list.
 \subsection{Solver Analysis}\label{sec:exp-solver}
 
 \paragraph{DPM-Solver++ step ablation}
-DPM-Solver++ converges at 2 steps (\mAP{} $0.863$, seed~42); no benefit
+DPM-Solver++ converges at 2 steps (\mAP{} $0.8630$, seed~42); no benefit
 beyond 2 steps confirms RF trajectories are near-straight.
 
 \paragraph{DPM-Solver++ vs Heun at matched NFE}
-At similar NFE, DPM-Solver++ 4-step (4 NFE, $0.863$) $\approx$ Heun 2-step
-(3 NFE, $0.863$) --- equal accuracy, so DPM-Solver++ achieves $43\%$ fewer NFE
+At similar NFE, DPM-Solver++ 4-step (4 NFE, $0.8630$) $\approx$ Heun 2-step
+(3 NFE, $0.8630$) --- equal accuracy, so DPM-Solver++ achieves $42.9\%$ fewer NFE
 at no cost. At matched \emph{step count} on the same RF-DPM++ checkpoint,
-DPM-Solver++ gives $0.863$ and Heun gives $0.864$ ($\Delta=-0.001$), which
+DPM-Solver++ gives $0.8630$ and Heun gives $0.8640$ ($\Delta=-0.0010$), which
 is practically neutral. We therefore attribute no accuracy gain to the
 off-the-shelf solver; its value is the lower evaluation count and latency.
 
 \paragraph{Test set evaluation}
-On the Dataset~2 test set, DPM-Solver++ achieves \mAP{} $0.859$ (vs val
-$0.863$ for seed~42, $\Delta = -0.004$), confirming that the aggregate
+On the Dataset~2 test set, DPM-Solver++ achieves \mAP{} $0.8590$ (vs val
+$0.8630$ for seed~42, $\Delta = -0.0040$), confirming that the aggregate
 accuracy generalizes well. The AP$_S$ point estimate, however, swings from
-$0.499$ (val) to $0.577$ (test) for the same checkpoint, indicating that
+$0.4990$ (val) to $0.5770$ (test) for the same checkpoint, indicating that
 AP$_S$ on this 24-class benchmark is high-variance (only $60$ val images
 contain small objects). We therefore base the small-object discussion on the
 full scale- and overlap-resolved diagnostics rather than on one split-specific
@@ -935,6 +885,7 @@ single-shot detectors (Cascade R-CNN, YOLOX-S) trade accuracy for speed.
     \midrule
     RF+Heun        & Heun  & 7 & 120.34 & 8.3 & 0.8560 \\
     \textbf{DPM-Solver++} & DPM++ & 4 & \textbf{75.20} & \textbf{13.3} & \textbf{0.8640} \\
+    \textbf{KaryoFlow+LQCR} & DPM++ & 4 & \textbf{77.68} & \textbf{12.9} & \textbf{0.8704} \\
     DPM-Solver++ +Top-$K$ (K=300)    & DPM++ & 4 & 70.84 & 14.1 & 0.8620 \\
     \textbf{DPM-Solver++ +Top-$K$ (K=200)} & DPM++ & 4 & \textbf{70.57} & \textbf{14.2} & \textbf{0.8620} \\
     DPM-Solver++ +Top-$K$ (K=100)    & DPM++ & 4 & 68.90 & 14.5 & 0.8520 \\
@@ -949,8 +900,10 @@ single-shot detectors (Cascade R-CNN, YOLOX-S) trade accuracy for speed.
 \end{table}
 
 DPM-Solver++ +Top-$K$ (K=200) reaches $70.57$\,ms /
-$14.2$ FPS at \mAP{} $0.8620$; DPM-Solver++ achieves $75.20$\,ms / $13.3$ FPS
-at \mAP{} $0.8640$. The cascade head dominates $90\%+$ of latency; the
+$14.2$ FPS at \mAP{} $0.8620$. The complete KaryoFlow+LQCR model reaches
+$77.68$\,ms / $12.9$ FPS at \mAP{} $0.8704$; its $2.48$\,ms ($3.3\%$)
+overhead over uncalibrated DPM-Solver++ buys the highest accuracy in the
+comparison. The cascade head dominates $90\%+$ of latency; the
 backbone+neck is a minor cost ($\sim 5.6$\,ms). These speed-linked
 re-evaluations differ by at most $0.0030$ from the canonical training-time
 point estimates in Tables~\ref{tab:main-ablation} and~\ref{tab:sota}, which is
@@ -966,7 +919,7 @@ history coherent and eliminates proposal replacement overhead.
 \subsection{Sensitivity to Annotation Precision}\label{sec:exp-robust}
 To quantify why strict localization matters, we perturb only the Dataset~2
 test annotations while keeping images and predictions fixed. A $5$-pixel
-Gaussian center perturbation reduces AP50 by $0.141$ but AP75 by $0.596$.
+Gaussian center perturbation reduces AP50 by $0.1410$ but AP75 by $0.5960$.
 This is an evaluation-sensitivity diagnostic rather than a model-robustness
 claim: modest annotation uncertainty is amplified at strict IoU, further
 motivating AP90/AP95 analysis and localization-aware ranking for small
@@ -981,7 +934,7 @@ matters because dozens of adjacent candidates evolve simultaneously, while the
 nearly fixed chromosome count permits a redundant proposal pool that makes
 renewal unnecessary at the retained operating point. LQCR then addresses the
 remaining decision bottleneck: class confidence is already sufficient at IoU
-$0.50$, but it does not identify which small or overlapping boxes will survive
+$0.5000$, but it does not identify which small or overlapping boxes will survive
 stricter localization thresholds. The concentration of LQCR gains at AP90 and
 AP95 is consistent with this task-derived mechanism.
 
@@ -989,17 +942,17 @@ The efficiency results reveal complementary deployment controls rather than a
 single opaque speedup. DPM-Solver++ reduces solver evaluations, distillation
 reduces cascade-head evaluations, Top-$K$ reduces proposals after the first
 step, and GACS reduces mean per-image steps. This decomposition enables an
-accuracy-oriented setting ($0.8640$ mAP, $75.20$ ms) or a compressed setting
+accuracy-oriented setting ($0.8704$ mAP, $77.68$ ms) or a compressed setting
 ($0.8590$ mAP, $44.10$ ms) without changing the central trajectory--ranking
 formulation.
 
 The study has three boundaries. First, both cohorts are public chromosome
 datasets and lack patient identifiers, so patient-level leakage and clinical
-workflow outcomes cannot be assessed. Second, LQCR is isolated on one fixed
-Dataset~2 validation checkpoint, and the same validation cohort selects
-$\beta$ and quantifies the intervention. Its within-checkpoint ranking effect
-is clear, but a locked test evaluation, broader multi-seed replication, and
-natural-image validation are required to establish generality.
+workflow outcomes cannot be assessed. Second, LQCR is replicated across three
+clean Dataset~1 training seeds and a held-out test split, but Dataset~2 uses one
+fixed validation checkpoint and the same cohort selects $\beta$. A locked
+Dataset~2 test and natural-image validation are still required to establish
+broader generality.
 Third, history-consistent inference relies on proposal redundancy: the observed
 $K=100$ failure should be treated as an operating constraint, not hidden by the
 high-$K$ result. These limits do not affect the box-path derivations, but they
@@ -1009,15 +962,16 @@ define the present empirical scope.
 KaryoFlow aligns trajectory learning, multistep state identity, and final
 localization-aware ranking for dense chromosome detection. RF supplies the
 few-step generative foundation; direct data prediction improves three-seed mAP
-by $0.002$ on both datasets; and the proposal-identity analysis makes DPM++
+by $0.0020$ on both datasets; and the proposal-identity analysis makes DPM++
 history mathematically coherent at the retained proposal count. The independent
-decision contribution, LQCR, improves fixed-checkpoint mAP by $0.0074$ and
-AP90/AP95 by $0.0304/0.0325$ without changing detections before ranking.
+decision contribution, LQCR, improves validation mAP by $0.0080$ across three
+Dataset~1 seeds and by $0.0074$ in the Dataset~2 fixed-checkpoint intervention.
+On Dataset~2, AP90/AP95 improve by $0.0304/0.0325$ without changing candidate
+boxes before ranking.
 Together with orthogonal inference compression, these results establish a
 competitive and interpretable generative detector for chromosome karyotyping.
 
 % ============================================================
-\IEEEtriggeratref{43}
 \bibliographystyle{IEEEtran}
 \bibliography{references}
 

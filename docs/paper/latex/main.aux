@@ -13,10 +13,10 @@
 \citation{xiao2020deepacev2}
 \citation{li2024mcvae}
 \citation{kuo2024chromosomenet}
-\citation{ren2015faster}
-\citation{xue2019microscopy}
-\citation{loewke2018cellseg}
-\citation{xing2021nucleus}
+\citation{matsumoto2026scc}
+\citation{rosas2026karyotyping}
+\citation{chen2026transfer}
+\citation{yang2026chroma}
 \citation{chen2023diffusiondet}
 \citation{baty2025flowdet}
 \citation{deflomat2025}
@@ -43,51 +43,51 @@
 \citation{lu2022dpmpp}
 \@writefile{toc}{\contentsline {section}{\numberline {II}Related Work}{2}{}\protected@file@percent }
 \newlabel{sec:related}{{II}{2}{}{}{}}
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {II-}0a}Chromosome and microscopy detection}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {II-}0a}Chromosome detection and karyotyping}{2}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {II-}0b}Generative detection and few-step integration}{2}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {II-}0c}Localization quality in medical detection}{2}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {III}Method}{2}{}\protected@file@percent }
 \newlabel{sec:method}{{III}{2}{}{}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-A}}Box-Space Rectified Flow}{2}{}\protected@file@percent }
 \newlabel{sec:method-rf}{{\mbox  {III-A}}{2}{}{}{}}
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-A}0a}RF formulation}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-A}0a}Linear transport in chromosome-box space}{2}{}\protected@file@percent }
 \newlabel{eq:rf-path}{{1}{2}{}{}{}}
-\newlabel{eq:fm-loss}{{2}{2}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-A}0b}Time conditioning}{2}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-B}}Stable Parameterization and Few-Step Integration}{2}{}\protected@file@percent }
 \newlabel{sec:method-solver}{{\mbox  {III-B}}{2}{}{}{}}
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0a}Heun solver (2nd-order)}{2}{}\protected@file@percent }
-\newlabel{eq:heun}{{3}{2}{}{}{}}
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0b}DPM-Solver++ (2nd-order multistep, 1 NFE/step)}{2}{}\protected@file@percent }
-\newlabel{eq:dpmpp}{{4}{2}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0a}Few-step integration}{2}{}\protected@file@percent }
 \@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces KaryoFlow from image to detections. A real metaphase image and its dense crop show four-NFE box refinement and the final ranked detections. The lower row makes one normalized center-and-scale trajectory explicit and exposes an actual detector evaluation: multi-scale RoIAlign, self-attention, DynamicConv, feed-forward refinement, AdaLN-Zero time conditioning, six cascade heads, and the final-head quality branch. Endpoints and output boxes are empirical; intermediate boxes visualize the prescribed linear RF path rather than recorded hidden activations. Vector overlays remain editable while microscopy panels retain the source pixels.}}{3}{}\protected@file@percent }
 \newlabel{fig:method_overview}{{1}{3}{}{}{}}
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0c}Why direct data prediction is numerically preferable here}{3}{}\protected@file@percent }
-\newlabel{eq:x0-v-weight}{{5}{3}{}{}{}}
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0d}Solver type is \ensuremath  {\mathrm  {mAP}}{}-neutral on RF+Heun}{3}{}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Solver$\times $step disentanglement ablation on the RF+Heun checkpoint (Dataset~2 val, seed 42). Solver type is \ensuremath  {\mathrm  {mAP}}{}-neutral at matched steps, while increasing one to four steps adds only $0.004$ mAP.}}{3}{}\protected@file@percent }
+\newlabel{eq:dpmpp}{{2}{3}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0b}Why direct data prediction is numerically preferable here}{3}{}\protected@file@percent }
+\newlabel{eq:x0-v-weight}{{3}{3}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0c}Solver type is \ensuremath  {\mathrm  {mAP}}{}-neutral on RF+Heun}{3}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Solver$\times $step disentanglement ablation on the RF+Heun checkpoint (Dataset~2 val, seed 42). Solver type is \ensuremath  {\mathrm  {mAP}}{}-neutral at matched steps, while increasing one to four steps adds only $0.0040$ mAP.}}{3}{}\protected@file@percent }
 \newlabel{tab:solver-ablation}{{I}{3}{}{}{}}
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0e}Conclusion}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0d}Conclusion}{3}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-C}}History-Consistent Proposal Integration}{3}{}\protected@file@percent }
 \newlabel{sec:method-engineering}{{\mbox  {III-C}}{3}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-C}0a}Proposal identity is a premise of multistep history}{3}{}\protected@file@percent }
-\newlabel{prop:identity}{{1}{3}{}{}{}}
 \citation{tong2023conditional}
 \citation{pooladian2023multisample}
 \citation{cuturi2013sinkhorn}
 \citation{cheng2025curse}
+\citation{rst_dataset}
+\citation{tseng2023dataset}
+\citation{lu2022cil54816}
+\newlabel{prop:identity}{{1}{4}{}{}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-D}}Orthogonal Inference Compression}{4}{}\protected@file@percent }
 \newlabel{sec:method-compression}{{\mbox  {III-D}}{4}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-D}0a}Cascade-head distillation}{4}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-D}0b}Conditional computation}{4}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-E}}Localization-Quality Calibrated Ranking}{4}{}\protected@file@percent }
 \newlabel{sec:method-lqcr}{{\mbox  {III-E}}{4}{}{}{}}
-\newlabel{eq:lqcr-factorization}{{7}{4}{}{}{}}
-\newlabel{eq:quality-head}{{8}{4}{}{}{}}
-\newlabel{eq:quality-loss}{{9}{4}{}{}{}}
-\citation{rst_dataset}
-\citation{tseng2023dataset}
-\citation{lu2022cil54816}
+\newlabel{eq:lqcr-factorization}{{5}{4}{}{}{}}
+\newlabel{eq:quality-loss}{{6}{4}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-F}}Coupling Audit}{4}{}\protected@file@percent }
+\newlabel{sec:method-ot}{{\mbox  {III-F}}{4}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-G}}Top-$K$ Proposal Pruning}{4}{}\protected@file@percent }
+\newlabel{sec:method-topk}{{\mbox  {III-G}}{4}{}{}{}}
 \citation{he2016resnet}
 \citation{lin2017fpn}
 \citation{loshchilov2019adamw}
@@ -97,26 +97,20 @@
 \citation{kuhn1955assignment}
 \@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Effect and causal scope of localization-quality ranking. (a,b) On the fixed Dataset~2 seed-42 RF-DPM++ checkpoint, the gain is concentrated at strict IoU thresholds (AP90/AP95 $+3.04/+3.25$ points), while AP50 is essentially unchanged ($-0.01$ points). (c) The intervention changes only final ordering from $p$ to $pq^2$; the RF trajectory, renewal, candidate coordinates, and class logits are fixed. Score-dependent post-processing may select a different final subset. Values are loaded from checkpoint-linked exports.}}{5}{}\protected@file@percent }
 \newlabel{fig:lqcr-principle}{{2}{5}{}{}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-F}}Coupling Audit}{5}{}\protected@file@percent }
-\newlabel{sec:method-ot}{{\mbox  {III-F}}{5}{}{}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-G}}Top-$K$ Proposal Pruning}{5}{}\protected@file@percent }
-\newlabel{sec:method-topk}{{\mbox  {III-G}}{5}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces Datasets used in this paper. Dataset~1 is Chromosome20240904 (RST); Dataset~2 is the 24 Chromosomes Object dataset.}}{5}{}\protected@file@percent }
+\newlabel{tab:datasets}{{II}{5}{}{}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {IV}Experiments}{5}{}\protected@file@percent }
 \newlabel{sec:exp}{{IV}{5}{}{}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-A}}Experimental Setup}{5}{}\protected@file@percent }
 \newlabel{sec:exp-setup}{{\mbox  {IV-A}}{5}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0a}Datasets}{5}{}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces Datasets used in this paper. Dataset~1 is Chromosome20240904 (RST); Dataset~2 is the 24 Chromosomes Object dataset.}}{5}{}\protected@file@percent }
-\newlabel{tab:datasets}{{II}{5}{}{}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Training-set properties that motivate the detector design. Relative area is box area divided by image area; small follows the COCO absolute-area threshold ($<32^2$ pixels); overlap denotes an image containing at least one pair of ground-truth boxes with IoU $>0.1$.}}{5}{}\protected@file@percent }
-\newlabel{tab:dataset-properties}{{III}{5}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0b}Architecture and training}{5}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Training-set properties that motivate the detector design. Relative area is box area divided by image area; small follows the COCO absolute-area threshold ($<32^2$ pixels); overlap denotes an image containing at least one pair of ground-truth boxes with IoU $>0.1000$.}}{5}{}\protected@file@percent }
+\newlabel{tab:dataset-properties}{{III}{5}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0c}Detection protocol}{5}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0d}Statistical considerations}{5}{}\protected@file@percent }
 \citation{lyu2022rtmdet}
 \citation{zhang2023dino}
-\citation{ge2021yolox}
-\citation{chen2023diffusiondet}
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0c}Detection protocol}{6}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0d}Statistical considerations}{6}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0e}Evidence traceability}{6}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-B}}Precision Bottleneck Diagnosis}{6}{}\protected@file@percent }
 \newlabel{sec:exp-bottleneck}{{\mbox  {IV-B}}{6}{}{}{}}
@@ -128,31 +122,31 @@
 \newlabel{sec:exp-sota}{{\mbox  {IV-D}}{6}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-D}0a}Small-object performance}{6}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-D}0b}Class- and scale-resolved analysis}{6}{}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Precision bottleneck diagnosis. (a) Oracle mAP headroom for perfect classes, ground-truth-IoU ranking, and perfect coordinates. Ground-truth-IoU ranking is a diagnostic upper bound, not a trained LQCR result. (b) AP versus IoU threshold. (c) Detection recall at IoU $0.90$ by scale and overlap condition. Dataset~1 uses a seed-42 100-image diagnostic subset; Dataset~2 uses the seed-42 500-image validation export.}}{7}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-D}0c}Causal interpretation of controlled comparisons}{6}{}\protected@file@percent }
+\newlabel{sec:exp-qual}{{\mbox  {IV-D}1}{6}{}{}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {IV-D}1}Scale-Resolved Cross-Dataset Comparison}{6}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Precision bottleneck diagnosis. (a) Oracle mAP headroom for perfect classes, ground-truth-IoU ranking, and perfect coordinates. Ground-truth-IoU ranking is a diagnostic upper bound, not a trained LQCR result. (b) AP versus IoU threshold. (c) Detection recall at IoU $0.9000$ by scale and overlap condition. Dataset~1 uses a seed-42 100-image diagnostic subset; Dataset~2 uses the seed-42 500-image validation export.}}{7}{}\protected@file@percent }
 \newlabel{fig:precision-bottleneck}{{3}{7}{}{}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces Evidence-controlled ablation on Dataset~2 validation. The final two rows share the seed-42 RF-DPM++ checkpoint; LQCR changes only output ranking.}}{7}{}\protected@file@percent }
 \newlabel{tab:main-ablation}{{IV}{7}{}{}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {V}{\ignorespaces Controlled independent and engineering interventions. Means use three seeds unless marked seed~42. CHE denotes cascade-head evaluations and is distinct from solver NFE. Every row is stored with source path, protocol, and paper-eligibility status in \texttt  {tools/experiment\_db/experiments.db}.}}{7}{}\protected@file@percent }
 \newlabel{tab:engineering-evidence}{{V}{7}{}{}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {VI}{\ignorespaces Detector comparison on Dataset~2. KaryoFlow results report the three-seed mean; all methods use independently trained checkpoints.}}{7}{}\protected@file@percent }
-\newlabel{tab:sota}{{VI}{7}{}{}{}}
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-D}0c}Causal interpretation of controlled comparisons}{7}{}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Same-hardware efficiency on Dataset~2. (a) Latency decomposition. (b) Validation mAP versus FPS on one RTX A6000; connected points form a checkpoint-paired Top-$K$ sweep, whereas other detectors are independent.}}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-E}}Controlled Coupling Result}{7}{}\protected@file@percent }
+\newlabel{sec:exp-coupling}{{\mbox  {IV-E}}{7}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-F}}Solver Analysis}{7}{}\protected@file@percent }
+\newlabel{sec:exp-solver}{{\mbox  {IV-F}}{7}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-F}0a}DPM-Solver++ step ablation}{7}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-F}0b}DPM-Solver++ vs Heun at matched NFE}{7}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Same-hardware efficiency on Dataset~2. (a) Latency decomposition. (b) Validation mAP versus FPS on one RTX A6000; connected points form a checkpoint-paired Top-$K$ sweep. The highlighted LQCR point is the complete KaryoFlow accuracy model; other detectors are independent.}}{8}{}\protected@file@percent }
 \newlabel{fig:fps-map}{{4}{8}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {VI}{\ignorespaces Validation comparison on two chromosome datasets. Dataset~1 KaryoFlow+LQCR is the clean three-seed mean; Dataset~2 is the controlled final-only seed-42 model. Other rows are checkpoint-linked re-evaluations. Bold denotes the best mAP within this comparison, not an exhaustive cross-paper SOTA claim.}}{8}{}\protected@file@percent }
+\newlabel{tab:sota}{{VI}{8}{}{}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {VII}{\ignorespaces Learned-quality exponent sweep on Dataset~2 validation (seed 42). The $\beta =0$ row disables quality ranking. These are learned-$q$ results, not ground-truth-IoU oracle rankings; all rows use the same single-image precision-diagnostic protocol.}}{8}{}\protected@file@percent }
 \newlabel{tab:lqcr-beta}{{VII}{8}{}{}{}}
-\newlabel{sec:exp-qual}{{\mbox  {IV-D}1}{8}{}{}{}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {IV-D}1}Scale-Resolved Cross-Dataset Comparison}{8}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-E}}Controlled Coupling Result}{8}{}\protected@file@percent }
-\newlabel{sec:exp-coupling}{{\mbox  {IV-E}}{8}{}{}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-F}}Solver Analysis}{8}{}\protected@file@percent }
-\newlabel{sec:exp-solver}{{\mbox  {IV-F}}{8}{}{}{}}
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-F}0a}DPM-Solver++ step ablation}{8}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-F}0b}DPM-Solver++ vs Heun at matched NFE}{8}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-F}0c}Test set evaluation}{8}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-G}}FPS / Latency Benchmark}{8}{}\protected@file@percent }
 \newlabel{sec:exp-fps}{{\mbox  {IV-G}}{8}{}{}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Object-scale shift and small-object detection across two chromosome cohorts. (a) Empirical CDF of relative ground-truth box area using all training annotations. Dataset~1 boxes are markedly smaller than Dataset~2 boxes. (b) Dataset~1 test AP$_S$ on 220 images; KaryoFlow is the clean random-coupling three-seed mean and leads the strongest listed comparator by $0.0090$. (c) Dataset~2 validation AP$_S$ on 500 images; KaryoFlow is the three-seed mean and the other detectors use the unified checkpoint-linked re-evaluation. It is competitive but does not lead DINO R50 or RTMDet-L. AP$_S$ is interpreted within, not across, datasets.}}{9}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Object-scale shift and small-object detection across two chromosome cohorts. (a) Empirical CDF of relative ground-truth box area using all training annotations. Dataset~1 boxes are markedly smaller than Dataset~2 boxes. (b) Dataset~1 test AP$_S$ on 220 images; KaryoFlow+LQCR is the clean three-seed mean. (c) Dataset~2 validation AP$_S$ on 500 images; LQCR is the controlled seed-42 final-only result and other detectors use unified checkpoint-linked re-evaluation. AP$_S$ is interpreted within, not across, datasets.}}{9}{}\protected@file@percent }
 \newlabel{fig:qual-mosaic}{{5}{9}{}{}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {VIII}{\ignorespaces Same-hardware model-forward latency benchmark on Dataset~2 at $512\times 512$ resolution (RTX A6000, batch size 1, 10 warm-up and 500 timed CUDA-event iterations). Accuracy is re-evaluated on validation with the speed-linked checkpoint.}}{9}{}\protected@file@percent }
 \newlabel{tab:fps}{{VIII}{9}{}{}{}}
@@ -160,6 +154,8 @@
 \newlabel{sec:exp-robust}{{\mbox  {IV-H}}{9}{}{}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {V}Discussion}{9}{}\protected@file@percent }
 \newlabel{sec:discussion}{{V}{9}{}{}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {VI}Conclusion}{9}{}\protected@file@percent }
+\newlabel{sec:conclusion}{{VI}{9}{}{}{}}
 \bibstyle{IEEEtran}
 \bibdata{references}
 \bibcite{cai2018cascade}{1}
@@ -174,10 +170,10 @@
 \bibcite{xiao2020deepacev2}{10}
 \bibcite{li2024mcvae}{11}
 \bibcite{kuo2024chromosomenet}{12}
-\bibcite{ren2015faster}{13}
-\bibcite{xue2019microscopy}{14}
-\bibcite{loewke2018cellseg}{15}
-\bibcite{xing2021nucleus}{16}
+\bibcite{matsumoto2026scc}{13}
+\bibcite{rosas2026karyotyping}{14}
+\bibcite{chen2026transfer}{15}
+\bibcite{yang2026chroma}{16}
 \bibcite{baty2025flowdet}{17}
 \bibcite{deflomat2025}{18}
 \bibcite{chen2024diffubox}{19}
@@ -196,9 +192,6 @@
 \bibcite{jiang2018iounet}{32}
 \bibcite{li2020gfl}{33}
 \bibcite{zhang2021vfnet}{34}
-\@writefile{toc}{\contentsline {section}{\numberline {VI}Conclusion}{10}{}\protected@file@percent }
-\newlabel{sec:conclusion}{{VI}{10}{}{}{}}
-\@writefile{toc}{\contentsline {section}{References}{10}{}\protected@file@percent }
 \bibcite{mehrtash2020calibration}{35}
 \bibcite{dhariwal2021diffusion}{36}
 \bibcite{tong2023conditional}{37}
@@ -206,6 +199,7 @@
 \bibcite{cuturi2013sinkhorn}{39}
 \bibcite{cheng2025curse}{40}
 \bibcite{rst_dataset}{41}
+\@writefile{toc}{\contentsline {section}{References}{10}{}\protected@file@percent }
 \bibcite{tseng2023dataset}{42}
 \bibcite{lu2022cil54816}{43}
 \bibcite{he2016resnet}{44}

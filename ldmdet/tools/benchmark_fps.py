@@ -74,6 +74,12 @@ MODEL_REGISTRY = {
         'desc': 'A4: DPM-Solver++ (4 steps)',
         'type': 'ldmdet',
     },
+    'lqcr': {
+        'config': 'experiments/configs/ldmdet/directions/capr/capr_quality_final_only_24obj.py',
+        'checkpoint': 'work_dirs/capr_quality_only_24obj/best_coco_bbox_mAP_epoch_2.pth',
+        'desc': 'KaryoFlow + LQCR final-only ranking (4 steps)',
+        'type': 'ldmdet',
+    },
     'h3_distill': {
         'config': 'work_dirs/h3_distill_plan_a_24obj/h3_distill_plan_a_24obj.py',
         'checkpoint': 'work_dirs/h3_distill_plan_a_24obj/best_coco_bbox_mAP_epoch_10.pth',
@@ -177,6 +183,7 @@ KNOWN_MAP = {
     'a1': 0.856,
     'a3': 0.858,
     'a4': 0.860,
+    'lqcr': 0.8704,
     'io3_k300': 0.857,
     'io3_k200': 0.856,
     'a4_io3_k300': 0.860,  # 2026-08-11 unified re-evaluation

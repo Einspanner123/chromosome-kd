@@ -58,7 +58,7 @@ def draw_metric_panel(ax: plt.Axes, records: list[dict], title: str,
         if "std" in record:
             ax.errorbar(value, yi, xerr=float(record["std"]), fmt="none",
                         ecolor=color, elinewidth=1.0, capsize=2.2, zorder=2)
-        ax.text(value + 0.004, yi, f"{value:.3f}", va="center", ha="left",
+        ax.text(value + 0.004, yi, f"{value:.4f}", va="center", ha="left",
                 fontsize=6.4, color=color, weight="bold" if ours else "normal")
 
     ax.set_yticks(y, [m.replace("KaryoFlow ", "KaryoFlow\n") for m in methods])
@@ -111,11 +111,11 @@ def main() -> None:
 
     draw_metric_panel(
         axes[1], evidence["dataset_1_test"], "Small-heavy Dataset 1", "b",
-        "220 test images; KaryoFlow is 0.509 ± 0.010 over 3 seeds.\nIt leads the best comparator by +0.009 $AP_S$.",
+        "220 test images; LQCR is 0.5147 ± 0.0090 over 3 seeds.\nQuality ranking adds +0.0057 $AP_S$.",
     )
     draw_metric_panel(
         axes[2], evidence["dataset_2_validation"], "Larger-scale Dataset 2", "c",
-        "500 validation images. KaryoFlow is a 3-seed mean;\ncomparators use unified re-evaluation. No universal advantage.",
+        "500 validation images; LQCR is the fixed seed-42 result.\nIt improves AP_S but remains below DINO R50.",
     )
 
     save_vector_figure(fig, "fig07_qualitative")

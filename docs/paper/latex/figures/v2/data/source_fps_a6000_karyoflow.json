@@ -30,6 +30,21 @@
     "protocol": "Dataset 2 val; RTX A6000; 512x512; batch 1; warmup 10; 500 CUDA-event model-forward iterations"
   },
   {
+    "name": "lqcr",
+    "desc": "KaryoFlow with final-only localization-quality calibration",
+    "total_ms": 77.68,
+    "std_ms": 1.14,
+    "fps": 12.9,
+    "backbone_neck_ms": 5.80,
+    "head_ms": 71.88,
+    "known_mAP": 0.8704,
+    "config": "experiments/configs/ldmdet/directions/capr/capr_quality_final_only_24obj.py",
+    "checkpoint": "work_dirs/capr_quality_only_24obj/best_coco_bbox_mAP_epoch_2.pth",
+    "latency_source": "results/audit_20260811/lqcr_same_protocol/benchmark_fps_20260811_184458.json",
+    "accuracy_source": "tools/experiment_db/evidence_sources/lqcr_learned_beta_sweep_seed42.json:beta=2",
+    "protocol": "Dataset 2 val; RTX A6000; 512x512; batch 1; warmup 10; 500 CUDA-event model-forward iterations"
+  },
+  {
     "name": "a4_io3_k300",
     "desc": "DPM-Solver++ + Top-K pruning K=300",
     "total_ms": 70.84403024291993,

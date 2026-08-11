@@ -1,0 +1,23 @@
+[
+  {
+    "total_ms": 77.68208174133301,
+    "std_ms": 1.1352927241265331,
+    "fps": 12.872981485354826,
+    "backbone_neck_ms": 5.802383358001709,
+    "head_ms": 71.8796983833313,
+    "name": "lqcr",
+    "desc": "KaryoFlow + LQCR final-only ranking (4 steps)",
+    "config": "experiments/configs/ldmdet/directions/capr/capr_quality_final_only_24obj.py",
+    "checkpoint": "work_dirs/capr_quality_only_24obj/best_coco_bbox_mAP_epoch_2.pth",
+    "img_size": 512,
+    "warmup": 10,
+    "iters": 500,
+    "gpu": "NVIDIA RTX A6000",
+    "known_mAP": 0.8704,
+    "solver_type": "dpm_solver_pp",
+    "sampling_timesteps": "unknown",
+    "num_proposals": 500,
+    "topk_pruning": false,
+    "topk_k": 100
+  }
+]

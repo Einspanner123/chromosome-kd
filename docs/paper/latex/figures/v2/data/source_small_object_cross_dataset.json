@@ -1,7 +1,7 @@
 {
   "description": "Cross-dataset object-scale distribution and within-dataset COCO AP_S comparison",
   "dataset_1_test": [
-    {"method": "KaryoFlow DPM++", "AP_S": 0.5090, "std": 0.0096},
+    {"method": "KaryoFlow + LQCR", "AP_S": 0.5147, "std": 0.0090},
     {"method": "Cascade R-CNN", "AP_S": 0.5000},
     {"method": "DINO R50", "AP_S": 0.4860},
     {"method": "RTMDet-L", "AP_S": 0.4800},
@@ -9,7 +9,7 @@
     {"method": "YOLOX-S", "AP_S": 0.3300}
   ],
   "dataset_2_validation": [
-    {"method": "KaryoFlow DPM++", "AP_S": 0.5160},
+    {"method": "KaryoFlow + LQCR", "AP_S": 0.5304},
     {"method": "DINO R50", "AP_S": 0.5530},
     {"method": "RTMDet-L", "AP_S": 0.5220},
     {"method": "YOLOX-S", "AP_S": 0.4410},
@@ -20,14 +20,14 @@
     "scale_distribution_dataset_1": "data/Chromosome20240904_NoAug_NoResize_coco/train/_annotations.coco.json",
     "scale_distribution_dataset_2": "data/24_chromosomes_object/coco/train/_annotations.coco.json",
     "dataset_1_metrics": [
-      "ross:work_dirs/paired_clean/a4_random_chr2024_seed42/20260811_143917/20260811_143917.log",
-      "workstation:work_dirs/paired_clean/a4_random_chr2024_seed123/20260811_144242/20260811_144242.log",
-      "workstation:work_dirs/paired_clean/a4_random_chr2024_seed789/20260811_144331/20260811_144331.log",
+      "ross:work_dirs/paired_clean/lqcr_final_only_chr2024_seed42/best_coco_bbox_mAP_epoch_5.pth",
+      "workstation:work_dirs/paired_clean/lqcr_final_only_chr2024_seed123/best_coco_bbox_mAP_epoch_2.pth",
+      "workstation:work_dirs/paired_clean/lqcr_final_only_chr2024_seed789/best_coco_bbox_mAP_epoch_2.pth",
       "work_dirs/diagnosis/test_eval_per_size_20260730_204840.json"
     ],
-    "dataset_1_protocol": "test split, 220 images; KaryoFlow clean random-coupling 3-seed mean, other detectors seed 42",
+    "dataset_1_protocol": "test split, 220 images; KaryoFlow+LQCR clean random-coupling 3-seed mean, other detectors seed 42",
     "dataset_2_metrics": "results/audit_20260811/val_recheck/*.log",
-    "dataset_2_protocol": "validation split, 500 images; KaryoFlow three-seed mean, other detectors unified checkpoint-linked re-evaluation"
+    "dataset_2_protocol": "validation split, 500 images; KaryoFlow+LQCR fixed seed-42 final-only evaluation, other detectors unified checkpoint-linked re-evaluation"
   },
   "evidence_boundary": "AP_S values are compared only within each dataset. Dataset 1 and Dataset 2 use different splits, and non-KaryoFlow comparators are single-seed checkpoints, so raw cross-dataset AP_S levels and between-method variance are not interpreted as paired differences."
 }

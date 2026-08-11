@@ -1,0 +1,54 @@
+{
+  "description": "Clean LQCR replication on Dataset 1 and same-hardware Dataset 2 latency",
+  "date": "2026-08-11",
+  "dataset_1": {
+    "protocol": "clean random-coupling lineage; final-only quality branch; seeds 42, 123, 789",
+    "checkpoints": [
+      "ross:work_dirs/paired_clean/lqcr_final_only_chr2024_seed42/best_coco_bbox_mAP_epoch_5.pth",
+      "workstation:work_dirs/paired_clean/lqcr_final_only_chr2024_seed123/best_coco_bbox_mAP_epoch_2.pth",
+      "workstation:work_dirs/paired_clean/lqcr_final_only_chr2024_seed789/best_coco_bbox_mAP_epoch_2.pth"
+    ],
+    "validation": {
+      "per_seed": {
+        "42": {"mAP": 0.7560, "AP50": 0.9410, "AP75": 0.8440, "AP_S": 0.5200, "AP_M": 0.7480, "AP_L": 0.6330},
+        "123": {"mAP": 0.7560, "AP50": 0.9400, "AP75": 0.8410, "AP_S": 0.5200, "AP_M": 0.7470, "AP_L": 0.6130},
+        "789": {"mAP": 0.7530, "AP50": 0.9430, "AP75": 0.8410, "AP_S": 0.5160, "AP_M": 0.7460, "AP_L": 0.6110}
+      },
+      "mean": {"mAP": 0.7550, "AP50": 0.9413, "AP75": 0.8420, "AP_S": 0.5187, "AP_M": 0.7470, "AP_L": 0.6190},
+      "sample_std": {"mAP": 0.0017, "AP_S": 0.0023},
+      "uncalibrated_mAP_mean": 0.7470,
+      "mAP_delta": 0.0080
+    },
+    "test": {
+      "images": 220,
+      "per_seed": {
+        "42": {"mAP": 0.7470, "AP50": 0.9310, "AP75": 0.8310, "AP_S": 0.5060, "AP_M": 0.7300, "AP_L": 0.6410},
+        "123": {"mAP": 0.7500, "AP50": 0.9320, "AP75": 0.8360, "AP_S": 0.5240, "AP_M": 0.7290, "AP_L": 0.6530},
+        "789": {"mAP": 0.7470, "AP50": 0.9340, "AP75": 0.8320, "AP_S": 0.5140, "AP_M": 0.7270, "AP_L": 0.6680}
+      },
+      "mean": {"mAP": 0.7480, "AP50": 0.9323, "AP75": 0.8330, "AP_S": 0.5147, "AP_M": 0.7287, "AP_L": 0.6540},
+      "sample_std": {"mAP": 0.0017, "AP_S": 0.0090},
+      "uncalibrated_mAP_mean": 0.7413,
+      "uncalibrated_AP_S_mean": 0.5090,
+      "mAP_delta": 0.0067,
+      "AP_S_delta": 0.0057
+    },
+    "exclusions": [
+      "The earlier legacy StochOT LQCR lineage is excluded from paper claims.",
+      "An all-zero test result caused by a validation evaluator/test dataloader mismatch is invalid and excluded."
+    ]
+  },
+  "dataset_2_latency": {
+    "model": "KaryoFlow+LQCR",
+    "mAP": 0.8704,
+    "latency_ms": 77.68,
+    "std_ms": 1.14,
+    "fps": 12.9,
+    "gpu": "RTX A6000",
+    "image_size": "512x512",
+    "batch_size": 1,
+    "warmup": 10,
+    "iterations": 500,
+    "source": "results/audit_20260811/lqcr_same_protocol/benchmark_fps_20260811_184458.json"
+  }
+}

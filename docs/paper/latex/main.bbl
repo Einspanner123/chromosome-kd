@@ -88,28 +88,29 @@ C.-E. Kuo, J.-Z. Li, J.-J. Tseng, F.-C. Lo, M.-J. Chen, and C.-H. Lu,
   metaphase cell images,'' \emph{IEEE Open Journal of Engineering in Medicine
   and Biology}, vol.~6, pp. 227--236, 2024.
 
-\bibitem{ren2015faster}
-S.~Ren, K.~He, R.~Girshick, and J.~Sun, ``Faster {R-CNN}: Towards real-time
-  object detection with region proposal networks,'' in \emph{Adv. Neural Inf.
-  Process. Syst. (NeurIPS)}, 2015, pp. 91--99.
+\bibitem{matsumoto2026scc}
+S.~Matsumoto, M.~Sojo, K.~Oshima, K.~Nishikawa, K.~Okubo \emph{et~al.},
+  ``Detection and classification of chromosomes with sister chromatid cohesion
+  defects using object detection models,'' \emph{Scientific Reports}, vol.~16,
+  p. 13719, 2026.
 
-\bibitem{xue2019microscopy}
-Y.~Xue, G.~Bigras, J.~Hugh, and N.~Ray, ``Training convolutional neural
-  networks and compressed sensing end-to-end for microscopy cell detection,''
-  \emph{IEEE Transactions on Medical Imaging}, vol.~38, no.~11, pp. 2632--2641,
-  2019.
+\bibitem{rosas2026karyotyping}
+C.~Rosas-Alatriste, N.~O. Rodr\'{i}guez-Rodr\'{i}guez, A.~J.
+  Arg{\"u}elles-Cruz, A.~Rosas-Cabral, C.~Y{\'{a}}{\~n}ez-M{\'{a}}rquez
+  \emph{et~al.}, ``Automated karyotyping and structural anomaly detection
+  through a hybrid multi-stage deep learning framework integrating chromosome
+  detection, pairwise classification, and autoencoder-based analysis,''
+  \emph{Scientific Reports}, vol.~16, p. 22469, 2026.
 
-\bibitem{loewke2018cellseg}
-N.~O. Loewke, S.~Pai, C.~Cordeiro, D.~Black, B.~L. King, C.~H. Contag, B.~Chen,
-  T.~M. Baer, and O.~Solgaard, ``Automated cell segmentation for quantitative
-  phase microscopy,'' \emph{IEEE Transactions on Medical Imaging}, vol.~37,
-  no.~4, pp. 929--940, 2018.
+\bibitem{chen2026transfer}
+T.~Chen, C.~Xie, W.~Zhang \emph{et~al.}, ``{ImageNet} pre-training and two-step
+  transfer learning in chromosome image classification,'' \emph{Scientific
+  Reports}, vol.~16, p. 7572, 2026.
 
-\bibitem{xing2021nucleus}
-F.~Xing, T.~C. Cornish, T.~D. Bennett, and D.~Ghosh, ``Bidirectional
-  mapping-based domain adaptation for nucleus detection in cross-modality
-  microscopy images,'' \emph{IEEE Transactions on Medical Imaging}, vol.~40,
-  no.~10, pp. 2880--2896, 2021.
+\bibitem{yang2026chroma}
+C.~Yang \emph{et~al.}, ``A comprehensive foundation model for generalizable
+  cytogenetics in precision oncology with {CHROMA},'' \emph{npj Precision
+  Oncology}, vol.~10, p. 187, 2026.
 
 \bibitem{baty2025flowdet}
 \BIBentryALTinterwordspacing
