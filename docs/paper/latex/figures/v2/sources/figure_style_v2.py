@@ -117,10 +117,11 @@ def arrow(
 
 
 def panel_title(ax: plt.Axes, label: str, title: str) -> None:
+    """Draw only a subfigure identifier; explain panel content in the caption."""
     ax.text(
         0.0,
         1.025,
-        f"({label})  {title}",
+        f"({label})",
         transform=ax.transAxes,
         ha="left",
         va="bottom",
@@ -140,4 +141,3 @@ def save_vector_figure(fig: plt.Figure, stem: str) -> None:
             transparent=False,
         )
     plt.close(fig)
-

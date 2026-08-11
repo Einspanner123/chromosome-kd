@@ -110,8 +110,8 @@ def noisy_bbox(final: np.ndarray, index: int, crop: tuple[int, int, int, int]) -
                      np.clip(cy - nh / 2, y1, y2 - nh), nw, nh])
 
 
-def panel_label(fig: plt.Figure, x: float, text: str) -> None:
-    fig.text(x, 0.958, text, ha="left", va="top", fontsize=8.1,
+def panel_label(fig: plt.Figure, x: float, y: float, label: str) -> None:
+    fig.text(x, y, f"({label})", ha="left", va="top", fontsize=8.6,
              weight="bold", color=C_TEXT)
 
 
@@ -155,8 +155,6 @@ def coordinate_path(fig: plt.Figure, rect: tuple[float, float, float, float],
                     noise: np.ndarray, final: np.ndarray,
                     crop: tuple[int, int, int, int]) -> None:
     ax = fig.add_axes(rect); ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
-    ax.text(0.0, 1.02, "Box-state transport in normalized coordinates",
-            ha="left", va="bottom", fontsize=6.7, weight="bold", color=C_TEXT)
     x1, y1, x2, y2 = crop; cw, ch = x2-x1, y2-y1
     times = [1.0, 0.67, 0.33, 0.0]
     colors = [C_LINE, "#7EA6C2", "#3B88B8", C_RF]
@@ -196,8 +194,6 @@ def coordinate_path(fig: plt.Figure, rect: tuple[float, float, float, float],
 
 def architecture_panel(fig: plt.Figure, rect: tuple[float, float, float, float]) -> None:
     ax = fig.add_axes(rect); ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
-    ax.text(0.0, 1.02, "Image-conditioned detector evaluation at time t",
-            ha="left", va="bottom", fontsize=6.7, weight="bold", color=C_TEXT)
 
     rounded(ax, (0.025, 0.49), (0.085, 0.17), "FPN\nP2-P5", fc=C_RF_LIGHT,
             ec=C_RF, color=C_RF, size=5.5, weight="bold")
@@ -279,9 +275,11 @@ def main() -> None:
         raise RuntimeError("Selected scene does not contain enough local predictions")
 
     fig = plt.figure(figsize=(7.2, 3.62), facecolor="white")
-    panel_label(fig, 0.022, "(a)  Metaphase image")
-    panel_label(fig, 0.302, "(b)  Few-step box refinement")
-    panel_label(fig, 0.838, "(c)  Ranked detections")
+    panel_label(fig, 0.022, 0.958, "a")
+    panel_label(fig, 0.302, 0.958, "b")
+    panel_label(fig, 0.838, 0.958, "c")
+    panel_label(fig, 0.022, 0.425, "d")
+    panel_label(fig, 0.325, 0.425, "e")
 
     input_ax = image_axis(fig, (0.022, 0.49, 0.158, 0.405), image)
     input_ax.add_patch(Rectangle((crop[0], crop[1]), crop[2]-crop[0], crop[3]-crop[1],

@@ -155,15 +155,16 @@ so stochastic coupling is excluded from the final model and contribution list.
 \begin{figure*}[t]
   \centering
   \includegraphics[width=\textwidth]{figures/v2/generated/fig01_system_overview.pdf}
-  \caption{KaryoFlow from image to detections. A real metaphase image and its
-  dense crop show four-NFE box refinement and the final ranked detections. The
-  lower row makes one normalized center-and-scale trajectory explicit and
-  exposes an actual detector evaluation: multi-scale RoIAlign, self-attention,
-  DynamicConv, feed-forward refinement, AdaLN-Zero time conditioning, six
-  cascade heads, and the final-head quality branch. Endpoints and output boxes
-  are empirical; intermediate boxes visualize the prescribed linear RF path
-  rather than recorded hidden activations. Vector overlays remain editable
-  while microscopy panels retain the source pixels.}
+  \caption{KaryoFlow from image to detections. (a) A metaphase image and its
+  ResNet-50--FPN representation provide multi-scale image features. (b) A dense
+  crop visualizes four-NFE box refinement from noise to localized chromosome
+  candidates. (c) The detector emits the final quality-ranked chromosome
+  detections. (d) One proposal is shown in normalized center-and-scale
+  coordinates along the prescribed linear RF path. (e) At each evaluation,
+  multi-scale RoIAlign feeds a cascade head with self-attention, DynamicConv,
+  feed-forward refinement, AdaLN-Zero time conditioning, and the final-head
+  quality branch. Endpoints and output boxes are empirical; intermediate boxes
+  visualize the prescribed RF path rather than recorded hidden activations.}
   \label{fig:method_overview}
 \end{figure*}
 
@@ -457,14 +458,15 @@ boundary, and fixed-seed controlled effect.
 \begin{figure*}[t]
   \centering
   \includegraphics[width=\textwidth]{figures/v2/generated/fig02_lqcr_principle.pdf}
-  \caption{Effect and causal scope of localization-quality ranking. (a,b) On
-  the fixed Dataset~2 seed-42 RF-DPM++ checkpoint, the gain is concentrated at strict
-  IoU thresholds (AP90/AP95 $+3.04/+3.25$ points), while AP50 is essentially
-  unchanged ($-0.01$ points).
-  (c) The intervention changes only final ordering from $p$ to $pq^2$; the RF
-  trajectory, renewal, candidate coordinates, and class logits are fixed.
-  Score-dependent post-processing may select a different final subset. Values are loaded
-  from checkpoint-linked exports.}
+  \caption{Effect and causal scope of localization-quality ranking. (a) On the
+  fixed Dataset~2 seed-42 RF-DPM++ checkpoint, quality-aware and class-only AP
+  curves separate mainly at strict IoU thresholds. (b) Their threshold-wise
+  difference reaches $+3.04/+3.25$ points at AP90/AP95, while AP50 changes by
+  only $-0.01$ points. (c) The controlled intervention changes final ordering
+  from $p$ to $pq^2$ while fixing the RF trajectory, renewal, candidate
+  coordinates, and class logits; score-dependent post-processing may therefore
+  select a different final subset. Values are loaded from checkpoint-linked
+  exports.}
   \label{fig:lqcr-principle}
 \end{figure*}
 
@@ -609,10 +611,11 @@ current precision bottleneck.
 \begin{figure*}[t]
   \centering
   \includegraphics[width=\textwidth]{figures/v2/generated/fig04_precision_bottleneck.pdf}
-  \caption{Precision bottleneck diagnosis. (a) Oracle mAP headroom for perfect
-  classes, ground-truth-IoU ranking, and perfect coordinates. Ground-truth-IoU
-  ranking is a diagnostic upper bound, not a trained LQCR result. (b) AP versus
-  IoU threshold. (c) Detection recall at IoU $0.9000$ by scale and overlap
+  \caption{Precision bottleneck diagnosis. (a) Oracle mAP headroom compares
+  perfect classes, ground-truth-IoU ranking, and perfect coordinates;
+  ground-truth-IoU ranking is a diagnostic upper bound, not a trained LQCR
+  result. (b) AP is traced from IoU $0.5000$ to strict localization thresholds.
+  (c) Detection recall at IoU $0.9000$ is stratified by object scale and overlap
   condition. Dataset~1 uses a seed-42 100-image diagnostic subset; Dataset~2
   uses the seed-42 500-image validation export.}
   \label{fig:precision-bottleneck}
@@ -690,10 +693,12 @@ $+0.0170$ \mAP{} ($0.7460$ vs $0.7290$, lower variance $\pm 0.0010$ vs $\pm
 \begin{figure*}[t]
   \centering
   \includegraphics[width=\textwidth]{figures/v2/generated/fig06_efficiency.pdf}
-  \caption{Same-hardware efficiency on Dataset~2. (a) Latency decomposition.
-  (b) Validation mAP versus FPS on one RTX A6000. The three blue KaryoFlow
-  operating points use $K=500$, $200$, and $100$ without connecting lines;
-  the highlighted LQCR point is the complete accuracy model.}
+  \caption{Same-hardware efficiency on Dataset~2. (a) Backbone--neck and
+  iterative-head latency are decomposed for Heun, DPM-Solver++, and proposal
+  pruning. (b) Validation mAP is plotted against model-forward FPS on one RTX
+  A6000. The three blue KaryoFlow operating points use $K=500$, $200$, and
+  $100$ without connecting lines; the highlighted LQCR point is the complete
+  accuracy model.}
   \label{fig:fps-map}
 \end{figure*}
 
@@ -810,13 +815,13 @@ is used to characterize the cross-dataset scale shift.
   \centering
   \includegraphics[width=\textwidth]{figures/v2/generated/fig07_qualitative.pdf}
   \caption{Object-scale shift and small-object detection across two chromosome
-  cohorts. (a) Empirical CDF of relative ground-truth box area using all
-  training annotations. Dataset~1 boxes are markedly smaller than Dataset~2
-  boxes. (b) Dataset~1 test AP$_S$ on 220 images; KaryoFlow+LQCR is the clean
-  three-seed mean. (c) Dataset~2 validation AP$_S$ on 500 images; LQCR is the
-  controlled seed-42 final-only result and other detectors use unified
-  checkpoint-linked re-evaluation. AP$_S$ is interpreted within, not across,
-  datasets.}
+  cohorts. (a) The empirical CDF of relative ground-truth box area over all
+  training annotations shows that Dataset~1 chromosomes are markedly smaller
+  than those in Dataset~2. (b) Dataset~1 test AP$_S$ is compared on 220 images;
+  KaryoFlow+LQCR is the clean three-seed mean. (c) Dataset~2 validation AP$_S$
+  is compared on 500 images; LQCR is the controlled seed-42 final-only result
+  and other detectors use unified checkpoint-linked re-evaluation. AP$_S$ is
+  interpreted within, not across, datasets.}
   \label{fig:qual-mosaic}
 \end{figure*}
 

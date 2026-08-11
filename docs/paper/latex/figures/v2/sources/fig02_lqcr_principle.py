@@ -10,7 +10,7 @@ import numpy as np
 
 from figure_style_v2 import (
     C_FOUNDATION, C_LIGHT, C_LINE, C_LQCR, C_LQCR_LIGHT, C_MUTED,
-    C_TEXT, configure_style, panel_title, save_vector_figure,
+    C_TEXT, configure_style, save_vector_figure,
 )
 
 DATA = Path(__file__).resolve().parent.parent / "data"
@@ -28,7 +28,6 @@ def ap_series(record: dict) -> tuple[np.ndarray, np.ndarray]:
 
 
 def panel_curves(ax: plt.Axes, base: dict, lqcr: dict) -> None:
-    panel_title(ax, "a", "Where the ranking gain appears")
     thresholds, base_ap = ap_series(base)
     _, lqcr_ap = ap_series(lqcr)
     ax.axvspan(0.85, 0.955, color=C_LQCR_LIGHT, alpha=0.72, lw=0)
@@ -51,7 +50,6 @@ def panel_curves(ax: plt.Axes, base: dict, lqcr: dict) -> None:
 
 
 def panel_delta(ax: plt.Axes, base: dict, lqcr: dict) -> None:
-    panel_title(ax, "b", "Fixed-box effect across thresholds")
     thresholds, base_ap = ap_series(base)
     _, lqcr_ap = ap_series(lqcr)
     delta = 100 * (lqcr_ap - base_ap)
@@ -92,7 +90,6 @@ def panel_checksum(ax: plt.Axes) -> None:
     checklist: it separates held-fixed detector variables from the intervened
     score and from the downstream ordering that is allowed to change.
     """
-    panel_title(ax, "c", "Output-only ranking intervention")
     ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
 
     # Shared detector output (not two independently generated proposal sets).
@@ -140,9 +137,14 @@ def main() -> None:
     gs = fig.add_gridspec(1, 3, width_ratios=(1.15, 1.05, 1.02),
                           left=0.055, right=0.985, bottom=0.20, top=0.90,
                           wspace=0.30)
-    panel_curves(fig.add_subplot(gs[0, 0]), base, lqcr)
-    panel_delta(fig.add_subplot(gs[0, 1]), base, lqcr)
-    panel_checksum(fig.add_subplot(gs[0, 2]))
+    axes = [fig.add_subplot(gs[0, index]) for index in range(3)]
+    panel_curves(axes[0], base, lqcr)
+    panel_delta(axes[1], base, lqcr)
+    panel_checksum(axes[2])
+    for label, ax in zip(("a", "b", "c"), axes):
+        bounds = ax.get_position()
+        fig.text(bounds.x0, 0.925, f"({label})", ha="left", va="bottom",
+                 fontsize=8.6, weight="bold", color=C_TEXT)
     save_vector_figure(fig, "fig02_lqcr_principle")
 
 
