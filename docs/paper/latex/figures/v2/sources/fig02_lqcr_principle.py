@@ -56,12 +56,15 @@ def panel_delta(ax: plt.Axes, base: dict, lqcr: dict) -> None:
     _, lqcr_ap = ap_series(lqcr)
     delta = 100 * (lqcr_ap - base_ap)
     colors = [C_LQCR if value > 0 else C_MUTED for value in delta]
-    ax.axhline(0, color=C_LINE, lw=0.8)
+    # A quiet zero reference aids sign reading without competing with the data.
+    ax.axhline(0, color=C_LIGHT, lw=0.65)
     ax.vlines(thresholds, 0, delta, colors=colors, lw=1.5)
     ax.scatter(thresholds, delta, c=colors, s=18, zorder=3,
                edgecolors="white", linewidths=0.35)
     for x, y in zip(thresholds, delta):
-        if x in (0.50, 0.75, 0.85, 0.90, 0.95):
+        # Do not over-emphasize sub-0.05-point numerical differences.  Their
+        # markers remain visible and the exact exports remain the data source.
+        if x in (0.75, 0.85, 0.90, 0.95) and abs(y) >= 0.05:
             ax.text(x, y + (0.16 if y >= 0 else -0.18), f"{y:+.2f}",
                     ha="center", va="bottom" if y >= 0 else "top",
                     fontsize=5.7, color=C_LQCR if y > 0 else C_MUTED)
