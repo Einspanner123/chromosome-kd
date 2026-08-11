@@ -61,7 +61,7 @@
 \newlabel{eq:dpmpp}{{2}{3}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0b}Why direct data prediction is numerically preferable here}{3}{}\protected@file@percent }
 \newlabel{eq:x0-v-weight}{{3}{3}{}{}{}}
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0c}Solver type is \ensuremath  {\mathrm  {mAP}}{}-neutral on RF+Heun}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0c}Euler, Heun, and DPM-Solver++ comparison}{3}{}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Solver$\times $step disentanglement ablation on the RF+Heun checkpoint (Dataset~2 val, seed 42). Solver type is \ensuremath  {\mathrm  {mAP}}{}-neutral at matched steps, while increasing one to four steps adds only $0.0040$ mAP.}}{3}{}\protected@file@percent }
 \newlabel{tab:solver-ablation}{{I}{3}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0d}Conclusion}{3}{}\protected@file@percent }
@@ -72,9 +72,6 @@
 \citation{pooladian2023multisample}
 \citation{cuturi2013sinkhorn}
 \citation{cheng2025curse}
-\citation{rst_dataset}
-\citation{tseng2023dataset}
-\citation{lu2022cil54816}
 \newlabel{prop:identity}{{1}{4}{}{}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-D}}Orthogonal Inference Compression}{4}{}\protected@file@percent }
 \newlabel{sec:method-compression}{{\mbox  {III-D}}{4}{}{}{}}
@@ -86,8 +83,9 @@
 \newlabel{eq:quality-loss}{{6}{4}{}{}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-F}}Coupling Audit}{4}{}\protected@file@percent }
 \newlabel{sec:method-ot}{{\mbox  {III-F}}{4}{}{}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-G}}Top-$K$ Proposal Pruning}{4}{}\protected@file@percent }
-\newlabel{sec:method-topk}{{\mbox  {III-G}}{4}{}{}{}}
+\citation{rst_dataset}
+\citation{tseng2023dataset}
+\citation{lu2022cil54816}
 \citation{he2016resnet}
 \citation{lin2017fpn}
 \citation{loshchilov2019adamw}
@@ -99,19 +97,21 @@
 \newlabel{fig:lqcr-principle}{{2}{5}{}{}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces Datasets used in this paper. Dataset~1 is Chromosome20240904 (RST); Dataset~2 is the 24 Chromosomes Object dataset.}}{5}{}\protected@file@percent }
 \newlabel{tab:datasets}{{II}{5}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-G}}Top-$K$ Proposal Pruning}{5}{}\protected@file@percent }
+\newlabel{sec:method-topk}{{\mbox  {III-G}}{5}{}{}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {IV}Experiments}{5}{}\protected@file@percent }
 \newlabel{sec:exp}{{IV}{5}{}{}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-A}}Experimental Setup}{5}{}\protected@file@percent }
 \newlabel{sec:exp-setup}{{\mbox  {IV-A}}{5}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0a}Datasets}{5}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0b}Architecture and training}{5}{}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Training-set properties that motivate the detector design. Relative area is box area divided by image area; small follows the COCO absolute-area threshold ($<32^2$ pixels); overlap denotes an image containing at least one pair of ground-truth boxes with IoU $>0.1000$.}}{5}{}\protected@file@percent }
 \newlabel{tab:dataset-properties}{{III}{5}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0b}Architecture and training}{5}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0c}Detection protocol}{5}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0d}Statistical considerations}{5}{}\protected@file@percent }
 \citation{lyu2022rtmdet}
 \citation{zhang2023dino}
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0e}Evidence traceability}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0e}Reproducibility}{6}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-B}}Precision Bottleneck Diagnosis}{6}{}\protected@file@percent }
 \newlabel{sec:exp-bottleneck}{{\mbox  {IV-B}}{6}{}{}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-C}}Main Results: RF vs DDPM}{6}{}\protected@file@percent }
@@ -129,7 +129,7 @@
 \newlabel{fig:precision-bottleneck}{{3}{7}{}{}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces Evidence-controlled ablation on Dataset~2 validation. The final two rows share the seed-42 RF-DPM++ checkpoint; LQCR changes only output ranking.}}{7}{}\protected@file@percent }
 \newlabel{tab:main-ablation}{{IV}{7}{}{}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {V}{\ignorespaces Controlled independent and engineering interventions. Means use three seeds unless marked seed~42. CHE denotes cascade-head evaluations and is distinct from solver NFE. Every row is stored with source path, protocol, and paper-eligibility status in \texttt  {tools/experiment\_db/experiments.db}.}}{7}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {V}{\ignorespaces Controlled method and efficiency analyses. Means use three seeds unless marked seed~42. CHE denotes cascade-head evaluations and is distinct from solver NFE.}}{7}{}\protected@file@percent }
 \newlabel{tab:engineering-evidence}{{V}{7}{}{}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-E}}Controlled Coupling Result}{7}{}\protected@file@percent }
 \newlabel{sec:exp-coupling}{{\mbox  {IV-E}}{7}{}{}{}}
@@ -137,7 +137,7 @@
 \newlabel{sec:exp-solver}{{\mbox  {IV-F}}{7}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-F}0a}DPM-Solver++ step ablation}{7}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-F}0b}DPM-Solver++ vs Heun at matched NFE}{7}{}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Same-hardware efficiency on Dataset~2. (a) Latency decomposition. (b) Validation mAP versus FPS on one RTX A6000; connected points form a checkpoint-paired Top-$K$ sweep. The highlighted LQCR point is the complete KaryoFlow accuracy model; other detectors are independent.}}{8}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Same-hardware efficiency on Dataset~2. (a) Latency decomposition. (b) Validation mAP versus FPS on one RTX A6000. The three blue KaryoFlow operating points use $K=500$, $200$, and $100$ without connecting lines; the highlighted LQCR point is the complete accuracy model.}}{8}{}\protected@file@percent }
 \newlabel{fig:fps-map}{{4}{8}{}{}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {VI}{\ignorespaces Validation comparison on two chromosome datasets. Dataset~1 KaryoFlow+LQCR is the clean three-seed mean; Dataset~2 is the controlled final-only seed-42 model. Other rows are checkpoint-linked re-evaluations. Bold denotes the best mAP within this comparison, not an exhaustive cross-paper SOTA claim.}}{8}{}\protected@file@percent }
 \newlabel{tab:sota}{{VI}{8}{}{}{}}

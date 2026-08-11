@@ -49,7 +49,7 @@ def panel_latency(ax: plt.Axes, rows: dict[str, dict]) -> None:
 
 def panel_frontier(ax: plt.Axes, rows: dict[str, dict]) -> None:
     panel_title(ax, "b", "Speed--accuracy trade-off")
-    ours = ["a4", "a4_io3_k300", "a4_io3_k200", "a4_io3_k100"]
+    ours = ["a4", "a4_io3_k200", "a4_io3_k100"]
     standards = ["cascade_rcnn", "yolox_s", "dino_r50", "rtmdet_l"]
     diffusion = ["diffusiondet"]
     calibrated = ["lqcr"]
@@ -65,25 +65,18 @@ def panel_frontier(ax: plt.Axes, rows: dict[str, dict]) -> None:
                    color=color, marker=marker, s=58 if label == "KaryoFlow + LQCR" else 35, edgecolor="white",
                    linewidth=0.6, label=label, zorder=4)
 
-    # Connect only the controlled Top-K sweep from the same A4 checkpoint.
-    ax.plot([rows[n]["fps"] for n in ours],
-            [rows[n]["known_mAP"] for n in ours],
-            color=C_RF, linewidth=0.9, alpha=0.75, zorder=2)
-
     short = {
-        "a4": "K=500", "a4_io3_k300": "K=300", "a4_io3_k200": "K=200",
+        "a4": "K=500", "a4_io3_k200": "K=200",
         "a4_io3_k100": "K=100", "cascade_rcnn": "Cascade R-CNN",
         "yolox_s": "YOLOX-S", "dino_r50": "DINO R50",
         "rtmdet_l": "RTMDet-L",
         "diffusiondet": "DiffusionDet",
-        "lqcr": "KaryoFlow + LQCR",
     }
     offsets = {
-        "a4": (-12, -12), "a4_io3_k300": (4, 8), "a4_io3_k200": (5, -10),
+        "a4": (-12, -12), "a4_io3_k200": (5, -10),
         "a4_io3_k100": (5, -11), "cascade_rcnn": (4, -10),
         "yolox_s": (-23, 7), "dino_r50": (4, 7),
         "rtmdet_l": (4, -10), "diffusiondet": (4, 7),
-        "lqcr": (6, 9),
     }
     for name in ours + standards + diffusion:
         ax.annotate(short[name], (rows[name]["fps"], rows[name]["known_mAP"]),

@@ -58,23 +58,20 @@
 
 % ============================================================
 \begin{abstract}
-Automated karyotyping must localize about $46$ densely distributed chromosomes
-from $24$ visually similar classes, where small extent, overlap, and weak
-boundaries make box quality as important as class confidence. We present
-\emph{KaryoFlow}, a chromosome detector that combines few-step rectified box
-transport, history-consistent inference, and final localization-quality
-calibration. The linear transport is suited to the low-dimensional box state,
-while localization-quality calibrated ranking prioritizes chromosomes whose
-boundaries remain reliable at strict intersection-over-union thresholds. On
-two public chromosome datasets with markedly different object-scale
-distributions, KaryoFlow attains validation mAP of $0.7550$ and $0.8704$, the
-highest values among the evaluated detectors by $0.0130$ and $0.0014$,
-respectively. Compared with the denoising-diffusion formulation, rectified flow
-improves mAP by $0.0170$ and $0.0820$. History-consistent DPM-Solver++ reduces
-network evaluations from $7$ to $4$ ($42.9\%$) without an accuracy loss; the
-complete calibrated model runs in $77.68$ ms, $35.5\%$ faster than the
-seven-evaluation Heun setting on the same RTX A6000. These results support
-accurate and efficient generative detection for chromosome karyotyping.
+Automated karyotyping must detect about $46$ densely distributed chromosomes
+from $24$ morphologically similar classes. Small extent, touching or overlap,
+weak boundaries, and near-saturated class confidence make precise localization
+and reliable ranking the main obstacles to high-accuracy detection. We present
+\emph{KaryoFlow}, which addresses these task-specific difficulties through
+low-dimensional rectified box transport, identity-consistent refinement of
+adjacent proposals, and final localization-quality calibrated ranking. On two
+public chromosome datasets with markedly different object-scale distributions,
+KaryoFlow exceeds the strongest evaluated detector by relative mAP margins of
+$1.8\%$ and $0.2\%$, respectively. Combining few-step inference with cascade-
+head distillation provides up to $2.73\times$ faster inference than the
+RF+Heun reference, while distillation reduces mAP by only $0.0040$ relative to
+its six-head teacher. These results establish a localization-aware generative
+approach and provide a new direction for high-precision chromosome detection.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -270,10 +267,14 @@ it as a separate accuracy contribution.
 \subsection{Stable Parameterization and Few-Step Integration}\label{sec:method-solver}
 
 \paragraph{Few-step integration}
-Heun's predictor--corrector provides the direct reference implementation, but
-four reverse steps require seven network evaluations. We therefore adapt the
-second-order multistep DPM-Solver++~\cite{lu2022dpmpp}, which reuses the
-previous target-box prediction and requires one new evaluation per step.
+Euler integration provides the first-order reference: it is inexpensive per
+step but uses only the current box estimate. Heun adds a predictor--corrector
+evaluation to reduce local integration error, so four reverse steps require
+seven network evaluations. DPM-Solver++~\cite{lu2022dpmpp} instead reaches
+second order by reusing the previous target-box prediction, requiring only one
+new evaluation per step. We compare the solvers in this progression---Euler,
+Heun, then DPM-Solver++---and attribute solver gains only under matched
+checkpoints and step counts.
 
 The model directly predicts $\mathbf{x}_0$ (the target box), and the update uses polynomial
 interpolation of the $\mathbf{x}_0$ history in $t$ space (not the log-SNR
@@ -309,7 +310,7 @@ $+0.0020$ validation advantage is reproduced by three seeds on each dataset;
 test differences remain within noise, so the result supports stable
 optimization rather than universal statistical dominance.
 
-\paragraph{Solver type is \mAP{}-neutral on RF+Heun}
+\paragraph{Euler, Heun, and DPM-Solver++ comparison}
 Evaluating the RF+Heun checkpoint across all solver$\times$step combinations
 (Table~\ref{tab:solver-ablation}), solver
 type has \emph{no effect on \mAP{}} at matched steps (Euler = DPM-Solver++ at
@@ -331,11 +332,11 @@ than an accuracy component.
     \toprule
     Solver & Steps & NFE & mAP \\
     \midrule
-    Heun               & 4 & 7 & 0.8560 \\
-    Euler              & 4 & 4 & 0.8550 \\
-    DPM-Solver++       & 4 & 4 & 0.8550 \\
     Euler              & 1 & 1 & 0.8510 \\
+    Euler              & 4 & 4 & 0.8550 \\
+    Heun               & 4 & 7 & 0.8560 \\
     DPM-Solver++       & 1 & 1 & 0.8510 \\
+    DPM-Solver++       & 4 & 4 & 0.8550 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -393,6 +394,9 @@ four solver steps this reduces cascade-head evaluations (CHE) from 24 to 12,
 while NFE remains four; the reduction is therefore 24-to-12 CHE, not NFE.
 The compressed model reaches $0.8590$ versus
 $0.8630$ and reduces RTX A6000 latency from $75.20$ to $44.10$ ms.
+Together with few-step integration, this reduces latency from the
+$120.34$-ms RF+Heun reference to $44.10$ ms, a $2.73\times$ acceleration;
+the $0.0040$ mAP cost is measured against the six-head teacher.
 
 \paragraph{Conditional computation}
 Geometry-aware adaptive conditional stepping (GACS) freezes convergence and
@@ -444,7 +448,7 @@ proposal renewal, Top-$K$ pruning, and early stopping. Calibration is applied
 only when emitting detections, so boxes, predicted classes, and RF trajectories
 remain fixed at the candidate level; score-dependent NMS or max-detection
 selection may consequently choose a different final subset. An elementwise checkpoint audit confirms that all 590 tensors
-shared with the A4 detector are identical; the LQCR checkpoint contains only
+shared with the six-head detector are identical; the LQCR checkpoint contains only
 five additional quality-branch tensors. This design targets the observed chromosome regime in which
 AP50 is nearly saturated but small and overlapping instances lose recall at
 IoU $0.9000$. Figure~\ref{fig:lqcr-principle} summarizes the principle, causal
@@ -483,8 +487,8 @@ coupling to remove this confound.
 \subsection{Top-$K$ Proposal Pruning}\label{sec:method-topk}
 After step 0 of inference, we prune proposals from 500 to $K$ based on
 confidence scores; only the top-$K$ proposals proceed through steps 1--3.
-DPM-Solver++ compatibility requires \texttt{dpm\_solver.reset()} after
-pruning because the $x_0$ history has a dimension mismatch (500 $\to K$).
+Because pruning changes the proposal set, multistep history is reset before
+the retained proposals continue refinement.
 
 % ============================================================
 \section{Experiments}\label{sec:exp}
@@ -556,7 +560,7 @@ deep supervision (5 auxiliary heads). Optimization: AdamW~\cite{loshchilov2019ad
 L1 ($\lambda{=}5.0$) + GIoU~\cite{rezatofighi2019giou} ($\lambda{=}2.0$) with
 Hungarian matching~\cite{kuhn1955assignment}. Diffusion uses RF with shifted
 noise schedule (shift$=3.0$); default solver is DPM-Solver++ 4-step.
-For the isolated LQCR intervention, the trained A4 checkpoint initializes the
+For the isolated LQCR intervention, the trained six-head checkpoint initializes the
 model, all pre-existing parameters are frozen, and only the 33k-parameter
 quality branch is optimized for at most 12 epochs with AdamW learning rate
 $10^{-3}$ and cosine decay; the epoch-2 validation checkpoint is used. Thus
@@ -584,17 +588,13 @@ fixed-checkpoint, final-only intervention on Dataset~2. The latter isolates
 ranking from training and trajectory changes; the former tests whether the
 effect reproduces across independent training runs.
 
-\paragraph{Evidence traceability}
-Every completed numerical claim is registered in a project-level SQLite
-evidence database with dataset, split, seed, checkpoint, protocol, source path,
-and SHA-256. Controlled results are separated from running snapshots and
-diagnostic oracles. For LQCR, the registry records both checkpoint hashes, the
-elementwise identity audit of all 590 shared tensors, five learned-$q$ sweep
-exports, and a separate label identifying true-IoU oracle fields. Dataset-property
-statistics likewise store hashes of the two raw training annotation files.
-This layer does not replace independent replication, but prevents stale plots,
-cross-checkpoint comparisons, and oracle quantities from silently entering the
-reported evidence.
+\paragraph{Reproducibility}
+All reported comparisons retain their dataset split, random seed, checkpoint,
+and evaluation protocol. Controlled results are separated from exploratory
+runs and diagnostic oracles. For LQCR, we additionally verify that all $590$
+shared detector tensors are identical before fitting the quality branch and
+distinguish learned-quality sweeps from true-IoU oracle analyses. This protocol
+prevents cross-checkpoint or oracle quantities from entering model claims.
 
 \subsection{Precision Bottleneck Diagnosis}\label{sec:exp-bottleneck}
 
@@ -657,10 +657,9 @@ localization-aware ranking mechanism rather than a coordinate change.
 \begin{table*}[t]
   \centering
   \footnotesize
-  \caption{Controlled independent and engineering interventions. Means use
-  three seeds unless marked seed~42. CHE denotes cascade-head evaluations and
-  is distinct from solver NFE. Every row is stored with source path, protocol,
-  and paper-eligibility status in \texttt{tools/experiment\_db/experiments.db}.}
+  \caption{Controlled method and efficiency analyses. Means use three seeds
+  unless marked seed~42. CHE denotes cascade-head evaluations and is distinct
+  from solver NFE.}
   \label{tab:engineering-evidence}
   \begin{tabular}{p{2.3cm}p{2.5cm}p{2.0cm}p{2.4cm}p{4.2cm}}
     \toprule
@@ -668,19 +667,18 @@ localization-aware ranking mechanism rather than a coordinate change.
     \midrule
     LQCR & D1, 3 seeds / D2, seed~42 & $+0.0080/+0.0074$ mAP & $+3.3\%$ latency & Final ranking; candidate states fixed before post-processing \\
     Renewal off & D2 / D1, $K=500$ & $-0.0003/-0.0030$ & $-2.4\%$ latency & Restores DPM++ history identity; fails at $K=100$ ($-0.0313$) \\
-    Head distillation & D2, H6 teacher vs H3 student & $-0.0040$ mAP & $1.71\times$; CHE $24\to12$ & NFE remains four; D1 H3S4 is architecture-only control \\
+    Head distillation & D2, H6 teacher vs H3 student & $-0.0040$ mAP & $1.71\times$; CHE $24\to12$ & NFE remains four; no D1 distillation claim \\
     GACS & D1, adaptive vs fixed two-step & $-0.0007$ mAP & $-13.8\%$ latency & Not lossless versus four-step reference ($0.7470$) \\
     $x_0$ prediction & D1 / D2, 3-seed vs velocity & $+0.0020/+0.0020$ mAP & no added cost & Matches $t^{-2}$ conditioning analysis; test difference is noise-scale \\
     \bottomrule
   \end{tabular}
 \end{table*}
 
-These interventions were not selected from isolated best checkpoints. Renewal,
-parameterization, and coupling conclusions use multi-seed controls; LQCR uses
-a deliberately fixed checkpoint and final-only causal boundary; GACS freezes
-thresholds before cross-seed evaluation; and latency is measured on one RTX
-A6000. Failed and null directions remain in the same database, preventing
-selective omission from being mistaken for a complete search history.
+Renewal, parameterization, and coupling conclusions use multi-seed controls;
+LQCR uses a fixed checkpoint and final-only causal boundary on Dataset~2 plus
+three-seed replication on Dataset~1; and GACS freezes its thresholds before
+cross-seed evaluation. Null directions are retained in the ablations rather
+than presented as model contributions.
 
 \paragraph{Dataset~1: RF vs DDPM}
 On Dataset~1 (3 seeds), RF outperforms DDPM by
@@ -693,9 +691,9 @@ $+0.0170$ \mAP{} ($0.7460$ vs $0.7290$, lower variance $\pm 0.0010$ vs $\pm
   \centering
   \includegraphics[width=\textwidth]{figures/v2/generated/fig06_efficiency.pdf}
   \caption{Same-hardware efficiency on Dataset~2. (a) Latency decomposition.
-  (b) Validation mAP versus FPS on one RTX A6000; connected points form a
-  checkpoint-paired Top-$K$ sweep. The highlighted LQCR point is the complete
-  KaryoFlow accuracy model; other detectors are independent.}
+  (b) Validation mAP versus FPS on one RTX A6000. The three blue KaryoFlow
+  operating points use $K=500$, $200$, and $100$ without connecting lines;
+  the highlighted LQCR point is the complete accuracy model.}
   \label{fig:fps-map}
 \end{figure*}
 
@@ -794,8 +792,7 @@ paper concerns RF, prediction parameterization, renewal, and coupling.
 The monotone mAP trend supports using $\beta=2$, while invariant AP50 shows
 that calibration reorders already detected candidates rather than creating
 new easy true positives. AP90 and AP95 rise at every point in the sweep,
-matching the threshold-factorization prediction. Full-precision values and
-the five raw diagnostic exports are checksum-linked in the evidence registry.
+matching the threshold-factorization prediction.
 
 \subsubsection{Scale-Resolved Cross-Dataset Comparison}\label{sec:exp-qual}
 Figure~\ref{fig:qual-mosaic} replaces selected visual cases with complete-set
@@ -863,9 +860,8 @@ AP$_S$ point estimate.
 Table~\ref{tab:fps} and Figure~\ref{fig:fps-map} report the speed-accuracy
 trade-off at $512{\times}512$ input resolution. Latency is CUDA-event
 model-forward time and excludes image decoding, host preprocessing, and
-visualization. Every ordinate is tied to the checkpoint named by the latency
-record; the four Top-$K$ points share the same best epoch-117 A4 checkpoint.
-DPM-Solver++
+visualization. The unpruned $K=500$ point and the $K=200/100$ pruning points
+share one checkpoint and evaluation protocol. DPM-Solver++
 with Top-$K$ pruning reaches a latency compatible with interactive use, while
 single-shot detectors (Cascade R-CNN, YOLOX-S) trade accuracy for speed.
 
@@ -886,7 +882,6 @@ single-shot detectors (Cascade R-CNN, YOLOX-S) trade accuracy for speed.
     RF+Heun        & Heun  & 7 & 120.34 & 8.3 & 0.8560 \\
     \textbf{DPM-Solver++} & DPM++ & 4 & \textbf{75.20} & \textbf{13.3} & \textbf{0.8640} \\
     \textbf{KaryoFlow+LQCR} & DPM++ & 4 & \textbf{77.68} & \textbf{12.9} & \textbf{0.8704} \\
-    DPM-Solver++ +Top-$K$ (K=300)    & DPM++ & 4 & 70.84 & 14.1 & 0.8620 \\
     \textbf{DPM-Solver++ +Top-$K$ (K=200)} & DPM++ & 4 & \textbf{70.57} & \textbf{14.2} & \textbf{0.8620} \\
     DPM-Solver++ +Top-$K$ (K=100)    & DPM++ & 4 & 68.90 & 14.5 & 0.8520 \\
     \midrule
@@ -910,7 +905,7 @@ point estimates in Tables~\ref{tab:main-ablation} and~\ref{tab:sota}, which is
 consistent with random proposal initialization. The RF+Heun row uses the same
 Dataset~2 A1 checkpoint for both axes.
 
-The engineering audit separates three counts that are often conflated:
+The efficiency analysis separates three counts that are often conflated:
 DPM-Solver++ reduces solver NFE ($7\to4$), head distillation reduces CHE
 ($24\to12$ at four NFE), and GACS reduces mean per-image steps
 ($2\to1.6136$). Renewal removal does not change any count; it makes multistep
