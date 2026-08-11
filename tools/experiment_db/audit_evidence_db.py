@@ -1,6 +1,7 @@
 """Fail-fast quality audit for the canonical experiment evidence layer."""
 
 import argparse
+import hashlib
 import json
 import os
 import sqlite3
@@ -40,10 +41,73 @@ def main():
         if abs((value - baseline) - delta) > 5e-6:
             errors.append(f'{result_id}: delta arithmetic mismatch')
 
-    for artifact_id, path in conn.execute(
-            "SELECT artifact_id, path FROM evidence_artifact WHERE status='verified'"):
-        if not os.path.isfile(os.path.join(ROOT, path)):
+    for artifact_id, path, expected_sha, kind in conn.execute(
+            "SELECT artifact_id, path, sha256, kind FROM evidence_artifact "
+            "WHERE status='verified'"):
+        abs_path = os.path.join(ROOT, path)
+        if not os.path.isfile(abs_path):
             errors.append(f'{artifact_id}: missing source {path}')
+            continue
+        digest = hashlib.sha256()
+        with open(abs_path, 'rb') as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+                digest.update(chunk)
+        if digest.hexdigest() != expected_sha:
+            errors.append(f'{artifact_id}: SHA-256 mismatch')
+
+        # This evidence class is intentionally stricter because an earlier
+        # diagnostic file contained true-IoU oracle beta sweeps that could be
+        # mistaken for learned-quality ablations.
+        if kind == 'controlled_fixed_checkpoint_sweep':
+            try:
+                source = json.load(open(abs_path))
+                sweep = source['learned_quality_beta_sweep']
+                betas = [float(row['beta']) for row in sweep]
+                if betas != [0.0, 0.25, 0.5, 1.0, 2.0]:
+                    errors.append(f'{artifact_id}: unexpected learned beta grid')
+                identity = source['checkpoint']['identity_audit']
+                if identity['nonidentical_shared_tensors'] != 0:
+                    errors.append(f'{artifact_id}: detector weights are not paired')
+                if identity['extra_nonquality_tensors'] != 0:
+                    errors.append(f'{artifact_id}: non-quality tensors were added')
+                for row in sweep:
+                    source_path = row.get('source_path', '')
+                    source_file = os.path.join(ROOT, source_path)
+                    if not os.path.isfile(source_file):
+                        errors.append(
+                            f"{artifact_id}: missing raw source at beta={row['beta']}")
+                        continue
+                    source_digest = hashlib.sha256()
+                    with open(source_file, 'rb') as handle:
+                        for chunk in iter(
+                                lambda: handle.read(1024 * 1024), b''):
+                            source_digest.update(chunk)
+                    if source_digest.hexdigest() != row.get('source_sha256'):
+                        errors.append(
+                            f"{artifact_id}: raw source hash mismatch at "
+                            f"beta={row['beta']}")
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                errors.append(f'{artifact_id}: malformed learned sweep ({exc})')
+        elif kind == 'dataset_annotation_audit':
+            try:
+                source = json.load(open(abs_path))
+                for dataset in source['datasets']:
+                    annotation = os.path.join(ROOT, dataset['annotation'])
+                    if not os.path.isfile(annotation):
+                        errors.append(
+                            f"{artifact_id}: missing annotation {dataset['annotation']}")
+                        continue
+                    annotation_digest = hashlib.sha256()
+                    with open(annotation, 'rb') as handle:
+                        for chunk in iter(
+                                lambda: handle.read(1024 * 1024), b''):
+                            annotation_digest.update(chunk)
+                    if annotation_digest.hexdigest() != dataset['annotation_sha256']:
+                        errors.append(
+                            f"{artifact_id}: annotation hash mismatch for "
+                            f"{dataset['dataset']}")
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                errors.append(f'{artifact_id}: malformed dataset audit ({exc})')
 
     orphan = conn.execute('''SELECT COUNT(*) FROM finding_evidence fe
         LEFT JOIN controlled_result r ON fe.result_id=r.result_id

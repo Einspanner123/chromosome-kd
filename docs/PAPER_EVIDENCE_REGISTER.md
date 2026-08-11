@@ -14,6 +14,11 @@
 | `lqcr-d2-ap90-gain` | LQCR / final_only_beta2 | D2 val, 42 | AP90_delta (absolute_delta) | 0.03041 |  | `ross:docs/paper/latex/figures/v2/data/source_lqcr_final_only_seed42.json` |
 | `lqcr-d2-ap95-gain` | LQCR / final_only_beta2 | D2 val, 42 | AP95_delta (absolute_delta) | 0.03251 |  | `ross:docs/paper/latex/figures/v2/data/source_lqcr_final_only_seed42.json` |
 | `lqcr-d2-baseline-map` | LQCR / disabled | D2 val, 42 | mAP (absolute) | 0.8630128 |  | `ross:docs/paper/latex/figures/v2/data/source_lqcr_final_only_seed42.json` |
+| `lqcr-d2-beta0-map` | LQCR / learned_q_beta0 | D2 val, 42 | mAP (absolute) | 0.8630128 |  | `ross:tools/experiment_db/evidence_sources/lqcr_learned_beta_sweep_seed42.json` |
+| `lqcr-d2-beta025-map` | LQCR / learned_q_beta0.25 | D2 val, 42 | mAP (absolute) | 0.8657292 | 0.002716436 | `ross:tools/experiment_db/evidence_sources/lqcr_learned_beta_sweep_seed42.json` |
+| `lqcr-d2-beta05-map` | LQCR / learned_q_beta0.5 | D2 val, 42 | mAP (absolute) | 0.8673472 | 0.004334369 | `ross:tools/experiment_db/evidence_sources/lqcr_learned_beta_sweep_seed42.json` |
+| `lqcr-d2-beta1-map` | LQCR / learned_q_beta1 | D2 val, 42 | mAP (absolute) | 0.8689229 | 0.005910119 | `ross:tools/experiment_db/evidence_sources/lqcr_learned_beta_sweep_seed42.json` |
+| `lqcr-d2-beta2-map` | LQCR / learned_q_beta2 | D2 val, 42 | mAP (absolute) | 0.8704443 | 0.007431458 | `ross:tools/experiment_db/evidence_sources/lqcr_learned_beta_sweep_seed42.json` |
 | `lqcr-d2-enabled-map` | LQCR / final_only_beta2 | D2 val, 42 | mAP (absolute) | 0.8704443 | 0.0074315 | `ross:docs/paper/latex/figures/v2/data/source_lqcr_final_only_seed42.json` |
 | `head-h3s4-d1-map` | head_compression_control / H3S4_no_distill | D1 val, 42 | mAP (absolute) | 0.746 |  | `ross:docs/EXPERIMENT_LINEAGE.md` |
 | `distill-d2-student-latency` | head_distillation / H3_student | D2 benchmark, 42 | latency (ms) | 44.72 | -32.85 | `ross:docs/EXPERIMENT_LINEAGE.md` |
@@ -64,13 +69,13 @@ Frozen geometry/confidence gates skip the second step for 38.64% of D1 images wi
 
 ### F-LQCR: Localization-quality calibrated final ranking [supported]
 
-A final-only score p*q^2 improves high-IoU ranking without changing boxes, classes, renewal, or solver states.
+A final-only score p*q^2 improves high-IoU ranking without changing candidate coordinates, class logits, renewal, or solver states before score-dependent post-processing.
 
 - Scope: D2 fixed checkpoint, seed42
 - Generality basis: The true-positive survival factorization applies to proposal detectors that rank localized candidates.
 - Caveat: D1 clean paired replication is still running; no COCO empirical validation.
-- Primary metric: mAP +0.0074315
-- Benefit: AP90 +0.03041; AP95 +0.03251
+- Primary metric: mAP +0.0074315 under the single-image precision protocol
+- Benefit: AP90 +0.03041; AP95 +0.03251; monotone learned-beta sweep
 
 ### F-RENEW: History-consistent multistep inference [supported]
 
@@ -96,12 +101,12 @@ x0 prediction is at least as accurate as v prediction and avoids inverse-t squar
 
 ### T-LQCR
 
-The optimal ranking score for IoU-thresholded detection factors class correctness and localization survival.
+The ideal ranking score for IoU-thresholded detection factors class correctness and localization survival.
 
-- Assumptions: A candidate is a true positive at threshold tau iff its class is correct and IoU>=tau.
-- Derivation: P(TP_tau|h)=P(C|h) P(IoU>=tau|C,h); q estimates the second factor and p*q^beta approximates the joint ranking posterior.
-- Prediction: Quality-aware re-ranking should mainly improve strict-IoU AP without changing coordinates.
-- Empirical status: Supported by D2 AP90/AP95 gains; D1 clean replication pending.
+- Assumptions: A candidate is a true positive at threshold tau iff its class is correct and IoU>=tau; using conditional mean IoU as a cross-threshold statistic additionally assumes a family stochastically ordered by its mean.
+- Derivation: P(TP_tau|h)=P(C|h) P(IoU>=tau|C,h). The implemented q is a practical surrogate trained toward E[M*IoU|h], with unmatched indicator M=0; p*q^beta is therefore empirically calibrated rather than asserted to equal the posterior.
+- Prediction: Quality-aware re-ranking should mainly improve strict-IoU AP without changing candidate coordinates.
+- Empirical status: Supported by a learned-quality beta sweep and D2 AP90/AP95 gains; D1 clean replication pending.
 - Source: `docs/paper/latex/main.tex`
 
 ### T-RENEW

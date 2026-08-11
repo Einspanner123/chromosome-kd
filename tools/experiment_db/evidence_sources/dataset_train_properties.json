@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-11",
+  "definitions": {
+    "relative_box_area": "bbox_width * bbox_height / (image_width * image_height)",
+    "overlap_image": "at least one pair of ground-truth xywh boxes has pairwise IoU > 0.1",
+    "scope": "training annotations only"
+  },
+  "datasets": [
+    {
+      "dataset": "D1",
+      "annotation": "data/Chromosome20240904_NoAug_NoResize_coco/train/_annotations.coco.json",
+      "annotation_sha256": "42454e614086cc03cffa1519790838ff05541e7fc5994a5ed59b5e0937ac9c5d",
+      "images": 1540,
+      "annotations": 72023,
+      "mean_instances_per_image": 46.768181818181816,
+      "median_instances_per_image": 46.0,
+      "median_relative_box_area": 0.003671875,
+      "images_with_overlap": 1521,
+      "overlap_image_fraction": 0.9876623376623377
+    },
+    {
+      "dataset": "D2",
+      "annotation": "data/24_chromosomes_object/coco/train/_annotations.coco.json",
+      "annotation_sha256": "218ae0ebb71ecfb186bdb0872101ac50179c22c69a586cad0366ef10a0d8d5f7",
+      "images": 3500,
+      "annotations": 160888,
+      "mean_instances_per_image": 45.968,
+      "median_instances_per_image": 46.0,
+      "median_relative_box_area": 0.0084385870048925,
+      "images_with_overlap": 3500,
+      "overlap_image_fraction": 1.0
+    }
+  ]
+}

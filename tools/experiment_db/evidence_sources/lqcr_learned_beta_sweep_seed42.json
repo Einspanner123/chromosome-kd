@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-11",
+  "server": "ross",
+  "dataset": "24 Chromosomes Object (D2)",
+  "split": "validation",
+  "num_images": 500,
+  "seed": 42,
+  "gpu": "NVIDIA RTX A6000",
+  "config_template": "experiments/configs/ldmdet/directions/capr/capr_quality_final_only_24obj.py",
+  "checkpoint": {
+    "a4": {
+      "path": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
+      "sha256": "efdbb05f2265d5e45c8c078b4ce43a5298517cdfd18f805b59a2d7e9a36e676a",
+      "state_dict_tensors": 590
+    },
+    "lqcr": {
+      "path": "work_dirs/capr_quality_only_24obj/best_coco_bbox_mAP_epoch_2.pth",
+      "sha256": "93d15a7be24adc82714eaca4d82f0ee7ce3725adcde9476ce942767a1886b3e1",
+      "state_dict_tensors": 595
+    },
+    "identity_audit": {
+      "shared_tensors": 590,
+      "nonidentical_shared_tensors": 0,
+      "missing_from_lqcr": 0,
+      "extra_nonquality_tensors": 0,
+      "extra_quality_tensors": 5,
+      "conclusion": "Every pre-existing detector tensor is elementwise identical; only the final quality branch is added."
+    }
+  },
+  "intervention": {
+    "score": "p(class) * sigmoid(q_logit)^beta",
+    "scope": "final post-processing ranking only",
+    "unchanged": [
+      "initial proposals",
+      "rectified-flow trajectory",
+      "DPM-Solver++ states and history",
+      "proposal renewal decisions",
+      "Top-K pruning",
+      "box coordinates",
+      "predicted class labels"
+    ]
+  },
+  "learned_quality_beta_sweep": [
+    {"beta": 0.0, "mAP": 0.8630127972441901, "AP50": 0.9888730014391389, "AP75": 0.9717059968516306, "AP90": 0.6913647908735748, "AP95": 0.2167403176639594, "APs": 0.5314979767946381, "APm": 0.8594107357834052, "APl": 0.8921325050946841, "source_path": "tools/experiment_db/evidence_sources/raw/lqcr_beta_0_precision.json", "source_sha256": "cb944f20b847a871732b2cbc4ef92c42b8c868d89099a234b41802bb15501bd5"},
+    {"beta": 0.25, "mAP": 0.8657292332570403, "AP50": 0.9888888658392055, "AP75": 0.971846023474537, "AP90": 0.7021826999117912, "AP95": 0.2283527728957904, "APs": 0.5343954690136984, "APm": 0.8617633582943661, "APl": 0.9142549142379168, "source_path": "tools/experiment_db/evidence_sources/raw/lqcr_beta_0.25_precision.json", "source_sha256": "80f4ad8cb5bfd215d7a480d15cc26a0b18968789644dbefeee881781452fda25"},
+    {"beta": 0.5, "mAP": 0.8673471658858359, "AP50": 0.9888833798856503, "AP75": 0.9719273563893768, "AP90": 0.7086465571505987, "AP95": 0.23516038628922092, "APs": 0.5339342871680132, "APm": 0.8634386126372359, "APl": 0.9150797094865137, "source_path": "tools/experiment_db/evidence_sources/raw/lqcr_beta_0.5_precision.json", "source_sha256": "10f2e633d03a08d89ac0c5bccdf31ffd8af955216635086d2e6080b1a27db37d"},
+    {"beta": 1.0, "mAP": 0.8689229164140175, "AP50": 0.9888470127697443, "AP75": 0.9717185187425711, "AP90": 0.7158004498748849, "AP95": 0.2421885376946777, "APs": 0.5285588709749508, "APm": 0.8649934263583016, "APl": 0.9152494719776255, "source_path": "tools/experiment_db/evidence_sources/raw/lqcr_beta_1.0_precision.json", "source_sha256": "6aaea52fe8df7de3d1b4d038e3ebbd326f3baeeb73cecb5110eb3a7d5994fdab"},
+    {"beta": 2.0, "mAP": 0.8704442557085695, "AP50": 0.9887577383704909, "AP75": 0.9722379564278525, "AP90": 0.7217760564033443, "AP95": 0.24924959502111288, "APs": 0.5304231885736443, "APm": 0.8666439623230147, "APl": 0.9142037110828634, "source_path": "tools/experiment_db/evidence_sources/raw/lqcr_beta_2.0_precision.json", "source_sha256": "8b5f6d55f260b007b6043655be93daa3183ac709bd5c635f4ebebffa8bfab976"}
+  ],
+  "precision_rerun": {
+    "source_path": "tools/experiment_db/evidence_sources/raw/lqcr_beta_2.0_precision.json",
+    "sha256": "8b5f6d55f260b007b6043655be93daa3183ac709bd5c635f4ebebffa8bfab976",
+    "beta2": {
+      "mAP": 0.8704442557085695,
+      "AP90": 0.7217760564033443,
+      "AP95": 0.24924959502111288
+    },
+    "beta0_reference": {
+      "mAP": 0.8630127972441901,
+      "AP90": 0.6913647908735748,
+      "AP95": 0.2167403176639594
+    },
+    "delta": {
+      "mAP": 0.0074314584643794,
+      "AP90": 0.0304112655297695,
+      "AP95": 0.0325092773571535
+    }
+  },
+  "reporting_precision": "full precision from the single-image diagnostic protocol",
+  "notes": [
+    "This is a sweep of the learned LQCR output, not a true-IoU oracle sweep.",
+    "beta=0 exactly disables localization-quality ranking and reproduces the A4 precision-diagnostic metrics.",
+    "The former quality_beta_* fields in source_lqcr_final_only_seed42.json are oracle rankings based on ground-truth IoU and must not be cited as learned-beta ablations."
+  ]
+}

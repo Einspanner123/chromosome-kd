@@ -21,6 +21,33 @@
 \providecommand{\BIBdecl}{\relax}
 \BIBdecl
 
+\bibitem{cai2018cascade}
+Z.~Cai and N.~Vasconcelos, ``Cascade {R-CNN}: Delving into high quality object
+  detection,'' in \emph{Proc. IEEE Conf. Comput. Vis. Pattern Recognit.
+  (CVPR)}, 2018, pp. 6154--6162.
+
+\bibitem{ge2021yolox}
+\BIBentryALTinterwordspacing
+Z.~Ge, S.~Liu, F.~Wang, Z.~Li, and J.~Sun, ``{YOLOX}: Exceeding {YOLO} series
+  in 2021,'' arXiv:2107.08430, 2021. [Online]. Available:
+  \url{https://arxiv.org/abs/2107.08430}
+\BIBentrySTDinterwordspacing
+
+\bibitem{zhang2023dino}
+H.~Zhang, F.~Li, S.~Liu, L.~Zhang, H.~Su, J.~Zhu, L.~M. Ni, and H.-Y. Shum,
+  ``{DINO}: {DETR} with improved denoising anchor boxes for end-to-end object
+  detection,'' in \emph{Int. Conf. Learn. Represent. (ICLR)}, 2023.
+
+\bibitem{zhu2021deformabledetr}
+X.~Zhu, W.~Su, L.~Lu, B.~Li, X.~Wang, and J.~Dai, ``Deformable {DETR}:
+  Deformable transformers for end-to-end object detection,'' in \emph{Int.
+  Conf. Learn. Represent. (ICLR)}, 2021.
+
+\bibitem{chen2023diffusiondet}
+S.~Chen, P.~Sun, Y.~Song, and P.~Luo, ``{DiffusionDet}: Diffusion model for
+  object detection,'' in \emph{Proc. IEEE/CVF Int. Conf. Comput. Vis. (ICCV)},
+  2023, pp. 1980--1989.
+
 \bibitem{liu2023rectified}
 X.~Liu, C.~Gong, and Q.~Liu, ``Flow straight and fast: Learning to generate and
   transfer data with rectified flow,'' in \emph{Int. Conf. Learn. Represent.
@@ -31,10 +58,58 @@ C.~Lu, Y.~Zhou, F.~Bao, J.~Chen, C.~Li, and J.~Zhu, ``{DPM-Solver++}: Fast
   solver for guided sampling of diffusion probabilistic models,'' \emph{Machine
   Intelligence Research}, 2025.
 
-\bibitem{chen2023diffusiondet}
-S.~Chen, P.~Sun, Y.~Song, and P.~Luo, ``{DiffusionDet}: Diffusion model for
-  object detection,'' in \emph{Proc. IEEE/CVF Int. Conf. Comput. Vis. (ICCV)},
-  2023, pp. 1980--1989.
+\bibitem{schwartzkopf2005mfish}
+W.~C. Schwartzkopf, A.~C. Bovik, and B.~L. Evans, ``Maximum-likelihood
+  techniques for joint segmentation--classification of multispectral chromosome
+  images,'' \emph{IEEE Transactions on Medical Imaging}, vol.~24, no.~12, pp.
+  1593--1610, 2005.
+
+\bibitem{qin2019varifocalchromosome}
+Y.~Qin, J.~Wen, H.~Zheng, X.~Huang, J.~Yang, N.~Song, Y.-M. Zhu, L.~Wu, and
+  G.-Z. Yang, ``{Varifocal-Net}: A chromosome classification approach using
+  deep convolutional networks,'' \emph{IEEE Transactions on Medical Imaging},
+  vol.~38, no.~11, pp. 2569--2581, 2019.
+
+\bibitem{xiao2020deepacev2}
+L.~Xiao, C.~Luo, T.~Yu, Y.~Luo, M.~Wang, F.~Yu, Y.~Li, C.~Tian, and J.~Qiao,
+  ``{DeepACEv2}: Automated chromosome enumeration in metaphase cell images
+  using deep convolutional neural networks,'' \emph{IEEE Transactions on
+  Medical Imaging}, vol.~39, no.~12, pp. 3920--3932, 2020.
+
+\bibitem{li2024mcvae}
+J.~Li, S.~Zheng, Z.~Shui, S.~Zhang, L.~Yang, Y.~Sun, Y.~Zhang, H.~Li, Y.~Ye,
+  P.~M.~A. van Ooijen, K.~Li, and L.~Yang, ``Masked conditional variational
+  autoencoders for chromosome straightening,'' \emph{IEEE Transactions on
+  Medical Imaging}, vol.~43, no.~1, pp. 216--228, 2024.
+
+\bibitem{kuo2024chromosomenet}
+C.-E. Kuo, J.-Z. Li, J.-J. Tseng, F.-C. Lo, M.-J. Chen, and C.-H. Lu,
+  ``{ChromosomeNet}: Deep learning-based automated chromosome detection in
+  metaphase cell images,'' \emph{IEEE Open Journal of Engineering in Medicine
+  and Biology}, vol.~6, pp. 227--236, 2024.
+
+\bibitem{ren2015faster}
+S.~Ren, K.~He, R.~Girshick, and J.~Sun, ``Faster {R-CNN}: Towards real-time
+  object detection with region proposal networks,'' in \emph{Adv. Neural Inf.
+  Process. Syst. (NeurIPS)}, 2015, pp. 91--99.
+
+\bibitem{xue2019microscopy}
+Y.~Xue, G.~Bigras, J.~Hugh, and N.~Ray, ``Training convolutional neural
+  networks and compressed sensing end-to-end for microscopy cell detection,''
+  \emph{IEEE Transactions on Medical Imaging}, vol.~38, no.~11, pp. 2632--2641,
+  2019.
+
+\bibitem{loewke2018cellseg}
+N.~O. Loewke, S.~Pai, C.~Cordeiro, D.~Black, B.~L. King, C.~H. Contag, B.~Chen,
+  T.~M. Baer, and O.~Solgaard, ``Automated cell segmentation for quantitative
+  phase microscopy,'' \emph{IEEE Transactions on Medical Imaging}, vol.~37,
+  no.~4, pp. 929--940, 2018.
+
+\bibitem{xing2021nucleus}
+F.~Xing, T.~C. Cornish, T.~D. Bennett, and D.~Ghosh, ``Bidirectional
+  mapping-based domain adaptation for nucleus detection in cross-modality
+  microscopy images,'' \emph{IEEE Transactions on Medical Imaging}, vol.~40,
+  no.~10, pp. 2880--2896, 2021.
 
 \bibitem{baty2025flowdet}
 \BIBentryALTinterwordspacing
@@ -61,34 +136,116 @@ Y.~Lipman, R.~T.~Q. Chen, H.~Ben-Hamu, M.~Nickel, and M.~Le, ``Flow matching
   for generative modeling,'' in \emph{Int. Conf. Learn. Represent. (ICLR)},
   2023.
 
+\bibitem{jones2026flowmatching}
+\BIBentryALTinterwordspacing
+C.~Jones, E.~Noutahi, J.~Hartford, and C.~Eastwood, ``Elucidating the design
+  space of flow matching for cellular microscopy,'' arXiv:2603.26790, 2026.
+  [Online]. Available: \url{https://arxiv.org/abs/2603.26790}
+\BIBentrySTDinterwordspacing
+
+\bibitem{nutzel2026flowmatching}
+\BIBentryALTinterwordspacing
+F.~N{\"u}tzel, M.~Dombrowski, and B.~Kainz, ``Flow matching with optimized
+  subclass priors for medical image augmentation,'' arXiv:2605.16469, 2026.
+  [Online]. Available: \url{https://arxiv.org/abs/2605.16469}
+\BIBentrySTDinterwordspacing
+
+\bibitem{tivnan2025fourierdiffusion}
+M.~Tivnan, J.~Teneggi, T.-C. Lee, R.~Zhang, K.~Boedeker, L.~Cai, G.~J. Gang,
+  J.~Sulam, and J.~W. Stayman, ``Fourier diffusion models: A method to control
+  {MTF} and {NPS} in score-based stochastic image generation,'' \emph{IEEE
+  Transactions on Medical Imaging}, vol.~44, no.~9, pp. 3694--3704, 2025.
+
+\bibitem{yang2025dgddm}
+H.~Yang, W.~Hua, Z.~Xu, and J.~Sun, ``Domain-generalized discrete diffusion
+  model for cross-domain medical image segmentation,'' \emph{IEEE Transactions
+  on Medical Imaging}, vol.~44, no.~11, pp. 4131--4142, 2025.
+
+\bibitem{shen2025ladine}
+X.~Shen, H.~Huang, B.~Nichyporuk, and T.~Arbel, ``Improving robustness and
+  reliability in medical image classification with latent-guided diffusion and
+  nested-ensembles,'' \emph{IEEE Transactions on Medical Imaging}, vol.~44,
+  no.~12, pp. 4890--4902, 2025.
+
+\bibitem{yang2024ptbnet}
+W.~Yang, S.~Gao, H.~Zhang, H.~Yu, M.~Xu, P.~Chong, W.~Zhang, H.~Wang, W.~Zhang,
+  and A.~Qian, ``{PtbNet}: Based on local few-shot classes and small objects to
+  accurately detect {PTB},'' \emph{IEEE Transactions on Medical Imaging},
+  vol.~43, no.~12, pp. 4331--4343, 2024.
+
+\bibitem{yan2021universal}
+K.~Yan, J.~Cai, Y.~Zheng, A.~P. Harrison, D.~Jin, Y.~Tang, Y.~Tang, L.~Huang,
+  J.~Xiao, and L.~Lu, ``Learning from multiple datasets with heterogeneous and
+  partial labels for universal lesion detection in {CT},'' \emph{IEEE
+  Transactions on Medical Imaging}, vol.~40, no.~10, pp. 2759--2770, 2021.
+
+\bibitem{chen2023graphskt}
+C.~Chen, J.~Wang, J.~Pan, C.~Bian, and Z.~Zhang, ``{GraphSKT}: Graph-guided
+  structured knowledge transfer for domain adaptive lesion detection,''
+  \emph{IEEE Transactions on Medical Imaging}, vol.~42, no.~2, pp. 507--518,
+  2023.
+
+\bibitem{ren2023ipsilateral}
+Y.~Ren, X.~Liu, J.~Ge, Z.~Liang, X.~Xu, L.~J. Grimm, J.~Go, J.~R. Marks, and
+  J.~Y. Lo, ``Ipsilateral lesion detection refinement for tomosynthesis,''
+  \emph{IEEE Transactions on Medical Imaging}, vol.~42, no.~10, pp. 3080--3090,
+  2023.
+
+\bibitem{wang2019weaklesion}
+R.~Wang, B.~Chen, D.~Meng, and L.~Wang, ``Weakly supervised lesion detection
+  from fundus images,'' \emph{IEEE Transactions on Medical Imaging}, vol.~38,
+  no.~6, pp. 1501--1512, 2019.
+
+\bibitem{bae2015polyp}
+S.-H. Bae and K.-J. Yoon, ``Polyp detection via imbalanced learning and
+  discriminative feature learning,'' \emph{IEEE Transactions on Medical
+  Imaging}, vol.~34, no.~11, pp. 2379--2393, 2015.
+
+\bibitem{jiang2018iounet}
+B.~Jiang, R.~Luo, J.~Mao, T.~Xiao, and Y.~Jiang, ``Acquisition of localization
+  confidence for accurate object detection,'' in \emph{Proc. Eur. Conf. Comput.
+  Vis. (ECCV)}, 2018, pp. 784--799.
+
+\bibitem{li2020gfl}
+X.~Li, W.~Wang, L.~Wu, S.~Chen, X.~Hu, J.~Li, J.~Tang, and J.~Yang,
+  ``Generalized focal loss: Learning qualified and distributed bounding boxes
+  for dense object detection,'' in \emph{Adv. Neural Inf. Process. Syst.
+  (NeurIPS)}, vol.~33, 2020, pp. 21\,002--21\,012.
+
+\bibitem{zhang2021vfnet}
+H.~Zhang, Y.~Wang, F.~Dayoub, and N.~Sunderhauf, ``{VarifocalNet}: An
+  {IoU}-aware dense object detector,'' in \emph{Proc. IEEE/CVF Conf. Comput.
+  Vis. Pattern Recognit. (CVPR)}, 2021, pp. 8514--8523.
+
+\bibitem{mehrtash2020calibration}
+A.~Mehrtash, W.~M. Wells, C.~M. Tempany, P.~Abolmaesumi, and T.~Kapur,
+  ``Confidence calibration and predictive uncertainty estimation for deep
+  medical image segmentation,'' \emph{IEEE Transactions on Medical Imaging},
+  vol.~39, no.~12, pp. 3868--3878, 2020.
+
+\bibitem{dhariwal2021diffusion}
+P.~Dhariwal and A.~Nichol, ``Diffusion models beat {GANs} on image synthesis,''
+  in \emph{Adv. Neural Inf. Process. Syst. (NeurIPS)}, 2021.
+
 \bibitem{tong2023conditional}
 A.~Tong, K.~Fatras, N.~Malkin, G.~Huguet, Y.~Zhang, J.~Rector-Brooks, G.~Wolf,
   and Y.~Bengio, ``Conditional flow matching: Simulation-free dynamic optimal
   transport,'' in \emph{Int. Conf. Learn. Represent. (ICLR)}, 2023.
 
-\bibitem{ren2015faster}
-S.~Ren, K.~He, R.~Girshick, and J.~Sun, ``Faster {R-CNN}: Towards real-time
-  object detection with region proposal networks,'' in \emph{Adv. Neural Inf.
-  Process. Syst. (NeurIPS)}, 2015, pp. 91--99.
+\bibitem{pooladian2023multisample}
+A.-A. Pooladian, H.~Ben-Hamu, C.~Domingo-Enrich, B.~Amos, Y.~Lipman, and
+  R.~T.~Q. Chen, ``Multisample flow matching: Straightening flows with
+  minibatch couplings,'' in \emph{Proc. Int. Conf. Mach. Learn. (ICML)}, 2023,
+  pp. 28\,100--28\,127.
 
-\bibitem{kuo2024chromosomenet}
-C.-E. Kuo, J.-Z. Li, J.-J. Tseng, F.-C. Lo, M.-J. Chen, and C.-H. Lu,
-  ``{ChromosomeNet}: Deep learning-based automated chromosome detection in
-  metaphase cell images,'' \emph{IEEE Open Journal of Engineering in Medicine
-  and Biology}, vol.~6, pp. 227--236, 2024.
+\bibitem{cuturi2013sinkhorn}
+M.~Cuturi, ``Sinkhorn distances: Lightspeed computation of optimal transport,''
+  in \emph{Adv. Neural Inf. Process. Syst. (NeurIPS)}, 2013, pp. 2292--2300.
 
-\bibitem{zhang2026perturb}
-\BIBentryALTinterwordspacing
-Y.~Zhang, H.~Chen, C.~Yang, Y.~Chu, S.~Chen, J.~Wu, J.~Hu, N.~Li, J.~Su,
-  Y.~Chen, A.~Xu, X.~Gao, and A.~Yin, ``Perturb-and-restore: Simulation-driven
-  structural augmentation framework for imbalance chromosomal anomaly
-  detection,'' arXiv:2604.00854, 2026. [Online]. Available:
-  \url{https://arxiv.org/abs/2604.00854}
-\BIBentrySTDinterwordspacing
-
-\bibitem{dhariwal2021diffusion}
-P.~Dhariwal and A.~Nichol, ``Diffusion models beat {GANs} on image synthesis,''
-  in \emph{Adv. Neural Inf. Process. Syst. (NeurIPS)}, 2021.
+\bibitem{cheng2025curse}
+H.~K. Cheng and A.~Schwing, ``The curse of conditions: Analyzing and improving
+  optimal transport for conditional flow-based generation,'' in \emph{Proc.
+  IEEE/CVF Int. Conf. Comput. Vis. (ICCV)}, 2025, pp. 15\,875--15\,884.
 
 \bibitem{rst_dataset}
 \BIBentryALTinterwordspacing
@@ -142,11 +299,9 @@ H.~Rezatofighi, N.~Tsoi, J.~Gwak, A.~Sadeghian, I.~Reid, and S.~Savarese,
 H.~W. Kuhn, ``The hungarian method for the assignment problem,'' \emph{{Naval
   Research Logistics Quarterly}}, vol.~2, no. 1-2, pp. 83--97, 1955.
 
-\bibitem{ge2021yolox}
-\BIBentryALTinterwordspacing
-Z.~Ge, S.~Liu, F.~Wang, Z.~Li, and J.~Sun, ``{YOLOX}: Exceeding {YOLO} series
-  in 2021,'' arXiv:2107.08430, 2021. [Online]. Available:
-  \url{https://arxiv.org/abs/2107.08430}
-\BIBentrySTDinterwordspacing
+\bibitem{lyu2022rtmdet}
+C.~Lyu, W.~Zhang, H.~Huang, Y.~Zhou, Y.~Wang, Y.~Liu, S.~Zhang, and K.~Chen,
+  ``{RTMDet}: An empirical study of designing real-time object detectors,''
+  arXiv:2212.07784, 2022.
 
 \end{thebibliography}

@@ -44,3 +44,6 @@ progress observations may additionally use `run_snapshot`. The curated
   the four-step production reference.
 - Renewal removal is effectively accuracy-neutral at the retained proposal
   count, but the low-`K` failure is part of the finding, not an exception to hide.
+- A learned quality-exponent sweep must store checkpoint identity and raw-export
+  hashes. A sweep that re-ranks with ground-truth IoU is an oracle bound and
+  must never be labeled as an LQCR hyperparameter ablation.
