@@ -167,11 +167,14 @@ so stochastic coupling is excluded from the final model and contribution list.
   \centering
   \includegraphics[width=\textwidth]{figures/v2/generated/fig01_system_overview.pdf}
   \caption{KaryoFlow from image to detections. A real metaphase image and its
-  dense crop illustrate the feature pyramid, the rectified box path, four-NFE
-  DPM-Solver++ integration, and the final ranked detections. The endpoints and
-  output boxes are empirical; intermediate boxes visualize the prescribed
-  linear RF path rather than recorded hidden activations. Vector overlays remain
-  editable while the microscopy panels retain the source pixels.}
+  dense crop show four-NFE box refinement and the final ranked detections. The
+  lower row makes one normalized center-and-scale trajectory explicit and
+  exposes an actual detector evaluation: multi-scale RoIAlign, self-attention,
+  DynamicConv, feed-forward refinement, AdaLN-Zero time conditioning, six
+  cascade heads, and the final-head quality branch. Endpoints and output boxes
+  are empirical; intermediate boxes visualize the prescribed linear RF path
+  rather than recorded hidden activations. Vector overlays remain editable
+  while microscopy panels retain the source pixels.}
   \label{fig:method_overview}
 \end{figure*}
 

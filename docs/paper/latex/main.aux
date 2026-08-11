@@ -60,14 +60,14 @@
 \newlabel{eq:heun}{{3}{2}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0b}DPM-Solver++ (2nd-order multistep, 1 NFE/step)}{2}{}\protected@file@percent }
 \newlabel{eq:dpmpp}{{4}{2}{}{}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces KaryoFlow from image to detections. A real metaphase image and its dense crop illustrate the feature pyramid, the rectified box path, four-NFE DPM-Solver++ integration, and the final ranked detections. The endpoints and output boxes are empirical; intermediate boxes visualize the prescribed linear RF path rather than recorded hidden activations. Vector overlays remain editable while the microscopy panels retain the source pixels.}}{3}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces KaryoFlow from image to detections. A real metaphase image and its dense crop show four-NFE box refinement and the final ranked detections. The lower row makes one normalized center-and-scale trajectory explicit and exposes an actual detector evaluation: multi-scale RoIAlign, self-attention, DynamicConv, feed-forward refinement, AdaLN-Zero time conditioning, six cascade heads, and the final-head quality branch. Endpoints and output boxes are empirical; intermediate boxes visualize the prescribed linear RF path rather than recorded hidden activations. Vector overlays remain editable while microscopy panels retain the source pixels.}}{3}{}\protected@file@percent }
 \newlabel{fig:method_overview}{{1}{3}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0c}Why direct data prediction is numerically preferable here}{3}{}\protected@file@percent }
 \newlabel{eq:x0-v-weight}{{5}{3}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0d}Solver type is \ensuremath  {\mathrm  {mAP}}{}-neutral on RF+Heun}{3}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0e}Conclusion}{3}{}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Solver$\times $step disentanglement ablation on the RF+Heun checkpoint (Dataset~2 val, seed 42). Solver type is \ensuremath  {\mathrm  {mAP}}{}-neutral at matched steps, while increasing one to four steps adds only $0.004$ mAP.}}{3}{}\protected@file@percent }
 \newlabel{tab:solver-ablation}{{I}{3}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0e}Conclusion}{3}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-C}}History-Consistent Proposal Integration}{3}{}\protected@file@percent }
 \newlabel{sec:method-engineering}{{\mbox  {III-C}}{3}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-C}0a}Proposal identity is a premise of multistep history}{3}{}\protected@file@percent }
@@ -85,8 +85,6 @@
 \newlabel{eq:lqcr-factorization}{{7}{4}{}{}{}}
 \newlabel{eq:quality-head}{{8}{4}{}{}{}}
 \newlabel{eq:quality-loss}{{9}{4}{}{}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-F}}Coupling Audit}{4}{}\protected@file@percent }
-\newlabel{sec:method-ot}{{\mbox  {III-F}}{4}{}{}{}}
 \citation{rst_dataset}
 \citation{tseng2023dataset}
 \citation{lu2022cil54816}
@@ -99,6 +97,8 @@
 \citation{kuhn1955assignment}
 \@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Effect and causal scope of localization-quality ranking. (a,b) On the fixed Dataset~2 seed-42 RF-DPM++ checkpoint, the gain is concentrated at strict IoU thresholds (AP90/AP95 $+3.04/+3.25$ points), while AP50 is unchanged. (c) The intervention changes only final ordering from $p$ to $pq^2$; the RF trajectory, renewal, candidate coordinates, and class logits are fixed. Score-dependent post-processing may select a different final subset. Values are loaded from checkpoint-linked exports.}}{5}{}\protected@file@percent }
 \newlabel{fig:lqcr-principle}{{2}{5}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-F}}Coupling Audit}{5}{}\protected@file@percent }
+\newlabel{sec:method-ot}{{\mbox  {III-F}}{5}{}{}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-G}}Top-$K$ Proposal Pruning}{5}{}\protected@file@percent }
 \newlabel{sec:method-topk}{{\mbox  {III-G}}{5}{}{}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {IV}Experiments}{5}{}\protected@file@percent }
@@ -111,11 +111,11 @@
 \@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Training-set properties that motivate the detector design. Relative area is box area divided by image area; overlap denotes an image containing at least one pair of ground-truth boxes with IoU $>0.1$.}}{5}{}\protected@file@percent }
 \newlabel{tab:dataset-properties}{{III}{5}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0b}Architecture and training}{5}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0c}Detection protocol}{5}{}\protected@file@percent }
 \citation{lyu2022rtmdet}
 \citation{zhang2023dino}
 \citation{ge2021yolox}
 \citation{chen2023diffusiondet}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0c}Detection protocol}{6}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0d}Statistical considerations}{6}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-A}0e}Evidence traceability}{6}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-B}}Precision Bottleneck Diagnosis}{6}{}\protected@file@percent }
@@ -128,7 +128,6 @@
 \newlabel{sec:exp-sota}{{\mbox  {IV-D}}{6}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-D}0a}Small-object performance}{6}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-D}0b}Class- and scale-resolved analysis}{6}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-D}0c}Causal interpretation of controlled comparisons}{6}{}\protected@file@percent }
 \@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Precision bottleneck diagnosis. (a) Oracle mAP headroom for perfect classes, ground-truth-IoU ranking, and perfect coordinates. Ground-truth-IoU ranking is a diagnostic upper bound, not a trained LQCR result. (b) AP versus IoU threshold. (c) Detection recall at IoU $0.90$ by scale and overlap condition. Dataset~1 uses a seed-42 100-image diagnostic subset; Dataset~2 uses the seed-42 500-image validation export.}}{7}{}\protected@file@percent }
 \newlabel{fig:precision-bottleneck}{{3}{7}{}{}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces Evidence-controlled ablation on Dataset~2 validation. The final two rows share the seed-42 RF-DPM++ checkpoint; LQCR changes only output ranking.}}{7}{}\protected@file@percent }
@@ -137,6 +136,7 @@
 \newlabel{tab:engineering-evidence}{{V}{7}{}{}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {VI}{\ignorespaces Detector comparison on Dataset~2. KaryoFlow results report the three-seed mean; all methods use independently trained checkpoints.}}{7}{}\protected@file@percent }
 \newlabel{tab:sota}{{VI}{7}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-D}0c}Causal interpretation of controlled comparisons}{7}{}\protected@file@percent }
 \@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Same-hardware efficiency on Dataset~2. (a) Latency decomposition. (b) Validation mAP versus FPS on one RTX A6000; connected points form a checkpoint-paired Top-$K$ sweep, whereas other detectors are independent.}}{8}{}\protected@file@percent }
 \newlabel{fig:fps-map}{{4}{8}{}{}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {VII}{\ignorespaces Learned-quality exponent sweep on Dataset~2 validation (seed 42). The $\beta =0$ row disables quality ranking. These are learned-$q$ results, not ground-truth-IoU oracle rankings; all rows use the same single-image precision-diagnostic protocol.}}{8}{}\protected@file@percent }
@@ -148,14 +148,14 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-F}}Solver Analysis}{8}{}\protected@file@percent }
 \newlabel{sec:exp-solver}{{\mbox  {IV-F}}{8}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-F}0a}DPM-Solver++ step ablation}{8}{}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {VIII}{\ignorespaces Same-hardware latency benchmark on Dataset~2 at $512\times 512$ resolution (RTX A6000, batch size 1, 500 timed iterations).}}{8}{}\protected@file@percent }
-\newlabel{tab:fps}{{VIII}{8}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-F}0b}DPM-Solver++ vs Heun at matched NFE}{8}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-F}0c}Test set evaluation}{8}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-G}}FPS / Latency Benchmark}{8}{}\protected@file@percent }
 \newlabel{sec:exp-fps}{{\mbox  {IV-G}}{8}{}{}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Local difficult-case comparison on Dataset~2 validation images 1, 2, and 4. Columns show ground truth, KaryoFlow, DiffusionDet, and DINO R50; rows focus on Y, F/G-group, and D-group target categories. Predictions use a score threshold of $0.30$. Only the row's target category group is overlaid to keep localization readable; microscopy crops are raster, while boxes, labels, and layout remain vector-editable. These selected cases are illustrative rather than an accuracy estimator.}}{9}{}\protected@file@percent }
 \newlabel{fig:qual-mosaic}{{5}{9}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {VIII}{\ignorespaces Same-hardware latency benchmark on Dataset~2 at $512\times 512$ resolution (RTX A6000, batch size 1, 500 timed iterations).}}{9}{}\protected@file@percent }
+\newlabel{tab:fps}{{VIII}{9}{}{}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-H}}Sensitivity to Annotation Precision}{9}{}\protected@file@percent }
 \newlabel{sec:exp-robust}{{\mbox  {IV-H}}{9}{}{}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {V}Discussion}{9}{}\protected@file@percent }
