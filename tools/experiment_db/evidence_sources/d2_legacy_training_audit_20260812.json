@@ -1,0 +1,147 @@
+{
+  "files": [
+    {
+      "bytes": 3179792,
+      "path": "tools/experiment_db/evidence_sources/raw/d2_workstation_audit_20260812/a3_full_sota_24obj/20260706_221257/20260706_221257.log",
+      "sha256": "7e8826b0a46b244118c3ce35a5b3074511be9ab18d5d33c47e2f8a8b12f3e1c1",
+      "status": "archived_unpromoted"
+    },
+    {
+      "bytes": 31692,
+      "path": "tools/experiment_db/evidence_sources/raw/d2_workstation_audit_20260812/a3_full_sota_24obj/a3_full_sota_24obj.py",
+      "sha256": "e4b544944f214a596810013d8e5454d8879db1f396cbcddb899ea00905e7fdd5",
+      "status": "archived_unpromoted"
+    },
+    {
+      "bytes": 2485012,
+      "path": "tools/experiment_db/evidence_sources/raw/d2_workstation_audit_20260812/a3_full_sota_24obj_multiseed_seed123/20260726_024843/20260726_024843.log",
+      "sha256": "71a7c998d13aa4eb394ca70d8b4fac7a94dfc3bb4ebd22c899478805bd777ace",
+      "status": "archived_unpromoted"
+    },
+    {
+      "bytes": 1337,
+      "path": "tools/experiment_db/evidence_sources/raw/d2_workstation_audit_20260812/a3_full_sota_24obj_multiseed_seed123/20260726_024843/vis_data/run-20260726_024847-87i1tfhd/files/swanlab-metadata.json",
+      "sha256": "8bb6b76d198cf6d27d7b83370d7aeec0e018616bc89c1a5a308fdc7a0b2c9819",
+      "status": "archived_unpromoted"
+    },
+    {
+      "bytes": 31714,
+      "path": "tools/experiment_db/evidence_sources/raw/d2_workstation_audit_20260812/a3_full_sota_24obj_multiseed_seed123/a3_full_sota_24obj_multiseed.py",
+      "sha256": "cd5d1b77822d2d5e629fff8afec26cfa44ed6eae975cc50c446c5847c0649f8d",
+      "status": "archived_unpromoted"
+    },
+    {
+      "bytes": 3249728,
+      "path": "tools/experiment_db/evidence_sources/raw/d2_workstation_audit_20260812/a3_full_sota_24obj_multiseed_seed789/20260726_050545/20260726_050545.log",
+      "sha256": "f7c6b546a061cbd82694c9abcde520ebc04ce2e8f40e9d75dbeae9f2e6105d63",
+      "status": "archived_unpromoted"
+    },
+    {
+      "bytes": 1337,
+      "path": "tools/experiment_db/evidence_sources/raw/d2_workstation_audit_20260812/a3_full_sota_24obj_multiseed_seed789/20260726_050545/vis_data/run-20260726_050548-vn1apdsr/files/swanlab-metadata.json",
+      "sha256": "2873ee7360795106f4e57e0dbc1331bfbae94383c3a9a1bda93182ade56a73eb",
+      "status": "archived_unpromoted"
+    },
+    {
+      "bytes": 31714,
+      "path": "tools/experiment_db/evidence_sources/raw/d2_workstation_audit_20260812/a3_full_sota_24obj_multiseed_seed789/a3_full_sota_24obj_multiseed.py",
+      "sha256": "d9a3f67b2da643c8ce26edd8692f733dd7220aa01738306a6579970b107310d9",
+      "status": "archived_unpromoted"
+    },
+    {
+      "bytes": 31612,
+      "path": "tools/experiment_db/evidence_sources/raw/d2_workstation_audit_20260812/a4_dpm_pp_24obj/a4_dpm_pp_24obj.py",
+      "sha256": "278b1b73d98d74c0fc037dddd9878dea6c824ff0552a51f2f5e31c8943977ab3",
+      "status": "archived_unpromoted"
+    },
+    {
+      "bytes": 448530,
+      "path": "tools/experiment_db/evidence_sources/raw/d2_workstation_audit_20260812/capr_quality_final_only_24obj_seed789/20260808_234630/20260808_234630.log",
+      "sha256": "8b8ced1e38abe5cb2c9f1dea6045fba35a16e67893952e6a3e0049641607ba3b",
+      "status": "archived_unpromoted"
+    },
+    {
+      "bytes": 31613,
+      "path": "tools/experiment_db/evidence_sources/raw/d2_workstation_audit_20260812/capr_quality_final_only_24obj_seed789/capr_quality_final_only_train_24obj.py",
+      "sha256": "f1b8f097bc2090e39ae3ef93a059e29e80a46574b6a5843ef9531ebed8f7c865",
+      "status": "archived_unpromoted"
+    },
+    {
+      "bytes": 368,
+      "path": "tools/experiment_db/evidence_sources/raw/d2_workstation_audit_20260812/multi_seed/a4_dpm_pp_24obj/report.json",
+      "sha256": "2cf19f88471dbf927e29eed6909f4e1884122d9a4074c4da6e685336c7f35025",
+      "status": "archived_unpromoted"
+    },
+    {
+      "bytes": 2727830,
+      "path": "tools/experiment_db/evidence_sources/raw/d2_workstation_audit_20260812/multi_seed/a4_dpm_pp_24obj/seed_123/20260715_021127/20260715_021127.log",
+      "sha256": "b18a06472360a2fcaba1b19a87f6c0d324964dbcd0554a83b5ed24212fe67472",
+      "status": "archived_unpromoted"
+    },
+    {
+      "bytes": 1388,
+      "path": "tools/experiment_db/evidence_sources/raw/d2_workstation_audit_20260812/multi_seed/a4_dpm_pp_24obj/seed_123/20260715_021127/vis_data/run-20260715_021131-q3gm5ke7/files/swanlab-metadata.json",
+      "sha256": "930079a811d096478c76373814ee558fa7c34faa5515fc776801004d5dd698a5",
+      "status": "archived_unpromoted"
+    },
+    {
+      "bytes": 31605,
+      "path": "tools/experiment_db/evidence_sources/raw/d2_workstation_audit_20260812/multi_seed/a4_dpm_pp_24obj/seed_123/a4_dpm_pp_24obj_multiseed.py",
+      "sha256": "0b0eae6af347f325b9c70a46f0d84e846d41673291fa6af9ece631aba1d61af9",
+      "status": "archived_unpromoted"
+    },
+    {
+      "bytes": 3012867,
+      "path": "tools/experiment_db/evidence_sources/raw/d2_workstation_audit_20260812/multi_seed/a4_dpm_pp_24obj/seed_789/20260715_151224/20260715_151224.log",
+      "sha256": "85e6df037ca331c52cd5121d75a7dc8e454d771c9fde1e22945e61feff56a450",
+      "status": "archived_unpromoted"
+    },
+    {
+      "bytes": 1390,
+      "path": "tools/experiment_db/evidence_sources/raw/d2_workstation_audit_20260812/multi_seed/a4_dpm_pp_24obj/seed_789/20260715_151224/vis_data/run-20260715_151228-pjryhdpo/files/swanlab-metadata.json",
+      "sha256": "a399995a0b44efed178a0e73d4f60458fad2d487615fed2875b41e5ed9e4adfb",
+      "status": "archived_unpromoted"
+    },
+    {
+      "bytes": 31605,
+      "path": "tools/experiment_db/evidence_sources/raw/d2_workstation_audit_20260812/multi_seed/a4_dpm_pp_24obj/seed_789/a4_dpm_pp_24obj_multiseed.py",
+      "sha256": "a389d431c012afa699b45ddaca1dfc1c9e2c98d35040a0e53fff91b606208ff6",
+      "status": "archived_unpromoted"
+    }
+  ],
+  "findings": {
+    "a3": {
+      "independent_runs": [
+        42,
+        123,
+        789
+      ],
+      "notes": "The 123 and 789 launch records explicitly set the seeds and start without a parent checkpoint; available metrics are validation results.",
+      "test_status": "incomplete_uniform_test_evidence"
+    },
+    "a4": {
+      "claimed_seed_labels": [
+        42,
+        123,
+        789
+      ],
+      "effective_checkpoint_seeds": [
+        335778785,
+        790448076,
+        1342286018
+      ],
+      "independent_run_count": 3,
+      "notes": "The launcher-level RANDOM_SEED labels were not consumed by the training framework. Treat these as independent random runs, not verified prescribed seeds 42/123/789.",
+      "test_status": "missing_for_two_independent_runs"
+    },
+    "lqcr": {
+      "notes": "Only the recovered final-stage run has an explicit A4 parent checkpoint link; its available metrics are validation-only.",
+      "test_status": "no_three_run_paired_test",
+      "verified_parent_links": 1
+    }
+  },
+  "generated_at": "2026-08-12T10:24:52.872891+00:00",
+  "paper_eligibility": "blocked_until_standardized_held_out_test_and_parent_link_audit",
+  "purpose": "One-time recovery audit; these records are not paper-eligible test evidence.",
+  "schema_version": "1.0"
+}

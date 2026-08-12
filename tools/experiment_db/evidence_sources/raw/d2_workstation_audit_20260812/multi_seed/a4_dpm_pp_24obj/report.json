@@ -1,0 +1,19 @@
+{
+  "error": "no valid mAP results",
+  "results": [
+    {
+      "seed": 123,
+      "gpu": 0,
+      "work_dir": "work_dirs/multi_seed/a4_dpm_pp_24obj/seed_123",
+      "ok": true,
+      "best_mAP": null
+    },
+    {
+      "seed": 789,
+      "gpu": 0,
+      "work_dir": "work_dirs/multi_seed/a4_dpm_pp_24obj/seed_789",
+      "ok": true,
+      "best_mAP": null
+    }
+  ]
+}
