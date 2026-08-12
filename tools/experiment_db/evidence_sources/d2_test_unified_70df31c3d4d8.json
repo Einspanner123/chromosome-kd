@@ -1,0 +1,150 @@
+{
+  "completed_at": "2026-08-12T12:58:09.299396+00:00",
+  "dataset": {
+    "annotation": "data/24_chromosomes_object/coco/test/_annotations.coco.json",
+    "annotation_sha256": "110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495",
+    "annotations": 45980,
+    "categories": 24,
+    "images": 1000
+  },
+  "description": "Supplemental D2 held-out test operating-point evaluation",
+  "protocol_version": "d2-test-coco-v1",
+  "quality_controls": [
+    "1000 unique test image IDs and 24 category IDs verified",
+    "COCO maxDets explicitly fixed to [1, 10, 100]",
+    "persisted predictions independently recomputed with pycocotools",
+    "framework and independent metrics agree after framework rounding",
+    "config, checkpoint, annotation, code, log, and prediction hashes retained"
+  ],
+  "results": [
+    {
+      "coverage": {
+        "images_with_predictions": 1000,
+        "prediction_rows": 367201,
+        "test_images": 1000,
+        "unknown_category_ids": 0,
+        "unknown_image_ids": 0
+      },
+      "framework_metrics": {
+        "AP50": 0.988,
+        "AP75": 0.97,
+        "AP_L": 0.914,
+        "AP_M": 0.862,
+        "AP_S": 0.59,
+        "mAP": 0.865
+      },
+      "metrics": {
+        "AP50": 0.9879203710121914,
+        "AP75": 0.9696871038280304,
+        "AP_L": 0.9141634498216639,
+        "AP_M": 0.861894329343664,
+        "AP_S": 0.5902712993661486,
+        "mAP": 0.8645206382490735
+      },
+      "model_id": "karyoflow_lqcr_trainrun_1",
+      "model_label": "KaryoFlow+LQCR (train run 1)",
+      "protocol": {
+        "annotation_path": "data/24_chromosomes_object/coco/test/_annotations.coco.json",
+        "annotation_sha256": "110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495",
+        "annotations": 45980,
+        "categories": 24,
+        "checkpoint_path": "work_dirs/paper_d2_lqcr_trainrun_1/best_coco_bbox_mAP.pth",
+        "checkpoint_sha256": "1fc6acc2395b164936e96e65b26e214447801494d3cbb83e7b2841f979281dc2",
+        "config_path": "experiments/configs/ldmdet/directions/capr/paper_train3_lqcr_run1_test.py",
+        "config_source_sha256": "59b66bd8600b69501957fa3c6a272549448abe84e3d328ecb7037c201c7c5427",
+        "dataset": "D2",
+        "deterministic_seed": true,
+        "evaluator": "COCO bbox",
+        "images": 1000,
+        "inference_code_sha256": "134108fcaf8517f490feb8a74583d74e5269c999def42de899a86be23bcb4072",
+        "inference_seed": 42,
+        "max_dets": 100,
+        "model_id": "karyoflow_lqcr_trainrun_1",
+        "model_label": "KaryoFlow+LQCR (train run 1)",
+        "parent_checkpoint_path": "work_dirs/multi_seed/a4_dpm_pp_24obj/seed_123/best_coco_bbox_mAP_epoch_62.pth",
+        "parent_checkpoint_sha256": "30ed194fa4a9e4b2fa6d1f9f6d17fa92406a7b185c78674f3372a1f34037707b",
+        "parent_model_id": "karyoflow_trainrun_1",
+        "replication_unit": "paired_final_stage_intervention",
+        "resolved_config_sha256": "180248fd74f8d7f4e02318cc9f4c05eff9e5acccfed67b4d8549f8d8e164e0db",
+        "seed": 42,
+        "split": "test",
+        "test_batch_size": 1,
+        "training_seed": 790448076,
+        "version": "d2-test-coco-v1"
+      },
+      "protocol_hash": "55974d0308a95918d99b43ff3c94294a9e8ef23e62850c335b956fc3f973c77c",
+      "source_artifacts_sha256": {
+        "evaluation.log": "4029643b55f44370b4eea001c4389cba9392ae2b637ebca1e4fba30d5797804e",
+        "predictions.bbox.json": "aa7eefef4e3e49f853f21dd78800ca7ba0f765d437cb040251466b51dc06c8cf",
+        "resolved_test_config.py": "ac737d53ad260b3d1e39e6a3ee45e9f386527114e308123760ff368764f9ea59"
+      },
+      "source_summary": "results/d2_test_unified/karyoflow_lqcr_trainrun_1/55974d0308a95918d99b43ff3c94294a9e8ef23e62850c335b956fc3f973c77c/summary.json",
+      "source_summary_sha256": "450634a3b5fae518ddabd4f39efd2cf19d621be191df35e2896811a2cdbc3646"
+    },
+    {
+      "coverage": {
+        "images_with_predictions": 1000,
+        "prediction_rows": 416684,
+        "test_images": 1000,
+        "unknown_category_ids": 0,
+        "unknown_image_ids": 0
+      },
+      "framework_metrics": {
+        "AP50": 0.988,
+        "AP75": 0.967,
+        "AP_L": 0.86,
+        "AP_M": 0.862,
+        "AP_S": 0.584,
+        "mAP": 0.864
+      },
+      "metrics": {
+        "AP50": 0.987977360557362,
+        "AP75": 0.9673973474980825,
+        "AP_L": 0.860398266813227,
+        "AP_M": 0.8615089299471923,
+        "AP_S": 0.5836554538319013,
+        "mAP": 0.8641605144647798
+      },
+      "model_id": "karyoflow_lqcr_trainrun_2",
+      "model_label": "KaryoFlow+LQCR (train run 2)",
+      "protocol": {
+        "annotation_path": "data/24_chromosomes_object/coco/test/_annotations.coco.json",
+        "annotation_sha256": "110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495",
+        "annotations": 45980,
+        "categories": 24,
+        "checkpoint_path": "work_dirs/paper_d2_lqcr_trainrun_2/best_coco_bbox_mAP.pth",
+        "checkpoint_sha256": "9847764d0a676f67d89bd39ef4f772acdbc15e128d1261645b4b6f462fae5fb1",
+        "config_path": "experiments/configs/ldmdet/directions/capr/paper_train3_lqcr_run2_test.py",
+        "config_source_sha256": "ae5811d8403fb87afb46a271e3ffa234d2cde1f270bb21f524c7bb4e0b06ffeb",
+        "dataset": "D2",
+        "deterministic_seed": true,
+        "evaluator": "COCO bbox",
+        "images": 1000,
+        "inference_code_sha256": "134108fcaf8517f490feb8a74583d74e5269c999def42de899a86be23bcb4072",
+        "inference_seed": 42,
+        "max_dets": 100,
+        "model_id": "karyoflow_lqcr_trainrun_2",
+        "model_label": "KaryoFlow+LQCR (train run 2)",
+        "parent_checkpoint_path": "work_dirs/multi_seed/a4_dpm_pp_24obj/seed_789/best_coco_bbox_mAP_epoch_72.pth",
+        "parent_checkpoint_sha256": "11b0f1174d11fc38c960181817e3274074d425f7f64c49fad3fe14d115c7b344",
+        "parent_model_id": "karyoflow_trainrun_2",
+        "replication_unit": "paired_final_stage_intervention",
+        "resolved_config_sha256": "180248fd74f8d7f4e02318cc9f4c05eff9e5acccfed67b4d8549f8d8e164e0db",
+        "seed": 42,
+        "split": "test",
+        "test_batch_size": 1,
+        "training_seed": 1342286018,
+        "version": "d2-test-coco-v1"
+      },
+      "protocol_hash": "9fe6eb05462e2e59b7f5ff404de1bf74efc7adfdeb5b5babc25ab183f1acd04e",
+      "source_artifacts_sha256": {
+        "evaluation.log": "13e1572940b21e6014398bbd2dfd9cb63c8c9c328992650270f8503bbbaae42f",
+        "predictions.bbox.json": "966355e1821ceca8eb523eed112917bbf93bed9f22dab06e8296a7574884ccb3",
+        "resolved_test_config.py": "7eae639e36e5da4ebd63e9052dcf4ab0e0de1b3301d8522f82d1bedee8f8730b"
+      },
+      "source_summary": "results/d2_test_unified/karyoflow_lqcr_trainrun_2/9fe6eb05462e2e59b7f5ff404de1bf74efc7adfdeb5b5babc25ab183f1acd04e/summary.json",
+      "source_summary_sha256": "e5bff3824e4a1f39f4b382f478c714414445be7a7dbbec1146d526ce8488d869"
+    }
+  ],
+  "status": "verified"
+}

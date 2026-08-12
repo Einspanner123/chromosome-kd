@@ -1,0 +1,192 @@
+{
+  "aggregates": {
+    "AP50": {
+      "baseline_mean": 0.9880314599314093,
+      "baseline_sample_std": 0.00010355118973005125,
+      "baseline_values": [
+        0.9881476464451387,
+        0.987948905083937,
+        0.9879978282651521
+      ],
+      "lqcr_mean": 0.9880029818188938,
+      "lqcr_sample_std": 9.796727775319857e-05,
+      "lqcr_values": [
+        0.988111213887128,
+        0.9879203710121914,
+        0.987977360557362
+      ],
+      "paired_delta_mean": -2.847811251549537e-05,
+      "paired_delta_sample_std": 7.98257221815635e-06,
+      "paired_deltas": [
+        -3.643255801077938e-05,
+        -2.8534071745522915e-05,
+        -2.046770779018381e-05
+      ]
+    },
+    "AP75": {
+      "baseline_mean": 0.9687497534379252,
+      "baseline_sample_std": 0.002173191620509296,
+      "baseline_values": [
+        0.9706006115406247,
+        0.9692918069357751,
+        0.9663568418373758
+      ],
+      "lqcr_mean": 0.969345240942441,
+      "lqcr_sample_std": 0.0018014568075336264,
+      "lqcr_values": [
+        0.9709512715012101,
+        0.9696871038280304,
+        0.9673973474980825
+      ],
+      "paired_delta_mean": 0.0005954875045157682,
+      "paired_delta_sample_std": 0.0003860427222755215,
+      "paired_deltas": [
+        0.0003506599605853644,
+        0.0003952968922552591,
+        0.001040505660706681
+      ]
+    },
+    "AP_L": {
+      "baseline_mean": 0.8816908737806345,
+      "baseline_sample_std": 0.027025399575627447,
+      "baseline_values": [
+        0.8766079184095482,
+        0.9108968390056745,
+        0.8575678639266808
+      ],
+      "lqcr_mean": 0.8873443950070421,
+      "lqcr_sample_std": 0.026882816755605297,
+      "lqcr_values": [
+        0.8874714683862354,
+        0.9141634498216639,
+        0.860398266813227
+      ],
+      "paired_delta_mean": 0.005653521226407536,
+      "paired_delta_sample_std": 0.004517285581351083,
+      "paired_deltas": [
+        0.010863549976687148,
+        0.0032666108159893348,
+        0.002830402886546124
+      ]
+    },
+    "AP_M": {
+      "baseline_mean": 0.8559896098239405,
+      "baseline_sample_std": 0.0009143243478677932,
+      "baseline_values": [
+        0.8569126845716247,
+        0.8559718502895005,
+        0.855084294610696
+      ],
+      "lqcr_mean": 0.862338271809047,
+      "lqcr_sample_std": 0.00111940739107438,
+      "lqcr_values": [
+        0.8636115561362846,
+        0.861894329343664,
+        0.8615089299471923
+      ],
+      "paired_delta_mean": 0.00634866198510653,
+      "paired_delta_sample_std": 0.0003937325173004941,
+      "paired_deltas": [
+        0.0066988715646598695,
+        0.005922479054163432,
+        0.006424635336496287
+      ]
+    },
+    "AP_S": {
+      "baseline_mean": 0.5820973153769046,
+      "baseline_sample_std": 0.013281245557200358,
+      "baseline_values": [
+        0.5685601646311857,
+        0.595106936000074,
+        0.5826248454994538
+      ],
+      "lqcr_mean": 0.5801308874670648,
+      "lqcr_sample_std": 0.012287842619773294,
+      "lqcr_values": [
+        0.5664659092031444,
+        0.5902712993661486,
+        0.5836554538319013
+      ],
+      "paired_delta_mean": -0.0019664279098397333,
+      "paired_delta_sample_std": 0.002935210794335051,
+      "paired_deltas": [
+        -0.002094255428041314,
+        -0.004835636633925389,
+        0.0010306083324475024
+      ]
+    },
+    "mAP": {
+      "baseline_mean": 0.8584968113273987,
+      "baseline_sample_std": 0.0009177671174734328,
+      "baseline_values": [
+        0.8594489706014221,
+        0.8584236473386114,
+        0.8576178160421628
+      ],
+      "lqcr_mean": 0.8649985072211599,
+      "lqcr_sample_std": 0.0011537076541894631,
+      "lqcr_values": [
+        0.8663143689496262,
+        0.8645206382490735,
+        0.8641605144647798
+      ],
+      "paired_delta_mean": 0.0065016958937610765,
+      "paired_delta_sample_std": 0.0003858411630758635,
+      "paired_deltas": [
+        0.006865398348204099,
+        0.006096990910462119,
+        0.00654269842261701
+      ]
+    }
+  },
+  "dataset": "D2",
+  "description": "Dataset-2 paired LQCR evaluation over three independently trained detectors.",
+  "generated_at": "2026-08-12T13:01:43.093245+00:00",
+  "images": 1000,
+  "inference_seed": 42,
+  "pairs": [
+    {
+      "baseline_protocol_hash": "2324ab817c27a292a9751f50b83a75416ed53aeb5793b08d659ed85c7348aee4",
+      "lqcr_protocol_hash": "d9dd75b91220e1fa18ad74a86282f2ac23231a7d35d3e7c3566491be8b3b766c",
+      "parent_checkpoint_sha256": "efdbb05f2265d5e45c8c078b4ce43a5298517cdfd18f805b59a2d7e9a36e676a",
+      "training_seed": 335778785
+    },
+    {
+      "baseline_protocol_hash": "24cf3130be70cdbab21f141dac32b6977abc45f620bc228a2e30354cc4b3a36b",
+      "lqcr_protocol_hash": "55974d0308a95918d99b43ff3c94294a9e8ef23e62850c335b956fc3f973c77c",
+      "parent_checkpoint_sha256": "30ed194fa4a9e4b2fa6d1f9f6d17fa92406a7b185c78674f3372a1f34037707b",
+      "training_seed": 790448076
+    },
+    {
+      "baseline_protocol_hash": "425c0e2de208911132eb4a459f1b61834078620ed0a99e5e16342e114e18bf27",
+      "lqcr_protocol_hash": "9fe6eb05462e2e59b7f5ff404de1bf74efc7adfdeb5b5babc25ab183f1acd04e",
+      "parent_checkpoint_sha256": "11b0f1174d11fc38c960181817e3274074d425f7f64c49fad3fe14d115c7b344",
+      "training_seed": 1342286018
+    }
+  ],
+  "replication_unit": "independent_detector_training_run_with_paired_final_stage_intervention",
+  "schema_version": "1.0",
+  "source_artifacts": [
+    {
+      "path": "tools/experiment_db/evidence_sources/d2_test_unified_5c4a95c61635.json",
+      "sha256": "5c4a95c6163533097e65689a24a17363dad3814c021c462f54d87843aa7f30f9"
+    },
+    {
+      "path": "tools/experiment_db/evidence_sources/d2_test_unified_16822b8d4654.json",
+      "sha256": "16822b8d46549550a207c499e0785b480374c142e3c26f3616ad88fbfdf9c339"
+    },
+    {
+      "path": "tools/experiment_db/evidence_sources/d2_test_unified_70df31c3d4d8.json",
+      "sha256": "70df31c3d4d8e371d5265a54b25caaa67653e5459c58a8defa8643fa5f898457"
+    }
+  ],
+  "split": "test",
+  "tensor_isolation_audit": {
+    "changed_shared_tensor_count": 0,
+    "child_only_scope": "final cascade localization-quality head",
+    "child_only_tensor_count": 5,
+    "run1_delta_sha256": "7d622010d3e27a7d5d8de407de716f96f08166bfe3f389367f82d143ecf9d23c",
+    "run2_delta_sha256": "648b7c7a419e6fd82323bc0747966c4f8b3759864224984df83b29942ebe9976",
+    "shared_tensor_count": 590
+  }
+}
