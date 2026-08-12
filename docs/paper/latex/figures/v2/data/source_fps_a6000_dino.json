@@ -7,11 +7,11 @@
     "fps": 29.125377335649073,
     "backbone_neck_ms": 5.253236164093018,
     "head_ms": 29.081082958221437,
-    "known_mAP": 0.8690,
+    "known_mAP": 0.864961517688708,
     "config": "experiments/configs/baselines/benchmark_24obj/dino_r50.py",
     "checkpoint": "work_dirs/baselines/dino_r50_24obj/best_coco_bbox_mAP_epoch_102.pth",
     "latency_source": "results/audit_20260811/benchmark_fps_20260811_151423.json",
-    "accuracy_source": "results/audit_20260811/val_recheck/dino_r50.log",
-    "protocol": "Dataset 2 val; RTX A6000; 512x512; batch 1; warmup 10; 500 CUDA-event model-forward iterations"
+    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_unified_f737cc0038ca.json:dino_r50",
+    "protocol": "Accuracy: held-out cohort, seed 42. Latency: RTX A6000; 512x512; batch 1; warmup 10; 500 CUDA-event model-forward iterations"
   }
 ]

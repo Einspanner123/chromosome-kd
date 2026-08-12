@@ -7,12 +7,12 @@
     "fps": 8.309737969351886,
     "backbone_neck_ms": 5.617590712547302,
     "head_ms": 114.72314730930329,
-    "known_mAP": 0.8560,
+    "known_mAP": 0.8565748226992792,
     "config": "experiments/configs/ldmdet/directions/mainline_ablation_24obj/a1_rf_heun_24obj.py",
     "checkpoint": "work_dirs/a1_rf_heun_24obj/best_coco_bbox_mAP_epoch_62.pth",
     "latency_source": "results/audit_20260811/a1_correct/benchmark_fps_20260811_155452.json",
-    "accuracy_source": "results/audit_20260811/val_recheck/a1_correct.log",
-    "protocol": "Dataset 2 val; RTX A6000; 512x512; batch 1; warmup 10; 500 CUDA-event model-forward iterations"
+    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_inference_ablations_b81d6a3d498a.json:heun_4",
+    "protocol": "Accuracy: held-out cohort, seed 42. Latency: RTX A6000; 512x512; batch 1; warmup 10; 500 CUDA-event model-forward iterations"
   },
   {
     "name": "a4",
@@ -22,12 +22,12 @@
     "fps": 13.298396339595792,
     "backbone_neck_ms": 5.492664046287537,
     "head_ms": 69.70437283420563,
-    "known_mAP": 0.8640,
+    "known_mAP": 0.8593602808574444,
     "config": "experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_dpm_pp_24obj.py",
     "checkpoint": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
     "latency_source": "results/audit_20260811/a4_best117/benchmark_fps_20260811_160117.json",
-    "accuracy_source": "work_dirs/diagnosis/renewal_off_topk_verify.json:renewal_on_ref.K=500",
-    "protocol": "Dataset 2 val; RTX A6000; 512x512; batch 1; warmup 10; 500 CUDA-event model-forward iterations"
+    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_unified_f737cc0038ca.json:karyoflow",
+    "protocol": "Accuracy: held-out cohort, seed 42. Latency: RTX A6000; 512x512; batch 1; warmup 10; 500 CUDA-event model-forward iterations"
   },
   {
     "name": "lqcr",
@@ -37,12 +37,12 @@
     "fps": 12.9,
     "backbone_neck_ms": 5.80,
     "head_ms": 71.88,
-    "known_mAP": 0.8704,
+    "known_mAP": 0.8662877273195254,
     "config": "experiments/configs/ldmdet/directions/capr/capr_quality_final_only_24obj.py",
     "checkpoint": "work_dirs/capr_quality_only_24obj/best_coco_bbox_mAP_epoch_2.pth",
     "latency_source": "results/audit_20260811/lqcr_same_protocol/benchmark_fps_20260811_184458.json",
-    "accuracy_source": "tools/experiment_db/evidence_sources/lqcr_learned_beta_sweep_seed42.json:beta=2",
-    "protocol": "Dataset 2 val; RTX A6000; 512x512; batch 1; warmup 10; 500 CUDA-event model-forward iterations"
+    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_unified_f737cc0038ca.json:karyoflow_lqcr",
+    "protocol": "Accuracy: held-out cohort, seed 42. Latency: RTX A6000; 512x512; batch 1; warmup 10; 500 CUDA-event model-forward iterations"
   },
   {
     "name": "a4_io3_k300",
@@ -52,12 +52,12 @@
     "fps": 14.115515401524448,
     "backbone_neck_ms": 5.547838335990906,
     "head_ms": 65.29619190692902,
-    "known_mAP": 0.8620,
+    "known_mAP": 0.8596773368228205,
     "config": "experiments/configs/ldmdet/directions/inference_opt/a4_io3_eval_k300_24obj.py",
     "checkpoint": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
     "latency_source": "results/audit_20260811/a4_best117/benchmark_fps_20260811_160117.json",
-    "accuracy_source": "work_dirs/diagnosis/renewal_off_topk_verify.json:renewal_on_ref.K=300",
-    "protocol": "Dataset 2 val; same A4 checkpoint and inference seed as K sweep"
+    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_inference_ablations_6dd1dcb1cc91.json:k300_renewal_on",
+    "protocol": "Accuracy: held-out cohort, seed 42; latency uses the same A4 checkpoint and RTX A6000 protocol"
   },
   {
     "name": "a4_io3_k200",
@@ -67,12 +67,12 @@
     "fps": 14.170619909820612,
     "backbone_neck_ms": 5.640495429039001,
     "head_ms": 64.92804753971099,
-    "known_mAP": 0.8620,
+    "known_mAP": 0.8589109086136651,
     "config": "experiments/configs/ldmdet/directions/inference_opt/a4_io3_eval_k200_24obj.py",
     "checkpoint": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
     "latency_source": "results/audit_20260811/a4_best117/benchmark_fps_20260811_160117.json",
-    "accuracy_source": "experiments/analysis/r1_eta_str_a3_seed42_k200.json",
-    "protocol": "Dataset 2 val; same A4 checkpoint and inference seed as K sweep"
+    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_inference_ablations_6dd1dcb1cc91.json:k200_renewal_on",
+    "protocol": "Accuracy: held-out cohort, seed 42; latency uses the same A4 checkpoint and RTX A6000 protocol"
   },
   {
     "name": "a4_io3_k100",
@@ -82,12 +82,12 @@
     "fps": 14.5140135957161,
     "backbone_neck_ms": 5.573622785568237,
     "head_ms": 63.32530674934387,
-    "known_mAP": 0.8520,
+    "known_mAP": 0.8476735270481536,
     "config": "experiments/configs/ldmdet/directions/inference_opt/a4_io3_eval_k100_24obj.py",
     "checkpoint": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
     "latency_source": "results/audit_20260811/a4_best117/benchmark_fps_20260811_160117.json",
-    "accuracy_source": "experiments/analysis/r1_eta_str_a3_seed42_k100.json",
-    "protocol": "Dataset 2 val; same A4 checkpoint and inference seed as K sweep"
+    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_inference_ablations_6dd1dcb1cc91.json:k100_renewal_on",
+    "protocol": "Accuracy: held-out cohort, seed 42; latency uses the same A4 checkpoint and RTX A6000 protocol"
   },
   {
     "name": "cascade_rcnn",
@@ -97,11 +97,11 @@
     "fps": 48.17887283723303,
     "backbone_neck_ms": 5.89854169845581,
     "head_ms": 14.857444091796877,
-    "known_mAP": 0.8540,
+    "known_mAP": 0.8526473599001332,
     "config": "experiments/configs/baselines/benchmark_24obj/cascade_rcnn_r50.py",
     "checkpoint": "work_dirs/baselines/cascade_rcnn_r50/best_coco_bbox_mAP_epoch_72.pth",
     "latency_source": "results/audit_20260811/benchmark_fps_20260811_151423.json",
-    "accuracy_source": "results/audit_20260811/val_recheck/cascade_rcnn.log"
+    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_unified_f737cc0038ca.json:cascade_rcnn"
   },
   {
     "name": "yolox_s",
@@ -111,11 +111,11 @@
     "fps": 99.65089773326183,
     "backbone_neck_ms": 7.206171138763428,
     "head_ms": 2.8288613872528083,
-    "known_mAP": 0.8030,
+    "known_mAP": 0.7951424981859805,
     "config": "experiments/configs/baselines/benchmark_24obj/yolox_s.py",
     "checkpoint": "work_dirs/baselines/yolox_s/best_coco_bbox_mAP_epoch_200.pth",
     "latency_source": "results/audit_20260811/benchmark_fps_20260811_151423.json",
-    "accuracy_source": "results/audit_20260811/val_recheck/yolox_s.log (training-only EMA hook disabled)"
+    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_unified_f737cc0038ca.json:yolox_s"
   },
   {
     "name": "diffusiondet",
@@ -125,11 +125,11 @@
     "fps": 41.51874966693369,
     "backbone_neck_ms": 5.9236055784225465,
     "head_ms": 18.16189815235138,
-    "known_mAP": 0.8050,
+    "known_mAP": 0.8036371391074026,
     "config": "experiments/configs/baselines/benchmark_24obj/diffusiondet_ddpm.py",
     "checkpoint": "work_dirs/baselines/diffusiondet_24obj/best_coco_bbox_mAP_epoch_26.pth",
     "latency_source": "results/audit_20260811/benchmark_fps_20260811_151423.json",
-    "accuracy_source": "results/audit_20260811/val_recheck/diffusiondet.log"
+    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_unified_f737cc0038ca.json:diffusiondet"
   },
   {
     "name": "rtmdet_l",
@@ -139,10 +139,10 @@
     "fps": 29.560455245516764,
     "backbone_neck_ms": 13.010487361907959,
     "head_ms": 20.818490970611574,
-    "known_mAP": 0.8610,
+    "known_mAP": 0.8608964735797365,
     "config": "experiments/configs/baselines/benchmark_24obj/rtmdet_l.py",
     "checkpoint": "work_dirs/baselines/rtmdet_l_24obj/epoch_86.pth",
     "latency_source": "results/audit_20260811/benchmark_fps_20260811_151423.json",
-    "accuracy_source": "results/audit_20260811/val_recheck/rtmdet_l.log"
+    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_unified_f737cc0038ca.json:rtmdet_l"
   }
 ]

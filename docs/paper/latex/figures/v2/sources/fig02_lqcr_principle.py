@@ -7,9 +7,10 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.patches import FancyBboxPatch, Rectangle
 
 from figure_style_v2 import (
-    C_FOUNDATION, C_LIGHT, C_LINE, C_LQCR, C_LQCR_LIGHT, C_MUTED,
+    C_FOUNDATION, C_LIGHT, C_LINE, C_LQCR, C_LQCR_LIGHT, C_MUTED, C_RF,
     C_TEXT, configure_style, save_vector_figure,
 )
 
@@ -84,55 +85,71 @@ def panel_delta(ax: plt.Axes, base: dict, lqcr: dict) -> None:
 
 
 def panel_checksum(ax: plt.Axes) -> None:
-    """State the intervention as an aligned operator comparison.
-
-    A compact mathematical contrast is more falsifiable than a pipeline-style
-    checklist: it separates held-fixed detector variables from the intervened
-    score and from the downstream ordering that is allowed to change.
-    """
+    """Show the final-only intervention on one fixed candidate set."""
     ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
 
-    # Shared detector output (not two independently generated proposal sets).
-    ax.text(0.04, 0.855, "HELD FIXED", fontsize=5.7, color=C_MUTED,
-            weight="bold")
-    ax.text(0.04, 0.765,
-            r"$\mathcal{C}=\{(b_i,p_i,q_i)\}_{i=1}^{N}$",
-            fontsize=8.0, color=C_TEXT, va="center")
-    ax.text(0.04, 0.675,
-            r"$x_{0:T},\; b_i,\; p_i$ identical",
-            fontsize=6.3, color=C_FOUNDATION, va="center")
-    ax.plot([0.04, 0.96], [0.605, 0.605], color=C_LINE, lw=0.75)
+    # Three fixed candidate thumbnails. A and B localize the same chromosome
+    # with different tightness; separating the thumbnails keeps the comparison
+    # legible at journal column scale.
+    ax.add_patch(Rectangle((0.04, 0.49), 0.92, 0.43, facecolor="#F8FAFC",
+                           edgecolor=C_LINE, linewidth=0.7))
+    ax.text(0.06, 0.875, "same candidate boxes and class scores", fontsize=5.8,
+            color=C_MUTED, weight="bold", va="top")
+    candidates = [
+        ("A", 0.08, C_FOUNDATION, r"$p=.98,\ q=.62$", 0.025),
+        ("B", 0.38, C_LQCR, r"$p=.96,\ q=.91$", 0.045),
+        ("C", 0.68, C_RF, r"$p=.95,\ q=.89$", 0.045),
+    ]
+    for name, x, color, score, inset in candidates:
+        ax.add_patch(Rectangle((x, 0.575), 0.23, 0.235, facecolor="white",
+                               edgecolor=C_LIGHT, linewidth=0.6))
+        ax.plot([x + 0.095, x + 0.135, x + 0.105, x + 0.155],
+                [0.60, 0.75, 0.68, 0.79], color="#8D989B", lw=4.0,
+                solid_capstyle="round", alpha=0.78)
+        ax.plot([x + 0.14, x + 0.09, x + 0.16, x + 0.11],
+                [0.60, 0.74, 0.68, 0.79], color="#8D989B", lw=3.4,
+                solid_capstyle="round", alpha=0.78)
+        ax.add_patch(Rectangle((x + inset, 0.59), 0.23 - 2 * inset, 0.20,
+                               fill=False, edgecolor=color, linewidth=1.15))
+        ax.text(x + 0.012, 0.795, name, color=color, fontsize=6.1,
+                weight="bold", va="top")
+        ax.text(x + 0.115, 0.535, score, color=color, fontsize=5.0,
+                ha="center", va="center")
 
-    # Aligned counterfactual score definitions.  The central vertical rule is
-    # deliberately table-like rather than a decorative flow arrow.
-    ax.text(0.04, 0.525, "RANKING OPERATOR", fontsize=5.7, color=C_MUTED,
-            weight="bold")
-    ax.text(0.30, 0.425, "baseline", ha="center", fontsize=6.1,
-            color=C_FOUNDATION, weight="bold")
-    ax.text(0.75, 0.425, "LQCR", ha="center", fontsize=6.1,
-            color=C_LQCR, weight="bold")
-    ax.plot([0.515, 0.515], [0.235, 0.465], color=C_LIGHT, lw=0.8)
-    ax.text(0.30, 0.325, r"$s_i=p_i$", ha="center", fontsize=8.2,
-            color=C_FOUNDATION)
-    ax.text(0.75, 0.325, r"$s_i=p_iq_i^2$", ha="center", fontsize=8.2,
-            color=C_LQCR, weight="bold")
-    ax.text(0.30, 0.225, r"$\pi_0=\operatorname{argsort}_i\,p_i$",
-            ha="center", fontsize=6.7, color=C_TEXT)
-    ax.text(0.75, 0.225, r"$\pi_1=\operatorname{argsort}_i\,p_iq_i^2$",
-            ha="center", fontsize=6.7, color=C_TEXT)
-
-    ax.plot([0.04, 0.96], [0.155, 0.155], color=C_LINE, lw=0.75)
-    ax.text(0.04, 0.095, "CONSEQUENCE", fontsize=5.7, color=C_MUTED,
+    ax.text(0.05, 0.395, "class-only", fontsize=5.8, color=C_FOUNDATION,
             weight="bold", va="center")
-    ax.text(0.96, 0.035,
-            r"different $\pi$ may change the retained subset",
-            fontsize=6.15, color=C_TEXT, ha="right", va="center")
+    ax.text(0.05, 0.205, "LQCR", fontsize=5.8, color=C_LQCR,
+            weight="bold", va="center")
+    ax.text(0.05, 0.345, r"rank by $p$", fontsize=5.2, color=C_MUTED)
+    ax.text(0.05, 0.155, r"rank by $pq^2$", fontsize=5.2, color=C_MUTED)
+
+    def rank_row(y: float, order: list[str], colors: dict[str, str]) -> None:
+        for idx, name in enumerate(order):
+            x = 0.34 + idx * 0.18
+            selected = idx < 2
+            patch = FancyBboxPatch((x, y), 0.13, 0.10,
+                                   boxstyle="round,pad=0.006,rounding_size=0.012",
+                                   facecolor=colors[name] if selected else "white",
+                                   edgecolor=colors[name], linewidth=0.9)
+            ax.add_patch(patch)
+            ax.text(x + 0.065, y + 0.05, name, ha="center", va="center",
+                    fontsize=6.3, weight="bold",
+                    color="white" if selected else colors[name])
+        ax.text(0.90, y + 0.05, "top-2", fontsize=5.2, color=C_MUTED,
+                ha="right", va="center")
+
+    colors = {"A": C_FOUNDATION, "B": C_LQCR, "C": C_RF}
+    rank_row(0.325, ["A", "B", "C"], colors)
+    rank_row(0.135, ["B", "C", "A"], colors)
+    ax.text(0.50, 0.035, "coordinates unchanged; retained subset corrected",
+            fontsize=5.45, color=C_TEXT, ha="center", va="center")
 
 
 def main() -> None:
     configure_style()
-    base = load("source_precision_a4_seed42.json")
-    lqcr = load("source_lqcr_final_only_seed42.json")
+    evidence = load("source_lqcr_test_ap_curve.json")
+    base = evidence["beta0"]
+    lqcr = evidence["beta2"]
     fig = plt.figure(figsize=(7.2, 2.55), facecolor="white")
     gs = fig.add_gridspec(1, 3, width_ratios=(1.15, 1.05, 1.02),
                           left=0.055, right=0.985, bottom=0.20, top=0.90,

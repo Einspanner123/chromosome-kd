@@ -2,20 +2,43 @@
   "description": "Cross-dataset object-scale distribution and within-dataset COCO AP_S comparison",
   "dataset_1_test": [
     {"method": "KaryoFlow + LQCR", "AP_S": 0.5147, "std": 0.0090},
-    {"method": "Cascade R-CNN", "AP_S": 0.5000},
-    {"method": "DINO R50", "AP_S": 0.4860},
-    {"method": "RTMDet-L", "AP_S": 0.4800},
-    {"method": "DiffusionDet", "AP_S": 0.4720},
-    {"method": "YOLOX-S", "AP_S": 0.3300}
+    {"method": "Cascade R-CNN", "AP_S": 0.5004529838613428},
+    {"method": "DINO R50", "AP_S": 0.4846417248490474},
+    {"method": "RTMDet-L", "AP_S": 0.4802419098158921},
+    {"method": "DiffusionDet", "AP_S": 0.4639874565347539},
+    {"method": "YOLOX-S", "AP_S": 0.32987037502777894}
   ],
-  "dataset_2_validation": [
-    {"method": "KaryoFlow + LQCR", "AP_S": 0.5304},
-    {"method": "DINO R50", "AP_S": 0.5530},
-    {"method": "RTMDet-L", "AP_S": 0.5220},
-    {"method": "YOLOX-S", "AP_S": 0.4410},
-    {"method": "Cascade R-CNN", "AP_S": 0.4140},
-    {"method": "DiffusionDet", "AP_S": 0.4030}
+  "dataset_2_test": [
+    {"method": "KaryoFlow + LQCR", "AP_S": 0.5660674509920983},
+    {"method": "DINO R50", "AP_S": 0.5948549813664824},
+    {"method": "RTMDet-L", "AP_S": 0.5726757729323618},
+    {"method": "YOLOX-S", "AP_S": 0.4860795671724349},
+    {"method": "Cascade R-CNN", "AP_S": 0.5724725737396976},
+    {"method": "DiffusionDet", "AP_S": 0.5372902242635478}
   ],
+  "scale_response": {
+    "dataset_1": {
+      "small_instance_share": 0.230,
+      "karyoflow_AP_S": 0.5090,
+      "lqcr_AP_S": 0.5147,
+      "lqcr_AP_S_std": 0.0090,
+      "lqcr_delta_AP_S": 0.0057,
+      "best_comparator": "Cascade R-CNN",
+      "best_comparator_AP_S": 0.5004529838613428,
+      "gap_to_best_comparator": 0.0142470161386572,
+      "overall_mAP_rank": 1
+    },
+    "dataset_2": {
+      "small_instance_share": 0.004,
+      "karyoflow_AP_S": 0.5728427583572737,
+      "lqcr_AP_S": 0.5660674509920983,
+      "lqcr_delta_AP_S": -0.0067753073651754,
+      "best_comparator": "DINO R50",
+      "best_comparator_AP_S": 0.5948549813664824,
+      "gap_to_best_comparator": -0.0287875303743841,
+      "overall_mAP_rank": 1
+    }
+  },
   "provenance": {
     "scale_distribution_dataset_1": "data/Chromosome20240904_NoAug_NoResize_coco/train/_annotations.coco.json",
     "scale_distribution_dataset_2": "data/24_chromosomes_object/coco/train/_annotations.coco.json",
@@ -26,8 +49,8 @@
       "work_dirs/diagnosis/test_eval_per_size_20260730_204840.json"
     ],
     "dataset_1_protocol": "test split, 220 images; KaryoFlow+LQCR clean random-coupling 3-seed mean, other detectors seed 42",
-    "dataset_2_metrics": "results/audit_20260811/val_recheck/*.log",
-    "dataset_2_protocol": "validation split, 500 images; KaryoFlow+LQCR fixed seed-42 final-only evaluation, other detectors unified checkpoint-linked re-evaluation"
+    "dataset_2_metrics": "tools/experiment_db/evidence_sources/d2_test_unified_f737cc0038ca.json",
+    "dataset_2_protocol": "held-out split, 1000 images; fixed seed-42 unified checkpoint-linked evaluation"
   },
-  "evidence_boundary": "AP_S values are compared only within each dataset. Dataset 1 and Dataset 2 use different splits, and non-KaryoFlow comparators are single-seed checkpoints, so raw cross-dataset AP_S levels and between-method variance are not interpreted as paired differences."
+  "evidence_boundary": "AP_S values are compared only within each dataset. Non-KaryoFlow comparators are single-seed checkpoints, so raw cross-dataset AP_S levels and between-method variance are not interpreted as paired differences."
 }

@@ -1,5 +1,5 @@
 schema_version: 1
-updated: 2026-08-10
+updated: 2026-08-12
 
 policy:
   vector_master: svg
@@ -9,6 +9,27 @@ policy:
   provisional_results_forbidden_in_final: true
 
 figures:
+  fig00_speed_accuracy:
+    source: sources/fig00_speed_accuracy.py
+    outputs:
+      - generated/fig00_speed_accuracy.svg
+      - generated/fig00_speed_accuracy.pdf
+      - generated/fig00_speed_accuracy.png
+    kind: empirical_cross_dataset_efficiency
+    empirical_data:
+      - data/source_speed_accuracy_cross_dataset.json
+    status: confirmed_front_page_result
+    evidence_boundary:
+      accuracy: locked_held_out_evaluation
+      latency: same_RTX_A6000_protocol
+      dataset_1_lqcr: clean_three_seed_mean
+      other_points: seed42
+      d1_topk: not_measured_and_omitted
+    forbidden_claims:
+      - compare_latency_measured_on_different_gpus
+      - connect_discrete_topk_operating_points_as_a_continuous_curve
+      - claim_every_metric_is_best_for_every_dataset
+
   fig01_system_overview:
     source: sources/fig01_system_overview.py
     outputs:
@@ -79,9 +100,8 @@ figures:
       - generated/fig02_lqcr_principle.png
     kind: theory_mechanism_empirical
     empirical_data:
-      - data/source_precision_a4_seed42.json
-      - data/source_lqcr_final_only_seed42.json
-    status: historical_base_confirmed_pending_clean_baseline
+      - data/source_lqcr_test_ap_curve.json
+    status: confirmed_locked_test_effect
     evidence_boundary:
       probability_factorization: exact
       pq2: monotone_surrogate_not_universal_ap_optimum
@@ -120,14 +140,14 @@ figures:
     empirical_data:
       - data/source_fps_a6000_karyoflow.json
       - data/source_fps_a6000_dino.json
-    status: confirmed_same_hardware
+    status: retired_from_manuscript_replaced_by_fig00_and_table_viii
     evidence_boundary:
       gpu: NVIDIA_RTX_A6000
       image_size: 512x512
       batch_size: 1
       warmup: 10
       iterations: 500
-      map_split: validation
+      accuracy_split: held_out
     forbidden_claims:
       - compare_latency_measured_on_different_gpus
       - topk_curve_is_independent_training
@@ -144,12 +164,12 @@ figures:
       - data/source_small_object_cross_dataset.json
       - ../../../../../data/Chromosome20240904_NoAug_NoResize_coco/train/_annotations.coco.json
       - ../../../../../data/24_chromosomes_object/coco/train/_annotations.coco.json
-      - ../../../../../work_dirs/diagnosis/test_eval_per_size_20260730_204840.json
     status: confirmed_complete_split_metrics
     evidence_boundary:
       scale_distribution: all_training_annotations
-      dataset_1_metrics: test_220_images_seed42
-      dataset_2_metrics: validation_500_images_ours_3seed_comparators_seed42
+      dataset_1_metrics: held_out_220_images_lqcr_three_seed_mean
+      dataset_2_metrics: held_out_1000_images_seed42
+      table_scope: scale_response_summary_not_full_sota_duplication
       vector_elements: all
     forbidden_claims:
       - raw_APs_is_directly_comparable_across_datasets

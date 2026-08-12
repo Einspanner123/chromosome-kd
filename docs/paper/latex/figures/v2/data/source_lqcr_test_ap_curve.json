@@ -1,0 +1,43 @@
+{
+  "description": "Locked Dataset 2 LQCR test AP curves from persisted predictions",
+  "beta0": {
+    "baseline": {
+      "mAP": 0.8595844149863439,
+      "AP_by_iou": {
+        "0.50": 0.9881544558615585,
+        "0.55": 0.9881015730419325,
+        "0.60": 0.9876987034287242,
+        "0.65": 0.9870368402121305,
+        "0.70": 0.982425831825441,
+        "0.75": 0.9708507987222837,
+        "0.80": 0.9398326703709515,
+        "0.85": 0.8683767060022878,
+        "0.90": 0.678776654877696,
+        "0.95": 0.204589915520433
+      }
+    }
+  },
+  "beta2": {
+    "baseline": {
+      "mAP": 0.8663381209583711,
+      "AP_by_iou": {
+        "0.50": 0.9880982888833825,
+        "0.55": 0.9880113995990898,
+        "0.60": 0.98770009956536,
+        "0.65": 0.9870864178272596,
+        "0.70": 0.9824186108143426,
+        "0.75": 0.9709531517899899,
+        "0.80": 0.942114584613339,
+        "0.85": 0.8783638354657163,
+        "0.90": 0.7045906000598859,
+        "0.95": 0.23404422096534563
+      }
+    }
+  },
+  "provenance": {
+    "annotation": "/home/linkst/workspace/chromosome-kd/data/24_chromosomes_object/coco/test/_annotations.coco.json",
+    "beta0_predictions": "/home/linkst/workspace/chromosome-kd/results/d2_test_inference_ablations/lqcr_beta/beta_0p0/21e73b4b6a568226164770430d232d20f4119c0ef86f283e2ff4e8456f011208/predictions.bbox.json",
+    "beta2_predictions": "/home/linkst/workspace/chromosome-kd/results/d2_test_inference_ablations/lqcr_beta/beta_2p0/a36b680708c5950a53c69bd810de2693939a4548b5a6631ec3d9541958ab82a2/predictions.bbox.json",
+    "protocol": "COCO bbox, maxDets=100, 1000 held-out images, seed 42"
+  }
+}
