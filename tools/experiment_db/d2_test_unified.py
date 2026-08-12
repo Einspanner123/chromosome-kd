@@ -107,6 +107,27 @@ MODEL_SETS = {
         },
     },
     "d2": {
+    "karyoflow_trainrun_0": {
+        "label": "KaryoFlow (train run 0)",
+        "config": "experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_dpm_pp_24obj.py",
+        "checkpoint": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
+        "training_seed": 335778785,
+        "replication_unit": "independent_training_seed",
+    },
+    "karyoflow_trainrun_1": {
+        "label": "KaryoFlow (train run 1)",
+        "config": "work_dirs/multi_seed/a4_dpm_pp_24obj/seed_123/a4_dpm_pp_24obj_multiseed.py",
+        "checkpoint": "work_dirs/multi_seed/a4_dpm_pp_24obj/seed_123/best_coco_bbox_mAP_epoch_62.pth",
+        "training_seed": 790448076,
+        "replication_unit": "independent_training_seed",
+    },
+    "karyoflow_trainrun_2": {
+        "label": "KaryoFlow (train run 2)",
+        "config": "work_dirs/multi_seed/a4_dpm_pp_24obj/seed_789/a4_dpm_pp_24obj_multiseed.py",
+        "checkpoint": "work_dirs/multi_seed/a4_dpm_pp_24obj/seed_789/best_coco_bbox_mAP_epoch_72.pth",
+        "training_seed": 1342286018,
+        "replication_unit": "independent_training_seed",
+    },
     "karyoflow": {
         "label": "KaryoFlow",
         "config": "experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_dpm_pp_24obj.py",
@@ -309,6 +330,10 @@ def protocol_for(name: str, model: dict, cfg_text: str, profile: dict,
         "dataset": DATASET_ID,
         "split": "test",
         "seed": SEED,
+        "inference_seed": SEED,
+        "training_seed": model.get("training_seed"),
+        "replication_unit": model.get(
+            "replication_unit", "fixed_checkpoint_inference_seed"),
         "images": profile["images"],
         "annotations": profile["annotations"],
         "categories": profile["categories"],
@@ -455,7 +480,7 @@ def register_database(summary_path: Path, summary: dict) -> str:
                    VALUES (?, ?, ?, ?, 'test', ?, ?, ?, 'absolute',
                            NULL, NULL, ?, ?, 'controlled', 1, ?)""",
                 (result_id, FAMILY, summary["protocol"]["model_label"], DATASET_ID,
-                 str(SEED), metric,
+                 str(summary["protocol"].get("training_seed") or SEED), metric,
                  value, protocol_json, artifact_id,
                  f"Unified {EXPECTED_IMAGES}-image {DATASET_ID} test evaluation."),
             )
