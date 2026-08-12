@@ -1,4 +1,4 @@
-schema_version: 1
+schema_version: 2
 updated: 2026-08-12
 
 policy:
@@ -6,7 +6,7 @@ policy:
   latex_artifact: pdf
   preview_artifact: png
   empirical_values_must_be_loaded: true
-  provisional_results_forbidden_in_final: true
+  held_out_results_only: true
 
 figures:
   fig00_speed_accuracy:
@@ -15,21 +15,12 @@ figures:
       - generated/fig00_speed_accuracy.svg
       - generated/fig00_speed_accuracy.pdf
       - generated/fig00_speed_accuracy.png
-    kind: empirical_cross_dataset_efficiency
     empirical_data:
       - data/source_speed_accuracy_cross_dataset.json
-    status: confirmed_front_page_result
-    evidence_boundary:
-      accuracy: locked_held_out_evaluation
-      latency: same_RTX_A6000_protocol
-      dataset_1_lqcr: clean_three_seed_mean
-      other_points: seed42
-      d1_topk: same_checkpoint_inference_only_test_pruning
-      d1_topk_source: tools/experiment_db/evidence_sources/d1_test_unified_742d7d56fd05.json
-    forbidden_claims:
-      - compare_latency_measured_on_different_gpus
-      - connect_discrete_topk_operating_points_as_a_continuous_curve
-      - claim_every_metric_is_best_for_every_dataset
+    evidence_scope:
+      accuracy: fixed-detector inference means
+      latency: same-device forward benchmark
+      operating_points: discrete proposal-count settings
 
   fig01_system_overview:
     source: sources/fig01_system_overview.py
@@ -37,61 +28,10 @@ figures:
       - generated/fig01_system_overview.svg
       - generated/fig01_system_overview.pdf
       - generated/fig01_system_overview.png
-    kind: conceptual_empirical_hybrid
-    empirical_data:
-      - ../../../../../data/24_chromosomes_object/coco/valid/_annotations.coco.json
-      - ../../../../../experiments/analysis/baseline_vs_sota_cache/24obj_SOTA_seed42_preds.json
-    status: confirmed_input_output_with_schematic_path
-    evidence_boundary:
-      rf_dpmpp: adopted_foundation
-      lqcr: original_confirmed_on_historical_bases_pending_clean_baseline
-      cascade_interaction: retained_baseline_structure
-      actual_elements: input_microscopy_and_final_predictions
-      schematic_elements: intermediate_linear_rf_states_and_feature_pyramid
-    forbidden_claims:
-      - rf_or_dpmpp_invented_here
-      - stochot_accuracy_or_stability_gain
-      - any_unvalidated_candidate_is_part_of_the_final_model
-      - intermediate_states_are_recorded_model_activations
-
-  fig03_lqcr_clean_replication:
-    source: sources/fig03_lqcr_clean_replication.py
-    outputs:
-      - generated/fig03_lqcr_clean_replication.svg
-      - generated/fig03_lqcr_clean_replication.pdf
-      - generated/fig03_lqcr_clean_replication.png
-    kind: empirical_paired_multiseed
-    empirical_data:
-      - data/source_lqcr_clean_multiseed.json
-    status: blocked_on_running_clean_baselines
-    evidence_boundary:
-      datasets: [Dataset_1]
-      seeds: [42, 123, 789]
-      intervention: fixed_checkpoint_final_only
-      reporting: paired_seed_effect_with_interval
-    forbidden_claims:
-      - mix_historical_and_clean_checkpoints
-      - compare_independently_trained_models_as_lqcr_causal_effect
-      - report_mean_without_seed_level_points
-
-  fig05_lqcr_stratified_effect:
-    source: sources/fig05_lqcr_stratified_effect.py
-    outputs:
-      - generated/fig05_lqcr_stratified_effect.svg
-      - generated/fig05_lqcr_stratified_effect.pdf
-      - generated/fig05_lqcr_stratified_effect.png
-    kind: empirical_stratified_paired
-    empirical_data:
-      - data/source_lqcr_stratified_clean.json
-    status: blocked_on_clean_paired_exports
-    evidence_boundary:
-      strata: [small, medium, large, isolated, near, overlap]
-      intervention: same_boxes_classes_coordinates
-      primary_question: where_localization_quality_ranking_helps
-    forbidden_claims:
-      - infer_small_or_overlap_advantage_from_selected_images
-      - use_ground_truth_iou_oracle_as_lqcr_result
-      - pool_nonpaired_checkpoints
+    evidence_scope:
+      microscopy_and_output_boxes: representative observations
+      intermediate_states: prescribed rectified-flow schematic
+      architecture: model-structure schematic
 
   fig02_lqcr_principle:
     source: sources/fig02_lqcr_principle.py
@@ -99,60 +39,12 @@ figures:
       - generated/fig02_lqcr_principle.svg
       - generated/fig02_lqcr_principle.pdf
       - generated/fig02_lqcr_principle.png
-    kind: theory_mechanism_empirical
     empirical_data:
       - data/source_lqcr_test_ap_curve.json
-    status: confirmed_locked_test_effect
-    evidence_boundary:
-      probability_factorization: exact
-      pq2: monotone_surrogate_not_universal_ap_optimum
-      final_only_delta: fixed_seed_causal_ablation
-    forbidden_claims:
-      - pq2_universally_maximizes_coco_ap
-      - quality_oracle_is_a_trained_lqcr_result
-      - solver_or_coordinates_changed_in_final_only
-
-  fig04_precision_bottleneck:
-    source: sources/fig04_precision_bottleneck.py
-    outputs:
-      - generated/fig04_precision_bottleneck.svg
-      - generated/fig04_precision_bottleneck.pdf
-      - generated/fig04_precision_bottleneck.png
-    kind: empirical_diagnosis
-    empirical_data:
-      - data/source_precision_chr2024_seed42_100.json
-      - data/source_precision_a4_seed42.json
-    status: confirmed_diagnostic
-    evidence_boundary:
-      dataset1: seed42_100_image_diagnostic
-      dataset2: seed42_500_image_diagnostic
-      quality_rank: true_iou_oracle_only
-    forbidden_claims:
-      - oracle_gain_is_achieved_model_gain
-      - dataset1_100_image_result_is_full_test_result
-
-  fig06_efficiency:
-    source: sources/fig06_efficiency.py
-    outputs:
-      - generated/fig06_efficiency.svg
-      - generated/fig06_efficiency.pdf
-      - generated/fig06_efficiency.png
-    kind: empirical_efficiency
-    empirical_data:
-      - data/source_fps_a6000_karyoflow.json
-      - data/source_fps_a6000_dino.json
-    status: retired_from_manuscript_replaced_by_fig00_and_table_viii
-    evidence_boundary:
-      gpu: NVIDIA_RTX_A6000
-      image_size: 512x512
-      batch_size: 1
-      warmup: 10
-      iterations: 500
-      accuracy_split: held_out
-    forbidden_claims:
-      - compare_latency_measured_on_different_gpus
-      - topk_curve_is_independent_training
-      - standard_detectors_are_slower_than_karyoflow
+    evidence_scope:
+      comparison: paired final-stage ranking on one fixed detector
+      quality_score: learned localization-ranking surrogate
+      geometry: unchanged before score-dependent selection
 
   fig07_qualitative:
     source: sources/fig07_qualitative.py
@@ -160,18 +52,10 @@ figures:
       - generated/fig07_qualitative.svg
       - generated/fig07_qualitative.pdf
       - generated/fig07_qualitative.png
-    kind: quantitative_vector
     empirical_data:
       - data/source_small_object_cross_dataset.json
-      - ../../../../../data/Chromosome20240904_NoAug_NoResize_coco/train/_annotations.coco.json
-      - ../../../../../data/24_chromosomes_object/coco/train/_annotations.coco.json
-    status: confirmed_complete_split_metrics
-    evidence_boundary:
-      scale_distribution: all_training_annotations
-      dataset_1_metrics: held_out_220_images_lqcr_three_seed_mean
-      dataset_2_metrics: held_out_1000_images_seed42
-      table_scope: scale_response_summary_not_full_sota_duplication
-      vector_elements: all
-    forbidden_claims:
-      - raw_APs_is_directly_comparable_across_datasets
-      - karyoflow_has_a_universal_small_object_advantage
+    evidence_scope:
+      scale_distribution: all held-out-test annotations
+      karyoflow_metrics: three independent detector-pair means
+      comparator_metrics: fixed-model point estimates
+      ap_small: interpreted within each dataset

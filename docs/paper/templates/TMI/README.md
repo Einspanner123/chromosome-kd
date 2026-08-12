@@ -46,7 +46,7 @@ Source of truth for TMI-specific rules:
 
 ## How to Compile
 ```bash
-cd /home/linkst/workspace/projects/chromosome-kd/docs/paper/templates/TMI
+cd docs/paper/templates/TMI
 pdflatex TMI_template.tex
 # (For a real bibliography instead of thebibliography:)
 # bibtex TMI_template && pdflatex TMI_template.tex && pdflatex TMI_template.tex

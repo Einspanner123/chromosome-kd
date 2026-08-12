@@ -133,8 +133,8 @@ between noise boxes and targets. Applying RF to
 detection raises three linked questions: how to learn a well-conditioned box
 trajectory from limited data, how to integrate it without violating proposal
 identity, and how to rank fixed outputs by both semantic and geometric
-reliability. KaryoFlow answers them through a generation stage and a decision
-stage, shown in Figure~\ref{fig:method_overview}. Its contributions are:
+reliability. KaryoFlow organizes the answer as Generation, Decision, and
+Deployment, shown in Figure~\ref{fig:method_overview}. Its contributions are:
 
 First, we adapt few-step box transport to high-instance-count metaphase
 detection. The generation stage combines RF in normalized four-dimensional box
@@ -152,13 +152,12 @@ candidate coordinates, class scores, proposal survival, and the RF trajectory
 unchanged before final post-processing. Here, calibration denotes calibration
 of the ranking score to localization quality, not probabilistic calibration.
 
-Third, we evaluate the generation and decision stages on two public chromosome
-datasets containing $2{,}200$ and $5{,}000$ images. The evaluation combines
-independent training-seed replication, paired solver comparisons, held-out
-testing, strict-IoU and small-object analysis, and standardized latency
-profiling. A deployment study further separates solver evaluations from
-cascade-stage evaluations and shows how few-step integration and distillation
-compress complementary sources of inference cost.
+Third, the deployment layer separates solver evaluations from cascade-stage
+evaluations and compresses them through few-step integration, head
+distillation, and proposal pruning. We evaluate all three layers on two public
+chromosome datasets containing $2{,}200$ and $5{,}000$ images using independent
+training runs, paired component comparisons, held-out tests, strict-IoU
+analysis, and standardized latency profiling.
 
 \begin{figure*}[t]
   \centering
@@ -252,7 +251,16 @@ calibrated~\cite{mehrtash2020calibration}.
 % ============================================================
 \section{Method}\label{sec:method}
 
-\subsection{Box-Space Rectified Flow}\label{sec:method-rf}
+KaryoFlow separates three roles that are easy to conflate in iterative
+detection. The \emph{Generation} layer transports a persistent set of noisy
+boxes to chromosome boxes. The \emph{Decision} layer ranks the completed
+candidates by semantic and localization reliability. The \emph{Deployment}
+layer reduces solver and cascade-head computation without changing either
+role.
+
+\subsection{Generation: Few-Step Identity-Consistent Box Transport}
+
+\subsubsection{Box-Space Rectified Flow}\label{sec:method-rf}
 
 \paragraph{Linear transport in chromosome-box space}
 Each chromosome is represented by a normalized center and size vector
@@ -273,7 +281,7 @@ proposal head through zero-initialized residual modulation. It is retained as
 a stable conditioning mechanism; controlled ablation does not support treating
 it as a separate accuracy contribution.
 
-\subsection{Stable Parameterization and Few-Step Integration}\label{sec:method-solver}
+\subsubsection{Stable Parameterization and Few-Step Integration}\label{sec:method-solver}
 
 \paragraph{Few-step integration}
 Euler integration provides the first-order reference: it is inexpensive per
@@ -319,43 +327,7 @@ parameterization for its better-conditioned terminal objective, without
 claiming a test-set accuracy gain over algebraically equivalent velocity
 prediction.
 
-\paragraph{Euler, Heun, and DPM-Solver++ comparison}
-Evaluating one trained RF model across the complete solver$\times$step matrix
-(Table~\ref{tab:solver-ablation}) shows that solver choice is practically
-neutral at matched step counts. Four-step DPM-Solver++ reaches $0.8568$ mAP,
-compared with $0.8566$ for Heun and $0.8567$ for Euler. Increasing
-DPM-Solver++ from one to four steps adds $0.0054$ mAP. The solver is therefore an
-efficiency component rather than an accuracy component.
-
-\begin{table}[t]
-  \centering
-  \small
-  \caption{Solver$\times$step comparison using one trained RF model.
-  Values are three-inference-seed means on the Dataset~2 held-out test;
-  matched-step solver differences are negligible.}
-  \label{tab:solver-ablation}
-  \begin{tabular}{lcrr}
-    \toprule
-    Solver & Steps & NFE & mAP \\
-    \midrule
-    Euler              & 1 & 1 & 0.8513 \\
-    Euler              & 4 & 4 & 0.8567 \\
-    Heun               & 4 & 7 & 0.8566 \\
-    DPM-Solver++       & 1 & 1 & 0.8514 \\
-    DPM-Solver++       & 4 & 4 & 0.8568 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-
-\paragraph{Conclusion}
-DPM-Solver++ is an efficiency component. On the same trained RF model at four
-steps, DPM-Solver++ and Heun differ by only $+0.0002$ aggregate mAP, while
-DPM-Solver++ uses four rather than seven network evaluations. We therefore
-claim matched accuracy at lower NFE, not a solver-induced accuracy
-improvement.
-
-\subsection{History-Consistent Proposal Integration}
+\subsubsection{History-Consistent Proposal Integration}
 \label{sec:method-engineering}
 
 \paragraph{Proposal identity is a premise of multistep history}
@@ -387,27 +359,13 @@ morphologically similar instances. In the prespecified Dataset~2 evaluation,
 disabling renewal at $K=100$ costs $0.0169$ mAP relative to retaining renewal,
 showing that history consistency cannot compensate for inadequate capacity.
 
-\subsection{Orthogonal Inference Compression}
-\label{sec:method-compression}
-
-\paragraph{Cascade-head distillation}
-Solver NFE counts network calls, whereas each call evaluates $H$ cascade heads.
-We distill a six-stage teacher into a three-stage student with stage-aligned
-feature and prediction supervision. At
-four solver steps this reduces cascade-head evaluations (CHE) from 24 to 12,
-while NFE remains four; the reduction is therefore 24-to-12 CHE, not NFE.
-The compressed model reaches $0.8595$ versus
-$0.8598$ and reduces RTX A6000 latency from $75.20$ to $44.10$ ms.
-Together with few-step integration, this reduces latency from the
-$120.34$-ms RF+Heun reference to $44.10$ ms, a $2.73\times$ acceleration;
-the $0.0003$ mAP cost is measured against the six-stage teacher under the same
-three-inference-seed test protocol.
-
-\subsection{Localization-Quality Calibrated Ranking}\label{sec:method-lqcr}
+\subsection{Decision: Localization-Quality-Aware Ranking}\label{sec:method-lqcr}
 
 Chromosome classes can be predicted confidently even when their boxes are a
-few pixels too loose or shifted. This is especially harmful for small or
-touching chromosomes because a small displacement causes a large IoU change.
+few pixels too loose or shifted. For small chromosomes, a few-pixel
+displacement produces a large IoU change; for touching chromosomes,
+neighboring candidates can have similar class confidence despite different
+localization quality.
 For proposal feature $F$, correct-class event $C$, IoU $U$, and evaluation
 threshold $\tau$, the true-positive probability separates as
 \begin{equation}
@@ -421,7 +379,9 @@ instead, it learns continuous IoU as a ranking surrogate through a two-layer
 quality branch $q=\sigma(g_\phi(F))$ attached only to the final cascade stage.
 It adds $33{,}153$ parameters. The backbone, FPN, proposal
 interaction, class head, and box head are frozen during branch fitting, so the
-experiment isolates output calibration from box generation.
+experiment isolates the ranking-stage effect from box generation.
+Here calibration means alignment of the detection ranking with localization
+quality; it is not presented as calibrated posterior probability.
 
 For Hungarian-matched proposal $i$, let $m_i=1$ and let $u_i$ be the detached
 aligned IoU; unmatched proposals have $m_i=0$. We train the scalar logit with
@@ -434,9 +394,11 @@ the continuous target $y_i=m_iu_i$ and weighted binary cross-entropy
  \end{aligned}
  \label{eq:quality-loss}
 \end{equation}
-where $\lambda_q=0.25$, $\alpha=0.75$, and $\gamma=2$. Detaching $u_i$
-prevents calibration from changing box geometry. Matched proposals learn
-their IoU; unmatched proposals learn zero. At output, class probability $p$ is
+where $\lambda_q=0.25$, $\alpha=0.75$, and $\gamma=2$. Because the detector
+weights are frozen and the IoU targets are detached, fitting the quality branch
+cannot update predicted box geometry. Matched proposals are supervised toward
+their aligned IoU, whereas unmatched proposals receive a zero target. At output,
+class probability $p$ is
 replaced by $s=pq^2$. The exponent is an empirically selected ranking transform,
 not a consequence of~\eqref{eq:lqcr-factorization}. A validation sweep over
 $\beta\in\{0,0.25,0.5,1,2\}$ selects the exponent $2$; this learned-quality
@@ -448,9 +410,9 @@ only when emitting detections, so boxes, predicted classes, and RF trajectories
 remain fixed at the candidate level; score-dependent NMS or max-detection
 selection may consequently choose a different final subset. All detector
 parameters are frozen while the quality branch is fitted, isolating ranking
-from box generation. This design targets the observed chromosome regime in which
-AP50 is nearly saturated but small and overlapping instances lose recall at
-IoU $0.9$. Figure~\ref{fig:lqcr-principle} summarizes the ranking principle,
+from box generation. This design targets the observed chromosome regime in
+which AP50 is nearly saturated while substantial error remains at strict IoU
+thresholds. Figure~\ref{fig:lqcr-principle} summarizes the ranking principle,
 its final-stage operating scope, and the paired fixed-model effect.
 
 \begin{figure*}[t]
@@ -468,8 +430,24 @@ its final-stage operating scope, and the paired fixed-model effect.
   \label{fig:lqcr-principle}
 \end{figure*}
 
+\subsection{Deployment: Orthogonal Inference Compression}
+\label{sec:method-compression}
 
-\subsection{\texorpdfstring{Top-$K$}{Top-K} Proposal Pruning}\label{sec:method-topk}
+\paragraph{Cascade-head distillation}
+Solver NFE counts network calls, whereas each call evaluates $H$ cascade heads.
+We distill a six-stage teacher into a three-stage student with stage-aligned
+feature and prediction supervision. At
+four solver steps this reduces cascade-head evaluations (CHE) from 24 to 12,
+while NFE remains four; the reduction is therefore 24-to-12 CHE, not NFE.
+The compressed model reaches $0.8595$ versus
+$0.8598$ and reduces RTX A6000 latency from $75.20$ to $44.10$ ms.
+Together with few-step integration, this reduces latency from the
+$120.34$-ms RF+Heun reference to $44.10$ ms, a $2.73\times$ acceleration;
+the $0.0003$ mAP cost is measured against the six-stage teacher under the same
+three-inference-seed test protocol.
+
+
+\paragraph{Top-$K$ proposal pruning}\label{sec:method-topk}
 After step 0 of inference, we prune proposals from 500 to $K$ based on
 confidence scores; only the top-$K$ proposals proceed through steps 1--3.
 Because pruning changes the proposal set, multistep history is reset before
@@ -603,7 +581,9 @@ independent contribution.
   \caption{Dataset~2 component analysis. The first pair compares the DDPM and
   RF generation foundations. The final pair uses the same trained RF-DPM++
   model and reports three-inference-seed test means; LQCR changes only output
-  ranking. Solver effects are reported separately under a paired protocol.}
+  ranking. The two panels answer different questions and do not constitute a
+  cumulative ablation. Solver effects are reported separately under a paired
+  protocol.}
   \label{tab:main-ablation}
   \begin{tabular}{llcrrrrrrr}
     \toprule
@@ -671,6 +651,15 @@ whereas RTMDet-L uses CSPNeXt-L and DINO uses multi-scale deformable attention
 within the evaluated comparison, rather than claiming an exhaustive
 cross-study SOTA.
 
+Because the Dataset~2 margin is only $0.0001$, we additionally performed a
+paired image-cluster bootstrap on the common 1,000-image test cohort. Across
+1,000 deterministic replicates, the 95\% percentile interval for the LQCR--DINO
+mAP difference is $[-0.0033,,0.0022]$. This interval quantifies image-sampling
+uncertainty conditional on the evaluated checkpoints; DINO has only fixed-model
+inference replications, so it does not measure between-training uncertainty.
+The result supports statistical comparability, not a Dataset~2 superiority
+claim.
+
 \begin{table*}[t]
   \centering
   \footnotesize
@@ -732,7 +721,7 @@ The paired solver comparison is accuracy-neutral. The retained
 positive intervention is LQCR: enabling its score only at the
 final output changes the three-inference-seed mean mAP from $0.8598$ to $0.8668$ on exactly the same
 trained detector and candidate detections before ranking. This construction isolates
-decision-stage calibration from generation, interaction, and numerical
+the ranking-stage effect from generation, interaction, and numerical
 integration effects. We report this as a controlled paired intervention,
 not as a training-seed replication; the separate SOTA comparison supplies
 independent-training evidence on both datasets.
@@ -786,8 +775,69 @@ is used to characterize the cross-dataset scale shift.
   \label{fig:qual-mosaic}
 \end{figure*}
 
+\subsubsection{Difficulty-Stratified Decision Analysis}
+To test whether the strict-IoU gain is concentrated in difficult instances,
+we performed a post-hoc paired analysis of the three Dataset~2 detector pairs.
+Ground-truth instances were stratified by relative-area quartile and by the
+maximum IoU with another ground-truth chromosome. Table~\ref{tab:difficult-subsets}
+reports class-consistent, one-to-one recall changes at a fixed top-100
+operating point. This metric avoids the false-positive artifacts that would
+arise from computing AP after filtering the ground-truth set.
+
+\begin{table}[t]
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \caption{Post-hoc Dataset~2 difficulty analysis over three independently
+  trained detector pairs. Values are paired mean changes $\pm$ sample SD.
+  Q1/Q2 denote the two lower relative-area quartiles; O0, O2, and O3 denote
+  maximum neighboring-GT IoU ranges $[0,0.01)$, $[0.10,0.30)$, and
+  $[0.30,1]$, respectively.}
+  \label{tab:difficult-subsets}
+  \resizebox{\columnwidth}{!}{%
+  \begin{tabular}{lrrr}
+    \toprule
+    Stratum & Instances & $\Delta R_{90}$ & $\Delta R_{95}$ \\
+    \midrule
+    Q1 (smallest 25\%) & 11,495 & $+0.0015\pm0.0013$ & $+0.0015\pm0.0020$ \\
+    Q2 (25--50\%)      & 11,495 & $+0.0010\pm0.0005$ & $+0.0046\pm0.0006$ \\
+    O0 (non-overlap)   & 5,068  & $+0.0006\pm0.0021$ & $+0.0024\pm0.0015$ \\
+    O2 (moderate)      & 21,835 & $+0.0006\pm0.0006$ & $+0.0031\pm0.0014$ \\
+    O3 (high)          & 6,424  & $+0.0018\pm0.0016$ & $+0.0020\pm0.0016$ \\
+    \bottomrule
+  \end{tabular}}
+\end{table}
+
+The largest strict-threshold response occurs in Q2 at $R_{95}$, and the
+moderate- and high-overlap strata both improve at $R_{90}$ and $R_{95}$.
+The standard COCO-small subset contains only 166 Dataset~2 instances and gives
+an unstable $\Delta R_{90}=-0.0080\pm0.0092$; we therefore do not claim a
+universal small-object advantage. The supported interpretation is narrower:
+LQCR improves strict-IoU ranking overall, with descriptive gains in lower-area
+quartiles and in neighboring-box overlap strata.
+
 
 \subsection{Solver Analysis}\label{sec:exp-solver}
+
+\begin{table}[t]
+  \centering
+  \small
+  \caption{Solver$\times$step comparison using one trained RF model.
+  Values are three-inference-seed means on the Dataset~2 held-out test;
+  matched-step solver differences are negligible.}
+  \label{tab:solver-ablation}
+  \begin{tabular}{lcrr}
+    \toprule
+    Solver & Steps & NFE & mAP \\
+    \midrule
+    Euler              & 1 & 1 & 0.8513 \\
+    Euler              & 4 & 4 & 0.8567 \\
+    Heun               & 4 & 7 & 0.8566 \\
+    DPM-Solver++       & 1 & 1 & 0.8514 \\
+    DPM-Solver++       & 4 & 4 & 0.8568 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 \paragraph{DPM-Solver++ step ablation}
 DPM-Solver++ improves from $0.8514$ at one step to $0.8568$ at four steps,
@@ -869,7 +919,7 @@ matters because dozens of adjacent candidates evolve simultaneously, while the
 nearly fixed chromosome count permits a redundant proposal pool that makes
 renewal unnecessary at the retained operating point. LQCR then addresses the
 remaining decision bottleneck: class confidence is already sufficient at IoU
-$0.5$, but it does not identify which small or overlapping boxes will survive
+$0.5$, but it does not identify which lower-area or overlapping boxes will survive
 stricter localization thresholds. The concentration of LQCR gains at AP90 and
 AP95 is consistent with this task-derived mechanism.
 
@@ -899,8 +949,8 @@ KaryoFlow aligns trajectory learning, multistep state identity, and final
 localization-aware ranking for dense chromosome detection. RF supplies the
 few-step generative foundation; direct data prediction provides a
 well-conditioned terminal objective; and the proposal-identity analysis makes DPM++
-history mathematically coherent at the retained proposal count. The independent
-decision contribution, LQCR, improves paired test mAP by $0.0067$ across
+history mathematically coherent at the retained proposal count. The
+decision-stage contribution, LQCR, improves paired test mAP by $0.0067$ across
 three Dataset~1 runs and by $0.0065$ across three Dataset~2 runs. In the
 fixed-detector mechanism analysis, Dataset~2 AP90/AP95 improve by
 $0.0278/0.0300$ without changing candidate boxes before ranking.
@@ -908,6 +958,7 @@ Together with orthogonal inference compression, these results establish a
 competitive and interpretable generative detector for chromosome karyotyping.
 
 % ============================================================
+\IEEEtriggeratref{38}
 \bibliographystyle{IEEEtran}
 \bibliography{references}
 
