@@ -65,12 +65,13 @@ chromosomes from $24$ morphologically similar classes in each metaphase image.
 Small objects, touching or overlapping instances, weak boundaries, and
 near-saturated class confidence make precise localization and reliable ranking
 particularly difficult. We present
-\emph{KaryoFlow}, which addresses these task-specific difficulties through
+\emph{KaryoFlow}, a detector designed for this regime through
 low-dimensional rectified box transport, identity-consistent refinement of
 adjacent proposals, and final localization-quality calibrated ranking. On two
 public chromosome datasets with markedly different object-scale distributions,
-KaryoFlow achieves the highest observed mAP, with relative margins of $2.2\%$
-and $0.2\%$ over the strongest evaluated detector. Combining few-step inference with cascade-
+KaryoFlow attains the highest observed mAP: it improves on the strongest
+evaluated detector by $2.2\%$ on the small-object-heavy cohort and reaches a
+comparable point estimate (within $0.0001$) on the scale-shifted cohort. Combining few-step inference with cascade-
 head distillation provides up to $2.73\times$ faster inference than the
 RF+Heun reference, while distillation reduces mAP by only $0.0003$ relative to
 its six-head teacher. These results establish a localization-aware generative
@@ -449,8 +450,8 @@ selection may consequently choose a different final subset. All detector
 parameters are frozen while the quality branch is fitted, isolating ranking
 from box generation. This design targets the observed chromosome regime in which
 AP50 is nearly saturated but small and overlapping instances lose recall at
-IoU $0.9$. Figure~\ref{fig:lqcr-principle} summarizes the principle, causal
-boundary, and fixed-seed controlled effect.
+IoU $0.9$. Figure~\ref{fig:lqcr-principle} summarizes the ranking principle,
+its final-stage operating scope, and the paired fixed-model effect.
 
 \begin{figure*}[t]
   \centering
@@ -562,21 +563,19 @@ NMS (IoU $0.5$). Evaluation uses COCO mAP$@0.50{:}0.95$ (10 IoU thresholds,
 $\text{maxDets}{=}100$).
 Validation data are used only for model and hyperparameter selection.
 Unless explicitly identified as a diagnostic upper bound, every final detector
-comparison, prespecified hyperparameter confirmation, and accuracy coordinate in an
+comparison, post-selection hyperparameter sensitivity analysis, and accuracy coordinate in an
 efficiency plot is evaluated on the held-out test cohort (220 images for
 Dataset~1 and 1,000 for Dataset~2). Accuracy evaluation is hardware independent
 under the fixed software and seed protocol; all latency and FPS measurements
 use the same RTX A6000.
 
 \paragraph{Statistical considerations}
-Three independent training seeds (42, 123, and 789) are evaluated for
-Dataset~1. For Dataset~2, three inference seeds applied to the same trained
-model quantify stochastic proposal variation but do not replace independent
-training-seed uncertainty. The paired solver comparison is accuracy-neutral.
-LQCR has independent three-training-seed replication on Dataset~1 and a
-final-only paired comparison on Dataset~2. The latter isolates
-ranking from training and trajectory changes; the former tests whether the
-effect reproduces across independent training runs.
+Three independently trained detectors with distinct recorded framework seeds
+are evaluated on each dataset.
+LQCR is fitted separately to each frozen parent detector and evaluated with
+the same inference seed within every pair. Fixed-checkpoint inference-seed
+means remain only in mechanism and efficiency analyses, where they quantify
+proposal-initialization variation rather than training uncertainty.
 
 \paragraph{Reproducibility}
 All reported comparisons retain their dataset split, random seed, trained
@@ -610,9 +609,11 @@ independent contribution.
     \toprule
     Experiment & Solver & Steps & NFE & mAP & AP50 & AP75 & AP$_S$ & AP$_M$ & AP$_L$ \\
     \midrule
+    \multicolumn{10}{l}{\textit{Generation foundation (separately trained models)}} \\
     DDPM baseline (Euler 1-step)  & Euler   & 1 & 1 & 0.8033 & 0.9714 & 0.9381 & 0.5323 & 0.8006 & 0.8221 \\
     \textbf{RF+Heun (KaryoFlow)} & Heun    & 4 & 7 & 0.8566 & 0.9878 & 0.9691 & 0.5827 & 0.8541 & 0.8496 \\
     \addlinespace[2pt]
+    \multicolumn{10}{l}{\textit{Final-stage decision (one fixed detector)}} \\
     DPM-Solver++ & DPM++ & 4 & 4 & 0.8598 & 0.9883 & 0.9709 & 0.5676 & 0.8572 & 0.8876 \\
     \textbf{+LQCR (final-only)} & DPM++ & 4 & 4 & \textbf{0.8668} & 0.9882 & 0.9714 & 0.5663 & 0.8640 & 0.8890 \\
     \bottomrule
@@ -631,15 +632,15 @@ localization-aware ranking mechanism rather than a coordinate change.
 \begin{table*}[t]
   \centering
   \small
-  \caption{Core interventions on both held-out test cohorts. Dataset~1 LQCR
-  uses three independently trained models; paired comparisons
-  report the mean over inference seeds 42, 123, and 789.}
+  \caption{Core interventions on both held-out test cohorts. LQCR values are
+  paired means over three independently trained parent detectors per dataset.
+  Renewal and latency values use the fixed-detector deployment protocol.}
   \label{tab:engineering-evidence}
   \begin{tabular}{lrrp{3.0cm}p{6.0cm}}
     \toprule
     Intervention & D1 $\Delta$mAP & D2 $\Delta$mAP & Deployment effect & Role and boundary \\
     \midrule
-    LQCR & $+0.0067$ & $+0.0070$ & $+3.3\%$ latency & Final-only ranking; candidate boxes and trajectories are unchanged \\
+    LQCR & $+0.0067$ & $+0.0065$ & $+3.3\%$ latency & Final-only ranking; candidate boxes and trajectories are unchanged \\
     Renewal off ($K=500$) & $-0.0016$ & $-0.0004$ & $-2.4\%$ D2 latency & Preserves DPM++ history identity; not claimed as an accuracy gain \\
     \bottomrule
   \end{tabular}
@@ -658,12 +659,12 @@ These comparisons use matched dataset splits and evaluation protocols.
 
 \subsection{SOTA Comparison}\label{sec:exp-sota}
 
-Table~\ref{tab:sota} uses the prespecified final protocol for both chromosome
-datasets. The cohorts differ strongly in relative object scale, yet the full
-KaryoFlow model with LQCR obtains the highest mAP among the evaluated methods
-on each: $0.7480$ on Dataset~1 and $0.8668$ on Dataset~2. The absolute margins
-over the strongest listed alternatives are $0.0161$ and $0.0019$
-(relative $2.2\%$ and $0.2\%$), respectively. The
+Table~\ref{tab:sota} uses three independently trained KaryoFlow detectors on
+each chromosome dataset. The cohorts differ strongly in relative object scale.
+KaryoFlow+LQCR obtains $0.7480$ mAP on Dataset~1 and $0.8650$ on Dataset~2;
+the corresponding margins over the strongest listed alternatives are $0.0161$
+and $0.0001$. The latter is a highest point estimate rather than evidence of a
+material advantage over DINO. The
 result is not caused by a larger backbone: KaryoFlow uses ResNet-50--FPN,
 whereas RTMDet-L uses CSPNeXt-L and DINO uses multi-scale deformable attention
 \cite{lyu2022rtmdet,zhang2023dino}. We therefore describe these as best results
@@ -674,35 +675,46 @@ cross-study SOTA.
   \centering
   \footnotesize
   \setlength{\tabcolsep}{3pt}
-  \caption{Comparison on two chromosome datasets. Dataset~1 KaryoFlow and
-  KaryoFlow+LQCR are three-training-seed means; Dataset~2 and the other rows
-  are three-inference-seed test evaluations of fixed trained models.
-  Bold denotes the best mAP within this comparison, not an exhaustive
-  cross-paper SOTA claim.}
+  \caption{Held-out-test comparison on two chromosome datasets. KaryoFlow and
+  KaryoFlow+LQCR are means over three independently trained detectors on each
+  dataset; each LQCR model is paired with its frozen parent. Other detectors
+  are fixed-model point estimates under the same split and evaluator. Bold
+  denotes the best point estimate per metric within this comparison.}
   \label{tab:sota}
-  \begin{tabular}{@{}llrrrrrrrr@{}}
+  \begin{tabular}{@{}llrrrrrr@{}}
     \toprule
-    & & \multicolumn{4}{c}{Dataset 1} & \multicolumn{4}{c}{Dataset 2} \\
-    \cmidrule(lr){3-6}\cmidrule(lr){7-10}
-    Method & Backbone & mAP & AP50 & AP75 & AP$_S$ & mAP & AP50 & AP75 & AP$_S$ \\
+    Method & Backbone & mAP & AP50 & AP75 & AP$_S$ & AP$_M$ & AP$_L$ \\
     \midrule
-    \textbf{KaryoFlow+LQCR} & ResNet-50 & \textbf{0.7480} & 0.9323 & 0.8330 & \textbf{0.5147} & \textbf{0.8668} & 0.9882 & 0.9714 & 0.5663 \\
-    KaryoFlow              & ResNet-50    & 0.7413 & --- & --- & 0.5090 & 0.8598 & 0.9883 & 0.9709 & 0.5676 \\
-    DINO R50               & ResNet-50    & 0.7248 & 0.9341 & 0.8135 & 0.4853 & 0.8649 & 0.9890 & 0.9728 & \textbf{0.5953} \\
-    RTMDet-L               & CSPNeXt-L    & 0.7319 & 0.9344 & \textbf{0.8387} & 0.4803 & 0.8609 & 0.9890 & 0.9706 & 0.5725 \\
-    Cascade R-CNN          & ResNet-50    & 0.7235 & 0.9221 & 0.8307 & 0.5005 & 0.8527 & 0.9850 & 0.9670 & 0.5724 \\
-    DiffusionDet           & ResNet-50    & 0.7136 & 0.9078 & 0.7975 & 0.4618 & 0.8033 & 0.9714 & 0.9381 & 0.5323 \\
-    YOLOX-S                & CSPDarkNet-S & 0.5811 & 0.9177 & 0.6920 & 0.3298 & 0.7951 & 0.9854 & 0.9427 & 0.4861 \\
+    \multicolumn{8}{l}{\textit{Dataset 1}} \\
+    \textbf{KaryoFlow+LQCR} & ResNet-50 & \textbf{0.7480} & 0.9323 & 0.8330 & \textbf{0.5147} & \textbf{0.7287} & \textbf{0.6540} \\
+    KaryoFlow              & ResNet-50    & 0.7413 & 0.9323 & 0.8267 & 0.5090 & 0.7240 & 0.6533 \\
+    DINO R50               & ResNet-50    & 0.7248 & 0.9341 & 0.8135 & 0.4853 & 0.7112 & 0.6244 \\
+    RTMDet-L               & CSPNeXt-L    & 0.7319 & \textbf{0.9344} & \textbf{0.8387} & 0.4803 & 0.7253 & 0.6221 \\
+    Cascade R-CNN          & ResNet-50    & 0.7235 & 0.9221 & 0.8307 & 0.5005 & 0.7088 & 0.6488 \\
+    DiffusionDet           & ResNet-50    & 0.7136 & 0.9078 & 0.7975 & 0.4618 & 0.7041 & 0.6230 \\
+    YOLOX-S                & CSPDarkNet-S & 0.5811 & 0.9177 & 0.6920 & 0.3298 & 0.5777 & 0.5375 \\
+    \addlinespace[2pt]
+    \multicolumn{8}{l}{\textit{Dataset 2}} \\
+    \textbf{KaryoFlow+LQCR} & ResNet-50 & \textbf{0.8650} & 0.9880 & 0.9693 & 0.5801 & \textbf{0.8623} & 0.8873 \\
+    KaryoFlow              & ResNet-50    & 0.8585 & 0.9880 & 0.9687 & 0.5821 & 0.8560 & 0.8817 \\
+    DINO R50               & ResNet-50    & 0.8649 & \textbf{0.9890} & \textbf{0.9728} & \textbf{0.5953} & 0.8617 & \textbf{0.9196} \\
+    RTMDet-L               & CSPNeXt-L    & 0.8609 & \textbf{0.9890} & 0.9706 & 0.5725 & 0.8584 & 0.8713 \\
+    Cascade R-CNN          & ResNet-50    & 0.8527 & 0.9850 & 0.9670 & 0.5724 & 0.8499 & 0.8745 \\
+    DiffusionDet           & ResNet-50    & 0.8033 & 0.9714 & 0.9381 & 0.5323 & 0.8006 & 0.8221 \\
+    YOLOX-S                & CSPDarkNet-S & 0.7951 & 0.9854 & 0.9427 & 0.4861 & 0.7928 & 0.7895 \\
     \bottomrule
   \end{tabular}
 \end{table*}
 
 \paragraph{Small-object performance}
-Dataset~1 is the small-object-heavy cohort. The three-seed LQCR mean is
+Dataset~1 is the small-object-heavy cohort. Across three independently trained
+detector pairs, the LQCR mean is
 $0.7480\pm0.0017$ mAP and $0.5147\pm0.0090$ AP$_S$, improving
 the uncalibrated KaryoFlow means by $0.0067$ and $0.0057$ and exceeding the
 strongest listed AP$_S$ comparator by $0.0142$. On Dataset~2,
-LQCR leads overall mAP but remains below DINO on AP$_S$. This pattern supports
+LQCR yields the highest overall mAP point estimate but remains below DINO on
+AP$_S$. Across the three paired Dataset~2 runs, it changes AP$_S$ by
+$-0.0020\pm0.0029$ while improving mAP by $0.0065\pm0.0004$. This pattern supports
 the intended role of quality calibration---better aggregate ordering across
 strict IoU thresholds---without claiming universal superiority at every scale.
 
@@ -715,22 +727,22 @@ ordering rather than simply producing more low-quality proposals. This pattern
 is especially relevant to the smaller object distribution in Dataset~1.
 
 
-\paragraph{Causal interpretation of controlled comparisons}
+\paragraph{Interpretation of paired comparisons}
 The paired solver comparison is accuracy-neutral. The retained
 positive intervention is LQCR: enabling its score only at the
 final output changes the three-inference-seed mean mAP from $0.8598$ to $0.8668$ on exactly the same
 trained detector and candidate detections before ranking. This construction isolates
 decision-stage calibration from generation, interaction, and numerical
 integration effects. We report this as a controlled paired intervention,
-not as a cross-seed training gain; Dataset~1 additionally supplies independent
-training-seed replication.
+not as a training-seed replication; the separate SOTA comparison supplies
+independent-training evidence on both datasets.
 
 \begin{table}[t]
   \centering
-  \caption{Learned-quality exponent confirmation on Dataset~2. Values
-  are three-inference-seed means on the held-out test. Validation selected
-  $\beta=2$; $\beta=0$ disables quality ranking.
-  These are learned-$q$ results, not rankings based on ground-truth IoU.}
+  \caption{Post-selection sensitivity analysis of the learned-quality exponent
+  on Dataset~2. Values are three-inference-seed means for one fixed detector.
+  Validation selected $\beta=2$; test results are reported transparently and
+  were not used for selection. $\beta=0$ disables quality ranking.}
   \label{tab:lqcr-beta}
   \setlength{\tabcolsep}{4pt}
   \begin{tabular}{c|cccc}
@@ -745,18 +757,18 @@ training-seed replication.
     \bottomrule
   \end{tabular}
 \end{table}
-The monotone mAP trend confirms the validation-selected $\beta=2$. AP90 and
-AP95 rise at every point in the prespecified sweep,
-matching the threshold-factorization prediction.
+The monotone test-set trend is consistent with the validation-selected
+$\beta=2$ and the intended strict-IoU ranking behavior.
 
 \subsubsection{Scale-Resolved Cross-Dataset Comparison}\label{sec:exp-qual}
 Figure~\ref{fig:qual-mosaic} replaces selected visual cases with complete-set
 evidence. Dataset~1 has a substantially smaller relative-box distribution than
 Dataset~2 (median $0.4\%$ versus $0.8\%$). On the Dataset~1 test split,
-KaryoFlow+LQCR reaches AP$_S=0.5147\pm0.0090$ over three seeds, a $0.0057$
+KaryoFlow+LQCR reaches AP$_S=0.5147\pm0.0090$ over three independently trained
+detector pairs, a $0.0057$
 gain over the uncalibrated model and $0.0142$ above the strongest listed
-comparator. On Dataset~2, LQCR reaches AP$_S=0.5663$ but remains below DINO
-R50 ($0.5953$). The result supports scale-dependent small-object
+comparator. On Dataset~2, the three-pair means are AP$_S=0.5801$ with LQCR
+and $0.5821$ without it; both remain below DINO R50 ($0.5953$). The result supports scale-dependent small-object
 competitiveness rather than a universal advantage. Because COCO's small-area threshold is absolute, raw
 AP$_S$ levels are interpreted only within each dataset; the relative-area CDF
 is used to characterize the cross-dataset scale shift.
@@ -769,8 +781,8 @@ is used to characterize the cross-dataset scale shift.
   annotations shows that Dataset~1 chromosomes are markedly smaller
   than those in Dataset~2. (b) A compact scale-response table contrasts the
   small-instance prevalence, LQCR effect, strongest comparator, and overall
-  mAP rank. AP$_S$ is interpreted within, not across, datasets; Dataset~1
-  LQCR is the three-training-seed mean.}
+  mAP rank. AP$_S$ is interpreted within, not across, datasets; both KaryoFlow
+  columns are means over three independently trained detector pairs.}
   \label{fig:qual-mosaic}
 \end{figure*}
 
@@ -873,9 +885,9 @@ The study has three boundaries. First, the method addresses chromosome
 detection within automated karyotyping; segmentation, straightening, pairing,
 and abnormality diagnosis are outside its present scope. Both cohorts are public chromosome
 datasets and lack patient identifiers, so patient-level leakage and clinical
-workflow outcomes cannot be assessed. Second, LQCR is replicated across three
-independent Dataset~1 training seeds and confirmed with a paired final-only
-intervention on Dataset~2, but the latter still uses one independently trained model.
+workflow outcomes cannot be assessed. Second, LQCR is evaluated through three
+independently trained parent--child pairs on each dataset, but three runs
+provide descriptive variability rather than a high-powered significance test.
 Natural-image validation is required to establish broader generality.
 Third, history-consistent inference relies on proposal redundancy: the observed
 $K=100$ failure should be treated as an operating constraint, not hidden by the
@@ -888,10 +900,10 @@ localization-aware ranking for dense chromosome detection. RF supplies the
 few-step generative foundation; direct data prediction provides a
 well-conditioned terminal objective; and the proposal-identity analysis makes DPM++
 history mathematically coherent at the retained proposal count. The independent
-decision contribution, LQCR, improves test mAP by $0.0067$ across three
-Dataset~1 seeds and by $0.0070$ in the Dataset~2 paired intervention.
-On Dataset~2, AP90/AP95 improve by $0.0278/0.0300$ without changing candidate
-boxes before ranking.
+decision contribution, LQCR, improves paired test mAP by $0.0067$ across
+three Dataset~1 runs and by $0.0065$ across three Dataset~2 runs. In the
+fixed-detector mechanism analysis, Dataset~2 AP90/AP95 improve by
+$0.0278/0.0300$ without changing candidate boxes before ranking.
 Together with orthogonal inference compression, these results establish a
 competitive and interpretable generative detector for chromosome karyotyping.
 

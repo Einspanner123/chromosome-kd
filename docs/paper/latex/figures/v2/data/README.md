@@ -21,8 +21,8 @@ are diagnostic upper bounds, not trained LQCR outputs.
 - `source_fps_a6000_karyoflow.json` and `source_fps_a6000_dino.json` retain
   the same-hardware RTX A6000 CUDA-event benchmark records (512 x 512,
   batch 1, 10 warmup, 500 measured iterations).
-- `source_small_object_cross_dataset.json` records complete-split AP_S values
-  for the cross-dataset scale analysis. Dataset 1 uses the 220-image test
-  export (seed-42 checkpoints); Dataset 2 uses the 500-image validation table
-  (KaryoFlow three-seed mean, other detectors seed 42). Values are interpreted
-  only within each dataset.
+- `source_small_object_cross_dataset.json` records held-out-test AP_S values
+  for the cross-dataset scale analysis. Dataset 1 uses 220 test images and
+  Dataset 2 uses 1,000 test images. KaryoFlow and LQCR are paired means from
+  three independently trained detectors; other methods are fixed-model point
+  estimates. AP_S is interpreted only within each dataset.

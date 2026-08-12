@@ -30,7 +30,8 @@
   "dataset_2_test": [
     {
       "method": "KaryoFlow + LQCR",
-      "AP_S": 0.5663
+      "AP_S": 0.5801,
+      "std": 0.0123
     },
     {
       "method": "DINO R50",
@@ -67,12 +68,13 @@
     },
     "dataset_2": {
       "small_instance_share": 0.004,
-      "karyoflow_AP_S": 0.5676,
-      "lqcr_AP_S": 0.5663,
-      "lqcr_delta_AP_S": -0.0013,
+      "karyoflow_AP_S": 0.5821,
+      "lqcr_AP_S": 0.5801,
+      "lqcr_AP_S_std": 0.0123,
+      "lqcr_delta_AP_S": -0.0020,
       "best_comparator": "DINO R50",
       "best_comparator_AP_S": 0.5953,
-      "gap_to_best_comparator": -0.029,
+      "gap_to_best_comparator": -0.0152,
       "overall_mAP_rank": 1
     }
   },
@@ -86,8 +88,8 @@
       "D1-baseline-three-training-seed-aggregate"
     ],
     "dataset_1_protocol": "test split, 220 images; KaryoFlow+LQCR clean random-coupling 3-seed mean, other detectors seed 42",
-    "dataset_2_metrics": "D2-three-inference-seed-aggregate",
-    "dataset_2_protocol": "held-out split, 1000 images; three inference seeds using fixed trained models"
+    "dataset_2_metrics": "D2-three-independent-training-pair-aggregate",
+    "dataset_2_protocol": "held-out test split, 1000 images; three independently trained detector pairs"
   },
-  "evidence_boundary": "AP_S values are compared only within each dataset. Dataset 1 LQCR and its baseline use three independent training seeds; other fixed-model comparisons use three inference seeds."
+  "evidence_boundary": "AP_S values are compared only within each dataset. KaryoFlow and LQCR use three independently trained detector pairs on both datasets; other detectors are fixed-model point estimates."
 }

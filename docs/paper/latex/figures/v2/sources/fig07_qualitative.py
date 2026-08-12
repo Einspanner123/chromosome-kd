@@ -47,11 +47,11 @@ def draw_scale_response_table(ax: plt.Axes, evidence: dict) -> None:
     cell_text = [
         ["Small-instance share", f"{100*d1['small_instance_share']:.1f}%", f"{100*d2['small_instance_share']:.1f}%"],
         [r"KaryoFlow $AP_S$", f"{d1['karyoflow_AP_S']:.4f}", f"{d2['karyoflow_AP_S']:.4f}"],
-        [r"KaryoFlow+LQCR $AP_S$", f"{d1['lqcr_AP_S']:.4f} ± {d1['lqcr_AP_S_std']:.4f}", f"{d2['lqcr_AP_S']:.4f}"],
+        [r"KaryoFlow+LQCR $AP_S$", f"{d1['lqcr_AP_S']:.4f} ± {d1['lqcr_AP_S_std']:.4f}", f"{d2['lqcr_AP_S']:.4f} ± {d2['lqcr_AP_S_std']:.4f}"],
         [r"LQCR $\Delta AP_S$", f"{d1['lqcr_delta_AP_S']:+.4f}", f"{d2['lqcr_delta_AP_S']:+.4f}"],
         ["Best comparator", d1["best_comparator"], d2["best_comparator"]],
         [r"Gap to comparator in $AP_S$", f"{d1['gap_to_best_comparator']:+.4f}", f"{d2['gap_to_best_comparator']:+.4f}"],
-        ["Overall mAP rank", "1st", "1st"],
+        ["Overall mAP rank", f"{d1['overall_mAP_rank']}st", f"{d2['overall_mAP_rank']}st"],
     ]
     table = ax.table(
         cellText=cell_text,
@@ -78,7 +78,7 @@ def draw_scale_response_table(ax: plt.Axes, evidence: dict) -> None:
             cell.set_facecolor("white" if row % 2 else "#F7F8FA")
             cell.get_text().set_color(C_TEXT)
     ax.text(0.0, 0.015,
-            r"$AP_S$ is interpreted within each cohort; Dataset 1 LQCR is the 3-seed mean.",
+            r"$AP_S$ is interpreted within each cohort; both are 3-training-run means.",
             transform=ax.transAxes, ha="left", va="bottom", fontsize=5.7, color=C_MUTED)
 
 
