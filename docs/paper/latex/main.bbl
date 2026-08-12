@@ -48,6 +48,13 @@ S.~Chen, P.~Sun, Y.~Song, and P.~Luo, ``{DiffusionDet}: Diffusion model for
   object detection,'' in \emph{Proc. IEEE/CVF Int. Conf. Comput. Vis. (ICCV)},
   2023, pp. 1980--1989.
 
+\bibitem{baty2025flowdet}
+\BIBentryALTinterwordspacing
+E.~Baty, C.~P. Bridges, and S.~Hadfield, ``{FlowDet}: Unifying object detection
+  and generative transport flows,'' arXiv:2512.16771, 2025. [Online].
+  Available: \url{https://arxiv.org/abs/2512.16771}
+\BIBentrySTDinterwordspacing
+
 \bibitem{liu2023rectified}
 X.~Liu, C.~Gong, and Q.~Liu, ``Flow straight and fast: Learning to generate and
   transfer data with rectified flow,'' in \emph{Int. Conf. Learn. Represent.
@@ -56,7 +63,7 @@ X.~Liu, C.~Gong, and Q.~Liu, ``Flow straight and fast: Learning to generate and
 \bibitem{lu2022dpmpp}
 C.~Lu, Y.~Zhou, F.~Bao, J.~Chen, C.~Li, and J.~Zhu, ``{DPM-Solver++}: Fast
   solver for guided sampling of diffusion probabilistic models,'' \emph{Machine
-  Intelligence Research}, 2025.
+  Intelligence Research}, vol.~22, no.~4, pp. 730--751, 2025.
 
 \bibitem{schwartzkopf2005mfish}
 W.~C. Schwartzkopf, A.~C. Bovik, and B.~L. Evans, ``Maximum-likelihood
@@ -86,7 +93,7 @@ J.~Li, S.~Zheng, Z.~Shui, S.~Zhang, L.~Yang, Y.~Sun, Y.~Zhang, H.~Li, Y.~Ye,
 C.-E. Kuo, J.-Z. Li, J.-J. Tseng, F.-C. Lo, M.-J. Chen, and C.-H. Lu,
   ``{ChromosomeNet}: Deep learning-based automated chromosome detection in
   metaphase cell images,'' \emph{IEEE Open Journal of Engineering in Medicine
-  and Biology}, vol.~6, pp. 227--236, 2024.
+  and Biology}, vol.~6, pp. 227--236, 2025.
 
 \bibitem{matsumoto2026scc}
 S.~Matsumoto, M.~Sojo, K.~Oshima, K.~Nishikawa, K.~Okubo \emph{et~al.},
@@ -112,13 +119,6 @@ C.~Yang \emph{et~al.}, ``A comprehensive foundation model for generalizable
   cytogenetics in precision oncology with {CHROMA},'' \emph{npj Precision
   Oncology}, vol.~10, p. 187, 2026.
 
-\bibitem{baty2025flowdet}
-\BIBentryALTinterwordspacing
-E.~Baty, C.~P. Bridges, and S.~Hadfield, ``{FlowDet}: Unifying object detection
-  and generative transport flows,'' arXiv:2512.16771, 2025. [Online].
-  Available: \url{https://arxiv.org/abs/2512.16771}
-\BIBentrySTDinterwordspacing
-
 \bibitem{deflomat2025}
 \BIBentryALTinterwordspacing
 H.~Lee, C.~Lee, N.~Seo, J.~S. Lim, and H.~Hong, ``{DeFloMat}: Detection with
@@ -128,9 +128,13 @@ H.~Lee, C.~Lee, N.~Seo, J.~S. Lim, and H.~Hong, ``{DeFloMat}: Detection with
 \BIBentrySTDinterwordspacing
 
 \bibitem{chen2024diffubox}
-X.~Chen, Z.~Liu, K.~Z. Luo, S.~Datta, A.~Polavaram, Y.~Wang \emph{et~al.},
+\BIBentryALTinterwordspacing
+X.~Chen, Z.~Liu, K.~Z. Luo, S.~Datta, A.~Polavaram, Y.~Wang, Y.~You, B.~Li,
+  M.~Pavone, W.-L. Chao, M.~Campbell, B.~Hariharan, and K.~Q. Weinberger,
   ``{DiffuBox}: Refining {3D} object detection with point diffusion,'' in
-  \emph{Adv. Neural Inf. Process. Syst. (NeurIPS)}, 2024.
+  \emph{Adv. Neural Inf. Process. Syst. (NeurIPS)}, 2024. [Online]. Available:
+  \url{https://arxiv.org/abs/2405.16034}
+\BIBentrySTDinterwordspacing
 
 \bibitem{lipman2023flow}
 Y.~Lipman, R.~T.~Q. Chen, H.~Ben-Hamu, M.~Nickel, and M.~Le, ``Flow matching
@@ -224,9 +228,13 @@ A.~Mehrtash, W.~M. Wells, C.~M. Tempany, P.~Abolmaesumi, and T.~Kapur,
   medical image segmentation,'' \emph{IEEE Transactions on Medical Imaging},
   vol.~39, no.~12, pp. 3868--3878, 2020.
 
-\bibitem{dhariwal2021diffusion}
-P.~Dhariwal and A.~Nichol, ``Diffusion models beat {GANs} on image synthesis,''
-  in \emph{Adv. Neural Inf. Process. Syst. (NeurIPS)}, 2021.
+\bibitem{peebles2023dit}
+\BIBentryALTinterwordspacing
+W.~Peebles and S.~Xie, ``Scalable diffusion models with transformers,'' in
+  \emph{Proc. IEEE/CVF Int. Conf. Comput. Vis. (ICCV)}, 2023, pp. 4195--4205.
+  [Online]. Available:
+  \url{https://openaccess.thecvf.com/content/ICCV2023/html/Peebles_Scalable_Diffusion_Models_with_Transformers_ICCV_2023_paper.html}
+\BIBentrySTDinterwordspacing
 
 \bibitem{rst_dataset}
 \BIBentryALTinterwordspacing
@@ -242,8 +250,8 @@ J.-J. Tseng, C.-H. Lu, J.-Z. Li, H.-Y. Lai, M.-H. Chen, F.-Y. Cheng, and C.-E.
 
 \bibitem{lu2022cil54816}
 \BIBentryALTinterwordspacing
-C.-H. Lu, C.-E. Kuo, and J.-J. Tseng, ``{CIL:54816} - 24 chromosomes object
-  dataset,'' Cell Image Library, 2022. [Online]. Available:
+C.-H. Lu, C.-E. Kuo, and J.-J. Tseng, ``{CIL:54816}, homo sapiens linnaeus,
+  1758, epithelial cell,'' Cell Image Library, 2022. [Online]. Available:
   \url{https://doi.org/10.7295/W9CIL54816}
 \BIBentrySTDinterwordspacing
 

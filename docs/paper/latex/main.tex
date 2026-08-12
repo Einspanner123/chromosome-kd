@@ -113,13 +113,13 @@ many adjacent candidates without confusing their identities.
 \end{figure}
 
 Conventional detectors offer complementary but incomplete solutions.
-Anchor-based systems such as Cascade R-CNN~\cite{cai2018cascade} and
-YOLOX~\cite{ge2021yolox} are fast, whereas transformer detectors such as
+Region-based Cascade R-CNN~\cite{cai2018cascade} and anchor-free
+YOLOX~\cite{ge2021yolox} provide strong conventional baselines, whereas transformer detectors such as
 DINO~\cite{zhang2023dino} obtain strong localization through multi-scale
 deformable attention~\cite{zhu2021deformabledetr}. DiffusionDet~\cite{chen2023diffusiondet} instead treats boxes as a
 set generated from noise, an appealing formulation for variable spatial
-layouts, but its DDPM inheritance introduces a curved stochastic path and a
-many-step design that increase the cost of time-sensitive microscopy analysis.
+layouts, but its DDPM inheritance introduces a curved stochastic path~\cite{baty2025flowdet}, while
+additional refinement steps increase the cost of time-sensitive microscopy analysis.
 More importantly, simply shortening that path does not resolve two
 detection-specific mismatches: multistep integration assumes a persistent
 state identity, whereas proposal renewal replaces selected states; and final
@@ -184,19 +184,21 @@ A metaphase image combines several difficulties rarely present together in
 natural-image detection: dozens of adjacent objects, homologous classes with
 similar morphology, scale variation between chromosome groups, staining
 shift, and incomplete boundaries caused by touching or overlap. Earlier work
-progressed from joint segmentation and classification
-\cite{schwartzkopf2005mfish,qin2019varifocalchromosome} to learned enumeration,
-straightening, and metaphase detection
-\cite{xiao2020deepacev2,li2024mcvae,kuo2024chromosomenet}. Recent 2026 studies
+addressed joint segmentation--classification~\cite{schwartzkopf2005mfish},
+single-chromosome classification~\cite{qin2019varifocalchromosome}, chromosome
+enumeration~\cite{xiao2020deepacev2}, straightening~\cite{li2024mcvae}, and
+detection from metaphase images~\cite{kuo2024chromosomenet}. Recent 2026 studies
 confirm that the clinical workflow is moving toward direct detection from
 whole metaphase images: object detectors remove manual single-chromosome
 cropping~\cite{matsumoto2026scc}, and integrated pipelines combine YOLO-based
 detection with pairing and anomaly screening~\cite{rosas2026karyotyping}.
 However, those reports emphasize concordance, mAP50, or downstream workflow
 accuracy. These measures can remain high when a small chromosome has a
-several-pixel boundary error. Transfer-learning failure analysis likewise
-identifies overlap-related cropping artifacts as a persistent source of
-chromosome confusion~\cite{chen2026transfer}. KaryoFlow therefore targets the
+several-pixel boundary error. A two-step transfer study across Q- and G-band
+chromosome datasets further shows that gains depend on staining-domain
+similarity and target-data quality~\cite{chen2026transfer}, while an integrated
+karyotyping pipeline explicitly excludes morphologically unreliable,
+overlapped metaphases before detection~\cite{rosas2026karyotyping}. KaryoFlow therefore targets the
 localization stage itself, with mAP over IoU $0.50{:}0.95$, strict-IoU
 diagnostics, and measured inference cost.
 
@@ -221,11 +223,10 @@ principle. Recent work has also explored flow-matching design and optimized
 priors for cellular-microscopy generation and medical augmentation
 \cite{jones2026flowmatching,nutzel2026flowmatching}; these image-generative
 settings are complementary to our discriminative transport of box sets.
-Existing studies emphasize the probability path or solver, but do
-not analyze the interaction between solver history and proposal renewal.
-KaryoFlow derives the data-prediction update for the RF box path and makes
-proposal identity an explicit condition of multistep inference. Diffusion in
-TMI has mainly addressed synthesis, segmentation, or robust classification
+Our focus is complementary: KaryoFlow derives the data-prediction update for
+the RF box path and makes
+proposal identity an explicit condition of multistep inference. Representative
+recent TMI diffusion studies address synthesis, segmentation, or robust classification
 \cite{tivnan2025fourierdiffusion,yang2025dgddm,shen2025ladine}, leaving
 few-step medical box-set prediction comparatively underexplored.
 
@@ -243,10 +244,9 @@ inherits the probability-ranking motivation but differs in scope: it is
 applied only after a generative detector has completed all trajectory updates,
 so solver history, coordinates, predicted classes, and proposal survival are
 fixed. This controlled boundary is particularly useful in chromosome images,
-where AP50 is nearly saturated but strict-IoU errors remain concentrated in
-small and overlapping instances. The emphasis on output reliability is also
-consistent with evidence that accurate medical networks can remain poorly
-calibrated~\cite{mehrtash2020calibration}.
+where AP50 is nearly saturated but strict-IoU errors remain. Its ranking role
+is distinct from probabilistic calibration, which has been studied separately
+in medical image segmentation~\cite{mehrtash2020calibration}.
 
 % ============================================================
 \section{Method}\label{sec:method}
@@ -276,7 +276,7 @@ natural match for a metaphase spread, where approximately $46$ boxes must move
 concurrently while preserving their individual identities.
 
 \paragraph{Time conditioning}
-AdaLN-Zero~\cite{dhariwal2021diffusion} injects the time embedding into each
+AdaLN-Zero~\cite{peebles2023dit} injects the time embedding into each
 proposal head through zero-initialized residual modulation. It is retained as
 a stable conditioning mechanism; controlled ablation does not support treating
 it as a separate accuracy contribution.
@@ -654,7 +654,7 @@ cross-study SOTA.
 Because the Dataset~2 margin is only $0.0001$, we additionally performed a
 paired image-cluster bootstrap on the common 1,000-image test cohort. Across
 1,000 deterministic replicates, the 95\% percentile interval for the LQCR--DINO
-mAP difference is $[-0.0033,,0.0022]$. This interval quantifies image-sampling
+mAP difference is $[-0.0033,\,0.0022]$. This interval quantifies image-sampling
 uncertainty conditional on the evaluated checkpoints; DINO has only fixed-model
 inference replications, so it does not measure between-training uncertainty.
 The result supports statistical comparability, not a Dataset~2 superiority
