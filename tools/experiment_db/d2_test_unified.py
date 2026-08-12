@@ -47,6 +47,34 @@ MODEL_SETS = {
             "config": "work_dirs/paired_clean/a4_random_chr2024_seed42/a4_clean_test.py",
             "checkpoint": "work_dirs/paired_clean/a4_random_chr2024_seed42/best_coco_bbox_mAP_epoch_62.pth",
         },
+        "karyoflow_k200": {
+            "label": "KaryoFlow K=200",
+            "config": "work_dirs/paired_clean/a4_random_chr2024_seed42/a4_clean_test.py",
+            "checkpoint": "work_dirs/paired_clean/a4_random_chr2024_seed42/best_coco_bbox_mAP_epoch_62.pth",
+            "overrides": {
+                "model": {
+                    "bbox_head": {
+                        "topk_pruning_enabled": True,
+                        "topk_k": 200,
+                        "topk_pruning_step": 0,
+                    }
+                }
+            },
+        },
+        "karyoflow_k100": {
+            "label": "KaryoFlow K=100",
+            "config": "work_dirs/paired_clean/a4_random_chr2024_seed42/a4_clean_test.py",
+            "checkpoint": "work_dirs/paired_clean/a4_random_chr2024_seed42/best_coco_bbox_mAP_epoch_62.pth",
+            "overrides": {
+                "model": {
+                    "bbox_head": {
+                        "topk_pruning_enabled": True,
+                        "topk_k": 100,
+                        "topk_pruning_step": 0,
+                    }
+                }
+            },
+        },
         "karyoflow_lqcr": {
             "label": "KaryoFlow+LQCR",
             "config": "work_dirs/paired_clean/lqcr_final_only_chr2024_seed42/capr_quality_final_only_paired_clean_chr2024.py",
@@ -461,8 +489,16 @@ def finalize_aggregate(summaries: list[dict], profile: dict) -> tuple[Path, str]
             "source_artifacts_sha256": summary["artifact_sha256"],
         })
     records.sort(key=lambda row: row["model_id"])
+    aggregate_kind = (
+        "unified_test_aggregate" if len(records) == 7
+        else "supplemental_test_aggregate"
+    )
     aggregate = {
-        "description": f"Unified {DATASET_ID} test evaluation for Table VI detectors",
+        "description": (
+            f"Unified {DATASET_ID} test evaluation for Table VI detectors"
+            if aggregate_kind == "unified_test_aggregate"
+            else f"Supplemental {DATASET_ID} held-out test operating-point evaluation"
+        ),
         "status": "verified",
         "protocol_version": PROTOCOL_VERSION,
         "completed_at": max(row["completed_at"] for row in summaries),
@@ -505,10 +541,15 @@ def finalize_aggregate(summaries: list[dict], profile: dict) -> tuple[Path, str]
         conn.execute(
             """INSERT OR IGNORE INTO evidence_artifact
                (artifact_id, server, path, sha256, kind, generated_at, status, notes)
-               VALUES (?, 'ross', ?, ?, 'unified_test_aggregate', ?, 'verified', ?)""",
-            (artifact_id, str(relative_path), aggregate_sha, aggregate["completed_at"],
+               VALUES (?, 'ross', ?, ?, ?, ?, 'verified', ?)""",
+            (artifact_id, str(relative_path), aggregate_sha, aggregate_kind,
+             aggregate["completed_at"],
              f"Immutable compact evidence; raw predictions remain under "
              f"results/{DATASET_ID.lower()}_test_unified/"),
+        )
+        conn.execute(
+            "UPDATE evidence_artifact SET kind=? WHERE artifact_id=?",
+            (aggregate_kind, artifact_id),
         )
         result_ids = []
         for row in records:

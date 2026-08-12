@@ -108,7 +108,8 @@ def main():
                             f"{dataset['dataset']}")
             except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
                 errors.append(f'{artifact_id}: malformed dataset audit ({exc})')
-        elif kind in ('unified_d2_test_aggregate', 'unified_test_aggregate'):
+        elif kind in ('unified_d2_test_aggregate', 'unified_test_aggregate',
+                      'supplemental_test_aggregate'):
             try:
                 source = json.load(open(abs_path))
                 results = source['results']
@@ -118,8 +119,13 @@ def main():
                 expected_family = f"sota_{dataset_id.lower()}_test"
                 if source.get('status') != 'verified':
                     errors.append(f'{artifact_id}: aggregate is not verified')
-                if len(results) != 7 or len({row['model_id'] for row in results}) != 7:
-                    errors.append(f'{artifact_id}: expected seven unique models')
+                unique_models = {row['model_id'] for row in results}
+                if kind in ('unified_d2_test_aggregate', 'unified_test_aggregate'):
+                    if len(results) != 7 or len(unique_models) != 7:
+                        errors.append(f'{artifact_id}: expected seven unique models')
+                elif not results or len(unique_models) != len(results):
+                    errors.append(
+                        f'{artifact_id}: supplemental models must be nonempty and unique')
                 if (dataset['images'], dataset['categories']) != (expected_images, 24):
                     errors.append(
                         f'{artifact_id}: unexpected {dataset_id} test shape')

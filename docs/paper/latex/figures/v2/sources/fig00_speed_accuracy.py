@@ -34,7 +34,8 @@ def draw_panel(ax: plt.Axes, rows: list[dict], metric: str, panel: str,
         weight = "bold" if row["family"] == "ours_lqcr" else "normal"
         ax.annotate(row["label"], (row["fps"], value), xytext=(dx, dy),
                     textcoords="offset points", fontsize=5.1, color=color,
-                    weight=weight, ha="left" if dx >= 0 else "right")
+                    weight=weight, ha="left" if dx >= 0 else "right",
+                    va="bottom" if dy >= 0 else "top", zorder=4)
     ax.set_xscale("log")
     ax.set_xlim(10, 115)
     ax.set_ylim(*ylim)
@@ -53,14 +54,14 @@ def main() -> None:
     fig, axes = plt.subplots(2, 1, figsize=(3.45, 3.15), sharex=True)
     fig.subplots_adjust(left=0.16, right=0.985, bottom=0.15, top=0.965, hspace=0.26)
     d1_offsets = {
-        "lqcr": (5, 7), "k500": (5, -11), "dino": (-4, -10),
-        "rtmdet": (5, 5), "cascade": (5, 2), "diffusiondet": (-4, -10),
-        "yolox": (-5, 4), "k200": (0, 0), "k100": (0, 0),
+        "lqcr": (7, 8), "k500": (7, -9), "k200": (24, 2),
+        "k100": (22, -7), "dino": (-6, -8), "rtmdet": (7, 7),
+        "cascade": (7, -9), "diffusiondet": (-6, -8), "yolox": (-6, 5),
     }
     d2_offsets = {
-        "lqcr": (5, 8), "k500": (5, -9), "k200": (22, 1), "k100": (22, -8),
-        "dino": (-4, 5), "rtmdet": (5, -9), "cascade": (5, 2),
-        "diffusiondet": (-4, 5), "yolox": (-5, -10),
+        "lqcr": (7, 9), "k500": (7, -11), "k200": (31, 3),
+        "k100": (27, -7), "dino": (7, 11), "rtmdet": (7, -11),
+        "cascade": (7, -9), "diffusiondet": (-6, 7), "yolox": (-6, -9),
     }
     draw_panel(axes[0], rows, "d1_mAP", "a", (0.56, 0.765), d1_offsets)
     draw_panel(axes[1], rows, "d2_mAP", "b", (0.775, 0.878), d2_offsets)

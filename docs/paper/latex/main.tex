@@ -96,14 +96,15 @@ cohorts. Consequently, a few-pixel error can preserve AP50 while changing the
 strict-IoU ordering that determines mAP, and an iterative detector must refine
 many adjacent candidates without confusing their identities.
 
-\begin{figure}[!b]
+\begin{figure}[!t]
   \centering
   \includegraphics[width=\columnwidth]{figures/v2/generated/fig00_speed_accuracy.pdf}
   \caption{Speed--accuracy comparison on two chromosome cohorts. Accuracy
   follows the locked evaluation protocol; model-forward FPS is measured with
   the same $512\times512$, batch-1 RTX A6000 protocol. (a) Dataset~1, where
-  KaryoFlow+LQCR is the clean three-seed mean. (b) Dataset~2, including the
-  three unconnected RF--DPM++ operating points $K=500$, $200$, and $100$.
+  KaryoFlow+LQCR is the clean three-seed mean. Both panels include three
+  unconnected RF--DPM++ operating points at $K=500$, $200$, and $100$; the
+  Dataset~1 $K=200/100$ points use inference-only pruning of the same checkpoint.
   Higher and farther right is better.}
   \label{fig:fps-map}
 \end{figure}

@@ -24,7 +24,8 @@ figures:
       latency: same_RTX_A6000_protocol
       dataset_1_lqcr: clean_three_seed_mean
       other_points: seed42
-      d1_topk: not_measured_and_omitted
+      d1_topk: same_checkpoint_inference_only_test_pruning
+      d1_topk_source: tools/experiment_db/evidence_sources/d1_test_unified_742d7d56fd05.json
     forbidden_claims:
       - compare_latency_measured_on_different_gpus
       - connect_discrete_topk_operating_points_as_a_continuous_curve

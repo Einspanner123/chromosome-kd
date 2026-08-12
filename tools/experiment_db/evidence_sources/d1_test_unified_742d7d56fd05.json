@@ -1,0 +1,138 @@
+{
+  "completed_at": "2026-08-12T01:29:47.374504+00:00",
+  "dataset": {
+    "annotation": "data/Chromosome20240904_NoAug_NoResize_coco/test/_annotations.coco.json",
+    "annotation_sha256": "5264c53453a33094e112c7755c4e7763b656636e65d83e78b3e99537e386fb41",
+    "annotations": 10262,
+    "categories": 24,
+    "images": 220
+  },
+  "description": "Supplemental D1 held-out test operating-point evaluation",
+  "protocol_version": "d1-test-coco-v1",
+  "quality_controls": [
+    "220 unique test image IDs and 24 category IDs verified",
+    "COCO maxDets explicitly fixed to [1, 10, 100]",
+    "persisted predictions independently recomputed with pycocotools",
+    "framework and independent metrics agree after framework rounding",
+    "config, checkpoint, annotation, code, log, and prediction hashes retained"
+  ],
+  "results": [
+    {
+      "coverage": {
+        "images_with_predictions": 220,
+        "prediction_rows": 17461,
+        "test_images": 220,
+        "unknown_category_ids": 0,
+        "unknown_image_ids": 0
+      },
+      "framework_metrics": {
+        "AP50": 0.883,
+        "AP75": 0.786,
+        "AP_L": 0.582,
+        "AP_M": 0.696,
+        "AP_S": 0.436,
+        "mAP": 0.706
+      },
+      "metrics": {
+        "AP50": 0.8831971592177827,
+        "AP75": 0.7864487701149375,
+        "AP_L": 0.5817735356379085,
+        "AP_M": 0.696254851238504,
+        "AP_S": 0.43589101045164896,
+        "mAP": 0.7060668566114906
+      },
+      "model_id": "karyoflow_k100",
+      "model_label": "KaryoFlow K=100",
+      "protocol": {
+        "annotation_path": "data/Chromosome20240904_NoAug_NoResize_coco/test/_annotations.coco.json",
+        "annotation_sha256": "5264c53453a33094e112c7755c4e7763b656636e65d83e78b3e99537e386fb41",
+        "annotations": 10262,
+        "categories": 24,
+        "checkpoint_path": "work_dirs/paired_clean/a4_random_chr2024_seed42/best_coco_bbox_mAP_epoch_62.pth",
+        "checkpoint_sha256": "1410bb2ca264c0aa01cbbc0be1479ba5b2076d6a1193e70247fdba6447479c01",
+        "config_path": "work_dirs/paired_clean/a4_random_chr2024_seed42/a4_clean_test.py",
+        "config_source_sha256": "f749a8a498c931eec5d7b9ebbd9795c836ff9dea10aa500d957af7de77bf2f0f",
+        "dataset": "D1",
+        "deterministic_seed": true,
+        "evaluator": "COCO bbox",
+        "images": 220,
+        "inference_code_sha256": "134108fcaf8517f490feb8a74583d74e5269c999def42de899a86be23bcb4072",
+        "max_dets": 100,
+        "model_id": "karyoflow_k100",
+        "model_label": "KaryoFlow K=100",
+        "resolved_config_sha256": "3e61358396a772370aaa9bb08d4ccf76c862ee0760b961a5ef1c922270f4c52d",
+        "seed": 42,
+        "split": "test",
+        "test_batch_size": 1,
+        "version": "d1-test-coco-v1"
+      },
+      "protocol_hash": "811ec7ce8089951d860bd3ebfdcf05a75af66b01a0655ccce02d971403ecf591",
+      "source_artifacts_sha256": {
+        "evaluation.log": "f1b1ae46c151fa1ec5db7b15f59e74b4eb197274304094c5aca838e1557cdc57",
+        "predictions.bbox.json": "ad9944ffe164c96a9231e6af553cc83a025a8569d30dc9877ab71021078d06d9",
+        "resolved_test_config.py": "c7c03939312b44bbaff0242eafb10f96299fe5c724e72fe7795bf7e8698792e9"
+      },
+      "source_summary": "results/d1_test_unified/karyoflow_k100/811ec7ce8089951d860bd3ebfdcf05a75af66b01a0655ccce02d971403ecf591/summary.json",
+      "source_summary_sha256": "0fbf51139bbf3dc01989bfd513dcd5e8ca8b35a0a530374340848c1fa3571611"
+    },
+    {
+      "coverage": {
+        "images_with_predictions": 220,
+        "prediction_rows": 25400,
+        "test_images": 220,
+        "unknown_category_ids": 0,
+        "unknown_image_ids": 0
+      },
+      "framework_metrics": {
+        "AP50": 0.925,
+        "AP75": 0.82,
+        "AP_L": 0.62,
+        "AP_M": 0.722,
+        "AP_S": 0.489,
+        "mAP": 0.737
+      },
+      "metrics": {
+        "AP50": 0.9247837218798193,
+        "AP75": 0.819742633053971,
+        "AP_L": 0.6200914028207896,
+        "AP_M": 0.7220441067485295,
+        "AP_S": 0.48872132006888463,
+        "mAP": 0.736862568716206
+      },
+      "model_id": "karyoflow_k200",
+      "model_label": "KaryoFlow K=200",
+      "protocol": {
+        "annotation_path": "data/Chromosome20240904_NoAug_NoResize_coco/test/_annotations.coco.json",
+        "annotation_sha256": "5264c53453a33094e112c7755c4e7763b656636e65d83e78b3e99537e386fb41",
+        "annotations": 10262,
+        "categories": 24,
+        "checkpoint_path": "work_dirs/paired_clean/a4_random_chr2024_seed42/best_coco_bbox_mAP_epoch_62.pth",
+        "checkpoint_sha256": "1410bb2ca264c0aa01cbbc0be1479ba5b2076d6a1193e70247fdba6447479c01",
+        "config_path": "work_dirs/paired_clean/a4_random_chr2024_seed42/a4_clean_test.py",
+        "config_source_sha256": "f749a8a498c931eec5d7b9ebbd9795c836ff9dea10aa500d957af7de77bf2f0f",
+        "dataset": "D1",
+        "deterministic_seed": true,
+        "evaluator": "COCO bbox",
+        "images": 220,
+        "inference_code_sha256": "134108fcaf8517f490feb8a74583d74e5269c999def42de899a86be23bcb4072",
+        "max_dets": 100,
+        "model_id": "karyoflow_k200",
+        "model_label": "KaryoFlow K=200",
+        "resolved_config_sha256": "4703527126a2b1cdb006948180c37e3ec83b35bf15e6244c381b85bfa8484789",
+        "seed": 42,
+        "split": "test",
+        "test_batch_size": 1,
+        "version": "d1-test-coco-v1"
+      },
+      "protocol_hash": "e967f3e89b144e9d41dcd2e7853641f4841a4bd6bd61db58ce7ef541fc86ec81",
+      "source_artifacts_sha256": {
+        "evaluation.log": "ecb7f552cc6f3ef3cdeace817c1652a498fc16e660fe0862fc6c7bdcc984120d",
+        "predictions.bbox.json": "df5a2c882bc81aaba0c01b95eb3c924facfd2ff65a5a63a7333ab3e7039c5614",
+        "resolved_test_config.py": "6d5e8528b67e2e82d2356b0019c00a75b1dfcf52d682a0303d0f4312e15ed583"
+      },
+      "source_summary": "results/d1_test_unified/karyoflow_k200/e967f3e89b144e9d41dcd2e7853641f4841a4bd6bd61db58ce7ef541fc86ec81/summary.json",
+      "source_summary_sha256": "f6f51c51964a0af7a2326bb7f63496bc21ead40db89dcd0ddedf210bab35e021"
+    }
+  ],
+  "status": "verified"
+}
