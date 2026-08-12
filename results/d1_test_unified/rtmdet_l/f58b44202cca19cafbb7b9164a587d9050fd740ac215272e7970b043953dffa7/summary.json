@@ -1,0 +1,73 @@
+{
+  "artifact_sha256": {
+    "evaluation.log": "38e8db78b3662f0477f2641c64ea82d8786045b32ba696f4136cb853f13575ed",
+    "predictions.bbox.json": "386f006004a57cbc073e89b976ab380299c857daf6ba38bb69455e8db62a9d2e",
+    "resolved_test_config.py": "fbcc641490404d5677fc0472e7059e63e7b6727718e454ef5939a3ab02af66d0"
+  },
+  "command": [
+    "/home/linkst/data/miniconda3/envs/chromo/bin/python",
+    "experiments/runners/test.py",
+    "results/d1_test_unified/rtmdet_l/f58b44202cca19cafbb7b9164a587d9050fd740ac215272e7970b043953dffa7/resolved_test_config.py",
+    "--checkpoint",
+    "work_dirs/baselines/rtmdet_l_20240904/best_coco_bbox_mAP_epoch_52.pth",
+    "--dataset",
+    "test",
+    "--gpu-id",
+    "0",
+    "--seed",
+    "42",
+    "--exp-name",
+    "d2_test_rtmdet_l_f58b44202cca"
+  ],
+  "completed_at": "2026-08-11T16:36:18.679596+00:00",
+  "coverage": {
+    "images_with_predictions": 220,
+    "prediction_rows": 66000,
+    "test_images": 220,
+    "unknown_category_ids": 0,
+    "unknown_image_ids": 0
+  },
+  "elapsed_seconds": 40.7025830745697,
+  "metrics_exact": {
+    "AP50": 0.9343724472304683,
+    "AP75": 0.8387078767356946,
+    "AP_L": 0.6221765066509258,
+    "AP_M": 0.725309484319875,
+    "AP_S": 0.4802419098158921,
+    "mAP": 0.7318718774594267
+  },
+  "metrics_framework": {
+    "AP50": 0.934,
+    "AP75": 0.839,
+    "AP_L": 0.622,
+    "AP_M": 0.725,
+    "AP_S": 0.48,
+    "mAP": 0.732
+  },
+  "protocol": {
+    "annotation_path": "data/Chromosome20240904_NoAug_NoResize_coco/test/_annotations.coco.json",
+    "annotation_sha256": "5264c53453a33094e112c7755c4e7763b656636e65d83e78b3e99537e386fb41",
+    "annotations": 10262,
+    "categories": 24,
+    "checkpoint_path": "work_dirs/baselines/rtmdet_l_20240904/best_coco_bbox_mAP_epoch_52.pth",
+    "checkpoint_sha256": "433304a55589f1c94793dc63e1979017a8f0edf90fdd0c3b7b94b2698f1b8d43",
+    "config_path": "experiments/configs/baselines/benchmark/rtmdet_l.py",
+    "config_source_sha256": "c475556497634281d2630cc1e1d15cfad700dcbae9a63ca7bc811a9c10c99ca7",
+    "dataset": "D1",
+    "deterministic_seed": true,
+    "evaluator": "COCO bbox",
+    "images": 220,
+    "inference_code_sha256": "134108fcaf8517f490feb8a74583d74e5269c999def42de899a86be23bcb4072",
+    "max_dets": 100,
+    "model_id": "rtmdet_l",
+    "model_label": "RTMDet-L",
+    "resolved_config_sha256": "3bac0c262c8183777373453c3f355e3ab19b2a95171f48a66f3465f50540681a",
+    "seed": 42,
+    "split": "test",
+    "test_batch_size": 1,
+    "version": "d1-test-coco-v1"
+  },
+  "protocol_hash": "f58b44202cca19cafbb7b9164a587d9050fd740ac215272e7970b043953dffa7",
+  "started_at": "2026-08-11T16:35:32.665736+00:00",
+  "status": "verified"
+}

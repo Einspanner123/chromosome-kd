@@ -1,0 +1,73 @@
+{
+  "artifact_sha256": {
+    "evaluation.log": "f303d37a96cbb7deb65f5d94d81ecdcd8f9b515d6513d52931c254aa49b1a98b",
+    "predictions.bbox.json": "83829af279df2f8e5457e1ae47139cee06ccaffc080fde9bcc28881a49446475",
+    "resolved_test_config.py": "6e0614794f33cc42aaf6ee7b299b98da232fa670a45b07b4d1198158c52cd8d6"
+  },
+  "command": [
+    "/home/linkst/data/miniconda3/envs/chromo/bin/python",
+    "experiments/runners/test.py",
+    "results/d1_test_unified/yolox_s/0a6df98ea434385ec1a1122e36f99cde08667ec5b2dd0c19046d8cdced9ec433/resolved_test_config.py",
+    "--checkpoint",
+    "work_dirs/baselines/yolox_s_20240904/best_coco_bbox_mAP_epoch_150.pth",
+    "--dataset",
+    "test",
+    "--gpu-id",
+    "0",
+    "--seed",
+    "42",
+    "--exp-name",
+    "d2_test_yolox_s_0a6df98ea434"
+  ],
+  "completed_at": "2026-08-11T16:38:47.530275+00:00",
+  "coverage": {
+    "images_with_predictions": 220,
+    "prediction_rows": 22165,
+    "test_images": 220,
+    "unknown_category_ids": 0,
+    "unknown_image_ids": 0
+  },
+  "elapsed_seconds": 26.242451429367065,
+  "metrics_exact": {
+    "AP50": 0.917718694495521,
+    "AP75": 0.6919681368267834,
+    "AP_L": 0.5375827736262376,
+    "AP_M": 0.5776460372587675,
+    "AP_S": 0.32987037502777894,
+    "mAP": 0.5810722232558447
+  },
+  "metrics_framework": {
+    "AP50": 0.918,
+    "AP75": 0.692,
+    "AP_L": 0.538,
+    "AP_M": 0.578,
+    "AP_S": 0.33,
+    "mAP": 0.581
+  },
+  "protocol": {
+    "annotation_path": "data/Chromosome20240904_NoAug_NoResize_coco/test/_annotations.coco.json",
+    "annotation_sha256": "5264c53453a33094e112c7755c4e7763b656636e65d83e78b3e99537e386fb41",
+    "annotations": 10262,
+    "categories": 24,
+    "checkpoint_path": "work_dirs/baselines/yolox_s_20240904/best_coco_bbox_mAP_epoch_150.pth",
+    "checkpoint_sha256": "f4283949273b4596fa36016dcc846c08fe8360df5a671094c4ac963326ccfe26",
+    "config_path": "experiments/configs/baselines/benchmark/yolox_s.py",
+    "config_source_sha256": "de174082c47e8c0d0d6766c7db3015b86f223d3987f3dfce35a1dd006065a0f2",
+    "dataset": "D1",
+    "deterministic_seed": true,
+    "evaluator": "COCO bbox",
+    "images": 220,
+    "inference_code_sha256": "134108fcaf8517f490feb8a74583d74e5269c999def42de899a86be23bcb4072",
+    "max_dets": 100,
+    "model_id": "yolox_s",
+    "model_label": "YOLOX-S",
+    "resolved_config_sha256": "5a0931446ef659e51e49b559f8b19cf3c3058c0dd463db513eff4bbd073c1bf4",
+    "seed": 42,
+    "split": "test",
+    "test_batch_size": 1,
+    "version": "d1-test-coco-v1"
+  },
+  "protocol_hash": "0a6df98ea434385ec1a1122e36f99cde08667ec5b2dd0c19046d8cdced9ec433",
+  "started_at": "2026-08-11T16:38:18.374384+00:00",
+  "status": "verified"
+}

@@ -164,5 +164,18 @@ chromosome-kd
 # Temporary copy scripts
 tmp_copy_*.sh
 
-# Experiment database (generated artifact, rebuilt from local work_dirs)
-tools/experiment_db/experiments.db
+# Experiment database and evidence summaries are versioned. Heavy raw
+# predictions remain local; only small source summaries explicitly referenced
+# by evidence_artifact are force-added when evidence is refreshed.
+results/**/predictions*.json
+results/**/raw*.json
+results/**/resolved_config.py
+results/**/logs/
+
+# LaTeX transient files (the compiled PDF remains versioned).
+docs/paper/latex/main.aux
+docs/paper/latex/main.out
+docs/paper/latex/main.log
+
+# Local evaluation outputs; canonical small summaries are force-added.
+results/

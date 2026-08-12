@@ -88,7 +88,7 @@ def main():
                             f"beta={row['beta']}")
             except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
                 errors.append(f'{artifact_id}: malformed learned sweep ({exc})')
-        elif kind == 'dataset_annotation_audit':
+        elif kind in ('dataset_annotation_audit', 'dataset_split_audit'):
             try:
                 source = json.load(open(abs_path))
                 for dataset in source['datasets']:
@@ -108,6 +108,45 @@ def main():
                             f"{dataset['dataset']}")
             except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
                 errors.append(f'{artifact_id}: malformed dataset audit ({exc})')
+        elif kind == 'multi_seed_test_evaluation':
+            try:
+                source = json.load(open(abs_path))
+                selected = [row for row in source['results']
+                            if row['label'].startswith('D1 KaryoFlow RF+Heun')
+                            or row['label'].startswith('D1 DiffusionDet DDPM')]
+                if len(selected) != 6 or any(row['n_images'] != 220 for row in selected):
+                    errors.append(f'{artifact_id}: expected six 220-image evaluations')
+                for row in selected:
+                    variant = ('RF_Heun' if 'RF+Heun' in row['label'] else 'DDPM')
+                    seed = row['label'].rsplit('seed', 1)[1]
+                    db_row = conn.execute('''SELECT value FROM controlled_result
+                        WHERE family='rf_ddpm_d1_test' AND variant=?
+                          AND seed=? AND metric='mAP' AND artifact_id=?''',
+                        (variant, seed, artifact_id)).fetchone()
+                    if db_row is None or abs(db_row[0] - row['mAP']) > 1e-12:
+                        errors.append(f"{artifact_id}: DB mismatch for {row['label']}")
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                errors.append(f'{artifact_id}: malformed multi-seed evidence ({exc})')
+        elif kind == 'annotation_perturbation_test':
+            try:
+                source = json.load(open(abs_path))
+                table = source['experiment_1_noise_robustness']['table']
+                if len(table) != 10:
+                    errors.append(f'{artifact_id}: expected clean plus nine perturbations')
+                for key, metrics in table.items():
+                    sigma = int(key.split('sigma=')[1].split('_')[0])
+                    flip = float(key.split('flip=')[1])
+                    variant = f'sigma{sigma}px_flip{flip:g}'
+                    for metric, value in metrics.items():
+                        db_row = conn.execute('''SELECT value FROM controlled_result
+                            WHERE family='annotation_perturbation' AND variant=?
+                              AND metric=? AND artifact_id=?''',
+                            (variant, metric, artifact_id)).fetchone()
+                        if db_row is None or abs(db_row[0] - value) > 1e-12:
+                            errors.append(
+                                f'{artifact_id}: DB mismatch for {variant} {metric}')
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                errors.append(f'{artifact_id}: malformed perturbation evidence ({exc})')
         elif kind in ('unified_d2_test_aggregate', 'unified_test_aggregate',
                       'supplemental_test_aggregate'):
             try:

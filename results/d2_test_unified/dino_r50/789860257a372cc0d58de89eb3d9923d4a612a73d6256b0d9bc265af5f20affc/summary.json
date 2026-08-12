@@ -1,0 +1,73 @@
+{
+  "artifact_sha256": {
+    "evaluation.log": "9f5cf2248d43315e6babc9a596158cd6d6749d3ee75be4fa460fd02bd1925377",
+    "predictions.bbox.json": "bdfd65ceef7d645747140e64c1e0e87c2d94c907a0058ae1a66bf982079d5107",
+    "resolved_test_config.py": "0d9859dd39bf3ba8f8bf731fb5b6208d19ddbf0967be81e414e94ffaa5f71e77"
+  },
+  "command": [
+    "/home/linkst/data/miniconda3/envs/chromo/bin/python",
+    "experiments/runners/test.py",
+    "results/d2_test_unified/dino_r50/789860257a372cc0d58de89eb3d9923d4a612a73d6256b0d9bc265af5f20affc/resolved_test_config.py",
+    "--checkpoint",
+    "work_dirs/baselines/dino_r50_24obj/best_coco_bbox_mAP_epoch_102.pth",
+    "--dataset",
+    "test",
+    "--gpu-id",
+    "0",
+    "--seed",
+    "42",
+    "--exp-name",
+    "d2_test_dino_r50_789860257a37"
+  ],
+  "completed_at": "2026-08-11T15:43:21.125421+00:00",
+  "coverage": {
+    "images_with_predictions": 1000,
+    "prediction_rows": 300000,
+    "test_images": 1000,
+    "unknown_category_ids": 0,
+    "unknown_image_ids": 0
+  },
+  "elapsed_seconds": 157.7534375190735,
+  "metrics_exact": {
+    "AP50": 0.9890508474352414,
+    "AP75": 0.9727885211095447,
+    "AP_L": 0.9195446538801578,
+    "AP_M": 0.8617115923705753,
+    "AP_S": 0.5948549813664824,
+    "mAP": 0.864961517688708
+  },
+  "metrics_framework": {
+    "AP50": 0.989,
+    "AP75": 0.973,
+    "AP_L": 0.92,
+    "AP_M": 0.862,
+    "AP_S": 0.595,
+    "mAP": 0.865
+  },
+  "protocol": {
+    "annotation_path": "data/24_chromosomes_object/coco/test/_annotations.coco.json",
+    "annotation_sha256": "110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495",
+    "annotations": 45980,
+    "categories": 24,
+    "checkpoint_path": "work_dirs/baselines/dino_r50_24obj/best_coco_bbox_mAP_epoch_102.pth",
+    "checkpoint_sha256": "65013d412fc6480e4eff145dbf8ae1383eb99c17b27f8a59625bbb3c2d23f505",
+    "config_path": "experiments/configs/baselines/benchmark_24obj/dino_r50.py",
+    "config_source_sha256": "170c4bcc9a62d123735e90948b5b0876b2d27ae3b98f29dbb0811bee217cb86b",
+    "dataset": "D2",
+    "deterministic_seed": true,
+    "evaluator": "COCO bbox",
+    "images": 1000,
+    "inference_code_sha256": "134108fcaf8517f490feb8a74583d74e5269c999def42de899a86be23bcb4072",
+    "max_dets": 100,
+    "model_id": "dino_r50",
+    "model_label": "DINO R50",
+    "resolved_config_sha256": "c9ed666756c301490f672af8972395ddc30e6ed23df8d6a5144ac01cabcbf277",
+    "seed": 42,
+    "split": "test",
+    "test_batch_size": 1,
+    "version": "d2-test-coco-v1"
+  },
+  "protocol_hash": "789860257a372cc0d58de89eb3d9923d4a612a73d6256b0d9bc265af5f20affc",
+  "started_at": "2026-08-11T15:40:20.545684+00:00",
+  "status": "verified"
+}

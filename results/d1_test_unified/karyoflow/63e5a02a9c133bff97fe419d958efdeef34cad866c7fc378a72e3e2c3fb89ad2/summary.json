@@ -1,0 +1,73 @@
+{
+  "artifact_sha256": {
+    "evaluation.log": "5256950ff56e661dbed6f79d9ec4e2bcfa21f9f6e6fb1dc3aa5426b7be93121c",
+    "predictions.bbox.json": "98051d118a2c80b134b58d78d672124328d246477e6bb1a1a83c140cd5547f07",
+    "resolved_test_config.py": "9cfa3d2a5b90f64373d7876b209baab3e8bdbb5b9dbb63d9dd55915bf6f83743"
+  },
+  "command": [
+    "/home/linkst/data/miniconda3/envs/chromo/bin/python",
+    "experiments/runners/test.py",
+    "results/d1_test_unified/karyoflow/63e5a02a9c133bff97fe419d958efdeef34cad866c7fc378a72e3e2c3fb89ad2/resolved_test_config.py",
+    "--checkpoint",
+    "work_dirs/paired_clean/a4_random_chr2024_seed42/best_coco_bbox_mAP_epoch_62.pth",
+    "--dataset",
+    "test",
+    "--gpu-id",
+    "0",
+    "--seed",
+    "42",
+    "--exp-name",
+    "d2_test_karyoflow_63e5a02a9c13"
+  ],
+  "completed_at": "2026-08-11T16:33:25.163831+00:00",
+  "coverage": {
+    "images_with_predictions": 220,
+    "prediction_rows": 71383,
+    "test_images": 220,
+    "unknown_category_ids": 0,
+    "unknown_image_ids": 0
+  },
+  "elapsed_seconds": 48.777225971221924,
+  "metrics_exact": {
+    "AP50": 0.9308825990200779,
+    "AP75": 0.822961725807372,
+    "AP_L": 0.6385984887635818,
+    "AP_M": 0.7255642985428284,
+    "AP_S": 0.5016113009701292,
+    "mAP": 0.7401182477346673
+  },
+  "metrics_framework": {
+    "AP50": 0.931,
+    "AP75": 0.823,
+    "AP_L": 0.639,
+    "AP_M": 0.726,
+    "AP_S": 0.502,
+    "mAP": 0.74
+  },
+  "protocol": {
+    "annotation_path": "data/Chromosome20240904_NoAug_NoResize_coco/test/_annotations.coco.json",
+    "annotation_sha256": "5264c53453a33094e112c7755c4e7763b656636e65d83e78b3e99537e386fb41",
+    "annotations": 10262,
+    "categories": 24,
+    "checkpoint_path": "work_dirs/paired_clean/a4_random_chr2024_seed42/best_coco_bbox_mAP_epoch_62.pth",
+    "checkpoint_sha256": "1410bb2ca264c0aa01cbbc0be1479ba5b2076d6a1193e70247fdba6447479c01",
+    "config_path": "work_dirs/paired_clean/a4_random_chr2024_seed42/a4_clean_test.py",
+    "config_source_sha256": "f749a8a498c931eec5d7b9ebbd9795c836ff9dea10aa500d957af7de77bf2f0f",
+    "dataset": "D1",
+    "deterministic_seed": true,
+    "evaluator": "COCO bbox",
+    "images": 220,
+    "inference_code_sha256": "134108fcaf8517f490feb8a74583d74e5269c999def42de899a86be23bcb4072",
+    "max_dets": 100,
+    "model_id": "karyoflow",
+    "model_label": "KaryoFlow",
+    "resolved_config_sha256": "50e2fe7a2878e56df5491f771c9ebffdd5462ba0b3624893a2342f192a6b7989",
+    "seed": 42,
+    "split": "test",
+    "test_batch_size": 1,
+    "version": "d1-test-coco-v1"
+  },
+  "protocol_hash": "63e5a02a9c133bff97fe419d958efdeef34cad866c7fc378a72e3e2c3fb89ad2",
+  "started_at": "2026-08-11T16:32:30.641335+00:00",
+  "status": "verified"
+}

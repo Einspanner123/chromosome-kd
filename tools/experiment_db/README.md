@@ -24,8 +24,14 @@ and promoting a diagnostic/oracle result to a method result.
 ```bash
 python tools/experiment_db/build_experiment_db.py --server ross
 python tools/experiment_db/import_evidence_manifest.py
+python tools/experiment_db/update_paper_evidence.py
 python tools/experiment_db/audit_evidence_db.py
 ```
+
+`update_paper_evidence.py` idempotently registers the dataset split inventory,
+the source-backed D1 RF/DDPM held-out test comparison, and the annotation
+perturbation diagnostic that predate the curated manifest. Its JSON inputs are
+kept under `evidence_sources/`; do not replace them with prose summaries.
 
 Run the raw scanner on both servers. The legacy `experiment` rows have logical
 `work_dir` grain. When adding a second server, pass `--namespace-server` so

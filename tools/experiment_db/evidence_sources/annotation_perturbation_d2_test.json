@@ -1,0 +1,127 @@
+{
+  "experiment_1_noise_robustness": {
+    "description": "Dataset 2 (24obj) test set, A4 checkpoint (A3+IO3, DPM-Solver++ 4-step), seed 42",
+    "checkpoint": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
+    "config": "experiments/configs/robustness/noise_test_a4.py",
+    "noise_injection_script": "experiments/runners/robustness_noise.py",
+    "eval_script": "experiments/runners/robustness_eval.py",
+    "perturbed_jsons_dir": "work_dirs/robustness_noise/perturbed/",
+    "table": {
+      "sigma=0_flip=0.0": {
+        "mAP": 0.859,
+        "AP50": 0.988,
+        "AP75": 0.971,
+        "APs": 0.576,
+        "APm": 0.856,
+        "APl": 0.914
+      },
+      "sigma=2_flip=0.05": {
+        "mAP": 0.666,
+        "AP50": 0.894,
+        "AP75": 0.812,
+        "APs": 0.206,
+        "APm": 0.657,
+        "APl": 0.401
+      },
+      "sigma=2_flip=0.1": {
+        "mAP": 0.599,
+        "AP50": 0.804,
+        "AP75": 0.73,
+        "APs": 0.127,
+        "APm": 0.589,
+        "APl": 0.339
+      },
+      "sigma=2_flip=0.2": {
+        "mAP": 0.477,
+        "AP50": 0.641,
+        "AP75": 0.58,
+        "APs": 0.088,
+        "APm": 0.465,
+        "APl": 0.266
+      },
+      "sigma=5_flip=0.05": {
+        "mAP": 0.428,
+        "AP50": 0.847,
+        "AP75": 0.375,
+        "APs": 0.095,
+        "APm": 0.414,
+        "APl": 0.321
+      },
+      "sigma=5_flip=0.1": {
+        "mAP": 0.386,
+        "AP50": 0.763,
+        "AP75": 0.338,
+        "APs": 0.062,
+        "APm": 0.371,
+        "APl": 0.272
+      },
+      "sigma=5_flip=0.2": {
+        "mAP": 0.308,
+        "AP50": 0.608,
+        "AP75": 0.27,
+        "APs": 0.043,
+        "APm": 0.293,
+        "APl": 0.213
+      },
+      "sigma=10_flip=0.05": {
+        "mAP": 0.179,
+        "AP50": 0.529,
+        "AP75": 0.081,
+        "APs": 0.026,
+        "APm": 0.163,
+        "APl": 0.199
+      },
+      "sigma=10_flip=0.1": {
+        "mAP": 0.162,
+        "AP50": 0.477,
+        "AP75": 0.073,
+        "APs": 0.016,
+        "APm": 0.146,
+        "APl": 0.17
+      },
+      "sigma=10_flip=0.2": {
+        "mAP": 0.129,
+        "AP50": 0.382,
+        "AP75": 0.059,
+        "APs": 0.014,
+        "APm": 0.115,
+        "APl": 0.133
+      }
+    }
+  },
+  "experiment_2_zero_shot": {
+    "description": "A4 (24obj-trained) -> AutoKary test set, zero-shot (no fine-tuning), seed 42",
+    "checkpoint": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
+    "config": "experiments/configs/cross_domain/autokary/zero_shot_a4.py",
+    "target_test_set": "data/AutoKary2022_coco/test/_annotations.coco.json (118 imgs, 5198 anns)",
+    "overall": {
+      "mAP": 0.03,
+      "AP50": 0.041,
+      "AP75": 0.037,
+      "APm": 0.028,
+      "APl": 0.069
+    },
+    "per_class_highlight": {
+      "A1": {
+        "AP50": 0.961,
+        "AP75": 0.885,
+        "precision": 0.699,
+        "note": "Largest chromosome; transfers almost perfectly"
+      },
+      "X": {
+        "AP50": 0.017,
+        "AP75": 0.007,
+        "precision": 0.008,
+        "note": "Sex chromosome; partial transfer"
+      },
+      "E18": {
+        "AP50": 0.006,
+        "AP75": 0.002,
+        "precision": 0.003,
+        "note": "Marginal transfer"
+      },
+      "others": "AP50 = 0 (no transfer)"
+    },
+    "note": "Reverse direction (AutoKary -> 24obj) not run: no full-training AutoKary checkpoint exists."
+  }
+}

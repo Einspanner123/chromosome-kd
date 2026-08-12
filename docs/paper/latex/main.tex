@@ -705,11 +705,13 @@ cross-seed evaluation. Null directions are retained in the ablations rather
 than presented as model contributions.
 
 \paragraph{Dataset~1: RF vs DDPM}
-On Dataset~1 (3 seeds), RF outperforms DDPM by
-$+0.0170$ \mAP{} ($0.7460$ vs $0.7290$, lower variance $\pm 0.0010$ vs $\pm
-0.0040$) with 4-step inference vs DDPM's 1-step. DDPM gains only $+0.0440$ from
-1$\to$8 steps ($0.6280 \to 0.6720$), whereas the RF paradigm yields $+0.0820$
-\mAP{} on Dataset~2.
+On the Dataset~1 held-out test split (3 seeds), RF+Heun reaches
+$0.7367\pm0.0015$ \mAP{} versus $0.7187\pm0.0031$ for DDPM, an absolute
+gain of $0.0180$. On Dataset~2, the unified held-out test comparison gives
+$0.8566$ for RF+Heun and $0.8036$ for DDPM, an absolute gain of $0.0530$.
+These comparisons use matched dataset splits and are therefore preferred over
+the older $+0.0820$ validation estimate, which mixed different training
+schedules and is excluded from current claims.
 
 \subsection{SOTA Comparison}\label{sec:exp-sota}
 
@@ -915,8 +917,9 @@ history coherent and eliminates proposal replacement overhead.
 
 \subsection{Sensitivity to Annotation Precision}\label{sec:exp-robust}
 To quantify why strict localization matters, we perturb only the Dataset~2
-test annotations while keeping images and predictions fixed. A $5$-pixel
-Gaussian center perturbation reduces AP50 by $0.1410$ but AP75 by $0.5960$.
+test annotations while keeping images and predictions fixed. Under the audited
+joint condition of a $5$-pixel Gaussian center perturbation and $5\%$ random
+label flips, AP50 decreases by $0.1410$ while AP75 decreases by $0.5960$.
 This is an evaluation-sensitivity diagnostic rather than a model-robustness
 claim: modest annotation uncertainty is amplified at strict IoU, further
 motivating AP90/AP95 analysis and localization-aware ranking for small

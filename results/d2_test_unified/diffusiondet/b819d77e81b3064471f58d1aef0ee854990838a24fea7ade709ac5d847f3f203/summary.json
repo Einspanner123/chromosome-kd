@@ -1,0 +1,73 @@
+{
+  "artifact_sha256": {
+    "evaluation.log": "690458821c2b0a312aad7bb412d7a6af407ae4a546dfc266c18ae37d92923e44",
+    "predictions.bbox.json": "e3f5feb671b2caa7fb1255a812bf47bd3801857cd1488093cb0444fed34d8315",
+    "resolved_test_config.py": "cf450a962b10476beaf9127ca0cee844cbb3b95a347ef4c7fcd4ee35fd6f6985"
+  },
+  "command": [
+    "/home/linkst/data/miniconda3/envs/chromo/bin/python",
+    "experiments/runners/test.py",
+    "results/d2_test_unified/diffusiondet/b819d77e81b3064471f58d1aef0ee854990838a24fea7ade709ac5d847f3f203/resolved_test_config.py",
+    "--checkpoint",
+    "work_dirs/baselines/diffusiondet_24obj/best_coco_bbox_mAP_epoch_26.pth",
+    "--dataset",
+    "test",
+    "--gpu-id",
+    "0",
+    "--seed",
+    "42",
+    "--exp-name",
+    "d2_test_diffusiondet_b819d77e81b3"
+  ],
+  "completed_at": "2026-08-11T15:49:16.986186+00:00",
+  "coverage": {
+    "images_with_predictions": 1000,
+    "prediction_rows": 163261,
+    "test_images": 1000,
+    "unknown_category_ids": 0,
+    "unknown_image_ids": 0
+  },
+  "elapsed_seconds": 86.46592116355896,
+  "metrics_exact": {
+    "AP50": 0.9714169863375731,
+    "AP75": 0.9383200327880107,
+    "AP_L": 0.8069923247390343,
+    "AP_M": 0.8012790966275414,
+    "AP_S": 0.5372902242635478,
+    "mAP": 0.8036371391074026
+  },
+  "metrics_framework": {
+    "AP50": 0.971,
+    "AP75": 0.938,
+    "AP_L": 0.807,
+    "AP_M": 0.801,
+    "AP_S": 0.537,
+    "mAP": 0.804
+  },
+  "protocol": {
+    "annotation_path": "data/24_chromosomes_object/coco/test/_annotations.coco.json",
+    "annotation_sha256": "110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495",
+    "annotations": 45980,
+    "categories": 24,
+    "checkpoint_path": "work_dirs/baselines/diffusiondet_24obj/best_coco_bbox_mAP_epoch_26.pth",
+    "checkpoint_sha256": "d943fbc12c6492f3a67a34b25c7498fdd1bce74c702246ee699772f9458b58f0",
+    "config_path": "experiments/configs/baselines/benchmark_24obj/diffusiondet_ddpm.py",
+    "config_source_sha256": "e0d8bfd91d2833303050b2fa4fba128a8065372eb999e03d06f69c462fd657f3",
+    "dataset": "D2",
+    "deterministic_seed": true,
+    "evaluator": "COCO bbox",
+    "images": 1000,
+    "inference_code_sha256": "134108fcaf8517f490feb8a74583d74e5269c999def42de899a86be23bcb4072",
+    "max_dets": 100,
+    "model_id": "diffusiondet",
+    "model_label": "DiffusionDet",
+    "resolved_config_sha256": "a6bbd6ae381e5a59a99aa0dd057982ef88fbe2ab091eafeb93c6ddd04913ea4a",
+    "seed": 42,
+    "split": "test",
+    "test_batch_size": 1,
+    "version": "d2-test-coco-v1"
+  },
+  "protocol_hash": "b819d77e81b3064471f58d1aef0ee854990838a24fea7ade709ac5d847f3f203",
+  "started_at": "2026-08-11T15:47:33.809585+00:00",
+  "status": "verified"
+}

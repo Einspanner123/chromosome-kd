@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-12",
+  "definition": "Counts and SHA-256 identities of the exact COCO annotation files used by the paper.",
+  "datasets": [
+    {
+      "dataset": "D1",
+      "split": "train",
+      "annotation": "data/Chromosome20240904_NoAug_NoResize_coco/train/_annotations.coco.json",
+      "images": 1540,
+      "annotations": 72023,
+      "classes": 24,
+      "annotation_sha256": "42454e614086cc03cffa1519790838ff05541e7fc5994a5ed59b5e0937ac9c5d"
+    },
+    {
+      "dataset": "D1",
+      "split": "val",
+      "annotation": "data/Chromosome20240904_NoAug_NoResize_coco/valid/_annotations.coco.json",
+      "images": 440,
+      "annotations": 20574,
+      "classes": 24,
+      "annotation_sha256": "4ed825fdcfea773479beba08c811ca3b3de57b1b05dd6b272061e2ff02bb7f41"
+    },
+    {
+      "dataset": "D1",
+      "split": "test",
+      "annotation": "data/Chromosome20240904_NoAug_NoResize_coco/test/_annotations.coco.json",
+      "images": 220,
+      "annotations": 10262,
+      "classes": 24,
+      "annotation_sha256": "5264c53453a33094e112c7755c4e7763b656636e65d83e78b3e99537e386fb41"
+    },
+    {
+      "dataset": "D2",
+      "split": "train",
+      "annotation": "data/24_chromosomes_object/coco/train/_annotations.coco.json",
+      "images": 3500,
+      "annotations": 160888,
+      "classes": 24,
+      "annotation_sha256": "218ae0ebb71ecfb186bdb0872101ac50179c22c69a586cad0366ef10a0d8d5f7"
+    },
+    {
+      "dataset": "D2",
+      "split": "val",
+      "annotation": "data/24_chromosomes_object/coco/valid/_annotations.coco.json",
+      "images": 500,
+      "annotations": 22984,
+      "classes": 24,
+      "annotation_sha256": "bcf0f930dea7380a3d2d5e82b393b7576a5861d416c163ff2930985f9ee7ca10"
+    },
+    {
+      "dataset": "D2",
+      "split": "test",
+      "annotation": "data/24_chromosomes_object/coco/test/_annotations.coco.json",
+      "images": 1000,
+      "annotations": 45980,
+      "classes": 24,
+      "annotation_sha256": "110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495"
+    }
+  ]
+}

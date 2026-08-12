@@ -1,0 +1,73 @@
+{
+  "artifact_sha256": {
+    "evaluation.log": "a5855f90ab147aadc065df139f47d8a0afe1b4782137c264f1bdb7c48c6c6664",
+    "predictions.bbox.json": "4ec783c37ced92bef93b86ada8186262d8dbfa6689e8f892d0564023f83c7295",
+    "resolved_test_config.py": "74fe8268ba7fe03b10d47612b28b9806440b3a1cb315cf0d6d68574501821211"
+  },
+  "command": [
+    "/home/linkst/data/miniconda3/envs/chromo/bin/python",
+    "experiments/runners/test.py",
+    "results/d2_test_inference_ablations/lqcr_beta/beta_1p0/e8be07b11a207d88490765f92d427906b4f21e662fee5a2802a5ec7852772e5f/resolved_test_config.py",
+    "--checkpoint",
+    "work_dirs/capr_quality_only_24obj/best_coco_bbox_mAP_epoch_2.pth",
+    "--dataset",
+    "test",
+    "--gpu-id",
+    "0",
+    "--seed",
+    "42",
+    "--exp-name",
+    "d2_test_beta_1p0_e8be07b11a20"
+  ],
+  "completed_at": "2026-08-11T17:11:06.186966+00:00",
+  "coverage": {
+    "images_with_predictions": 1000,
+    "prediction_rows": 395919,
+    "test_images": 1000,
+    "unknown_category_ids": 0,
+    "unknown_image_ids": 0
+  },
+  "elapsed_seconds": 166.37434101104736,
+  "metrics_exact": {
+    "AP50": 0.9881976055747824,
+    "AP75": 0.971045361552085,
+    "AP_L": 0.8866601790230636,
+    "AP_M": 0.8622231613933027,
+    "AP_S": 0.5667435203551597,
+    "mAP": 0.8650794533422071
+  },
+  "metrics_framework": {
+    "AP50": 0.988,
+    "AP75": 0.971,
+    "AP_L": 0.887,
+    "AP_M": 0.862,
+    "AP_S": 0.567,
+    "mAP": 0.865
+  },
+  "protocol": {
+    "annotation_path": "data/24_chromosomes_object/coco/test/_annotations.coco.json",
+    "annotation_sha256": "110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495",
+    "annotations": 45980,
+    "categories": 24,
+    "checkpoint_path": "work_dirs/capr_quality_only_24obj/best_coco_bbox_mAP_epoch_2.pth",
+    "checkpoint_sha256": "93d15a7be24adc82714eaca4d82f0ee7ce3725adcde9476ce942767a1886b3e1",
+    "config_path": "experiments/configs/ldmdet/directions/capr/capr_quality_final_only_24obj.py",
+    "config_source_sha256": "ece504adea708c46466270dd498387073dbaa559a0b1ef120b9327cd6a60131c",
+    "dataset": "D2",
+    "deterministic_seed": true,
+    "evaluator": "COCO bbox",
+    "images": 1000,
+    "inference_code_sha256": "134108fcaf8517f490feb8a74583d74e5269c999def42de899a86be23bcb4072",
+    "max_dets": 100,
+    "model_id": "beta_1p0",
+    "model_label": "LQCR beta=1",
+    "resolved_config_sha256": "b607f339000f80bda7582b7c0f09119caa7ad6ce572a7b38db6d7f3193d2b33f",
+    "seed": 42,
+    "split": "test",
+    "test_batch_size": 1,
+    "version": "d2-test-lqcr-beta-v1"
+  },
+  "protocol_hash": "e8be07b11a207d88490765f92d427906b4f21e662fee5a2802a5ec7852772e5f",
+  "started_at": "2026-08-11T17:07:52.810949+00:00",
+  "status": "verified"
+}

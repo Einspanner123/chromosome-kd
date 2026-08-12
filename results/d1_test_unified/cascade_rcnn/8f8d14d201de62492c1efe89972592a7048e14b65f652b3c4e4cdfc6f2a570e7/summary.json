@@ -1,0 +1,73 @@
+{
+  "artifact_sha256": {
+    "evaluation.log": "c242a2375de496d49e36b07c9df725919d35a0d6a7447d3b95df9a1b3ab4c1fa",
+    "predictions.bbox.json": "b9363e44c9dcd4bdd1a2f04495d892735873077a217d03df04216e7b28c31022",
+    "resolved_test_config.py": "95bba8e1866be5176926698fbcf0cc469466b785126a216a5d18f1b67622f0b3"
+  },
+  "command": [
+    "/home/linkst/data/miniconda3/envs/chromo/bin/python",
+    "experiments/runners/test.py",
+    "results/d1_test_unified/cascade_rcnn/8f8d14d201de62492c1efe89972592a7048e14b65f652b3c4e4cdfc6f2a570e7/resolved_test_config.py",
+    "--checkpoint",
+    "work_dirs/baselines/cascade_rcnn_r50_20240904/best_coco_bbox_mAP_epoch_86.pth",
+    "--dataset",
+    "test",
+    "--gpu-id",
+    "0",
+    "--seed",
+    "42",
+    "--exp-name",
+    "d2_test_cascade_rcnn_8f8d14d201de"
+  ],
+  "completed_at": "2026-08-11T16:36:58.655530+00:00",
+  "coverage": {
+    "images_with_predictions": 220,
+    "prediction_rows": 11991,
+    "test_images": 220,
+    "unknown_category_ids": 0,
+    "unknown_image_ids": 0
+  },
+  "elapsed_seconds": 32.73355770111084,
+  "metrics_exact": {
+    "AP50": 0.9221270292785954,
+    "AP75": 0.8307158284948789,
+    "AP_L": 0.6488219688960511,
+    "AP_M": 0.7087721304212485,
+    "AP_S": 0.5004529838613428,
+    "mAP": 0.7235468706286363
+  },
+  "metrics_framework": {
+    "AP50": 0.922,
+    "AP75": 0.831,
+    "AP_L": 0.649,
+    "AP_M": 0.709,
+    "AP_S": 0.5,
+    "mAP": 0.724
+  },
+  "protocol": {
+    "annotation_path": "data/Chromosome20240904_NoAug_NoResize_coco/test/_annotations.coco.json",
+    "annotation_sha256": "5264c53453a33094e112c7755c4e7763b656636e65d83e78b3e99537e386fb41",
+    "annotations": 10262,
+    "categories": 24,
+    "checkpoint_path": "work_dirs/baselines/cascade_rcnn_r50_20240904/best_coco_bbox_mAP_epoch_86.pth",
+    "checkpoint_sha256": "9e6164310b0ae1249033c5a965bc0747057fea6b26ca47b761988ef4558fc31f",
+    "config_path": "experiments/configs/baselines/benchmark/cascade_rcnn_r50.py",
+    "config_source_sha256": "3514f6d5624f9d14ae6d04e4b4146419f12403fb6c82c276b7a16f0ac8f502b3",
+    "dataset": "D1",
+    "deterministic_seed": true,
+    "evaluator": "COCO bbox",
+    "images": 220,
+    "inference_code_sha256": "134108fcaf8517f490feb8a74583d74e5269c999def42de899a86be23bcb4072",
+    "max_dets": 100,
+    "model_id": "cascade_rcnn",
+    "model_label": "Cascade R-CNN",
+    "resolved_config_sha256": "14b2e5c7fa80d17f7472aae64f06af2f5fbbff3f2857890ea95e9a97a4060c3c",
+    "seed": 42,
+    "split": "test",
+    "test_batch_size": 1,
+    "version": "d1-test-coco-v1"
+  },
+  "protocol_hash": "8f8d14d201de62492c1efe89972592a7048e14b65f652b3c4e4cdfc6f2a570e7",
+  "started_at": "2026-08-11T16:36:23.635176+00:00",
+  "status": "verified"
+}
