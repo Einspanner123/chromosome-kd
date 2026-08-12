@@ -1,0 +1,178 @@
+{
+  "description": "Paper-facing held-out test inference stability with a fixed checkpoint and seeds 42/123/789.",
+  "generated_at": "2026-08-12T04:36:21.388914+00:00",
+  "results": [
+    {
+      "checkpoint": "work_dirs/paired_clean/a4_random_chr2024_seed42/best_coco_bbox_mAP_epoch_62.pth",
+      "checkpoint_sha256": "1410bb2ca264c0aa01cbbc0be1479ba5b2076d6a1193e70247fdba6447479c01",
+      "dataset": "D1",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9279895371985698,
+          "sample_std": 0.0007307225868394448,
+          "values": [
+            0.9283371911105017,
+            0.9271498964044658,
+            0.9284815240807419
+          ]
+        },
+        "AP75": {
+          "mean": 0.8241371179224998,
+          "sample_std": 0.0002945841913750211,
+          "values": [
+            0.824471819580338,
+            0.8239172223889155,
+            0.8240223117982459
+          ]
+        },
+        "AP_L": {
+          "mean": 0.6278046893172323,
+          "sample_std": 0.016337783660132565,
+          "values": [
+            0.6253668121536045,
+            0.612822833439311,
+            0.6452244223587816
+          ]
+        },
+        "AP_M": {
+          "mean": 0.7227934933612116,
+          "sample_std": 0.0013881235076664046,
+          "values": [
+            0.7234601125106946,
+            0.721197804661685,
+            0.723722562911255
+          ]
+        },
+        "AP_S": {
+          "mean": 0.49852064023517756,
+          "sample_std": 0.008165669059715054,
+          "values": [
+            0.4892484666565144,
+            0.5016740776937016,
+            0.5046393763553165
+          ]
+        },
+        "mAP": {
+          "mean": 0.7383818665274636,
+          "sample_std": 0.0008248675105433935,
+          "values": [
+            0.7379379153132579,
+            0.7378740566184703,
+            0.7393336276506629
+          ]
+        }
+      },
+      "paper_id": "d1_renewal_off",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d1_renewal_off/d1_renewal_off/b13a0f8bcfba01c1e63aae13cba9bcc94fe7bd7b1612b76ff326ae2cd4fd28cf/summary.json",
+          "source_summary_sha256": "b234f05c516a54d01fa243d0094c3d0ee3f21d49865625dfa9b513bc70d6c9e0"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d1_renewal_off/d1_renewal_off/bce42001354fa01f8dc95c0b519af5436067020ca7e37c93a9af4205b8233f60/summary.json",
+          "source_summary_sha256": "113b6762ed128f24a6f1e8646ddcf2b953056fa4f0f9bd6d994bb8e86c05706f"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d1_renewal_off/d1_renewal_off/09fe67b456d13db31d6f31066dca03589946e434f4ed841a1441dcd725c6ea8d/summary.json",
+          "source_summary_sha256": "d7c742faf39d5a420faa1ff71abd57d4d335eb100b5f15dfd397aa5ceb064d4d"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/paired_clean/a4_random_chr2024_seed42/best_coco_bbox_mAP_epoch_62.pth",
+      "checkpoint_sha256": "1410bb2ca264c0aa01cbbc0be1479ba5b2076d6a1193e70247fdba6447479c01",
+      "dataset": "D1",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9311455498523968,
+          "sample_std": 0.00034981191246898384,
+          "values": [
+            0.9307567242340062,
+            0.9312452032136854,
+            0.9314347221094988
+          ]
+        },
+        "AP75": {
+          "mean": 0.8240979599296012,
+          "sample_std": 0.001163325190612536,
+          "values": [
+            0.8227893628283978,
+            0.8244895690834717,
+            0.8250149478769343
+          ]
+        },
+        "AP_L": {
+          "mean": 0.636669668409063,
+          "sample_std": 0.0050024956574255324,
+          "values": [
+            0.6396151309523933,
+            0.6308936650559533,
+            0.6395002092188424
+          ]
+        },
+        "AP_M": {
+          "mean": 0.7249542188652547,
+          "sample_std": 0.0007544772136430833,
+          "values": [
+            0.7255532282044257,
+            0.7241068759671783,
+            0.7252025524241601
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5024685599290963,
+          "sample_std": 0.004022700834813263,
+          "values": [
+            0.5012226581205824,
+            0.49921621490670925,
+            0.5069668067599973
+          ]
+        },
+        "mAP": {
+          "mean": 0.7400035637439005,
+          "sample_std": 0.00011373992618212877,
+          "values": [
+            0.7401221545296475,
+            0.7398953915675828,
+            0.7399931451344715
+          ]
+        }
+      },
+      "paper_id": "d1_renewal_on",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d1_renewal_on/d1_renewal_on/687f65bef3272597957a9e2e8aecf9e68585f7fbadd65b9ade495ebf8a739832/summary.json",
+          "source_summary_sha256": "1f7847d1d585e3b54e060971c996990671a6cf3854fcc704c98b53c402e88703"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d1_renewal_on/d1_renewal_on/ddae2a59432c2162b56549055d6298be6146dec1a2c95691792f4f85d8bd37d1/summary.json",
+          "source_summary_sha256": "937658f7d72671a62f4af388c4fef4646ee07aed0645248428338e470059337c"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d1_renewal_on/d1_renewal_on/bedfbe78c4aed0bbb50f2269cbfe5cb118f0a5f810acda88def7957d26468e93/summary.json",
+          "source_summary_sha256": "1449c986f40b2e08345d726b7c428f5d450ffcc6b5887924cb983b2b73409e0b"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "warning": "Inference-seed replication does not estimate training-seed uncertainty."
+}

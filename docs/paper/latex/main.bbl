@@ -228,26 +228,6 @@ A.~Mehrtash, W.~M. Wells, C.~M. Tempany, P.~Abolmaesumi, and T.~Kapur,
 P.~Dhariwal and A.~Nichol, ``Diffusion models beat {GANs} on image synthesis,''
   in \emph{Adv. Neural Inf. Process. Syst. (NeurIPS)}, 2021.
 
-\bibitem{tong2023conditional}
-A.~Tong, K.~Fatras, N.~Malkin, G.~Huguet, Y.~Zhang, J.~Rector-Brooks, G.~Wolf,
-  and Y.~Bengio, ``Conditional flow matching: Simulation-free dynamic optimal
-  transport,'' in \emph{Int. Conf. Learn. Represent. (ICLR)}, 2023.
-
-\bibitem{pooladian2023multisample}
-A.-A. Pooladian, H.~Ben-Hamu, C.~Domingo-Enrich, B.~Amos, Y.~Lipman, and
-  R.~T.~Q. Chen, ``Multisample flow matching: Straightening flows with
-  minibatch couplings,'' in \emph{Proc. Int. Conf. Mach. Learn. (ICML)}, 2023,
-  pp. 28\,100--28\,127.
-
-\bibitem{cuturi2013sinkhorn}
-M.~Cuturi, ``Sinkhorn distances: Lightspeed computation of optimal transport,''
-  in \emph{Adv. Neural Inf. Process. Syst. (NeurIPS)}, 2013, pp. 2292--2300.
-
-\bibitem{cheng2025curse}
-H.~K. Cheng and A.~Schwing, ``The curse of conditions: Analyzing and improving
-  optimal transport for conditional flow-based generation,'' in \emph{Proc.
-  IEEE/CVF Int. Conf. Comput. Vis. (ICCV)}, 2025, pp. 15\,875--15\,884.
-
 \bibitem{rst_dataset}
 \BIBentryALTinterwordspacing
 {South China Normal University}, ``{RST} (chromosome20240904) dataset,''

@@ -1,0 +1,39 @@
+{
+  "annotations": {
+    "D1": {
+      "path": "data/Chromosome20240904_NoAug_NoResize_coco/test/_annotations.coco.json",
+      "sha256": "5264c53453a33094e112c7755c4e7763b656636e65d83e78b3e99537e386fb41"
+    },
+    "D2": {
+      "path": "data/24_chromosomes_object/coco/test/_annotations.coco.json",
+      "sha256": "110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495"
+    }
+  },
+  "definitions": {
+    "overlap": "image has at least one ground-truth pair with IoU > 0.1",
+    "small": "absolute bounding-box area < 32^2 pixels"
+  },
+  "generated_at": "2026-08-12T04:23:56.902429+00:00",
+  "results": {
+    "D1": {
+      "images": 220,
+      "images_with_small_fraction": 1.0,
+      "instances": 10262,
+      "median_instances": 46.0,
+      "median_relative_area": 0.003536775066524356,
+      "overlap_image_fraction_iou_gt_0.1": 0.990909090909091,
+      "small_instance_fraction": 0.2307542389397778
+    },
+    "D2": {
+      "images": 1000,
+      "images_with_small_fraction": 0.113,
+      "instances": 45980,
+      "median_instances": 46.0,
+      "median_relative_area": 0.008423812793153952,
+      "overlap_image_fraction_iou_gt_0.1": 1.0,
+      "small_instance_fraction": 0.003610265332753371
+    }
+  },
+  "schema_version": 1,
+  "split": "test"
+}

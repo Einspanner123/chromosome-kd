@@ -1,0 +1,93 @@
+{
+  "description": "Paper-facing held-out test inference stability with a fixed checkpoint and seeds 42/123/789.",
+  "generated_at": "2026-08-12T06:39:37.823416+00:00",
+  "results": [
+    {
+      "checkpoint": "work_dirs/h3_distill_plan_a_24obj/best_coco_bbox_mAP_epoch_10.pth",
+      "checkpoint_sha256": "9b9ece6cb222e65dc49f4e3f2d20d57f838e8d0d4cef45c408de20ee9ea3e855",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9856804043550159,
+          "sample_std": 0.0002127026178153007,
+          "values": [
+            0.9855723551486947,
+            0.9855434147430367,
+            0.9859254431733164
+          ]
+        },
+        "AP75": {
+          "mean": 0.9669056328798828,
+          "sample_std": 0.0003519371573899544,
+          "values": [
+            0.966762958241518,
+            0.9673065042996183,
+            0.9666474360985121
+          ]
+        },
+        "AP_L": {
+          "mean": 0.8590212338321952,
+          "sample_std": 0.003962691875169039,
+          "values": [
+            0.8548732646659913,
+            0.8627681472077737,
+            0.8594222896228206
+          ]
+        },
+        "AP_M": {
+          "mean": 0.8573581763849506,
+          "sample_std": 0.00024300488155678168,
+          "values": [
+            0.8570986941906336,
+            0.857580400537772,
+            0.8573954344264463
+          ]
+        },
+        "AP_S": {
+          "mean": 0.563836569889539,
+          "sample_std": 0.006327464202733044,
+          "values": [
+            0.5576060458608932,
+            0.5702567117781113,
+            0.5636469520296127
+          ]
+        },
+        "mAP": {
+          "mean": 0.8594841153162788,
+          "sample_std": 0.0002609208102874295,
+          "values": [
+            0.8592188286561593,
+            0.8597404393247529,
+            0.8594930779679244
+          ]
+        }
+      },
+      "paper_id": "d2_head_student_h3",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_head_student_h3/d2_head_student_h3/757522e258489f3806d87c5dcd749b14a68b857e2800490e1f044209fe8725f3/summary.json",
+          "source_summary_sha256": "af0d2a2f3ffff1854eb0b3679e22476652457985366997f64415f916fab5581b"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_head_student_h3/d2_head_student_h3/b5cd9a0f6e9b31ccc7c3b39d682bfa215e178d89432025fb113912140394edfd/summary.json",
+          "source_summary_sha256": "90cf55d4da74dab887ac6fb6f87923669845a36770ca9363ec66b2eac14ced7d"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_head_student_h3/d2_head_student_h3/6fcf29e754fb568e4eb0b010ee06407745e8346c0733f0433d0001f5e591f61d/summary.json",
+          "source_summary_sha256": "ec6a2983bcdc65b940a9efe8ebf9bf83318f28c775e2fcab2ba63270fa1a7d8f"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "warning": "Inference-seed replication does not estimate training-seed uncertainty."
+}

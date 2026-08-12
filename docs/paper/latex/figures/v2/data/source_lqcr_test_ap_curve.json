@@ -1,43 +1,51 @@
 {
-  "description": "Locked Dataset 2 LQCR test AP curves from persisted predictions",
+  "description": "Dataset 2 LQCR held-out-test AP curves; fixed-checkpoint mean over inference seeds 42, 123, and 789",
   "beta0": {
     "baseline": {
-      "mAP": 0.8595844149863439,
+      "mAP": 0.859827154400277,
       "AP_by_iou": {
-        "0.50": 0.9881544558615585,
-        "0.55": 0.9881015730419325,
-        "0.60": 0.9876987034287242,
-        "0.65": 0.9870368402121305,
-        "0.70": 0.982425831825441,
-        "0.75": 0.9708507987222837,
-        "0.80": 0.9398326703709515,
-        "0.85": 0.8683767060022878,
-        "0.90": 0.678776654877696,
-        "0.95": 0.204589915520433
+        "0.50": 0.9883057647917212,
+        "0.55": 0.9881907562379499,
+        "0.60": 0.9878127403702949,
+        "0.65": 0.9872450793774136,
+        "0.70": 0.9829005709004739,
+        "0.75": 0.9709038307544621,
+        "0.80": 0.9396826054600272,
+        "0.85": 0.8688523898202029,
+        "0.90": 0.6790741141533596,
+        "0.95": 0.2053036921368656
       }
     }
   },
   "beta2": {
     "baseline": {
-      "mAP": 0.8663381209583711,
+      "mAP": 0.8667811712862996,
       "AP_by_iou": {
-        "0.50": 0.9880982888833825,
-        "0.55": 0.9880113995990898,
-        "0.60": 0.98770009956536,
-        "0.65": 0.9870864178272596,
-        "0.70": 0.9824186108143426,
-        "0.75": 0.9709531517899899,
-        "0.80": 0.942114584613339,
-        "0.85": 0.8783638354657163,
-        "0.90": 0.7045906000598859,
-        "0.95": 0.23404422096534563
+        "0.50": 0.9881640006319969,
+        "0.55": 0.9880989218986197,
+        "0.60": 0.9877715667912222,
+        "0.65": 0.98708815878115,
+        "0.70": 0.9826468373974504,
+        "0.75": 0.9712384298921304,
+        "0.80": 0.9419804178839967,
+        "0.85": 0.8786875996320894,
+        "0.90": 0.7068749748200179,
+        "0.95": 0.23526080513432168
       }
     }
   },
   "provenance": {
-    "annotation": "/home/linkst/workspace/chromosome-kd/data/24_chromosomes_object/coco/test/_annotations.coco.json",
-    "beta0_predictions": "/home/linkst/workspace/chromosome-kd/results/d2_test_inference_ablations/lqcr_beta/beta_0p0/21e73b4b6a568226164770430d232d20f4119c0ef86f283e2ff4e8456f011208/predictions.bbox.json",
-    "beta2_predictions": "/home/linkst/workspace/chromosome-kd/results/d2_test_inference_ablations/lqcr_beta/beta_2p0/a36b680708c5950a53c69bd810de2693939a4548b5a6631ec3d9541958ab82a2/predictions.bbox.json",
-    "protocol": "COCO bbox, maxDets=100, 1000 held-out images, seed 42"
+    "annotation": "data/24_chromosomes_object/coco/test/_annotations.coco.json",
+    "beta0_predictions": [
+      "results/paper_test_multiseed/d2_lqcr_beta_0p0/d2_lqcr_beta_0p0/0ab8434f1bf17d5b190301aa6a873a553ec7744a3d0554b9a4ebfcb4e401a88f/predictions.bbox.json",
+      "results/paper_test_multiseed/d2_lqcr_beta_0p0/d2_lqcr_beta_0p0/6544dfea32d9934d41075e89d35e5f84c370a574f04f905e9956abe166a12d7a/predictions.bbox.json",
+      "results/paper_test_multiseed/d2_lqcr_beta_0p0/d2_lqcr_beta_0p0/f0ecfc2d63da98160ee786da6a765124ad3825e81e2cc5f09653517cee4f8f33/predictions.bbox.json"
+    ],
+    "beta2_predictions": [
+      "results/paper_test_multiseed/d2_lqcr_beta_2p0/d2_lqcr_beta_2p0/8b56e14f1256c2b2c6bf32b43f169e2e01040e6e47297624ef103fab7204b419/predictions.bbox.json",
+      "results/paper_test_multiseed/d2_lqcr_beta_2p0/d2_lqcr_beta_2p0/8d428502d72f286f540b794cdc9d5aa31ee1f5fcd57e38e4c0f36a98c1f8fb9e/predictions.bbox.json",
+      "results/paper_test_multiseed/d2_lqcr_beta_2p0/d2_lqcr_beta_2p0/c96611bf43cc7572b583bc046fb882325a50eea0f1603d19cc8b7b5597de425c/predictions.bbox.json"
+    ],
+    "protocol": "COCO bbox, maxDets=100, 1,000 held-out images, fixed checkpoint, inference seeds 42/123/789"
   }
 }

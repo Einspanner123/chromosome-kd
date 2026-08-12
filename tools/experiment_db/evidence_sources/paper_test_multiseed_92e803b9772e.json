@@ -1,0 +1,2988 @@
+{
+  "description": "Paper-facing held-out test inference stability with a fixed checkpoint and seeds 42/123/789.",
+  "generated_at": "2026-08-12T06:50:32.837380+00:00",
+  "results": [
+    {
+      "checkpoint": "work_dirs/paired_clean/a4_random_chr2024_seed42/best_coco_bbox_mAP_epoch_62.pth",
+      "checkpoint_sha256": "1410bb2ca264c0aa01cbbc0be1479ba5b2076d6a1193e70247fdba6447479c01",
+      "dataset": "D1",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9279895371985698,
+          "sample_std": 0.0007307225868394448,
+          "values": [
+            0.9283371911105017,
+            0.9271498964044658,
+            0.9284815240807419
+          ]
+        },
+        "AP75": {
+          "mean": 0.8241371179224998,
+          "sample_std": 0.0002945841913750211,
+          "values": [
+            0.824471819580338,
+            0.8239172223889155,
+            0.8240223117982459
+          ]
+        },
+        "AP_L": {
+          "mean": 0.6278046893172323,
+          "sample_std": 0.016337783660132565,
+          "values": [
+            0.6253668121536045,
+            0.612822833439311,
+            0.6452244223587816
+          ]
+        },
+        "AP_M": {
+          "mean": 0.7227934933612116,
+          "sample_std": 0.0013881235076664046,
+          "values": [
+            0.7234601125106946,
+            0.721197804661685,
+            0.723722562911255
+          ]
+        },
+        "AP_S": {
+          "mean": 0.49852064023517756,
+          "sample_std": 0.008165669059715054,
+          "values": [
+            0.4892484666565144,
+            0.5016740776937016,
+            0.5046393763553165
+          ]
+        },
+        "mAP": {
+          "mean": 0.7383818665274636,
+          "sample_std": 0.0008248675105433935,
+          "values": [
+            0.7379379153132579,
+            0.7378740566184703,
+            0.7393336276506629
+          ]
+        }
+      },
+      "paper_id": "d1_renewal_off",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d1_renewal_off/d1_renewal_off/b13a0f8bcfba01c1e63aae13cba9bcc94fe7bd7b1612b76ff326ae2cd4fd28cf/summary.json",
+          "source_summary_sha256": "b234f05c516a54d01fa243d0094c3d0ee3f21d49865625dfa9b513bc70d6c9e0"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d1_renewal_off/d1_renewal_off/bce42001354fa01f8dc95c0b519af5436067020ca7e37c93a9af4205b8233f60/summary.json",
+          "source_summary_sha256": "113b6762ed128f24a6f1e8646ddcf2b953056fa4f0f9bd6d994bb8e86c05706f"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d1_renewal_off/d1_renewal_off/09fe67b456d13db31d6f31066dca03589946e434f4ed841a1441dcd725c6ea8d/summary.json",
+          "source_summary_sha256": "d7c742faf39d5a420faa1ff71abd57d4d335eb100b5f15dfd397aa5ceb064d4d"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/paired_clean/a4_random_chr2024_seed42/best_coco_bbox_mAP_epoch_62.pth",
+      "checkpoint_sha256": "1410bb2ca264c0aa01cbbc0be1479ba5b2076d6a1193e70247fdba6447479c01",
+      "dataset": "D1",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9311455498523968,
+          "sample_std": 0.00034981191246898384,
+          "values": [
+            0.9307567242340062,
+            0.9312452032136854,
+            0.9314347221094988
+          ]
+        },
+        "AP75": {
+          "mean": 0.8240979599296012,
+          "sample_std": 0.001163325190612536,
+          "values": [
+            0.8227893628283978,
+            0.8244895690834717,
+            0.8250149478769343
+          ]
+        },
+        "AP_L": {
+          "mean": 0.636669668409063,
+          "sample_std": 0.0050024956574255324,
+          "values": [
+            0.6396151309523933,
+            0.6308936650559533,
+            0.6395002092188424
+          ]
+        },
+        "AP_M": {
+          "mean": 0.7249542188652547,
+          "sample_std": 0.0007544772136430833,
+          "values": [
+            0.7255532282044257,
+            0.7241068759671783,
+            0.7252025524241601
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5024685599290963,
+          "sample_std": 0.004022700834813263,
+          "values": [
+            0.5012226581205824,
+            0.49921621490670925,
+            0.5069668067599973
+          ]
+        },
+        "mAP": {
+          "mean": 0.7400035637439005,
+          "sample_std": 0.00011373992618212877,
+          "values": [
+            0.7401221545296475,
+            0.7398953915675828,
+            0.7399931451344715
+          ]
+        }
+      },
+      "paper_id": "d1_renewal_on",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d1_renewal_on/d1_renewal_on/687f65bef3272597957a9e2e8aecf9e68585f7fbadd65b9ade495ebf8a739832/summary.json",
+          "source_summary_sha256": "1f7847d1d585e3b54e060971c996990671a6cf3854fcc704c98b53c402e88703"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d1_renewal_on/d1_renewal_on/ddae2a59432c2162b56549055d6298be6146dec1a2c95691792f4f85d8bd37d1/summary.json",
+          "source_summary_sha256": "937658f7d72671a62f4af388c4fef4646ee07aed0645248428338e470059337c"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d1_renewal_on/d1_renewal_on/bedfbe78c4aed0bbb50f2269cbfe5cb118f0a5f810acda88def7957d26468e93/summary.json",
+          "source_summary_sha256": "1449c986f40b2e08345d726b7c428f5d450ffcc6b5887924cb983b2b73409e0b"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/baselines/cascade_rcnn_r50_20240904/best_coco_bbox_mAP_epoch_86.pth",
+      "checkpoint_sha256": "9e6164310b0ae1249033c5a965bc0747057fea6b26ca47b761988ef4558fc31f",
+      "dataset": "D1",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9221297046928273,
+          "sample_std": 2.381806772610284e-06,
+          "values": [
+            0.9221313450891234,
+            0.9221269727341044,
+            0.9221307962552543
+          ]
+        },
+        "AP75": {
+          "mean": 0.8307190418684386,
+          "sample_std": 1.2296321541471762e-06,
+          "values": [
+            0.8307201102910912,
+            0.8307176978114411,
+            0.8307193175027834
+          ]
+        },
+        "AP_L": {
+          "mean": 0.6488219688960511,
+          "sample_std": 0.0,
+          "values": [
+            0.6488219688960511,
+            0.6488219688960511,
+            0.6488219688960511
+          ]
+        },
+        "AP_M": {
+          "mean": 0.7087623042121786,
+          "sample_std": 8.79096504691221e-06,
+          "values": [
+            0.7087593191410969,
+            0.7087721990140466,
+            0.7087553944813921
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5004765574493656,
+          "sample_std": 1.1336288360625035e-05,
+          "values": [
+            0.5004823637599345,
+            0.5004634942496925,
+            0.5004838143384697
+          ]
+        },
+        "mAP": {
+          "mean": 0.7235412212409424,
+          "sample_std": 5.5026734900010495e-06,
+          "values": [
+            0.7235394830662056,
+            0.7235473831042344,
+            0.7235367975523875
+          ]
+        }
+      },
+      "paper_id": "d1_sota_cascade_rcnn",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d1_sota_cascade_rcnn/d1_sota_cascade_rcnn/e95c809cc56e3fe958bcad27019967c3352828ad385512992e5a938ccdcc0cc4/summary.json",
+          "source_summary_sha256": "c3a6cce476db0b6dfab36f78d2cd00bd3ffa9639871541eb3d4c8791ebd1f4d0"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d1_sota_cascade_rcnn/d1_sota_cascade_rcnn/826ca12ca9434e5dee83c703312b0b5081a18e0675f496d038380e0d679a591f/summary.json",
+          "source_summary_sha256": "408eb05b5a1de1c34b24e14178fc2e1f897ad119ddaecaa8ae6a1c5b1e4d0c50"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d1_sota_cascade_rcnn/d1_sota_cascade_rcnn/a09ef5bddba62c99c0e4e94def3a2c6e0466df0bb57edf5c520cb3f13c4786ee/summary.json",
+          "source_summary_sha256": "18a7f9f60260c029aa4beae8cd4b7e378d7e919ca4bea1cde91dfadaaa50486f"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/multi_seed_aug/ddpm/seed_42/best_coco_bbox_mAP_epoch_79.pth",
+      "checkpoint_sha256": "3be28742149dab9e20fedb7c115e07a234582684f58ed9783cf3d40ef78a6d74",
+      "dataset": "D1",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9077764606347576,
+          "sample_std": 0.001435005560294291,
+          "values": [
+            0.906840684553032,
+            0.9094286135538162,
+            0.9070600837974244
+          ]
+        },
+        "AP75": {
+          "mean": 0.7975485178638703,
+          "sample_std": 0.0020248949960257586,
+          "values": [
+            0.7964638781162184,
+            0.799884679204574,
+            0.7962969962708182
+          ]
+        },
+        "AP_L": {
+          "mean": 0.6229960189024218,
+          "sample_std": 0.011481254371353547,
+          "values": [
+            0.6361774256789875,
+            0.6151776801925731,
+            0.6176329508357048
+          ]
+        },
+        "AP_M": {
+          "mean": 0.7041142821450413,
+          "sample_std": 0.0006038094942946788,
+          "values": [
+            0.7034181864849174,
+            0.7044965940870545,
+            0.7044280658631523
+          ]
+        },
+        "AP_S": {
+          "mean": 0.4617851235698089,
+          "sample_std": 0.004017884962779335,
+          "values": [
+            0.46388728401702356,
+            0.46431581534686717,
+            0.45715227134553577
+          ]
+        },
+        "mAP": {
+          "mean": 0.7136428433408564,
+          "sample_std": 0.0018944765154094768,
+          "values": [
+            0.7127380262331336,
+            0.7158200767462947,
+            0.7123704270431409
+          ]
+        }
+      },
+      "paper_id": "d1_sota_diffusiondet",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d1_sota_diffusiondet/d1_sota_diffusiondet/56b251247e7f1fce576fe5cb96bc2c3f0ac8b00664be70d20b82e2b464bc5fe3/summary.json",
+          "source_summary_sha256": "4a3600f8f8a2865eacd8d8a96925992a9a90c972766a2070a70b38838b78cb4a"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d1_sota_diffusiondet/d1_sota_diffusiondet/f3d0d4d10c9465088485bcc21b758816f452b30a231b61edb692f8b486f1ff19/summary.json",
+          "source_summary_sha256": "0d689e3c19ad9bc791bd96430bc26aa3116892cce36aa85d783ac5084a59ee9b"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d1_sota_diffusiondet/d1_sota_diffusiondet/2090d892ae1288ec8910175dd2ba84f4123878dba417e90623b923a8bbb330ae/summary.json",
+          "source_summary_sha256": "324a5d6e955ee4443255d717a41c690c9046ad4a71bef8aaa93219298f3e4bc6"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/baselines/dino_r50_20240904/epoch_107.pth",
+      "checkpoint_sha256": "bd33e535c00faf673da07bd78a20aae9c52d26562a3ff5e74855283c96cae0e4",
+      "dataset": "D1",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9341104883705925,
+          "sample_std": 8.746006075460716e-05,
+          "values": [
+            0.9341721601072073,
+            0.9341489107862978,
+            0.9340103942182724
+          ]
+        },
+        "AP75": {
+          "mean": 0.8135291346389529,
+          "sample_std": 0.0002002196919774518,
+          "values": [
+            0.8136438713396571,
+            0.8136455895959828,
+            0.8132979429812189
+          ]
+        },
+        "AP_L": {
+          "mean": 0.6243502136572425,
+          "sample_std": 0.00047584976495292726,
+          "values": [
+            0.6240850653056752,
+            0.6240660081999446,
+            0.6248995674661078
+          ]
+        },
+        "AP_M": {
+          "mean": 0.7112122159370481,
+          "sample_std": 8.328836690313557e-05,
+          "values": [
+            0.7112400195557953,
+            0.7112780459980262,
+            0.7111185822573225
+          ]
+        },
+        "AP_S": {
+          "mean": 0.485261479360031,
+          "sample_std": 0.0005700065992604059,
+          "values": [
+            0.48558990274077435,
+            0.4855912424518459,
+            0.4846032928874728
+          ]
+        },
+        "mAP": {
+          "mean": 0.7247520104465707,
+          "sample_std": 1.7618221813456545e-05,
+          "values": [
+            0.7247317829233598,
+            0.7247602434587416,
+            0.7247640049576105
+          ]
+        }
+      },
+      "paper_id": "d1_sota_dino_r50",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d1_sota_dino_r50/d1_sota_dino_r50/aa44aae9e2286e8630e64ae74b36539ba0538a06ab5bb9efe2e2eaec36148396/summary.json",
+          "source_summary_sha256": "2c2149198d7b711614c5fa399a8d410c6219d031c4d3ccb48a80a61ae65f5cc6"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d1_sota_dino_r50/d1_sota_dino_r50/b6ed4946bb1f9666dc8bbf07fa11c457213e67933e6c39fc94edc97255c9f7ba/summary.json",
+          "source_summary_sha256": "3cc9a9afbecdecd8398496c5a03ab906a9c35a58e50b82395c28546ba5f009bf"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d1_sota_dino_r50/d1_sota_dino_r50/12efdae600c2e90c05045bc6a58ee6c447347a5514493a51846231294aa618f5/summary.json",
+          "source_summary_sha256": "7639231afed814cce13db5e8fc636c63e8c48341a22ce56571ea5362dc81f21d"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/paired_clean/a4_random_chr2024_seed42/best_coco_bbox_mAP_epoch_62.pth",
+      "checkpoint_sha256": "1410bb2ca264c0aa01cbbc0be1479ba5b2076d6a1193e70247fdba6447479c01",
+      "dataset": "D1",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9313005932667564,
+          "sample_std": 0.00048456353236794473,
+          "values": [
+            0.9307694246808509,
+            0.9317184824083229,
+            0.9314138727110954
+          ]
+        },
+        "AP75": {
+          "mean": 0.8243759329300406,
+          "sample_std": 0.0013544787113938803,
+          "values": [
+            0.8228192232579965,
+            0.8252850693677588,
+            0.8250235061643669
+          ]
+        },
+        "AP_L": {
+          "mean": 0.6366118450461399,
+          "sample_std": 0.005096249433178279,
+          "values": [
+            0.6396077950061986,
+            0.6307275309133787,
+            0.6395002092188424
+          ]
+        },
+        "AP_M": {
+          "mean": 0.7251240636409326,
+          "sample_std": 0.0005843258068991119,
+          "values": [
+            0.7255586309879513,
+            0.7244597899627395,
+            0.725353769972107
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5026185120307222,
+          "sample_std": 0.003802994047937159,
+          "values": [
+            0.5010099015111028,
+            0.4998841674243013,
+            0.5069614671567623
+          ]
+        },
+        "mAP": {
+          "mean": 0.7401620193556089,
+          "sample_std": 9.098536898700105e-05,
+          "values": [
+            0.7401311720844744,
+            0.7402644181127188,
+            0.7400904678696334
+          ]
+        }
+      },
+      "paper_id": "d1_sota_karyoflow",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d1_sota_karyoflow/d1_sota_karyoflow/6e7aa1eff49d6f8c3514a8e358fbb562b2fa0e33596dbc738fcafc6521e2cb7c/summary.json",
+          "source_summary_sha256": "36fa7f7b8ea084dc1bedf7d3d2220f7eb7e1a74ca1486d5579f2d9289a3bdf1e"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d1_sota_karyoflow/d1_sota_karyoflow/1977a722d566485c82649375bce9731b141924508b3ab01276238d0f321d13a1/summary.json",
+          "source_summary_sha256": "271ce751d3646dece775606c263f306757fb7c5e6660140109a6672e300b0a9e"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d1_sota_karyoflow/d1_sota_karyoflow/d662316f7a6a76d5f9abab94d6664f6f81c5c209d1ba7e084c011ad6d2a7ca74/summary.json",
+          "source_summary_sha256": "2b17748459ddf0a8ad375f55a86532df0320c074f764b7db9bc3aed5f93f7985"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/paired_clean/a4_random_chr2024_seed42/best_coco_bbox_mAP_epoch_62.pth",
+      "checkpoint_sha256": "1410bb2ca264c0aa01cbbc0be1479ba5b2076d6a1193e70247fdba6447479c01",
+      "dataset": "D1",
+      "metrics": {
+        "AP50": {
+          "mean": 0.8833822026717928,
+          "sample_std": 0.00022524939635391135,
+          "values": [
+            0.8832064867782113,
+            0.883636133596864,
+            0.8833039876403029
+          ]
+        },
+        "AP75": {
+          "mean": 0.787215849325242,
+          "sample_std": 0.0017057967546835868,
+          "values": [
+            0.7864512402413546,
+            0.7860261257885827,
+            0.7891701819457889
+          ]
+        },
+        "AP_L": {
+          "mean": 0.5914386608855122,
+          "sample_std": 0.01482863084694417,
+          "values": [
+            0.5817735356379085,
+            0.6085116200819765,
+            0.5840308269366519
+          ]
+        },
+        "AP_M": {
+          "mean": 0.6968825563083789,
+          "sample_std": 0.0005989124344568812,
+          "values": [
+            0.6963232841359522,
+            0.696809904043935,
+            0.6975144807452497
+          ]
+        },
+        "AP_S": {
+          "mean": 0.4230383121562206,
+          "sample_std": 0.011388141249559463,
+          "values": [
+            0.4359019196504404,
+            0.41896986678140785,
+            0.41424315003681356
+          ]
+        },
+        "mAP": {
+          "mean": 0.7065170086092049,
+          "sample_std": 0.0004021407576976231,
+          "values": [
+            0.7060849292817684,
+            0.7065857466093102,
+            0.706880349936536
+          ]
+        }
+      },
+      "paper_id": "d1_sota_karyoflow_k100",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d1_sota_karyoflow_k100/d1_sota_karyoflow_k100/5ad1d4fa19826301881968f6e38e19710d4183a78b291697bdebc605f66fc579/summary.json",
+          "source_summary_sha256": "d6b805399c183bcba62f42b40b34450b2f537bb2c7d16e2866c686c9658c1fa8"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d1_sota_karyoflow_k100/d1_sota_karyoflow_k100/b59888ec2c3621bc8167691a7177b04c295620c011424028d6e0c543881221a5/summary.json",
+          "source_summary_sha256": "d091753b581404581cdf5c579fbdd4e3cd545d57a64f49981793bcfc74ec0572"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d1_sota_karyoflow_k100/d1_sota_karyoflow_k100/759442328d5485ba39d97c517be6a0eb80540e9ad4eb22ddcf627bc659607ad3/summary.json",
+          "source_summary_sha256": "03a3a4f8dc8c205f0b9f495d97b7d08bf76298c977019a4564dc033ae3044e0f"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/paired_clean/a4_random_chr2024_seed42/best_coco_bbox_mAP_epoch_62.pth",
+      "checkpoint_sha256": "1410bb2ca264c0aa01cbbc0be1479ba5b2076d6a1193e70247fdba6447479c01",
+      "dataset": "D1",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9241663714468201,
+          "sample_std": 0.0006515083748935757,
+          "values": [
+            0.9247841926239551,
+            0.9242291945093648,
+            0.9234857272071405
+          ]
+        },
+        "AP75": {
+          "mean": 0.8198882323581668,
+          "sample_std": 0.0009141778431863509,
+          "values": [
+            0.8197347023785346,
+            0.8208694543884157,
+            0.8190605403075502
+          ]
+        },
+        "AP_L": {
+          "mean": 0.6233969066979791,
+          "sample_std": 0.008211742516390919,
+          "values": [
+            0.6196792066784826,
+            0.6177015032648462,
+            0.6328100101506082
+          ]
+        },
+        "AP_M": {
+          "mean": 0.7215414898001549,
+          "sample_std": 0.00044414896542164324,
+          "values": [
+            0.7220386610551162,
+            0.7211838910499996,
+            0.7214019172953489
+          ]
+        },
+        "AP_S": {
+          "mean": 0.4886318036904898,
+          "sample_std": 0.005484577597213092,
+          "values": [
+            0.4885344419142886,
+            0.49416441400312283,
+            0.4831965551540579
+          ]
+        },
+        "mAP": {
+          "mean": 0.7364144779260857,
+          "sample_std": 0.0005699121884504059,
+          "values": [
+            0.7368462597770453,
+            0.7366286721403523,
+            0.7357685018608594
+          ]
+        }
+      },
+      "paper_id": "d1_sota_karyoflow_k200",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d1_sota_karyoflow_k200/d1_sota_karyoflow_k200/ca6054a9848b5d86605aa6548a628f293da6f1525444696a5f108d281e66de36/summary.json",
+          "source_summary_sha256": "398945509f2c750668fccdb81af6e16035427cf08812449019a54397fe141e58"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d1_sota_karyoflow_k200/d1_sota_karyoflow_k200/c47e3093978c661d90eb246113e7273fb047540b0ba1b7d966b032ac00cbb9d1/summary.json",
+          "source_summary_sha256": "056442978d3e4fe4bea9782e0e1659229790c79a5fb115a1762d9ea1a4bf8157"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d1_sota_karyoflow_k200/d1_sota_karyoflow_k200/89f998185476716963991e11b3f6c9c242c752873ca08a56310c1376b0edfdc3/summary.json",
+          "source_summary_sha256": "9bc2b6a2de13162b9307a9f874512e1540707cc124231feab447d71c9f8bd739"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/paired_clean/lqcr_final_only_chr2024_seed42/best_coco_bbox_mAP_epoch_5.pth",
+      "checkpoint_sha256": "7658c5db0e544c1c222fb793ed3061fe19c99e4836f30635b69ce7c7c3df1dc3",
+      "dataset": "D1",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9309778135248491,
+          "sample_std": 4.395196069717326e-06,
+          "values": [
+            0.9309730599202054,
+            0.9309817298662773,
+            0.9309786507880646
+          ]
+        },
+        "AP75": {
+          "mean": 0.8305231900934643,
+          "sample_std": 6.707747608867819e-06,
+          "values": [
+            0.8305159940599831,
+            0.8305292693809655,
+            0.8305243068394443
+          ]
+        },
+        "AP_L": {
+          "mean": 0.6413181728646627,
+          "sample_std": 1.3420321924813818e-05,
+          "values": [
+            0.6413239589055056,
+            0.64130283009167,
+            0.6413277295968128
+          ]
+        },
+        "AP_M": {
+          "mean": 0.729783161236189,
+          "sample_std": 2.9215998898995028e-05,
+          "values": [
+            0.7298166597070507,
+            0.7297629531094455,
+            0.7297698708920708
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5060544593582986,
+          "sample_std": 2.114626993990429e-05,
+          "values": [
+            0.5060642608751057,
+            0.5060301907803589,
+            0.506068926419431
+          ]
+        },
+        "mAP": {
+          "mean": 0.7468574747013349,
+          "sample_std": 1.051757948961015e-05,
+          "values": [
+            0.7468629921856662,
+            0.7468453464606067,
+            0.7468640854577314
+          ]
+        }
+      },
+      "paper_id": "d1_sota_karyoflow_lqcr",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d1_sota_karyoflow_lqcr/d1_sota_karyoflow_lqcr/a04de33da793eeee84de74b52a53292b7bad2c3f78b318bacea133a6a74ec829/summary.json",
+          "source_summary_sha256": "6ac480075e8de1fc175cc8f3eb943d6454a48a350bb4f0fe88b3e07619bf0671"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d1_sota_karyoflow_lqcr/d1_sota_karyoflow_lqcr/9681c45c14d18e03bed08c46b184204273f035ff2630810e98744cb5473beb04/summary.json",
+          "source_summary_sha256": "87c4f50488f1d2a73c59198dc5b64c2d6848754b6c35d074a961be62848fe40d"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d1_sota_karyoflow_lqcr/d1_sota_karyoflow_lqcr/4e4f0782483cbda1b9bc95682e05523b8ee3a067b2c88c3ffce74dacf9cbe79b/summary.json",
+          "source_summary_sha256": "a417a2634477f2fa88e655b6536eb33c67bc81b6bcce50d4ba5c1129a76dadb7"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/baselines/rtmdet_l_20240904/best_coco_bbox_mAP_epoch_52.pth",
+      "checkpoint_sha256": "433304a55589f1c94793dc63e1979017a8f0edf90fdd0c3b7b94b2698f1b8d43",
+      "dataset": "D1",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9343707698317282,
+          "sample_std": 4.579190592175564e-06,
+          "values": [
+            0.9343754857003318,
+            0.9343704829898829,
+            0.9343663408049696
+          ]
+        },
+        "AP75": {
+          "mean": 0.8386938854955005,
+          "sample_std": 1.761024320716336e-05,
+          "values": [
+            0.8387029903121055,
+            0.8387050794328613,
+            0.8386735867415342
+          ]
+        },
+        "AP_L": {
+          "mean": 0.6221477444939829,
+          "sample_std": 2.6013630886877973e-05,
+          "values": [
+            0.6221768784873585,
+            0.622139511280873,
+            0.6221268437137172
+          ]
+        },
+        "AP_M": {
+          "mean": 0.7252937619690387,
+          "sample_std": 2.504555771969246e-05,
+          "values": [
+            0.7253130841543932,
+            0.7253027360534825,
+            0.7252654656992403
+          ]
+        },
+        "AP_S": {
+          "mean": 0.4802558475171487,
+          "sample_std": 1.1284083972471575e-05,
+          "values": [
+            0.48024357324208256,
+            0.48026577110153845,
+            0.480258198207825
+          ]
+        },
+        "mAP": {
+          "mean": 0.7318660100849197,
+          "sample_std": 6.959351199103036e-06,
+          "values": [
+            0.7318723875483164,
+            0.7318670555638419,
+            0.7318585871426007
+          ]
+        }
+      },
+      "paper_id": "d1_sota_rtmdet_l",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d1_sota_rtmdet_l/d1_sota_rtmdet_l/e6cb9d5e483912084865ecb777134471f3c94fd695b0e05fcda7f53229145293/summary.json",
+          "source_summary_sha256": "58346b515593c4ff5bca6955825340bf3a5ba31e19fccf163337756a0b9390c1"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d1_sota_rtmdet_l/d1_sota_rtmdet_l/95af3854e9ebaa42460313fd4ef7a714ca31ae8eef682512c9ba056e8c701c07/summary.json",
+          "source_summary_sha256": "d3137cf82be0471df49916067d51cc4621d77872a1431908e859985a710a4807"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d1_sota_rtmdet_l/d1_sota_rtmdet_l/e2ebd6cee769888c80a13fb37cef2c75f88dd9ef7111024a6066637b139e1670/summary.json",
+          "source_summary_sha256": "0336619bc7938c660cd19da9e3a4f0a23ea35d96ecaa090a36c04e1db060bf0b"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/baselines/yolox_s_20240904/best_coco_bbox_mAP_epoch_150.pth",
+      "checkpoint_sha256": "f4283949273b4596fa36016dcc846c08fe8360df5a671094c4ac963326ccfe26",
+      "dataset": "D1",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9177067276146222,
+          "sample_std": 5.052323837377728e-06,
+          "values": [
+            0.9177125244906625,
+            0.9177032607161476,
+            0.9177043976370568
+          ]
+        },
+        "AP75": {
+          "mean": 0.6919508392502832,
+          "sample_std": 3.077764205143592e-05,
+          "values": [
+            0.6919361197400813,
+            0.6919301853432742,
+            0.691986212667494
+          ]
+        },
+        "AP_L": {
+          "mean": 0.537474610872834,
+          "sample_std": 0.00010513705397191309,
+          "values": [
+            0.5375960126856589,
+            0.5374139099664215,
+            0.5374139099664215
+          ]
+        },
+        "AP_M": {
+          "mean": 0.5776854441931827,
+          "sample_std": 1.0643000241183348e-05,
+          "values": [
+            0.5776846198698664,
+            0.5776964753859848,
+            0.5776752373236969
+          ]
+        },
+        "AP_S": {
+          "mean": 0.32979762854301803,
+          "sample_std": 0.0001660522334655869,
+          "values": [
+            0.3296059446325356,
+            0.32989750820621466,
+            0.32988943279030386
+          ]
+        },
+        "mAP": {
+          "mean": 0.5810922323591741,
+          "sample_std": 2.9348335911960405e-05,
+          "values": [
+            0.581061223884298,
+            0.5811195763890595,
+            0.5810958968041645
+          ]
+        }
+      },
+      "paper_id": "d1_sota_yolox_s",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d1_sota_yolox_s/d1_sota_yolox_s/fcd42aacf247c425f9f8872098651797c0de6d4f96d09ec7a7aaffdd052c0bdc/summary.json",
+          "source_summary_sha256": "725d85c965256afca476bc15da2e0a66810c81edad849dd73cce5be46244df07"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d1_sota_yolox_s/d1_sota_yolox_s/712e5cb39989885faf9a734a6ca7ed8a7fd84ad3b935e20524f64d913f6cbdea/summary.json",
+          "source_summary_sha256": "82de279a036a7c69e2043b3a9e7a4d06fa69a1a1a55fd3c58709f35abce055a5"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d1_sota_yolox_s/d1_sota_yolox_s/7096d516612a710027bcc090084dfc0c2c0fa17b96e1ae003b692c29d7347aa0/summary.json",
+          "source_summary_sha256": "d5dfa965d247b79ea84f04d9b159e7d49ced7ddfaa28d7de048570563cd031cf"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/a1_rf_heun_24obj/best_coco_bbox_mAP_epoch_62.pth",
+      "checkpoint_sha256": "0c408205bd360e2baf71ee9789b531f585aa4a0516f23c91890983a778d4fe9d",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9846477125526713,
+          "sample_std": 0.00019416718719762925,
+          "values": [
+            0.9844333306205809,
+            0.9848117470493876,
+            0.984698059988045
+          ]
+        },
+        "AP75": {
+          "mean": 0.9640793791124711,
+          "sample_std": 0.000933813474315806,
+          "values": [
+            0.9632792632798208,
+            0.9638534429429053,
+            0.9651054311146873
+          ]
+        },
+        "AP_L": {
+          "mean": 0.8437278954209496,
+          "sample_std": 0.0016577003934605452,
+          "values": [
+            0.842126508407524,
+            0.8436204918406703,
+            0.8454366860146543
+          ]
+        },
+        "AP_M": {
+          "mean": 0.8488222418639536,
+          "sample_std": 0.00040987709917306766,
+          "values": [
+            0.8486819409005716,
+            0.8492838460034154,
+            0.848500938687874
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5853063398974129,
+          "sample_std": 0.0012809366960244667,
+          "values": [
+            0.5849382862500254,
+            0.586731012199761,
+            0.5842497212424521
+          ]
+        },
+        "mAP": {
+          "mean": 0.8513624068114197,
+          "sample_std": 0.00012822315868763653,
+          "values": [
+            0.8512843417308024,
+            0.8515103914550353,
+            0.8512924872484215
+          ]
+        }
+      },
+      "paper_id": "d2_dpmpp_1",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_dpmpp_1/d2_dpmpp_1/67596c706c6d4417abf2405fbea3c29322992d7ae179dec44b4bce68f5c6f086/summary.json",
+          "source_summary_sha256": "589bf68d618481113d60fdcc4237736832bb5a1233ac07893fef3cb26055b7fa"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_dpmpp_1/d2_dpmpp_1/8d96a51355e41771aff9b9c52b74057be5ff868ef8e739a201ff5f12844f0bf5/summary.json",
+          "source_summary_sha256": "9475fb88c42842bf7eeefdc2f29c0560c999d9939f2e0ea6227572e20eed15c5"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_dpmpp_1/d2_dpmpp_1/d0744fe252fc66cebd8768123841ea528ab6b01a3b5268f9a5252323a00808fa/summary.json",
+          "source_summary_sha256": "e646cebef5bf44576638d7ccd13db3a4311edb18865171e472cefb7c9d513f3d"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/a1_rf_heun_24obj/best_coco_bbox_mAP_epoch_62.pth",
+      "checkpoint_sha256": "0c408205bd360e2baf71ee9789b531f585aa4a0516f23c91890983a778d4fe9d",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9878075316718881,
+          "sample_std": 2.700300164493536e-05,
+          "values": [
+            0.9877765001028279,
+            0.987820412425283,
+            0.9878256824875534
+          ]
+        },
+        "AP75": {
+          "mean": 0.9698774526319389,
+          "sample_std": 0.00037599195639216615,
+          "values": [
+            0.9703115363160488,
+            0.9696673726620305,
+            0.9696534489177374
+          ]
+        },
+        "AP_L": {
+          "mean": 0.8508949527659095,
+          "sample_std": 0.0024177431890405054,
+          "values": [
+            0.8536449785125652,
+            0.8491034054729953,
+            0.8499364743121681
+          ]
+        },
+        "AP_M": {
+          "mean": 0.8542064527556392,
+          "sample_std": 0.000190141436458701,
+          "values": [
+            0.8540882966041033,
+            0.8541052713270111,
+            0.8544257903358031
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5829967670459549,
+          "sample_std": 0.0066418915340651025,
+          "values": [
+            0.5906429415661761,
+            0.579690143293778,
+            0.578657216277911
+          ]
+        },
+        "mAP": {
+          "mean": 0.8568047061515931,
+          "sample_std": 3.963419282883125e-05,
+          "values": [
+            0.8568461851676136,
+            0.8567672188776521,
+            0.8568007144095137
+          ]
+        }
+      },
+      "paper_id": "d2_dpmpp_4",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_dpmpp_4/d2_dpmpp_4/d17d3d19cde32264bdbc0dda40edbb5be489b31a473fa0cfcf4656f4ee100236/summary.json",
+          "source_summary_sha256": "11a93258c759abdd2cead3d1bca73276e3c3dba72da06bbe6076f3fb18fa3879"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_dpmpp_4/d2_dpmpp_4/5720289182ab3f0511b520601c6686d52f041ba522a00e34dad1b50185814cc4/summary.json",
+          "source_summary_sha256": "88486ee4c7eeb7050d735a19bcdecd29d984ea5f9dec88db820b6b1389a8167b"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_dpmpp_4/d2_dpmpp_4/ac7915dbcfc3ef3a83a034f00af7aa2b8e3060dbc5e7d87f7a4816dac316339f/summary.json",
+          "source_summary_sha256": "a81ae0211c962e514feacf678175b3bf97b74b16745bca82627913f37a700125"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/a1_rf_heun_24obj/best_coco_bbox_mAP_epoch_62.pth",
+      "checkpoint_sha256": "0c408205bd360e2baf71ee9789b531f585aa4a0516f23c91890983a778d4fe9d",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9846547111549008,
+          "sample_std": 0.0001941988101568961,
+          "values": [
+            0.9844364857429474,
+            0.9848085052893427,
+            0.9847191424324121
+          ]
+        },
+        "AP75": {
+          "mean": 0.9641245906582315,
+          "sample_std": 0.0010107493576865028,
+          "values": [
+            0.9632799724171057,
+            0.9638493474265425,
+            0.965244452131046
+          ]
+        },
+        "AP_L": {
+          "mean": 0.8436754741169371,
+          "sample_std": 0.0017402989538194244,
+          "values": [
+            0.8421226422219592,
+            0.8433472746208804,
+            0.8455565055079717
+          ]
+        },
+        "AP_M": {
+          "mean": 0.848816368089202,
+          "sample_std": 0.00042507259623519167,
+          "values": [
+            0.8486347351493266,
+            0.8493020817842937,
+            0.8485122873339858
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5852988039167039,
+          "sample_std": 0.0012869156988201346,
+          "values": [
+            0.5849258274355678,
+            0.586731012199761,
+            0.5842395721147826
+          ]
+        },
+        "mAP": {
+          "mean": 0.8513463836046201,
+          "sample_std": 0.00015662736845148013,
+          "values": [
+            0.8512168751777279,
+            0.8515204667166748,
+            0.8513018089194576
+          ]
+        }
+      },
+      "paper_id": "d2_euler_1",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_euler_1/d2_euler_1/1d8a06592f761b4c9913a3e8216c0052c8297803871a8c71a8318f7dc6248fe3/summary.json",
+          "source_summary_sha256": "3f94f27577d28d8aff7abcffecf30b41ab4d465b1582a201e984b85b6b9ef420"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_euler_1/d2_euler_1/733a788c3f9ff8d09b4de20216a847149d9595bb9d165e331a2f2f4789b149b3/summary.json",
+          "source_summary_sha256": "3371935a0e1ed02302ada9ac3bb62e891018bf9bb5cd0cf9d89495550cd59c61"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_euler_1/d2_euler_1/32a8fd29b74704a4fb7992d2291ed840f088f93bdac2831052f76b8fa9b3b218/summary.json",
+          "source_summary_sha256": "61374dea76f21a585c2eb9b5ea104650bd5be440e6df5c39159fe2c8dbea6699"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/a1_rf_heun_24obj/best_coco_bbox_mAP_epoch_62.pth",
+      "checkpoint_sha256": "0c408205bd360e2baf71ee9789b531f585aa4a0516f23c91890983a778d4fe9d",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9877857361185418,
+          "sample_std": 8.861508811071694e-05,
+          "values": [
+            0.9877886880939196,
+            0.9878728383348419,
+            0.9876956819268641
+          ]
+        },
+        "AP75": {
+          "mean": 0.9689549732019054,
+          "sample_std": 0.0005569472305728913,
+          "values": [
+            0.9692872324281417,
+            0.9692657010859271,
+            0.9683119860916475
+          ]
+        },
+        "AP_L": {
+          "mean": 0.8500135433694657,
+          "sample_std": 0.0005664069401786347,
+          "values": [
+            0.8495911746317018,
+            0.8497922692907458,
+            0.8506571861859497
+          ]
+        },
+        "AP_M": {
+          "mean": 0.8542767961744243,
+          "sample_std": 0.0004804918217204138,
+          "values": [
+            0.8537625236450009,
+            0.8547142521963745,
+            0.8543536126818975
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5831982038891677,
+          "sample_std": 0.005380634037093806,
+          "values": [
+            0.5875520453862562,
+            0.5848598077015458,
+            0.5771827585797009
+          ]
+        },
+        "mAP": {
+          "mean": 0.8566757507168351,
+          "sample_std": 0.00034931563674989397,
+          "values": [
+            0.8564172542183985,
+            0.8570731520646744,
+            0.8565368458674326
+          ]
+        }
+      },
+      "paper_id": "d2_euler_4",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_euler_4/d2_euler_4/f04e289127b727e59729ce471d2d2f97d8acc56525787ca23520de519824b14d/summary.json",
+          "source_summary_sha256": "118f2afbe16083d1b638dc4567e786873abbb95705e12b4195dcb643b2bed5bd"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_euler_4/d2_euler_4/7eac3909dc326510a1ab81a7360116d7209fc9af0b2aff60ef04c6e5657320bd/summary.json",
+          "source_summary_sha256": "eeaee1a2583ac51a455200a10a7e89d40d609854d04d188a1460855c0dec1eb5"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_euler_4/d2_euler_4/1f04b51c7181b1d2839ed8e3d37e291306475aa4cd863afe58551005e536e86a/summary.json",
+          "source_summary_sha256": "252533f655ee7ec538229570195e413908e638266f1299ff34de7fdd9d116981"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/h3_distill_plan_a_24obj/best_coco_bbox_mAP_epoch_10.pth",
+      "checkpoint_sha256": "9b9ece6cb222e65dc49f4e3f2d20d57f838e8d0d4cef45c408de20ee9ea3e855",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9856804043550159,
+          "sample_std": 0.0002127026178153007,
+          "values": [
+            0.9855723551486947,
+            0.9855434147430367,
+            0.9859254431733164
+          ]
+        },
+        "AP75": {
+          "mean": 0.9669056328798828,
+          "sample_std": 0.0003519371573899544,
+          "values": [
+            0.966762958241518,
+            0.9673065042996183,
+            0.9666474360985121
+          ]
+        },
+        "AP_L": {
+          "mean": 0.8590212338321952,
+          "sample_std": 0.003962691875169039,
+          "values": [
+            0.8548732646659913,
+            0.8627681472077737,
+            0.8594222896228206
+          ]
+        },
+        "AP_M": {
+          "mean": 0.8573581763849506,
+          "sample_std": 0.00024300488155678168,
+          "values": [
+            0.8570986941906336,
+            0.857580400537772,
+            0.8573954344264463
+          ]
+        },
+        "AP_S": {
+          "mean": 0.563836569889539,
+          "sample_std": 0.006327464202733044,
+          "values": [
+            0.5576060458608932,
+            0.5702567117781113,
+            0.5636469520296127
+          ]
+        },
+        "mAP": {
+          "mean": 0.8594841153162788,
+          "sample_std": 0.0002609208102874295,
+          "values": [
+            0.8592188286561593,
+            0.8597404393247529,
+            0.8594930779679244
+          ]
+        }
+      },
+      "paper_id": "d2_head_student_h3",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_head_student_h3/d2_head_student_h3/757522e258489f3806d87c5dcd749b14a68b857e2800490e1f044209fe8725f3/summary.json",
+          "source_summary_sha256": "af0d2a2f3ffff1854eb0b3679e22476652457985366997f64415f916fab5581b"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_head_student_h3/d2_head_student_h3/b5cd9a0f6e9b31ccc7c3b39d682bfa215e178d89432025fb113912140394edfd/summary.json",
+          "source_summary_sha256": "90cf55d4da74dab887ac6fb6f87923669845a36770ca9363ec66b2eac14ced7d"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_head_student_h3/d2_head_student_h3/6fcf29e754fb568e4eb0b010ee06407745e8346c0733f0433d0001f5e591f61d/summary.json",
+          "source_summary_sha256": "ec6a2983bcdc65b940a9efe8ebf9bf83318f28c775e2fcab2ba63270fa1a7d8f"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/capr_quality_only_24obj/best_coco_bbox_mAP_epoch_2.pth",
+      "checkpoint_sha256": "93d15a7be24adc82714eaca4d82f0ee7ce3725adcde9476ce942767a1886b3e1",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9883057647917212,
+          "sample_std": 0.00011996949846805214,
+          "values": [
+            0.9881693973458479,
+            0.9883950582361662,
+            0.9883528387931495
+          ]
+        },
+        "AP75": {
+          "mean": 0.9709038307544621,
+          "sample_std": 0.0003856375452077687,
+          "values": [
+            0.970523210160488,
+            0.9708939853898854,
+            0.9712942967130128
+          ]
+        },
+        "AP90": {
+          "mean": 0.6790741141533596,
+          "sample_std": 0.001413358475622,
+          "values": [
+            0.677598476163781,
+            0.6804156313951207,
+            0.679208234901177
+          ]
+        },
+        "AP95": {
+          "mean": 0.2053036921368656,
+          "sample_std": 0.0012025282415878927,
+          "values": [
+            0.2039245510378978,
+            0.20585343585176535,
+            0.20613308952093373
+          ]
+        },
+        "AP_L": {
+          "mean": 0.8784266388082402,
+          "sample_std": 0.005803818390690946,
+          "values": [
+            0.8734402405126984,
+            0.8847974895572752,
+            0.8770421863547472
+          ]
+        },
+        "AP_M": {
+          "mean": 0.8571660367555034,
+          "sample_std": 0.0002888570681456508,
+          "values": [
+            0.8568797732409373,
+            0.8574574193339947,
+            0.8571609176915782
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5702629649593814,
+          "sample_std": 0.002360619813549751,
+          "values": [
+            0.5720602563638937,
+            0.5675895421980067,
+            0.5711390963162437
+          ]
+        },
+        "mAP": {
+          "mean": 0.859827154400277,
+          "sample_std": 0.00039528298473212614,
+          "values": [
+            0.8593932199618232,
+            0.8601666953334949,
+            0.8599215479055131
+          ]
+        }
+      },
+      "paper_id": "d2_lqcr_beta_0p0",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_lqcr_beta_0p0/d2_lqcr_beta_0p0/0ab8434f1bf17d5b190301aa6a873a553ec7744a3d0554b9a4ebfcb4e401a88f/summary.json",
+          "source_summary_sha256": "0bd8b35d1acc949249fa8d73dfc4364ac8b6236d6e4073a6fd1709c727f79f79"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_lqcr_beta_0p0/d2_lqcr_beta_0p0/f0ecfc2d63da98160ee786da6a765124ad3825e81e2cc5f09653517cee4f8f33/summary.json",
+          "source_summary_sha256": "e79ade02a3a6b910bdb5d0a7abf9a24d5524acdc04ecb0ff0812bd2e3463be58"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_lqcr_beta_0p0/d2_lqcr_beta_0p0/6544dfea32d9934d41075e89d35e5f84c370a574f04f905e9956abe166a12d7a/summary.json",
+          "source_summary_sha256": "1a3b94f35e4034a9298795d92297aef6265c1fea1aa88a1173ab3e286020d160"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/capr_quality_only_24obj/best_coco_bbox_mAP_epoch_2.pth",
+      "checkpoint_sha256": "93d15a7be24adc82714eaca4d82f0ee7ce3725adcde9476ce942767a1886b3e1",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9882883438586613,
+          "sample_std": 7.524680541550234e-05,
+          "values": [
+            0.9882031885669144,
+            0.9883159711219023,
+            0.9883458718871673
+          ]
+        },
+        "AP75": {
+          "mean": 0.9712857153345021,
+          "sample_std": 0.0001346558709561439,
+          "values": [
+            0.9711543413627972,
+            0.971279375497213,
+            0.9714234291434958
+          ]
+        },
+        "AP90": {
+          "mean": 0.6889742319422778,
+          "sample_std": 0.0015464426981875053,
+          "values": [
+            0.6874813056829284,
+            0.6905691427172944,
+            0.6888722474266106
+          ]
+        },
+        "AP95": {
+          "mean": 0.21527890746636924,
+          "sample_std": 0.0013806879648012073,
+          "values": [
+            0.21368707901844677,
+            0.21615137820824687,
+            0.21599826517241405
+          ]
+        },
+        "AP_L": {
+          "mean": 0.8934418159493857,
+          "sample_std": 0.01374351992695127,
+          "values": [
+            0.8848562538866571,
+            0.9092931623343214,
+            0.8861760316271784
+          ]
+        },
+        "AP_M": {
+          "mean": 0.8594609870088886,
+          "sample_std": 0.00031288509070229094,
+          "values": [
+            0.8591270190443937,
+            0.859747328140072,
+            0.8595086138422001
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5678003951034539,
+          "sample_std": 0.0019109019597399726,
+          "values": [
+            0.5699877553025763,
+            0.5669579874043064,
+            0.5664554426034791
+          ]
+        },
+        "mAP": {
+          "mean": 0.8622180465004238,
+          "sample_std": 0.00032174652678019735,
+          "values": [
+            0.8618630406289483,
+            0.8624904122366082,
+            0.8623006866357146
+          ]
+        }
+      },
+      "paper_id": "d2_lqcr_beta_0p25",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_lqcr_beta_0p25/d2_lqcr_beta_0p25/65432e8ef21a0255238956ad63ebe47777fd9553bc031930affde54d69c79b51/summary.json",
+          "source_summary_sha256": "5fc228c0dc8430c2d0a0b122d038c847da7e43b19cc9676362f79408c406a1fd"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_lqcr_beta_0p25/d2_lqcr_beta_0p25/76a50318492cb3fab966bc15a91ba7e2dbf8d88e0906e7238b505e0b96851b68/summary.json",
+          "source_summary_sha256": "091664dd289b21543af8706b452577e8c67e353da6354aae0dc4246c6de6d86c"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_lqcr_beta_0p25/d2_lqcr_beta_0p25/25f37fff2a05bc6bcbfc942d93ae92cda7977aa0778ed9351e7a60ee494e394d/summary.json",
+          "source_summary_sha256": "8001824dde047f76535ba73decfc3a23a91ac7232196e3d6a2804e83ad64685e"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/capr_quality_only_24obj/best_coco_bbox_mAP_epoch_2.pth",
+      "checkpoint_sha256": "93d15a7be24adc82714eaca4d82f0ee7ce3725adcde9476ce942767a1886b3e1",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9882515395512997,
+          "sample_std": 0.0001352003282259314,
+          "values": [
+            0.9880959363877152,
+            0.9883183926005752,
+            0.9883402896656087
+          ]
+        },
+        "AP75": {
+          "mean": 0.9712316148518535,
+          "sample_std": 0.00047227610021350475,
+          "values": [
+            0.9708932847949895,
+            0.971771177361783,
+            0.971030382398788
+          ]
+        },
+        "AP90": {
+          "mean": 0.6946218563011867,
+          "sample_std": 0.002107267507198631,
+          "values": [
+            0.6931308480222489,
+            0.6970326673436016,
+            0.6937020535377099
+          ]
+        },
+        "AP95": {
+          "mean": 0.22214433824631544,
+          "sample_std": 0.0007838960015075676,
+          "values": [
+            0.22126393407385733,
+            0.22240244335009185,
+            0.22276663731499707
+          ]
+        },
+        "AP_L": {
+          "mean": 0.8958233699995127,
+          "sample_std": 0.024494566146971573,
+          "values": [
+            0.909715654588364,
+            0.9102135135206909,
+            0.8675409418894832
+          ]
+        },
+        "AP_M": {
+          "mean": 0.861031103292119,
+          "sample_std": 0.00031670746323754907,
+          "values": [
+            0.8606973834464603,
+            0.8613274889488027,
+            0.8610684374810939
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5681493322458054,
+          "sample_std": 0.0035849602429000255,
+          "values": [
+            0.571718673714566,
+            0.5681803682753916,
+            0.5645489547474587
+          ]
+        },
+        "mAP": {
+          "mean": 0.8637860562969392,
+          "sample_std": 0.00032767699868754813,
+          "values": [
+            0.8634487938535701,
+            0.8641032228635367,
+            0.8638061521737108
+          ]
+        }
+      },
+      "paper_id": "d2_lqcr_beta_0p5",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_lqcr_beta_0p5/d2_lqcr_beta_0p5/2f9e4aa22dd1aaf1b88c51b081bda55378089e7aef0265e6801b75cce16e1527/summary.json",
+          "source_summary_sha256": "928c8c8a81c5fa9ba04f92222da9db248c08d917017acdbbc63b11919beea898"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_lqcr_beta_0p5/d2_lqcr_beta_0p5/98aba29227ef4bcada94d0eedb4d57a329501f26f05b77df0ee384f5880e0d74/summary.json",
+          "source_summary_sha256": "9e4a93de0d98241115bb5d75f608fa7cc59a9b4f0222edd5bd67388c0c625f4b"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_lqcr_beta_0p5/d2_lqcr_beta_0p5/5ddcf7222d628b5c3714a2c2ae18df8bcc4c76eef9b62891b8e23b4105559f56/summary.json",
+          "source_summary_sha256": "3441f2d52e414a9ece9ab791eafa63513fe4eb249f9eb23695d24a6649ab74ce"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/capr_quality_only_24obj/best_coco_bbox_mAP_epoch_2.pth",
+      "checkpoint_sha256": "93d15a7be24adc82714eaca4d82f0ee7ce3725adcde9476ce942767a1886b3e1",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9882076295043211,
+          "sample_std": 7.380646521547617e-05,
+          "values": [
+            0.9881330816564338,
+            0.9882806715438026,
+            0.9882091353127267
+          ]
+        },
+        "AP75": {
+          "mean": 0.9712045672765522,
+          "sample_std": 0.00036583551008653525,
+          "values": [
+            0.9707834396415297,
+            0.9713864212228442,
+            0.9714438409652831
+          ]
+        },
+        "AP90": {
+          "mean": 0.701414997008797,
+          "sample_std": 0.0028126671981205456,
+          "values": [
+            0.698622982141798,
+            0.7042478713478328,
+            0.7013741375367598
+          ]
+        },
+        "AP95": {
+          "mean": 0.22896272393208753,
+          "sample_std": 0.0011820523749958567,
+          "values": [
+            0.22785813176104996,
+            0.22882064625730483,
+            0.2302093937779078
+          ]
+        },
+        "AP_L": {
+          "mean": 0.8964598482641133,
+          "sample_std": 0.02453390192009792,
+          "values": [
+            0.9097181798877692,
+            0.9115118914901335,
+            0.8681494734144375
+          ]
+        },
+        "AP_M": {
+          "mean": 0.8625990386542869,
+          "sample_std": 0.0005431141953004449,
+          "values": [
+            0.8619934478834496,
+            0.8630429648047582,
+            0.8627607032746529
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5690434760365912,
+          "sample_std": 0.004761815883802927,
+          "values": [
+            0.5693641308930284,
+            0.5736368604063807,
+            0.5641294368103648
+          ]
+        },
+        "mAP": {
+          "mean": 0.8654239136680247,
+          "sample_std": 0.0005441254624568014,
+          "values": [
+            0.8648066366929087,
+            0.8658340379717713,
+            0.8656310663393946
+          ]
+        }
+      },
+      "paper_id": "d2_lqcr_beta_1p0",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_lqcr_beta_1p0/d2_lqcr_beta_1p0/5198c33ce4b1ffcd8a99cb2b75ba11ab69bc4acdf93512120f0af0c21dbb5da5/summary.json",
+          "source_summary_sha256": "78387dcbf93e6666e0a7ad8c2f366a00d1dc9591581f0ec02f75d0c21f872d05"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_lqcr_beta_1p0/d2_lqcr_beta_1p0/94cc16efaec0461ad40eb0f5e5bb3fd50b0ace97d3851b5d51cf733ae48e1c4d/summary.json",
+          "source_summary_sha256": "0e8afc8f755f9ab4214b7e2fc2c47fe844dcc53ac8cdead1012a727cb66b2671"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_lqcr_beta_1p0/d2_lqcr_beta_1p0/6813f2a08f7c8736d3b76ae388a3026d1efa4b3adc0387bab8b34826037f17ca/summary.json",
+          "source_summary_sha256": "fdfc519110e03a8c08df4851b756ae0b5fe3bd7d16e1cc8004c1506020ee281b"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/capr_quality_only_24obj/best_coco_bbox_mAP_epoch_2.pth",
+      "checkpoint_sha256": "93d15a7be24adc82714eaca4d82f0ee7ce3725adcde9476ce942767a1886b3e1",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9881640006319969,
+          "sample_std": 5.93979855851857e-05,
+          "values": [
+            0.9881021878549598,
+            0.9882206462150989,
+            0.9881691678259319
+          ]
+        },
+        "AP75": {
+          "mean": 0.9712384298921305,
+          "sample_std": 0.00040468847401677613,
+          "values": [
+            0.9710402532713728,
+            0.9717040114237847,
+            0.9709710249812339
+          ]
+        },
+        "AP90": {
+          "mean": 0.7068749748200179,
+          "sample_std": 0.0024009477506860962,
+          "values": [
+            0.7049377629014759,
+            0.7095611248365168,
+            0.7061260367220611
+          ]
+        },
+        "AP95": {
+          "mean": 0.23526080513432168,
+          "sample_std": 0.000639066986705752,
+          "values": [
+            0.23486243623300493,
+            0.23599793314832562,
+            0.23492204602163447
+          ]
+        },
+        "AP_L": {
+          "mean": 0.8955450955255833,
+          "sample_std": 0.015071278215527863,
+          "values": [
+            0.8874339000389173,
+            0.9129348527055909,
+            0.8862665338322414
+          ]
+        },
+        "AP_M": {
+          "mean": 0.863994404772427,
+          "sample_std": 0.000420226545765354,
+          "values": [
+            0.863639787741127,
+            0.8644585502114321,
+            0.8638848763647216
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5658409979625291,
+          "sample_std": 0.007869929053243482,
+          "values": [
+            0.5653016959954371,
+            0.5739667070125805,
+            0.5582545908795697
+          ]
+        },
+        "mAP": {
+          "mean": 0.8667811712862995,
+          "sample_std": 0.0004501208978057334,
+          "values": [
+            0.8663939262696826,
+            0.8672750266966531,
+            0.8666745608925628
+          ]
+        }
+      },
+      "paper_id": "d2_lqcr_beta_2p0",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_lqcr_beta_2p0/d2_lqcr_beta_2p0/8d428502d72f286f540b794cdc9d5aa31ee1f5fcd57e38e4c0f36a98c1f8fb9e/summary.json",
+          "source_summary_sha256": "971b19d01d37ab7861897ffd3b0604cc0149958b32dd6d9a7e989b2f8de6ec91"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_lqcr_beta_2p0/d2_lqcr_beta_2p0/c96611bf43cc7572b583bc046fb882325a50eea0f1603d19cc8b7b5597de425c/summary.json",
+          "source_summary_sha256": "2c934d90f2bbbd1cca44064fc0a7f39c99311075b4665e5c2b16c109199fdb46"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_lqcr_beta_2p0/d2_lqcr_beta_2p0/8b56e14f1256c2b2c6bf32b43f169e2e01040e6e47297624ef103fab7204b419/summary.json",
+          "source_summary_sha256": "0259c57ee07f66a02ed08e46a23377b7fb159d65e7cdf5c4e8c0cac56c2f8052"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/a1_rf_heun_24obj/best_coco_bbox_mAP_epoch_62.pth",
+      "checkpoint_sha256": "0c408205bd360e2baf71ee9789b531f585aa4a0516f23c91890983a778d4fe9d",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.98782958239982,
+          "sample_std": 3.0575361702376835e-05,
+          "values": [
+            0.9878055231716376,
+            0.9878639887406084,
+            0.987819235287214
+          ]
+        },
+        "AP75": {
+          "mean": 0.9690557147125068,
+          "sample_std": 0.0003086849914292463,
+          "values": [
+            0.9693798897866647,
+            0.9690219600040602,
+            0.9687652943467957
+          ]
+        },
+        "AP_L": {
+          "mean": 0.8496392607233451,
+          "sample_std": 0.0006328121662381853,
+          "values": [
+            0.8489978574355469,
+            0.8502631167908311,
+            0.8496568079436572
+          ]
+        },
+        "AP_M": {
+          "mean": 0.8541391619680502,
+          "sample_std": 0.00023724456686470427,
+          "values": [
+            0.8538870792633101,
+            0.8543580780585626,
+            0.854172328582278
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5827239817663762,
+          "sample_std": 0.0032782954294647993,
+          "values": [
+            0.586476091905996,
+            0.5812820615235164,
+            0.5804137918696161
+          ]
+        },
+        "mAP": {
+          "mean": 0.8566145014153781,
+          "sample_std": 0.0001191541643567096,
+          "values": [
+            0.8564959179885699,
+            0.856734218231582,
+            0.8566133680259824
+          ]
+        }
+      },
+      "paper_id": "d2_rf_heun",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_rf_heun/d2_rf_heun/044cfa6c67a77f0db15900ace4160700e0cdc22c472fa5f8ea3b3cc1320ba6ea/summary.json",
+          "source_summary_sha256": "0e95c9d7ea378d0d5ad56394aebd00191c479fbab0f5848a1129af1e2308b2da"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_rf_heun/d2_rf_heun/25a1cb9b2a8dc15cbad3eadfdcf8a10d7ecaed4c0186e620eee2597434817e13/summary.json",
+          "source_summary_sha256": "88e2ae8693393661f06dcdd7dee15a36c62e94b686e08309f9cc7ae5ddd0c26c"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_rf_heun/d2_rf_heun/1efd4d686ec7b61bf772b1334fe8a244eb03f4ddde082deebac8a99d54851375/summary.json",
+          "source_summary_sha256": "e4440f65d89f24f5f80596a7571a77e8fd6ad965832bdd4433fd138b9cff9d50"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/baselines/cascade_rcnn_r50/best_coco_bbox_mAP_epoch_72.pth",
+      "checkpoint_sha256": "f2f027542f23ef4d5095d07526b9e70e8cc627b8bd5933340946e40f5a8b0c72",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9850455443955655,
+          "sample_std": 2.7130490250538215e-07,
+          "values": [
+            0.9850453627849822,
+            0.9850454141362803,
+            0.9850458562654341
+          ]
+        },
+        "AP75": {
+          "mean": 0.9670329998972843,
+          "sample_std": 3.9936187911154263e-07,
+          "values": [
+            0.9670325647836966,
+            0.9670330851777202,
+            0.967033349730436
+          ]
+        },
+        "AP_L": {
+          "mean": 0.8745182313913437,
+          "sample_std": 1.195807901958895e-06,
+          "values": [
+            0.874518182058273,
+            0.8745194511023235,
+            0.8745170610134344
+          ]
+        },
+        "AP_M": {
+          "mean": 0.8498497082846161,
+          "sample_std": 2.5971236564059316e-06,
+          "values": [
+            0.8498508223517061,
+            0.8498515625146769,
+            0.8498467399874655
+          ]
+        },
+        "AP_S": {
+          "mean": 0.572375514989635,
+          "sample_std": 0.0,
+          "values": [
+            0.572375514989635,
+            0.572375514989635,
+            0.572375514989635
+          ]
+        },
+        "mAP": {
+          "mean": 0.8526697512141564,
+          "sample_std": 1.6075141375290002e-05,
+          "values": [
+            0.8526786184838344,
+            0.8526794398601736,
+            0.8526511952984613
+          ]
+        }
+      },
+      "paper_id": "d2_sota_cascade_rcnn",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_sota_cascade_rcnn/d2_sota_cascade_rcnn/dc9de20d17fbe38edb6f36262a8032f5413db919f18e82a5f74c02121dffeb85/summary.json",
+          "source_summary_sha256": "28b380f3de8a119df175c0ad6f972839a7ce0229cb2086dc14b4cc8a441d3ccf"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_sota_cascade_rcnn/d2_sota_cascade_rcnn/f4eb0fb204f5d11a1bdfe6b8ee17301fc97f5dcc537dbab92da8b88d41bf1cce/summary.json",
+          "source_summary_sha256": "bbf258aa84f08a2c25610451d22dfcbabb4610713763d72f62885452bee89f04"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_sota_cascade_rcnn/d2_sota_cascade_rcnn/b2f2fa66ba63cfb96a788d1ab9cda6071e99aae53e59c023cf02e0ab83f769ad/summary.json",
+          "source_summary_sha256": "7601966ad79f261185f614b86e1240dbb5c532ba45b46a827c78048a6bd21f6e"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/baselines/diffusiondet_24obj/best_coco_bbox_mAP_epoch_26.pth",
+      "checkpoint_sha256": "d943fbc12c6492f3a67a34b25c7498fdd1bce74c702246ee699772f9458b58f0",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9714146101407275,
+          "sample_std": 0.0001479474502120742,
+          "values": [
+            0.971414700417893,
+            0.9712666175725903,
+            0.9715625124316992
+          ]
+        },
+        "AP75": {
+          "mean": 0.9380783258013902,
+          "sample_std": 0.00047927645341542364,
+          "values": [
+            0.9383432034066812,
+            0.937525071350913,
+            0.9383667026465762
+          ]
+        },
+        "AP_L": {
+          "mean": 0.822072088435394,
+          "sample_std": 0.0144885641557231,
+          "values": [
+            0.8071318591553142,
+            0.8360622224840314,
+            0.8230221836668367
+          ]
+        },
+        "AP_M": {
+          "mean": 0.8006354002238719,
+          "sample_std": 0.0005749367680643855,
+          "values": [
+            0.8012911432006333,
+            0.8003972680724246,
+            0.8002177893985575
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5323030770179469,
+          "sample_std": 0.005130614203640277,
+          "values": [
+            0.5372902242635478,
+            0.5270401218992855,
+            0.5325788848910074
+          ]
+        },
+        "mAP": {
+          "mean": 0.803345014755231,
+          "sample_std": 0.0003269257099617865,
+          "values": [
+            0.8037146455695486,
+            0.8030937898934427,
+            0.8032266088027017
+          ]
+        }
+      },
+      "paper_id": "d2_sota_diffusiondet",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_sota_diffusiondet/d2_sota_diffusiondet/84727c4d643328dd2f74b6534cac3f6f9e8869a6153a0d5e473a33d6d355aa87/summary.json",
+          "source_summary_sha256": "c883ca15e55f490b10192dff9d4e28c30258cb7fe88b3d1632504025eb43f121"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_sota_diffusiondet/d2_sota_diffusiondet/990e916ee51b92001d235f34e94cfbc7d8b88b80614ecb3e99202503234aadba/summary.json",
+          "source_summary_sha256": "bef43a1868eab28c89cd4696600ba053fa08db866144ebd65be49912f7aaf8a6"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_sota_diffusiondet/d2_sota_diffusiondet/df867f702781dc0f0ecdaf7a0c119788964e92b437adae61435f8b4c83cf3a67/summary.json",
+          "source_summary_sha256": "50c1ec702cd82798cbe5343a28a9ecc1d58a05143ed0b492e43beed1e0463d86"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/baselines/dino_r50_24obj/best_coco_bbox_mAP_epoch_102.pth",
+      "checkpoint_sha256": "65013d412fc6480e4eff145dbf8ae1383eb99c17b27f8a59625bbb3c2d23f505",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9890432212876896,
+          "sample_std": 9.42562028808271e-06,
+          "values": [
+            0.9890342721774438,
+            0.9890423313869062,
+            0.9890530602987189
+          ]
+        },
+        "AP75": {
+          "mean": 0.9728031367982157,
+          "sample_std": 1.659871477469723e-05,
+          "values": [
+            0.9727914141301152,
+            0.972795866048592,
+            0.9728221302159402
+          ]
+        },
+        "AP_L": {
+          "mean": 0.9196113109977938,
+          "sample_std": 3.177446192187702e-05,
+          "values": [
+            0.9195750622325047,
+            0.9196245224697241,
+            0.9196343482911526
+          ]
+        },
+        "AP_M": {
+          "mean": 0.8616818285902047,
+          "sample_std": 1.8167296963232624e-05,
+          "values": [
+            0.861671182459228,
+            0.8616714977232677,
+            0.8617028055881181
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5953298135431565,
+          "sample_std": 7.937095173571471e-05,
+          "values": [
+            0.5952693691915745,
+            0.5953003732663428,
+            0.5954196981715522
+          ]
+        },
+        "mAP": {
+          "mean": 0.8649259837243258,
+          "sample_std": 2.2648851697699736e-05,
+          "values": [
+            0.864911114104691,
+            0.8649147868060384,
+            0.8649520502622476
+          ]
+        }
+      },
+      "paper_id": "d2_sota_dino_r50",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_sota_dino_r50/d2_sota_dino_r50/6d39c3771407770fd7c8c0ee7ce53b448caf5493932bce64d61192ea29befeae/summary.json",
+          "source_summary_sha256": "b5dbdf462124213b6e21e53f66a04c5e53ebb6c6dd33fe6155421df4332892e4"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_sota_dino_r50/d2_sota_dino_r50/cbe3778a24e7bf487a25b665d0c18d8571ad73252c60e877d0a59657c7693cba/summary.json",
+          "source_summary_sha256": "490247a93d5790d8c82d5fb18231dca48774388ee8e75be3744214d2a343d409"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_sota_dino_r50/d2_sota_dino_r50/1db7f43cb72da6bde2780866cc73e25ce6deb48e651adcc07f7cbbaa0c39a625/summary.json",
+          "source_summary_sha256": "44ff1b7d7816eb672dec8c1ed4d60d31cb2415133ad419375f9336afd986f5ca"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
+      "checkpoint_sha256": "efdbb05f2265d5e45c8c078b4ce43a5298517cdfd18f805b59a2d7e9a36e676a",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9883163996388804,
+          "sample_std": 0.00013612826448159717,
+          "values": [
+            0.9881608824416862,
+            0.9884139497867707,
+            0.9883743666881842
+          ]
+        },
+        "AP75": {
+          "mean": 0.9708587867447878,
+          "sample_std": 0.000354002894613948,
+          "values": [
+            0.9705163208802355,
+            0.970836742937368,
+            0.9712232964167596
+          ]
+        },
+        "AP_L": {
+          "mean": 0.8876174770311948,
+          "sample_std": 0.017400999157883037,
+          "values": [
+            0.8766575925846002,
+            0.9076818448990149,
+            0.8785129936099692
+          ]
+        },
+        "AP_M": {
+          "mean": 0.8571497964771874,
+          "sample_std": 0.0003132864364451781,
+          "values": [
+            0.8569573451352046,
+            0.8575112960669632,
+            0.8569807482293941
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5675824518526356,
+          "sample_std": 0.002535718530457075,
+          "values": [
+            0.5703426126281997,
+            0.5670485409723882,
+            0.565356201957319
+          ]
+        },
+        "mAP": {
+          "mean": 0.8598056049885509,
+          "sample_std": 0.000315801033658722,
+          "values": [
+            0.8595123718775354,
+            0.8601399475406948,
+            0.8597644955474223
+          ]
+        }
+      },
+      "paper_id": "d2_sota_karyoflow",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_sota_karyoflow/d2_sota_karyoflow/082c57fb44bba0043d13e47dd22f95f60c49f21ce8031e8c991a5cb292f56eab/summary.json",
+          "source_summary_sha256": "5cc29f76ce47f3e7470900ec1a61b6c6dc98c8b14b3f328f8e6048ff4344dd92"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_sota_karyoflow/d2_sota_karyoflow/d2a41d60fd235dbbbf0a7a89dbc927c28bbb43a4f0538476c784b3d518e7dea6/summary.json",
+          "source_summary_sha256": "f928668857d22a16880b5807c73d698baf3a14d91eb55fab581e04be1ad3ede9"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_sota_karyoflow/d2_sota_karyoflow/928f4529d6b8ff7b1cf25c89b2e05e0b6375430f57e02bbf8f66c92b54918aa7/summary.json",
+          "source_summary_sha256": "fe32b037683dafeb03e3f2e99bb09f466fdb7ed7017532a6fdcf9e75fc1a036d"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/capr_quality_only_24obj/best_coco_bbox_mAP_epoch_2.pth",
+      "checkpoint_sha256": "93d15a7be24adc82714eaca4d82f0ee7ce3725adcde9476ce942767a1886b3e1",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9881681422518205,
+          "sample_std": 6.10871185500229e-05,
+          "values": [
+            0.9880991120419811,
+            0.9882152175577691,
+            0.9881900971557115
+          ]
+        },
+        "AP75": {
+          "mean": 0.9713870442773592,
+          "sample_std": 0.0002577795579026967,
+          "values": [
+            0.9711910487648961,
+            0.9716790513627305,
+            0.9712910327044508
+          ]
+        },
+        "AP_L": {
+          "mean": 0.8890406994269439,
+          "sample_std": 0.021119520511024833,
+          "values": [
+            0.8871835359777828,
+            0.9110274708780399,
+            0.8689110914250089
+          ]
+        },
+        "AP_M": {
+          "mean": 0.8640069831432234,
+          "sample_std": 0.0003988911674631679,
+          "values": [
+            0.8636336521377888,
+            0.8644272768415122,
+            0.8639600204503691
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5662966863657822,
+          "sample_std": 0.006713117084685096,
+          "values": [
+            0.564795049007266,
+            0.5736334563753587,
+            0.560461553714722
+          ]
+        },
+        "mAP": {
+          "mean": 0.8667995229007858,
+          "sample_std": 0.0004530133863077692,
+          "values": [
+            0.8663170483968876,
+            0.8672157884161388,
+            0.866865731889331
+          ]
+        }
+      },
+      "paper_id": "d2_sota_karyoflow_lqcr",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_sota_karyoflow_lqcr/d2_sota_karyoflow_lqcr/a73f30eefe4e7ecfee4979228b6c4de9a80cef14dc381d13e2845dff152c8301/summary.json",
+          "source_summary_sha256": "234fc6db7b60d5b9a69a975f785354032ae4fb7ee5cd117d3a8b8bff07294c58"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_sota_karyoflow_lqcr/d2_sota_karyoflow_lqcr/1568556e769d1dd64f877d78dadc9af33ea8777c02178abdbb31ad4c9ac302dd/summary.json",
+          "source_summary_sha256": "2710e047768568ea50ab1cbd01ab4f97e7c5de7a6d7ff39a5f5b13ceccbd0912"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_sota_karyoflow_lqcr/d2_sota_karyoflow_lqcr/4cd2145b70b881048ae0ec8e1b7ccc9d4640833ffcdf40a1821144fbb73fdf8c/summary.json",
+          "source_summary_sha256": "54b77863f70f966e81b10033c5c6e92b64df72adeeb66bdbc1e9b238ee16f69b"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/baselines/rtmdet_l_24obj/epoch_86.pth",
+      "checkpoint_sha256": "1a7d57490d0b413354a8bc4a5db05af253fb42493119fbc339fc455d59c07ead",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9890294819021678,
+          "sample_std": 7.643868034404935e-07,
+          "values": [
+            0.9890297771416691,
+            0.9890300546381716,
+            0.9890286139266627
+          ]
+        },
+        "AP75": {
+          "mean": 0.9705726323376984,
+          "sample_std": 1.5080102020712306e-06,
+          "values": [
+            0.9705713930991212,
+            0.970572192565378,
+            0.970574311348596
+          ]
+        },
+        "AP_L": {
+          "mean": 0.871282134467457,
+          "sample_std": 8.957951678885373e-05,
+          "values": [
+            0.8713735449370887,
+            0.8712783527863954,
+            0.8711945056788867
+          ]
+        },
+        "AP_M": {
+          "mean": 0.858429028374652,
+          "sample_std": 2.7865101484565744e-05,
+          "values": [
+            0.8584590369300785,
+            0.8584240778938161,
+            0.8584039703000612
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5724759076485814,
+          "sample_std": 0.0003392625425338658,
+          "values": [
+            0.5726757065718525,
+            0.5726678289632131,
+            0.5720841874106783
+          ]
+        },
+        "mAP": {
+          "mean": 0.8608833005891651,
+          "sample_std": 2.1507750549046236e-05,
+          "values": [
+            0.8609022565505364,
+            0.8608877181825965,
+            0.8608599270343622
+          ]
+        }
+      },
+      "paper_id": "d2_sota_rtmdet_l",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_sota_rtmdet_l/d2_sota_rtmdet_l/b2b663461420946300e2f58a059263a2db3d44a00130762d8d7c0e2770abde9e/summary.json",
+          "source_summary_sha256": "af9d4c068786c882d23e9b9e351346f0137d25a35566540201d9edc878a13b6d"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_sota_rtmdet_l/d2_sota_rtmdet_l/4a5084489313825519c846c972bf224b621f2b7a1e9f20d1ce01a1b84dca526a/summary.json",
+          "source_summary_sha256": "ac6744d629e7b109f6bfaacea2be4e4150ac191079394d023b551f90a6efeff7"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_sota_rtmdet_l/d2_sota_rtmdet_l/6d7bbe716975b24f62f242aea7c9da04a00ecffe73c9ccfe7215be66dee67ab7/summary.json",
+          "source_summary_sha256": "15766b707ad649b7dfbb31b38c084480f59c6c9147e334560a5d21e03b982ad2"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/baselines/yolox_s/best_coco_bbox_mAP_epoch_200.pth",
+      "checkpoint_sha256": "0382008927696f02998ba0ea39fb2e96a130d1ec9f4e2a0c0de21ad95db258a7",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.985410801816692,
+          "sample_std": 1.5847334778787141e-06,
+          "values": [
+            0.9854109244618754,
+            0.9854091593240224,
+            0.9854123216641781
+          ]
+        },
+        "AP75": {
+          "mean": 0.9426948840918971,
+          "sample_std": 4.316139759494906e-05,
+          "values": [
+            0.9426665725866474,
+            0.9426735187205925,
+            0.9427445609684516
+          ]
+        },
+        "AP_L": {
+          "mean": 0.7895139784364398,
+          "sample_std": 1.5950640069187964e-05,
+          "values": [
+            0.7895124952067251,
+            0.7894988212167228,
+            0.7895306188858717
+          ]
+        },
+        "AP_M": {
+          "mean": 0.792781125127146,
+          "sample_std": 4.5424135732266176e-05,
+          "values": [
+            0.7927304721078217,
+            0.7928182438304981,
+            0.792794659443118
+          ]
+        },
+        "AP_S": {
+          "mean": 0.4860795671724349,
+          "sample_std": 0.0,
+          "values": [
+            0.4860795671724349,
+            0.4860795671724349,
+            0.4860795671724349
+          ]
+        },
+        "mAP": {
+          "mean": 0.7951360274421645,
+          "sample_std": 4.875171482119104e-05,
+          "values": [
+            0.7950815472497743,
+            0.7951755419497855,
+            0.7951509931269338
+          ]
+        }
+      },
+      "paper_id": "d2_sota_yolox_s",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_sota_yolox_s/d2_sota_yolox_s/7c7ea5f220e6da27d9cf25527438e085cbc4502f7825ea766a25252d8c95247b/summary.json",
+          "source_summary_sha256": "387a36f53dcb34f1bbfb94c21483a25a75a1114345cd3ad348c40b7bc2d080e4"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_sota_yolox_s/d2_sota_yolox_s/2a2f4a2e830e8bb92147d6cba87cb84e053cb32ca950862a2c194415ca310c62/summary.json",
+          "source_summary_sha256": "dc9c4dc8a6cb7d116e7bb9b10bfad8f631504cf5ff1eb03c505066eefd8bdada"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_sota_yolox_s/d2_sota_yolox_s/7c37f4bda63edbd2f87ecad3c01fc62efec6559d706ddae1cc31ef59b620432b/summary.json",
+          "source_summary_sha256": "48d065b3b49b5b58c50b6219dd677e9ea0a80b5c2cd0844c84b4ef7ba8f23d36"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
+      "checkpoint_sha256": "efdbb05f2265d5e45c8c078b4ce43a5298517cdfd18f805b59a2d7e9a36e676a",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9572872651403079,
+          "sample_std": 0.0012213945680188628,
+          "values": [
+            0.9572978306395802,
+            0.9585033426849565,
+            0.9560606220963874
+          ]
+        },
+        "AP75": {
+          "mean": 0.9364859116272014,
+          "sample_std": 0.001147273154968235,
+          "values": [
+            0.9356019699963437,
+            0.9377824121887703,
+            0.9360733526964902
+          ]
+        },
+        "AP_L": {
+          "mean": 0.8267001775169049,
+          "sample_std": 0.006585160787945648,
+          "values": [
+            0.8224887392240485,
+            0.8342887958263849,
+            0.8233229975002814
+          ]
+        },
+        "AP_M": {
+          "mean": 0.8302515083139997,
+          "sample_std": 0.0012077207845042764,
+          "values": [
+            0.8302864761327082,
+            0.8314413654633628,
+            0.8290266833459281
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5128364214556674,
+          "sample_std": 0.016064497194353794,
+          "values": [
+            0.49784930314082937,
+            0.5297961194019584,
+            0.5108638418242146
+          ]
+        },
+        "mAP": {
+          "mean": 0.8306559758024599,
+          "sample_std": 0.0007525910274785874,
+          "values": [
+            0.8304117931076704,
+            0.8315003374339694,
+            0.8300557968657398
+          ]
+        }
+      },
+      "paper_id": "d2_topk_k100_off",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_topk_k100_off/d2_topk_k100_off/766bdafb0bbcbd73152215f90d296a1d8b286fb8ad6e013f31f97358fae78edf/summary.json",
+          "source_summary_sha256": "38c6be85b706066a4a575c6c328d787c1b545af1ec0bb635cd1278140277d288"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_topk_k100_off/d2_topk_k100_off/a3d11948ea39749c1f8056fc8507142a3c3b535994b30cb2ea3454c8f247253a/summary.json",
+          "source_summary_sha256": "ce88a8b624a2da2ae52c5be5bbb6fda60ca742edcae5476dbc7e7c76cfd7b934"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_topk_k100_off/d2_topk_k100_off/0460bb2d252a2feb6d700a9aad71564515792aa8b707bcb4863c1150d1243212/summary.json",
+          "source_summary_sha256": "61efc760ad82e1ea445f744524a980eb1c434ba82dd6ead4a0dddbefe3e341a0"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
+      "checkpoint_sha256": "efdbb05f2265d5e45c8c078b4ce43a5298517cdfd18f805b59a2d7e9a36e676a",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9766396541250738,
+          "sample_std": 0.0003506945120888097,
+          "values": [
+            0.9762349135277264,
+            0.9768308249838806,
+            0.9768532238636145
+          ]
+        },
+        "AP75": {
+          "mean": 0.9568488741468221,
+          "sample_std": 0.0003639258205839324,
+          "values": [
+            0.9566866662902853,
+            0.9572656988837188,
+            0.9565942572664624
+          ]
+        },
+        "AP_L": {
+          "mean": 0.8432358084404142,
+          "sample_std": 0.00731604099300433,
+          "values": [
+            0.848400708046757,
+            0.8464427726709445,
+            0.8348639446035414
+          ]
+        },
+        "AP_M": {
+          "mean": 0.8460639618194646,
+          "sample_std": 0.0007378764949409051,
+          "values": [
+            0.8456105368911799,
+            0.8456659614715134,
+            0.8469153870957005
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5354772009218487,
+          "sample_std": 0.013057653101694475,
+          "values": [
+            0.536636696420912,
+            0.5479164386229937,
+            0.5218784677216404
+          ]
+        },
+        "mAP": {
+          "mean": 0.8479644804523229,
+          "sample_std": 0.0005205333232876194,
+          "values": [
+            0.8476761960187288,
+            0.8476518689010311,
+            0.8485653764372088
+          ]
+        }
+      },
+      "paper_id": "d2_topk_k100_on",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_topk_k100_on/d2_topk_k100_on/3a2992a83de487fde6a5c96b1c366950e32ef17e670d8b1b3c85981839f77ab9/summary.json",
+          "source_summary_sha256": "718f48ed6c891a58be95696975e810631eca025ccd44c7000172ead5c3448d08"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_topk_k100_on/d2_topk_k100_on/a9f3f2b8fb0f7bc9ed70a42d35a48119189ee50dc277e2fdae21bfa2eba50114/summary.json",
+          "source_summary_sha256": "2cbd6deab7bcedf896c61bda333b7df78e5f8c0e5e223be68738bac0d4881139"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_topk_k100_on/d2_topk_k100_on/fd4d93e6e46e34bfaaa8f84cc99d396257bdd599418ecceb20af2b1e0c8ddee9/summary.json",
+          "source_summary_sha256": "9e4f878511ac65fded58ab6c8ee092b0cbd412c2168210d329da0aaeb792dee8"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
+      "checkpoint_sha256": "efdbb05f2265d5e45c8c078b4ce43a5298517cdfd18f805b59a2d7e9a36e676a",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9880579014334123,
+          "sample_std": 0.00012878497156410592,
+          "values": [
+            0.9879610717882346,
+            0.9882040586918305,
+            0.9880085738201722
+          ]
+        },
+        "AP75": {
+          "mean": 0.9703236142471549,
+          "sample_std": 0.0005093008966704287,
+          "values": [
+            0.9699210394426052,
+            0.9708961664449673,
+            0.9701536368538918
+          ]
+        },
+        "AP_L": {
+          "mean": 0.899183017422812,
+          "sample_std": 0.024290605240409966,
+          "values": [
+            0.9118806921298034,
+            0.8711752258996893,
+            0.9144931342389435
+          ]
+        },
+        "AP_M": {
+          "mean": 0.8565400194397781,
+          "sample_std": 0.0002444152810122872,
+          "values": [
+            0.8562581622030035,
+            0.8566934461840515,
+            0.8566684499322793
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5636312492468236,
+          "sample_std": 0.0016753892042813965,
+          "values": [
+            0.5630662097808405,
+            0.5623114341873222,
+            0.5655161037723083
+          ]
+        },
+        "mAP": {
+          "mean": 0.8590191656221688,
+          "sample_std": 0.00024652148607855575,
+          "values": [
+            0.8587587886194384,
+            0.8590497262888933,
+            0.8592489819581749
+          ]
+        }
+      },
+      "paper_id": "d2_topk_k200_on",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_topk_k200_on/d2_topk_k200_on/66316f3a788790cff044b63353cbeaccc29c9f58d18bf2fae9991c2314f4d754/summary.json",
+          "source_summary_sha256": "9cd2d2f6c3258e2672111f920becd4b0b2d1a04bd37311325db50c7d9bf60a65"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_topk_k200_on/d2_topk_k200_on/8df43796bbe2b1b42ae54b9007508419004314090a29a94c93c517ed765a70ed/summary.json",
+          "source_summary_sha256": "022c77a299ad3740ad76c86fce3247029b0f4d082cb60fdd60b0087643d8d5d5"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_topk_k200_on/d2_topk_k200_on/fc8241063d35451ad9688c052e9fc1a14320b1105f4181dc6ca54757a13bbfd6/summary.json",
+          "source_summary_sha256": "b4160895684d2d8693ae4c9773aa02972dbd5bad536ec19baabe18fbb5a349ad"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
+      "checkpoint_sha256": "efdbb05f2265d5e45c8c078b4ce43a5298517cdfd18f805b59a2d7e9a36e676a",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9881650986851124,
+          "sample_std": 6.474197531515299e-05,
+          "values": [
+            0.988207043748377,
+            0.9880905352762852,
+            0.9881977170306746
+          ]
+        },
+        "AP75": {
+          "mean": 0.970718341141017,
+          "sample_std": 0.0003880734986200945,
+          "values": [
+            0.9706319063009741,
+            0.9703807727890468,
+            0.9711423443330301
+          ]
+        },
+        "AP_L": {
+          "mean": 0.8910258762713013,
+          "sample_std": 0.021482491191317434,
+          "values": [
+            0.866570489159894,
+            0.8996552426172523,
+            0.9068518970367573
+          ]
+        },
+        "AP_M": {
+          "mean": 0.856908400481467,
+          "sample_std": 0.0002164333831665087,
+          "values": [
+            0.8567197427387139,
+            0.8571446786445761,
+            0.856860780061111
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5721946228096901,
+          "sample_std": 0.0026916093961192027,
+          "values": [
+            0.5694784971967923,
+            0.5748610270786394,
+            0.5722443441536387
+          ]
+        },
+        "mAP": {
+          "mean": 0.8593962092409284,
+          "sample_std": 9.635857711244246e-05,
+          "values": [
+            0.8593002903238788,
+            0.8594930015408323,
+            0.8593953358580741
+          ]
+        }
+      },
+      "paper_id": "d2_topk_k500_off",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_topk_k500_off/d2_topk_k500_off/d1f102f3162c78450f3745d1392eba195aff45b6db4f5e013aa099b0b6b790e1/summary.json",
+          "source_summary_sha256": "1d04507eb6d2997c157e345d145051e847e7e85959929414b4c56f6b774fea6f"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_topk_k500_off/d2_topk_k500_off/8e85d956248b2f27bf70b0fa114031eaff46b5aff7298663559a4088e064fc55/summary.json",
+          "source_summary_sha256": "30dfd7dcc9f7778e4d657c24b120a769edf45e81f7f36f2574e82baa876af07a"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_topk_k500_off/d2_topk_k500_off/f979d7cc5d87d52973bef3d0f8e789f04a0b2da997306ba785608b240a970d87/summary.json",
+          "source_summary_sha256": "d25a8e9e2a55d5be357a8270b3d6b172967a4ca46113f9a3fcc58f1e3e5c769d"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "checkpoint": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
+      "checkpoint_sha256": "efdbb05f2265d5e45c8c078b4ce43a5298517cdfd18f805b59a2d7e9a36e676a",
+      "dataset": "D2",
+      "metrics": {
+        "AP50": {
+          "mean": 0.9882912612115735,
+          "sample_std": 6.452199666958732e-05,
+          "values": [
+            0.9882215819824873,
+            0.9883032602519188,
+            0.9883489414003146
+          ]
+        },
+        "AP75": {
+          "mean": 0.9708290599263322,
+          "sample_std": 0.0003814994773673152,
+          "values": [
+            0.9705091452286907,
+            0.9707267525407601,
+            0.971251282009546
+          ]
+        },
+        "AP_L": {
+          "mean": 0.886371113631719,
+          "sample_std": 0.01828616270270757,
+          "values": [
+            0.8760240178213501,
+            0.9074847666999247,
+            0.8756045563738821
+          ]
+        },
+        "AP_M": {
+          "mean": 0.8571388056865565,
+          "sample_std": 0.00029283046611423716,
+          "values": [
+            0.8569173362976087,
+            0.8574708165980173,
+            0.8570282641640438
+          ]
+        },
+        "AP_S": {
+          "mean": 0.5734471508087804,
+          "sample_std": 0.004350979627285263,
+          "values": [
+            0.578273566338171,
+            0.5722423753219954,
+            0.569825510766175
+          ]
+        },
+        "mAP": {
+          "mean": 0.8598019910199796,
+          "sample_std": 0.0003686799773519275,
+          "values": [
+            0.8594450055666837,
+            0.8601813467977384,
+            0.8597796206955168
+          ]
+        }
+      },
+      "paper_id": "d2_topk_k500_on",
+      "replication_unit": "inference_seed_fixed_checkpoint",
+      "runs": [
+        {
+          "seed": 42,
+          "source_summary": "results/paper_test_multiseed/d2_topk_k500_on/d2_topk_k500_on/33d89f5342e4a85f402dd830a3b3ac7c93db3c7c896e0743a7992ffbbf2ee6fb/summary.json",
+          "source_summary_sha256": "67c55ea0a96532773cba2ccc62316bedba51989c80bd9da2502bb1a5491a3c64"
+        },
+        {
+          "seed": 123,
+          "source_summary": "results/paper_test_multiseed/d2_topk_k500_on/d2_topk_k500_on/fad32dfaebea730262b6d989b017ae5c7ada3c858a3c93aae63122bedd6baa1f/summary.json",
+          "source_summary_sha256": "60a3ba9c8e73ae786bebda83ce3ee7ecfa3286424318505a5a37674c791bc6e1"
+        },
+        {
+          "seed": 789,
+          "source_summary": "results/paper_test_multiseed/d2_topk_k500_on/d2_topk_k500_on/64e328e2daa0efdd59ea3e0dd0e0fb55213aa33d8dcf70eaa2672ccd5a711de9/summary.json",
+          "source_summary_sha256": "cf15afd5bf4387154cafc7d8fb065808278ffcb248e63f4e359cc345039ab0f5"
+        }
+      ],
+      "seeds": [
+        42,
+        123,
+        789
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "warning": "Inference-seed replication does not estimate training-seed uncertainty."
+}
