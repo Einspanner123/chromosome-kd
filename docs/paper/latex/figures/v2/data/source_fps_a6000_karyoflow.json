@@ -8,10 +8,10 @@
     "backbone_neck_ms": 5.617590712547302,
     "head_ms": 114.72314730930329,
     "known_mAP": 0.8565748226992792,
-    "config": "experiments/configs/ldmdet/directions/mainline_ablation_24obj/a1_rf_heun_24obj.py",
-    "checkpoint": "work_dirs/a1_rf_heun_24obj/best_coco_bbox_mAP_epoch_62.pth",
-    "latency_source": "results/audit_20260811/a1_correct/benchmark_fps_20260811_155452.json",
-    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_inference_ablations_b81d6a3d498a.json:heun_4",
+    "config": "evidence-record-source_fps_a6000_karyoflow-01",
+    "checkpoint": "evidence-record-source_fps_a6000_karyoflow-02",
+    "latency_source": "evidence-record-source_fps_a6000_karyoflow-03",
+    "accuracy_source": "evidence-record-source_fps_a6000_karyoflow-04",
     "protocol": "Accuracy: held-out cohort, seed 42. Latency: RTX A6000; 512x512; batch 1; warmup 10; 500 CUDA-event model-forward iterations"
   },
   {
@@ -23,10 +23,10 @@
     "backbone_neck_ms": 5.492664046287537,
     "head_ms": 69.70437283420563,
     "known_mAP": 0.8593602808574444,
-    "config": "experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_dpm_pp_24obj.py",
-    "checkpoint": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
-    "latency_source": "results/audit_20260811/a4_best117/benchmark_fps_20260811_160117.json",
-    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_unified_f737cc0038ca.json:karyoflow",
+    "config": "evidence-record-source_fps_a6000_karyoflow-05",
+    "checkpoint": "evidence-record-source_fps_a6000_karyoflow-06",
+    "latency_source": "evidence-record-source_fps_a6000_karyoflow-07",
+    "accuracy_source": "evidence-record-source_fps_a6000_karyoflow-08",
     "protocol": "Accuracy: held-out cohort, seed 42. Latency: RTX A6000; 512x512; batch 1; warmup 10; 500 CUDA-event model-forward iterations"
   },
   {
@@ -35,13 +35,13 @@
     "total_ms": 77.68,
     "std_ms": 1.14,
     "fps": 12.9,
-    "backbone_neck_ms": 5.80,
+    "backbone_neck_ms": 5.8,
     "head_ms": 71.88,
     "known_mAP": 0.8662877273195254,
-    "config": "experiments/configs/ldmdet/directions/capr/capr_quality_final_only_24obj.py",
-    "checkpoint": "work_dirs/capr_quality_only_24obj/best_coco_bbox_mAP_epoch_2.pth",
-    "latency_source": "results/audit_20260811/lqcr_same_protocol/benchmark_fps_20260811_184458.json",
-    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_unified_f737cc0038ca.json:karyoflow_lqcr",
+    "config": "evidence-record-source_fps_a6000_karyoflow-09",
+    "checkpoint": "evidence-record-source_fps_a6000_karyoflow-10",
+    "latency_source": "evidence-record-source_fps_a6000_karyoflow-11",
+    "accuracy_source": "evidence-record-source_fps_a6000_karyoflow-12",
     "protocol": "Accuracy: held-out cohort, seed 42. Latency: RTX A6000; 512x512; batch 1; warmup 10; 500 CUDA-event model-forward iterations"
   },
   {
@@ -53,10 +53,10 @@
     "backbone_neck_ms": 5.547838335990906,
     "head_ms": 65.29619190692902,
     "known_mAP": 0.8596773368228205,
-    "config": "experiments/configs/ldmdet/directions/inference_opt/a4_io3_eval_k300_24obj.py",
-    "checkpoint": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
-    "latency_source": "results/audit_20260811/a4_best117/benchmark_fps_20260811_160117.json",
-    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_inference_ablations_6dd1dcb1cc91.json:k300_renewal_on",
+    "config": "evidence-record-source_fps_a6000_karyoflow-13",
+    "checkpoint": "evidence-record-source_fps_a6000_karyoflow-14",
+    "latency_source": "evidence-record-source_fps_a6000_karyoflow-15",
+    "accuracy_source": "evidence-record-source_fps_a6000_karyoflow-16",
     "protocol": "Accuracy: held-out cohort, seed 42; latency uses the same A4 checkpoint and RTX A6000 protocol"
   },
   {
@@ -68,10 +68,10 @@
     "backbone_neck_ms": 5.640495429039001,
     "head_ms": 64.92804753971099,
     "known_mAP": 0.8589109086136651,
-    "config": "experiments/configs/ldmdet/directions/inference_opt/a4_io3_eval_k200_24obj.py",
-    "checkpoint": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
-    "latency_source": "results/audit_20260811/a4_best117/benchmark_fps_20260811_160117.json",
-    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_inference_ablations_6dd1dcb1cc91.json:k200_renewal_on",
+    "config": "evidence-record-source_fps_a6000_karyoflow-17",
+    "checkpoint": "evidence-record-source_fps_a6000_karyoflow-18",
+    "latency_source": "evidence-record-source_fps_a6000_karyoflow-19",
+    "accuracy_source": "evidence-record-source_fps_a6000_karyoflow-20",
     "protocol": "Accuracy: held-out cohort, seed 42; latency uses the same A4 checkpoint and RTX A6000 protocol"
   },
   {
@@ -83,10 +83,10 @@
     "backbone_neck_ms": 5.573622785568237,
     "head_ms": 63.32530674934387,
     "known_mAP": 0.8476735270481536,
-    "config": "experiments/configs/ldmdet/directions/inference_opt/a4_io3_eval_k100_24obj.py",
-    "checkpoint": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
-    "latency_source": "results/audit_20260811/a4_best117/benchmark_fps_20260811_160117.json",
-    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_inference_ablations_6dd1dcb1cc91.json:k100_renewal_on",
+    "config": "evidence-record-source_fps_a6000_karyoflow-21",
+    "checkpoint": "evidence-record-source_fps_a6000_karyoflow-22",
+    "latency_source": "evidence-record-source_fps_a6000_karyoflow-23",
+    "accuracy_source": "evidence-record-source_fps_a6000_karyoflow-24",
     "protocol": "Accuracy: held-out cohort, seed 42; latency uses the same A4 checkpoint and RTX A6000 protocol"
   },
   {
@@ -98,10 +98,10 @@
     "backbone_neck_ms": 5.89854169845581,
     "head_ms": 14.857444091796877,
     "known_mAP": 0.8526473599001332,
-    "config": "experiments/configs/baselines/benchmark_24obj/cascade_rcnn_r50.py",
-    "checkpoint": "work_dirs/baselines/cascade_rcnn_r50/best_coco_bbox_mAP_epoch_72.pth",
-    "latency_source": "results/audit_20260811/benchmark_fps_20260811_151423.json",
-    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_unified_f737cc0038ca.json:cascade_rcnn"
+    "config": "evidence-record-source_fps_a6000_karyoflow-25",
+    "checkpoint": "evidence-record-source_fps_a6000_karyoflow-26",
+    "latency_source": "evidence-record-source_fps_a6000_karyoflow-27",
+    "accuracy_source": "evidence-record-source_fps_a6000_karyoflow-28"
   },
   {
     "name": "yolox_s",
@@ -112,10 +112,10 @@
     "backbone_neck_ms": 7.206171138763428,
     "head_ms": 2.8288613872528083,
     "known_mAP": 0.7951424981859805,
-    "config": "experiments/configs/baselines/benchmark_24obj/yolox_s.py",
-    "checkpoint": "work_dirs/baselines/yolox_s/best_coco_bbox_mAP_epoch_200.pth",
-    "latency_source": "results/audit_20260811/benchmark_fps_20260811_151423.json",
-    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_unified_f737cc0038ca.json:yolox_s"
+    "config": "evidence-record-source_fps_a6000_karyoflow-29",
+    "checkpoint": "evidence-record-source_fps_a6000_karyoflow-30",
+    "latency_source": "evidence-record-source_fps_a6000_karyoflow-31",
+    "accuracy_source": "evidence-record-source_fps_a6000_karyoflow-32"
   },
   {
     "name": "diffusiondet",
@@ -126,10 +126,10 @@
     "backbone_neck_ms": 5.9236055784225465,
     "head_ms": 18.16189815235138,
     "known_mAP": 0.8036371391074026,
-    "config": "experiments/configs/baselines/benchmark_24obj/diffusiondet_ddpm.py",
-    "checkpoint": "work_dirs/baselines/diffusiondet_24obj/best_coco_bbox_mAP_epoch_26.pth",
-    "latency_source": "results/audit_20260811/benchmark_fps_20260811_151423.json",
-    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_unified_f737cc0038ca.json:diffusiondet"
+    "config": "evidence-record-source_fps_a6000_karyoflow-33",
+    "checkpoint": "evidence-record-source_fps_a6000_karyoflow-34",
+    "latency_source": "evidence-record-source_fps_a6000_karyoflow-35",
+    "accuracy_source": "evidence-record-source_fps_a6000_karyoflow-36"
   },
   {
     "name": "rtmdet_l",
@@ -140,9 +140,9 @@
     "backbone_neck_ms": 13.010487361907959,
     "head_ms": 20.818490970611574,
     "known_mAP": 0.8608964735797365,
-    "config": "experiments/configs/baselines/benchmark_24obj/rtmdet_l.py",
-    "checkpoint": "work_dirs/baselines/rtmdet_l_24obj/epoch_86.pth",
-    "latency_source": "results/audit_20260811/benchmark_fps_20260811_151423.json",
-    "accuracy_source": "tools/experiment_db/evidence_sources/d2_test_unified_f737cc0038ca.json:rtmdet_l"
+    "config": "evidence-record-source_fps_a6000_karyoflow-37",
+    "checkpoint": "evidence-record-source_fps_a6000_karyoflow-38",
+    "latency_source": "evidence-record-source_fps_a6000_karyoflow-39",
+    "accuracy_source": "evidence-record-source_fps_a6000_karyoflow-40"
   }
 ]

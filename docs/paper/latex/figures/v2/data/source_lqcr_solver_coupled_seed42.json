@@ -1,6 +1,6 @@
 {
-  "config": "experiments/configs/ldmdet/directions/capr/capr_quality_only_24obj.py",
-  "checkpoint": "work_dirs/capr_quality_only_24obj/best_coco_bbox_mAP_epoch_2.pth",
+  "config": "evidence-record-source_lqcr_solver_coupled_seed42-01",
+  "checkpoint": "evidence-record-source_lqcr_solver_coupled_seed42-02",
   "annotation": "data/24_chromosomes_object/coco/valid/_annotations.coco.json",
   "seed": 42,
   "num_images": 500,

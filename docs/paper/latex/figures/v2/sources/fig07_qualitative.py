@@ -1,7 +1,7 @@
 """Figure 7: cross-dataset scale shift and small-object performance.
 
 The former selected-case mosaic was not an accuracy estimator.  This rebuild
-uses all training annotations for the scale distribution and complete-split
+uses all held-out test annotations for the scale distribution and complete-split
 COCO AP_S exports for within-dataset detector comparisons.
 """
 
@@ -22,8 +22,8 @@ from figure_style_v2 import (
 ROOT = Path(__file__).resolve().parents[6]
 DATA_FILE = Path(__file__).resolve().parents[1] / "data" / "source_small_object_cross_dataset.json"
 ANNOTATIONS = {
-    "Dataset 1": ROOT / "data/Chromosome20240904_NoAug_NoResize_coco/train/_annotations.coco.json",
-    "Dataset 2": ROOT / "data/24_chromosomes_object/coco/train/_annotations.coco.json",
+    "Dataset 1": ROOT / "data/Chromosome20240904_NoAug_NoResize_coco/test/_annotations.coco.json",
+    "Dataset 2": ROOT / "data/24_chromosomes_object/coco/test/_annotations.coco.json",
 }
 
 
@@ -114,7 +114,7 @@ def main() -> None:
     ax.legend(loc="lower right", frameon=False, fontsize=6.5)
     panel_title(ax, "a", "A 2.3x object-scale shift")
     ax.text(0.0, -0.27,
-            f"All training boxes: D1 n={len(areas['Dataset 1']):,}; "
+            f"All annotated boxes: D1 n={len(areas['Dataset 1']):,}; "
             f"D2 n={len(areas['Dataset 2']):,}",
             transform=ax.transAxes, ha="left", va="top", fontsize=5.9, color=C_MUTED)
 

@@ -1,6 +1,6 @@
 {
-  "config": "experiments/configs/ldmdet/a4_dpm_pp_chr2024.py",
-  "checkpoint": "work_dirs/a4_dpm_pp_chr2024_seed42/best_coco_bbox_mAP_epoch_49.pth",
+  "config": "evidence-record-source_precision_chr2024_seed42_100-01",
+  "checkpoint": "evidence-record-source_precision_chr2024_seed42_100-02",
   "annotation": "data/Chromosome20240904_NoAug_NoResize_coco/valid/_annotations.coco.json",
   "seed": 42,
   "num_images": 100,

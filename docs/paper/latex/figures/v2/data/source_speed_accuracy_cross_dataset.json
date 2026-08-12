@@ -1,20 +1,83 @@
 {
-  "description": "Cross-dataset speed--accuracy operating points; accuracy uses locked held-out evaluation and latency uses the common Ross RTX A6000 protocol",
+  "description": "Csingle-dataset speed--accuracy operating points; accuracy uses held-out evaluation and latency uses one RTX A6000 protocol",
   "rows": [
-    {"id": "lqcr", "label": "KaryoFlow+LQCR", "family": "ours_lqcr", "fps": 12.9, "d1_mAP": 0.7468574747013349, "d2_mAP": 0.8667995229007858},
-    {"id": "k500", "label": "K=500", "family": "ours", "fps": 13.298396339595792, "d1_mAP": 0.7401620193556089, "d2_mAP": 0.8598056049885509},
-    {"id": "k200", "label": "K=200", "family": "ours", "fps": 14.170619909820612, "d1_mAP": 0.7364144779260857, "d2_mAP": 0.8590191656221688},
-    {"id": "k100", "label": "K=100", "family": "ours", "fps": 14.5140135957161, "d1_mAP": 0.7065170086092049, "d2_mAP": 0.8479644804523229},
-    {"id": "dino", "label": "DINO R50", "family": "standard", "fps": 29.125377335649073, "d1_mAP": 0.7247520104465707, "d2_mAP": 0.8649259837243258},
-    {"id": "rtmdet", "label": "RTMDet-L", "family": "standard", "fps": 29.560455245516764, "d1_mAP": 0.7318660100849197, "d2_mAP": 0.8608833005891651},
-    {"id": "cascade", "label": "Cascade R-CNN", "family": "standard", "fps": 48.17887283723303, "d1_mAP": 0.7235412212409424, "d2_mAP": 0.8526697512141564},
-    {"id": "diffusiondet", "label": "DiffusionDet", "family": "diffusion", "fps": 41.51874966693369, "d1_mAP": 0.7136428433408564, "d2_mAP": 0.8033450147552310},
-    {"id": "yolox", "label": "YOLOX-S", "family": "standard", "fps": 99.65089773326183, "d1_mAP": 0.5810922323591741, "d2_mAP": 0.7951360274421645}
+    {
+      "id": "lqcr",
+      "label": "KaryoFlow+LQCR",
+      "family": "ours_lqcr",
+      "fps": 12.9,
+      "d1_mAP": 0.7468574747013349,
+      "d2_mAP": 0.8667995229007858
+    },
+    {
+      "id": "k500",
+      "label": "K=500",
+      "family": "ours",
+      "fps": 13.298396339595792,
+      "d1_mAP": 0.7401620193556089,
+      "d2_mAP": 0.8598056049885509
+    },
+    {
+      "id": "k200",
+      "label": "K=200",
+      "family": "ours",
+      "fps": 14.170619909820612,
+      "d1_mAP": 0.7364144779260857,
+      "d2_mAP": 0.8590191656221688
+    },
+    {
+      "id": "k100",
+      "label": "K=100",
+      "family": "ours",
+      "fps": 14.5140135957161,
+      "d1_mAP": 0.7065170086092049,
+      "d2_mAP": 0.8479644804523229
+    },
+    {
+      "id": "dino",
+      "label": "DINO R50",
+      "family": "standard",
+      "fps": 29.125377335649073,
+      "d1_mAP": 0.7247520104465707,
+      "d2_mAP": 0.8649259837243258
+    },
+    {
+      "id": "rtmdet",
+      "label": "RTMDet-L",
+      "family": "standard",
+      "fps": 29.560455245516764,
+      "d1_mAP": 0.7318660100849197,
+      "d2_mAP": 0.8608833005891651
+    },
+    {
+      "id": "cascade",
+      "label": "Cascade R-CNN",
+      "family": "standard",
+      "fps": 48.17887283723303,
+      "d1_mAP": 0.7235412212409424,
+      "d2_mAP": 0.8526697512141564
+    },
+    {
+      "id": "diffusiondet",
+      "label": "DiffusionDet",
+      "family": "diffusion",
+      "fps": 41.51874966693369,
+      "d1_mAP": 0.7136428433408564,
+      "d2_mAP": 0.803345014755231
+    },
+    {
+      "id": "yolox",
+      "label": "YOLOX-S",
+      "family": "standard",
+      "fps": 99.65089773326183,
+      "d1_mAP": 0.5810922323591741,
+      "d2_mAP": 0.7951360274421645
+    }
   ],
   "provenance": {
-    "d1_accuracy": "tools/experiment_db/evidence_sources/d1_test_unified_64973f1cb4e0.json, tools/experiment_db/evidence_sources/d1_test_unified_742d7d56fd05.json, and tools/experiment_db/evidence_sources/lqcr_cross_dataset_20260811.json",
-    "d2_accuracy": "tools/experiment_db/evidence_sources/d2_test_unified_f737cc0038ca.json and tools/experiment_db/evidence_sources/d2_test_inference_ablations_6dd1dcb1cc91.json",
-    "latency": "results/audit_20260811, RTX A6000, 512x512, batch 1, 10 warm-up and 500 CUDA-event model-forward iterations"
+    "d1_accuracy": "D1-three-inference-seed-aggregate",
+    "d2_accuracy": "D2-three-inference-seed-aggregate",
+    "latency": "RTX-A6000-standardized-latency-benchmark"
   },
-  "boundary": "All plotted accuracy points are held-out-test three-inference-seed means from a fixed checkpoint. Independent training-seed results are reported separately in the manuscript."
+  "boundary": "All plotted accuracy points are held-out-test three-inference-seed means from fixed trained models. Independent training-seed results are reported separately in the manuscript."
 }

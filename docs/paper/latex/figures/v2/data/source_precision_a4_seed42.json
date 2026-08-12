@@ -1,6 +1,6 @@
 {
-  "config": "experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_dpm_pp_24obj.py",
-  "checkpoint": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
+  "config": "evidence-record-source_precision_a4_seed42-01",
+  "checkpoint": "evidence-record-source_precision_a4_seed42-02",
   "annotation": "data/24_chromosomes_object/coco/valid/_annotations.coco.json",
   "seed": 42,
   "num_images": 500,
