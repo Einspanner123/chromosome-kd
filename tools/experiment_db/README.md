@@ -19,6 +19,13 @@ This separation prevents three recurring errors: treating a best checkpoint
 as proof that training completed, double-counting evaluations after a refresh,
 and promoting a diagnostic/oracle result to a method result.
 
+The mandatory run identity, evidence record, replication-unit definitions,
+aggregation rules, and paper export gate are specified in
+[`EXPERIMENT_EVIDENCE_STANDARD.md`](EXPERIMENT_EVIDENCE_STANDARD.md). New
+paper-facing evidence must pass `validate_run_evidence.py`; legacy rows are
+being migrated to the same contract and must not be promoted merely because
+they already exist in the database.
+
 ## Refresh and audit
 
 ```bash

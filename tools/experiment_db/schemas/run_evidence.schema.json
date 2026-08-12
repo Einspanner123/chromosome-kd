@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://karyoflow.local/schemas/run-evidence-v1.json",
+  "title": "KaryoFlow run evidence",
+  "type": "object",
+  "required": [
+    "schema_version", "record_id", "record_type", "dataset_id", "split",
+    "annotation", "num_images", "training_seed", "replication_unit", "config",
+    "checkpoint", "source_log", "code", "evaluation_protocol", "selection_source",
+    "status", "metrics"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "record_id": {"type": "string", "minLength": 12},
+    "record_type": {"enum": ["evaluation", "aggregate", "efficiency"]},
+    "dataset_id": {"type": "string", "minLength": 1},
+    "split": {"enum": ["train", "val", "test"]},
+    "annotation": {"$ref": "#/$defs/artifact"},
+    "num_images": {"type": "integer", "minimum": 1},
+    "training_seed": {"type": "integer"},
+    "inference_seed": {"type": ["integer", "null"]},
+    "replication_unit": {
+      "enum": [
+        "independent_training_seed", "fixed_checkpoint_inference_seed",
+        "paired_final_stage_intervention", "hardware_efficiency_repeat",
+        "deterministic_evaluation"
+      ]
+    },
+    "train_run_id": {"type": "string"},
+    "parent_train_run_id": {"type": ["string", "null"]},
+    "parent_checkpoint_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "config": {"$ref": "#/$defs/artifact"},
+    "checkpoint": {"$ref": "#/$defs/artifact"},
+    "source_log": {"$ref": "#/$defs/artifact"},
+    "code": {
+      "type": "object",
+      "required": ["git_commit", "dirty"],
+      "properties": {
+        "git_commit": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"},
+        "dirty": {"type": "boolean"},
+        "diff_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]}
+      },
+      "additionalProperties": false
+    },
+    "protocol_sha256": {"$ref": "#/$defs/sha256"},
+    "evaluation_protocol": {
+      "type": "object",
+      "required": ["metric_definition", "max_dets", "eval_code_version", "candidate_count", "solver", "steps", "nfe"],
+      "properties": {
+        "metric_definition": {"type": "string", "minLength": 1},
+        "max_dets": {"type": "array", "items": {"type": "integer", "minimum": 1}, "minItems": 1},
+        "eval_code_version": {"type": "string", "minLength": 1},
+        "candidate_count": {"type": "integer", "minimum": 1},
+        "solver": {"type": "string", "minLength": 1},
+        "steps": {"type": "integer", "minimum": 1},
+        "nfe": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": true
+    },
+    "selection_source": {"type": "string", "minLength": 1},
+    "test_tuned": {"type": "boolean", "default": false},
+    "status": {"enum": ["planned", "running", "trained", "test_evaluated", "verified", "paper_eligible", "failed", "invalid", "superseded"]},
+    "exclusion_reason": {"type": ["string", "null"]},
+    "metrics": {
+      "type": "object",
+      "required": ["mAP", "AP50", "AP75", "AP_S", "AP_M", "AP_L"],
+      "properties": {
+        "mAP": {"$ref": "#/$defs/metric"}, "AP50": {"$ref": "#/$defs/metric"},
+        "AP75": {"$ref": "#/$defs/metric"}, "AP_S": {"$ref": "#/$defs/metric"},
+        "AP_M": {"$ref": "#/$defs/metric"}, "AP_L": {"$ref": "#/$defs/metric"}
+      },
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "artifact": {
+      "type": "object", "required": ["path", "sha256"],
+      "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha256"}},
+      "additionalProperties": false
+    },
+    "metric": {"type": "number", "minimum": 0, "maximum": 1}
+  },
+  "additionalProperties": false
+}
