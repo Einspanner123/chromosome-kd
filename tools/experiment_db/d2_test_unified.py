@@ -128,6 +128,33 @@ MODEL_SETS = {
         "training_seed": 1342286018,
         "replication_unit": "independent_training_seed",
     },
+    "karyoflow_lqcr_trainrun_0": {
+        "label": "KaryoFlow+LQCR (train run 0)",
+        "config": "experiments/configs/ldmdet/directions/capr/capr_quality_final_only_24obj.py",
+        "checkpoint": "work_dirs/capr_quality_only_24obj/best_coco_bbox_mAP_epoch_2.pth",
+        "training_seed": 335778785,
+        "replication_unit": "paired_final_stage_intervention",
+        "parent_model_id": "karyoflow_trainrun_0",
+        "parent_checkpoint": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
+    },
+    "karyoflow_lqcr_trainrun_1": {
+        "label": "KaryoFlow+LQCR (train run 1)",
+        "config": "experiments/configs/ldmdet/directions/capr/paper_train3_lqcr_run1_test.py",
+        "checkpoint": "work_dirs/paper_d2_lqcr_trainrun_1/best_coco_bbox_mAP.pth",
+        "training_seed": 790448076,
+        "replication_unit": "paired_final_stage_intervention",
+        "parent_model_id": "karyoflow_trainrun_1",
+        "parent_checkpoint": "work_dirs/multi_seed/a4_dpm_pp_24obj/seed_123/best_coco_bbox_mAP_epoch_62.pth",
+    },
+    "karyoflow_lqcr_trainrun_2": {
+        "label": "KaryoFlow+LQCR (train run 2)",
+        "config": "experiments/configs/ldmdet/directions/capr/paper_train3_lqcr_run2_test.py",
+        "checkpoint": "work_dirs/paper_d2_lqcr_trainrun_2/best_coco_bbox_mAP.pth",
+        "training_seed": 1342286018,
+        "replication_unit": "paired_final_stage_intervention",
+        "parent_model_id": "karyoflow_trainrun_2",
+        "parent_checkpoint": "work_dirs/multi_seed/a4_dpm_pp_24obj/seed_789/best_coco_bbox_mAP_epoch_72.pth",
+    },
     "karyoflow": {
         "label": "KaryoFlow",
         "config": "experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_dpm_pp_24obj.py",
@@ -323,7 +350,7 @@ def protocol_for(name: str, model: dict, cfg_text: str, profile: dict,
                  code_sha: str) -> dict:
     checkpoint = ROOT / model["checkpoint"]
     config = ROOT / model["config"]
-    return {
+    protocol = {
         "version": PROTOCOL_VERSION,
         "model_id": name,
         "model_label": model["label"],
@@ -350,6 +377,14 @@ def protocol_for(name: str, model: dict, cfg_text: str, profile: dict,
         "test_batch_size": 1,
         "deterministic_seed": True,
     }
+    if model.get("parent_checkpoint"):
+        parent = ROOT / model["parent_checkpoint"]
+        protocol.update({
+            "parent_model_id": model["parent_model_id"],
+            "parent_checkpoint_path": model["parent_checkpoint"],
+            "parent_checkpoint_sha256": sha256_file(parent),
+        })
+    return protocol
 
 
 def canonical_hash(data: dict) -> str:
