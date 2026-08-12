@@ -740,11 +740,24 @@ def upsert_stability(conn, experiment_id, stability_info):
 
 # ─── 主流程 ─────────────────────────────────────────────────
 
-def extract_seed_from_path(work_dir):
-    """从 work_dir 路径提取 seed."""
-    m = re.search(r'seed[_/](\d+)', work_dir)
-    if m:
-        return int(m.group(1))
+def extract_seed_from_path(work_dir, config_path=None):
+    """Extract an explicit run seed without mistaking timestamps for seeds."""
+    for part in reversed(Path(work_dir).parts):
+        match = re.fullmatch(r'seed_?(\d+)', part, flags=re.IGNORECASE)
+        if match:
+            return int(match.group(1))
+    if config_path and os.path.isfile(config_path):
+        try:
+            text = Path(config_path).read_text(encoding='utf-8', errors='ignore')
+            match = re.search(
+                r'\brandomness\s*=\s*dict\([^)]*\bseed\s*=\s*(\d+)',
+                text, flags=re.DOTALL)
+            if match is None:
+                match = re.search(r'(?m)^seed\s*=\s*(\d+)\s*$', text)
+            if match:
+                return int(match.group(1))
+        except OSError:
+            pass
     return None
 
 
@@ -824,7 +837,11 @@ def process_experiment(conn, exp_dir, server='unknown', verbose=False,
     status = infer_run_status(abs_work_dir, metrics, cfg_info, best_ckpt_path)
 
     # 5. 提取 seed
-    seed = extract_seed_from_path(work_dir)
+    seed = extract_seed_from_path(
+        work_dir,
+        os.path.join(_PROJECT_ROOT, exp_dir['config_path'])
+        if exp_dir.get('config_path') else None,
+    )
 
     # 6. 写入数据库
     if aug_info:
