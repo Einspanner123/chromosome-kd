@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that the new D1 KaryoFlow recipe preserves running semantics."""
+"""Check that matrix-resolved D1 KaryoFlow preserves running semantics."""
 
 from __future__ import annotations
 
@@ -12,6 +12,8 @@ from mmengine.config import Config
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+from tools.experiments.v2_matrix import resolve_config  # noqa: E402
 
 
 def normalize_model(value):
@@ -26,14 +28,22 @@ def normalize_model(value):
 def strip_non_scientific_loader(value):
     value = deepcopy(value.to_dict())
     dataset = value.get('dataset', {})
-    dataset.get('metainfo', {}).pop('palette', None)
+    # V2 intentionally binds the new group-disjoint split and the category
+    # order recorded by its COCO annotations. Compare loader mechanics and
+    # transforms here, not dataset identity.
+    dataset.pop('metainfo', None)
     dataset.pop('backend_args', None)
+    dataset.pop('data_root', None)
+    dataset.pop('ann_file', None)
+    dataset.pop('data_prefix', None)
     return value
 
 
 def main() -> int:
     old = Config.fromfile(ROOT / 'experiments/configs/self1700/karyoflow.py')
-    new = Config.fromfile(ROOT / 'experiments/configs/v2/recipes/d1/karyoflow.py')
+    new, _ = resolve_config(
+        ROOT / 'experiments/configs/v2/matrices/d1_inhouse1700.yaml',
+        'karyoflow', 42)
     checks = {
         'model': normalize_model(old.model) == normalize_model(new.model),
         'train_cfg': old.train_cfg == new.train_cfg,
@@ -51,7 +61,7 @@ def main() -> int:
         print('D1 V2 EQUIVALENCE: FAIL', ', '.join(failed))
         return 1
     print('D1 V2 EQUIVALENCE: PASS')
-    print('model/train/optimizer/scheduler/pipelines preserved')
+    print('matrix-resolved model/train/optimizer/scheduler/pipelines preserved')
     return 0
 
 

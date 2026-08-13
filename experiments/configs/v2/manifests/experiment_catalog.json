@@ -1,0 +1,181 @@
+{
+  "experiment_definitions": [
+    {
+      "config_id": "v2.d1.diffusiondet_ddpm_r50.train",
+      "coupling": "random",
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d1_inhouse1700.py",
+      "dataset_id": "D1_INHOUSE1700_V2",
+      "matrix_path": "experiments/configs/v2/matrices/d1_inhouse1700.yaml",
+      "method_config": "experiments/configs/v2/methods/diffusiondet_ddpm.py",
+      "method_id": "diffusiondet_ddpm_r50",
+      "method_name": "diffusiondet_ddpm",
+      "parent_method_id": null,
+      "renewal": true,
+      "role": "generation_reference",
+      "scientific_config_sha256": "78c13c85e64b4d0819fcf1cfbf83ccdb79c5eb8c138e13763d1f23c994c3b419",
+      "solver": "euler",
+      "steps": 1,
+      "time_conditioning": "scale_shift",
+      "training_seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "config_id": "v2.d1.rf_heun_r50.train",
+      "coupling": "random",
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d1_inhouse1700.py",
+      "dataset_id": "D1_INHOUSE1700_V2",
+      "matrix_path": "experiments/configs/v2/matrices/d1_inhouse1700.yaml",
+      "method_config": "experiments/configs/v2/methods/rf_heun.py",
+      "method_id": "rf_heun_r50",
+      "method_name": "rf_heun",
+      "parent_method_id": null,
+      "renewal": true,
+      "role": "generation_reference",
+      "scientific_config_sha256": "b4ca692ef4a622d8383d6ec60f60e9c57b133ad93396c1db2672841e588fa22a",
+      "solver": "heun",
+      "steps": 4,
+      "time_conditioning": "adaln_zero",
+      "training_seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "config_id": "v2.d1.karyoflow_r50.train",
+      "coupling": "random",
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d1_inhouse1700.py",
+      "dataset_id": "D1_INHOUSE1700_V2",
+      "matrix_path": "experiments/configs/v2/matrices/d1_inhouse1700.yaml",
+      "method_config": "experiments/configs/v2/methods/karyoflow.py",
+      "method_id": "karyoflow_r50",
+      "method_name": "karyoflow",
+      "parent_method_id": null,
+      "renewal": true,
+      "role": "main_detector",
+      "scientific_config_sha256": "5102e030f547b152169af3c179feca9cf0304cbf3d2af2ed419d114103a8568d",
+      "solver": "dpm_solver_pp",
+      "steps": 4,
+      "time_conditioning": "adaln_zero",
+      "training_seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "config_id": "v2.d1.karyoflow_lqcr_r50.train",
+      "coupling": "random",
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d1_inhouse1700.py",
+      "dataset_id": "D1_INHOUSE1700_V2",
+      "matrix_path": "experiments/configs/v2/matrices/d1_inhouse1700.yaml",
+      "method_config": "experiments/configs/v2/methods/karyoflow_lqcr.py",
+      "method_id": "karyoflow_lqcr_r50",
+      "method_name": "karyoflow_lqcr",
+      "parent_method_id": "karyoflow_r50",
+      "renewal": true,
+      "role": "paired_final_stage_intervention",
+      "scientific_config_sha256": "bddd7d3d27412a963deae97b625e722c284e6de67185a1f0202d6c0ea0851687",
+      "solver": "dpm_solver_pp",
+      "steps": 4,
+      "time_conditioning": "adaln_zero",
+      "training_seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "config_id": "v2.d2.diffusiondet_ddpm_r50.train",
+      "coupling": "random",
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d2_taichung.py",
+      "dataset_id": "D2",
+      "matrix_path": "experiments/configs/v2/matrices/d2_taichung.yaml",
+      "method_config": "experiments/configs/v2/methods/diffusiondet_ddpm.py",
+      "method_id": "diffusiondet_ddpm_r50",
+      "method_name": "diffusiondet_ddpm",
+      "parent_method_id": null,
+      "renewal": true,
+      "role": "generation_reference",
+      "scientific_config_sha256": "1f2950fb62e874bb7a73a0bd4bfcad6dd477a8c3756ffaac77a9b51f4e1326e5",
+      "solver": "euler",
+      "steps": 1,
+      "time_conditioning": "scale_shift",
+      "training_seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "config_id": "v2.d2.rf_heun_r50.train",
+      "coupling": "random",
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d2_taichung.py",
+      "dataset_id": "D2",
+      "matrix_path": "experiments/configs/v2/matrices/d2_taichung.yaml",
+      "method_config": "experiments/configs/v2/methods/rf_heun.py",
+      "method_id": "rf_heun_r50",
+      "method_name": "rf_heun",
+      "parent_method_id": null,
+      "renewal": true,
+      "role": "generation_reference",
+      "scientific_config_sha256": "4f897844f2d560eec49fdc19ebca736c3666ee4fa019c48d79469caf15cd0fe3",
+      "solver": "heun",
+      "steps": 4,
+      "time_conditioning": "adaln_zero",
+      "training_seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "config_id": "v2.d2.karyoflow_r50.train",
+      "coupling": "random",
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d2_taichung.py",
+      "dataset_id": "D2",
+      "matrix_path": "experiments/configs/v2/matrices/d2_taichung.yaml",
+      "method_config": "experiments/configs/v2/methods/karyoflow.py",
+      "method_id": "karyoflow_r50",
+      "method_name": "karyoflow",
+      "parent_method_id": null,
+      "renewal": true,
+      "role": "main_detector",
+      "scientific_config_sha256": "959e449309abbe5023e1ab85166d27070ce1960bd9e9def00d2e1c888894499e",
+      "solver": "dpm_solver_pp",
+      "steps": 4,
+      "time_conditioning": "adaln_zero",
+      "training_seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "config_id": "v2.d2.karyoflow_lqcr_r50.train",
+      "coupling": "random",
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d2_taichung.py",
+      "dataset_id": "D2",
+      "matrix_path": "experiments/configs/v2/matrices/d2_taichung.yaml",
+      "method_config": "experiments/configs/v2/methods/karyoflow_lqcr.py",
+      "method_id": "karyoflow_lqcr_r50",
+      "method_name": "karyoflow_lqcr",
+      "parent_method_id": "karyoflow_r50",
+      "renewal": true,
+      "role": "paired_final_stage_intervention",
+      "scientific_config_sha256": "89acbc24f349b28138f911b080f8191b0b18936787041ed06661775ecab02efd",
+      "solver": "dpm_solver_pp",
+      "steps": 4,
+      "time_conditioning": "adaln_zero",
+      "training_seeds": [
+        42,
+        123,
+        789
+      ]
+    }
+  ],
+  "schema_version": 2
+}

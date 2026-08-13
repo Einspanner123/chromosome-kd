@@ -1,45 +1,48 @@
 # V2实验配置迁移说明
 
-## 决策
+## 最终结构决策
 
-新实验只使用`experiments/configs/v2/`。V2不继承旧实验配置，也不为D2历史
-OT权重保留兼容分支。旧运行的resolved config、checkpoint和数据库记录保持冻结；
-后续使用独立兼容检查脚本逐项导入，而不是让历史条件进入新主线。
+新实验使用“dataset base + dataset-independent method + experiment matrix”。
+矩阵只负责编排；每个矩阵单元都被展开为扁平的标准MMEngine Python配置，随后仍由
+`Config.fromfile()`和`Runner.from_cfg()`执行。
+
+V2不继承旧实验配置，也不为D2历史OT权重保留兼容分支。旧运行的resolved config、
+checkpoint和数据库记录保持冻结；以后由独立兼容检查脚本逐项导入。
 
 ## 当前科学定义
 
-- 两个数据集共享同一个KaryoFlow模型和150-epoch训练策略。
+- 两个数据集引用同一份方法定义和150-epoch检测器训练策略。
 - KaryoFlow：RF、shift=3、AdaLN-Zero、DPM++四步、random coupling、K=500。
-- renewal显式为`True`，用于保持当前D1运行语义；任何改动必须创建新版本配置。
+- renewal显式为`True`；任何变化必须注册为单变量消融。
 - LQCR：父模型冻结、最终stage连续IoU分支、final-only、`p*q^2`。
-- DDPM/Euler和RF/Heun是独立兄弟配置，不通过伪累计A0→A4链继承。
+- DDPM/Euler和RF/Heun是平行方法，不构造伪累计A0→A4继承链。
 
-## 运行边界
+## 解析与证据
 
-seed、服务器、GPU、work目录和父checkpoint不是科学配置。LQCR运行必须显式提供：
+`launch_v2.py`读取矩阵后完成以下操作：
 
-```bash
-python experiments/runners/train.py \
-  experiments/configs/v2/recipes/d1/karyoflow_lqcr.py \
-  --seed 42 --parent-checkpoint /path/to/parent.pth
-```
+1. 合并dataset、method和runtime；
+2. 校验method是否属于矩阵以及训练seed是否已注册；
+3. 生成扁平`resolved_config.py`；
+4. 计算科学配置和resolved config的SHA256；
+5. 写出`resolution_manifest.json`，记录数据标注哈希、源文件哈希和Git状态；
+6. 可选调用原生训练runner。
 
-SwanLab项目由recipe元数据交给runner注入；认证来自本机登录或环境变量，配置中
-不允许出现密钥。
+LQCR的矩阵关系为`same_training_seed`，正式启动时必须传入同训练seed的父checkpoint。
+SwanLab项目由矩阵提供，认证来自本机登录或环境变量。
 
-## 当前验证
+## 验证门
 
-- V2结构审计：18个Python配置，8个recipe，最大继承深度3，无外部父配置。
-- 8个recipe全部解析并成功构建模型。
-- D1 KaryoFlow的模型、优化器、scheduler和数据pipeline与当前运行配置等价。
-- D1 epoch-53 checkpoint严格加载：590个tensor，0 missing，0 unexpected。
-- D2新KaryoFlow构建为random coupling；LQCR仅5个quality-head tensor可训练。
+- 方法文件不得出现数据集路径或数据集身份。
+- matrix中所有方法必须存在，config ID必须唯一。
+- parent方法必须同时出现在matrix，且LQCR必须保持final-only。
+- resolved config必须经过dump/reload后科学哈希不变。
+- 所有组合必须成功构建MMDetection模型。
+- 数据库登记的是`matrix + method`组合；seed属于运行记录，不复制为科学配置。
 
 ## 尚未迁移
 
 - DINO、RTMDet、Cascade R-CNN、YOLOX基线。
-- H3蒸馏训练配置及实现。
-- solver/step、Top-K/renewal和beta矩阵manifest。
-- D2历史OT checkpoint兼容导入。
-
-这些内容必须以V2新父配置补齐，不能重新连接旧继承树。
+- H3蒸馏训练方法及部署矩阵。
+- solver/step、Top-K/renewal和beta消融矩阵。
+- D2历史checkpoint兼容检查和导入。

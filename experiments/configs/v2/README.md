@@ -1,19 +1,42 @@
 # Experiment configuration v2
 
-This tree is the only configuration source for new experiments. It does not
-inherit from legacy experiment files.
+V2 separates reusable scientific methods from dataset-specific experiment
+matrices while preserving native MMEngine execution.
 
-- `_base_/datasets`: dataset identity, split, pipeline, loader, evaluator.
-- `_base_/models`: scientific model structure only.
-- `_base_/schedules`: optimizer, scheduler, loop, selection hooks.
-- `_base_/runtime`: credential-free runtime and module registration.
-- `recipes`: executable scientific combinations with stable `config_id`.
-- `ablations`: inference/training deltas added after the canonical recipes.
-- `deployment`: compression recipes added after their training code is restored.
+- `_base_/datasets`: dataset identity, split hashes, pipelines, and evaluators.
+- `_base_/models`: reusable detector structures.
+- `_base_/schedules`: optimization and model-selection policy.
+- `_base_/runtime`: credential-free MMEngine runtime.
+- `methods`: dataset-independent model plus schedule definitions.
+- `matrices`: dataset, methods, training seeds, and tracking namespace.
+- `manifests`: generated catalog of resolved matrix-method combinations.
+- `ablations`: registered single-variable interventions (future).
+- `deployment`: compression and dynamic inference definitions (future).
 
-Training seeds, executors, work directories, parent checkpoint paths, and
-tracker credentials are runtime inputs and must not be hard-coded here.
+The YAML matrix is an orchestration document, not an MMEngine config. The
+resolver combines one dataset, one method, and the shared runtime, then writes
+a flattened `resolved_config.py`. MMEngine consumes that file normally through
+`Config.fromfile` and `Runner.from_cfg`.
 
-The current canonical KaryoFlow explicitly preserves the running D1 semantics:
-random coupling and renewal enabled. Any future change to renewal is a new
-versioned scientific configuration, never a silent default change.
+Preview a complete matrix without writing files:
+
+```bash
+python tools/experiments/launch_v2.py \
+  --matrix experiments/configs/v2/matrices/d1_inhouse1700.yaml --plan
+```
+
+Materialize one native MMEngine configuration:
+
+```bash
+python tools/experiments/launch_v2.py \
+  --matrix experiments/configs/v2/matrices/d1_inhouse1700.yaml \
+  --method karyoflow --seed 42 --resolve-only
+```
+
+Add `--launch --gpu-id 0` to train. A paired child such as LQCR additionally
+requires `--parent-checkpoint` from the same training seed.
+
+Seeds, executors, work directories, parent checkpoint paths, and tracker
+credentials are runtime inputs. They are never embedded in method definitions.
+The scientific hash is computed after matrix resolution but excludes the seed
+and machine-specific runtime state.

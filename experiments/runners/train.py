@@ -141,6 +141,9 @@ def main():
     parser = argparse.ArgumentParser(description='LDMDet Training')
     parser.add_argument('config', help='Config file path')
     parser.add_argument('--work-dir', default=None, help='Work directory')
+    parser.add_argument(
+        '--exp-name', default=None,
+        help='Stable tracker run name; defaults to config basename plus seed')
     parser.add_argument('--seed', type=int, default=None, help='Random seed')
     parser.add_argument(
         '--val-seed', type=int, default=42,
@@ -149,7 +152,7 @@ def main():
     parser.add_argument('--gpu-id', type=int, default=0, help='GPU ID')
     parser.add_argument(
         '--parent-checkpoint', default=None,
-        help='Parent checkpoint for a registered paired-child recipe')
+        help='Parent checkpoint for a registered paired-child method')
     args = parser.parse_args()
 
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu_id)
@@ -193,7 +196,7 @@ def main():
     # 设置 SwanLab 实验名 = config名 + seed（配置文件未显式指定时）
     config_name = os.path.splitext(os.path.basename(args.config))[0]
     seed_suffix = f'_seed{args.seed}' if args.seed else ''
-    exp_name = f'{config_name}{seed_suffix}'
+    exp_name = args.exp_name or f'{config_name}{seed_suffix}'
     _set_swanlab_name(cfg, exp_name)
 
     # 续训时接续到已有 SwanLab 实验
