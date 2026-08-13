@@ -103,7 +103,9 @@ def mark_provenance(records: list[dict], public_root: Path) -> None:
     }
     for record in records:
         public_path = public_by_stem.get(record["group_id"])
-        score = zncc_after_resize(record["source_path"], public_path) if public_path else None
+        # Quantize the audit score so manifests are byte-identical across
+        # OpenCV builds while preserving a >0.16 safety margin at the threshold.
+        score = round(zncc_after_resize(record["source_path"], public_path), 6) if public_path else None
         public_derived = score is not None and score >= ZNCC_THRESHOLD
         record["provenance"] = "public_d2_derived" if public_derived else "in_house"
         record["public_source_file"] = public_path.name if public_derived else None

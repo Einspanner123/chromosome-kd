@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Report split integrity and class-balance checks for D1_INHOUSE1700_V1."""
 
+import argparse
 import json
 from collections import Counter
 from pathlib import Path
@@ -11,10 +12,17 @@ MANIFEST_GLOB = "dataset_self1700_v1_provenance_*.json"
 
 
 def main():
-    manifests = sorted((ROOT / "tools/experiment_db/evidence_sources").glob(MANIFEST_GLOB))
-    if len(manifests) != 1:
-        raise RuntimeError(f"expected one manifest, found {len(manifests)}")
-    manifest = json.loads(manifests[0].read_text())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--manifest", type=Path)
+    args = parser.parse_args()
+    if args.manifest:
+        manifest_path = args.manifest
+    else:
+        manifests = sorted((ROOT / "tools/experiment_db/evidence_sources").glob(MANIFEST_GLOB))
+        if not manifests:
+            raise RuntimeError("no provenance manifest found")
+        manifest_path = manifests[-1]
+    manifest = json.loads(manifest_path.read_text())
     included = [row for row in manifest["records"] if row["provenance"] == "in_house"]
     group_splits = {}
     for row in included:
