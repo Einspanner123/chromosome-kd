@@ -108,6 +108,59 @@ def main():
                             f"{dataset['dataset']}")
             except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
                 errors.append(f'{artifact_id}: malformed dataset audit ({exc})')
+        elif kind == 'dataset_provenance_manifest':
+            try:
+                source = json.load(open(abs_path))
+                if source['dataset_id'] != 'D1_INHOUSE1700_V1':
+                    errors.append(f'{artifact_id}: unexpected dataset id')
+                    continue
+                records = source['records']
+                included = [row for row in records if row['provenance'] == 'in_house']
+                excluded = [row for row in records if row['provenance'] == 'public_d2_derived']
+                if (len(records), len(included), len(excluded)) != (2200, 1700, 500):
+                    errors.append(f'{artifact_id}: provenance counts are not 2200/1700/500')
+                if len({row['pixel_sha256'] for row in records}) != 2200:
+                    errors.append(f'{artifact_id}: duplicate decoded source images')
+                if len({row['public_source_file'] for row in excluded}) != 500:
+                    errors.append(f'{artifact_id}: public mapping is not one-to-one')
+                if any(row['public_match_zncc'] < 0.99 for row in excluded):
+                    errors.append(f'{artifact_id}: public match below ZNCC threshold')
+                group_splits = {}
+                for row in included:
+                    previous = group_splits.setdefault(row['group_id'], row['output_split'])
+                    if previous != row['output_split']:
+                        errors.append(f"{artifact_id}: group leakage at {row['group_id']}")
+                expected_splits = {'train': 1190, 'valid': 170, 'test': 340}
+                actual_splits = {
+                    split: sum(row['output_split'] == split for row in included)
+                    for split in expected_splits
+                }
+                if actual_splits != expected_splits:
+                    errors.append(f'{artifact_id}: wrong output split counts {actual_splits}')
+                for split, evidence in source['splits'].items():
+                    annotation = os.path.join(ROOT, evidence['path'])
+                    if not os.path.isfile(annotation):
+                        errors.append(f'{artifact_id}: missing {split} annotation')
+                        continue
+                    digest = hashlib.sha256()
+                    with open(annotation, 'rb') as handle:
+                        for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+                            digest.update(chunk)
+                    if digest.hexdigest() != evidence['sha256']:
+                        errors.append(f'{artifact_id}: {split} annotation SHA mismatch')
+                    db_split = conn.execute(
+                        'SELECT image_count,annotation_sha256 FROM dataset_split '
+                        'WHERE dataset_id=? AND split=?',
+                        (source['dataset_id'], split)).fetchone()
+                    if db_split != (evidence['images'], evidence['sha256']):
+                        errors.append(f'{artifact_id}: dataset_split DB mismatch for {split}')
+                db_counts = conn.execute(
+                    'SELECT COUNT(*),SUM(included) FROM dataset_sample_provenance '
+                    'WHERE dataset_id=?', (source['dataset_id'],)).fetchone()
+                if db_counts != (2200, 1700):
+                    errors.append(f'{artifact_id}: provenance DB row mismatch')
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                errors.append(f'{artifact_id}: malformed provenance manifest ({exc})')
         elif kind == 'multi_seed_test_evaluation':
             try:
                 source = json.load(open(abs_path))

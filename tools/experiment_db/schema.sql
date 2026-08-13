@@ -174,6 +174,86 @@ CREATE TABLE IF NOT EXISTS run_snapshot (
     UNIQUE(server, work_dir, observed_at)
 );
 
+-- ─── 冻结数据集与样本来源 ─────────────────────────────────
+CREATE TABLE IF NOT EXISTS dataset_release (
+    dataset_id TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    root_path TEXT NOT NULL,
+    version TEXT NOT NULL,
+    image_count INTEGER NOT NULL,
+    category_count INTEGER NOT NULL,
+    construction_protocol_json TEXT NOT NULL,
+    manifest_artifact_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    notes TEXT,
+    FOREIGN KEY (manifest_artifact_id) REFERENCES evidence_artifact(artifact_id)
+);
+CREATE TABLE IF NOT EXISTS dataset_split (
+    dataset_id TEXT NOT NULL,
+    split TEXT NOT NULL,
+    image_count INTEGER NOT NULL,
+    annotation_count INTEGER NOT NULL,
+    annotation_path TEXT NOT NULL,
+    annotation_sha256 TEXT NOT NULL,
+    PRIMARY KEY (dataset_id, split),
+    FOREIGN KEY (dataset_id) REFERENCES dataset_release(dataset_id)
+);
+CREATE TABLE IF NOT EXISTS dataset_sample_provenance (
+    dataset_id TEXT NOT NULL,
+    sample_file_sha256 TEXT NOT NULL,
+    source_split TEXT NOT NULL,
+    split TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    group_id TEXT NOT NULL,
+    pixel_sha256 TEXT NOT NULL,
+    provenance TEXT NOT NULL,
+    included BOOLEAN NOT NULL,
+    source_dataset_id TEXT,
+    source_file_name TEXT,
+    match_method TEXT NOT NULL,
+    match_score REAL,
+    PRIMARY KEY (dataset_id, sample_file_sha256),
+    FOREIGN KEY (dataset_id) REFERENCES dataset_release(dataset_id)
+);
+
+-- ─── 预注册训练/评估运行 ──────────────────────────────────
+CREATE TABLE IF NOT EXISTS train_run_registry (
+    train_run_id TEXT PRIMARY KEY,
+    dataset_id TEXT NOT NULL,
+    method TEXT NOT NULL,
+    training_seed INTEGER NOT NULL,
+    config_path TEXT NOT NULL,
+    config_sha256 TEXT NOT NULL,
+    dataset_manifest_sha256 TEXT NOT NULL,
+    git_commit TEXT NOT NULL,
+    replication_unit TEXT NOT NULL,
+    parent_train_run_id TEXT,
+    assigned_executor TEXT NOT NULL,
+    work_dir TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (dataset_id) REFERENCES dataset_release(dataset_id),
+    FOREIGN KEY (parent_train_run_id) REFERENCES train_run_registry(train_run_id)
+);
+CREATE TABLE IF NOT EXISTS eval_run_registry (
+    eval_run_id TEXT PRIMARY KEY,
+    train_run_id TEXT NOT NULL,
+    split TEXT NOT NULL,
+    inference_seed INTEGER NOT NULL,
+    annotation_sha256 TEXT NOT NULL,
+    protocol_name TEXT NOT NULL,
+    protocol_sha256 TEXT NOT NULL,
+    selection_source TEXT NOT NULL,
+    test_tuned BOOLEAN NOT NULL DEFAULT 0,
+    status TEXT NOT NULL,
+    evidence_artifact_id TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (train_run_id) REFERENCES train_run_registry(train_run_id),
+    FOREIGN KEY (evidence_artifact_id) REFERENCES evidence_artifact(artifact_id)
+);
+
 -- ─── 索引 ──────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_config_dataset ON config(dataset);
 CREATE INDEX IF NOT EXISTS idx_config_coupling ON config(coupling_type);
@@ -189,3 +269,8 @@ CREATE INDEX IF NOT EXISTS idx_result_family ON controlled_result(family);
 CREATE INDEX IF NOT EXISTS idx_result_dataset ON controlled_result(dataset);
 CREATE INDEX IF NOT EXISTS idx_result_paper ON controlled_result(paper_eligible);
 CREATE INDEX IF NOT EXISTS idx_snapshot_server ON run_snapshot(server);
+CREATE INDEX IF NOT EXISTS idx_dataset_provenance
+    ON dataset_sample_provenance(dataset_id, provenance, included);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_train_run_identity
+    ON train_run_registry(dataset_id, method, training_seed, config_sha256);
+CREATE INDEX IF NOT EXISTS idx_eval_train_run ON eval_run_registry(train_run_id);
