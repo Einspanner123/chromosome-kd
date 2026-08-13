@@ -130,7 +130,8 @@ def main():
         elif kind == 'dataset_provenance_manifest':
             try:
                 source = json.load(open(abs_path))
-                if source['dataset_id'] != 'D1_INHOUSE1700_V1':
+                if source['dataset_id'] not in {
+                        'D1_INHOUSE1700_V1', 'D1_INHOUSE1700_V2'}:
                     errors.append(f'{artifact_id}: unexpected dataset id')
                     continue
                 records = source['records']
@@ -156,6 +157,7 @@ def main():
                 }
                 if actual_splits != expected_splits:
                     errors.append(f'{artifact_id}: wrong output split counts {actual_splits}')
+                expected_categories = source.get('label_schema', {}).get('categories')
                 for split, evidence in source['splits'].items():
                     annotation = os.path.join(ROOT, evidence['path'])
                     if not os.path.isfile(annotation):
@@ -167,6 +169,14 @@ def main():
                             digest.update(chunk)
                     if digest.hexdigest() != evidence['sha256']:
                         errors.append(f'{artifact_id}: {split} annotation SHA mismatch')
+                    if expected_categories:
+                        document = json.load(open(annotation))
+                        observed_categories = [
+                            {'id': category['id'], 'name': category['name']}
+                            for category in document['categories']
+                        ]
+                        if observed_categories != expected_categories:
+                            errors.append(f'{artifact_id}: {split} category schema mismatch')
                     db_split = conn.execute(
                         'SELECT image_count,annotation_sha256 FROM dataset_split '
                         'WHERE dataset_id=? AND split=?',

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify and register the provenance-locked D1_INHOUSE1700 dataset."""
+"""Verify and register a provenance-locked D1_INHOUSE1700 dataset release."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 DB = ROOT / "tools/experiment_db/experiments.db"
-DATASET_ID = "D1_INHOUSE1700_V1"
+ALLOWED_DATASET_IDS = {"D1_INHOUSE1700_V1", "D1_INHOUSE1700_V2"}
 
 DDL = """
 CREATE TABLE IF NOT EXISTS dataset_release (
@@ -74,7 +74,8 @@ def main() -> None:
     args = parser.parse_args()
     manifest_path = args.manifest.resolve()
     manifest = json.loads(manifest_path.read_text())
-    if manifest["dataset_id"] != DATASET_ID:
+    dataset_id = manifest["dataset_id"]
+    if dataset_id not in ALLOWED_DATASET_IDS:
         raise RuntimeError(f"unexpected dataset: {manifest['dataset_id']}")
     records = manifest["records"]
     included = [row for row in records if row["provenance"] == "in_house"]
@@ -101,6 +102,13 @@ def main() -> None:
             raise RuntimeError(f"image count mismatch: {split}")
         if len(document["annotations"]) != evidence["annotations"]:
             raise RuntimeError(f"annotation count mismatch: {split}")
+        expected_categories = manifest.get("label_schema", {}).get("categories")
+        observed_categories = [
+            {"id": category["id"], "name": category["name"]}
+            for category in document["categories"]
+        ]
+        if expected_categories and observed_categories != expected_categories:
+            raise RuntimeError(f"category schema mismatch: {split}")
 
     relative = manifest_path.relative_to(ROOT)
     digest = sha256(manifest_path)
@@ -120,22 +128,22 @@ def main() -> None:
            (dataset_id,display_name,root_path,version,image_count,category_count,
             construction_protocol_json,manifest_artifact_id,status,notes)
            VALUES (?,?,?,?,?,?,?,?,?,?)""",
-        (DATASET_ID, "Pure in-house chromosome dataset (1,700 images)",
+        (dataset_id, "Pure in-house chromosome dataset (1,700 images)",
          "data/ChromosomeSelf1700_coco", digest[:12], 1700, 24,
          json.dumps(manifest["construction_protocol"], sort_keys=True),
          artifact_id, "verified",
          "Group-disjoint 70/10/20 split; no public-derived images included."),
     )
-    con.execute("DELETE FROM dataset_split WHERE dataset_id=?", (DATASET_ID,))
+    con.execute("DELETE FROM dataset_split WHERE dataset_id=?", (dataset_id,))
     for split, evidence in manifest["splits"].items():
         con.execute(
             """INSERT INTO dataset_split
                (dataset_id,split,image_count,annotation_count,annotation_path,annotation_sha256)
                VALUES (?,?,?,?,?,?)""",
-            (DATASET_ID, split, evidence["images"], evidence["annotations"],
+            (dataset_id, split, evidence["images"], evidence["annotations"],
              evidence["path"], evidence["sha256"]),
         )
-    con.execute("DELETE FROM dataset_sample_provenance WHERE dataset_id=?", (DATASET_ID,))
+    con.execute("DELETE FROM dataset_sample_provenance WHERE dataset_id=?", (dataset_id,))
     for row in records:
         is_included = row["provenance"] == "in_house"
         con.execute(
@@ -143,7 +151,7 @@ def main() -> None:
                (dataset_id,sample_file_sha256,source_split,split,file_name,group_id,pixel_sha256,
                 provenance,included,source_dataset_id,source_file_name,
                 match_method,match_score) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (DATASET_ID, row["file_sha256"], row["source_split"],
+            (dataset_id, row["file_sha256"], row["source_split"],
              row["output_split"] or row["source_split"], row["file_name"], row["group_id"],
              row["pixel_sha256"], row["provenance"], int(is_included),
              None if is_included else "D2",
@@ -153,7 +161,7 @@ def main() -> None:
     con.commit()
     print(json.dumps({
         "artifact_id": artifact_id,
-        "dataset_id": DATASET_ID,
+        "dataset_id": dataset_id,
         "registered_samples": len(records),
         "included": len(included),
         "excluded": len(excluded),

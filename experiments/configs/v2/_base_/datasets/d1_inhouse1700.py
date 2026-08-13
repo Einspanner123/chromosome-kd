@@ -1,12 +1,12 @@
 """Provenance-locked in-house cohort: 1190/170/340 group-disjoint split."""
 
-dataset_id = 'D1_INHOUSE1700_V1'
-dataset_manifest_sha256 = '57bc9516b11aa642d50c32124777f70abdc2074ee18e3250abf1665940eea43c'
-train_annotation_sha256 = '318120afe81184557cd1c13c985c63f5404ae4ce9e97e5cec6e5edb1d6ec534c'
-val_annotation_sha256 = '57466f1fe99201b091b65fbbcf687c0bebca86b82fbed86ba48d8b8d68b6dfaf'
-test_annotation_sha256 = '52e8868d2f43c609d841d138bd495a410690b399c0904782bc44d5aba7564efd'
+dataset_id = 'D1_INHOUSE1700_V2'
+dataset_manifest_sha256 = '48d90fed63ecc107b374a316effc1e5ab0d63b7c4bd9110d33ddd16e1f43146c'
+train_annotation_sha256 = 'e62704aa3ce9f7b58170946cca78458ff5331fc4316ba946eace6a1dbc6c8ed1'
+val_annotation_sha256 = '9065c7b5fb4df2a9f9c794dfe83c655ddf6695388d2bde562171b208c6d3a5b9'
+test_annotation_sha256 = '883696b8e60cc901cfe92b3f009d8c60e7b8cefbb5ba9ce3c742c3720343f08f'
 data_root = 'data/ChromosomeSelf1700_coco/'
-classes = ('A1','A2','A3','B4','B5','C10','C11','C12','C6','C7','C8','C9',
+classes = ('A1','A2','A3','B4','B5','C6','C7','C8','C9','C10','C11','C12',
            'D13','D14','D15','E16','E17','E18','F19','F20','G21','G22','X','Y')
 METAINFO = dict(classes=classes)
 backend_args = None
