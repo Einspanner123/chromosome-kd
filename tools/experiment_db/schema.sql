@@ -257,6 +257,37 @@ CREATE TABLE IF NOT EXISTS eval_run_registry (
     FOREIGN KEY (evidence_artifact_id) REFERENCES evidence_artifact(artifact_id)
 );
 
+-- ─── 跨数据集实验总账 ──────────────────────────────────────
+CREATE TABLE IF NOT EXISTS experiment_ledger (
+    ledger_id TEXT PRIMARY KEY,
+    dataset_id TEXT NOT NULL,
+    layer TEXT NOT NULL,
+    family TEXT NOT NULL,
+    variant TEXT NOT NULL,
+    execution_kind TEXT NOT NULL,
+    status TEXT NOT NULL,
+    priority TEXT NOT NULL,
+    replication_unit TEXT NOT NULL,
+    training_seeds TEXT,
+    inference_seeds TEXT,
+    run_count INTEGER NOT NULL,
+    config_path TEXT NOT NULL,
+    config_status TEXT NOT NULL,
+    parameters_json TEXT NOT NULL,
+    executor_plan TEXT NOT NULL,
+    work_dir_template TEXT NOT NULL,
+    train_run_ids TEXT,
+    result_family TEXT,
+    evidence_artifact_ids TEXT,
+    swanlab_project TEXT,
+    swanlab_run_template TEXT,
+    parent_ledger_id TEXT,
+    paper_role TEXT NOT NULL,
+    acceptance_gate TEXT NOT NULL,
+    notes TEXT,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ─── 索引 ──────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_config_dataset ON config(dataset);
 CREATE INDEX IF NOT EXISTS idx_config_coupling ON config(coupling_type);
@@ -277,3 +308,6 @@ CREATE INDEX IF NOT EXISTS idx_dataset_provenance
 CREATE UNIQUE INDEX IF NOT EXISTS idx_train_run_identity
     ON train_run_registry(dataset_id, method, training_seed, config_sha256);
 CREATE INDEX IF NOT EXISTS idx_eval_train_run ON eval_run_registry(train_run_id);
+CREATE INDEX IF NOT EXISTS idx_ledger_dataset ON experiment_ledger(dataset_id);
+CREATE INDEX IF NOT EXISTS idx_ledger_status ON experiment_ledger(status);
+CREATE INDEX IF NOT EXISTS idx_ledger_layer ON experiment_ledger(layer);
