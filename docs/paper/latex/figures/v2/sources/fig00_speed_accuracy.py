@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
 from figure_style_v2 import (
     C_FOUNDATION, C_LIGHT, C_LQCR, C_MUTED, C_OUTPUT, C_RF, C_TEXT,
@@ -69,8 +70,16 @@ def main() -> None:
                  fontsize=6.2, weight="bold", color=C_TEXT, ha="right")
     axes[1].text(0.97, 0.90, "Dataset 2", transform=axes[1].transAxes,
                  fontsize=6.2, weight="bold", color=C_TEXT, ha="right")
-    axes[1].set_xlabel("model-forward FPS (RTX A6000, 512 x 512, batch 1)",
-                       fontsize=6.2)
+    legend = [
+        Line2D([0], [0], marker="*", color="none", markerfacecolor=C_LQCR,
+               markeredgecolor="white", markersize=7.5, label="KaryoFlow+LQCR"),
+        Line2D([0], [0], marker="o", color="none", markerfacecolor=C_RF,
+               markeredgecolor="white", markersize=4.8, label=r"RF--DPM++ Top-$K$"),
+    ]
+    axes[0].legend(handles=legend, loc="lower center", bbox_to_anchor=(0.46, 0.01),
+                   frameon=False, fontsize=5.0, handletextpad=0.30,
+                   borderaxespad=0.1, ncol=2, columnspacing=0.7)
+    axes[1].set_xlabel("Model-forward FPS", fontsize=6.2)
     save_vector_figure(fig, "fig00_speed_accuracy")
 
 

@@ -71,14 +71,14 @@ def panel_delta(ax: plt.Axes, base: dict, lqcr: dict) -> None:
                     ha="center", va="bottom" if y >= 0 else "top",
                     fontsize=5.7, color=C_LQCR if y > 0 else C_MUTED)
     map_delta = 100 * (lqcr["baseline"]["mAP"] - base["baseline"]["mAP"])
-    ax.text(0.03, 0.88, f"mAP  +{map_delta:.2f} points", transform=ax.transAxes,
+    ax.text(0.03, 0.88, f"mean across thresholds  +{map_delta:.2f} points", transform=ax.transAxes,
             color=C_LQCR, fontsize=7.0, weight="bold")
     ax.text(0.03, 0.79, "same checkpoint, boxes and classes", transform=ax.transAxes,
             color=C_MUTED, fontsize=5.9)
     ax.set_xlim(0.49, 0.96); ax.set_ylim(0.0, max(3.75, delta.max() + 0.42))
     ax.set_xticks([0.50, 0.60, 0.70, 0.80, 0.90, 0.95])
     ax.set_xlabel("evaluation IoU threshold")
-    ax.set_ylabel(r"$\Delta$AP (points)")
+    ax.set_ylabel(r"$\Delta$AP (percentage points)")
     ax.grid(axis="y", color=C_LIGHT, lw=0.65)
     ax.spines[["top", "right"]].set_visible(False)
     ax.tick_params(labelsize=6.2)
@@ -93,7 +93,7 @@ def panel_checksum(ax: plt.Axes) -> None:
     # legible at journal column scale.
     ax.add_patch(Rectangle((0.04, 0.49), 0.92, 0.43, facecolor="#F8FAFC",
                            edgecolor=C_LINE, linewidth=0.7))
-    ax.text(0.06, 0.875, "same candidate boxes and class scores", fontsize=5.8,
+    ax.text(0.06, 0.875, "schematic: fixed candidates and class scores", fontsize=5.8,
             color=C_MUTED, weight="bold", va="top")
     candidates = [
         ("A", 0.08, C_FOUNDATION, r"$p=.98,\ q=.62$", 0.025),

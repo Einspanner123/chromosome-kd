@@ -56,8 +56,9 @@
   ],
   "scale_response": {
     "dataset_1": {
-      "small_instance_share": 0.23,
+      "small_instance_share": 0.2307542389397778,
       "karyoflow_AP_S": 0.509,
+      "karyoflow_AP_S_std": 0.0096,
       "lqcr_AP_S": 0.5147,
       "lqcr_AP_S_std": 0.009,
       "lqcr_delta_AP_S": 0.0057,
@@ -67,8 +68,9 @@
       "overall_mAP_rank": 1
     },
     "dataset_2": {
-      "small_instance_share": 0.004,
+      "small_instance_share": 0.003610265332753371,
       "karyoflow_AP_S": 0.5821,
+      "karyoflow_AP_S_std": 0.0133,
       "lqcr_AP_S": 0.5801,
       "lqcr_AP_S_std": 0.0123,
       "lqcr_delta_AP_S": -0.0020,

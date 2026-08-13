@@ -101,14 +101,16 @@ many adjacent candidates without confusing their identities.
 \begin{figure}[!t]
   \centering
   \includegraphics[width=\columnwidth]{figures/v2/generated/fig00_speed_accuracy.pdf}
-  \caption{Speed--accuracy comparison on two chromosome cohorts. Accuracy
-  follows the prespecified evaluation protocol; model-forward FPS is measured with
+  \caption{Fixed-model deployment operating points on two chromosome cohorts.
+  Model-forward FPS is measured with
   the same $512\times512$, batch-1 RTX A6000 protocol. Accuracy points in
   both panels are three-inference-seed means from fixed trained models. Both
   panels include three
   unconnected RF--DPM++ operating points at $K=500$, $200$, and $100$; the
   Dataset~1 $K=200/100$ points use inference-only pruning of the same model.
-  Higher and farther right is better.}
+  The star denotes the full KaryoFlow+LQCR operating point; circles denote
+  RF--DPM++ Top-$K$ settings. Independent-training estimates are reported in
+  Table~\ref{tab:sota}. Higher and farther right is better.}
   \label{fig:fps-map}
 \end{figure}
 
@@ -164,13 +166,14 @@ analysis, and standardized latency profiling.
   \includegraphics[width=\textwidth]{figures/v2/generated/fig01_system_overview.pdf}
   \caption{KaryoFlow from image to detections. (a) A metaphase image and its
   ResNet-50--FPN representation provide multi-scale image features. (b) A dense
-  crop visualizes four-NFE box refinement from noise to localized chromosome
+  crop shows selected snapshots from the prescribed four-NFE box-refinement
+  sequence, from noise to localized chromosome
   candidates. (c) The detector emits the final quality-ranked chromosome
   detections. (d) One proposal is shown in normalized center-and-scale
   coordinates along the prescribed linear RF path. (e) At each evaluation,
-  multi-scale RoIAlign feeds a cascade head with self-attention, DynamicConv,
-  feed-forward refinement, AdaLN-Zero time conditioning, and the final-head
-  quality branch. Endpoints and output boxes are empirical; intermediate boxes
+  multi-scale RoI features feed a shared cascade head for proposal interaction,
+  time-conditioned refinement, and box/class prediction; localization quality
+  is used only in the final decision stage. Endpoints and output boxes are empirical; intermediate boxes
   visualize the prescribed RF path rather than recorded hidden activations.}
   \label{fig:method_overview}
 \end{figure*}
@@ -422,8 +425,8 @@ its final-stage operating scope, and the paired fixed-model effect.
   same Dataset~2 RF-DPM++ model, quality-aware and class-only AP
   curves separate mainly at strict IoU thresholds. (b) Their threshold-wise
   difference reaches $+2.78/+3.00$ points at AP90/AP95, while AP50 changes by
-  only $-0.01$ points. (c) The same candidate boxes and class scores are shown
-  before class-only and LQCR ranking; localization quality promotes the tighter
+  only $-0.01$ percentage points. (c) A schematic keeps candidate boxes and
+  class scores fixed before class-only and LQCR ranking; localization quality promotes the tighter
   candidate and changes the retained top-$2$ subset without altering candidate
   geometry. Panels (a)--(b) report held-out measurements; (c) illustrates the
   ranking mechanism.}
@@ -765,13 +768,15 @@ is used to characterize the cross-dataset scale shift.
 \begin{figure*}[t]
   \centering
   \includegraphics[width=\textwidth]{figures/v2/generated/fig07_qualitative.pdf}
-  \caption{Object-scale shift and small-object detection across two chromosome
+  \caption{Object-scale shift and scale-resolved detection across two chromosome
   cohorts. (a) The empirical CDF of relative ground-truth box area over all
-  annotations shows that Dataset~1 chromosomes are markedly smaller
-  than those in Dataset~2. (b) A compact scale-response table contrasts the
-  small-instance prevalence, LQCR effect, strongest comparator, and overall
-  mAP rank. AP$_S$ is interpreted within, not across, datasets; both KaryoFlow
-  columns are means over three independently trained detector pairs.}
+  test annotations shows that Dataset~1 chromosomes are markedly smaller
+  than those in Dataset~2. (b) Paired point-and-interval summaries show the
+  KaryoFlow and KaryoFlow+LQCR AP$_S$ means and training-run SDs; the direction
+  of the LQCR change is explicitly retained for each cohort. AP$_S$ is
+  interpreted within, not across, datasets. Each KaryoFlow estimate uses three
+  independently trained detector pairs; conventional comparators are fixed-model
+  point estimates.}
   \label{fig:qual-mosaic}
 \end{figure*}
 

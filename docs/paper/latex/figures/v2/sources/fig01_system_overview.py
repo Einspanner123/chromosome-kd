@@ -178,91 +178,89 @@ def coordinate_path(fig: plt.Figure, rect: tuple[float, float, float, float],
                                linestyle=(0, (2, 1.5)) if t == 1 else "-"))
         ax.plot(left+(nx+nw/2)*tile_w, tile_y+(1-ny-nh/2)*tile_h,
                 marker="o", ms=1.65, color=color)
-        ax.text(left+tile_w/2, 0.86, f"t={t:.2f}", ha="center", va="center",
-                fontsize=5.4, color=color, weight="bold" if t == 0 else "normal")
-        ax.text(left+tile_w/2, 0.23,
-                f"c=({nx+nw/2:.2f},{ny+nh/2:.2f})\ns=({nw:.2f},{nh:.2f})",
-                ha="center", va="center", fontsize=4.5, color=C_MUTED)
+        step = ("initial" if idx == 0 else "NFE 1" if idx == 1 else
+                "NFE 2" if idx == 2 else "NFE 4")
+        ax.text(left+tile_w/2, 0.88, step, ha="center", va="center",
+                fontsize=5.5, color=color, weight="bold" if idx in (0, 3) else "normal")
+        ax.text(left+tile_w/2, 0.25, f"$t={t:.2f}$", ha="center", va="center",
+                fontsize=5.0, color=C_MUTED)
         if idx < 3:
             ax.annotate("", xy=(left+0.245, 0.60), xytext=(left+0.202, 0.60),
                         arrowprops=dict(arrowstyle="-|>", color=C_FOUNDATION,
                                         lw=0.65, mutation_scale=6))
-    ax.text(0.0, 0.02, "noise source", fontsize=4.8, color=C_MUTED)
-    ax.text(1.0, 0.02, "predicted target box", ha="right", fontsize=4.8,
+    ax.text(0.0, 0.02, "noise box", fontsize=5.1, color=C_MUTED)
+    ax.text(1.0, 0.02, "localized chromosome", ha="right", fontsize=5.1,
             color=C_RF)
 
 
 def architecture_panel(fig: plt.Figure, rect: tuple[float, float, float, float]) -> None:
     ax = fig.add_axes(rect); ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
 
-    rounded(ax, (0.025, 0.49), (0.085, 0.17), "FPN\nP2-P5", fc=C_RF_LIGHT,
-            ec=C_RF, color=C_RF, size=5.5, weight="bold")
-    rounded(ax, (0.025, 0.17), (0.085, 0.16), "boxes\n$x_t$", fc="white",
+    ax.text(0.01, 0.96, "Generation", color=C_RF, fontsize=6.2, weight="bold")
+    ax.text(0.72, 0.96, "Decision", color=C_LQCR, fontsize=6.2, weight="bold")
+    rounded(ax, (0.025, 0.50), (0.105, 0.18), "FPN\nfeatures", fc=C_RF_LIGHT,
+            ec=C_RF, color=C_RF, size=5.7, weight="bold")
+    rounded(ax, (0.025, 0.18), (0.105, 0.17), "proposal\nboxes $x_t$", fc="white",
             ec=C_FOUNDATION, color=C_FOUNDATION, size=5.5, weight="bold")
-    rounded(ax, (0.155, 0.36), (0.095, 0.17), "RoIAlign\n$7\\times7$", fc=C_LIGHT,
+    rounded(ax, (0.175, 0.36), (0.115, 0.18), "multi-scale\nRoI features", fc=C_LIGHT,
             ec=C_LINE, size=5.5, weight="bold")
-    ax.annotate("", xy=(0.142, 0.455), xytext=(0.122, 0.575),
+    ax.annotate("", xy=(0.162, 0.46), xytext=(0.142, 0.59),
                 arrowprops=dict(arrowstyle="-|>", color=C_FOUNDATION, lw=0.65,
                                 mutation_scale=6))
-    ax.annotate("", xy=(0.142, 0.395), xytext=(0.122, 0.25),
+    ax.annotate("", xy=(0.162, 0.40), xytext=(0.142, 0.27),
                 arrowprops=dict(arrowstyle="-|>", color=C_FOUNDATION, lw=0.65,
                                 mutation_scale=6))
 
-    # One actual cascade head: self-attention, DynamicConv and FFN.
-    ax.add_patch(FancyBboxPatch((0.31, 0.27), 0.39, 0.45,
+    # Compress implementation detail into the three functions needed to read
+    # the method at journal scale.
+    ax.add_patch(FancyBboxPatch((0.34, 0.26), 0.31, 0.49,
                  boxstyle="round,pad=0.012,rounding_size=0.02",
                  facecolor="#F8FAFC", edgecolor=C_RF, linewidth=0.9))
-    ax.text(0.327, 0.675, "single cascade head  (repeated $H=6$)",
-            fontsize=5.6, color=C_RF, weight="bold", va="center")
+    ax.text(0.495, 0.69, "shared cascade head  ($H=6$)",
+            fontsize=5.7, color=C_RF, weight="bold", va="center", ha="center")
     stages = [
-        (0.33, "multi-head\nself-attention"),
-        (0.448, "DynamicConv\nproposal-RoI interaction"),
-        (0.585, "feed-forward\nnetwork"),
+        (0.365, "proposal\ninteraction"),
+        (0.470, "time-conditioned\nrefinement"),
+        (0.585, "box / class\nprediction"),
     ]
-    widths = [0.088, 0.105, 0.080]
+    widths = [0.082, 0.096, 0.070]
     for (x, label), width in zip(stages, widths):
         rounded(ax, (x, 0.39), (width, 0.16), label, fc="white", ec=C_LINE,
                 size=4.45)
-    for start, end in ((0.430, 0.436), (0.565, 0.573)):
+    for start, end in ((0.450, 0.460), (0.568, 0.575)):
         ax.annotate("", xy=(end, 0.47), xytext=(start, 0.47),
                     arrowprops=dict(arrowstyle="-|>", color=C_FOUNDATION,
                                     lw=0.6, mutation_scale=5,
                                     shrinkA=0, shrinkB=0))
 
-    rounded(ax, (0.425, 0.035), (0.16, 0.115), "time embedding $t$\nAdaLN-Zero",
-            fc="#F3EEF8", ec=C_OUTPUT, color=C_OUTPUT, size=4.9, weight="bold")
-    for target in (0.375, 0.625):
-        ax.annotate("", xy=(target, 0.378), xytext=(0.505, 0.162),
+    rounded(ax, (0.405, 0.055), (0.18, 0.12), "time embedding $t$\n(AdaLN-Zero)",
+            fc="#F3EEF8", ec=C_OUTPUT, color=C_OUTPUT, size=5.0, weight="bold")
+    ax.annotate("", xy=(0.518, 0.365), xytext=(0.495, 0.185),
                     arrowprops=dict(arrowstyle="-|>", color=C_OUTPUT,
                                     lw=0.65, mutation_scale=5,
                                     shrinkA=0, shrinkB=0))
 
-    ax.annotate("", xy=(0.298, 0.47), xytext=(0.262, 0.445),
+    ax.annotate("", xy=(0.328, 0.47), xytext=(0.302, 0.45),
                 arrowprops=dict(arrowstyle="-|>", color=C_FOUNDATION, lw=0.7,
                                 mutation_scale=6, shrinkA=0, shrinkB=0))
-    rounded(ax, (0.755, 0.55), (0.125, 0.15), "class logits\n$p$", fc="white",
-            ec=C_FOUNDATION, color=C_FOUNDATION, size=5.2, weight="bold")
-    rounded(ax, (0.755, 0.31), (0.125, 0.15), "target box\n$\\hat{x}_0$", fc=C_RF_LIGHT,
-            ec=C_RF, color=C_RF, size=5.2, weight="bold")
-    rounded(ax, (0.755, 0.075), (0.125, 0.14), "quality $q$\nfinal head only",
-            fc=C_LQCR_LIGHT, ec=C_LQCR, color=C_LQCR, size=4.8, weight="bold")
-    # All prediction branches share the same straight-arrow grammar.
-    for target_y, color in ((0.625, C_FOUNDATION), (0.385, C_RF),
-                            (0.145, C_LQCR)):
-        ax.annotate("", xy=(0.742, target_y), xytext=(0.712, 0.47),
-                    arrowprops=dict(arrowstyle="-|>", color=color, lw=0.65,
-                                    mutation_scale=5,
-                                    connectionstyle="arc3,rad=0",
-                                    shrinkA=0, shrinkB=0))
-    ax.text(0.942, 0.57, "solver update", ha="center", fontsize=4.8,
-            color=C_RF, weight="bold")
-    ax.text(0.942, 0.47, r"$x_t \,\leftarrow\, \hat{x}_0$ history",
-            ha="center", fontsize=5.0, color=C_RF)
-    ax.plot([0.895, 0.99], [0.34, 0.34], color=C_LIGHT, lw=0.6)
-    ax.text(0.942, 0.25, "final output", ha="center", fontsize=4.8,
-            color=C_LQCR, weight="bold")
-    ax.text(0.942, 0.15, r"rank by $p q^2$", ha="center", fontsize=5.7,
-            color=C_LQCR, weight="bold")
+    rounded(ax, (0.72, 0.48), (0.12, 0.18), "target box\n$\\hat{x}_0$", fc=C_RF_LIGHT,
+            ec=C_RF, color=C_RF, size=5.6, weight="bold")
+    rounded(ax, (0.86, 0.48), (0.12, 0.18), "solver\nupdate", fc="white",
+            ec=C_RF, color=C_RF, size=5.5, weight="bold")
+    rounded(ax, (0.72, 0.15), (0.12, 0.18), "class $p$\nquality $q$", fc=C_LQCR_LIGHT,
+            ec=C_LQCR, color=C_LQCR, size=5.5, weight="bold")
+    rounded(ax, (0.86, 0.15), (0.12, 0.18), "final rank\n$pq^2$", fc="white",
+            ec=C_LQCR, color=C_LQCR, size=5.6, weight="bold")
+    for y, color in ((0.57, C_RF), (0.24, C_LQCR)):
+        ax.annotate("", xy=(0.708, y), xytext=(0.665, 0.47),
+                    arrowprops=dict(arrowstyle="-|>", color=color, lw=0.7,
+                                    mutation_scale=6))
+    ax.annotate("", xy=(0.85, 0.57), xytext=(0.84, 0.57),
+                arrowprops=dict(arrowstyle="-|>", color=C_RF, lw=0.7,
+                                mutation_scale=6))
+    ax.annotate("", xy=(0.85, 0.24), xytext=(0.84, 0.24),
+                arrowprops=dict(arrowstyle="-|>", color=C_LQCR, lw=0.7,
+                                mutation_scale=6))
 
 
 def main() -> None:
@@ -270,11 +268,11 @@ def main() -> None:
     image, gt, preds = load_scene()
     crop = dense_crop(gt, image.width, image.height)
     cropped = image.crop(crop)
-    local_preds = [item for item in preds if center_inside(item["bbox"], crop)][:7]
+    local_preds = [item for item in preds if center_inside(item["bbox"], crop)][:5]
     if len(local_preds) < 4:
         raise RuntimeError("Selected scene does not contain enough local predictions")
 
-    fig = plt.figure(figsize=(7.2, 3.62), facecolor="white")
+    fig = plt.figure(figsize=(7.2, 3.48), facecolor="white")
     panel_label(fig, 0.022, 0.958, "a")
     panel_label(fig, 0.302, 0.958, "b")
     panel_label(fig, 0.838, 0.958, "c")
@@ -291,9 +289,9 @@ def main() -> None:
     feature_pyramid(fig, (0.194, 0.51, 0.085, 0.36))
 
     output_ax = image_axis(fig, (0.838, 0.49, 0.142, 0.405), image)
-    for rank, item in enumerate(preds[:42]):
+    for rank, item in enumerate(preds[:32]):
         draw_bbox(output_ax, item["bbox"], C_RF, linewidth=0.52,
-                  label=CAT.get(int(item["category_id"])) if rank < 8 else None)
+                  label=CAT.get(int(item["category_id"])) if rank < 3 else None)
     output_ax.text(0.03, 0.04, "ranked output", transform=output_ax.transAxes,
                    color="white", fontsize=5.6, weight="bold",
                    bbox={"facecolor":"#006DA8DD", "edgecolor":"none", "pad":1.1})
@@ -327,9 +325,9 @@ def main() -> None:
     displacement = np.linalg.norm(final_centers - noise_centers, axis=1)
     trajectory_index = int(central_candidates[
         np.argmax(displacement[central_candidates])])
-    coordinate_path(fig, (0.022, 0.075, 0.275, 0.32),
+    coordinate_path(fig, (0.022, 0.075, 0.285, 0.32),
                     noise_boxes[trajectory_index], final_boxes[trajectory_index], crop)
-    architecture_panel(fig, (0.325, 0.065, 0.655, 0.335))
+    architecture_panel(fig, (0.335, 0.065, 0.645, 0.335))
     save_vector_figure(fig, "fig01_system_overview")
 
 
