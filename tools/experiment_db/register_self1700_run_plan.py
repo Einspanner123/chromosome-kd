@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS train_run_registry (
     assigned_executor TEXT NOT NULL,
     tracker_project TEXT,
     tracker_run_name TEXT,
+    tracker_run_id TEXT,
     work_dir TEXT NOT NULL,
     status TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -113,6 +114,8 @@ def main() -> None:
         con.execute("ALTER TABLE train_run_registry ADD COLUMN tracker_project TEXT")
     if "tracker_run_name" not in registry_columns:
         con.execute("ALTER TABLE train_run_registry ADD COLUMN tracker_run_name TEXT")
+    if "tracker_run_id" not in registry_columns:
+        con.execute("ALTER TABLE train_run_registry ADD COLUMN tracker_run_id TEXT")
     planned = []
     parent_ids = {}
     for method, config_path in FULL_MODELS.items():

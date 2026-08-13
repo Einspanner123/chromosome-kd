@@ -231,6 +231,7 @@ CREATE TABLE IF NOT EXISTS train_run_registry (
     assigned_executor TEXT NOT NULL,
     tracker_project TEXT,
     tracker_run_name TEXT,
+    tracker_run_id TEXT,
     work_dir TEXT NOT NULL,
     status TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
