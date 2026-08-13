@@ -22,6 +22,25 @@ def main():
     if fk_errors:
         errors.append(f'foreign-key violations: {len(fk_errors)}')
 
+    if conn.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='train_run_registry'").fetchone()[0]:
+        active_duplicates = conn.execute('''SELECT dataset_id,method,training_seed,COUNT(*)
+            FROM train_run_registry WHERE status NOT IN ('superseded','invalid')
+            GROUP BY dataset_id,method,training_seed HAVING COUNT(*)>1''').fetchall()
+        if active_duplicates:
+            errors.append(f'duplicate active train registrations: {len(active_duplicates)}')
+        for run_id, config_path, expected_sha in conn.execute('''SELECT train_run_id,config_path,config_sha256
+                FROM train_run_registry WHERE status NOT IN ('superseded','invalid')'''):
+            path = os.path.join(ROOT, config_path)
+            if not os.path.isfile(path):
+                errors.append(f'{run_id}: missing registered config')
+                continue
+            digest = hashlib.sha256()
+            with open(path, 'rb') as handle:
+                for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+                    digest.update(chunk)
+            if digest.hexdigest() != expected_sha:
+                errors.append(f'{run_id}: active config SHA mismatch')
+
     duplicate = conn.execute('''SELECT experiment_id, split, source, epoch,
         checkpoint_path, COUNT(*) FROM evaluation GROUP BY 1,2,3,4,5
         HAVING COUNT(*) > 1''').fetchall()

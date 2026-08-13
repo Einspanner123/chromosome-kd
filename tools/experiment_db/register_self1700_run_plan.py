@@ -117,6 +117,14 @@ def main() -> None:
             values = (run_id, DATASET_ID, method, seed, config_path, config_sha,
                       manifest_sha, git_commit, "independent_training_seed", None,
                       executor, work_dir, "planned")
+            old_ids = [row[0] for row in con.execute(
+                "SELECT train_run_id FROM train_run_registry "
+                "WHERE dataset_id=? AND method=? AND training_seed=? AND train_run_id<>? "
+                "AND status NOT IN ('superseded','invalid')",
+                (DATASET_ID, method, seed, run_id)).fetchall()]
+            for old_id in old_ids:
+                con.execute("UPDATE train_run_registry SET status='superseded',updated_at=CURRENT_TIMESTAMP WHERE train_run_id=?", (old_id,))
+                con.execute("UPDATE eval_run_registry SET status='superseded',updated_at=CURRENT_TIMESTAMP WHERE train_run_id=?", (old_id,))
             con.execute(
                 """INSERT INTO train_run_registry
                 (train_run_id,dataset_id,method,training_seed,config_path,config_sha256,
@@ -137,6 +145,14 @@ def main() -> None:
             values = (run_id, DATASET_ID, method, seed, config_path, config_sha,
                       manifest_sha, git_commit, "paired_final_stage_intervention", parent_id,
                       executors[index], work_dir, "planned")
+            old_ids = [row[0] for row in con.execute(
+                "SELECT train_run_id FROM train_run_registry "
+                "WHERE dataset_id=? AND method=? AND training_seed=? AND train_run_id<>? "
+                "AND status NOT IN ('superseded','invalid')",
+                (DATASET_ID, method, seed, run_id)).fetchall()]
+            for old_id in old_ids:
+                con.execute("UPDATE train_run_registry SET status='superseded',updated_at=CURRENT_TIMESTAMP WHERE train_run_id=?", (old_id,))
+                con.execute("UPDATE eval_run_registry SET status='superseded',updated_at=CURRENT_TIMESTAMP WHERE train_run_id=?", (old_id,))
             con.execute(
                 """INSERT INTO train_run_registry
                 (train_run_id,dataset_id,method,training_seed,config_path,config_sha256,
