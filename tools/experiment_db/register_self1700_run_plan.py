@@ -37,6 +37,8 @@ CREATE TABLE IF NOT EXISTS train_run_registry (
     replication_unit TEXT NOT NULL,
     parent_train_run_id TEXT,
     assigned_executor TEXT NOT NULL,
+    tracker_project TEXT,
+    tracker_run_name TEXT,
     work_dir TEXT NOT NULL,
     status TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -104,6 +106,13 @@ def main() -> None:
     con = sqlite3.connect(args.db)
     con.execute("PRAGMA foreign_keys=ON")
     con.executescript(DDL)
+    registry_columns = {
+        row[1] for row in con.execute("PRAGMA table_info(train_run_registry)")
+    }
+    if "tracker_project" not in registry_columns:
+        con.execute("ALTER TABLE train_run_registry ADD COLUMN tracker_project TEXT")
+    if "tracker_run_name" not in registry_columns:
+        con.execute("ALTER TABLE train_run_registry ADD COLUMN tracker_run_name TEXT")
     planned = []
     parent_ids = {}
     for method, config_path in FULL_MODELS.items():
@@ -116,7 +125,7 @@ def main() -> None:
             executor = executors[(list(FULL_MODELS).index(method) + index) % len(executors)]
             values = (run_id, DATASET_ID, method, seed, config_path, config_sha,
                       manifest_sha, git_commit, "independent_training_seed", None,
-                      executor, work_dir, "planned")
+                      executor, "KaryoFlow-Self1700", f"{method}_seed{seed}", work_dir, "planned")
             old_ids = [row[0] for row in con.execute(
                 "SELECT train_run_id FROM train_run_registry "
                 "WHERE dataset_id=? AND method=? AND training_seed=? AND train_run_id<>? "
@@ -129,7 +138,8 @@ def main() -> None:
                 """INSERT INTO train_run_registry
                 (train_run_id,dataset_id,method,training_seed,config_path,config_sha256,
                  dataset_manifest_sha256,git_commit,replication_unit,parent_train_run_id,
-                 assigned_executor,work_dir,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                 assigned_executor,tracker_project,tracker_run_name,work_dir,status)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(train_run_id) DO UPDATE SET
                  dataset_manifest_sha256=excluded.dataset_manifest_sha256,
                  git_commit=excluded.git_commit,
@@ -144,7 +154,7 @@ def main() -> None:
             work_dir = f"work_dirs/self1700/{method}/trainseed_{seed}"
             values = (run_id, DATASET_ID, method, seed, config_path, config_sha,
                       manifest_sha, git_commit, "paired_final_stage_intervention", parent_id,
-                      executors[index], work_dir, "planned")
+                      executors[index], "KaryoFlow-Self1700", f"{method}_seed{seed}", work_dir, "planned")
             old_ids = [row[0] for row in con.execute(
                 "SELECT train_run_id FROM train_run_registry "
                 "WHERE dataset_id=? AND method=? AND training_seed=? AND train_run_id<>? "
@@ -157,7 +167,8 @@ def main() -> None:
                 """INSERT INTO train_run_registry
                 (train_run_id,dataset_id,method,training_seed,config_path,config_sha256,
                  dataset_manifest_sha256,git_commit,replication_unit,parent_train_run_id,
-                 assigned_executor,work_dir,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                 assigned_executor,tracker_project,tracker_run_name,work_dir,status)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(train_run_id) DO UPDATE SET
                  dataset_manifest_sha256=excluded.dataset_manifest_sha256,
                  git_commit=excluded.git_commit,

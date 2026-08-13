@@ -229,6 +229,8 @@ CREATE TABLE IF NOT EXISTS train_run_registry (
     replication_unit TEXT NOT NULL,
     parent_train_run_id TEXT,
     assigned_executor TEXT NOT NULL,
+    tracker_project TEXT,
+    tracker_run_name TEXT,
     work_dir TEXT NOT NULL,
     status TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
