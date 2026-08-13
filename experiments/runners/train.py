@@ -46,6 +46,22 @@ def _set_swanlab_name(cfg, exp_name: str):
             init_kwargs['experiment_name'] = exp_name
 
 
+def _inject_v2_tracker(cfg):
+    """Add SwanLab from recipe metadata without embedding credentials."""
+    experiment = cfg.get('experiment', {})
+    project = experiment.get('tracker_project')
+    if not project:
+        return
+    visualizer = cfg.setdefault('visualizer', dict(
+        type='DetLocalVisualizer', name='visualizer', vis_backends=[]))
+    backends = visualizer.setdefault('vis_backends', [])
+    if not any(item.get('type') == 'SwanlabVisBackend' for item in backends):
+        backends.append(dict(
+            type='SwanlabVisBackend',
+            init_kwargs=dict(project=project, resume='allow'),
+        ))
+
+
 def _get_swanlab_run_id(work_dir):
     """从 work_dir 恢复 SwanLab run ID 用于续训。
 
@@ -131,6 +147,9 @@ def main():
         help='Fixed inference seed used for every validation epoch (default: 42)')
     parser.add_argument('--resume', action='store_true', help='Resume from checkpoint and continue SwanLab logging')
     parser.add_argument('--gpu-id', type=int, default=0, help='GPU ID')
+    parser.add_argument(
+        '--parent-checkpoint', default=None,
+        help='Parent checkpoint for a registered paired-child recipe')
     args = parser.parse_args()
 
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu_id)
@@ -144,6 +163,17 @@ def main():
     )
 
     cfg = Config.fromfile(args.config)
+
+    experiment = cfg.get('experiment', {})
+    if experiment.get('parent_checkpoint_required'):
+        if not args.parent_checkpoint:
+            parser.error(
+                f"{experiment.get('config_id')} requires --parent-checkpoint")
+        cfg.load_from = osp.abspath(args.parent_checkpoint)
+    elif args.parent_checkpoint:
+        parser.error('--parent-checkpoint is only valid for paired-child recipes')
+
+    _inject_v2_tracker(cfg)
 
     # ``Runner.from_cfg`` consumes cfg.randomness; apply CLI override first.
     apply_training_seed(cfg, args.seed)
