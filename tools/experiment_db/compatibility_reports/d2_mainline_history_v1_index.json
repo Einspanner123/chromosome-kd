@@ -1,0 +1,86 @@
+{
+  "reports": [
+    {
+      "canonical_import_allowed": true,
+      "checkpoint_sha256": "efdbb05f2265d5e45c8c078b4ce43a5298517cdfd18f805b59a2d7e9a36e676a",
+      "hard_issues": [],
+      "report_id": "legacy-compat-e28a48a5ed51",
+      "report_path": "tools/experiment_db/compatibility_reports/d2_karyoflow_trainrun0.json",
+      "report_sha256": "9f9bda4fff629246bf3f5fdfa61d21ce5777685b9b29fb08717d21861c470a9c",
+      "run_id": "d2_karyoflow_trainrun0",
+      "scientific_difference_paths": [],
+      "status": "EXACT",
+      "training_seed": 335778785
+    },
+    {
+      "canonical_import_allowed": true,
+      "checkpoint_sha256": "30ed194fa4a9e4b2fa6d1f9f6d17fa92406a7b185c78674f3372a1f34037707b",
+      "hard_issues": [],
+      "report_id": "legacy-compat-226621706910",
+      "report_path": "tools/experiment_db/compatibility_reports/d2_karyoflow_trainrun1.json",
+      "report_sha256": "8ef4cea9e8a8e64961d34779f6dd6a0c997a82740a535d3dda251d1e88f110fe",
+      "run_id": "d2_karyoflow_trainrun1",
+      "scientific_difference_paths": [],
+      "status": "EXACT",
+      "training_seed": 790448076
+    },
+    {
+      "canonical_import_allowed": true,
+      "checkpoint_sha256": "11b0f1174d11fc38c960181817e3274074d425f7f64c49fad3fe14d115c7b344",
+      "hard_issues": [],
+      "report_id": "legacy-compat-a8edf740a08c",
+      "report_path": "tools/experiment_db/compatibility_reports/d2_karyoflow_trainrun2.json",
+      "report_sha256": "0071590e4168f55ed6664c615442416b2b699eca25dc1946a110c265f17917b4",
+      "run_id": "d2_karyoflow_trainrun2",
+      "scientific_difference_paths": [],
+      "status": "EXACT",
+      "training_seed": 1342286018
+    },
+    {
+      "canonical_import_allowed": true,
+      "checkpoint_sha256": "93d15a7be24adc82714eaca4d82f0ee7ce3725adcde9476ce942767a1886b3e1",
+      "hard_issues": [],
+      "report_id": "legacy-compat-c37631644b38",
+      "report_path": "tools/experiment_db/compatibility_reports/d2_karyoflow_lqcr_trainrun0.json",
+      "report_sha256": "342cf5cc75b58f256692de8adf731275de328d66bb377ef0319a0d6f922b9075",
+      "run_id": "d2_karyoflow_lqcr_trainrun0",
+      "scientific_difference_paths": [],
+      "status": "EXACT",
+      "training_seed": 335778785
+    },
+    {
+      "canonical_import_allowed": true,
+      "checkpoint_sha256": "1fc6acc2395b164936e96e65b26e214447801494d3cbb83e7b2841f979281dc2",
+      "hard_issues": [],
+      "report_id": "legacy-compat-4dc89d4efe9b",
+      "report_path": "tools/experiment_db/compatibility_reports/d2_karyoflow_lqcr_trainrun1.json",
+      "report_sha256": "ddfb9078c7b80b0781a8302c68a47d3cd9d45714d63ea16937d9b7d44a80b85c",
+      "run_id": "d2_karyoflow_lqcr_trainrun1",
+      "scientific_difference_paths": [],
+      "status": "EXACT",
+      "training_seed": 790448076
+    },
+    {
+      "canonical_import_allowed": true,
+      "checkpoint_sha256": "9847764d0a676f67d89bd39ef4f772acdbc15e128d1261645b4b6f462fae5fb1",
+      "hard_issues": [],
+      "report_id": "legacy-compat-c39dd1215cc8",
+      "report_path": "tools/experiment_db/compatibility_reports/d2_karyoflow_lqcr_trainrun2.json",
+      "report_sha256": "df9edb17ab6778bc4edfc5489df6c0f8b337d023095d05038ef365adb28dabd2",
+      "run_id": "d2_karyoflow_lqcr_trainrun2",
+      "scientific_difference_paths": [],
+      "status": "EXACT",
+      "training_seed": 1342286018
+    }
+  ],
+  "schema_version": 1,
+  "status_counts": {
+    "EXACT": 6,
+    "INCOMPATIBLE": 0,
+    "MISSING_EVIDENCE": 0,
+    "STRUCTURAL_ONLY": 0
+  },
+  "suite_id": "d2_mainline_history_v1",
+  "suite_path": "experiments/configs/v2/manifests/d2_history_compatibility.yaml",
+  "target_matrix": "experiments/configs/v2/matrices/d2_taichung_history.yaml"
+}

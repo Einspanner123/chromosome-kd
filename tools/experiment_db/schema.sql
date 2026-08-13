@@ -311,3 +311,29 @@ CREATE INDEX IF NOT EXISTS idx_eval_train_run ON eval_run_registry(train_run_id)
 CREATE INDEX IF NOT EXISTS idx_ledger_dataset ON experiment_ledger(dataset_id);
 CREATE INDEX IF NOT EXISTS idx_ledger_status ON experiment_ledger(status);
 CREATE INDEX IF NOT EXISTS idx_ledger_layer ON experiment_ledger(layer);
+
+-- Historical configuration compatibility is evidence, not an alias. Only an
+-- EXACT report may populate canonical_config_id.
+CREATE TABLE IF NOT EXISTS config_compatibility (
+    report_id TEXT PRIMARY KEY,
+    legacy_method_id TEXT NOT NULL,
+    legacy_config_path TEXT NOT NULL,
+    legacy_config_sha256 TEXT NOT NULL,
+    checkpoint_sha256 TEXT NOT NULL,
+    target_config_id TEXT NOT NULL,
+    target_scientific_config_sha256 TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN (
+        'EXACT', 'STRUCTURAL_ONLY', 'INCOMPATIBLE', 'MISSING_EVIDENCE')),
+    canonical_config_id TEXT,
+    training_seed INTEGER,
+    artifact_id TEXT NOT NULL,
+    verified_at TEXT NOT NULL,
+    notes TEXT,
+    CHECK(canonical_config_id IS NULL OR status = 'EXACT'),
+    FOREIGN KEY (artifact_id) REFERENCES evidence_artifact(artifact_id)
+);
+CREATE INDEX IF NOT EXISTS idx_config_compat_target
+    ON config_compatibility(target_config_id, status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_config_compat_identity
+    ON config_compatibility(
+        legacy_config_sha256, checkpoint_sha256, target_config_id);

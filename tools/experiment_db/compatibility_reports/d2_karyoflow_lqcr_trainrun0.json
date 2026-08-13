@@ -1,0 +1,1679 @@
+{
+  "canonical_import_allowed": true,
+  "configuration_differences": [
+    {
+      "legacy": "C10",
+      "path": "data.test_dataloader.dataset.metainfo.classes[5]",
+      "severity": "metadata_only",
+      "target": "C6"
+    },
+    {
+      "legacy": "C11",
+      "path": "data.test_dataloader.dataset.metainfo.classes[6]",
+      "severity": "metadata_only",
+      "target": "C7"
+    },
+    {
+      "legacy": "C12",
+      "path": "data.test_dataloader.dataset.metainfo.classes[7]",
+      "severity": "metadata_only",
+      "target": "C8"
+    },
+    {
+      "legacy": "C6",
+      "path": "data.test_dataloader.dataset.metainfo.classes[8]",
+      "severity": "metadata_only",
+      "target": "C9"
+    },
+    {
+      "legacy": "C7",
+      "path": "data.test_dataloader.dataset.metainfo.classes[9]",
+      "severity": "metadata_only",
+      "target": "C10"
+    },
+    {
+      "legacy": "C8",
+      "path": "data.test_dataloader.dataset.metainfo.classes[10]",
+      "severity": "metadata_only",
+      "target": "C11"
+    },
+    {
+      "legacy": "C9",
+      "path": "data.test_dataloader.dataset.metainfo.classes[11]",
+      "severity": "metadata_only",
+      "target": "C12"
+    },
+    {
+      "legacy": "data/24_chromosomes_object/coco/valid/_annotations.coco.json",
+      "path": "data.test_evaluator.ann_file",
+      "severity": "overridden_by_verified_test_protocol",
+      "target": "data/24_chromosomes_object/coco/test/_annotations.coco.json"
+    },
+    {
+      "legacy": "./work_dirs/chromo_coco_detection/test",
+      "path": "data.test_evaluator.outfile_prefix",
+      "severity": "overridden_by_verified_test_protocol",
+      "target": "__MISSING__"
+    },
+    {
+      "legacy": "C10",
+      "path": "data.train_dataloader.dataset.metainfo.classes[5]",
+      "severity": "metadata_only",
+      "target": "C6"
+    },
+    {
+      "legacy": "C11",
+      "path": "data.train_dataloader.dataset.metainfo.classes[6]",
+      "severity": "metadata_only",
+      "target": "C7"
+    },
+    {
+      "legacy": "C12",
+      "path": "data.train_dataloader.dataset.metainfo.classes[7]",
+      "severity": "metadata_only",
+      "target": "C8"
+    },
+    {
+      "legacy": "C6",
+      "path": "data.train_dataloader.dataset.metainfo.classes[8]",
+      "severity": "metadata_only",
+      "target": "C9"
+    },
+    {
+      "legacy": "C7",
+      "path": "data.train_dataloader.dataset.metainfo.classes[9]",
+      "severity": "metadata_only",
+      "target": "C10"
+    },
+    {
+      "legacy": "C8",
+      "path": "data.train_dataloader.dataset.metainfo.classes[10]",
+      "severity": "metadata_only",
+      "target": "C11"
+    },
+    {
+      "legacy": "C9",
+      "path": "data.train_dataloader.dataset.metainfo.classes[11]",
+      "severity": "metadata_only",
+      "target": "C12"
+    },
+    {
+      "legacy": "C10",
+      "path": "data.val_dataloader.dataset.metainfo.classes[5]",
+      "severity": "metadata_only",
+      "target": "C6"
+    },
+    {
+      "legacy": "C11",
+      "path": "data.val_dataloader.dataset.metainfo.classes[6]",
+      "severity": "metadata_only",
+      "target": "C7"
+    },
+    {
+      "legacy": "C12",
+      "path": "data.val_dataloader.dataset.metainfo.classes[7]",
+      "severity": "metadata_only",
+      "target": "C8"
+    },
+    {
+      "legacy": "C6",
+      "path": "data.val_dataloader.dataset.metainfo.classes[8]",
+      "severity": "metadata_only",
+      "target": "C9"
+    },
+    {
+      "legacy": "C7",
+      "path": "data.val_dataloader.dataset.metainfo.classes[9]",
+      "severity": "metadata_only",
+      "target": "C10"
+    },
+    {
+      "legacy": "C8",
+      "path": "data.val_dataloader.dataset.metainfo.classes[10]",
+      "severity": "metadata_only",
+      "target": "C11"
+    },
+    {
+      "legacy": "C9",
+      "path": "data.val_dataloader.dataset.metainfo.classes[11]",
+      "severity": "metadata_only",
+      "target": "C12"
+    }
+  ],
+  "dataset": {
+    "issues": [],
+    "legacy": {
+      "test": {
+        "annotation_overridden": false,
+        "annotations": 45980,
+        "categories": [
+          [
+            1,
+            "A1"
+          ],
+          [
+            2,
+            "A2"
+          ],
+          [
+            3,
+            "A3"
+          ],
+          [
+            4,
+            "B4"
+          ],
+          [
+            5,
+            "B5"
+          ],
+          [
+            6,
+            "C6"
+          ],
+          [
+            7,
+            "C7"
+          ],
+          [
+            8,
+            "C8"
+          ],
+          [
+            9,
+            "C9"
+          ],
+          [
+            10,
+            "C10"
+          ],
+          [
+            11,
+            "C11"
+          ],
+          [
+            12,
+            "C12"
+          ],
+          [
+            13,
+            "D13"
+          ],
+          [
+            14,
+            "D14"
+          ],
+          [
+            15,
+            "D15"
+          ],
+          [
+            16,
+            "E16"
+          ],
+          [
+            17,
+            "E17"
+          ],
+          [
+            18,
+            "E18"
+          ],
+          [
+            19,
+            "F19"
+          ],
+          [
+            20,
+            "F20"
+          ],
+          [
+            21,
+            "G21"
+          ],
+          [
+            22,
+            "G22"
+          ],
+          [
+            23,
+            "X"
+          ],
+          [
+            24,
+            "Y"
+          ]
+        ],
+        "configured_classes": [
+          "A1",
+          "A2",
+          "A3",
+          "B4",
+          "B5",
+          "C10",
+          "C11",
+          "C12",
+          "C6",
+          "C7",
+          "C8",
+          "C9",
+          "D13",
+          "D14",
+          "D15",
+          "E16",
+          "E17",
+          "E18",
+          "F19",
+          "F20",
+          "G21",
+          "G22",
+          "X",
+          "Y"
+        ],
+        "configured_matches_annotation": false,
+        "configured_path": "/media/ross/8TB/linkst/datasets/24_chromosomes_object/coco/test/_annotations.coco.json",
+        "effective_categories": [
+          [
+            1,
+            "A1"
+          ],
+          [
+            2,
+            "A2"
+          ],
+          [
+            3,
+            "A3"
+          ],
+          [
+            4,
+            "B4"
+          ],
+          [
+            5,
+            "B5"
+          ],
+          [
+            6,
+            "C6"
+          ],
+          [
+            7,
+            "C7"
+          ],
+          [
+            8,
+            "C8"
+          ],
+          [
+            9,
+            "C9"
+          ],
+          [
+            10,
+            "C10"
+          ],
+          [
+            11,
+            "C11"
+          ],
+          [
+            12,
+            "C12"
+          ],
+          [
+            13,
+            "D13"
+          ],
+          [
+            14,
+            "D14"
+          ],
+          [
+            15,
+            "D15"
+          ],
+          [
+            16,
+            "E16"
+          ],
+          [
+            17,
+            "E17"
+          ],
+          [
+            18,
+            "E18"
+          ],
+          [
+            19,
+            "F19"
+          ],
+          [
+            20,
+            "F20"
+          ],
+          [
+            21,
+            "G21"
+          ],
+          [
+            22,
+            "G22"
+          ],
+          [
+            23,
+            "X"
+          ],
+          [
+            24,
+            "Y"
+          ]
+        ],
+        "images": 1000,
+        "path": "/media/ross/8TB/linkst/datasets/24_chromosomes_object/coco/test/_annotations.coco.json",
+        "sha256": "110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495"
+      },
+      "train": {
+        "annotation_overridden": false,
+        "annotations": 160888,
+        "categories": [
+          [
+            1,
+            "A1"
+          ],
+          [
+            2,
+            "A2"
+          ],
+          [
+            3,
+            "A3"
+          ],
+          [
+            4,
+            "B4"
+          ],
+          [
+            5,
+            "B5"
+          ],
+          [
+            6,
+            "C6"
+          ],
+          [
+            7,
+            "C7"
+          ],
+          [
+            8,
+            "C8"
+          ],
+          [
+            9,
+            "C9"
+          ],
+          [
+            10,
+            "C10"
+          ],
+          [
+            11,
+            "C11"
+          ],
+          [
+            12,
+            "C12"
+          ],
+          [
+            13,
+            "D13"
+          ],
+          [
+            14,
+            "D14"
+          ],
+          [
+            15,
+            "D15"
+          ],
+          [
+            16,
+            "E16"
+          ],
+          [
+            17,
+            "E17"
+          ],
+          [
+            18,
+            "E18"
+          ],
+          [
+            19,
+            "F19"
+          ],
+          [
+            20,
+            "F20"
+          ],
+          [
+            21,
+            "G21"
+          ],
+          [
+            22,
+            "G22"
+          ],
+          [
+            23,
+            "X"
+          ],
+          [
+            24,
+            "Y"
+          ]
+        ],
+        "configured_classes": [
+          "A1",
+          "A2",
+          "A3",
+          "B4",
+          "B5",
+          "C10",
+          "C11",
+          "C12",
+          "C6",
+          "C7",
+          "C8",
+          "C9",
+          "D13",
+          "D14",
+          "D15",
+          "E16",
+          "E17",
+          "E18",
+          "F19",
+          "F20",
+          "G21",
+          "G22",
+          "X",
+          "Y"
+        ],
+        "configured_matches_annotation": false,
+        "configured_path": "/media/ross/8TB/linkst/datasets/24_chromosomes_object/coco/train/_annotations.coco.json",
+        "effective_categories": [
+          [
+            1,
+            "A1"
+          ],
+          [
+            2,
+            "A2"
+          ],
+          [
+            3,
+            "A3"
+          ],
+          [
+            4,
+            "B4"
+          ],
+          [
+            5,
+            "B5"
+          ],
+          [
+            6,
+            "C6"
+          ],
+          [
+            7,
+            "C7"
+          ],
+          [
+            8,
+            "C8"
+          ],
+          [
+            9,
+            "C9"
+          ],
+          [
+            10,
+            "C10"
+          ],
+          [
+            11,
+            "C11"
+          ],
+          [
+            12,
+            "C12"
+          ],
+          [
+            13,
+            "D13"
+          ],
+          [
+            14,
+            "D14"
+          ],
+          [
+            15,
+            "D15"
+          ],
+          [
+            16,
+            "E16"
+          ],
+          [
+            17,
+            "E17"
+          ],
+          [
+            18,
+            "E18"
+          ],
+          [
+            19,
+            "F19"
+          ],
+          [
+            20,
+            "F20"
+          ],
+          [
+            21,
+            "G21"
+          ],
+          [
+            22,
+            "G22"
+          ],
+          [
+            23,
+            "X"
+          ],
+          [
+            24,
+            "Y"
+          ]
+        ],
+        "images": 3500,
+        "path": "/media/ross/8TB/linkst/datasets/24_chromosomes_object/coco/train/_annotations.coco.json",
+        "sha256": "218ae0ebb71ecfb186bdb0872101ac50179c22c69a586cad0366ef10a0d8d5f7"
+      },
+      "val": {
+        "annotation_overridden": false,
+        "annotations": 22984,
+        "categories": [
+          [
+            1,
+            "A1"
+          ],
+          [
+            2,
+            "A2"
+          ],
+          [
+            3,
+            "A3"
+          ],
+          [
+            4,
+            "B4"
+          ],
+          [
+            5,
+            "B5"
+          ],
+          [
+            6,
+            "C6"
+          ],
+          [
+            7,
+            "C7"
+          ],
+          [
+            8,
+            "C8"
+          ],
+          [
+            9,
+            "C9"
+          ],
+          [
+            10,
+            "C10"
+          ],
+          [
+            11,
+            "C11"
+          ],
+          [
+            12,
+            "C12"
+          ],
+          [
+            13,
+            "D13"
+          ],
+          [
+            14,
+            "D14"
+          ],
+          [
+            15,
+            "D15"
+          ],
+          [
+            16,
+            "E16"
+          ],
+          [
+            17,
+            "E17"
+          ],
+          [
+            18,
+            "E18"
+          ],
+          [
+            19,
+            "F19"
+          ],
+          [
+            20,
+            "F20"
+          ],
+          [
+            21,
+            "G21"
+          ],
+          [
+            22,
+            "G22"
+          ],
+          [
+            23,
+            "X"
+          ],
+          [
+            24,
+            "Y"
+          ]
+        ],
+        "configured_classes": [
+          "A1",
+          "A2",
+          "A3",
+          "B4",
+          "B5",
+          "C10",
+          "C11",
+          "C12",
+          "C6",
+          "C7",
+          "C8",
+          "C9",
+          "D13",
+          "D14",
+          "D15",
+          "E16",
+          "E17",
+          "E18",
+          "F19",
+          "F20",
+          "G21",
+          "G22",
+          "X",
+          "Y"
+        ],
+        "configured_matches_annotation": false,
+        "configured_path": "/media/ross/8TB/linkst/datasets/24_chromosomes_object/coco/valid/_annotations.coco.json",
+        "effective_categories": [
+          [
+            1,
+            "A1"
+          ],
+          [
+            2,
+            "A2"
+          ],
+          [
+            3,
+            "A3"
+          ],
+          [
+            4,
+            "B4"
+          ],
+          [
+            5,
+            "B5"
+          ],
+          [
+            6,
+            "C6"
+          ],
+          [
+            7,
+            "C7"
+          ],
+          [
+            8,
+            "C8"
+          ],
+          [
+            9,
+            "C9"
+          ],
+          [
+            10,
+            "C10"
+          ],
+          [
+            11,
+            "C11"
+          ],
+          [
+            12,
+            "C12"
+          ],
+          [
+            13,
+            "D13"
+          ],
+          [
+            14,
+            "D14"
+          ],
+          [
+            15,
+            "D15"
+          ],
+          [
+            16,
+            "E16"
+          ],
+          [
+            17,
+            "E17"
+          ],
+          [
+            18,
+            "E18"
+          ],
+          [
+            19,
+            "F19"
+          ],
+          [
+            20,
+            "F20"
+          ],
+          [
+            21,
+            "G21"
+          ],
+          [
+            22,
+            "G22"
+          ],
+          [
+            23,
+            "X"
+          ],
+          [
+            24,
+            "Y"
+          ]
+        ],
+        "images": 500,
+        "path": "/media/ross/8TB/linkst/datasets/24_chromosomes_object/coco/valid/_annotations.coco.json",
+        "sha256": "bcf0f930dea7380a3d2d5e82b393b7576a5861d416c163ff2930985f9ee7ca10"
+      }
+    },
+    "target": {
+      "test": {
+        "annotation_overridden": false,
+        "annotations": 45980,
+        "categories": [
+          [
+            1,
+            "A1"
+          ],
+          [
+            2,
+            "A2"
+          ],
+          [
+            3,
+            "A3"
+          ],
+          [
+            4,
+            "B4"
+          ],
+          [
+            5,
+            "B5"
+          ],
+          [
+            6,
+            "C6"
+          ],
+          [
+            7,
+            "C7"
+          ],
+          [
+            8,
+            "C8"
+          ],
+          [
+            9,
+            "C9"
+          ],
+          [
+            10,
+            "C10"
+          ],
+          [
+            11,
+            "C11"
+          ],
+          [
+            12,
+            "C12"
+          ],
+          [
+            13,
+            "D13"
+          ],
+          [
+            14,
+            "D14"
+          ],
+          [
+            15,
+            "D15"
+          ],
+          [
+            16,
+            "E16"
+          ],
+          [
+            17,
+            "E17"
+          ],
+          [
+            18,
+            "E18"
+          ],
+          [
+            19,
+            "F19"
+          ],
+          [
+            20,
+            "F20"
+          ],
+          [
+            21,
+            "G21"
+          ],
+          [
+            22,
+            "G22"
+          ],
+          [
+            23,
+            "X"
+          ],
+          [
+            24,
+            "Y"
+          ]
+        ],
+        "configured_classes": [
+          "A1",
+          "A2",
+          "A3",
+          "B4",
+          "B5",
+          "C6",
+          "C7",
+          "C8",
+          "C9",
+          "C10",
+          "C11",
+          "C12",
+          "D13",
+          "D14",
+          "D15",
+          "E16",
+          "E17",
+          "E18",
+          "F19",
+          "F20",
+          "G21",
+          "G22",
+          "X",
+          "Y"
+        ],
+        "configured_matches_annotation": true,
+        "configured_path": "/media/ross/8TB/linkst/datasets/24_chromosomes_object/coco/test/_annotations.coco.json",
+        "effective_categories": [
+          [
+            1,
+            "A1"
+          ],
+          [
+            2,
+            "A2"
+          ],
+          [
+            3,
+            "A3"
+          ],
+          [
+            4,
+            "B4"
+          ],
+          [
+            5,
+            "B5"
+          ],
+          [
+            6,
+            "C6"
+          ],
+          [
+            7,
+            "C7"
+          ],
+          [
+            8,
+            "C8"
+          ],
+          [
+            9,
+            "C9"
+          ],
+          [
+            10,
+            "C10"
+          ],
+          [
+            11,
+            "C11"
+          ],
+          [
+            12,
+            "C12"
+          ],
+          [
+            13,
+            "D13"
+          ],
+          [
+            14,
+            "D14"
+          ],
+          [
+            15,
+            "D15"
+          ],
+          [
+            16,
+            "E16"
+          ],
+          [
+            17,
+            "E17"
+          ],
+          [
+            18,
+            "E18"
+          ],
+          [
+            19,
+            "F19"
+          ],
+          [
+            20,
+            "F20"
+          ],
+          [
+            21,
+            "G21"
+          ],
+          [
+            22,
+            "G22"
+          ],
+          [
+            23,
+            "X"
+          ],
+          [
+            24,
+            "Y"
+          ]
+        ],
+        "images": 1000,
+        "path": "/media/ross/8TB/linkst/datasets/24_chromosomes_object/coco/test/_annotations.coco.json",
+        "sha256": "110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495"
+      },
+      "train": {
+        "annotation_overridden": false,
+        "annotations": 160888,
+        "categories": [
+          [
+            1,
+            "A1"
+          ],
+          [
+            2,
+            "A2"
+          ],
+          [
+            3,
+            "A3"
+          ],
+          [
+            4,
+            "B4"
+          ],
+          [
+            5,
+            "B5"
+          ],
+          [
+            6,
+            "C6"
+          ],
+          [
+            7,
+            "C7"
+          ],
+          [
+            8,
+            "C8"
+          ],
+          [
+            9,
+            "C9"
+          ],
+          [
+            10,
+            "C10"
+          ],
+          [
+            11,
+            "C11"
+          ],
+          [
+            12,
+            "C12"
+          ],
+          [
+            13,
+            "D13"
+          ],
+          [
+            14,
+            "D14"
+          ],
+          [
+            15,
+            "D15"
+          ],
+          [
+            16,
+            "E16"
+          ],
+          [
+            17,
+            "E17"
+          ],
+          [
+            18,
+            "E18"
+          ],
+          [
+            19,
+            "F19"
+          ],
+          [
+            20,
+            "F20"
+          ],
+          [
+            21,
+            "G21"
+          ],
+          [
+            22,
+            "G22"
+          ],
+          [
+            23,
+            "X"
+          ],
+          [
+            24,
+            "Y"
+          ]
+        ],
+        "configured_classes": [
+          "A1",
+          "A2",
+          "A3",
+          "B4",
+          "B5",
+          "C6",
+          "C7",
+          "C8",
+          "C9",
+          "C10",
+          "C11",
+          "C12",
+          "D13",
+          "D14",
+          "D15",
+          "E16",
+          "E17",
+          "E18",
+          "F19",
+          "F20",
+          "G21",
+          "G22",
+          "X",
+          "Y"
+        ],
+        "configured_matches_annotation": true,
+        "configured_path": "/media/ross/8TB/linkst/datasets/24_chromosomes_object/coco/train/_annotations.coco.json",
+        "effective_categories": [
+          [
+            1,
+            "A1"
+          ],
+          [
+            2,
+            "A2"
+          ],
+          [
+            3,
+            "A3"
+          ],
+          [
+            4,
+            "B4"
+          ],
+          [
+            5,
+            "B5"
+          ],
+          [
+            6,
+            "C6"
+          ],
+          [
+            7,
+            "C7"
+          ],
+          [
+            8,
+            "C8"
+          ],
+          [
+            9,
+            "C9"
+          ],
+          [
+            10,
+            "C10"
+          ],
+          [
+            11,
+            "C11"
+          ],
+          [
+            12,
+            "C12"
+          ],
+          [
+            13,
+            "D13"
+          ],
+          [
+            14,
+            "D14"
+          ],
+          [
+            15,
+            "D15"
+          ],
+          [
+            16,
+            "E16"
+          ],
+          [
+            17,
+            "E17"
+          ],
+          [
+            18,
+            "E18"
+          ],
+          [
+            19,
+            "F19"
+          ],
+          [
+            20,
+            "F20"
+          ],
+          [
+            21,
+            "G21"
+          ],
+          [
+            22,
+            "G22"
+          ],
+          [
+            23,
+            "X"
+          ],
+          [
+            24,
+            "Y"
+          ]
+        ],
+        "images": 3500,
+        "path": "/media/ross/8TB/linkst/datasets/24_chromosomes_object/coco/train/_annotations.coco.json",
+        "sha256": "218ae0ebb71ecfb186bdb0872101ac50179c22c69a586cad0366ef10a0d8d5f7"
+      },
+      "val": {
+        "annotation_overridden": false,
+        "annotations": 22984,
+        "categories": [
+          [
+            1,
+            "A1"
+          ],
+          [
+            2,
+            "A2"
+          ],
+          [
+            3,
+            "A3"
+          ],
+          [
+            4,
+            "B4"
+          ],
+          [
+            5,
+            "B5"
+          ],
+          [
+            6,
+            "C6"
+          ],
+          [
+            7,
+            "C7"
+          ],
+          [
+            8,
+            "C8"
+          ],
+          [
+            9,
+            "C9"
+          ],
+          [
+            10,
+            "C10"
+          ],
+          [
+            11,
+            "C11"
+          ],
+          [
+            12,
+            "C12"
+          ],
+          [
+            13,
+            "D13"
+          ],
+          [
+            14,
+            "D14"
+          ],
+          [
+            15,
+            "D15"
+          ],
+          [
+            16,
+            "E16"
+          ],
+          [
+            17,
+            "E17"
+          ],
+          [
+            18,
+            "E18"
+          ],
+          [
+            19,
+            "F19"
+          ],
+          [
+            20,
+            "F20"
+          ],
+          [
+            21,
+            "G21"
+          ],
+          [
+            22,
+            "G22"
+          ],
+          [
+            23,
+            "X"
+          ],
+          [
+            24,
+            "Y"
+          ]
+        ],
+        "configured_classes": [
+          "A1",
+          "A2",
+          "A3",
+          "B4",
+          "B5",
+          "C6",
+          "C7",
+          "C8",
+          "C9",
+          "C10",
+          "C11",
+          "C12",
+          "D13",
+          "D14",
+          "D15",
+          "E16",
+          "E17",
+          "E18",
+          "F19",
+          "F20",
+          "G21",
+          "G22",
+          "X",
+          "Y"
+        ],
+        "configured_matches_annotation": true,
+        "configured_path": "/media/ross/8TB/linkst/datasets/24_chromosomes_object/coco/valid/_annotations.coco.json",
+        "effective_categories": [
+          [
+            1,
+            "A1"
+          ],
+          [
+            2,
+            "A2"
+          ],
+          [
+            3,
+            "A3"
+          ],
+          [
+            4,
+            "B4"
+          ],
+          [
+            5,
+            "B5"
+          ],
+          [
+            6,
+            "C6"
+          ],
+          [
+            7,
+            "C7"
+          ],
+          [
+            8,
+            "C8"
+          ],
+          [
+            9,
+            "C9"
+          ],
+          [
+            10,
+            "C10"
+          ],
+          [
+            11,
+            "C11"
+          ],
+          [
+            12,
+            "C12"
+          ],
+          [
+            13,
+            "D13"
+          ],
+          [
+            14,
+            "D14"
+          ],
+          [
+            15,
+            "D15"
+          ],
+          [
+            16,
+            "E16"
+          ],
+          [
+            17,
+            "E17"
+          ],
+          [
+            18,
+            "E18"
+          ],
+          [
+            19,
+            "F19"
+          ],
+          [
+            20,
+            "F20"
+          ],
+          [
+            21,
+            "G21"
+          ],
+          [
+            22,
+            "G22"
+          ],
+          [
+            23,
+            "X"
+          ],
+          [
+            24,
+            "Y"
+          ]
+        ],
+        "images": 500,
+        "path": "/media/ross/8TB/linkst/datasets/24_chromosomes_object/coco/valid/_annotations.coco.json",
+        "sha256": "bcf0f930dea7380a3d2d5e82b393b7576a5861d416c163ff2930985f9ee7ca10"
+      }
+    },
+    "warnings": [
+      "legacy train configured class display order differs",
+      "legacy val configured class display order differs",
+      "legacy test configured class display order differs"
+    ]
+  },
+  "generated_at": "2026-08-12T11:05:37.476934+00:00",
+  "hard_issues": [],
+  "identity_payload_sha256": "c37631644b38d4da6123dda58008b04c7a0c4f783db978a24cb33373822c42d7",
+  "legacy": {
+    "checkpoint": {
+      "meta_seed_candidates": [
+        {
+          "source": "seed",
+          "value": 83965805
+        }
+      ],
+      "missing": [],
+      "path": "work_dirs/capr_quality_only_24obj/best_coco_bbox_mAP_epoch_2.pth",
+      "sha256": "93d15a7be24adc82714eaca4d82f0ee7ce3725adcde9476ce942767a1886b3e1",
+      "shape_mismatch": [],
+      "strict_load": true,
+      "target_tensors": 595,
+      "tensors": 595,
+      "unexpected": []
+    },
+    "config_path": "experiments/configs/ldmdet/directions/capr/capr_quality_final_only_24obj.py",
+    "config_sha256": "ece504adea708c46466270dd498387073dbaa559a0b1ef120b9327cd6a60131c",
+    "parent_child_lineage": {
+      "changed_shared_tensors": [],
+      "child_only_tensors": [
+        "bbox_head.head_series.5.quality_head.0.weight",
+        "bbox_head.head_series.5.quality_head.1.bias",
+        "bbox_head.head_series.5.quality_head.1.weight",
+        "bbox_head.head_series.5.quality_head.3.bias",
+        "bbox_head.head_series.5.quality_head.3.weight"
+      ],
+      "final_quality_only": true,
+      "parent_meta_seed_candidates": [
+        335778785
+      ],
+      "parent_only_tensors": [],
+      "parent_path": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
+      "parent_sha256": "efdbb05f2265d5e45c8c078b4ce43a5298517cdfd18f805b59a2d7e9a36e676a",
+      "shared_tensor_count": 590
+    },
+    "training_log": {
+      "path": "work_dirs/capr_quality_only_24obj/train.log",
+      "sha256": "6d7a513e1394a465c1554e4a1115b2244ad3d2a5429a4021bf33d48fff968a0c"
+    }
+  },
+  "legacy_preservation_allowed": true,
+  "report_id": "legacy-compat-c37631644b38",
+  "result_evidence": {
+    "artifacts": {
+      "evaluation.log": "b994537816dfbf30d7af1930f9c6c68cc6280ff1edda82465fa3ed99b7f216ba",
+      "predictions.bbox.json": "8560322bb87baa8f67f6878c0e570c14880623599014eb5b5318486d01a4c593",
+      "resolved_test_config.py": "b639ba7e717360dd4fe77fd79de64d69f47952ce3703da2461cf27733eaee6b8"
+    },
+    "issues": [],
+    "metric_deltas": {
+      "AP50": 0.0,
+      "AP75": 0.0,
+      "AP_L": 0.0,
+      "AP_M": 0.0,
+      "AP_S": 0.0,
+      "mAP": 0.0
+    },
+    "path": "results/d2_test_unified/karyoflow_lqcr_trainrun_0/d9dd75b91220e1fa18ad74a86282f2ac23231a7d35d3e7c3566491be8b3b766c/summary.json",
+    "protocol": {
+      "annotation_path": "data/24_chromosomes_object/coco/test/_annotations.coco.json",
+      "annotation_sha256": "110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495",
+      "annotations": 45980,
+      "categories": 24,
+      "checkpoint_path": "work_dirs/capr_quality_only_24obj/best_coco_bbox_mAP_epoch_2.pth",
+      "checkpoint_sha256": "93d15a7be24adc82714eaca4d82f0ee7ce3725adcde9476ce942767a1886b3e1",
+      "config_path": "experiments/configs/ldmdet/directions/capr/capr_quality_final_only_24obj.py",
+      "config_source_sha256": "ece504adea708c46466270dd498387073dbaa559a0b1ef120b9327cd6a60131c",
+      "dataset": "D2",
+      "deterministic_seed": true,
+      "evaluator": "COCO bbox",
+      "images": 1000,
+      "inference_code_sha256": "134108fcaf8517f490feb8a74583d74e5269c999def42de899a86be23bcb4072",
+      "inference_seed": 42,
+      "max_dets": 100,
+      "model_id": "karyoflow_lqcr_trainrun_0",
+      "model_label": "KaryoFlow+LQCR (train run 0)",
+      "parent_checkpoint_path": "work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth",
+      "parent_checkpoint_sha256": "efdbb05f2265d5e45c8c078b4ce43a5298517cdfd18f805b59a2d7e9a36e676a",
+      "parent_model_id": "karyoflow_trainrun_0",
+      "replication_unit": "paired_final_stage_intervention",
+      "resolved_config_sha256": "15fa8a9716b7b933c24892457c531e0a6b55a3d2ca8c24913de74fae23349086",
+      "seed": 42,
+      "split": "test",
+      "test_batch_size": 1,
+      "training_seed": 335778785,
+      "version": "d2-test-coco-v1"
+    },
+    "recomputed_metrics": {
+      "AP50": 0.988111213887128,
+      "AP75": 0.9709512715012101,
+      "AP_L": 0.8874714683862354,
+      "AP_M": 0.8636115561362846,
+      "AP_S": 0.5664659092031444,
+      "mAP": 0.8663143689496262
+    },
+    "recorded_metrics": {
+      "AP50": 0.988111213887128,
+      "AP75": 0.9709512715012101,
+      "AP_L": 0.8874714683862354,
+      "AP_M": 0.8636115561362846,
+      "AP_S": 0.5664659092031444,
+      "mAP": 0.8663143689496262
+    },
+    "sha256": "f2b2957de40f5d243cf9cfc06059bbf84ce0d4c5608cac88ebd8dc032765bcbb"
+  },
+  "schema_version": 1,
+  "scientific_differences": [],
+  "seeds": {
+    "authoritative_consistent": true,
+    "authoritative_training_seed": 335778785,
+    "checkpoint_candidates": [
+      83965805
+    ],
+    "child_training_seed": 83965805,
+    "config_candidates": [],
+    "directory_labels": [],
+    "log_candidates": [
+      83965805
+    ],
+    "parent_checkpoint_candidates": [
+      335778785
+    ],
+    "result_summary_training_seed": 335778785
+  },
+  "status": "EXACT",
+  "target": {
+    "config_id": "v2.d2_history.legacy_karyoflow_ot_lqcr_r50.train",
+    "matrix_id": "v2.d2_taichung.history_ot",
+    "matrix_path": "experiments/configs/v2/matrices/d2_taichung_history.yaml",
+    "method_id": "legacy_karyoflow_ot_lqcr_r50",
+    "method_path": "experiments/configs/v2/methods/karyoflow_ot_lqcr_legacy.py",
+    "scientific_config_sha256": "72527ea574365ecd53ff38098ebbb180ed16640fd24c3633781ce9addfddad8c"
+  }
+}

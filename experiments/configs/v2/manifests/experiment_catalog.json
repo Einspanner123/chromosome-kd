@@ -175,6 +175,50 @@
         123,
         789
       ]
+    },
+    {
+      "config_id": "v2.d2_history.legacy_karyoflow_ot_r50.train",
+      "coupling": "ot_flow",
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d2_taichung.py",
+      "dataset_id": "D2",
+      "matrix_path": "experiments/configs/v2/matrices/d2_taichung_history.yaml",
+      "method_config": "experiments/configs/v2/methods/karyoflow_ot_legacy.py",
+      "method_id": "legacy_karyoflow_ot_r50",
+      "method_name": "karyoflow_ot_legacy",
+      "parent_method_id": null,
+      "renewal": true,
+      "role": "archived_generation_method",
+      "scientific_config_sha256": "92b1539c245c3a0a51e200fa3f12e34abe9a87044410c54ded9688d1f2eea9d2",
+      "solver": "dpm_solver_pp",
+      "steps": 4,
+      "time_conditioning": "adaln_zero",
+      "training_seeds": [
+        335778785,
+        790448076,
+        1342286018
+      ]
+    },
+    {
+      "config_id": "v2.d2_history.legacy_karyoflow_ot_lqcr_r50.train",
+      "coupling": "ot_flow",
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d2_taichung.py",
+      "dataset_id": "D2",
+      "matrix_path": "experiments/configs/v2/matrices/d2_taichung_history.yaml",
+      "method_config": "experiments/configs/v2/methods/karyoflow_ot_lqcr_legacy.py",
+      "method_id": "legacy_karyoflow_ot_lqcr_r50",
+      "method_name": "karyoflow_ot_lqcr_legacy",
+      "parent_method_id": "legacy_karyoflow_ot_r50",
+      "renewal": true,
+      "role": "archived_paired_final_stage_intervention",
+      "scientific_config_sha256": "72527ea574365ecd53ff38098ebbb180ed16640fd24c3633781ce9addfddad8c",
+      "solver": "dpm_solver_pp",
+      "steps": 4,
+      "time_conditioning": "adaln_zero",
+      "training_seeds": [
+        335778785,
+        790448076,
+        1342286018
+      ]
     }
   ],
   "schema_version": 2
