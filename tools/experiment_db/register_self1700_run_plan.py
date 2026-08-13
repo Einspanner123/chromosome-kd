@@ -123,6 +123,8 @@ def main() -> None:
                  dataset_manifest_sha256,git_commit,replication_unit,parent_train_run_id,
                  assigned_executor,work_dir,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(train_run_id) DO UPDATE SET
+                 dataset_manifest_sha256=excluded.dataset_manifest_sha256,
+                 git_commit=excluded.git_commit,
                  assigned_executor=excluded.assigned_executor,work_dir=excluded.work_dir,
                  updated_at=CURRENT_TIMESTAMP""", values)
             planned.append(run_id)
@@ -141,6 +143,8 @@ def main() -> None:
                  dataset_manifest_sha256,git_commit,replication_unit,parent_train_run_id,
                  assigned_executor,work_dir,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(train_run_id) DO UPDATE SET
+                 dataset_manifest_sha256=excluded.dataset_manifest_sha256,
+                 git_commit=excluded.git_commit,
                  parent_train_run_id=excluded.parent_train_run_id,
                  assigned_executor=excluded.assigned_executor,work_dir=excluded.work_dir,
                  updated_at=CURRENT_TIMESTAMP""", values)
