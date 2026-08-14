@@ -7,49 +7,47 @@ line-length = 79
 target-version = "py38"
 
 [tool.ruff.lint]
-select = [
-    "E",    # pycodestyle errors
-    "W",    # pycodestyle warnings
-    "F",    # pyflakes
-    "I",    # isort
-    "UP",   # pyupgrade
-    "C4",   # flake8-comprehensions
-    "SIM",  # flake8-simplify
-    "TCH",  # flake8-type-checking
-    "RUF",  # ruff-specific
-]
+select = ["E", "W", "F", "I", "UP", "C4", "SIM", "TCH", "RUF"]
 ignore = [
-    "E501",   # line too long (handled by formatter)
-    "SIM108", # ternary operator (readability preference)
-    "RUF001", # ambiguous unicode in string (Chinese text)
-    "RUF002", # ambiguous unicode in docstring (Chinese text)
-    "RUF003", # ambiguous unicode in comment (Chinese text)
-    "C408",   # unnecessary dict/list call (common in mmengine config style)
-    "E402",   # module import not at top (common in research scripts)
-    "F405",   # import star usage (common in mmengine config style)
-    "F403",   # import star undefined (common in mmengine config style)
-    "RUF013", # implicit optional (common in torch type hints)
-    "F841",   # unused variable (common in research/debug code)
-    "RUF059", # unused unpacked variable (common in research code)
-    "SIM102", # collapsible if (readability preference)
-    "E722",   # bare except (common in research code)
-    "SIM105", # suppressible exception (readability preference)
+    "E501",
+    "SIM108",
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    "C408",
+    "E402",
+    "F405",
+    "F403",
+    "RUF013",
+    "F841",
+    "RUF059",
+    "SIM102",
+    "E722",
+    "SIM105",
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["mmdet", "ldmdet", "experiments"]
+known-first-party = ["ldmdet", "experiments"]
 known-third-party = [
-    "PIL", "cv2", "matplotlib", "mmcv", "mmengine",
-    "numpy", "onnx", "onnxruntime", "pycocotools",
-    "pytest", "scipy", "torch", "torchvision", "timm",
-    "terminaltables", "wandb",
+    "PIL",
+    "cv2",
+    "matplotlib",
+    "mmcv",
+    "mmdet",
+    "mmengine",
+    "numpy",
+    "pycocotools",
+    "pytest",
+    "scipy",
+    "swanlab",
+    "torch",
+    "torchvision",
+    "yaml",
 ]
 no-lines-before = ["standard-library", "local-folder"]
 
 [tool.ruff.lint.per-file-ignores]
-"mmdet/configs/*" = ["F401", "F403", "F405"]
-"configs/*" = ["F401", "F403", "F405"]
-"projects/*/configs/*" = ["F401", "F403", "F405"]
+"experiments/configs/*" = ["F401", "F403", "F405"]
 
 [tool.ruff.format]
 quote-style = "single"

@@ -1,5 +1,5 @@
 #!/bin/bash
-# LDMDet 一键环境部署
+# KaryoFlow 环境部署
 # Usage: bash experiments/bootstrap.sh [env_name]
 set -euo pipefail
 
@@ -11,7 +11,7 @@ step() { echo -e "${GREEN}>>> $1${NC}"; }
 err()  { echo -e "${RED}ERROR: $1${NC}"; exit 1; }
 
 # ── 1. 创建 conda 环境 ──────────────────────────
-ENV_NAME="${1:-ldmdet}"
+ENV_NAME="${1:-karyoflow}"
 if conda info --envs | grep -q "^${ENV_NAME} "; then
     step "conda env '${ENV_NAME}' exists, reusing"
 else
@@ -31,17 +31,19 @@ case "${CUDA_VER%%.*}" in
 esac
 pip install torch==2.1.0 torchvision==0.16.0 --index-url "https://download.pytorch.org/whl/${TORCH_CUDA}"
 
-# ── 3. mmcv + mmengine (match PyTorch version) ───
-step "installing mmcv + mmengine"
-pip install mmcv==2.1.0 mmengine==0.10.5
+# ── 3. OpenMMLab runtime (match PyTorch/CUDA) ───
+step "installing OpenMMLab runtime"
+pip install openmim
+mim install mmcv==2.1.0
+pip install mmengine==0.10.5 mmdet==3.3.0
 
-# ── 4. 项目本身 (mmdet + ldmdet, editable) ──────
-step "installing project (mmdet + ldmdet)"
-pip install -e .
+# ── 4. KaryoFlow (editable) ──────
+step "installing KaryoFlow"
+pip install -e . --no-deps
 
 # ── 5. 额外依赖 ──────────────────────────────────
 step "installing extras"
-pip install pycocotools timm opencv-python swanlab
+pip install einops matplotlib numpy opencv-python pycocotools scipy swanlab
 
 # ── 6. SwanLab 登录 ──────────────────────────────
 step "SwanLab setup"
@@ -60,8 +62,9 @@ import torch; assert torch.cuda.is_available(), 'CUDA missing'
 print(f'PyTorch {torch.__version__} + CUDA {torch.version.cuda} | GPU: {torch.cuda.get_device_name(0)}')
 import mmdet, mmengine, mmcv; print(f'mmdet {mmdet.__version__} | mmengine {mmengine.__version__} | mmcv {mmcv.__version__}')
 from ldmdet.coupling import build_coupling
-for n in ['random','hard_ot','sinkhorn_stochastic','ghss']: build_coupling(n, epsilon=5.0)
+build_coupling('random')
+build_coupling('ot_flow', epsilon=5.0, num_iters=20)
 print('ldmdet OK')
 "
 
-step "done. run: bash train.sh experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py --seed 42"
+step "done. inspect a run with: python tools/experiments/launch.py --help"

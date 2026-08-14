@@ -30,6 +30,23 @@ straightening, pairing, or abnormality diagnosis.
 versioned or bulk-moved because checkpoints and predictions are large and
 evidence records bind them by path and SHA-256.
 
+MMDetection is an external pinned dependency (`mmdet==3.3.0`), not a vendored
+source tree. Project-specific registry adapters live only in
+`experiments/mmdet_bridge/`.
+
+## Installation
+
+Create an environment with a CUDA-compatible PyTorch build, then install the
+tested OpenMMLab runtime and KaryoFlow:
+
+```bash
+pip install -r requirements.txt
+pip install -e . --no-deps
+```
+
+For CUDA builds where `mmcv` is not available from the default index, install
+the matching wheel with OpenMIM before the remaining requirements.
+
 ## Configuration and launch
 
 Audit every canonical combination before launching:

@@ -7,7 +7,7 @@ baseline:
   branch: refactor/ldmdet
   recovery_tag: archive/pre-cleanup-20260815
   recovery_branch: archive/pre-cleanup-20260815
-current_phase: P7
+current_phase: P8
 invariants:
   paper_evidence_must_resolve: true
   checkpoint_hashes_must_resolve: true
@@ -49,9 +49,14 @@ phases:
     commit: pending_phase_commit
     checkpoint_tag: cleanup/p6-research-docs-20260815
     gate_record: docs/maintenance/baselines/p6_research_documentation_gate.json
-  P7: {name: mmdetection_dependency, status: in_progress, commit: null}
-  P8: {name: final_audit, status: pending, commit: null}
-last_successful_gate: P6_research_documentation_audits_passed
+  P7:
+    name: mmdetection_dependency
+    status: completed
+    commit: pending_phase_commit
+    checkpoint_tag: cleanup/p7-dependencies-20260815
+    gate_record: docs/maintenance/baselines/p7_dependency_gate.json
+  P8: {name: final_audit, status: in_progress, commit: null}
+last_successful_gate: P7_external_mmdetection_dependency_passed
 blocked_items:
   - id: root_owned_regenerable_cache
     paths: [.build_tmp, .hf_cache]
@@ -78,3 +83,6 @@ notes:
   - Five active research documents now define scientific scope and evidence boundaries.
   - Six registered eta_str JSON artifacts retain their historical paths for evidence resolution.
   - Ignored documentation data was moved to the cleanup quarantine, not deleted.
+  - P7 replaced 1,777 vendored MMDetection files with the pinned public 3.3.0 package.
+  - The discarded local CocoMetric patch affected visualization keys, not aggregate AP.
+  - The environment now imports MMDetection from site-packages and builds a KaryoFlow wheel.

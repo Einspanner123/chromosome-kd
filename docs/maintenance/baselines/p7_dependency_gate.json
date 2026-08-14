@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "phase": "P7",
+  "status": "PASS",
+  "dependency": {
+    "name": "mmdet",
+    "version": "3.3.0",
+    "source": "PyPI wheel",
+    "wheel_sha256": "2e23e291281ac57e7dccf8678e957da45fbe560ce78a1f5ded6afeccd3730f17",
+    "import_path_class": "site-packages"
+  },
+  "inventory": {
+    "vendored_tracked_files_before": 1777,
+    "vendored_tracked_files_after": 0,
+    "vendored_size_before": "20 MB",
+    "copied_mim_files_before": 1174,
+    "copied_upstream_config_files_before": 92
+  },
+  "project_patch_disposition": {
+    "file": "mmdet/evaluation/metrics/coco_metric.py",
+    "purpose": "extra per-class visualization keys",
+    "aggregate_metric_effect": false,
+    "retained": false,
+    "recovery_ref": "refs/tags/archive/pre-cleanup-20260815"
+  },
+  "checks": {
+    "official_mmdet_import": "PASS",
+    "unit_tests": {"status": "PASS", "passed": 92},
+    "canonical_model_build": {"status": "PASS", "combinations": 38},
+    "generation_ablation": {"status": "PASS", "stages": 4},
+    "inference_ablations": {"status": "PASS", "variants": 76},
+    "protocols": {"status": "PASS", "protocols": 8},
+    "evidence_db": {"status": "PASS", "controlled": 1318, "diagnostic": 166},
+    "experiment_route_matrix": {"status": "PASS", "expanded_runs": 261},
+    "wheel_build": {"status": "PASS", "artifact": "karyoflow-0.1.0-py3-none-any.whl"},
+    "bootstrap_shell_syntax": "PASS",
+    "git_diff_check": "PASS"
+  },
+  "environment_note": "pip check reports two pre-existing openxlab pin conflicts unrelated to KaryoFlow or MMDetection."
+}
