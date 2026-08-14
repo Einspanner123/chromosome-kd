@@ -179,3 +179,6 @@ docs/paper/latex/main.log
 
 # Local evaluation outputs; canonical small summaries are force-added.
 results/
+
+# Analysis image outputs (generated visualization artifacts, large binaries)
+analysis/**/*.png
