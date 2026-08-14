@@ -26,25 +26,36 @@ paper-facing evidence must pass `validate_run_evidence.py`; legacy rows are
 being migrated to the same contract and must not be promoted merely because
 they already exist in the database.
 
-## Refresh and audit
+## Authoritative write path
 
 ```bash
-python tools/experiment_db/build_experiment_db.py --server ross
-python tools/experiment_db/import_evidence_manifest.py
-python tools/experiment_db/update_paper_evidence.py
+python tools/experiment_db/validate_run_evidence.py \
+  tools/experiment_db/evidence_sources/runs/<record>.json --verify-files
+python tools/experiment_db/import_run_evidence.py \
+  tools/experiment_db/evidence_sources/runs/<record>.json
 python tools/experiment_db/audit_evidence_db.py
 ```
 
-`update_paper_evidence.py` idempotently registers the dataset split inventory,
-the source-backed D1 RF/DDPM held-out test comparison, and the annotation
-perturbation diagnostic that predate the curated manifest. Its JSON inputs are
-kept under `evidence_sources/`; do not replace them with prose summaries.
+Every new accuracy evaluation enters through a schema-validated, hash-verified
+run-evidence JSON. The importer is transactional and idempotent: reimporting an
+identical record is a no-op, while reusing an identity with different content
+fails. Training runs must be preregistered before evaluation. Paper exports may
+only reference the resulting immutable artifact and controlled-result IDs.
 
-Run the raw scanner on both servers. The legacy `experiment` rows have logical
-`work_dir` grain. When adding a second server, pass `--namespace-server` so
-physical runs use `server:work_dir` and cannot overwrite the ross row; volatile
-progress observations may additionally use `run_snapshot`. The curated
-`evidence_manifest.json` contains paper results and original source addresses.
+The curated manifest importers and specialized registration scripts in the
+recovery tag exist for evidence created before this contract. They are not
+valid templates for new experiments.
+
+## Legacy raw-run inventory
+
+`build_experiment_db.py` scans historical work directories into the raw
+`experiment`/`evaluation` layer. This layer is useful for discovery and progress
+recovery, but does not make a result paper-eligible. When scanning another
+machine, pass `--namespace-server` so equal relative paths cannot alias.
+
+The existing `evidence_manifest.json`, compatibility reports, and source JSONs
+are immutable legacy evidence. Do not regenerate or rewrite them during source
+cleanup.
 
 ## Unified held-out test evaluation
 
@@ -69,7 +80,19 @@ record.
 Accuracy evaluations may use checkpoints trained or evaluated on different GPU
 models, provided that the random seed and full evaluation protocol are recorded.
 Hardware consistency is required only for latency, throughput, memory, and other
-efficiency comparisons; those measurements use the designated Ross GPU.
+efficiency comparisons; those measurements must use one declared device and
+protocol. Machine hostnames are operational metadata and must not appear in
+paper-facing exports.
+
+## Known legacy quality boundaries
+
+- The raw scanner layer contains mixed historical grain and is not a paper
+  source by itself.
+- Some legacy diagnostic and dataset-inventory rows use `paper_eligible=1` for
+  bounded non-accuracy claims. Final detector accuracy exports still require a
+  held-out test split and controlled evidence.
+- Fixed-checkpoint inference repetitions and independent training repetitions
+  remain distinct aggregation units.
 
 ## Claim policy
 

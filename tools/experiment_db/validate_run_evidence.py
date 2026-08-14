@@ -33,7 +33,8 @@ def validate(record: dict, root: Path, verify_files: bool) -> list[str]:
         "schema_version", "record_id", "record_type", "dataset_id", "split",
         "annotation", "num_images", "training_seed", "replication_unit", "config",
         "checkpoint", "source_log", "code", "evaluation_protocol",
-        "selection_source", "status", "metrics",
+        "selection_source", "status", "metrics", "train_run_id",
+        "protocol_sha256",
     }
     missing = sorted(required - record.keys())
     if missing:
@@ -43,6 +44,12 @@ def validate(record: dict, root: Path, verify_files: bool) -> list[str]:
         errors.append("schema_version must be 1.0")
     if record["replication_unit"] not in REPLICATION_UNITS:
         errors.append("unknown replication_unit")
+    if not record.get("train_run_id"):
+        errors.append("train_run_id must be non-empty")
+    if not SHA256_RE.fullmatch(record.get("protocol_sha256") or ""):
+        errors.append("invalid protocol_sha256")
+    if not record.get("selection_source"):
+        errors.append("selection_source must be non-empty")
     if record["status"] in FINAL_STATES and record["split"] != "test":
         errors.append("verified/paper-eligible accuracy evidence must use split=test")
     if record["status"] in FINAL_STATES and record.get("test_tuned", False):
@@ -70,8 +77,12 @@ def validate(record: dict, root: Path, verify_files: bool) -> list[str]:
         if not SHA256_RE.fullmatch(digest):
             errors.append(f"invalid SHA-256 for {name}")
             continue
+        artifact_path = Path(artifact.get("path", ""))
+        if artifact_path.is_absolute() or ".." in artifact_path.parts:
+            errors.append(f"{name} path must be project-relative")
+            continue
         if verify_files:
-            path = root / artifact.get("path", "")
+            path = root / artifact_path
             if not path.is_file():
                 errors.append(f"missing artifact: {name}={path}")
             elif file_sha256(path) != digest:

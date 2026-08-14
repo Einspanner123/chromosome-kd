@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "plan_id": "repo-cleanup-20260815",
+  "phase": "P4",
+  "scope": "experiment tooling and evidence quality",
+  "recovery_parent": "cleanup/p3-runtime-20260815",
+  "inventory": {
+    "active_tool_python_files": {"before": 65, "after": 44},
+    "canonical_database_sha256": "df0a547629a4f3c004c140ed12a3b77cf5679da13ef24b03f039892f2d51a63d",
+    "database_backup_files_removed": 1,
+    "one_time_mutation_scripts_removed": 16
+  },
+  "canonical_boundaries": {
+    "configuration": "tools/configs",
+    "experiment_resolution_and_launch": "tools/experiments",
+    "experiment_evidence": "tools/experiment_db",
+    "hardware_benchmark": "tools/benchmarks/benchmark_latency.py",
+    "offline_analysis": "tools/analysis",
+    "maintenance": "tools/maintenance"
+  },
+  "new_evidence_write_path": [
+    "pre-register train_run_id",
+    "atomically emit run-evidence JSON",
+    "validate schema and project-relative artifact SHA-256 values",
+    "transactionally import with immutable identity conflict checks",
+    "run evidence and paper-route audits",
+    "export paper cells from controlled result IDs"
+  ],
+  "data_quality_profile": {
+    "evidence_artifacts": 889,
+    "controlled_results": 1318,
+    "diagnostic_results": 166,
+    "paper_eligible_rows": 1351,
+    "registered_training_runs": 63,
+    "registered_evaluations": 63,
+    "foreign_key_violations": 0,
+    "duplicate_artifact_sha_groups": 1
+  },
+  "quality_findings": [
+    {
+      "severity": "medium",
+      "confidence": "high",
+      "finding": "Sixty legacy annotation-perturbation diagnostic rows are marked paper-eligible.",
+      "risk": "They must not be selected as final detector accuracy evidence.",
+      "control": "New run-evidence imports always use controlled evidence; paper accuracy exports require held-out test controlled rows. Existing diagnostic rows remain immutable legacy analysis."
+    },
+    {
+      "severity": "low",
+      "confidence": "high",
+      "finding": "Twenty-nine paper-eligible rows use train, val, or benchmark split labels.",
+      "risk": "A split-only query could confuse dataset inventory or efficiency metrics with final accuracy.",
+      "control": "All 29 belong to dataset inventory/scale or hardware engineering families; final accuracy exports filter by metric role and held-out test split."
+    },
+    {
+      "severity": "low",
+      "confidence": "high",
+      "finding": "One SHA-256 is represented by three semantic artifact IDs.",
+      "risk": "Physical evidence could be counted more than once if artifact ID is mistaken for an independent run.",
+      "control": "The aliases all reference one lineage document and are not aggregation units; new identities are content-hash backed."
+    }
+  ],
+  "gates": {
+    "unit_tests": {"status": "PASS", "passed": 92},
+    "run_evidence_tests": {"status": "PASS", "passed": 8},
+    "evidence_database": {"status": "PASS"},
+    "config_compatibility": {"status": "PASS", "mappings": 13},
+    "paper_route_matrix": {"status": "PASS", "groups": 46, "expanded_runs": 261},
+    "d2_paper_evidence": {"status": "PASS", "checked_results": 123, "references": 171}
+  },
+  "recovery": {"checkpoint_tag": "cleanup/p4-tools-evidence-20260815"}
+}

@@ -7,11 +7,11 @@
 
 用法:
     # 批量生成所有组合
-    conda run -n chromo python3 tools/visualize_denoising_trajectory.py --batch-all
+    python tools/analysis/visualize_denoising_trajectory.py --batch-all
 
     # 单次生成
-    conda run -n chromo python3 tools/visualize_denoising_trajectory.py \
-        experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_dpm_pp_24obj.py \
+    python tools/analysis/visualize_denoising_trajectory.py \
+        <resolved-mmengine-config.py> \
         --checkpoint work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth \
         --image-id 131 --solver dpm_solver_pp --steps 4 \
         --output docs/paper/latex/figures/trajectory/dpm_pp_4step_24obj.png
@@ -34,7 +34,8 @@ import torch
 from scipy.optimize import linear_sum_assignment
 
 # 确保项目根目录在 Python path 中
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_PROJECT_ROOT = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
