@@ -133,15 +133,3 @@ class TestOTFlowCoupling:
         assert (idx == 0).all()
         for i in range(50):
             assert torch.allclose(x_start[i], gt[0], atol=1e-6)
-
-    def test_ot_epsilon_property(self):
-        """ot_epsilon 属性应兼容诊断器"""
-        c = build_coupling('ot_flow', epsilon=3.0)
-        assert c.ot_epsilon == 3.0
-
-    def test_ot_module_exposed(self):
-        """ot_module 应暴露内部 OTFlowMatching"""
-        c = build_coupling('ot_flow', epsilon=2.0)
-        assert c.ot_module is not None
-        assert hasattr(c.ot_module, 'compute_ot_coupling')
-        assert hasattr(c.ot_module, 'compute_coupling_cost')

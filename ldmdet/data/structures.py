@@ -32,8 +32,7 @@ class ModelOutput:
         pred_logits: [B, N, C] 分类 logits
         pred_boxes: [B, N, 4] 预测框 (xyxy)
         pred_count: [B, 1] 可选全局计数
-        pred_quality: [B, N, K] 可选 IoU quality logits；K=1 为标量 LQCR
-        pred_mass: [B, N, 1] 可选守恒 proposal mass logits
+        pred_quality: [B, N, 1] 可选标量 IoU quality logits
         aux_outputs: 深度监督的辅助输出
     """
 
@@ -41,7 +40,6 @@ class ModelOutput:
     pred_boxes: Tensor
     pred_count: Optional[Tensor] = None
     pred_quality: Optional[Tensor] = None
-    pred_mass: Optional[Tensor] = None
     aux_outputs: Optional[List['ModelOutput']] = None
 
 

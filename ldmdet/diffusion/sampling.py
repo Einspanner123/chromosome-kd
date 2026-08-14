@@ -12,7 +12,6 @@ from torch import Tensor
 from torchvision.ops import batched_nms
 
 from ldmdet.data.structures import DetectionResult, ImageMeta
-from ldmdet.diffusion.box_chart import ValidBoxChart
 from ldmdet.diffusion.noise_schedule import load_buffer
 from ldmdet.diffusion.rectified_flow import RFDPMSolverMultistep
 from ldmdet.utils.box_ops import bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh
@@ -41,8 +40,6 @@ class DiffusionSampler:
         nms_thr: float,
         score_thr: float,
         min_keep: int,
-        # BoxChart-RF: optional valid-box chart used as the RF state space.
-        box_chart: Optional[ValidBoxChart] = None,
     ):
         self.diffusion_type = diffusion_type
         self.timesteps = timesteps
@@ -53,7 +50,6 @@ class DiffusionSampler:
         self.rf_power = rf_power
         self.rf_shift = rf_shift
         self.snr_scale = snr_scale
-        self.box_chart = box_chart
         self.box_renewal = box_renewal
         self.use_ensemble = use_ensemble
         self.use_nms = use_nms
@@ -192,16 +188,12 @@ class DiffusionSampler:
         return self.normalized_xyxy_to_raw(x0)
 
     def normalized_xyxy_to_raw(self, bboxes: Tensor) -> Tensor:
-        """Normalized xyxy boxes → configured RF state coordinates."""
-        if self.box_chart is not None:
-            return self.box_chart.encode(bboxes)
+        """Normalized xyxy boxes → linear cxcywh state coordinates."""
         cxcywh = bbox_xyxy_to_cxcywh(bboxes)
         return (cxcywh * 2 - 1) * self.snr_scale
 
     def raw_to_normalized_xyxy(self, raw_bboxes: Tensor) -> Tensor:
-        """Configured RF state coordinates → normalized valid xyxy boxes."""
-        if self.box_chart is not None:
-            return self.box_chart.decode(raw_bboxes)
+        """Linear cxcywh state coordinates → normalized xyxy boxes."""
         cxcywh = (
             raw_bboxes.clamp(-self.snr_scale, self.snr_scale)
             / self.snr_scale + 1

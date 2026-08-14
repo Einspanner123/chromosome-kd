@@ -71,11 +71,7 @@ class LDMDetDetector(BaseDetector):
                 self.bbox_head.init_student_from_teacher()
         if self.bbox_head.freeze_backbone:
             self._freeze_backbone_and_neck()
-        if (
-            self.bbox_head.quality_only_training
-            or self.bbox_head.mass_only_training
-            or self.bbox_head.terminal_reg_only_training
-        ):
+        if self.bbox_head.quality_only_training:
             for parameter in self.backbone.parameters():
                 parameter.requires_grad_(False)
             if self.neck is not None:

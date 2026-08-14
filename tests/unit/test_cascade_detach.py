@@ -37,7 +37,6 @@ def _make_single_head(num_classes=24, feat_channels=64):
         num_cls_convs=1,
         num_reg_convs=2,
         use_focal_loss=True,
-        use_normalized_classifier=False,
     )
 
 

@@ -10,9 +10,6 @@ from typing import Optional, Tuple
 import torch
 from torch import Tensor
 
-from ldmdet.diagnostics.instrumentation import probe
-
-
 class RectifiedFlow:
     """1-RectFlow: 直线路径前向扩散与采样。"""
 
@@ -42,12 +39,6 @@ class RectifiedFlow:
         t_view = t.view(-1, *([1] * (x_start.dim() - 1)))
         x_t = (1.0 - t_view) * x_start + t_view * x_noise
         velocity = x_noise - x_start
-
-        # 探针: RF 前向加噪路径统计 (训练时每 100 步)
-        probe.record_tensor_stats('rf/x_t', x_t)
-        probe.record_tensor_stats('rf/velocity', velocity)
-        probe.record_tensor_stats('rf/x_start', x_start)
-        probe.record_tensor_stats('rf/x_noise', x_noise)
 
         return x_t, velocity
 

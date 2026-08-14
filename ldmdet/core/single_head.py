@@ -10,39 +10,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from ldmdet.core.dynamic_conv import DynamicConv
-from ldmdet.core.geometric_relation_attention import (
-    OverlapConditionalGeometryBias,
-)
 from ldmdet.utils.box_ops import bbox2roi
 
 # 检测 SDPA (PyTorch 2.0+) 是否可用，用于高效 Flash Attention 后端
 _SDPA_AVAILABLE = hasattr(F, 'scaled_dot_product_attention')
-
-
-class MonotoneIoUSurvivalHead(nn.Module):
-    """Predict a monotone IoU survival curve over ordered thresholds."""
-
-    def __init__(self, feat_channels, hidden_channels, num_thresholds):
-        super().__init__()
-        if num_thresholds < 2:
-            raise ValueError('IoU survival prediction needs at least 2 thresholds')
-        self.shared = nn.Sequential(
-            nn.Linear(feat_channels, hidden_channels, bias=False),
-            nn.LayerNorm(hidden_channels),
-            nn.ReLU(inplace=True),
-        )
-        self.base_logit = nn.Linear(hidden_channels, 1)
-        self.logit_decrements = nn.Linear(hidden_channels, num_thresholds - 1)
-        nn.init.normal_(self.base_logit.weight, std=1e-3)
-        nn.init.constant_(self.base_logit.bias, math.log(9.0))
-        nn.init.zeros_(self.logit_decrements.weight)
-        nn.init.constant_(self.logit_decrements.bias, -4.0)
-
-    def forward(self, features):
-        hidden = self.shared(features)
-        first = self.base_logit(hidden)
-        decrements = F.softplus(self.logit_decrements(hidden)).cumsum(dim=-1)
-        return torch.cat((first, first - decrements), dim=-1)
 
 
 class SingleDiffusionDetHead(nn.Module):
@@ -73,13 +44,6 @@ class SingleDiffusionDetHead(nn.Module):
         attn_half=False,
         predict_iou_quality=False,
         quality_hidden=128,
-        quality_thresholds=None,
-        predict_set_mass=False,
-        mass_hidden=128,
-        mass_prior_prob=0.1,
-        geometric_relation_attention=False,
-        geometric_relation_hidden=32,
-        geometric_relation_proximity_radius=3.0,
     ):
         super().__init__()
         self.feat_channels = feat_channels
@@ -89,28 +53,6 @@ class SingleDiffusionDetHead(nn.Module):
         self.use_sdpa = use_sdpa and _SDPA_AVAILABLE
         self.attn_half = attn_half
         self.predict_iou_quality = predict_iou_quality
-        self.predict_set_mass = predict_set_mass
-        self.geometric_relation_attn = (
-            OverlapConditionalGeometryBias(
-                num_heads=num_heads,
-                hidden_channels=geometric_relation_hidden,
-                proximity_radius=geometric_relation_proximity_radius,
-            )
-            if geometric_relation_attention else None
-        )
-        self.quality_thresholds = (
-            tuple(float(value) for value in quality_thresholds)
-            if quality_thresholds is not None else None
-        )
-        if self.quality_thresholds is not None:
-            if not predict_iou_quality:
-                raise ValueError(
-                    'quality_thresholds requires predict_iou_quality=True')
-            if any(not 0.0 < value <= 1.0 for value in self.quality_thresholds):
-                raise ValueError('quality_thresholds must lie in (0, 1]')
-            if any(a >= b for a, b in zip(
-                    self.quality_thresholds, self.quality_thresholds[1:])):
-                raise ValueError('quality_thresholds must be strictly increasing')
 
         self.self_attn = nn.MultiheadAttention(
             feat_channels, num_heads, dropout=dropout
@@ -157,44 +99,16 @@ class SingleDiffusionDetHead(nn.Module):
         )
         self.reg_head = self._build_reg_head(feat_channels, num_reg_convs)
         if predict_iou_quality:
-            if self.quality_thresholds is None:
-                self.quality_head = nn.Sequential(
-                    nn.Linear(feat_channels, quality_hidden, bias=False),
-                    nn.LayerNorm(quality_hidden),
-                    nn.ReLU(inplace=True),
-                    nn.Linear(quality_hidden, 1),
-                )
-                # Preserve scalar LQCR checkpoint compatibility.
-                nn.init.normal_(self.quality_head[-1].weight, std=1e-3)
-                nn.init.constant_(self.quality_head[-1].bias, math.log(9.0))
-            else:
-                self.quality_head = MonotoneIoUSurvivalHead(
-                    feat_channels,
-                    quality_hidden,
-                    len(self.quality_thresholds),
-                )
+            self.quality_head = nn.Sequential(
+                nn.Linear(feat_channels, quality_hidden, bias=False),
+                nn.LayerNorm(quality_hidden),
+                nn.ReLU(inplace=True),
+                nn.Linear(quality_hidden, 1),
+            )
+            nn.init.normal_(self.quality_head[-1].weight, std=1e-3)
+            nn.init.constant_(self.quality_head[-1].bias, math.log(9.0))
         else:
             self.quality_head = None
-        self.quality_dim = (
-            len(self.quality_thresholds)
-            if self.quality_thresholds is not None else 1
-        )
-        if predict_set_mass:
-            if not 0.0 < mass_prior_prob < 1.0:
-                raise ValueError('mass_prior_prob must lie in (0, 1)')
-            self.mass_head = nn.Sequential(
-                nn.Linear(feat_channels, mass_hidden, bias=False),
-                nn.LayerNorm(mass_hidden),
-                nn.ReLU(inplace=True),
-                nn.Linear(mass_hidden, 1),
-            )
-            nn.init.normal_(self.mass_head[-1].weight, std=1e-3)
-            nn.init.constant_(
-                self.mass_head[-1].bias,
-                math.log(mass_prior_prob / (1.0 - mass_prior_prob)),
-            )
-        else:
-            self.mass_head = None
 
         self.scale_clamp = scale_clamp
         self.bbox_weights = bbox_weights
@@ -310,11 +224,6 @@ class SingleDiffusionDetHead(nn.Module):
         bs, num_boxes = bboxes.shape[:2]
         rois = bbox2roi([bboxes[i] for i in range(bs)])
         roi_features = pooler(features, rois)
-        attn_bias = (
-            self.geometric_relation_attn(bboxes)
-            if self.geometric_relation_attn is not None else None
-        )
-
         if proposals is None:
             proposals = (
                 roi_features.flatten(2)
@@ -327,7 +236,7 @@ class SingleDiffusionDetHead(nn.Module):
         ).permute(2, 0, 1)
 
         fc_feature = self._conditioned_forward(
-            proposals, roi_features, time_emb, bs, num_boxes, attn_bias
+            proposals, roi_features, time_emb, bs, num_boxes
         )
         return self._predict(fc_feature, bboxes, bs, num_boxes)
 
@@ -352,12 +261,7 @@ class SingleDiffusionDetHead(nn.Module):
         )
         if self.quality_head is not None:
             quality_logits = self.quality_head(fc_feature)
-            result += (
-                quality_logits.view(bs, num_boxes, self.quality_dim),
-            )
-        if self.mass_head is not None:
-            mass_logits = self.mass_head(fc_feature)
-            result += (mass_logits.view(bs, num_boxes, 1),)
+            result += (quality_logits.view(bs, num_boxes, 1),)
         return result
 
     def _forward_adaln_zero(

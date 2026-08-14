@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "plan_id": "repo-cleanup-20260815",
+  "phase": "P3",
+  "scope": "active runtime and tests",
+  "recovery_parent": "cleanup/p2-configs-20260815",
+  "inventory": {
+    "ldmdet_python_files": {"before": 54, "after": 34},
+    "test_files": {"before": 48, "after": 12},
+    "selected_runtime_lines": {"before": 2703, "after": 2126},
+    "git_changed_files": 64,
+    "deleted_lines": 15939,
+    "added_lines": 101
+  },
+  "retained_runtime": [
+    "DDPM and rectified-flow training",
+    "Euler, Heun, and DPM-Solver++ inference",
+    "random and Sinkhorn-OT coupling",
+    "box renewal and Top-K proposal pruning",
+    "scalar final-stage LQCR",
+    "parent-matched cascade-head distillation"
+  ],
+  "removed_runtime": [
+    "box-chart state parameterization",
+    "geometric-relation attention",
+    "set-mass prediction and conservation loss",
+    "terminal localization-utility branch",
+    "threshold-survival quality head",
+    "solver-coupled quality scoring",
+    "training diagnostics probe",
+    "embedded few-shot and duplicate test packages"
+  ],
+  "gates": {
+    "canonical_model_build": {"status": "PASS", "combinations": 38},
+    "unit_tests": {"status": "PASS", "passed": 84, "warnings": 3},
+    "generation_ablation": {"status": "PASS", "stages": 4},
+    "inference_protocols": {"status": "PASS", "variants": 76},
+    "deployment_protocols": {"status": "PASS", "protocols": 8},
+    "config_compatibility_index": {"status": "PASS", "mappings": 13},
+    "evidence_database": {"status": "PASS", "controlled": 1318, "diagnostic": 166},
+    "paper_route_matrix": {"status": "PASS", "groups": 46, "expanded_runs": 261}
+  },
+  "checkpoint_runtime_loads": [
+    {
+      "identity": "D2 KaryoFlow parent",
+      "checkpoint_sha256": "efdbb05f2265d5e45c8c078b4ce43a5298517cdfd18f805b59a2d7e9a36e676a",
+      "strict_load": true,
+      "tensors": 590,
+      "missing": 0,
+      "unexpected": 0,
+      "shape_mismatch": 0
+    },
+    {
+      "identity": "D2 KaryoFlow plus LQCR",
+      "strict_load": true,
+      "tensors": 595,
+      "missing": 0,
+      "unexpected": 0,
+      "shape_mismatch": 0
+    },
+    {
+      "identity": "D2 H3 distilled student",
+      "strict_load": true,
+      "tensors": 464,
+      "missing": 0,
+      "unexpected": 0,
+      "shape_mismatch": 0
+    }
+  ],
+  "compatibility_note": "The active runtime strictly loads all three checkpoint structures. Work-directory config snapshots are not promoted as original training configs because their SHA-256 values differ from the hashes recorded in historical logs; immutable evidence reports remain unchanged.",
+  "recovery": {
+    "checkpoint_tag": "cleanup/p3-runtime-20260815",
+    "historical_source_tag": "refs/tags/archive/pre-cleanup-20260815"
+  }
+}

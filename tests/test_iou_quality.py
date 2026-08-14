@@ -92,7 +92,7 @@ def test_quality_calibration_mode_is_validated():
             single_head=make_single_head(True), roi_extractor=None,
             criterion=None, quality_calibration_mode='unknown')
     except ValueError as error:
-        assert 'solver_coupled or final_only' in str(error)
+        assert 'final-stage quality ranking only' in str(error)
     else:
         raise AssertionError('invalid calibration mode was accepted')
 

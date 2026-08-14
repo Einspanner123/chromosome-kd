@@ -1,17 +1,10 @@
-"""OT Flow Matching 耦合策略适配器 — 方向四
-
-将 OTFlowMatching 包装为 CouplingStrategy, 使其可通过 coupling 参数配置.
-同时暴露 epsilon/num_iters 属性供诊断使用.
-
-若方向四废弃, 删除本文件 + tests/unit/test_nonlinear_trajectory.py 即可回滚.
-"""
+"""Sinkhorn OT coupling used by legacy KaryoFlow checkpoints."""
 
 import torch
 from torch import Tensor
 
 from ldmdet.coupling._sinkhorn_ops import sinkhorn_transport
 from ldmdet.coupling.base import CouplingStrategy, register_coupling
-from ldmdet.diagnostics.instrumentation import probe
 from ldmdet.diffusion.ot_flow_matching import OTFlowMatching
 
 
@@ -41,21 +34,6 @@ class OTFlowCoupling(CouplingStrategy):
         )
         self.epsilon = epsilon
         self.num_iters = num_iters
-
-        # 诊断缓存: couple() 调用后可被 CouplingDiagnostics 读取
-        self.last_transport = None  # [M, N] 传输矩阵
-        self.last_cost = None  # [M, N] cost 矩阵
-        self.last_coupling_mode = 'none'
-
-    @property
-    def ot_epsilon(self) -> float:
-        """兼容诊断器读取 (legacy OTCoupling 用 ot_epsilon 属性)."""
-        return self.epsilon
-
-    @property
-    def ot_module(self) -> OTFlowMatching:
-        """暴露内部 OTFlowMatching 供诊断使用."""
-        return self._ot
 
     def couple(
         self,
@@ -91,38 +69,6 @@ class OTFlowCoupling(CouplingStrategy):
         transport = sinkhorn_transport(
             cost, epsilon=self.epsilon, num_iters=self.num_iters
         )
-
-        # 缓存供 CouplingDiagnostics 使用
-        self.last_cost = cost.detach()
-        self.last_transport = transport.detach()
-        self.last_coupling_mode = self._ot.coupling_mode  # 'argmax' 或 'multinomial'
-
-        # 探针: coupling 诊断 (训练时每 100 步)
-        # coupling 熵 = mean(per-column Shannon entropy), 衡量 OT 多样性
-        # 熵高 = 多样性好; 熵低 = OT Diversity Collapse (命题 1-2 病理)
-        probe.record_scalar('coupling/M_gt', float(M))
-        probe.record_scalar('coupling/N_proposals', float(N))
-        probe.record_scalar('coupling/epsilon', float(self.epsilon))
-        # cost 矩阵统计
-        probe.record_tensor_stats('coupling/cost_matrix', cost.detach())
-        # transport 矩阵统计
-        probe.record_tensor_stats('coupling/transport_matrix', transport.detach())
-        # coupling 熵 (per-column Shannon entropy of transport_col)
-        col_sums_ent = transport.sum(dim=0, keepdim=True).clamp_min(1e-10)
-        transport_col_ent = transport / col_sums_ent  # [M, N], 每列和为 1
-        # Shannon entropy: H = -sum(p * log(p)), per column
-        p_safe = transport_col_ent.clamp_min(1e-10)
-        entropy_per_col = -(p_safe * p_safe.log()).sum(dim=0)  # [N]
-        max_entropy = torch.log(torch.tensor(float(M))).clamp_min(1e-10)
-        probe.record_scalar(
-            'coupling/mean_entropy', float(entropy_per_col.mean().item())
-        )
-        probe.record_scalar(
-            'coupling/normalized_entropy',
-            float((entropy_per_col.mean() / max_entropy).item()),
-        )
-        # OT Diversity Collapse 指标: 归一化熵 < 0.3 表示严重坍缩
-        probe.record_tensor_stats('coupling/entropy_per_col', entropy_per_col.detach())
 
         # 列归一化: 每个 proposal (列) 从 M 个 GT 中选一个
         col_sums = transport.sum(dim=0, keepdim=True).clamp_min(1e-10)  # [1, N]

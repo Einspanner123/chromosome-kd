@@ -7,7 +7,7 @@ baseline:
   branch: refactor/ldmdet
   recovery_tag: archive/pre-cleanup-20260815
   recovery_branch: archive/pre-cleanup-20260815
-current_phase: P3
+current_phase: P4
 invariants:
   paper_evidence_must_resolve: true
   checkpoint_hashes_must_resolve: true
@@ -28,8 +28,12 @@ phases:
     status: completed
     checkpoint_tag: cleanup/p2-configs-20260815
     gate_record: docs/maintenance/baselines/p2_configuration_gate.json
-  P3: {name: runtime_and_tests, status: in_progress, commit: null}
-  P4: {name: tools_and_evidence, status: pending, commit: null}
+  P3:
+    name: runtime_and_tests
+    status: completed
+    checkpoint_tag: cleanup/p3-runtime-20260815
+    gate_record: docs/maintenance/baselines/p3_runtime_gate.json
+  P4: {name: tools_and_evidence, status: in_progress, commit: null}
   P5: {name: artifact_relocation, status: pending, commit: null}
   P6: {name: research_and_documentation, status: pending, commit: null}
   P7: {name: mmdetection_dependency, status: pending, commit: null}
@@ -41,11 +45,6 @@ blocked_items:
     impact: none_on_source_or_evidence
     reason: files_owned_by_root
     required_action: remove_with_authorized_system_account_or_leave_ignored
-  - id: stale_pre_restore_distillation_test
-    paths: [tests/unit/test_head_distill.py]
-    impact: legacy_test_collection_only
-    reason: imports_removed_FeatureDistillLoss_while_restored_distillation_path_uses_head_losses
-    required_action: replace_or_remove_during_P3_runtime_test_convergence
 notes:
   - No training or unified evaluation process was active when baseline was frozen.
   - work_dirs and results remain in place until P5.
@@ -54,3 +53,6 @@ notes:
   - P2 reduced active tracked configuration files from 277 to 91.
   - Historical inference protocols resolve deleted source configs through the recovery tag.
   - Immutable compatibility report payloads were not rewritten during path migration.
+  - P3 reduced the active ldmdet package from 54 to 34 Python files.
+  - P3 retained 12 focused test files; all 84 collected tests pass.
+  - KaryoFlow, LQCR, and H3 student checkpoints strictly load in the cleaned runtime.

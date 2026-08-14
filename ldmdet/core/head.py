@@ -18,8 +18,6 @@ from ldmdet.data.structures import (
     InstanceData,
     ModelOutput,
 )
-from ldmdet.diagnostics.instrumentation import probe
-from ldmdet.diffusion.box_chart import ValidBoxChart
 from ldmdet.diffusion.embeddings import SinusoidalPositionEmbeddings
 from ldmdet.diffusion.noise_schedule import cosine_noise_schedule
 from ldmdet.diffusion.rectified_flow import RectifiedFlow
@@ -41,14 +39,6 @@ def calibrate_class_logits(cls_logits, quality_logits, beta=2.0):
     return torch.logit(calibrated)
 
 
-def calibrate_mass_logits(cls_logits, mass_logits, power=1.0):
-    """Fuse class probability with conserved proposal mass."""
-    probability = cls_logits.sigmoid()
-    mass = mass_logits.sigmoid().pow(power)
-    calibrated = (probability * mass).clamp(min=1e-6, max=1.0 - 1e-6)
-    return torch.logit(calibrated)
-
-
 class DiffusionDetHead(nn.Module):
     """扩散检测头。支持 DDPM 和 Rectified Flow，Euler/Heun/DPM-Solver++。"""
 
@@ -60,10 +50,6 @@ class DiffusionDetHead(nn.Module):
         num_heads: int = 6,
         prior_prob: float = 0.01,
         snr_scale: float = 2.0,
-        box_parameterization: str = 'linear_cxcywh',
-        box_chart_eps: float = 1e-6,
-        box_chart_mean: Optional[list] = None,
-        box_chart_covariance: Optional[list] = None,
         timesteps: int = 1000,
         sampling_timesteps: int = 1,
         solver_type: str = 'euler',
@@ -83,12 +69,7 @@ class DiffusionDetHead(nn.Module):
         nms_thr: float = 0.5,
         score_thr: float = 0.05,
         min_keep: int = 10,
-        filter_unknown: bool = True,
-        gt_reweight: bool = True,
-        use_checkpoint: bool = False,
         coupling: Optional[nn.Module] = None,
-        pre_noise_layer: int = 2,
-        loss_aux: Optional[Dict] = None,
         torch_compile: bool = False,
         amp_dtype: Optional[torch.dtype] = None,
         topk_pruning_enabled: bool = False,
@@ -104,12 +85,8 @@ class DiffusionDetHead(nn.Module):
         # IQC: IoU Quality Calibration. The single head predicts q(IoU), and
         # inference ranks detections by p(class) * q ** beta.
         quality_score_beta: float = 2.0,
-        quality_calibration_mode: str = 'solver_coupled',
+        quality_calibration_mode: str = 'final_only',
         quality_only_training: bool = False,
-        mass_score_power: float = 1.0,
-        mass_only_training: bool = False,
-        terminal_reg_only_training: bool = False,
-        geometric_relation_start_head: int = 3,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -117,14 +94,10 @@ class DiffusionDetHead(nn.Module):
         self.num_proposals = num_proposals
         self.num_heads = num_heads
         self.snr_scale = snr_scale
-        self.box_parameterization = box_parameterization
         self.diffusion_type = diffusion_type
         self.deep_supervision = deep_supervision
         self.cascade_detach = cascade_detach
-        self.filter_unknown = filter_unknown
-        self.gt_reweight = gt_reweight
         self.timesteps = timesteps
-        self.use_checkpoint = use_checkpoint
         self.rf_schedule = rf_schedule
         self.rf_shift = rf_shift
         self.rf_power = rf_power
@@ -156,51 +129,11 @@ class DiffusionDetHead(nn.Module):
         self.quality_calibration_mode = quality_calibration_mode
         self.quality_only_training = bool(quality_only_training)
         self._last_quality_logits = None
-        self.mass_score_power = float(mass_score_power)
-        self.mass_only_training = bool(mass_only_training)
-        self.terminal_reg_only_training = bool(terminal_reg_only_training)
-        if not 0 <= geometric_relation_start_head <= num_heads:
-            raise ValueError(
-                'geometric_relation_start_head must lie in [0, num_heads]')
-        self.geometric_relation_start_head = int(geometric_relation_start_head)
-        self._last_mass_logits = None
         if self.quality_score_beta < 0:
             raise ValueError('quality_score_beta must be non-negative')
-        if self.quality_calibration_mode not in ('solver_coupled', 'final_only'):
+        if self.quality_calibration_mode != 'final_only':
             raise ValueError(
-                'quality_calibration_mode must be solver_coupled or final_only')
-        if self.mass_score_power < 0:
-            raise ValueError('mass_score_power must be non-negative')
-        exclusive_training_modes = sum((
-            self.quality_only_training,
-            self.mass_only_training,
-            self.terminal_reg_only_training,
-        ))
-        if exclusive_training_modes > 1:
-            raise ValueError(
-                'quality_only_training, mass_only_training, and '
-                'terminal_reg_only_training are mutually exclusive')
-
-        if box_parameterization not in ('linear_cxcywh', 'gap_ilr'):
-            raise ValueError(
-                'box_parameterization must be linear_cxcywh or gap_ilr, '
-                f'got {box_parameterization!r}')
-        if box_parameterization == 'gap_ilr':
-            if diffusion_type != 'rectified_flow':
-                raise ValueError('gap_ilr is currently implemented for RF only')
-            if box_chart_mean is None or box_chart_covariance is None:
-                raise ValueError(
-                    'gap_ilr requires box_chart_mean and box_chart_covariance')
-            self.box_chart = ValidBoxChart(
-                eps=box_chart_eps,
-                mean=torch.as_tensor(box_chart_mean, dtype=torch.float64),
-                covariance=torch.as_tensor(
-                    box_chart_covariance, dtype=torch.float64),
-            )
-        else:
-            self.box_chart = None
-
-        self.loss_aux = loss_aux
+                'KaryoFlow supports final-stage quality ranking only')
 
         # 扩散组件
         self.rf = RectifiedFlow(snr_scale=snr_scale)
@@ -224,9 +157,6 @@ class DiffusionDetHead(nn.Module):
         self.head_series = nn.ModuleList(
             [copy.deepcopy(single_head) for _ in range(num_heads)]
         )
-        if getattr(single_head, 'geometric_relation_attn', None) is not None:
-            for head in self.head_series[:self.geometric_relation_start_head]:
-                head.geometric_relation_attn = None
         # C2 is deliberately a last-stage-only intervention. Removing the
         # cloned quality modules from earlier cascade heads also avoids unused
         # parameters under DistributedDataParallel.
@@ -234,16 +164,8 @@ class DiffusionDetHead(nn.Module):
             for head in self.head_series[:-1]:
                 head.quality_head = None
                 head.predict_iou_quality = False
-        if getattr(single_head, 'mass_head', None) is not None:
-            for head in self.head_series[:-1]:
-                head.mass_head = None
-                head.predict_set_mass = False
         self.roi_extractor = roi_extractor
         self.criterion = criterion
-        if self.criterion is not None:
-            self.criterion.quality_thresholds = getattr(
-                self.head_series[-1], 'quality_thresholds', None)
-        self.pre_noise_layer = pre_noise_layer
 
         # 耦合策略
         self.ot_coupling = coupling is not None and not isinstance(
@@ -270,7 +192,6 @@ class DiffusionDetHead(nn.Module):
             nms_thr=nms_thr,
             score_thr=score_thr,
             min_keep=min_keep,
-            box_chart=self.box_chart,
         )
 
         self._init_weights(prior_prob)
@@ -284,21 +205,6 @@ class DiffusionDetHead(nn.Module):
                 parameter.requires_grad_(False)
             for parameter in quality_head.parameters():
                 parameter.requires_grad_(True)
-        if self.mass_only_training:
-            mass_head = getattr(self.head_series[-1], 'mass_head', None)
-            if mass_head is None:
-                raise ValueError(
-                    'mass_only_training requires predict_set_mass=True')
-            for parameter in self.parameters():
-                parameter.requires_grad_(False)
-            for parameter in mass_head.parameters():
-                parameter.requires_grad_(True)
-        if self.terminal_reg_only_training:
-            for parameter in self.parameters():
-                parameter.requires_grad_(False)
-            for parameter in self.head_series[-1].reg_head.parameters():
-                parameter.requires_grad_(True)
-
         # AMP: 仅模型前向使用半精度，criterion 始终 FP32
         # 推荐值: torch.bfloat16 (同动态范围，无需 GradScaler)
         # 支持字符串 (配置文件无需 import torch, 避免 mmengine lazy_import 冲突)
@@ -375,22 +281,14 @@ class DiffusionDetHead(nn.Module):
 
     def forward(self, features, bboxes, t, img_metas=None):
         time_emb = self.time_mlp(t)
-        # 探针: time_emb 激活统计 (训练时每 100 步, 推理时每次)
-        if self.training:
-            probe.record_tensor_stats('cascade/time_emb', time_emb)
-        else:
-            probe.record_inference_tensor_stats('cascade/time_emb', time_emb)
         inter_cls_logits = []
         inter_pred_bboxes = []
         inter_curr_proposals = []
         last_quality_logits = None
-        last_mass_logits = None
         curr_bboxes = bboxes
         curr_proposals = None
-        prev_bboxes = None
-        prev_logits = None
 
-        for i, head in enumerate(self.head_series):
+        for head in self.head_series:
             result = head(
                 features, curr_bboxes, curr_proposals,
                 self.roi_extractor, time_emb,
@@ -398,21 +296,11 @@ class DiffusionDetHead(nn.Module):
             cls_logits, pred_bboxes, curr_proposals, *extras = result
             if getattr(head, 'quality_head', None) is not None:
                 last_quality_logits = extras.pop(0)
-            if getattr(head, 'mass_head', None) is not None:
-                last_mass_logits = extras.pop(0)
             if extras:
                 raise RuntimeError('unexpected outputs from single detection head')
             inter_cls_logits.append(cls_logits)
             inter_pred_bboxes.append(pred_bboxes)
             inter_curr_proposals.append(curr_proposals)
-
-            # 探针: per-head 激活统计 (cls_logits + pred_bboxes)
-            if self.training:
-                probe.record_tensor_stats(f'cascade/head{i}/cls_logits', cls_logits)
-                probe.record_tensor_stats(f'cascade/head{i}/pred_bboxes', pred_bboxes)
-            else:
-                probe.record_inference_tensor_stats(f'cascade/head{i}/cls_logits', cls_logits)
-                probe.record_inference_tensor_stats(f'cascade/head{i}/pred_bboxes', pred_bboxes)
 
             # 级联: 将当前 head 输出作为下一 head 的输入
             curr_bboxes = (
@@ -420,11 +308,8 @@ class DiffusionDetHead(nn.Module):
                 if self.cascade_detach
                 else pred_bboxes
             )
-            prev_bboxes = pred_bboxes
-            prev_logits = cls_logits
 
         self._last_quality_logits = last_quality_logits
-        self._last_mass_logits = last_mass_logits
 
         if self.deep_supervision:
             return (
@@ -450,8 +335,7 @@ class DiffusionDetHead(nn.Module):
             return self._loss_with_distillation(
                 features, img_metas, gt_bboxes, gt_labels,
                 external_noise=x_raw_shared)
-        if (self.quality_only_training or self.mass_only_training
-                or self.terminal_reg_only_training):
+        if self.quality_only_training:
             # The detector may still build frozen backbone/neck features, but
             # detaching here keeps branch-only gates causally isolated.
             features = tuple(feature.detach() for feature in features)
@@ -492,16 +376,7 @@ class DiffusionDetHead(nn.Module):
             # C2 isolates the final cascade stage. Auxiliary heads retain the
             # original losses so the experiment has a single causal change.
             outputs.pred_quality = self._last_quality_logits.float()
-        if self._last_mass_logits is not None:
-            outputs.pred_mass = self._last_mass_logits.float()
         losses = self.criterion(outputs, targets, t=t)
-
-        # 探针: 训练时 t 分布 + 损失分解
-        probe.record_tensor_stats('train/t', t)
-        for name, val in losses.items():
-            if isinstance(val, torch.Tensor):
-                probe.record_scalar(f'train/loss/{name}', val.item())
-
         return losses
 
     def _loss_with_distillation(
@@ -587,15 +462,10 @@ class DiffusionDetHead(nn.Module):
                     f'teacher[{teacher_index}]={tuple(teacher_feature.shape)}')
             gap = F.mse_loss(student_feature, teacher_feature)
             feature_losses.append(gap)
-            probe.record_scalar(
-                f'distill/head{student_index}_feature_mse', gap.item())
         if not feature_losses:
             raise RuntimeError('distillation produced no mapped feature loss')
         raw_distillation = torch.stack(feature_losses).mean()
         losses['loss_distill'] = self.distill_lambda * raw_distillation
-        probe.record_scalar('distill/loss_raw', raw_distillation.item())
-        probe.record_scalar(
-            'distill/loss_weighted', losses['loss_distill'].item())
         return losses
 
     # ================================================================
@@ -608,9 +478,6 @@ class DiffusionDetHead(nn.Module):
     ):
         device = features[0].device
         bs = len(img_metas)
-
-        # 探针: 推理开始标记 (清空推理缓冲区)
-        probe.on_inference_begin()
 
         time_pairs = self._sampler.build_time_pairs(device)
         x_raw = torch.randn(bs, self.num_proposals, 4, device=device)
@@ -637,25 +504,7 @@ class DiffusionDetHead(nn.Module):
             cls_logits, pred_bboxes, x0_raw = self._forward_at_t(
                 features, x_raw, t_curr, img_metas
             )
-            output_logits = (
-                self._quality_ranking_logits(cls_logits)
-                if self.quality_calibration_mode == 'final_only'
-                else cls_logits
-            )
-            output_logits = self._mass_ranking_logits(output_logits)
-            # 探针: 推理时 per-step 激活统计 (x0_pred + cls_logits + pred_bboxes)
-            probe.record_inference_tensor_stats(
-                f'inference/step{step_idx}/x0_pred', x0_raw
-            )
-            probe.record_inference_tensor_stats(
-                f'inference/step{step_idx}/cls_logits', cls_logits
-            )
-            probe.record_inference_tensor_stats(
-                f'inference/step{step_idx}/pred_bboxes', pred_bboxes
-            )
-            probe.record_inference_scalar(
-                f'inference/step{step_idx}/t_curr', float(t_curr)
-            )
+            output_logits = self._quality_ranking_logits(cls_logits)
 
             # IO3: Top-K 框剪枝 — 在指定步后保留 Top-K 高置信框
             if (
@@ -724,31 +573,13 @@ class DiffusionDetHead(nn.Module):
                     )
 
                 if self.box_renewal:
-                    # 探针: 记录 box_renewal 前的 x_raw (用于计算重置率)
                     x_raw_before = x_raw.clone()
-                    n_before = x_raw.shape[1]
                     x_raw = self._sampler.apply_box_renewal(x_raw, cls_logits)
                     # D3 化解路径 A: 记录被 renewal 的 proposal mask
                     # 比较新旧 x_raw, 不一致的 proposal 即被 renewal
                     _renewal_mask = ~torch.isclose(
                         x_raw, x_raw_before, atol=1e-6
                     ).all(dim=-1)  # [bs, N]
-                    # 探针: box_renewal 统计 (重置率 + 置信度分布)
-                    n_after = x_raw.shape[1]
-                    if n_before > 0:
-                        renewal_rate = 1.0 - min(n_after, n_before) / n_before
-                        probe.record_inference_scalar(
-                            f'inference/step{step_idx}/box_renewal_rate', renewal_rate
-                        )
-                    # proposal 置信度分布 (max sigmoid score)
-                    scores = torch.sigmoid(cls_logits).max(-1)[0]
-                    probe.record_inference_tensor_stats(
-                        f'inference/step{step_idx}/proposal_scores', scores
-                    )
-                # 探针: solver 推进后的 x_raw 统计
-                probe.record_inference_tensor_stats(
-                    f'inference/step{step_idx}/x_raw_after', x_raw
-                )
                 if t_next <= 0:
                     break
 
@@ -785,22 +616,6 @@ class DiffusionDetHead(nn.Module):
             self._last_eta_str_log = []
             self._last_eta_str_per_dim_log = []
             self._last_eta_3rd_log = []
-
-        # 探针: 上传 solver 诊断量到推理缓冲区
-        for i, eta in enumerate(self._last_eta_str_log):
-            probe.record_inference_scalar(f'inference/eta_str/step{i}', eta)
-        for i, eta in enumerate(self._last_eta_3rd_log):
-            probe.record_inference_scalar(f'inference/eta_3rd/step{i}', eta)
-        # per-dim eta_str (cx, cy, w, h)
-        for i, eta_dim in enumerate(self._last_eta_str_per_dim_log):
-            for j, dim_name in enumerate(['cx', 'cy', 'w', 'h']):
-                if j < len(eta_dim):
-                    probe.record_inference_scalar(
-                        f'inference/eta_str_per_dim/step{i}/{dim_name}', eta_dim[j]
-                    )
-
-        # 探针: 推理结束, flush 推理缓冲区到 SwanLab
-        probe.on_inference_end()
 
         if return_trajectory:
             return results, trajectory
@@ -911,15 +726,6 @@ class DiffusionDetHead(nn.Module):
             )
         cls_logits_last = cls_logits_seq[-1]
         pred_bboxes_last = pred_bboxes_seq[-1]
-        if (
-            self._last_quality_logits is not None
-            and self.quality_calibration_mode == 'solver_coupled'
-        ):
-            cls_logits_last = calibrate_class_logits(
-                cls_logits_last,
-                self._last_quality_logits.float(),
-                self.quality_score_beta,
-            )
         x0 = self._sampler.xyxy_to_raw(pred_bboxes_last, img_metas)
 
         return cls_logits_last, pred_bboxes_last, x0
@@ -936,16 +742,6 @@ class DiffusionDetHead(nn.Module):
             cls_logits,
             self._last_quality_logits.float(),
             self.quality_score_beta,
-        )
-
-    def _mass_ranking_logits(self, cls_logits):
-        """Apply proposal mass only to emitted scores in MASF Phase-1A."""
-        if self._last_mass_logits is None:
-            return cls_logits
-        return calibrate_mass_logits(
-            cls_logits,
-            self._last_mass_logits.float(),
-            self.mass_score_power,
         )
 
     def _normalize_pred_bboxes(self, all_pred_bboxes, img_metas):

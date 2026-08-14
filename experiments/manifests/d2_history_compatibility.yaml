@@ -5,7 +5,7 @@ runs:
   - run_id: d2_karyoflow_trainrun0
     target_method: karyoflow_ot_legacy
     target_seed: 335778785
-    legacy_config: experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_dpm_pp_24obj.py
+    legacy_config: work_dirs/a4_dpm_pp_24obj/a4_dpm_pp_24obj.py
     checkpoint: work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth
     training_log: work_dirs/a4_dpm_pp_24obj/20260708_000414/20260708_000414.log
     result_summary: results/d2_test_unified/karyoflow_trainrun_0/2324ab817c27a292a9751f50b83a75416ed53aeb5793b08d659ed85c7348aee4/summary.json
@@ -29,7 +29,7 @@ runs:
   - run_id: d2_karyoflow_lqcr_trainrun0
     target_method: karyoflow_ot_lqcr_legacy
     target_seed: 335778785
-    legacy_config: experiments/configs/ldmdet/directions/capr/capr_quality_final_only_24obj.py
+    legacy_config: work_dirs/capr_quality_only_24obj/capr_quality_only_24obj.py
     checkpoint: work_dirs/capr_quality_only_24obj/best_coco_bbox_mAP_epoch_2.pth
     parent_checkpoint: work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth
     training_log: work_dirs/capr_quality_only_24obj/train.log
@@ -38,7 +38,7 @@ runs:
   - run_id: d2_karyoflow_lqcr_trainrun1
     target_method: karyoflow_ot_lqcr_legacy
     target_seed: 790448076
-    legacy_config: experiments/configs/ldmdet/directions/capr/paper_train3_lqcr_run1_test.py
+    legacy_config: work_dirs/paper_d2_lqcr_trainrun_1/resolved_test_config.py
     checkpoint: work_dirs/paper_d2_lqcr_trainrun_1/best_coco_bbox_mAP.pth
     parent_checkpoint: work_dirs/multi_seed/a4_dpm_pp_24obj/seed_123/best_coco_bbox_mAP_epoch_62.pth
     training_log: tools/experiment_db/evidence_sources/raw/d2_lqcr_training_logs/run1.log.gz
@@ -47,7 +47,7 @@ runs:
   - run_id: d2_karyoflow_lqcr_trainrun2
     target_method: karyoflow_ot_lqcr_legacy
     target_seed: 1342286018
-    legacy_config: experiments/configs/ldmdet/directions/capr/paper_train3_lqcr_run2_test.py
+    legacy_config: work_dirs/paper_d2_lqcr_trainrun_2/resolved_test_config.py
     checkpoint: work_dirs/paper_d2_lqcr_trainrun_2/best_coco_bbox_mAP.pth
     parent_checkpoint: work_dirs/multi_seed/a4_dpm_pp_24obj/seed_789/best_coco_bbox_mAP_epoch_72.pth
     training_log: tools/experiment_db/evidence_sources/raw/d2_lqcr_training_logs/run2.log.gz
