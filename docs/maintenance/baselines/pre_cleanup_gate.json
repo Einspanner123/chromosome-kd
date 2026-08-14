@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "plan_id": "repo-cleanup-20260815",
+  "baseline_commit": "323da0beaf1a93441915e81dd90f8039012c7f3c",
+  "recovery_tag": "archive/pre-cleanup-20260815",
+  "recovery_branch": "archive/pre-cleanup-20260815",
+  "active_jobs_detected": false,
+  "gates": {
+    "evidence_database": {
+      "status": "PASS",
+      "controlled": 1318,
+      "diagnostic": 166,
+      "paper_eligible": 1351
+    },
+    "paper_route_matrix": {
+      "status": "PASS",
+      "groups": 46,
+      "expanded_runs": 261,
+      "manifest_sha256": "d75b880a2dd683e0feab9299cb49d750576889073f8345be399c1b54e11787de",
+      "artifact_id": "paper-route-matrix-v2-d75b880a2dd6"
+    },
+    "v2_configurations": {
+      "status": "PASS",
+      "sources": 78,
+      "methods": 22,
+      "matrices": 14,
+      "combinations": 38,
+      "max_inheritance_depth": 3
+    }
+  }
+}
