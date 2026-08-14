@@ -91,7 +91,7 @@ notes:
   - P7 replaced 1,777 vendored MMDetection files with the pinned public 3.3.0 package.
   - The discarded local CocoMetric patch affected visualization keys, not aggregate AP.
   - The environment now imports MMDetection from site-packages and builds a KaryoFlow wheel.
-  - P8 reduced the active index to 476 files from 2,812 at the recovery ref.
+  - P8 reduced the active index to 478 files from 2,812 at the recovery ref.
   - Machine-specific queue scripts and duplicate diagnostic runners were retired.
   - Generated analysis caches and root residues were moved to ignored quarantine.
   - The active Python surface passes Ruff formatting, lint, and 92 unit tests.

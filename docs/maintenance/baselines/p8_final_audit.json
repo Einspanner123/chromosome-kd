@@ -11,8 +11,8 @@
   },
   "inventory": {
     "tracked_files_at_recovery_ref": 2812,
-    "tracked_files_in_final_index": 476,
-    "tracked_file_reduction_fraction": 0.8307,
+    "tracked_files_in_final_index": 478,
+    "tracked_file_reduction_fraction": 0.8300,
     "active_primary_roots": ["ldmdet", "experiments", "tools", "tests", "docs"],
     "quarantine_size": "734 MB"
   },

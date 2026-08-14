@@ -12,7 +12,7 @@ Final ref: `refs/tags/cleanup/final-20260815`
 
 The active branch now presents one KaryoFlow implementation and one experiment
 configuration system. The tracked surface decreased from 2,812 files at the
-recovery ref to 476 files in the final index, an 83.1% reduction. Removed source
+recovery ref to 478 files in the final index, an 83.0% reduction. Removed source
 remains available through Git; generated material was moved to ignored quarantine
 instead of being permanently deleted.
 
