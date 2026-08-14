@@ -1,0 +1,101 @@
+======================================================================
+  Dataset Summary: self1700
+======================================================================
+
+[train]
+  images: 1190
+  annotations: 55263
+  anns/image: min=29, max=53, median=46, mean=46.4
+  category counts:
+     A1 (id= 1):  2465
+     A2 (id= 2):  2420
+     A3 (id= 3):  2448
+     B4 (id= 4):  2411
+     B5 (id= 5):  2362
+     C6 (id= 6):  2423
+     C7 (id= 7):  2423
+     C8 (id= 8):  2368
+     C9 (id= 9):  2463
+    C10 (id=10):  2452
+    C11 (id=11):  2471
+    C12 (id=12):  2372
+    D13 (id=13):  2365
+    D14 (id=14):  2387
+    D15 (id=15):  2383
+    E16 (id=16):  2360
+    E17 (id=17):  2394
+    E18 (id=18):  2441
+    F19 (id=19):  2333
+    F20 (id=20):  2404
+    G21 (id=21):  2416
+    G22 (id=22):  2319
+      X (id=23):  1874
+      Y (id=24):   509
+
+[valid]
+  images: 170
+  annotations: 7910
+  anns/image: min=35, max=53, median=46, mean=46.5
+  category counts:
+     A1 (id= 1):   352
+     A2 (id= 2):   346
+     A3 (id= 3):   347
+     B4 (id= 4):   346
+     B5 (id= 5):   335
+     C6 (id= 6):   343
+     C7 (id= 7):   348
+     C8 (id= 8):   342
+     C9 (id= 9):   352
+    C10 (id=10):   347
+    C11 (id=11):   354
+    C12 (id=12):   343
+    D13 (id=13):   339
+    D14 (id=14):   343
+    D15 (id=15):   340
+    E16 (id=16):   341
+    E17 (id=17):   344
+    E18 (id=18):   348
+    F19 (id=19):   336
+    F20 (id=20):   347
+    G21 (id=21):   346
+    G22 (id=22):   330
+      X (id=23):   269
+      Y (id=24):    72
+
+[test]
+  images: 340
+  annotations: 15803
+  anns/image: min=34, max=53, median=46, mean=46.5
+  category counts:
+     A1 (id= 1):   704
+     A2 (id= 2):   690
+     A3 (id= 3):   701
+     B4 (id= 4):   686
+     B5 (id= 5):   673
+     C6 (id= 6):   693
+     C7 (id= 7):   690
+     C8 (id= 8):   674
+     C9 (id= 9):   707
+    C10 (id=10):   702
+    C11 (id=11):   712
+    C12 (id=12):   671
+    D13 (id=13):   670
+    D14 (id=14):   682
+    D15 (id=15):   684
+    E16 (id=16):   680
+    E17 (id=17):   685
+    E18 (id=18):   704
+    F19 (id=19):   671
+    F20 (id=20):   686
+    G21 (id=21):   695
+    G22 (id=22):   664
+      X (id=23):   533
+      Y (id=24):   146
+
+TOTAL: 1700 images, 78976 annotations
+Avg anns/image: 46.5
+
+Amodal quality check:
+  [train] per-img per-cat >2 bboxes: 1887/27788 (6.79%)
+  [valid] per-img per-cat >2 bboxes: 263/3969 (6.63%)
+  [test] per-img per-cat >2 bboxes: 523/7940 (6.59%)

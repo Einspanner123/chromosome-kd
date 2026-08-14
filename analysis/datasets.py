@@ -29,6 +29,10 @@ DATASETS: dict[str, dict] = {
         'root': 'data/AutoKary2022_v1_coco/',
         'splits': ['train', 'valid', 'test'],
     },
+    'self1700': {
+        'root': 'data/ChromosomeSelf1700_coco/',
+        'splits': ['train', 'valid', 'test'],
+    },
 }
 
 # ──────────────────────────────────────────────
