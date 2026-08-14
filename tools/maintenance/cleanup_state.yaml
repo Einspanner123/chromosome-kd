@@ -7,7 +7,7 @@ baseline:
   branch: refactor/ldmdet
   recovery_tag: archive/pre-cleanup-20260815
   recovery_branch: archive/pre-cleanup-20260815
-current_phase: P5
+current_phase: P6
 invariants:
   paper_evidence_must_resolve: true
   checkpoint_hashes_must_resolve: true
@@ -38,8 +38,12 @@ phases:
     status: completed
     checkpoint_tag: cleanup/p4-tools-evidence-20260815
     gate_record: docs/maintenance/baselines/p4_tools_evidence_gate.json
-  P5: {name: artifact_relocation, status: in_progress, commit: null}
-  P6: {name: research_and_documentation, status: pending, commit: null}
+  P5:
+    name: artifact_relocation
+    status: completed_preserved_in_place
+    checkpoint_tag: cleanup/p5-artifacts-20260815
+    gate_record: docs/maintenance/baselines/p5_artifact_gate.json
+  P6: {name: research_and_documentation, status: in_progress, commit: null}
   P7: {name: mmdetection_dependency, status: pending, commit: null}
   P8: {name: final_audit, status: pending, commit: null}
 last_successful_gate: P2_canonical_configuration_audits_passed
@@ -63,3 +67,5 @@ notes:
   - P4 established schema-validated, transactional run-evidence import for new results.
   - The canonical database was not rewritten; its SHA-256 stayed fixed during P4.
   - Legacy diagnostic eligibility is documented as a bounded data-quality risk.
+  - P5 inventoried 835 GB of non-Git training artifacts and performed no permanent deletion.
+  - Runtime roots remain stable because evidence records reference their paths and hashes.

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "plan_id": "repo-cleanup-20260815",
+  "phase": "P5",
+  "scope": "large runtime artifacts",
+  "inventory_manifest": "docs/maintenance/baselines/p5_artifact_inventory.json",
+  "inventory_manifest_sha256": "fa93ace179c69ca7bf34b98ea261aa5afb4d5857f34a102cdf5bbe62e4eee108",
+  "inventory_commit": "9378bc5cef70237ddb76aaa3da38fcdb021270b7",
+  "roots": {
+    "work_dirs": {"files": 118077, "bytes": 835450037922, "action": "preserve_in_place"},
+    "results": {"files": 1767, "bytes": 7481086798, "action": "preserve_in_place"},
+    "analysis": {"files": 166, "bytes": 74494730, "action": "preserve_outputs_move_sources_in_P6"},
+    "experiments/analysis": {"files": 92, "bytes": 687547315, "action": "preserve_regenerable_caches"}
+  },
+  "decision": "No bulk relocation was performed because existing evidence paths are stable and 835 GB of training data is not Git-recoverable.",
+  "permanent_deletions": 0,
+  "evidence_database_sha256_before": "df0a547629a4f3c004c140ed12a3b77cf5679da13ef24b03f039892f2d51a63d",
+  "evidence_database_sha256_after": "df0a547629a4f3c004c140ed12a3b77cf5679da13ef24b03f039892f2d51a63d",
+  "status": "PASS",
+  "recovery": {"checkpoint_tag": "cleanup/p5-artifacts-20260815"}
+}
