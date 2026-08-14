@@ -1164,25 +1164,24 @@ experiments:
   priority: DONE
   replication_unit: independent_training_seed
   run_count: 3
-  status: COMPLETED_VERIFIED_REUSED
-  swanlab_project: ''
-  swanlab_run_template: ''
-  training_seeds: 335778785,790448076,1342286018
+  status: PLANNED
+  swanlab_project: KaryoFlow-Dataset2-V2
+  swanlab_run_template: '{variant}_seed{training_seed}'
+  training_seeds: 42,123,789
   variant: RF_shifted_AdaLNZero
   legacy_config_path: experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_dpm_pp_24obj.py
   legacy_config_status: exists_plus_dumped_configs
-  method_config: experiments/configs/v2/methods/karyoflow_ot_legacy.py
-  matrix_config: experiments/configs/v2/matrices/d2_taichung_history.yaml
+  method_config: experiments/configs/v2/methods/karyoflow.py
+  matrix_config: experiments/configs/v2/matrices/d2_taichung_generation_ablation.yaml
   protocol_config: ''
-  config_state: EXACT
+  config_state: READY
   server_plan: historical ross/workstation
-  output_template: work_dirs/{a4_dpm_pp_24obj|multi_seed/a4_dpm_pp_24obj/seed_*}
+  output_template: work_dirs/v2/d2_taichung/strict_generation/g3/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
-    result_family: paired_lqcr_d2_train3
-    evidence_artifact_ids:
-    - d2-paired-lqcr-train3-4152cdbd5100
-  compatibility_report: tools/experiment_db/compatibility_reports/d2_mainline_history_v1_index.json
+    result_family: strict_generation_d2_test
+    evidence_artifact_ids: []
+  compatibility_report: ''
 - acceptance_gate: label fixed-checkpoint; not training replication
   dataset_id: D2
   execution_kind: inference

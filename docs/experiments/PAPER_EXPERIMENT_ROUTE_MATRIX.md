@@ -6,10 +6,10 @@
 ## 权威身份
 
 - YAML：`experiments/configs/v2/manifests/paper_experiment_route_matrix.yaml`
-- YAML SHA-256：`d58100828c62b5054fab61e3dee6d3d66623021655cce530c440b78f51381c21`
-- 数据库 artifact：`paper-route-matrix-v2-d58100828c62`
+- YAML SHA-256：`3a6124d40e49e7aaad8416d04562bf575d318863074fbf5fee7e3f11470e8b86`
+- 数据库 artifact：`paper-route-matrix-v2-3a6124d40e49`
 - 实验组：46；展开运行：261。
-- 状态分布：ARCHIVED_NONCOMPARABLE=1, BLOCKED_CHECKPOINTS=1, BLOCKED_IMPLEMENTATION=2, BLOCKED_PARENT=5, BLOCKED_PREDICTIONS=1, COMPLETED_DESCRIPTIVE=1, COMPLETED_DIAGNOSTIC=2, COMPLETED_EVIDENCE_ONLY=1, COMPLETED_FIXED_CHECKPOINT=2, COMPLETED_PARTIAL=1, COMPLETED_POINT_ESTIMATE=5, COMPLETED_VERIFIED=2, COMPLETED_VERIFIED_REUSED=1, PARTIAL_LEGACY=1, PLANNED=20。
+- 状态分布：ARCHIVED_NONCOMPARABLE=1, BLOCKED_CHECKPOINTS=1, BLOCKED_IMPLEMENTATION=2, BLOCKED_PARENT=5, BLOCKED_PREDICTIONS=1, COMPLETED_DESCRIPTIVE=1, COMPLETED_DIAGNOSTIC=2, COMPLETED_EVIDENCE_ONLY=1, COMPLETED_FIXED_CHECKPOINT=2, COMPLETED_PARTIAL=1, COMPLETED_POINT_ESTIMATE=5, COMPLETED_VERIFIED=2, PARTIAL_LEGACY=1, PLANNED=21。
 
 ## 数据与统计口径
 
@@ -117,7 +117,7 @@
 | `D2.ABL.strict.G0` | DDPM_linear_scaleshift | full_train / 3 | train=42,123,789; infer=42 | **PLANNED** | READY | `experiments/configs/v2/methods/strict_g0_ddpm_linear_scaleshift.py` | 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1 | `work_dirs/v2/d2_taichung/strict_generation/g0/trainseed_{training_seed}` | `route:D2.ABL.strict.G0; generation_train_ablation_d2_test` |
 | `D2.ABL.strict.G1` | RF_linear_scaleshift | full_train / 3 | train=42,123,789; infer=42 | **PLANNED** | READY | `experiments/configs/v2/methods/strict_g1_rf_linear_scaleshift.py` | 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1 | `work_dirs/v2/d2_taichung/strict_generation/g1/trainseed_{training_seed}` | `route:D2.ABL.strict.G1; generation_train_ablation_d2_test` |
 | `D2.ABL.strict.G2` | RF_shifted_scaleshift | full_train / 3 | train=42,123,789; infer=42 | **PLANNED** | READY | `experiments/configs/v2/methods/strict_g2_rf_shifted_scaleshift.py` | 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1 | `work_dirs/v2/d2_taichung/strict_generation/g2/trainseed_{training_seed}` | `route:D2.ABL.strict.G2; generation_train_ablation_d2_test` |
-| `D2.ABL.strict.G3` | RF_shifted_AdaLNZero | full_train / 3 | train=335778785,790448076,1342286018; infer=42 | **COMPLETED_VERIFIED_REUSED** | EXACT | `experiments/configs/v2/methods/karyoflow_ot_legacy.py` | historical ross/workstation | `work_dirs/{a4_dpm_pp_24obj|multi_seed/a4_dpm_pp_24obj/seed_*}` | `route:D2.ABL.strict.G3; paired_lqcr_d2_train3` |
+| `D2.ABL.strict.G3` | RF_shifted_AdaLNZero | full_train / 3 | train=42,123,789; infer=42 | **PLANNED** | READY | `experiments/configs/v2/methods/karyoflow.py` | historical ross/workstation | `work_dirs/v2/d2_taichung/strict_generation/g3/trainseed_{training_seed}` | `route:D2.ABL.strict.G3; strict_generation_d2_test` |
 | `D2.INF.solver_steps.fixed1` | Euler_Heun_DPMpp_x_steps1to4 | inference / 12 | train=335778785; infer=42 | **COMPLETED_FIXED_CHECKPOINT** | PROTOCOL_READY | `experiments/configs/v2/methods/karyoflow_ot_legacy.py` | historical | `results/d2_test_inference_ablations/solver/{solver}_{steps}` | `route:D2.INF.solver_steps.fixed1; solver_d2_test` |
 | `D2.INF.solver_steps.train3` | Euler_Heun_DPMpp_x_steps1to4_train3 | inference / 36 | train=335778785,790448076,1342286018; infer=42 | **PLANNED** | PROTOCOL_READY | `experiments/configs/v2/methods/karyoflow_ot_legacy.py` | accuracy:any idle GPU; efficiency=ross:A6000:0 only | `results/v2/d2_taichung/inference/solver/{parent}/{solver}_{steps}` | `route:D2.INF.solver_steps.train3; solver_d2_train3_test` |
 | `D2.INF.topk_renewal.fixed1` | TopK_x_renewal | inference / 10 | train=335778785; infer=42 | **COMPLETED_FIXED_CHECKPOINT** | PROTOCOL_READY | `experiments/configs/v2/methods/karyoflow_ot_legacy.py` | historical | `results/d2_test_inference_ablations/topk_renewal/{variant}` | `route:D2.INF.topk_renewal.fixed1; topk_renewal_d2_test` |

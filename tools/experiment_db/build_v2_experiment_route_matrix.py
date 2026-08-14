@@ -106,6 +106,7 @@ STATUS_OVERRIDE = {
     "D2.ABL.strict.G0": "PLANNED",
     "D2.ABL.strict.G1": "PLANNED",
     "D2.ABL.strict.G2": "PLANNED",
+    "D2.ABL.strict.G3": "PLANNED",
     "D2.INF.solver_steps.train3": "PLANNED",
     "D2.INF.topk_renewal.train3": "PLANNED",
     "D2.DEP.distill_h3.existing": "COMPLETED_EVIDENCE_ONLY",
@@ -197,7 +198,7 @@ def config_for(row: dict) -> tuple[str, str, str, str]:
         method = "experiments/configs/v2/methods/karyoflow_ot_lqcr_legacy.py"
         matrix = D2_HISTORY_MATRIX
         state = "EXACT"
-    elif rid in {"D2.SOTA.karyoflow_train3", "D2.ABL.strict.G3"}:
+    elif rid == "D2.SOTA.karyoflow_train3":
         method = "experiments/configs/v2/methods/karyoflow_ot_legacy.py"
         matrix = D2_HISTORY_MATRIX
         state = "EXACT"
@@ -213,6 +214,10 @@ def config_for(row: dict) -> tuple[str, str, str, str]:
     elif rid in {"D2.ABL.strict.G0", "D2.ABL.strict.G1", "D2.ABL.strict.G2"}:
         stage = rid.rsplit('.', 1)[-1].lower()
         method = METHODS[f"strict_{stage}"]
+        matrix = D2_GENERATION_MATRIX
+        state = "READY"
+    elif rid == "D2.ABL.strict.G3":
+        method = METHODS["karyoflow"]
         matrix = D2_GENERATION_MATRIX
         state = "READY"
     elif rid == "D2.ABL.historical_chain":
@@ -270,6 +275,9 @@ def build_rows() -> list[dict]:
             row["output_template"] = f"work_dirs/v2/d2_taichung/sota_completion/{row['variant']}/trainseed_{{training_seed}}"
         elif rid.startswith("D2.ABL.strict.G") and rid != "D2.ABL.strict.G3":
             row["output_template"] = f"work_dirs/v2/d2_taichung/strict_generation/{rid.rsplit('.', 1)[-1].lower()}/trainseed_{{training_seed}}"
+        elif rid == "D2.ABL.strict.G3":
+            row["training_seeds"] = "42,123,789"
+            row["output_template"] = "work_dirs/v2/d2_taichung/strict_generation/g3/trainseed_{training_seed}"
         elif rid == "D2.INF.solver_steps.train3":
             row["output_template"] = "results/v2/d2_taichung/inference/solver/{parent}/{solver}_{steps}"
         elif rid == "D2.INF.topk_renewal.train3":
@@ -289,9 +297,13 @@ def build_rows() -> list[dict]:
         }
         if rid == "LEGACY.D1.composite":
             row["database_ids"]["result_family"] = "all D1 families except D1_INHOUSE1700_V2"
+        if rid == "D2.ABL.strict.G3":
+            row["database_ids"]["train_run_ids"] = []
+            row["database_ids"]["evidence_artifact_ids"] = []
+            row["database_ids"]["result_family"] = "strict_generation_d2_test"
         if rid.startswith("D2.SOTA.") and row["variant"] in D2_LEGACY:
             row["compatibility_report"] = D2_LEGACY[row["variant"]][2]
-        elif rid in {"D2.SOTA.karyoflow_train3", "D2.SOTA.karyoflow_lqcr_train3", "D2.ABL.strict.G3"}:
+        elif rid in {"D2.SOTA.karyoflow_train3", "D2.SOTA.karyoflow_lqcr_train3"}:
             row["compatibility_report"] = "tools/experiment_db/compatibility_reports/d2_mainline_history_v1_index.json"
         elif rid == "D2.DEP.distill_h3.existing":
             row["compatibility_report"] = "tools/experiment_db/compatibility_reports/d2_head_student_h3.json"
