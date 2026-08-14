@@ -7,7 +7,7 @@ baseline:
   branch: refactor/ldmdet
   recovery_tag: archive/pre-cleanup-20260815
   recovery_branch: archive/pre-cleanup-20260815
-current_phase: P1
+current_phase: P2
 invariants:
   paper_evidence_must_resolve: true
   checkpoint_hashes_must_resolve: true
@@ -19,16 +19,26 @@ phases:
     name: freeze_and_baseline
     status: completed
     checkpoint_tag: cleanup/p0-baseline-20260815
-  P1: {name: reproducible_caches, status: in_progress, commit: null}
-  P2: {name: canonical_experiment_configuration, status: pending, commit: null}
+  P1:
+    name: reproducible_caches
+    status: completed_with_external_residue
+    checkpoint_tag: cleanup/p1-cache-20260815
+  P2: {name: canonical_experiment_configuration, status: in_progress, commit: null}
   P3: {name: runtime_and_tests, status: pending, commit: null}
   P4: {name: tools_and_evidence, status: pending, commit: null}
   P5: {name: artifact_relocation, status: pending, commit: null}
   P6: {name: research_and_documentation, status: pending, commit: null}
   P7: {name: mmdetection_dependency, status: pending, commit: null}
   P8: {name: final_audit, status: pending, commit: null}
-last_successful_gate: P0_baseline_audits_passed
-blocked_items: []
+last_successful_gate: P1_source_and_evidence_audits_passed
+blocked_items:
+  - id: root_owned_regenerable_cache
+    paths: [.build_tmp, .hf_cache]
+    impact: none_on_source_or_evidence
+    reason: files_owned_by_root
+    required_action: remove_with_authorized_system_account_or_leave_ignored
 notes:
   - No training or unified evaluation process was active when baseline was frozen.
   - work_dirs and results remain in place until P5.
+  - P1 removed user-owned Python, pytest, Ruff, coverage, and LaTeX caches.
+  - Root-owned build/model caches remain ignored and are not used by the project.
