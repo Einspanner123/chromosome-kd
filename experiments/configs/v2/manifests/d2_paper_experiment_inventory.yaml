@@ -1,5 +1,7 @@
 schema_version: 1
 inventory_id: d2_paper_all_evidence_v1
+authoritative_route_matrix: experiments/configs/v2/manifests/paper_experiment_route_matrix.yaml
+scope_note: This inventory is the D2 evidence detail view; scheduling and cross-dataset status are governed by the authoritative route matrix.
 dataset:
   id: D2
   split: test

@@ -1,6 +1,10 @@
 # KaryoFlow双数据集实验—配置—证据总账
 
-> 本文档是后续实验调度、数据库登记和论文数字校对的唯一入口。数值结果仍以 `tools/experiment_db/experiments.db` 的受控证据为准。
+> **已弃用：** 本文档是 2026-08-14 v1 历史快照，包含旧配置路径和已经失效的运行状态。
+> 当前唯一权威入口为 `experiments/configs/v2/manifests/paper_experiment_route_matrix.yaml`，
+> 可读版本为 `docs/experiments/PAPER_EXPERIMENT_ROUTE_MATRIX.md`。请勿再从本文档启动实验或校对论文数字。
+
+> 本文档仅保留历史审计用途；其中数值证据仍可通过 `tools/experiment_db/experiments.db` 追溯。
 
 ## 技术摘要
 
