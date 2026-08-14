@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "phase": "P6",
+  "status": "PASS",
+  "recovery_ref": "refs/tags/archive/pre-cleanup-20260815",
+  "active_research_files": 5,
+  "tracked_projects_files": 0,
+  "tracked_root_analysis_files": 0,
+  "tracked_experiments_analysis_files": 6,
+  "experiments_analysis_exception": "Six immutable eta_str JSON artifacts retain their registered evidence paths.",
+  "source_changes": {
+    "files": 271,
+    "lines_added": 236,
+    "lines_deleted": 139814
+  },
+  "quarantine": "results/cleanup_quarantine_20260815",
+  "permanent_untracked_deletions": 0,
+  "checks": {
+    "config_builds": {"status": "PASS", "combinations": 38},
+    "generation_ablation": {"status": "PASS", "stages": 4},
+    "inference_ablations": {"status": "PASS", "variants": 76},
+    "protocols": {"status": "PASS", "protocols": 8},
+    "pytest": {"status": "PASS", "passed": 92},
+    "evidence_db": {"status": "PASS", "controlled": 1318, "diagnostic": 166},
+    "experiment_route_matrix": {
+      "status": "PASS",
+      "groups": 46,
+      "expanded_runs": 261,
+      "manifest_sha256": "a97d19dc0e62d9fd95226ff7d4ec4aad67f05aa05793bb4e9c4c0cc4fed203e4"
+    },
+    "paper_and_narrative_host_path_scan": "PASS",
+    "git_diff_check": "PASS"
+  },
+  "retained_history": {
+    "paper_evidence_lineage": "docs/EXPERIMENT_LINEAGE.md",
+    "registered_eta_str_artifacts": 6,
+    "historical_source_recovery": "refs/tags/archive/pre-cleanup-20260815"
+  }
+}

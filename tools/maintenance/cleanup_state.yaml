@@ -7,7 +7,7 @@ baseline:
   branch: refactor/ldmdet
   recovery_tag: archive/pre-cleanup-20260815
   recovery_branch: archive/pre-cleanup-20260815
-current_phase: P6
+current_phase: P7
 invariants:
   paper_evidence_must_resolve: true
   checkpoint_hashes_must_resolve: true
@@ -43,10 +43,15 @@ phases:
     status: completed_preserved_in_place
     checkpoint_tag: cleanup/p5-artifacts-20260815
     gate_record: docs/maintenance/baselines/p5_artifact_gate.json
-  P6: {name: research_and_documentation, status: in_progress, commit: null}
-  P7: {name: mmdetection_dependency, status: pending, commit: null}
+  P6:
+    name: research_and_documentation
+    status: completed
+    commit: pending_phase_commit
+    checkpoint_tag: cleanup/p6-research-docs-20260815
+    gate_record: docs/maintenance/baselines/p6_research_documentation_gate.json
+  P7: {name: mmdetection_dependency, status: in_progress, commit: null}
   P8: {name: final_audit, status: pending, commit: null}
-last_successful_gate: P2_canonical_configuration_audits_passed
+last_successful_gate: P6_research_documentation_audits_passed
 blocked_items:
   - id: root_owned_regenerable_cache
     paths: [.build_tmp, .hf_cache]
@@ -69,3 +74,7 @@ notes:
   - Legacy diagnostic eligibility is documented as a bounded data-quality risk.
   - P5 inventoried 835 GB of non-Git training artifacts and performed no permanent deletion.
   - Runtime roots remain stable because evidence records reference their paths and hashes.
+  - P6 removed inactive projects, generated root analysis, and superseded research plans.
+  - Five active research documents now define scientific scope and evidence boundaries.
+  - Six registered eta_str JSON artifacts retain their historical paths for evidence resolution.
+  - Ignored documentation data was moved to the cleanup quarantine, not deleted.
