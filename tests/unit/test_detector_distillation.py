@@ -39,24 +39,35 @@ def test_component_checkpoint_loads_only_requested_prefix():
     }
     with patch('torch.load', return_value=checkpoint):
         LDMDetDetector._load_component_checkpoint(
-            make_bare_detector(), module, 'parent.pth',
-            prefix='backbone.', component_name='student backbone')
+            make_bare_detector(),
+            module,
+            'parent.pth',
+            prefix='backbone.',
+            component_name='student backbone',
+        )
     assert torch.equal(module.weight, expected_weight)
     assert torch.equal(module.bias, expected_bias)
 
 
 def test_component_checkpoint_rejects_missing_prefix():
-    with patch('torch.load', return_value={'state_dict': {'neck.x': torch.ones(1)}}):
-        with pytest.raises(RuntimeError, match='contains no'):
-            LDMDetDetector._load_component_checkpoint(
-                make_bare_detector(), torch.nn.Linear(2, 3), 'parent.pth',
-                prefix='backbone.', component_name='student backbone')
+    with patch(
+        'torch.load',
+        return_value={'state_dict': {'neck.x': torch.ones(1)}},
+    ), pytest.raises(RuntimeError, match='contains no'):
+        LDMDetDetector._load_component_checkpoint(
+            make_bare_detector(),
+            torch.nn.Linear(2, 3),
+            'parent.pth',
+            prefix='backbone.',
+            component_name='student backbone',
+        )
 
 
 def test_distillation_init_loads_parent_backbone_and_neck():
     detector = make_bare_detector()
     with patch.object(BaseDetector, 'init_weights'), patch.object(
-            detector, '_load_component_checkpoint') as load:
+        detector, '_load_component_checkpoint'
+    ) as load:
         detector.init_weights()
     assert load.call_count == 2
     assert load.call_args_list[0].kwargs['prefix'] == 'backbone.'

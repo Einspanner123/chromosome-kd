@@ -1,0 +1,54 @@
+name: karyoflow-ci
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-audit:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install PyTorch CPU
+        run: >-
+          pip install torch==2.1.0 torchvision==0.16.0
+          --index-url https://download.pytorch.org/whl/cpu
+      - name: Install OpenMMLab runtime
+        run: |
+          pip install openmim
+          mim install mmcv==2.1.0
+          pip install mmengine==0.10.5 mmdet==3.3.0
+      - name: Install KaryoFlow and test tools
+        run: |
+          pip install -e . --no-deps
+          pip install einops matplotlib numpy opencv-python pycocotools pytest PyYAML ruff scipy swanlab
+      - name: Lint and format
+        run: |
+          ruff check ldmdet experiments/mmdet_bridge experiments/runners tools/configs tools/experiments tools/benchmarks tests
+          ruff format --check ldmdet experiments/mmdet_bridge experiments/runners tools/configs tools/experiments tools/benchmarks tests
+      - name: Verify dependency boundary
+        run: |
+          python -c "import mmdet; assert mmdet.__version__ == '3.3.0'"
+          python -c "import ldmdet, experiments; print(ldmdet.__version__)"
+      - name: Unit tests
+        run: pytest -q
+      - name: Configuration and evidence audits
+        run: |
+          python tools/configs/audit_configs.py --build-models
+          python tools/configs/audit_generation_ablation.py
+          python tools/configs/audit_inference_ablations.py
+          python tools/configs/audit_protocols.py
+          python tools/experiment_db/audit_evidence_db.py
+          python tools/experiment_db/audit_experiment_route_matrix.py

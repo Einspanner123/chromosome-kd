@@ -140,22 +140,12 @@ monitor_logs/
 experiments/analysis/*_cache/
 experiments/analysis/*_run*.log
 
-# Nested git repos / external experiment trackers
-ldmdet-experiments/
-
-# External figure generation tools (nested git repos / local tools)
+# External figure generation tools (local tools)
 figure-generator/
-skills/CCF-Figure/
 docs/paper/latex/figures/PlotNeuralNet/
 
 # Credentials
 .git-askpass.sh
-
-# Broken symlinks from package installation
-mmdet/.mim/demo
-
-# Local development symlinks (pointing to other project workspaces)
-chromosome-kd
 
 # Backup files
 *.bak
@@ -179,6 +169,3 @@ docs/paper/latex/main.log
 
 # Local evaluation outputs; canonical small summaries are force-added.
 results/
-
-# Analysis image outputs (generated visualization artifacts, large binaries)
-analysis/**/*.png

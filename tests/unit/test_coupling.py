@@ -1,7 +1,7 @@
 """测试耦合策略 (random + ot_flow)"""
 
 import torch
-import pytest
+
 from ldmdet.coupling import build_coupling
 from ldmdet.coupling._sinkhorn_ops import sinkhorn_transport
 
@@ -12,9 +12,13 @@ class TestSinkhornOps:
         transport = sinkhorn_transport(cost, epsilon=1.0, num_iters=20)
         assert transport.shape == (10, 5)
         # 行和 ≈ 1/N
-        assert torch.allclose(transport.sum(dim=1), torch.ones(10) / 10, atol=1e-3)
+        assert torch.allclose(
+            transport.sum(dim=1), torch.ones(10) / 10, atol=1e-3
+        )
         # 列和 ≈ 1/K
-        assert torch.allclose(transport.sum(dim=0), torch.ones(5) / 5, atol=1e-3)
+        assert torch.allclose(
+            transport.sum(dim=0), torch.ones(5) / 5, atol=1e-3
+        )
 
     def test_small_epsilon_near_hard(self):
         # 固定种子: 避免 torch.rand 受全局随机状态影响导致测试不稳定
@@ -32,7 +36,10 @@ class TestSinkhornOps:
                 # 如果不在, 说明次优 cost 非常接近
                 # 阈值 0.1: Sinkhorn 在 ε=1e-6 下受 marginal 约束影响,
                 # 某些行会被强制分配到次优列 (cost 差异可达 10%)
-                assert torch.abs(cost[i, max_idx] - cost[i, min_cost_idx[i]]) < 0.1
+                assert (
+                    torch.abs(cost[i, max_idx] - cost[i, min_cost_idx[i]])
+                    < 0.1
+                )
 
     def test_large_epsilon_near_uniform(self):
         cost = torch.rand(10, 5)
@@ -61,7 +68,9 @@ class TestRandomCoupling:
         c = build_coupling('random')
         noise = torch.randn(10, 4)
         gt = torch.randn(0, 4)
-        x_start, idx = c.couple(noise, gt, torch.tensor([]), torch.device('cpu'))
+        x_start, idx = c.couple(
+            noise, gt, torch.tensor([]), torch.device('cpu')
+        )
         assert torch.equal(x_start, noise)
         assert (idx == 0).all()
 
@@ -119,7 +128,9 @@ class TestOTFlowCoupling:
         c = build_coupling('ot_flow', epsilon=1.0)
         noise = torch.randn(10, 4)
         gt = torch.randn(0, 4)
-        x_start, idx = c.couple(noise, gt, torch.tensor([]), torch.device('cpu'))
+        x_start, idx = c.couple(
+            noise, gt, torch.tensor([]), torch.device('cpu')
+        )
         assert torch.equal(x_start, noise)
         assert (idx == 0).all()
 

@@ -9,7 +9,6 @@
 6. DPM-Solver 重置: 剪枝后 history 清空
 """
 
-import pytest
 import torch
 
 from ldmdet.diffusion.sampling import DiffusionSampler
@@ -67,7 +66,7 @@ class TestApplyTopKPruningBasic:
         """验证 Top-K 确实选择了置信度最高的 K 个框。"""
         # 构造已知分数: 前 K 个高置信, 后 N-K 个低置信
         cls_logits = torch.full((self.bs, self.n, self.num_classes), -10.0)
-        cls_logits[:, :self.k, :] = 10.0  # 前 K 个高 logit → sigmoid ≈ 1
+        cls_logits[:, : self.k, :] = 10.0  # 前 K 个高 logit → sigmoid ≈ 1
         x_raw = torch.randn(self.bs, self.n, 4)
         pred_bboxes = torch.randn(self.bs, self.n, 4)
         x0_raw = torch.randn(self.bs, self.n, 4)
@@ -78,7 +77,9 @@ class TestApplyTopKPruningBasic:
 
         # 所有保留的框都应来自前 K 个
         for i in range(self.bs):
-            assert (idx[i] < self.k).all(), "Should select high-confidence boxes"
+            assert (idx[i] < self.k).all(), (
+                'Should select high-confidence boxes'
+            )
 
     def test_correspondence_preserved(self):
         """剪枝后 x_raw[i] ↔ cls_logits[i] ↔ pred_bboxes[i] ↔ x0_raw[i] 一一对应。"""
@@ -119,7 +120,7 @@ class TestApplyTopKPruningEdgeCases:
             x_p, c_p, b_p, x0_p, idx = self.sampler.apply_topk_pruning(
                 x_raw, cls_logits, pred_bboxes, x0_raw, k
             )
-            assert x_p.shape[1] == self.n, f"K={k} should not prune"
+            assert x_p.shape[1] == self.n, f'K={k} should not prune'
             assert torch.allclose(x_p, x_raw)
 
     def test_k_equal_1(self):
@@ -246,6 +247,7 @@ class TestPredictWithPruning:
             time_conditioning='adaln_zero',
         )
         import torch.nn as nn
+
         roi_extractor = nn.Identity()  # 简化: 实际由 mmdet 提供
 
         # 跳过需要完整 backbone 的测试, 仅测试 predict 的剪枝逻辑
@@ -302,7 +304,9 @@ class TestPredictWithPruning:
 
         # 验证所有 ensemble 条目的 N 一致
         for i, (cls, bboxes) in enumerate(ensemble_results):
-            assert cls.shape[1] == k, f"Step {i} has N={cls.shape[1]}, expected {k}"
+            assert cls.shape[1] == k, (
+                f'Step {i} has N={cls.shape[1]}, expected {k}'
+            )
             assert bboxes.shape[1] == k
 
     def test_dpm_solver_reset_after_pruning(self):

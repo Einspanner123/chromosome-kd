@@ -7,15 +7,15 @@ import copy
 from typing import List, Tuple
 
 import torch
-from mmengine.structures import InstanceData as MMInstanceData
-from torch import Tensor
-
-from ldmdet.utils.box_ops import bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh
 from mmdet.models.detectors.base import BaseDetector
 from mmdet.registry import MODELS
 from mmdet.structures import DetDataSample
 from mmdet.utils import ConfigType, OptConfigType, OptMultiConfig
+from mmengine.structures import InstanceData as MMInstanceData
 from setdiff.models.set_head import JointDiffusionHead
+from torch import Tensor
+
+from ldmdet.utils.box_ops import bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh
 
 
 @MODELS.register_module(name='SetDiff', force=True)

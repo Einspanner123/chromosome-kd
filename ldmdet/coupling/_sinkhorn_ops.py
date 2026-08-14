@@ -111,7 +111,9 @@ if _HAS_TRITON:
     ) -> Tensor:
         """row 维度融合 logsumexp + mask"""
         G, N, K = log_K_mat.shape
-        log_u = torch.empty(G, N, device=log_K_mat.device, dtype=log_K_mat.dtype)
+        log_u = torch.empty(
+            G, N, device=log_K_mat.device, dtype=log_K_mat.dtype
+        )
         sK_g, sK_n, sK_k = log_K_mat.stride()
         BLOCK_K = max(16, min(4096, triton.next_power_of_2(K)))
         grid = (G, N)
@@ -138,7 +140,9 @@ if _HAS_TRITON:
     ) -> Tensor:
         """col 维度融合 logsumexp + mask"""
         G, N, K = log_K_mat.shape
-        log_v = torch.empty(G, K, device=log_K_mat.device, dtype=log_K_mat.dtype)
+        log_v = torch.empty(
+            G, K, device=log_K_mat.device, dtype=log_K_mat.dtype
+        )
         sK_g, sK_n, sK_k = log_K_mat.stride()
         BLOCK_N = max(16, min(4096, triton.next_power_of_2(N)))
         grid = (G, K)
@@ -237,9 +241,15 @@ def sinkhorn_transport_batch(
     if G == 0:
         return []
     if G == 1:
-        return [sinkhorn_transport(costs[0], epsilon, num_iters,
-                                   row_masses[0] if row_masses else None,
-                                   col_masses[0] if col_masses else None)]
+        return [
+            sinkhorn_transport(
+                costs[0],
+                epsilon,
+                num_iters,
+                row_masses[0] if row_masses else None,
+                col_masses[0] if col_masses else None,
+            )
+        ]
 
     device = costs[0].device
     max_N = max(c.shape[0] for c in costs)
@@ -259,7 +269,9 @@ def sinkhorn_transport_batch(
     log_K_mat = -padded_cost / eps  # [G, max_N, max_K], padded entries → -inf
 
     # Prepare log marginals
-    log_row_mass = torch.full((G, max_N), float('-inf'), device=device)  # log(0) = -inf
+    log_row_mass = torch.full(
+        (G, max_N), float('-inf'), device=device
+    )  # log(0) = -inf
     log_col_mass = torch.full((G, max_K), float('-inf'), device=device)
     for g in range(G):
         Ng, Kg = N_sizes[g], K_sizes[g]
@@ -267,7 +279,9 @@ def sinkhorn_transport_batch(
             rm = row_masses[g]
             log_row_mass[g, :Ng] = torch.log(rm.clamp_min(1e-10))
         else:
-            log_row_mass[g, :Ng] = torch.log(torch.ones(Ng, device=device) / max(Ng, 1))
+            log_row_mass[g, :Ng] = torch.log(
+                torch.ones(Ng, device=device) / max(Ng, 1)
+            )
         if col_masses is not None:
             cm = col_masses[g]
             cm = cm / cm.sum().clamp_min(1e-10)
@@ -284,17 +298,14 @@ def sinkhorn_transport_batch(
     row_mask = torch.zeros(G, max_N, dtype=torch.bool, device=device)
     col_mask = torch.zeros(G, max_K, dtype=torch.bool, device=device)
     for g in range(G):
-        row_mask[g, :N_sizes[g]] = True
-        col_mask[g, :K_sizes[g]] = True
-        log_u[g, :N_sizes[g]] = 0.0
-        log_v[g, :K_sizes[g]] = 0.0
+        row_mask[g, : N_sizes[g]] = True
+        col_mask[g, : K_sizes[g]] = True
+        log_u[g, : N_sizes[g]] = 0.0
+        log_v[g, : K_sizes[g]] = 0.0
 
     # Triton 优化路径: 融合 logsumexp + masked_fill 为单 kernel
     use_triton = (
-        _HAS_TRITON
-        and log_K_mat.is_cuda
-        and max_N <= 4096
-        and max_K <= 4096
+        _HAS_TRITON and log_K_mat.is_cuda and max_N <= 4096 and max_K <= 4096
     )
     if use_triton:
         # triton kernel 需要 float mask (1.0/0.0) 和 contiguous tensor
@@ -325,7 +336,9 @@ def sinkhorn_transport_batch(
             log_v.masked_fill_(~col_mask, float('-inf'))
 
     # Compute transport and unpad
-    transport_full = torch.exp(log_u.unsqueeze(2) + log_K_mat + log_v.unsqueeze(1))
+    transport_full = torch.exp(
+        log_u.unsqueeze(2) + log_K_mat + log_v.unsqueeze(1)
+    )
     # Clamp to avoid NaN from -inf + inf
     transport_full = transport_full.clamp_min(0.0)
     results = []
@@ -335,9 +348,7 @@ def sinkhorn_transport_batch(
     return results
 
 
-def ot_multinomial(
-    row_probs: Tensor, seed: Optional[int] = None
-) -> Tensor:
+def ot_multinomial(row_probs: Tensor, seed: Optional[int] = None) -> Tensor:
     """从每行概率分布采样一个列索引。
 
     Args:

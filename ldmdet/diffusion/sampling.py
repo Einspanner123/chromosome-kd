@@ -6,7 +6,6 @@
 
 from typing import List, Optional, Tuple
 
-import numpy as np
 import torch
 from torch import Tensor
 from torchvision.ops import batched_nms
@@ -85,7 +84,6 @@ class DiffusionSampler:
             time_pairs.append((times[i].item(), times[i + 1].item()))
         return time_pairs
 
-
     def create_dpm_solver(self) -> Optional[RFDPMSolverMultistep]:
         """创建 RF 的 data-prediction 多步求解器。"""
         if self.solver_type in ('dpm_solver_pp', 'dpm_solver_pp_3'):
@@ -95,7 +93,6 @@ class DiffusionSampler:
                 solver_order=solver_order,
             )
         return None
-
 
     def apply_box_renewal(
         self,
@@ -117,9 +114,7 @@ class DiffusionSampler:
 
             num_renew = (~keep).sum()
             if num_renew > 0:
-                x_raw_new[i, ~keep] = torch.randn(
-                    num_renew, 4, device=device
-                )
+                x_raw_new[i, ~keep] = torch.randn(num_renew, 4, device=device)
         return x_raw_new
 
     def apply_topk_pruning(
@@ -151,7 +146,11 @@ class DiffusionSampler:
         """
         bs, n = x_raw.shape[:2]
         if k >= n:
-            idx = torch.arange(n, device=x_raw.device).unsqueeze(0).expand(bs, -1)
+            idx = (
+                torch.arange(n, device=x_raw.device)
+                .unsqueeze(0)
+                .expand(bs, -1)
+            )
             return x_raw, cls_logits, pred_bboxes, x0_raw, idx
 
         k = min(k, n)
@@ -195,8 +194,8 @@ class DiffusionSampler:
     def raw_to_normalized_xyxy(self, raw_bboxes: Tensor) -> Tensor:
         """Linear cxcywh state coordinates → normalized xyxy boxes."""
         cxcywh = (
-            raw_bboxes.clamp(-self.snr_scale, self.snr_scale)
-            / self.snr_scale + 1
+            raw_bboxes.clamp(-self.snr_scale, self.snr_scale) / self.snr_scale
+            + 1
         ) / 2
         return bbox_cxcywh_to_xyxy(cxcywh)
 
@@ -228,9 +227,7 @@ class DiffusionSampler:
         if t_next < 0:
             return self.raw_to_xyxy(x0, img_metas), x0
 
-        t_batch = torch.full(
-            (bs,), t_curr, device=device, dtype=torch.long
-        )
+        t_batch = torch.full((bs,), t_curr, device=device, dtype=torch.long)
         pred_noise = predict_noise_from_start(
             x_raw, t_batch, x0, alphas_cumprod
         )
@@ -246,9 +243,7 @@ class DiffusionSampler:
         c = (1 - alpha_next - sigma**2).sqrt()
 
         noise = torch.randn_like(x_raw)
-        x_raw_next = (
-            x0 * alpha_next.sqrt() + c * pred_noise + sigma * noise
-        )
+        x_raw_next = x0 * alpha_next.sqrt() + c * pred_noise + sigma * noise
 
         if self.box_renewal:
             x_raw_next = self.apply_box_renewal(x_raw_next, cls_logits)
@@ -341,10 +336,6 @@ def predict_noise_from_start(
     return (
         sqrt_recip_alphas_cumprod_t * x_t - x0
     ) / sqrt_recipm1_alphas_cumprod_t
-
-
-
-
 
 
 def _get_img_shape(meta):

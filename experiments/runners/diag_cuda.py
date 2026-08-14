@@ -6,21 +6,26 @@ Usage:
 
 import argparse
 import os
-import os.path as osp
 import sys
 
 # 确保项目根目录在 Python path 中
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_PROJECT_ROOT = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
 
 def check_cuda(tag):
     import torch
+
     try:
         avail = torch.cuda.is_available()
         count = torch.cuda.device_count() if avail else 0
-        print(f'[{tag}] cuda.is_available={avail}, device_count={count}', flush=True)
+        print(
+            f'[{tag}] cuda.is_available={avail}, device_count={count}',
+            flush=True,
+        )
         if avail:
             x = torch.zeros(1, device='cuda')
             print(f'[{tag}] cuda tensor ok: {x.device}', flush=True)
@@ -42,16 +47,19 @@ def main():
     check_cuda('1. after CUDA_VISIBLE_DEVICES set')
 
     from mmengine.config import Config
+
     check_cuda('2. after mmengine Config import')
 
     cfg = Config.fromfile(args.config)
     check_cuda('3. after Config.fromfile (custom_imports executed)')
 
     from mmengine.runner import Runner
+
     check_cuda('4. after Runner import')
 
     # Try building the model only
     from mmdet.registry import MODELS
+
     model_cfg = cfg.model.copy()
     check_cuda('5. before MODELS.build')
     try:
@@ -71,6 +79,7 @@ def main():
     except Exception as e:
         print(f'[8. Runner.from_cfg FAILED] {e}', flush=True)
         import traceback
+
         traceback.print_exc()
 
 

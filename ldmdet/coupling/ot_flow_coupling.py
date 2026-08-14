@@ -71,7 +71,9 @@ class OTFlowCoupling(CouplingStrategy):
         )
 
         # 列归一化: 每个 proposal (列) 从 M 个 GT 中选一个
-        col_sums = transport.sum(dim=0, keepdim=True).clamp_min(1e-10)  # [1, N]
+        col_sums = transport.sum(dim=0, keepdim=True).clamp_min(
+            1e-10
+        )  # [1, N]
         transport_col = transport / col_sums  # [M, N], 每列和为 1
 
         if self._ot.coupling_mode == 'argmax':
@@ -87,7 +89,9 @@ class OTFlowCoupling(CouplingStrategy):
         x_start = gt_diffusion[matched_idx]  # [N, 4]
         return x_start, matched_idx
 
-    def compute_coupling_cost(self, x_start: Tensor, x_noise: Tensor) -> Tensor:
+    def compute_coupling_cost(
+        self, x_start: Tensor, x_noise: Tensor
+    ) -> Tensor:
         """计算代价矩阵 (供诊断使用)."""
         return self._ot.compute_coupling_cost(x_start, x_noise)
 
@@ -114,6 +118,7 @@ class HardOTCoupling(OTFlowCoupling):
     ):
         if coupling_mode != 'argmax':
             import warnings
+
             warnings.warn(
                 f"HardOTCoupling only supports coupling_mode='argmax', "
                 f"got {coupling_mode!r}; ignoring and using 'argmax'.",

@@ -12,6 +12,7 @@ def device():
 @pytest.fixture
 def dummy_img_meta():
     from ldmdet.data.structures import ImageMeta
+
     return ImageMeta(img_shape=(800, 1216))
 
 
@@ -33,10 +34,12 @@ def dummy_labels():
 @pytest.fixture
 def cost_matrix():
     """5x3 cost matrix for coupling tests"""
-    return torch.tensor([
-        [1.0, 5.0, 3.0],
-        [4.0, 2.0, 6.0],
-        [3.0, 4.0, 1.0],
-        [5.0, 1.0, 4.0],
-        [2.0, 3.0, 5.0],
-    ])
+    return torch.tensor(
+        [
+            [1.0, 5.0, 3.0],
+            [4.0, 2.0, 6.0],
+            [3.0, 4.0, 1.0],
+            [5.0, 1.0, 4.0],
+            [2.0, 3.0, 5.0],
+        ]
+    )

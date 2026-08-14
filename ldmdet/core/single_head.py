@@ -154,7 +154,8 @@ class SingleDiffusionDetHead(nn.Module):
         if attn_bias is not None:
             attn_bias = attn_bias.to(dtype=q.dtype, device=q.device)
         out = F.scaled_dot_product_attention(
-            q, k, v, attn_mask=attn_bias, dropout_p=0.0)
+            q, k, v, attn_mask=attn_bias, dropout_p=0.0
+        )
 
         if out.dtype != input_dtype:
             out = out.to(input_dtype)
@@ -178,7 +179,8 @@ class SingleDiffusionDetHead(nn.Module):
         attn_mask = None
         if attn_bias is not None:
             attn_mask = attn_bias.flatten(0, 1).to(
-                dtype=q.dtype, device=q.device)
+                dtype=q.dtype, device=q.device
+            )
         return self.self_attn(q, k, v, attn_mask=attn_mask)
 
     @staticmethod

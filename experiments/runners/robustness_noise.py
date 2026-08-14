@@ -37,7 +37,6 @@ import json
 import os
 import random
 import shutil
-import sys
 
 import numpy as np
 
@@ -85,7 +84,9 @@ def perturb_coco(src_data, sigma, flip_rate, seed):
     返回新的 dict (深拷贝, 不修改原对象)。
     """
     rng = random.Random(seed)
-    np_rng = np.random.RandomState(seed + 1)  # bbox 用单独的 numpy RNG, 与 class flip 解耦
+    np_rng = np.random.RandomState(
+        seed + 1
+    )  # bbox 用单独的 numpy RNG, 与 class flip 解耦
 
     images = src_data.get('images', [])
     categories = src_data.get('categories', [])
@@ -94,7 +95,10 @@ def perturb_coco(src_data, sigma, flip_rate, seed):
     valid_cat_ids = {c['id'] for c in categories}
 
     # image_id -> (width, height) 查找表 (bbox clip 需要)
-    img_size = {img['id']: (img.get('width', 1), img.get('height', 1)) for img in images}
+    img_size = {
+        img['id']: (img.get('width', 1), img.get('height', 1))
+        for img in images
+    }
 
     new_annotations = []
     bbox_perturbed_count = 0
@@ -161,19 +165,37 @@ def fname_for(noise_type, sigma, flip_rate):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='COCO 标注噪声注入 (robustness 实验)')
-    parser.add_argument('--src', required=True, help='原始 COCO 标注 JSON 路径')
+    parser = argparse.ArgumentParser(
+        description='COCO 标注噪声注入 (robustness 实验)'
+    )
+    parser.add_argument(
+        '--src', required=True, help='原始 COCO 标注 JSON 路径'
+    )
     parser.add_argument('--out-dir', required=True, help='输出目录')
-    parser.add_argument('--noise-type', default='both',
-                        choices=['bbox', 'class', 'both'],
-                        help='噪声类型 (both = bbox + class 同时扰动)')
-    parser.add_argument('--sigma', type=float, default=0.0,
-                        help='bbox jitter sigma (像素); 0 = 不扰动')
-    parser.add_argument('--flip-rate', type=float, default=0.0,
-                        help='类别翻转概率 (0~1); 0 = 不扰动')
+    parser.add_argument(
+        '--noise-type',
+        default='both',
+        choices=['bbox', 'class', 'both'],
+        help='噪声类型 (both = bbox + class 同时扰动)',
+    )
+    parser.add_argument(
+        '--sigma',
+        type=float,
+        default=0.0,
+        help='bbox jitter sigma (像素); 0 = 不扰动',
+    )
+    parser.add_argument(
+        '--flip-rate',
+        type=float,
+        default=0.0,
+        help='类别翻转概率 (0~1); 0 = 不扰动',
+    )
     parser.add_argument('--seed', type=int, default=42, help='随机种子')
-    parser.add_argument('--grid', action='store_true',
-                        help='批量生成 3x3 = 9 个扰动 + 1 个 clean baseline')
+    parser.add_argument(
+        '--grid',
+        action='store_true',
+        help='批量生成 3x3 = 9 个扰动 + 1 个 clean baseline',
+    )
     args = parser.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
@@ -181,9 +203,11 @@ def main():
     print(f'[robustness_noise] loading src: {args.src}')
     with open(args.src) as f:
         src_data = json.load(f)
-    print(f'[robustness_noise] src: {len(src_data["images"])} images, '
-          f'{len(src_data["annotations"])} annotations, '
-          f'{len(src_data["categories"])} categories')
+    print(
+        f'[robustness_noise] src: {len(src_data["images"])} images, '
+        f'{len(src_data["annotations"])} annotations, '
+        f'{len(src_data["categories"])} categories'
+    )
 
     if args.grid:
         # 3x3 grid: sigma ∈ {2, 5, 10} px × flip ∈ {5%, 10%, 20%}
@@ -197,7 +221,9 @@ def main():
     else:
         # 单次运行: 根据 noise-type 决定哪些维度扰动
         sigma = args.sigma if args.noise_type in ('bbox', 'both') else 0.0
-        flip_rate = args.flip_rate if args.noise_type in ('class', 'both') else 0.0
+        flip_rate = (
+            args.flip_rate if args.noise_type in ('class', 'both') else 0.0
+        )
         all_runs = [(sigma, flip_rate)]
 
     summary = []
@@ -210,11 +236,17 @@ def main():
             if os.path.abspath(args.src) != os.path.abspath(out_path):
                 shutil.copyfile(args.src, out_path)
             print(f'[robustness_noise] clean copy -> {out_path}')
-            summary.append({
-                'file': out_name, 'sigma': 0.0, 'flip_rate': 0.0,
-                'n_annotations': len(src_data['annotations']),
-                'n_bbox_perturbed': 0, 'n_class_flipped': 0, 'seed': args.seed,
-            })
+            summary.append(
+                {
+                    'file': out_name,
+                    'sigma': 0.0,
+                    'flip_rate': 0.0,
+                    'n_annotations': len(src_data['annotations']),
+                    'n_bbox_perturbed': 0,
+                    'n_class_flipped': 0,
+                    'seed': args.seed,
+                }
+            )
             continue
 
         new_data, stats = perturb_coco(src_data, sigma, flip_rate, args.seed)
@@ -222,18 +254,22 @@ def main():
         out_path = os.path.join(args.out_dir, out_name)
         with open(out_path, 'w') as f:
             json.dump(new_data, f)
-        print(f'[robustness_noise] {out_name}: '
-              f'bbox_perturbed={stats["n_bbox_perturbed"]}/{stats["n_annotations"]} '
-              f'({100*stats["n_bbox_perturbed"]/max(1,stats["n_annotations"]):.1f}%), '
-              f'class_flipped={stats["n_class_flipped"]}/{stats["n_annotations"]} '
-              f'({100*stats["n_class_flipped"]/max(1,stats["n_annotations"]):.1f}%) '
-              f'-> {out_path}')
+        print(
+            f'[robustness_noise] {out_name}: '
+            f'bbox_perturbed={stats["n_bbox_perturbed"]}/{stats["n_annotations"]} '
+            f'({100 * stats["n_bbox_perturbed"] / max(1, stats["n_annotations"]):.1f}%), '
+            f'class_flipped={stats["n_class_flipped"]}/{stats["n_annotations"]} '
+            f'({100 * stats["n_class_flipped"] / max(1, stats["n_annotations"]):.1f}%) '
+            f'-> {out_path}'
+        )
         summary.append({'file': out_name, **stats})
 
     # 写一份 manifest 供下游脚本读取
     manifest_path = os.path.join(args.out_dir, 'manifest.json')
     with open(manifest_path, 'w') as f:
-        json.dump({'src': args.src, 'seed': args.seed, 'runs': summary}, f, indent=2)
+        json.dump(
+            {'src': args.src, 'seed': args.seed, 'runs': summary}, f, indent=2
+        )
     print(f'[robustness_noise] manifest -> {manifest_path}')
     print(f'[robustness_noise] done. {len(summary)} files written.')
 

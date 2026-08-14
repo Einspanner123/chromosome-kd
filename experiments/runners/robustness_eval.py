@@ -27,6 +27,9 @@ import subprocess
 import sys
 import time
 from datetime import timedelta
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def parse_test_stdout(stdout: str):
@@ -62,12 +65,17 @@ def run_one(config, checkpoint, noise_ann, seed, gpu_id, exp_name=None):
     env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
 
     cmd = [
-        sys.executable, 'experiments/runners/test.py',
+        sys.executable,
+        'experiments/runners/test.py',
         config,
-        '--checkpoint', checkpoint,
-        '--dataset', 'test',
-        '--seed', str(seed),
-        '--gpu-id', '0',  # CUDA_VISIBLE_DEVICES 已经把物理 GPU 映射为 0
+        '--checkpoint',
+        checkpoint,
+        '--dataset',
+        'test',
+        '--seed',
+        str(seed),
+        '--gpu-id',
+        '0',  # CUDA_VISIBLE_DEVICES 已经把物理 GPU 映射为 0
     ]
     if exp_name:
         cmd += ['--exp-name', exp_name]
@@ -76,12 +84,17 @@ def run_one(config, checkpoint, noise_ann, seed, gpu_id, exp_name=None):
     print(f'[robustness_eval]   NOISE_ANN_FILE={noise_ann}')
     t0 = time.time()
     proc = subprocess.run(
-        cmd, env=env, capture_output=True, text=True,
-        cwd='/home/linkst/workspace/projects/chromosome-kd',
+        cmd,
+        env=env,
+        capture_output=True,
+        text=True,
+        cwd=PROJECT_ROOT,
         timeout=3600,  # 单次最多 1 小时
     )
     dt = time.time() - t0
-    print(f'[robustness_eval]   elapsed={timedelta(seconds=int(dt))}  exit={proc.returncode}')
+    print(
+        f'[robustness_eval]   elapsed={timedelta(seconds=int(dt))}  exit={proc.returncode}'
+    )
     if proc.returncode != 0:
         # 失败: 打印尾部 stderr 帮助调试
         tail = '\n'.join(proc.stderr.splitlines()[-40:])
@@ -92,18 +105,33 @@ def run_one(config, checkpoint, noise_ann, seed, gpu_id, exp_name=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Robustness §4.8 批量推理 + 聚合')
-    parser.add_argument('--perturbed-dir', default='work_dirs/robustness_noise/perturbed',
-                        help='扰动 JSON 目录 (由 robustness_noise.py --grid 生成)')
+    parser = argparse.ArgumentParser(
+        description='Robustness §4.8 批量推理 + 聚合'
+    )
+    parser.add_argument(
+        '--perturbed-dir',
+        default='work_dirs/robustness_noise/perturbed',
+        help='扰动 JSON 目录 (由 robustness_noise.py --grid 生成)',
+    )
     parser.add_argument('--checkpoint', required=True)
-    parser.add_argument('--config', default='experiments/configs/robustness/noise_test_a4.py')
-    parser.add_argument('--out', default='work_dirs/robustness_noise/results.json')
+    parser.add_argument(
+        '--config', default='experiments/configs/robustness/noise_test_a4.py'
+    )
+    parser.add_argument(
+        '--out', default='work_dirs/robustness_noise/results.json'
+    )
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--gpu-id', type=int, default=0)
-    parser.add_argument('--skip-existing', action='store_true',
-                        help='跳过 results.json 中已存在的 tag (增量重跑)')
-    parser.add_argument('--only', default=None,
-                        help='仅运行指定 tag (例如 clean 或 noise_both_s10_f020)')
+    parser.add_argument(
+        '--skip-existing',
+        action='store_true',
+        help='跳过 results.json 中已存在的 tag (增量重跑)',
+    )
+    parser.add_argument(
+        '--only',
+        default=None,
+        help='仅运行指定 tag (例如 clean 或 noise_both_s10_f020)',
+    )
     args = parser.parse_args()
 
     # 读 manifest (含所有 tag 的列表)
@@ -117,7 +145,11 @@ def main():
     if args.skip_existing and os.path.exists(args.out):
         with open(args.out) as f:
             existing = json.load(f).get('runs', {})
-        existing = {r['file']: r for r in existing} if isinstance(existing, list) else existing
+        existing = (
+            {r['file']: r for r in existing}
+            if isinstance(existing, list)
+            else existing
+        )
 
     all_results = dict(existing) if args.skip_existing else {}
 
@@ -137,8 +169,12 @@ def main():
         # exp_name = a4_noise_<tag_without_ext>
         exp_tag = os.path.splitext(tag)[0]
         metrics, stdout = run_one(
-            args.config, args.checkpoint, noise_ann,
-            args.seed, args.gpu_id, exp_name=f'a4_noise_{exp_tag}',
+            args.config,
+            args.checkpoint,
+            noise_ann,
+            args.seed,
+            args.gpu_id,
+            exp_name=f'a4_noise_{exp_tag}',
         )
 
         record = {
@@ -156,12 +192,16 @@ def main():
         # 增量保存 (每次跑完就写, 防止中途挂掉丢结果)
         os.makedirs(os.path.dirname(args.out), exist_ok=True)
         with open(args.out, 'w') as f:
-            json.dump({
-                'config': args.config,
-                'checkpoint': args.checkpoint,
-                'seed': args.seed,
-                'runs': list(all_results.values()),
-            }, f, indent=2)
+            json.dump(
+                {
+                    'config': args.config,
+                    'checkpoint': args.checkpoint,
+                    'seed': args.seed,
+                    'runs': list(all_results.values()),
+                },
+                f,
+                indent=2,
+            )
         print(f'[robustness_eval] saved -> {args.out}')
 
         # 单条结果即时打印
@@ -169,7 +209,9 @@ def main():
             mAP = metrics.get('coco/bbox_mAP', float('nan'))
             AP50 = metrics.get('coco/bbox_mAP_50', float('nan'))
             AP75 = metrics.get('coco/bbox_mAP_75', float('nan'))
-            print(f'[robustness_eval] {tag}: mAP={mAP:.4f}  AP50={AP50:.4f}  AP75={AP75:.4f}')
+            print(
+                f'[robustness_eval] {tag}: mAP={mAP:.4f}  AP50={AP50:.4f}  AP75={AP75:.4f}'
+            )
 
     print(f'\n[robustness_eval] DONE. {len(all_results)} runs in {args.out}')
 

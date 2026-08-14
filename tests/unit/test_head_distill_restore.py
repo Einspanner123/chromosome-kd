@@ -45,12 +45,15 @@ def test_teacher_is_frozen_unregistered_and_head_mapping_is_exact():
     mapped = student.init_student_from_teacher()
 
     assert mapped
-    assert not any(name.startswith('_teacher')
-                   for name in student.state_dict())
-    assert not any(name.startswith('_teacher')
-                   for name, _ in student.named_parameters())
-    assert all(not parameter.requires_grad
-               for parameter in teacher.parameters())
+    assert not any(
+        name.startswith('_teacher') for name in student.state_dict()
+    )
+    assert not any(
+        name.startswith('_teacher') for name, _ in student.named_parameters()
+    )
+    assert all(
+        not parameter.requires_grad for parameter in teacher.parameters()
+    )
     for student_index, teacher_index in {0: 0, 1: 2, 2: 5}.items():
         student_state = student.head_series[student_index].state_dict()
         teacher_state = teacher.head_series[teacher_index].state_dict()
@@ -70,11 +73,13 @@ def test_teacher_follows_student_dtype_conversion():
 
 def test_parent_checkpoint_uses_teacher_binding_without_changing_science_hash():
     matrix = 'experiments/configs/matrices/d2_taichung_head_distill.yaml'
-    base, _ = resolve_config(
-        matrix, 'karyoflow_ot_h3_distill', 335778785)
+    base, _ = resolve_config(matrix, 'karyoflow_ot_h3_distill', 335778785)
     bound, _ = resolve_config(
-        matrix, 'karyoflow_ot_h3_distill', 335778785,
-        '/tmp/parent-checkpoint.pth')
+        matrix,
+        'karyoflow_ot_h3_distill',
+        335778785,
+        '/tmp/parent-checkpoint.pth',
+    )
     assert bound.get('load_from') is None
     assert bound.model.teacher_checkpoint == '/tmp/parent-checkpoint.pth'
     assert scientific_hash(bound) == scientific_hash(base)

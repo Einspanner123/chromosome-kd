@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Verify the prespecified scientific factors in the G0--G3 chain."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.experiments.matrix import resolve_config  # noqa: E402
+from tools.experiments.matrix import resolve_config
 
 MATRICES = [
     'experiments/configs/matrices/d1_inhouse1700_generation_ablation.yaml',
@@ -30,9 +30,14 @@ EXPECTED = [
 
 def signature(cfg):
     head = cfg.model.bbox_head
-    return (head.diffusion_type, head.solver_type, head.sampling_timesteps,
-            head.get('rf_schedule'), head.get('rf_shift'),
-            head.single_head.time_conditioning)
+    return (
+        head.diffusion_type,
+        head.solver_type,
+        head.sampling_timesteps,
+        head.get('rf_schedule'),
+        head.get('rf_shift'),
+        head.single_head.time_conditioning,
+    )
 
 
 def main() -> int:
@@ -44,8 +49,14 @@ def main() -> int:
             errors.append(f'{matrix}: signatures={signatures!r}')
         reference = configs[0]
         for cfg in configs[1:]:
-            for key in ('train_dataloader', 'val_dataloader', 'test_dataloader',
-                        'optim_wrapper', 'param_scheduler', 'train_cfg'):
+            for key in (
+                'train_dataloader',
+                'val_dataloader',
+                'test_dataloader',
+                'optim_wrapper',
+                'param_scheduler',
+                'train_cfg',
+            ):
                 if cfg.get(key) != reference.get(key):
                     errors.append(f'{matrix}: {key} differs across G stages')
         # G1->G2 changes only the time schedule; G2->G3 only conditioning.
@@ -53,17 +64,23 @@ def main() -> int:
         g1['rf_schedule'], g1['rf_shift'] = g2['rf_schedule'], g2['rf_shift']
         if g1 != g2:
             errors.append(f'{matrix}: G1->G2 contains non-schedule changes')
-        g2['single_head']['time_conditioning'] = g3['single_head']['time_conditioning']
+        g2['single_head']['time_conditioning'] = g3['single_head'][
+            'time_conditioning'
+        ]
         if g2 != g3:
-            errors.append(f'{matrix}: G2->G3 contains non-conditioning changes')
+            errors.append(
+                f'{matrix}: G2->G3 contains non-conditioning changes'
+            )
     if errors:
         print('GENERATION ABLATION AUDIT: FAIL')
         for error in errors:
             print('-', error)
         return 1
     print('GENERATION ABLATION AUDIT: PASS matrices=2 stages=4')
-    print('G0->G1 is the prespecified DDPM-to-RF formulation boundary; '
-          'G1->G2 isolates time shifting; G2->G3 isolates AdaLN-Zero.')
+    print(
+        'G0->G1 is the prespecified DDPM-to-RF formulation boundary; '
+        'G1->G2 isolates time shifting; G2->G3 isolates AdaLN-Zero.'
+    )
     return 0
 
 

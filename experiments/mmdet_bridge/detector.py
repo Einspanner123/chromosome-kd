@@ -9,6 +9,10 @@ import logging
 from typing import Dict, List, Optional, Tuple
 
 import torch
+from mmdet.models.detectors.base import BaseDetector
+from mmdet.registry import MODELS
+from mmdet.structures import DetDataSample
+from mmdet.utils import ConfigType, OptConfigType, OptMultiConfig
 from mmengine.structures import InstanceData as MMInstanceData
 
 from ldmdet.core import (
@@ -28,12 +32,9 @@ from ldmdet.criterion import (
     L1Loss,
 )
 from ldmdet.data.structures import ImageMeta
-from mmdet.models.detectors.base import BaseDetector
-from mmdet.registry import MODELS
-from mmdet.structures import DetDataSample
-from mmdet.utils import ConfigType, OptConfigType, OptMultiConfig
 
 logger = logging.getLogger(__name__)
+
 
 @MODELS.register_module(name='LDMDetV2', force=True)
 @MODELS.register_module(name='LDMDet', force=True)
@@ -55,7 +56,9 @@ class LDMDetDetector(BaseDetector):
         teacher_config: OptConfigType = None,
         teacher_checkpoint: Optional[str] = None,
     ) -> None:
-        super().__init__(data_preprocessor=data_preprocessor, init_cfg=init_cfg)
+        super().__init__(
+            data_preprocessor=data_preprocessor, init_cfg=init_cfg
+        )
 
         self.backbone = MODELS.build(backbone)
         self.neck = MODELS.build(neck) if neck is not None else None
@@ -65,7 +68,8 @@ class LDMDetDetector(BaseDetector):
         self._teacher_checkpoint = teacher_checkpoint
         if self.bbox_head.use_distillation:
             teacher_head = self._build_teacher(
-                bbox_head, teacher_config, teacher_checkpoint)
+                bbox_head, teacher_config, teacher_checkpoint
+            )
             self.bbox_head.set_teacher(teacher_head)
             if teacher_checkpoint is not None:
                 self.bbox_head.init_student_from_teacher()
@@ -116,7 +120,9 @@ class LDMDetDetector(BaseDetector):
             criterion = self._build_criterion(criterion_cfg)
 
         # 5. 构建 head — 只传 DiffusionDetHead 接受的参数
-        valid_params = set(inspect.signature(DiffusionDetHead.__init__).parameters.keys())
+        valid_params = set(
+            inspect.signature(DiffusionDetHead.__init__).parameters.keys()
+        )
         cfg = {k: v for k, v in cfg.items() if k in valid_params}
         head = DiffusionDetHead(
             **cfg,
@@ -164,7 +170,11 @@ class LDMDetDetector(BaseDetector):
         loss_giou = GIoULoss(**loss_giou_cfg)
 
         return DiffusionDetCriterion(
-            **cfg, matcher=matcher, loss_cls=loss_cls, loss_bbox=loss_bbox, loss_giou=loss_giou
+            **cfg,
+            matcher=matcher,
+            loss_cls=loss_cls,
+            loss_bbox=loss_bbox,
+            loss_giou=loss_giou,
         )
 
     # ================================================================
@@ -182,20 +192,27 @@ class LDMDetDetector(BaseDetector):
             teacher_config = copy.deepcopy(student_cfg)
             teacher_config['num_heads'] = 6
             for key in (
-                'use_distillation', 'distill_lambda', 'distill_head_map',
-                'deep_supervision_aux_weight', 'freeze_backbone',
+                'use_distillation',
+                'distill_lambda',
+                'distill_head_map',
+                'deep_supervision_aux_weight',
+                'freeze_backbone',
             ):
                 teacher_config.pop(key, None)
             teacher_config.pop('criterion', None)
         teacher = self._build_head(teacher_config)
         if teacher_checkpoint is not None:
             self._load_component_checkpoint(
-                teacher, teacher_checkpoint, prefix='bbox_head.',
-                component_name='teacher bbox_head')
+                teacher,
+                teacher_checkpoint,
+                prefix='bbox_head.',
+                component_name='teacher bbox_head',
+            )
         else:
             logger.warning(
                 'Head-distillation teacher has random weights; this is '
-                'permitted only for configuration/unit tests')
+                'permitted only for configuration/unit tests'
+            )
         return teacher
 
     @staticmethod
@@ -204,7 +221,8 @@ class LDMDetDetector(BaseDetector):
         state = checkpoint.get('state_dict', checkpoint)
         if not isinstance(state, dict):
             raise TypeError(
-                f'{checkpoint_path} does not contain a state dictionary')
+                f'{checkpoint_path} does not contain a state dictionary'
+            )
         return state
 
     def _load_component_checkpoint(
@@ -216,20 +234,26 @@ class LDMDetDetector(BaseDetector):
     ) -> None:
         state = self._checkpoint_state(checkpoint_path)
         component = {
-            name[len(prefix):]: value
-            for name, value in state.items() if name.startswith(prefix)
+            name[len(prefix) :]: value
+            for name, value in state.items()
+            if name.startswith(prefix)
         }
         if not component:
             raise RuntimeError(
-                f'{checkpoint_path} contains no {prefix!r} tensors')
+                f'{checkpoint_path} contains no {prefix!r} tensors'
+            )
         missing, unexpected = module.load_state_dict(component, strict=False)
         if missing or unexpected:
             raise RuntimeError(
                 f'{component_name} checkpoint mismatch: '
-                f'missing={missing[:8]}, unexpected={unexpected[:8]}')
+                f'missing={missing[:8]}, unexpected={unexpected[:8]}'
+            )
         logger.info(
             'Loaded %d %s tensors from %s',
-            len(component), component_name, checkpoint_path)
+            len(component),
+            component_name,
+            checkpoint_path,
+        )
 
     def _freeze_backbone_and_neck(self) -> None:
         for parameter in self.backbone.parameters():
@@ -251,38 +275,51 @@ class LDMDetDetector(BaseDetector):
     def init_weights(self):
         """Initialize student features from its parent without overwriting heads."""
         super().init_weights()
-        if (self.bbox_head.use_distillation
-                and self._teacher_checkpoint is not None):
+        if (
+            self.bbox_head.use_distillation
+            and self._teacher_checkpoint is not None
+        ):
             self._load_component_checkpoint(
-                self.backbone, self._teacher_checkpoint,
-                prefix='backbone.', component_name='student backbone')
+                self.backbone,
+                self._teacher_checkpoint,
+                prefix='backbone.',
+                component_name='student backbone',
+            )
             if self.neck is not None:
                 self._load_component_checkpoint(
-                    self.neck, self._teacher_checkpoint,
-                    prefix='neck.', component_name='student neck')
+                    self.neck,
+                    self._teacher_checkpoint,
+                    prefix='neck.',
+                    component_name='student neck',
+                )
 
-
-
-
-    def extract_feat(self, batch_inputs: torch.Tensor) -> Tuple[torch.Tensor, ...]:
+    def extract_feat(
+        self, batch_inputs: torch.Tensor
+    ) -> Tuple[torch.Tensor, ...]:
         x = self.backbone(batch_inputs)
         if self.neck:
             x = self.neck(x)
         return x
 
-    def loss(self, batch_inputs: torch.Tensor, batch_data_samples: List[DetDataSample]) -> dict:
+    def loss(
+        self,
+        batch_inputs: torch.Tensor,
+        batch_data_samples: List[DetDataSample],
+    ) -> dict:
         x = self.extract_feat(batch_inputs)
         img_metas = []
         gt_bboxes = []
         gt_labels = []
         for ds in batch_data_samples:
-            img_metas.append(ImageMeta(
-                img_shape=ds.metainfo['img_shape'],
-                pad_shape=ds.metainfo.get('pad_shape'),
-                ori_shape=ds.metainfo.get('ori_shape'),
-                scale_factor=ds.metainfo.get('scale_factor'),
-                img_id=ds.metainfo.get('img_id'),
-            ))
+            img_metas.append(
+                ImageMeta(
+                    img_shape=ds.metainfo['img_shape'],
+                    pad_shape=ds.metainfo.get('pad_shape'),
+                    ori_shape=ds.metainfo.get('ori_shape'),
+                    scale_factor=ds.metainfo.get('scale_factor'),
+                    img_id=ds.metainfo.get('img_id'),
+                )
+            )
             gt_bboxes.append(ds.gt_instances.bboxes)
             gt_labels.append(ds.gt_instances.labels)
         return self.bbox_head.loss(x, img_metas, gt_bboxes, gt_labels)
@@ -297,13 +334,15 @@ class LDMDetDetector(BaseDetector):
         x = self.extract_feat(batch_inputs)
         img_metas = []
         for ds in batch_data_samples:
-            img_metas.append(ImageMeta(
-                img_shape=ds.metainfo['img_shape'],
-                pad_shape=ds.metainfo.get('pad_shape'),
-                ori_shape=ds.metainfo.get('ori_shape'),
-                scale_factor=ds.metainfo.get('scale_factor'),
-                img_id=ds.metainfo.get('img_id'),
-            ))
+            img_metas.append(
+                ImageMeta(
+                    img_shape=ds.metainfo['img_shape'],
+                    pad_shape=ds.metainfo.get('pad_shape'),
+                    ori_shape=ds.metainfo.get('ori_shape'),
+                    scale_factor=ds.metainfo.get('scale_factor'),
+                    img_id=ds.metainfo.get('img_id'),
+                )
+            )
 
         results_list = self.bbox_head.predict(x, img_metas, rescale=rescale)
 
@@ -320,6 +359,8 @@ class LDMDetDetector(BaseDetector):
         x = self.extract_feat(batch_inputs)
         bs = len(batch_data_samples)
         t = x[0].new_zeros((bs,), dtype=torch.float32)
-        noise = torch.randn(bs, self.bbox_head.num_proposals, 4, device=x[0].device)
+        noise = torch.randn(
+            bs, self.bbox_head.num_proposals, 4, device=x[0].device
+        )
         cls_logits, pred_bboxes, _ = self.bbox_head(x, noise, t)
         return cls_logits, pred_bboxes

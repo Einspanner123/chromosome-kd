@@ -1,7 +1,7 @@
 """耦合策略基类 + 工厂函数"""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Tuple, Type
+from typing import Dict, Tuple, Type
 
 import torch
 import torch.nn as nn
@@ -63,8 +63,8 @@ def build_coupling(name: str, **kwargs) -> CouplingStrategy:
         _import_all_strategies()
     if name not in _COUPLING_REGISTRY:
         raise ValueError(
-            f"Unknown coupling strategy: {name}. "
-            f"Known: {list(_COUPLING_REGISTRY.keys())}"
+            f'Unknown coupling strategy: {name}. '
+            f'Known: {list(_COUPLING_REGISTRY.keys())}'
         )
     return _COUPLING_REGISTRY[name](**kwargs)
 
@@ -72,7 +72,9 @@ def build_coupling(name: str, **kwargs) -> CouplingStrategy:
 def _import_all_strategies():
     """延迟导入所有耦合策略，填充注册表"""
     try:
+        from ldmdet.coupling.ot_flow_coupling import (
+            OTFlowCoupling,  # noqa: F401
+        )
         from ldmdet.coupling.random import RandomCoupling  # noqa: F401
-        from ldmdet.coupling.ot_flow_coupling import OTFlowCoupling  # noqa: F401
     except ImportError:
         pass

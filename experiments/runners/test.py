@@ -40,7 +40,9 @@ import numpy as np
 import torch
 
 # 确保项目根目录在 Python path 中
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_PROJECT_ROOT = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
@@ -148,9 +150,7 @@ def dump_per_image_ap(runner, dump_path):
     # 复用 mmdet CocoMetric 的预测结果 -> 构造 coco_dt
     predictions = load(pred_file)
     if len(predictions) == 0:
-        raise RuntimeError(
-            f'[dump-per-image] 预测结果为空: {pred_file}'
-        )
+        raise RuntimeError(f'[dump-per-image] 预测结果为空: {pred_file}')
     coco_dt = coco_gt.loadRes(predictions)
 
     # 与 CocoMetric 自身使用的评估参数保持一致 (保证与聚合 mAP 对齐)
@@ -203,26 +203,56 @@ def dump_per_image_ap(runner, dump_path):
     with open(dump_path, 'w') as f:
         json.dump(per_image_records, f, indent=2)
 
-    print(f'[dump-per-image] 已写出 {len(per_image_records)} 条记录 -> {dump_path}')
+    print(
+        f'[dump-per-image] 已写出 {len(per_image_records)} 条记录 -> {dump_path}'
+    )
 
 
 def main():
     parser = argparse.ArgumentParser(description='LDMDet Test (Inference)')
     parser.add_argument('config', help='Config file path')
     parser.add_argument('--checkpoint', required=True, help='Checkpoint path')
-    parser.add_argument('--dataset', default='val', choices=['val', 'test'], help='Dataset split')
+    parser.add_argument(
+        '--dataset',
+        default='val',
+        choices=['val', 'test'],
+        help='Dataset split',
+    )
     parser.add_argument('--gpu-id', type=int, default=0, help='GPU ID')
-    parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducible inference')
-    parser.add_argument('--sampling-steps', type=int, default=None, help='Override sampling steps')
-    parser.add_argument('--solver-type', type=str, default=None,
-                        choices=['euler', 'heun', 'ddim', 'dpm_solver_pp', 'dpm_solver_pp_3'],
-                        help='Override solver type')
-    parser.add_argument('--exp-name', type=str, default=None,
-                        help='SwanLab experiment name (default: auto {solver}_{steps}step)')
-    parser.add_argument('--dump-per-image', type=str, default=None, metavar='PATH',
-                        help='若指定, 将 per-image AP (AP/AP50/AP75/AP_S/AP_M/AP_L) '
-                             'dump 到该 JSON 文件, 用于 C3 统计显著性检验。'
-                             '不加此参数时行为与原先完全一致。')
+    parser.add_argument(
+        '--seed',
+        type=int,
+        default=42,
+        help='Random seed for reproducible inference',
+    )
+    parser.add_argument(
+        '--sampling-steps',
+        type=int,
+        default=None,
+        help='Override sampling steps',
+    )
+    parser.add_argument(
+        '--solver-type',
+        type=str,
+        default=None,
+        choices=['euler', 'heun', 'ddim', 'dpm_solver_pp', 'dpm_solver_pp_3'],
+        help='Override solver type',
+    )
+    parser.add_argument(
+        '--exp-name',
+        type=str,
+        default=None,
+        help='SwanLab experiment name (default: auto {solver}_{steps}step)',
+    )
+    parser.add_argument(
+        '--dump-per-image',
+        type=str,
+        default=None,
+        metavar='PATH',
+        help='若指定, 将 per-image AP (AP/AP50/AP75/AP_S/AP_M/AP_L) '
+        'dump 到该 JSON 文件, 用于 C3 统计显著性检验。'
+        '不加此参数时行为与原先完全一致。',
+    )
     args = parser.parse_args()
 
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu_id)
@@ -241,9 +271,14 @@ def main():
 
     # 生成 SwanLab 实验名 (推理测试独立项目)
     if args.exp_name is None:
-        solver = args.solver_type or cfg.model.bbox_head.get('solver_type', 'unknown')
-        steps = (args.sampling_steps if args.sampling_steps is not None
-                 else cfg.model.bbox_head.get('sampling_timesteps', 0))
+        solver = args.solver_type or cfg.model.bbox_head.get(
+            'solver_type', 'unknown'
+        )
+        steps = (
+            args.sampling_steps
+            if args.sampling_steps is not None
+            else cfg.model.bbox_head.get('sampling_timesteps', 0)
+        )
         args.exp_name = f'{solver}_{steps}step'
 
     # 覆盖 SwanLab 配置: 推理独立项目 + 明确实验名
@@ -252,12 +287,17 @@ def main():
     _visualizer_backends = cfg.get('visualizer', {}).get('vis_backends', [])
     for _vis_backends in [_vis_backends_list, _visualizer_backends]:
         for backend in _vis_backends:
-            if isinstance(backend, dict) and backend.get('type') == 'SwanlabVisBackend':
+            if (
+                isinstance(backend, dict)
+                and backend.get('type') == 'SwanlabVisBackend'
+            ):
                 backend.setdefault('init_kwargs', {})
                 backend['init_kwargs']['project'] = _INFERENCE_SWANLAB_PROJECT
                 backend['init_kwargs']['experiment_name'] = args.exp_name
 
-    print(f'[SwanLab] project={_INFERENCE_SWANLAB_PROJECT}, exp_name={args.exp_name}, seed={args.seed}')
+    print(
+        f'[SwanLab] project={_INFERENCE_SWANLAB_PROJECT}, exp_name={args.exp_name}, seed={args.seed}'
+    )
 
     # 切换为测试模式
     # Runner.test() 使用 cfg.test_dataloader/test_evaluator, 因此需要根据
@@ -283,9 +323,9 @@ def main():
 
     # 运行测试
     metrics = runner.test()
-    print(f'\n{"="*60}')
+    print(f'\n{"=" * 60}')
     print(f'Test Results ({args.dataset}) [{args.exp_name}, seed={args.seed}]')
-    print(f'{"="*60}')
+    print(f'{"=" * 60}')
     for k, v in sorted(metrics.items()):
         print(f'  {k}: {v:.4f}' if isinstance(v, float) else f'  {k}: {v}')
 

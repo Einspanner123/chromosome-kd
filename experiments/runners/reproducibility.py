@@ -56,7 +56,9 @@ class FixedValidationSeedHook(Hook):
 
     def before_val(self, runner) -> None:
         if self._saved_state is not None:
-            raise RuntimeError('Nested validation RNG scopes are not supported')
+            raise RuntimeError(
+                'Nested validation RNG scopes are not supported'
+            )
         self._saved_state = {
             'python': random.getstate(),
             'numpy': np.random.get_state(),
@@ -82,6 +84,7 @@ class FixedValidationSeedHook(Hook):
         if self._saved_state['cuda'] is not None:
             torch.cuda.set_rng_state_all(self._saved_state['cuda'])
         torch.backends.cudnn.deterministic = self._saved_state[
-            'cudnn_deterministic']
+            'cudnn_deterministic'
+        ]
         torch.backends.cudnn.benchmark = self._saved_state['cudnn_benchmark']
         self._saved_state = None

@@ -55,9 +55,7 @@ if _HAS_TRITON:
         y = x_norm * w + b
         y = tl.where(y > 0, y, 0.0)  # ReLU
 
-        tl.store(
-            Y_ptr + row * stride_row + offs * stride_m, y, mask=mask
-        )
+        tl.store(Y_ptr + row * stride_row + offs * stride_m, y, mask=mask)
 
     def _triton_fused_layernorm_relu(
         x: Tensor, weight: Tensor, bias: Tensor, eps: float
@@ -181,7 +179,9 @@ class DynamicConv(nn.Module):
         Returns: (1, N, C)
         """
         features = roi_feats.transpose(0, 1)  # (N, P*P, C)
-        parameters = self.dynamic_layer(proposals.squeeze(0))  # (N, num_params)
+        parameters = self.dynamic_layer(
+            proposals.squeeze(0)
+        )  # (N, num_params)
         param_list = parameters.chunk(self.dynamic_num, dim=1)
 
         param1 = param_list[0].view(-1, self.feat_channels, self.dynamic_dim)

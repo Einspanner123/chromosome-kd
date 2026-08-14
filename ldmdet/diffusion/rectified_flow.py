@@ -10,6 +10,7 @@ from typing import Optional, Tuple
 import torch
 from torch import Tensor
 
+
 class RectifiedFlow:
     """1-RectFlow: 直线路径前向扩散与采样。"""
 

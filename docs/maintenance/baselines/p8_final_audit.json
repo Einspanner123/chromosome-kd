@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "phase": "P8",
+  "status": "PASS",
+  "date": "2026-08-15",
+  "recovery": {
+    "ref": "refs/tags/archive/pre-cleanup-20260815",
+    "baseline_commit": "323da0beaf1a93441915e81dd90f8039012c7f3c",
+    "final_tag": "cleanup/final-20260815"
+  },
+  "inventory": {
+    "tracked_files_at_recovery_ref": 2812,
+    "tracked_files_in_final_index": 476,
+    "tracked_file_reduction_fraction": 0.8307,
+    "active_primary_roots": ["ldmdet", "experiments", "tools", "tests", "docs"],
+    "quarantine_size": "734 MB"
+  },
+  "checks": {
+    "ruff_lint": {"status": "PASS", "files": 72},
+    "ruff_format": {"status": "PASS", "files": 72},
+    "unit_tests": {"status": "PASS", "passed": 92},
+    "canonical_model_build": {"status": "PASS", "combinations": 38},
+    "generation_ablation": {"status": "PASS", "stages": 4},
+    "inference_ablations": {"status": "PASS", "variants": 76},
+    "protocols": {"status": "PASS", "protocols": 8},
+    "evidence_database": {
+      "status": "PASS",
+      "controlled": 1318,
+      "diagnostic": 166,
+      "paper_eligible": 1351,
+      "sha256": "df0a547629a4f3c004c140ed12a3b77cf5679da13ef24b03f039892f2d51a63d"
+    },
+    "paper_route_matrix": {
+      "status": "PASS",
+      "groups": 46,
+      "expanded_runs": 261,
+      "manifest_sha256": "a97d19dc0e62d9fd95226ff7d4ec4aad67f05aa05793bb4e9c4c0cc4fed203e4"
+    },
+    "official_mmdetection": {
+      "status": "PASS",
+      "version": "3.3.0",
+      "import_class": "site-packages"
+    },
+    "wheel_build": {"status": "PASS", "artifact": "karyoflow-0.1.0-py3-none-any.whl"},
+    "bootstrap_shell_syntax": "PASS",
+    "git_diff_check": "PASS"
+  },
+  "bounded_exceptions": [
+    {
+      "id": "root_owned_regenerable_cache",
+      "paths": [".build_tmp", ".hf_cache"],
+      "impact": "ignored and not used by source, tests, configs, or evidence"
+    },
+    {
+      "id": "immutable_evidence_runtime_locations",
+      "impact": "historical evidence records retain source locations for audit; paper narrative is sanitized"
+    },
+    {
+      "id": "precommit_command_not_installed",
+      "impact": "the same Ruff, YAML-adjacent, test, and audit commands were run directly; CI installs and runs them"
+    },
+    {
+      "id": "repository_license_pending",
+      "impact": "a license must be selected by the owner before public distribution"
+    }
+  ]
+}

@@ -20,8 +20,8 @@ def sigmoid_focal_loss(
     使用数值稳定的 log_sigmoid 替代手动 sigmoid + log。
     """
     # 数值稳定的 log(sigmoid(x)) 和 log(1-sigmoid(x))
-    log_p = F.logsigmoid(inputs)            # log(sigmoid(x))
-    log_1_minus_p = log_p - inputs          # log(1-sigmoid(x)) = log(sigmoid(x)) - x
+    log_p = F.logsigmoid(inputs)  # log(sigmoid(x))
+    log_1_minus_p = log_p - inputs  # log(1-sigmoid(x)) = log(sigmoid(x)) - x
 
     p = torch.sigmoid(inputs)
     p_t = p * targets + (1 - p) * (1 - targets)
@@ -49,7 +49,14 @@ class FocalLoss(nn.Module):
     或直接用 scatter_ 高效创建 one-hot。
     """
 
-    def __init__(self, use_sigmoid=True, alpha=0.25, gamma=2.0, reduction='sum', loss_weight=2.0):
+    def __init__(
+        self,
+        use_sigmoid=True,
+        alpha=0.25,
+        gamma=2.0,
+        reduction='sum',
+        loss_weight=2.0,
+    ):
         super().__init__()
         assert use_sigmoid, 'Only sigmoid focal loss supported'
         self.alpha = alpha
@@ -72,7 +79,9 @@ class FocalLoss(nn.Module):
                 )
             target = flat_one_hot.reshape(pred.shape)
 
-        loss = sigmoid_focal_loss(pred, target, self.alpha, self.gamma, self.reduction)
+        loss = sigmoid_focal_loss(
+            pred, target, self.alpha, self.gamma, self.reduction
+        )
         return loss * self.loss_weight
 
 
@@ -85,7 +94,9 @@ class GIoULoss(nn.Module):
         self.loss_weight = loss_weight
 
     def forward(self, pred: Tensor, target: Tensor) -> Tensor:
-        loss = ops.generalized_box_iou_loss(pred, target, reduction=self.reduction)
+        loss = ops.generalized_box_iou_loss(
+            pred, target, reduction=self.reduction
+        )
         return loss * self.loss_weight
 
 

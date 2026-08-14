@@ -1,6 +1,6 @@
 schema_version: 1
 plan_id: repo-cleanup-20260815
-status: active
+status: completed
 repository: chromosome-kd
 baseline:
   commit: 323da0beaf1a93441915e81dd90f8039012c7f3c
@@ -46,17 +46,22 @@ phases:
   P6:
     name: research_and_documentation
     status: completed
-    commit: pending_phase_commit
+    commit: 5616c7b5
     checkpoint_tag: cleanup/p6-research-docs-20260815
     gate_record: docs/maintenance/baselines/p6_research_documentation_gate.json
   P7:
     name: mmdetection_dependency
     status: completed
-    commit: pending_phase_commit
+    commit: 3f8be230
     checkpoint_tag: cleanup/p7-dependencies-20260815
     gate_record: docs/maintenance/baselines/p7_dependency_gate.json
-  P8: {name: final_audit, status: in_progress, commit: null}
-last_successful_gate: P7_external_mmdetection_dependency_passed
+  P8:
+    name: final_audit
+    status: completed
+    commit: pending_final_commit
+    checkpoint_tag: cleanup/final-20260815
+    gate_record: docs/maintenance/baselines/p8_final_audit.json
+last_successful_gate: P8_final_repository_audit_passed
 blocked_items:
   - id: root_owned_regenerable_cache
     paths: [.build_tmp, .hf_cache]
@@ -86,3 +91,8 @@ notes:
   - P7 replaced 1,777 vendored MMDetection files with the pinned public 3.3.0 package.
   - The discarded local CocoMetric patch affected visualization keys, not aggregate AP.
   - The environment now imports MMDetection from site-packages and builds a KaryoFlow wheel.
+  - P8 reduced the active index to 476 files from 2,812 at the recovery ref.
+  - Machine-specific queue scripts and duplicate diagnostic runners were retired.
+  - Generated analysis caches and root residues were moved to ignored quarantine.
+  - The active Python surface passes Ruff formatting, lint, and 92 unit tests.
+  - Public release still requires an explicit repository license decision.

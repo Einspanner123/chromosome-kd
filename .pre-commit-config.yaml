@@ -4,26 +4,26 @@ repos:
     hooks:
       - id: ruff
         args: ["--fix", "--exit-non-zero-on-fix"]
-        files: ^projects/
+        files: ^(ldmdet|experiments/(mmdet_bridge|runners)|tools/(configs|experiments|benchmarks)|tests)/.*\.py$
       - id: ruff-format
-        files: ^projects/
+        files: ^(ldmdet|experiments/(mmdet_bridge|runners)|tools/(configs|experiments|benchmarks)|tests)/.*\.py$
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
       - id: trailing-whitespace
-        files: ^projects/
+        files: ^(ldmdet|experiments/(mmdet_bridge|runners)|tools/(configs|experiments|benchmarks)|tests)/
       - id: check-yaml
       - id: end-of-file-fixer
-        files: ^projects/
+        files: ^(ldmdet|experiments/(mmdet_bridge|runners)|tools/(configs|experiments|benchmarks)|tests)/
       - id: requirements-txt-fixer
       - id: check-merge-conflict
       - id: fix-encoding-pragma
         args: ["--remove"]
-        files: ^projects/
+        files: ^(ldmdet|experiments/(mmdet_bridge|runners)|tools/(configs|experiments|benchmarks)|tests)/.*\.py$
       - id: mixed-line-ending
         args: ["--fix=lf"]
   - repo: https://github.com/codespell-project/codespell
     rev: v2.3.0
     hooks:
       - id: codespell
-        files: ^projects/
+        files: ^(ldmdet|experiments/(mmdet_bridge|runners)|tools/(configs|experiments|benchmarks)|tests|docs/(maintenance|research))/

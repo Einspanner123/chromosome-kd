@@ -16,7 +16,6 @@
 import os
 import sys
 
-import pytest
 import torch
 
 # 确保项目根目录在 path 中
@@ -25,8 +24,8 @@ if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
 from ldmdet.core.head import DiffusionDetHead
-from ldmdet.core.single_head import SingleDiffusionDetHead
 from ldmdet.core.roi_extractor import SingleRoIExtractor
+from ldmdet.core.single_head import SingleDiffusionDetHead
 
 
 def _make_single_head(num_classes=24, feat_channels=64):
@@ -43,8 +42,11 @@ def _make_single_head(num_classes=24, feat_channels=64):
 def _make_roi_extractor(out_channels=64):
     """构建最小 RoIExtractor"""
     return SingleRoIExtractor(
-        featmap_strides=[16], out_channels=out_channels,
-        roi_layer=dict(type='RoIAlign', output_size=7, sampling_ratio=0, aligned=True),
+        featmap_strides=[16],
+        out_channels=out_channels,
+        roi_layer=dict(
+            type='RoIAlign', output_size=7, sampling_ratio=0, aligned=True
+        ),
     )
 
 
@@ -127,7 +129,9 @@ class TestCascadeDetachBehavior:
             cls_logits, pred_bboxes, _ = head(features, bboxes, t)
         # detach 模式下, bboxes 不应有梯度 (因为 pred_bboxes 被 detach)
         # 注意: eval 模式下无梯度, 这里仅验证 forward 不报错
-        assert cls_logits.shape[0] == 1  # deep_supervision=False, 只有最后 head
+        assert (
+            cls_logits.shape[0] == 1
+        )  # deep_supervision=False, 只有最后 head
 
     def test_detach_false_forward_works(self):
         """cascade_detach=False 时, forward 应正常工作"""
@@ -145,7 +149,9 @@ class TestCascadeDetachBehavior:
         features, bboxes, t = self._make_dummy_input()
 
         # 记录第一个 head 的初始参数
-        head0_params_before = [p.clone() for p in head.head_series[0].parameters()]
+        head0_params_before = [
+            p.clone() for p in head.head_series[0].parameters()
+        ]
 
         cls_logits, pred_bboxes, _ = head(features, bboxes, t)
         # 用 cls_logits 的和作为 loss
@@ -153,8 +159,11 @@ class TestCascadeDetachBehavior:
         loss.backward()
 
         # 第一个 head 的参数应有梯度 (因为 cascade_detach=False, 梯度贯通)
-        has_grad = sum(1 for p in head.head_series[0].parameters()
-                       if p.grad is not None and p.grad.abs().sum() > 0)
+        has_grad = sum(
+            1
+            for p in head.head_series[0].parameters()
+            if p.grad is not None and p.grad.abs().sum() > 0
+        )
         assert has_grad > 0, 'cascade_detach=False 时第一个 head 应有梯度'
 
     def test_detach_true_intermediate_bboxes_detached(self):
@@ -199,7 +208,9 @@ class TestCascadeDetachBehavior:
         # 注意: RoIAlign 对 bboxes 不可导, 但 apply_deltas 中的 widths/heights/ctr 可导
         # 第一个 head 的 pred_bboxes 依赖于输入 bboxes (通过 apply_deltas)
         # 由于 cascade_detach=False, 后续 head 的 pred_bboxes 也通过 bboxes 路径回传
-        assert bboxes.grad is not None, 'cascade_detach=False 时输入 bboxes 应有梯度'
+        assert bboxes.grad is not None, (
+            'cascade_detach=False 时输入 bboxes 应有梯度'
+        )
 
     def test_detach_false_all_heads_have_gradient(self):
         """cascade_detach=False 时, 所有 head 都应有梯度"""
@@ -212,8 +223,11 @@ class TestCascadeDetachBehavior:
         loss.backward()
 
         for i, h in enumerate(head.head_series):
-            has_grad = sum(1 for p in h.parameters()
-                           if p.grad is not None and p.grad.abs().sum() > 0)
+            has_grad = sum(
+                1
+                for p in h.parameters()
+                if p.grad is not None and p.grad.abs().sum() > 0
+            )
             assert has_grad > 0, f'cascade_detach=False 时 head[{i}] 应有梯度'
 
 
@@ -248,6 +262,9 @@ class TestCascadeDetachWithDeepSupervision:
         loss.backward()
         # 所有 head 都应有梯度
         for i, h in enumerate(head.head_series):
-            has_grad = sum(1 for p in h.parameters()
-                           if p.grad is not None and p.grad.abs().sum() > 0)
+            has_grad = sum(
+                1
+                for p in h.parameters()
+                if p.grad is not None and p.grad.abs().sum() > 0
+            )
             assert has_grad > 0, f'head[{i}] 应有梯度'

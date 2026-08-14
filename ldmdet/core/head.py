@@ -106,25 +106,25 @@ class DiffusionDetHead(nn.Module):
         self.solver_type = solver_type
         self.use_distillation = bool(use_distillation)
         self.distill_lambda = float(distill_lambda)
-        self.distill_head_map = dict(
-            distill_head_map or {0: 0, 1: 2, 2: 5})
-        self.deep_supervision_aux_weight = float(
-            deep_supervision_aux_weight)
+        self.distill_head_map = dict(distill_head_map or {0: 0, 1: 2, 2: 5})
+        self.deep_supervision_aux_weight = float(deep_supervision_aux_weight)
         self.freeze_backbone = bool(freeze_backbone)
         self._teacher = None
         if self.distill_lambda < 0:
             raise ValueError('distill_lambda must be non-negative')
         if not 0 < self.deep_supervision_aux_weight <= 1:
-            raise ValueError(
-                'deep_supervision_aux_weight must lie in (0, 1]')
+            raise ValueError('deep_supervision_aux_weight must lie in (0, 1]')
         if self.use_distillation:
             if not self.distill_head_map:
                 raise ValueError('distill_head_map must not be empty')
-            if any(index < 0 or index >= num_heads
-                   for index in self.distill_head_map):
+            if any(
+                index < 0 or index >= num_heads
+                for index in self.distill_head_map
+            ):
                 raise ValueError(
                     'student indices in distill_head_map must address '
-                    'existing cascade heads')
+                    'existing cascade heads'
+                )
         self.quality_score_beta = float(quality_score_beta)
         self.quality_calibration_mode = quality_calibration_mode
         self.quality_only_training = bool(quality_only_training)
@@ -133,7 +133,8 @@ class DiffusionDetHead(nn.Module):
             raise ValueError('quality_score_beta must be non-negative')
         if self.quality_calibration_mode != 'final_only':
             raise ValueError(
-                'KaryoFlow supports final-stage quality ranking only')
+                'KaryoFlow supports final-stage quality ranking only'
+            )
 
         # 扩散组件
         self.rf = RectifiedFlow(snr_scale=snr_scale)
@@ -200,7 +201,8 @@ class DiffusionDetHead(nn.Module):
             quality_head = getattr(self.head_series[-1], 'quality_head', None)
             if quality_head is None:
                 raise ValueError(
-                    'quality_only_training requires predict_iou_quality=True')
+                    'quality_only_training requires predict_iou_quality=True'
+                )
             for parameter in self.parameters():
                 parameter.requires_grad_(False)
             for parameter in quality_head.parameters():
@@ -255,9 +257,11 @@ class DiffusionDetHead(nn.Module):
         student_state = self.state_dict()
         mapped = {}
         for name, value in teacher_state.items():
-            if (not name.startswith('head_series.')
-                    and name in student_state
-                    and student_state[name].shape == value.shape):
+            if (
+                not name.startswith('head_series.')
+                and name in student_state
+                and student_state[name].shape == value.shape
+            ):
                 mapped[name] = value
         for student_index, teacher_index in self.distill_head_map.items():
             student_prefix = f'head_series.{student_index}.'
@@ -265,14 +269,18 @@ class DiffusionDetHead(nn.Module):
             for name, value in teacher_state.items():
                 if not name.startswith(teacher_prefix):
                     continue
-                target_name = student_prefix + name[len(teacher_prefix):]
-                if (target_name in student_state
-                        and student_state[target_name].shape == value.shape):
+                target_name = student_prefix + name[len(teacher_prefix) :]
+                if (
+                    target_name in student_state
+                    and student_state[target_name].shape == value.shape
+                ):
                     mapped[target_name] = value
         self.load_state_dict(mapped, strict=False)
         logger.info(
             'Head distillation initialized %d/%d student tensors from teacher',
-            len(mapped), len(student_state))
+            len(mapped),
+            len(student_state),
+        )
         return tuple(sorted(mapped))
 
     # ================================================================
@@ -290,23 +298,26 @@ class DiffusionDetHead(nn.Module):
 
         for head in self.head_series:
             result = head(
-                features, curr_bboxes, curr_proposals,
-                self.roi_extractor, time_emb,
+                features,
+                curr_bboxes,
+                curr_proposals,
+                self.roi_extractor,
+                time_emb,
             )
             cls_logits, pred_bboxes, curr_proposals, *extras = result
             if getattr(head, 'quality_head', None) is not None:
                 last_quality_logits = extras.pop(0)
             if extras:
-                raise RuntimeError('unexpected outputs from single detection head')
+                raise RuntimeError(
+                    'unexpected outputs from single detection head'
+                )
             inter_cls_logits.append(cls_logits)
             inter_pred_bboxes.append(pred_bboxes)
             inter_curr_proposals.append(curr_proposals)
 
             # 级联: 将当前 head 输出作为下一 head 的输入
             curr_bboxes = (
-                pred_bboxes.detach()
-                if self.cascade_detach
-                else pred_bboxes
+                pred_bboxes.detach() if self.cascade_detach else pred_bboxes
             )
 
         self._last_quality_logits = last_quality_logits
@@ -327,14 +338,21 @@ class DiffusionDetHead(nn.Module):
     # 训练损失
     # ================================================================
 
-    def loss(self, features, img_metas, gt_bboxes, gt_labels, x_raw_shared=None):
+    def loss(
+        self, features, img_metas, gt_bboxes, gt_labels, x_raw_shared=None
+    ):
         if self.use_distillation:
             if self._teacher is None:
                 raise RuntimeError(
-                    'use_distillation=True requires an injected teacher')
+                    'use_distillation=True requires an injected teacher'
+                )
             return self._loss_with_distillation(
-                features, img_metas, gt_bboxes, gt_labels,
-                external_noise=x_raw_shared)
+                features,
+                img_metas,
+                gt_bboxes,
+                gt_labels,
+                external_noise=x_raw_shared,
+            )
         if self.quality_only_training:
             # The detector may still build frozen backbone/neck features, but
             # detaching here keeps branch-only gates causally isolated.
@@ -345,7 +363,11 @@ class DiffusionDetHead(nn.Module):
         t = self._sample_t(bs, device)
         x_boxes, x_starts, x_noises, matched_gt_indices = (
             self._build_training_targets(
-                bs, device, t, targets, gt_bboxes,
+                bs,
+                device,
+                t,
+                targets,
+                gt_bboxes,
                 external_noise=x_raw_shared,
             )
         )
@@ -396,15 +418,22 @@ class DiffusionDetHead(nn.Module):
         device = features[0].device
         batch_size = len(img_metas)
         targets = self._normalize_targets(
-            gt_bboxes, gt_labels, img_metas, batch_size)
+            gt_bboxes, gt_labels, img_metas, batch_size
+        )
         t = self._sample_t(batch_size, device)
         shared_noise = external_noise
         if shared_noise is None:
             shared_noise = torch.randn(
-                batch_size, self.num_proposals, 4, device=device)
+                batch_size, self.num_proposals, 4, device=device
+            )
         x_boxes, _, _, _ = self._build_training_targets(
-            batch_size, device, t, targets, gt_bboxes,
-            external_noise=shared_noise)
+            batch_size,
+            device,
+            t,
+            targets,
+            gt_bboxes,
+            external_noise=shared_noise,
+        )
         noisy_boxes = torch.stack(x_boxes)
         current_boxes = self._sampler.raw_to_xyxy(noisy_boxes, img_metas)
         t_input = t if self.diffusion_type == 'ddpm' else t * self.timesteps
@@ -417,8 +446,9 @@ class DiffusionDetHead(nn.Module):
                 student_cls, student_boxes, student_features = run_student()
             student_cls = student_cls.float()
             student_boxes = student_boxes.float()
-            student_features = [feature.float()
-                                for feature in student_features]
+            student_features = [
+                feature.float() for feature in student_features
+            ]
         else:
             student_cls, student_boxes, student_features = run_student()
 
@@ -428,38 +458,46 @@ class DiffusionDetHead(nn.Module):
             if self.amp_dtype is not None:
                 with torch.cuda.amp.autocast(dtype=self.amp_dtype):
                     _, _, teacher_features = teacher(
-                        features, current_boxes, t_input, img_metas)
-                teacher_features = [feature.float()
-                                    for feature in teacher_features]
+                        features, current_boxes, t_input, img_metas
+                    )
+                teacher_features = [
+                    feature.float() for feature in teacher_features
+                ]
             else:
                 _, _, teacher_features = teacher(
-                    features, current_boxes, t_input, img_metas)
+                    features, current_boxes, t_input, img_metas
+                )
 
         normalized_boxes = self._normalize_pred_bboxes(
-            student_boxes, img_metas)
+            student_boxes, img_metas
+        )
         outputs = self._build_outputs(student_cls, normalized_boxes)
         losses = self.criterion(outputs, targets, t=t)
         if self.deep_supervision_aux_weight != 1.0:
             for name in tuple(losses):
                 if name.startswith('aux_'):
                     losses[name] = (
-                        losses[name] * self.deep_supervision_aux_weight)
+                        losses[name] * self.deep_supervision_aux_weight
+                    )
 
         feature_losses = []
         for student_index, teacher_index in self.distill_head_map.items():
             if student_index >= len(student_features):
                 raise RuntimeError(
-                    f'student head {student_index} is unavailable')
+                    f'student head {student_index} is unavailable'
+                )
             if teacher_index >= len(teacher_features):
                 raise RuntimeError(
-                    f'teacher head {teacher_index} is unavailable')
+                    f'teacher head {teacher_index} is unavailable'
+                )
             student_feature = student_features[student_index].float()
             teacher_feature = teacher_features[teacher_index].float().detach()
             if student_feature.shape != teacher_feature.shape:
                 raise RuntimeError(
                     'distillation feature shape mismatch: '
                     f'student[{student_index}]={tuple(student_feature.shape)} '
-                    f'teacher[{teacher_index}]={tuple(teacher_feature.shape)}')
+                    f'teacher[{teacher_index}]={tuple(teacher_feature.shape)}'
+                )
             gap = F.mse_loss(student_feature, teacher_feature)
             feature_losses.append(gap)
         if not feature_losses:
@@ -491,7 +529,7 @@ class DiffusionDetHead(nn.Module):
         if dpm_solver is None:
             assert self.solver_type in ('euler', 'heun', 'ddim'), (
                 f"solver_type='{self.solver_type}' 不被 create_dpm_solver() 支持, "
-                f"且不属于 euler/heun/ddim. 请检查配置或扩展 create_dpm_solver()."
+                f'且不属于 euler/heun/ddim. 请检查配置或扩展 create_dpm_solver().'
             )
         if dpm_solver is not None:
             dpm_solver.reset()
@@ -514,13 +552,19 @@ class DiffusionDetHead(nn.Module):
             ):
                 x_raw, cls_logits, pred_bboxes, x0_raw, topk_indices = (
                     self._sampler.apply_topk_pruning(
-                        x_raw, cls_logits, pred_bboxes, x0_raw,
+                        x_raw,
+                        cls_logits,
+                        pred_bboxes,
+                        x0_raw,
                         k=self.topk_k,
                     )
                 )
                 output_logits = output_logits.gather(
-                    1, topk_indices.unsqueeze(-1).expand(
-                        -1, -1, output_logits.shape[-1]))
+                    1,
+                    topk_indices.unsqueeze(-1).expand(
+                        -1, -1, output_logits.shape[-1]
+                    ),
+                )
                 # 剪枝后 DPM-Solver history 维度不匹配, 必须重置
                 if dpm_solver is not None:
                     dpm_solver.reset()
@@ -556,21 +600,26 @@ class DiffusionDetHead(nn.Module):
                     break
             else:
                 if dpm_solver is not None:
-                    x_raw = dpm_solver.step(x_raw, x0_raw, t_curr, step_idx,
-                                             renewal_mask=_renewal_mask)
+                    x_raw = dpm_solver.step(
+                        x_raw,
+                        x0_raw,
+                        t_curr,
+                        step_idx,
+                        renewal_mask=_renewal_mask,
+                    )
                 elif self.solver_type == 'heun' and t_next > 0:
+
                     def model_fn(x_tmp, t_tmp):
                         _, _, x0_tmp = self._forward_at_t(
                             features, x_tmp, t_tmp, img_metas
                         )
                         return x0_tmp, None
+
                     x_raw = self.rf.heun_step(
                         x_raw, x0_raw, t_curr, t_next, model_fn
                     )
                 else:
-                    x_raw = self.rf.step(
-                        x_raw, x0_raw, t_curr, t_next
-                    )
+                    x_raw = self.rf.step(x_raw, x0_raw, t_curr, t_next)
 
                 if self.box_renewal:
                     x_raw_before = x_raw.clone()
@@ -591,12 +640,23 @@ class DiffusionDetHead(nn.Module):
         if self.topk_pruning_enabled and self._pruning_stats:
             try:
                 import swanlab
-                swanlab.log({
-                    'inference/pruning_n_before': self._pruning_stats['n_before'],
-                    'inference/pruning_n_after': self._pruning_stats['n_after'],
-                    'inference/pruning_kept_mean_score': self._pruning_stats['kept_mean_score'],
-                    'inference/pruning_step': self._pruning_stats['pruning_step'],
-                })
+
+                swanlab.log(
+                    {
+                        'inference/pruning_n_before': self._pruning_stats[
+                            'n_before'
+                        ],
+                        'inference/pruning_n_after': self._pruning_stats[
+                            'n_after'
+                        ],
+                        'inference/pruning_kept_mean_score': self._pruning_stats[
+                            'kept_mean_score'
+                        ],
+                        'inference/pruning_step': self._pruning_stats[
+                            'pruning_step'
+                        ],
+                    }
+                )
             except Exception as e:
                 logger.warning(f'[SwanLab] inference metrics log failed: {e}')
 
@@ -650,7 +710,12 @@ class DiffusionDetHead(nn.Module):
         return t
 
     def _build_training_targets(
-        self, bs, device, t, targets, gt_bboxes,
+        self,
+        bs,
+        device,
+        t,
+        targets,
+        gt_bboxes,
         external_noise=None,
     ):
         """构建训练 targets (x_noisy, x_start, x_noise, matched_gt_idx)。"""
@@ -672,7 +737,8 @@ class DiffusionDetHead(nn.Module):
                 )
                 continue
             gt_diffusion = self._sampler.normalized_xyxy_to_raw(
-                targets[i].bboxes)
+                targets[i].bboxes
+            )
             if external_noise is not None:
                 noise = external_noise[i]
             else:
@@ -689,7 +755,6 @@ class DiffusionDetHead(nn.Module):
             x_boxes.append(x_noisy)
         return x_boxes, x_starts, x_noises, matched_gt_indices
 
-
     def _couple_single_image(self, noise, gt_diffusion, gt_labels, device):
         if self.ot_coupling and self.diffusion_type == 'rectified_flow':
             return self.ot_module.couple(
@@ -704,8 +769,6 @@ class DiffusionDetHead(nn.Module):
             return self.q_sample(x_start, t), torch.zeros_like(x_start)
         x_noisy, _ = self.rf.q_sample(x_start, x_noise=noise, t=t)
         return x_noisy, noise
-
-
 
     def _forward_at_t(self, features, x_raw, t, img_metas):
         bs, device = x_raw.shape[0], x_raw.device

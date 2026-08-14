@@ -16,7 +16,9 @@ import os.path as osp
 import sys
 
 # 确保项目根目录在 Python path 中
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_PROJECT_ROOT = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
@@ -37,7 +39,10 @@ def _iter_swanlab_backends(cfg):
         if not isinstance(d, list):
             continue
         for backend in d:
-            if isinstance(backend, dict) and backend.get('type') == 'SwanlabVisBackend':
+            if (
+                isinstance(backend, dict)
+                and backend.get('type') == 'SwanlabVisBackend'
+            ):
                 yield backend
 
 
@@ -55,14 +60,18 @@ def _inject_tracker(cfg):
     project = experiment.get('tracker_project')
     if not project:
         return
-    visualizer = cfg.setdefault('visualizer', dict(
-        type='DetLocalVisualizer', name='visualizer', vis_backends=[]))
+    visualizer = cfg.setdefault(
+        'visualizer',
+        dict(type='DetLocalVisualizer', name='visualizer', vis_backends=[]),
+    )
     backends = visualizer.setdefault('vis_backends', [])
     if not any(item.get('type') == 'SwanlabVisBackend' for item in backends):
-        backends.append(dict(
-            type='SwanlabVisBackend',
-            init_kwargs=dict(project=project, resume='allow'),
-        ))
+        backends.append(
+            dict(
+                type='SwanlabVisBackend',
+                init_kwargs=dict(project=project, resume='allow'),
+            )
+        )
 
 
 def _get_swanlab_run_id(work_dir):
@@ -80,7 +89,9 @@ def _get_swanlab_run_id(work_dir):
                 return run_id
 
     # 2. 从 vis_data/run-<timestamp>-<run_id> 目录名解析
-    run_dirs = glob.glob(osp.join(work_dir, '**', 'vis_data', 'run-*'), recursive=True)
+    run_dirs = glob.glob(
+        osp.join(work_dir, '**', 'vis_data', 'run-*'), recursive=True
+    )
     run_dirs = [d for d in run_dirs if osp.isdir(d)]
     if not run_dirs:
         return None
@@ -126,6 +137,7 @@ def _patch_swanlab_save_id(work_dir):
         try:
             # SwanLab 0.8.x: 通过 swanlab.get_run() 获取活跃 run
             import swanlab
+
             run = swanlab.get_run()
             if run is not None:
                 run_id = run.id
@@ -145,17 +157,28 @@ def main():
     parser.add_argument('config', help='Config file path')
     parser.add_argument('--work-dir', default=None, help='Work directory')
     parser.add_argument(
-        '--exp-name', default=None,
-        help='Stable tracker run name; defaults to config basename plus seed')
+        '--exp-name',
+        default=None,
+        help='Stable tracker run name; defaults to config basename plus seed',
+    )
     parser.add_argument('--seed', type=int, default=None, help='Random seed')
     parser.add_argument(
-        '--val-seed', type=int, default=42,
-        help='Fixed inference seed used for every validation epoch (default: 42)')
-    parser.add_argument('--resume', action='store_true', help='Resume from checkpoint and continue SwanLab logging')
+        '--val-seed',
+        type=int,
+        default=42,
+        help='Fixed inference seed used for every validation epoch (default: 42)',
+    )
+    parser.add_argument(
+        '--resume',
+        action='store_true',
+        help='Resume from checkpoint and continue SwanLab logging',
+    )
     parser.add_argument('--gpu-id', type=int, default=0, help='GPU ID')
     parser.add_argument(
-        '--parent-checkpoint', default=None,
-        help='Parent checkpoint for a registered paired-child method')
+        '--parent-checkpoint',
+        default=None,
+        help='Parent checkpoint for a registered paired-child method',
+    )
     args = parser.parse_args()
 
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu_id)
@@ -175,7 +198,8 @@ def main():
     if experiment.get('parent_checkpoint_required'):
         if not args.parent_checkpoint:
             parser.error(
-                f"{experiment.get('config_id')} requires --parent-checkpoint")
+                f'{experiment.get("config_id")} requires --parent-checkpoint'
+            )
         binding = experiment.get('parent_checkpoint_binding', 'load_from')
         if binding == 'load_from':
             cfg.load_from = osp.abspath(args.parent_checkpoint)
@@ -185,7 +209,9 @@ def main():
         else:
             parser.error(f'unsupported parent checkpoint binding: {binding}')
     elif args.parent_checkpoint:
-        parser.error('--parent-checkpoint is only valid for paired-child recipes')
+        parser.error(
+            '--parent-checkpoint is only valid for paired-child recipes'
+        )
 
     _inject_tracker(cfg)
 
@@ -217,18 +243,23 @@ def main():
             _inject_swanlab_resume(cfg, swanlab_id)
             print(f'[swanlab] Resuming SwanLab experiment {swanlab_id}')
         else:
-            print(f'[swanlab] No SwanLab run ID found in {cfg.work_dir}; a new experiment will be created.')
+            print(
+                f'[swanlab] No SwanLab run ID found in {cfg.work_dir}; a new experiment will be created.'
+            )
 
     # Patch SwanLab 以便每次运行都保存 run ID 供未来 resume
     _patch_swanlab_save_id(cfg.work_dir)
 
     runner = Runner.from_cfg(cfg)
     runner.register_hook(
-        FixedValidationSeedHook(args.val_seed), priority='VERY_HIGH')
+        FixedValidationSeedHook(args.val_seed), priority='VERY_HIGH'
+    )
     runner.logger.info(
         '[reproducibility] training_seed=%s, validation_seed=%s, '
         'validation_rng_restored=True',
-        cfg.get('randomness', {}).get('seed'), args.val_seed)
+        cfg.get('randomness', {}).get('seed'),
+        args.val_seed,
+    )
     runner.train()
 
 

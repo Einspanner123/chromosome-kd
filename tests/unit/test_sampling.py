@@ -1,9 +1,10 @@
 """测试扩散采样"""
 
 import torch
+
 from ldmdet.diffusion.embeddings import SinusoidalPositionEmbeddings
-from ldmdet.diffusion.rectified_flow import RectifiedFlow
 from ldmdet.diffusion.noise_schedule import cosine_noise_schedule, load_buffer
+from ldmdet.diffusion.rectified_flow import RectifiedFlow
 
 
 class TestEmbeddings:

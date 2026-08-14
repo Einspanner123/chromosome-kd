@@ -24,13 +24,15 @@ def _seed_cpu_rngs(seed):
 
 
 def test_cli_training_seed_overrides_config_and_preserves_policy():
-    cfg = Config(dict(
-        randomness=dict(seed=5, deterministic=True, diff_rank_seed=True)))
+    cfg = Config(
+        dict(randomness=dict(seed=5, deterministic=True, diff_rank_seed=True))
+    )
 
     apply_training_seed(cfg, 123)
 
     assert cfg.randomness == dict(
-        seed=123, deterministic=True, diff_rank_seed=True)
+        seed=123, deterministic=True, diff_rank_seed=True
+    )
 
 
 def test_cli_training_seed_populates_missing_randomness():
@@ -39,7 +41,8 @@ def test_cli_training_seed_populates_missing_randomness():
     apply_training_seed(cfg, 789)
 
     assert cfg.randomness == dict(
-        seed=789, deterministic=False, diff_rank_seed=False)
+        seed=789, deterministic=False, diff_rank_seed=False
+    )
 
 
 @pytest.mark.parametrize('seed', [-1, 2**32])

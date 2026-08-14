@@ -36,15 +36,17 @@ class SingleRoIExtractor(nn.Module):
         sampling_ratio = cfg.pop('sampling_ratio', 0)
         aligned = cfg.pop('aligned', True)
 
-        return nn.ModuleList([
-            RoIAlign(
-                output_size=output_size,
-                spatial_scale=1 / s,
-                sampling_ratio=sampling_ratio,
-                aligned=aligned,
-            )
-            for s in featmap_strides
-        ])
+        return nn.ModuleList(
+            [
+                RoIAlign(
+                    output_size=output_size,
+                    spatial_scale=1 / s,
+                    sampling_ratio=sampling_ratio,
+                    aligned=aligned,
+                )
+                for s in featmap_strides
+            ]
+        )
 
     def map_roi_levels(self, rois: Tensor, num_levels: int) -> Tensor:
         """根据尺度将 ROI 映射到对应 FPN 层级"""

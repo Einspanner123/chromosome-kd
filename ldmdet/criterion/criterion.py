@@ -49,7 +49,8 @@ class DiffusionDetCriterion(nn.Module):
             outputs, targets
         )
         losses = self._get_loss(
-            outputs, targets, indices, t, include_terminal_losses=True)
+            outputs, targets, indices, t, include_terminal_losses=True
+        )
 
         if self.deep_supervision and outputs.aux_outputs is not None:
             for i, aux_out in enumerate(outputs.aux_outputs):
@@ -58,8 +59,12 @@ class DiffusionDetCriterion(nn.Module):
                     aux_out, targets, gt_cache
                 )
                 aux_losses = self._get_loss(
-                    aux_out, targets, aux_indices, t,
-                    include_terminal_losses=False)
+                    aux_out,
+                    targets,
+                    aux_indices,
+                    t,
+                    include_terminal_losses=False,
+                )
                 for name, val in aux_losses.items():
                     losses[f'aux_{i}_{name}'] = val
         self._last_indices = indices
@@ -85,7 +90,8 @@ class DiffusionDetCriterion(nn.Module):
         }
         if outputs.pred_quality is not None:
             losses['loss_quality'] = self._loss_quality(
-                outputs, targets, indices)
+                outputs, targets, indices
+            )
         return losses
 
     def _loss_quality(self, outputs, targets, indices) -> Tensor:
@@ -115,16 +121,19 @@ class DiffusionDetCriterion(nn.Module):
                 if count:
                     gt_padded[batch_index, :count] = target.bboxes
             matched = torch.gather(
-                gt_padded, 1,
-                matched_gt_inds.unsqueeze(-1).expand(-1, -1, 4))
+                gt_padded, 1, matched_gt_inds.unsqueeze(-1).expand(-1, -1, 4)
+            )
             lt = torch.maximum(boxes[..., :2], matched[..., :2])
             rb = torch.minimum(boxes[..., 2:], matched[..., 2:])
             wh = (rb - lt).clamp(min=0)
             intersection = wh[..., 0] * wh[..., 1]
             box_wh = (boxes[..., 2:] - boxes[..., :2]).clamp(min=0)
             gt_wh = (matched[..., 2:] - matched[..., :2]).clamp(min=0)
-            union = (box_wh[..., 0] * box_wh[..., 1]
-                     + gt_wh[..., 0] * gt_wh[..., 1] - intersection)
+            union = (
+                box_wh[..., 0] * box_wh[..., 1]
+                + gt_wh[..., 0] * gt_wh[..., 1]
+                - intersection
+            )
             matched_iou = intersection / union.clamp(min=1e-7)
             aligned_iou[fg_masks] = matched_iou[fg_masks].clamp(0, 1)
 
@@ -132,13 +141,18 @@ class DiffusionDetCriterion(nn.Module):
         positive_weight = quality_targets
 
         probability = logits.sigmoid()
-        negative_weight = (
-            self.quality_focal_alpha
-            * probability.pow(self.quality_focal_gamma))
+        negative_weight = self.quality_focal_alpha * probability.pow(
+            self.quality_focal_gamma
+        )
         focal_weight = torch.where(
-            fg_masks.unsqueeze(-1), positive_weight, negative_weight).detach()
-        loss = F.binary_cross_entropy_with_logits(
-            logits, quality_targets, reduction='none') * focal_weight
+            fg_masks.unsqueeze(-1), positive_weight, negative_weight
+        ).detach()
+        loss = (
+            F.binary_cross_entropy_with_logits(
+                logits, quality_targets, reduction='none'
+            )
+            * focal_weight
+        )
         num_pos = fg_masks.sum().clamp(min=1) * quality_dim
         return self.quality_loss_weight * loss.sum() / num_pos
 
@@ -197,7 +211,9 @@ class DiffusionDetCriterion(nn.Module):
         indices,
     ) -> Tuple[Tensor, Tensor]:
         """计算正样本框的 L1 与 GIoU 损失。"""
-        src_boxes = outputs.pred_boxes  # [bs, num_queries, 4] 归一化 xyxy [0,1]
+        src_boxes = (
+            outputs.pred_boxes
+        )  # [bs, num_queries, 4] 归一化 xyxy [0,1]
         bs = src_boxes.shape[0]
 
         # 构建 padded GT bboxes: [bs, max_gt, 4]

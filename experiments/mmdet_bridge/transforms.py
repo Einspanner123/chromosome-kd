@@ -12,7 +12,6 @@ import cv2
 import numpy as np
 from mmcv.transforms import BaseTransform
 from mmcv.transforms.utils import cache_randomness
-
 from mmdet.registry import TRANSFORMS
 from mmdet.structures.mask import BitmapMasks
 

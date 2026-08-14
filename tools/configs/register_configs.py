@@ -2,19 +2,21 @@
 """Register canonical matrix-method combinations without rewriting run records."""
 
 from __future__ import annotations
-
 import hashlib
 import json
-from pathlib import Path
 import sqlite3
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.experiments.matrix import (  # noqa: E402
-    load_matrix, resolve_config, scientific_hash)
+from tools.experiments.matrix import (
+    load_matrix,
+    resolve_config,
+    scientific_hash,
+)
 
 CONFIG_ROOT = ROOT / 'experiments/configs'
 DB = ROOT / 'tools/experiment_db/experiments.db'
@@ -42,7 +44,9 @@ def pipeline_metadata(pipeline):
 
 def unwrap_dataset(dataset):
     """Return the innermost concrete dataset of MMDet dataset wrappers."""
-    while isinstance(dataset, dict) and isinstance(dataset.get('dataset'), dict):
+    while isinstance(dataset, dict) and isinstance(
+        dataset.get('dataset'), dict
+    ):
         dataset = dataset['dataset']
     return dataset
 
@@ -70,24 +74,30 @@ def main() -> int:
     conn.execute('PRAGMA foreign_keys=ON')
     referenced = conn.execute(
         """SELECT COUNT(*) FROM experiment
-           WHERE config_path LIKE 'experiments/configs/recipes/%'""").fetchone()[0]
+           WHERE config_path LIKE 'experiments/configs/recipes/%'"""
+    ).fetchone()[0]
     if referenced:
-        raise RuntimeError('legacy v2 recipe rows are already referenced by runs')
+        raise RuntimeError(
+            'legacy v2 recipe rows are already referenced by runs'
+        )
     conn.execute(
-        "DELETE FROM config WHERE config_path LIKE 'experiments/configs/recipes/%'")
+        "DELETE FROM config WHERE config_path LIKE 'experiments/configs/recipes/%'"
+    )
 
     for matrix_path in sorted((CONFIG_ROOT / 'matrices').glob('*.yaml')):
         _, matrix = load_matrix(matrix_path)
         for method_name in matrix['methods']:
             cfg, sources = resolve_config(
-                matrix_path, method_name, matrix['training_seeds'][0])
+                matrix_path, method_name, matrix['training_seeds'][0]
+            )
             meta = cfg.experiment
             digest = scientific_hash(cfg)
-            identity = (f'{matrix_path.relative_to(ROOT)}#method={method_name}')
+            identity = f'{matrix_path.relative_to(ROOT)}#method={method_name}'
             wrapped_dataset = cfg.train_dataloader.dataset
             concrete_dataset = unwrap_dataset(wrapped_dataset)
             pipeline = wrapped_dataset.get(
-                'pipeline', concrete_dataset.get('pipeline', []))
+                'pipeline', concrete_dataset.get('pipeline', [])
+            )
             pipeline_hash, step_types = pipeline_metadata(pipeline)
             head = cfg.model.get('bbox_head', {})
             coupling = head.get('coupling', {})
@@ -117,11 +127,16 @@ def main() -> int:
                   pipeline_hash,pipeline_name,has_random_choice_resize,
                   has_random_crop,has_random_flip,has_fixed_resize,
                   step_types_json,description) VALUES(?,?,?,?,?,?,?,?)""",
-                (pipeline_hash, f'v2:{cfg.dataset_id}',
-                 'RandomChoiceResize' in step_types,
-                 'RandomCrop' in step_types, 'RandomFlip' in step_types,
-                 'Resize' in step_types, json.dumps(step_types),
-                 'Canonical v2 training augmentation pipeline'),
+                (
+                    pipeline_hash,
+                    f'v2:{cfg.dataset_id}',
+                    'RandomChoiceResize' in step_types,
+                    'RandomCrop' in step_types,
+                    'RandomFlip' in step_types,
+                    'Resize' in step_types,
+                    json.dumps(step_types),
+                    'Canonical v2 training augmentation pipeline',
+                ),
             )
             conn.execute(
                 """INSERT OR REPLACE INTO config(
@@ -131,28 +146,53 @@ def main() -> int:
                   rf_schedule,rf_shift,batch_size,max_epochs,num_classes,
                   num_proposals,sampling_timesteps,has_early_stopping)
                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (identity, f'v2:{meta.config_id}:{digest}', cfg.dataset_id,
-                 cfg.get('data_root', concrete_dataset.get('data_root')),
-                 pipeline_hash, coupling_type,
-                 None, None, False, None,
-                 single_head.get('time_conditioning'),
-                 head.get('solver_type'), head.get('rf_schedule'),
-                 head.get('rf_shift'),
-                 cfg.train_dataloader.batch_size, cfg.train_cfg.max_epochs,
-                 find_num_classes(cfg.model),
-                 head.get('num_proposals', cfg.model.get('num_queries')),
-                 head.get('sampling_timesteps'),
-                 any(h.get('type') == 'EarlyStoppingHook'
-                     for h in cfg.get('custom_hooks', []))),
+                (
+                    identity,
+                    f'v2:{meta.config_id}:{digest}',
+                    cfg.dataset_id,
+                    cfg.get('data_root', concrete_dataset.get('data_root')),
+                    pipeline_hash,
+                    coupling_type,
+                    None,
+                    None,
+                    False,
+                    None,
+                    single_head.get('time_conditioning'),
+                    head.get('solver_type'),
+                    head.get('rf_schedule'),
+                    head.get('rf_shift'),
+                    cfg.train_dataloader.batch_size,
+                    cfg.train_cfg.max_epochs,
+                    find_num_classes(cfg.model),
+                    head.get('num_proposals', cfg.model.get('num_queries')),
+                    head.get('sampling_timesteps'),
+                    any(
+                        h.get('type') == 'EarlyStoppingHook'
+                        for h in cfg.get('custom_hooks', [])
+                    ),
+                ),
             )
     conn.commit()
     conn.close()
     CATALOG.parent.mkdir(parents=True, exist_ok=True)
-    CATALOG.write_text(json.dumps(
-        dict(schema_version=2, experiment_definitions=records),
-        indent=2, sort_keys=True) + '\n')
-    print(json.dumps(dict(status='PASS', combinations=len(records),
-                          catalog=str(CATALOG.relative_to(ROOT))), indent=2))
+    CATALOG.write_text(
+        json.dumps(
+            dict(schema_version=2, experiment_definitions=records),
+            indent=2,
+            sort_keys=True,
+        )
+        + '\n'
+    )
+    print(
+        json.dumps(
+            dict(
+                status='PASS',
+                combinations=len(records),
+                catalog=str(CATALOG.relative_to(ROOT)),
+            ),
+            indent=2,
+        )
+    )
     return 0
 
 
