@@ -40,6 +40,30 @@ def pipeline_metadata(pipeline):
     return digest, step_types
 
 
+def unwrap_dataset(dataset):
+    """Return the innermost concrete dataset of MMDet dataset wrappers."""
+    while isinstance(dataset, dict) and isinstance(dataset.get('dataset'), dict):
+        dataset = dataset['dataset']
+    return dataset
+
+
+def find_num_classes(value):
+    """Find the first declared class count across heterogeneous heads."""
+    if isinstance(value, dict):
+        if isinstance(value.get('num_classes'), int):
+            return value['num_classes']
+        for child in value.values():
+            found = find_num_classes(child)
+            if found is not None:
+                return found
+    elif isinstance(value, (list, tuple)):
+        for child in value:
+            found = find_num_classes(child)
+            if found is not None:
+                return found
+    return None
+
+
 def main() -> int:
     records = []
     conn = sqlite3.connect(DB)
@@ -60,8 +84,15 @@ def main() -> int:
             meta = cfg.experiment
             digest = scientific_hash(cfg)
             identity = (f'{matrix_path.relative_to(ROOT)}#method={method_name}')
-            pipeline_hash, step_types = pipeline_metadata(
-                cfg.train_dataloader.dataset.pipeline)
+            wrapped_dataset = cfg.train_dataloader.dataset
+            concrete_dataset = unwrap_dataset(wrapped_dataset)
+            pipeline = wrapped_dataset.get(
+                'pipeline', concrete_dataset.get('pipeline', []))
+            pipeline_hash, step_types = pipeline_metadata(pipeline)
+            head = cfg.model.get('bbox_head', {})
+            coupling = head.get('coupling', {})
+            coupling_type = coupling.get('type') if coupling else None
+            single_head = head.get('single_head', {})
             record = dict(
                 config_id=meta.config_id,
                 matrix_path=str(matrix_path.relative_to(ROOT)),
@@ -74,11 +105,11 @@ def main() -> int:
                 role=meta.role,
                 parent_method_id=meta.get('parent_method_id'),
                 training_seeds=matrix['training_seeds'],
-                coupling=cfg.model.bbox_head.coupling.type,
-                solver=cfg.model.bbox_head.solver_type,
-                steps=cfg.model.bbox_head.sampling_timesteps,
-                time_conditioning=cfg.model.bbox_head.single_head.time_conditioning,
-                renewal=cfg.model.bbox_head.box_renewal,
+                coupling=coupling_type,
+                solver=head.get('solver_type'),
+                steps=head.get('sampling_timesteps'),
+                time_conditioning=single_head.get('time_conditioning'),
+                renewal=head.get('box_renewal'),
             )
             records.append(record)
             conn.execute(
@@ -92,7 +123,6 @@ def main() -> int:
                  'Resize' in step_types, json.dumps(step_types),
                  'Canonical v2 training augmentation pipeline'),
             )
-            head = cfg.model.bbox_head
             conn.execute(
                 """INSERT OR REPLACE INTO config(
                   config_path,source_config_path,dataset,data_root,
@@ -102,11 +132,16 @@ def main() -> int:
                   num_proposals,sampling_timesteps,has_early_stopping)
                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (identity, f'v2:{meta.config_id}:{digest}', cfg.dataset_id,
-                 cfg.data_root, pipeline_hash, head.coupling.type,
-                 None, None, False, None, head.single_head.time_conditioning,
-                 head.solver_type, head.get('rf_schedule'), head.get('rf_shift'),
+                 cfg.get('data_root', concrete_dataset.get('data_root')),
+                 pipeline_hash, coupling_type,
+                 None, None, False, None,
+                 single_head.get('time_conditioning'),
+                 head.get('solver_type'), head.get('rf_schedule'),
+                 head.get('rf_shift'),
                  cfg.train_dataloader.batch_size, cfg.train_cfg.max_epochs,
-                 head.num_classes, head.num_proposals, head.sampling_timesteps,
+                 find_num_classes(cfg.model),
+                 head.get('num_proposals', cfg.model.get('num_queries')),
+                 head.get('sampling_timesteps'),
                  any(h.get('type') == 'EarlyStoppingHook'
                      for h in cfg.get('custom_hooks', []))),
             )

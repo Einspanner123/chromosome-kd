@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "protocol_id": "analysis.dataset.test_properties.v1",
+  "datasets": ["D1", "D2"],
+  "split": "test",
+  "analysis_class": "paper_eligible",
+  "paper_eligible": true,
+  "purpose": "Deterministically characterize held-out cohort scale and crowding without using model predictions.",
+  "definitions": {
+    "median_relative_area": "median of bbox_area / image_area over all ground-truth instances",
+    "small_instance_fraction": "fraction of ground-truth boxes with absolute area below 32^2 pixels",
+    "images_with_small_fraction": "fraction of images containing at least one COCO-small ground-truth box",
+    "overlap_image_fraction_iou_gt_0.1": "fraction of images containing at least one ground-truth pair with IoU greater than 0.1"
+  },
+  "required_artifact": {
+    "artifact_id": "paper-test-dataset-properties-fe2c30000a37",
+    "path": "tools/experiment_db/evidence_sources/paper_test_dataset_properties_fe2c30000a37.json",
+    "sha256": "fe2c30000a37989ef4b7766996c7c107fc4294152a6d59572c29dc73754631b3"
+  },
+  "result_selector": {
+    "family": "paper_test_dataset_properties",
+    "split": "test",
+    "evidence_level": "controlled",
+    "paper_eligible": true
+  },
+  "interpretation_boundary": "COCO small is an absolute pixel-area definition; AP_S and small fractions are interpreted within each dataset, while relative-area distributions describe cross-dataset scale shift."
+}

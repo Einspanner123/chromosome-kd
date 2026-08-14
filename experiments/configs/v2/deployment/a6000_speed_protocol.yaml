@@ -1,0 +1,79 @@
+schema_version: 1
+protocol_id: v2.deployment.a6000_forward_latency_512_bs1_v1
+scope: deployment_benchmark
+hardware:
+  accelerator: NVIDIA RTX A6000
+  device_count: 1
+inputs:
+  synthetic_tensor_shape: [1, 3, 512, 512]
+  batch_size: 1
+timing:
+  region: model_forward
+  mechanism: cuda_event
+  synchronize_before_measurement: true
+  warmup_iterations: 10
+  timed_iterations: 500
+  statistic: arithmetic_mean_ms
+controls:
+  precision: fp32
+  model_mode: eval
+  gradients: disabled
+  data_loading_included: false
+  preprocessing_included: false
+  postprocessing: model_native
+  fixed_gpu_clock: unrecorded
+  software_environment_hash: required_for_new_runs
+  checkpoint_sha256: required
+  resolved_config_sha256: required
+acceptance:
+  same_hardware_required: true
+  same_protocol_hash_required: true
+  accuracy_split: test
+  accuracy_annotation_sha256: 110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495
+  accuracy_and_latency_checkpoint_must_match: true
+  reruns: 3
+  report: [mean_ms, sample_std_ms, fps]
+
+historical_evidence:
+  protocol_compatibility: PARTIAL
+  reason: fixed GPU clocks, software hash, and three independent timing reruns were not recorded
+  paper_eligible_under_legacy_protocol: true
+  artifacts:
+    teacher_and_baselines: tradeoff-a6000-20260811
+    dino: tradeoff-dino-a6000-20260811
+    h3_student: head-distill-a6000-20260811
+  points_ms:
+    yolox_s: 10.0350
+    cascade_rcnn_r50: 20.7560
+    diffusiondet: 24.0855
+    rtmdet_l: 33.8290
+    dino_r50: 34.3343
+    karyoflow_ot_h3_student: 44.0959
+    karyoflow_ot_h6_teacher: 75.1970
+  within_run_std_ms:
+    yolox_s: 0.2567
+    cascade_rcnn_r50: 0.3004
+    diffusiondet: 0.6284
+    rtmdet_l: 0.5505
+    dino_r50: 1.0726
+    karyoflow_ot_h3_student: 0.5406
+    karyoflow_ot_h6_teacher: 0.5812
+
+# Each deployment identity binds exactly one resolved inference config and one
+# checkpoint. KaryoFlow K variants belong in the inference-ablation manifest,
+# not in this model-identity registry.
+models:
+  - id: d2_yolox_s
+    method: legacy_yolox_s
+  - id: d2_cascade_rcnn_r50
+    method: legacy_cascade_rcnn_r50
+  - id: d2_diffusiondet_ddpm_r50
+    method: legacy_diffusiondet_ddpm_r50
+  - id: d2_rtmdet_l
+    method: legacy_rtmdet_l
+  - id: d2_dino_r50
+    method: legacy_dino_r50
+  - id: d2_karyoflow_ot_h3_student
+    method: legacy_karyoflow_ot_h3_student
+  - id: d2_karyoflow_ot_h6_teacher
+    method: legacy_karyoflow_ot_r50

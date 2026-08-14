@@ -1,0 +1,33 @@
+schema_version: 1
+identity_id: v2.d2_taichung.h3_distillation_training_archive
+role: historical_training_identity
+executable: false
+canonical_import_allowed: false
+reason:
+  - The historical LDMDet training API accepted teacher_checkpoint,
+    use_distillation, distill_head_map, and distill_lambda.
+  - Those training arguments are no longer implemented by the clean runtime.
+  - Reconstructing a runnable recipe would require a new implementation and
+    must not be represented as an exact migration of historical code.
+legacy_training:
+  config: work_dirs/h3_distill_plan_a_24obj/h3_distill_plan_a_24obj.py
+  log: work_dirs/h3_distill_plan_a_24obj/20260725_170420/20260725_170420.log
+  checkpoint: work_dirs/h3_distill_plan_a_24obj/best_coco_bbox_mAP_epoch_10.pth
+  training_seed: 1858611995
+  teacher_checkpoint: work_dirs/baseline_24obj/best_coco_bbox_mAP_epoch_26.pth
+  teacher_heads: 6
+  student_heads: 3
+  sampling_steps: 4
+  coupling_mode: argmax
+  distill_lambda: 0.05
+inference_identity:
+  executable: true
+  method: experiments/configs/v2/methods/karyoflow_ot_h3_student_legacy.py
+  matrix: experiments/configs/v2/matrices/d2_h3_student_history.yaml
+  compatibility_suite: experiments/configs/v2/manifests/d2_h3_student_compatibility.yaml
+  coupling_mode: multinomial
+evidence_boundary:
+  - The checkpoint strictly loads into the inference identity.
+  - Persisted test predictions can be independently re-evaluated.
+  - The inference identity is STRUCTURAL_ONLY because the historical training
+    and paper-time inference configurations are not scientifically identical.

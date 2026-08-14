@@ -1,0 +1,400 @@
+{
+  "schema_version": "1.0",
+  "manifest_id": "paper.d2.analysis_evidence.v1",
+  "paper_source": "docs/paper/latex/main.tex",
+  "scope": "Dataset 2 SOTA cells and analysis-derived claims/figures/tables",
+  "replication_semantics": {
+    "ours_sota": "mean over three independently trained detectors; LQCR is paired to each frozen parent",
+    "baseline_sota": "mean over inference seeds 42, 123, and 789 for one fixed trained checkpoint; this is not training-seed replication",
+    "conditional_diagnostic": "post-hoc or checkpoint-conditional analysis; not eligible as standalone superiority evidence"
+  },
+  "artifacts": {
+    "paired_train3": {
+      "artifact_id": "d2-paired-lqcr-train3-4152cdbd5100",
+      "path": "tools/experiment_db/evidence_sources/d2_paired_lqcr_train3_4152cdbd5100.json",
+      "sha256": "4152cdbd51006fb5de1bd7f9dbd2813985b4890bcc648983ed404776ca75e6ba"
+    },
+    "baseline_inference3": {
+      "artifact_id": "paper-test-multiseed-92e803b9772e",
+      "path": "tools/experiment_db/evidence_sources/paper_test_multiseed_92e803b9772e.json",
+      "sha256": "92e803b9772eca4de7e03ab45415a1da40fad1f671aea5308f1f3bf945042c7e"
+    },
+    "bootstrap": {
+      "artifact_id": "d2-lqcr-vs-dino-image-bootstrap-1000-seed20260812",
+      "path": "tools/experiment_db/evidence_sources/d2_lqcr_vs_dino_image_bootstrap_a2344f4de3df.json",
+      "sha256": "a2344f4de3dfb77c1164767e270a6bf0f926088d4e6269a796c0a361dad3d6f4"
+    },
+    "difficulty": {
+      "artifact_id": "d2-difficult-subsets-paired-train3-725aab1ab102",
+      "path": "tools/experiment_db/evidence_sources/d2_difficult_subsets_paired_train3_725aab1ab102.json",
+      "sha256": "725aab1ab1023e375b6cefe58d9c05346778a9da08c31e4db4c0125796662a86"
+    },
+    "dataset_properties": {
+      "artifact_id": "paper-test-dataset-properties-fe2c30000a37",
+      "path": "tools/experiment_db/evidence_sources/paper_test_dataset_properties_fe2c30000a37.json",
+      "sha256": "fe2c30000a37989ef4b7766996c7c107fc4294152a6d59572c29dc73754631b3"
+    },
+    "deployment_karyoflow": {
+      "artifact_id": "tradeoff-a6000-20260811",
+      "path": "tools/experiment_db/evidence_sources/legacy_paper_assets/source_fps_a6000_karyoflow.json",
+      "sha256": "7375455acaaf0ee5f468dc890b21c94a6c12052b5468cf3ed10690242a4900ad"
+    },
+    "deployment_dino": {
+      "artifact_id": "tradeoff-dino-a6000-20260811",
+      "path": "tools/experiment_db/evidence_sources/legacy_paper_assets/source_fps_a6000_dino.json",
+      "sha256": "42c0c9eccb95a11e2c0c70740fa7fb22bed68986b58d279b791130222c18130e"
+    },
+    "deployment_lqcr": {
+      "artifact_id": "lqcr-cross-dataset-20260811",
+      "path": "tools/experiment_db/evidence_sources/lqcr_cross_dataset_20260811.json",
+      "sha256": "ad5fb8b9e27ecba7f604c15c9f824162728d43b05d6ceb6b44f19f5f46e9194b"
+    },
+    "deployment_h3": {
+      "artifact_id": "head-distill-a6000-20260811",
+      "path": "results/audit_20260811/h3_same_protocol/benchmark_fps_20260811_164416.json",
+      "sha256": "9804019e94a5f68fb7c61a0da6a5f570fb7e56108596e4159dfe5e1cf781db81"
+    }
+  },
+  "entries": [
+    {
+      "paper_key": "tab:dataset-properties/Dataset2",
+      "kind": "table_cells",
+      "evidence_role": "paper_eligible",
+      "artifact_ref": "dataset_properties",
+      "cells": {
+        "median_n": "paper-test-property-d2-median_instances",
+        "median_relative_area": "paper-test-property-d2-median_relative_area",
+        "small_instance_fraction": "paper-test-property-d2-small_instance_fraction",
+        "images_with_small_fraction": "paper-test-property-d2-images_with_small_fraction",
+        "overlap_fraction": "paper-test-property-d2-overlap_image_fraction_iou_gt_0.1"
+      }
+    },
+    {
+      "paper_key": "tab:sota/Dataset2/KaryoFlow",
+      "kind": "table_row",
+      "evidence_role": "paper_eligible",
+      "replication_semantics": "ours_sota",
+      "artifact_ref": "paired_train3",
+      "cells": {
+        "mAP": "d2-paired-train3-karyoflow-map",
+        "AP50": "d2-paired-train3-karyoflow-ap50",
+        "AP75": "d2-paired-train3-karyoflow-ap75",
+        "AP_S": "d2-paired-train3-karyoflow-ap_s",
+        "AP_M": "d2-paired-train3-karyoflow-ap_m",
+        "AP_L": "d2-paired-train3-karyoflow-ap_l"
+      }
+    },
+    {
+      "paper_key": "tab:sota/Dataset2/KaryoFlow+LQCR",
+      "kind": "table_row",
+      "evidence_role": "paper_eligible",
+      "replication_semantics": "ours_sota",
+      "artifact_ref": "paired_train3",
+      "cells": {
+        "mAP": "d2-paired-train3-karyoflowpluslqcr-map",
+        "AP50": "d2-paired-train3-karyoflowpluslqcr-ap50",
+        "AP75": "d2-paired-train3-karyoflowpluslqcr-ap75",
+        "AP_S": "d2-paired-train3-karyoflowpluslqcr-ap_s",
+        "AP_M": "d2-paired-train3-karyoflowpluslqcr-ap_m",
+        "AP_L": "d2-paired-train3-karyoflowpluslqcr-ap_l"
+      }
+    },
+    {
+      "paper_key": "tab:sota/Dataset2/DINO_R50",
+      "kind": "table_row",
+      "evidence_role": "paper_eligible",
+      "replication_semantics": "baseline_sota",
+      "artifact_ref": "baseline_inference3",
+      "cells": {
+        "mAP": "paper-3iseed-d2_sota_dino_r50-map",
+        "AP50": "paper-3iseed-d2_sota_dino_r50-ap50",
+        "AP75": "paper-3iseed-d2_sota_dino_r50-ap75",
+        "AP_S": "paper-3iseed-d2_sota_dino_r50-ap_s",
+        "AP_M": "paper-3iseed-d2_sota_dino_r50-ap_m",
+        "AP_L": "paper-3iseed-d2_sota_dino_r50-ap_l"
+      }
+    },
+    {
+      "paper_key": "tab:sota/Dataset2/RTMDet-L",
+      "kind": "table_row",
+      "evidence_role": "paper_eligible",
+      "replication_semantics": "baseline_sota",
+      "artifact_ref": "baseline_inference3",
+      "cells": {
+        "mAP": "paper-3iseed-d2_sota_rtmdet_l-map",
+        "AP50": "paper-3iseed-d2_sota_rtmdet_l-ap50",
+        "AP75": "paper-3iseed-d2_sota_rtmdet_l-ap75",
+        "AP_S": "paper-3iseed-d2_sota_rtmdet_l-ap_s",
+        "AP_M": "paper-3iseed-d2_sota_rtmdet_l-ap_m",
+        "AP_L": "paper-3iseed-d2_sota_rtmdet_l-ap_l"
+      }
+    },
+    {
+      "paper_key": "tab:sota/Dataset2/Cascade_R-CNN",
+      "kind": "table_row",
+      "evidence_role": "paper_eligible",
+      "replication_semantics": "baseline_sota",
+      "artifact_ref": "baseline_inference3",
+      "cells": {
+        "mAP": "paper-3iseed-d2_sota_cascade_rcnn-map",
+        "AP50": "paper-3iseed-d2_sota_cascade_rcnn-ap50",
+        "AP75": "paper-3iseed-d2_sota_cascade_rcnn-ap75",
+        "AP_S": "paper-3iseed-d2_sota_cascade_rcnn-ap_s",
+        "AP_M": "paper-3iseed-d2_sota_cascade_rcnn-ap_m",
+        "AP_L": "paper-3iseed-d2_sota_cascade_rcnn-ap_l"
+      }
+    },
+    {
+      "paper_key": "tab:sota/Dataset2/DiffusionDet",
+      "kind": "table_row",
+      "evidence_role": "paper_eligible",
+      "replication_semantics": "baseline_sota",
+      "artifact_ref": "baseline_inference3",
+      "cells": {
+        "mAP": "paper-3iseed-d2_sota_diffusiondet-map",
+        "AP50": "paper-3iseed-d2_sota_diffusiondet-ap50",
+        "AP75": "paper-3iseed-d2_sota_diffusiondet-ap75",
+        "AP_S": "paper-3iseed-d2_sota_diffusiondet-ap_s",
+        "AP_M": "paper-3iseed-d2_sota_diffusiondet-ap_m",
+        "AP_L": "paper-3iseed-d2_sota_diffusiondet-ap_l"
+      }
+    },
+    {
+      "paper_key": "tab:sota/Dataset2/YOLOX-S",
+      "kind": "table_row",
+      "evidence_role": "paper_eligible",
+      "replication_semantics": "baseline_sota",
+      "artifact_ref": "baseline_inference3",
+      "cells": {
+        "mAP": "paper-3iseed-d2_sota_yolox_s-map",
+        "AP50": "paper-3iseed-d2_sota_yolox_s-ap50",
+        "AP75": "paper-3iseed-d2_sota_yolox_s-ap75",
+        "AP_S": "paper-3iseed-d2_sota_yolox_s-ap_s",
+        "AP_M": "paper-3iseed-d2_sota_yolox_s-ap_m",
+        "AP_L": "paper-3iseed-d2_sota_yolox_s-ap_l"
+      }
+    },
+    {
+      "paper_key": "sec:exp-sota/bootstrap_interval",
+      "kind": "text_claim",
+      "evidence_role": "diagnostic",
+      "replication_semantics": "conditional_diagnostic",
+      "artifact_ref": "bootstrap",
+      "cells": {
+        "point_delta": "d2-lqcr-vs-dino-bootstrap1000-point_difference_mAP",
+        "ci95_lower": "d2-lqcr-vs-dino-bootstrap1000-ci95_lower_mAP",
+        "ci95_upper": "d2-lqcr-vs-dino-bootstrap1000-ci95_upper_mAP"
+      }
+    },
+    {
+      "paper_key": "fig:qual-mosaic/Dataset2_AP_S",
+      "kind": "figure_coordinate",
+      "evidence_role": "paper_eligible",
+      "replication_semantics": "ours_sota",
+      "artifact_ref": "paired_train3",
+      "cells": {
+        "KaryoFlow_mean": "d2-paired-train3-karyoflow-ap_s",
+        "KaryoFlow_sd": "d2-paired-train3-baseline_std-ap_s",
+        "KaryoFlow+LQCR_mean": "d2-paired-train3-karyoflowpluslqcr-ap_s",
+        "KaryoFlow+LQCR_sd": "d2-paired-train3-lqcr_std-ap_s"
+      }
+    },
+    {
+      "paper_key": "tab:difficult-subsets",
+      "kind": "table_cells",
+      "evidence_role": "diagnostic",
+      "replication_semantics": "conditional_diagnostic",
+      "artifact_ref": "difficulty",
+      "cells": {
+        "Q1_delta_R90": "d2-difficult-paired-delta-c79c4a0c5f2ed6a1",
+        "Q1_delta_R95": "d2-difficult-paired-delta-72cab9570e01afc7",
+        "Q2_delta_R90": "d2-difficult-paired-delta-1f0d0309e925fed3",
+        "Q2_delta_R95": "d2-difficult-paired-delta-d272de8e75ab8ad7",
+        "O0_delta_R90": "d2-difficult-paired-delta-991bb732e5e4198a",
+        "O0_delta_R95": "d2-difficult-paired-delta-ad4df34d1160e747",
+        "O2_delta_R90": "d2-difficult-paired-delta-5f14637e13c13a21",
+        "O2_delta_R95": "d2-difficult-paired-delta-b36bc86a09123ba9",
+        "O3_delta_R90": "d2-difficult-paired-delta-58aa04b3a07aea76",
+        "O3_delta_R95": "d2-difficult-paired-delta-63201a10ed4c6187"
+      }
+    },
+    {
+      "paper_key": "tab:main-ablation/generation/DDPM",
+      "kind": "table_row",
+      "evidence_role": "paper_eligible",
+      "measurement_kind": "test_accuracy",
+      "replication_semantics": "baseline_sota",
+      "artifact_ref": "baseline_inference3",
+      "design_constants": {"solver": "Euler", "steps": 1, "NFE": 1},
+      "cells": {
+        "mAP": "paper-3iseed-d2_sota_diffusiondet-map", "AP50": "paper-3iseed-d2_sota_diffusiondet-ap50", "AP75": "paper-3iseed-d2_sota_diffusiondet-ap75", "AP_S": "paper-3iseed-d2_sota_diffusiondet-ap_s", "AP_M": "paper-3iseed-d2_sota_diffusiondet-ap_m", "AP_L": "paper-3iseed-d2_sota_diffusiondet-ap_l"
+      }
+    },
+    {
+      "paper_key": "tab:main-ablation/generation/RF+Heun",
+      "kind": "table_row",
+      "evidence_role": "paper_eligible",
+      "measurement_kind": "test_accuracy",
+      "replication_semantics": "fixed_checkpoint_inference3",
+      "artifact_ref": "baseline_inference3",
+      "design_constants": {"solver": "Heun", "steps": 4, "NFE": 7},
+      "cells": {
+        "mAP": "paper-3iseed-d2_rf_heun-map", "AP50": "paper-3iseed-d2_rf_heun-ap50", "AP75": "paper-3iseed-d2_rf_heun-ap75", "AP_S": "paper-3iseed-d2_rf_heun-ap_s", "AP_M": "paper-3iseed-d2_rf_heun-ap_m", "AP_L": "paper-3iseed-d2_rf_heun-ap_l"
+      }
+    },
+    {
+      "paper_key": "tab:main-ablation/decision/DPM++",
+      "kind": "table_row",
+      "evidence_role": "paper_eligible",
+      "measurement_kind": "test_accuracy",
+      "replication_semantics": "fixed_checkpoint_inference3",
+      "artifact_ref": "baseline_inference3",
+      "design_constants": {"solver": "DPM++", "steps": 4, "NFE": 4, "quality_beta": 0},
+      "cells": {
+        "mAP": "paper-3iseed-d2_sota_karyoflow-map", "AP50": "paper-3iseed-d2_sota_karyoflow-ap50", "AP75": "paper-3iseed-d2_sota_karyoflow-ap75", "AP_S": "paper-3iseed-d2_sota_karyoflow-ap_s", "AP_M": "paper-3iseed-d2_sota_karyoflow-ap_m", "AP_L": "paper-3iseed-d2_sota_karyoflow-ap_l"
+      }
+    },
+    {
+      "paper_key": "tab:main-ablation/decision/LQCR",
+      "kind": "table_row",
+      "evidence_role": "paper_eligible",
+      "measurement_kind": "test_accuracy",
+      "replication_semantics": "fixed_checkpoint_inference3",
+      "artifact_ref": "baseline_inference3",
+      "design_constants": {"solver": "DPM++", "steps": 4, "NFE": 4, "quality_beta": 2},
+      "cells": {
+        "mAP": "paper-3iseed-d2_sota_karyoflow_lqcr-map", "AP50": "paper-3iseed-d2_sota_karyoflow_lqcr-ap50", "AP75": "paper-3iseed-d2_sota_karyoflow_lqcr-ap75", "AP_S": "paper-3iseed-d2_sota_karyoflow_lqcr-ap_s", "AP_M": "paper-3iseed-d2_sota_karyoflow_lqcr-ap_m", "AP_L": "paper-3iseed-d2_sota_karyoflow_lqcr-ap_l"
+      }
+    },
+    {
+      "paper_key": "tab:solver-ablation",
+      "kind": "table_cells",
+      "evidence_role": "paper_eligible",
+      "measurement_kind": "test_accuracy",
+      "replication_semantics": "fixed_checkpoint_inference3",
+      "artifact_ref": "baseline_inference3",
+      "design_constants": {
+        "Euler_1": {"steps": 1, "NFE": 1}, "Euler_4": {"steps": 4, "NFE": 4}, "Heun_4": {"steps": 4, "NFE": 7}, "DPM++_1": {"steps": 1, "NFE": 1}, "DPM++_4": {"steps": 4, "NFE": 4}
+      },
+      "cells": {
+        "Euler_1_mAP": "paper-3iseed-d2_euler_1-map", "Euler_4_mAP": "paper-3iseed-d2_euler_4-map", "Heun_4_mAP": "paper-3iseed-d2_rf_heun-map", "DPM++_1_mAP": "paper-3iseed-d2_dpmpp_1-map", "DPM++_4_mAP": "paper-3iseed-d2_dpmpp_4-map"
+      }
+    },
+    {
+      "paper_key": "tab:lqcr-beta",
+      "kind": "table_cells",
+      "evidence_role": "paper_eligible",
+      "measurement_kind": "test_accuracy",
+      "replication_semantics": "fixed_checkpoint_inference3",
+      "artifact_ref": "baseline_inference3",
+      "cells": {
+        "beta0_mAP": "paper-3iseed-d2_lqcr_beta_0p0-map", "beta0_AP90": "paper-3iseed-d2_lqcr_beta_0p0-ap90", "beta0_AP95": "paper-3iseed-d2_lqcr_beta_0p0-ap95",
+        "beta0.25_mAP": "paper-3iseed-d2_lqcr_beta_0p25-map", "beta0.25_AP90": "paper-3iseed-d2_lqcr_beta_0p25-ap90", "beta0.25_AP95": "paper-3iseed-d2_lqcr_beta_0p25-ap95",
+        "beta0.5_mAP": "paper-3iseed-d2_lqcr_beta_0p5-map", "beta0.5_AP90": "paper-3iseed-d2_lqcr_beta_0p5-ap90", "beta0.5_AP95": "paper-3iseed-d2_lqcr_beta_0p5-ap95",
+        "beta1_mAP": "paper-3iseed-d2_lqcr_beta_1p0-map", "beta1_AP90": "paper-3iseed-d2_lqcr_beta_1p0-ap90", "beta1_AP95": "paper-3iseed-d2_lqcr_beta_1p0-ap95",
+        "beta2_mAP": "paper-3iseed-d2_lqcr_beta_2p0-map", "beta2_AP90": "paper-3iseed-d2_lqcr_beta_2p0-ap90", "beta2_AP95": "paper-3iseed-d2_lqcr_beta_2p0-ap95"
+      },
+      "derived_cells": {
+        "beta0.25_delta_mAP": {"operation": "subtract", "result_ids": ["paper-3iseed-d2_lqcr_beta_0p25-map", "paper-3iseed-d2_lqcr_beta_0p0-map"]},
+        "beta0.5_delta_mAP": {"operation": "subtract", "result_ids": ["paper-3iseed-d2_lqcr_beta_0p5-map", "paper-3iseed-d2_lqcr_beta_0p0-map"]},
+        "beta1_delta_mAP": {"operation": "subtract", "result_ids": ["paper-3iseed-d2_lqcr_beta_1p0-map", "paper-3iseed-d2_lqcr_beta_0p0-map"]},
+        "beta2_delta_mAP": {"operation": "subtract", "result_ids": ["paper-3iseed-d2_lqcr_beta_2p0-map", "paper-3iseed-d2_lqcr_beta_0p0-map"]}
+      }
+    },
+    {
+      "paper_key": "deployment/topk-renewal/accuracy",
+      "kind": "paper_points",
+      "evidence_role": "paper_eligible",
+      "measurement_kind": "test_accuracy",
+      "replication_semantics": "fixed_checkpoint_inference3",
+      "artifact_ref": "baseline_inference3",
+      "cells": {
+        "K100_on_mAP": "paper-3iseed-d2_topk_k100_on-map", "K200_on_mAP": "paper-3iseed-d2_topk_k200_on-map", "K500_on_mAP": "paper-3iseed-d2_topk_k500_on-map", "K500_off_mAP": "paper-3iseed-d2_topk_k500_off-map"
+      },
+      "derived_cells": {
+        "K500_renewal_off_delta_mAP": {"operation": "subtract", "result_ids": ["paper-3iseed-d2_topk_k500_off-map", "paper-3iseed-d2_topk_k500_on-map"]}
+      }
+    },
+    {
+      "paper_key": "tab:fps/accuracy",
+      "kind": "table_column",
+      "evidence_role": "paper_eligible",
+      "measurement_kind": "test_accuracy",
+      "replication_semantics": "fixed_checkpoint_inference3",
+      "artifact_ref": "baseline_inference3",
+      "cells": {
+        "RF+Heun_mAP": "paper-3iseed-d2_rf_heun-map", "DPM++_mAP": "paper-3iseed-d2_sota_karyoflow-map", "KaryoFlow+LQCR_mAP": "paper-3iseed-d2_sota_karyoflow_lqcr-map", "H3_student_mAP": "paper-3iseed-d2_head_student_h3-map", "K200_mAP": "paper-3iseed-d2_topk_k200_on-map", "K100_mAP": "paper-3iseed-d2_topk_k100_on-map", "DINO_mAP": "paper-3iseed-d2_sota_dino_r50-map", "RTMDet_mAP": "paper-3iseed-d2_sota_rtmdet_l-map", "Cascade_mAP": "paper-3iseed-d2_sota_cascade_rcnn-map", "DiffusionDet_mAP": "paper-3iseed-d2_sota_diffusiondet-map", "YOLOX_mAP": "paper-3iseed-d2_sota_yolox_s-map"
+      }
+    },
+    {
+      "paper_key": "tab:fps/latency/general",
+      "kind": "table_column",
+      "evidence_role": "paper_eligible",
+      "measurement_kind": "deployment_latency",
+      "replication_semantics": "same_hardware_latency",
+      "artifact_ref": "deployment_karyoflow",
+      "cells": {
+        "RF+Heun_latency_ms": "tradeoff-a1-latency", "DPM++_latency_ms": "tradeoff-a4-latency", "K200_latency_ms": "tradeoff-k200-latency", "K100_latency_ms": "tradeoff-k100-latency", "RTMDet_latency_ms": "tradeoff-rtmdet-latency", "Cascade_latency_ms": "tradeoff-cascade-latency", "DiffusionDet_latency_ms": "tradeoff-diffdet-latency", "YOLOX_latency_ms": "tradeoff-yolox-latency"
+      },
+      "derived_cells": {
+        "RF+Heun_FPS": {"operation": "reciprocal_ms_to_fps", "result_ids": ["tradeoff-a1-latency"]}, "DPM++_FPS": {"operation": "reciprocal_ms_to_fps", "result_ids": ["tradeoff-a4-latency"]}, "K200_FPS": {"operation": "reciprocal_ms_to_fps", "result_ids": ["tradeoff-k200-latency"]}, "K100_FPS": {"operation": "reciprocal_ms_to_fps", "result_ids": ["tradeoff-k100-latency"]}, "RTMDet_FPS": {"operation": "reciprocal_ms_to_fps", "result_ids": ["tradeoff-rtmdet-latency"]}, "Cascade_FPS": {"operation": "reciprocal_ms_to_fps", "result_ids": ["tradeoff-cascade-latency"]}, "DiffusionDet_FPS": {"operation": "reciprocal_ms_to_fps", "result_ids": ["tradeoff-diffdet-latency"]}, "YOLOX_FPS": {"operation": "reciprocal_ms_to_fps", "result_ids": ["tradeoff-yolox-latency"]}
+      }
+    },
+    {
+      "paper_key": "tab:fps/latency/DINO",
+      "kind": "table_cells",
+      "evidence_role": "paper_eligible",
+      "measurement_kind": "deployment_latency",
+      "replication_semantics": "same_hardware_latency",
+      "artifact_ref": "deployment_dino",
+      "cells": {"latency_ms": "tradeoff-dino-latency"},
+      "derived_cells": {"FPS": {"operation": "reciprocal_ms_to_fps", "result_ids": ["tradeoff-dino-latency"]}}
+    },
+    {
+      "paper_key": "tab:fps/latency/KaryoFlow+LQCR",
+      "kind": "table_cells",
+      "evidence_role": "paper_eligible",
+      "measurement_kind": "deployment_latency",
+      "replication_semantics": "same_hardware_latency",
+      "artifact_ref": "deployment_lqcr",
+      "cells": {"latency_ms": "lqcr-d2-latency"},
+      "derived_cells": {"FPS": {"operation": "reciprocal_ms_to_fps", "result_ids": ["lqcr-d2-latency"]}}
+    },
+    {
+      "paper_key": "tab:fps/latency/H3_student",
+      "kind": "table_cells",
+      "evidence_role": "paper_eligible",
+      "measurement_kind": "deployment_latency",
+      "replication_semantics": "same_hardware_latency",
+      "artifact_ref": "deployment_h3",
+      "cells": {"latency_ms": "distill-d2-student-latency"},
+      "derived_cells": {"FPS": {"operation": "reciprocal_ms_to_fps", "result_ids": ["distill-d2-student-latency"]}}
+    },
+    {
+      "paper_key": "deployment/H3_student/test_accuracy",
+      "kind": "model_result",
+      "evidence_role": "paper_eligible",
+      "measurement_kind": "test_accuracy",
+      "replication_semantics": "fixed_checkpoint_inference3",
+      "artifact_ref": "baseline_inference3",
+      "cells": {
+        "mAP": "paper-3iseed-d2_head_student_h3-map", "AP50": "paper-3iseed-d2_head_student_h3-ap50", "AP75": "paper-3iseed-d2_head_student_h3-ap75", "AP_S": "paper-3iseed-d2_head_student_h3-ap_s", "AP_M": "paper-3iseed-d2_head_student_h3-ap_m", "AP_L": "paper-3iseed-d2_head_student_h3-ap_l"
+      }
+    },
+    {
+      "paper_key": "tab:engineering-evidence/LQCR/D2_delta_mAP",
+      "kind": "derived_table_cell",
+      "evidence_role": "paper_eligible",
+      "measurement_kind": "test_accuracy",
+      "replication_semantics": "ours_sota",
+      "artifact_ref": "paired_train3",
+      "cells": {
+        "parent_mAP": "d2-paired-train3-karyoflow-map",
+        "lqcr_mAP": "d2-paired-train3-karyoflowpluslqcr-map"
+      },
+      "derived_cells": {
+        "delta_mAP": {"operation": "subtract", "result_ids": ["d2-paired-train3-karyoflowpluslqcr-map", "d2-paired-train3-karyoflow-map"]}
+      }
+    }
+  ]
+}

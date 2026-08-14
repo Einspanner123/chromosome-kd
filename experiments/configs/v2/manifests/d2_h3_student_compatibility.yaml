@@ -1,0 +1,12 @@
+schema_version: 1
+suite_id: d2_h3_student_history_v1
+target_matrix: experiments/configs/v2/matrices/d2_h3_student_history.yaml
+runs:
+  - run_id: d2_head_student_h3
+    target_method: karyoflow_ot_h3_student_legacy
+    target_seed: 1858611995
+    legacy_config: experiments/configs/ldmdet/directions/mainline_ablation_24obj/s1_h3_s4_24obj.py
+    checkpoint: work_dirs/h3_distill_plan_a_24obj/best_coco_bbox_mAP_epoch_10.pth
+    training_log: work_dirs/h3_distill_plan_a_24obj/20260725_170420/20260725_170420.log
+    result_summary: results/paper_test_multiseed/d2_head_student_h3/d2_head_student_h3/757522e258489f3806d87c5dcd749b14a68b857e2800490e1f044209fe8725f3/summary.json
+    output: tools/experiment_db/compatibility_reports/d2_head_student_h3.json

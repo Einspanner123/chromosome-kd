@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import gc
 from pathlib import Path
 import re
 import sys
@@ -108,19 +109,26 @@ def main() -> int:
                 config_ids.add(cid)
                 if meta.dataset_id != cfg.dataset_id:
                     errors.append(f'{cid}: metadata/dataset mismatch')
-                if cfg.model.type != 'LDMDet':
-                    errors.append(f'{cid}: expected LDMDet')
+                model_type = cfg.model.type
+                allowed_models = {
+                    'LDMDet', 'DINO', 'RTMDet', 'CascadeRCNN', 'YOLOX',
+                }
+                if model_type not in allowed_models:
+                    errors.append(f'{cid}: unsupported model type {model_type}')
                 if cfg.test_evaluator.get('format_only', False):
                     errors.append(f'{cid}: test evaluator must compute metrics')
-                head = cfg.model.bbox_head
-                if meta.method_id == 'karyoflow_r50':
+                head = cfg.model.get('bbox_head', {})
+                if model_type == 'LDMDet' \
+                        and meta.method_id == 'karyoflow_r50':
                     expected = ('rectified_flow', 'dpm_solver_pp', 4, 'random')
                     actual = (head.diffusion_type, head.solver_type,
                               head.sampling_timesteps, head.coupling.type)
                     if actual != expected:
                         errors.append(f'{cid}: KaryoFlow invariant {actual}')
                 if 'lqcr' in meta.method_id:
-                    if meta.parent_method_id not in [
+                    if model_type != 'LDMDet':
+                        errors.append(f'{cid}: LQCR requires LDMDet')
+                    elif meta.parent_method_id not in [
                             resolve_config(matrix_path, name,
                                            matrix['training_seeds'][0])[0]
                             .experiment.method_id
@@ -142,6 +150,8 @@ def main() -> int:
                 loaded = Config.fromfile(stream.name)
                 if scientific_hash(loaded) != scientific_hash(cfg):
                     errors.append(f'{cid}: resolved config round-trip mismatch')
+                del loaded
+                gc.collect()
 
     if args.build_models and not errors:
         from mmengine.utils import import_modules_from_strings
@@ -151,7 +161,9 @@ def main() -> int:
         for cid, cfg in resolved:
             import_modules_from_strings(**cfg.custom_imports)
             try:
-                MODELS.build(cfg.model)
+                model = MODELS.build(cfg.model)
+                del model
+                gc.collect()
             except Exception as exc:
                 errors.append(f'{cid}: model build failed: {exc}')
 

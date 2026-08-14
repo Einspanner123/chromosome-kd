@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "protocol_id": "evaluation.d2.fixed_checkpoint.inference_seed3.v1",
+  "dataset": "D2",
+  "split": "test",
+  "analysis_class": "paper_eligible",
+  "paper_eligible": true,
+  "purpose": "Controlled mechanism, solver, ranking-exponent, Top-K, renewal, and fixed-baseline comparisons without retraining.",
+  "replication_unit": "proposal-initialization inference seed on one fixed trained checkpoint",
+  "inference_seeds": [42, 123, 789],
+  "aggregation": "arithmetic mean of independently evaluated COCO metrics",
+  "required_artifact": {
+    "artifact_id": "paper-test-multiseed-92e803b9772e",
+    "path": "tools/experiment_db/evidence_sources/paper_test_multiseed_92e803b9772e.json",
+    "sha256": "92e803b9772eca4de7e03ab45415a1da40fad1f671aea5308f1f3bf945042c7e"
+  },
+  "result_selector": {
+    "family": "paper_three_inference_seed_test",
+    "dataset": "D2",
+    "split": "test",
+    "evidence_level": "controlled",
+    "paper_eligible": true
+  },
+  "strict_boundary": "These means measure stochastic proposal-initialization variation conditional on a checkpoint. They must not be described as training-seed replication or combined with independently trained means to estimate between-training uncertainty."
+}

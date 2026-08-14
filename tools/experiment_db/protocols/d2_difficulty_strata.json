@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0",
+  "protocol_id": "analysis.d2.lqcr.difficulty_strata.v1",
+  "dataset": "D2",
+  "split": "test",
+  "analysis_class": "diagnostic",
+  "paper_eligible": false,
+  "purpose": "Describe where the final-only LQCR ranking intervention changes strict-IoU recall.",
+  "replication_unit": "three independently trained parent detectors, each paired with its frozen-parent LQCR child",
+  "training_seeds": [335778785, 790448076, 1342286018],
+  "inference_pairing": "the same inference seed is used within each parent-child pair",
+  "operating_point": "top-100 predictions per image",
+  "matching": "class-consistent one-to-one matching",
+  "primary_metrics": [
+    "one_to_one_recall@iou_0.90",
+    "one_to_one_recall@iou_0.95"
+  ],
+  "strata": {
+    "relative_area_quantiles": [
+      "Q1_smallest_25pct",
+      "Q2_25_to_50pct",
+      "Q3_50_to_75pct",
+      "Q4_largest_25pct"
+    ],
+    "overlap_strata": {
+      "definition": "maximum IoU of a ground-truth box with any other ground-truth box in the same image",
+      "bins": ["O0_[0,0.01)", "O1_[0.01,0.10)", "O2_[0.10,0.30)", "O3_[0.30,1]"]
+    },
+    "coco_area_strata": ["small", "medium", "large"]
+  },
+  "required_artifact": {
+    "artifact_id": "d2-difficult-subsets-paired-train3-725aab1ab102",
+    "path": "tools/experiment_db/evidence_sources/d2_difficult_subsets_paired_train3_725aab1ab102.json",
+    "sha256": "725aab1ab1023e375b6cefe58d9c05346778a9da08c31e4db4c0125796662a86"
+  },
+  "result_selector": {
+    "family": "conditional_difficult_subset_d2",
+    "dataset": "D2",
+    "split": "test",
+    "evidence_level": "diagnostic",
+    "paper_eligible": false
+  },
+  "allowed_claim": "Post-hoc descriptive gains occur in selected lower-area quartiles and moderate/high neighboring-overlap strata at strict IoU thresholds.",
+  "forbidden_claims": [
+    "LQCR universally improves small-object detection",
+    "stratum comparisons are prespecified confirmatory tests",
+    "the reported sample SD is a confidence interval"
+  ]
+}

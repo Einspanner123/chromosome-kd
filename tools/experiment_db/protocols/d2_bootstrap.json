@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0",
+  "protocol_id": "analysis.d2.lqcr_vs_dino.image_cluster_bootstrap.v1",
+  "dataset": "D2",
+  "split": "test",
+  "analysis_class": "diagnostic",
+  "paper_eligible": false,
+  "purpose": "Quantify image-sampling uncertainty for the conditional KaryoFlow+LQCR minus DINO mAP difference.",
+  "estimand": "Difference in COCO bbox mAP over the 1000-image held-out cohort, conditional on the evaluated checkpoints and inference protocols.",
+  "sampling_unit": "test image cluster",
+  "resampling": {
+    "method": "paired nonparametric bootstrap with replacement",
+    "iterations": 1000,
+    "seed": 20260812,
+    "interval": "two-sided percentile 95%",
+    "pairing": "the same resampled image multiplicities are used for both detectors",
+    "metric_recomputation": "rerun global stable score ordering and COCO AP accumulation for every replicate"
+  },
+  "comparands": {
+    "ours": {
+      "model": "KaryoFlow+LQCR",
+      "replication_semantics": "mean prediction performance over three independently trained detector checkpoints, each evaluated at inference seed 42"
+    },
+    "baseline": {
+      "model": "DINO R50",
+      "replication_semantics": "mean prediction performance over inference seeds 42, 123, and 789 for one fixed trained checkpoint; not a training-seed mean"
+    }
+  },
+  "required_artifact": {
+    "artifact_id": "d2-lqcr-vs-dino-image-bootstrap-1000-seed20260812",
+    "path": "tools/experiment_db/evidence_sources/d2_lqcr_vs_dino_image_bootstrap_a2344f4de3df.json",
+    "sha256": "a2344f4de3dfb77c1164767e270a6bf0f926088d4e6269a796c0a361dad3d6f4"
+  },
+  "required_result_ids": [
+    "d2-lqcr-vs-dino-bootstrap1000-point_difference_mAP",
+    "d2-lqcr-vs-dino-bootstrap1000-bootstrap_difference_mean_mAP",
+    "d2-lqcr-vs-dino-bootstrap1000-bootstrap_difference_sample_std",
+    "d2-lqcr-vs-dino-bootstrap1000-ci95_lower_mAP",
+    "d2-lqcr-vs-dino-bootstrap1000-ci95_upper_mAP",
+    "d2-lqcr-vs-dino-bootstrap1000-fraction_difference_gt_zero"
+  ],
+  "allowed_claim": "The evaluated checkpoints are statistically comparable under conditional image-sampling uncertainty.",
+  "forbidden_claims": [
+    "KaryoFlow+LQCR is superior to DINO on Dataset 2",
+    "the interval measures between-training uncertainty",
+    "the bootstrap substitutes for independent training replication"
+  ]
+}

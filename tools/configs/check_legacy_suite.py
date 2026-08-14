@@ -51,13 +51,17 @@ def main() -> int:
         raise ValueError('--workers must be positive')
 
     def execute(run):
+        target_matrix = run.get('target_matrix', suite.get('target_matrix'))
+        if not target_matrix:
+            raise ValueError(
+                f"{run['run_id']}: target_matrix is required on the run or suite")
         command = [
             sys.executable, str(CHECKER),
             '--legacy-config', run['legacy_config'],
             '--checkpoint', run['checkpoint'],
             '--training-log', run['training_log'],
             '--result-summary', run['result_summary'],
-            '--target-matrix', suite['target_matrix'],
+            '--target-matrix', target_matrix,
             '--target-method', run['target_method'],
             '--target-seed', str(run['target_seed']),
             '--output', run['output'],
@@ -89,7 +93,11 @@ def main() -> int:
     index = dict(
         schema_version=1, suite_id=suite['suite_id'],
         suite_path=str(suite_path.relative_to(ROOT)),
-        target_matrix=suite['target_matrix'], reports=records,
+        target_matrix=suite.get('target_matrix'),
+        target_matrices=sorted({
+            run.get('target_matrix', suite.get('target_matrix')) for run in runs
+        }),
+        reports=records,
         status_counts={status: sum(x['status'] == status for x in records)
                        for status in ('EXACT', 'STRUCTURAL_ONLY',
                                       'INCOMPATIBLE', 'MISSING_EVIDENCE')},

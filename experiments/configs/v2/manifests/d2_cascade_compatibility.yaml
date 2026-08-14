@@ -1,0 +1,12 @@
+schema_version: 1
+suite_id: d2_cascade_history_v1
+target_matrix: experiments/configs/v2/matrices/d2_cascade_history.yaml
+runs:
+  - run_id: d2_sota_cascade_rcnn
+    target_method: cascade_rcnn_r50_legacy
+    target_seed: 1769925607
+    legacy_config: experiments/configs/baselines/benchmark_24obj/cascade_rcnn_r50.py
+    checkpoint: work_dirs/baselines/cascade_rcnn_r50/best_coco_bbox_mAP_epoch_72.pth
+    training_log: work_dirs/cascade_rcnn_r50/20260521_000204/20260521_000204.log
+    result_summary: results/paper_test_multiseed/d2_sota_cascade_rcnn/d2_sota_cascade_rcnn/dc9de20d17fbe38edb6f36262a8032f5413db919f18e82a5f74c02121dffeb85/summary.json
+    output: tools/experiment_db/compatibility_reports/d2_sota_cascade_rcnn.json

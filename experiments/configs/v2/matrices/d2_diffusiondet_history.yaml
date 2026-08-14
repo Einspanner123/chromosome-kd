@@ -1,0 +1,8 @@
+schema_version: 1
+matrix_id: v2.d2_taichung.history_diffusiondet
+dataset_alias: d2_baseline_history
+dataset_config: experiments/configs/v2/_base_/datasets/d2_diffusiondet_legacy.py
+tracker_project: KaryoFlow-Dataset2-Baseline-History
+training_seeds: [628372310]
+methods:
+  - diffusiondet_ddpm_legacy

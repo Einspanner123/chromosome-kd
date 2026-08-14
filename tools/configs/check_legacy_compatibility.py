@@ -27,6 +27,15 @@ from tools.experiments.v2_matrix import (  # noqa: E402
 
 METRIC_KEYS = ('mAP', 'AP50', 'AP75', 'AP_S', 'AP_M', 'AP_L')
 SEED_PATTERN = re.compile(r'(?:seed|trainseed)[_-]?(\d+)', re.IGNORECASE)
+LEGACY_DIFFUSION_SCHEDULE_BUFFERS = {
+    'bbox_head.alphas_cumprod_prev',
+    'bbox_head.posterior_log_variance_clipped',
+    'bbox_head.posterior_variance',
+    'bbox_head.sqrt_alphas_cumprod',
+    'bbox_head.sqrt_one_minus_alphas_cumprod',
+    'bbox_head.sqrt_recip_alphas_cumprod',
+    'bbox_head.sqrt_recipm1_alphas_cumprod',
+}
 
 
 def resolve_path(value: str | Path) -> Path:
@@ -75,10 +84,20 @@ def strip_nonsemantic(value):
 
 def normalized_model(cfg: Config):
     model = deepcopy(plain(cfg.model))
-    head = model['bbox_head']
-    head.setdefault('box_renewal', True)
-    head.setdefault('use_ensemble', True)
-    head.setdefault('ddim_sampling_eta', 1.0)
+    # These defaults belong to the LDMDet diffusion head only. Injecting them
+    # into generic MMDetection heads corrupts comparisons, and Cascade R-CNN
+    # has no top-level bbox_head at all.
+    head = model.get('bbox_head')
+    detector_type = str(model.get('type', ''))
+    head_type = str(head.get('type', '')) if isinstance(head, dict) else ''
+    is_ldmdet = (
+        detector_type in {'LDMDet', 'LDMDetDetector'}
+        or 'DiffusionDetHead' in head_type
+    )
+    if is_ldmdet and isinstance(head, dict):
+        head.setdefault('box_renewal', True)
+        head.setdefault('use_ensemble', True)
+        head.setdefault('ddim_sampling_eta', 1.0)
     return strip_nonsemantic(model)
 
 
@@ -127,10 +146,35 @@ def recursive_diff(left, right, prefix='') -> list[dict]:
     return [] if left == right else [dict(path=prefix, legacy=left, target=right)]
 
 
-def annotation_path(cfg: Config, split: str) -> Path:
+def leaf_dataset(cfg: Config, split: str):
     loader = cfg[f'{split}_dataloader']
     dataset = loader.dataset
-    return resolve_path(Path(dataset.data_root) / dataset.ann_file)
+    # MultiImageMixDataset and similar wrappers keep the annotation fields on
+    # their nested dataset.
+    while isinstance(dataset, (dict, ConfigDict)) and 'dataset' in dataset \
+            and ('ann_file' not in dataset or 'data_root' not in dataset
+                 or 'metainfo' not in dataset):
+        dataset = dataset['dataset']
+    return dataset
+
+
+def annotation_path(cfg: Config, split: str) -> Path:
+    dataset = leaf_dataset(cfg, split)
+    ann_file = Path(dataset.get('ann_file', ''))
+    data_root = Path(dataset.get('data_root', ''))
+    candidates = []
+    if ann_file.is_absolute():
+        candidates.append(ann_file)
+    else:
+        # Some legacy configs already prefix ann_file with data_root.
+        candidates.extend([ROOT / ann_file, ROOT / data_root / ann_file])
+        if data_root.is_absolute():
+            candidates.append(data_root / ann_file)
+    for path in candidates:
+        resolved = path.resolve()
+        if resolved.is_file():
+            return resolved
+    return candidates[-1].resolve()
 
 
 def dataset_record(cfg: Config, split: str,
@@ -139,7 +183,7 @@ def dataset_record(cfg: Config, split: str,
     path = annotation_override or configured_path
     data = json.loads(path.read_text())
     categories = [(int(x['id']), str(x['name'])) for x in data['categories']]
-    configured = list(cfg[f'{split}_dataloader'].dataset.metainfo.classes)
+    configured = list(leaf_dataset(cfg, split).metainfo.classes)
     # pycocotools getCatIds(catNms=...) filters categories by membership while
     # retaining annotation order. Record the effective label mapping rather
     # than treating a display-order mismatch as label corruption.
@@ -272,6 +316,10 @@ def checkpoint_record(path: Path, target: Config) -> dict:
         key for key in set(state) & set(target_state)
         if tuple(state[key].shape) != tuple(target_state[key].shape))
     strict_load = not missing and not unexpected and not shape_mismatch
+    legacy_schedule_buffers_only = (
+        not missing and not shape_mismatch and bool(unexpected)
+        and set(unexpected) <= LEGACY_DIFFUSION_SCHEDULE_BUFFERS
+    )
     if strict_load:
         model.load_state_dict(state, strict=True)
     return dict(
@@ -279,6 +327,7 @@ def checkpoint_record(path: Path, target: Config) -> dict:
         tensors=len(state), target_tensors=len(target_state),
         strict_load=strict_load, missing=missing,
         unexpected=unexpected, shape_mismatch=shape_mismatch,
+        legacy_schedule_buffers_only=legacy_schedule_buffers_only,
         meta_seed_candidates=seed_candidates(meta),
     )
 
@@ -438,8 +487,13 @@ def main() -> int:
     )
 
     hard_issues = list(dataset_issues) + list(result['issues'])
+    structural_issues = []
     if not checkpoint['strict_load']:
-        hard_issues.append('checkpoint is not structurally compatible')
+        if checkpoint['legacy_schedule_buffers_only']:
+            structural_issues.append(
+                'checkpoint retains legacy derived diffusion-schedule buffers')
+        else:
+            hard_issues.append('checkpoint is not structurally compatible')
     if parent_required and parent_path is None:
         hard_issues.append('paired child is missing parent checkpoint evidence')
     if lineage is not None and not lineage['final_quality_only']:
@@ -462,7 +516,7 @@ def main() -> int:
 
     if hard_issues:
         status = 'INCOMPATIBLE'
-    elif scientific_differences:
+    elif scientific_differences or structural_issues:
         status = 'STRUCTURAL_ONLY'
     else:
         status = 'EXACT'
@@ -477,6 +531,7 @@ def main() -> int:
         parent_checkpoint_sha256=(lineage or {}).get('parent_sha256'),
         status=status,
         scientific_differences=scientific_differences,
+        structural_issues=structural_issues,
         hard_issues=hard_issues,
     )
     identity = hashlib.sha256(json.dumps(
@@ -510,6 +565,7 @@ def main() -> int:
         result_evidence=result,
         configuration_differences=differences,
         scientific_differences=scientific_differences,
+        structural_issues=structural_issues,
         hard_issues=hard_issues,
         identity_payload_sha256=identity,
     )
@@ -524,6 +580,7 @@ def main() -> int:
     print(json.dumps(dict(status=status, report=shown(output),
                           differences=len(differences),
                           scientific_differences=len(scientific_differences),
+                          structural_issues=structural_issues,
                           hard_issues=hard_issues,
                           canonical_import_allowed=report['canonical_import_allowed']),
                      indent=2))

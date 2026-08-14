@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "protocol_id": "benchmark.d2.same_hardware.latency.v1",
+  "dataset": "D2",
+  "split": "benchmark",
+  "analysis_class": "paper_eligible",
+  "paper_eligible": true,
+  "purpose": "Same-hardware model-forward latency and derived FPS comparison.",
+  "hardware": "RTX A6000",
+  "input": "512x512, batch size 1",
+  "timing": "CUDA-event model-forward latency; 10 warm-up and 500 timed iterations",
+  "exclusions": ["image decoding", "host preprocessing", "visualization"],
+  "accuracy_binding": "Accuracy is obtained from separate D2/test controlled_result IDs; benchmark/latency rows never supply mAP.",
+  "fps_derivation": "FPS = 1000 / latency_ms",
+  "required_artifacts": [
+    {"artifact_id": "tradeoff-a6000-20260811", "path": "tools/experiment_db/evidence_sources/legacy_paper_assets/source_fps_a6000_karyoflow.json", "sha256": "7375455acaaf0ee5f468dc890b21c94a6c12052b5468cf3ed10690242a4900ad"},
+    {"artifact_id": "tradeoff-dino-a6000-20260811", "path": "tools/experiment_db/evidence_sources/legacy_paper_assets/source_fps_a6000_dino.json", "sha256": "42c0c9eccb95a11e2c0c70740fa7fb22bed68986b58d279b791130222c18130e"},
+    {"artifact_id": "lqcr-cross-dataset-20260811", "path": "tools/experiment_db/evidence_sources/lqcr_cross_dataset_20260811.json", "sha256": "ad5fb8b9e27ecba7f604c15c9f824162728d43b05d6ceb6b44f19f5f46e9194b"},
+    {"artifact_id": "head-distill-a6000-20260811", "path": "results/audit_20260811/h3_same_protocol/benchmark_fps_20260811_164416.json", "sha256": "9804019e94a5f68fb7c61a0da6a5f570fb7e56108596e4159dfe5e1cf781db81"}
+  ],
+  "strict_boundary": "Only latency/FPS are hardware-dependent. Accuracy and latency IDs must remain separate, even when displayed in the same table row."
+}

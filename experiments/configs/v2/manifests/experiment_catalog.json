@@ -89,6 +89,106 @@
       ]
     },
     {
+      "config_id": "v2.d2_baseline_history.legacy_cascade_rcnn_r50.train",
+      "coupling": null,
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d2_cascade_legacy.py",
+      "dataset_id": "D2",
+      "matrix_path": "experiments/configs/v2/matrices/d2_cascade_history.yaml",
+      "method_config": "experiments/configs/v2/methods/cascade_rcnn_r50_legacy.py",
+      "method_id": "legacy_cascade_rcnn_r50",
+      "method_name": "cascade_rcnn_r50_legacy",
+      "parent_method_id": null,
+      "renewal": null,
+      "role": "archived_baseline",
+      "scientific_config_sha256": "5fd5382d0374c95e5c2c036835ebfdffe411f43d9b1e6a6c9a41708705c44e36",
+      "solver": null,
+      "steps": null,
+      "time_conditioning": null,
+      "training_seeds": [
+        1769925607
+      ]
+    },
+    {
+      "config_id": "v2.d2_baseline_history.legacy_diffusiondet_ddpm_r50.train",
+      "coupling": null,
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d2_diffusiondet_legacy.py",
+      "dataset_id": "D2",
+      "matrix_path": "experiments/configs/v2/matrices/d2_diffusiondet_history.yaml",
+      "method_config": "experiments/configs/v2/methods/diffusiondet_ddpm_legacy.py",
+      "method_id": "legacy_diffusiondet_ddpm_r50",
+      "method_name": "diffusiondet_ddpm_legacy",
+      "parent_method_id": null,
+      "renewal": null,
+      "role": "archived_baseline",
+      "scientific_config_sha256": "255d141cbd1d7822fa970b95989a16531039f90d7432bd954e4e1eec357b2918",
+      "solver": "euler",
+      "steps": 1,
+      "time_conditioning": "scale_shift",
+      "training_seeds": [
+        628372310
+      ]
+    },
+    {
+      "config_id": "v2.d2_baseline_history.legacy_dino_r50.train",
+      "coupling": null,
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d2_dino_rtmdet_legacy.py",
+      "dataset_id": "D2",
+      "matrix_path": "experiments/configs/v2/matrices/d2_dino_rtmdet_history.yaml",
+      "method_config": "experiments/configs/v2/methods/dino_r50_legacy.py",
+      "method_id": "legacy_dino_r50",
+      "method_name": "dino_r50_legacy",
+      "parent_method_id": null,
+      "renewal": null,
+      "role": "archived_baseline",
+      "scientific_config_sha256": "a1529de453c303453b3086147c6e2e717ecdbee468b74e1f1aa3ac5379df8f91",
+      "solver": null,
+      "steps": null,
+      "time_conditioning": null,
+      "training_seeds": [
+        1769925607
+      ]
+    },
+    {
+      "config_id": "v2.d2_baseline_history.legacy_rtmdet_l.train",
+      "coupling": null,
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d2_dino_rtmdet_legacy.py",
+      "dataset_id": "D2",
+      "matrix_path": "experiments/configs/v2/matrices/d2_dino_rtmdet_history.yaml",
+      "method_config": "experiments/configs/v2/methods/rtmdet_l_legacy.py",
+      "method_id": "legacy_rtmdet_l",
+      "method_name": "rtmdet_l_legacy",
+      "parent_method_id": null,
+      "renewal": null,
+      "role": "archived_baseline",
+      "scientific_config_sha256": "6c880dd8651e3258406bae8764635bd7defc84acddef3e31cf483496fa674645",
+      "solver": null,
+      "steps": null,
+      "time_conditioning": null,
+      "training_seeds": [
+        1769925607
+      ]
+    },
+    {
+      "config_id": "v2.d2_history.legacy_karyoflow_ot_h3_student_r50.train",
+      "coupling": "ot_flow",
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d2_taichung.py",
+      "dataset_id": "D2",
+      "matrix_path": "experiments/configs/v2/matrices/d2_h3_student_history.yaml",
+      "method_config": "experiments/configs/v2/methods/karyoflow_ot_h3_student_legacy.py",
+      "method_id": "legacy_karyoflow_ot_h3_student_r50",
+      "method_name": "karyoflow_ot_h3_student_legacy",
+      "parent_method_id": "legacy_karyoflow_ot_r50",
+      "renewal": true,
+      "role": "archived_deployment_method",
+      "scientific_config_sha256": "5f877f0eef682d3079167036b565bcdfe37870037babff88215f8159490c346b",
+      "solver": "dpm_solver_pp",
+      "steps": 4,
+      "time_conditioning": "adaln_zero",
+      "training_seeds": [
+        1858611995
+      ]
+    },
+    {
       "config_id": "v2.d2.diffusiondet_ddpm_r50.train",
       "coupling": "random",
       "dataset_config": "experiments/configs/v2/_base_/datasets/d2_taichung.py",
@@ -218,6 +318,46 @@
         335778785,
         790448076,
         1342286018
+      ]
+    },
+    {
+      "config_id": "v2.d2_history.legacy_rf_heun_pre_adaln_r50.train",
+      "coupling": null,
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d2_taichung.py",
+      "dataset_id": "D2",
+      "matrix_path": "experiments/configs/v2/matrices/d2_taichung_history_rf_heun.yaml",
+      "method_config": "experiments/configs/v2/methods/rf_heun_pre_adaln_legacy.py",
+      "method_id": "legacy_rf_heun_pre_adaln_r50",
+      "method_name": "rf_heun_pre_adaln_legacy",
+      "parent_method_id": null,
+      "renewal": true,
+      "role": "archived_generation_reference",
+      "scientific_config_sha256": "8f25f9d9fb223ff2aab7f0ef880365c2b20b04de4f216df69c76c19e6a32cfea",
+      "solver": "heun",
+      "steps": 4,
+      "time_conditioning": null,
+      "training_seeds": [
+        1972191848
+      ]
+    },
+    {
+      "config_id": "v2.d2_baseline_history.legacy_yolox_s.train",
+      "coupling": null,
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d2_yolox_legacy.py",
+      "dataset_id": "D2",
+      "matrix_path": "experiments/configs/v2/matrices/d2_yolox_history.yaml",
+      "method_config": "experiments/configs/v2/methods/yolox_s_legacy.py",
+      "method_id": "legacy_yolox_s",
+      "method_name": "yolox_s_legacy",
+      "parent_method_id": null,
+      "renewal": null,
+      "role": "archived_baseline",
+      "scientific_config_sha256": "763a6184d30d94927b9da670ee6acf49d40c2e166a5d30763803a8281575f471",
+      "solver": null,
+      "steps": null,
+      "time_conditioning": null,
+      "training_seeds": [
+        1769925607
       ]
     }
   ],

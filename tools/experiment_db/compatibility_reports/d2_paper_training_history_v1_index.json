@@ -1,0 +1,26 @@
+{
+  "reports": [
+    {
+      "canonical_import_allowed": true,
+      "checkpoint_sha256": "0c408205bd360e2baf71ee9789b531f585aa4a0516f23c91890983a778d4fe9d",
+      "hard_issues": [],
+      "report_id": "legacy-compat-275415ddd745",
+      "report_path": "tools/experiment_db/compatibility_reports/d2_rf_heun_historical.json",
+      "report_sha256": "0d9b1ebbb05b1f2e6a86972ccea7df7018677d39748ff77583854aad3bf02a85",
+      "run_id": "d2_rf_heun_historical",
+      "scientific_difference_paths": [],
+      "status": "EXACT",
+      "training_seed": 1972191848
+    }
+  ],
+  "schema_version": 1,
+  "status_counts": {
+    "EXACT": 1,
+    "INCOMPATIBLE": 0,
+    "MISSING_EVIDENCE": 0,
+    "STRUCTURAL_ONLY": 0
+  },
+  "suite_id": "d2_paper_training_history_v1",
+  "suite_path": "experiments/configs/v2/manifests/d2_paper_training_compatibility.yaml",
+  "target_matrix": "experiments/configs/v2/matrices/d2_taichung_history_rf_heun.yaml"
+}

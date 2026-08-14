@@ -1,0 +1,29 @@
+{
+  "reports": [
+    {
+      "canonical_import_allowed": false,
+      "checkpoint_sha256": "d943fbc12c6492f3a67a34b25c7498fdd1bce74c702246ee699772f9458b58f0",
+      "hard_issues": [],
+      "report_id": "legacy-compat-03e38fadb572",
+      "report_path": "tools/experiment_db/compatibility_reports/d2_sota_diffusiondet.json",
+      "report_sha256": "01b5ce3086f6da16fb4868b631527e5a027ecae5e0b146f7aa6aab8adc5ed6a0",
+      "run_id": "d2_sota_diffusiondet",
+      "scientific_difference_paths": [],
+      "status": "STRUCTURAL_ONLY",
+      "training_seed": 628372310
+    }
+  ],
+  "schema_version": 1,
+  "status_counts": {
+    "EXACT": 0,
+    "INCOMPATIBLE": 0,
+    "MISSING_EVIDENCE": 0,
+    "STRUCTURAL_ONLY": 1
+  },
+  "suite_id": "d2_diffusiondet_history_v1",
+  "suite_path": "experiments/configs/v2/manifests/d2_diffusiondet_compatibility.yaml",
+  "target_matrices": [
+    "experiments/configs/v2/matrices/d2_diffusiondet_history.yaml"
+  ],
+  "target_matrix": "experiments/configs/v2/matrices/d2_diffusiondet_history.yaml"
+}

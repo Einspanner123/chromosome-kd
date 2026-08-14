@@ -1,0 +1,29 @@
+{
+  "reports": [
+    {
+      "canonical_import_allowed": true,
+      "checkpoint_sha256": "9b9ece6cb222e65dc49f4e3f2d20d57f838e8d0d4cef45c408de20ee9ea3e855",
+      "hard_issues": [],
+      "report_id": "legacy-compat-588ea305b0cf",
+      "report_path": "tools/experiment_db/compatibility_reports/d2_head_student_h3.json",
+      "report_sha256": "32296ab0ba5d1133ebbff1975302663f4b64fee13f1833f4b1334cf8f8e3dbed",
+      "run_id": "d2_head_student_h3",
+      "scientific_difference_paths": [],
+      "status": "EXACT",
+      "training_seed": 1858611995
+    }
+  ],
+  "schema_version": 1,
+  "status_counts": {
+    "EXACT": 1,
+    "INCOMPATIBLE": 0,
+    "MISSING_EVIDENCE": 0,
+    "STRUCTURAL_ONLY": 0
+  },
+  "suite_id": "d2_h3_student_history_v1",
+  "suite_path": "experiments/configs/v2/manifests/d2_h3_student_compatibility.yaml",
+  "target_matrices": [
+    "experiments/configs/v2/matrices/d2_h3_student_history.yaml"
+  ],
+  "target_matrix": "experiments/configs/v2/matrices/d2_h3_student_history.yaml"
+}

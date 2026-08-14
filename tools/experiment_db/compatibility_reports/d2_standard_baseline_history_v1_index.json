@@ -1,0 +1,67 @@
+{
+  "reports": [
+    {
+      "canonical_import_allowed": true,
+      "checkpoint_sha256": "65013d412fc6480e4eff145dbf8ae1383eb99c17b27f8a59625bbb3c2d23f505",
+      "hard_issues": [],
+      "report_id": "legacy-compat-5f9df01d7204",
+      "report_path": "tools/experiment_db/compatibility_reports/d2_sota_dino_r50.json",
+      "report_sha256": "133b6a02cd52b56a45760da5a02346e1d3439cc94be95f0ff4dc2008f48c68ac",
+      "run_id": "d2_sota_dino_r50",
+      "scientific_difference_paths": [],
+      "status": "EXACT",
+      "training_seed": 1769925607
+    },
+    {
+      "canonical_import_allowed": true,
+      "checkpoint_sha256": "1a7d57490d0b413354a8bc4a5db05af253fb42493119fbc339fc455d59c07ead",
+      "hard_issues": [],
+      "report_id": "legacy-compat-08f7b20dd94e",
+      "report_path": "tools/experiment_db/compatibility_reports/d2_sota_rtmdet_l.json",
+      "report_sha256": "879cf2b5fa898945778efdd4e7ff699133ad09656df60645d3b651c7b9333891",
+      "run_id": "d2_sota_rtmdet_l",
+      "scientific_difference_paths": [],
+      "status": "EXACT",
+      "training_seed": 1769925607
+    },
+    {
+      "canonical_import_allowed": true,
+      "checkpoint_sha256": "f2f027542f23ef4d5095d07526b9e70e8cc627b8bd5933340946e40f5a8b0c72",
+      "hard_issues": [],
+      "report_id": "legacy-compat-7b8800182552",
+      "report_path": "tools/experiment_db/compatibility_reports/d2_sota_cascade_rcnn.json",
+      "report_sha256": "e5b4c4f6b82ae6731524ad10c8811a859316de83ab63c950dc5af48ffec36b2d",
+      "run_id": "d2_sota_cascade_rcnn",
+      "scientific_difference_paths": [],
+      "status": "EXACT",
+      "training_seed": 1769925607
+    },
+    {
+      "canonical_import_allowed": true,
+      "checkpoint_sha256": "0382008927696f02998ba0ea39fb2e96a130d1ec9f4e2a0c0de21ad95db258a7",
+      "hard_issues": [],
+      "report_id": "legacy-compat-3274de856683",
+      "report_path": "tools/experiment_db/compatibility_reports/d2_sota_yolox_s.json",
+      "report_sha256": "9bef601f49153448372e091972fcb2460b067041e8b497e42d2ef84c0b6202d4",
+      "run_id": "d2_sota_yolox_s",
+      "scientific_difference_paths": [],
+      "status": "EXACT",
+      "training_seed": 1769925607
+    }
+  ],
+  "schema_version": 1,
+  "status_counts": {
+    "EXACT": 4,
+    "INCOMPATIBLE": 0,
+    "MISSING_EVIDENCE": 0,
+    "STRUCTURAL_ONLY": 0
+  },
+  "suite_id": "d2_standard_baseline_history_v1",
+  "suite_path": "experiments/configs/v2/manifests/d2_standard_baseline_compatibility.yaml",
+  "target_matrices": [
+    "experiments/configs/v2/matrices/d2_cascade_history.yaml",
+    "experiments/configs/v2/matrices/d2_dino_rtmdet_history.yaml",
+    "experiments/configs/v2/matrices/d2_yolox_history.yaml"
+  ],
+  "target_matrix": null
+}
