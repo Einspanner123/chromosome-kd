@@ -3,6 +3,7 @@
   "phase": "P8",
   "status": "PASS",
   "date": "2026-08-15",
+  "implementation_commit": "b1317585358f3365f2d1556b6b354f33941d6c6b",
   "recovery": {
     "ref": "refs/tags/archive/pre-cleanup-20260815",
     "baseline_commit": "323da0beaf1a93441915e81dd90f8039012c7f3c",

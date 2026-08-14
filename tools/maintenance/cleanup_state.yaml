@@ -58,7 +58,7 @@ phases:
   P8:
     name: final_audit
     status: completed
-    commit: pending_final_commit
+    commit: b1317585
     checkpoint_tag: cleanup/final-20260815
     gate_record: docs/maintenance/baselines/p8_final_audit.json
 last_successful_gate: P8_final_repository_audit_passed
