@@ -1,0 +1,8 @@
+schema_version: 1
+matrix_id: v2.d2_taichung.history_h3_student
+dataset_alias: d2_history
+dataset_config: experiments/configs/_base_/datasets/d2_taichung.py
+tracker_project: KaryoFlow-Dataset2-History
+training_seeds: [1858611995]
+methods:
+  - karyoflow_ot_h3_student_legacy

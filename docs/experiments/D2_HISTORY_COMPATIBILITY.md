@@ -45,20 +45,20 @@ random-coupling主方法，六条历史结果都是`STRUCTURAL_ONLY`，因为历
 批量清单：
 
 ```text
-experiments/configs/v2/manifests/d2_history_compatibility.yaml
+experiments/manifests/d2_history_compatibility.yaml
 ```
 
 重新执行全部检查：
 
 ```bash
 python tools/configs/check_legacy_suite.py \
-  --suite experiments/configs/v2/manifests/d2_history_compatibility.yaml
+  --suite experiments/manifests/d2_history_compatibility.yaml
 ```
 
 仅重建汇总索引：
 
 ```bash
 python tools/configs/check_legacy_suite.py \
-  --suite experiments/configs/v2/manifests/d2_history_compatibility.yaml \
+  --suite experiments/manifests/d2_history_compatibility.yaml \
   --aggregate-only
 ```

@@ -1,0 +1,41 @@
+schema_version: 1
+protocol_id: v2.d2_history.rf_solver_steps.test
+protocol_type: inference_ablation
+dataset_id: D2
+split: test
+inference_seed: 42
+selection:
+  split: val
+  test_tuned: false
+base:
+  matrix: experiments/configs/matrices/d2_taichung_history_rf_heun.yaml
+  method: rf_heun_pre_adaln_legacy
+  config_id: v2.d2_history.legacy_rf_heun_pre_adaln_r50.train
+  training_seed: 1972191848
+  legacy_config: experiments/configs/ldmdet/directions/mainline_ablation_24obj/a1_rf_heun_24obj.py
+  legacy_source:
+    git_ref: refs/tags/archive/pre-cleanup-20260815
+    path: experiments/configs/ldmdet/directions/mainline_ablation_24obj/a1_rf_heun_24obj.py
+    blob_sha1: c5060524af41a109c5ee1df52ccec7be24e4908d
+  checkpoint: work_dirs/a1_rf_heun_24obj/best_coco_bbox_mAP_epoch_62.pth
+  checkpoint_sha256: 0c408205bd360e2baf71ee9789b531f585aa4a0516f23c91890983a778d4fe9d
+intervention:
+  scope: model.bbox_head
+  factors:
+    solver_type: [euler, heun, dpm_solver_pp]
+    sampling_timesteps: [1, 2, 3, 4]
+  product: true
+  variant_id: "{solver_type}_{sampling_timesteps}"
+evidence:
+  producer: tools/experiment_db/test_inference_ablations.py
+  producer_sha256: fcc8c94463b7c55a261c271cc88a52f39af102db62dd3e4bd88ae73471b8fc86
+  aggregate: tools/experiment_db/evidence_sources/d2_test_inference_ablations_b81d6a3d498a.json
+  aggregate_sha256: b81d6a3d498ad5b9a499f8960e4113307cd79df64e092d24b74a3479c7136c96
+  aggregate_group: solver
+  record_key: model_id
+  expected_records: 12
+  required_metrics: [mAP, AP50, AP75, AP_S, AP_M, AP_L]
+  metric_status: verified_from_persisted_summaries
+  replay_status: complete
+  raw_prediction_archive_artifact: d2-inference-predictions-archive-ccaaef876bd0
+  raw_prediction_manifest_artifact: d2-inference-predictions-manifest-ecb415fa162a

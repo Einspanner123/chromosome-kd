@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.experiments.v2_matrix import (  # noqa: E402
+from tools.experiments.matrix import (  # noqa: E402
     resolve_config, scientific_hash)
 
 METRIC_KEYS = ('mAP', 'AP50', 'AP75', 'AP_S', 'AP_M', 'AP_L')

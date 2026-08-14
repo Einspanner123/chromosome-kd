@@ -7,7 +7,7 @@ baseline:
   branch: refactor/ldmdet
   recovery_tag: archive/pre-cleanup-20260815
   recovery_branch: archive/pre-cleanup-20260815
-current_phase: P2
+current_phase: P3
 invariants:
   paper_evidence_must_resolve: true
   checkpoint_hashes_must_resolve: true
@@ -23,22 +23,34 @@ phases:
     name: reproducible_caches
     status: completed_with_external_residue
     checkpoint_tag: cleanup/p1-cache-20260815
-  P2: {name: canonical_experiment_configuration, status: in_progress, commit: null}
-  P3: {name: runtime_and_tests, status: pending, commit: null}
+  P2:
+    name: canonical_experiment_configuration
+    status: completed
+    checkpoint_tag: cleanup/p2-configs-20260815
+    gate_record: docs/maintenance/baselines/p2_configuration_gate.json
+  P3: {name: runtime_and_tests, status: in_progress, commit: null}
   P4: {name: tools_and_evidence, status: pending, commit: null}
   P5: {name: artifact_relocation, status: pending, commit: null}
   P6: {name: research_and_documentation, status: pending, commit: null}
   P7: {name: mmdetection_dependency, status: pending, commit: null}
   P8: {name: final_audit, status: pending, commit: null}
-last_successful_gate: P1_source_and_evidence_audits_passed
+last_successful_gate: P2_canonical_configuration_audits_passed
 blocked_items:
   - id: root_owned_regenerable_cache
     paths: [.build_tmp, .hf_cache]
     impact: none_on_source_or_evidence
     reason: files_owned_by_root
     required_action: remove_with_authorized_system_account_or_leave_ignored
+  - id: stale_pre_restore_distillation_test
+    paths: [tests/unit/test_head_distill.py]
+    impact: legacy_test_collection_only
+    reason: imports_removed_FeatureDistillLoss_while_restored_distillation_path_uses_head_losses
+    required_action: replace_or_remove_during_P3_runtime_test_convergence
 notes:
   - No training or unified evaluation process was active when baseline was frozen.
   - work_dirs and results remain in place until P5.
   - P1 removed user-owned Python, pytest, Ruff, coverage, and LaTeX caches.
   - Root-owned build/model caches remain ignored and are not used by the project.
+  - P2 reduced active tracked configuration files from 277 to 91.
+  - Historical inference protocols resolve deleted source configs through the recovery tag.
+  - Immutable compatibility report payloads were not rewritten during path migration.

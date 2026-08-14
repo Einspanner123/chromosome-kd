@@ -1,0 +1,28 @@
+schema_version: 1
+protocol_id: v2.d1.karyoflow.solver_steps.test
+protocol_type: inference_ablation
+dataset_id: D1_INHOUSE1700_V2
+split: test
+inference_seed: 42
+selection:
+  split: val
+  test_tuned: false
+base:
+  matrix: experiments/configs/matrices/d1_inhouse1700.yaml
+  method: karyoflow
+  config_id: v2.d1.karyoflow_r50.train
+  checkpoint_source:
+    type: successful_parent_run_registry
+    training_seeds: [42, 123, 789]
+    require_distinct_checkpoint_sha256: true
+intervention:
+  scope: model.bbox_head
+  factors:
+    solver_type: [euler, heun, dpm_solver_pp]
+    sampling_timesteps: [1, 2, 3, 4]
+  product: true
+  variant_id: "{solver_type}_{sampling_timesteps}"
+evaluation:
+  aggregate_unit: independent_training_seed
+  required_metrics: [mAP, AP50, AP75, AP_S, AP_M, AP_L]
+  persist_predictions: true

@@ -1,17 +1,17 @@
-"""Checkpoint 推理测试
+"""Checkpoint evaluation for a resolved canonical configuration.
 
 Usage:
-    python experiments/runners/test.py experiments/configs/ldmdet/sinkhorn_stochastic.py \\
+    python experiments/runners/test.py artifacts/runs/<run-id>/resolved_config.py \\
         --checkpoint work_dirs/xxx/best_coco_bbox_mAP_epoch_59.pth \\
         --dataset val
 
 采样器/步数覆盖:
-    python experiments/runners/test.py experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py \\
+    python experiments/runners/test.py artifacts/runs/<run-id>/resolved_config.py \\
         --checkpoint work_dirs/xxx/best.pth --dataset test \\
         --sampling-steps 3 --solver-type euler --seed 42
 
 DDPM baseline:
-    python experiments/runners/test.py experiments/configs/baselines/diffusiondet_ddpm.py \\
+    python experiments/runners/test.py artifacts/runs/<run-id>/resolved_config.py \\
         --checkpoint work_dirs/multi_seed_aug/ddpm/seed_42/best_coco_bbox_mAP_epoch_79.pth \\
         --dataset test --sampling-steps 4 --seed 42
 
@@ -21,7 +21,7 @@ SwanLab: 推理测试独立到 'ldmdet-inference' 项目, 实验名默认 '{solv
 输出: mAP, AP50, AP75, per-class AP
 
 Per-image AP dump (用于 C3 统计显著性检验 Wilcoxon signed-rank + paired t-test):
-    python experiments/runners/test.py experiments/configs/ldmdet/xxx.py \\
+    python experiments/runners/test.py artifacts/runs/<run-id>/resolved_config.py \\
         --checkpoint work_dirs/xxx/best.pth --dataset val \\
         --dump-per-image work_dirs/xxx/per_image_ap.json
 """

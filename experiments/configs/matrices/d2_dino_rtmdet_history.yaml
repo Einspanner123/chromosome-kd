@@ -1,0 +1,9 @@
+schema_version: 1
+matrix_id: v2.d2_taichung.history_dino_rtmdet
+dataset_alias: d2_baseline_history
+dataset_config: experiments/configs/_base_/datasets/d2_dino_rtmdet_legacy.py
+tracker_project: KaryoFlow-Dataset2-Baseline-History
+training_seeds: [1769925607]
+methods:
+  - dino_r50_legacy
+  - rtmdet_l_legacy

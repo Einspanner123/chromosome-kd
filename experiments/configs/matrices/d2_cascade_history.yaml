@@ -1,0 +1,8 @@
+schema_version: 1
+matrix_id: v2.d2_taichung.history_cascade
+dataset_alias: d2_baseline_history
+dataset_config: experiments/configs/_base_/datasets/d2_cascade_legacy.py
+tracker_project: KaryoFlow-Dataset2-Baseline-History
+training_seeds: [1769925607]
+methods:
+  - cascade_rcnn_r50_legacy

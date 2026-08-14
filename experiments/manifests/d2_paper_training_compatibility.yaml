@@ -1,0 +1,12 @@
+schema_version: 1
+suite_id: d2_paper_training_history_v1
+target_matrix: experiments/configs/matrices/d2_taichung_history_rf_heun.yaml
+runs:
+  - run_id: d2_rf_heun_historical
+    target_method: rf_heun_pre_adaln_legacy
+    target_seed: 1972191848
+    legacy_config: experiments/configs/ldmdet/directions/mainline_ablation_24obj/a1_rf_heun_24obj.py
+    checkpoint: work_dirs/a1_rf_heun_24obj/best_coco_bbox_mAP_epoch_62.pth
+    training_log: work_dirs/a1_rf_heun_24obj/20260706_192437/20260706_192437.log
+    result_summary: results/paper_test_multiseed/d2_rf_heun/d2_rf_heun/044cfa6c67a77f0db15900ace4160700e0cdc22c472fa5f8ea3b3cc1320ba6ea/summary.json
+    output: tools/experiment_db/compatibility_reports/d2_rf_heun_historical.json

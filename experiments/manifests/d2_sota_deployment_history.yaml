@@ -1,0 +1,85 @@
+schema_version: 1
+suite_id: d2_sota_deployment_history_v1
+dataset_config: experiments/configs/_base_/datasets/d2_taichung.py
+test_annotation_sha256: 110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495
+
+# These are fixed historical checkpoints.  The three paper-facing seeds are
+# inference-stability repeats and must never be registered as training seeds.
+runs:
+  - run_id: d2_sota_dino_r50
+    target_method: legacy_dino_r50
+    training_seed: 1769925607
+    replication_unit: fixed_checkpoint
+    legacy_config: experiments/configs/baselines/benchmark_24obj/dino_r50.py
+    legacy_config_sha256: 170c4bcc9a62d123735e90948b5b0876b2d27ae3b98f29dbb0811bee217cb86b
+    checkpoint: work_dirs/baselines/dino_r50_24obj/best_coco_bbox_mAP_epoch_102.pth
+    checkpoint_sha256: 65013d412fc6480e4eff145dbf8ae1383eb99c17b27f8a59625bbb3c2d23f505
+    checkpoint_tensors: 627
+    result_summary_seed42: results/paper_test_multiseed/d2_sota_dino_r50/d2_sota_dino_r50/6d39c3771407770fd7c8c0ee7ce53b448caf5493932bce64d61192ea29befeae/summary.json
+    expected_status: EXACT
+
+  - run_id: d2_sota_rtmdet_l
+    target_method: legacy_rtmdet_l
+    training_seed: 1769925607
+    replication_unit: fixed_checkpoint
+    legacy_config: experiments/configs/baselines/benchmark_24obj/rtmdet_l.py
+    legacy_config_sha256: d31131ff8f606fe3793835d99a63f8ba947d1384aa0dba1977715a18d3327e64
+    checkpoint: work_dirs/baselines/rtmdet_l_24obj/epoch_86.pth
+    checkpoint_sha256: 1a7d57490d0b413354a8bc4a5db05af253fb42493119fbc339fc455d59c07ead
+    checkpoint_tensors: 872
+    result_summary_seed42: results/paper_test_multiseed/d2_sota_rtmdet_l/d2_sota_rtmdet_l/b2b663461420946300e2f58a059263a2db3d44a00130762d8d7c0e2770abde9e/summary.json
+    expected_status: EXACT
+
+  - run_id: d2_sota_cascade_rcnn
+    target_method: legacy_cascade_rcnn_r50
+    training_seed: 1769925607
+    replication_unit: fixed_checkpoint
+    legacy_config: experiments/configs/baselines/benchmark_24obj/cascade_rcnn_r50.py
+    legacy_config_sha256: 6d9aad591437e9730042f95f488710d94bb3280d19abeb6b4c945c63852aaf3a
+    checkpoint: work_dirs/baselines/cascade_rcnn_r50/best_coco_bbox_mAP_epoch_72.pth
+    checkpoint_sha256: f2f027542f23ef4d5095d07526b9e70e8cc627b8bd5933340946e40f5a8b0c72
+    checkpoint_tensors: 364
+    result_summary_seed42: results/paper_test_multiseed/d2_sota_cascade_rcnn/d2_sota_cascade_rcnn/dc9de20d17fbe38edb6f36262a8032f5413db919f18e82a5f74c02121dffeb85/summary.json
+    expected_status: EXACT
+
+  - run_id: d2_sota_diffusiondet
+    target_method: legacy_diffusiondet_ddpm_r50
+    training_seed: 628372310
+    replication_unit: fixed_checkpoint
+    legacy_config: experiments/configs/baselines/benchmark_24obj/diffusiondet_ddpm.py
+    legacy_config_sha256: e0d8bfd91d2833303050b2fa4fba128a8065372eb999e03d06f69c462fd657f3
+    checkpoint: work_dirs/baselines/diffusiondet_24obj/best_coco_bbox_mAP_epoch_26.pth
+    checkpoint_sha256: d943fbc12c6492f3a67a34b25c7498fdd1bce74c702246ee699772f9458b58f0
+    checkpoint_tensors: 598
+    result_summary_seed42: results/paper_test_multiseed/d2_sota_diffusiondet/d2_sota_diffusiondet/84727c4d643328dd2f74b6534cac3f6f9e8869a6153a0d5e473a33d6d355aa87/summary.json
+    expected_status: STRUCTURAL_ONLY
+    status_reason: current cleaned DDPM head does not register seven historical diffusion-schedule buffers; checkpoint has seven unexpected keys
+
+  - run_id: d2_sota_yolox_s
+    target_method: legacy_yolox_s
+    training_seed: 1769925607
+    replication_unit: fixed_checkpoint
+    legacy_config: experiments/configs/baselines/benchmark_24obj/yolox_s.py
+    legacy_config_sha256: 392bdc73c2b39a7058b23d64992efb960a8d7d95168c7efcd70f6af02fea0514
+    checkpoint: work_dirs/baselines/yolox_s/best_coco_bbox_mAP_epoch_200.pth
+    checkpoint_sha256: 0382008927696f02998ba0ea39fb2e96a130d1ec9f4e2a0c0de21ad95db258a7
+    checkpoint_tensors: 462
+    result_summary_seed42: results/paper_test_multiseed/d2_sota_yolox_s/d2_sota_yolox_s/7c7ea5f220e6da27d9cf25527438e085cbc4502f7825ea766a25252d8c95247b/summary.json
+    expected_status: EXACT
+
+  - run_id: d2_head_distill_h3_student
+    target_method: legacy_karyoflow_ot_h3_student
+    training_seed: 1858611995
+    replication_unit: single_parent_student
+    parent_run_id: d2_karyoflow_trainrun0
+    parent_checkpoint: work_dirs/a4_dpm_pp_24obj/best_coco_bbox_mAP_epoch_117.pth
+    legacy_training_config: work_dirs/h3_distill_plan_a_24obj/h3_distill_plan_a_24obj.py
+    legacy_inference_config: experiments/configs/ldmdet/directions/mainline_ablation_24obj/s1_h3_s4_24obj.py
+    legacy_inference_config_sha256: 0c43d839a319b1b19cf64203542dbf58878458bd22a5512d47294c9439484f6e
+    checkpoint: work_dirs/h3_distill_plan_a_24obj/best_coco_bbox_mAP_epoch_10.pth
+    checkpoint_sha256: 9b9ece6cb222e65dc49f4e3f2d20d57f838e8d0d4cef45c408de20ee9ea3e855
+    checkpoint_tensors: 464
+    result_summary_seed42: results/paper_test_multiseed/d2_head_student_h3/d2_head_student_h3/757522e258489f3806d87c5dcd749b14a68b857e2800490e1f044209fe8725f3/summary.json
+    expected_inference_status: STRUCTURAL_ONLY
+    expected_training_status: STRUCTURAL_ONLY
+    status_reason: training source uses argmax OT while paper inference uses multinomial OT; the paper inference source also has legacy class ordering and a validation annotation in test_evaluator, while runtime evaluation overrode it to the held-out test annotation

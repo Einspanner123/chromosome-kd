@@ -1,0 +1,15 @@
+schema_version: 1
+matrix_id: v2.d1_inhouse1700.main
+dataset_alias: d1
+dataset_config: experiments/configs/_base_/datasets/d1_inhouse1700.py
+tracker_project: KaryoFlow-Self1700-V2
+training_seeds: [42, 123, 789]
+methods:
+  - diffusiondet_ddpm
+  - dino_r50
+  - rtmdet_l
+  - cascade_rcnn_r50
+  - yolox_s
+  - rf_heun
+  - karyoflow
+  - karyoflow_lqcr

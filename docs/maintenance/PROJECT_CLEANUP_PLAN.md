@@ -98,7 +98,7 @@ Gate: imports, config audit, evidence audit, and selected tests pass.
 
 ### P2 — Canonical experiment configuration
 
-- Promote `experiments/configs/v2` to the only active configuration system.
+- Promote `experiments/configs` to the only active configuration system.
 - Remove the temporary `v2` namespace after legacy siblings are retired.
 - Keep bases, methods, matrices, ablations, deployment protocols, and manifests.
 - Keep historical checkpoint identities under compatibility manifests, not runnable

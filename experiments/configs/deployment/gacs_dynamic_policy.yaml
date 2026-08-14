@@ -1,0 +1,35 @@
+schema_version: 1
+protocol_id: v2.cross_dataset.gacs_dynamic_stepping
+protocol_type: dynamic_inference_policy
+paper_role: optional_deployment_extension
+datasets: [D1_INHOUSE1700_V2, D2]
+parent_method: karyoflow
+selection:
+  split: val
+  test_tuned: false
+  rule: freeze_each_dataset_thresholds_before_test
+reference:
+  solver_type: dpm_solver_pp
+  fixed_steps: 2
+  box_renewal: true
+policy:
+  allowed_steps: [1, 2]
+  signals: [normalized_box_displacement, class_score_change, confidence]
+  threshold_grid:
+    geometry: [0.0025, 0.005, 0.01]
+    class_change: [0.0065, 0.013, 0.026]
+    confidence: [0.6, 0.7, 0.8]
+  objective:
+    primary: minimize_mean_steps
+    constraint: validation_mAP_drop_at_most_0p001
+evaluation:
+  accuracy_split: test
+  inference_seed: 42
+  aggregate_unit: independent_training_seed
+  required_accuracy_metrics: [mAP, AP50, AP75, AP_S, AP_M, AP_L]
+  compare_against: fixed_two_step_same_parent
+  speed_protocol: experiments/configs/deployment/a6000_speed_protocol.yaml
+  persist_per_image_decisions: true
+notes:
+  - Historical thresholds are evidence only and must not be transferred to a new dataset.
+  - GACS is evaluated as dynamic deployment, never as a precision contribution.

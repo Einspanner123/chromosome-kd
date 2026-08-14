@@ -1,0 +1,9 @@
+schema_version: 1
+matrix_id: v2.d2_taichung.history_ot
+dataset_alias: d2_history
+dataset_config: experiments/configs/_base_/datasets/d2_taichung.py
+tracker_project: KaryoFlow-Dataset2-History
+training_seeds: [335778785, 790448076, 1342286018]
+methods:
+  - karyoflow_ot_legacy
+  - karyoflow_ot_lqcr_legacy

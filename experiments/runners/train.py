@@ -1,9 +1,12 @@
-"""LDMDet 训练入口
+"""Canonical MMEngine training entry point.
 
 Usage:
-    python experiments/runners/train.py experiments/configs/ldmdet/directions/nonlinear_trajectory/rf_heun_adaln.py
-    python experiments/runners/train.py experiments/configs/ldmdet/sinkhorn_stochastic.py --work-dir work_dirs/my_exp --seed 42
-    python experiments/runners/train.py experiments/configs/ldmdet/directions/nonlinear_trajectory/nonlinear_trajectory_e43_eps3.py --work-dir work_dirs/nonlinear_trajectory_e43_eps3 --resume --gpu-id 1
+    python tools/experiments/launch.py --matrix \
+        experiments/configs/matrices/d1_inhouse1700.yaml \
+        --method karyoflow --seed 42 --launch --gpu-id 0
+
+Direct invocation is reserved for a flattened ``resolved_config.py`` generated
+by ``tools/experiments/launch.py``. Do not pass method fragments directly.
 """
 
 import argparse
@@ -46,8 +49,8 @@ def _set_swanlab_name(cfg, exp_name: str):
             init_kwargs['experiment_name'] = exp_name
 
 
-def _inject_v2_tracker(cfg):
-    """Add SwanLab from recipe metadata without embedding credentials."""
+def _inject_tracker(cfg):
+    """Add SwanLab from experiment metadata without embedding credentials."""
     experiment = cfg.get('experiment', {})
     project = experiment.get('tracker_project')
     if not project:
@@ -184,7 +187,7 @@ def main():
     elif args.parent_checkpoint:
         parser.error('--parent-checkpoint is only valid for paired-child recipes')
 
-    _inject_v2_tracker(cfg)
+    _inject_tracker(cfg)
 
     # ``Runner.from_cfg`` consumes cfg.randomness; apply CLI override first.
     apply_training_seed(cfg, args.seed)

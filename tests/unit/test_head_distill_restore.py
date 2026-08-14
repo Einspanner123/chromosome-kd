@@ -4,7 +4,7 @@ import torch
 
 from ldmdet.core.head import DiffusionDetHead
 from ldmdet.core.single_head import SingleDiffusionDetHead
-from tools.experiments.v2_matrix import resolve_config, scientific_hash
+from tools.experiments.matrix import resolve_config, scientific_hash
 
 
 def make_head(num_heads, use_distillation=False):
@@ -69,7 +69,7 @@ def test_teacher_follows_student_dtype_conversion():
 
 
 def test_parent_checkpoint_uses_teacher_binding_without_changing_science_hash():
-    matrix = 'experiments/configs/v2/matrices/d2_taichung_head_distill.yaml'
+    matrix = 'experiments/configs/matrices/d2_taichung_head_distill.yaml'
     base, _ = resolve_config(
         matrix, 'karyoflow_ot_h3_distill', 335778785)
     bound, _ = resolve_config(

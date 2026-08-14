@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "plan_id": "repo-cleanup-20260815",
+  "phase": "P2",
+  "configuration_root": "experiments/configs",
+  "manifest_root": "experiments/manifests",
+  "tracked_configuration_files": {
+    "before": 277,
+    "after": 91,
+    "removed_or_consolidated": 186
+  },
+  "active_inventory": {
+    "base_files": 42,
+    "methods": 22,
+    "matrices": 14,
+    "ablation_protocols": 8,
+    "deployment_protocols": 4
+  },
+  "gates": {
+    "config_roundtrip": {"status": "PASS", "combinations": 38},
+    "model_build": {"status": "PASS", "combinations": 38},
+    "generation_ablation": {"status": "PASS", "stages": 4},
+    "inference_protocols": {"status": "PASS", "variants": 76},
+    "deployment_protocols": {"status": "PASS", "protocols": 8},
+    "legacy_compatibility": {"status": "PASS", "mappings": 13},
+    "canonical_config_tests": {"status": "PASS", "tests": 6},
+    "evidence_database": {"status": "PASS", "controlled": 1318, "diagnostic": 166},
+    "paper_route_matrix": {
+      "status": "PASS",
+      "groups": 46,
+      "expanded_runs": 261,
+      "manifest_sha256": "a97d19dc0e62d9fd95226ff7d4ec4aad67f05aa05793bb4e9c4c0cc4fed203e4",
+      "artifact_id": "paper-route-matrix-v2-a97d19dc0e62"
+    }
+  },
+  "historical_source_policy": {
+    "git_ref": "refs/tags/archive/pre-cleanup-20260815",
+    "active_legacy_methods_are_checkpoint_compatibility_only": true,
+    "immutable_compatibility_reports_rewritten": false
+  }
+}
