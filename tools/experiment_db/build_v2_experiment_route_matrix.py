@@ -28,12 +28,22 @@ DB = ROOT / "tools/experiment_db/experiments.db"
 D1_MATRIX = "experiments/configs/v2/matrices/d1_inhouse1700.yaml"
 D2_MATRIX = "experiments/configs/v2/matrices/d2_taichung.yaml"
 D2_HISTORY_MATRIX = "experiments/configs/v2/matrices/d2_taichung_history.yaml"
+D1_GENERATION_MATRIX = "experiments/configs/v2/matrices/d1_inhouse1700_generation_ablation.yaml"
+D2_GENERATION_MATRIX = "experiments/configs/v2/matrices/d2_taichung_generation_ablation.yaml"
+D2_SOTA_COMPLETION_MATRIX = "experiments/configs/v2/matrices/d2_taichung_sota_completion.yaml"
 
 METHODS = {
     "diffusiondet": "experiments/configs/v2/methods/diffusiondet_ddpm.py",
     "rf_heun": "experiments/configs/v2/methods/rf_heun.py",
     "karyoflow": "experiments/configs/v2/methods/karyoflow.py",
     "karyoflow_lqcr": "experiments/configs/v2/methods/karyoflow_lqcr.py",
+    "dino_r50": "experiments/configs/v2/methods/dino_r50.py",
+    "rtmdet_l": "experiments/configs/v2/methods/rtmdet_l.py",
+    "cascade_rcnn_r50": "experiments/configs/v2/methods/cascade_rcnn_r50.py",
+    "yolox_s": "experiments/configs/v2/methods/yolox_s.py",
+    "strict_g0": "experiments/configs/v2/methods/strict_g0_ddpm_linear_scaleshift.py",
+    "strict_g1": "experiments/configs/v2/methods/strict_g1_rf_linear_scaleshift.py",
+    "strict_g2": "experiments/configs/v2/methods/strict_g2_rf_shifted_scaleshift.py",
 }
 
 D2_LEGACY = {
@@ -72,72 +82,74 @@ D2_LEGACY = {
 STATUS_OVERRIDE = {
     "D1I.SOTA.karyoflow": "PLANNED",
     "D1I.SOTA.diffusiondet": "PLANNED",
-    "D1I.SOTA.dino_r50": "BLOCKED_CONFIG",
-    "D1I.SOTA.rtmdet_l": "BLOCKED_CONFIG",
-    "D1I.SOTA.cascade_rcnn_r50": "BLOCKED_CONFIG",
-    "D1I.SOTA.yolox_s": "BLOCKED_CONFIG",
+    "D1I.SOTA.dino_r50": "PLANNED",
+    "D1I.SOTA.rtmdet_l": "PLANNED",
+    "D1I.SOTA.cascade_rcnn_r50": "PLANNED",
+    "D1I.SOTA.yolox_s": "PLANNED",
     "D1I.SOTA.karyoflow_lqcr": "BLOCKED_PARENT",
-    "D1I.ABL.G0": "BLOCKED_CONFIG",
-    "D1I.ABL.G1": "BLOCKED_CONFIG",
-    "D1I.ABL.G2": "BLOCKED_CONFIG",
+    "D1I.ABL.G0": "PLANNED",
+    "D1I.ABL.G1": "PLANNED",
+    "D1I.ABL.G2": "PLANNED",
     "D1I.ABL.G3": "PLANNED",
     "D1I.INF.solver_steps": "BLOCKED_PARENT",
     "D1I.INF.topk_renewal": "BLOCKED_PARENT",
     "D1I.DEC.beta_val": "BLOCKED_PARENT",
     "D1I.DEC.strict_subsets": "BLOCKED_PREDICTIONS",
     "D1I.DEP.distill_h3": "BLOCKED_IMPLEMENTATION",
-    "D1I.DEP.GACS": "BLOCKED_CONFIG",
+    "D1I.DEP.GACS": "BLOCKED_PARENT",
     "D1I.DEP.speed": "BLOCKED_CHECKPOINTS",
-    "D2.SOTA.diffusiondet.missing_train2": "BLOCKED_MATRIX",
-    "D2.SOTA.dino_r50.missing_train2": "BLOCKED_MATRIX",
-    "D2.SOTA.rtmdet_l.missing_train2": "BLOCKED_MATRIX",
-    "D2.SOTA.cascade_rcnn_r50.missing_train2": "BLOCKED_MATRIX",
-    "D2.SOTA.yolox_s.missing_train2": "BLOCKED_MATRIX",
-    "D2.ABL.strict.G0": "BLOCKED_CONFIG",
-    "D2.ABL.strict.G1": "BLOCKED_CONFIG",
-    "D2.ABL.strict.G2": "BLOCKED_CONFIG",
-    "D2.INF.solver_steps.train3": "BLOCKED_PROTOCOL",
-    "D2.INF.topk_renewal.train3": "BLOCKED_PROTOCOL",
+    "D2.SOTA.diffusiondet.missing_train2": "PLANNED",
+    "D2.SOTA.dino_r50.missing_train2": "PLANNED",
+    "D2.SOTA.rtmdet_l.missing_train2": "PLANNED",
+    "D2.SOTA.cascade_rcnn_r50.missing_train2": "PLANNED",
+    "D2.SOTA.yolox_s.missing_train2": "PLANNED",
+    "D2.ABL.strict.G0": "PLANNED",
+    "D2.ABL.strict.G1": "PLANNED",
+    "D2.ABL.strict.G2": "PLANNED",
+    "D2.INF.solver_steps.train3": "PLANNED",
+    "D2.INF.topk_renewal.train3": "PLANNED",
     "D2.DEP.distill_h3.existing": "COMPLETED_EVIDENCE_ONLY",
     "D2.DEP.distill_h3.train3": "BLOCKED_IMPLEMENTATION",
 }
 
 PROTOCOLS = {
-    "D1I.INF.solver_steps": "experiments/configs/v2/ablations/d2_solver_test.yaml",
-    "D1I.INF.topk_renewal": "experiments/configs/v2/ablations/d2_topk_renewal_test.yaml",
-    "D1I.DEC.beta_val": "experiments/configs/v2/ablations/d2_lqcr_beta_test.yaml",
+    "D1I.INF.solver_steps": "experiments/configs/v2/ablations/d1_solver_test.yaml",
+    "D1I.INF.topk_renewal": "experiments/configs/v2/ablations/d1_topk_renewal_test.yaml",
+    "D1I.DEC.beta_val": "experiments/configs/v2/ablations/d1_lqcr_beta_val.yaml",
     "D1I.DEC.strict_subsets": "tools/experiment_db/protocols/d2_difficulty_strata.json",
     "D1I.DEP.speed": "experiments/configs/v2/deployment/a6000_speed_protocol.yaml",
+    "D1I.DEP.GACS": "experiments/configs/v2/deployment/gacs_dynamic_policy.yaml",
     "D2.INF.solver_steps.fixed1": "experiments/configs/v2/ablations/d2_solver_test.yaml",
-    "D2.INF.solver_steps.train3": "experiments/configs/v2/ablations/d2_solver_test.yaml",
+    "D2.INF.solver_steps.train3": "experiments/configs/v2/ablations/d2_solver_train3_test.yaml",
     "D2.INF.topk_renewal.fixed1": "experiments/configs/v2/ablations/d2_topk_renewal_test.yaml",
-    "D2.INF.topk_renewal.train3": "experiments/configs/v2/ablations/d2_topk_renewal_test.yaml",
+    "D2.INF.topk_renewal.train3": "experiments/configs/v2/ablations/d2_topk_renewal_train3_test.yaml",
     "D2.DEC.beta_test.fixed1": "experiments/configs/v2/ablations/d2_lqcr_beta_test.yaml",
     "D2.DEC.strict_subsets": "tools/experiment_db/protocols/d2_difficulty_strata.json",
     "D2.DEP.speed": "experiments/configs/v2/deployment/a6000_speed_protocol.yaml",
+    "D2.DEP.GACS": "experiments/configs/v2/deployment/gacs_dynamic_policy.yaml",
 }
 
 CONFIG_STATE_OVERRIDE = {
-    "D1I.SOTA.dino_r50": "TO_MIGRATE",
-    "D1I.SOTA.rtmdet_l": "TO_MIGRATE",
-    "D1I.SOTA.cascade_rcnn_r50": "TO_MIGRATE",
-    "D1I.SOTA.yolox_s": "TO_MIGRATE",
-    "D1I.ABL.G0": "TO_CREATE_STRICT",
-    "D1I.ABL.G1": "TO_CREATE_STRICT",
-    "D1I.ABL.G2": "TO_CREATE_STRICT",
+    "D1I.SOTA.dino_r50": "READY",
+    "D1I.SOTA.rtmdet_l": "READY",
+    "D1I.SOTA.cascade_rcnn_r50": "READY",
+    "D1I.SOTA.yolox_s": "READY",
+    "D1I.ABL.G0": "READY",
+    "D1I.ABL.G1": "READY",
+    "D1I.ABL.G2": "READY",
     "D1I.DEP.distill_h3": "IMPLEMENTATION_MISSING",
-    "D1I.DEP.GACS": "TO_MIGRATE",
-    "D1I.INF.solver_steps": "DATASET_ADAPTATION_REQUIRED",
-    "D1I.INF.topk_renewal": "DATASET_ADAPTATION_REQUIRED",
-    "D1I.DEC.beta_val": "DATASET_ADAPTATION_REQUIRED",
+    "D1I.DEP.GACS": "PROTOCOL_READY_PARENT_PENDING",
+    "D1I.INF.solver_steps": "PROTOCOL_READY_PARENT_PENDING",
+    "D1I.INF.topk_renewal": "PROTOCOL_READY_PARENT_PENDING",
+    "D1I.DEC.beta_val": "PROTOCOL_READY_PARENT_PENDING",
     "D1I.DEC.strict_subsets": "DATASET_ADAPTATION_REQUIRED",
-    "D2.ABL.strict.G0": "TO_CREATE_STRICT",
-    "D2.ABL.strict.G1": "TO_CREATE_STRICT",
-    "D2.ABL.strict.G2": "TO_CREATE_STRICT",
+    "D2.ABL.strict.G0": "READY",
+    "D2.ABL.strict.G1": "READY",
+    "D2.ABL.strict.G2": "READY",
     "D2.DEP.distill_h3.train3": "IMPLEMENTATION_MISSING",
-    "D2.DEP.GACS": "LEGACY_PARTIAL",
-    "D2.INF.solver_steps.train3": "PROTOCOL_EXTENSION_REQUIRED",
-    "D2.INF.topk_renewal.train3": "PROTOCOL_EXTENSION_REQUIRED",
+    "D2.DEP.GACS": "PROTOCOL_READY",
+    "D2.INF.solver_steps.train3": "PROTOCOL_READY",
+    "D2.INF.topk_renewal.train3": "PROTOCOL_READY",
 }
 
 NOTES_OVERRIDE = {
@@ -171,8 +183,16 @@ def config_for(row: dict) -> tuple[str, str, str, str]:
         method = METHODS["diffusiondet"]
     elif rid == "D1I.SOTA.karyoflow_lqcr":
         method = METHODS["karyoflow_lqcr"]
-    elif rid.startswith("D1I.ABL.G1"):
-        method = METHODS["rf_heun"]
+    elif rid.startswith("D1I.SOTA.") and variant in METHODS:
+        method = METHODS[variant]
+    elif rid in {"D1I.ABL.G0", "D1I.ABL.G1", "D1I.ABL.G2"}:
+        stage = rid.rsplit('.', 1)[-1].lower()
+        method = METHODS[f"strict_{stage}"]
+        matrix = D1_GENERATION_MATRIX
+    elif rid.startswith("D1I.INF.") or rid == "D1I.DEC.beta_val":
+        method = METHODS["karyoflow_lqcr" if rid == "D1I.DEC.beta_val" else "karyoflow"]
+    elif rid == "D1I.DEP.GACS":
+        method = METHODS["karyoflow"]
     elif rid.startswith("D2.SOTA.karyoflow_lqcr"):
         method = "experiments/configs/v2/methods/karyoflow_ot_lqcr_legacy.py"
         matrix = D2_HISTORY_MATRIX
@@ -182,12 +202,19 @@ def config_for(row: dict) -> tuple[str, str, str, str]:
         matrix = D2_HISTORY_MATRIX
         state = "EXACT"
     elif rid.startswith("D2.SOTA.") and variant in D2_LEGACY:
-        method, history_matrix, _, compatibility = D2_LEGACY[variant]
-        matrix = history_matrix
         if rid.endswith(".existing"):
+            method, history_matrix, _, compatibility = D2_LEGACY[variant]
+            matrix = history_matrix
             state = compatibility
         else:
-            state = "MATRIX_EXTENSION_REQUIRED"
+            method = METHODS[variant]
+            matrix = D2_SOTA_COMPLETION_MATRIX
+            state = "READY"
+    elif rid in {"D2.ABL.strict.G0", "D2.ABL.strict.G1", "D2.ABL.strict.G2"}:
+        stage = rid.rsplit('.', 1)[-1].lower()
+        method = METHODS[f"strict_{stage}"]
+        matrix = D2_GENERATION_MATRIX
+        state = "READY"
     elif rid == "D2.ABL.historical_chain":
         protocol = "experiments/configs/v2/manifests/d2_paper_experiment_inventory.yaml"
         state = "MIGRATED_MIXED_HISTORY"
@@ -199,6 +226,10 @@ def config_for(row: dict) -> tuple[str, str, str, str]:
     elif rid == "D2.DEP.distill_h3.train3":
         method = ""
         protocol = "experiments/configs/v2/deployment/h3_distillation_training_archive.yaml"
+    elif rid == "D2.DEP.GACS":
+        method = "experiments/configs/v2/methods/karyoflow_ot_legacy.py"
+        matrix = D2_HISTORY_MATRIX
+        state = "PROTOCOL_READY"
     elif rid.startswith("D2.INF.") or rid.startswith("D2.DEC.") or rid == "D2.DEP.speed":
         method = "experiments/configs/v2/methods/karyoflow_ot_legacy.py"
         matrix = D2_HISTORY_MATRIX

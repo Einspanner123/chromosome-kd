@@ -1,0 +1,29 @@
+schema_version: 1
+protocol_id: v2.d1.karyoflow_lqcr.beta.val
+protocol_type: validation_selection
+dataset_id: D1_INHOUSE1700_V2
+split: val
+inference_seed: 42
+selection:
+  split: val
+  test_tuned: false
+  rule: maximize_coco_bbox_mAP_then_lock_once
+base:
+  matrix: experiments/configs/v2/matrices/d1_inhouse1700.yaml
+  method: karyoflow_lqcr
+  config_id: v2.d1.karyoflow_lqcr_r50.train
+  checkpoint_source:
+    type: paired_child_run_registry
+    parent_training_seeds: [42, 123, 789]
+intervention:
+  scope: model.bbox_head
+  fixed_overrides:
+    quality_calibration_mode: final_only
+  factors:
+    quality_score_beta: [0.0, 0.25, 0.5, 1.0, 2.0]
+  product: true
+  variant_id: "beta_{quality_score_beta:decimal_p}"
+evaluation:
+  aggregate_unit: paired_parent_training_seed
+  required_metrics: [mAP, AP50, AP75, AP90, AP95, AP_S, AP_M, AP_L]
+  paper_eligible: false

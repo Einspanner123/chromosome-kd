@@ -10,8 +10,22 @@ matrices while preserving native MMEngine execution.
 - `methods`: dataset-independent model plus schedule definitions.
 - `matrices`: dataset, methods, training seeds, and tracking namespace.
 - `manifests`: generated catalog of resolved matrix-method combinations.
-- `ablations`: registered single-variable interventions (future).
-- `deployment`: compression and dynamic inference definitions (future).
+- `ablations`: split-aware inference or selection protocols; these never
+  masquerade as independently trained methods.
+- `deployment`: hardware-locked efficiency and dynamic-compute protocols.
+
+The active configuration layers are:
+
+1. `methods/*.py`: dataset-independent trainable scientific identities.
+2. `matrices/*.yaml`: dataset, tracking namespace, methods, and training seeds.
+3. `ablations/*.yaml`: fixed-checkpoint inference grids and validation-only
+   selection grids.
+4. `manifests/paper_experiment_route_matrix.yaml`: the authoritative mapping
+   from every required experiment to its method, matrix, protocol, output, and
+   database family.
+
+Files containing `_legacy` are immutable compatibility snapshots for existing
+checkpoints. New training must use a canonical method without that suffix.
 
 The YAML matrix is an orchestration document, not an MMEngine config. The
 resolver combines one dataset, one method, and the shared runtime, then writes

@@ -1,0 +1,14 @@
+schema_version: 1
+matrix_id: v2.d2_taichung.sota_completion
+dataset_alias: d2_sota_completion
+dataset_config: experiments/configs/v2/_base_/datasets/d2_taichung.py
+tracker_project: KaryoFlow-Dataset2-V2-SOTA
+# Seed 42 is the existing point-estimate run; this matrix schedules only the
+# two missing independent replications required by the route matrix.
+training_seeds: [123, 789]
+methods:
+  - diffusiondet_ddpm
+  - dino_r50
+  - rtmdet_l
+  - cascade_rcnn_r50
+  - yolox_s

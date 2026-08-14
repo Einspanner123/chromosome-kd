@@ -1,0 +1,11 @@
+schema_version: 1
+matrix_id: v2.d1_inhouse1700.generation_ablation
+dataset_alias: d1_generation
+dataset_config: experiments/configs/v2/_base_/datasets/d1_inhouse1700.py
+tracker_project: KaryoFlow-Self1700-V2-Ablation
+training_seeds: [42, 123, 789]
+methods:
+  - strict_g0_ddpm_linear_scaleshift
+  - strict_g1_rf_linear_scaleshift
+  - strict_g2_rf_shifted_scaleshift
+  - karyoflow

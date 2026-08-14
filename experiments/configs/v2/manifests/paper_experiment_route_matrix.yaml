@@ -117,7 +117,7 @@ experiments:
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: BLOCKED_CONFIG
+  status: PLANNED
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: d1-inhouse1700-v1__dino_r50__trainseed-42__02519716b443;d1-inhouse1700-v1__dino_r50__trainseed-123__02519716b443;d1-inhouse1700-v1__dino_r50__trainseed-789__02519716b443
@@ -125,10 +125,10 @@ experiments:
   variant: dino_r50
   legacy_config_path: experiments/configs/self1700/dino_r50.py
   legacy_config_status: exists
-  method_config: ''
+  method_config: experiments/configs/v2/methods/dino_r50.py
   matrix_config: experiments/configs/v2/matrices/d1_inhouse1700.yaml
   protocol_config: ''
-  config_state: TO_MIGRATE
+  config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
   output_template: work_dirs/v2/d1_inhouse1700/dino_r50/trainseed_{training_seed}
   database_ids:
@@ -150,7 +150,7 @@ experiments:
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: BLOCKED_CONFIG
+  status: PLANNED
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: d1-inhouse1700-v1__rtmdet_l__trainseed-42__c65dc5e0e455;d1-inhouse1700-v1__rtmdet_l__trainseed-123__c65dc5e0e455;d1-inhouse1700-v1__rtmdet_l__trainseed-789__c65dc5e0e455
@@ -158,10 +158,10 @@ experiments:
   variant: rtmdet_l
   legacy_config_path: experiments/configs/self1700/rtmdet_l.py
   legacy_config_status: exists
-  method_config: ''
+  method_config: experiments/configs/v2/methods/rtmdet_l.py
   matrix_config: experiments/configs/v2/matrices/d1_inhouse1700.yaml
   protocol_config: ''
-  config_state: TO_MIGRATE
+  config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
   output_template: work_dirs/v2/d1_inhouse1700/rtmdet_l/trainseed_{training_seed}
   database_ids:
@@ -183,7 +183,7 @@ experiments:
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: BLOCKED_CONFIG
+  status: PLANNED
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: d1-inhouse1700-v1__cascade_rcnn_r50__trainseed-42__ff33c17c2649;d1-inhouse1700-v1__cascade_rcnn_r50__trainseed-123__ff33c17c2649;d1-inhouse1700-v1__cascade_rcnn_r50__trainseed-789__ff33c17c2649
@@ -191,10 +191,10 @@ experiments:
   variant: cascade_rcnn_r50
   legacy_config_path: experiments/configs/self1700/cascade_rcnn_r50.py
   legacy_config_status: exists
-  method_config: ''
+  method_config: experiments/configs/v2/methods/cascade_rcnn_r50.py
   matrix_config: experiments/configs/v2/matrices/d1_inhouse1700.yaml
   protocol_config: ''
-  config_state: TO_MIGRATE
+  config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
   output_template: work_dirs/v2/d1_inhouse1700/cascade_rcnn_r50/trainseed_{training_seed}
   database_ids:
@@ -216,7 +216,7 @@ experiments:
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: BLOCKED_CONFIG
+  status: PLANNED
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: d1-inhouse1700-v1__yolox_s__trainseed-42__df342a7930d9;d1-inhouse1700-v1__yolox_s__trainseed-123__df342a7930d9;d1-inhouse1700-v1__yolox_s__trainseed-789__df342a7930d9
@@ -224,10 +224,10 @@ experiments:
   variant: yolox_s
   legacy_config_path: experiments/configs/self1700/yolox_s.py
   legacy_config_status: exists
-  method_config: ''
+  method_config: experiments/configs/v2/methods/yolox_s.py
   matrix_config: experiments/configs/v2/matrices/d1_inhouse1700.yaml
   protocol_config: ''
-  config_state: TO_MIGRATE
+  config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
   output_template: work_dirs/v2/d1_inhouse1700/yolox_s/trainseed_{training_seed}
   database_ids:
@@ -282,7 +282,7 @@ experiments:
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: BLOCKED_CONFIG
+  status: PLANNED
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: ''
@@ -290,10 +290,10 @@ experiments:
   variant: DDPM_linear_scaleshift
   legacy_config_path: experiments/configs/self1700/ablations/g0_ddpm_batch2.py
   legacy_config_status: to_create
-  method_config: ''
-  matrix_config: experiments/configs/v2/matrices/d1_inhouse1700.yaml
+  method_config: experiments/configs/v2/methods/strict_g0_ddpm_linear_scaleshift.py
+  matrix_config: experiments/configs/v2/matrices/d1_inhouse1700_generation_ablation.yaml
   protocol_config: ''
-  config_state: TO_CREATE_STRICT
+  config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
   output_template: work_dirs/v2/d1_inhouse1700/ablations/g0/trainseed_{training_seed}
   database_ids:
@@ -315,7 +315,7 @@ experiments:
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: BLOCKED_CONFIG
+  status: PLANNED
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: ''
@@ -323,10 +323,10 @@ experiments:
   variant: RF_linear_scaleshift
   legacy_config_path: experiments/configs/self1700/ablations/g1_rf_linear_scaleshift.py
   legacy_config_status: to_create
-  method_config: experiments/configs/v2/methods/rf_heun.py
-  matrix_config: experiments/configs/v2/matrices/d1_inhouse1700.yaml
+  method_config: experiments/configs/v2/methods/strict_g1_rf_linear_scaleshift.py
+  matrix_config: experiments/configs/v2/matrices/d1_inhouse1700_generation_ablation.yaml
   protocol_config: ''
-  config_state: TO_CREATE_STRICT
+  config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
   output_template: work_dirs/v2/d1_inhouse1700/ablations/g1/trainseed_{training_seed}
   database_ids:
@@ -348,7 +348,7 @@ experiments:
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: BLOCKED_CONFIG
+  status: PLANNED
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: ''
@@ -356,10 +356,10 @@ experiments:
   variant: RF_shifted_scaleshift
   legacy_config_path: experiments/configs/self1700/ablations/g2_rf_shifted_scaleshift.py
   legacy_config_status: to_create
-  method_config: ''
-  matrix_config: experiments/configs/v2/matrices/d1_inhouse1700.yaml
+  method_config: experiments/configs/v2/methods/strict_g2_rf_shifted_scaleshift.py
+  matrix_config: experiments/configs/v2/matrices/d1_inhouse1700_generation_ablation.yaml
   protocol_config: ''
-  config_state: TO_CREATE_STRICT
+  config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
   output_template: work_dirs/v2/d1_inhouse1700/ablations/g2/trainseed_{training_seed}
   database_ids:
@@ -422,10 +422,10 @@ experiments:
   variant: Euler_Heun_DPMpp_x_steps1to4
   legacy_config_path: tools/experiment_db/test_inference_ablations.py
   legacy_config_status: parameterize_for_d1i
-  method_config: ''
+  method_config: experiments/configs/v2/methods/karyoflow.py
   matrix_config: experiments/configs/v2/matrices/d1_inhouse1700.yaml
-  protocol_config: experiments/configs/v2/ablations/d2_solver_test.yaml
-  config_state: DATASET_ADAPTATION_REQUIRED
+  protocol_config: experiments/configs/v2/ablations/d1_solver_test.yaml
+  config_state: PROTOCOL_READY_PARENT_PENDING
   server_plan: accuracy:any idle GPU; efficiency=ross:A6000:0 only
   output_template: results/v2/d1_inhouse1700/inference/solver/{parent}/{solver}_{steps}
   database_ids:
@@ -455,10 +455,10 @@ experiments:
   variant: TopK_x_renewal
   legacy_config_path: tools/experiment_db/test_inference_ablations.py
   legacy_config_status: parameterize_for_d1i
-  method_config: ''
+  method_config: experiments/configs/v2/methods/karyoflow.py
   matrix_config: experiments/configs/v2/matrices/d1_inhouse1700.yaml
-  protocol_config: experiments/configs/v2/ablations/d2_topk_renewal_test.yaml
-  config_state: DATASET_ADAPTATION_REQUIRED
+  protocol_config: experiments/configs/v2/ablations/d1_topk_renewal_test.yaml
+  config_state: PROTOCOL_READY_PARENT_PENDING
   server_plan: accuracy:any idle GPU; efficiency=ross:A6000:0 only
   output_template: results/v2/d1_inhouse1700/inference/topk_renewal/{parent}/k{K}_{renewal}
   database_ids:
@@ -488,10 +488,10 @@ experiments:
   variant: LQCR_beta_0_0.25_0.5_1_2
   legacy_config_path: tools/experiment_db/test_inference_ablations.py
   legacy_config_status: parameterize_for_d1i
-  method_config: ''
+  method_config: experiments/configs/v2/methods/karyoflow_lqcr.py
   matrix_config: experiments/configs/v2/matrices/d1_inhouse1700.yaml
-  protocol_config: experiments/configs/v2/ablations/d2_lqcr_beta_test.yaml
-  config_state: DATASET_ADAPTATION_REQUIRED
+  protocol_config: experiments/configs/v2/ablations/d1_lqcr_beta_val.yaml
+  config_state: PROTOCOL_READY_PARENT_PENDING
   server_plan: accuracy:any idle GPU; efficiency=ross:A6000:0 only
   output_template: results/v2/d1_inhouse1700/lqcr_beta_val/{parent}/beta_{beta}
   database_ids:
@@ -579,7 +579,7 @@ experiments:
   priority: P2
   replication_unit: fixed_checkpoint_by_training_parent
   run_count: 3
-  status: BLOCKED_CONFIG
+  status: BLOCKED_PARENT
   swanlab_project: ''
   swanlab_run_template: ''
   train_run_ids: ''
@@ -587,10 +587,10 @@ experiments:
   variant: GACS
   legacy_config_path: experiments/configs/self1700/deployment/gacs.py
   legacy_config_status: to_create_or_port
-  method_config: ''
+  method_config: experiments/configs/v2/methods/karyoflow.py
   matrix_config: experiments/configs/v2/matrices/d1_inhouse1700.yaml
-  protocol_config: ''
-  config_state: TO_MIGRATE
+  protocol_config: experiments/configs/v2/deployment/gacs_dynamic_policy.yaml
+  config_state: PROTOCOL_READY_PARENT_PENDING
   server_plan: accuracy:any; latency=ross:A6000:0
   output_template: results/v2/d1_inhouse1700/deployment/gacs/{parent}
   database_ids:
@@ -744,17 +744,17 @@ experiments:
   priority: P1
   replication_unit: independent_training_seed
   run_count: 2
-  status: BLOCKED_MATRIX
+  status: PLANNED
   swanlab_project: KaryoFlow-Dataset2-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 123,789
   variant: diffusiondet
   legacy_config_path: experiments/configs/baselines/benchmark_24obj/diffusiondet_ddpm.py
   legacy_config_status: exists
-  method_config: experiments/configs/v2/methods/diffusiondet_ddpm_legacy.py
-  matrix_config: experiments/configs/v2/matrices/d2_diffusiondet_history.yaml
+  method_config: experiments/configs/v2/methods/diffusiondet_ddpm.py
+  matrix_config: experiments/configs/v2/matrices/d2_taichung_sota_completion.yaml
   protocol_config: ''
-  config_state: MATRIX_EXTENSION_REQUIRED
+  config_state: READY
   server_plan: 123=workstation:A5000:0;789=ross:A6000:0 (A4000 for lighter model if exact config fits)
   output_template: work_dirs/v2/d2_taichung/sota_completion/diffusiondet/trainseed_{training_seed}
   database_ids:
@@ -809,17 +809,17 @@ experiments:
   priority: P1
   replication_unit: independent_training_seed
   run_count: 2
-  status: BLOCKED_MATRIX
+  status: PLANNED
   swanlab_project: KaryoFlow-Dataset2-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 123,789
   variant: dino_r50
   legacy_config_path: experiments/configs/baselines/benchmark_24obj/dino_r50.py
   legacy_config_status: exists
-  method_config: experiments/configs/v2/methods/dino_r50_legacy.py
-  matrix_config: experiments/configs/v2/matrices/d2_dino_rtmdet_history.yaml
+  method_config: experiments/configs/v2/methods/dino_r50.py
+  matrix_config: experiments/configs/v2/matrices/d2_taichung_sota_completion.yaml
   protocol_config: ''
-  config_state: MATRIX_EXTENSION_REQUIRED
+  config_state: READY
   server_plan: 123=workstation:A5000:0;789=ross:A6000:0 (A4000 for lighter model if exact config fits)
   output_template: work_dirs/v2/d2_taichung/sota_completion/dino_r50/trainseed_{training_seed}
   database_ids:
@@ -874,17 +874,17 @@ experiments:
   priority: P1
   replication_unit: independent_training_seed
   run_count: 2
-  status: BLOCKED_MATRIX
+  status: PLANNED
   swanlab_project: KaryoFlow-Dataset2-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 123,789
   variant: rtmdet_l
   legacy_config_path: experiments/configs/baselines/benchmark_24obj/rtmdet_l.py
   legacy_config_status: exists
-  method_config: experiments/configs/v2/methods/rtmdet_l_legacy.py
-  matrix_config: experiments/configs/v2/matrices/d2_dino_rtmdet_history.yaml
+  method_config: experiments/configs/v2/methods/rtmdet_l.py
+  matrix_config: experiments/configs/v2/matrices/d2_taichung_sota_completion.yaml
   protocol_config: ''
-  config_state: MATRIX_EXTENSION_REQUIRED
+  config_state: READY
   server_plan: 123=workstation:A5000:0;789=ross:A6000:0 (A4000 for lighter model if exact config fits)
   output_template: work_dirs/v2/d2_taichung/sota_completion/rtmdet_l/trainseed_{training_seed}
   database_ids:
@@ -939,17 +939,17 @@ experiments:
   priority: P1
   replication_unit: independent_training_seed
   run_count: 2
-  status: BLOCKED_MATRIX
+  status: PLANNED
   swanlab_project: KaryoFlow-Dataset2-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 123,789
   variant: cascade_rcnn_r50
   legacy_config_path: experiments/configs/baselines/benchmark_24obj/cascade_rcnn_r50.py
   legacy_config_status: exists
-  method_config: experiments/configs/v2/methods/cascade_rcnn_r50_legacy.py
-  matrix_config: experiments/configs/v2/matrices/d2_cascade_history.yaml
+  method_config: experiments/configs/v2/methods/cascade_rcnn_r50.py
+  matrix_config: experiments/configs/v2/matrices/d2_taichung_sota_completion.yaml
   protocol_config: ''
-  config_state: MATRIX_EXTENSION_REQUIRED
+  config_state: READY
   server_plan: 123=workstation:A5000:0;789=ross:A6000:0 (A4000 for lighter model if exact config fits)
   output_template: work_dirs/v2/d2_taichung/sota_completion/cascade_rcnn_r50/trainseed_{training_seed}
   database_ids:
@@ -1004,17 +1004,17 @@ experiments:
   priority: P1
   replication_unit: independent_training_seed
   run_count: 2
-  status: BLOCKED_MATRIX
+  status: PLANNED
   swanlab_project: KaryoFlow-Dataset2-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 123,789
   variant: yolox_s
   legacy_config_path: experiments/configs/baselines/benchmark_24obj/yolox_s.py
   legacy_config_status: exists
-  method_config: experiments/configs/v2/methods/yolox_s_legacy.py
-  matrix_config: experiments/configs/v2/matrices/d2_yolox_history.yaml
+  method_config: experiments/configs/v2/methods/yolox_s.py
+  matrix_config: experiments/configs/v2/matrices/d2_taichung_sota_completion.yaml
   protocol_config: ''
-  config_state: MATRIX_EXTENSION_REQUIRED
+  config_state: READY
   server_plan: 123=workstation:A5000:0;789=ross:A6000:0 (A4000 for lighter model if exact config fits)
   output_template: work_dirs/v2/d2_taichung/sota_completion/yolox_s/trainseed_{training_seed}
   database_ids:
@@ -1068,17 +1068,17 @@ experiments:
   priority: P2
   replication_unit: independent_training_seed
   run_count: 3
-  status: BLOCKED_CONFIG
+  status: PLANNED
   swanlab_project: KaryoFlow-Dataset2-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
   variant: DDPM_linear_scaleshift
   legacy_config_path: experiments/configs/d2_strict_ablations/g0_ddpm_batch2.py
   legacy_config_status: to_create
-  method_config: ''
-  matrix_config: experiments/configs/v2/matrices/d2_taichung.yaml
+  method_config: experiments/configs/v2/methods/strict_g0_ddpm_linear_scaleshift.py
+  matrix_config: experiments/configs/v2/matrices/d2_taichung_generation_ablation.yaml
   protocol_config: ''
-  config_state: TO_CREATE_STRICT
+  config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
   output_template: work_dirs/v2/d2_taichung/strict_generation/g0/trainseed_{training_seed}
   database_ids:
@@ -1100,17 +1100,17 @@ experiments:
   priority: P2
   replication_unit: independent_training_seed
   run_count: 3
-  status: BLOCKED_CONFIG
+  status: PLANNED
   swanlab_project: KaryoFlow-Dataset2-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
   variant: RF_linear_scaleshift
   legacy_config_path: experiments/configs/d2_strict_ablations/g1_rf_linear_scaleshift.py
   legacy_config_status: to_create
-  method_config: ''
-  matrix_config: experiments/configs/v2/matrices/d2_taichung.yaml
+  method_config: experiments/configs/v2/methods/strict_g1_rf_linear_scaleshift.py
+  matrix_config: experiments/configs/v2/matrices/d2_taichung_generation_ablation.yaml
   protocol_config: ''
-  config_state: TO_CREATE_STRICT
+  config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
   output_template: work_dirs/v2/d2_taichung/strict_generation/g1/trainseed_{training_seed}
   database_ids:
@@ -1132,17 +1132,17 @@ experiments:
   priority: P2
   replication_unit: independent_training_seed
   run_count: 3
-  status: BLOCKED_CONFIG
+  status: PLANNED
   swanlab_project: KaryoFlow-Dataset2-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
   variant: RF_shifted_scaleshift
   legacy_config_path: experiments/configs/d2_strict_ablations/g2_rf_shifted_scaleshift.py
   legacy_config_status: to_create
-  method_config: ''
-  matrix_config: experiments/configs/v2/matrices/d2_taichung.yaml
+  method_config: experiments/configs/v2/methods/strict_g2_rf_shifted_scaleshift.py
+  matrix_config: experiments/configs/v2/matrices/d2_taichung_generation_ablation.yaml
   protocol_config: ''
-  config_state: TO_CREATE_STRICT
+  config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
   output_template: work_dirs/v2/d2_taichung/strict_generation/g2/trainseed_{training_seed}
   database_ids:
@@ -1230,7 +1230,7 @@ experiments:
   priority: P1
   replication_unit: fixed_checkpoint_by_training_parent
   run_count: 36
-  status: BLOCKED_PROTOCOL
+  status: PLANNED
   swanlab_project: ''
   swanlab_run_template: ''
   training_seeds: 335778785,790448076,1342286018
@@ -1239,8 +1239,8 @@ experiments:
   legacy_config_status: exists_parameterize_parent
   method_config: experiments/configs/v2/methods/karyoflow_ot_legacy.py
   matrix_config: experiments/configs/v2/matrices/d2_taichung_history.yaml
-  protocol_config: experiments/configs/v2/ablations/d2_solver_test.yaml
-  config_state: PROTOCOL_EXTENSION_REQUIRED
+  protocol_config: experiments/configs/v2/ablations/d2_solver_train3_test.yaml
+  config_state: PROTOCOL_READY
   server_plan: accuracy:any idle GPU; efficiency=ross:A6000:0 only
   output_template: results/v2/d2_taichung/inference/solver/{parent}/{solver}_{steps}
   database_ids:
@@ -1295,7 +1295,7 @@ experiments:
   priority: P2
   replication_unit: fixed_checkpoint_by_training_parent
   run_count: 30
-  status: BLOCKED_PROTOCOL
+  status: PLANNED
   swanlab_project: ''
   swanlab_run_template: ''
   training_seeds: 335778785,790448076,1342286018
@@ -1304,8 +1304,8 @@ experiments:
   legacy_config_status: exists_parameterize_parent
   method_config: experiments/configs/v2/methods/karyoflow_ot_legacy.py
   matrix_config: experiments/configs/v2/matrices/d2_taichung_history.yaml
-  protocol_config: experiments/configs/v2/ablations/d2_topk_renewal_test.yaml
-  config_state: PROTOCOL_EXTENSION_REQUIRED
+  protocol_config: experiments/configs/v2/ablations/d2_topk_renewal_train3_test.yaml
+  config_state: PROTOCOL_READY
   server_plan: accuracy:any idle GPU; efficiency=ross:A6000:0 only
   output_template: results/v2/d2_taichung/inference/topk_renewal/{parent}/{variant}
   database_ids:
@@ -1466,10 +1466,10 @@ experiments:
   variant: GACS
   legacy_config_path: experiments/configs/ldmdet/directions/inference_opt/gacs*.py
   legacy_config_status: locate_and_standardize
-  method_config: ''
-  matrix_config: experiments/configs/v2/matrices/d2_taichung.yaml
-  protocol_config: ''
-  config_state: LEGACY_PARTIAL
+  method_config: experiments/configs/v2/methods/karyoflow_ot_legacy.py
+  matrix_config: experiments/configs/v2/matrices/d2_taichung_history.yaml
+  protocol_config: experiments/configs/v2/deployment/gacs_dynamic_policy.yaml
+  config_state: PROTOCOL_READY
   server_plan: accuracy:any; latency=ross:A6000:0
   output_template: results/v2/d2_taichung/deployment/gacs/{parent}
   database_ids:

@@ -6,6 +6,10 @@ tracker_project: KaryoFlow-Self1700-V2
 training_seeds: [42, 123, 789]
 methods:
   - diffusiondet_ddpm
+  - dino_r50
+  - rtmdet_l
+  - cascade_rcnn_r50
+  - yolox_s
   - rf_heun
   - karyoflow
   - karyoflow_lqcr
