@@ -5,16 +5,17 @@
 
 import copy
 import inspect
-from typing import Dict, List, Tuple
+import logging
+from typing import Dict, List, Optional, Tuple
 
 import torch
-from mmdet.models.detectors.base import BaseDetector
-from mmdet.registry import MODELS
-from mmdet.structures import DetDataSample
-from mmdet.utils import ConfigType, OptConfigType, OptMultiConfig
 from mmengine.structures import InstanceData as MMInstanceData
 
-from ldmdet.core import DiffusionDetHead, SingleDiffusionDetHead, SingleRoIExtractor
+from ldmdet.core import (
+    DiffusionDetHead,
+    SingleDiffusionDetHead,
+    SingleRoIExtractor,
+)
 from ldmdet.coupling import build_coupling
 from ldmdet.criterion import (
     BBoxL1Cost,
@@ -27,6 +28,12 @@ from ldmdet.criterion import (
     L1Loss,
 )
 from ldmdet.data.structures import ImageMeta
+from mmdet.models.detectors.base import BaseDetector
+from mmdet.registry import MODELS
+from mmdet.structures import DetDataSample
+from mmdet.utils import ConfigType, OptConfigType, OptMultiConfig
+
+logger = logging.getLogger(__name__)
 
 @MODELS.register_module(name='LDMDetV2', force=True)
 @MODELS.register_module(name='LDMDet', force=True)
@@ -45,6 +52,8 @@ class LDMDetDetector(BaseDetector):
         test_cfg: OptConfigType = None,
         data_preprocessor: OptConfigType = None,
         init_cfg: OptMultiConfig = None,
+        teacher_config: OptConfigType = None,
+        teacher_checkpoint: Optional[str] = None,
     ) -> None:
         super().__init__(data_preprocessor=data_preprocessor, init_cfg=init_cfg)
 
@@ -53,6 +62,15 @@ class LDMDetDetector(BaseDetector):
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
         self.bbox_head = self._build_head(bbox_head)
+        self._teacher_checkpoint = teacher_checkpoint
+        if self.bbox_head.use_distillation:
+            teacher_head = self._build_teacher(
+                bbox_head, teacher_config, teacher_checkpoint)
+            self.bbox_head.set_teacher(teacher_head)
+            if teacher_checkpoint is not None:
+                self.bbox_head.init_student_from_teacher()
+        if self.bbox_head.freeze_backbone:
+            self._freeze_backbone_and_neck()
         if (
             self.bbox_head.quality_only_training
             or self.bbox_head.mass_only_training
@@ -152,6 +170,100 @@ class LDMDetDetector(BaseDetector):
         return DiffusionDetCriterion(
             **cfg, matcher=matcher, loss_cls=loss_cls, loss_bbox=loss_bbox, loss_giou=loss_giou
         )
+
+    # ================================================================
+    # Parent-matched cascade-head distillation
+    # ================================================================
+
+    def _build_teacher(
+        self,
+        student_cfg: ConfigType,
+        teacher_config: OptConfigType,
+        teacher_checkpoint: Optional[str],
+    ) -> DiffusionDetHead:
+        """Build the full-cascade teacher and load only its head tensors."""
+        if teacher_config is None:
+            teacher_config = copy.deepcopy(student_cfg)
+            teacher_config['num_heads'] = 6
+            for key in (
+                'use_distillation', 'distill_lambda', 'distill_head_map',
+                'deep_supervision_aux_weight', 'freeze_backbone',
+            ):
+                teacher_config.pop(key, None)
+            teacher_config.pop('criterion', None)
+        teacher = self._build_head(teacher_config)
+        if teacher_checkpoint is not None:
+            self._load_component_checkpoint(
+                teacher, teacher_checkpoint, prefix='bbox_head.',
+                component_name='teacher bbox_head')
+        else:
+            logger.warning(
+                'Head-distillation teacher has random weights; this is '
+                'permitted only for configuration/unit tests')
+        return teacher
+
+    @staticmethod
+    def _checkpoint_state(checkpoint_path: str) -> Dict[str, torch.Tensor]:
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
+        state = checkpoint.get('state_dict', checkpoint)
+        if not isinstance(state, dict):
+            raise TypeError(
+                f'{checkpoint_path} does not contain a state dictionary')
+        return state
+
+    def _load_component_checkpoint(
+        self,
+        module: torch.nn.Module,
+        checkpoint_path: str,
+        prefix: str,
+        component_name: str,
+    ) -> None:
+        state = self._checkpoint_state(checkpoint_path)
+        component = {
+            name[len(prefix):]: value
+            for name, value in state.items() if name.startswith(prefix)
+        }
+        if not component:
+            raise RuntimeError(
+                f'{checkpoint_path} contains no {prefix!r} tensors')
+        missing, unexpected = module.load_state_dict(component, strict=False)
+        if missing or unexpected:
+            raise RuntimeError(
+                f'{component_name} checkpoint mismatch: '
+                f'missing={missing[:8]}, unexpected={unexpected[:8]}')
+        logger.info(
+            'Loaded %d %s tensors from %s',
+            len(component), component_name, checkpoint_path)
+
+    def _freeze_backbone_and_neck(self) -> None:
+        for parameter in self.backbone.parameters():
+            parameter.requires_grad_(False)
+        if self.neck is not None:
+            for parameter in self.neck.parameters():
+                parameter.requires_grad_(False)
+
+    def train(self, mode: bool = True):
+        super().train(mode)
+        if self.bbox_head.freeze_backbone:
+            self.backbone.eval()
+            if self.neck is not None:
+                self.neck.eval()
+        if self.bbox_head._teacher is not None:
+            self.bbox_head._teacher.eval()
+        return self
+
+    def init_weights(self):
+        """Initialize student features from its parent without overwriting heads."""
+        super().init_weights()
+        if (self.bbox_head.use_distillation
+                and self._teacher_checkpoint is not None):
+            self._load_component_checkpoint(
+                self.backbone, self._teacher_checkpoint,
+                prefix='backbone.', component_name='student backbone')
+            if self.neck is not None:
+                self._load_component_checkpoint(
+                    self.neck, self._teacher_checkpoint,
+                    prefix='neck.', component_name='student neck')
 
 
 

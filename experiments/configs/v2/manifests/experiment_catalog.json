@@ -265,6 +265,50 @@
       ]
     },
     {
+      "config_id": "v2.d1_distill.karyoflow_r50.train",
+      "coupling": "random",
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d1_inhouse1700.py",
+      "dataset_id": "D1_INHOUSE1700_V2",
+      "matrix_path": "experiments/configs/v2/matrices/d1_inhouse1700_head_distill.yaml",
+      "method_config": "experiments/configs/v2/methods/karyoflow.py",
+      "method_id": "karyoflow_r50",
+      "method_name": "karyoflow",
+      "parent_method_id": null,
+      "renewal": true,
+      "role": "main_detector",
+      "scientific_config_sha256": "5102e030f547b152169af3c179feca9cf0304cbf3d2af2ed419d114103a8568d",
+      "solver": "dpm_solver_pp",
+      "steps": 4,
+      "time_conditioning": "adaln_zero",
+      "training_seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
+      "config_id": "v2.d1_distill.karyoflow_h3_distill_r50.train",
+      "coupling": "random",
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d1_inhouse1700.py",
+      "dataset_id": "D1_INHOUSE1700_V2",
+      "matrix_path": "experiments/configs/v2/matrices/d1_inhouse1700_head_distill.yaml",
+      "method_config": "experiments/configs/v2/methods/karyoflow_h3_distill.py",
+      "method_id": "karyoflow_h3_distill_r50",
+      "method_name": "karyoflow_h3_distill",
+      "parent_method_id": "karyoflow_r50",
+      "renewal": true,
+      "role": "paired_head_distillation",
+      "scientific_config_sha256": "480cf612957cf3599c9077e255f4f6cc9c7f45df157e00f82bb18bd7fa875890",
+      "solver": "dpm_solver_pp",
+      "steps": 4,
+      "time_conditioning": "adaln_zero",
+      "training_seeds": [
+        42,
+        123,
+        789
+      ]
+    },
+    {
       "config_id": "v2.d2_baseline_history.legacy_cascade_rcnn_r50.train",
       "coupling": null,
       "dataset_config": "experiments/configs/v2/_base_/datasets/d2_cascade_legacy.py",
@@ -538,6 +582,50 @@
         42,
         123,
         789
+      ]
+    },
+    {
+      "config_id": "v2.d2_distill.legacy_karyoflow_ot_r50.train",
+      "coupling": "ot_flow",
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d2_taichung.py",
+      "dataset_id": "D2",
+      "matrix_path": "experiments/configs/v2/matrices/d2_taichung_head_distill.yaml",
+      "method_config": "experiments/configs/v2/methods/karyoflow_ot_legacy.py",
+      "method_id": "legacy_karyoflow_ot_r50",
+      "method_name": "karyoflow_ot_legacy",
+      "parent_method_id": null,
+      "renewal": true,
+      "role": "archived_generation_method",
+      "scientific_config_sha256": "92b1539c245c3a0a51e200fa3f12e34abe9a87044410c54ded9688d1f2eea9d2",
+      "solver": "dpm_solver_pp",
+      "steps": 4,
+      "time_conditioning": "adaln_zero",
+      "training_seeds": [
+        335778785,
+        790448076,
+        1342286018
+      ]
+    },
+    {
+      "config_id": "v2.d2_distill.karyoflow_ot_h3_distill_r50.train",
+      "coupling": "ot_flow",
+      "dataset_config": "experiments/configs/v2/_base_/datasets/d2_taichung.py",
+      "dataset_id": "D2",
+      "matrix_path": "experiments/configs/v2/matrices/d2_taichung_head_distill.yaml",
+      "method_config": "experiments/configs/v2/methods/karyoflow_ot_h3_distill.py",
+      "method_id": "karyoflow_ot_h3_distill_r50",
+      "method_name": "karyoflow_ot_h3_distill",
+      "parent_method_id": "legacy_karyoflow_ot_r50",
+      "renewal": true,
+      "role": "paired_head_distillation",
+      "scientific_config_sha256": "c98bdb5335f9519cc7d98132cd4f27b60b4f0363ce5a70ec7e2b132a45fcfe11",
+      "solver": "dpm_solver_pp",
+      "steps": 4,
+      "time_conditioning": "adaln_zero",
+      "training_seeds": [
+        335778785,
+        790448076,
+        1342286018
       ]
     },
     {

@@ -1,0 +1,31 @@
+schema_version: 1
+protocol_id: v2.cross_dataset.h3_head_distillation
+protocol_type: paired_short_training
+datasets: [D1_INHOUSE1700_V2, D2]
+student_heads: 3
+teacher_heads: 6
+head_map: {0: 0, 1: 2, 2: 5}
+feature: cascade_proposal_feature
+loss:
+  type: mean_mapped_feature_mse
+  weight: 0.05
+  detection_auxiliary_weight: 0.5
+initialization:
+  shared_modules: copy_shape_compatible_parent_tensors
+  cascade_heads: copy_according_to_head_map
+  backbone_and_neck: initialize_from_same_parent_checkpoint
+  load_from_forbidden: true
+pairing:
+  unit: parent_training_seed
+  checkpoint_binding: teacher_checkpoint
+  require_parent_child_same_dataset: true
+  require_distinct_parent_sha_across_replications: true
+selection:
+  split: val
+  metric: coco/bbox_mAP
+  test_tuned: false
+evaluation:
+  split: test
+  inference_seed: 42
+  required_metrics: [mAP, AP50, AP75, AP_S, AP_M, AP_L]
+  latency_protocol: experiments/configs/v2/deployment/a6000_speed_protocol.yaml

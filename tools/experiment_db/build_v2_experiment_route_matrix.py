@@ -31,6 +31,8 @@ D2_HISTORY_MATRIX = "experiments/configs/v2/matrices/d2_taichung_history.yaml"
 D1_GENERATION_MATRIX = "experiments/configs/v2/matrices/d1_inhouse1700_generation_ablation.yaml"
 D2_GENERATION_MATRIX = "experiments/configs/v2/matrices/d2_taichung_generation_ablation.yaml"
 D2_SOTA_COMPLETION_MATRIX = "experiments/configs/v2/matrices/d2_taichung_sota_completion.yaml"
+D1_DISTILL_MATRIX = "experiments/configs/v2/matrices/d1_inhouse1700_head_distill.yaml"
+D2_DISTILL_MATRIX = "experiments/configs/v2/matrices/d2_taichung_head_distill.yaml"
 
 METHODS = {
     "diffusiondet": "experiments/configs/v2/methods/diffusiondet_ddpm.py",
@@ -44,6 +46,8 @@ METHODS = {
     "strict_g0": "experiments/configs/v2/methods/strict_g0_ddpm_linear_scaleshift.py",
     "strict_g1": "experiments/configs/v2/methods/strict_g1_rf_linear_scaleshift.py",
     "strict_g2": "experiments/configs/v2/methods/strict_g2_rf_shifted_scaleshift.py",
+    "h3_distill": "experiments/configs/v2/methods/karyoflow_h3_distill.py",
+    "ot_h3_distill": "experiments/configs/v2/methods/karyoflow_ot_h3_distill.py",
 }
 
 D2_LEGACY = {
@@ -95,7 +99,7 @@ STATUS_OVERRIDE = {
     "D1I.INF.topk_renewal": "BLOCKED_PARENT",
     "D1I.DEC.beta_val": "BLOCKED_PARENT",
     "D1I.DEC.strict_subsets": "BLOCKED_PREDICTIONS",
-    "D1I.DEP.distill_h3": "BLOCKED_IMPLEMENTATION",
+    "D1I.DEP.distill_h3": "BLOCKED_PARENT",
     "D1I.DEP.GACS": "BLOCKED_PARENT",
     "D1I.DEP.speed": "BLOCKED_CHECKPOINTS",
     "D2.SOTA.diffusiondet.missing_train2": "PLANNED",
@@ -110,7 +114,7 @@ STATUS_OVERRIDE = {
     "D2.INF.solver_steps.train3": "PLANNED",
     "D2.INF.topk_renewal.train3": "PLANNED",
     "D2.DEP.distill_h3.existing": "COMPLETED_EVIDENCE_ONLY",
-    "D2.DEP.distill_h3.train3": "BLOCKED_IMPLEMENTATION",
+    "D2.DEP.distill_h3.train3": "PLANNED",
 }
 
 PROTOCOLS = {
@@ -120,6 +124,7 @@ PROTOCOLS = {
     "D1I.DEC.strict_subsets": "tools/experiment_db/protocols/d2_difficulty_strata.json",
     "D1I.DEP.speed": "experiments/configs/v2/deployment/a6000_speed_protocol.yaml",
     "D1I.DEP.GACS": "experiments/configs/v2/deployment/gacs_dynamic_policy.yaml",
+    "D1I.DEP.distill_h3": "experiments/configs/v2/deployment/h3_distillation_protocol.yaml",
     "D2.INF.solver_steps.fixed1": "experiments/configs/v2/ablations/d2_solver_test.yaml",
     "D2.INF.solver_steps.train3": "experiments/configs/v2/ablations/d2_solver_train3_test.yaml",
     "D2.INF.topk_renewal.fixed1": "experiments/configs/v2/ablations/d2_topk_renewal_test.yaml",
@@ -128,6 +133,7 @@ PROTOCOLS = {
     "D2.DEC.strict_subsets": "tools/experiment_db/protocols/d2_difficulty_strata.json",
     "D2.DEP.speed": "experiments/configs/v2/deployment/a6000_speed_protocol.yaml",
     "D2.DEP.GACS": "experiments/configs/v2/deployment/gacs_dynamic_policy.yaml",
+    "D2.DEP.distill_h3.train3": "experiments/configs/v2/deployment/h3_distillation_protocol.yaml",
 }
 
 CONFIG_STATE_OVERRIDE = {
@@ -138,7 +144,7 @@ CONFIG_STATE_OVERRIDE = {
     "D1I.ABL.G0": "READY",
     "D1I.ABL.G1": "READY",
     "D1I.ABL.G2": "READY",
-    "D1I.DEP.distill_h3": "IMPLEMENTATION_MISSING",
+    "D1I.DEP.distill_h3": "READY_PARENT_PENDING",
     "D1I.DEP.GACS": "PROTOCOL_READY_PARENT_PENDING",
     "D1I.INF.solver_steps": "PROTOCOL_READY_PARENT_PENDING",
     "D1I.INF.topk_renewal": "PROTOCOL_READY_PARENT_PENDING",
@@ -147,7 +153,7 @@ CONFIG_STATE_OVERRIDE = {
     "D2.ABL.strict.G0": "READY",
     "D2.ABL.strict.G1": "READY",
     "D2.ABL.strict.G2": "READY",
-    "D2.DEP.distill_h3.train3": "IMPLEMENTATION_MISSING",
+    "D2.DEP.distill_h3.train3": "READY",
     "D2.DEP.GACS": "PROTOCOL_READY",
     "D2.INF.solver_steps.train3": "PROTOCOL_READY",
     "D2.INF.topk_renewal.train3": "PROTOCOL_READY",
@@ -194,6 +200,9 @@ def config_for(row: dict) -> tuple[str, str, str, str]:
         method = METHODS["karyoflow_lqcr" if rid == "D1I.DEC.beta_val" else "karyoflow"]
     elif rid == "D1I.DEP.GACS":
         method = METHODS["karyoflow"]
+    elif rid == "D1I.DEP.distill_h3":
+        method = METHODS["h3_distill"]
+        matrix = D1_DISTILL_MATRIX
     elif rid.startswith("D2.SOTA.karyoflow_lqcr"):
         method = "experiments/configs/v2/methods/karyoflow_ot_lqcr_legacy.py"
         matrix = D2_HISTORY_MATRIX
@@ -229,8 +238,10 @@ def config_for(row: dict) -> tuple[str, str, str, str]:
         protocol = "experiments/configs/v2/deployment/h3_distillation_training_archive.yaml"
         state = "EXACT_INFERENCE_ARCHIVED_TRAINING"
     elif rid == "D2.DEP.distill_h3.train3":
-        method = ""
-        protocol = "experiments/configs/v2/deployment/h3_distillation_training_archive.yaml"
+        method = METHODS["ot_h3_distill"]
+        matrix = D2_DISTILL_MATRIX
+        protocol = "experiments/configs/v2/deployment/h3_distillation_protocol.yaml"
+        state = "READY"
     elif rid == "D2.DEP.GACS":
         method = "experiments/configs/v2/methods/karyoflow_ot_legacy.py"
         matrix = D2_HISTORY_MATRIX
@@ -311,12 +322,16 @@ def build_rows() -> list[dict]:
             row["compatibility_report"] = ""
         if row["dataset_id"] == "D1_INHOUSE1700_V2":
             row["swanlab_project"] = "KaryoFlow-Self1700-V2" if row["execution_kind"] in {"full_train", "short_train"} else ""
+            if rid == "D1I.DEP.distill_h3":
+                row["swanlab_project"] = "KaryoFlow-HeadDistill-D1-V2"
             row["notes"] = NOTES_OVERRIDE.get(rid, "No active v2 run is currently registered.")
         else:
             row["notes"] = NOTES_OVERRIDE.get(rid, row.get("notes", ""))
             if row["dataset_id"] == "D2" and row["execution_kind"] in {"full_train", "short_train"} and row["status"].startswith(("PLANNED", "BLOCKED")):
                 row["swanlab_project"] = "KaryoFlow-Dataset2-V2"
                 row["swanlab_run_template"] = "{variant}_seed{training_seed}"
+                if rid == "D2.DEP.distill_h3.train3":
+                    row["swanlab_project"] = "KaryoFlow-HeadDistill-D2-V2"
         rows.append(row)
     return rows
 

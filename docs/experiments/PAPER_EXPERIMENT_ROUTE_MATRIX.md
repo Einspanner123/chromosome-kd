@@ -6,10 +6,10 @@
 ## 权威身份
 
 - YAML：`experiments/configs/v2/manifests/paper_experiment_route_matrix.yaml`
-- YAML SHA-256：`3a6124d40e49e7aaad8416d04562bf575d318863074fbf5fee7e3f11470e8b86`
-- 数据库 artifact：`paper-route-matrix-v2-3a6124d40e49`
+- YAML SHA-256：`d75b880a2dd683e0feab9299cb49d750576889073f8345be399c1b54e11787de`
+- 数据库 artifact：`paper-route-matrix-v2-d75b880a2dd6`
 - 实验组：46；展开运行：261。
-- 状态分布：ARCHIVED_NONCOMPARABLE=1, BLOCKED_CHECKPOINTS=1, BLOCKED_IMPLEMENTATION=2, BLOCKED_PARENT=5, BLOCKED_PREDICTIONS=1, COMPLETED_DESCRIPTIVE=1, COMPLETED_DIAGNOSTIC=2, COMPLETED_EVIDENCE_ONLY=1, COMPLETED_FIXED_CHECKPOINT=2, COMPLETED_PARTIAL=1, COMPLETED_POINT_ESTIMATE=5, COMPLETED_VERIFIED=2, PARTIAL_LEGACY=1, PLANNED=21。
+- 状态分布：ARCHIVED_NONCOMPARABLE=1, BLOCKED_CHECKPOINTS=1, BLOCKED_PARENT=6, BLOCKED_PREDICTIONS=1, COMPLETED_DESCRIPTIVE=1, COMPLETED_DIAGNOSTIC=2, COMPLETED_EVIDENCE_ONLY=1, COMPLETED_FIXED_CHECKPOINT=2, COMPLETED_PARTIAL=1, COMPLETED_POINT_ESTIMATE=5, COMPLETED_VERIFIED=2, PARTIAL_LEGACY=1, PLANNED=22。
 
 ## 数据与统计口径
 
@@ -72,7 +72,7 @@
 
 | ID | Variant | Kind / runs | Seeds | Status | Config state | v2 method / protocol | Server | Output | DB/evidence |
 |---|---|---:|---|---|---|---|---|---|---|
-| `D1I.DEP.distill_h3` | H6_teacher_to_H3_student | short_train / 3 | train=42,123,789; infer=42 | **BLOCKED_IMPLEMENTATION** | IMPLEMENTATION_MISSING | `—` | 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1 | `work_dirs/v2/d1_inhouse1700/deployment/h3/trainseed_{training_seed}` | `route:D1I.DEP.distill_h3; head_distillation_d1i_test` |
+| `D1I.DEP.distill_h3` | H6_teacher_to_H3_student | short_train / 3 | train=42,123,789; infer=42 | **BLOCKED_PARENT** | READY_PARENT_PENDING | `experiments/configs/v2/methods/karyoflow_h3_distill.py` | 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1 | `work_dirs/v2/d1_inhouse1700/deployment/h3/trainseed_{training_seed}` | `route:D1I.DEP.distill_h3; head_distillation_d1i_test` |
 | `D1I.DEP.GACS` | GACS | inference / 3 | train=42,123,789; infer=42 | **BLOCKED_PARENT** | PROTOCOL_READY_PARENT_PENDING | `experiments/configs/v2/methods/karyoflow.py` | accuracy:any; latency=ross:A6000:0 | `results/v2/d1_inhouse1700/deployment/gacs/{parent}` | `route:D1I.DEP.GACS; gacs_d1i_test` |
 | `D1I.DEP.speed` | all_operating_points | benchmark / 1 | train=42,123,789; infer=none | **BLOCKED_CHECKPOINTS** | READY | `experiments/configs/v2/deployment/a6000_speed_protocol.yaml` | ross:A6000:0 exclusive | `results/v2/d1_inhouse1700/benchmark/a6000/{variant}` | `route:D1I.DEP.speed; speed_accuracy_d1i` |
 
@@ -148,7 +148,7 @@
 | ID | Variant | Kind / runs | Seeds | Status | Config state | v2 method / protocol | Server | Output | DB/evidence |
 |---|---|---:|---|---|---|---|---|---|---|
 | `D2.DEP.distill_h3.existing` | H6_to_H3_single_parent | short_train / 1 | train=one; infer=42 | **COMPLETED_EVIDENCE_ONLY** | EXACT_INFERENCE_ARCHIVED_TRAINING | `experiments/configs/v2/methods/karyoflow_ot_h3_student_legacy.py` | historical ross/workstation | `work_dirs/h3_distill_plan_a_24obj` | `route:D2.DEP.distill_h3.existing; head_distillation` |
-| `D2.DEP.distill_h3.train3` | H6_to_H3_parent_matched_train3 | short_train / 3 | train=335778785,790448076,1342286018; infer=42 | **BLOCKED_IMPLEMENTATION** | IMPLEMENTATION_MISSING | `experiments/configs/v2/deployment/h3_distillation_training_archive.yaml` | 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1 | `work_dirs/v2/d2_taichung/deployment/h3/{parent}` | `route:D2.DEP.distill_h3.train3; head_distillation_d2_train3` |
+| `D2.DEP.distill_h3.train3` | H6_to_H3_parent_matched_train3 | short_train / 3 | train=335778785,790448076,1342286018; infer=42 | **PLANNED** | READY | `experiments/configs/v2/methods/karyoflow_ot_h3_distill.py` | 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1 | `work_dirs/v2/d2_taichung/deployment/h3/{parent}` | `route:D2.DEP.distill_h3.train3; head_distillation_d2_train3` |
 | `D2.DEP.GACS` | GACS | inference / 1 | train=one/unknown; infer=42 | **PARTIAL_LEGACY** | PROTOCOL_READY | `experiments/configs/v2/methods/karyoflow_ot_legacy.py` | accuracy:any; latency=ross:A6000:0 | `results/v2/d2_taichung/deployment/gacs/{parent}` | `route:D2.DEP.GACS; GACS` |
 | `D2.DEP.speed` | all_operating_points | benchmark / 1 | train=mixed; infer=none | **COMPLETED_PARTIAL** | PROTOCOL_READY | `experiments/configs/v2/methods/karyoflow_ot_legacy.py` | ross:A6000:0 exclusive | `results/benchmark/a6000/{variant}` | `route:D2.DEP.speed; speed_accuracy` |
 

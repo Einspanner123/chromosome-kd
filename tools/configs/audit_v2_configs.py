@@ -2,14 +2,13 @@
 """Audit v2 sources, matrices, resolved configs, and model invariants."""
 
 from __future__ import annotations
-
 import argparse
 import ast
 import gc
-from pathlib import Path
 import re
 import sys
 import tempfile
+from pathlib import Path
 
 from mmengine.config import Config
 
@@ -18,8 +17,11 @@ V2 = ROOT / 'experiments/configs/v2'
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.experiments.v2_matrix import (  # noqa: E402
-    load_matrix, resolve_config, scientific_hash)
+from tools.experiments.v2_matrix import (
+    load_matrix,
+    resolve_config,
+    scientific_hash,
+)
 
 FORBIDDEN = re.compile(
     r'(/home/|/media/|/data/linkst|linkst@|\bross\b|\bworkstation\b|api_key)',
@@ -45,7 +47,7 @@ def depth(path: Path, seen: tuple[Path, ...] = ()) -> int:
     if path in seen:
         raise ValueError(f'cycle: {path}')
     parents = bases(path)
-    return 0 if not parents else 1 + max(depth(p, seen + (path,)) for p in parents)
+    return 0 if not parents else 1 + max(depth(p, (*seen, path)) for p in parents)
 
 
 def main() -> int:
@@ -139,6 +141,27 @@ def main() -> int:
                     if head.quality_calibration_mode != 'final_only' \
                             or not head.quality_only_training:
                         errors.append(f'{cid}: LQCR is not final-only')
+                if meta.role == 'paired_head_distillation':
+                    parent_ids = [
+                        resolve_config(matrix_path, name,
+                                       matrix['training_seeds'][0])[0]
+                        .experiment.method_id
+                        for name in matrix['methods']
+                    ]
+                    if meta.parent_method_id not in parent_ids:
+                        errors.append(f'{cid}: distillation parent absent')
+                    if meta.get('pairing') != 'same_training_seed':
+                        errors.append(f'{cid}: invalid distillation pairing')
+                    if meta.get('parent_checkpoint_binding') \
+                            != 'teacher_checkpoint':
+                        errors.append(
+                            f'{cid}: parent must bind as teacher checkpoint')
+                    if not head.get('use_distillation', False):
+                        errors.append(f'{cid}: distillation is disabled')
+                    if head.get('num_heads') != 3:
+                        errors.append(f'{cid}: student must have three heads')
+                    if head.get('distill_head_map') != {0: 0, 1: 2, 2: 5}:
+                        errors.append(f'{cid}: invalid head map')
                 resolved.append((cid, cfg))
         except Exception as exc:
             errors.append(f'{matrix_path.relative_to(ROOT)}: resolve failed: {exc}')
@@ -155,6 +178,7 @@ def main() -> int:
 
     if args.build_models and not errors:
         from mmengine.utils import import_modules_from_strings
+
         from mmdet.registry import MODELS
         from mmdet.utils import register_all_modules
         register_all_modules(init_default_scope=True)

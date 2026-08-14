@@ -546,18 +546,18 @@ experiments:
   priority: P1
   replication_unit: paired_student_by_parent
   run_count: 3
-  status: BLOCKED_IMPLEMENTATION
-  swanlab_project: KaryoFlow-Self1700-V2
+  status: BLOCKED_PARENT
+  swanlab_project: KaryoFlow-HeadDistill-D1-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: ''
   training_seeds: 42,123,789
   variant: H6_teacher_to_H3_student
   legacy_config_path: experiments/configs/self1700/deployment/h3_distill.py
   legacy_config_status: to_create
-  method_config: ''
-  matrix_config: experiments/configs/v2/matrices/d1_inhouse1700.yaml
-  protocol_config: ''
-  config_state: IMPLEMENTATION_MISSING
+  method_config: experiments/configs/v2/methods/karyoflow_h3_distill.py
+  matrix_config: experiments/configs/v2/matrices/d1_inhouse1700_head_distill.yaml
+  protocol_config: experiments/configs/v2/deployment/h3_distillation_protocol.yaml
+  config_state: READY_PARENT_PENDING
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
   output_template: work_dirs/v2/d1_inhouse1700/deployment/h3/trainseed_{training_seed}
   database_ids:
@@ -1426,17 +1426,17 @@ experiments:
   priority: P1
   replication_unit: paired_student_by_parent
   run_count: 3
-  status: BLOCKED_IMPLEMENTATION
-  swanlab_project: KaryoFlow-Dataset2-V2
+  status: PLANNED
+  swanlab_project: KaryoFlow-HeadDistill-D2-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 335778785,790448076,1342286018
   variant: H6_to_H3_parent_matched_train3
   legacy_config_path: experiments/configs/d2_deployment/h3_distill_parent.py
   legacy_config_status: to_create_or_parameterize
-  method_config: ''
-  matrix_config: experiments/configs/v2/matrices/d2_taichung.yaml
-  protocol_config: experiments/configs/v2/deployment/h3_distillation_training_archive.yaml
-  config_state: IMPLEMENTATION_MISSING
+  method_config: experiments/configs/v2/methods/karyoflow_ot_h3_distill.py
+  matrix_config: experiments/configs/v2/matrices/d2_taichung_head_distill.yaml
+  protocol_config: experiments/configs/v2/deployment/h3_distillation_protocol.yaml
+  config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
   output_template: work_dirs/v2/d2_taichung/deployment/h3/{parent}
   database_ids:

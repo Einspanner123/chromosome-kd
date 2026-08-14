@@ -1,0 +1,9 @@
+schema_version: 1
+matrix_id: v2.d1_inhouse1700.head_distill
+dataset_alias: d1_distill
+dataset_config: experiments/configs/v2/_base_/datasets/d1_inhouse1700.py
+tracker_project: KaryoFlow-HeadDistill-D1-V2
+training_seeds: [42, 123, 789]
+methods:
+  - karyoflow
+  - karyoflow_h3_distill

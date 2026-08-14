@@ -71,7 +71,7 @@ def _get_swanlab_run_id(work_dir):
     # 1. 直接读取保存的 run ID 文件
     id_file = osp.join(work_dir, '.swanlab_id')
     if osp.exists(id_file):
-        with open(id_file, 'r') as f:
+        with open(id_file) as f:
             run_id = f.read().strip()
             if run_id:
                 return run_id
@@ -158,8 +158,9 @@ def main():
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu_id)
 
     # Delay torch/mmengine imports until after CUDA_VISIBLE_DEVICES is set.
-    from mmengine.runner import Runner
     from mmengine.config import Config
+    from mmengine.runner import Runner
+
     from experiments.runners.reproducibility import (
         FixedValidationSeedHook,
         apply_training_seed,
@@ -172,7 +173,14 @@ def main():
         if not args.parent_checkpoint:
             parser.error(
                 f"{experiment.get('config_id')} requires --parent-checkpoint")
-        cfg.load_from = osp.abspath(args.parent_checkpoint)
+        binding = experiment.get('parent_checkpoint_binding', 'load_from')
+        if binding == 'load_from':
+            cfg.load_from = osp.abspath(args.parent_checkpoint)
+        elif binding == 'teacher_checkpoint':
+            cfg.model.teacher_checkpoint = osp.abspath(args.parent_checkpoint)
+            cfg.pop('load_from', None)
+        else:
+            parser.error(f'unsupported parent checkpoint binding: {binding}')
     elif args.parent_checkpoint:
         parser.error('--parent-checkpoint is only valid for paired-child recipes')
 

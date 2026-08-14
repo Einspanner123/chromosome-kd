@@ -24,7 +24,6 @@ from ldmdet.diffusion.embeddings import SinusoidalPositionEmbeddings
 from ldmdet.diffusion.noise_schedule import cosine_noise_schedule
 from ldmdet.diffusion.rectified_flow import RectifiedFlow
 from ldmdet.diffusion.sampling import DiffusionSampler, _get_img_shape
-from ldmdet.utils.box_ops import bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +94,13 @@ class DiffusionDetHead(nn.Module):
         topk_pruning_enabled: bool = False,
         topk_k: int = 100,
         topk_pruning_step: int = 0,
+        # Head distillation: a shorter cascade learns intermediate proposal
+        # features from a frozen, parent-matched full cascade.
+        use_distillation: bool = False,
+        distill_lambda: float = 0.05,
+        distill_head_map: Optional[Dict[int, int]] = None,
+        deep_supervision_aux_weight: float = 1.0,
+        freeze_backbone: bool = False,
         # IQC: IoU Quality Calibration. The single head predicts q(IoU), and
         # inference ranks detections by p(class) * q ** beta.
         quality_score_beta: float = 2.0,
@@ -125,6 +131,27 @@ class DiffusionDetHead(nn.Module):
         self.box_renewal = box_renewal
         self.use_ensemble = use_ensemble
         self.solver_type = solver_type
+        self.use_distillation = bool(use_distillation)
+        self.distill_lambda = float(distill_lambda)
+        self.distill_head_map = dict(
+            distill_head_map or {0: 0, 1: 2, 2: 5})
+        self.deep_supervision_aux_weight = float(
+            deep_supervision_aux_weight)
+        self.freeze_backbone = bool(freeze_backbone)
+        self._teacher = None
+        if self.distill_lambda < 0:
+            raise ValueError('distill_lambda must be non-negative')
+        if not 0 < self.deep_supervision_aux_weight <= 1:
+            raise ValueError(
+                'deep_supervision_aux_weight must lie in (0, 1]')
+        if self.use_distillation:
+            if not self.distill_head_map:
+                raise ValueError('distill_head_map must not be empty')
+            if any(index < 0 or index >= num_heads
+                   for index in self.distill_head_map):
+                raise ValueError(
+                    'student indices in distill_head_map must address '
+                    'existing cascade heads')
         self.quality_score_beta = float(quality_score_beta)
         self.quality_calibration_mode = quality_calibration_mode
         self.quality_only_training = bool(quality_only_training)
@@ -297,6 +324,52 @@ class DiffusionDetHead(nn.Module):
                     nn.init.constant_(last_layer.bias, bias_value)
 
     # ================================================================
+    # Parent-matched head distillation
+    # ================================================================
+
+    def set_teacher(self, teacher: nn.Module):
+        """Attach a frozen teacher without registering it in checkpoints."""
+        object.__setattr__(self, '_teacher', teacher)
+        for parameter in teacher.parameters():
+            parameter.requires_grad_(False)
+        teacher.eval()
+
+    def _apply(self, fn):
+        """Keep the non-registered teacher on the student's device/dtype."""
+        super()._apply(fn)
+        if self._teacher is not None:
+            self._teacher._apply(fn)
+        return self
+
+    def init_student_from_teacher(self):
+        """Initialize shared tensors and mapped student heads from teacher."""
+        if self._teacher is None:
+            raise RuntimeError('cannot initialize student without a teacher')
+        teacher_state = self._teacher.state_dict()
+        student_state = self.state_dict()
+        mapped = {}
+        for name, value in teacher_state.items():
+            if (not name.startswith('head_series.')
+                    and name in student_state
+                    and student_state[name].shape == value.shape):
+                mapped[name] = value
+        for student_index, teacher_index in self.distill_head_map.items():
+            student_prefix = f'head_series.{student_index}.'
+            teacher_prefix = f'head_series.{teacher_index}.'
+            for name, value in teacher_state.items():
+                if not name.startswith(teacher_prefix):
+                    continue
+                target_name = student_prefix + name[len(teacher_prefix):]
+                if (target_name in student_state
+                        and student_state[target_name].shape == value.shape):
+                    mapped[target_name] = value
+        self.load_state_dict(mapped, strict=False)
+        logger.info(
+            'Head distillation initialized %d/%d student tensors from teacher',
+            len(mapped), len(student_state))
+        return tuple(sorted(mapped))
+
+    # ================================================================
     # 前向传播
     # ================================================================
 
@@ -370,6 +443,13 @@ class DiffusionDetHead(nn.Module):
     # ================================================================
 
     def loss(self, features, img_metas, gt_bboxes, gt_labels, x_raw_shared=None):
+        if self.use_distillation:
+            if self._teacher is None:
+                raise RuntimeError(
+                    'use_distillation=True requires an injected teacher')
+            return self._loss_with_distillation(
+                features, img_metas, gt_bboxes, gt_labels,
+                external_noise=x_raw_shared)
         if (self.quality_only_training or self.mass_only_training
                 or self.terminal_reg_only_training):
             # The detector may still build frozen backbone/neck features, but
@@ -422,6 +502,100 @@ class DiffusionDetHead(nn.Module):
             if isinstance(val, torch.Tensor):
                 probe.record_scalar(f'train/loss/{name}', val.item())
 
+        return losses
+
+    def _loss_with_distillation(
+        self,
+        features,
+        img_metas,
+        gt_bboxes,
+        gt_labels,
+        external_noise=None,
+    ):
+        """Compute detection loss plus mapped cascade-feature distillation.
+
+        Student and teacher receive identical image features, noisy boxes and
+        time values.  The third output of every cascade head is its proposal
+        feature, so the mapping compares aligned tensors before the next head.
+        """
+        device = features[0].device
+        batch_size = len(img_metas)
+        targets = self._normalize_targets(
+            gt_bboxes, gt_labels, img_metas, batch_size)
+        t = self._sample_t(batch_size, device)
+        shared_noise = external_noise
+        if shared_noise is None:
+            shared_noise = torch.randn(
+                batch_size, self.num_proposals, 4, device=device)
+        x_boxes, _, _, _ = self._build_training_targets(
+            batch_size, device, t, targets, gt_bboxes,
+            external_noise=shared_noise)
+        noisy_boxes = torch.stack(x_boxes)
+        current_boxes = self._sampler.raw_to_xyxy(noisy_boxes, img_metas)
+        t_input = t if self.diffusion_type == 'ddpm' else t * self.timesteps
+
+        def run_student():
+            return self(features, current_boxes, t_input, img_metas)
+
+        if self.amp_dtype is not None:
+            with torch.cuda.amp.autocast(dtype=self.amp_dtype):
+                student_cls, student_boxes, student_features = run_student()
+            student_cls = student_cls.float()
+            student_boxes = student_boxes.float()
+            student_features = [feature.float()
+                                for feature in student_features]
+        else:
+            student_cls, student_boxes, student_features = run_student()
+
+        teacher = self._teacher
+        teacher.eval()
+        with torch.no_grad():
+            if self.amp_dtype is not None:
+                with torch.cuda.amp.autocast(dtype=self.amp_dtype):
+                    _, _, teacher_features = teacher(
+                        features, current_boxes, t_input, img_metas)
+                teacher_features = [feature.float()
+                                    for feature in teacher_features]
+            else:
+                _, _, teacher_features = teacher(
+                    features, current_boxes, t_input, img_metas)
+
+        normalized_boxes = self._normalize_pred_bboxes(
+            student_boxes, img_metas)
+        outputs = self._build_outputs(student_cls, normalized_boxes)
+        losses = self.criterion(outputs, targets, t=t)
+        if self.deep_supervision_aux_weight != 1.0:
+            for name in tuple(losses):
+                if name.startswith('aux_'):
+                    losses[name] = (
+                        losses[name] * self.deep_supervision_aux_weight)
+
+        feature_losses = []
+        for student_index, teacher_index in self.distill_head_map.items():
+            if student_index >= len(student_features):
+                raise RuntimeError(
+                    f'student head {student_index} is unavailable')
+            if teacher_index >= len(teacher_features):
+                raise RuntimeError(
+                    f'teacher head {teacher_index} is unavailable')
+            student_feature = student_features[student_index].float()
+            teacher_feature = teacher_features[teacher_index].float().detach()
+            if student_feature.shape != teacher_feature.shape:
+                raise RuntimeError(
+                    'distillation feature shape mismatch: '
+                    f'student[{student_index}]={tuple(student_feature.shape)} '
+                    f'teacher[{teacher_index}]={tuple(teacher_feature.shape)}')
+            gap = F.mse_loss(student_feature, teacher_feature)
+            feature_losses.append(gap)
+            probe.record_scalar(
+                f'distill/head{student_index}_feature_mse', gap.item())
+        if not feature_losses:
+            raise RuntimeError('distillation produced no mapped feature loss')
+        raw_distillation = torch.stack(feature_losses).mean()
+        losses['loss_distill'] = self.distill_lambda * raw_distillation
+        probe.record_scalar('distill/loss_raw', raw_distillation.item())
+        probe.record_scalar(
+            'distill/loss_weighted', losses['loss_distill'].item())
         return losses
 
     # ================================================================

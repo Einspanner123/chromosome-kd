@@ -2,16 +2,15 @@
 """Resolve dataset-independent v2 methods through experiment matrices."""
 
 from __future__ import annotations
-
-from copy import deepcopy
 import hashlib
 import json
-from pathlib import Path
 import subprocess
 import tempfile
+from copy import deepcopy
+from pathlib import Path
 
-from mmengine.config import Config
 import yaml
+from mmengine.config import Config
 
 ROOT = Path(__file__).resolve().parents[2]
 V2 = ROOT / 'experiments/configs/v2'
@@ -114,7 +113,14 @@ def resolve_config(matrix_path: str | Path, method_name: str,
     merged['randomness'] = dict(seed=seed, deterministic=False,
                                 diff_rank_seed=False)
     if parent_checkpoint:
-        merged['load_from'] = str(Path(parent_checkpoint).resolve())
+        binding = method.get('parent_checkpoint_binding', 'load_from')
+        checkpoint_path = str(Path(parent_checkpoint).resolve())
+        if binding == 'load_from':
+            merged['load_from'] = checkpoint_path
+        elif binding == 'teacher_checkpoint':
+            merged['model']['teacher_checkpoint'] = checkpoint_path
+        else:
+            raise ValueError(f'unsupported parent checkpoint binding: {binding}')
     cfg = Config(merged)
     return cfg, dict(
         matrix_path=matrix_path,
@@ -125,7 +131,12 @@ def resolve_config(matrix_path: str | Path, method_name: str,
 
 
 def scientific_hash(cfg: Config) -> str:
-    payload = {key: cfg.get(key) for key in SCIENTIFIC_KEYS}
+    payload = deepcopy({key: cfg.get(key) for key in SCIENTIFIC_KEYS})
+    # Checkpoint identity is recorded independently in the resolution
+    # manifest.  A machine-local path must never alter scientific identity.
+    model = payload.get('model')
+    if isinstance(model, dict):
+        model.pop('teacher_checkpoint', None)
     raw = json.dumps(payload, sort_keys=True, separators=(',', ':'), default=str)
     return hashlib.sha256(raw.encode()).hexdigest()
 
@@ -171,6 +182,12 @@ def write_resolution(cfg: Config, sources: dict, seed: int,
     science_sha = scientific_hash(cfg)
     source_paths = [sources['matrix_path'], sources['dataset_path'],
                     sources['method_path'], RUNTIME]
+    parent_binding = cfg.experiment.get(
+        'parent_checkpoint_binding', 'load_from')
+    parent_path = (
+        cfg.get('load_from') if parent_binding == 'load_from'
+        else cfg.model.get('teacher_checkpoint')
+    )
     manifest = dict(
         schema_version=1,
         evidence_type='resolved_experiment_config',
@@ -186,6 +203,7 @@ def write_resolution(cfg: Config, sources: dict, seed: int,
         parent_method_id=cfg.experiment.get('parent_method_id'),
         parent_checkpoint_required=cfg.experiment.get(
             'parent_checkpoint_required', False),
+        parent_checkpoint_binding=parent_binding,
         scientific_config_sha256=science_sha,
         resolved_config_path=display_path(config_path),
         resolved_config_sha256=resolved_sha,
@@ -195,9 +213,9 @@ def write_resolution(cfg: Config, sources: dict, seed: int,
             test=cfg.get('test_annotation_sha256')),
         dataset_manifest_sha256=cfg.get('dataset_manifest_sha256'),
         parent_checkpoint=(
-            dict(path=display_path(Path(cfg.load_from)),
-                 sha256=sha256_file(Path(cfg.load_from)))
-            if cfg.get('load_from') else None),
+            dict(path=display_path(Path(parent_path)),
+                 sha256=sha256_file(Path(parent_path)))
+            if parent_path else None),
         sources=[dict(path=display_path(path), sha256=sha256_file(path))
                  for path in source_paths],
         git=_git_state(),
