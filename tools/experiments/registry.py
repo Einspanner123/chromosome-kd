@@ -229,3 +229,59 @@ def set_train_run_status(
                 raise ValueError(f'unknown train_run_id: {train_run_id}')
     finally:
         connection.close()
+
+
+def register_eval_plan(
+    *,
+    eval_run_id: str,
+    train_run_id: str,
+    split: str,
+    inference_seed: int,
+    annotation_sha256: str,
+    protocol_name: str,
+    protocol_sha256: str,
+    selection_source: str,
+    test_tuned: bool,
+    status: str = 'planned',
+    db: Path = DB,
+) -> None:
+    identity = (
+        train_run_id,
+        split,
+        inference_seed,
+        annotation_sha256,
+        protocol_name,
+        protocol_sha256,
+        selection_source,
+        int(test_tuned),
+    )
+    connection = connect(db)
+    try:
+        with connection:
+            existing = connection.execute(
+                'SELECT train_run_id,split,inference_seed,annotation_sha256,'
+                'protocol_name,protocol_sha256,selection_source,test_tuned '
+                'FROM eval_run_registry WHERE eval_run_id=?',
+                (eval_run_id,),
+            ).fetchone()
+            if existing is not None and tuple(existing) != identity:
+                raise ValueError(
+                    f'conflicting eval-run identity: {eval_run_id}'
+                )
+            if existing is None:
+                connection.execute(
+                    'INSERT INTO eval_run_registry '
+                    '(eval_run_id,train_run_id,split,inference_seed,'
+                    'annotation_sha256,protocol_name,protocol_sha256,'
+                    'selection_source,test_tuned,status) '
+                    'VALUES (?,?,?,?,?,?,?,?,?,?)',
+                    (eval_run_id, *identity, status),
+                )
+            else:
+                connection.execute(
+                    'UPDATE eval_run_registry SET status=?,'
+                    'updated_at=CURRENT_TIMESTAMP WHERE eval_run_id=?',
+                    (status, eval_run_id),
+                )
+    finally:
+        connection.close()

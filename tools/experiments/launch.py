@@ -19,7 +19,11 @@ from tools.experiments.matrix import (
     resolve_config,
     write_resolution,
 )
-from tools.experiments.registry import register_train_run, set_train_run_status
+from tools.experiments.registry import (
+    register_selected_checkpoint,
+    register_train_run,
+    set_train_run_status,
+)
 
 
 def main() -> int:
@@ -114,6 +118,36 @@ def main() -> int:
     set_train_run_status(
         train_run_id, 'trained' if returncode == 0 else 'failed'
     )
+    if returncode == 0:
+        candidates = sorted(
+            config_path.parent.glob('best_coco_bbox_mAP_epoch_*.pth')
+        )
+        if len(candidates) != 1:
+            print(
+                'checkpoint selection blocked: expected one validation-best '
+                f'checkpoint, found {len(candidates)} in {config_path.parent}',
+                file=sys.stderr,
+            )
+            return 2
+        digest = register_selected_checkpoint(
+            train_run_id,
+            candidates[0],
+            selection_source=(
+                'validation:coco/bbox_mAP; MMEngine CheckpointHook save_best'
+            ),
+            selection_metric='coco/bbox_mAP',
+        )
+        print(
+            json.dumps(
+                dict(
+                    status='TRAINED_AND_SELECTED',
+                    train_run_id=train_run_id,
+                    checkpoint=str(candidates[0]),
+                    checkpoint_sha256=digest,
+                ),
+                indent=2,
+            )
+        )
     return returncode
 
 
