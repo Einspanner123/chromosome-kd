@@ -14,6 +14,7 @@ import json
 import re
 import sqlite3
 from collections import Counter
+from copy import deepcopy
 from pathlib import Path
 
 import yaml
@@ -31,6 +32,7 @@ OUTPUT = ROOT / "experiments/manifests/paper_experiment_route_matrix.yaml"
 CSV_OUTPUT = ROOT / "tools/experiment_db/exports/paper_experiment_route_matrix.csv"
 DOC_OUTPUT = ROOT / "docs/experiments/PAPER_EXPERIMENT_ROUTE_MATRIX.md"
 DB = ROOT / "tools/experiment_db/experiments.db"
+CLAIM_MANIFEST = ROOT / "experiments/manifests/paper_claim_manifest.yaml"
 
 D1_MATRIX = "experiments/configs/matrices/d1_inhouse1700.yaml"
 D2_MATRIX = "experiments/configs/matrices/d2_taichung.yaml"
@@ -39,7 +41,7 @@ D1_GENERATION_MATRIX = "experiments/configs/matrices/d1_inhouse1700_generation_a
 D2_GENERATION_MATRIX = "experiments/configs/matrices/d2_taichung_generation_ablation.yaml"
 D2_SOTA_COMPLETION_MATRIX = "experiments/configs/matrices/d2_taichung_sota_completion.yaml"
 D1_DISTILL_MATRIX = "experiments/configs/matrices/d1_inhouse1700_head_distill.yaml"
-D2_DISTILL_MATRIX = "experiments/configs/matrices/d2_taichung_head_distill.yaml"
+D2_DISTILL_MATRIX = "experiments/configs/matrices/d2_taichung_head_distill_canonical.yaml"
 
 METHODS = {
     "diffusiondet": "experiments/configs/methods/diffusiondet_ddpm.py",
@@ -219,6 +221,203 @@ def _scientific_parameters(text: str, has_resolved_training: bool) -> str:
     return re.sub(r";\s*;", ";", text).strip(" ;")
 
 
+def _upgrade_scientific_routes(rows: list[dict]) -> list[dict]:
+    """Separate canonical paper routes from verified historical identities."""
+    by_id = {row["ledger_id"]: row for row in rows}
+
+    legacy_parent = by_id["D2.SOTA.karyoflow_train3"]
+    legacy_parent["ledger_id"] = "D2.HIST.karyoflow_ot_train3"
+    legacy_parent["layer"] = "Archive"
+    legacy_parent["family"] = "Verified historical detector"
+    legacy_parent["paper_role"] = "Historical OT-coupling reference only"
+    legacy_parent["priority"] = "ARCHIVE"
+
+    legacy_lqcr = by_id["D2.SOTA.karyoflow_lqcr_train3"]
+    legacy_lqcr["ledger_id"] = "D2.HIST.karyoflow_ot_lqcr_train3"
+    legacy_lqcr["layer"] = "Archive"
+    legacy_lqcr["family"] = "Verified historical decision model"
+    legacy_lqcr["paper_role"] = "Historical OT-parent LQCR reference only"
+    legacy_lqcr["priority"] = "ARCHIVE"
+    legacy_lqcr["parent_ledger_id"] = legacy_parent["ledger_id"]
+
+    canonical_parent = deepcopy(legacy_parent)
+    canonical_parent.update(
+        ledger_id="D2.SOTA.karyoflow_canonical_train3",
+        layer="Detector comparison",
+        family="SOTA",
+        variant="karyoflow",
+        execution_kind="full_train",
+        status="PLANNED",
+        priority="P0",
+        training_seeds="42,123,789",
+        config_state="READY",
+        method_config=METHODS["karyoflow"],
+        matrix_config=D2_MATRIX,
+        protocol_config="",
+        parameters="RF; shifted t; AdaLN-Zero; DPM++ 4-step; K=500; 6 heads; random coupling",
+        database_ids={"train_run_ids": [], "result_family": "sota_d2_canonical_test", "evidence_artifact_ids": []},
+        compatibility_report="",
+        swanlab_project="KaryoFlow-Dataset2-V2",
+        swanlab_run_template="{variant}_seed{training_seed}",
+        parent_ledger_id="",
+        paper_role="Canonical D2 main detector table",
+        acceptance_gate="three canonical random-coupling checkpoints; six held-out-test metrics",
+        notes="Required before the manuscript is refreshed.",
+    )
+    canonical_lqcr = deepcopy(legacy_lqcr)
+    canonical_lqcr.update(
+        ledger_id="D2.SOTA.karyoflow_canonical_lqcr_train3",
+        layer="Decision",
+        family="SOTA",
+        variant="karyoflow_lqcr",
+        execution_kind="short_train",
+        status="BLOCKED_PARENT",
+        priority="P0",
+        training_seeds="42,123,789",
+        config_state="READY_PARENT_PENDING",
+        method_config=METHODS["karyoflow_lqcr"],
+        matrix_config=D2_MATRIX,
+        protocol_config="",
+        parameters="parent-matched final-only quality head; beta selected on validation",
+        database_ids={"train_run_ids": [], "result_family": "paired_lqcr_d2_canonical_train3", "evidence_artifact_ids": []},
+        compatibility_report="",
+        swanlab_project="KaryoFlow-Dataset2-V2",
+        swanlab_run_template="{variant}_seed{training_seed}",
+        parent_ledger_id=canonical_parent["ledger_id"],
+        paper_role="Canonical D2 LQCR paired effect",
+        acceptance_gate="one frozen-parent child per seed; final-only tensor audit; six test metrics",
+        notes="Required before the manuscript is refreshed.",
+    )
+    rows.extend([canonical_parent, canonical_lqcr])
+
+    g3 = by_id["D2.ABL.strict.G3"]
+    g3.update(
+        execution_kind="reuse",
+        run_count=0,
+        status="BLOCKED_PARENT",
+        config_state="REUSE_CANONICAL_PARENT",
+        training_seeds="42,123,789",
+        method_config=METHODS["karyoflow"],
+        matrix_config=D2_GENERATION_MATRIX,
+        output_template="route:D2.SOTA.karyoflow_canonical_train3",
+        parent_ledger_id=canonical_parent["ledger_id"],
+        notes="No duplicate training: reuse the canonical D2 KaryoFlow triplet after config-hash equality.",
+    )
+
+    for rid in ("D2.INF.solver_steps.fixed1", "D2.INF.topk_renewal.fixed1"):
+        by_id[rid]["parent_ledger_id"] = legacy_parent["ledger_id"]
+    by_id["D2.DEC.beta_test.fixed1"]["parent_ledger_id"] = legacy_lqcr["ledger_id"]
+    by_id["D2.DEC.strict_subsets"]["parent_ledger_id"] = legacy_lqcr["ledger_id"]
+
+    for rid in ("D2.INF.solver_steps.train3", "D2.INF.topk_renewal.train3"):
+        row = by_id[rid]
+        row.update(
+            training_seeds="42,123,789",
+            method_config=METHODS["karyoflow"],
+            matrix_config=D2_MATRIX,
+            parent_ledger_id=canonical_parent["ledger_id"],
+            notes="Runs on the canonical random-coupling parent triplet.",
+        )
+
+    distill = by_id["D2.DEP.distill_h3.train3"]
+    distill.update(
+        training_seeds="42,123,789",
+        method_config=METHODS["h3_distill"],
+        matrix_config=D2_DISTILL_MATRIX,
+        parent_ledger_id=canonical_parent["ledger_id"],
+        notes="Canonical random-coupling parent-matched students.",
+    )
+
+    legacy_speed = by_id["D2.DEP.speed"]
+    legacy_speed["ledger_id"] = "D2.DEP.speed.legacy"
+    legacy_speed["paper_role"] = "Historical deployment context only"
+    legacy_speed["parent_ledger_id"] = legacy_parent["ledger_id"]
+    canonical_speed = deepcopy(legacy_speed)
+    canonical_speed.update(
+        ledger_id="D2.DEP.speed.canonical",
+        status="BLOCKED_CHECKPOINTS",
+        priority="P0",
+        training_seeds="42,123,789",
+        config_state="PROTOCOL_READY_PARENT_PENDING",
+        method_config=METHODS["karyoflow"],
+        matrix_config=D2_MATRIX,
+        output_template="results/v2/d2/benchmark/a6000/{variant}",
+        database_ids={"train_run_ids": [], "result_family": "speed_accuracy_d2_canonical", "evidence_artifact_ids": []},
+        compatibility_report="",
+        parent_ledger_id=canonical_parent["ledger_id"],
+        paper_role="Final canonical speed-accuracy figure/table",
+        acceptance_gate="three A6000 repeats per final checkpoint; matching test accuracy; params and peak memory",
+        notes="Required before the manuscript is refreshed.",
+    )
+    rows.append(canonical_speed)
+
+    templates = [
+        ("D1I.DATA.test_characterization", "D1_INHOUSE1700_V2", "Data", "test_characterization", "analysis", "PLANNED", "D1 test population, scale CDF, overlap and size bins", D1_MATRIX, "dataset_characterization_d1i"),
+        ("D2.DATA.test_characterization", "D2", "Data", "test_characterization", "analysis", "PLANNED", "D2 test population, scale CDF, overlap and size bins", D2_MATRIX, "dataset_characterization_d2"),
+        ("D1I.DEC.quality_validity", "D1_INHOUSE1700_V2", "Decision", "quality_iou_validity", "analysis", "BLOCKED_PREDICTIONS", "quality-IoU Spearman, MAE/RMSE and reliability bins", D1_MATRIX, "lqcr_quality_validity_d1i"),
+        ("D2.DEC.quality_validity", "D2", "Decision", "quality_iou_validity", "analysis", "BLOCKED_PREDICTIONS", "quality-IoU Spearman, MAE/RMSE and reliability bins", D2_MATRIX, "lqcr_quality_validity_d2_canonical"),
+        ("D2.DEC.strict_subsets.canonical", "D2", "Decision", "strict_iou_scale_overlap", "analysis", "BLOCKED_PREDICTIONS", "AP90/AP95, size quartiles, overlap strata and paired image bootstrap", D2_MATRIX, "conditional_difficult_subset_d2_canonical"),
+        ("D1I.ANALYSIS.per_class", "D1_INHOUSE1700_V2", "Decision", "per_class_error", "analysis", "BLOCKED_PREDICTIONS", "24-class AP and morphology-group error analysis", D1_MATRIX, "per_class_d1i_test"),
+        ("D2.ANALYSIS.per_class", "D2", "Decision", "per_class_error", "analysis", "BLOCKED_PREDICTIONS", "24-class AP and morphology-group error analysis", D2_MATRIX, "per_class_d2_canonical_test"),
+    ]
+    base = deepcopy(by_id["D1I.DEC.strict_subsets"])
+    for rid, dataset, layer, variant, kind, status, parameters, matrix, family in templates:
+        item = deepcopy(base)
+        item.update(
+            ledger_id=rid,
+            dataset_id=dataset,
+            layer=layer,
+            family="Dataset analysis" if ".DATA." in rid else "Diagnostic",
+            variant=variant,
+            execution_kind=kind,
+            status=status,
+            priority="P0" if ".DATA." in rid else "P1",
+            replication_unit="deterministic_dataset_analysis" if ".DATA." in rid else "paired_prediction_analysis",
+            training_seeds="none" if ".DATA." in rid else "42,123,789",
+            inference_seeds="none" if ".DATA." in rid else "42",
+            run_count=1,
+            config_state="PROTOCOL_TO_IMPLEMENT",
+            method_config="",
+            matrix_config=matrix,
+            protocol_config="",
+            parameters=parameters,
+            server_plan="CPU",
+            output_template=f"results/v2/{'d1' if dataset.startswith('D1_') else 'd2'}/analysis/{variant}",
+            database_ids={"train_run_ids": [], "result_family": family, "evidence_artifact_ids": []},
+            compatibility_report="",
+            swanlab_project="",
+            swanlab_run_template="",
+            parent_ledger_id=("" if ".DATA." in rid else ("D1I.SOTA.karyoflow_lqcr" if dataset.startswith("D1_") else canonical_lqcr["ledger_id"])),
+            paper_role=("Dataset table and scale figure" if ".DATA." in rid else "Mechanism/error analysis"),
+            acceptance_gate="versioned analysis JSON bound to final test annotation/prediction SHA",
+            notes="Required before the manuscript is refreshed.",
+        )
+        rows.append(item)
+
+    beta = deepcopy(by_id["D1I.DEC.beta_val"])
+    beta.update(
+        ledger_id="D2.DEC.beta_val.canonical",
+        dataset_id="D2",
+        status="BLOCKED_PARENT",
+        training_seeds="42,123,789",
+        method_config=METHODS["karyoflow_lqcr"],
+        matrix_config=D2_MATRIX,
+        protocol_config="experiments/configs/ablations/d2_lqcr_beta_val.yaml",
+        output_template="results/v2/d2/lqcr_beta_val/{parent}/beta_{beta}",
+        database_ids={"train_run_ids": [], "result_family": "lqcr_beta_d2_canonical_val", "evidence_artifact_ids": []},
+        parent_ledger_id=canonical_lqcr["ledger_id"],
+        paper_role="Canonical D2 validation selection; not a test claim",
+        notes="Required before the canonical D2 test evaluation.",
+    )
+    rows.append(beta)
+    for item in rows:
+        if item.get("parent_ledger_id") == "D2.SOTA.karyoflow_train3":
+            item["parent_ledger_id"] = legacy_parent["ledger_id"]
+        elif item.get("parent_ledger_id") == "D2.SOTA.karyoflow_lqcr_train3":
+            item["parent_ledger_id"] = legacy_lqcr["ledger_id"]
+    return rows
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -384,6 +583,9 @@ def build_rows() -> list[dict]:
                 if rid == "D2.DEP.distill_h3.train3":
                     row["swanlab_project"] = "KaryoFlow-HeadDistill-D2-V2"
 
+        rows.append(row)
+    rows = _upgrade_scientific_routes(rows)
+    for row in rows:
         resolved = _resolved_training_metadata(row)
         row["resolved_training"] = resolved or {}
         if resolved:
@@ -391,7 +593,6 @@ def build_rows() -> list[dict]:
                 row["parameters"], has_resolved_training=True
             )
             row["output_template"] = resolved["output_template"]
-        rows.append(row)
     return rows
 
 
@@ -444,6 +645,7 @@ def write_doc(payload: dict, manifest_sha: str, artifact_id: str) -> None:
         f"- YAML：`{OUTPUT.relative_to(ROOT)}`",
         f"- YAML SHA-256：`{manifest_sha}`",
         f"- 数据库 artifact：`{artifact_id}`",
+        f"- 论文 claim manifest：`{CLAIM_MANIFEST.relative_to(ROOT)}`（SHA-256 `{payload['claim_manifest_sha256']}`）",
         f"- 实验组：{len(rows)}；展开运行：{sum(int(r['run_count']) for r in rows)}。",
         f"- 状态分布：{', '.join(f'{k}={v}' for k, v in sorted(statuses.items()))}。",
         "",
@@ -459,7 +661,10 @@ def write_doc(payload: dict, manifest_sha: str, artifact_id: str) -> None:
     ]
     for dataset in ("D1_INHOUSE1700_V2", "D2", "D1_COMPOSITE2200_LEGACY"):
         lines += ["", f"### {dataset}", ""]
-        for layer in ("Detector comparison", "Generation", "Decision", "Deployment", "Archive"):
+        for layer in (
+            "Data", "Detector comparison", "Generation", "Decision",
+            "Deployment", "Archive",
+        ):
             selected = [r for r in rows if r["dataset_id"] == dataset and r["layer"] == layer]
             if not selected:
                 continue
@@ -491,7 +696,7 @@ def write_doc(payload: dict, manifest_sha: str, artifact_id: str) -> None:
         "## 当前执行结论",
         "",
         "- D1_INHOUSE1700_V2 当前没有有效 active v2 训练；旧 V1 SwanLab/registry 运行均不得继续显示为 RUNNING。",
-        "- D2 已有论文证据已迁移；传统基线仍是固定 checkpoint 推理复现，而非三训练种子。",
+        "- D2 历史OT证据已隔离迁移；canonical random-coupling KaryoFlow/LQCR仍必须重新训练。",
         "- 严格 G0→G1→G2→G3 三训练种子消融尚未完成，当前历史链只能作描述性比较。",
         "- H3 推理身份可精确复现，但历史蒸馏训练实现仍需恢复；GACS 保持可选部署扩展。",
         "",
@@ -515,6 +720,21 @@ def register_db(rows: list[dict], manifest_sha: str, artifact_id: str) -> None:
                parent_route_id TEXT, paper_role TEXT NOT NULL, acceptance_gate TEXT NOT NULL,
                source_manifest_sha256 TEXT NOT NULL, record_json TEXT NOT NULL)
             """
+        )
+        claim_sha = sha256(CLAIM_MANIFEST)
+        con.execute(
+            "DELETE FROM evidence_artifact WHERE artifact_id LIKE 'paper-claim-manifest-v1-%'"
+        )
+        con.execute(
+            """INSERT OR REPLACE INTO evidence_artifact
+               (artifact_id,server,path,sha256,kind,generated_at,status,notes)
+               VALUES(?,?,?,?,?,NULL,'verified',?)""",
+            (
+                f"paper-claim-manifest-v1-{claim_sha[:12]}", "ross",
+                str(CLAIM_MANIFEST.relative_to(ROOT)), claim_sha,
+                "paper_claim_manifest_v1",
+                "Canonical claims that gate manuscript refresh and submission",
+            ),
         )
         con.execute("DELETE FROM experiment_route_matrix_v2")
         con.executemany(
@@ -554,6 +774,7 @@ def main() -> None:
         "schema_version": 2,
         "matrix_id": "karyoflow.paper_experiment_route.v2",
         "authoritative": True,
+        "claim_manifest_sha256": sha256(CLAIM_MANIFEST),
         "supersedes": [
             "tools/experiment_db/manifests/master_experiment_ledger_v1.json",
             "tools/experiment_db/exports/master_experiment_ledger.csv",

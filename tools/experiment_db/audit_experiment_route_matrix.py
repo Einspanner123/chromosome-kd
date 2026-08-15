@@ -23,6 +23,7 @@ MATRIX = ROOT / "experiments/manifests/paper_experiment_route_matrix.yaml"
 CSV_PATH = ROOT / "tools/experiment_db/exports/paper_experiment_route_matrix.csv"
 DOC = ROOT / "docs/experiments/PAPER_EXPERIMENT_ROUTE_MATRIX.md"
 DB = ROOT / "tools/experiment_db/experiments.db"
+CLAIMS = ROOT / "experiments/manifests/paper_claim_manifest.yaml"
 FORBIDDEN_ACTIVE_PREFIXES = (
     "projects/DiffusionDet", "experiments/configs/self1700/",
     "experiments/configs/ldmdet/", "experiments/configs/baselines/",
@@ -46,13 +47,17 @@ def main() -> int:
     idset = set(ids)
     if payload.get("authoritative") is not True:
         errors.append("matrix is not marked authoritative")
-    if len(rows) != 46 or len(idset) != 46:
-        errors.append(f"expected 46 unique route groups, got rows={len(rows)} unique={len(idset)}")
-    if sum(int(r["run_count"]) for r in rows) != 261:
-        errors.append("expanded run count differs from the reviewed 261-run scope")
+    if not rows or len(rows) != len(idset):
+        errors.append(
+            f"route IDs must be non-empty and unique: rows={len(rows)} "
+            f"unique={len(idset)}"
+        )
     if {r["dataset_id"] for r in rows} != {"D1_INHOUSE1700_V2", "D2", "D1_COMPOSITE2200_LEGACY"}:
         errors.append("dataset coverage mismatch")
     d1 = payload["dataset_scope"].get("D1_INHOUSE1700_V2", {})
+    claim_sha = sha256(CLAIMS)
+    if payload.get("claim_manifest_sha256") != claim_sha:
+        errors.append("paper claim manifest SHA mismatch")
     if d1.get("manifest_sha256") != "48d90fed63ecc107b374a316effc1e5ab0d63b7c4bd9110d33ddd16e1f43146c":
         errors.append("D1 V2 manifest SHA mismatch")
     if d1.get("annotation_sha256", {}).get("test") != "883696b8e60cc901cfe92b3f009d8c60e7b8cefbb5ba9ce3c742c3720343f08f":
@@ -161,6 +166,12 @@ def main() -> int:
     ).fetchone()
     if artifact != (str(MATRIX.relative_to(ROOT)), manifest_sha, "verified"):
         errors.append("route matrix evidence artifact mismatch")
+    claim_artifact = con.execute(
+        "SELECT path,sha256,status FROM evidence_artifact WHERE artifact_id=?",
+        (f"paper-claim-manifest-v1-{claim_sha[:12]}",),
+    ).fetchone()
+    if claim_artifact != (str(CLAIMS.relative_to(ROOT)), claim_sha, "verified"):
+        errors.append("paper claim manifest evidence artifact mismatch")
     route_artifacts = con.execute(
         "SELECT COUNT(*) FROM evidence_artifact WHERE artifact_id LIKE 'paper-route-matrix-v2-%'"
     ).fetchone()[0]

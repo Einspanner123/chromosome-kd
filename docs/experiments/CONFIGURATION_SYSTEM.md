@@ -88,6 +88,7 @@ python tools/configs/audit_inference_ablations.py
 python tools/configs/audit_protocols.py
 python tools/experiment_db/audit_config_compatibility.py
 python tools/experiment_db/audit_experiment_route_matrix.py
+python tools/experiment_db/audit_paper_claim_coverage.py
 ```
 
 The active tree contains 42 base files, 22 methods, 14 matrices, 8 ablation

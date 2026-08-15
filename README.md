@@ -79,6 +79,14 @@ python tools/configs/audit_inference_ablations.py
 python tools/configs/audit_protocols.py
 python tools/experiment_db/audit_evidence_db.py
 python tools/experiment_db/audit_experiment_route_matrix.py
+python tools/experiment_db/audit_paper_claim_coverage.py
+```
+
+Before manuscript numbers are refreshed, the stricter readiness gate must also
+pass:
+
+```bash
+python tools/experiment_db/audit_paper_claim_coverage.py --submission-ready
 ```
 
 New accuracy results must conform to

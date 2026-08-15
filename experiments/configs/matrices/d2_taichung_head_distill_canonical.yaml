@@ -1,0 +1,9 @@
+schema_version: 1
+matrix_id: v2.d2_taichung.head_distill_canonical
+dataset_alias: d2_distill_canonical
+dataset_config: experiments/configs/_base_/datasets/d2_taichung.py
+tracker_project: KaryoFlow-HeadDistill-D2-V2
+training_seeds: [42, 123, 789]
+methods:
+  - karyoflow
+  - karyoflow_h3_distill
