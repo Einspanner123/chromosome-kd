@@ -155,6 +155,11 @@ def main() -> int:
     logs = [
         {'path': relative(path), 'sha256': sha256_file(path)}
         for path in sorted(work_dir.rglob('*.log'))
+        # This process commonly has stdout/stderr redirected to this file by
+        # its outer launcher.  The launcher can append after the completion
+        # artifact is written, so it is a mutable transport log rather than
+        # immutable training evidence.
+        if path.name != 'worker_launcher.log'
     ]
     payload = {
         'schema_version': 1,

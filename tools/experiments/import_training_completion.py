@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import warnings
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -53,6 +54,21 @@ def main() -> int:
     verified_artifact(payload['manifest'])
     verified_artifact(payload['resolved_config'])
     for log in payload['logs']:
+        # Schema-v1 workers originally included their own outer launcher log.
+        # That file can receive final stdout after training_completion.json is
+        # atomically written, making its recorded digest stale by construction.
+        # It is not metric evidence; require it to exist for legacy artifacts,
+        # but verify every immutable framework/training log normally.
+        if Path(log['path']).name == 'worker_launcher.log':
+            launcher_log = ROOT / log['path']
+            if not launcher_log.is_file():
+                raise ValueError(f'missing legacy launcher log: {log["path"]}')
+            warnings.warn(
+                'legacy worker_launcher.log digest is not verified because '
+                'the launcher may append after completion emission',
+                stacklevel=1,
+            )
+            continue
         verified_artifact(log)
 
     if payload['status'] != 'trained':
