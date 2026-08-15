@@ -206,7 +206,7 @@ def materialize(
                 except OSError as error:
                     if error.errno not in (errno.EXDEV, errno.EPERM, errno.EACCES):
                         raise
-                    shutil.copy2(item["source_path"], destination)
+                    shutil.copyfile(item["source_path"], destination)
                 image = dict(source_image)
                 image["id"] = new_image_id
                 image["file_name"] = output_name
