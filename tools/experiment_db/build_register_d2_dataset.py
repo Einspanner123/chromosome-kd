@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import errno
 import hashlib
 import json
 import os
@@ -200,7 +201,12 @@ def materialize(
                     f"{source_image['file_name']}"
                 )
                 destination = split_dir / output_name
-                os.link(item["source_path"], destination)
+                try:
+                    os.link(item["source_path"], destination)
+                except OSError as error:
+                    if error.errno not in (errno.EXDEV, errno.EPERM, errno.EACCES):
+                        raise
+                    shutil.copy2(item["source_path"], destination)
                 image = dict(source_image)
                 image["id"] = new_image_id
                 image["file_name"] = output_name
