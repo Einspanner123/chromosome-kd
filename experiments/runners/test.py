@@ -300,6 +300,11 @@ def main():
     set_seed(args.seed)
 
     cfg = Config.fromfile(args.config)
+    # MMEngine dumps the resolved runtime config using ``cfg.filename``.  The
+    # input may itself be the immutable preregistered ``resolved_config.py``;
+    # give the runtime dump a distinct basename so evaluation cannot overwrite
+    # the evidence artifact it is meant to verify.
+    cfg._filename = 'runtime_test_config.py'
     cfg.work_dir = os.path.dirname(args.checkpoint) or 'work_dirs/test'
 
     for key, value in sorted(_load_overrides(args.override_json).items()):

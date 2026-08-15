@@ -49,14 +49,15 @@ experiments:
   inference_seeds: '42'
   layer: Detector comparison
   ledger_id: D1I.SOTA.karyoflow
-  notes: Canonical v2 seeds 42, 123, and 789 are active on three GPUs.
+  notes: Canonical v2 seeds 42, 123, and 789 completed independent training and held-out test evaluation (340 images; inference
+    seed 42).
   paper_role: Main two-cohort detector table
   parameters: RF; shifted t; AdaLN-Zero; DPM++ 4-step; K=500; 6 heads
   parent_ledger_id: ''
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: RUNNING
+  status: COMPLETED_DISTRIBUTED_PENDING_CENTRAL_IMPORT
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: d1-inhouse1700-v1__karyoflow__trainseed-42__a752e7be1f0d;d1-inhouse1700-v1__karyoflow__trainseed-123__a752e7be1f0d;d1-inhouse1700-v1__karyoflow__trainseed-789__a752e7be1f0d
@@ -74,7 +75,6 @@ experiments:
     train_run_ids:
     - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
     - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
-    - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
     result_family: sota_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
@@ -304,14 +304,15 @@ experiments:
   inference_seeds: '42'
   layer: Decision
   ledger_id: D1I.SOTA.karyoflow_lqcr
-  notes: No active v2 run is currently registered.
+  notes: 'Three parent-matched quality-head runs are active: seed 42 on the A5000, seed 123 on the A4000, and seed 789 on
+    the A6000.'
   paper_role: Independent decision contribution
   parameters: parent-matched final-only quality head; beta=2 selected on validation
   parent_ledger_id: D1I.SOTA.karyoflow
   priority: P0
   replication_unit: paired_final_stage_intervention
   run_count: 3
-  status: BLOCKED_PARENT
+  status: RUNNING_DISTRIBUTED
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: d1-inhouse1700-v1__karyoflow_lqcr__trainseed-42__7266ebe11ac0;d1-inhouse1700-v1__karyoflow_lqcr__trainseed-123__7266ebe11ac0;d1-inhouse1700-v1__karyoflow_lqcr__trainseed-789__7266ebe11ac0
@@ -323,10 +324,13 @@ experiments:
   matrix_config: experiments/configs/matrices/d1_inhouse1700.yaml
   protocol_config: ''
   config_state: READY
-  server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
+  server_plan: 42=workstation:A5000:0;123=workstation:A4000:1;789=ross:A6000:0
   output_template: work_dirs/v2/d1/karyoflow_lqcr_r50/trainseed_{training_seed}
   database_ids:
-    train_run_ids: []
+    train_run_ids:
+    - d1-inhouse1700-v2__karyoflow-lqcr-r50__trainseed-42__bddd7d3d2741
+    - d1-inhouse1700-v2__karyoflow-lqcr-r50__trainseed-123__bddd7d3d2741
+    - d1-inhouse1700-v2__karyoflow-lqcr-r50__trainseed-789__bddd7d3d2741
     result_family: paired_lqcr_d1i_train3
     evidence_artifact_ids: []
   compatibility_report: ''
@@ -521,7 +525,7 @@ experiments:
   priority: P0
   replication_unit: fixed_checkpoint_by_training_parent
   run_count: 36
-  status: BLOCKED_PARENT
+  status: PLANNED
   swanlab_project: ''
   swanlab_run_template: ''
   train_run_ids: ''
@@ -532,7 +536,7 @@ experiments:
   method_config: experiments/configs/methods/karyoflow.py
   matrix_config: experiments/configs/matrices/d1_inhouse1700.yaml
   protocol_config: experiments/configs/ablations/d1_solver_test.yaml
-  config_state: PROTOCOL_READY_PARENT_PENDING
+  config_state: PROTOCOL_READY
   server_plan: accuracy:any idle GPU; efficiency=ross:A6000:0 only
   output_template: results/v2/d1_inhouse1700/inference/solver/{parent}/{solver}_{steps}
   database_ids:
@@ -555,7 +559,7 @@ experiments:
   priority: P1
   replication_unit: fixed_checkpoint_by_training_parent
   run_count: 30
-  status: BLOCKED_PARENT
+  status: PLANNED
   swanlab_project: ''
   swanlab_run_template: ''
   train_run_ids: ''
@@ -566,7 +570,7 @@ experiments:
   method_config: experiments/configs/methods/karyoflow.py
   matrix_config: experiments/configs/matrices/d1_inhouse1700.yaml
   protocol_config: experiments/configs/ablations/d1_topk_renewal_test.yaml
-  config_state: PROTOCOL_READY_PARENT_PENDING
+  config_state: PROTOCOL_READY
   server_plan: accuracy:any idle GPU; efficiency=ross:A6000:0 only
   output_template: results/v2/d1_inhouse1700/inference/topk_renewal/{parent}/k{K}_{renewal}
   database_ids:

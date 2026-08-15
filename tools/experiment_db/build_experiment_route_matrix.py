@@ -93,19 +93,19 @@ D2_LEGACY = {
 }
 
 STATUS_OVERRIDE = {
-    "D1I.SOTA.karyoflow": "RUNNING",
+    "D1I.SOTA.karyoflow": "COMPLETED_DISTRIBUTED_PENDING_CENTRAL_IMPORT",
     "D1I.SOTA.diffusiondet": "PLANNED",
     "D1I.SOTA.dino_r50": "PLANNED",
     "D1I.SOTA.rtmdet_l": "PLANNED",
     "D1I.SOTA.cascade_rcnn_r50": "PLANNED",
     "D1I.SOTA.yolox_s": "PLANNED",
-    "D1I.SOTA.karyoflow_lqcr": "BLOCKED_PARENT",
+    "D1I.SOTA.karyoflow_lqcr": "RUNNING_DISTRIBUTED",
     "D1I.ABL.G0": "PLANNED",
     "D1I.ABL.G1": "PLANNED",
     "D1I.ABL.G2": "PLANNED",
     "D1I.ABL.G3": "PLANNED",
-    "D1I.INF.solver_steps": "BLOCKED_PARENT",
-    "D1I.INF.topk_renewal": "BLOCKED_PARENT",
+    "D1I.INF.solver_steps": "PLANNED",
+    "D1I.INF.topk_renewal": "PLANNED",
     "D1I.DEC.beta_val": "BLOCKED_PARENT",
     "D1I.DEC.strict_subsets": "BLOCKED_PREDICTIONS",
     "D1I.DEP.distill_h3": "BLOCKED_PARENT",
@@ -155,8 +155,8 @@ CONFIG_STATE_OVERRIDE = {
     "D1I.ABL.G2": "READY",
     "D1I.DEP.distill_h3": "READY_PARENT_PENDING",
     "D1I.DEP.GACS": "PROTOCOL_READY_PARENT_PENDING",
-    "D1I.INF.solver_steps": "PROTOCOL_READY_PARENT_PENDING",
-    "D1I.INF.topk_renewal": "PROTOCOL_READY_PARENT_PENDING",
+    "D1I.INF.solver_steps": "PROTOCOL_READY",
+    "D1I.INF.topk_renewal": "PROTOCOL_READY",
     "D1I.DEC.beta_val": "PROTOCOL_READY_PARENT_PENDING",
     "D1I.DEC.strict_subsets": "DATASET_ADAPTATION_REQUIRED",
     "D2.ABL.strict.G0": "READY",
@@ -169,7 +169,14 @@ CONFIG_STATE_OVERRIDE = {
 }
 
 NOTES_OVERRIDE = {
-    "D1I.SOTA.karyoflow": "Canonical v2 seeds 42, 123, and 789 are active on three GPUs.",
+    "D1I.SOTA.karyoflow": (
+        "Canonical v2 seeds 42, 123, and 789 completed independent training "
+        "and held-out test evaluation (340 images; inference seed 42)."
+    ),
+    "D1I.SOTA.karyoflow_lqcr": (
+        "Three parent-matched quality-head runs are active: seed 42 on the "
+        "A5000, seed 123 on the A4000, and seed 789 on the A6000."
+    ),
     "D1I.ABL.G3": "Strict one-factor AdaLN-Zero stage; canonical DPM++ remains a separate inference comparison.",
     "D2.ABL.historical_chain": "Historical foundation comparison only; never interpret adjacent rows as isolated cumulative effects.",
     "D2.DEP.distill_h3.existing": "Inference identity is EXACT; the archived historical distillation training implementation is not executable in cleaned ldmdet.",
@@ -350,6 +357,10 @@ def _upgrade_scientific_routes(rows: list[dict]) -> list[dict]:
     )
     d1_parent = by_id["D1I.SOTA.karyoflow"]
     d1_parent["server_plan"] = (
+        "42=workstation:A5000:0;123=workstation:A4000:1;"
+        "789=ross:A6000:0"
+    )
+    by_id["D1I.SOTA.karyoflow_lqcr"]["server_plan"] = (
         "42=workstation:A5000:0;123=workstation:A4000:1;"
         "789=ross:A6000:0"
     )
@@ -640,6 +651,18 @@ def build_rows() -> list[dict]:
                 x for x in (row.pop("evidence_artifact_ids", "") or "").split(";") if x
             ],
         }
+        if rid == "D1I.SOTA.karyoflow":
+            row["database_ids"]["train_run_ids"] = [
+                "d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547",
+                "d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547",
+                "d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547",
+            ]
+        elif rid == "D1I.SOTA.karyoflow_lqcr":
+            row["database_ids"]["train_run_ids"] = [
+                "d1-inhouse1700-v2__karyoflow-lqcr-r50__trainseed-42__bddd7d3d2741",
+                "d1-inhouse1700-v2__karyoflow-lqcr-r50__trainseed-123__bddd7d3d2741",
+                "d1-inhouse1700-v2__karyoflow-lqcr-r50__trainseed-789__bddd7d3d2741",
+            ]
         if rid == "LEGACY.D1.composite":
             row["database_ids"]["result_family"] = "all D1 families except D1_INHOUSE1700_V2"
         if rid == "D2.ABL.strict.G3":
@@ -786,7 +809,7 @@ def write_doc(payload: dict, manifest_sha: str, artifact_id: str) -> None:
         "",
         "## 当前执行结论",
         "",
-        "- D1_INHOUSE1700_V2 当前没有有效 active v2 训练；旧 V1 SwanLab/registry 运行均不得继续显示为 RUNNING。",
+        "- D1_INHOUSE1700_V2 的三条 canonical KaryoFlow 独立训练及 held-out test 已完成；三条 parent-matched LQCR 正在运行。",
         "- D2作者原始划分的历史证据已隔离；D2_TAICHUNG5000_V2上的canonical模型仍必须重新训练。",
         "- 严格 G0→G1→G2→G3 三训练种子消融尚未完成，当前历史链只能作描述性比较。",
         "- H3 推理身份可精确复现，但历史蒸馏训练实现仍需恢复；GACS 保持可选部署扩展。",
