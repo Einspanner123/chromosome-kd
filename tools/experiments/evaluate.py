@@ -41,6 +41,14 @@ FRAMEWORK_KEYS = {
     'AP_L': 'bbox_mAP_l',
 }
 
+# Training matrices retain a descriptive replication label, while the
+# evidence schema uses a smaller canonical vocabulary.  Normalize only exact,
+# reviewed aliases here; do not rewrite the registered training configuration
+# or its scientific hash.
+EVIDENCE_REPLICATION_UNIT_ALIASES = {
+    'paired_quality_head_by_parent': 'paired_final_stage_intervention',
+}
+
 
 def stable_json(value: object) -> str:
     return json.dumps(
@@ -450,7 +458,9 @@ def main() -> int:
         'num_images': num_images,
         'training_seed': train['training_seed'],
         'inference_seed': args.inference_seed,
-        'replication_unit': train['replication_unit'],
+        'replication_unit': EVIDENCE_REPLICATION_UNIT_ALIASES.get(
+            train['replication_unit'], train['replication_unit']
+        ),
         'parent_train_run_id': train['parent_train_run_id'],
         'parent_checkpoint_sha256': run['parent_checkpoint_sha256'],
         'config': artifact(config_path, train['config_path']),
