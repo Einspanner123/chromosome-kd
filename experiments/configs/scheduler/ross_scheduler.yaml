@@ -1,5 +1,6 @@
 schema_version: 1
 state_path: work_dirs/v2/scheduler/state.json
+daemon_pid_path: work_dirs/v2/scheduler/daemon.json
 poll_interval_seconds: 30
 postprocess_workers: 3
 worker_script: /tmp/karyoflow_scheduler_worker.py

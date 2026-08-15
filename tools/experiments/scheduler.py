@@ -16,6 +16,7 @@ import concurrent.futures
 import datetime as dt
 import fcntl
 import json
+import os
 import shlex
 import signal
 import sqlite3
@@ -101,6 +102,26 @@ class StateStore:
             fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
 
+@contextmanager
+def daemon_guard(path: Path):
+    """Hold a process-lifetime lock and publish the active daemon PID."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.with_suffix(path.suffix + '.lock')
+    with lock_path.open('a+') as lock:
+        try:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise RuntimeError(
+                'another scheduler daemon is already active'
+            ) from error
+        atomic_json(path, {'pid': os.getpid(), 'started_at': utc_now()})
+        try:
+            yield
+        finally:
+            path.unlink(missing_ok=True)
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+
 class Scheduler:
     def __init__(self, config_path: Path):
         self.config_path = config_path.resolve()
@@ -110,6 +131,14 @@ class Scheduler:
         state_path = Path(self.config['state_path'])
         self.store = StateStore(
             state_path if state_path.is_absolute() else ROOT / state_path
+        )
+        daemon_path = Path(
+            self.config.get(
+                'daemon_pid_path', 'work_dirs/v2/scheduler/daemon.json'
+            )
+        )
+        self.daemon_pid_path = (
+            daemon_path if daemon_path.is_absolute() else ROOT / daemon_path
         )
         self.pool = concurrent.futures.ThreadPoolExecutor(
             max_workers=int(self.config.get('postprocess_workers', 2))
@@ -584,21 +613,22 @@ def main() -> int:
             record['postprocess']['status'] = 'retry'
             output = summary(state)
     else:
-        scheduler.recover_postprocess()
-        stop = False
+        with daemon_guard(scheduler.daemon_pid_path):
+            scheduler.recover_postprocess()
+            stop = False
 
-        def request_stop(_signum, _frame):
-            nonlocal stop
-            stop = True
+            def request_stop(_signum, _frame):
+                nonlocal stop
+                stop = True
 
-        signal.signal(signal.SIGTERM, request_stop)
-        signal.signal(signal.SIGINT, request_stop)
-        output = scheduler.tick()
-        while not args.once and not stop:
-            time.sleep(
-                float(scheduler.config.get('poll_interval_seconds', 30))
-            )
             output = scheduler.tick()
+            signal.signal(signal.SIGTERM, request_stop)
+            signal.signal(signal.SIGINT, request_stop)
+            while not args.once and not stop:
+                time.sleep(
+                    float(scheduler.config.get('poll_interval_seconds', 30))
+                )
+                output = scheduler.tick()
     print(json.dumps(output, indent=2, sort_keys=True))
     return 0
 
