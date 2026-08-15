@@ -169,7 +169,7 @@ CONFIG_STATE_OVERRIDE = {
 }
 
 NOTES_OVERRIDE = {
-    "D1I.SOTA.karyoflow": "Canonical v2 seed 42 and 123 runs are active; seed 789 remains planned.",
+    "D1I.SOTA.karyoflow": "Canonical v2 seeds 42, 123, and 789 are active on three GPUs.",
     "D1I.ABL.G3": "Strict one-factor AdaLN-Zero stage; canonical DPM++ remains a separate inference comparison.",
     "D2.ABL.historical_chain": "Historical foundation comparison only; never interpret adjacent rows as isolated cumulative effects.",
     "D2.DEP.distill_h3.existing": "Inference identity is EXACT; the archived historical distillation training implementation is not executable in cleaned ldmdet.",
@@ -288,7 +288,7 @@ def _upgrade_scientific_routes(rows: list[dict]) -> list[dict]:
         family="SOTA",
         variant="karyoflow",
         execution_kind="full_train",
-        status="RUNNING",
+        status="PLANNED",
         priority="P0",
         training_seeds="42,123,789",
         config_state="READY",
@@ -303,7 +303,11 @@ def _upgrade_scientific_routes(rows: list[dict]) -> list[dict]:
         parent_ledger_id="",
         paper_role="Canonical D2 main detector table",
         acceptance_gate="three canonical random-coupling checkpoints; six held-out-test metrics",
-        notes="Canonical v2 seed 42 is active; seeds 123 and 789 remain planned.",
+        notes=(
+            "Deferred at completed epoch 3 after confirming that all paper "
+            "D2 evidence follows the publisher-provided original split; retain "
+            "only as an optional split-sensitivity experiment."
+        ),
         server_plan=(
             "42=ross:A6000:0;123=workstation:A5000:0;"
             "789=workstation:A4000:1"

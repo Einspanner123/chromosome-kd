@@ -49,7 +49,7 @@ experiments:
   inference_seeds: '42'
   layer: Detector comparison
   ledger_id: D1I.SOTA.karyoflow
-  notes: Canonical v2 seed 42 and 123 runs are active; seed 789 remains planned.
+  notes: Canonical v2 seeds 42, 123, and 789 are active on three GPUs.
   paper_role: Main two-cohort detector table
   parameters: RF; shifted t; AdaLN-Zero; DPM++ 4-step; K=500; 6 heads
   parent_ledger_id: ''
@@ -74,6 +74,7 @@ experiments:
     train_run_ids:
     - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
     - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+    - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
     result_family: sota_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
@@ -1777,14 +1778,15 @@ experiments:
   inference_seeds: '42'
   layer: Detector comparison
   ledger_id: D2.SOTA.karyoflow_canonical_train3
-  notes: Canonical v2 seed 42 is active; seeds 123 and 789 remain planned.
+  notes: Deferred at completed epoch 3 after confirming that all paper D2 evidence follows the publisher-provided original
+    split; retain only as an optional split-sensitivity experiment.
   paper_role: Canonical D2 main detector table
   parameters: RF; shifted t; AdaLN-Zero; DPM++ 4-step; K=500; 6 heads; random coupling
   parent_ledger_id: ''
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: RUNNING
+  status: PLANNED
   swanlab_project: KaryoFlow-Dataset2-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789

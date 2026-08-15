@@ -193,6 +193,11 @@ def main():
     )
 
     cfg = Config.fromfile(args.config)
+    # MMEngine dumps the effective runtime config into ``work_dir`` using the
+    # basename of ``cfg.filename``.  Canonical resolved configs live in that
+    # same directory and are immutable registered evidence, so use a distinct
+    # dump name instead of overwriting ``resolved_config.py``.
+    cfg._filename = 'runtime_config.py'
 
     experiment = cfg.get('experiment', {})
     if experiment.get('parent_checkpoint_required'):
