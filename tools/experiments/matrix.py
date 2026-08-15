@@ -185,6 +185,10 @@ def default_work_dir(cfg: Config, seed: int) -> Path:
 
 
 def _git_state() -> dict:
+    # The evidence database is an intentionally mutable, hash-audited artifact.
+    # Exclude only that file when deciding whether executable source is dirty;
+    # otherwise registering the first run would invalidate every later run.
+    code_pathspec = ['.', ':(exclude)tools/experiment_db/experiments.db']
     commit = subprocess.run(
         ['git', 'rev-parse', 'HEAD'],
         cwd=ROOT,
@@ -193,13 +197,13 @@ def _git_state() -> dict:
         text=True,
     ).stdout.strip()
     diff = subprocess.run(
-        ['git', 'diff', '--binary', 'HEAD'],
+        ['git', 'diff', '--binary', 'HEAD', '--', *code_pathspec],
         cwd=ROOT,
         check=True,
         capture_output=True,
     ).stdout
     status = subprocess.run(
-        ['git', 'status', '--porcelain=v1'],
+        ['git', 'status', '--porcelain=v1', '--', *code_pathspec],
         cwd=ROOT,
         check=True,
         capture_output=True,

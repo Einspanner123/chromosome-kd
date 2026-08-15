@@ -66,6 +66,10 @@ def artifact(path: Path, relative: str | None = None) -> dict:
 
 
 def git_state() -> dict:
+    # Run registration mutates the hash-audited evidence database by design.
+    # It is not executable source and must not make subsequent evaluations look
+    # like they used uncommitted code.
+    code_pathspec = ['.', ':(exclude)tools/experiment_db/experiments.db']
     commit = subprocess.run(
         ['git', 'rev-parse', 'HEAD'],
         cwd=ROOT,
@@ -74,7 +78,7 @@ def git_state() -> dict:
         text=True,
     ).stdout.strip()
     status = subprocess.run(
-        ['git', 'status', '--porcelain=v1'],
+        ['git', 'status', '--porcelain=v1', '--', *code_pathspec],
         cwd=ROOT,
         check=True,
         capture_output=True,
@@ -84,7 +88,7 @@ def git_state() -> dict:
         return {'git_commit': commit, 'dirty': False}
     diff = (
         subprocess.run(
-            ['git', 'diff', '--binary', 'HEAD'],
+            ['git', 'diff', '--binary', 'HEAD', '--', *code_pathspec],
             cwd=ROOT,
             check=True,
             capture_output=True,
