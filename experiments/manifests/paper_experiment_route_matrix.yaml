@@ -49,15 +49,15 @@ experiments:
   inference_seeds: '42'
   layer: Detector comparison
   ledger_id: D1I.SOTA.karyoflow
-  notes: Canonical v2 seeds 42, 123, and 789 completed independent training and held-out test evaluation (340 images; inference
-    seed 42).
+  notes: Canonical v2 seeds 42, 123, and 789 completed independent training and central held-out test evaluation (340 images;
+    inference seed 42); all three immutable config digests were preserved during evaluation.
   paper_role: Main two-cohort detector table
   parameters: RF; shifted t; AdaLN-Zero; DPM++ 4-step; K=500; 6 heads
   parent_ledger_id: ''
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: COMPLETED_DISTRIBUTED_PENDING_CENTRAL_IMPORT
+  status: COMPLETED_CENTRAL_TEST_VERIFIED
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: d1-inhouse1700-v1__karyoflow__trainseed-42__a752e7be1f0d;d1-inhouse1700-v1__karyoflow__trainseed-123__a752e7be1f0d;d1-inhouse1700-v1__karyoflow__trainseed-789__a752e7be1f0d
@@ -75,6 +75,7 @@ experiments:
     train_run_ids:
     - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
     - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+    - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
     result_family: sota_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
@@ -304,15 +305,15 @@ experiments:
   inference_seeds: '42'
   layer: Decision
   ledger_id: D1I.SOTA.karyoflow_lqcr
-  notes: Three parent-matched quality-head runs completed training on the A5000, A4000, and A6000; held-out test evaluation
-    and final-only tensor audit remain pending.
+  notes: Three parent-matched quality-head runs completed training on the A5000, A4000, and A6000. Seed 789 has passed central
+    held-out test evaluation; seeds 42 and 123 are being centralized before paired test evaluation and final-only tensor audit.
   paper_role: Independent decision contribution
   parameters: parent-matched final-only quality head; beta=2 selected on validation
   parent_ledger_id: D1I.SOTA.karyoflow
   priority: P0
   replication_unit: paired_final_stage_intervention
   run_count: 3
-  status: TRAINED_DISTRIBUTED_TEST_PENDING
+  status: TEST_PARTIAL_CENTRAL_1_OF_3
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: d1-inhouse1700-v1__karyoflow_lqcr__trainseed-42__7266ebe11ac0;d1-inhouse1700-v1__karyoflow_lqcr__trainseed-123__7266ebe11ac0;d1-inhouse1700-v1__karyoflow_lqcr__trainseed-789__7266ebe11ac0
@@ -350,14 +351,15 @@ experiments:
   inference_seeds: '42'
   layer: Generation
   ledger_id: D1I.ABL.G0
-  notes: No active v2 run is currently registered.
+  notes: All three independent G0 runs are active under the dedicated KaryoFlow-Self1700-V2-Ablation tracking project; G1--G3
+    are queued per GPU and launch only after a validation-best G0 checkpoint exists.
   paper_role: Strict incremental generation ablation
   parameters: DDPM; DDIM1; linear t; scale-shift
   parent_ledger_id: ''
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: PLANNED
+  status: RUNNING_DISTRIBUTED_3_OF_3
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: ''
@@ -372,7 +374,8 @@ experiments:
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
   output_template: work_dirs/v2/d1_generation/strict_g0_ddpm_linear_scaleshift_r50/trainseed_{training_seed}
   database_ids:
-    train_run_ids: []
+    train_run_ids:
+    - d1-inhouse1700-v2__strict-g0-ddpm-linear-scaleshift-r50__trainseed-42__78c13c85e64b
     result_family: generation_train_ablation_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''

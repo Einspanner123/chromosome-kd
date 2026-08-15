@@ -93,14 +93,14 @@ D2_LEGACY = {
 }
 
 STATUS_OVERRIDE = {
-    "D1I.SOTA.karyoflow": "COMPLETED_DISTRIBUTED_PENDING_CENTRAL_IMPORT",
+    "D1I.SOTA.karyoflow": "COMPLETED_CENTRAL_TEST_VERIFIED",
     "D1I.SOTA.diffusiondet": "PLANNED",
     "D1I.SOTA.dino_r50": "PLANNED",
     "D1I.SOTA.rtmdet_l": "PLANNED",
     "D1I.SOTA.cascade_rcnn_r50": "PLANNED",
     "D1I.SOTA.yolox_s": "PLANNED",
-    "D1I.SOTA.karyoflow_lqcr": "TRAINED_DISTRIBUTED_TEST_PENDING",
-    "D1I.ABL.G0": "PLANNED",
+    "D1I.SOTA.karyoflow_lqcr": "TEST_PARTIAL_CENTRAL_1_OF_3",
+    "D1I.ABL.G0": "RUNNING_DISTRIBUTED_3_OF_3",
     "D1I.ABL.G1": "PLANNED",
     "D1I.ABL.G2": "PLANNED",
     "D1I.ABL.G3": "PLANNED",
@@ -171,12 +171,19 @@ CONFIG_STATE_OVERRIDE = {
 NOTES_OVERRIDE = {
     "D1I.SOTA.karyoflow": (
         "Canonical v2 seeds 42, 123, and 789 completed independent training "
-        "and held-out test evaluation (340 images; inference seed 42)."
+        "and central held-out test evaluation (340 images; inference seed 42); "
+        "all three immutable config digests were preserved during evaluation."
     ),
     "D1I.SOTA.karyoflow_lqcr": (
         "Three parent-matched quality-head runs completed training on the "
-        "A5000, A4000, and A6000; held-out test evaluation and final-only "
-        "tensor audit remain pending."
+        "A5000, A4000, and A6000. Seed 789 has passed central held-out test "
+        "evaluation; seeds 42 and 123 are being centralized before paired "
+        "test evaluation and final-only tensor audit."
+    ),
+    "D1I.ABL.G0": (
+        "All three independent G0 runs are active under the dedicated "
+        "KaryoFlow-Self1700-V2-Ablation tracking project; G1--G3 are queued "
+        "per GPU and launch only after a validation-best G0 checkpoint exists."
     ),
     "D1I.ABL.G3": "Strict one-factor AdaLN-Zero stage; canonical DPM++ remains a separate inference comparison.",
     "D2.ABL.historical_chain": "Historical foundation comparison only; never interpret adjacent rows as isolated cumulative effects.",
