@@ -49,14 +49,14 @@ experiments:
   inference_seeds: '42'
   layer: Detector comparison
   ledger_id: D1I.SOTA.karyoflow
-  notes: No active v2 run is registered; previous self1700 runs are invalid or superseded.
+  notes: Canonical v2 seed 42 and 123 runs are active; seed 789 remains planned.
   paper_role: Main two-cohort detector table
   parameters: RF; shifted t; AdaLN-Zero; DPM++ 4-step; K=500; 6 heads
   parent_ledger_id: ''
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: PLANNED
+  status: RUNNING
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: d1-inhouse1700-v1__karyoflow__trainseed-42__a752e7be1f0d;d1-inhouse1700-v1__karyoflow__trainseed-123__a752e7be1f0d;d1-inhouse1700-v1__karyoflow__trainseed-789__a752e7be1f0d
@@ -68,10 +68,12 @@ experiments:
   matrix_config: experiments/configs/matrices/d1_inhouse1700.yaml
   protocol_config: ''
   config_state: READY
-  server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
+  server_plan: 42=workstation:A5000:0;123=workstation:A4000:1;789=ross:A6000:0
   output_template: work_dirs/v2/d1/karyoflow_r50/trainseed_{training_seed}
   database_ids:
-    train_run_ids: []
+    train_run_ids:
+    - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+    - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
     result_family: sota_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
@@ -418,7 +420,7 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 5.0e-05
-    scientific_config_sha256: 93c2cc7df441c784bdd68434f3f41a0e66f403044b133add6d67d2da50ed0fff
+    scientific_config_sha256: 09e5cb88a93357ba23d7a5d47b1adfc821532d89c0d6ce19e471833287e0e4c1
     output_template: work_dirs/v2/d1_generation/strict_g1_rf_linear_scaleshift_r50/trainseed_{training_seed}
 - acceptance_gate: only named factor changes; batch/optimizer/augmentation/selection fixed
   dataset_id: D1_INHOUSE1700_V2
@@ -460,18 +462,18 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 5.0e-05
-    scientific_config_sha256: 854dede91dd9fa8692f3f4b01c5144af8eb81c833393f72c956e96dd33fd17c8
+    scientific_config_sha256: 203180b73f2d9a9fe6d23e386a669d1a3f73c2b898da720d80ee237b105dc083
     output_template: work_dirs/v2/d1_generation/strict_g2_rf_shifted_scaleshift_r50/trainseed_{training_seed}
-- acceptance_gate: only named factor changes; batch/optimizer/augmentation/selection fixed
+- acceptance_gate: only time conditioning changes from G2; common validation protocol
   dataset_id: D1_INHOUSE1700_V2
   execution_kind: full_train
   family: Training ablation
   inference_seeds: '42'
   layer: Generation
   ledger_id: D1I.ABL.G3
-  notes: Reuses the planned D1 KaryoFlow training triplet after strict config audit.
-  paper_role: Strict incremental generation ablation
-  parameters: RF; shifted t; AdaLN-Zero; DPM++4 validation
+  notes: Strict one-factor AdaLN-Zero stage; canonical DPM++ remains a separate inference comparison.
+  paper_role: Strict one-factor generation ablation
+  parameters: RF; shifted t; AdaLN-Zero; Euler 1-step validation
   parent_ledger_id: D1I.ABL.G2
   priority: P0
   replication_unit: independent_training_seed
@@ -484,26 +486,26 @@ experiments:
   variant: RF_shifted_AdaLNZero
   legacy_config_path: experiments/configs/self1700/karyoflow.py
   legacy_config_status: exists
-  method_config: experiments/configs/methods/karyoflow.py
-  matrix_config: experiments/configs/matrices/d1_inhouse1700.yaml
+  method_config: experiments/configs/methods/strict_g3_rf_shifted_adaln_zero.py
+  matrix_config: experiments/configs/matrices/d1_inhouse1700_generation_ablation.yaml
   protocol_config: ''
   config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
-  output_template: work_dirs/v2/d1/karyoflow_r50/trainseed_{training_seed}
+  output_template: work_dirs/v2/d1_generation/strict_g3_rf_shifted_adaln_zero_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: generation_train_ablation_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
   resolved_training:
-    config_id: v2.d1.karyoflow_r50.train
-    method_id: karyoflow_r50
+    config_id: v2.d1_generation.strict_g3_rf_shifted_adaln_zero_r50.train
+    method_id: strict_g3_rf_shifted_adaln_zero_r50
     batch_size: 2
     max_epochs: 150
     optimizer: AdamW
     base_lr: 5.0e-05
-    scientific_config_sha256: 5102e030f547b152169af3c179feca9cf0304cbf3d2af2ed419d114103a8568d
-    output_template: work_dirs/v2/d1/karyoflow_r50/trainseed_{training_seed}
+    scientific_config_sha256: 8ee8741ec0a2c0d8656aeee90ea22b481561fe23d2264f00f9f6510b4a725f77
+    output_template: work_dirs/v2/d1_generation/strict_g3_rf_shifted_adaln_zero_r50/trainseed_{training_seed}
 - acceptance_gate: same checkpoint per parent; common test; no cross-checkpoint causal claim
   dataset_id: D1_INHOUSE1700_V2
   execution_kind: inference
@@ -1306,7 +1308,7 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 5.0e-05
-    scientific_config_sha256: c2458029dde1850eef439703d07b2ad733c57b4fd0a1d742a20b1826d010de59
+    scientific_config_sha256: 9bcb27764aca0e32079058c1bd5ad7cec0e104908d99480cc9bea68da2b10d5f
     output_template: work_dirs/v2/d2_generation/strict_g1_rf_linear_scaleshift_r50/trainseed_{training_seed}
 - acceptance_gate: only named factor changes; same batch/optimizer/selection; six test metrics
   dataset_id: D2_TAICHUNG5000_V2
@@ -1347,41 +1349,49 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 5.0e-05
-    scientific_config_sha256: a2dbbbc32be277df1957abc102a69a48a4848f64ccf44b033649fe1551a9bdd6
+    scientific_config_sha256: c10370d239252b52ccc6101b1c7535bd78250f83bec80f08a829e0ac33a1a7e3
     output_template: work_dirs/v2/d2_generation/strict_g2_rf_shifted_scaleshift_r50/trainseed_{training_seed}
-- acceptance_gate: confirm optimizer/batch/selection compatibility with new G0-G2
+- acceptance_gate: only time conditioning changes from G2; common validation protocol
   dataset_id: D2_TAICHUNG5000_V2
-  execution_kind: reuse
+  execution_kind: full_train
   family: Training ablation
   inference_seeds: '42'
   layer: Generation
   ledger_id: D2.ABL.strict.G3
-  notes: 'No duplicate training: reuse the canonical D2 KaryoFlow triplet after config-hash equality.'
-  paper_role: Strict chain endpoint; reuse only after config compatibility audit
-  parameters: RF; shifted t; AdaLN-Zero; DPM++4
-  parent_ledger_id: D2.SOTA.karyoflow_canonical_train3
+  notes: Strict one-factor AdaLN-Zero stage; DPM++ is evaluated separately on a fixed checkpoint.
+  paper_role: Cross-cohort strict one-factor generation ablation
+  parameters: RF; shifted t; AdaLN-Zero; Euler 1-step validation
+  parent_ledger_id: ''
   priority: DONE
   replication_unit: independent_training_seed
-  run_count: 0
-  status: BLOCKED_PARENT
+  run_count: 3
+  status: PLANNED
   swanlab_project: ''
   swanlab_run_template: ''
   training_seeds: 42,123,789
   variant: RF_shifted_AdaLNZero
   legacy_config_path: experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_dpm_pp_24obj.py
   legacy_config_status: exists_plus_dumped_configs
-  method_config: experiments/configs/methods/karyoflow.py
+  method_config: experiments/configs/methods/strict_g3_rf_shifted_adaln_zero.py
   matrix_config: experiments/configs/matrices/d2_taichung_generation_ablation.yaml
   protocol_config: ''
-  config_state: REUSE_CANONICAL_PARENT
-  server_plan: historical ross/workstation
-  output_template: route:D2.SOTA.karyoflow_canonical_train3
+  config_state: READY
+  server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
+  output_template: work_dirs/v2/d2_generation/strict_g3_rf_shifted_adaln_zero_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: strict_generation_d2_test
     evidence_artifact_ids: []
   compatibility_report: ''
-  resolved_training: {}
+  resolved_training:
+    config_id: v2.d2_generation.strict_g3_rf_shifted_adaln_zero_r50.train
+    method_id: strict_g3_rf_shifted_adaln_zero_r50
+    batch_size: 2
+    max_epochs: 150
+    optimizer: AdamW
+    base_lr: 5.0e-05
+    scientific_config_sha256: a45fe1b84045b54bb305d2b6584d2b162cd8281f046c1f2a4e0f3c3d8fe23a74
+    output_template: work_dirs/v2/d2_generation/strict_g3_rf_shifted_adaln_zero_r50/trainseed_{training_seed}
 - acceptance_gate: label fixed-checkpoint; not training replication
   dataset_id: D2
   execution_kind: inference
@@ -1767,14 +1777,14 @@ experiments:
   inference_seeds: '42'
   layer: Detector comparison
   ledger_id: D2.SOTA.karyoflow_canonical_train3
-  notes: Required before the manuscript is refreshed.
+  notes: Canonical v2 seed 42 is active; seeds 123 and 789 remain planned.
   paper_role: Canonical D2 main detector table
   parameters: RF; shifted t; AdaLN-Zero; DPM++ 4-step; K=500; 6 heads; random coupling
   parent_ledger_id: ''
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: PLANNED
+  status: RUNNING
   swanlab_project: KaryoFlow-Dataset2-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
@@ -1785,10 +1795,11 @@ experiments:
   matrix_config: experiments/configs/matrices/d2_taichung.yaml
   protocol_config: ''
   config_state: READY
-  server_plan: historical ross/workstation
+  server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
   output_template: work_dirs/v2/d2/karyoflow_r50/trainseed_{training_seed}
   database_ids:
-    train_run_ids: []
+    train_run_ids:
+    - d2-taichung5000-v2__karyoflow-r50__trainseed-42__18755935980e
     result_family: sota_d2_canonical_test
     evidence_artifact_ids: []
   compatibility_report: ''
@@ -1849,7 +1860,7 @@ experiments:
   inference_seeds: none
   layer: Deployment
   ledger_id: D2.DEP.speed.canonical
-  notes: Required before the manuscript is refreshed.
+  notes: Canonical v2 seed 42 is active; seeds 123 and 789 remain planned.
   paper_role: Final canonical speed-accuracy figure/table
   parameters: 'A6000: RF-Heun; DPM++ K=100/200/300/500; LQCR; H3; repeat after final checkpoints'
   parent_ledger_id: D2.SOTA.karyoflow_canonical_train3
@@ -1867,7 +1878,7 @@ experiments:
   matrix_config: experiments/configs/matrices/d2_taichung.yaml
   protocol_config: experiments/configs/deployment/a6000_speed_protocol.yaml
   config_state: PROTOCOL_READY_PARENT_PENDING
-  server_plan: ross:A6000:0 exclusive
+  server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
   output_template: results/v2/d2/benchmark/a6000/{variant}
   database_ids:
     train_run_ids: []

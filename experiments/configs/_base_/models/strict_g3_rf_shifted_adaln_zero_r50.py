@@ -1,4 +1,8 @@
-"""Strict G2: rectified flow, shifted time, scale-shift conditioning."""
+"""Strict G3: rectified flow, shifted time, AdaLN-Zero conditioning.
+
+The one-step Euler validation protocol is intentionally identical to G1/G2.
+DPM++ is evaluated later as a fixed-checkpoint inference intervention.
+"""
 
 _base_ = ['./ldmdet_r50_common.py']
 
@@ -13,6 +17,6 @@ model = dict(
         coupling=dict(type='random'),
         box_renewal=True,
         use_ensemble=True,
-        single_head=dict(time_conditioning='scale_shift'),
+        single_head=dict(time_conditioning='adaln_zero'),
     )
 )

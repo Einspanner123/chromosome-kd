@@ -2,7 +2,6 @@
 """Audit the authoritative v2 paper experiment route matrix."""
 
 from __future__ import annotations
-
 import csv
 import hashlib
 import json
@@ -16,7 +15,6 @@ from tools.experiments.matrix import (
     resolve_config,
     scientific_hash,
 )
-
 
 ROOT = Path(__file__).resolve().parents[2]
 MATRIX = ROOT / "experiments/manifests/paper_experiment_route_matrix.yaml"
@@ -113,8 +111,6 @@ def main() -> int:
             tids = set(row["database_ids"]["train_run_ids"])
             if not tids or not tids <= active_runs:
                 errors.append(f"{rid}: RUNNING without matching active registry rows")
-        if row["dataset_id"] == "D1_INHOUSE1700_V2" and row["database_ids"]["train_run_ids"]:
-            errors.append(f"{rid}: stale D1 train run IDs retained")
         if row["config_state"] in {"READY", "EXACT", "STRUCTURAL_ONLY", "PROTOCOL_READY", "EXACT_INFERENCE_ARCHIVED_TRAINING"}:
             refs = [row.get(k) for k in ("method_config", "matrix_config", "protocol_config") if row.get(k)]
             for ref in refs:

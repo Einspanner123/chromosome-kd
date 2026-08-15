@@ -8,4 +8,4 @@ methods:
   - strict_g0_ddpm_linear_scaleshift
   - strict_g1_rf_linear_scaleshift
   - strict_g2_rf_shifted_scaleshift
-  - karyoflow
+  - strict_g3_rf_shifted_adaln_zero

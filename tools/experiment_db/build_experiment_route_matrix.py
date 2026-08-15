@@ -7,7 +7,6 @@ statuses are replaced here with v2-reviewed values.
 """
 
 from __future__ import annotations
-
 import csv
 import hashlib
 import json
@@ -24,7 +23,6 @@ from tools.experiments.matrix import (
     resolve_config,
     scientific_hash,
 )
-
 
 ROOT = Path(__file__).resolve().parents[2]
 LEGACY = ROOT / "tools/experiment_db/manifests/master_experiment_ledger_v1.json"
@@ -56,6 +54,7 @@ METHODS = {
     "strict_g0": "experiments/configs/methods/strict_g0_ddpm_linear_scaleshift.py",
     "strict_g1": "experiments/configs/methods/strict_g1_rf_linear_scaleshift.py",
     "strict_g2": "experiments/configs/methods/strict_g2_rf_shifted_scaleshift.py",
+    "strict_g3": "experiments/configs/methods/strict_g3_rf_shifted_adaln_zero.py",
     "h3_distill": "experiments/configs/methods/karyoflow_h3_distill.py",
     "ot_h3_distill": "experiments/configs/methods/karyoflow_ot_h3_distill.py",
 }
@@ -94,7 +93,7 @@ D2_LEGACY = {
 }
 
 STATUS_OVERRIDE = {
-    "D1I.SOTA.karyoflow": "PLANNED",
+    "D1I.SOTA.karyoflow": "RUNNING",
     "D1I.SOTA.diffusiondet": "PLANNED",
     "D1I.SOTA.dino_r50": "PLANNED",
     "D1I.SOTA.rtmdet_l": "PLANNED",
@@ -170,8 +169,8 @@ CONFIG_STATE_OVERRIDE = {
 }
 
 NOTES_OVERRIDE = {
-    "D1I.SOTA.karyoflow": "No active v2 run is registered; previous self1700 runs are invalid or superseded.",
-    "D1I.ABL.G3": "Reuses the planned D1 KaryoFlow training triplet after strict config audit.",
+    "D1I.SOTA.karyoflow": "Canonical v2 seed 42 and 123 runs are active; seed 789 remains planned.",
+    "D1I.ABL.G3": "Strict one-factor AdaLN-Zero stage; canonical DPM++ remains a separate inference comparison.",
     "D2.ABL.historical_chain": "Historical foundation comparison only; never interpret adjacent rows as isolated cumulative effects.",
     "D2.DEP.distill_h3.existing": "Inference identity is EXACT; the archived historical distillation training implementation is not executable in cleaned ldmdet.",
     "D2.DEP.speed": "Historical latency is valid under its recorded protocol but PARTIAL against the strict rerun protocol.",
@@ -222,6 +221,25 @@ def _scientific_parameters(text: str, has_resolved_training: bool) -> str:
     return re.sub(r";\s*;", ";", text).strip(" ;")
 
 
+def _active_registered_runs(row: dict, resolved: dict) -> list[str]:
+    """Return only active registrations with the exact scientific identity."""
+    connection = sqlite3.connect(DB)
+    try:
+        records = connection.execute(
+            "SELECT train_run_id FROM train_run_registry "
+            "WHERE dataset_id=? AND method=? AND scientific_config_sha256=? "
+            "AND status IN ('planned','running') ORDER BY training_seed",
+            (
+                row["dataset_id"],
+                resolved["method_id"],
+                resolved["scientific_config_sha256"],
+            ),
+        ).fetchall()
+    finally:
+        connection.close()
+    return [record[0] for record in records]
+
+
 def _upgrade_scientific_routes(rows: list[dict]) -> list[dict]:
     """Separate canonical paper routes from verified historical identities."""
     by_id = {row["ledger_id"]: row for row in rows}
@@ -270,7 +288,7 @@ def _upgrade_scientific_routes(rows: list[dict]) -> list[dict]:
         family="SOTA",
         variant="karyoflow",
         execution_kind="full_train",
-        status="PLANNED",
+        status="RUNNING",
         priority="P0",
         training_seeds="42,123,789",
         config_state="READY",
@@ -285,7 +303,11 @@ def _upgrade_scientific_routes(rows: list[dict]) -> list[dict]:
         parent_ledger_id="",
         paper_role="Canonical D2 main detector table",
         acceptance_gate="three canonical random-coupling checkpoints; six held-out-test metrics",
-        notes="Required before the manuscript is refreshed.",
+        notes="Canonical v2 seed 42 is active; seeds 123 and 789 remain planned.",
+        server_plan=(
+            "42=ross:A6000:0;123=workstation:A5000:0;"
+            "789=workstation:A4000:1"
+        ),
     )
     canonical_lqcr = deepcopy(legacy_lqcr)
     canonical_lqcr.update(
@@ -314,19 +336,42 @@ def _upgrade_scientific_routes(rows: list[dict]) -> list[dict]:
     )
     rows.extend([canonical_parent, canonical_lqcr])
 
+    d1_g3 = by_id["D1I.ABL.G3"]
+    d1_g3.update(
+        parameters="RF; shifted t; AdaLN-Zero; Euler 1-step validation",
+        paper_role="Strict one-factor generation ablation",
+        acceptance_gate=(
+            "only time conditioning changes from G2; common validation protocol"
+        ),
+    )
+    d1_parent = by_id["D1I.SOTA.karyoflow"]
+    d1_parent["server_plan"] = (
+        "42=workstation:A5000:0;123=workstation:A4000:1;"
+        "789=ross:A6000:0"
+    )
+
     g3 = by_id["D2.ABL.strict.G3"]
     g3.update(
-        execution_kind="reuse",
-        run_count=0,
-        status="BLOCKED_PARENT",
-        config_state="REUSE_CANONICAL_PARENT",
+        execution_kind="full_train",
+        run_count=3,
+        status="PLANNED",
+        config_state="READY",
         training_seeds="42,123,789",
-        method_config=METHODS["karyoflow"],
+        method_config=METHODS["strict_g3"],
         matrix_config=D2_GENERATION_MATRIX,
-        output_template="route:D2.SOTA.karyoflow_canonical_train3",
-        parent_ledger_id=canonical_parent["ledger_id"],
-        notes="No duplicate training: reuse the canonical D2 KaryoFlow triplet after config-hash equality.",
+        output_template="work_dirs/v2/d2_generation/strict_g3_rf_shifted_adaln_zero_r50/trainseed_{training_seed}",
+        parent_ledger_id="",
+        notes="Strict one-factor AdaLN-Zero stage; DPM++ is evaluated separately on a fixed checkpoint.",
         dataset_id=D2_CANONICAL_DATASET,
+        parameters="RF; shifted t; AdaLN-Zero; Euler 1-step validation",
+        server_plan=(
+            "42=ross:A6000:0;123=workstation:A5000:0;"
+            "789=workstation:A4000:1"
+        ),
+        paper_role="Cross-cohort strict one-factor generation ablation",
+        acceptance_gate=(
+            "only time conditioning changes from G2; common validation protocol"
+        ),
     )
     for rid in ("D2.ABL.strict.G0", "D2.ABL.strict.G1", "D2.ABL.strict.G2"):
         by_id[rid]["dataset_id"] = D2_CANONICAL_DATASET
@@ -377,7 +422,11 @@ def _upgrade_scientific_routes(rows: list[dict]) -> list[dict]:
         parent_ledger_id=canonical_parent["ledger_id"],
         paper_role="Final canonical speed-accuracy figure/table",
         acceptance_gate="three A6000 repeats per final checkpoint; matching test accuracy; params and peak memory",
-        notes="Required before the manuscript is refreshed.",
+        notes="Canonical v2 seed 42 is active; seeds 123 and 789 remain planned.",
+        server_plan=(
+            "42=ross:A6000:0;123=workstation:A5000:0;"
+            "789=workstation:A4000:1"
+        ),
         dataset_id=D2_CANONICAL_DATASET,
     )
     rows.append(canonical_speed)
@@ -465,7 +514,7 @@ def config_for(row: dict) -> tuple[str, str, str, str]:
     protocol = PROTOCOLS.get(rid, "")
     state = CONFIG_STATE_OVERRIDE.get(rid, "READY")
 
-    if rid in {"D1I.SOTA.karyoflow", "D1I.ABL.G3"}:
+    if rid == "D1I.SOTA.karyoflow":
         method = METHODS["karyoflow"]
     elif rid == "D1I.SOTA.diffusiondet":
         method = METHODS["diffusiondet"]
@@ -473,7 +522,7 @@ def config_for(row: dict) -> tuple[str, str, str, str]:
         method = METHODS["karyoflow_lqcr"]
     elif rid.startswith("D1I.SOTA.") and variant in METHODS:
         method = METHODS[variant]
-    elif rid in {"D1I.ABL.G0", "D1I.ABL.G1", "D1I.ABL.G2"}:
+    elif rid in {"D1I.ABL.G0", "D1I.ABL.G1", "D1I.ABL.G2", "D1I.ABL.G3"}:
         stage = rid.rsplit('.', 1)[-1].lower()
         method = METHODS[f"strict_{stage}"]
         matrix = D1_GENERATION_MATRIX
@@ -507,7 +556,7 @@ def config_for(row: dict) -> tuple[str, str, str, str]:
         matrix = D2_GENERATION_MATRIX
         state = "READY"
     elif rid == "D2.ABL.strict.G3":
-        method = METHODS["karyoflow"]
+        method = METHODS["strict_g3"]
         matrix = D2_GENERATION_MATRIX
         state = "READY"
     elif rid == "D2.ABL.historical_chain":
@@ -624,6 +673,9 @@ def build_rows() -> list[dict]:
                 row["parameters"], has_resolved_training=True
             )
             row["output_template"] = resolved["output_template"]
+            active_ids = _active_registered_runs(row, resolved)
+            if active_ids:
+                row["database_ids"]["train_run_ids"] = active_ids
     return rows
 
 
