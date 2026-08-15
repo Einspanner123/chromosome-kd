@@ -306,6 +306,7 @@ def main():
     # the evidence artifact it is meant to verify.
     # Config overrides normal attribute assignment and would otherwise store
     # ``_filename`` as a configuration key without changing ``cfg.filename``.
+    cfg.pop('_filename', None)
     object.__setattr__(cfg, '_filename', 'runtime_test_config.py')
     cfg.work_dir = os.path.dirname(args.checkpoint) or 'work_dirs/test'
 
