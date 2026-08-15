@@ -304,15 +304,15 @@ experiments:
   inference_seeds: '42'
   layer: Decision
   ledger_id: D1I.SOTA.karyoflow_lqcr
-  notes: 'Three parent-matched quality-head runs are active: seed 42 on the A5000, seed 123 on the A4000, and seed 789 on
-    the A6000.'
+  notes: Three parent-matched quality-head runs completed training on the A5000, A4000, and A6000; held-out test evaluation
+    and final-only tensor audit remain pending.
   paper_role: Independent decision contribution
   parameters: parent-matched final-only quality head; beta=2 selected on validation
   parent_ledger_id: D1I.SOTA.karyoflow
   priority: P0
   replication_unit: paired_final_stage_intervention
   run_count: 3
-  status: RUNNING_DISTRIBUTED
+  status: TRAINED_DISTRIBUTED_TEST_PENDING
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: d1-inhouse1700-v1__karyoflow_lqcr__trainseed-42__7266ebe11ac0;d1-inhouse1700-v1__karyoflow_lqcr__trainseed-123__7266ebe11ac0;d1-inhouse1700-v1__karyoflow_lqcr__trainseed-789__7266ebe11ac0

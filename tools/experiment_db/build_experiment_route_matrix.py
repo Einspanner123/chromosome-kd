@@ -99,7 +99,7 @@ STATUS_OVERRIDE = {
     "D1I.SOTA.rtmdet_l": "PLANNED",
     "D1I.SOTA.cascade_rcnn_r50": "PLANNED",
     "D1I.SOTA.yolox_s": "PLANNED",
-    "D1I.SOTA.karyoflow_lqcr": "RUNNING_DISTRIBUTED",
+    "D1I.SOTA.karyoflow_lqcr": "TRAINED_DISTRIBUTED_TEST_PENDING",
     "D1I.ABL.G0": "PLANNED",
     "D1I.ABL.G1": "PLANNED",
     "D1I.ABL.G2": "PLANNED",
@@ -174,8 +174,9 @@ NOTES_OVERRIDE = {
         "and held-out test evaluation (340 images; inference seed 42)."
     ),
     "D1I.SOTA.karyoflow_lqcr": (
-        "Three parent-matched quality-head runs are active: seed 42 on the "
-        "A5000, seed 123 on the A4000, and seed 789 on the A6000."
+        "Three parent-matched quality-head runs completed training on the "
+        "A5000, A4000, and A6000; held-out test evaluation and final-only "
+        "tensor audit remain pending."
     ),
     "D1I.ABL.G3": "Strict one-factor AdaLN-Zero stage; canonical DPM++ remains a separate inference comparison.",
     "D2.ABL.historical_chain": "Historical foundation comparison only; never interpret adjacent rows as isolated cumulative effects.",
@@ -809,7 +810,7 @@ def write_doc(payload: dict, manifest_sha: str, artifact_id: str) -> None:
         "",
         "## 当前执行结论",
         "",
-        "- D1_INHOUSE1700_V2 的三条 canonical KaryoFlow 独立训练及 held-out test 已完成；三条 parent-matched LQCR 正在运行。",
+        "- D1_INHOUSE1700_V2 的三条 canonical KaryoFlow 独立训练及 held-out test 已完成；三条 parent-matched LQCR 已完成训练，等待 held-out test 和 final-only tensor audit。",
         "- D2作者原始划分的历史证据已隔离；D2_TAICHUNG5000_V2上的canonical模型仍必须重新训练。",
         "- 严格 G0→G1→G2→G3 三训练种子消融尚未完成，当前历史链只能作描述性比较。",
         "- H3 推理身份可精确复现，但历史蒸馏训练实现仍需恢复；GACS 保持可选部署扩展。",
