@@ -304,7 +304,9 @@ def main():
     # input may itself be the immutable preregistered ``resolved_config.py``;
     # give the runtime dump a distinct basename so evaluation cannot overwrite
     # the evidence artifact it is meant to verify.
-    cfg._filename = 'runtime_test_config.py'
+    # Config overrides normal attribute assignment and would otherwise store
+    # ``_filename`` as a configuration key without changing ``cfg.filename``.
+    object.__setattr__(cfg, '_filename', 'runtime_test_config.py')
     cfg.work_dir = os.path.dirname(args.checkpoint) or 'work_dirs/test'
 
     for key, value in sorted(_load_overrides(args.override_json).items()):

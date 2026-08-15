@@ -197,7 +197,9 @@ def main():
     # basename of ``cfg.filename``.  Canonical resolved configs live in that
     # same directory and are immutable registered evidence, so use a distinct
     # dump name instead of overwriting ``resolved_config.py``.
-    cfg._filename = 'runtime_config.py'
+    # Config overrides normal attribute assignment and would otherwise store
+    # ``_filename`` as a configuration key without changing ``cfg.filename``.
+    object.__setattr__(cfg, '_filename', 'runtime_config.py')
 
     experiment = cfg.get('experiment', {})
     if experiment.get('parent_checkpoint_required'):
