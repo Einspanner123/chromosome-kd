@@ -235,7 +235,7 @@ def main() -> None:
         images, annotations = [], []
         annotation_id = 1
         for image_id, record in enumerate(selected, 1):
-            shutil.copy2(record["source_path"], split_dir / record["file_name"])
+            shutil.copyfile(record["source_path"], split_dir / record["file_name"])
             image = dict(record["image"])
             image["id"] = image_id
             images.append(image)
