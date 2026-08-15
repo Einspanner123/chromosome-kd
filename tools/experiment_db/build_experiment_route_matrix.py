@@ -42,6 +42,7 @@ D2_GENERATION_MATRIX = "experiments/configs/matrices/d2_taichung_generation_abla
 D2_SOTA_COMPLETION_MATRIX = "experiments/configs/matrices/d2_taichung_sota_completion.yaml"
 D1_DISTILL_MATRIX = "experiments/configs/matrices/d1_inhouse1700_head_distill.yaml"
 D2_DISTILL_MATRIX = "experiments/configs/matrices/d2_taichung_head_distill_canonical.yaml"
+D2_CANONICAL_DATASET = "D2_TAICHUNG5000_V2"
 
 METHODS = {
     "diffusiondet": "experiments/configs/methods/diffusiondet_ddpm.py",
@@ -240,9 +241,31 @@ def _upgrade_scientific_routes(rows: list[dict]) -> list[dict]:
     legacy_lqcr["priority"] = "ARCHIVE"
     legacy_lqcr["parent_ledger_id"] = legacy_parent["ledger_id"]
 
+    for variant in D2_LEGACY:
+        historical = by_id[f"D2.SOTA.{variant}.existing"]
+        historical["layer"] = "Archive"
+        historical["family"] = "Historical detector point estimate"
+        historical["priority"] = "ARCHIVE"
+        historical["paper_role"] = "Publisher-split historical context only"
+        canonical = by_id[f"D2.SOTA.{variant}.missing_train2"]
+        canonical.update(
+            ledger_id=f"D2.SOTA.{variant}.canonical_train3",
+            dataset_id=D2_CANONICAL_DATASET,
+            run_count=3,
+            training_seeds="42,123,789",
+            family="SOTA",
+            status="PLANNED",
+            priority="P0",
+            paper_role="Canonical leakage-repaired D2 baseline",
+            acceptance_gate="three independently trained models; six held-out-test metrics",
+            parent_ledger_id="",
+            notes="Historical publisher-split checkpoints are not reused.",
+        )
+
     canonical_parent = deepcopy(legacy_parent)
     canonical_parent.update(
         ledger_id="D2.SOTA.karyoflow_canonical_train3",
+        dataset_id=D2_CANONICAL_DATASET,
         layer="Detector comparison",
         family="SOTA",
         variant="karyoflow",
@@ -267,6 +290,7 @@ def _upgrade_scientific_routes(rows: list[dict]) -> list[dict]:
     canonical_lqcr = deepcopy(legacy_lqcr)
     canonical_lqcr.update(
         ledger_id="D2.SOTA.karyoflow_canonical_lqcr_train3",
+        dataset_id=D2_CANONICAL_DATASET,
         layer="Decision",
         family="SOTA",
         variant="karyoflow_lqcr",
@@ -302,7 +326,10 @@ def _upgrade_scientific_routes(rows: list[dict]) -> list[dict]:
         output_template="route:D2.SOTA.karyoflow_canonical_train3",
         parent_ledger_id=canonical_parent["ledger_id"],
         notes="No duplicate training: reuse the canonical D2 KaryoFlow triplet after config-hash equality.",
+        dataset_id=D2_CANONICAL_DATASET,
     )
+    for rid in ("D2.ABL.strict.G0", "D2.ABL.strict.G1", "D2.ABL.strict.G2"):
+        by_id[rid]["dataset_id"] = D2_CANONICAL_DATASET
 
     for rid in ("D2.INF.solver_steps.fixed1", "D2.INF.topk_renewal.fixed1"):
         by_id[rid]["parent_ledger_id"] = legacy_parent["ledger_id"]
@@ -317,6 +344,7 @@ def _upgrade_scientific_routes(rows: list[dict]) -> list[dict]:
             matrix_config=D2_MATRIX,
             parent_ledger_id=canonical_parent["ledger_id"],
             notes="Runs on the canonical random-coupling parent triplet.",
+            dataset_id=D2_CANONICAL_DATASET,
         )
 
     distill = by_id["D2.DEP.distill_h3.train3"]
@@ -326,7 +354,9 @@ def _upgrade_scientific_routes(rows: list[dict]) -> list[dict]:
         matrix_config=D2_DISTILL_MATRIX,
         parent_ledger_id=canonical_parent["ledger_id"],
         notes="Canonical random-coupling parent-matched students.",
+        dataset_id=D2_CANONICAL_DATASET,
     )
+    by_id["D2.DEP.GACS"]["dataset_id"] = D2_CANONICAL_DATASET
 
     legacy_speed = by_id["D2.DEP.speed"]
     legacy_speed["ledger_id"] = "D2.DEP.speed.legacy"
@@ -348,17 +378,18 @@ def _upgrade_scientific_routes(rows: list[dict]) -> list[dict]:
         paper_role="Final canonical speed-accuracy figure/table",
         acceptance_gate="three A6000 repeats per final checkpoint; matching test accuracy; params and peak memory",
         notes="Required before the manuscript is refreshed.",
+        dataset_id=D2_CANONICAL_DATASET,
     )
     rows.append(canonical_speed)
 
     templates = [
         ("D1I.DATA.test_characterization", "D1_INHOUSE1700_V2", "Data", "test_characterization", "analysis", "PLANNED", "D1 test population, scale CDF, overlap and size bins", D1_MATRIX, "dataset_characterization_d1i"),
-        ("D2.DATA.test_characterization", "D2", "Data", "test_characterization", "analysis", "PLANNED", "D2 test population, scale CDF, overlap and size bins", D2_MATRIX, "dataset_characterization_d2"),
+        ("D2.DATA.test_characterization", D2_CANONICAL_DATASET, "Data", "test_characterization", "analysis", "PLANNED", "D2 test population, scale CDF, overlap and size bins", D2_MATRIX, "dataset_characterization_d2"),
         ("D1I.DEC.quality_validity", "D1_INHOUSE1700_V2", "Decision", "quality_iou_validity", "analysis", "BLOCKED_PREDICTIONS", "quality-IoU Spearman, MAE/RMSE and reliability bins", D1_MATRIX, "lqcr_quality_validity_d1i"),
-        ("D2.DEC.quality_validity", "D2", "Decision", "quality_iou_validity", "analysis", "BLOCKED_PREDICTIONS", "quality-IoU Spearman, MAE/RMSE and reliability bins", D2_MATRIX, "lqcr_quality_validity_d2_canonical"),
-        ("D2.DEC.strict_subsets.canonical", "D2", "Decision", "strict_iou_scale_overlap", "analysis", "BLOCKED_PREDICTIONS", "AP90/AP95, size quartiles, overlap strata and paired image bootstrap", D2_MATRIX, "conditional_difficult_subset_d2_canonical"),
+        ("D2.DEC.quality_validity", D2_CANONICAL_DATASET, "Decision", "quality_iou_validity", "analysis", "BLOCKED_PREDICTIONS", "quality-IoU Spearman, MAE/RMSE and reliability bins", D2_MATRIX, "lqcr_quality_validity_d2_canonical"),
+        ("D2.DEC.strict_subsets.canonical", D2_CANONICAL_DATASET, "Decision", "strict_iou_scale_overlap", "analysis", "BLOCKED_PREDICTIONS", "AP90/AP95, size quartiles, overlap strata and paired image bootstrap", D2_MATRIX, "conditional_difficult_subset_d2_canonical"),
         ("D1I.ANALYSIS.per_class", "D1_INHOUSE1700_V2", "Decision", "per_class_error", "analysis", "BLOCKED_PREDICTIONS", "24-class AP and morphology-group error analysis", D1_MATRIX, "per_class_d1i_test"),
-        ("D2.ANALYSIS.per_class", "D2", "Decision", "per_class_error", "analysis", "BLOCKED_PREDICTIONS", "24-class AP and morphology-group error analysis", D2_MATRIX, "per_class_d2_canonical_test"),
+        ("D2.ANALYSIS.per_class", D2_CANONICAL_DATASET, "Decision", "per_class_error", "analysis", "BLOCKED_PREDICTIONS", "24-class AP and morphology-group error analysis", D2_MATRIX, "per_class_d2_canonical_test"),
     ]
     base = deepcopy(by_id["D1I.DEC.strict_subsets"])
     for rid, dataset, layer, variant, kind, status, parameters, matrix, family in templates:
@@ -397,7 +428,7 @@ def _upgrade_scientific_routes(rows: list[dict]) -> list[dict]:
     beta = deepcopy(by_id["D1I.DEC.beta_val"])
     beta.update(
         ledger_id="D2.DEC.beta_val.canonical",
-        dataset_id="D2",
+        dataset_id=D2_CANONICAL_DATASET,
         status="BLOCKED_PARENT",
         training_seeds="42,123,789",
         method_config=METHODS["karyoflow_lqcr"],
@@ -577,7 +608,7 @@ def build_rows() -> list[dict]:
             row["notes"] = NOTES_OVERRIDE.get(rid, "No active v2 run is currently registered.")
         else:
             row["notes"] = NOTES_OVERRIDE.get(rid, row.get("notes", ""))
-            if row["dataset_id"] == "D2" and row["execution_kind"] in {"full_train", "short_train"} and row["status"].startswith(("PLANNED", "BLOCKED")):
+            if row["dataset_id"] == D2_CANONICAL_DATASET and row["execution_kind"] in {"full_train", "short_train"} and row["status"].startswith(("PLANNED", "BLOCKED")):
                 row["swanlab_project"] = "KaryoFlow-Dataset2-V2"
                 row["swanlab_run_template"] = "{variant}_seed{training_seed}"
                 if rid == "D2.DEP.distill_h3.train3":
@@ -652,14 +683,18 @@ def write_doc(payload: dict, manifest_sha: str, artifact_id: str) -> None:
         "## 数据与统计口径",
         "",
         "- `D1_INHOUSE1700_V2`：1190/170/340，纯自建、D2 类别 ID 对齐、group-disjoint 70/10/20 划分。",
-        "- `D2`：3500/500/1000，台中公开数据集 70/10/20 划分。",
+        "- `D2_TAICHUNG5000_V2`：3500/500/1000，保持70/10/20并修复原划分中两个跨split完全重复组。",
+        "- `D2`：作者原始划分的历史证据；存在两个train/validation完全重复组，仅作归档。",
         "- 训练复现以不同训练 checkpoint 为统计单位；固定 checkpoint 的推理 seed 不得冒充训练 seed。",
         "- 主精度只允许 held-out test；validation 只用于 checkpoint/超参数选择。",
         "- 效率只允许按 A6000 严格协议比较；服务器名称只存在内部路线矩阵，不进入论文。",
         "",
         "## 路线矩阵",
     ]
-    for dataset in ("D1_INHOUSE1700_V2", "D2", "D1_COMPOSITE2200_LEGACY"):
+    for dataset in (
+        "D1_INHOUSE1700_V2", "D2_TAICHUNG5000_V2", "D2",
+        "D1_COMPOSITE2200_LEGACY",
+    ):
         lines += ["", f"### {dataset}", ""]
         for layer in (
             "Data", "Detector comparison", "Generation", "Decision",
@@ -696,7 +731,7 @@ def write_doc(payload: dict, manifest_sha: str, artifact_id: str) -> None:
         "## 当前执行结论",
         "",
         "- D1_INHOUSE1700_V2 当前没有有效 active v2 训练；旧 V1 SwanLab/registry 运行均不得继续显示为 RUNNING。",
-        "- D2 历史OT证据已隔离迁移；canonical random-coupling KaryoFlow/LQCR仍必须重新训练。",
+        "- D2作者原始划分的历史证据已隔离；D2_TAICHUNG5000_V2上的canonical模型仍必须重新训练。",
         "- 严格 G0→G1→G2→G3 三训练种子消融尚未完成，当前历史链只能作描述性比较。",
         "- H3 推理身份可精确复现，但历史蒸馏训练实现仍需恢复；GACS 保持可选部署扩展。",
         "",
@@ -791,14 +826,18 @@ def main() -> None:
                     "test": "883696b8e60cc901cfe92b3f009d8c60e7b8cefbb5ba9ce3c742c3720343f08f",
                 },
             },
-            "D2": {
-                "split_images": [3500, 500, 1000], "role": "public Taichung cohort",
+            "D2_TAICHUNG5000_V2": {
+                "split_images": [3500, 500, 1000],
+                "role": "external Taichung cohort with exact-duplicate group repair",
+                "manifest_artifact_id": "dataset-d2-v2-2afb47fe5c2a",
+                "manifest_sha256": "2afb47fe5c2ab8a707a6f355dd5588bb5aeba16d36b065896f1fff6f76ff37b4",
                 "annotation_sha256": {
-                    "train": "218ae0c96b41f342975ac52f14dfba19f74763f4583129e17c178c4a0fbff026",
-                    "val": "bcf0f99908e46f838b2924b801458594f2ed923b1dc1166e851395313ec53a92",
-                    "test": "110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495",
+                    "train": "bcd16896a140e3ce780af790f3e58a62886c3d4608d04014fe1468519cc373f3",
+                    "val": "b8477afa3d6ce8c88459c4df336103b240d3e9a220fdca43d6e4712ca7b3d733",
+                    "test": "bef67bf2bfe36deb94f2fb1a11e6d85f9bf4dd198ea696750c511fe4fe5de3cb",
                 },
             },
+            "D2": {"role": "publisher-split historical evidence only"},
             "D1_COMPOSITE2200_LEGACY": {"role": "archive only; mixed-source and non-comparable"},
         },
         "status_policy": {

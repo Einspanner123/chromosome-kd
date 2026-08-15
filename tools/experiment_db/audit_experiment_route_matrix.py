@@ -52,7 +52,10 @@ def main() -> int:
             f"route IDs must be non-empty and unique: rows={len(rows)} "
             f"unique={len(idset)}"
         )
-    if {r["dataset_id"] for r in rows} != {"D1_INHOUSE1700_V2", "D2", "D1_COMPOSITE2200_LEGACY"}:
+    if {r["dataset_id"] for r in rows} != {
+        "D1_INHOUSE1700_V2", "D2_TAICHUNG5000_V2", "D2",
+        "D1_COMPOSITE2200_LEGACY",
+    }:
         errors.append("dataset coverage mismatch")
     d1 = payload["dataset_scope"].get("D1_INHOUSE1700_V2", {})
     claim_sha = sha256(CLAIMS)
@@ -62,6 +65,11 @@ def main() -> int:
         errors.append("D1 V2 manifest SHA mismatch")
     if d1.get("annotation_sha256", {}).get("test") != "883696b8e60cc901cfe92b3f009d8c60e7b8cefbb5ba9ce3c742c3720343f08f":
         errors.append("D1 V2 test annotation SHA mismatch")
+    d2 = payload["dataset_scope"].get("D2_TAICHUNG5000_V2", {})
+    if d2.get("manifest_sha256") != "2afb47fe5c2ab8a707a6f355dd5588bb5aeba16d36b065896f1fff6f76ff37b4":
+        errors.append("D2 V2 manifest SHA mismatch")
+    if d2.get("annotation_sha256", {}).get("test") != "bef67bf2bfe36deb94f2fb1a11e6d85f9bf4dd198ea696750c511fe4fe5de3cb":
+        errors.append("D2 V2 test annotation SHA mismatch")
 
     con = sqlite3.connect(DB)
     artifacts = {r[0] for r in con.execute("SELECT artifact_id FROM evidence_artifact")}
@@ -70,6 +78,12 @@ def main() -> int:
     ).fetchone()
     if dataset_release != ("dataset-self1700-48d90fed63ec", "verified"):
         errors.append("D1 V2 dataset_release is not bound to the verified manifest")
+    d2_release = con.execute(
+        "SELECT manifest_artifact_id,status FROM dataset_release "
+        "WHERE dataset_id='D2_TAICHUNG5000_V2'"
+    ).fetchone()
+    if d2_release != ("dataset-d2-v2-2afb47fe5c2a", "verified"):
+        errors.append("D2 V2 dataset_release is not bound to the verified manifest")
     active_runs = {
         r[0] for r in con.execute(
             "SELECT train_run_id FROM train_run_registry WHERE status IN ('running','queued','planned')"

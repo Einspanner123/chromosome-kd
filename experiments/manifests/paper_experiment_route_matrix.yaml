@@ -1,7 +1,7 @@
 schema_version: 2
 matrix_id: karyoflow.paper_experiment_route.v2
 authoritative: true
-claim_manifest_sha256: 1255334f9eed8344bace60d7d41f52bf9775e22e7a381405917b91b5c1871069
+claim_manifest_sha256: ef7364eade0f0c8d5e14fd44bfffbac2087b37b569dd6d2383476efeb1894380
 supersedes:
 - tools/experiment_db/manifests/master_experiment_ledger_v1.json
 - tools/experiment_db/exports/master_experiment_ledger.csv
@@ -19,16 +19,20 @@ dataset_scope:
       train: e62704aa3ce9f7b58170946cca78458ff5331fc4316ba946eace6a1dbc6c8ed1
       val: 9065c7b5fb4df2a9f9c794dfe83c655ddf6695388d2bde562171b208c6d3a5b9
       test: 883696b8e60cc901cfe92b3f009d8c60e7b8cefbb5ba9ce3c742c3720343f08f
-  D2:
+  D2_TAICHUNG5000_V2:
     split_images:
     - 3500
     - 500
     - 1000
-    role: public Taichung cohort
+    role: external Taichung cohort with exact-duplicate group repair
+    manifest_artifact_id: dataset-d2-v2-2afb47fe5c2a
+    manifest_sha256: 2afb47fe5c2ab8a707a6f355dd5588bb5aeba16d36b065896f1fff6f76ff37b4
     annotation_sha256:
-      train: 218ae0c96b41f342975ac52f14dfba19f74763f4583129e17c178c4a0fbff026
-      val: bcf0f99908e46f838b2924b801458594f2ed923b1dc1166e851395313ec53a92
-      test: 110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495
+      train: bcd16896a140e3ce780af790f3e58a62886c3d4608d04014fe1468519cc373f3
+      val: b8477afa3d6ce8c88459c4df336103b240d3e9a220fdca43d6e4712ca7b3d733
+      test: bef67bf2bfe36deb94f2fb1a11e6d85f9bf4dd198ea696750c511fe4fe5de3cb
+  D2:
+    role: publisher-split historical evidence only
   D1_COMPOSITE2200_LEGACY:
     role: archive only; mixed-source and non-comparable
 status_policy:
@@ -817,15 +821,15 @@ experiments:
 - acceptance_gate: must not be labeled three-training-seed
   dataset_id: D2
   execution_kind: evaluation
-  family: SOTA
+  family: Historical detector point estimate
   inference_seeds: '42'
-  layer: Detector comparison
+  layer: Archive
   ledger_id: D2.SOTA.diffusiondet.existing
   notes: ''
-  paper_role: D2 point estimate only
+  paper_role: Publisher-split historical context only
   parameters: published table checkpoint; six test metrics
   parent_ledger_id: ''
-  priority: DONE_DESCRIPTIVE
+  priority: ARCHIVE
   replication_unit: single_training_checkpoint
   run_count: 1
   status: COMPLETED_POINT_ESTIMATE
@@ -848,24 +852,24 @@ experiments:
     - d2-test-diffusiondet-b819d77e81b3
   compatibility_report: tools/experiment_db/compatibility_reports/d2_sota_diffusiondet.json
   resolved_training: {}
-- acceptance_gate: actual framework seed recorded; distinct checkpoint SHA; 1000-image test
-  dataset_id: D2
+- acceptance_gate: three independently trained models; six held-out-test metrics
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: full_train
-  family: SOTA completion
+  family: SOTA
   inference_seeds: '42'
   layer: Detector comparison
-  ledger_id: D2.SOTA.diffusiondet.missing_train2
-  notes: ''
-  paper_role: Upgrade D2 baseline to three independent trainings
+  ledger_id: D2.SOTA.diffusiondet.canonical_train3
+  notes: Historical publisher-split checkpoints are not reused.
+  paper_role: Canonical leakage-repaired D2 baseline
   parameters: same configuration and selection rule as existing checkpoint
-  parent_ledger_id: D2.SOTA.diffusiondet.existing
-  priority: P1
+  parent_ledger_id: ''
+  priority: P0
   replication_unit: independent_training_seed
-  run_count: 2
+  run_count: 3
   status: PLANNED
-  swanlab_project: KaryoFlow-Dataset2-V2
+  swanlab_project: ''
   swanlab_run_template: '{variant}_seed{training_seed}'
-  training_seeds: 123,789
+  training_seeds: 42,123,789
   variant: diffusiondet
   legacy_config_path: experiments/configs/baselines/benchmark_24obj/diffusiondet_ddpm.py
   legacy_config_status: exists
@@ -887,20 +891,20 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 5.0e-05
-    scientific_config_sha256: 1f2950fb62e874bb7a73a0bd4bfcad6dd477a8c3756ffaac77a9b51f4e1326e5
+    scientific_config_sha256: 9dce45392dddf39412aeb92573a4f52beb14c35f61c5add9d3c800ade2a460f3
     output_template: work_dirs/v2/d2_sota_completion/diffusiondet_ddpm_r50/trainseed_{training_seed}
 - acceptance_gate: must not be labeled three-training-seed
   dataset_id: D2
   execution_kind: evaluation
-  family: SOTA
+  family: Historical detector point estimate
   inference_seeds: '42'
-  layer: Detector comparison
+  layer: Archive
   ledger_id: D2.SOTA.dino_r50.existing
   notes: ''
-  paper_role: D2 point estimate only
+  paper_role: Publisher-split historical context only
   parameters: published table checkpoint; six test metrics
   parent_ledger_id: ''
-  priority: DONE_DESCRIPTIVE
+  priority: ARCHIVE
   replication_unit: single_training_checkpoint
   run_count: 1
   status: COMPLETED_POINT_ESTIMATE
@@ -923,24 +927,24 @@ experiments:
     - d2-test-dino_r50-789860257a37
   compatibility_report: tools/experiment_db/compatibility_reports/d2_sota_dino_r50.json
   resolved_training: {}
-- acceptance_gate: actual framework seed recorded; distinct checkpoint SHA; 1000-image test
-  dataset_id: D2
+- acceptance_gate: three independently trained models; six held-out-test metrics
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: full_train
-  family: SOTA completion
+  family: SOTA
   inference_seeds: '42'
   layer: Detector comparison
-  ledger_id: D2.SOTA.dino_r50.missing_train2
-  notes: ''
-  paper_role: Upgrade D2 baseline to three independent trainings
+  ledger_id: D2.SOTA.dino_r50.canonical_train3
+  notes: Historical publisher-split checkpoints are not reused.
+  paper_role: Canonical leakage-repaired D2 baseline
   parameters: same configuration and selection rule as existing checkpoint
-  parent_ledger_id: D2.SOTA.dino_r50.existing
-  priority: P1
+  parent_ledger_id: ''
+  priority: P0
   replication_unit: independent_training_seed
-  run_count: 2
+  run_count: 3
   status: PLANNED
-  swanlab_project: KaryoFlow-Dataset2-V2
+  swanlab_project: ''
   swanlab_run_template: '{variant}_seed{training_seed}'
-  training_seeds: 123,789
+  training_seeds: 42,123,789
   variant: dino_r50
   legacy_config_path: experiments/configs/baselines/benchmark_24obj/dino_r50.py
   legacy_config_status: exists
@@ -962,20 +966,20 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 2.5e-05
-    scientific_config_sha256: 74931f72cad1c9552882cdce138142e06b8c6d1db024e13360587fd03b8cd18a
+    scientific_config_sha256: 746c211f0d4aae678cd4f3a362491b368231352f23fa252f0e54645601ef812a
     output_template: work_dirs/v2/d2_sota_completion/dino_r50/trainseed_{training_seed}
 - acceptance_gate: must not be labeled three-training-seed
   dataset_id: D2
   execution_kind: evaluation
-  family: SOTA
+  family: Historical detector point estimate
   inference_seeds: '42'
-  layer: Detector comparison
+  layer: Archive
   ledger_id: D2.SOTA.rtmdet_l.existing
   notes: ''
-  paper_role: D2 point estimate only
+  paper_role: Publisher-split historical context only
   parameters: published table checkpoint; six test metrics
   parent_ledger_id: ''
-  priority: DONE_DESCRIPTIVE
+  priority: ARCHIVE
   replication_unit: single_training_checkpoint
   run_count: 1
   status: COMPLETED_POINT_ESTIMATE
@@ -998,24 +1002,24 @@ experiments:
     - d2-test-rtmdet_l-feca98add171
   compatibility_report: tools/experiment_db/compatibility_reports/d2_sota_rtmdet_l.json
   resolved_training: {}
-- acceptance_gate: actual framework seed recorded; distinct checkpoint SHA; 1000-image test
-  dataset_id: D2
+- acceptance_gate: three independently trained models; six held-out-test metrics
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: full_train
-  family: SOTA completion
+  family: SOTA
   inference_seeds: '42'
   layer: Detector comparison
-  ledger_id: D2.SOTA.rtmdet_l.missing_train2
-  notes: ''
-  paper_role: Upgrade D2 baseline to three independent trainings
+  ledger_id: D2.SOTA.rtmdet_l.canonical_train3
+  notes: Historical publisher-split checkpoints are not reused.
+  paper_role: Canonical leakage-repaired D2 baseline
   parameters: same configuration and selection rule as existing checkpoint
-  parent_ledger_id: D2.SOTA.rtmdet_l.existing
-  priority: P1
+  parent_ledger_id: ''
+  priority: P0
   replication_unit: independent_training_seed
-  run_count: 2
+  run_count: 3
   status: PLANNED
-  swanlab_project: KaryoFlow-Dataset2-V2
+  swanlab_project: ''
   swanlab_run_template: '{variant}_seed{training_seed}'
-  training_seeds: 123,789
+  training_seeds: 42,123,789
   variant: rtmdet_l
   legacy_config_path: experiments/configs/baselines/benchmark_24obj/rtmdet_l.py
   legacy_config_status: exists
@@ -1037,20 +1041,20 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 0.0001
-    scientific_config_sha256: 8123363a089ba0db575b9a2c095477ffe3a5dc4e999418e820d710413ff45ee7
+    scientific_config_sha256: 2d3142b307a355ff54f6ce76f4520373ba2f6abb030495b8729a5da898529abb
     output_template: work_dirs/v2/d2_sota_completion/rtmdet_l/trainseed_{training_seed}
 - acceptance_gate: must not be labeled three-training-seed
   dataset_id: D2
   execution_kind: evaluation
-  family: SOTA
+  family: Historical detector point estimate
   inference_seeds: '42'
-  layer: Detector comparison
+  layer: Archive
   ledger_id: D2.SOTA.cascade_rcnn_r50.existing
   notes: ''
-  paper_role: D2 point estimate only
+  paper_role: Publisher-split historical context only
   parameters: published table checkpoint; six test metrics
   parent_ledger_id: ''
-  priority: DONE_DESCRIPTIVE
+  priority: ARCHIVE
   replication_unit: single_training_checkpoint
   run_count: 1
   status: COMPLETED_POINT_ESTIMATE
@@ -1073,24 +1077,24 @@ experiments:
     - d2-test-cascade_rcnn-25e7f63f7418
   compatibility_report: tools/experiment_db/compatibility_reports/d2_sota_cascade_rcnn.json
   resolved_training: {}
-- acceptance_gate: actual framework seed recorded; distinct checkpoint SHA; 1000-image test
-  dataset_id: D2
+- acceptance_gate: three independently trained models; six held-out-test metrics
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: full_train
-  family: SOTA completion
+  family: SOTA
   inference_seeds: '42'
   layer: Detector comparison
-  ledger_id: D2.SOTA.cascade_rcnn_r50.missing_train2
-  notes: ''
-  paper_role: Upgrade D2 baseline to three independent trainings
+  ledger_id: D2.SOTA.cascade_rcnn_r50.canonical_train3
+  notes: Historical publisher-split checkpoints are not reused.
+  paper_role: Canonical leakage-repaired D2 baseline
   parameters: same configuration and selection rule as existing checkpoint
-  parent_ledger_id: D2.SOTA.cascade_rcnn_r50.existing
-  priority: P1
+  parent_ledger_id: ''
+  priority: P0
   replication_unit: independent_training_seed
-  run_count: 2
+  run_count: 3
   status: PLANNED
-  swanlab_project: KaryoFlow-Dataset2-V2
+  swanlab_project: ''
   swanlab_run_template: '{variant}_seed{training_seed}'
-  training_seeds: 123,789
+  training_seeds: 42,123,789
   variant: cascade_rcnn_r50
   legacy_config_path: experiments/configs/baselines/benchmark_24obj/cascade_rcnn_r50.py
   legacy_config_status: exists
@@ -1112,20 +1116,20 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 0.0001
-    scientific_config_sha256: 4eaeab5360c8eb44eae0cd0d0ac3ee44ebf8c3fbada64a09a052e9d6ca4826d0
+    scientific_config_sha256: d83cfe18ee24b5c106780ca385af2c2f0c49c44ac8cede5f8857c8c60bc016b0
     output_template: work_dirs/v2/d2_sota_completion/cascade_rcnn_r50/trainseed_{training_seed}
 - acceptance_gate: must not be labeled three-training-seed
   dataset_id: D2
   execution_kind: evaluation
-  family: SOTA
+  family: Historical detector point estimate
   inference_seeds: '42'
-  layer: Detector comparison
+  layer: Archive
   ledger_id: D2.SOTA.yolox_s.existing
   notes: ''
-  paper_role: D2 point estimate only
+  paper_role: Publisher-split historical context only
   parameters: published table checkpoint; six test metrics
   parent_ledger_id: ''
-  priority: DONE_DESCRIPTIVE
+  priority: ARCHIVE
   replication_unit: single_training_checkpoint
   run_count: 1
   status: COMPLETED_POINT_ESTIMATE
@@ -1148,24 +1152,24 @@ experiments:
     - d2-test-yolox_s-ea70f679365b
   compatibility_report: tools/experiment_db/compatibility_reports/d2_sota_yolox_s.json
   resolved_training: {}
-- acceptance_gate: actual framework seed recorded; distinct checkpoint SHA; 1000-image test
-  dataset_id: D2
+- acceptance_gate: three independently trained models; six held-out-test metrics
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: full_train
-  family: SOTA completion
+  family: SOTA
   inference_seeds: '42'
   layer: Detector comparison
-  ledger_id: D2.SOTA.yolox_s.missing_train2
-  notes: ''
-  paper_role: Upgrade D2 baseline to three independent trainings
+  ledger_id: D2.SOTA.yolox_s.canonical_train3
+  notes: Historical publisher-split checkpoints are not reused.
+  paper_role: Canonical leakage-repaired D2 baseline
   parameters: same configuration and selection rule as existing checkpoint
-  parent_ledger_id: D2.SOTA.yolox_s.existing
-  priority: P1
+  parent_ledger_id: ''
+  priority: P0
   replication_unit: independent_training_seed
-  run_count: 2
+  run_count: 3
   status: PLANNED
-  swanlab_project: KaryoFlow-Dataset2-V2
+  swanlab_project: ''
   swanlab_run_template: '{variant}_seed{training_seed}'
-  training_seeds: 123,789
+  training_seeds: 42,123,789
   variant: yolox_s
   legacy_config_path: experiments/configs/baselines/benchmark_24obj/yolox_s.py
   legacy_config_status: exists
@@ -1187,7 +1191,7 @@ experiments:
     max_epochs: 200
     optimizer: AdamW
     base_lr: 0.0001
-    scientific_config_sha256: ba9d806ae7b79bb956b001d652998a6100b9284d8b49eddb890d3cdbe6316507
+    scientific_config_sha256: b3ea1086a9a84bfe4f2a1b60e78f8e163d28bc97dd8298cdcde6d6565497b4e3
     output_template: work_dirs/v2/d2_sota_completion/yolox_s/trainseed_{training_seed}
 - acceptance_gate: never report adjacent deltas as isolated effects
   dataset_id: D2
@@ -1223,7 +1227,7 @@ experiments:
   compatibility_report: ''
   resolved_training: {}
 - acceptance_gate: only named factor changes; same batch/optimizer/selection; six test metrics
-  dataset_id: D2
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: full_train
   family: Training ablation
   inference_seeds: '42'
@@ -1237,7 +1241,7 @@ experiments:
   replication_unit: independent_training_seed
   run_count: 3
   status: PLANNED
-  swanlab_project: KaryoFlow-Dataset2-V2
+  swanlab_project: ''
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
   variant: DDPM_linear_scaleshift
@@ -1261,10 +1265,10 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 5.0e-05
-    scientific_config_sha256: 1f2950fb62e874bb7a73a0bd4bfcad6dd477a8c3756ffaac77a9b51f4e1326e5
+    scientific_config_sha256: 9dce45392dddf39412aeb92573a4f52beb14c35f61c5add9d3c800ade2a460f3
     output_template: work_dirs/v2/d2_generation/strict_g0_ddpm_linear_scaleshift_r50/trainseed_{training_seed}
 - acceptance_gate: only named factor changes; same batch/optimizer/selection; six test metrics
-  dataset_id: D2
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: full_train
   family: Training ablation
   inference_seeds: '42'
@@ -1278,7 +1282,7 @@ experiments:
   replication_unit: independent_training_seed
   run_count: 3
   status: PLANNED
-  swanlab_project: KaryoFlow-Dataset2-V2
+  swanlab_project: ''
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
   variant: RF_linear_scaleshift
@@ -1302,10 +1306,10 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 5.0e-05
-    scientific_config_sha256: da324c65d17d543b683f99504c7d064aad67eb22fb4d4c0e101165be3a5a258e
+    scientific_config_sha256: c2458029dde1850eef439703d07b2ad733c57b4fd0a1d742a20b1826d010de59
     output_template: work_dirs/v2/d2_generation/strict_g1_rf_linear_scaleshift_r50/trainseed_{training_seed}
 - acceptance_gate: only named factor changes; same batch/optimizer/selection; six test metrics
-  dataset_id: D2
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: full_train
   family: Training ablation
   inference_seeds: '42'
@@ -1319,7 +1323,7 @@ experiments:
   replication_unit: independent_training_seed
   run_count: 3
   status: PLANNED
-  swanlab_project: KaryoFlow-Dataset2-V2
+  swanlab_project: ''
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
   variant: RF_shifted_scaleshift
@@ -1343,10 +1347,10 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 5.0e-05
-    scientific_config_sha256: 765ae48f56d6aa1f2b14a8892c9d5295d39c4f7b00d0c51938b0603b32bcf351
+    scientific_config_sha256: a2dbbbc32be277df1957abc102a69a48a4848f64ccf44b033649fe1551a9bdd6
     output_template: work_dirs/v2/d2_generation/strict_g2_rf_shifted_scaleshift_r50/trainseed_{training_seed}
 - acceptance_gate: confirm optimizer/batch/selection compatibility with new G0-G2
-  dataset_id: D2
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: reuse
   family: Training ablation
   inference_seeds: '42'
@@ -1360,8 +1364,8 @@ experiments:
   replication_unit: independent_training_seed
   run_count: 0
   status: BLOCKED_PARENT
-  swanlab_project: KaryoFlow-Dataset2-V2
-  swanlab_run_template: '{variant}_seed{training_seed}'
+  swanlab_project: ''
+  swanlab_run_template: ''
   training_seeds: 42,123,789
   variant: RF_shifted_AdaLNZero
   legacy_config_path: experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_dpm_pp_24obj.py
@@ -1413,7 +1417,7 @@ experiments:
   compatibility_report: ''
   resolved_training: {}
 - acceptance_gate: aggregate one value per training parent
-  dataset_id: D2
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: inference
   family: Inference replication
   inference_seeds: '42'
@@ -1480,7 +1484,7 @@ experiments:
   compatibility_report: ''
   resolved_training: {}
 - acceptance_gate: aggregate by training parent
-  dataset_id: D2
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: inference
   family: Inference replication
   inference_seeds: '42'
@@ -1616,7 +1620,7 @@ experiments:
   compatibility_report: tools/experiment_db/compatibility_reports/d2_head_student_h3.json
   resolved_training: {}
 - acceptance_gate: three parent-matched students; A6000 latency only
-  dataset_id: D2
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: short_train
   family: Head distillation
   inference_seeds: '42'
@@ -1630,7 +1634,7 @@ experiments:
   replication_unit: paired_student_by_parent
   run_count: 3
   status: PLANNED
-  swanlab_project: KaryoFlow-HeadDistill-D2-V2
+  swanlab_project: ''
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
   variant: H6_to_H3_parent_matched_train3
@@ -1654,10 +1658,10 @@ experiments:
     max_epochs: 50
     optimizer: AdamW
     base_lr: 1.0e-05
-    scientific_config_sha256: 32be68bece4478c3c864ea7dba73532480eecf99d7619d07ca633c552bb00aeb
+    scientific_config_sha256: a0dc32838c3293f10b59a59097cf3a9ed1cdc6f8f6fdb96565b5dce10b2d637b
     output_template: work_dirs/v2/d2_distill_canonical/karyoflow_h3_distill_r50/trainseed_{training_seed}
 - acceptance_gate: D2 test plus A6000 speed before paper use
-  dataset_id: D2
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: inference
   family: Dynamic deployment
   inference_seeds: '42'
@@ -1757,7 +1761,7 @@ experiments:
   compatibility_report: ''
   resolved_training: {}
 - acceptance_gate: three canonical random-coupling checkpoints; six held-out-test metrics
-  dataset_id: D2
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: full_train
   family: SOTA
   inference_seeds: '42'
@@ -1795,10 +1799,10 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 5.0e-05
-    scientific_config_sha256: 959e449309abbe5023e1ab85166d27070ce1960bd9e9def00d2e1c888894499e
+    scientific_config_sha256: 18755935980e685c3c09f64466a66ffde87ad97f44af2a17e137d7cbf26289a0
     output_template: work_dirs/v2/d2/karyoflow_r50/trainseed_{training_seed}
 - acceptance_gate: one frozen-parent child per seed; final-only tensor audit; six test metrics
-  dataset_id: D2
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: short_train
   family: SOTA
   inference_seeds: '42'
@@ -1836,10 +1840,10 @@ experiments:
     max_epochs: 12
     optimizer: AdamW
     base_lr: 0.001
-    scientific_config_sha256: 89acbc24f349b28138f911b080f8191b0b18936787041ed06661775ecab02efd
+    scientific_config_sha256: 30d6f3098fc2b2bb5c5c58597e34af9ca921cbf6c3862179e12ab8aa8d0545d9
     output_template: work_dirs/v2/d2/karyoflow_lqcr_r50/trainseed_{training_seed}
 - acceptance_gate: three A6000 repeats per final checkpoint; matching test accuracy; params and peak memory
-  dataset_id: D2
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: benchmark
   family: Efficiency
   inference_seeds: none
@@ -1906,7 +1910,7 @@ experiments:
   compatibility_report: ''
   resolved_training: {}
 - acceptance_gate: versioned analysis JSON bound to final test annotation/prediction SHA
-  dataset_id: D2
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: analysis
   family: Dataset analysis
   inference_seeds: none
@@ -1974,7 +1978,7 @@ experiments:
   compatibility_report: ''
   resolved_training: {}
 - acceptance_gate: versioned analysis JSON bound to final test annotation/prediction SHA
-  dataset_id: D2
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: analysis
   family: Diagnostic
   inference_seeds: '42'
@@ -2008,7 +2012,7 @@ experiments:
   compatibility_report: ''
   resolved_training: {}
 - acceptance_gate: versioned analysis JSON bound to final test annotation/prediction SHA
-  dataset_id: D2
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: analysis
   family: Diagnostic
   inference_seeds: '42'
@@ -2076,7 +2080,7 @@ experiments:
   compatibility_report: ''
   resolved_training: {}
 - acceptance_gate: versioned analysis JSON bound to final test annotation/prediction SHA
-  dataset_id: D2
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: analysis
   family: Diagnostic
   inference_seeds: '42'
@@ -2110,7 +2114,7 @@ experiments:
   compatibility_report: ''
   resolved_training: {}
 - acceptance_gate: select beta before any new test evaluation
-  dataset_id: D2
+  dataset_id: D2_TAICHUNG5000_V2
   execution_kind: inference
   family: Hyperparameter selection
   inference_seeds: '42'

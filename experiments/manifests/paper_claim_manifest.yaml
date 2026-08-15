@@ -5,7 +5,7 @@ manuscript_update_policy: >-
   Do not update manuscript numbers until every required claim is submission-ready.
 datasets:
   primary: D1_INHOUSE1700_V2
-  external: D2
+  external: D2_TAICHUNG5000_V2
 claims:
   - claim_id: datasets.test_characterization
     paper_targets: [dataset_table, dataset_properties_table, scale_distribution_figure]
@@ -26,16 +26,11 @@ claims:
       - D1I.SOTA.yolox_s
       - D2.SOTA.karyoflow_canonical_train3
       - D2.SOTA.karyoflow_canonical_lqcr_train3
-      - D2.SOTA.diffusiondet.existing
-      - D2.SOTA.diffusiondet.missing_train2
-      - D2.SOTA.dino_r50.existing
-      - D2.SOTA.dino_r50.missing_train2
-      - D2.SOTA.rtmdet_l.existing
-      - D2.SOTA.rtmdet_l.missing_train2
-      - D2.SOTA.cascade_rcnn_r50.existing
-      - D2.SOTA.cascade_rcnn_r50.missing_train2
-      - D2.SOTA.yolox_s.existing
-      - D2.SOTA.yolox_s.missing_train2
+      - D2.SOTA.diffusiondet.canonical_train3
+      - D2.SOTA.dino_r50.canonical_train3
+      - D2.SOTA.rtmdet_l.canonical_train3
+      - D2.SOTA.cascade_rcnn_r50.canonical_train3
+      - D2.SOTA.yolox_s.canonical_train3
   - claim_id: generation.strict_incremental
     paper_targets: [method_generation, component_ablation_table]
     required_for_submission: true
@@ -101,6 +96,11 @@ claims:
       - D1I.DEP.GACS
       - D2.DEP.GACS
 historical_only_routes:
+  - D2.SOTA.diffusiondet.existing
+  - D2.SOTA.dino_r50.existing
+  - D2.SOTA.rtmdet_l.existing
+  - D2.SOTA.cascade_rcnn_r50.existing
+  - D2.SOTA.yolox_s.existing
   - D2.HIST.karyoflow_ot_train3
   - D2.HIST.karyoflow_ot_lqcr_train3
   - D2.ABL.historical_chain
