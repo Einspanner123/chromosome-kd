@@ -1,7 +1,7 @@
 schema_version: 1
 protocol_id: v2.d2.karyoflow_lqcr.beta.val
 protocol_type: validation_selection
-dataset_id: D2
+dataset_id: D2_TAICHUNG5000_V2
 split: val
 inference_seed: 42
 selection:

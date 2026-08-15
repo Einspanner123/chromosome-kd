@@ -120,8 +120,6 @@ def set_dotted(config, dotted_key: str, value) -> None:
         if part not in current:
             raise KeyError(f'override path does not exist: {dotted_key}')
         current = current[part]
-    if parts[-1] not in current:
-        raise KeyError(f'override target does not exist: {dotted_key}')
     current[parts[-1]] = value
 
 
@@ -179,10 +177,17 @@ def independent_coco(annotation: Path, prediction: Path) -> dict:
         evaluator.evaluate()
         evaluator.accumulate()
         evaluator.summarize()
-    return {
+    metrics = {
         name: float(evaluator.stats[index])
         for index, name in enumerate(METRIC_NAMES)
     }
+    precision = evaluator.eval['precision']
+    for threshold, name in ((0.90, 'AP90'), (0.95, 'AP95')):
+        index = int(abs(evaluator.params.iouThrs - threshold).argmin())
+        values = precision[index, :, :, 0, -1]
+        valid = values[values > -1]
+        metrics[name] = float(valid.mean()) if valid.size else 0.0
+    return metrics
 
 
 def framework_metrics(path: Path) -> dict:
@@ -242,6 +247,7 @@ def main() -> int:
     parser.add_argument('--inference-seed', type=int, default=42)
     parser.add_argument('--gpu-id', type=int, default=0)
     parser.add_argument('--override-json')
+    parser.add_argument('--protocol-source', type=Path)
     parser.add_argument(
         '--output-root', type=Path, default=ROOT / 'results/v2/evaluations'
     )
@@ -253,6 +259,13 @@ def main() -> int:
     parser.add_argument('--plan', action='store_true')
     parser.add_argument('--no-import', action='store_true')
     args = parser.parse_args()
+    if (
+        args.protocol_source is not None
+        and not args.protocol_source.is_absolute()
+    ):
+        args.protocol_source = ROOT / args.protocol_source
+    if args.protocol_source is not None and not args.protocol_source.is_file():
+        raise FileNotFoundError(args.protocol_source)
 
     run = fetch_run(args.train_run_id)
     train, selected = run['train'], run['selected']
@@ -289,6 +302,11 @@ def main() -> int:
         'overrides': overrides,
         'evaluation_protocol': protocol,
         'git_commit': code['git_commit'],
+        'protocol_source_sha256': (
+            sha256_file(args.protocol_source)
+            if args.protocol_source is not None
+            else None
+        ),
     }
     protocol_sha = sha256_text(stable_json(protocol_payload))
     eval_run_id = (
@@ -312,6 +330,11 @@ def main() -> int:
         'num_images': num_images,
         'inference_seed': args.inference_seed,
         'overrides': overrides,
+        'protocol_source': (
+            args.protocol_source.relative_to(ROOT).as_posix()
+            if args.protocol_source is not None
+            else None
+        ),
         'protocol_sha256': protocol_sha,
         'output_dir': output_dir.relative_to(ROOT).as_posix(),
     }
@@ -433,6 +456,11 @@ def main() -> int:
         'evaluation_protocol': {
             **protocol,
             'overrides': overrides,
+            'protocol_source': (
+                artifact(args.protocol_source)
+                if args.protocol_source is not None
+                else None
+            ),
             'prediction_sha256': sha256_file(prediction_path),
             'framework_metrics_sha256': sha256_file(metrics_path),
             'framework_independent_max_abs_error': max(differences.values()),

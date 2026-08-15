@@ -71,6 +71,13 @@ def validate(record: dict, root: Path, verify_files: bool) -> list[str]:
             errors.append(f"missing/non-numeric metric: {metric}")
         elif not 0 <= value <= 1:
             errors.append(f"metric outside [0,1]: {metric}={value}")
+    for metric, value in metrics.items():
+        if metric in METRICS:
+            continue
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            errors.append(f"non-numeric additional metric: {metric}")
+        elif not 0 <= value <= 1:
+            errors.append(f"metric outside [0,1]: {metric}={value}")
     for name in ("annotation", "config", "checkpoint", "source_log"):
         artifact = record.get(name, {})
         digest = artifact.get("sha256", "") if isinstance(artifact, dict) else ""

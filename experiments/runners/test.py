@@ -101,8 +101,6 @@ def _set_dotted(config, dotted_key, value):
         if part not in current:
             raise KeyError(f'override path does not exist: {dotted_key}')
         current = current[part]
-    if parts[-1] not in current:
-        raise KeyError(f'override target does not exist: {dotted_key}')
     current[parts[-1]] = value
 
 

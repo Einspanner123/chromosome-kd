@@ -211,3 +211,17 @@ def test_import_rejects_identity_reuse_with_changed_metric(tmp_path):
     with pytest.raises(ValueError, match='conflicting immutable'):
         import_record(connection, changed, changed_path, tmp_path)
     connection.close()
+
+
+def test_import_preserves_additional_strict_iou_metrics(tmp_path):
+    connection, evidence, evidence_path = prepared_import(tmp_path)
+    evidence['metrics']['AP90'] = 0.4
+    evidence['metrics']['AP95'] = 0.3
+    evidence_path.write_text(json.dumps(evidence), encoding='utf-8')
+    import_record(connection, evidence, evidence_path, tmp_path)
+    rows = connection.execute(
+        'SELECT metric,value FROM controlled_result '
+        "WHERE metric IN ('AP90','AP95') ORDER BY metric"
+    ).fetchall()
+    assert rows == [('AP90', 0.4), ('AP95', 0.3)]
+    connection.close()

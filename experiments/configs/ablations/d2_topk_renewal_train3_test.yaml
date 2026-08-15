@@ -1,7 +1,7 @@
 schema_version: 1
 protocol_id: v2.d2.karyoflow.topk_renewal.train3.test
 protocol_type: inference_replication
-dataset_id: D2
+dataset_id: D2_TAICHUNG5000_V2
 split: test
 inference_seed: 42
 selection:

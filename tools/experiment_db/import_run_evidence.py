@@ -13,7 +13,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-from tools.experiment_db.validate_run_evidence import METRICS, validate
+from tools.experiment_db.validate_run_evidence import validate
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DB = ROOT / "tools/experiment_db/experiments.db"
@@ -146,7 +146,7 @@ def import_record(connection: sqlite3.Connection, record: dict,
         "parent_checkpoint_sha256": record.get("parent_checkpoint_sha256"),
     })
     paper_eligible = int(record["status"] == "paper_eligible")
-    for metric in METRICS:
+    for metric, metric_value in sorted(record["metrics"].items()):
         result_id = f"{record['record_id']}::{metric.lower()}"
         insert_exact(connection, "controlled_result", "result_id", result_id, {
             "family": "run_evidence",
@@ -155,7 +155,7 @@ def import_record(connection: sqlite3.Connection, record: dict,
             "split": record["split"],
             "seed": str(record["training_seed"]),
             "metric": metric,
-            "value": float(record["metrics"][metric]),
+            "value": float(metric_value),
             "unit": "absolute",
             "baseline_result_id": None,
             "delta": None,
