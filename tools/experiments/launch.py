@@ -4,6 +4,7 @@
 from __future__ import annotations
 import argparse
 import json
+import platform
 import subprocess
 import sys
 from pathlib import Path
@@ -18,6 +19,7 @@ from tools.experiments.matrix import (
     resolve_config,
     write_resolution,
 )
+from tools.experiments.registry import register_train_run, set_train_run_status
 
 
 def main() -> int:
@@ -27,6 +29,8 @@ def main() -> int:
     parser.add_argument('--seed', type=int)
     parser.add_argument('--output-dir')
     parser.add_argument('--parent-checkpoint')
+    parser.add_argument('--parent-train-run-id')
+    parser.add_argument('--executor', default=platform.node())
     parser.add_argument('--gpu-id', type=int, default=0)
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--plan', action='store_true')
@@ -53,14 +57,28 @@ def main() -> int:
     cfg, sources = resolve_config(
         args.matrix, args.method, args.seed, args.parent_checkpoint
     )
-    if (
-        args.launch
-        and cfg.experiment.get('parent_checkpoint_required')
-        and not args.parent_checkpoint
-    ):
+    parent_required = cfg.experiment.get('parent_checkpoint_required')
+    if parent_required and not args.parent_checkpoint:
         parser.error(f'{args.method} requires --parent-checkpoint')
+    if parent_required and not args.parent_train_run_id:
+        parser.error(f'{args.method} requires --parent-train-run-id')
+    if not parent_required and args.parent_train_run_id:
+        parser.error('--parent-train-run-id is only valid for a child method')
     config_path, manifest_path = write_resolution(
         cfg, sources, args.seed, args.output_dir
+    )
+    manifest = json.loads(manifest_path.read_text())
+    tracker_run_name = (
+        f'{cfg.experiment.dataset_alias}_{args.method}_seed{args.seed}'
+    )
+    train_run_id = register_train_run(
+        manifest=manifest,
+        config_path=config_path.resolve(),
+        work_dir=config_path.parent.resolve(),
+        executor=args.executor,
+        tracker_run_name=tracker_run_name,
+        status='running' if args.launch else 'planned',
+        parent_train_run_id=args.parent_train_run_id,
     )
     print(
         json.dumps(
@@ -68,9 +86,8 @@ def main() -> int:
                 status='RESOLVED',
                 config=str(config_path),
                 manifest=str(manifest_path),
-                scientific_config_sha256=json.loads(manifest_path.read_text())[
-                    'scientific_config_sha256'
-                ],
+                train_run_id=train_run_id,
+                scientific_config_sha256=manifest['scientific_config_sha256'],
             ),
             indent=2,
         )
@@ -89,11 +106,15 @@ def main() -> int:
         '--work-dir',
         str(config_path.parent),
         '--exp-name',
-        f'{cfg.experiment.dataset_alias}_{args.method}_seed{args.seed}',
+        tracker_run_name,
     ]
     if args.parent_checkpoint:
         command.extend(['--parent-checkpoint', args.parent_checkpoint])
-    return subprocess.run(command, cwd=ROOT, check=False).returncode
+    returncode = subprocess.run(command, cwd=ROOT, check=False).returncode
+    set_train_run_status(
+        train_run_id, 'trained' if returncode == 0 else 'failed'
+    )
+    return returncode
 
 
 if __name__ == '__main__':

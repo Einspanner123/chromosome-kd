@@ -224,6 +224,7 @@ CREATE TABLE IF NOT EXISTS train_run_registry (
     training_seed INTEGER NOT NULL,
     config_path TEXT NOT NULL,
     config_sha256 TEXT NOT NULL,
+    scientific_config_sha256 TEXT,
     dataset_manifest_sha256 TEXT NOT NULL,
     git_commit TEXT NOT NULL,
     replication_unit TEXT NOT NULL,
@@ -255,6 +256,16 @@ CREATE TABLE IF NOT EXISTS eval_run_registry (
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (train_run_id) REFERENCES train_run_registry(train_run_id),
     FOREIGN KEY (evidence_artifact_id) REFERENCES evidence_artifact(artifact_id)
+);
+CREATE TABLE IF NOT EXISTS selected_checkpoint (
+    train_run_id TEXT PRIMARY KEY,
+    checkpoint_path TEXT NOT NULL,
+    checkpoint_sha256 TEXT NOT NULL,
+    selection_source TEXT NOT NULL,
+    selection_metric TEXT NOT NULL,
+    selection_value REAL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (train_run_id) REFERENCES train_run_registry(train_run_id)
 );
 
 -- ─── 跨数据集实验总账 ──────────────────────────────────────

@@ -259,6 +259,7 @@ def write_resolution(
         method_id=cfg.experiment.method_id,
         training_seed=seed,
         replication_unit=cfg.experiment.replication_unit,
+        tracker_project=cfg.experiment.tracker_project,
         selection=dict(
             split=cfg.experiment.selection_split,
             metric=cfg.experiment.selection_metric,

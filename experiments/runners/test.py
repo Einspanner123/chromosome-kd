@@ -35,6 +35,7 @@ import random
 import shutil
 import sys
 import tempfile
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -88,6 +89,34 @@ def _set_evaluator_outfile_prefix(evaluator_cfg, prefix):
             if isinstance(ev, dict):
                 ev['outfile_prefix'] = prefix
     # 其它形态 (已实例化的 Evaluator 对象等) 不处理, 后续 dump 会明确报错
+
+
+def _set_dotted(config, dotted_key, value):
+    """Apply an explicit JSON override to a resolved configuration."""
+    current = config
+    parts = dotted_key.split('.')
+    if not parts or any(not part for part in parts):
+        raise ValueError(f'invalid override key: {dotted_key!r}')
+    for part in parts[:-1]:
+        if part not in current:
+            raise KeyError(f'override path does not exist: {dotted_key}')
+        current = current[part]
+    if parts[-1] not in current:
+        raise KeyError(f'override target does not exist: {dotted_key}')
+    current[parts[-1]] = value
+
+
+def _load_overrides(raw):
+    if raw is None:
+        return {}
+    if raw.startswith('@'):
+        payload = Path(raw[1:]).read_text(encoding='utf-8')
+    else:
+        payload = raw
+    overrides = json.loads(payload)
+    if not isinstance(overrides, dict):
+        raise ValueError('--override-json must decode to an object')
+    return overrides
 
 
 def dump_per_image_ap(runner, dump_path):
@@ -253,6 +282,18 @@ def main():
         'dump 到该 JSON 文件, 用于 C3 统计显著性检验。'
         '不加此参数时行为与原先完全一致。',
     )
+    parser.add_argument(
+        '--prediction-prefix',
+        help='Persistent CocoMetric outfile prefix (writes .bbox.json).',
+    )
+    parser.add_argument(
+        '--output-json',
+        help='Write machine-readable framework metrics to this JSON file.',
+    )
+    parser.add_argument(
+        '--override-json',
+        help='JSON object (or @file) of existing dotted config keys to override.',
+    )
     args = parser.parse_args()
 
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu_id)
@@ -262,6 +303,9 @@ def main():
 
     cfg = Config.fromfile(args.config)
     cfg.work_dir = os.path.dirname(args.checkpoint) or 'work_dirs/test'
+
+    for key, value in sorted(_load_overrides(args.override_json).items()):
+        _set_dotted(cfg, key, value)
 
     if args.sampling_steps is not None:
         cfg.model.bbox_head.sampling_timesteps = args.sampling_steps
@@ -311,7 +355,12 @@ def main():
     # Per-image AP dump 模式: 让 CocoMetric 把预测写到稳定路径 (而非默认临时目录)
     # 否则 compute_metrics 返回后临时目录会被立即清理, 无法重算 per-image AP。
     _pred_temp_dir = None
-    if args.dump_per_image is not None:
+    if args.prediction_prefix is not None:
+        _pred_prefix = os.path.abspath(args.prediction_prefix)
+        os.makedirs(os.path.dirname(_pred_prefix), exist_ok=True)
+        _set_evaluator_outfile_prefix(cfg.test_evaluator, _pred_prefix)
+        print(f'[prediction] persistent output prefix: {_pred_prefix}')
+    elif args.dump_per_image is not None:
         _pred_temp_dir = tempfile.mkdtemp(prefix='mmdet_preds_')
         _pred_prefix = os.path.join(_pred_temp_dir, 'preds')
         _set_evaluator_outfile_prefix(cfg.test_evaluator, _pred_prefix)
@@ -328,6 +377,27 @@ def main():
     print(f'{"=" * 60}')
     for k, v in sorted(metrics.items()):
         print(f'  {k}: {v:.4f}' if isinstance(v, float) else f'  {k}: {v}')
+
+    if args.output_json is not None:
+        output_path = Path(args.output_json).resolve()
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            'config': os.path.abspath(args.config),
+            'checkpoint': os.path.abspath(args.checkpoint),
+            'split': args.dataset,
+            'inference_seed': args.seed,
+            'overrides': _load_overrides(args.override_json),
+            'metrics': {
+                key: (float(value) if hasattr(value, '__float__') else value)
+                for key, value in metrics.items()
+            },
+        }
+        temporary = output_path.with_suffix(output_path.suffix + '.tmp')
+        temporary.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + '\n'
+        )
+        temporary.replace(output_path)
+        print(f'[metrics] machine-readable output: {output_path}')
 
     # Per-image AP dump (用于 C3 统计显著性检验)
     if args.dump_per_image is not None:
