@@ -1,0 +1,32 @@
+{
+  "child_checkpoint": {
+    "path": "work_dirs/v2/d1/karyoflow_lqcr_r50/trainseed_123/best_coco_bbox_mAP_epoch_1.pth",
+    "sha256": "44ccddde3150ef11ff52e2d8d495b5c5fa0d74280e3b9b1b9421dce4752eb963"
+  },
+  "child_train_run_id": "d1-inhouse1700-v2__karyoflow-lqcr-r50__trainseed-123__bddd7d3d2741",
+  "errors": [],
+  "evidence_type": "paired_checkpoint_identity",
+  "parent_checkpoint": {
+    "path": "work_dirs/v2/d1/karyoflow_r50/trainseed_123/best_coco_bbox_mAP_epoch_42.pth",
+    "sha256": "4fc8beeccabc0e144e5c71d4b6fa6627e94d7f06b09478433440fed707922801"
+  },
+  "parent_train_run_id": "d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547",
+  "schema_version": 1,
+  "state_dict": {
+    "changed_shared_tensors": [],
+    "child_only_tensors": [
+      "bbox_head.head_series.5.quality_head.0.weight",
+      "bbox_head.head_series.5.quality_head.1.bias",
+      "bbox_head.head_series.5.quality_head.1.weight",
+      "bbox_head.head_series.5.quality_head.3.bias",
+      "bbox_head.head_series.5.quality_head.3.weight"
+    ],
+    "child_tensors": 595,
+    "parent_only_tensors": [],
+    "parent_tensors": 590,
+    "shape_or_dtype_changed": [],
+    "shared_tensors": 590,
+    "unchanged_shared_tensors": 590
+  },
+  "status": "PASS"
+}
