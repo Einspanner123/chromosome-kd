@@ -6,8 +6,8 @@
 ## 权威身份
 
 - YAML：`experiments/manifests/paper_experiment_route_matrix.yaml`
-- YAML SHA-256：`b3f0e4ea036435d1c28ca07d9d69b5a3878812aa7bf80efd7d2e4435c308b5e8`
-- 数据库 artifact：`paper-route-matrix-v2-b3f0e4ea0364`
+- YAML SHA-256：`253c93511ac9e8315c5982657bce6a8794e0d21510c5e8937b7de414cc818ad5`
+- 数据库 artifact：`paper-route-matrix-v2-253c93511ac9`
 - 论文 claim manifest：`experiments/manifests/paper_claim_manifest.yaml`（SHA-256 `ef7364eade0f0c8d5e14fd44bfffbac2087b37b569dd6d2383476efeb1894380`）
 - 实验组：57；展开运行：295。
 - 状态分布：ARCHIVED_NONCOMPARABLE=1, BLOCKED_CHECKPOINTS=2, BLOCKED_PARENT=5, BLOCKED_PREDICTIONS=6, COMPLETED_CENTRAL_TEST_VERIFIED=1, COMPLETED_DESCRIPTIVE=1, COMPLETED_DIAGNOSTIC=2, COMPLETED_EVIDENCE_ONLY=1, COMPLETED_FIXED_CHECKPOINT=2, COMPLETED_PARTIAL=1, COMPLETED_POINT_ESTIMATE=5, COMPLETED_VERIFIED=2, PARTIAL_LEGACY=1, PLANNED=25, RUNNING_DISTRIBUTED_3_OF_3=1, TEST_PARTIAL_CENTRAL_1_OF_3=1。
@@ -76,7 +76,7 @@
 | `D1I.DEC.quality_validity` | quality_iou_validity | analysis / 1 | train=42,123,789; infer=42 | **BLOCKED_PREDICTIONS** | PROTOCOL_TO_IMPLEMENT | `—` | CPU | `results/v2/d1/analysis/quality_iou_validity` | `route:D1I.DEC.quality_validity; lqcr_quality_validity_d1i` |
 | `D1I.ANALYSIS.per_class` | per_class_error | analysis / 1 | train=42,123,789; infer=42 | **BLOCKED_PREDICTIONS** | PROTOCOL_TO_IMPLEMENT | `—` | CPU | `results/v2/d1/analysis/per_class_error` | `route:D1I.ANALYSIS.per_class; per_class_d1i_test` |
 
-- `D1I.SOTA.karyoflow_lqcr`：科学因素=parent-matched final-only quality head; beta=2 selected on validation；解析配置=batch 2, 12 epochs, AdamW, lr=0.001, config_id=v2.d1.karyoflow_lqcr_r50.train；验收=parent checkpoint identity; 590 shared tensors unchanged; paired test delta；论文用途=Independent decision contribution；备注=Three parent-matched quality-head runs completed training on the A5000, A4000, and A6000. Seed 789 has passed central held-out test evaluation; seeds 42 and 123 are being centralized before paired test evaluation and final-only tensor audit.
+- `D1I.SOTA.karyoflow_lqcr`：科学因素=parent-matched final-only quality head; beta=2 selected on validation；解析配置=batch 2, 12 epochs, AdamW, lr=0.001, config_id=v2.d1.karyoflow_lqcr_r50.train；验收=parent checkpoint identity; 590 shared tensors unchanged; paired test delta；论文用途=Independent decision contribution；备注=Three parent-matched quality-head runs completed training and were centralized with checkpoint/config SHA verification. All three passed the final-only tensor audit (590 shared tensors unchanged; five quality-head tensors added). Seed 789 has passed central held-out test evaluation; seeds 42 and 123 await the same test protocol before the paired train-seed aggregate.
 - `D1I.DEC.beta_val`：科学因素=3 LQCR parents x beta={0,0.25,0.5,1,2}; validation only；验收=select beta before any new test evaluation；论文用途=Validation selection; not a test claim；备注=No active v2 run is currently registered.
 - `D1I.DEC.strict_subsets`：科学因素=AP90/AP95; AP_S/M/L; overlap strata; size quartiles; quality-IoU Spearman; paired image bootstrap；验收=image-level pairing; diagnostics not paper SOTA rows；论文用途=Mechanism evidence and limitation；备注=No active v2 run is currently registered.
 - `D1I.DEC.quality_validity`：科学因素=quality-IoU Spearman, MAE/RMSE and reliability bins；验收=versioned analysis JSON bound to final test annotation/prediction SHA；论文用途=Mechanism/error analysis；备注=Required before the manuscript is refreshed.

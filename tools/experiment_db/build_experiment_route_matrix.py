@@ -175,10 +175,12 @@ NOTES_OVERRIDE = {
         "all three immutable config digests were preserved during evaluation."
     ),
     "D1I.SOTA.karyoflow_lqcr": (
-        "Three parent-matched quality-head runs completed training on the "
-        "A5000, A4000, and A6000. Seed 789 has passed central held-out test "
-        "evaluation; seeds 42 and 123 are being centralized before paired "
-        "test evaluation and final-only tensor audit."
+        "Three parent-matched quality-head runs completed training and were "
+        "centralized with checkpoint/config SHA verification. All three passed "
+        "the final-only tensor audit (590 shared tensors unchanged; five "
+        "quality-head tensors added). Seed 789 has passed central held-out test "
+        "evaluation; seeds 42 and 123 await the same test protocol before the "
+        "paired train-seed aggregate."
     ),
     "D1I.ABL.G0": (
         "All three independent G0 runs are active under the dedicated "

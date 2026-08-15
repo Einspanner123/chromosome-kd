@@ -305,8 +305,10 @@ experiments:
   inference_seeds: '42'
   layer: Decision
   ledger_id: D1I.SOTA.karyoflow_lqcr
-  notes: Three parent-matched quality-head runs completed training on the A5000, A4000, and A6000. Seed 789 has passed central
-    held-out test evaluation; seeds 42 and 123 are being centralized before paired test evaluation and final-only tensor audit.
+  notes: Three parent-matched quality-head runs completed training and were centralized with checkpoint/config SHA verification.
+    All three passed the final-only tensor audit (590 shared tensors unchanged; five quality-head tensors added). Seed 789
+    has passed central held-out test evaluation; seeds 42 and 123 await the same test protocol before the paired train-seed
+    aggregate.
   paper_role: Independent decision contribution
   parameters: parent-matched final-only quality head; beta=2 selected on validation
   parent_ledger_id: D1I.SOTA.karyoflow
