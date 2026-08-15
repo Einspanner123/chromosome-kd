@@ -1,0 +1,241 @@
+schema_version: 1
+
+postprocess_local: &postprocess_local
+  sync:
+    required: false
+  prepare_command:
+    - "{python}"
+    - tools/experiments/finalize_external_training.py
+    - --work-dir
+    - "{work_dir}"
+    - --executor
+    - "{executor}"
+    - --gpu-id
+    - "{gpu_id}"
+    - --gpu-name
+    - "{gpu_name}"
+  evidence:
+    kind: training_completion
+    path: "{work_dir}/training_completion.json"
+    executor: "{executor}"
+    tracker_run_name: "{tracker_name}"
+
+postprocess_remote: &postprocess_remote
+  sync:
+    required: true
+    source: "{project_root}/{work_dir}"
+    destination: "{project_root}/{work_dir}"
+    exclude:
+      - epoch_*.pth
+      - vis_data/
+      - __pycache__/
+      - '*.pyc'
+  prepare_command:
+    - "{python}"
+    - tools/experiments/finalize_external_training.py
+    - --work-dir
+    - "{work_dir}"
+    - --executor
+    - "{executor}"
+    - --gpu-id
+    - "{gpu_id}"
+    - --gpu-name
+    - "{gpu_name}"
+  evidence:
+    kind: training_completion
+    path: "{work_dir}/training_completion.json"
+    executor: "{executor}"
+    tracker_run_name: "{tracker_name}"
+
+tasks:
+  - task_id: d1-g0-seed42
+    kind: adopted_training
+    resource_id: ross:a6000:0
+    external_monitor:
+      process_pattern: d1_generation/strict_g0_ddpm_linear_scaleshift_r50/trainseed_42/resolved_config.py
+    variables:
+      work_dir: work_dirs/v2/d1_generation/strict_g0_ddpm_linear_scaleshift_r50/trainseed_42
+      executor: ross:a6000:0
+      gpu_name: NVIDIA RTX A6000
+      tracker_name: d1_generation_strict_g0_ddpm_linear_scaleshift_seed42
+    postprocess: *postprocess_local
+
+  - task_id: d1-g1-seed42
+    kind: training
+    resource_id: ross:a6000:0
+    dependencies: [d1-g0-seed42]
+    command: &g1_command
+      - "{python}"
+      - tools/experiments/launch.py
+      - --matrix
+      - experiments/configs/matrices/d1_inhouse1700_generation_ablation.yaml
+      - --method
+      - strict_g1_rf_linear_scaleshift
+      - --seed
+      - "{training_seed}"
+      - --executor
+      - "{executor}"
+      - --gpu-id
+      - "{gpu_id}"
+      - --launch
+    variables:
+      training_seed: 42
+      work_dir: work_dirs/v2/d1_generation/strict_g1_rf_linear_scaleshift_r50/trainseed_42
+      executor: ross:a6000:0
+      gpu_name: NVIDIA RTX A6000
+      tracker_name: d1_generation_strict_g1_rf_linear_scaleshift_seed42
+    postprocess: *postprocess_local
+
+  - task_id: d1-g2-seed42
+    kind: training
+    resource_id: ross:a6000:0
+    dependencies: [d1-g1-seed42]
+    command: &g2_command
+      - "{python}"
+      - tools/experiments/launch.py
+      - --matrix
+      - experiments/configs/matrices/d1_inhouse1700_generation_ablation.yaml
+      - --method
+      - strict_g2_rf_shifted_scaleshift
+      - --seed
+      - "{training_seed}"
+      - --executor
+      - "{executor}"
+      - --gpu-id
+      - "{gpu_id}"
+      - --launch
+    variables:
+      training_seed: 42
+      work_dir: work_dirs/v2/d1_generation/strict_g2_rf_shifted_scaleshift_r50/trainseed_42
+      executor: ross:a6000:0
+      gpu_name: NVIDIA RTX A6000
+      tracker_name: d1_generation_strict_g2_rf_shifted_scaleshift_seed42
+    postprocess: *postprocess_local
+
+  - task_id: d1-g3-seed42
+    kind: training
+    resource_id: ross:a6000:0
+    dependencies: [d1-g2-seed42]
+    command: &g3_command
+      - "{python}"
+      - tools/experiments/launch.py
+      - --matrix
+      - experiments/configs/matrices/d1_inhouse1700_generation_ablation.yaml
+      - --method
+      - strict_g3_rf_shifted_adaln_zero
+      - --seed
+      - "{training_seed}"
+      - --executor
+      - "{executor}"
+      - --gpu-id
+      - "{gpu_id}"
+      - --launch
+    variables:
+      training_seed: 42
+      work_dir: work_dirs/v2/d1_generation/strict_g3_rf_shifted_adaln_zero_r50/trainseed_42
+      executor: ross:a6000:0
+      gpu_name: NVIDIA RTX A6000
+      tracker_name: d1_generation_strict_g3_rf_shifted_adaln_zero_seed42
+    postprocess: *postprocess_local
+
+  - task_id: d1-g0-seed123
+    kind: adopted_training
+    resource_id: workstation:a5000:0
+    external_monitor:
+      process_pattern: d1_generation/strict_g0_ddpm_linear_scaleshift_r50/trainseed_123/resolved_config.py
+    variables:
+      work_dir: work_dirs/v2/d1_generation/strict_g0_ddpm_linear_scaleshift_r50/trainseed_123
+      executor: workstation:a5000:0
+      gpu_name: NVIDIA RTX A5000
+      tracker_name: d1_generation_strict_g0_ddpm_linear_scaleshift_seed123
+    postprocess: *postprocess_remote
+
+  - task_id: d1-g1-seed123
+    kind: training
+    resource_id: workstation:a5000:0
+    dependencies: [d1-g0-seed123]
+    command: *g1_command
+    variables:
+      training_seed: 123
+      work_dir: work_dirs/v2/d1_generation/strict_g1_rf_linear_scaleshift_r50/trainseed_123
+      executor: workstation:a5000:0
+      gpu_name: NVIDIA RTX A5000
+      tracker_name: d1_generation_strict_g1_rf_linear_scaleshift_seed123
+    postprocess: *postprocess_remote
+
+  - task_id: d1-g2-seed123
+    kind: training
+    resource_id: workstation:a5000:0
+    dependencies: [d1-g1-seed123]
+    command: *g2_command
+    variables:
+      training_seed: 123
+      work_dir: work_dirs/v2/d1_generation/strict_g2_rf_shifted_scaleshift_r50/trainseed_123
+      executor: workstation:a5000:0
+      gpu_name: NVIDIA RTX A5000
+      tracker_name: d1_generation_strict_g2_rf_shifted_scaleshift_seed123
+    postprocess: *postprocess_remote
+
+  - task_id: d1-g3-seed123
+    kind: training
+    resource_id: workstation:a5000:0
+    dependencies: [d1-g2-seed123]
+    command: *g3_command
+    variables:
+      training_seed: 123
+      work_dir: work_dirs/v2/d1_generation/strict_g3_rf_shifted_adaln_zero_r50/trainseed_123
+      executor: workstation:a5000:0
+      gpu_name: NVIDIA RTX A5000
+      tracker_name: d1_generation_strict_g3_rf_shifted_adaln_zero_seed123
+    postprocess: *postprocess_remote
+
+  - task_id: d1-g0-seed789
+    kind: adopted_training
+    resource_id: workstation:a4000:1
+    external_monitor:
+      process_pattern: d1_generation/strict_g0_ddpm_linear_scaleshift_r50/trainseed_789/resolved_config.py
+    variables:
+      work_dir: work_dirs/v2/d1_generation/strict_g0_ddpm_linear_scaleshift_r50/trainseed_789
+      executor: workstation:a4000:1
+      gpu_name: NVIDIA RTX A4000
+      tracker_name: d1_generation_strict_g0_ddpm_linear_scaleshift_seed789
+    postprocess: *postprocess_remote
+
+  - task_id: d1-g1-seed789
+    kind: training
+    resource_id: workstation:a4000:1
+    dependencies: [d1-g0-seed789]
+    command: *g1_command
+    variables:
+      training_seed: 789
+      work_dir: work_dirs/v2/d1_generation/strict_g1_rf_linear_scaleshift_r50/trainseed_789
+      executor: workstation:a4000:1
+      gpu_name: NVIDIA RTX A4000
+      tracker_name: d1_generation_strict_g1_rf_linear_scaleshift_seed789
+    postprocess: *postprocess_remote
+
+  - task_id: d1-g2-seed789
+    kind: training
+    resource_id: workstation:a4000:1
+    dependencies: [d1-g1-seed789]
+    command: *g2_command
+    variables:
+      training_seed: 789
+      work_dir: work_dirs/v2/d1_generation/strict_g2_rf_shifted_scaleshift_r50/trainseed_789
+      executor: workstation:a4000:1
+      gpu_name: NVIDIA RTX A4000
+      tracker_name: d1_generation_strict_g2_rf_shifted_scaleshift_seed789
+    postprocess: *postprocess_remote
+
+  - task_id: d1-g3-seed789
+    kind: training
+    resource_id: workstation:a4000:1
+    dependencies: [d1-g2-seed789]
+    command: *g3_command
+    variables:
+      training_seed: 789
+      work_dir: work_dirs/v2/d1_generation/strict_g3_rf_shifted_adaln_zero_r50/trainseed_789
+      executor: workstation:a4000:1
+      gpu_name: NVIDIA RTX A4000
+      tracker_name: d1_generation_strict_g3_rf_shifted_adaln_zero_seed789
+    postprocess: *postprocess_remote
