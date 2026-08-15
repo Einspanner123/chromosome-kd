@@ -11,6 +11,12 @@ from pathlib import Path
 
 import yaml
 
+from tools.experiments.matrix import (
+    default_work_dir,
+    resolve_config,
+    scientific_hash,
+)
+
 
 ROOT = Path(__file__).resolve().parents[2]
 MATRIX = ROOT / "experiments/manifests/paper_experiment_route_matrix.yaml"
@@ -95,6 +101,51 @@ def main() -> int:
             for ref in refs:
                 if not (ROOT / ref).exists():
                     errors.append(f"{rid}: referenced file missing: {ref}")
+        resolved = row.get("resolved_training") or {}
+        should_resolve = (
+            row["execution_kind"] in {"full_train", "short_train"}
+            and row["config_state"] in {"READY", "READY_PARENT_PENDING"}
+            and row.get("method_config")
+            and row.get("matrix_config")
+        )
+        if should_resolve:
+            seed_values = [
+                int(value) for value in str(row["training_seeds"]).split(",")
+                if value.strip().isdigit()
+            ]
+            if not seed_values:
+                errors.append(f"{rid}: canonical training route has no numeric seed")
+                continue
+            method_name = Path(row["method_config"]).stem
+            try:
+                cfg, _ = resolve_config(
+                    row["matrix_config"], method_name, seed_values[0]
+                )
+            except Exception as exc:
+                errors.append(f"{rid}: resolver failed: {exc}")
+                continue
+            optimizer = cfg.optim_wrapper.optimizer
+            expected = {
+                "config_id": cfg.experiment.config_id,
+                "method_id": cfg.experiment.method_id,
+                "batch_size": int(cfg.train_dataloader.batch_size),
+                "max_epochs": int(cfg.train_cfg.max_epochs),
+                "optimizer": str(optimizer["type"]),
+                "base_lr": float(optimizer["lr"]),
+                "scientific_config_sha256": scientific_hash(cfg),
+                "output_template": str(
+                    default_work_dir(cfg, seed_values[0]).relative_to(ROOT)
+                ).replace(
+                    f"trainseed_{seed_values[0]}",
+                    "trainseed_{training_seed}",
+                ),
+            }
+            if resolved != expected:
+                errors.append(f"{rid}: resolved training metadata mismatch")
+            if row["output_template"] != expected["output_template"]:
+                errors.append(f"{rid}: route output differs from resolver output")
+        elif resolved:
+            errors.append(f"{rid}: unexpected resolved training metadata")
 
     db_rows = {
         r[0]: r[1] for r in con.execute(

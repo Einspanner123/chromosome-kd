@@ -11,11 +11,18 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import re
 import sqlite3
 from collections import Counter
 from pathlib import Path
 
 import yaml
+
+from tools.experiments.matrix import (
+    default_work_dir,
+    resolve_config,
+    scientific_hash,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -166,6 +173,50 @@ NOTES_OVERRIDE = {
     "D2.DEP.distill_h3.existing": "Inference identity is EXACT; the archived historical distillation training implementation is not executable in cleaned ldmdet.",
     "D2.DEP.speed": "Historical latency is valid under its recorded protocol but PARTIAL against the strict rerun protocol.",
 }
+
+
+def _method_name(path: str) -> str:
+    return Path(path).stem
+
+
+def _resolved_training_metadata(row: dict) -> dict | None:
+    """Resolve canonical training facts instead of copying prose summaries."""
+    if row["execution_kind"] not in {"full_train", "short_train"}:
+        return None
+    if not row.get("method_config") or not row.get("matrix_config"):
+        return None
+    if row["config_state"] not in {"READY", "READY_PARENT_PENDING"}:
+        return None
+    seed_text = str(row.get("training_seeds", ""))
+    seeds = [int(x) for x in seed_text.split(",") if x.strip().isdigit()]
+    if not seeds:
+        return None
+    method_name = _method_name(row["method_config"])
+    cfg, _ = resolve_config(row["matrix_config"], method_name, seeds[0])
+    optimizer = cfg.optim_wrapper.optimizer
+    work_dir = str(default_work_dir(cfg, seeds[0]).relative_to(ROOT))
+    work_template = work_dir.replace(
+        f"trainseed_{seeds[0]}", "trainseed_{training_seed}"
+    )
+    return {
+        "config_id": cfg.experiment.config_id,
+        "method_id": cfg.experiment.method_id,
+        "batch_size": int(cfg.train_dataloader.batch_size),
+        "max_epochs": int(cfg.train_cfg.max_epochs),
+        "optimizer": str(optimizer["type"]),
+        "base_lr": float(optimizer["lr"]),
+        "scientific_config_sha256": scientific_hash(cfg),
+        "output_template": work_template,
+    }
+
+
+def _scientific_parameters(text: str, has_resolved_training: bool) -> str:
+    """Drop stale operational claims when the resolver is authoritative."""
+    if not has_resolved_training:
+        return text
+    text = re.sub(r";?\s*batch\s*=\s*\d+(?:\s*\([^)]*\))?", "", text)
+    text = re.sub(r";?\s*\d+\s*epochs?", "", text)
+    return re.sub(r";\s*;", ";", text).strip(" ;")
 
 
 def sha256(path: Path) -> str:
@@ -332,6 +383,14 @@ def build_rows() -> list[dict]:
                 row["swanlab_run_template"] = "{variant}_seed{training_seed}"
                 if rid == "D2.DEP.distill_h3.train3":
                     row["swanlab_project"] = "KaryoFlow-HeadDistill-D2-V2"
+
+        resolved = _resolved_training_metadata(row)
+        row["resolved_training"] = resolved or {}
+        if resolved:
+            row["parameters"] = _scientific_parameters(
+                row["parameters"], has_resolved_training=True
+            )
+            row["output_template"] = resolved["output_template"]
         rows.append(row)
     return rows
 
@@ -355,6 +414,7 @@ def flatten(row: dict) -> dict:
         "matrix_config": row["matrix_config"],
         "protocol_config": row["protocol_config"],
         "parameters": row["parameters"],
+        "resolved_training": json.dumps(row.get("resolved_training", {}), sort_keys=True),
         "server_plan": row["server_plan"],
         "output_template": row["output_template"],
         "train_run_ids": ";".join(row["database_ids"]["train_run_ids"]),
@@ -414,8 +474,17 @@ def write_doc(payload: dict, manifest_sha: str, artifact_id: str) -> None:
                 )
             lines.append("")
             for row in selected:
+                resolved = row.get("resolved_training") or {}
+                resolved_text = (
+                    f"；解析配置=batch {resolved['batch_size']}, "
+                    f"{resolved['max_epochs']} epochs, {resolved['optimizer']}, "
+                    f"lr={resolved['base_lr']:g}, config_id={resolved['config_id']}"
+                    if resolved else ""
+                )
                 lines.append(
-                    f"- `{row['ledger_id']}`：参数={row['parameters']}；验收={row['acceptance_gate']}；论文用途={row['paper_role']}；备注={row['notes']}"
+                    f"- `{row['ledger_id']}`：科学因素={row['parameters']}"
+                    f"{resolved_text}；验收={row['acceptance_gate']}；"
+                    f"论文用途={row['paper_role']}；备注={row['notes']}"
                 )
     lines += [
         "",

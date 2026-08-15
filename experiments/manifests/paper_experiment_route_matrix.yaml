@@ -46,7 +46,7 @@ experiments:
   ledger_id: D1I.SOTA.karyoflow
   notes: No active v2 run is registered; previous self1700 runs are invalid or superseded.
   paper_role: Main two-cohort detector table
-  parameters: RF; shifted t; AdaLN-Zero; DPM++ 4-step; K=500; 6 heads; batch=2
+  parameters: RF; shifted t; AdaLN-Zero; DPM++ 4-step; K=500; 6 heads
   parent_ledger_id: ''
   priority: P0
   replication_unit: independent_training_seed
@@ -64,12 +64,21 @@ experiments:
   protocol_config: ''
   config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
-  output_template: work_dirs/v2/d1_inhouse1700/karyoflow/trainseed_{training_seed}
+  output_template: work_dirs/v2/d1/karyoflow_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: sota_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training:
+    config_id: v2.d1.karyoflow_r50.train
+    method_id: karyoflow_r50
+    batch_size: 2
+    max_epochs: 150
+    optimizer: AdamW
+    base_lr: 5.0e-05
+    scientific_config_sha256: 5102e030f547b152169af3c179feca9cf0304cbf3d2af2ed419d114103a8568d
+    output_template: work_dirs/v2/d1/karyoflow_r50/trainseed_{training_seed}
 - acceptance_gate: 3 distinct checkpoint SHA; same manifest/config/protocol; six test metrics
   dataset_id: D1_INHOUSE1700_V2
   execution_kind: full_train
@@ -79,7 +88,7 @@ experiments:
   ledger_id: D1I.SOTA.diffusiondet
   notes: No active v2 run is currently registered.
   paper_role: Main two-cohort detector table
-  parameters: DDPM; DDIM 1-step; linear t; scale-shift; K=500; 6 heads; batch=4 (external baseline)
+  parameters: DDPM; DDIM 1-step; linear t; scale-shift; K=500; 6 heads
   parent_ledger_id: ''
   priority: P0
   replication_unit: independent_training_seed
@@ -97,12 +106,21 @@ experiments:
   protocol_config: ''
   config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
-  output_template: work_dirs/v2/d1_inhouse1700/diffusiondet/trainseed_{training_seed}
+  output_template: work_dirs/v2/d1/diffusiondet_ddpm_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: sota_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training:
+    config_id: v2.d1.diffusiondet_ddpm_r50.train
+    method_id: diffusiondet_ddpm_r50
+    batch_size: 2
+    max_epochs: 150
+    optimizer: AdamW
+    base_lr: 5.0e-05
+    scientific_config_sha256: 78c13c85e64b4d0819fcf1cfbf83ccdb79c5eb8c138e13763d1f23c994c3b419
+    output_template: work_dirs/v2/d1/diffusiondet_ddpm_r50/trainseed_{training_seed}
 - acceptance_gate: 3 distinct checkpoint SHA; same manifest/config/protocol; six test metrics
   dataset_id: D1_INHOUSE1700_V2
   execution_kind: full_train
@@ -112,7 +130,7 @@ experiments:
   ledger_id: D1I.SOTA.dino_r50
   notes: No active v2 run is currently registered.
   paper_role: Main two-cohort detector table
-  parameters: R50; 900 queries; 6 encoder/decoder layers; batch=2
+  parameters: R50; 900 queries; 6 encoder/decoder layers
   parent_ledger_id: ''
   priority: P0
   replication_unit: independent_training_seed
@@ -130,12 +148,21 @@ experiments:
   protocol_config: ''
   config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
-  output_template: work_dirs/v2/d1_inhouse1700/dino_r50/trainseed_{training_seed}
+  output_template: work_dirs/v2/d1/dino_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: sota_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training:
+    config_id: v2.d1.dino_r50.train
+    method_id: dino_r50
+    batch_size: 2
+    max_epochs: 150
+    optimizer: AdamW
+    base_lr: 2.5e-05
+    scientific_config_sha256: 4503b53e5ec6d28c5c4d325ecefaf508bd5c2d7fa277b4db77a7d62728807cd7
+    output_template: work_dirs/v2/d1/dino_r50/trainseed_{training_seed}
 - acceptance_gate: 3 distinct checkpoint SHA; same manifest/config/protocol; six test metrics
   dataset_id: D1_INHOUSE1700_V2
   execution_kind: full_train
@@ -145,7 +172,7 @@ experiments:
   ledger_id: D1I.SOTA.rtmdet_l
   notes: No active v2 run is currently registered.
   paper_role: Main two-cohort detector table
-  parameters: RTMDet-L; inherited benchmark optimizer; batch=2
+  parameters: RTMDet-L; inherited benchmark optimizer
   parent_ledger_id: ''
   priority: P0
   replication_unit: independent_training_seed
@@ -163,12 +190,21 @@ experiments:
   protocol_config: ''
   config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
-  output_template: work_dirs/v2/d1_inhouse1700/rtmdet_l/trainseed_{training_seed}
+  output_template: work_dirs/v2/d1/rtmdet_l/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: sota_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training:
+    config_id: v2.d1.rtmdet_l.train
+    method_id: rtmdet_l
+    batch_size: 2
+    max_epochs: 150
+    optimizer: AdamW
+    base_lr: 0.0001
+    scientific_config_sha256: c91bbb84281b8e106271e25cc290dea02470ecfa5afec3c7eb12a7be41d1d652
+    output_template: work_dirs/v2/d1/rtmdet_l/trainseed_{training_seed}
 - acceptance_gate: 3 distinct checkpoint SHA; same manifest/config/protocol; six test metrics
   dataset_id: D1_INHOUSE1700_V2
   execution_kind: full_train
@@ -178,7 +214,7 @@ experiments:
   ledger_id: D1I.SOTA.cascade_rcnn_r50
   notes: No active v2 run is currently registered.
   paper_role: Main two-cohort detector table
-  parameters: Cascade R-CNN R50; 3 stages; batch=4
+  parameters: Cascade R-CNN R50; 3 stages
   parent_ledger_id: ''
   priority: P0
   replication_unit: independent_training_seed
@@ -196,12 +232,21 @@ experiments:
   protocol_config: ''
   config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
-  output_template: work_dirs/v2/d1_inhouse1700/cascade_rcnn_r50/trainseed_{training_seed}
+  output_template: work_dirs/v2/d1/cascade_rcnn_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: sota_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training:
+    config_id: v2.d1.cascade_rcnn_r50.train
+    method_id: cascade_rcnn_r50
+    batch_size: 2
+    max_epochs: 150
+    optimizer: AdamW
+    base_lr: 0.0001
+    scientific_config_sha256: 9065db00f5969d3dfaff160185c4caf1ac5d7715dd29c88d8187cadb7e772615
+    output_template: work_dirs/v2/d1/cascade_rcnn_r50/trainseed_{training_seed}
 - acceptance_gate: 3 distinct checkpoint SHA; same manifest/config/protocol; six test metrics
   dataset_id: D1_INHOUSE1700_V2
   execution_kind: full_train
@@ -211,7 +256,7 @@ experiments:
   ledger_id: D1I.SOTA.yolox_s
   notes: No active v2 run is currently registered.
   paper_role: Main two-cohort detector table
-  parameters: YOLOX-S; 300 epochs; batch=8
+  parameters: YOLOX-S
   parent_ledger_id: ''
   priority: P0
   replication_unit: independent_training_seed
@@ -229,12 +274,21 @@ experiments:
   protocol_config: ''
   config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
-  output_template: work_dirs/v2/d1_inhouse1700/yolox_s/trainseed_{training_seed}
+  output_template: work_dirs/v2/d1/yolox_s/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: sota_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training:
+    config_id: v2.d1.yolox_s.train
+    method_id: yolox_s
+    batch_size: 2
+    max_epochs: 200
+    optimizer: AdamW
+    base_lr: 0.0001
+    scientific_config_sha256: e660557b5251ffda8018ccb29f133be7a5e510fd57ca9725c2a1613e3a08118b
+    output_template: work_dirs/v2/d1/yolox_s/trainseed_{training_seed}
 - acceptance_gate: parent checkpoint identity; 590 shared tensors unchanged; paired test delta
   dataset_id: D1_INHOUSE1700_V2
   execution_kind: short_train
@@ -244,7 +298,7 @@ experiments:
   ledger_id: D1I.SOTA.karyoflow_lqcr
   notes: No active v2 run is currently registered.
   paper_role: Independent decision contribution
-  parameters: parent-matched final-only quality head; beta=2 selected on validation; 12 epochs
+  parameters: parent-matched final-only quality head; beta=2 selected on validation
   parent_ledger_id: D1I.SOTA.karyoflow
   priority: P0
   replication_unit: paired_final_stage_intervention
@@ -262,12 +316,21 @@ experiments:
   protocol_config: ''
   config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
-  output_template: work_dirs/v2/d1_inhouse1700/karyoflow_lqcr/trainseed_{training_seed}
+  output_template: work_dirs/v2/d1/karyoflow_lqcr_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: paired_lqcr_d1i_train3
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training:
+    config_id: v2.d1.karyoflow_lqcr_r50.train
+    method_id: karyoflow_lqcr_r50
+    batch_size: 2
+    max_epochs: 12
+    optimizer: AdamW
+    base_lr: 0.001
+    scientific_config_sha256: bddd7d3d27412a963deae97b625e722c284e6de67185a1f0202d6c0ea0851687
+    output_template: work_dirs/v2/d1/karyoflow_lqcr_r50/trainseed_{training_seed}
 - acceptance_gate: only named factor changes; batch/optimizer/augmentation/selection fixed
   dataset_id: D1_INHOUSE1700_V2
   execution_kind: full_train
@@ -277,7 +340,7 @@ experiments:
   ledger_id: D1I.ABL.G0
   notes: No active v2 run is currently registered.
   paper_role: Strict incremental generation ablation
-  parameters: DDPM; DDIM1; linear t; scale-shift; batch=2
+  parameters: DDPM; DDIM1; linear t; scale-shift
   parent_ledger_id: ''
   priority: P0
   replication_unit: independent_training_seed
@@ -295,12 +358,21 @@ experiments:
   protocol_config: ''
   config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
-  output_template: work_dirs/v2/d1_inhouse1700/ablations/g0/trainseed_{training_seed}
+  output_template: work_dirs/v2/d1_generation/strict_g0_ddpm_linear_scaleshift_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: generation_train_ablation_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training:
+    config_id: v2.d1_generation.strict_g0_ddpm_linear_scaleshift_r50.train
+    method_id: strict_g0_ddpm_linear_scaleshift_r50
+    batch_size: 2
+    max_epochs: 150
+    optimizer: AdamW
+    base_lr: 5.0e-05
+    scientific_config_sha256: 78c13c85e64b4d0819fcf1cfbf83ccdb79c5eb8c138e13763d1f23c994c3b419
+    output_template: work_dirs/v2/d1_generation/strict_g0_ddpm_linear_scaleshift_r50/trainseed_{training_seed}
 - acceptance_gate: only named factor changes; batch/optimizer/augmentation/selection fixed
   dataset_id: D1_INHOUSE1700_V2
   execution_kind: full_train
@@ -310,7 +382,7 @@ experiments:
   ledger_id: D1I.ABL.G1
   notes: No active v2 run is currently registered.
   paper_role: Strict incremental generation ablation
-  parameters: RF; Euler/locked validation protocol; linear t; scale-shift; batch=2
+  parameters: RF; Euler/locked validation protocol; linear t; scale-shift
   parent_ledger_id: D1I.ABL.G0
   priority: P0
   replication_unit: independent_training_seed
@@ -328,12 +400,21 @@ experiments:
   protocol_config: ''
   config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
-  output_template: work_dirs/v2/d1_inhouse1700/ablations/g1/trainseed_{training_seed}
+  output_template: work_dirs/v2/d1_generation/strict_g1_rf_linear_scaleshift_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: generation_train_ablation_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training:
+    config_id: v2.d1_generation.strict_g1_rf_linear_scaleshift_r50.train
+    method_id: strict_g1_rf_linear_scaleshift_r50
+    batch_size: 2
+    max_epochs: 150
+    optimizer: AdamW
+    base_lr: 5.0e-05
+    scientific_config_sha256: 93c2cc7df441c784bdd68434f3f41a0e66f403044b133add6d67d2da50ed0fff
+    output_template: work_dirs/v2/d1_generation/strict_g1_rf_linear_scaleshift_r50/trainseed_{training_seed}
 - acceptance_gate: only named factor changes; batch/optimizer/augmentation/selection fixed
   dataset_id: D1_INHOUSE1700_V2
   execution_kind: full_train
@@ -343,7 +424,7 @@ experiments:
   ledger_id: D1I.ABL.G2
   notes: No active v2 run is currently registered.
   paper_role: Strict incremental generation ablation
-  parameters: RF; shifted t (shift=3); scale-shift; batch=2
+  parameters: RF; shifted t (shift=3); scale-shift
   parent_ledger_id: D1I.ABL.G1
   priority: P0
   replication_unit: independent_training_seed
@@ -361,12 +442,21 @@ experiments:
   protocol_config: ''
   config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
-  output_template: work_dirs/v2/d1_inhouse1700/ablations/g2/trainseed_{training_seed}
+  output_template: work_dirs/v2/d1_generation/strict_g2_rf_shifted_scaleshift_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: generation_train_ablation_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training:
+    config_id: v2.d1_generation.strict_g2_rf_shifted_scaleshift_r50.train
+    method_id: strict_g2_rf_shifted_scaleshift_r50
+    batch_size: 2
+    max_epochs: 150
+    optimizer: AdamW
+    base_lr: 5.0e-05
+    scientific_config_sha256: 854dede91dd9fa8692f3f4b01c5144af8eb81c833393f72c956e96dd33fd17c8
+    output_template: work_dirs/v2/d1_generation/strict_g2_rf_shifted_scaleshift_r50/trainseed_{training_seed}
 - acceptance_gate: only named factor changes; batch/optimizer/augmentation/selection fixed
   dataset_id: D1_INHOUSE1700_V2
   execution_kind: full_train
@@ -376,7 +466,7 @@ experiments:
   ledger_id: D1I.ABL.G3
   notes: Reuses the planned D1 KaryoFlow training triplet after strict config audit.
   paper_role: Strict incremental generation ablation
-  parameters: RF; shifted t; AdaLN-Zero; DPM++4 validation; batch=2
+  parameters: RF; shifted t; AdaLN-Zero; DPM++4 validation
   parent_ledger_id: D1I.ABL.G2
   priority: P0
   replication_unit: independent_training_seed
@@ -394,12 +484,21 @@ experiments:
   protocol_config: ''
   config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
-  output_template: work_dirs/v2/d1_inhouse1700/ablations/g3/trainseed_{training_seed}
+  output_template: work_dirs/v2/d1/karyoflow_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: generation_train_ablation_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training:
+    config_id: v2.d1.karyoflow_r50.train
+    method_id: karyoflow_r50
+    batch_size: 2
+    max_epochs: 150
+    optimizer: AdamW
+    base_lr: 5.0e-05
+    scientific_config_sha256: 5102e030f547b152169af3c179feca9cf0304cbf3d2af2ed419d114103a8568d
+    output_template: work_dirs/v2/d1/karyoflow_r50/trainseed_{training_seed}
 - acceptance_gate: same checkpoint per parent; common test; no cross-checkpoint causal claim
   dataset_id: D1_INHOUSE1700_V2
   execution_kind: inference
@@ -433,6 +532,7 @@ experiments:
     result_family: solver_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training: {}
 - acceptance_gate: same checkpoint/seed; renewal-off candidate identity audit
   dataset_id: D1_INHOUSE1700_V2
   execution_kind: inference
@@ -466,6 +566,7 @@ experiments:
     result_family: topk_renewal_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training: {}
 - acceptance_gate: select beta before any new test evaluation
   dataset_id: D1_INHOUSE1700_V2
   execution_kind: inference
@@ -499,6 +600,7 @@ experiments:
     result_family: lqcr_beta_d1i_val
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training: {}
 - acceptance_gate: image-level pairing; diagnostics not paper SOTA rows
   dataset_id: D1_INHOUSE1700_V2
   execution_kind: analysis
@@ -532,6 +634,7 @@ experiments:
     result_family: conditional_difficult_subset_d1i
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training: {}
 - acceptance_gate: three parent-matched students; test mAP; A6000 latency only
   dataset_id: D1_INHOUSE1700_V2
   execution_kind: short_train
@@ -559,12 +662,21 @@ experiments:
   protocol_config: experiments/configs/deployment/h3_distillation_protocol.yaml
   config_state: READY_PARENT_PENDING
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
-  output_template: work_dirs/v2/d1_inhouse1700/deployment/h3/trainseed_{training_seed}
+  output_template: work_dirs/v2/d1_distill/karyoflow_h3_distill_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: head_distillation_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training:
+    config_id: v2.d1_distill.karyoflow_h3_distill_r50.train
+    method_id: karyoflow_h3_distill_r50
+    batch_size: 2
+    max_epochs: 50
+    optimizer: AdamW
+    base_lr: 1.0e-05
+    scientific_config_sha256: 480cf612957cf3599c9077e255f4f6cc9c7f45df157e00f82bb18bd7fa875890
+    output_template: work_dirs/v2/d1_distill/karyoflow_h3_distill_r50/trainseed_{training_seed}
 - acceptance_gate: held-out test on both cohorts; same A6000 timing protocol
   dataset_id: D1_INHOUSE1700_V2
   execution_kind: inference
@@ -598,6 +710,7 @@ experiments:
     result_family: gacs_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training: {}
 - acceptance_gate: exclusive A6000; no foreign process; accuracy linked to verified test record
   dataset_id: D1_INHOUSE1700_V2
   execution_kind: benchmark
@@ -631,6 +744,7 @@ experiments:
     result_family: speed_accuracy_d1i
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training: {}
 - acceptance_gate: 'already verified: 3 checkpoint SHA; 1000-image test'
   dataset_id: D2
   execution_kind: full_train
@@ -664,6 +778,7 @@ experiments:
     evidence_artifact_ids:
     - d2-paired-lqcr-train3-4152cdbd5100
   compatibility_report: tools/experiment_db/compatibility_reports/d2_mainline_history_v1_index.json
+  resolved_training: {}
 - acceptance_gate: 'already verified: shared detector weights unchanged'
   dataset_id: D2
   execution_kind: short_train
@@ -697,6 +812,7 @@ experiments:
     evidence_artifact_ids:
     - d2-paired-lqcr-train3-4152cdbd5100
   compatibility_report: tools/experiment_db/compatibility_reports/d2_mainline_history_v1_index.json
+  resolved_training: {}
 - acceptance_gate: must not be labeled three-training-seed
   dataset_id: D2
   execution_kind: evaluation
@@ -730,6 +846,7 @@ experiments:
     evidence_artifact_ids:
     - d2-test-diffusiondet-b819d77e81b3
   compatibility_report: tools/experiment_db/compatibility_reports/d2_sota_diffusiondet.json
+  resolved_training: {}
 - acceptance_gate: actual framework seed recorded; distinct checkpoint SHA; 1000-image test
   dataset_id: D2
   execution_kind: full_train
@@ -756,12 +873,21 @@ experiments:
   protocol_config: ''
   config_state: READY
   server_plan: 123=workstation:A5000:0;789=ross:A6000:0 (A4000 for lighter model if exact config fits)
-  output_template: work_dirs/v2/d2_taichung/sota_completion/diffusiondet/trainseed_{training_seed}
+  output_template: work_dirs/v2/d2_sota_completion/diffusiondet_ddpm_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: sota_d2_train3_completion
     evidence_artifact_ids: []
   compatibility_report: tools/experiment_db/compatibility_reports/d2_sota_diffusiondet.json
+  resolved_training:
+    config_id: v2.d2_sota_completion.diffusiondet_ddpm_r50.train
+    method_id: diffusiondet_ddpm_r50
+    batch_size: 2
+    max_epochs: 150
+    optimizer: AdamW
+    base_lr: 5.0e-05
+    scientific_config_sha256: 1f2950fb62e874bb7a73a0bd4bfcad6dd477a8c3756ffaac77a9b51f4e1326e5
+    output_template: work_dirs/v2/d2_sota_completion/diffusiondet_ddpm_r50/trainseed_{training_seed}
 - acceptance_gate: must not be labeled three-training-seed
   dataset_id: D2
   execution_kind: evaluation
@@ -795,6 +921,7 @@ experiments:
     evidence_artifact_ids:
     - d2-test-dino_r50-789860257a37
   compatibility_report: tools/experiment_db/compatibility_reports/d2_sota_dino_r50.json
+  resolved_training: {}
 - acceptance_gate: actual framework seed recorded; distinct checkpoint SHA; 1000-image test
   dataset_id: D2
   execution_kind: full_train
@@ -821,12 +948,21 @@ experiments:
   protocol_config: ''
   config_state: READY
   server_plan: 123=workstation:A5000:0;789=ross:A6000:0 (A4000 for lighter model if exact config fits)
-  output_template: work_dirs/v2/d2_taichung/sota_completion/dino_r50/trainseed_{training_seed}
+  output_template: work_dirs/v2/d2_sota_completion/dino_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: sota_d2_train3_completion
     evidence_artifact_ids: []
   compatibility_report: tools/experiment_db/compatibility_reports/d2_sota_dino_r50.json
+  resolved_training:
+    config_id: v2.d2_sota_completion.dino_r50.train
+    method_id: dino_r50
+    batch_size: 2
+    max_epochs: 150
+    optimizer: AdamW
+    base_lr: 2.5e-05
+    scientific_config_sha256: 74931f72cad1c9552882cdce138142e06b8c6d1db024e13360587fd03b8cd18a
+    output_template: work_dirs/v2/d2_sota_completion/dino_r50/trainseed_{training_seed}
 - acceptance_gate: must not be labeled three-training-seed
   dataset_id: D2
   execution_kind: evaluation
@@ -860,6 +996,7 @@ experiments:
     evidence_artifact_ids:
     - d2-test-rtmdet_l-feca98add171
   compatibility_report: tools/experiment_db/compatibility_reports/d2_sota_rtmdet_l.json
+  resolved_training: {}
 - acceptance_gate: actual framework seed recorded; distinct checkpoint SHA; 1000-image test
   dataset_id: D2
   execution_kind: full_train
@@ -886,12 +1023,21 @@ experiments:
   protocol_config: ''
   config_state: READY
   server_plan: 123=workstation:A5000:0;789=ross:A6000:0 (A4000 for lighter model if exact config fits)
-  output_template: work_dirs/v2/d2_taichung/sota_completion/rtmdet_l/trainseed_{training_seed}
+  output_template: work_dirs/v2/d2_sota_completion/rtmdet_l/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: sota_d2_train3_completion
     evidence_artifact_ids: []
   compatibility_report: tools/experiment_db/compatibility_reports/d2_sota_rtmdet_l.json
+  resolved_training:
+    config_id: v2.d2_sota_completion.rtmdet_l.train
+    method_id: rtmdet_l
+    batch_size: 2
+    max_epochs: 150
+    optimizer: AdamW
+    base_lr: 0.0001
+    scientific_config_sha256: 8123363a089ba0db575b9a2c095477ffe3a5dc4e999418e820d710413ff45ee7
+    output_template: work_dirs/v2/d2_sota_completion/rtmdet_l/trainseed_{training_seed}
 - acceptance_gate: must not be labeled three-training-seed
   dataset_id: D2
   execution_kind: evaluation
@@ -925,6 +1071,7 @@ experiments:
     evidence_artifact_ids:
     - d2-test-cascade_rcnn-25e7f63f7418
   compatibility_report: tools/experiment_db/compatibility_reports/d2_sota_cascade_rcnn.json
+  resolved_training: {}
 - acceptance_gate: actual framework seed recorded; distinct checkpoint SHA; 1000-image test
   dataset_id: D2
   execution_kind: full_train
@@ -951,12 +1098,21 @@ experiments:
   protocol_config: ''
   config_state: READY
   server_plan: 123=workstation:A5000:0;789=ross:A6000:0 (A4000 for lighter model if exact config fits)
-  output_template: work_dirs/v2/d2_taichung/sota_completion/cascade_rcnn_r50/trainseed_{training_seed}
+  output_template: work_dirs/v2/d2_sota_completion/cascade_rcnn_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: sota_d2_train3_completion
     evidence_artifact_ids: []
   compatibility_report: tools/experiment_db/compatibility_reports/d2_sota_cascade_rcnn.json
+  resolved_training:
+    config_id: v2.d2_sota_completion.cascade_rcnn_r50.train
+    method_id: cascade_rcnn_r50
+    batch_size: 2
+    max_epochs: 150
+    optimizer: AdamW
+    base_lr: 0.0001
+    scientific_config_sha256: 4eaeab5360c8eb44eae0cd0d0ac3ee44ebf8c3fbada64a09a052e9d6ca4826d0
+    output_template: work_dirs/v2/d2_sota_completion/cascade_rcnn_r50/trainseed_{training_seed}
 - acceptance_gate: must not be labeled three-training-seed
   dataset_id: D2
   execution_kind: evaluation
@@ -990,6 +1146,7 @@ experiments:
     evidence_artifact_ids:
     - d2-test-yolox_s-ea70f679365b
   compatibility_report: tools/experiment_db/compatibility_reports/d2_sota_yolox_s.json
+  resolved_training: {}
 - acceptance_gate: actual framework seed recorded; distinct checkpoint SHA; 1000-image test
   dataset_id: D2
   execution_kind: full_train
@@ -1016,12 +1173,21 @@ experiments:
   protocol_config: ''
   config_state: READY
   server_plan: 123=workstation:A5000:0;789=ross:A6000:0 (A4000 for lighter model if exact config fits)
-  output_template: work_dirs/v2/d2_taichung/sota_completion/yolox_s/trainseed_{training_seed}
+  output_template: work_dirs/v2/d2_sota_completion/yolox_s/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: sota_d2_train3_completion
     evidence_artifact_ids: []
   compatibility_report: tools/experiment_db/compatibility_reports/d2_sota_yolox_s.json
+  resolved_training:
+    config_id: v2.d2_sota_completion.yolox_s.train
+    method_id: yolox_s
+    batch_size: 2
+    max_epochs: 200
+    optimizer: AdamW
+    base_lr: 0.0001
+    scientific_config_sha256: ba9d806ae7b79bb956b001d652998a6100b9284d8b49eddb890d3cdbe6316507
+    output_template: work_dirs/v2/d2_sota_completion/yolox_s/trainseed_{training_seed}
 - acceptance_gate: never report adjacent deltas as isolated effects
   dataset_id: D2
   execution_kind: mixed
@@ -1054,6 +1220,7 @@ experiments:
     result_family: legacy_protocol
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training: {}
 - acceptance_gate: only named factor changes; same batch/optimizer/selection; six test metrics
   dataset_id: D2
   execution_kind: full_train
@@ -1063,7 +1230,7 @@ experiments:
   ledger_id: D2.ABL.strict.G0
   notes: ''
   paper_role: Cross-cohort strict ablation replication
-  parameters: DDPM; DDIM1; linear t; scale-shift; batch=2
+  parameters: DDPM; DDIM1; linear t; scale-shift
   parent_ledger_id: ''
   priority: P2
   replication_unit: independent_training_seed
@@ -1080,12 +1247,21 @@ experiments:
   protocol_config: ''
   config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
-  output_template: work_dirs/v2/d2_taichung/strict_generation/g0/trainseed_{training_seed}
+  output_template: work_dirs/v2/d2_generation/strict_g0_ddpm_linear_scaleshift_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: generation_train_ablation_d2_test
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training:
+    config_id: v2.d2_generation.strict_g0_ddpm_linear_scaleshift_r50.train
+    method_id: strict_g0_ddpm_linear_scaleshift_r50
+    batch_size: 2
+    max_epochs: 150
+    optimizer: AdamW
+    base_lr: 5.0e-05
+    scientific_config_sha256: 1f2950fb62e874bb7a73a0bd4bfcad6dd477a8c3756ffaac77a9b51f4e1326e5
+    output_template: work_dirs/v2/d2_generation/strict_g0_ddpm_linear_scaleshift_r50/trainseed_{training_seed}
 - acceptance_gate: only named factor changes; same batch/optimizer/selection; six test metrics
   dataset_id: D2
   execution_kind: full_train
@@ -1095,7 +1271,7 @@ experiments:
   ledger_id: D2.ABL.strict.G1
   notes: ''
   paper_role: Cross-cohort strict ablation replication
-  parameters: RF; linear t; scale-shift; batch=2
+  parameters: RF; linear t; scale-shift
   parent_ledger_id: ''
   priority: P2
   replication_unit: independent_training_seed
@@ -1112,12 +1288,21 @@ experiments:
   protocol_config: ''
   config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
-  output_template: work_dirs/v2/d2_taichung/strict_generation/g1/trainseed_{training_seed}
+  output_template: work_dirs/v2/d2_generation/strict_g1_rf_linear_scaleshift_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: generation_train_ablation_d2_test
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training:
+    config_id: v2.d2_generation.strict_g1_rf_linear_scaleshift_r50.train
+    method_id: strict_g1_rf_linear_scaleshift_r50
+    batch_size: 2
+    max_epochs: 150
+    optimizer: AdamW
+    base_lr: 5.0e-05
+    scientific_config_sha256: da324c65d17d543b683f99504c7d064aad67eb22fb4d4c0e101165be3a5a258e
+    output_template: work_dirs/v2/d2_generation/strict_g1_rf_linear_scaleshift_r50/trainseed_{training_seed}
 - acceptance_gate: only named factor changes; same batch/optimizer/selection; six test metrics
   dataset_id: D2
   execution_kind: full_train
@@ -1127,7 +1312,7 @@ experiments:
   ledger_id: D2.ABL.strict.G2
   notes: ''
   paper_role: Cross-cohort strict ablation replication
-  parameters: RF; shifted t; scale-shift; batch=2
+  parameters: RF; shifted t; scale-shift
   parent_ledger_id: ''
   priority: P2
   replication_unit: independent_training_seed
@@ -1144,12 +1329,21 @@ experiments:
   protocol_config: ''
   config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
-  output_template: work_dirs/v2/d2_taichung/strict_generation/g2/trainseed_{training_seed}
+  output_template: work_dirs/v2/d2_generation/strict_g2_rf_shifted_scaleshift_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: generation_train_ablation_d2_test
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training:
+    config_id: v2.d2_generation.strict_g2_rf_shifted_scaleshift_r50.train
+    method_id: strict_g2_rf_shifted_scaleshift_r50
+    batch_size: 2
+    max_epochs: 150
+    optimizer: AdamW
+    base_lr: 5.0e-05
+    scientific_config_sha256: 765ae48f56d6aa1f2b14a8892c9d5295d39c4f7b00d0c51938b0603b32bcf351
+    output_template: work_dirs/v2/d2_generation/strict_g2_rf_shifted_scaleshift_r50/trainseed_{training_seed}
 - acceptance_gate: confirm optimizer/batch/selection compatibility with new G0-G2
   dataset_id: D2
   execution_kind: full_train
@@ -1176,12 +1370,21 @@ experiments:
   protocol_config: ''
   config_state: READY
   server_plan: historical ross/workstation
-  output_template: work_dirs/v2/d2_taichung/strict_generation/g3/trainseed_{training_seed}
+  output_template: work_dirs/v2/d2_generation/karyoflow_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: strict_generation_d2_test
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training:
+    config_id: v2.d2_generation.karyoflow_r50.train
+    method_id: karyoflow_r50
+    batch_size: 2
+    max_epochs: 150
+    optimizer: AdamW
+    base_lr: 5.0e-05
+    scientific_config_sha256: 959e449309abbe5023e1ab85166d27070ce1960bd9e9def00d2e1c888894499e
+    output_template: work_dirs/v2/d2_generation/karyoflow_r50/trainseed_{training_seed}
 - acceptance_gate: label fixed-checkpoint; not training replication
   dataset_id: D2
   execution_kind: inference
@@ -1215,6 +1418,7 @@ experiments:
     evidence_artifact_ids:
     - d2-test-inference-ablations-b81d6a3d498a
   compatibility_report: ''
+  resolved_training: {}
 - acceptance_gate: aggregate one value per training parent
   dataset_id: D2
   execution_kind: inference
@@ -1247,6 +1451,7 @@ experiments:
     result_family: solver_d2_train3_test
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training: {}
 - acceptance_gate: label fixed-checkpoint
   dataset_id: D2
   execution_kind: inference
@@ -1280,6 +1485,7 @@ experiments:
     evidence_artifact_ids:
     - d2-test-inference-ablations-6dd1dcb1cc91
   compatibility_report: ''
+  resolved_training: {}
 - acceptance_gate: aggregate by training parent
   dataset_id: D2
   execution_kind: inference
@@ -1312,6 +1518,7 @@ experiments:
     result_family: topk_renewal_d2_train3_test
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training: {}
 - acceptance_gate: caption must state beta=2 selected on validation
   dataset_id: D2
   execution_kind: inference
@@ -1345,6 +1552,7 @@ experiments:
     evidence_artifact_ids:
     - d2-test-inference-ablations-d9fd109403da
   compatibility_report: ''
+  resolved_training: {}
 - acceptance_gate: diagnostic paper_eligible=0
   dataset_id: D2
   execution_kind: analysis
@@ -1379,6 +1587,7 @@ experiments:
     - d2-difficult-subsets-paired-train3-725aab1ab102
     - d2-lqcr-vs-dino-image-bootstrap-1000-seed20260812
   compatibility_report: ''
+  resolved_training: {}
 - acceptance_gate: do not call three-training-seed
   dataset_id: D2
   execution_kind: short_train
@@ -1412,6 +1621,7 @@ experiments:
     result_family: head_distillation
     evidence_artifact_ids: []
   compatibility_report: tools/experiment_db/compatibility_reports/d2_head_student_h3.json
+  resolved_training: {}
 - acceptance_gate: three parent-matched students; A6000 latency only
   dataset_id: D2
   execution_kind: short_train
@@ -1438,12 +1648,21 @@ experiments:
   protocol_config: experiments/configs/deployment/h3_distillation_protocol.yaml
   config_state: READY
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
-  output_template: work_dirs/v2/d2_taichung/deployment/h3/{parent}
+  output_template: work_dirs/v2/d2_distill/karyoflow_ot_h3_distill_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
     result_family: head_distillation_d2_train3
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training:
+    config_id: v2.d2_distill.karyoflow_ot_h3_distill_r50.train
+    method_id: karyoflow_ot_h3_distill_r50
+    batch_size: 2
+    max_epochs: 50
+    optimizer: AdamW
+    base_lr: 1.0e-05
+    scientific_config_sha256: c98bdb5335f9519cc7d98132cd4f27b60b4f0363ce5a70ec7e2b132a45fcfe11
+    output_template: work_dirs/v2/d2_distill/karyoflow_ot_h3_distill_r50/trainseed_{training_seed}
 - acceptance_gate: D2 test plus A6000 speed before paper use
   dataset_id: D2
   execution_kind: inference
@@ -1476,6 +1695,7 @@ experiments:
     result_family: GACS
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training: {}
 - acceptance_gate: repeat final selected points with exclusive GPU and frozen timing boundary
   dataset_id: D2
   execution_kind: benchmark
@@ -1508,6 +1728,7 @@ experiments:
     result_family: speed_accuracy
     evidence_artifact_ids: []
   compatibility_report: ''
+  resolved_training: {}
 - acceptance_gate: must be labeled legacy and non-comparable
   dataset_id: D1_COMPOSITE2200_LEGACY
   execution_kind: mixed
@@ -1541,3 +1762,4 @@ experiments:
     evidence_artifact_ids:
     - multiple
   compatibility_report: ''
+  resolved_training: {}
