@@ -353,15 +353,15 @@ experiments:
   inference_seeds: '42'
   layer: Generation
   ledger_id: D1I.ABL.G0
-  notes: All three independent G0 runs are active under the dedicated KaryoFlow-Self1700-V2-Ablation tracking project; G1--G3
-    are queued per GPU and launch only after a validation-best G0 checkpoint exists.
+  notes: All three independent G0 runs completed with distinct validation-best checkpoint SHA values. Their standardized completion
+    artifacts were centralized, registered, and passed the evidence-database audit.
   paper_role: Strict incremental generation ablation
   parameters: DDPM; DDIM1; linear t; scale-shift
   parent_ledger_id: ''
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: RUNNING_DISTRIBUTED_3_OF_3
+  status: COMPLETED_TRAIN3_VERIFIED
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: ''
@@ -376,8 +376,7 @@ experiments:
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
   output_template: work_dirs/v2/d1_generation/strict_g0_ddpm_linear_scaleshift_r50/trainseed_{training_seed}
   database_ids:
-    train_run_ids:
-    - d1-inhouse1700-v2__strict-g0-ddpm-linear-scaleshift-r50__trainseed-42__78c13c85e64b
+    train_run_ids: []
     result_family: generation_train_ablation_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
@@ -397,14 +396,15 @@ experiments:
   inference_seeds: '42'
   layer: Generation
   ledger_id: D1I.ABL.G1
-  notes: No active v2 run is currently registered.
+  notes: All three independent G1 runs are active under the persistent Ross scheduler; G2 and G3 remain dependency-gated per
+    training seed.
   paper_role: Strict incremental generation ablation
   parameters: RF; Euler/locked validation protocol; linear t; scale-shift
   parent_ledger_id: D1I.ABL.G0
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: PLANNED
+  status: RUNNING_DISTRIBUTED_3_OF_3
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: ''
@@ -419,7 +419,8 @@ experiments:
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
   output_template: work_dirs/v2/d1_generation/strict_g1_rf_linear_scaleshift_r50/trainseed_{training_seed}
   database_ids:
-    train_run_ids: []
+    train_run_ids:
+    - d1-inhouse1700-v2__strict-g1-rf-linear-scaleshift-r50__trainseed-42__09e5cb88a933
     result_family: generation_train_ablation_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''

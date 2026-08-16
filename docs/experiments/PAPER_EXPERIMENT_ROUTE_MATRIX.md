@@ -6,11 +6,11 @@
 ## 权威身份
 
 - YAML：`experiments/manifests/paper_experiment_route_matrix.yaml`
-- YAML SHA-256：`253c93511ac9e8315c5982657bce6a8794e0d21510c5e8937b7de414cc818ad5`
-- 数据库 artifact：`paper-route-matrix-v2-253c93511ac9`
+- YAML SHA-256：`9a4f6fb4a4c418c1f2f11e0be84edec35b65f283ba1ea74b5b11c61ea195ef65`
+- 数据库 artifact：`paper-route-matrix-v2-9a4f6fb4a4c4`
 - 论文 claim manifest：`experiments/manifests/paper_claim_manifest.yaml`（SHA-256 `ef7364eade0f0c8d5e14fd44bfffbac2087b37b569dd6d2383476efeb1894380`）
 - 实验组：57；展开运行：295。
-- 状态分布：ARCHIVED_NONCOMPARABLE=1, BLOCKED_CHECKPOINTS=2, BLOCKED_PARENT=5, BLOCKED_PREDICTIONS=6, COMPLETED_CENTRAL_TEST_VERIFIED=1, COMPLETED_DESCRIPTIVE=1, COMPLETED_DIAGNOSTIC=2, COMPLETED_EVIDENCE_ONLY=1, COMPLETED_FIXED_CHECKPOINT=2, COMPLETED_PARTIAL=1, COMPLETED_POINT_ESTIMATE=5, COMPLETED_VERIFIED=2, PARTIAL_LEGACY=1, PLANNED=25, RUNNING_DISTRIBUTED_3_OF_3=1, TEST_PARTIAL_CENTRAL_1_OF_3=1。
+- 状态分布：ARCHIVED_NONCOMPARABLE=1, BLOCKED_CHECKPOINTS=2, BLOCKED_PARENT=5, BLOCKED_PREDICTIONS=6, COMPLETED_CENTRAL_TEST_VERIFIED=1, COMPLETED_DESCRIPTIVE=1, COMPLETED_DIAGNOSTIC=2, COMPLETED_EVIDENCE_ONLY=1, COMPLETED_FIXED_CHECKPOINT=2, COMPLETED_PARTIAL=1, COMPLETED_POINT_ESTIMATE=5, COMPLETED_TRAIN3_VERIFIED=1, COMPLETED_VERIFIED=2, PARTIAL_LEGACY=1, PLANNED=24, RUNNING_DISTRIBUTED_3_OF_3=1, TEST_PARTIAL_CENTRAL_1_OF_3=1。
 
 ## 数据与统计口径
 
@@ -53,15 +53,15 @@
 
 | ID | Variant | Kind / runs | Seeds | Status | Config state | v2 method / protocol | Server | Output | DB/evidence |
 |---|---|---:|---|---|---|---|---|---|---|
-| `D1I.ABL.G0` | DDPM_linear_scaleshift | full_train / 3 | train=42,123,789; infer=42 | **RUNNING_DISTRIBUTED_3_OF_3** | READY | `experiments/configs/methods/strict_g0_ddpm_linear_scaleshift.py` | 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1 | `work_dirs/v2/d1_generation/strict_g0_ddpm_linear_scaleshift_r50/trainseed_{training_seed}` | `route:D1I.ABL.G0; generation_train_ablation_d1i_test` |
-| `D1I.ABL.G1` | RF_linear_scaleshift | full_train / 3 | train=42,123,789; infer=42 | **PLANNED** | READY | `experiments/configs/methods/strict_g1_rf_linear_scaleshift.py` | 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1 | `work_dirs/v2/d1_generation/strict_g1_rf_linear_scaleshift_r50/trainseed_{training_seed}` | `route:D1I.ABL.G1; generation_train_ablation_d1i_test` |
+| `D1I.ABL.G0` | DDPM_linear_scaleshift | full_train / 3 | train=42,123,789; infer=42 | **COMPLETED_TRAIN3_VERIFIED** | READY | `experiments/configs/methods/strict_g0_ddpm_linear_scaleshift.py` | 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1 | `work_dirs/v2/d1_generation/strict_g0_ddpm_linear_scaleshift_r50/trainseed_{training_seed}` | `route:D1I.ABL.G0; generation_train_ablation_d1i_test` |
+| `D1I.ABL.G1` | RF_linear_scaleshift | full_train / 3 | train=42,123,789; infer=42 | **RUNNING_DISTRIBUTED_3_OF_3** | READY | `experiments/configs/methods/strict_g1_rf_linear_scaleshift.py` | 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1 | `work_dirs/v2/d1_generation/strict_g1_rf_linear_scaleshift_r50/trainseed_{training_seed}` | `route:D1I.ABL.G1; generation_train_ablation_d1i_test` |
 | `D1I.ABL.G2` | RF_shifted_scaleshift | full_train / 3 | train=42,123,789; infer=42 | **PLANNED** | READY | `experiments/configs/methods/strict_g2_rf_shifted_scaleshift.py` | 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1 | `work_dirs/v2/d1_generation/strict_g2_rf_shifted_scaleshift_r50/trainseed_{training_seed}` | `route:D1I.ABL.G2; generation_train_ablation_d1i_test` |
 | `D1I.ABL.G3` | RF_shifted_AdaLNZero | full_train / 3 | train=42,123,789; infer=42 | **PLANNED** | READY | `experiments/configs/methods/strict_g3_rf_shifted_adaln_zero.py` | 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1 | `work_dirs/v2/d1_generation/strict_g3_rf_shifted_adaln_zero_r50/trainseed_{training_seed}` | `route:D1I.ABL.G3; generation_train_ablation_d1i_test` |
 | `D1I.INF.solver_steps` | Euler_Heun_DPMpp_x_steps1to4 | inference / 36 | train=42,123,789; infer=42 | **PLANNED** | PROTOCOL_READY | `experiments/configs/methods/karyoflow.py` | accuracy:any idle GPU; efficiency=ross:A6000:0 only | `results/v2/d1_inhouse1700/inference/solver/{parent}/{solver}_{steps}` | `route:D1I.INF.solver_steps; solver_d1i_test` |
 | `D1I.INF.topk_renewal` | TopK_x_renewal | inference / 30 | train=42,123,789; infer=42 | **PLANNED** | PROTOCOL_READY | `experiments/configs/methods/karyoflow.py` | accuracy:any idle GPU; efficiency=ross:A6000:0 only | `results/v2/d1_inhouse1700/inference/topk_renewal/{parent}/k{K}_{renewal}` | `route:D1I.INF.topk_renewal; topk_renewal_d1i_test` |
 
-- `D1I.ABL.G0`：科学因素=DDPM; DDIM1; linear t; scale-shift；解析配置=batch 2, 150 epochs, AdamW, lr=5e-05, config_id=v2.d1_generation.strict_g0_ddpm_linear_scaleshift_r50.train；验收=only named factor changes; batch/optimizer/augmentation/selection fixed；论文用途=Strict incremental generation ablation；备注=All three independent G0 runs are active under the dedicated KaryoFlow-Self1700-V2-Ablation tracking project; G1--G3 are queued per GPU and launch only after a validation-best G0 checkpoint exists.
-- `D1I.ABL.G1`：科学因素=RF; Euler/locked validation protocol; linear t; scale-shift；解析配置=batch 2, 150 epochs, AdamW, lr=5e-05, config_id=v2.d1_generation.strict_g1_rf_linear_scaleshift_r50.train；验收=only named factor changes; batch/optimizer/augmentation/selection fixed；论文用途=Strict incremental generation ablation；备注=No active v2 run is currently registered.
+- `D1I.ABL.G0`：科学因素=DDPM; DDIM1; linear t; scale-shift；解析配置=batch 2, 150 epochs, AdamW, lr=5e-05, config_id=v2.d1_generation.strict_g0_ddpm_linear_scaleshift_r50.train；验收=only named factor changes; batch/optimizer/augmentation/selection fixed；论文用途=Strict incremental generation ablation；备注=All three independent G0 runs completed with distinct validation-best checkpoint SHA values. Their standardized completion artifacts were centralized, registered, and passed the evidence-database audit.
+- `D1I.ABL.G1`：科学因素=RF; Euler/locked validation protocol; linear t; scale-shift；解析配置=batch 2, 150 epochs, AdamW, lr=5e-05, config_id=v2.d1_generation.strict_g1_rf_linear_scaleshift_r50.train；验收=only named factor changes; batch/optimizer/augmentation/selection fixed；论文用途=Strict incremental generation ablation；备注=All three independent G1 runs are active under the persistent Ross scheduler; G2 and G3 remain dependency-gated per training seed.
 - `D1I.ABL.G2`：科学因素=RF; shifted t (shift=3); scale-shift；解析配置=batch 2, 150 epochs, AdamW, lr=5e-05, config_id=v2.d1_generation.strict_g2_rf_shifted_scaleshift_r50.train；验收=only named factor changes; batch/optimizer/augmentation/selection fixed；论文用途=Strict incremental generation ablation；备注=No active v2 run is currently registered.
 - `D1I.ABL.G3`：科学因素=RF; shifted t; AdaLN-Zero; Euler 1-step validation；解析配置=batch 2, 150 epochs, AdamW, lr=5e-05, config_id=v2.d1_generation.strict_g3_rf_shifted_adaln_zero_r50.train；验收=only time conditioning changes from G2; common validation protocol；论文用途=Strict one-factor generation ablation；备注=Strict one-factor AdaLN-Zero stage; canonical DPM++ remains a separate inference comparison.
 - `D1I.INF.solver_steps`：科学因素=3 parents x {Euler,Heun,DPM++} x {1,2,3,4}; report steps and NFE；验收=same checkpoint per parent; common test; no cross-checkpoint causal claim；论文用途=Solver/step accuracy-efficiency ablation；备注=No active v2 run is currently registered.
@@ -228,5 +228,5 @@
 
 - D1_INHOUSE1700_V2 的三条 canonical KaryoFlow 独立训练及 held-out test 已完成；三条 parent-matched LQCR 已完成训练，等待 held-out test 和 final-only tensor audit。
 - D2作者原始划分的历史证据已隔离；D2_TAICHUNG5000_V2上的canonical模型仍必须重新训练。
-- 严格 G0→G1→G2→G3 三训练种子消融尚未完成，当前历史链只能作描述性比较。
+- 严格 G0 三训练种子已完成并登记；G1 三训练种子正在运行，G2→G3 按种子依赖顺序排队。
 - H3 推理身份可精确复现，但历史蒸馏训练实现仍需恢复；GACS 保持可选部署扩展。

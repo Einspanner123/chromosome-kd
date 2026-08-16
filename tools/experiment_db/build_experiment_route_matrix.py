@@ -100,8 +100,8 @@ STATUS_OVERRIDE = {
     "D1I.SOTA.cascade_rcnn_r50": "PLANNED",
     "D1I.SOTA.yolox_s": "PLANNED",
     "D1I.SOTA.karyoflow_lqcr": "TEST_PARTIAL_CENTRAL_1_OF_3",
-    "D1I.ABL.G0": "RUNNING_DISTRIBUTED_3_OF_3",
-    "D1I.ABL.G1": "PLANNED",
+    "D1I.ABL.G0": "COMPLETED_TRAIN3_VERIFIED",
+    "D1I.ABL.G1": "RUNNING_DISTRIBUTED_3_OF_3",
     "D1I.ABL.G2": "PLANNED",
     "D1I.ABL.G3": "PLANNED",
     "D1I.INF.solver_steps": "PLANNED",
@@ -183,9 +183,13 @@ NOTES_OVERRIDE = {
         "paired train-seed aggregate."
     ),
     "D1I.ABL.G0": (
-        "All three independent G0 runs are active under the dedicated "
-        "KaryoFlow-Self1700-V2-Ablation tracking project; G1--G3 are queued "
-        "per GPU and launch only after a validation-best G0 checkpoint exists."
+        "All three independent G0 runs completed with distinct validation-best "
+        "checkpoint SHA values. Their standardized completion artifacts were "
+        "centralized, registered, and passed the evidence-database audit."
+    ),
+    "D1I.ABL.G1": (
+        "All three independent G1 runs are active under the persistent Ross "
+        "scheduler; G2 and G3 remain dependency-gated per training seed."
     ),
     "D1I.ABL.G3": "Strict one-factor AdaLN-Zero stage; canonical DPM++ remains a separate inference comparison.",
     "D2.ABL.historical_chain": "Historical foundation comparison only; never interpret adjacent rows as isolated cumulative effects.",
@@ -821,7 +825,7 @@ def write_doc(payload: dict, manifest_sha: str, artifact_id: str) -> None:
         "",
         "- D1_INHOUSE1700_V2 的三条 canonical KaryoFlow 独立训练及 held-out test 已完成；三条 parent-matched LQCR 已完成训练，等待 held-out test 和 final-only tensor audit。",
         "- D2作者原始划分的历史证据已隔离；D2_TAICHUNG5000_V2上的canonical模型仍必须重新训练。",
-        "- 严格 G0→G1→G2→G3 三训练种子消融尚未完成，当前历史链只能作描述性比较。",
+        "- 严格 G0 三训练种子已完成并登记；G1 三训练种子正在运行，G2→G3 按种子依赖顺序排队。",
         "- H3 推理身份可精确复现，但历史蒸馏训练实现仍需恢复；GACS 保持可选部署扩展。",
         "",
     ]
