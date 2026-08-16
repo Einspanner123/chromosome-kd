@@ -5,6 +5,7 @@ from pathlib import Path
 
 import yaml
 
+import tools.experiments.scheduler as scheduler_module
 from tools.experiments.scheduler import Scheduler, initial_state, validate_task
 
 
@@ -111,3 +112,33 @@ def test_external_task_does_not_require_command():
         }
     )
     assert 'command' not in record
+
+
+def test_remote_sync_renders_destination_in_coordinator_namespace(
+    tmp_path, monkeypatch
+):
+    config_path = write_config(tmp_path)
+    config = yaml.safe_load(config_path.read_text())
+    config['hosts']['local']['ssh_target'] = 'worker@example'
+    config['hosts']['local']['project_root'] = '/remote/project'
+    config_path.write_text(yaml.safe_dump(config))
+    monkeypatch.setattr(scheduler_module, 'ROOT', tmp_path)
+    scheduler = Scheduler(config_path)
+    record = task('remote-sync', [sys.executable, '-c', 'pass'])
+    record['variables'] = {'work_dir': 'work_dirs/example'}
+    record['postprocess'] = {
+        'sync': {
+            'required': True,
+            'source': '{project_root}/{work_dir}',
+            'destination': '{project_root}/{work_dir}',
+        }
+    }
+    calls = []
+
+    def capture(command, **_kwargs):
+        calls.append(command)
+
+    monkeypatch.setattr(scheduler_module.subprocess, 'run', capture)
+    scheduler.sync_artifacts(record)
+    assert calls[0][-2] == 'worker@example:/remote/project/work_dirs/example/'
+    assert calls[0][-1] == str(tmp_path / 'work_dirs/example') + '/'

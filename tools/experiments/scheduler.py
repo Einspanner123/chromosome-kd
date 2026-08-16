@@ -259,7 +259,9 @@ class Scheduler:
             return
         host = self.host_for(task)
         source = self.render(sync['source'], task, host).rstrip('/') + '/'
-        destination = Path(self.render(sync['destination'], task, host))
+        # The source template is rendered in the worker-host namespace, while
+        # the destination always belongs to the Ross coordinator namespace.
+        destination = Path(self.local_render(sync['destination'], task))
         if not destination.is_absolute():
             destination = ROOT / destination
         destination.mkdir(parents=True, exist_ok=True)
