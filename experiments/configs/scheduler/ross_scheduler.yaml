@@ -8,18 +8,24 @@ worker_script: /tmp/karyoflow_scheduler_worker.py
 hosts:
   ross:
     ssh_target: null
+    disk_check_path: /home/linkst/workspace/chromosome-kd
+    min_free_disk_gib: 30
     project_root: /home/linkst/workspace/chromosome-kd
     python: /home/linkst/data/miniconda3/envs/chromo/bin/python
     worker_root: /home/linkst/workspace/chromosome-kd/work_dirs/v2/scheduler/workers
     worker_script: /home/linkst/workspace/chromosome-kd/tools/experiments/scheduler_worker.py
   workstation_a5000:
     ssh_target: linkst@100.99.131.26
+    disk_check_path: /home/linkst
+    min_free_disk_gib: 30
     project_root: /home/linkst/workplace/chromo/chromosome-kd-run-v2-a5000
     python: /home/linkst/miniconda3/envs/chromo-new/bin/python
     worker_root: /home/linkst/workplace/chromo/chromosome-kd-run-v2-a5000/work_dirs/v2/scheduler/workers
     worker_script: /tmp/karyoflow_scheduler_worker.py
   workstation_a4000:
     ssh_target: linkst@100.99.131.26
+    disk_check_path: /home/linkst
+    min_free_disk_gib: 30
     project_root: /home/linkst/workplace/chromo/chromosome-kd-run-v2-a4000
     python: /home/linkst/miniconda3/envs/chromo-new/bin/python
     worker_root: /home/linkst/workplace/chromo/chromosome-kd-run-v2-a4000/work_dirs/v2/scheduler/workers

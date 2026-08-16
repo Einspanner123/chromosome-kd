@@ -142,3 +142,31 @@ def test_remote_sync_renders_destination_in_coordinator_namespace(
     scheduler.sync_artifacts(record)
     assert calls[0][-2] == 'worker@example:/remote/project/work_dirs/example/'
     assert calls[0][-1] == str(tmp_path / 'work_dirs/example') + '/'
+
+
+def test_disk_guard_blocks_launch_and_persists_reason(tmp_path):
+    config_path = write_config(tmp_path)
+    config = yaml.safe_load(config_path.read_text())
+    config['hosts']['local']['disk_check_path'] = str(tmp_path)
+    config['hosts']['local']['min_free_disk_gib'] = 10**9
+    config_path.write_text(yaml.safe_dump(config))
+    scheduler = Scheduler(config_path)
+    blocked = task('blocked', [sys.executable, '-c', 'pass'])
+    with scheduler.store.locked() as state:
+        state['pending'].append(blocked)
+
+    output = scheduler.tick()
+
+    assert output['pending'] == ['blocked']
+    assert output['counts']['running'] == 0
+    state = json.loads((tmp_path / 'state.json').read_text())
+    guard = state['pending'][0]['launch_guard']
+    assert guard['status'] == 'blocked_insufficient_space'
+    assert guard['free_bytes'] < guard['required_bytes']
+
+
+def test_disk_guard_can_be_disabled(tmp_path):
+    scheduler = Scheduler(write_config(tmp_path))
+    record = task('unguarded', [sys.executable, '-c', 'pass'])
+
+    assert scheduler.disk_launch_guard(record) == {'status': 'disabled'}

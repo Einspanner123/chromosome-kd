@@ -194,6 +194,48 @@ class Scheduler:
         worker = host.get('worker_script', self.config['worker_script'])
         return [host['python'], worker, *items]
 
+    def disk_launch_guard(self, task: dict) -> dict:
+        """Return a persisted preflight result for the worker filesystem."""
+        host = self.host_for(task)
+        required_gib = float(host.get('min_free_disk_gib', 0))
+        check_path = host.get('disk_check_path', host['project_root'])
+        if required_gib <= 0:
+            return {'status': 'disabled'}
+        result = self.host_command(
+            host,
+            [
+                host['python'],
+                '-c',
+                (
+                    'import json, shutil; '
+                    f'u=shutil.disk_usage({check_path!r}); '
+                    'print(json.dumps({"free_bytes": u.free, '
+                    '"total_bytes": u.total}))'
+                ),
+            ],
+            check=False,
+        )
+        if result.returncode != 0:
+            return {
+                'status': 'probe_failed',
+                'checked_at': utc_now(),
+                'path': check_path,
+                'error': result.stderr.strip(),
+            }
+        usage = json.loads(result.stdout)
+        required_bytes = int(required_gib * 2**30)
+        return {
+            'status': (
+                'passed'
+                if usage['free_bytes'] >= required_bytes
+                else 'blocked_insufficient_space'
+            ),
+            'checked_at': utc_now(),
+            'path': check_path,
+            'free_bytes': usage['free_bytes'],
+            'required_bytes': required_bytes,
+        }
+
     def start_task(self, task: dict) -> dict:
         host = self.host_for(task)
         spec = {
@@ -475,6 +517,13 @@ class Scheduler:
                 if task['resource_id'] in used:
                     continue
                 if not self.dependencies_satisfied(task, state):
+                    continue
+                guard = self.disk_launch_guard(task)
+                task['launch_guard'] = guard
+                if guard['status'] in {
+                    'blocked_insufficient_space',
+                    'probe_failed',
+                }:
                     continue
                 started = self.start_task(task)
                 state['pending'].remove(task)
