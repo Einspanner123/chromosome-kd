@@ -18,13 +18,15 @@ tasks:
       - --status
       - paper_eligible
       - --no-import
+      - --output-root
+      - "{result_root}"
     variables:
-      result_dir: results/v2/evaluations/d1-inhouse1700-v2__strict-g0-ddpm-linear-scaleshift-r50__trainseed-789__78c13c85e64b/test/inferseed_42/49a428c72e48
+      result_root: results/v2/scheduled_evaluations/d1-test-g0-seed789-current-code
     postprocess:
       sync:
         required: true
-        source: "{project_root}/{result_dir}"
-        destination: "{project_root}/{result_dir}"
+        source: "{project_root}/{result_root}"
+        destination: "{project_root}/{result_root}"
       evidence:
         kind: run_evidence
-        path: "{result_dir}/run_evidence.json"
+        path_glob: "{result_root}/**/run_evidence.json"

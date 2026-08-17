@@ -338,9 +338,21 @@ class Scheduler:
         if not evidence:
             return {'kind': 'none', 'registered': True}
         kind = evidence['kind']
-        path = Path(self.local_render(evidence['path'], task))
-        if not path.is_absolute():
-            path = ROOT / path
+        if evidence.get('path'):
+            path = Path(self.local_render(evidence['path'], task))
+            if not path.is_absolute():
+                path = ROOT / path
+        elif evidence.get('path_glob'):
+            pattern = self.local_render(evidence['path_glob'], task)
+            matches = sorted(ROOT.glob(pattern))
+            if len(matches) != 1:
+                raise RuntimeError(
+                    'evidence path_glob must resolve exactly one file: '
+                    f'{pattern!r} -> {len(matches)} matches'
+                )
+            path = matches[0]
+        else:
+            raise ValueError('evidence requires path or path_glob')
         if kind == 'training_completion':
             command = [
                 sys.executable,
