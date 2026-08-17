@@ -271,6 +271,10 @@ def main() -> int:
     parser.add_argument('--plan', action='store_true')
     parser.add_argument('--no-import', action='store_true')
     args = parser.parse_args()
+    # Normalize symlinked project entry points before deriving evidence paths.
+    # Ross exposes the same repository through /home and its physical mount;
+    # pathlib.relative_to requires both operands to use one canonical namespace.
+    args.output_root = args.output_root.resolve()
     if (
         args.protocol_source is not None
         and not args.protocol_source.is_absolute()
