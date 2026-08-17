@@ -387,6 +387,8 @@ class Scheduler:
                     command.extend([flag, self.local_render(str(value), task)])
             if evidence.get('allow_restored_canonical_config'):
                 command.append('--allow-restored-canonical-config')
+            if evidence.get('allow_registered_provenance_rebind'):
+                command.append('--allow-registered-provenance-rebind')
             subprocess.run(command, cwd=ROOT, check=True)
             payload = json.loads(path.read_text(encoding='utf-8'))
             self.verify_training_registration(payload, path)

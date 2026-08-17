@@ -42,6 +42,9 @@ def main() -> int:
     parser.add_argument(
         '--allow-restored-canonical-config', action='store_true'
     )
+    parser.add_argument(
+        '--allow-registered-provenance-rebind', action='store_true'
+    )
     args = parser.parse_args()
     completion_path = args.completion.resolve()
     payload = json.loads(completion_path.read_text(encoding='utf-8'))
@@ -53,7 +56,9 @@ def main() -> int:
     connection = connect()
     try:
         row = connection.execute(
-            'SELECT git_commit,config_sha256,status FROM train_run_registry '
+            'SELECT git_commit,config_sha256,status,dataset_id,method,'
+            'training_seed,work_dir,scientific_config_sha256 '
+            'FROM train_run_registry '
             'WHERE train_run_id=?',
             (train_run_id,),
         ).fetchone()
@@ -82,7 +87,8 @@ def main() -> int:
         connection = connect()
         try:
             row = connection.execute(
-                'SELECT git_commit,config_sha256,status '
+                'SELECT git_commit,config_sha256,status,dataset_id,method,'
+                'training_seed,work_dir,scientific_config_sha256 '
                 'FROM train_run_registry WHERE train_run_id=?',
                 (train_run_id,),
             ).fetchone()
@@ -90,6 +96,58 @@ def main() -> int:
             connection.close()
     if row is None:
         raise ValueError(f'unknown train_run_id: {train_run_id}')
+    provenance_rebound = False
+    if args.allow_registered_provenance_rebind and (
+        row[0] != payload['git_commit']
+        or row[1] != payload['resolved_config']['sha256']
+    ):
+        expected = {
+            'dataset_id': row[3],
+            'method_id': row[4],
+            'training_seed': row[5],
+            'work_dir': row[6],
+            'scientific_config_sha256': row[7],
+        }
+        observed = {
+            'dataset_id': manifest['dataset_id'],
+            'method_id': manifest['method_id'],
+            'training_seed': manifest['training_seed'],
+            'work_dir': str(Path(manifest['resolved_config_path']).parent),
+            'scientific_config_sha256': manifest['scientific_config_sha256'],
+        }
+        if observed != expected:
+            raise ValueError(
+                'provenance rebind changes scientific run identity: '
+                f'expected={expected}, observed={observed}'
+            )
+        actual_config = verified_artifact(payload['resolved_config'])
+        if (
+            manifest['resolved_config_sha256']
+            != payload['resolved_config']['sha256']
+        ):
+            raise ValueError('completion config differs from its manifest')
+        connection = connect()
+        try:
+            with connection:
+                connection.execute(
+                    'UPDATE train_run_registry SET git_commit=?,config_path=?,'
+                    'config_sha256=?,updated_at=CURRENT_TIMESTAMP '
+                    'WHERE train_run_id=?',
+                    (
+                        payload['git_commit'],
+                        str(actual_config.relative_to(ROOT)),
+                        payload['resolved_config']['sha256'],
+                        train_run_id,
+                    ),
+                )
+        finally:
+            connection.close()
+        row = (
+            payload['git_commit'],
+            payload['resolved_config']['sha256'],
+            *row[2:],
+        )
+        provenance_rebound = True
     if row[0] != payload['git_commit']:
         raise ValueError('completion Git commit differs from registration')
     completion_config_sha = payload['resolved_config']['sha256']
@@ -170,10 +228,15 @@ def main() -> int:
                         artifact_id,
                         'repository',
                         *values,
-                        'Canonical pre-run config restored after legacy runtime '
-                        'overwrite.'
-                        if restored_config
-                        else 'Distributed training completion verified.',
+                        (
+                            'Pre-registration provenance rebound to the actual '
+                            'clean worker manifest; scientific identity unchanged.'
+                            if provenance_rebound
+                            else 'Canonical pre-run config restored after legacy '
+                            'runtime overwrite.'
+                            if restored_config
+                            else 'Distributed training completion verified.'
+                        ),
                     ),
                 )
     finally:
