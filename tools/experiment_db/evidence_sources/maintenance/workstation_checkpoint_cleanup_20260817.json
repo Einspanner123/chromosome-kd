@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "action": "delete_nonbest_checkpoints",
+  "created_at": "2026-08-17T15:31:27.245742+00:00",
+  "host": "workstation",
+  "project_root": "/home/linkst/workplace/chromo/chromosome-kd",
+  "selection_rule": "work_dirs/**/*.pth whose basename does not start with best; no active experiment processes; central selected_checkpoint references were audited separately and contained no epoch checkpoint",
+  "file_count": 39,
+  "total_bytes": 29540308943,
+  "files": [
+    {
+      "path": "work_dirs/ablation_old/stochot_eps1/epoch_63.pth",
+      "bytes": 1423593690,
+      "sha256": "0c55483f69ffbfbf002654aed21917c6e384efb2a222439c06a3d5dd72ce0665"
+    },
+    {
+      "path": "work_dirs/ablation_supplement/a1_rf_heun_shift2_24obj/epoch_105.pth",
+      "bytes": 1406333074,
+      "sha256": "7874fee51723ac554c20835ee273c890e862e8526edbea4f1da1c356ab95e00f"
+    },
+    {
+      "path": "work_dirs/ablation_supplement/a1_rf_heun_shift5_24obj/epoch_104.pth",
+      "bytes": 1405564690,
+      "sha256": "86654461c0894f408bca4a2c1db879a882a33eb81ebbba82897fb4c4cdefeaf9"
+    },
+    {
+      "path": "work_dirs/baselines/rtmdet_l_24obj/epoch_85.pth",
+      "bytes": 667638528,
+      "sha256": "ede14554eb9fd9e04382a57315b9d25a697bac9d22ca5144d06d40bdeab88059"
+    },
+    {
+      "path": "work_dirs/calu_terminal_reg_chr2024_seed42/epoch_12.pth",
+      "bytes": 474154836,
+      "sha256": "8ae1965eaf0e04eca1a3eee5ffe939f6e2c5a452cb88d334185fe1e3a7b971b4"
+    },
+    {
+      "path": "work_dirs/capr_quality_final_only_24obj_seed789/epoch_12.pth",
+      "bytes": 478188078,
+      "sha256": "f67c43724a90a1083fe16294bf73ceaa2a84657b58042f36d0cb4469dffa0ae7"
+    },
+    {
+      "path": "work_dirs/capr_quality_final_only_chr2024_seed123/epoch_12.pth",
+      "bytes": 472964718,
+      "sha256": "9998a224b6b0e19b0dfecbf43372cb40e3c8c9eb3b4e2bdff975c84c50982f5d"
+    },
+    {
+      "path": "work_dirs/capr_quality_final_only_chr2024_seed42/epoch_12.pth",
+      "bytes": 472983150,
+      "sha256": "1f020582e76b8332269a0830842e0bfac80eb7be97aaf87238023687da493da5"
+    },
+    {
+      "path": "work_dirs/masf_mass_final_only_chr2024_seed42/epoch_12.pth",
+      "bytes": 473127406,
+      "sha256": "315f1ca3963006b5690f86370df8f50423c4e0b44834a7ae1b52bf72e70cc371"
+    },
+    {
+      "path": "work_dirs/masf_quality_mass_final_only_chr2024_seed42/epoch_12.pth",
+      "bytes": 473127598,
+      "sha256": "67e9db041d6c1da26b06c08a1e28e12160c89e05265cc6e63c05c024893a2877"
+    },
+    {
+      "path": "work_dirs/n_cascade_e2e_24obj/epoch_71.pth",
+      "bytes": 1418753253,
+      "sha256": "1ddcd6fd0e26209c3db60ba822fc4ead2a6d3df625dd74a82cfeb04f2b7a3e41"
+    },
+    {
+      "path": "work_dirs/ocgr_chr2024_seed123/epoch_74.pth",
+      "bytes": 1427588010,
+      "sha256": "61082dd0307d3328f48ca8b04be876f79856cfce7d5c7fd54bb7b5dc8d04fff5"
+    },
+    {
+      "path": "work_dirs/paired_clean/lqcr_final_only_chr2024_seed123/epoch_12.pth",
+      "bytes": 472965742,
+      "sha256": "61c76922f17d4d2a776957837500191670f8217677863203c3e44d13bd433ab9"
+    },
+    {
+      "path": "work_dirs/paired_clean/lqcr_final_only_chr2024_seed789/epoch_12.pth",
+      "bytes": 472965614,
+      "sha256": "b35c237ff5324b383acc6c3a14ce8b099a4abc7b65738e56bb24084cc9988a2f"
+    },
+    {
+      "path": "work_dirs/paired_repro/a4_chr2024_seed123/epoch_3.pth",
+      "bytes": 1403246042,
+      "sha256": "b8acd7c6ac99393fc9c72f905b789fd5ec35a6494dabff6270f9d46209631425"
+    },
+    {
+      "path": "work_dirs/paper_d2_lqcr_trainrun_1/epoch_12.pth",
+      "bytes": 478181102,
+      "sha256": "6128fcb999daa249b788a7d75b4a33347fd434f8e5793b0058d5e9fdb20a0891"
+    },
+    {
+      "path": "work_dirs/paper_d2_lqcr_trainrun_2/epoch_12.pth",
+      "bytes": 478183790,
+      "sha256": "64076aad4832f2f8d7ad75e5cffdf62a11b5fdf60c437aaf9c199184f9b87299"
+    },
+    {
+      "path": "work_dirs/r3_vpred_chr2024_seed123/epoch_87.pth",
+      "bytes": 1432029978,
+      "sha256": "30bf78b560cced60e50d648c1e90b2dc6374fe419dc2c34b4372cf1830ce2b3c"
+    },
+    {
+      "path": "work_dirs/reflow_standard_24obj/epoch_31.pth",
+      "bytes": 1425405082,
+      "sha256": "3b6c849f268b7a0fabb987c4058e2dd3feb6515761727f00997e9a47c4b7e33a"
+    },
+    {
+      "path": "work_dirs/s1_h3_s4_24obj/epoch_89.pth",
+      "bytes": 911120430,
+      "sha256": "b9ecdaaa19da4ce8e360ee8c9163fe742a97faa09ee36505bbf8501cf13d3006"
+    },
+    {
+      "path": "work_dirs/s1_h3_s4_chr2024_seed42/epoch_105.pth",
+      "bytes": 892043246,
+      "sha256": "49be32d06d8afd4e7553589b1b2d50d775479685af0962aef4e4a7fcfa779545"
+    },
+    {
+      "path": "work_dirs/setdiff_24obj_box_renewal_20ep/epoch_3.pth",
+      "bytes": 440556190,
+      "sha256": "d597c366b1adf478a9ef8ec913d4783903b2962b7a3cdb52901f0d61266f5385"
+    },
+    {
+      "path": "work_dirs/setdiff_24obj_dirA_pred_coupling_50ep/epoch_6.pth",
+      "bytes": 441383582,
+      "sha256": "0f80f139d56bfe210e4ddb19077da8a7294960cfc8b3796302c743637b88a864"
+    },
+    {
+      "path": "work_dirs/setdiff_24obj_dirC_no_self_attn_50ep/epoch_6.pth",
+      "bytes": 441383198,
+      "sha256": "21ed52fa0643b0add7f4f88f4279f30d85af6e90f1dff794ee3ac84393f0e8c6"
+    },
+    {
+      "path": "work_dirs/setdiff_24obj_fix_20ep/epoch_8.pth",
+      "bytes": 441902238,
+      "sha256": "d4f3f934d16b03270236bc82c73288d1c8ae3dc0c1781557a39ecc54199141f2"
+    },
+    {
+      "path": "work_dirs/setdiff_24obj_full_fix_20ep/epoch_11.pth",
+      "bytes": 442725278,
+      "sha256": "327dff0639063a8c368f0a1a18f67916adc2592734ccd38f83e4a46306af983e"
+    },
+    {
+      "path": "work_dirs/setdiff_24obj_giou_fix_20ep/epoch_8.pth",
+      "bytes": 441917854,
+      "sha256": "11c2c23e620eeabdfd7f88949a4874141267c5437267fbe5e9c1339e1d349cd2"
+    },
+    {
+      "path": "work_dirs/setdiff_24obj_planA_20ep/epoch_3.pth",
+      "bytes": 440553566,
+      "sha256": "02d722f7b97112d5b94c5d82b19f39911ac44b0020a39176fbe42579585fba48"
+    },
+    {
+      "path": "work_dirs/setdiff_24obj_planA_50ep_fix/epoch_4.pth",
+      "bytes": 440840542,
+      "sha256": "a7634569281101649a7a49fe1323446c90da62f047a83cf619b836199e58ba07"
+    },
+    {
+      "path": "work_dirs/setdiff_24obj_planB_20ep/epoch_2.pth",
+      "bytes": 440280734,
+      "sha256": "568e80765b9ba5bad25b881410aa444b129fa6f0ff171e5dca367234240e2d7f"
+    },
+    {
+      "path": "work_dirs/setdiff_24obj_planB_50ep_fix/epoch_4.pth",
+      "bytes": 440839966,
+      "sha256": "b3c4dbcbd7a84d0b5d91d4f290ff7085c590fa637444d081e823425ba7311c3c"
+    },
+    {
+      "path": "work_dirs/setdiff_dirA_pred_coupling_50ep_v2/epoch_1.pth",
+      "bytes": 440029726,
+      "sha256": "afd130004b2de2fe5f5c3d11979611519b4950537fcc345db68bc83c1c42270c"
+    },
+    {
+      "path": "work_dirs/setdiff_dirC_no_self_attn_50ep_v2/epoch_1.pth",
+      "bytes": 439969246,
+      "sha256": "b9e676e38952cb78a0d55b978a1431356bff14cb9128213e2998121a5015f91f"
+    },
+    {
+      "path": "work_dirs/terminal_reg_control_chr2024_seed42/epoch_12.pth",
+      "bytes": 477718420,
+      "sha256": "97119f0c5413c0be60fe21d023d99877be34596c7f567960ecb77d1c4975d027"
+    },
+    {
+      "path": "work_dirs/trip_24obj/epoch_31.pth",
+      "bytes": 1425455322,
+      "sha256": "4b705229b833b023c7801224af3d87dca16a44be7b21a10ef93dbad8eb3451f4"
+    },
+    {
+      "path": "work_dirs/v2/d1/karyoflow_lqcr_r50/trainseed_123/epoch_12.pth",
+      "bytes": 471861806,
+      "sha256": "ecba77eb138cbb8b19686fd6e5fffa6796423c37a987d586387e23f92e138b0d"
+    },
+    {
+      "path": "work_dirs/v2/d1/karyoflow_lqcr_r50/trainseed_42/epoch_12.pth",
+      "bytes": 471861614,
+      "sha256": "31d5b9ad0c05fa0f9afdb2e522d2a2a46a0ff18d7316ee7a983773dde9c63068"
+    },
+    {
+      "path": "work_dirs/v2/d1/karyoflow_r50/trainseed_123/epoch_72.pth",
+      "bytes": 1420695258,
+      "sha256": "e15d409de3d09a7fe0a6d902814c2a42fd30a20b64e7ad0052f742b2a342ca9f"
+    },
+    {
+      "path": "work_dirs/v2/d1/karyoflow_r50/trainseed_42/epoch_70.pth",
+      "bytes": 1420176346,
+      "sha256": "92e05b557cb1cc38127922a12116fda759971eccc076aabf33448a0db8826029"
+    }
+  ]
+}
