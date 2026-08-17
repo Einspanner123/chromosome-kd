@@ -229,13 +229,13 @@ tasks:
 
   - task_id: d1-g3-seed789
     kind: training
-    resource_id: workstation:a4000:1
+    resource_id: workstation:a5000:0
     dependencies: []
     command: *g3_command
     variables:
       training_seed: 789
       work_dir: work_dirs/v2/d1_generation/strict_g3_rf_shifted_adaln_zero_r50/trainseed_789
-      executor: workstation:a4000:1
-      gpu_name: NVIDIA RTX A4000
+      executor: workstation:a5000:0
+      gpu_name: NVIDIA RTX A5000
       tracker_name: d1_generation_strict_g3_rf_shifted_adaln_zero_seed789
     postprocess: *postprocess_remote
