@@ -7,6 +7,7 @@ import base64
 import datetime as dt
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -166,10 +167,42 @@ def stop(root: Path, task_id: str) -> dict:
     return {'status': 'stop_requested', 'task_id': task_id, 'pids': pids}
 
 
+def prepare_retry(root: Path, task_id: str) -> dict:
+    """Archive a terminal worker attempt so the same task ID can run again."""
+    directory = task_dir(root, task_id)
+    receipt_path = directory / 'receipt.json'
+    if receipt_path.is_file():
+        receipt = json.loads(receipt_path.read_text(encoding='utf-8'))
+        if alive(receipt.get('worker_pid')):
+            raise RuntimeError(f'worker is still alive for {task_id}')
+    attempts = directory / 'attempts'
+    attempts.mkdir(parents=True, exist_ok=True)
+    number = 1
+    while (attempts / f'attempt-{number}').exists():
+        number += 1
+    archive = attempts / f'attempt-{number}'
+    archive.mkdir()
+    for name in (
+        'spec.json',
+        'receipt.json',
+        'result.json',
+        'child.json',
+        'worker.log',
+    ):
+        source = directory / name
+        if source.exists():
+            shutil.move(str(source), archive / name)
+    return {
+        'status': 'prepared',
+        'task_id': task_id,
+        'archived_attempt': str(archive),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='action', required=True)
-    for action in ('start', 'status', 'stop', 'run'):
+    for action in ('start', 'status', 'stop', 'run', 'prepare-retry'):
         child = subparsers.add_parser(action)
         child.add_argument('--root', required=True, type=Path)
         if action == 'start':
@@ -183,6 +216,8 @@ def main() -> int:
         output = status(args.root, args.task_id)
     elif args.action == 'stop':
         output = stop(args.root, args.task_id)
+    elif args.action == 'prepare-retry':
+        output = prepare_retry(args.root, args.task_id)
     else:
         return run(args.root, args.task_id)
     print(json.dumps(output, sort_keys=True))

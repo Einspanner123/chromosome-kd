@@ -646,6 +646,8 @@ def main() -> int:
     subparsers.add_parser('status')
     retry = subparsers.add_parser('retry-postprocess')
     retry.add_argument('task_id')
+    retry_task = subparsers.add_parser('retry-task')
+    retry_task.add_argument('task_id')
     args = parser.parse_args()
     scheduler = Scheduler(args.config)
 
@@ -695,6 +697,49 @@ def main() -> int:
                 if task['task_id'] == args.task_id
             )
             record['postprocess']['status'] = 'retry'
+            output = summary(state)
+    elif args.action == 'retry-task':
+        with scheduler.store.locked() as state:
+            record = next(
+                task
+                for task in state['completed']
+                if task['task_id'] == args.task_id
+            )
+            if record.get('process_status') != 'failed':
+                raise ValueError('retry-task requires a failed process')
+            host = scheduler.host_for(record)
+            prepared = scheduler.host_command(
+                host,
+                scheduler.worker_command(
+                    host,
+                    'prepare-retry',
+                    '--root',
+                    host['worker_root'],
+                    '--task-id',
+                    record['task_id'],
+                ),
+                check=True,
+            )
+            retry_history = record.setdefault('retry_history', [])
+            retry_history.append(
+                {
+                    'prepared_at': utc_now(),
+                    'previous_attempt': record.get('attempt', 0),
+                    'worker_archive': json.loads(prepared.stdout),
+                }
+            )
+            for key in (
+                'worker',
+                'process_status',
+                'started_at',
+                'finished_at',
+                'launch_guard',
+                'launch_probe',
+            ):
+                record.pop(key, None)
+            record.setdefault('postprocess', {})['status'] = 'pending'
+            state['completed'].remove(record)
+            state['pending'].insert(0, record)
             output = summary(state)
     else:
         with daemon_guard(scheduler.daemon_pid_path):
