@@ -1,0 +1,55 @@
+schema_version: 1
+
+tasks:
+  - task_id: d1-test-lqcr-seed42-a4000
+    kind: accuracy_evaluation
+    resource_id: workstation:a4000:1
+    command:
+      - "{python}"
+      - tools/experiments/evaluate.py
+      - --train-run-id
+      - d1-inhouse1700-v2__karyoflow-lqcr-r50__trainseed-42__bddd7d3d2741
+      - --split
+      - test
+      - --inference-seed
+      - "42"
+      - --gpu-id
+      - "{gpu_id}"
+      - --status
+      - paper_eligible
+      - --no-import
+      - --output-root
+      - "{project_root}/{result_root}"
+    variables:
+      result_root: results/v2/scheduled_evaluations/d1-test-lqcr-seed42-a4000
+    postprocess: &evaluation_postprocess
+      sync:
+        required: true
+        source: "{project_root}/{result_root}"
+        destination: "{project_root}/{result_root}"
+      evidence:
+        kind: run_evidence
+        path_glob: "{result_root}/**/run_evidence.json"
+
+  - task_id: d1-test-lqcr-seed123-a4000
+    kind: accuracy_evaluation
+    resource_id: workstation:a4000:1
+    command:
+      - "{python}"
+      - tools/experiments/evaluate.py
+      - --train-run-id
+      - d1-inhouse1700-v2__karyoflow-lqcr-r50__trainseed-123__bddd7d3d2741
+      - --split
+      - test
+      - --inference-seed
+      - "42"
+      - --gpu-id
+      - "{gpu_id}"
+      - --status
+      - paper_eligible
+      - --no-import
+      - --output-root
+      - "{project_root}/{result_root}"
+    variables:
+      result_root: results/v2/scheduled_evaluations/d1-test-lqcr-seed123-a4000
+    postprocess: *evaluation_postprocess
