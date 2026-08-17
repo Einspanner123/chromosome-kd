@@ -104,7 +104,7 @@
   "split_protocol": "frozen original public 3500/500/1000 split",
   "splits": {
     "test": {
-      "annotation_path": "24_chromosomes_object/coco/test/_annotations.coco.json",
+      "annotation_path": "data/24_chromosomes_object/coco/test/_annotations.coco.json",
       "annotation_sha256": "110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495",
       "annotations": 45980,
       "categories": 24,
@@ -113,7 +113,7 @@
       "images": 1000
     },
     "train": {
-      "annotation_path": "24_chromosomes_object/coco/train/_annotations.coco.json",
+      "annotation_path": "data/24_chromosomes_object/coco/train/_annotations.coco.json",
       "annotation_sha256": "218ae0ebb71ecfb186bdb0872101ac50179c22c69a586cad0366ef10a0d8d5f7",
       "annotations": 160888,
       "categories": 24,
@@ -122,7 +122,7 @@
       "images": 3500
     },
     "valid": {
-      "annotation_path": "24_chromosomes_object/coco/valid/_annotations.coco.json",
+      "annotation_path": "data/24_chromosomes_object/coco/valid/_annotations.coco.json",
       "annotation_sha256": "bcf0f930dea7380a3d2d5e82b393b7576a5861d416c163ff2930985f9ee7ca10",
       "annotations": 22984,
       "categories": 24,

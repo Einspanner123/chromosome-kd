@@ -47,7 +47,7 @@ def split_record(root: Path, split: str) -> dict:
         inventory.update(f'{name}\0{size}\0{digest}\n'.encode())
         total_bytes += size
     return {
-        'annotation_path': annotation.relative_to(root.parent.parent).as_posix(),
+        'annotation_path': (Path(split) / annotation.name).as_posix(),
         'annotation_sha256': sha256_file(annotation),
         'images': len(coco['images']),
         'annotations': len(coco['annotations']),
@@ -68,6 +68,11 @@ def main() -> int:
 
     root = args.root.resolve()
     records = {split: split_record(root, split) for split in args.splits}
+    relative_root = args.root.as_posix().rstrip('/')
+    for record in records.values():
+        record['annotation_path'] = (
+            f"{relative_root}/{record['annotation_path']}"
+        )
     category_sets = []
     for split in args.splits:
         coco = json.loads(
@@ -84,7 +89,7 @@ def main() -> int:
         'evidence_type': 'frozen_coco_dataset_manifest',
         'dataset_id': args.dataset_id,
         'split_protocol': args.protocol,
-        'relative_data_root': args.root.as_posix().rstrip('/'),
+        'relative_data_root': relative_root,
         'categories': [
             {'id': category_id, 'name': name}
             for category_id, name in category_sets[0]
