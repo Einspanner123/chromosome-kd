@@ -96,7 +96,8 @@ experiments:
   inference_seeds: '42'
   layer: Detector comparison
   ledger_id: D1I.SOTA.diffusiondet
-  notes: No active v2 run is currently registered.
+  notes: 'All three independent G0 training runs completed. Held-out test evidence: 1/3 passed evaluation, immutable evidence
+    validation, database import, and global audit; remaining evaluations run serially on Ross A6000.'
   paper_role: Main two-cohort detector table
   parameters: DDPM; DDIM 1-step; linear t; scale-shift; K=500; 6 heads
   parent_ledger_id: ''
@@ -353,8 +354,8 @@ experiments:
   inference_seeds: '42'
   layer: Generation
   ledger_id: D1I.ABL.G0
-  notes: All three independent G0 runs completed with distinct validation-best checkpoint SHA values. Seed 789 has verified
-    test evidence; seeds 42 and 123 are queued for the same held-out-test protocol.
+  notes: 'All three independent G0 training runs completed. Held-out test evidence: 1/3 passed evaluation, immutable evidence
+    validation, database import, and global audit; remaining evaluations run serially on Ross A6000.'
   paper_role: Strict incremental generation ablation
   parameters: DDPM; DDIM1; linear t; scale-shift
   parent_ledger_id: ''
@@ -396,15 +397,15 @@ experiments:
   inference_seeds: '42'
   layer: Generation
   ledger_id: D1I.ABL.G1
-  notes: All three independent G1 runs completed training and are queued for serial held-out-test evaluation on the accuracy
-    worker.
+  notes: 'All three independent G1 training runs completed. Held-out test evidence: 0/3 passed evaluation, immutable evidence
+    validation, database import, and global audit; remaining evaluations run serially on Ross A6000.'
   paper_role: Strict incremental generation ablation
   parameters: RF; Euler/locked validation protocol; linear t; scale-shift
   parent_ledger_id: D1I.ABL.G0
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: TRAIN3_COMPLETE_TEST_QUEUED
+  status: TRAIN3_COMPLETE_TEST_QUEUED_0_OF_3_COMPLETE
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: ''
@@ -439,15 +440,15 @@ experiments:
   inference_seeds: '42'
   layer: Generation
   ledger_id: D1I.ABL.G2
-  notes: All three G2 training runs, validation-selected checkpoints, and completion artifacts are centrally registered and
-    verified. Their three serial held-out-test evaluations remain queued.
+  notes: 'All three independent G2 training runs completed. Held-out test evidence: 0/3 passed evaluation, immutable evidence
+    validation, database import, and global audit; remaining evaluations run serially on Ross A6000.'
   paper_role: Strict incremental generation ablation
   parameters: RF; shifted t (shift=3); scale-shift
   parent_ledger_id: D1I.ABL.G1
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: TRAIN3_COMPLETE_TEST_QUEUED
+  status: TRAIN3_COMPLETE_TEST_QUEUED_0_OF_3_COMPLETE
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: ''
@@ -482,16 +483,15 @@ experiments:
   inference_seeds: '42'
   layer: Generation
   ledger_id: D1I.ABL.G3
-  notes: All three G3 training processes completed successfully. Seed 789's validation-best checkpoint is transferring to
-    the central evidence store over an intermittent connection; its held-out test remains dependency-gated until import. A
-    brief epoch-1 Ross fallback is excluded from evidence. DPM++ remains a separate inference comparison.
+  notes: 'All three independent G3 training runs completed. Held-out test evidence: 0/3 passed evaluation, immutable evidence
+    validation, database import, and global audit; remaining evaluations run serially on Ross A6000.'
   paper_role: Strict one-factor generation ablation
   parameters: RF; shifted t; AdaLN-Zero; Euler 1-step validation
   parent_ledger_id: D1I.ABL.G2
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: TRAIN3_COMPLETE_SYNC_PENDING_TEST_QUEUED
+  status: TRAIN3_COMPLETE_TEST_QUEUED_0_OF_3_COMPLETE
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: ''
@@ -527,15 +527,15 @@ experiments:
   inference_seeds: '42'
   layer: Generation
   ledger_id: D1I.INF.solver_steps
-  notes: 'All 36 fixed-parent test evaluations are queued serially: three independent KaryoFlow parents by Euler/Heun/DPM++
-    and one to four steps.'
+  notes: 0/36 fixed-parent solver/step held-out test evaluations passed the evidence/database audit; remaining tasks are serialized
+    on Ross A6000.
   paper_role: Solver/step accuracy-efficiency ablation
   parameters: 3 parents x {Euler,Heun,DPM++} x {1,2,3,4}; report steps and NFE
   parent_ledger_id: D1I.ABL.G3
   priority: P0
   replication_unit: fixed_checkpoint_by_training_parent
   run_count: 36
-  status: QUEUED_SERIAL_A4000
+  status: QUEUED_SERIAL_ROSS_0_OF_36_COMPLETE
   swanlab_project: ''
   swanlab_run_template: ''
   train_run_ids: ''
@@ -562,15 +562,15 @@ experiments:
   inference_seeds: '42'
   layer: Generation
   ledger_id: D1I.INF.topk_renewal
-  notes: 'All 30 fixed-parent test evaluations are queued serially: three independent KaryoFlow parents by five candidate
-    budgets and renewal on/off.'
+  notes: 0/30 fixed-parent Top-K/renewal held-out test evaluations passed the evidence/database audit; remaining tasks are
+    serialized on Ross A6000.
   paper_role: Identity/renewal and candidate-budget analysis
   parameters: 3 parents x K={100,150,200,300,500} x renewal={off,on}
   parent_ledger_id: D1I.ABL.G3
   priority: P1
   replication_unit: fixed_checkpoint_by_training_parent
   run_count: 30
-  status: QUEUED_SERIAL_A4000
+  status: QUEUED_SERIAL_ROSS_0_OF_30_COMPLETE
   swanlab_project: ''
   swanlab_run_template: ''
   train_run_ids: ''

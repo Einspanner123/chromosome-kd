@@ -1,0 +1,2730 @@
+schema_version: 1
+tasks:
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__strict-g0-ddpm-linear-scaleshift-r50__trainseed-42__78c13c85e64b
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  created_at: '2026-08-17T12:50:19.855367+00:00'
+  dependencies: []
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-g0-seed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-g0-seed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__strict-g0-ddpm-linear-scaleshift-r50__trainseed-123__78c13c85e64b
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  created_at: '2026-08-17T12:50:19.855452+00:00'
+  dependencies:
+  - d1-test-g0-seed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-g0-seed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-g0-seed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__strict-g1-rf-linear-scaleshift-r50__trainseed-42__09e5cb88a933
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  created_at: '2026-08-17T12:50:19.855512+00:00'
+  dependencies:
+  - d1-test-g0-seed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-g1-seed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-g1-seed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__strict-g1-rf-linear-scaleshift-r50__trainseed-123__09e5cb88a933
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  created_at: '2026-08-17T12:50:19.855569+00:00'
+  dependencies:
+  - d1-test-g1-seed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-g1-seed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-g1-seed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__strict-g1-rf-linear-scaleshift-r50__trainseed-789__09e5cb88a933
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  created_at: '2026-08-17T12:50:19.855623+00:00'
+  dependencies:
+  - d1-test-g1-seed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-g1-seed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-g1-seed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__strict-g2-rf-shifted-scaleshift-r50__trainseed-42__203180b73f2d
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  created_at: '2026-08-17T12:50:19.855675+00:00'
+  dependencies:
+  - d1-test-g1-seed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-g2-seed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-g2-seed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__strict-g2-rf-shifted-scaleshift-r50__trainseed-123__203180b73f2d
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  created_at: '2026-08-17T12:50:19.855732+00:00'
+  dependencies:
+  - d1-test-g2-seed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-g2-seed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-g2-seed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__strict-g2-rf-shifted-scaleshift-r50__trainseed-789__203180b73f2d
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  created_at: '2026-08-17T12:50:19.855785+00:00'
+  dependencies:
+  - d1-test-g2-seed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-g2-seed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-g2-seed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__strict-g3-rf-shifted-adaln-zero-r50__trainseed-42__8ee8741ec0a2
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  created_at: '2026-08-17T12:50:19.855834+00:00'
+  dependencies:
+  - d1-test-g2-seed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-g3-seed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-g3-seed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__strict-g3-rf-shifted-adaln-zero-r50__trainseed-123__8ee8741ec0a2
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  created_at: '2026-08-17T12:50:19.855884+00:00'
+  dependencies:
+  - d1-test-g3-seed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-g3-seed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-g3-seed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":1,"model.bbox_head.solver_type":"euler"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.855936+00:00'
+  dependencies:
+  - d1-test-g3-seed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-euler-s1-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-euler-s1-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":2,"model.bbox_head.solver_type":"euler"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.855992+00:00'
+  dependencies:
+  - d1-test-solver-euler-s1-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-euler-s2-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-euler-s2-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":3,"model.bbox_head.solver_type":"euler"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.856057+00:00'
+  dependencies:
+  - d1-test-solver-euler-s2-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-euler-s3-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-euler-s3-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":4,"model.bbox_head.solver_type":"euler"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.856110+00:00'
+  dependencies:
+  - d1-test-solver-euler-s3-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-euler-s4-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-euler-s4-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":1,"model.bbox_head.solver_type":"heun"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.856163+00:00'
+  dependencies:
+  - d1-test-solver-euler-s4-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-heun-s1-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-heun-s1-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":2,"model.bbox_head.solver_type":"heun"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.856214+00:00'
+  dependencies:
+  - d1-test-solver-heun-s1-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-heun-s2-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-heun-s2-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":3,"model.bbox_head.solver_type":"heun"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.856265+00:00'
+  dependencies:
+  - d1-test-solver-heun-s2-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-heun-s3-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-heun-s3-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":4,"model.bbox_head.solver_type":"heun"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.856316+00:00'
+  dependencies:
+  - d1-test-solver-heun-s3-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-heun-s4-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-heun-s4-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":1,"model.bbox_head.solver_type":"dpm_solver_pp"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.856373+00:00'
+  dependencies:
+  - d1-test-solver-heun-s4-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-dpmpp-s1-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-dpmpp-s1-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":2,"model.bbox_head.solver_type":"dpm_solver_pp"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.856424+00:00'
+  dependencies:
+  - d1-test-solver-dpmpp-s1-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-dpmpp-s2-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-dpmpp-s2-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":3,"model.bbox_head.solver_type":"dpm_solver_pp"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.856475+00:00'
+  dependencies:
+  - d1-test-solver-dpmpp-s2-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-dpmpp-s3-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-dpmpp-s3-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":4,"model.bbox_head.solver_type":"dpm_solver_pp"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.856525+00:00'
+  dependencies:
+  - d1-test-solver-dpmpp-s3-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-dpmpp-s4-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-dpmpp-s4-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":1,"model.bbox_head.solver_type":"euler"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.856575+00:00'
+  dependencies:
+  - d1-test-solver-dpmpp-s4-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-euler-s1-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-euler-s1-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":2,"model.bbox_head.solver_type":"euler"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.856624+00:00'
+  dependencies:
+  - d1-test-solver-euler-s1-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-euler-s2-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-euler-s2-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":3,"model.bbox_head.solver_type":"euler"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.856673+00:00'
+  dependencies:
+  - d1-test-solver-euler-s2-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-euler-s3-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-euler-s3-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":4,"model.bbox_head.solver_type":"euler"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.856735+00:00'
+  dependencies:
+  - d1-test-solver-euler-s3-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-euler-s4-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-euler-s4-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":1,"model.bbox_head.solver_type":"heun"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.856784+00:00'
+  dependencies:
+  - d1-test-solver-euler-s4-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-heun-s1-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-heun-s1-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":2,"model.bbox_head.solver_type":"heun"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.856838+00:00'
+  dependencies:
+  - d1-test-solver-heun-s1-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-heun-s2-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-heun-s2-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":3,"model.bbox_head.solver_type":"heun"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.856887+00:00'
+  dependencies:
+  - d1-test-solver-heun-s2-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-heun-s3-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-heun-s3-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":4,"model.bbox_head.solver_type":"heun"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.856937+00:00'
+  dependencies:
+  - d1-test-solver-heun-s3-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-heun-s4-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-heun-s4-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":1,"model.bbox_head.solver_type":"dpm_solver_pp"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.856986+00:00'
+  dependencies:
+  - d1-test-solver-heun-s4-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-dpmpp-s1-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-dpmpp-s1-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":2,"model.bbox_head.solver_type":"dpm_solver_pp"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.857038+00:00'
+  dependencies:
+  - d1-test-solver-dpmpp-s1-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-dpmpp-s2-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-dpmpp-s2-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":3,"model.bbox_head.solver_type":"dpm_solver_pp"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.857088+00:00'
+  dependencies:
+  - d1-test-solver-dpmpp-s2-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-dpmpp-s3-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-dpmpp-s3-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":4,"model.bbox_head.solver_type":"dpm_solver_pp"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.857136+00:00'
+  dependencies:
+  - d1-test-solver-dpmpp-s3-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-dpmpp-s4-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-dpmpp-s4-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":1,"model.bbox_head.solver_type":"euler"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.857185+00:00'
+  dependencies:
+  - d1-test-solver-dpmpp-s4-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-euler-s1-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-euler-s1-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":2,"model.bbox_head.solver_type":"euler"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.857235+00:00'
+  dependencies:
+  - d1-test-solver-euler-s1-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-euler-s2-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-euler-s2-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":3,"model.bbox_head.solver_type":"euler"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.857289+00:00'
+  dependencies:
+  - d1-test-solver-euler-s2-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-euler-s3-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-euler-s3-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":4,"model.bbox_head.solver_type":"euler"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.857336+00:00'
+  dependencies:
+  - d1-test-solver-euler-s3-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-euler-s4-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-euler-s4-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":1,"model.bbox_head.solver_type":"heun"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.857386+00:00'
+  dependencies:
+  - d1-test-solver-euler-s4-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-heun-s1-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-heun-s1-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":2,"model.bbox_head.solver_type":"heun"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.857435+00:00'
+  dependencies:
+  - d1-test-solver-heun-s1-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-heun-s2-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-heun-s2-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":3,"model.bbox_head.solver_type":"heun"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.857487+00:00'
+  dependencies:
+  - d1-test-solver-heun-s2-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-heun-s3-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-heun-s3-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":4,"model.bbox_head.solver_type":"heun"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.857536+00:00'
+  dependencies:
+  - d1-test-solver-heun-s3-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-heun-s4-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-heun-s4-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":1,"model.bbox_head.solver_type":"dpm_solver_pp"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.857586+00:00'
+  dependencies:
+  - d1-test-solver-heun-s4-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-dpmpp-s1-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-dpmpp-s1-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":2,"model.bbox_head.solver_type":"dpm_solver_pp"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.857636+00:00'
+  dependencies:
+  - d1-test-solver-dpmpp-s1-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-dpmpp-s2-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-dpmpp-s2-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":3,"model.bbox_head.solver_type":"dpm_solver_pp"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.857688+00:00'
+  dependencies:
+  - d1-test-solver-dpmpp-s2-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-dpmpp-s3-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-dpmpp-s3-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.sampling_timesteps":4,"model.bbox_head.solver_type":"dpm_solver_pp"}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_solver_test.yaml
+  created_at: '2026-08-17T12:50:19.857775+00:00'
+  dependencies:
+  - d1-test-solver-dpmpp-s3-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-solver-dpmpp-s4-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-solver-dpmpp-s4-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":false,"model.bbox_head.topk_k":100,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.857824+00:00'
+  dependencies:
+  - d1-test-solver-dpmpp-s4-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k100-renewal-off-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k100-renewal-off-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":true,"model.bbox_head.topk_k":100,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.857877+00:00'
+  dependencies:
+  - d1-test-topk-k100-renewal-off-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k100-renewal-on-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k100-renewal-on-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":false,"model.bbox_head.topk_k":150,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.857927+00:00'
+  dependencies:
+  - d1-test-topk-k100-renewal-on-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k150-renewal-off-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k150-renewal-off-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":true,"model.bbox_head.topk_k":150,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.857980+00:00'
+  dependencies:
+  - d1-test-topk-k150-renewal-off-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k150-renewal-on-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k150-renewal-on-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":false,"model.bbox_head.topk_k":200,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.858029+00:00'
+  dependencies:
+  - d1-test-topk-k150-renewal-on-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k200-renewal-off-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k200-renewal-off-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":true,"model.bbox_head.topk_k":200,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.858079+00:00'
+  dependencies:
+  - d1-test-topk-k200-renewal-off-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k200-renewal-on-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k200-renewal-on-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":false,"model.bbox_head.topk_k":300,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.858131+00:00'
+  dependencies:
+  - d1-test-topk-k200-renewal-on-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k300-renewal-off-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k300-renewal-off-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":true,"model.bbox_head.topk_k":300,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.858182+00:00'
+  dependencies:
+  - d1-test-topk-k300-renewal-off-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k300-renewal-on-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k300-renewal-on-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":false,"model.bbox_head.topk_k":500,"model.bbox_head.topk_pruning_enabled":false,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.858240+00:00'
+  dependencies:
+  - d1-test-topk-k300-renewal-on-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k500-renewal-off-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k500-renewal-off-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-42__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":true,"model.bbox_head.topk_k":500,"model.bbox_head.topk_pruning_enabled":false,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.858288+00:00'
+  dependencies:
+  - d1-test-topk-k500-renewal-off-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k500-renewal-on-trainseed42-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k500-renewal-on-trainseed42-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":false,"model.bbox_head.topk_k":100,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.858341+00:00'
+  dependencies:
+  - d1-test-topk-k500-renewal-on-trainseed42-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k100-renewal-off-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k100-renewal-off-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":true,"model.bbox_head.topk_k":100,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.858390+00:00'
+  dependencies:
+  - d1-test-topk-k100-renewal-off-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k100-renewal-on-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k100-renewal-on-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":false,"model.bbox_head.topk_k":150,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.858440+00:00'
+  dependencies:
+  - d1-test-topk-k100-renewal-on-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k150-renewal-off-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k150-renewal-off-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":true,"model.bbox_head.topk_k":150,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.858493+00:00'
+  dependencies:
+  - d1-test-topk-k150-renewal-off-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k150-renewal-on-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k150-renewal-on-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":false,"model.bbox_head.topk_k":200,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.858544+00:00'
+  dependencies:
+  - d1-test-topk-k150-renewal-on-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k200-renewal-off-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k200-renewal-off-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":true,"model.bbox_head.topk_k":200,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.858595+00:00'
+  dependencies:
+  - d1-test-topk-k200-renewal-off-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k200-renewal-on-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k200-renewal-on-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":false,"model.bbox_head.topk_k":300,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.858643+00:00'
+  dependencies:
+  - d1-test-topk-k200-renewal-on-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k300-renewal-off-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k300-renewal-off-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":true,"model.bbox_head.topk_k":300,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.858699+00:00'
+  dependencies:
+  - d1-test-topk-k300-renewal-off-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k300-renewal-on-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k300-renewal-on-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":false,"model.bbox_head.topk_k":500,"model.bbox_head.topk_pruning_enabled":false,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.858767+00:00'
+  dependencies:
+  - d1-test-topk-k300-renewal-on-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k500-renewal-off-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k500-renewal-off-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-123__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":true,"model.bbox_head.topk_k":500,"model.bbox_head.topk_pruning_enabled":false,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.858841+00:00'
+  dependencies:
+  - d1-test-topk-k500-renewal-off-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k500-renewal-on-trainseed123-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k500-renewal-on-trainseed123-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":false,"model.bbox_head.topk_k":100,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.858896+00:00'
+  dependencies:
+  - d1-test-topk-k500-renewal-on-trainseed123-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k100-renewal-off-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k100-renewal-off-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":true,"model.bbox_head.topk_k":100,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.858951+00:00'
+  dependencies:
+  - d1-test-topk-k100-renewal-off-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k100-renewal-on-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k100-renewal-on-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":false,"model.bbox_head.topk_k":150,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.859006+00:00'
+  dependencies:
+  - d1-test-topk-k100-renewal-on-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k150-renewal-off-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k150-renewal-off-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":true,"model.bbox_head.topk_k":150,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.859061+00:00'
+  dependencies:
+  - d1-test-topk-k150-renewal-off-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k150-renewal-on-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k150-renewal-on-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":false,"model.bbox_head.topk_k":200,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.859122+00:00'
+  dependencies:
+  - d1-test-topk-k150-renewal-on-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k200-renewal-off-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k200-renewal-off-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":true,"model.bbox_head.topk_k":200,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.859177+00:00'
+  dependencies:
+  - d1-test-topk-k200-renewal-off-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k200-renewal-on-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k200-renewal-on-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":false,"model.bbox_head.topk_k":300,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.859235+00:00'
+  dependencies:
+  - d1-test-topk-k200-renewal-on-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k300-renewal-off-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k300-renewal-off-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":true,"model.bbox_head.topk_k":300,"model.bbox_head.topk_pruning_enabled":true,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.859291+00:00'
+  dependencies:
+  - d1-test-topk-k300-renewal-off-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k300-renewal-on-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k300-renewal-on-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":false,"model.bbox_head.topk_k":500,"model.bbox_head.topk_pruning_enabled":false,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.859344+00:00'
+  dependencies:
+  - d1-test-topk-k300-renewal-on-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k500-renewal-off-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k500-renewal-off-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__karyoflow-r50__trainseed-789__5102e030f547
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  - --override-json
+  - '{"model.bbox_head.box_renewal":true,"model.bbox_head.topk_k":500,"model.bbox_head.topk_pruning_enabled":false,"model.bbox_head.topk_pruning_step":0}'
+  - --protocol-source
+  - experiments/configs/ablations/d1_topk_renewal_test.yaml
+  created_at: '2026-08-17T12:50:19.859399+00:00'
+  dependencies:
+  - d1-test-topk-k500-renewal-off-trainseed789-ross
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-topk-k500-renewal-on-trainseed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-topk-k500-renewal-on-trainseed789-ross
+  working_directory: .
+- attempt: 0
+  command:
+  - '{python}'
+  - tools/experiments/evaluate.py
+  - --train-run-id
+  - d1-inhouse1700-v2__strict-g3-rf-shifted-adaln-zero-r50__trainseed-789__8ee8741ec0a2
+  - --split
+  - test
+  - --inference-seed
+  - '42'
+  - --gpu-id
+  - '{gpu_id}'
+  - --status
+  - paper_eligible
+  - --no-import
+  - --output-root
+  - '{project_root}/{result_root}'
+  created_at: '2026-08-17T12:50:19.859453+00:00'
+  dependencies:
+  - d1-test-topk-k500-renewal-on-trainseed789-ross
+  - d1-g3-seed789
+  kind: accuracy_evaluation
+  postprocess:
+    evidence:
+      kind: run_evidence
+      path_glob: '{result_root}/**/run_evidence.json'
+    sync:
+      required: false
+  resource_id: ross:a6000:0
+  task_id: d1-test-g3-seed789-ross
+  variables:
+    result_root: results/v2/scheduled_evaluations/d1-test-g3-seed789-ross
+  working_directory: .

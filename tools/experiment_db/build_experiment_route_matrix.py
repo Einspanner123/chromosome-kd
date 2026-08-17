@@ -31,6 +31,7 @@ CSV_OUTPUT = ROOT / "tools/experiment_db/exports/paper_experiment_route_matrix.c
 DOC_OUTPUT = ROOT / "docs/experiments/PAPER_EXPERIMENT_ROUTE_MATRIX.md"
 DB = ROOT / "tools/experiment_db/experiments.db"
 CLAIM_MANIFEST = ROOT / "experiments/manifests/paper_claim_manifest.yaml"
+SCHEDULER_STATE = ROOT / "work_dirs/v2/scheduler/state.json"
 
 D1_MATRIX = "experiments/configs/matrices/d1_inhouse1700.yaml"
 D2_MATRIX = "experiments/configs/matrices/d2_taichung.yaml"
@@ -221,6 +222,98 @@ NOTES_OVERRIDE = {
     "D2.DEP.distill_h3.existing": "Inference identity is EXACT; the archived historical distillation training implementation is not executable in cleaned ldmdet.",
     "D2.DEP.speed": "Historical latency is valid under its recorded protocol but PARTIAL against the strict rerun protocol.",
 }
+
+
+def _scheduler_test_progress() -> dict[str, dict[str, int]]:
+    """Summarize only postprocess-verified D1 test-completion tasks.
+
+    A test contributes to ``completed`` only after evidence validation, database
+    import, and the scheduler's global database audit have all succeeded.  This
+    keeps the route matrix behind (never ahead of) the evidence database.
+    """
+    groups = {
+        "G0": {"completed": 1, "running": 0, "queued": 0, "total": 3},
+        "G1": {"completed": 0, "running": 0, "queued": 0, "total": 3},
+        "G2": {"completed": 0, "running": 0, "queued": 0, "total": 3},
+        "G3": {"completed": 0, "running": 0, "queued": 0, "total": 3},
+        "solver": {"completed": 0, "running": 0, "queued": 0, "total": 36},
+        "topk": {"completed": 0, "running": 0, "queued": 0, "total": 30},
+    }
+    if not SCHEDULER_STATE.exists():
+        return groups
+    try:
+        state = json.loads(SCHEDULER_STATE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return groups
+
+    def group_for(task_id: str) -> str | None:
+        if not task_id.endswith("-ross") or not task_id.startswith("d1-test-"):
+            return None
+        if task_id.startswith("d1-test-solver-"):
+            return "solver"
+        if task_id.startswith("d1-test-topk-"):
+            return "topk"
+        match = re.match(r"d1-test-g([0-3])-seed\d+-ross$", task_id)
+        return f"G{match.group(1)}" if match else None
+
+    for queue_name, counter_name in (("pending", "queued"), ("running", "running")):
+        for task in state.get(queue_name, []):
+            group = group_for(task.get("task_id", ""))
+            if group:
+                groups[group][counter_name] += 1
+    for task in state.get("completed", []):
+        group = group_for(task.get("task_id", ""))
+        if group and task.get("process_status") == "succeeded" and task.get("postprocess_status") == "succeeded":
+            groups[group]["completed"] += 1
+    return groups
+
+
+def _progress_status(progress: dict[str, int], *, train3: bool = False) -> str:
+    done, total = progress["completed"], progress["total"]
+    if done >= total:
+        return "COMPLETED_TEST_VERIFIED" if total > 3 else "COMPLETED_TEST3_VERIFIED"
+    if progress["running"]:
+        prefix = "TRAIN3_COMPLETE_TEST_RUNNING" if train3 else "TEST_RUNNING"
+    else:
+        prefix = "TRAIN3_COMPLETE_TEST_QUEUED" if train3 else "TEST_QUEUED"
+    return f"{prefix}_{done}_OF_{total}_COMPLETE"
+
+
+def _apply_d1_test_progress(rows: list[dict]) -> None:
+    """Overlay live test evidence progress on otherwise static route metadata."""
+    progress = _scheduler_test_progress()
+    by_id = {row["ledger_id"]: row for row in rows}
+    for stage in ("G0", "G1", "G2", "G3"):
+        row = by_id[f"D1I.ABL.{stage}"]
+        item = progress[stage]
+        row["status"] = _progress_status(item, train3=stage != "G0")
+        row["notes"] = (
+            f"All three independent {stage} training runs completed. "
+            f"Held-out test evidence: {item['completed']}/{item['total']} passed "
+            "evaluation, immutable evidence validation, database import, and "
+            "global audit; remaining evaluations run serially on Ross A6000."
+        )
+    # DiffusionDet is the G0 generation configuration and shares its evidence.
+    by_id["D1I.SOTA.diffusiondet"]["status"] = _progress_status(progress["G0"])
+    by_id["D1I.SOTA.diffusiondet"]["notes"] = by_id["D1I.ABL.G0"]["notes"]
+
+    for key, route_id, label in (
+        ("solver", "D1I.INF.solver_steps", "solver/step"),
+        ("topk", "D1I.INF.topk_renewal", "Top-K/renewal"),
+    ):
+        item = progress[key]
+        if item["completed"] >= item["total"]:
+            status = "COMPLETED_TEST_VERIFIED"
+        elif item["running"]:
+            status = f"RUNNING_SERIAL_ROSS_{item['completed']}_OF_{item['total']}_COMPLETE"
+        else:
+            status = f"QUEUED_SERIAL_ROSS_{item['completed']}_OF_{item['total']}_COMPLETE"
+        by_id[route_id]["status"] = status
+        by_id[route_id]["notes"] = (
+            f"{item['completed']}/{item['total']} fixed-parent {label} held-out "
+            "test evaluations passed the evidence/database audit; remaining "
+            "tasks are serialized on Ross A6000."
+        )
 
 
 def _method_name(path: str) -> str:
@@ -830,6 +923,7 @@ def build_rows() -> list[dict]:
             active_ids = _active_registered_runs(row, resolved)
             if active_ids:
                 row["database_ids"]["train_run_ids"] = active_ids
+    _apply_d1_test_progress(rows)
     return rows
 
 
@@ -933,9 +1027,9 @@ def write_doc(payload: dict, manifest_sha: str, artifact_id: str) -> None:
         "",
         "## 当前执行结论",
         "",
-        "- D1_INHOUSE1700_V2 的三条 canonical KaryoFlow 独立训练及 held-out test 已完成；三条 parent-matched LQCR 已完成训练，等待 held-out test 和 final-only tensor audit。",
+        "- D1_INHOUSE1700_V2 的 canonical KaryoFlow 与 parent-matched LQCR 三训练种子 held-out test 已完成并登记。",
         "- D2 使用作者原始公开划分；已完成证据直接作为主结果，确需补充的三训练种子实验统一延后到全部 D1 工作完成后，且未进入当前调度队列。",
-        "- D1 严格 G0/G1 三训练种子已完成；G2 已完成两条且一条运行中；G3 已完成一条且两条依赖排队。",
+        "- D1 严格 G0--G3 的三训练种子均已完成；held-out test、solver/step 和 Top-K/renewal 矩阵由串行队列补齐，状态随证据导入自动更新。",
         "- H3 推理身份可精确复现，但历史蒸馏训练实现仍需恢复；GACS 保持可选部署扩展。",
         "",
     ]
