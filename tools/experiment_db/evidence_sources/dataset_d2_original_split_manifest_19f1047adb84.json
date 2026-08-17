@@ -1,0 +1,134 @@
+{
+  "categories": [
+    {
+      "id": 1,
+      "name": "A1"
+    },
+    {
+      "id": 2,
+      "name": "A2"
+    },
+    {
+      "id": 3,
+      "name": "A3"
+    },
+    {
+      "id": 4,
+      "name": "B4"
+    },
+    {
+      "id": 5,
+      "name": "B5"
+    },
+    {
+      "id": 6,
+      "name": "C6"
+    },
+    {
+      "id": 7,
+      "name": "C7"
+    },
+    {
+      "id": 8,
+      "name": "C8"
+    },
+    {
+      "id": 9,
+      "name": "C9"
+    },
+    {
+      "id": 10,
+      "name": "C10"
+    },
+    {
+      "id": 11,
+      "name": "C11"
+    },
+    {
+      "id": 12,
+      "name": "C12"
+    },
+    {
+      "id": 13,
+      "name": "D13"
+    },
+    {
+      "id": 14,
+      "name": "D14"
+    },
+    {
+      "id": 15,
+      "name": "D15"
+    },
+    {
+      "id": 16,
+      "name": "E16"
+    },
+    {
+      "id": 17,
+      "name": "E17"
+    },
+    {
+      "id": 18,
+      "name": "E18"
+    },
+    {
+      "id": 19,
+      "name": "F19"
+    },
+    {
+      "id": 20,
+      "name": "F20"
+    },
+    {
+      "id": 21,
+      "name": "G21"
+    },
+    {
+      "id": 22,
+      "name": "G22"
+    },
+    {
+      "id": 23,
+      "name": "X"
+    },
+    {
+      "id": 24,
+      "name": "Y"
+    }
+  ],
+  "dataset_id": "D2",
+  "evidence_type": "frozen_coco_dataset_manifest",
+  "relative_data_root": "data/24_chromosomes_object/coco",
+  "schema_version": 1,
+  "split_protocol": "frozen original public 3500/500/1000 split",
+  "splits": {
+    "test": {
+      "annotation_path": "24_chromosomes_object/coco/test/_annotations.coco.json",
+      "annotation_sha256": "110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495",
+      "annotations": 45980,
+      "categories": 24,
+      "image_bytes": 96881917,
+      "image_inventory_sha256": "e0b955baa61f349106eca392d780977a77a9f2df24f96c9253e3306f1f4aa3ae",
+      "images": 1000
+    },
+    "train": {
+      "annotation_path": "24_chromosomes_object/coco/train/_annotations.coco.json",
+      "annotation_sha256": "218ae0ebb71ecfb186bdb0872101ac50179c22c69a586cad0366ef10a0d8d5f7",
+      "annotations": 160888,
+      "categories": 24,
+      "image_bytes": 335873159,
+      "image_inventory_sha256": "c26c1687d503b392f3c0d7581b870979e567207710e31505bc07e223498596f6",
+      "images": 3500
+    },
+    "valid": {
+      "annotation_path": "24_chromosomes_object/coco/valid/_annotations.coco.json",
+      "annotation_sha256": "bcf0f930dea7380a3d2d5e82b393b7576a5861d416c163ff2930985f9ee7ca10",
+      "annotations": 22984,
+      "categories": 24,
+      "image_bytes": 49592296,
+      "image_inventory_sha256": "9df86c8768a1dd9d2c029977df2c30274034d143b96acf82a5da16e6b30a5fb3",
+      "images": 500
+    }
+  }
+}

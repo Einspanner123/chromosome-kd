@@ -1,6 +1,7 @@
 """Taichung public cohort: 3500/500/1000 split under the v2 protocol."""
 
 dataset_id = 'D2'
+dataset_manifest_sha256 = '19f1047adb849520c1fcbd82afb54dbbf505a2006cfc84403e0043083ba3e3a9'
 train_annotation_sha256 = '218ae0ebb71ecfb186bdb0872101ac50179c22c69a586cad0366ef10a0d8d5f7'
 val_annotation_sha256 = 'bcf0f930dea7380a3d2d5e82b393b7576a5861d416c163ff2930985f9ee7ca10'
 test_annotation_sha256 = '110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495'
