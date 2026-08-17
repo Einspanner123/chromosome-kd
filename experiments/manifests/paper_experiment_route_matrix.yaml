@@ -526,7 +526,7 @@ experiments:
   inference_seeds: '42'
   layer: Generation
   ledger_id: D1I.INF.solver_steps
-  notes: 31/36 fixed-parent solver/step held-out test evaluations passed the evidence/database audit; remaining tasks are
+  notes: 32/36 fixed-parent solver/step held-out test evaluations passed the evidence/database audit; remaining tasks are
     serialized on Ross A6000.
   paper_role: Solver/step accuracy-efficiency ablation
   parameters: 3 parents x {Euler,Heun,DPM++} x {1,2,3,4}; report steps and NFE
@@ -534,7 +534,7 @@ experiments:
   priority: P0
   replication_unit: fixed_checkpoint_by_training_parent
   run_count: 36
-  status: QUEUED_SERIAL_ROSS_31_OF_36_COMPLETE
+  status: QUEUED_SERIAL_ROSS_32_OF_36_COMPLETE
   swanlab_project: ''
   swanlab_run_template: ''
   train_run_ids: ''
