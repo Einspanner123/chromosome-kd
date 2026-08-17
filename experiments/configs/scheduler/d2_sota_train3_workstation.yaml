@@ -1,0 +1,222 @@
+schema_version: 1
+
+postprocess_remote: &postprocess_remote
+  sync:
+    required: true
+    source: "{project_root}/{work_dir}"
+    destination: "{project_root}/{work_dir}"
+    exclude:
+      - epoch_*.pth
+      - vis_data/
+      - __pycache__/
+      - '*.pyc'
+  prepare_command:
+    - "{python}"
+    - tools/experiments/finalize_external_training.py
+    - --work-dir
+    - "{work_dir}"
+    - --executor
+    - "{executor}"
+    - --gpu-id
+    - "{gpu_id}"
+    - --gpu-name
+    - "{gpu_name}"
+  evidence:
+    kind: training_completion
+    path: "{work_dir}/training_completion.json"
+    executor: "{executor}"
+    tracker_run_name: "{tracker_name}"
+
+tasks:
+  - task_id: d2-sota-dino-seed123-ws-a5000
+    kind: training
+    resource_id: workstation:a5000:0
+    command: &dino_command
+      - "{python}"
+      - tools/experiments/launch.py
+      - --matrix
+      - experiments/configs/matrices/d2_taichung_sota_completion.yaml
+      - --method
+      - dino_r50
+      - --seed
+      - "{training_seed}"
+      - --executor
+      - "{executor}"
+      - --gpu-id
+      - "{gpu_id}"
+      - --launch
+    variables:
+      training_seed: 123
+      work_dir: work_dirs/v2/d2_sota_completion/dino_r50/trainseed_123
+      executor: workstation:a5000:0
+      gpu_name: NVIDIA RTX A5000
+      tracker_name: d2_sota_completion_dino_r50_seed123
+    postprocess: *postprocess_remote
+
+  - task_id: d2-sota-dino-seed789-ws-a5000
+    kind: training
+    resource_id: workstation:a5000:0
+    dependencies: [d2-sota-dino-seed123-ws-a5000]
+    command: *dino_command
+    variables:
+      training_seed: 789
+      work_dir: work_dirs/v2/d2_sota_completion/dino_r50/trainseed_789
+      executor: workstation:a5000:0
+      gpu_name: NVIDIA RTX A5000
+      tracker_name: d2_sota_completion_dino_r50_seed789
+    postprocess: *postprocess_remote
+
+  - task_id: d2-sota-diffusiondet-seed123-ws-a5000
+    kind: training
+    resource_id: workstation:a5000:0
+    dependencies: [d2-sota-dino-seed789-ws-a5000]
+    command: &diffusiondet_command
+      - "{python}"
+      - tools/experiments/launch.py
+      - --matrix
+      - experiments/configs/matrices/d2_taichung_sota_completion.yaml
+      - --method
+      - diffusiondet_ddpm
+      - --seed
+      - "{training_seed}"
+      - --executor
+      - "{executor}"
+      - --gpu-id
+      - "{gpu_id}"
+      - --launch
+    variables:
+      training_seed: 123
+      work_dir: work_dirs/v2/d2_sota_completion/diffusiondet_ddpm_r50/trainseed_123
+      executor: workstation:a5000:0
+      gpu_name: NVIDIA RTX A5000
+      tracker_name: d2_sota_completion_diffusiondet_ddpm_seed123
+    postprocess: *postprocess_remote
+
+  - task_id: d2-sota-diffusiondet-seed789-ws-a5000
+    kind: training
+    resource_id: workstation:a5000:0
+    dependencies: [d2-sota-diffusiondet-seed123-ws-a5000]
+    command: *diffusiondet_command
+    variables:
+      training_seed: 789
+      work_dir: work_dirs/v2/d2_sota_completion/diffusiondet_ddpm_r50/trainseed_789
+      executor: workstation:a5000:0
+      gpu_name: NVIDIA RTX A5000
+      tracker_name: d2_sota_completion_diffusiondet_ddpm_seed789
+    postprocess: *postprocess_remote
+
+  - task_id: d2-sota-cascade-seed123-ws-a5000
+    kind: training
+    resource_id: workstation:a5000:0
+    dependencies: [d2-sota-diffusiondet-seed789-ws-a5000]
+    command: &cascade_command
+      - "{python}"
+      - tools/experiments/launch.py
+      - --matrix
+      - experiments/configs/matrices/d2_taichung_sota_completion.yaml
+      - --method
+      - cascade_rcnn_r50
+      - --seed
+      - "{training_seed}"
+      - --executor
+      - "{executor}"
+      - --gpu-id
+      - "{gpu_id}"
+      - --launch
+    variables:
+      training_seed: 123
+      work_dir: work_dirs/v2/d2_sota_completion/cascade_rcnn_r50/trainseed_123
+      executor: workstation:a5000:0
+      gpu_name: NVIDIA RTX A5000
+      tracker_name: d2_sota_completion_cascade_rcnn_r50_seed123
+    postprocess: *postprocess_remote
+
+  - task_id: d2-sota-cascade-seed789-ws-a5000
+    kind: training
+    resource_id: workstation:a5000:0
+    dependencies: [d2-sota-cascade-seed123-ws-a5000]
+    command: *cascade_command
+    variables:
+      training_seed: 789
+      work_dir: work_dirs/v2/d2_sota_completion/cascade_rcnn_r50/trainseed_789
+      executor: workstation:a5000:0
+      gpu_name: NVIDIA RTX A5000
+      tracker_name: d2_sota_completion_cascade_rcnn_r50_seed789
+    postprocess: *postprocess_remote
+
+  - task_id: d2-sota-yolox-seed123-ws-a4000
+    kind: training
+    resource_id: workstation:a4000:1
+    command: &yolox_command
+      - "{python}"
+      - tools/experiments/launch.py
+      - --matrix
+      - experiments/configs/matrices/d2_taichung_sota_completion.yaml
+      - --method
+      - yolox_s
+      - --seed
+      - "{training_seed}"
+      - --executor
+      - "{executor}"
+      - --gpu-id
+      - "{gpu_id}"
+      - --launch
+    variables:
+      training_seed: 123
+      work_dir: work_dirs/v2/d2_sota_completion/yolox_s/trainseed_123
+      executor: workstation:a4000:1
+      gpu_name: NVIDIA RTX A4000
+      tracker_name: d2_sota_completion_yolox_s_seed123
+    postprocess: *postprocess_remote
+
+  - task_id: d2-sota-yolox-seed789-ws-a4000
+    kind: training
+    resource_id: workstation:a4000:1
+    dependencies: [d2-sota-yolox-seed123-ws-a4000]
+    command: *yolox_command
+    variables:
+      training_seed: 789
+      work_dir: work_dirs/v2/d2_sota_completion/yolox_s/trainseed_789
+      executor: workstation:a4000:1
+      gpu_name: NVIDIA RTX A4000
+      tracker_name: d2_sota_completion_yolox_s_seed789
+    postprocess: *postprocess_remote
+
+  - task_id: d2-sota-rtmdet-seed123-ws-a4000
+    kind: training
+    resource_id: workstation:a4000:1
+    dependencies: [d2-sota-yolox-seed789-ws-a4000]
+    command: &rtmdet_command
+      - "{python}"
+      - tools/experiments/launch.py
+      - --matrix
+      - experiments/configs/matrices/d2_taichung_sota_completion.yaml
+      - --method
+      - rtmdet_l
+      - --seed
+      - "{training_seed}"
+      - --executor
+      - "{executor}"
+      - --gpu-id
+      - "{gpu_id}"
+      - --launch
+    variables:
+      training_seed: 123
+      work_dir: work_dirs/v2/d2_sota_completion/rtmdet_l/trainseed_123
+      executor: workstation:a4000:1
+      gpu_name: NVIDIA RTX A4000
+      tracker_name: d2_sota_completion_rtmdet_l_seed123
+    postprocess: *postprocess_remote
+
+  - task_id: d2-sota-rtmdet-seed789-ws-a4000
+    kind: training
+    resource_id: workstation:a4000:1
+    dependencies: [d2-sota-rtmdet-seed123-ws-a4000]
+    command: *rtmdet_command
+    variables:
+      training_seed: 789
+      work_dir: work_dirs/v2/d2_sota_completion/rtmdet_l/trainseed_789
+      executor: workstation:a4000:1
+      gpu_name: NVIDIA RTX A4000
+      tracker_name: d2_sota_completion_rtmdet_l_seed789
+    postprocess: *postprocess_remote
