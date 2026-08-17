@@ -264,7 +264,11 @@ def _scheduler_test_progress() -> dict[str, dict[str, int]]:
                 groups[group][counter_name] += 1
     for task in state.get("completed", []):
         group = group_for(task.get("task_id", ""))
-        if group and task.get("process_status") == "succeeded" and task.get("postprocess_status") == "succeeded":
+        if (
+            group
+            and task.get("process_status") == "succeeded"
+            and task.get("postprocess", {}).get("status") == "succeeded"
+        ):
             groups[group]["completed"] += 1
     completing = os.environ.get("KARYOFLOW_COMPLETING_TASK_ID", "")
     completing_group = group_for(completing)
