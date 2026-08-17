@@ -561,7 +561,7 @@ experiments:
   inference_seeds: '42'
   layer: Generation
   ledger_id: D1I.INF.topk_renewal
-  notes: 20/30 fixed-parent Top-K/renewal held-out test evaluations passed the evidence/database audit; remaining tasks are
+  notes: 21/30 fixed-parent Top-K/renewal held-out test evaluations passed the evidence/database audit; remaining tasks are
     serialized on Ross A6000.
   paper_role: Identity/renewal and candidate-budget analysis
   parameters: 3 parents x K={100,150,200,300,500} x renewal={off,on}
@@ -569,7 +569,7 @@ experiments:
   priority: P1
   replication_unit: fixed_checkpoint_by_training_parent
   run_count: 30
-  status: QUEUED_SERIAL_ROSS_20_OF_30_COMPLETE
+  status: QUEUED_SERIAL_ROSS_21_OF_30_COMPLETE
   swanlab_project: ''
   swanlab_run_template: ''
   train_run_ids: ''
