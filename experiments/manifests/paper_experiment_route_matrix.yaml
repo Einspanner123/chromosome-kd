@@ -876,15 +876,16 @@ experiments:
   inference_seeds: '42'
   layer: Detector comparison
   ledger_id: D2.SOTA.diffusiondet.train3_supplement
-  notes: Do not enqueue until every required D1 experiment and evaluation is complete.
-  paper_role: Optional D2 three-training-run robustness supplement
+  notes: 'The historical seed-42 point and two newly scheduled independent runs form train3. New-run completion: 0/2; running=0,
+    queued=2.'
+  paper_role: D2 three-training-run robustness supplement
   parameters: same configuration and selection rule as existing checkpoint
   parent_ledger_id: ''
-  priority: P2
+  priority: P1
   replication_unit: independent_training_seed
   run_count: 3
-  status: DEFERRED_UNTIL_D1_COMPLETE
-  swanlab_project: ''
+  status: QUEUED_WORKSTATION_0_OF_2_COMPLETE
+  swanlab_project: KaryoFlow-D2-Train3-Completion
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
   variant: diffusiondet
@@ -894,7 +895,8 @@ experiments:
   matrix_config: experiments/configs/matrices/d2_taichung_sota_completion.yaml
   protocol_config: ''
   config_state: READY
-  server_plan: 123=workstation:A5000:0;789=ross:A6000:0 (A4000 for lighter model if exact config fits)
+  server_plan: seeds 123/789 on workstation; heavy models on A5000 and lighter models on A4000; held-out tests and evidence
+    import centralized on Ross
   output_template: work_dirs/v2/d2_sota_completion/diffusiondet_ddpm_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
@@ -908,7 +910,7 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 5.0e-05
-    scientific_config_sha256: 1f2950fb62e874bb7a73a0bd4bfcad6dd477a8c3756ffaac77a9b51f4e1326e5
+    scientific_config_sha256: 38ce140f3c3b1936ac7011257f6d27f15277d0b63f79df0ee0de3b8fad948621
     output_template: work_dirs/v2/d2_sota_completion/diffusiondet_ddpm_r50/trainseed_{training_seed}
 - acceptance_gate: must not be labeled three-training-seed
   dataset_id: D2
@@ -951,15 +953,16 @@ experiments:
   inference_seeds: '42'
   layer: Detector comparison
   ledger_id: D2.SOTA.dino_r50.train3_supplement
-  notes: Do not enqueue until every required D1 experiment and evaluation is complete.
-  paper_role: Optional D2 three-training-run robustness supplement
+  notes: 'The historical seed-42 point and two newly scheduled independent runs form train3. New-run completion: 0/2; running=1,
+    queued=1.'
+  paper_role: D2 three-training-run robustness supplement
   parameters: same configuration and selection rule as existing checkpoint
   parent_ledger_id: ''
-  priority: P2
+  priority: P1
   replication_unit: independent_training_seed
   run_count: 3
-  status: DEFERRED_UNTIL_D1_COMPLETE
-  swanlab_project: ''
+  status: TRAINING_WORKSTATION_0_OF_2_COMPLETE
+  swanlab_project: KaryoFlow-D2-Train3-Completion
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
   variant: dino_r50
@@ -969,7 +972,8 @@ experiments:
   matrix_config: experiments/configs/matrices/d2_taichung_sota_completion.yaml
   protocol_config: ''
   config_state: READY
-  server_plan: 123=workstation:A5000:0;789=ross:A6000:0 (A4000 for lighter model if exact config fits)
+  server_plan: seeds 123/789 on workstation; heavy models on A5000 and lighter models on A4000; held-out tests and evidence
+    import centralized on Ross
   output_template: work_dirs/v2/d2_sota_completion/dino_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
@@ -983,7 +987,7 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 2.5e-05
-    scientific_config_sha256: 74931f72cad1c9552882cdce138142e06b8c6d1db024e13360587fd03b8cd18a
+    scientific_config_sha256: cd93b7b70d7fe7d66700837b10c1293fc62c8d442151a01a5321b12d74192be1
     output_template: work_dirs/v2/d2_sota_completion/dino_r50/trainseed_{training_seed}
 - acceptance_gate: must not be labeled three-training-seed
   dataset_id: D2
@@ -1026,15 +1030,16 @@ experiments:
   inference_seeds: '42'
   layer: Detector comparison
   ledger_id: D2.SOTA.rtmdet_l.train3_supplement
-  notes: Do not enqueue until every required D1 experiment and evaluation is complete.
-  paper_role: Optional D2 three-training-run robustness supplement
+  notes: 'The historical seed-42 point and two newly scheduled independent runs form train3. New-run completion: 0/2; running=0,
+    queued=2.'
+  paper_role: D2 three-training-run robustness supplement
   parameters: same configuration and selection rule as existing checkpoint
   parent_ledger_id: ''
-  priority: P2
+  priority: P1
   replication_unit: independent_training_seed
   run_count: 3
-  status: DEFERRED_UNTIL_D1_COMPLETE
-  swanlab_project: ''
+  status: QUEUED_WORKSTATION_0_OF_2_COMPLETE
+  swanlab_project: KaryoFlow-D2-Train3-Completion
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
   variant: rtmdet_l
@@ -1044,7 +1049,8 @@ experiments:
   matrix_config: experiments/configs/matrices/d2_taichung_sota_completion.yaml
   protocol_config: ''
   config_state: READY
-  server_plan: 123=workstation:A5000:0;789=ross:A6000:0 (A4000 for lighter model if exact config fits)
+  server_plan: seeds 123/789 on workstation; heavy models on A5000 and lighter models on A4000; held-out tests and evidence
+    import centralized on Ross
   output_template: work_dirs/v2/d2_sota_completion/rtmdet_l/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
@@ -1058,7 +1064,7 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 0.0001
-    scientific_config_sha256: 8123363a089ba0db575b9a2c095477ffe3a5dc4e999418e820d710413ff45ee7
+    scientific_config_sha256: 0d6050a0973de6b415504d252660b7dc841ceefb9c89b2d8fe217d2c7de59c2b
     output_template: work_dirs/v2/d2_sota_completion/rtmdet_l/trainseed_{training_seed}
 - acceptance_gate: must not be labeled three-training-seed
   dataset_id: D2
@@ -1101,15 +1107,16 @@ experiments:
   inference_seeds: '42'
   layer: Detector comparison
   ledger_id: D2.SOTA.cascade_rcnn_r50.train3_supplement
-  notes: Do not enqueue until every required D1 experiment and evaluation is complete.
-  paper_role: Optional D2 three-training-run robustness supplement
+  notes: 'The historical seed-42 point and two newly scheduled independent runs form train3. New-run completion: 0/2; running=0,
+    queued=2.'
+  paper_role: D2 three-training-run robustness supplement
   parameters: same configuration and selection rule as existing checkpoint
   parent_ledger_id: ''
-  priority: P2
+  priority: P1
   replication_unit: independent_training_seed
   run_count: 3
-  status: DEFERRED_UNTIL_D1_COMPLETE
-  swanlab_project: ''
+  status: QUEUED_WORKSTATION_0_OF_2_COMPLETE
+  swanlab_project: KaryoFlow-D2-Train3-Completion
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
   variant: cascade_rcnn_r50
@@ -1119,7 +1126,8 @@ experiments:
   matrix_config: experiments/configs/matrices/d2_taichung_sota_completion.yaml
   protocol_config: ''
   config_state: READY
-  server_plan: 123=workstation:A5000:0;789=ross:A6000:0 (A4000 for lighter model if exact config fits)
+  server_plan: seeds 123/789 on workstation; heavy models on A5000 and lighter models on A4000; held-out tests and evidence
+    import centralized on Ross
   output_template: work_dirs/v2/d2_sota_completion/cascade_rcnn_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
@@ -1133,7 +1141,7 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 0.0001
-    scientific_config_sha256: 4eaeab5360c8eb44eae0cd0d0ac3ee44ebf8c3fbada64a09a052e9d6ca4826d0
+    scientific_config_sha256: c4cf2f248bc75e7f5edb4bfc8f25169fa7fd60ec6cd6cb18aa74c886c2afeab3
     output_template: work_dirs/v2/d2_sota_completion/cascade_rcnn_r50/trainseed_{training_seed}
 - acceptance_gate: must not be labeled three-training-seed
   dataset_id: D2
@@ -1176,15 +1184,16 @@ experiments:
   inference_seeds: '42'
   layer: Detector comparison
   ledger_id: D2.SOTA.yolox_s.train3_supplement
-  notes: Do not enqueue until every required D1 experiment and evaluation is complete.
-  paper_role: Optional D2 three-training-run robustness supplement
+  notes: 'The historical seed-42 point and two newly scheduled independent runs form train3. New-run completion: 0/2; running=1,
+    queued=1.'
+  paper_role: D2 three-training-run robustness supplement
   parameters: same configuration and selection rule as existing checkpoint
   parent_ledger_id: ''
-  priority: P2
+  priority: P1
   replication_unit: independent_training_seed
   run_count: 3
-  status: DEFERRED_UNTIL_D1_COMPLETE
-  swanlab_project: ''
+  status: TRAINING_WORKSTATION_0_OF_2_COMPLETE
+  swanlab_project: KaryoFlow-D2-Train3-Completion
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
   variant: yolox_s
@@ -1194,7 +1203,8 @@ experiments:
   matrix_config: experiments/configs/matrices/d2_taichung_sota_completion.yaml
   protocol_config: ''
   config_state: READY
-  server_plan: 123=workstation:A5000:0;789=ross:A6000:0 (A4000 for lighter model if exact config fits)
+  server_plan: seeds 123/789 on workstation; heavy models on A5000 and lighter models on A4000; held-out tests and evidence
+    import centralized on Ross
   output_template: work_dirs/v2/d2_sota_completion/yolox_s/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
@@ -1208,7 +1218,7 @@ experiments:
     max_epochs: 200
     optimizer: AdamW
     base_lr: 0.0001
-    scientific_config_sha256: ba9d806ae7b79bb956b001d652998a6100b9284d8b49eddb890d3cdbe6316507
+    scientific_config_sha256: 85dc2a54abcbdd8bf85a10b0b4340cb162e7277964df16962e29cb4e26371eef
     output_template: work_dirs/v2/d2_sota_completion/yolox_s/trainseed_{training_seed}
 - acceptance_gate: never report adjacent deltas as isolated effects
   dataset_id: D2
@@ -1282,7 +1292,7 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 5.0e-05
-    scientific_config_sha256: 1f2950fb62e874bb7a73a0bd4bfcad6dd477a8c3756ffaac77a9b51f4e1326e5
+    scientific_config_sha256: 38ce140f3c3b1936ac7011257f6d27f15277d0b63f79df0ee0de3b8fad948621
     output_template: work_dirs/v2/d2_generation/strict_g0_ddpm_linear_scaleshift_r50/trainseed_{training_seed}
 - acceptance_gate: only named factor changes; same batch/optimizer/selection; six test metrics
   dataset_id: D2
@@ -1323,7 +1333,7 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 5.0e-05
-    scientific_config_sha256: 94efa3205faf874181ecb5d221a241e4fed6bb0909b181c90be76da6861d93e4
+    scientific_config_sha256: 4a4c3ce733f0a49c110831e4cbd4247a048eb699fdcac070c762d93d712bbe55
     output_template: work_dirs/v2/d2_generation/strict_g1_rf_linear_scaleshift_r50/trainseed_{training_seed}
 - acceptance_gate: only named factor changes; same batch/optimizer/selection; six test metrics
   dataset_id: D2
@@ -1364,7 +1374,7 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 5.0e-05
-    scientific_config_sha256: 2a5511399155153750bdf63220fa087d2fe2cc91bcacd45e210777abe8821952
+    scientific_config_sha256: f4244fa89345af78958a609fa470104f3478ad5bcf063f829a5c46044ef939cc
     output_template: work_dirs/v2/d2_generation/strict_g2_rf_shifted_scaleshift_r50/trainseed_{training_seed}
 - acceptance_gate: only time conditioning changes from G2; common validation protocol
   dataset_id: D2
@@ -1405,7 +1415,7 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 5.0e-05
-    scientific_config_sha256: 2936f80312fdace06cc9c757ba8f4498c617e7dee0429357a6bd2e01c6455834
+    scientific_config_sha256: bc99b23b0dc8836f878cdc46529daa5e272205189cd228a48fb0d93ea4d9d377
     output_template: work_dirs/v2/d2_generation/strict_g3_rf_shifted_adaln_zero_r50/trainseed_{training_seed}
 - acceptance_gate: label fixed-checkpoint; not training replication
   dataset_id: D2
@@ -1683,7 +1693,7 @@ experiments:
     max_epochs: 50
     optimizer: AdamW
     base_lr: 1.0e-05
-    scientific_config_sha256: 32be68bece4478c3c864ea7dba73532480eecf99d7619d07ca633c552bb00aeb
+    scientific_config_sha256: cce8370a72233bcadcf4998db83315035be0cba07c49a067edcc0db1ef16a9dd
     output_template: work_dirs/v2/d2_distill_canonical/karyoflow_h3_distill_r50/trainseed_{training_seed}
 - acceptance_gate: D2 test plus A6000 speed before paper use
   dataset_id: D2
