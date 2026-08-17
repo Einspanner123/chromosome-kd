@@ -94,18 +94,18 @@ D2_LEGACY = {
 
 STATUS_OVERRIDE = {
     "D1I.SOTA.karyoflow": "COMPLETED_CENTRAL_TEST_VERIFIED",
-    "D1I.SOTA.diffusiondet": "TRAINING_COMPLETE_TEST_PENDING",
+    "D1I.SOTA.diffusiondet": "TEST_QUEUED_1_OF_3_COMPLETE",
     "D1I.SOTA.dino_r50": "PLANNED",
     "D1I.SOTA.rtmdet_l": "PLANNED",
     "D1I.SOTA.cascade_rcnn_r50": "PLANNED",
     "D1I.SOTA.yolox_s": "PLANNED",
-    "D1I.SOTA.karyoflow_lqcr": "TEST_PARTIAL_CENTRAL_1_OF_3",
-    "D1I.ABL.G0": "COMPLETED_TRAIN3_VERIFIED",
-    "D1I.ABL.G1": "COMPLETED_TRAIN3_VERIFIED",
-    "D1I.ABL.G2": "RUNNING_1_OF_3_WITH_2_COMPLETE",
-    "D1I.ABL.G3": "QUEUED_2_OF_3_WITH_1_COMPLETE",
-    "D1I.INF.solver_steps": "PLANNED",
-    "D1I.INF.topk_renewal": "PLANNED",
+    "D1I.SOTA.karyoflow_lqcr": "COMPLETED_CENTRAL_TEST_VERIFIED",
+    "D1I.ABL.G0": "TEST_QUEUED_1_OF_3_COMPLETE",
+    "D1I.ABL.G1": "TRAIN3_COMPLETE_TEST_QUEUED",
+    "D1I.ABL.G2": "TRAIN3_COMPLETE_TEST_QUEUED",
+    "D1I.ABL.G3": "TRAINING_2_RUNNING_TEST_QUEUED",
+    "D1I.INF.solver_steps": "QUEUED_SERIAL_A4000",
+    "D1I.INF.topk_renewal": "QUEUED_SERIAL_A4000",
     "D1I.DEC.beta_val": "BLOCKED_PARENT",
     "D1I.DEC.strict_subsets": "BLOCKED_PREDICTIONS",
     "D1I.DEP.distill_h3": "BLOCKED_PARENT",
@@ -175,23 +175,37 @@ NOTES_OVERRIDE = {
         "all three immutable config digests were preserved during evaluation."
     ),
     "D1I.SOTA.karyoflow_lqcr": (
-        "Three parent-matched quality-head runs completed training and were "
-        "centralized with checkpoint/config SHA verification. All three passed "
+        "All three parent-matched quality-head runs completed training, passed "
         "the final-only tensor audit (590 shared tensors unchanged; five "
-        "quality-head tensors added). Seed 789 has passed central held-out test "
-        "evaluation; seeds 42 and 123 await the same test protocol before the "
-        "paired train-seed aggregate."
+        "quality-head tensors added), and completed central held-out test "
+        "evaluation with immutable prediction and metric evidence."
     ),
     "D1I.ABL.G0": (
         "All three independent G0 runs completed with distinct validation-best "
-        "checkpoint SHA values. Their standardized completion artifacts were "
-        "centralized, registered, and passed the evidence-database audit."
+        "checkpoint SHA values. Seed 789 has verified test evidence; seeds 42 "
+        "and 123 are queued for the same held-out-test protocol."
     ),
     "D1I.ABL.G1": (
-        "All three independent G1 runs are active under the persistent Ross "
-        "scheduler; G2 and G3 remain dependency-gated per training seed."
+        "All three independent G1 runs completed training and are queued for "
+        "serial held-out-test evaluation on the accuracy worker."
     ),
-    "D1I.ABL.G3": "Strict one-factor AdaLN-Zero stage; canonical DPM++ remains a separate inference comparison.",
+    "D1I.ABL.G2": (
+        "All three G2 training processes completed; final evidence processing "
+        "and the three serial held-out-test evaluations are queued."
+    ),
+    "D1I.ABL.G3": (
+        "Seed 42 completed training while seeds 123 and 789 remain active. All "
+        "three held-out-test evaluations are preregistered in the serial queue; "
+        "canonical DPM++ remains a separate inference comparison."
+    ),
+    "D1I.INF.solver_steps": (
+        "All 36 fixed-parent test evaluations are queued serially: three "
+        "independent KaryoFlow parents by Euler/Heun/DPM++ and one to four steps."
+    ),
+    "D1I.INF.topk_renewal": (
+        "All 30 fixed-parent test evaluations are queued serially: three "
+        "independent KaryoFlow parents by five candidate budgets and renewal on/off."
+    ),
     "D2.ABL.historical_chain": "Historical foundation comparison only; never interpret adjacent rows as isolated cumulative effects.",
     "D2.DEP.distill_h3.existing": "Inference identity is EXACT; the archived historical distillation training implementation is not executable in cleaned ldmdet.",
     "D2.DEP.speed": "Historical latency is valid under its recorded protocol but PARTIAL against the strict rerun protocol.",
@@ -1016,6 +1030,10 @@ def main() -> None:
         "status_policy": {
             "COMPLETED_*": "evidence exists; scope is qualified by the suffix",
             "PLANNED": "v2 configuration is ready but no active valid run is registered",
+            "QUEUED_*": "a concrete scheduler task is registered; suffix describes completed or running prerequisites",
+            "TRAIN3_COMPLETE_TEST_QUEUED": "three training runs are registered and their held-out tests are queued",
+            "TRAINING_*": "training remains active; dependent test tasks are already registered",
+            "TEST_QUEUED_*": "held-out-test tasks are registered; suffix describes evidence already complete",
             "DEFERRED_UNTIL_D1_COMPLETE": "not queued; may start only after every required D1 task is complete",
             "BLOCKED_*": "a named prerequisite is missing",
             "PARTIAL_LEGACY": "legacy evidence exists but does not meet the current protocol",

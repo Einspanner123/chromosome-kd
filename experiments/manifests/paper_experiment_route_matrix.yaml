@@ -34,6 +34,10 @@ dataset_scope:
 status_policy:
   COMPLETED_*: evidence exists; scope is qualified by the suffix
   PLANNED: v2 configuration is ready but no active valid run is registered
+  QUEUED_*: a concrete scheduler task is registered; suffix describes completed or running prerequisites
+  TRAIN3_COMPLETE_TEST_QUEUED: three training runs are registered and their held-out tests are queued
+  TRAINING_*: training remains active; dependent test tasks are already registered
+  TEST_QUEUED_*: held-out-test tasks are registered; suffix describes evidence already complete
   DEFERRED_UNTIL_D1_COMPLETE: not queued; may start only after every required D1 task is complete
   BLOCKED_*: a named prerequisite is missing
   PARTIAL_LEGACY: legacy evidence exists but does not meet the current protocol
@@ -99,7 +103,7 @@ experiments:
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: TRAINING_COMPLETE_TEST_PENDING
+  status: TEST_QUEUED_1_OF_3_COMPLETE
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: d1-inhouse1700-v1__diffusiondet__trainseed-42__0362fd3e571b;d1-inhouse1700-v1__diffusiondet__trainseed-123__0362fd3e571b;d1-inhouse1700-v1__diffusiondet__trainseed-789__0362fd3e571b
@@ -302,17 +306,16 @@ experiments:
   inference_seeds: '42'
   layer: Decision
   ledger_id: D1I.SOTA.karyoflow_lqcr
-  notes: Three parent-matched quality-head runs completed training and were centralized with checkpoint/config SHA verification.
-    All three passed the final-only tensor audit (590 shared tensors unchanged; five quality-head tensors added). Seed 789
-    has passed central held-out test evaluation; seeds 42 and 123 await the same test protocol before the paired train-seed
-    aggregate.
+  notes: All three parent-matched quality-head runs completed training, passed the final-only tensor audit (590 shared tensors
+    unchanged; five quality-head tensors added), and completed central held-out test evaluation with immutable prediction
+    and metric evidence.
   paper_role: Independent decision contribution
   parameters: parent-matched final-only quality head; beta=2 selected on validation
   parent_ledger_id: D1I.SOTA.karyoflow
   priority: P0
   replication_unit: paired_final_stage_intervention
   run_count: 3
-  status: TEST_PARTIAL_CENTRAL_1_OF_3
+  status: COMPLETED_CENTRAL_TEST_VERIFIED
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: d1-inhouse1700-v1__karyoflow_lqcr__trainseed-42__7266ebe11ac0;d1-inhouse1700-v1__karyoflow_lqcr__trainseed-123__7266ebe11ac0;d1-inhouse1700-v1__karyoflow_lqcr__trainseed-789__7266ebe11ac0
@@ -350,15 +353,15 @@ experiments:
   inference_seeds: '42'
   layer: Generation
   ledger_id: D1I.ABL.G0
-  notes: All three independent G0 runs completed with distinct validation-best checkpoint SHA values. Their standardized completion
-    artifacts were centralized, registered, and passed the evidence-database audit.
+  notes: All three independent G0 runs completed with distinct validation-best checkpoint SHA values. Seed 789 has verified
+    test evidence; seeds 42 and 123 are queued for the same held-out-test protocol.
   paper_role: Strict incremental generation ablation
   parameters: DDPM; DDIM1; linear t; scale-shift
   parent_ledger_id: ''
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: COMPLETED_TRAIN3_VERIFIED
+  status: TEST_QUEUED_1_OF_3_COMPLETE
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: ''
@@ -393,15 +396,15 @@ experiments:
   inference_seeds: '42'
   layer: Generation
   ledger_id: D1I.ABL.G1
-  notes: All three independent G1 runs are active under the persistent Ross scheduler; G2 and G3 remain dependency-gated per
-    training seed.
+  notes: All three independent G1 runs completed training and are queued for serial held-out-test evaluation on the accuracy
+    worker.
   paper_role: Strict incremental generation ablation
   parameters: RF; Euler/locked validation protocol; linear t; scale-shift
   parent_ledger_id: D1I.ABL.G0
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: COMPLETED_TRAIN3_VERIFIED
+  status: TRAIN3_COMPLETE_TEST_QUEUED
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: ''
@@ -436,14 +439,15 @@ experiments:
   inference_seeds: '42'
   layer: Generation
   ledger_id: D1I.ABL.G2
-  notes: No active v2 run is currently registered.
+  notes: All three G2 training processes completed; final evidence processing and the three serial held-out-test evaluations
+    are queued.
   paper_role: Strict incremental generation ablation
   parameters: RF; shifted t (shift=3); scale-shift
   parent_ledger_id: D1I.ABL.G1
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: RUNNING_1_OF_3_WITH_2_COMPLETE
+  status: TRAIN3_COMPLETE_TEST_QUEUED
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: ''
@@ -478,14 +482,15 @@ experiments:
   inference_seeds: '42'
   layer: Generation
   ledger_id: D1I.ABL.G3
-  notes: Strict one-factor AdaLN-Zero stage; canonical DPM++ remains a separate inference comparison.
+  notes: Seed 42 completed training while seeds 123 and 789 remain active. All three held-out-test evaluations are preregistered
+    in the serial queue; canonical DPM++ remains a separate inference comparison.
   paper_role: Strict one-factor generation ablation
   parameters: RF; shifted t; AdaLN-Zero; Euler 1-step validation
   parent_ledger_id: D1I.ABL.G2
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: QUEUED_2_OF_3_WITH_1_COMPLETE
+  status: TRAINING_2_RUNNING_TEST_QUEUED
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: ''
@@ -500,7 +505,8 @@ experiments:
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
   output_template: work_dirs/v2/d1_generation/strict_g3_rf_shifted_adaln_zero_r50/trainseed_{training_seed}
   database_ids:
-    train_run_ids: []
+    train_run_ids:
+    - d1-inhouse1700-v2__strict-g3-rf-shifted-adaln-zero-r50__trainseed-123__8ee8741ec0a2
     result_family: generation_train_ablation_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
@@ -520,14 +526,15 @@ experiments:
   inference_seeds: '42'
   layer: Generation
   ledger_id: D1I.INF.solver_steps
-  notes: No active v2 run is currently registered.
+  notes: 'All 36 fixed-parent test evaluations are queued serially: three independent KaryoFlow parents by Euler/Heun/DPM++
+    and one to four steps.'
   paper_role: Solver/step accuracy-efficiency ablation
   parameters: 3 parents x {Euler,Heun,DPM++} x {1,2,3,4}; report steps and NFE
   parent_ledger_id: D1I.ABL.G3
   priority: P0
   replication_unit: fixed_checkpoint_by_training_parent
   run_count: 36
-  status: PLANNED
+  status: QUEUED_SERIAL_A4000
   swanlab_project: ''
   swanlab_run_template: ''
   train_run_ids: ''
@@ -554,14 +561,15 @@ experiments:
   inference_seeds: '42'
   layer: Generation
   ledger_id: D1I.INF.topk_renewal
-  notes: No active v2 run is currently registered.
+  notes: 'All 30 fixed-parent test evaluations are queued serially: three independent KaryoFlow parents by five candidate
+    budgets and renewal on/off.'
   paper_role: Identity/renewal and candidate-budget analysis
   parameters: 3 parents x K={100,150,200,300,500} x renewal={off,on}
   parent_ledger_id: D1I.ABL.G3
   priority: P1
   replication_unit: fixed_checkpoint_by_training_parent
   run_count: 30
-  status: PLANNED
+  status: QUEUED_SERIAL_A4000
   swanlab_project: ''
   swanlab_run_template: ''
   train_run_ids: ''
