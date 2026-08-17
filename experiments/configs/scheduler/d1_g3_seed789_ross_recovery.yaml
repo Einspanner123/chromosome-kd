@@ -1,0 +1,61 @@
+schema_version: 1
+tasks:
+- task_id: d1-g3-seed789
+  kind: training_recovery
+  resource_id: ross:a6000:0
+  dependencies:
+  - d1-g3-seed123
+  command:
+  - '{python}'
+  - tools/experiments/launch.py
+  - --matrix
+  - experiments/configs/matrices/d1_inhouse1700_generation_ablation.yaml
+  - --method
+  - strict_g3_rf_shifted_adaln_zero
+  - --seed
+  - '789'
+  - --output-dir
+  - '{work_dir}'
+  - --executor
+  - '{executor}'
+  - --gpu-id
+  - '{gpu_id}'
+  - --launch
+  variables:
+    work_dir: work_dirs/v2/d1_generation/strict_g3_rf_shifted_adaln_zero_r50/trainseed_789_ross_recovery
+    executor: ross:a6000:0
+    gpu_name: NVIDIA RTX A6000
+    tracker_name: d1_generation_strict_g3_rf_shifted_adaln_zero_seed789_ross_recovery
+  postprocess:
+    sync:
+      required: false
+    prepare_command:
+    - '{python}'
+    - tools/experiments/finalize_external_training.py
+    - --work-dir
+    - '{work_dir}'
+    - --executor
+    - '{executor}'
+    - --gpu-id
+    - '{gpu_id}'
+    - --gpu-name
+    - '{gpu_name}'
+    evidence:
+      kind: training_completion
+      path: '{work_dir}/training_completion.json'
+      executor: '{executor}'
+      tracker_run_name: '{tracker_name}'
+  recovery:
+    reason: workstation SSH remained unreachable; remote attempt is not imported
+    reassigned_at: '2026-08-17T09:50:42.375743+00:00'
+    abandoned_remote_attempt:
+      resource_id: workstation:a5000:0
+      started_at: '2026-08-17T05:53:45.575452+00:00'
+      worker:
+        checked_at: '2026-08-17T07:03:31.027781+00:00'
+        probe_error: 'ssh: connect to host 100.99.131.26 port 22: Connection timed
+          out'
+        probe_returncode: 255
+        probe_status: ssh_status_failed_retryable
+        status: running
+        task_id: d1-g3-seed789

@@ -482,15 +482,16 @@ experiments:
   inference_seeds: '42'
   layer: Generation
   ledger_id: D1I.ABL.G3
-  notes: Seed 42 completed training while seeds 123 and 789 remain active. All three held-out-test evaluations are preregistered
-    in the serial queue; canonical DPM++ remains a separate inference comparison.
+  notes: Seeds 42 and 123 completed training. After the workstation became unreachable, seed 789 was reassigned to an isolated
+    Ross recovery directory and is running on the A6000; the unreachable remote attempt is excluded from evidence import.
+    All three held-out tests remain preregistered; canonical DPM++ is a separate inference comparison.
   paper_role: Strict one-factor generation ablation
   parameters: RF; shifted t; AdaLN-Zero; Euler 1-step validation
   parent_ledger_id: D1I.ABL.G2
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: TRAINING_2_RUNNING_TEST_QUEUED
+  status: RECOVERY_RUNNING_2_OF_3_COMPLETE
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: ''
@@ -502,11 +503,11 @@ experiments:
   matrix_config: experiments/configs/matrices/d1_inhouse1700_generation_ablation.yaml
   protocol_config: ''
   config_state: READY
-  server_plan: 42=ross:A6000:0;123=ross:A6000:0;789=workstation:A5000:0
+  server_plan: 42=ross:A6000:0;123=ross:A6000:0;789=ross:A6000:0 (recovery)
   output_template: work_dirs/v2/d1_generation/strict_g3_rf_shifted_adaln_zero_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids:
-    - d1-inhouse1700-v2__strict-g3-rf-shifted-adaln-zero-r50__trainseed-123__8ee8741ec0a2
+    - d1-inhouse1700-v2__strict-g3-rf-shifted-adaln-zero-r50__trainseed-789__8ee8741ec0a2
     result_family: generation_train_ablation_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
