@@ -10,6 +10,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import os
 import re
 import sqlite3
 from collections import Counter
@@ -265,6 +266,16 @@ def _scheduler_test_progress() -> dict[str, dict[str, int]]:
         group = group_for(task.get("task_id", ""))
         if group and task.get("process_status") == "succeeded" and task.get("postprocess_status") == "succeeded":
             groups[group]["completed"] += 1
+    completing = os.environ.get("KARYOFLOW_COMPLETING_TASK_ID", "")
+    completing_group = group_for(completing)
+    already_counted = any(
+        task.get("task_id") == completing
+        and task.get("process_status") == "succeeded"
+        and task.get("postprocess", {}).get("status") == "succeeded"
+        for task in state.get("completed", [])
+    )
+    if completing_group and not already_counted:
+        groups[completing_group]["completed"] += 1
     return groups
 
 

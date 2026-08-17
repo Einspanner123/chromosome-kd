@@ -460,6 +460,82 @@ class Scheduler:
         if row != (payload['status'],):
             raise RuntimeError('evaluation evidence was not fully registered')
 
+    def refresh_and_commit_evidence(self, task: dict) -> dict:
+        """Refresh matrix derivatives and commit only controlled evidence files."""
+        commands = (
+            [
+                sys.executable,
+                '-m',
+                'tools.experiment_db.build_experiment_route_matrix',
+            ],
+            [
+                sys.executable,
+                '-m',
+                'tools.experiment_db.audit_experiment_route_matrix',
+            ],
+        )
+        environment = os.environ.copy()
+        environment['KARYOFLOW_COMPLETING_TASK_ID'] = task['task_id']
+        for command in commands:
+            subprocess.run(command, cwd=ROOT, env=environment, check=True)
+
+        allowed = {
+            'docs/experiments/PAPER_EXPERIMENT_ROUTE_MATRIX.md',
+            'experiments/manifests/paper_experiment_route_matrix.yaml',
+            'tools/experiment_db/experiments.db',
+            'tools/experiment_db/exports/paper_experiment_route_matrix.csv',
+        }
+        status = subprocess.run(
+            ['git', 'status', '--porcelain', '--untracked-files=no'],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        changed = {
+            line[3:].strip()
+            for line in status.stdout.splitlines()
+            if line.strip()
+        }
+        unexpected = sorted(changed - allowed)
+        if unexpected:
+            raise RuntimeError(
+                'refusing evidence commit with unexpected tracked changes: '
+                + ', '.join(unexpected)
+            )
+        if not changed:
+            return {'status': 'clean', 'commit': self.git_head()}
+        subprocess.run(
+            ['git', 'add', '--', *sorted(changed)], cwd=ROOT, check=True
+        )
+        staged = subprocess.run(
+            ['git', 'diff', '--cached', '--quiet'], cwd=ROOT, check=False
+        )
+        if staged.returncode == 1:
+            subprocess.run(
+                [
+                    'git',
+                    'commit',
+                    '-m',
+                    f'record evidence for {task["task_id"]}',
+                ],
+                cwd=ROOT,
+                check=True,
+            )
+        elif staged.returncode != 0:
+            raise RuntimeError('git diff --cached failed')
+        return {'status': 'committed', 'commit': self.git_head()}
+
+    @staticmethod
+    def git_head() -> str:
+        return subprocess.run(
+            ['git', 'rev-parse', 'HEAD'],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
     def postprocess(self, task: dict) -> dict:
         try:
             self.sync_artifacts(task)
@@ -476,10 +552,12 @@ class Scheduler:
                     cwd=ROOT,
                     check=True,
                 )
+                matrix_commit = self.refresh_and_commit_evidence(task)
             return {
                 'status': 'succeeded',
                 'finished_at': utc_now(),
                 'evidence': evidence,
+                'matrix_commit': matrix_commit,
             }
         except Exception as error:  # persisted for operator retry
             return {
