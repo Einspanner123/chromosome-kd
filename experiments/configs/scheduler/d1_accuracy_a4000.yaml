@@ -1,7 +1,7 @@
 schema_version: 1
 
 tasks:
-  - task_id: d1-test-g0-seed789-current-code
+  - task_id: d1-test-g0-seed789-protocol-glob-v2
     kind: accuracy_evaluation
     resource_id: workstation:a4000:1
     command:
@@ -19,7 +19,7 @@ tasks:
       - paper_eligible
       - --no-import
       - --output-root
-      - "{result_root}"
+      - "{project_root}/{result_root}"
     variables:
       result_root: results/v2/scheduled_evaluations/d1-test-g0-seed789-current-code
     postprocess:

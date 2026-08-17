@@ -382,7 +382,8 @@ class Scheduler:
             subprocess.run(
                 [
                     sys.executable,
-                    str(ROOT / 'tools/experiment_db/validate_run_evidence.py'),
+                    '-m',
+                    'tools.experiment_db.validate_run_evidence',
                     str(path),
                     '--verify-files',
                 ],
@@ -392,7 +393,8 @@ class Scheduler:
             subprocess.run(
                 [
                     sys.executable,
-                    str(ROOT / 'tools/experiment_db/import_run_evidence.py'),
+                    '-m',
+                    'tools.experiment_db.import_run_evidence',
                     str(path),
                 ],
                 cwd=ROOT,
