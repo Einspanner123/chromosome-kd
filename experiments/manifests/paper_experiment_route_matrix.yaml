@@ -440,7 +440,7 @@ experiments:
   inference_seeds: '42'
   layer: Generation
   ledger_id: D1I.ABL.G2
-  notes: 'All three independent G2 training runs completed. Held-out test evidence: 1/3 passed evaluation, immutable evidence
+  notes: 'All three independent G2 training runs completed. Held-out test evidence: 2/3 passed evaluation, immutable evidence
     validation, database import, and global audit; remaining evaluations run serially on Ross A6000.'
   paper_role: Strict incremental generation ablation
   parameters: RF; shifted t (shift=3); scale-shift
@@ -448,7 +448,7 @@ experiments:
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: TRAIN3_COMPLETE_TEST_QUEUED_1_OF_3_COMPLETE
+  status: TRAIN3_COMPLETE_TEST_QUEUED_2_OF_3_COMPLETE
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: ''
