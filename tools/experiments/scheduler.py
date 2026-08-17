@@ -185,7 +185,12 @@ class Scheduler:
             'task_id': task['task_id'],
         }
         values.update(task.get('variables', {}))
-        return value.format(**values)
+        # Replace only scheduler-owned placeholders.  Command arguments may
+        # legitimately contain JSON objects whose braces must remain literal.
+        rendered = value
+        for key, replacement in values.items():
+            rendered = rendered.replace('{' + key + '}', str(replacement))
+        return rendered
 
     def rendered_command(self, task: dict, host: dict) -> list[str]:
         return [self.render(item, task, host) for item in task['command']]
