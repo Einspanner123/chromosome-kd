@@ -40,7 +40,7 @@ D2_GENERATION_MATRIX = "experiments/configs/matrices/d2_taichung_generation_abla
 D2_SOTA_COMPLETION_MATRIX = "experiments/configs/matrices/d2_taichung_sota_completion.yaml"
 D1_DISTILL_MATRIX = "experiments/configs/matrices/d1_inhouse1700_head_distill.yaml"
 D2_DISTILL_MATRIX = "experiments/configs/matrices/d2_taichung_head_distill_canonical.yaml"
-D2_CANONICAL_DATASET = "D2_TAICHUNG5000_V2"
+D2_CANONICAL_DATASET = "D2_TAICHUNG5000_V2"  # legacy builder token; normalized before export
 
 METHODS = {
     "diffusiondet": "experiments/configs/methods/diffusiondet_ddpm.py",
@@ -94,16 +94,16 @@ D2_LEGACY = {
 
 STATUS_OVERRIDE = {
     "D1I.SOTA.karyoflow": "COMPLETED_CENTRAL_TEST_VERIFIED",
-    "D1I.SOTA.diffusiondet": "PLANNED",
+    "D1I.SOTA.diffusiondet": "TRAINING_COMPLETE_TEST_PENDING",
     "D1I.SOTA.dino_r50": "PLANNED",
     "D1I.SOTA.rtmdet_l": "PLANNED",
     "D1I.SOTA.cascade_rcnn_r50": "PLANNED",
     "D1I.SOTA.yolox_s": "PLANNED",
     "D1I.SOTA.karyoflow_lqcr": "TEST_PARTIAL_CENTRAL_1_OF_3",
     "D1I.ABL.G0": "COMPLETED_TRAIN3_VERIFIED",
-    "D1I.ABL.G1": "RUNNING_DISTRIBUTED_3_OF_3",
-    "D1I.ABL.G2": "PLANNED",
-    "D1I.ABL.G3": "PLANNED",
+    "D1I.ABL.G1": "COMPLETED_TRAIN3_VERIFIED",
+    "D1I.ABL.G2": "RUNNING_1_OF_3_WITH_2_COMPLETE",
+    "D1I.ABL.G3": "QUEUED_2_OF_3_WITH_1_COMPLETE",
     "D1I.INF.solver_steps": "PLANNED",
     "D1I.INF.topk_renewal": "PLANNED",
     "D1I.DEC.beta_val": "BLOCKED_PARENT",
@@ -527,6 +527,92 @@ def _upgrade_scientific_routes(rows: list[dict]) -> list[dict]:
     return rows
 
 
+def _normalize_original_d2_routes(rows: list[dict]) -> list[dict]:
+    """Restore the publisher-provided D2 split as the paper authority."""
+    drop = {
+        "D2.SOTA.karyoflow_canonical_train3",
+        "D2.SOTA.karyoflow_canonical_lqcr_train3",
+        "D2.DEP.speed.canonical",
+        "D2.DEC.strict_subsets.canonical",
+    }
+    rename = {
+        "D2.HIST.karyoflow_ot_train3": "D2.SOTA.karyoflow_train3",
+        "D2.HIST.karyoflow_ot_lqcr_train3": "D2.SOTA.karyoflow_lqcr_train3",
+        "D2.DEP.speed.legacy": "D2.DEP.speed",
+        "D2.DEC.beta_val.canonical": "D2.DEC.beta_val",
+    }
+    parent_rename = {
+        "D2.HIST.karyoflow_ot_train3": "D2.SOTA.karyoflow_train3",
+        "D2.HIST.karyoflow_ot_lqcr_train3": "D2.SOTA.karyoflow_lqcr_train3",
+        "D2.SOTA.karyoflow_canonical_train3": "D2.SOTA.karyoflow_train3",
+        "D2.SOTA.karyoflow_canonical_lqcr_train3": "D2.SOTA.karyoflow_lqcr_train3",
+    }
+    normalized = []
+    for row in rows:
+        if row["ledger_id"] in drop:
+            continue
+        row["ledger_id"] = rename.get(row["ledger_id"], row["ledger_id"])
+        row["parent_ledger_id"] = parent_rename.get(
+            row.get("parent_ledger_id", ""), row.get("parent_ledger_id", "")
+        )
+        if row.get("dataset_id") == D2_CANONICAL_DATASET:
+            row["dataset_id"] = "D2"
+        normalized.append(row)
+
+    by_id = {row["ledger_id"]: row for row in normalized}
+    by_id["D2.SOTA.karyoflow_train3"].update(
+        layer="Detector comparison", family="SOTA", priority="P0",
+        paper_role="Original-split D2 main detector",
+        notes="Verified three-independent-training-run evidence on the publisher-provided original D2 split.",
+    )
+    by_id["D2.SOTA.karyoflow_lqcr_train3"].update(
+        layer="Decision", family="SOTA", priority="P0",
+        paper_role="Original-split D2 paired LQCR effect",
+        notes="Verified parent-matched three-training-run evidence on the publisher-provided original D2 split.",
+    )
+    for variant in D2_LEGACY:
+        existing = by_id[f"D2.SOTA.{variant}.existing"]
+        existing.update(
+            layer="Detector comparison", family="SOTA", priority="P0",
+            paper_role="Original-split D2 benchmark point estimate",
+            notes="Recorded test result on the publisher-provided original D2 split.",
+        )
+        supplement = by_id[f"D2.SOTA.{variant}.canonical_train3"]
+        supplement["ledger_id"] = f"D2.SOTA.{variant}.train3_supplement"
+        supplement.update(
+            dataset_id="D2", status="DEFERRED_UNTIL_D1_COMPLETE", priority="P2",
+            paper_role="Optional D2 three-training-run robustness supplement",
+            notes="Do not enqueue until every required D1 experiment and evaluation is complete.",
+        )
+
+    for rid in {
+        "D2.ABL.strict.G0", "D2.ABL.strict.G1", "D2.ABL.strict.G2", "D2.ABL.strict.G3",
+        "D2.INF.solver_steps.train3", "D2.INF.topk_renewal.train3", "D2.DEP.distill_h3.train3",
+    }:
+        by_id[rid].update(
+            dataset_id="D2", status="DEFERRED_UNTIL_D1_COMPLETE", priority="P2",
+            notes="D2 three-training-run supplement; do not enqueue until all required D1 work is complete.",
+        )
+
+    by_id["D2.DEP.speed"].update(
+        layer="Deployment", priority="P0",
+        paper_role="Original-split D2 speed-accuracy evidence",
+        notes="Use original-split accuracy and the unified A6000 latency protocol; no repaired-split rerun.",
+    )
+    by_id["D2.DEC.beta_val"].update(
+        dataset_id="D2", status="REVIEW_EXISTING_VALIDATION_SELECTION",
+        parent_ledger_id="D2.SOTA.karyoflow_lqcr_train3",
+        paper_role="Original-split D2 validation selection; never a test claim",
+        notes="Recover and bind existing validation-selection evidence; no retraining is required.",
+    )
+    for rid in ("D2.DATA.test_characterization", "D2.DEC.quality_validity", "D2.ANALYSIS.per_class"):
+        by_id[rid]["dataset_id"] = "D2"
+    by_id["D2.DEC.quality_validity"]["parent_ledger_id"] = "D2.SOTA.karyoflow_lqcr_train3"
+    by_id["D2.ANALYSIS.per_class"]["parent_ledger_id"] = "D2.SOTA.karyoflow_lqcr_train3"
+    by_id["D2.DEP.GACS"]["dataset_id"] = "D2"
+    return normalized
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -705,7 +791,7 @@ def build_rows() -> list[dict]:
                     row["swanlab_project"] = "KaryoFlow-HeadDistill-D2-V2"
 
         rows.append(row)
-    rows = _upgrade_scientific_routes(rows)
+    rows = _normalize_original_d2_routes(_upgrade_scientific_routes(rows))
     for row in rows:
         resolved = _resolved_training_metadata(row)
         row["resolved_training"] = resolved or {}
@@ -776,18 +862,15 @@ def write_doc(payload: dict, manifest_sha: str, artifact_id: str) -> None:
         "## 数据与统计口径",
         "",
         "- `D1_INHOUSE1700_V2`：1190/170/340，纯自建、D2 类别 ID 对齐、group-disjoint 70/10/20 划分。",
-        "- `D2_TAICHUNG5000_V2`：3500/500/1000，保持70/10/20并修复原划分中两个跨split完全重复组。",
-        "- `D2`：作者原始划分的历史证据；存在两个train/validation完全重复组，仅作归档。",
+        "- `D2`：3500/500/1000，使用作者发布的原始公开划分，以保持与既有 benchmark 和历史权重直接可比。",
+        "- repaired-split 不再作为论文数据口径；相关数据、配置、路线和数据库发布记录均不保留。",
         "- 训练复现以不同训练 checkpoint 为统计单位；固定 checkpoint 的推理 seed 不得冒充训练 seed。",
         "- 主精度只允许 held-out test；validation 只用于 checkpoint/超参数选择。",
         "- 效率只允许按 A6000 严格协议比较；服务器名称只存在内部路线矩阵，不进入论文。",
         "",
         "## 路线矩阵",
     ]
-    for dataset in (
-        "D1_INHOUSE1700_V2", "D2_TAICHUNG5000_V2", "D2",
-        "D1_COMPOSITE2200_LEGACY",
-    ):
+    for dataset in ("D1_INHOUSE1700_V2", "D2", "D1_COMPOSITE2200_LEGACY"):
         lines += ["", f"### {dataset}", ""]
         for layer in (
             "Data", "Detector comparison", "Generation", "Decision",
@@ -824,8 +907,8 @@ def write_doc(payload: dict, manifest_sha: str, artifact_id: str) -> None:
         "## 当前执行结论",
         "",
         "- D1_INHOUSE1700_V2 的三条 canonical KaryoFlow 独立训练及 held-out test 已完成；三条 parent-matched LQCR 已完成训练，等待 held-out test 和 final-only tensor audit。",
-        "- D2作者原始划分的历史证据已隔离；D2_TAICHUNG5000_V2上的canonical模型仍必须重新训练。",
-        "- 严格 G0 三训练种子已完成并登记；G1 三训练种子正在运行，G2→G3 按种子依赖顺序排队。",
+        "- D2 使用作者原始公开划分；已完成证据直接作为主结果，确需补充的三训练种子实验统一延后到全部 D1 工作完成后，且未进入当前调度队列。",
+        "- D1 严格 G0/G1 三训练种子已完成；G2 已完成两条且一条运行中；G3 已完成一条且两条依赖排队。",
         "- H3 推理身份可精确复现，但历史蒸馏训练实现仍需恢复；GACS 保持可选部署扩展。",
         "",
     ]
@@ -919,23 +1002,21 @@ def main() -> None:
                     "test": "883696b8e60cc901cfe92b3f009d8c60e7b8cefbb5ba9ce3c742c3720343f08f",
                 },
             },
-            "D2_TAICHUNG5000_V2": {
+            "D2": {
                 "split_images": [3500, 500, 1000],
-                "role": "external Taichung cohort with exact-duplicate group repair",
-                "manifest_artifact_id": "dataset-d2-v2-2afb47fe5c2a",
-                "manifest_sha256": "2afb47fe5c2ab8a707a6f355dd5588bb5aeba16d36b065896f1fff6f76ff37b4",
+                "role": "external Taichung cohort; publisher-provided original benchmark split",
                 "annotation_sha256": {
-                    "train": "bcd16896a140e3ce780af790f3e58a62886c3d4608d04014fe1468519cc373f3",
-                    "val": "b8477afa3d6ce8c88459c4df336103b240d3e9a220fdca43d6e4712ca7b3d733",
-                    "test": "bef67bf2bfe36deb94f2fb1a11e6d85f9bf4dd198ea696750c511fe4fe5de3cb",
+                    "train": "218ae0ebb71ecfb186bdb0872101ac50179c22c69a586cad0366ef10a0d8d5f7",
+                    "val": "bcf0f930dea7380a3d2d5e82b393b7576a5861d416c163ff2930985f9ee7ca10",
+                    "test": "110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495",
                 },
             },
-            "D2": {"role": "publisher-split historical evidence only"},
             "D1_COMPOSITE2200_LEGACY": {"role": "archive only; mixed-source and non-comparable"},
         },
         "status_policy": {
             "COMPLETED_*": "evidence exists; scope is qualified by the suffix",
             "PLANNED": "v2 configuration is ready but no active valid run is registered",
+            "DEFERRED_UNTIL_D1_COMPLETE": "not queued; may start only after every required D1 task is complete",
             "BLOCKED_*": "a named prerequisite is missing",
             "PARTIAL_LEGACY": "legacy evidence exists but does not meet the current protocol",
             "ARCHIVED_NONCOMPARABLE": "retained only for provenance",

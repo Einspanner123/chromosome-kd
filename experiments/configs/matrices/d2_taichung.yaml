@@ -1,7 +1,7 @@
 schema_version: 1
 matrix_id: v2.d2_taichung.main
 dataset_alias: d2
-dataset_config: experiments/configs/_base_/datasets/d2_taichung_v2.py
+dataset_config: experiments/configs/_base_/datasets/d2_taichung.py
 tracker_project: KaryoFlow-Dataset2-V2
 training_seeds: [42, 123, 789]
 methods:

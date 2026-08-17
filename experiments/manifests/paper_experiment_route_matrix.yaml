@@ -1,7 +1,7 @@
 schema_version: 2
 matrix_id: karyoflow.paper_experiment_route.v2
 authoritative: true
-claim_manifest_sha256: ef7364eade0f0c8d5e14fd44bfffbac2087b37b569dd6d2383476efeb1894380
+claim_manifest_sha256: 12dacfbf137e3973829f6925a4f279f6acc9d5bf982ec3e0ce792092155865b5
 supersedes:
 - tools/experiment_db/manifests/master_experiment_ledger_v1.json
 - tools/experiment_db/exports/master_experiment_ledger.csv
@@ -19,25 +19,22 @@ dataset_scope:
       train: e62704aa3ce9f7b58170946cca78458ff5331fc4316ba946eace6a1dbc6c8ed1
       val: 9065c7b5fb4df2a9f9c794dfe83c655ddf6695388d2bde562171b208c6d3a5b9
       test: 883696b8e60cc901cfe92b3f009d8c60e7b8cefbb5ba9ce3c742c3720343f08f
-  D2_TAICHUNG5000_V2:
+  D2:
     split_images:
     - 3500
     - 500
     - 1000
-    role: external Taichung cohort with exact-duplicate group repair
-    manifest_artifact_id: dataset-d2-v2-2afb47fe5c2a
-    manifest_sha256: 2afb47fe5c2ab8a707a6f355dd5588bb5aeba16d36b065896f1fff6f76ff37b4
+    role: external Taichung cohort; publisher-provided original benchmark split
     annotation_sha256:
-      train: bcd16896a140e3ce780af790f3e58a62886c3d4608d04014fe1468519cc373f3
-      val: b8477afa3d6ce8c88459c4df336103b240d3e9a220fdca43d6e4712ca7b3d733
-      test: bef67bf2bfe36deb94f2fb1a11e6d85f9bf4dd198ea696750c511fe4fe5de3cb
-  D2:
-    role: publisher-split historical evidence only
+      train: 218ae0ebb71ecfb186bdb0872101ac50179c22c69a586cad0366ef10a0d8d5f7
+      val: bcf0f930dea7380a3d2d5e82b393b7576a5861d416c163ff2930985f9ee7ca10
+      test: 110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495
   D1_COMPOSITE2200_LEGACY:
     role: archive only; mixed-source and non-comparable
 status_policy:
   COMPLETED_*: evidence exists; scope is qualified by the suffix
   PLANNED: v2 configuration is ready but no active valid run is registered
+  DEFERRED_UNTIL_D1_COMPLETE: not queued; may start only after every required D1 task is complete
   BLOCKED_*: a named prerequisite is missing
   PARTIAL_LEGACY: legacy evidence exists but does not meet the current protocol
   ARCHIVED_NONCOMPARABLE: retained only for provenance
@@ -102,7 +99,7 @@ experiments:
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: PLANNED
+  status: TRAINING_COMPLETE_TEST_PENDING
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: d1-inhouse1700-v1__diffusiondet__trainseed-42__0362fd3e571b;d1-inhouse1700-v1__diffusiondet__trainseed-123__0362fd3e571b;d1-inhouse1700-v1__diffusiondet__trainseed-789__0362fd3e571b
@@ -404,7 +401,7 @@ experiments:
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: RUNNING_DISTRIBUTED_3_OF_3
+  status: COMPLETED_TRAIN3_VERIFIED
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: ''
@@ -419,8 +416,7 @@ experiments:
   server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
   output_template: work_dirs/v2/d1_generation/strict_g1_rf_linear_scaleshift_r50/trainseed_{training_seed}
   database_ids:
-    train_run_ids:
-    - d1-inhouse1700-v2__strict-g1-rf-linear-scaleshift-r50__trainseed-42__09e5cb88a933
+    train_run_ids: []
     result_family: generation_train_ablation_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
@@ -447,7 +443,7 @@ experiments:
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: PLANNED
+  status: RUNNING_1_OF_3_WITH_2_COMPLETE
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: ''
@@ -489,7 +485,7 @@ experiments:
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: PLANNED
+  status: QUEUED_2_OF_3_WITH_1_COMPLETE
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: ''
@@ -766,15 +762,15 @@ experiments:
 - acceptance_gate: 'already verified: 3 checkpoint SHA; 1000-image test'
   dataset_id: D2
   execution_kind: full_train
-  family: Verified historical detector
+  family: SOTA
   inference_seeds: '42'
-  layer: Archive
-  ledger_id: D2.HIST.karyoflow_ot_train3
-  notes: ''
-  paper_role: Historical OT-coupling reference only
+  layer: Detector comparison
+  ledger_id: D2.SOTA.karyoflow_train3
+  notes: Verified three-independent-training-run evidence on the publisher-provided original D2 split.
+  paper_role: Original-split D2 main detector
   parameters: RF; shifted t; AdaLN-Zero; DPM++4; K=500; 6 heads
   parent_ledger_id: ''
-  priority: ARCHIVE
+  priority: P0
   replication_unit: independent_training_seed
   run_count: 3
   status: COMPLETED_VERIFIED
@@ -800,15 +796,15 @@ experiments:
 - acceptance_gate: 'already verified: shared detector weights unchanged'
   dataset_id: D2
   execution_kind: short_train
-  family: Verified historical decision model
+  family: SOTA
   inference_seeds: '42'
-  layer: Archive
-  ledger_id: D2.HIST.karyoflow_ot_lqcr_train3
-  notes: ''
-  paper_role: Historical OT-parent LQCR reference only
+  layer: Decision
+  ledger_id: D2.SOTA.karyoflow_lqcr_train3
+  notes: Verified parent-matched three-training-run evidence on the publisher-provided original D2 split.
+  paper_role: Original-split D2 paired LQCR effect
   parameters: parent-matched final-only quality head; beta=2
-  parent_ledger_id: D2.HIST.karyoflow_ot_train3
-  priority: ARCHIVE
+  parent_ledger_id: D2.SOTA.karyoflow_train3
+  priority: P0
   replication_unit: paired_final_stage_intervention
   run_count: 3
   status: COMPLETED_VERIFIED
@@ -834,15 +830,15 @@ experiments:
 - acceptance_gate: must not be labeled three-training-seed
   dataset_id: D2
   execution_kind: evaluation
-  family: Historical detector point estimate
+  family: SOTA
   inference_seeds: '42'
-  layer: Archive
+  layer: Detector comparison
   ledger_id: D2.SOTA.diffusiondet.existing
-  notes: ''
-  paper_role: Publisher-split historical context only
+  notes: Recorded test result on the publisher-provided original D2 split.
+  paper_role: Original-split D2 benchmark point estimate
   parameters: published table checkpoint; six test metrics
   parent_ledger_id: ''
-  priority: ARCHIVE
+  priority: P0
   replication_unit: single_training_checkpoint
   run_count: 1
   status: COMPLETED_POINT_ESTIMATE
@@ -866,20 +862,20 @@ experiments:
   compatibility_report: tools/experiment_db/compatibility_reports/d2_sota_diffusiondet.json
   resolved_training: {}
 - acceptance_gate: three independently trained models; six held-out-test metrics
-  dataset_id: D2_TAICHUNG5000_V2
+  dataset_id: D2
   execution_kind: full_train
   family: SOTA
   inference_seeds: '42'
   layer: Detector comparison
-  ledger_id: D2.SOTA.diffusiondet.canonical_train3
-  notes: Historical publisher-split checkpoints are not reused.
-  paper_role: Canonical leakage-repaired D2 baseline
+  ledger_id: D2.SOTA.diffusiondet.train3_supplement
+  notes: Do not enqueue until every required D1 experiment and evaluation is complete.
+  paper_role: Optional D2 three-training-run robustness supplement
   parameters: same configuration and selection rule as existing checkpoint
   parent_ledger_id: ''
-  priority: P0
+  priority: P2
   replication_unit: independent_training_seed
   run_count: 3
-  status: PLANNED
+  status: DEFERRED_UNTIL_D1_COMPLETE
   swanlab_project: ''
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
@@ -904,20 +900,20 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 5.0e-05
-    scientific_config_sha256: 9dce45392dddf39412aeb92573a4f52beb14c35f61c5add9d3c800ade2a460f3
+    scientific_config_sha256: 1f2950fb62e874bb7a73a0bd4bfcad6dd477a8c3756ffaac77a9b51f4e1326e5
     output_template: work_dirs/v2/d2_sota_completion/diffusiondet_ddpm_r50/trainseed_{training_seed}
 - acceptance_gate: must not be labeled three-training-seed
   dataset_id: D2
   execution_kind: evaluation
-  family: Historical detector point estimate
+  family: SOTA
   inference_seeds: '42'
-  layer: Archive
+  layer: Detector comparison
   ledger_id: D2.SOTA.dino_r50.existing
-  notes: ''
-  paper_role: Publisher-split historical context only
+  notes: Recorded test result on the publisher-provided original D2 split.
+  paper_role: Original-split D2 benchmark point estimate
   parameters: published table checkpoint; six test metrics
   parent_ledger_id: ''
-  priority: ARCHIVE
+  priority: P0
   replication_unit: single_training_checkpoint
   run_count: 1
   status: COMPLETED_POINT_ESTIMATE
@@ -941,20 +937,20 @@ experiments:
   compatibility_report: tools/experiment_db/compatibility_reports/d2_sota_dino_r50.json
   resolved_training: {}
 - acceptance_gate: three independently trained models; six held-out-test metrics
-  dataset_id: D2_TAICHUNG5000_V2
+  dataset_id: D2
   execution_kind: full_train
   family: SOTA
   inference_seeds: '42'
   layer: Detector comparison
-  ledger_id: D2.SOTA.dino_r50.canonical_train3
-  notes: Historical publisher-split checkpoints are not reused.
-  paper_role: Canonical leakage-repaired D2 baseline
+  ledger_id: D2.SOTA.dino_r50.train3_supplement
+  notes: Do not enqueue until every required D1 experiment and evaluation is complete.
+  paper_role: Optional D2 three-training-run robustness supplement
   parameters: same configuration and selection rule as existing checkpoint
   parent_ledger_id: ''
-  priority: P0
+  priority: P2
   replication_unit: independent_training_seed
   run_count: 3
-  status: PLANNED
+  status: DEFERRED_UNTIL_D1_COMPLETE
   swanlab_project: ''
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
@@ -979,20 +975,20 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 2.5e-05
-    scientific_config_sha256: 746c211f0d4aae678cd4f3a362491b368231352f23fa252f0e54645601ef812a
+    scientific_config_sha256: 74931f72cad1c9552882cdce138142e06b8c6d1db024e13360587fd03b8cd18a
     output_template: work_dirs/v2/d2_sota_completion/dino_r50/trainseed_{training_seed}
 - acceptance_gate: must not be labeled three-training-seed
   dataset_id: D2
   execution_kind: evaluation
-  family: Historical detector point estimate
+  family: SOTA
   inference_seeds: '42'
-  layer: Archive
+  layer: Detector comparison
   ledger_id: D2.SOTA.rtmdet_l.existing
-  notes: ''
-  paper_role: Publisher-split historical context only
+  notes: Recorded test result on the publisher-provided original D2 split.
+  paper_role: Original-split D2 benchmark point estimate
   parameters: published table checkpoint; six test metrics
   parent_ledger_id: ''
-  priority: ARCHIVE
+  priority: P0
   replication_unit: single_training_checkpoint
   run_count: 1
   status: COMPLETED_POINT_ESTIMATE
@@ -1016,20 +1012,20 @@ experiments:
   compatibility_report: tools/experiment_db/compatibility_reports/d2_sota_rtmdet_l.json
   resolved_training: {}
 - acceptance_gate: three independently trained models; six held-out-test metrics
-  dataset_id: D2_TAICHUNG5000_V2
+  dataset_id: D2
   execution_kind: full_train
   family: SOTA
   inference_seeds: '42'
   layer: Detector comparison
-  ledger_id: D2.SOTA.rtmdet_l.canonical_train3
-  notes: Historical publisher-split checkpoints are not reused.
-  paper_role: Canonical leakage-repaired D2 baseline
+  ledger_id: D2.SOTA.rtmdet_l.train3_supplement
+  notes: Do not enqueue until every required D1 experiment and evaluation is complete.
+  paper_role: Optional D2 three-training-run robustness supplement
   parameters: same configuration and selection rule as existing checkpoint
   parent_ledger_id: ''
-  priority: P0
+  priority: P2
   replication_unit: independent_training_seed
   run_count: 3
-  status: PLANNED
+  status: DEFERRED_UNTIL_D1_COMPLETE
   swanlab_project: ''
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
@@ -1054,20 +1050,20 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 0.0001
-    scientific_config_sha256: 2d3142b307a355ff54f6ce76f4520373ba2f6abb030495b8729a5da898529abb
+    scientific_config_sha256: 8123363a089ba0db575b9a2c095477ffe3a5dc4e999418e820d710413ff45ee7
     output_template: work_dirs/v2/d2_sota_completion/rtmdet_l/trainseed_{training_seed}
 - acceptance_gate: must not be labeled three-training-seed
   dataset_id: D2
   execution_kind: evaluation
-  family: Historical detector point estimate
+  family: SOTA
   inference_seeds: '42'
-  layer: Archive
+  layer: Detector comparison
   ledger_id: D2.SOTA.cascade_rcnn_r50.existing
-  notes: ''
-  paper_role: Publisher-split historical context only
+  notes: Recorded test result on the publisher-provided original D2 split.
+  paper_role: Original-split D2 benchmark point estimate
   parameters: published table checkpoint; six test metrics
   parent_ledger_id: ''
-  priority: ARCHIVE
+  priority: P0
   replication_unit: single_training_checkpoint
   run_count: 1
   status: COMPLETED_POINT_ESTIMATE
@@ -1091,20 +1087,20 @@ experiments:
   compatibility_report: tools/experiment_db/compatibility_reports/d2_sota_cascade_rcnn.json
   resolved_training: {}
 - acceptance_gate: three independently trained models; six held-out-test metrics
-  dataset_id: D2_TAICHUNG5000_V2
+  dataset_id: D2
   execution_kind: full_train
   family: SOTA
   inference_seeds: '42'
   layer: Detector comparison
-  ledger_id: D2.SOTA.cascade_rcnn_r50.canonical_train3
-  notes: Historical publisher-split checkpoints are not reused.
-  paper_role: Canonical leakage-repaired D2 baseline
+  ledger_id: D2.SOTA.cascade_rcnn_r50.train3_supplement
+  notes: Do not enqueue until every required D1 experiment and evaluation is complete.
+  paper_role: Optional D2 three-training-run robustness supplement
   parameters: same configuration and selection rule as existing checkpoint
   parent_ledger_id: ''
-  priority: P0
+  priority: P2
   replication_unit: independent_training_seed
   run_count: 3
-  status: PLANNED
+  status: DEFERRED_UNTIL_D1_COMPLETE
   swanlab_project: ''
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
@@ -1129,20 +1125,20 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 0.0001
-    scientific_config_sha256: d83cfe18ee24b5c106780ca385af2c2f0c49c44ac8cede5f8857c8c60bc016b0
+    scientific_config_sha256: 4eaeab5360c8eb44eae0cd0d0ac3ee44ebf8c3fbada64a09a052e9d6ca4826d0
     output_template: work_dirs/v2/d2_sota_completion/cascade_rcnn_r50/trainseed_{training_seed}
 - acceptance_gate: must not be labeled three-training-seed
   dataset_id: D2
   execution_kind: evaluation
-  family: Historical detector point estimate
+  family: SOTA
   inference_seeds: '42'
-  layer: Archive
+  layer: Detector comparison
   ledger_id: D2.SOTA.yolox_s.existing
-  notes: ''
-  paper_role: Publisher-split historical context only
+  notes: Recorded test result on the publisher-provided original D2 split.
+  paper_role: Original-split D2 benchmark point estimate
   parameters: published table checkpoint; six test metrics
   parent_ledger_id: ''
-  priority: ARCHIVE
+  priority: P0
   replication_unit: single_training_checkpoint
   run_count: 1
   status: COMPLETED_POINT_ESTIMATE
@@ -1166,20 +1162,20 @@ experiments:
   compatibility_report: tools/experiment_db/compatibility_reports/d2_sota_yolox_s.json
   resolved_training: {}
 - acceptance_gate: three independently trained models; six held-out-test metrics
-  dataset_id: D2_TAICHUNG5000_V2
+  dataset_id: D2
   execution_kind: full_train
   family: SOTA
   inference_seeds: '42'
   layer: Detector comparison
-  ledger_id: D2.SOTA.yolox_s.canonical_train3
-  notes: Historical publisher-split checkpoints are not reused.
-  paper_role: Canonical leakage-repaired D2 baseline
+  ledger_id: D2.SOTA.yolox_s.train3_supplement
+  notes: Do not enqueue until every required D1 experiment and evaluation is complete.
+  paper_role: Optional D2 three-training-run robustness supplement
   parameters: same configuration and selection rule as existing checkpoint
   parent_ledger_id: ''
-  priority: P0
+  priority: P2
   replication_unit: independent_training_seed
   run_count: 3
-  status: PLANNED
+  status: DEFERRED_UNTIL_D1_COMPLETE
   swanlab_project: ''
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
@@ -1204,7 +1200,7 @@ experiments:
     max_epochs: 200
     optimizer: AdamW
     base_lr: 0.0001
-    scientific_config_sha256: b3ea1086a9a84bfe4f2a1b60e78f8e163d28bc97dd8298cdcde6d6565497b4e3
+    scientific_config_sha256: ba9d806ae7b79bb956b001d652998a6100b9284d8b49eddb890d3cdbe6316507
     output_template: work_dirs/v2/d2_sota_completion/yolox_s/trainseed_{training_seed}
 - acceptance_gate: never report adjacent deltas as isolated effects
   dataset_id: D2
@@ -1240,20 +1236,20 @@ experiments:
   compatibility_report: ''
   resolved_training: {}
 - acceptance_gate: only named factor changes; same batch/optimizer/selection; six test metrics
-  dataset_id: D2_TAICHUNG5000_V2
+  dataset_id: D2
   execution_kind: full_train
   family: Training ablation
   inference_seeds: '42'
   layer: Generation
   ledger_id: D2.ABL.strict.G0
-  notes: ''
+  notes: D2 three-training-run supplement; do not enqueue until all required D1 work is complete.
   paper_role: Cross-cohort strict ablation replication
   parameters: DDPM; DDIM1; linear t; scale-shift
   parent_ledger_id: ''
   priority: P2
   replication_unit: independent_training_seed
   run_count: 3
-  status: PLANNED
+  status: DEFERRED_UNTIL_D1_COMPLETE
   swanlab_project: ''
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
@@ -1278,23 +1274,23 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 5.0e-05
-    scientific_config_sha256: 9dce45392dddf39412aeb92573a4f52beb14c35f61c5add9d3c800ade2a460f3
+    scientific_config_sha256: 1f2950fb62e874bb7a73a0bd4bfcad6dd477a8c3756ffaac77a9b51f4e1326e5
     output_template: work_dirs/v2/d2_generation/strict_g0_ddpm_linear_scaleshift_r50/trainseed_{training_seed}
 - acceptance_gate: only named factor changes; same batch/optimizer/selection; six test metrics
-  dataset_id: D2_TAICHUNG5000_V2
+  dataset_id: D2
   execution_kind: full_train
   family: Training ablation
   inference_seeds: '42'
   layer: Generation
   ledger_id: D2.ABL.strict.G1
-  notes: ''
+  notes: D2 three-training-run supplement; do not enqueue until all required D1 work is complete.
   paper_role: Cross-cohort strict ablation replication
   parameters: RF; linear t; scale-shift
   parent_ledger_id: ''
   priority: P2
   replication_unit: independent_training_seed
   run_count: 3
-  status: PLANNED
+  status: DEFERRED_UNTIL_D1_COMPLETE
   swanlab_project: ''
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
@@ -1319,23 +1315,23 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 5.0e-05
-    scientific_config_sha256: 9bcb27764aca0e32079058c1bd5ad7cec0e104908d99480cc9bea68da2b10d5f
+    scientific_config_sha256: 94efa3205faf874181ecb5d221a241e4fed6bb0909b181c90be76da6861d93e4
     output_template: work_dirs/v2/d2_generation/strict_g1_rf_linear_scaleshift_r50/trainseed_{training_seed}
 - acceptance_gate: only named factor changes; same batch/optimizer/selection; six test metrics
-  dataset_id: D2_TAICHUNG5000_V2
+  dataset_id: D2
   execution_kind: full_train
   family: Training ablation
   inference_seeds: '42'
   layer: Generation
   ledger_id: D2.ABL.strict.G2
-  notes: ''
+  notes: D2 three-training-run supplement; do not enqueue until all required D1 work is complete.
   paper_role: Cross-cohort strict ablation replication
   parameters: RF; shifted t; scale-shift
   parent_ledger_id: ''
   priority: P2
   replication_unit: independent_training_seed
   run_count: 3
-  status: PLANNED
+  status: DEFERRED_UNTIL_D1_COMPLETE
   swanlab_project: ''
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
@@ -1360,23 +1356,23 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 5.0e-05
-    scientific_config_sha256: c10370d239252b52ccc6101b1c7535bd78250f83bec80f08a829e0ac33a1a7e3
+    scientific_config_sha256: 2a5511399155153750bdf63220fa087d2fe2cc91bcacd45e210777abe8821952
     output_template: work_dirs/v2/d2_generation/strict_g2_rf_shifted_scaleshift_r50/trainseed_{training_seed}
 - acceptance_gate: only time conditioning changes from G2; common validation protocol
-  dataset_id: D2_TAICHUNG5000_V2
+  dataset_id: D2
   execution_kind: full_train
   family: Training ablation
   inference_seeds: '42'
   layer: Generation
   ledger_id: D2.ABL.strict.G3
-  notes: Strict one-factor AdaLN-Zero stage; DPM++ is evaluated separately on a fixed checkpoint.
+  notes: D2 three-training-run supplement; do not enqueue until all required D1 work is complete.
   paper_role: Cross-cohort strict one-factor generation ablation
   parameters: RF; shifted t; AdaLN-Zero; Euler 1-step validation
   parent_ledger_id: ''
-  priority: DONE
+  priority: P2
   replication_unit: independent_training_seed
   run_count: 3
-  status: PLANNED
+  status: DEFERRED_UNTIL_D1_COMPLETE
   swanlab_project: ''
   swanlab_run_template: ''
   training_seeds: 42,123,789
@@ -1401,7 +1397,7 @@ experiments:
     max_epochs: 150
     optimizer: AdamW
     base_lr: 5.0e-05
-    scientific_config_sha256: a45fe1b84045b54bb305d2b6584d2b162cd8281f046c1f2a4e0f3c3d8fe23a74
+    scientific_config_sha256: 2936f80312fdace06cc9c757ba8f4498c617e7dee0429357a6bd2e01c6455834
     output_template: work_dirs/v2/d2_generation/strict_g3_rf_shifted_adaln_zero_r50/trainseed_{training_seed}
 - acceptance_gate: label fixed-checkpoint; not training replication
   dataset_id: D2
@@ -1413,7 +1409,7 @@ experiments:
   notes: ''
   paper_role: Conditional solver mechanism evidence
   parameters: one fixed KaryoFlow checkpoint x 3 solvers x 4 steps
-  parent_ledger_id: D2.HIST.karyoflow_ot_train3
+  parent_ledger_id: D2.SOTA.karyoflow_train3
   priority: DONE_CONDITIONAL
   replication_unit: fixed_checkpoint_inference
   run_count: 12
@@ -1438,20 +1434,20 @@ experiments:
   compatibility_report: ''
   resolved_training: {}
 - acceptance_gate: aggregate one value per training parent
-  dataset_id: D2_TAICHUNG5000_V2
+  dataset_id: D2
   execution_kind: inference
   family: Inference replication
   inference_seeds: '42'
   layer: Generation
   ledger_id: D2.INF.solver_steps.train3
-  notes: Runs on the canonical random-coupling parent triplet.
+  notes: D2 three-training-run supplement; do not enqueue until all required D1 work is complete.
   paper_role: Training-robust solver ablation
   parameters: 3 independent parents x 3 solvers x 4 steps
-  parent_ledger_id: D2.SOTA.karyoflow_canonical_train3
-  priority: P1
+  parent_ledger_id: D2.SOTA.karyoflow_train3
+  priority: P2
   replication_unit: fixed_checkpoint_by_training_parent
   run_count: 36
-  status: PLANNED
+  status: DEFERRED_UNTIL_D1_COMPLETE
   swanlab_project: ''
   swanlab_run_template: ''
   training_seeds: 42,123,789
@@ -1480,7 +1476,7 @@ experiments:
   notes: ''
   paper_role: Conditional identity/candidate-budget evidence
   parameters: K={100,150,200,300,500} x renewal={off,on}
-  parent_ledger_id: D2.HIST.karyoflow_ot_train3
+  parent_ledger_id: D2.SOTA.karyoflow_train3
   priority: DONE_CONDITIONAL
   replication_unit: fixed_checkpoint_inference
   run_count: 10
@@ -1505,20 +1501,20 @@ experiments:
   compatibility_report: ''
   resolved_training: {}
 - acceptance_gate: aggregate by training parent
-  dataset_id: D2_TAICHUNG5000_V2
+  dataset_id: D2
   execution_kind: inference
   family: Inference replication
   inference_seeds: '42'
   layer: Generation
   ledger_id: D2.INF.topk_renewal.train3
-  notes: Runs on the canonical random-coupling parent triplet.
+  notes: D2 three-training-run supplement; do not enqueue until all required D1 work is complete.
   paper_role: Training-robust identity analysis
   parameters: 3 parents x 5 K x renewal off/on
-  parent_ledger_id: D2.SOTA.karyoflow_canonical_train3
+  parent_ledger_id: D2.SOTA.karyoflow_train3
   priority: P2
   replication_unit: fixed_checkpoint_by_training_parent
   run_count: 30
-  status: PLANNED
+  status: DEFERRED_UNTIL_D1_COMPLETE
   swanlab_project: ''
   swanlab_run_template: ''
   training_seeds: 42,123,789
@@ -1547,7 +1543,7 @@ experiments:
   notes: ''
   paper_role: Post-selection sensitivity, not selection evidence
   parameters: test beta sweep after beta=2 validation selection; transparency only
-  parent_ledger_id: D2.HIST.karyoflow_ot_lqcr_train3
+  parent_ledger_id: D2.SOTA.karyoflow_lqcr_train3
   priority: DONE_DIAGNOSTIC
   replication_unit: fixed_checkpoint_inference
   run_count: 5
@@ -1581,7 +1577,7 @@ experiments:
   notes: ''
   paper_role: Mechanism/uncertainty; not SOTA proof
   parameters: overlap/size strict recall plus 1000-replicate LQCR-vs-DINO image bootstrap
-  parent_ledger_id: D2.HIST.karyoflow_ot_lqcr_train3
+  parent_ledger_id: D2.SOTA.karyoflow_lqcr_train3
   priority: DONE_DIAGNOSTIC
   replication_unit: paired_prediction_analysis
   run_count: 2
@@ -1641,20 +1637,20 @@ experiments:
   compatibility_report: tools/experiment_db/compatibility_reports/d2_head_student_h3.json
   resolved_training: {}
 - acceptance_gate: three parent-matched students; A6000 latency only
-  dataset_id: D2_TAICHUNG5000_V2
+  dataset_id: D2
   execution_kind: short_train
   family: Head distillation
   inference_seeds: '42'
   layer: Deployment
   ledger_id: D2.DEP.distill_h3.train3
-  notes: Canonical random-coupling parent-matched students.
+  notes: D2 three-training-run supplement; do not enqueue until all required D1 work is complete.
   paper_role: Training-robust deployment evidence
   parameters: one H3 student per KaryoFlow parent; identical mapping/loss
-  parent_ledger_id: D2.SOTA.karyoflow_canonical_train3
-  priority: P1
+  parent_ledger_id: D2.SOTA.karyoflow_train3
+  priority: P2
   replication_unit: paired_student_by_parent
   run_count: 3
-  status: PLANNED
+  status: DEFERRED_UNTIL_D1_COMPLETE
   swanlab_project: ''
   swanlab_run_template: '{variant}_seed{training_seed}'
   training_seeds: 42,123,789
@@ -1679,10 +1675,10 @@ experiments:
     max_epochs: 50
     optimizer: AdamW
     base_lr: 1.0e-05
-    scientific_config_sha256: a0dc32838c3293f10b59a59097cf3a9ed1cdc6f8f6fdb96565b5dce10b2d637b
+    scientific_config_sha256: 32be68bece4478c3c864ea7dba73532480eecf99d7619d07ca633c552bb00aeb
     output_template: work_dirs/v2/d2_distill_canonical/karyoflow_h3_distill_r50/trainseed_{training_seed}
 - acceptance_gate: D2 test plus A6000 speed before paper use
-  dataset_id: D2_TAICHUNG5000_V2
+  dataset_id: D2
   execution_kind: inference
   family: Dynamic deployment
   inference_seeds: '42'
@@ -1691,7 +1687,7 @@ experiments:
   notes: ''
   paper_role: Optional deployment extension, not main precision module
   parameters: dynamic deployment policy; historical D1 loss ~0.0007 mAP; D2 held-out test missing
-  parent_ledger_id: D2.HIST.karyoflow_ot_train3
+  parent_ledger_id: D2.SOTA.karyoflow_train3
   priority: P2
   replication_unit: fixed_checkpoint_by_training_parent
   run_count: 1
@@ -1720,12 +1716,12 @@ experiments:
   family: Efficiency
   inference_seeds: none
   layer: Deployment
-  ledger_id: D2.DEP.speed.legacy
-  notes: Historical latency is valid under its recorded protocol but PARTIAL against the strict rerun protocol.
-  paper_role: Historical deployment context only
+  ledger_id: D2.DEP.speed
+  notes: Use original-split accuracy and the unified A6000 latency protocol; no repaired-split rerun.
+  paper_role: Original-split D2 speed-accuracy evidence
   parameters: 'A6000: RF-Heun; DPM++ K=100/200/300/500; LQCR; H3; repeat after final checkpoints'
-  parent_ledger_id: D2.HIST.karyoflow_ot_train3
-  priority: P1
+  parent_ledger_id: D2.SOTA.karyoflow_train3
+  priority: P0
   replication_unit: hardware_efficiency_repeat
   run_count: 1
   status: COMPLETED_PARTIAL
@@ -1781,123 +1777,6 @@ experiments:
     - multiple
   compatibility_report: ''
   resolved_training: {}
-- acceptance_gate: three canonical random-coupling checkpoints; six held-out-test metrics
-  dataset_id: D2_TAICHUNG5000_V2
-  execution_kind: full_train
-  family: SOTA
-  inference_seeds: '42'
-  layer: Detector comparison
-  ledger_id: D2.SOTA.karyoflow_canonical_train3
-  notes: Deferred at completed epoch 3 after confirming that all paper D2 evidence follows the publisher-provided original
-    split; retain only as an optional split-sensitivity experiment.
-  paper_role: Canonical D2 main detector table
-  parameters: RF; shifted t; AdaLN-Zero; DPM++ 4-step; K=500; 6 heads; random coupling
-  parent_ledger_id: ''
-  priority: P0
-  replication_unit: independent_training_seed
-  run_count: 3
-  status: PLANNED
-  swanlab_project: KaryoFlow-Dataset2-V2
-  swanlab_run_template: '{variant}_seed{training_seed}'
-  training_seeds: 42,123,789
-  variant: karyoflow
-  legacy_config_path: experiments/configs/ldmdet/directions/mainline_ablation_24obj/a4_dpm_pp_24obj.py
-  legacy_config_status: exists_plus_dumped_configs
-  method_config: experiments/configs/methods/karyoflow.py
-  matrix_config: experiments/configs/matrices/d2_taichung.yaml
-  protocol_config: ''
-  config_state: READY
-  server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
-  output_template: work_dirs/v2/d2/karyoflow_r50/trainseed_{training_seed}
-  database_ids:
-    train_run_ids:
-    - d2-taichung5000-v2__karyoflow-r50__trainseed-42__18755935980e
-    result_family: sota_d2_canonical_test
-    evidence_artifact_ids: []
-  compatibility_report: ''
-  resolved_training:
-    config_id: v2.d2.karyoflow_r50.train
-    method_id: karyoflow_r50
-    batch_size: 2
-    max_epochs: 150
-    optimizer: AdamW
-    base_lr: 5.0e-05
-    scientific_config_sha256: 18755935980e685c3c09f64466a66ffde87ad97f44af2a17e137d7cbf26289a0
-    output_template: work_dirs/v2/d2/karyoflow_r50/trainseed_{training_seed}
-- acceptance_gate: one frozen-parent child per seed; final-only tensor audit; six test metrics
-  dataset_id: D2_TAICHUNG5000_V2
-  execution_kind: short_train
-  family: SOTA
-  inference_seeds: '42'
-  layer: Decision
-  ledger_id: D2.SOTA.karyoflow_canonical_lqcr_train3
-  notes: Required before the manuscript is refreshed.
-  paper_role: Canonical D2 LQCR paired effect
-  parameters: parent-matched final-only quality head; beta selected on validation
-  parent_ledger_id: D2.SOTA.karyoflow_canonical_train3
-  priority: P0
-  replication_unit: paired_final_stage_intervention
-  run_count: 3
-  status: BLOCKED_PARENT
-  swanlab_project: KaryoFlow-Dataset2-V2
-  swanlab_run_template: '{variant}_seed{training_seed}'
-  training_seeds: 42,123,789
-  variant: karyoflow_lqcr
-  legacy_config_path: experiments/configs/ldmdet/directions/capr/paper_train3_lqcr_run*.py
-  legacy_config_status: exists
-  method_config: experiments/configs/methods/karyoflow_lqcr.py
-  matrix_config: experiments/configs/matrices/d2_taichung.yaml
-  protocol_config: ''
-  config_state: READY_PARENT_PENDING
-  server_plan: historical ross/workstation
-  output_template: work_dirs/v2/d2/karyoflow_lqcr_r50/trainseed_{training_seed}
-  database_ids:
-    train_run_ids: []
-    result_family: paired_lqcr_d2_canonical_train3
-    evidence_artifact_ids: []
-  compatibility_report: ''
-  resolved_training:
-    config_id: v2.d2.karyoflow_lqcr_r50.train
-    method_id: karyoflow_lqcr_r50
-    batch_size: 2
-    max_epochs: 12
-    optimizer: AdamW
-    base_lr: 0.001
-    scientific_config_sha256: 30d6f3098fc2b2bb5c5c58597e34af9ca921cbf6c3862179e12ab8aa8d0545d9
-    output_template: work_dirs/v2/d2/karyoflow_lqcr_r50/trainseed_{training_seed}
-- acceptance_gate: three A6000 repeats per final checkpoint; matching test accuracy; params and peak memory
-  dataset_id: D2_TAICHUNG5000_V2
-  execution_kind: benchmark
-  family: Efficiency
-  inference_seeds: none
-  layer: Deployment
-  ledger_id: D2.DEP.speed.canonical
-  notes: Canonical v2 seed 42 is active; seeds 123 and 789 remain planned.
-  paper_role: Final canonical speed-accuracy figure/table
-  parameters: 'A6000: RF-Heun; DPM++ K=100/200/300/500; LQCR; H3; repeat after final checkpoints'
-  parent_ledger_id: D2.SOTA.karyoflow_canonical_train3
-  priority: P0
-  replication_unit: hardware_efficiency_repeat
-  run_count: 1
-  status: BLOCKED_CHECKPOINTS
-  swanlab_project: ''
-  swanlab_run_template: ''
-  training_seeds: 42,123,789
-  variant: all_operating_points
-  legacy_config_path: tools/benchmark_fps.py
-  legacy_config_status: exists
-  method_config: experiments/configs/methods/karyoflow.py
-  matrix_config: experiments/configs/matrices/d2_taichung.yaml
-  protocol_config: experiments/configs/deployment/a6000_speed_protocol.yaml
-  config_state: PROTOCOL_READY_PARENT_PENDING
-  server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
-  output_template: results/v2/d2/benchmark/a6000/{variant}
-  database_ids:
-    train_run_ids: []
-    result_family: speed_accuracy_d2_canonical
-    evidence_artifact_ids: []
-  compatibility_report: ''
-  resolved_training: {}
 - acceptance_gate: versioned analysis JSON bound to final test annotation/prediction SHA
   dataset_id: D1_INHOUSE1700_V2
   execution_kind: analysis
@@ -1933,7 +1812,7 @@ experiments:
   compatibility_report: ''
   resolved_training: {}
 - acceptance_gate: versioned analysis JSON bound to final test annotation/prediction SHA
-  dataset_id: D2_TAICHUNG5000_V2
+  dataset_id: D2
   execution_kind: analysis
   family: Dataset analysis
   inference_seeds: none
@@ -2001,7 +1880,7 @@ experiments:
   compatibility_report: ''
   resolved_training: {}
 - acceptance_gate: versioned analysis JSON bound to final test annotation/prediction SHA
-  dataset_id: D2_TAICHUNG5000_V2
+  dataset_id: D2
   execution_kind: analysis
   family: Diagnostic
   inference_seeds: '42'
@@ -2010,7 +1889,7 @@ experiments:
   notes: Required before the manuscript is refreshed.
   paper_role: Mechanism/error analysis
   parameters: quality-IoU Spearman, MAE/RMSE and reliability bins
-  parent_ledger_id: D2.SOTA.karyoflow_canonical_lqcr_train3
+  parent_ledger_id: D2.SOTA.karyoflow_lqcr_train3
   priority: P1
   replication_unit: paired_prediction_analysis
   run_count: 1
@@ -2031,40 +1910,6 @@ experiments:
   database_ids:
     train_run_ids: []
     result_family: lqcr_quality_validity_d2_canonical
-    evidence_artifact_ids: []
-  compatibility_report: ''
-  resolved_training: {}
-- acceptance_gate: versioned analysis JSON bound to final test annotation/prediction SHA
-  dataset_id: D2_TAICHUNG5000_V2
-  execution_kind: analysis
-  family: Diagnostic
-  inference_seeds: '42'
-  layer: Decision
-  ledger_id: D2.DEC.strict_subsets.canonical
-  notes: Required before the manuscript is refreshed.
-  paper_role: Mechanism/error analysis
-  parameters: AP90/AP95, size quartiles, overlap strata and paired image bootstrap
-  parent_ledger_id: D2.SOTA.karyoflow_canonical_lqcr_train3
-  priority: P1
-  replication_unit: paired_prediction_analysis
-  run_count: 1
-  status: BLOCKED_PREDICTIONS
-  swanlab_project: ''
-  swanlab_run_template: ''
-  train_run_ids: ''
-  training_seeds: 42,123,789
-  variant: strict_iou_scale_overlap
-  legacy_config_path: tools/experiment_db/analysis/difficult_subset_analysis.py
-  legacy_config_status: adapt_from_d2
-  method_config: ''
-  matrix_config: experiments/configs/matrices/d2_taichung.yaml
-  protocol_config: ''
-  config_state: PROTOCOL_TO_IMPLEMENT
-  server_plan: CPU
-  output_template: results/v2/d2/analysis/strict_iou_scale_overlap
-  database_ids:
-    train_run_ids: []
-    result_family: conditional_difficult_subset_d2_canonical
     evidence_artifact_ids: []
   compatibility_report: ''
   resolved_training: {}
@@ -2103,7 +1948,7 @@ experiments:
   compatibility_report: ''
   resolved_training: {}
 - acceptance_gate: versioned analysis JSON bound to final test annotation/prediction SHA
-  dataset_id: D2_TAICHUNG5000_V2
+  dataset_id: D2
   execution_kind: analysis
   family: Diagnostic
   inference_seeds: '42'
@@ -2112,7 +1957,7 @@ experiments:
   notes: Required before the manuscript is refreshed.
   paper_role: Mechanism/error analysis
   parameters: 24-class AP and morphology-group error analysis
-  parent_ledger_id: D2.SOTA.karyoflow_canonical_lqcr_train3
+  parent_ledger_id: D2.SOTA.karyoflow_lqcr_train3
   priority: P1
   replication_unit: paired_prediction_analysis
   run_count: 1
@@ -2137,20 +1982,20 @@ experiments:
   compatibility_report: ''
   resolved_training: {}
 - acceptance_gate: select beta before any new test evaluation
-  dataset_id: D2_TAICHUNG5000_V2
+  dataset_id: D2
   execution_kind: inference
   family: Hyperparameter selection
   inference_seeds: '42'
   layer: Decision
-  ledger_id: D2.DEC.beta_val.canonical
-  notes: Required before the canonical D2 test evaluation.
-  paper_role: Canonical D2 validation selection; not a test claim
+  ledger_id: D2.DEC.beta_val
+  notes: Recover and bind existing validation-selection evidence; no retraining is required.
+  paper_role: Original-split D2 validation selection; never a test claim
   parameters: 3 LQCR parents x beta={0,0.25,0.5,1,2}; validation only
-  parent_ledger_id: D2.SOTA.karyoflow_canonical_lqcr_train3
+  parent_ledger_id: D2.SOTA.karyoflow_lqcr_train3
   priority: P0
   replication_unit: validation_selection_by_parent
   run_count: 15
-  status: BLOCKED_PARENT
+  status: REVIEW_EXISTING_VALIDATION_SELECTION
   swanlab_project: ''
   swanlab_run_template: ''
   train_run_ids: ''

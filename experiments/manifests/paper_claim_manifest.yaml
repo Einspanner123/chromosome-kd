@@ -5,7 +5,7 @@ manuscript_update_policy: >-
   Do not update manuscript numbers until every required claim is submission-ready.
 datasets:
   primary: D1_INHOUSE1700_V2
-  external: D2_TAICHUNG5000_V2
+  external: D2
 claims:
   - claim_id: datasets.test_characterization
     paper_targets: [dataset_table, dataset_properties_table, scale_distribution_figure]
@@ -24,13 +24,13 @@ claims:
       - D1I.SOTA.rtmdet_l
       - D1I.SOTA.cascade_rcnn_r50
       - D1I.SOTA.yolox_s
-      - D2.SOTA.karyoflow_canonical_train3
-      - D2.SOTA.karyoflow_canonical_lqcr_train3
-      - D2.SOTA.diffusiondet.canonical_train3
-      - D2.SOTA.dino_r50.canonical_train3
-      - D2.SOTA.rtmdet_l.canonical_train3
-      - D2.SOTA.cascade_rcnn_r50.canonical_train3
-      - D2.SOTA.yolox_s.canonical_train3
+      - D2.SOTA.karyoflow_train3
+      - D2.SOTA.karyoflow_lqcr_train3
+      - D2.SOTA.diffusiondet.existing
+      - D2.SOTA.dino_r50.existing
+      - D2.SOTA.rtmdet_l.existing
+      - D2.SOTA.cascade_rcnn_r50.existing
+      - D2.SOTA.yolox_s.existing
   - claim_id: generation.strict_incremental
     paper_targets: [method_generation, component_ablation_table]
     required_for_submission: true
@@ -49,22 +49,22 @@ claims:
     required_routes:
       - D1I.INF.solver_steps
       - D1I.INF.topk_renewal
-      - D2.INF.solver_steps.train3
-      - D2.INF.topk_renewal.train3
+      - D2.INF.solver_steps.fixed1
+      - D2.INF.topk_renewal.fixed1
   - claim_id: decision.lqcr_selection_and_effect
     paper_targets: [method_lqcr, lqcr_ablation, conclusion]
     required_for_submission: true
     required_routes:
       - D1I.DEC.beta_val
-      - D2.DEC.beta_val.canonical
+      - D2.DEC.beta_val
       - D1I.SOTA.karyoflow_lqcr
-      - D2.SOTA.karyoflow_canonical_lqcr_train3
+      - D2.SOTA.karyoflow_lqcr_train3
   - claim_id: decision.strict_iou_scale_overlap
     paper_targets: [small_object_section, difficult_subset_table]
     required_for_submission: true
     required_routes:
       - D1I.DEC.strict_subsets
-      - D2.DEC.strict_subsets.canonical
+      - D2.DEC.strict_subsets
   - claim_id: decision.quality_validity
     paper_targets: [lqcr_principle_figure, supplementary_calibration]
     required_for_submission: true
@@ -82,27 +82,33 @@ claims:
     required_for_submission: true
     required_routes:
       - D1I.DEP.distill_h3
-      - D2.DEP.distill_h3.train3
+      - D2.DEP.distill_h3.existing
   - claim_id: deployment.canonical_speed_accuracy
     paper_targets: [first_page_speed_accuracy_figure, efficiency_table, abstract_speed]
     required_for_submission: true
     required_routes:
       - D1I.DEP.speed
-      - D2.DEP.speed.canonical
+      - D2.DEP.speed
   - claim_id: deployment.gacs_optional
     paper_targets: [supplementary_dynamic_deployment]
     required_for_submission: false
     required_routes:
       - D1I.DEP.GACS
       - D2.DEP.GACS
+deferred_until_d1_complete_routes:
+  - D2.SOTA.diffusiondet.train3_supplement
+  - D2.SOTA.dino_r50.train3_supplement
+  - D2.SOTA.rtmdet_l.train3_supplement
+  - D2.SOTA.cascade_rcnn_r50.train3_supplement
+  - D2.SOTA.yolox_s.train3_supplement
+  - D2.ABL.strict.G0
+  - D2.ABL.strict.G1
+  - D2.ABL.strict.G2
+  - D2.ABL.strict.G3
+  - D2.INF.solver_steps.train3
+  - D2.INF.topk_renewal.train3
+  - D2.DEP.distill_h3.train3
 historical_only_routes:
-  - D2.SOTA.diffusiondet.existing
-  - D2.SOTA.dino_r50.existing
-  - D2.SOTA.rtmdet_l.existing
-  - D2.SOTA.cascade_rcnn_r50.existing
-  - D2.SOTA.yolox_s.existing
-  - D2.HIST.karyoflow_ot_train3
-  - D2.HIST.karyoflow_ot_lqcr_train3
   - D2.ABL.historical_chain
   - D2.INF.solver_steps.fixed1
   - D2.INF.topk_renewal.fixed1

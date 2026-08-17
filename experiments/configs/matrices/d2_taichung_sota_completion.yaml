@@ -1,7 +1,7 @@
 schema_version: 1
 matrix_id: v2.d2_taichung.sota_completion
 dataset_alias: d2_sota_completion
-dataset_config: experiments/configs/_base_/datasets/d2_taichung_v2.py
+dataset_config: experiments/configs/_base_/datasets/d2_taichung.py
 tracker_project: KaryoFlow-Dataset2-V2-SOTA
 # The repaired split changes four image assignments.  Historical checkpoints
 # are not reused as canonical V2 replications; all baselines train three times.

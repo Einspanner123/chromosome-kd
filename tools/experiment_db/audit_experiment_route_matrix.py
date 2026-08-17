@@ -51,8 +51,7 @@ def main() -> int:
             f"unique={len(idset)}"
         )
     if {r["dataset_id"] for r in rows} != {
-        "D1_INHOUSE1700_V2", "D2_TAICHUNG5000_V2", "D2",
-        "D1_COMPOSITE2200_LEGACY",
+        "D1_INHOUSE1700_V2", "D2", "D1_COMPOSITE2200_LEGACY",
     }:
         errors.append("dataset coverage mismatch")
     d1 = payload["dataset_scope"].get("D1_INHOUSE1700_V2", {})
@@ -63,11 +62,14 @@ def main() -> int:
         errors.append("D1 V2 manifest SHA mismatch")
     if d1.get("annotation_sha256", {}).get("test") != "883696b8e60cc901cfe92b3f009d8c60e7b8cefbb5ba9ce3c742c3720343f08f":
         errors.append("D1 V2 test annotation SHA mismatch")
-    d2 = payload["dataset_scope"].get("D2_TAICHUNG5000_V2", {})
-    if d2.get("manifest_sha256") != "2afb47fe5c2ab8a707a6f355dd5588bb5aeba16d36b065896f1fff6f76ff37b4":
-        errors.append("D2 V2 manifest SHA mismatch")
-    if d2.get("annotation_sha256", {}).get("test") != "bef67bf2bfe36deb94f2fb1a11e6d85f9bf4dd198ea696750c511fe4fe5de3cb":
-        errors.append("D2 V2 test annotation SHA mismatch")
+    d2 = payload["dataset_scope"].get("D2", {})
+    expected_d2 = {
+        "train": "218ae0ebb71ecfb186bdb0872101ac50179c22c69a586cad0366ef10a0d8d5f7",
+        "val": "bcf0f930dea7380a3d2d5e82b393b7576a5861d416c163ff2930985f9ee7ca10",
+        "test": "110fd2804f435b04a1eee969cb28666a0818b2886040a57cbae2dd05f2767495",
+    }
+    if d2.get("annotation_sha256") != expected_d2:
+        errors.append("publisher-split D2 annotation SHA mismatch")
 
     con = sqlite3.connect(DB)
     artifacts = {r[0] for r in con.execute("SELECT artifact_id FROM evidence_artifact")}
@@ -76,12 +78,11 @@ def main() -> int:
     ).fetchone()
     if dataset_release != ("dataset-self1700-48d90fed63ec", "verified"):
         errors.append("D1 V2 dataset_release is not bound to the verified manifest")
-    d2_release = con.execute(
-        "SELECT manifest_artifact_id,status FROM dataset_release "
-        "WHERE dataset_id='D2_TAICHUNG5000_V2'"
-    ).fetchone()
-    if d2_release != ("dataset-d2-v2-2afb47fe5c2a", "verified"):
-        errors.append("D2 V2 dataset_release is not bound to the verified manifest")
+    repaired_release = con.execute(
+        "SELECT COUNT(*) FROM dataset_release WHERE dataset_id='D2_TAICHUNG5000_V2'"
+    ).fetchone()[0]
+    if repaired_release:
+        errors.append("repaired-split D2 release must not remain in the authority database")
     active_runs = {
         r[0] for r in con.execute(
             "SELECT train_run_id FROM train_run_registry WHERE status IN ('running','queued','planned')"
@@ -111,6 +112,10 @@ def main() -> int:
             tids = set(row["database_ids"]["train_run_ids"])
             if not tids or not tids <= active_runs:
                 errors.append(f"{rid}: RUNNING without matching active registry rows")
+        if row["status"] == "DEFERRED_UNTIL_D1_COMPLETE":
+            tids = set(row["database_ids"]["train_run_ids"])
+            if tids & active_runs:
+                errors.append(f"{rid}: deferred D2 route is already queued/running")
         if row["config_state"] in {"READY", "EXACT", "STRUCTURAL_ONLY", "PROTOCOL_READY", "EXACT_INFERENCE_ARCHIVED_TRAINING"}:
             refs = [row.get(k) for k in ("method_config", "matrix_config", "protocol_config") if row.get(k)]
             for ref in refs:
