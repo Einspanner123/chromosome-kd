@@ -291,8 +291,17 @@ class Scheduler:
                 '--task-id',
                 task['task_id'],
             ),
-            check=True,
+            check=False,
         )
+        if result.returncode != 0:
+            return {
+                'status': task.get('process_status', 'running'),
+                'task_id': task['task_id'],
+                'probe_status': 'ssh_status_failed_retryable',
+                'probe_returncode': result.returncode,
+                'probe_error': result.stderr.strip(),
+                'checked_at': utc_now(),
+            }
         return json.loads(result.stdout)
 
     def sync_artifacts(self, task: dict) -> None:
