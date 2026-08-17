@@ -103,7 +103,7 @@ STATUS_OVERRIDE = {
     "D1I.ABL.G0": "TEST_QUEUED_1_OF_3_COMPLETE",
     "D1I.ABL.G1": "TRAIN3_COMPLETE_TEST_QUEUED",
     "D1I.ABL.G2": "TRAIN3_COMPLETE_TEST_QUEUED",
-    "D1I.ABL.G3": "RECOVERY_RUNNING_2_OF_3_COMPLETE",
+    "D1I.ABL.G3": "RUNNING_2_OF_3_COMPLETE",
     "D1I.INF.solver_steps": "QUEUED_SERIAL_A4000",
     "D1I.INF.topk_renewal": "QUEUED_SERIAL_A4000",
     "D1I.DEC.beta_val": "BLOCKED_PARENT",
@@ -149,7 +149,7 @@ SERVER_PLAN_OVERRIDE = {
     "D1I.ABL.G0": "42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1",
     "D1I.ABL.G1": "42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A5000:0",
     "D1I.ABL.G2": "42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A5000:0",
-    "D1I.ABL.G3": "42=ross:A6000:0;123=ross:A6000:0;789=ross:A6000:0 (recovery)",
+    "D1I.ABL.G3": "42=ross:A6000:0;123=ross:A6000:0;789=workstation:A5000:0",
 }
 
 
@@ -202,11 +202,11 @@ NOTES_OVERRIDE = {
         "and the three serial held-out-test evaluations are queued."
     ),
     "D1I.ABL.G3": (
-        "Seeds 42 and 123 completed training. After the workstation became "
-        "unreachable, seed 789 was reassigned to an isolated Ross recovery "
-        "directory and is running on the A6000; the unreachable remote attempt "
-        "is excluded from evidence import. All three held-out tests remain "
-        "preregistered; canonical DPM++ is a separate inference comparison."
+        "Seeds 42 and 123 completed training. Seed 789 remains active on the "
+        "A5000 and had reached epoch 92 when connectivity was restored. A brief "
+        "Ross fallback was stopped at epoch 1 and excluded from evidence import "
+        "to preserve one authoritative run per seed. All three held-out tests "
+        "remain preregistered; DPM++ is a separate inference comparison."
     ),
     "D1I.INF.solver_steps": (
         "All 36 fixed-parent test evaluations are queued serially: three "
