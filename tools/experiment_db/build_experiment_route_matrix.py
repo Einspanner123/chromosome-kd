@@ -103,7 +103,7 @@ STATUS_OVERRIDE = {
     "D1I.ABL.G0": "TEST_QUEUED_1_OF_3_COMPLETE",
     "D1I.ABL.G1": "TRAIN3_COMPLETE_TEST_QUEUED",
     "D1I.ABL.G2": "TRAIN3_COMPLETE_TEST_QUEUED",
-    "D1I.ABL.G3": "RUNNING_2_OF_3_COMPLETE",
+    "D1I.ABL.G3": "TRAIN3_COMPLETE_SYNC_PENDING_TEST_QUEUED",
     "D1I.INF.solver_steps": "QUEUED_SERIAL_A4000",
     "D1I.INF.topk_renewal": "QUEUED_SERIAL_A4000",
     "D1I.DEC.beta_val": "BLOCKED_PARENT",
@@ -198,15 +198,16 @@ NOTES_OVERRIDE = {
         "serial held-out-test evaluation on the accuracy worker."
     ),
     "D1I.ABL.G2": (
-        "All three G2 training processes completed; final evidence processing "
-        "and the three serial held-out-test evaluations are queued."
+        "All three G2 training runs, validation-selected checkpoints, and "
+        "completion artifacts are centrally registered and verified. Their "
+        "three serial held-out-test evaluations remain queued."
     ),
     "D1I.ABL.G3": (
-        "Seeds 42 and 123 completed training. Seed 789 remains active on the "
-        "A5000 and had reached epoch 92 when connectivity was restored. A brief "
-        "Ross fallback was stopped at epoch 1 and excluded from evidence import "
-        "to preserve one authoritative run per seed. All three held-out tests "
-        "remain preregistered; DPM++ is a separate inference comparison."
+        "All three G3 training processes completed successfully. Seed 789's "
+        "validation-best checkpoint is transferring to the central evidence "
+        "store over an intermittent connection; its held-out test remains "
+        "dependency-gated until import. A brief epoch-1 Ross fallback is excluded "
+        "from evidence. DPM++ remains a separate inference comparison."
     ),
     "D1I.INF.solver_steps": (
         "All 36 fixed-parent test evaluations are queued serially: three "
