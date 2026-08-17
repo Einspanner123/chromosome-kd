@@ -145,6 +145,14 @@ PROTOCOLS = {
     "D2.DEP.distill_h3.train3": "experiments/configs/deployment/h3_distillation_protocol.yaml",
 }
 
+SERVER_PLAN_OVERRIDE = {
+    "D1I.ABL.G0": "42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1",
+    "D1I.ABL.G1": "42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A5000:0",
+    "D1I.ABL.G2": "42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A5000:0",
+    "D1I.ABL.G3": "42=ross:A6000:0;123=ross:A6000:0;789=workstation:A5000:0",
+}
+
+
 CONFIG_STATE_OVERRIDE = {
     "D1I.SOTA.dino_r50": "READY",
     "D1I.SOTA.rtmdet_l": "READY",
@@ -735,7 +743,9 @@ def build_rows() -> list[dict]:
         row["config_state"] = config_state
         row["status"] = STATUS_OVERRIDE.get(rid, row["status"])
         row["parameters"] = row.get("parameters", "")
-        row["server_plan"] = row.pop("executor_plan")
+        row["server_plan"] = SERVER_PLAN_OVERRIDE.get(
+            rid, row.pop("executor_plan")
+        )
         row["output_template"] = row.pop("work_dir_template")
         if row["dataset_id"] == "D1_INHOUSE1700_V2":
             row["output_template"] = row["output_template"].replace(

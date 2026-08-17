@@ -416,7 +416,7 @@ experiments:
   matrix_config: experiments/configs/matrices/d1_inhouse1700_generation_ablation.yaml
   protocol_config: ''
   config_state: READY
-  server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
+  server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A5000:0
   output_template: work_dirs/v2/d1_generation/strict_g1_rf_linear_scaleshift_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
@@ -459,7 +459,7 @@ experiments:
   matrix_config: experiments/configs/matrices/d1_inhouse1700_generation_ablation.yaml
   protocol_config: ''
   config_state: READY
-  server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
+  server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A5000:0
   output_template: work_dirs/v2/d1_generation/strict_g2_rf_shifted_scaleshift_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
@@ -502,7 +502,7 @@ experiments:
   matrix_config: experiments/configs/matrices/d1_inhouse1700_generation_ablation.yaml
   protocol_config: ''
   config_state: READY
-  server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
+  server_plan: 42=ross:A6000:0;123=ross:A6000:0;789=workstation:A5000:0
   output_template: work_dirs/v2/d1_generation/strict_g3_rf_shifted_adaln_zero_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids:
