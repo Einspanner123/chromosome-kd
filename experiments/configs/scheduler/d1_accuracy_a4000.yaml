@@ -1,0 +1,30 @@
+schema_version: 1
+
+tasks:
+  - task_id: d1-test-g0-seed789
+    kind: accuracy_evaluation
+    resource_id: workstation:a4000:1
+    command:
+      - "{python}"
+      - tools/experiments/evaluate.py
+      - --train-run-id
+      - d1-inhouse1700-v2__strict-g0-ddpm-linear-scaleshift-r50__trainseed-789__78c13c85e64b
+      - --split
+      - test
+      - --inference-seed
+      - "42"
+      - --gpu-id
+      - "{gpu_id}"
+      - --status
+      - paper_eligible
+      - --no-import
+    variables:
+      result_dir: results/v2/evaluations/d1-inhouse1700-v2__strict-g0-ddpm-linear-scaleshift-r50__trainseed-789__78c13c85e64b/test/inferseed_42/97840885b962
+    postprocess:
+      sync:
+        required: true
+        source: "{project_root}/{result_dir}"
+        destination: "{project_root}/{result_dir}"
+      evidence:
+        kind: run_evidence
+        path: "{result_dir}/run_evidence.json"
