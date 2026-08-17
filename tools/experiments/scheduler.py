@@ -257,8 +257,16 @@ class Scheduler:
                 '--spec-base64',
                 encoded,
             ),
-            check=True,
+            check=False,
         )
+        if result.returncode != 0:
+            task['launch_probe'] = {
+                'status': 'worker_start_failed_retryable',
+                'returncode': result.returncode,
+                'error': result.stderr.strip(),
+                'checked_at': utc_now(),
+            }
+            return None
         payload = json.loads(result.stdout)
         if payload['status'] not in {'running', 'succeeded'}:
             raise RuntimeError(f'worker start failed: {payload}')
@@ -549,6 +557,8 @@ class Scheduler:
                 }:
                     continue
                 started = self.start_task(task)
+                if started is None:
+                    continue
                 state['pending'].remove(task)
                 state['running'].append(started)
                 used.add(task['resource_id'])
