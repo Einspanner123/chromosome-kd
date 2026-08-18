@@ -1,0 +1,144 @@
+schema_version: 1
+
+postprocess_evaluation: &postprocess_evaluation
+  sync:
+    required: false
+  evidence:
+    kind: run_evidence
+    path_glob: "{result_root}/**/run_evidence.json"
+
+tasks:
+  - task_id: d1-test-sota-dino-seed42-ross
+    kind: accuracy_evaluation
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-dino-seed42-ross]
+    command: &evaluate_command
+      - "{python}"
+      - tools/experiments/evaluate.py
+      - --train-run-id
+      - "{train_run_id}"
+      - --split
+      - test
+      - --inference-seed
+      - "42"
+      - --gpu-id
+      - "{gpu_id}"
+      - --status
+      - paper_eligible
+      - --no-import
+      - --output-root
+      - "{project_root}/{result_root}"
+    variables:
+      train_run_id: d1-inhouse1700-v2__dino-r50__trainseed-42__4503b53e5ec6
+      result_root: results/v2/scheduled_evaluations/d1-test-sota-dino-seed42-ross
+    postprocess: *postprocess_evaluation
+
+  - task_id: d1-test-sota-rtmdet-seed42-ross
+    kind: accuracy_evaluation
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-rtmdet-seed42-ross]
+    command: *evaluate_command
+    variables:
+      train_run_id: d1-inhouse1700-v2__rtmdet-l__trainseed-42__c91bbb84281b
+      result_root: results/v2/scheduled_evaluations/d1-test-sota-rtmdet-seed42-ross
+    postprocess: *postprocess_evaluation
+
+  - task_id: d1-test-sota-cascade-seed42-ross
+    kind: accuracy_evaluation
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-cascade-seed42-ross]
+    command: *evaluate_command
+    variables:
+      train_run_id: d1-inhouse1700-v2__cascade-rcnn-r50__trainseed-42__9065db00f596
+      result_root: results/v2/scheduled_evaluations/d1-test-sota-cascade-seed42-ross
+    postprocess: *postprocess_evaluation
+
+  - task_id: d1-test-sota-yolox-seed42-ross
+    kind: accuracy_evaluation
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-yolox-seed42-ross]
+    command: *evaluate_command
+    variables:
+      train_run_id: d1-inhouse1700-v2__yolox-s__trainseed-42__e660557b5251
+      result_root: results/v2/scheduled_evaluations/d1-test-sota-yolox-seed42-ross
+    postprocess: *postprocess_evaluation
+
+  - task_id: d1-test-sota-dino-seed123-ross
+    kind: accuracy_evaluation
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-dino-seed123-ross]
+    command: *evaluate_command
+    variables:
+      train_run_id: d1-inhouse1700-v2__dino-r50__trainseed-123__4503b53e5ec6
+      result_root: results/v2/scheduled_evaluations/d1-test-sota-dino-seed123-ross
+    postprocess: *postprocess_evaluation
+
+  - task_id: d1-test-sota-rtmdet-seed123-ross
+    kind: accuracy_evaluation
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-rtmdet-seed123-ross]
+    command: *evaluate_command
+    variables:
+      train_run_id: d1-inhouse1700-v2__rtmdet-l__trainseed-123__c91bbb84281b
+      result_root: results/v2/scheduled_evaluations/d1-test-sota-rtmdet-seed123-ross
+    postprocess: *postprocess_evaluation
+
+  - task_id: d1-test-sota-cascade-seed123-ross
+    kind: accuracy_evaluation
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-cascade-seed123-ross]
+    command: *evaluate_command
+    variables:
+      train_run_id: d1-inhouse1700-v2__cascade-rcnn-r50__trainseed-123__9065db00f596
+      result_root: results/v2/scheduled_evaluations/d1-test-sota-cascade-seed123-ross
+    postprocess: *postprocess_evaluation
+
+  - task_id: d1-test-sota-yolox-seed123-ross
+    kind: accuracy_evaluation
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-yolox-seed123-ross]
+    command: *evaluate_command
+    variables:
+      train_run_id: d1-inhouse1700-v2__yolox-s__trainseed-123__e660557b5251
+      result_root: results/v2/scheduled_evaluations/d1-test-sota-yolox-seed123-ross
+    postprocess: *postprocess_evaluation
+
+  - task_id: d1-test-sota-dino-seed789-ross
+    kind: accuracy_evaluation
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-dino-seed789-ross]
+    command: *evaluate_command
+    variables:
+      train_run_id: d1-inhouse1700-v2__dino-r50__trainseed-789__4503b53e5ec6
+      result_root: results/v2/scheduled_evaluations/d1-test-sota-dino-seed789-ross
+    postprocess: *postprocess_evaluation
+
+  - task_id: d1-test-sota-rtmdet-seed789-ross
+    kind: accuracy_evaluation
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-rtmdet-seed789-ross]
+    command: *evaluate_command
+    variables:
+      train_run_id: d1-inhouse1700-v2__rtmdet-l__trainseed-789__c91bbb84281b
+      result_root: results/v2/scheduled_evaluations/d1-test-sota-rtmdet-seed789-ross
+    postprocess: *postprocess_evaluation
+
+  - task_id: d1-test-sota-cascade-seed789-ross
+    kind: accuracy_evaluation
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-cascade-seed789-ross]
+    command: *evaluate_command
+    variables:
+      train_run_id: d1-inhouse1700-v2__cascade-rcnn-r50__trainseed-789__9065db00f596
+      result_root: results/v2/scheduled_evaluations/d1-test-sota-cascade-seed789-ross
+    postprocess: *postprocess_evaluation
+
+  - task_id: d1-test-sota-yolox-seed789-ross
+    kind: accuracy_evaluation
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-yolox-seed789-ross]
+    command: *evaluate_command
+    variables:
+      train_run_id: d1-inhouse1700-v2__yolox-s__trainseed-789__e660557b5251
+      result_root: results/v2/scheduled_evaluations/d1-test-sota-yolox-seed789-ross
+    postprocess: *postprocess_evaluation
