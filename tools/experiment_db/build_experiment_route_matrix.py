@@ -347,6 +347,61 @@ def _scheduler_d2_sota_progress() -> dict[str, dict[str, int]]:
     return groups
 
 
+def _scheduler_d1_sota_progress() -> dict[str, dict[str, int]]:
+    """Summarize the three scheduled D1 training runs for each SOTA baseline."""
+    task_slugs = {
+        'dino_r50': 'dino',
+        'rtmdet_l': 'rtmdet',
+        'cascade_rcnn_r50': 'cascade',
+        'yolox_s': 'yolox',
+    }
+    groups = {
+        variant: {'completed': 0, 'running': 0, 'queued': 0, 'total': 3}
+        for variant in task_slugs
+    }
+    if not SCHEDULER_STATE.exists():
+        return groups
+    try:
+        state = json.loads(SCHEDULER_STATE.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError):
+        return groups
+
+    def variant_for(task_id: str) -> str | None:
+        for variant, slug in task_slugs.items():
+            if task_id.startswith(f'd1-sota-{slug}-seed'):
+                return variant
+        return None
+
+    for queue_name, counter_name in (
+        ('pending', 'queued'),
+        ('running', 'running'),
+    ):
+        for task in state.get(queue_name, []):
+            variant = variant_for(task.get('task_id', ''))
+            if variant:
+                groups[variant][counter_name] += 1
+    for task in state.get('completed', []):
+        variant = variant_for(task.get('task_id', ''))
+        if (
+            variant
+            and task.get('process_status') == 'succeeded'
+            and task.get('postprocess', {}).get('status') == 'succeeded'
+        ):
+            groups[variant]['completed'] += 1
+    return groups
+
+
+def _d1_sota_status(progress: dict[str, int]) -> str:
+    done, total = progress['completed'], progress['total']
+    if done >= total:
+        return 'TRAIN3_COMPLETE_TEST_PENDING'
+    if progress['running']:
+        return f'TRAINING_ROSS_{done}_OF_{total}_COMPLETE'
+    if progress['queued']:
+        return f'QUEUED_ROSS_{done}_OF_{total}_COMPLETE'
+    return 'PLANNED'
+
+
 def _d2_sota_status(progress: dict[str, int]) -> str:
     done, total = progress['completed'], progress['total']
     if done >= total:
@@ -390,6 +445,20 @@ def _apply_d1_test_progress(rows: list[dict]) -> None:
     # DiffusionDet is the G0 generation configuration and shares its evidence.
     by_id['D1I.SOTA.diffusiondet']['status'] = _progress_status(progress['G0'])
     by_id['D1I.SOTA.diffusiondet']['notes'] = by_id['D1I.ABL.G0']['notes']
+
+    sota_progress = _scheduler_d1_sota_progress()
+    for variant, item in sota_progress.items():
+        row = by_id[f'D1I.SOTA.{variant}']
+        row['status'] = _d1_sota_status(item)
+        row['server_plan'] = (
+            'three independent training runs serialized on Ross A6000 while '
+            'workstation is unavailable; held-out tests follow each completed run'
+        )
+        row['notes'] = (
+            f'Ross training completion: {item["completed"]}/{item["total"]}; '
+            f'running={item["running"]}, queued={item["queued"]}. '
+            'A run is counted complete only after training evidence finalization.'
+        )
 
     for key, route_id, label in (
         ('solver', 'D1I.INF.solver_steps', 'solver/step'),

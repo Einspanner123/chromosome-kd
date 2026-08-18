@@ -139,14 +139,14 @@ experiments:
   inference_seeds: '42'
   layer: Detector comparison
   ledger_id: D1I.SOTA.dino_r50
-  notes: No active v2 run is currently registered.
+  notes: 'Ross training completion: 0/3; running=1, queued=2. A run is counted complete only after training evidence finalization.'
   paper_role: Main two-cohort detector table
   parameters: R50; 900 queries; 6 encoder/decoder layers
   parent_ledger_id: ''
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: PLANNED
+  status: TRAINING_ROSS_0_OF_3_COMPLETE
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: d1-inhouse1700-v1__dino_r50__trainseed-42__02519716b443;d1-inhouse1700-v1__dino_r50__trainseed-123__02519716b443;d1-inhouse1700-v1__dino_r50__trainseed-789__02519716b443
@@ -158,10 +158,12 @@ experiments:
   matrix_config: experiments/configs/matrices/d1_inhouse1700.yaml
   protocol_config: ''
   config_state: READY
-  server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
+  server_plan: three independent training runs serialized on Ross A6000 while workstation is unavailable; held-out tests follow
+    each completed run
   output_template: work_dirs/v2/d1/dino_r50/trainseed_{training_seed}
   database_ids:
-    train_run_ids: []
+    train_run_ids:
+    - d1-inhouse1700-v2__dino-r50__trainseed-42__4503b53e5ec6
     result_family: sota_d1i_test
     evidence_artifact_ids: []
   compatibility_report: ''
@@ -181,14 +183,14 @@ experiments:
   inference_seeds: '42'
   layer: Detector comparison
   ledger_id: D1I.SOTA.rtmdet_l
-  notes: No active v2 run is currently registered.
+  notes: 'Ross training completion: 0/3; running=0, queued=3. A run is counted complete only after training evidence finalization.'
   paper_role: Main two-cohort detector table
   parameters: RTMDet-L; inherited benchmark optimizer
   parent_ledger_id: ''
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: PLANNED
+  status: QUEUED_ROSS_0_OF_3_COMPLETE
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: d1-inhouse1700-v1__rtmdet_l__trainseed-42__c65dc5e0e455;d1-inhouse1700-v1__rtmdet_l__trainseed-123__c65dc5e0e455;d1-inhouse1700-v1__rtmdet_l__trainseed-789__c65dc5e0e455
@@ -200,7 +202,8 @@ experiments:
   matrix_config: experiments/configs/matrices/d1_inhouse1700.yaml
   protocol_config: ''
   config_state: READY
-  server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
+  server_plan: three independent training runs serialized on Ross A6000 while workstation is unavailable; held-out tests follow
+    each completed run
   output_template: work_dirs/v2/d1/rtmdet_l/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
@@ -223,14 +226,14 @@ experiments:
   inference_seeds: '42'
   layer: Detector comparison
   ledger_id: D1I.SOTA.cascade_rcnn_r50
-  notes: No active v2 run is currently registered.
+  notes: 'Ross training completion: 0/3; running=0, queued=3. A run is counted complete only after training evidence finalization.'
   paper_role: Main two-cohort detector table
   parameters: Cascade R-CNN R50; 3 stages
   parent_ledger_id: ''
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: PLANNED
+  status: QUEUED_ROSS_0_OF_3_COMPLETE
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: d1-inhouse1700-v1__cascade_rcnn_r50__trainseed-42__ff33c17c2649;d1-inhouse1700-v1__cascade_rcnn_r50__trainseed-123__ff33c17c2649;d1-inhouse1700-v1__cascade_rcnn_r50__trainseed-789__ff33c17c2649
@@ -242,7 +245,8 @@ experiments:
   matrix_config: experiments/configs/matrices/d1_inhouse1700.yaml
   protocol_config: ''
   config_state: READY
-  server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
+  server_plan: three independent training runs serialized on Ross A6000 while workstation is unavailable; held-out tests follow
+    each completed run
   output_template: work_dirs/v2/d1/cascade_rcnn_r50/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
@@ -265,14 +269,14 @@ experiments:
   inference_seeds: '42'
   layer: Detector comparison
   ledger_id: D1I.SOTA.yolox_s
-  notes: No active v2 run is currently registered.
+  notes: 'Ross training completion: 0/3; running=0, queued=3. A run is counted complete only after training evidence finalization.'
   paper_role: Main two-cohort detector table
   parameters: YOLOX-S
   parent_ledger_id: ''
   priority: P0
   replication_unit: independent_training_seed
   run_count: 3
-  status: PLANNED
+  status: QUEUED_ROSS_0_OF_3_COMPLETE
   swanlab_project: KaryoFlow-Self1700-V2
   swanlab_run_template: '{variant}_seed{training_seed}'
   train_run_ids: d1-inhouse1700-v1__yolox_s__trainseed-42__df342a7930d9;d1-inhouse1700-v1__yolox_s__trainseed-123__df342a7930d9;d1-inhouse1700-v1__yolox_s__trainseed-789__df342a7930d9
@@ -284,7 +288,8 @@ experiments:
   matrix_config: experiments/configs/matrices/d1_inhouse1700.yaml
   protocol_config: ''
   config_state: READY
-  server_plan: 42=ross:A6000:0;123=workstation:A5000:0;789=workstation:A4000:1
+  server_plan: three independent training runs serialized on Ross A6000 while workstation is unavailable; held-out tests follow
+    each completed run
   output_template: work_dirs/v2/d1/yolox_s/trainseed_{training_seed}
   database_ids:
     train_run_ids: []
