@@ -1,0 +1,229 @@
+schema_version: 1
+
+postprocess_local: &postprocess_local
+  sync:
+    required: false
+  prepare_command:
+    - "{python}"
+    - tools/experiments/finalize_external_training.py
+    - --work-dir
+    - "{work_dir}"
+    - --executor
+    - "{executor}"
+    - --gpu-id
+    - "{gpu_id}"
+    - --gpu-name
+    - "{gpu_name}"
+  evidence:
+    kind: training_completion
+    path: "{work_dir}/training_completion.json"
+    executor: "{executor}"
+    tracker_run_name: "{tracker_name}"
+
+tasks:
+  - task_id: d1-sota-dino-seed42-ross
+    kind: training
+    resource_id: ross:a6000:0
+    command: &dino_command
+      - "{python}"
+      - tools/experiments/launch.py
+      - --matrix
+      - experiments/configs/matrices/d1_inhouse1700.yaml
+      - --method
+      - dino_r50
+      - --seed
+      - "{training_seed}"
+      - --executor
+      - "{executor}"
+      - --gpu-id
+      - "{gpu_id}"
+      - --launch
+    variables:
+      training_seed: 42
+      work_dir: work_dirs/v2/d1/dino_r50/trainseed_42
+      executor: ross:a6000:0
+      gpu_name: NVIDIA RTX A6000
+      tracker_name: d1_sota_dino_r50_seed42
+    postprocess: *postprocess_local
+
+  - task_id: d1-sota-rtmdet-seed42-ross
+    kind: training
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-dino-seed42-ross]
+    command: &rtmdet_command
+      - "{python}"
+      - tools/experiments/launch.py
+      - --matrix
+      - experiments/configs/matrices/d1_inhouse1700.yaml
+      - --method
+      - rtmdet_l
+      - --seed
+      - "{training_seed}"
+      - --executor
+      - "{executor}"
+      - --gpu-id
+      - "{gpu_id}"
+      - --launch
+    variables:
+      training_seed: 42
+      work_dir: work_dirs/v2/d1/rtmdet_l/trainseed_42
+      executor: ross:a6000:0
+      gpu_name: NVIDIA RTX A6000
+      tracker_name: d1_sota_rtmdet_l_seed42
+    postprocess: *postprocess_local
+
+  - task_id: d1-sota-cascade-seed42-ross
+    kind: training
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-rtmdet-seed42-ross]
+    command: &cascade_command
+      - "{python}"
+      - tools/experiments/launch.py
+      - --matrix
+      - experiments/configs/matrices/d1_inhouse1700.yaml
+      - --method
+      - cascade_rcnn_r50
+      - --seed
+      - "{training_seed}"
+      - --executor
+      - "{executor}"
+      - --gpu-id
+      - "{gpu_id}"
+      - --launch
+    variables:
+      training_seed: 42
+      work_dir: work_dirs/v2/d1/cascade_rcnn_r50/trainseed_42
+      executor: ross:a6000:0
+      gpu_name: NVIDIA RTX A6000
+      tracker_name: d1_sota_cascade_rcnn_r50_seed42
+    postprocess: *postprocess_local
+
+  - task_id: d1-sota-yolox-seed42-ross
+    kind: training
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-cascade-seed42-ross]
+    command: &yolox_command
+      - "{python}"
+      - tools/experiments/launch.py
+      - --matrix
+      - experiments/configs/matrices/d1_inhouse1700.yaml
+      - --method
+      - yolox_s
+      - --seed
+      - "{training_seed}"
+      - --executor
+      - "{executor}"
+      - --gpu-id
+      - "{gpu_id}"
+      - --launch
+    variables:
+      training_seed: 42
+      work_dir: work_dirs/v2/d1/yolox_s/trainseed_42
+      executor: ross:a6000:0
+      gpu_name: NVIDIA RTX A6000
+      tracker_name: d1_sota_yolox_s_seed42
+    postprocess: *postprocess_local
+
+  - task_id: d1-sota-dino-seed123-ross
+    kind: training
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-yolox-seed42-ross]
+    command: *dino_command
+    variables:
+      training_seed: 123
+      work_dir: work_dirs/v2/d1/dino_r50/trainseed_123
+      executor: ross:a6000:0
+      gpu_name: NVIDIA RTX A6000
+      tracker_name: d1_sota_dino_r50_seed123
+    postprocess: *postprocess_local
+
+  - task_id: d1-sota-rtmdet-seed123-ross
+    kind: training
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-dino-seed123-ross]
+    command: *rtmdet_command
+    variables:
+      training_seed: 123
+      work_dir: work_dirs/v2/d1/rtmdet_l/trainseed_123
+      executor: ross:a6000:0
+      gpu_name: NVIDIA RTX A6000
+      tracker_name: d1_sota_rtmdet_l_seed123
+    postprocess: *postprocess_local
+
+  - task_id: d1-sota-cascade-seed123-ross
+    kind: training
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-rtmdet-seed123-ross]
+    command: *cascade_command
+    variables:
+      training_seed: 123
+      work_dir: work_dirs/v2/d1/cascade_rcnn_r50/trainseed_123
+      executor: ross:a6000:0
+      gpu_name: NVIDIA RTX A6000
+      tracker_name: d1_sota_cascade_rcnn_r50_seed123
+    postprocess: *postprocess_local
+
+  - task_id: d1-sota-yolox-seed123-ross
+    kind: training
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-cascade-seed123-ross]
+    command: *yolox_command
+    variables:
+      training_seed: 123
+      work_dir: work_dirs/v2/d1/yolox_s/trainseed_123
+      executor: ross:a6000:0
+      gpu_name: NVIDIA RTX A6000
+      tracker_name: d1_sota_yolox_s_seed123
+    postprocess: *postprocess_local
+
+  - task_id: d1-sota-dino-seed789-ross
+    kind: training
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-yolox-seed123-ross]
+    command: *dino_command
+    variables:
+      training_seed: 789
+      work_dir: work_dirs/v2/d1/dino_r50/trainseed_789
+      executor: ross:a6000:0
+      gpu_name: NVIDIA RTX A6000
+      tracker_name: d1_sota_dino_r50_seed789
+    postprocess: *postprocess_local
+
+  - task_id: d1-sota-rtmdet-seed789-ross
+    kind: training
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-dino-seed789-ross]
+    command: *rtmdet_command
+    variables:
+      training_seed: 789
+      work_dir: work_dirs/v2/d1/rtmdet_l/trainseed_789
+      executor: ross:a6000:0
+      gpu_name: NVIDIA RTX A6000
+      tracker_name: d1_sota_rtmdet_l_seed789
+    postprocess: *postprocess_local
+
+  - task_id: d1-sota-cascade-seed789-ross
+    kind: training
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-rtmdet-seed789-ross]
+    command: *cascade_command
+    variables:
+      training_seed: 789
+      work_dir: work_dirs/v2/d1/cascade_rcnn_r50/trainseed_789
+      executor: ross:a6000:0
+      gpu_name: NVIDIA RTX A6000
+      tracker_name: d1_sota_cascade_rcnn_r50_seed789
+    postprocess: *postprocess_local
+
+  - task_id: d1-sota-yolox-seed789-ross
+    kind: training
+    resource_id: ross:a6000:0
+    dependencies: [d1-sota-cascade-seed789-ross]
+    command: *yolox_command
+    variables:
+      training_seed: 789
+      work_dir: work_dirs/v2/d1/yolox_s/trainseed_789
+      executor: ross:a6000:0
+      gpu_name: NVIDIA RTX A6000
+      tracker_name: d1_sota_yolox_s_seed789
+    postprocess: *postprocess_local
