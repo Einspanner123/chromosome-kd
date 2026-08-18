@@ -1,0 +1,1060 @@
+{
+  "schema_version": 1,
+  "action": "delete_unreferenced_intermediate_epoch_checkpoints",
+  "status": "completed",
+  "generated_at": "2026-08-18T06:50:24.322346+00:00",
+  "root": "/media/ross/8TB/linkst/chromo/chromosome-kd",
+  "deleted_count": 200,
+  "deleted_bytes": 266371022416,
+  "deleted": [
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_1.pth",
+      "size_bytes": 1326794706,
+      "mtime_ns": 1781437948513206119
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_10.pth",
+      "size_bytes": 1327651986,
+      "mtime_ns": 1781441742125031926
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_11.pth",
+      "size_bytes": 1327748690,
+      "mtime_ns": 1781442179937352906
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_12.pth",
+      "size_bytes": 1327861138,
+      "mtime_ns": 1781442753619197008
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_13.pth",
+      "size_bytes": 1327942482,
+      "mtime_ns": 1781443044268835955
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_14.pth",
+      "size_bytes": 1328039506,
+      "mtime_ns": 1781443478340242679
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_15.pth",
+      "size_bytes": 1328151890,
+      "mtime_ns": 1781444054146540081
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_16.pth",
+      "size_bytes": 1328233362,
+      "mtime_ns": 1781444351233111246
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_17.pth",
+      "size_bytes": 1328345618,
+      "mtime_ns": 1781444942984102477
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_18.pth",
+      "size_bytes": 1328427282,
+      "mtime_ns": 1781445236484926378
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_19.pth",
+      "size_bytes": 1328524242,
+      "mtime_ns": 1781445664021861068
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_2.pth",
+      "size_bytes": 1326876434,
+      "mtime_ns": 1781438239277114652
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_20.pth",
+      "size_bytes": 1328621586,
+      "mtime_ns": 1781446096268763356
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_21.pth",
+      "size_bytes": 1328718866,
+      "mtime_ns": 1781446518968520443
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_22.pth",
+      "size_bytes": 1328815890,
+      "mtime_ns": 1781446950180614791
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_23.pth",
+      "size_bytes": 1328912850,
+      "mtime_ns": 1781447380359617282
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_24.pth",
+      "size_bytes": 1329010130,
+      "mtime_ns": 1781447807265339750
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_25.pth",
+      "size_bytes": 1329107282,
+      "mtime_ns": 1781448222178118686
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_26.pth",
+      "size_bytes": 1329204178,
+      "mtime_ns": 1781448646245921527
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_27.pth",
+      "size_bytes": 1329316306,
+      "mtime_ns": 1781449210609237238
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_28.pth",
+      "size_bytes": 1329397842,
+      "mtime_ns": 1781449493042252795
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_29.pth",
+      "size_bytes": 1329494482,
+      "mtime_ns": 1781449921442569481
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_3.pth",
+      "size_bytes": 1326988882,
+      "mtime_ns": 1781438825227193128
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_30.pth",
+      "size_bytes": 1329591442,
+      "mtime_ns": 1781450346273876583
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_31.pth",
+      "size_bytes": 1329688210,
+      "mtime_ns": 1781450765261591431
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_32.pth",
+      "size_bytes": 1329800850,
+      "mtime_ns": 1781451329485007844
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_33.pth",
+      "size_bytes": 1329882578,
+      "mtime_ns": 1781451618735003558
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_34.pth",
+      "size_bytes": 1329979666,
+      "mtime_ns": 1781452040601004367
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_35.pth",
+      "size_bytes": 1330076498,
+      "mtime_ns": 1781452463622404092
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_36.pth",
+      "size_bytes": 1330173458,
+      "mtime_ns": 1781452900023984573
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_37.pth",
+      "size_bytes": 1330270610,
+      "mtime_ns": 1781453343054942274
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_38.pth",
+      "size_bytes": 1330367954,
+      "mtime_ns": 1781453790060096588
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_39.pth",
+      "size_bytes": 1330464786,
+      "mtime_ns": 1781454225570964931
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_4.pth",
+      "size_bytes": 1327085650,
+      "mtime_ns": 1781439258703951750
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_40.pth",
+      "size_bytes": 1330562066,
+      "mtime_ns": 1781454670811981655
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_41.pth",
+      "size_bytes": 1330658962,
+      "mtime_ns": 1781455110228341735
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_42.pth",
+      "size_bytes": 1330755922,
+      "mtime_ns": 1781455544913013255
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_43.pth",
+      "size_bytes": 1330868114,
+      "mtime_ns": 1781456128239185094
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_44.pth",
+      "size_bytes": 1330965138,
+      "mtime_ns": 1781456584153254419
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_45.pth",
+      "size_bytes": 1331061906,
+      "mtime_ns": 1781457075942431663
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_46.pth",
+      "size_bytes": 1331143634,
+      "mtime_ns": 1781457549302757909
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_47.pth",
+      "size_bytes": 1331256018,
+      "mtime_ns": 1781458497582617192
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_48.pth",
+      "size_bytes": 1331337490,
+      "mtime_ns": 1781459054739662280
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_49.pth",
+      "size_bytes": 1331434002,
+      "mtime_ns": 1781459816034207314
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_5.pth",
+      "size_bytes": 1327182546,
+      "mtime_ns": 1781439694833948305
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_50.pth",
+      "size_bytes": 1331530706,
+      "mtime_ns": 1781460571622495016
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_51.pth",
+      "size_bytes": 1331627602,
+      "mtime_ns": 1781461326939731903
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_52.pth",
+      "size_bytes": 1331724690,
+      "mtime_ns": 1781462106701932095
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_53.pth",
+      "size_bytes": 1331821266,
+      "mtime_ns": 1781462854925837064
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_54.pth",
+      "size_bytes": 1331918418,
+      "mtime_ns": 1781463625094643146
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_55.pth",
+      "size_bytes": 1332014994,
+      "mtime_ns": 1781464388812588322
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_56.pth",
+      "size_bytes": 1332111762,
+      "mtime_ns": 1781465142667006662
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_57.pth",
+      "size_bytes": 1332208722,
+      "mtime_ns": 1781465919094777263
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_58.pth",
+      "size_bytes": 1332305298,
+      "mtime_ns": 1781466686460467348
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_59.pth",
+      "size_bytes": 1332402258,
+      "mtime_ns": 1781467452935136751
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_6.pth",
+      "size_bytes": 1327279378,
+      "mtime_ns": 1781440133873432683
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_60.pth",
+      "size_bytes": 1332499538,
+      "mtime_ns": 1781468239017757285
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_61.pth",
+      "size_bytes": 1332595986,
+      "mtime_ns": 1781469000071068811
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_62.pth",
+      "size_bytes": 1332693330,
+      "mtime_ns": 1781469777855243118
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_63.pth",
+      "size_bytes": 1332789906,
+      "mtime_ns": 1781470548856833091
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_64.pth",
+      "size_bytes": 1332886290,
+      "mtime_ns": 1781471295721711992
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_65.pth",
+      "size_bytes": 1332983058,
+      "mtime_ns": 1781472064580885017
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_66.pth",
+      "size_bytes": 1333079954,
+      "mtime_ns": 1781472829597462665
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_67.pth",
+      "size_bytes": 1333176914,
+      "mtime_ns": 1781473582477518778
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_68.pth",
+      "size_bytes": 1333274258,
+      "mtime_ns": 1781474355764447159
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_69.pth",
+      "size_bytes": 1333371474,
+      "mtime_ns": 1781475076346406291
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_7.pth",
+      "size_bytes": 1327376594,
+      "mtime_ns": 1781440572158953260
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_70.pth",
+      "size_bytes": 1333468370,
+      "mtime_ns": 1781475823491305740
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_71.pth",
+      "size_bytes": 1333564946,
+      "mtime_ns": 1781476604407077563
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_72.pth",
+      "size_bytes": 1333662034,
+      "mtime_ns": 1781477372988302911
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_73.pth",
+      "size_bytes": 1333758930,
+      "mtime_ns": 1781478129788469217
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_74.pth",
+      "size_bytes": 1333855634,
+      "mtime_ns": 1781478915169493074
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_75.pth",
+      "size_bytes": 1333952530,
+      "mtime_ns": 1781479681501585080
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_76.pth",
+      "size_bytes": 1334049490,
+      "mtime_ns": 1781480446937597436
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_8.pth",
+      "size_bytes": 1327473234,
+      "mtime_ns": 1781441011015160740
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_9.pth",
+      "size_bytes": 1327570578,
+      "mtime_ns": 1781441453320392427
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_1.pth",
+      "size_bytes": 1326792082,
+      "mtime_ns": 1781484737384402726
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_10.pth",
+      "size_bytes": 1327662930,
+      "mtime_ns": 1781490057326146845
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_100.pth",
+      "size_bytes": 1336364626,
+      "mtime_ns": 1781542799492305313
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_101.pth",
+      "size_bytes": 1336461522,
+      "mtime_ns": 1781543399208081330
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_102.pth",
+      "size_bytes": 1336558610,
+      "mtime_ns": 1781543993925634775
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_103.pth",
+      "size_bytes": 1336655570,
+      "mtime_ns": 1781544598880640858
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_104.pth",
+      "size_bytes": 1336752786,
+      "mtime_ns": 1781545178436334947
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_105.pth",
+      "size_bytes": 1336849554,
+      "mtime_ns": 1781545780153210465
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_106.pth",
+      "size_bytes": 1336946578,
+      "mtime_ns": 1781546382999311666
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_107.pth",
+      "size_bytes": 1337043346,
+      "mtime_ns": 1781546956481259668
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_108.pth",
+      "size_bytes": 1337140562,
+      "mtime_ns": 1781547551825218569
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_109.pth",
+      "size_bytes": 1337237394,
+      "mtime_ns": 1781548140052390817
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_11.pth",
+      "size_bytes": 1327759634,
+      "mtime_ns": 1781490641300240592
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_110.pth",
+      "size_bytes": 1337334290,
+      "mtime_ns": 1781548742942608720
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_111.pth",
+      "size_bytes": 1337431250,
+      "mtime_ns": 1781549334811236313
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_112.pth",
+      "size_bytes": 1337528594,
+      "mtime_ns": 1781549931110497673
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_113.pth",
+      "size_bytes": 1337625682,
+      "mtime_ns": 1781550516802915385
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_114.pth",
+      "size_bytes": 1337722770,
+      "mtime_ns": 1781551110257251240
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_115.pth",
+      "size_bytes": 1337820242,
+      "mtime_ns": 1781551715400886982
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_116.pth",
+      "size_bytes": 1337917650,
+      "mtime_ns": 1781552294280612603
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_117.pth",
+      "size_bytes": 1338014738,
+      "mtime_ns": 1781552881178341355
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_118.pth",
+      "size_bytes": 1338112018,
+      "mtime_ns": 1781553489557285966
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_119.pth",
+      "size_bytes": 1338208850,
+      "mtime_ns": 1781554086013290622
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_12.pth",
+      "size_bytes": 1327840914,
+      "mtime_ns": 1781491061316468767
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_120.pth",
+      "size_bytes": 1338306002,
+      "mtime_ns": 1781554687327889446
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_121.pth",
+      "size_bytes": 1338403154,
+      "mtime_ns": 1781555271249467671
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_122.pth",
+      "size_bytes": 1338500434,
+      "mtime_ns": 1781555837624307308
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_123.pth",
+      "size_bytes": 1338597586,
+      "mtime_ns": 1781556420927956929
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_124.pth",
+      "size_bytes": 1338694994,
+      "mtime_ns": 1781557018333181059
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_13.pth",
+      "size_bytes": 1327953106,
+      "mtime_ns": 1781491818465515951
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_14.pth",
+      "size_bytes": 1328049810,
+      "mtime_ns": 1781492408090616180
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_15.pth",
+      "size_bytes": 1328146578,
+      "mtime_ns": 1781493003664970362
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_16.pth",
+      "size_bytes": 1328227922,
+      "mtime_ns": 1781493415162584245
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_17.pth",
+      "size_bytes": 1328324306,
+      "mtime_ns": 1781494013063375374
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_18.pth",
+      "size_bytes": 1328436690,
+      "mtime_ns": 1781494792793300781
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_19.pth",
+      "size_bytes": 1328533330,
+      "mtime_ns": 1781495395925895472
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_2.pth",
+      "size_bytes": 1326873554,
+      "mtime_ns": 1781485141455845737
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_20.pth",
+      "size_bytes": 1328614994,
+      "mtime_ns": 1781495816099218172
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_21.pth",
+      "size_bytes": 1328712338,
+      "mtime_ns": 1781496402606378905
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_22.pth",
+      "size_bytes": 1328809170,
+      "mtime_ns": 1781496995489020653
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_23.pth",
+      "size_bytes": 1328906002,
+      "mtime_ns": 1781497593807197195
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_24.pth",
+      "size_bytes": 1329002898,
+      "mtime_ns": 1781498179364002717
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_25.pth",
+      "size_bytes": 1329115410,
+      "mtime_ns": 1781498923663589289
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_26.pth",
+      "size_bytes": 1329196946,
+      "mtime_ns": 1781499338084967449
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_27.pth",
+      "size_bytes": 1329293842,
+      "mtime_ns": 1781499927493249363
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_28.pth",
+      "size_bytes": 1329390610,
+      "mtime_ns": 1781500524585509142
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_29.pth",
+      "size_bytes": 1329487186,
+      "mtime_ns": 1781501135688105004
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_3.pth",
+      "size_bytes": 1326985810,
+      "mtime_ns": 1781485888007192625
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_30.pth",
+      "size_bytes": 1329584018,
+      "mtime_ns": 1781501720371889796
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_31.pth",
+      "size_bytes": 1329680722,
+      "mtime_ns": 1781502321800122438
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_32.pth",
+      "size_bytes": 1329778066,
+      "mtime_ns": 1781502903349487250
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_33.pth",
+      "size_bytes": 1329875282,
+      "mtime_ns": 1781503509344554087
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_34.pth",
+      "size_bytes": 1329972370,
+      "mtime_ns": 1781504096399192676
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_35.pth",
+      "size_bytes": 1330069330,
+      "mtime_ns": 1781504681491874141
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_36.pth",
+      "size_bytes": 1330166290,
+      "mtime_ns": 1781505264930945458
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_37.pth",
+      "size_bytes": 1330263442,
+      "mtime_ns": 1781505857990029594
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_38.pth",
+      "size_bytes": 1330360594,
+      "mtime_ns": 1781506446419374786
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_39.pth",
+      "size_bytes": 1330457298,
+      "mtime_ns": 1781507033674421997
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_4.pth",
+      "size_bytes": 1327082450,
+      "mtime_ns": 1781486487470416317
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_40.pth",
+      "size_bytes": 1330554322,
+      "mtime_ns": 1781507618897092721
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_41.pth",
+      "size_bytes": 1330651154,
+      "mtime_ns": 1781508213393395092
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_42.pth",
+      "size_bytes": 1330763474,
+      "mtime_ns": 1781508993562043866
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_43.pth",
+      "size_bytes": 1330844754,
+      "mtime_ns": 1781509406398147281
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_44.pth",
+      "size_bytes": 1330941586,
+      "mtime_ns": 1781509990680507609
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_45.pth",
+      "size_bytes": 1331038162,
+      "mtime_ns": 1781510577545577965
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_46.pth",
+      "size_bytes": 1331135122,
+      "mtime_ns": 1781511168087431009
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_47.pth",
+      "size_bytes": 1331232018,
+      "mtime_ns": 1781511756871050050
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_48.pth",
+      "size_bytes": 1331328914,
+      "mtime_ns": 1781512346509643371
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_49.pth",
+      "size_bytes": 1331425490,
+      "mtime_ns": 1781512935510387134
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_5.pth",
+      "size_bytes": 1327179282,
+      "mtime_ns": 1781487079725078609
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_50.pth",
+      "size_bytes": 1331522130,
+      "mtime_ns": 1781513528207551547
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_51.pth",
+      "size_bytes": 1331618962,
+      "mtime_ns": 1781514134406513497
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_52.pth",
+      "size_bytes": 1331715986,
+      "mtime_ns": 1781514713812823509
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_53.pth",
+      "size_bytes": 1331812498,
+      "mtime_ns": 1781515301865059924
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_54.pth",
+      "size_bytes": 1331909586,
+      "mtime_ns": 1781515896347961175
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_55.pth",
+      "size_bytes": 1332006098,
+      "mtime_ns": 1781516490574521499
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_56.pth",
+      "size_bytes": 1332102738,
+      "mtime_ns": 1781517080391331738
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_57.pth",
+      "size_bytes": 1332215186,
+      "mtime_ns": 1781517838408173462
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_58.pth",
+      "size_bytes": 1332296210,
+      "mtime_ns": 1781518261754825022
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_59.pth",
+      "size_bytes": 1332393106,
+      "mtime_ns": 1781518845511007415
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_6.pth",
+      "size_bytes": 1327275794,
+      "mtime_ns": 1781487676757065552
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_60.pth",
+      "size_bytes": 1332490450,
+      "mtime_ns": 1781519428780169403
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_61.pth",
+      "size_bytes": 1332586962,
+      "mtime_ns": 1781520036341154909
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_62.pth",
+      "size_bytes": 1332684306,
+      "mtime_ns": 1781520623550897529
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_63.pth",
+      "size_bytes": 1332780754,
+      "mtime_ns": 1781521219876904628
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_64.pth",
+      "size_bytes": 1332877266,
+      "mtime_ns": 1781521811367500291
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_65.pth",
+      "size_bytes": 1332974034,
+      "mtime_ns": 1781522396553018079
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_66.pth",
+      "size_bytes": 1333070802,
+      "mtime_ns": 1781522982682205672
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_67.pth",
+      "size_bytes": 1333183058,
+      "mtime_ns": 1781523745183592048
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_68.pth",
+      "size_bytes": 1333264786,
+      "mtime_ns": 1781524171466655129
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_69.pth",
+      "size_bytes": 1333361874,
+      "mtime_ns": 1781524756661847043
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_7.pth",
+      "size_bytes": 1327357330,
+      "mtime_ns": 1781488094703583705
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_70.pth",
+      "size_bytes": 1333458642,
+      "mtime_ns": 1781525361470269417
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_71.pth",
+      "size_bytes": 1333555090,
+      "mtime_ns": 1781525952844902101
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_72.pth",
+      "size_bytes": 1333652242,
+      "mtime_ns": 1781526546035231411
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_73.pth",
+      "size_bytes": 1333749010,
+      "mtime_ns": 1781527135320871722
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_74.pth",
+      "size_bytes": 1333845778,
+      "mtime_ns": 1781527677635446202
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_75.pth",
+      "size_bytes": 1333942738,
+      "mtime_ns": 1781528172825281377
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_76.pth",
+      "size_bytes": 1334039762,
+      "mtime_ns": 1781528732461415063
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_77.pth",
+      "size_bytes": 1334136914,
+      "mtime_ns": 1781529293683562325
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_78.pth",
+      "size_bytes": 1334233490,
+      "mtime_ns": 1781529883724843855
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_79.pth",
+      "size_bytes": 1334330386,
+      "mtime_ns": 1781530476405231565
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_8.pth",
+      "size_bytes": 1327469202,
+      "mtime_ns": 1781488889494778640
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_80.pth",
+      "size_bytes": 1334427474,
+      "mtime_ns": 1781531041000272268
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_81.pth",
+      "size_bytes": 1334524306,
+      "mtime_ns": 1781531608321872711
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_82.pth",
+      "size_bytes": 1334621202,
+      "mtime_ns": 1781532193005809637
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_83.pth",
+      "size_bytes": 1334733522,
+      "mtime_ns": 1781532911498798990
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_84.pth",
+      "size_bytes": 1334815250,
+      "mtime_ns": 1781533333877244205
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_85.pth",
+      "size_bytes": 1334912466,
+      "mtime_ns": 1781533917695157645
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_86.pth",
+      "size_bytes": 1335009170,
+      "mtime_ns": 1781534491978126174
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_87.pth",
+      "size_bytes": 1335105810,
+      "mtime_ns": 1781535094236643800
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_88.pth",
+      "size_bytes": 1335202770,
+      "mtime_ns": 1781535676754755328
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_89.pth",
+      "size_bytes": 1335300050,
+      "mtime_ns": 1781536258357373399
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_9.pth",
+      "size_bytes": 1327566290,
+      "mtime_ns": 1781489476955165898
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_90.pth",
+      "size_bytes": 1335396562,
+      "mtime_ns": 1781536845862740692
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_91.pth",
+      "size_bytes": 1335493330,
+      "mtime_ns": 1781537431636732012
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_92.pth",
+      "size_bytes": 1335590354,
+      "mtime_ns": 1781538021415584783
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_93.pth",
+      "size_bytes": 1335687250,
+      "mtime_ns": 1781538621015644442
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_94.pth",
+      "size_bytes": 1335784210,
+      "mtime_ns": 1781539206487705713
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_95.pth",
+      "size_bytes": 1335896594,
+      "mtime_ns": 1781539967374992921
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_96.pth",
+      "size_bytes": 1335978002,
+      "mtime_ns": 1781540404683593410
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_97.pth",
+      "size_bytes": 1336074642,
+      "mtime_ns": 1781541011397315533
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_98.pth",
+      "size_bytes": 1336171730,
+      "mtime_ns": 1781541600382343978
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_99.pth",
+      "size_bytes": 1336267986,
+      "mtime_ns": 1781542201290612883
+    }
+  ],
+  "retained": [
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/best_coco_bbox_mAP_epoch_47.pth",
+      "role": "database_selected_best",
+      "size_bytes": 447613206,
+      "sha256": "f32bbe0c4e290541df7a404fb5e1e20821e2258074c9aa5526e2f48ac7934a6b"
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_77.pth",
+      "role": "last_recovery_point",
+      "size_bytes": 1334146706,
+      "sha256": "e54794ec591a439ead161642f4ab8d73e8e73a3d7159b2906374797dbdfc7f67"
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/best_coco_bbox_mAP_epoch_95.pth",
+      "role": "database_selected_best",
+      "size_bytes": 452253718,
+      "sha256": "6df1253baf338ed49c48b1e464662e477c5f6b331a9bfb181338a97f945b21ef"
+    },
+    {
+      "path": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_125.pth",
+      "role": "last_recovery_point",
+      "size_bytes": 1338791762,
+      "sha256": "2862d17d6c2cc1d1d5be98307aad1c59d38c90c9d86a90e8c2288174aaab7605"
+    }
+  ],
+  "validations": [
+    {
+      "work_dir": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2",
+      "experiment_status": "completed",
+      "database_best_checkpoint": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/best_coco_bbox_mAP_epoch_47.pth",
+      "evaluation_checkpoint_paths": [
+        "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/best_coco_bbox_mAP_epoch_47.pth"
+      ],
+      "last_checkpoint": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v2/epoch_77.pth"
+    },
+    {
+      "work_dir": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3",
+      "experiment_status": "completed",
+      "database_best_checkpoint": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/best_coco_bbox_mAP_epoch_95.pth",
+      "evaluation_checkpoint_paths": [
+        "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/best_coco_bbox_mAP_epoch_95.pth"
+      ],
+      "last_checkpoint": "work_dirs/ldmdet_rf_heun_shifted_bs8_aug_v3/epoch_125.pth"
+    }
+  ],
+  "recovery": "Deleted intermediate epoch files are not recoverable from this host; the database-selected best checkpoint and final recovery checkpoint for each completed run were retained.",
+  "completed_at": "2026-08-18T06:50:44.714043+00:00",
+  "post_delete_missing_count": 200
+}
